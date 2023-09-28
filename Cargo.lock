@@ -5444,7 +5444,6 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
- "pallet-ethereum",
  "pallet-ethy",
  "pallet-im-online",
  "pallet-sudo",

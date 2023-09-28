@@ -23,7 +23,6 @@ pub use pallet::*;
 use frame_support::{
 	dispatch::{CallMetadata, Dispatchable, GetCallMetadata, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
-	traits::{PalletInfo, PalletsInfoAccess},
 };
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::{MaintenanceCheck, MaintenanceCheckEVM};

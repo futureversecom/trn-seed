@@ -498,6 +498,66 @@ mod block_pallet {
 			);
 		});
 	}
+
+	#[test]
+	fn block_sudo_pallet_should_fail() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Block Sudo pallet should fail
+			let blocked_pallet = bounded_string("sudo");
+			assert_noop!(
+				MaintenanceMode::block_pallet(RawOrigin::Root.into(), blocked_pallet.clone(), true),
+				pallet_maintenance_mode::Error::<Runtime>::CannotBlock
+			);
+		});
+	}
+
+	#[test]
+	fn block_timestamp_pallet_should_fail() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Block Timestamp pallet should fail
+			let blocked_pallet = bounded_string("timestamp");
+			assert_noop!(
+				MaintenanceMode::block_pallet(RawOrigin::Root.into(), blocked_pallet.clone(), true),
+				pallet_maintenance_mode::Error::<Runtime>::CannotBlock
+			);
+		});
+	}
+
+	#[test]
+	fn block_im_online_pallet_should_fail() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Block ImOnline pallet should fail
+			let blocked_pallet = bounded_string("imonline");
+			assert_noop!(
+				MaintenanceMode::block_pallet(RawOrigin::Root.into(), blocked_pallet.clone(), true),
+				pallet_maintenance_mode::Error::<Runtime>::CannotBlock
+			);
+		});
+	}
+
+	#[test]
+	fn block_ethy_pallet_should_fail() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Block EthBridge pallet should fail
+			let blocked_pallet = bounded_string("ethbridge");
+			assert_noop!(
+				MaintenanceMode::block_pallet(RawOrigin::Root.into(), blocked_pallet.clone(), true),
+				pallet_maintenance_mode::Error::<Runtime>::CannotBlock
+			);
+		});
+	}
+
+	#[test]
+	fn block_maintenance_mode_pallet_should_fail() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Block MaintenanceMode pallet should fail
+			let blocked_pallet = bounded_string("maintenancemode");
+			assert_noop!(
+				MaintenanceMode::block_pallet(RawOrigin::Root.into(), blocked_pallet.clone(), true),
+				pallet_maintenance_mode::Error::<Runtime>::CannotBlock
+			);
+		});
+	}
 }
 
 mod block_call {
@@ -610,6 +670,96 @@ mod block_call {
 			assert_eq!(
 				ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()),
 				Some(approve_amount)
+			);
+		});
+	}
+
+	#[test]
+	fn block_sudo_call_should_fail() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Block Sudo pallet call fail
+			let blocked_pallet = bounded_string("sudo");
+			let blocked_call = bounded_string("test_call");
+			assert_noop!(
+				MaintenanceMode::block_call(
+					RawOrigin::Root.into(),
+					blocked_pallet,
+					blocked_call,
+					true
+				),
+				pallet_maintenance_mode::Error::<Runtime>::CannotBlock
+			);
+		});
+	}
+
+	#[test]
+	fn block_timestamp_call_should_fail() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Block Timestamp call should fail
+			let blocked_pallet = bounded_string("timestamp");
+			let blocked_call = bounded_string("test_call");
+			assert_noop!(
+				MaintenanceMode::block_call(
+					RawOrigin::Root.into(),
+					blocked_pallet,
+					blocked_call,
+					true
+				),
+				pallet_maintenance_mode::Error::<Runtime>::CannotBlock
+			);
+		});
+	}
+
+	#[test]
+	fn block_im_online_call_should_fail() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Block ImOnline call should fail
+			let blocked_pallet = bounded_string("imonline");
+			let blocked_call = bounded_string("test_call");
+			assert_noop!(
+				MaintenanceMode::block_call(
+					RawOrigin::Root.into(),
+					blocked_pallet,
+					blocked_call,
+					true
+				),
+				pallet_maintenance_mode::Error::<Runtime>::CannotBlock
+			);
+		});
+	}
+
+	#[test]
+	fn block_ethy_call_should_fail() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Block EthBridge call should fail
+			let blocked_pallet = bounded_string("ethbridge");
+			let blocked_call = bounded_string("test_call");
+			assert_noop!(
+				MaintenanceMode::block_call(
+					RawOrigin::Root.into(),
+					blocked_pallet,
+					blocked_call,
+					true
+				),
+				pallet_maintenance_mode::Error::<Runtime>::CannotBlock
+			);
+		});
+	}
+
+	#[test]
+	fn block_maintenance_mode_call_should_fail() {
+		ExtBuilder::default().build().execute_with(|| {
+			// Block Maintenance Mode call should fail
+			let blocked_pallet = bounded_string("maintenancemode");
+			let blocked_call = bounded_string("test_call");
+			assert_noop!(
+				MaintenanceMode::block_call(
+					RawOrigin::Root.into(),
+					blocked_pallet,
+					blocked_call,
+					true
+				),
+				pallet_maintenance_mode::Error::<Runtime>::CannotBlock
 			);
 		});
 	}
