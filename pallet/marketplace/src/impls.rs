@@ -124,7 +124,6 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::NotForFixedPriceSale.into());
 		};
 		Ok(listing)
-		// token_info.token_issuance
 	}
 
 	// /// Returns the offer detail of a specified offer_id

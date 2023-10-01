@@ -42,17 +42,7 @@ pub mod data;
 
 pub use data::{Address, Bytes, EvmData, EvmDataReader, EvmDataWriter};
 pub use fp_evm::Precompile;
-// use frame_support::sp_runtime::SaturatedConversion;
-// use sp_core::U256;
 pub use precompile_utils_macro::{generate_function_selector, keccak256};
-
-/// Saturated conversion from EVM uint256 to integer
-// pub fn saturated_convert<T>(input: U256) -> Result<T, PrecompileFailure> {
-// 	if input > U256::MAX.into() {
-// 		return Err(revert("Precompile: Input number exceeds the type boundary").into())
-// 	}
-// 	Ok(input.saturated_into())
-// }
 
 /// Generated a `PrecompileFailure::Revert` with proper encoding for the output.
 /// If the revert needs improved formatting such as backtraces, `Revert` type should

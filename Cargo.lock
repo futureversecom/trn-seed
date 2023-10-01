@@ -8435,6 +8435,7 @@ dependencies = [
  "pallet-evm-precompiles-erc721",
  "pallet-evm-precompiles-futurepass",
  "pallet-evm-precompiles-futurepass-registrar",
+ "pallet-evm-precompiles-marketplace",
  "pallet-evm-precompiles-nft",
  "pallet-evm-precompiles-peg",
  "pallet-evm-precompiles-sft",
