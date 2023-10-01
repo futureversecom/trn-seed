@@ -17,7 +17,7 @@ def fetch_paged_storage_keys(substrate, prefix, hash, start_key, prev_keys):
         keys = prev_keys
 
     rpc_result = substrate.rpc_request(method='state_getKeysPaged', params={
-        "prefix": prefix, "count": 1000, "start_key": start_key, "at": hash, })['result']
+        "prefix": prefix, "count": 1000, "start_key": start_key, "hash": hash, })['result']
 
     if rpc_result:
         keys += rpc_result
@@ -75,7 +75,7 @@ def fetch_storage_values_task(hash, lock, keys, key_values, url):
         for i, kv in enumerate(key_values_result):
             if kv[1] is None:
                 kv[1] = substrate.rpc_request(method='state_getStorage', params={
-                    "key": kv[0], "at": hash})['result']
+                    "key": kv[0], "hash": hash})['result']
 
         lock.acquire()
         key_values += key_values_result

@@ -14,6 +14,8 @@
 // You may obtain a copy of the License at the root of this project source code
 
 //! shared pallet common utilities
+use seed_primitives::Balance;
+use sp_core::U256;
 
 // Maximum value that fits into 22 bits
 const MAX_U22: u32 = (1 << 22) - 1;
@@ -39,4 +41,25 @@ pub fn next_asset_uuid(next_id: u32, parachain_id: u32) -> Option<u32> {
 	// next_id is the first 22 bits, parachain_id is the last 10 bits
 	let next_global_uuid: u32 = (next_id << 10) | parachain_id;
 	Some(next_global_uuid)
+}
+
+/// Convert 18dp wei values to correct dp equivalents
+/// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.000001 cpay
+pub fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> Balance {
+	let unit_value = U256::from(10).pow(U256::from(18) - U256::from(decimals));
+	let (quotient, remainder) = (value / unit_value, value % unit_value);
+	if remainder == U256::from(0) {
+		quotient.as_u128()
+	} else {
+		// if value has a fractional part < CPAY unit value
+		// it is lost in this divide operation
+		(quotient + 1).as_u128()
+		// (quotient).as_u128() // <- validate this is correct
+	}
+}
+
+/// convert X dp to 18dp (wei)
+pub fn scale_decimals_to_wei(value: U256, decimals: u8) -> Balance {
+	let unit_value = U256::from(10).pow(U256::from(18) - U256::from(decimals));
+	(value * unit_value).as_u128()
 }
