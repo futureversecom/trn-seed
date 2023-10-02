@@ -304,7 +304,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
 
   it("buy", async () => {
     const sellNFTSeries = [104, 105, 106];
-    let paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
+    const paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 1000000;
     const duration = 10000; //blocks
     const marketplaceId = 0;
@@ -377,7 +377,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     const amount = 10000000;
 
     let auctionNFTSeries = [24, 25, 26];
-    let paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
+    const paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const reservePrice = 1000000;
     const duration = 10000; //blocks
     const marketplaceId = 0;
@@ -458,6 +458,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     let balanceAfter = await bobSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
 
+    sellNFTSeries = [182, 183];
     sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
       .sellNft(erc721Precompile.address, sellNFTSeries, buyer, paymentAsset, fixedPrice, duration, marketplaceId);
