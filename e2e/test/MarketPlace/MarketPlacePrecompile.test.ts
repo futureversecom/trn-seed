@@ -469,7 +469,7 @@ describe("Marketplace Precompile", function () {
   });
 
   it("bid listing fails for fixed price listing", async () => {
-    const sellNFTSeries = [307, 309];
+    const sellNFTSeries = [317, 319];
     const buyer = "0xB67e643F69400ad0cBb5514886fBe3439d94ba85";
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 800;
