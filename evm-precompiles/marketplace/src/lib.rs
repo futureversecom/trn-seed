@@ -48,17 +48,20 @@ pub const SELECTOR_LOG_FIXED_PRICE_SALE_UPDATE: [u8; 32] =
 pub const SELECTOR_LOG_FIXED_PRICE_SALE_COMPLETE: [u8; 32] =
 	keccak256!("FixedPriceSaleComplete(uint256,uint256,uint256,address,uint256[])"); // collection_id, listing_id, fixed_price, sender, serial_number_ids
 
-pub const SELECTOR_LOG_AUCTION_OPEN: [u8; 32] = keccak256!("AuctionOpen(uint256,uint256,uint256,address,uint256[])"); // collection_id, listing_id, reserve_price, sender, serial_number_ids
+pub const SELECTOR_LOG_AUCTION_OPEN: [u8; 32] =
+	keccak256!("AuctionOpen(uint256,uint256,uint256,address,uint256[])"); // collection_id, listing_id, reserve_price, sender, serial_number_ids
 
 pub const SELECTOR_LOG_BID: [u8; 32] = keccak256!("Bid(address,uint256,uint256)"); // bidder, listing_id, amount
 pub const SELECTOR_LOG_FIXED_PRICE_SALE_CLOSE: [u8; 32] =
 	keccak256!("FixedPriceSaleClose(uint256,uint256,address,uint256[])"); // collectionId, listing_id, caller, series_ids
 
-pub const SELECTOR_LOG_AUCTION_CLOSE: [u8; 32] = keccak256!("AuctionClose(uint256,uint256,address,uint256[])"); // collectionId, listing_id, caller, series_ids
+pub const SELECTOR_LOG_AUCTION_CLOSE: [u8; 32] =
+	keccak256!("AuctionClose(uint256,uint256,address,uint256[])"); // collectionId, listing_id, caller, series_ids
 
 pub const SELECTOR_LOG_OFFER: [u8; 32] = keccak256!("Offer(uint256,address,uint256,uint256)"); // offer_id, caller, collection_id, series_id
 
-pub const SELECTOR_LOG_OFFER_CANCEL: [u8; 32] = keccak256!("OfferCancel(uint256,address,uint256,uint256)"); // offer_id, caller, token_id
+pub const SELECTOR_LOG_OFFER_CANCEL: [u8; 32] =
+	keccak256!("OfferCancel(uint256,address,uint256,uint256)"); // offer_id, caller, token_id
 
 pub const SELECTOR_LOG_OFFER_ACCEPT: [u8; 32] =
 	keccak256!("OfferAccept(uint256,uint256,address,uint256,uint256)"); // offer_id, amount, caller, collection_id, series_id
@@ -66,7 +69,9 @@ pub const SELECTOR_LOG_OFFER_ACCEPT: [u8; 32] =
 /// Saturated conversion from EVM uint256 to Blocknumber
 fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileFailure> {
 	if input > BlockNumber::MAX.into() {
-		return Err(revert("Marketplace: Input number exceeds the BlockNumber type boundary (2^32)").into())
+		return Err(
+			revert("Marketplace: Input number exceeds the BlockNumber type boundary (2^32)").into()
+		)
 	}
 	Ok(input.saturated_into())
 }
@@ -86,7 +91,7 @@ pub enum Action {
 	AcceptOffer = "acceptOffer(uint64)",
 	GetMarketplaceAccount = "getMarketplaceAccount(uint32)",
 	GetListingFromId = "getListingFromId(uint128)",
-	GetOfferFromId = "getOfferFromId(uint64)"
+	GetOfferFromId = "getOfferFromId(uint64)",
 }
 
 /// Provides access to the Marketplace pallet
@@ -145,7 +150,7 @@ where
 				Action::AcceptOffer => Self::accept_offer(handle),
 				Action::GetMarketplaceAccount => Self::get_marketplace_account(handle),
 				Action::GetListingFromId => Self::get_listing_from_id(handle),
-				Action::GetOfferFromId => Self::get_offer_from_id(handle)
+				Action::GetOfferFromId => Self::get_offer_from_id(handle),
 			}
 		};
 		return result
@@ -267,7 +272,8 @@ where
 			)
 			.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
 
-		let serials_unbounded = serial_number_ids.clone()
+		let serials_unbounded = serial_number_ids
+			.clone()
 			.into_iter()
 			.map(|serial_number| {
 				if serial_number > SerialNumber::MAX.into() {
@@ -367,7 +373,10 @@ where
 			collection_id,
 			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
 			H256::from_slice(&EvmDataWriter::new().write(new_price).build()),
-			EvmDataWriter::new().write(Address::from(caller)).write(listing.serial_numbers.into_inner()).build(),
+			EvmDataWriter::new()
+				.write(Address::from(caller))
+				.write(listing.serial_numbers.into_inner())
+				.build(),
 		)
 		.record(handle)?;
 
@@ -400,7 +409,10 @@ where
 			collection_id,
 			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
 			H256::from_slice(&EvmDataWriter::new().write(listing.fixed_price).build()),
-			EvmDataWriter::new().write(Address::from(seller)).write(listing.serial_numbers.into_inner()).build(),
+			EvmDataWriter::new()
+				.write(Address::from(seller))
+				.write(listing.serial_numbers.into_inner())
+				.build(),
 		)
 		.record(handle)?;
 
@@ -444,7 +456,8 @@ where
 			collection_id <= u32::MAX.into(),
 			revert("Marketplace: Expected collection id <= 2^32")
 		);
-		let serials_unbounded = serial_number_ids.clone()
+		let serials_unbounded = serial_number_ids
+			.clone()
 			.into_iter()
 			.map(|serial_number| {
 				if serial_number > SerialNumber::MAX.into() {
@@ -497,7 +510,10 @@ where
 			collection_id,
 			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
 			H256::from_slice(&EvmDataWriter::new().write(reserve_price).build()),
-			EvmDataWriter::new().write(Address::from(handle.context().caller)).write(serial_number_ids).build(),
+			EvmDataWriter::new()
+				.write(Address::from(handle.context().caller))
+				.write(serial_number_ids)
+				.build(),
 		)
 		.record(handle)?;
 
@@ -556,8 +572,9 @@ where
 
 		let origin = handle.context().caller;
 
-		let listing = pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id).or_else(|_| Err(revert("Marketplace: listing details not found")))?;
-		let (collection_id,serial_numbers) = match listing.clone() {
+		let listing = pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id)
+			.or_else(|_| Err(revert("Marketplace: listing details not found")))?;
+		let (collection_id, serial_numbers) = match listing.clone() {
 			Listing::FixedPrice(listing) => (listing.collection_id, listing.serial_numbers),
 			Listing::Auction(listing) => (listing.collection_id, listing.serial_numbers),
 		};
@@ -575,7 +592,10 @@ where
 					SELECTOR_LOG_FIXED_PRICE_SALE_CLOSE,
 					collection_id,
 					H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-					EvmDataWriter::new().write(Address::from(handle.context().caller)).write(serial_numbers.into_inner()).build(),
+					EvmDataWriter::new()
+						.write(Address::from(handle.context().caller))
+						.write(serial_numbers.into_inner())
+						.build(),
 				)
 				.record(handle)?;
 			},
@@ -585,7 +605,10 @@ where
 					SELECTOR_LOG_AUCTION_CLOSE,
 					collection_id,
 					H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-					EvmDataWriter::new().write(Address::from(handle.context().caller)).write(serial_numbers.into_inner()).build(),
+					EvmDataWriter::new()
+						.write(Address::from(handle.context().caller))
+						.write(serial_numbers.into_inner())
+						.build(),
 				)
 				.record(handle)?;
 			},
@@ -682,7 +705,8 @@ where
 
 		ensure!(offer_id <= u64::MAX.into(), revert("Marketplace: Expected offer_id <= 2^64"));
 		let offer_id: OfferId = offer_id.saturated_into();
-		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id).or_else(|_| Err(revert("Marketplace: Offer details not found")))?;
+		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id)
+			.or_else(|_| Err(revert("Marketplace: Offer details not found")))?;
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let origin = handle.context().caller;
@@ -691,7 +715,7 @@ where
 			Some(origin.into()).into(),
 			pallet_marketplace::Call::<Runtime>::cancel_offer { offer_id },
 		)?;
-		let (collection_id, serial_number) =  offer.token_id;
+		let (collection_id, serial_number) = offer.token_id;
 		let offer_id = H256::from_low_u64_be(offer_id);
 		log3(
 			handle.code_address(),
@@ -712,7 +736,8 @@ where
 
 		ensure!(offer_id <= u64::MAX.into(), revert("Marketplace: Expected offer_id <= 2^64"));
 		let offer_id: OfferId = offer_id.saturated_into();
-		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id).or_else(|_| Err(revert("Marketplace: Offer details not found")))?;
+		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id)
+			.or_else(|_| Err(revert("Marketplace: Offer details not found")))?;
 
 		// Return either the approved account or zero address if no account is approved
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -723,7 +748,7 @@ where
 			pallet_marketplace::Call::<Runtime>::accept_offer { offer_id },
 		)?;
 		let offer_id = H256::from_low_u64_be(offer_id);
-		let (collection_id, serial_number) =  offer.token_id;
+		let (collection_id, serial_number) = offer.token_id;
 		log4(
 			handle.code_address(),
 			SELECTOR_LOG_OFFER_ACCEPT,
@@ -753,7 +778,6 @@ where
 		Ok(succeed(EvmDataWriter::new().write(Address::from(marketplace_account_h160)).build()))
 	}
 
-
 	fn get_listing_from_id(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		// Parse input.
 		read_args!(handle, { listing_id: U256 });
@@ -763,10 +787,21 @@ where
 		);
 		let listing_id: u128 = listing_id.saturated_into();
 
-		let listing = pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id).or_else(|_| Err(revert("Marketplace: listing details not found")))?;
-		let (collection_id,serial_numbers, price, payment_asset) = match listing {
-			Listing::FixedPrice(listing) => (listing.collection_id, listing.serial_numbers, listing.fixed_price, listing.payment_asset),
-			Listing::Auction(listing) => (listing.collection_id, listing.serial_numbers, listing.reserve_price, listing.payment_asset),
+		let listing = pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id)
+			.or_else(|_| Err(revert("Marketplace: listing details not found")))?;
+		let (collection_id, serial_numbers, price, payment_asset) = match listing {
+			Listing::FixedPrice(listing) => (
+				listing.collection_id,
+				listing.serial_numbers,
+				listing.fixed_price,
+				listing.payment_asset,
+			),
+			Listing::Auction(listing) => (
+				listing.collection_id,
+				listing.serial_numbers,
+				listing.reserve_price,
+				listing.payment_asset,
+			),
 		};
 		Ok(succeed(
 			EvmDataWriter::new()
@@ -779,7 +814,6 @@ where
 		))
 	}
 
-
 	fn get_offer_from_id(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		// Parse input.
 		read_args!(handle, { offer_id: U256 });
@@ -788,10 +822,10 @@ where
 
 		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id);
 		if offer.is_err() {
-			return Err(revert("Marketplace: Offer details not found"));
+			return Err(revert("Marketplace: Offer details not found"))
 		}
 		let offer = offer.unwrap();
-		let (collection_id, serial_number) =  offer.token_id;
+		let (collection_id, serial_number) = offer.token_id;
 		let buyer: H160 = offer.buyer.into();
 
 		Ok(succeed(
