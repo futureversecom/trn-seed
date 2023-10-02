@@ -23,7 +23,7 @@ const metadataPath = "https://example.com/nft/metadata/";
 const initialIssuance = 0;
 const maxIssuance = 1000;
 
-describe.only("Marketplace Precompile", function () {
+describe("Marketplace Precompile", function () {
   let node: NodeProcess;
 
   let api: ApiPromise;
