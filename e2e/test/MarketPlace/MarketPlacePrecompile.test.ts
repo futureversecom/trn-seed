@@ -2,7 +2,7 @@ import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { BigNumber, Contract, Wallet, constants } from "ethers";
+import { BigNumber, Contract, Wallet } from "ethers";
 import Web3 from "web3";
 import web3 from "web3";
 
