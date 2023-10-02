@@ -121,7 +121,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns the listing detail of a specified listing_id
 	pub fn get_listing_detail(listing_id: ListingId) -> Result<Listing<T>, DispatchError> {
 		let Some(listing) = Listings::<T>::get(listing_id) else {
-			return Err(Error::<T>::NotForFixedPriceSale.into());
+			return Err(Error::<T>::TokenNotListed.into());
 		};
 		Ok(listing)
 	}
