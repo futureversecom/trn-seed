@@ -444,30 +444,6 @@ describe("Marketplace Precompile", function () {
       });
   });
 
-  it.skip("buy fixed price sale fails if buyer is incorrect ", async () => {
-    const sellNFTSeries = [311, 312];
-    const buyer = "0xB67e643F69400ad0cBb5514886fBe3439d94ba85";
-    const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
-    const fixedPrice = 800;
-    const duration = 1000; //blocks
-    const marketplaceId = 0;
-
-    const sellNftTx = await marketPlacePrecompile
-      .connect(bobSigner)
-      .sellNft(erc721Precompile.address, sellNFTSeries, buyer, paymentAsset, fixedPrice, duration, marketplaceId);
-    const sellReceipt = await sellNftTx.wait();
-    const [, listingId, , ,] = (sellReceipt?.events as any)[0].args;
-    console.log("listingId::", listingId.toString());
-
-    await marketPlacePrecompile
-      .connect(alithSigner)
-      .buy(listingId)
-      .catch((err: any) => {
-        console.log("err msg::", err.message);
-        expect(err.message).contains("NotBuyer");
-      });
-  });
-
   it("bid listing fails for fixed price listing", async () => {
     const sellNFTSeries = [317, 319];
     const buyer = "0xB67e643F69400ad0cBb5514886fBe3439d94ba85";
