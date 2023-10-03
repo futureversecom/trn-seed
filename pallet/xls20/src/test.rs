@@ -31,7 +31,7 @@ fn setup_xls20_collection(owner: AccountId, xls_compatible: bool) -> CollectionU
 	let collection_id = Nft::next_collection_uuid().unwrap();
 	let collection_name = BoundedVec::truncate_from(b"test-xls20-collection".to_vec());
 	let metadata_scheme = MetadataScheme::try_from(b"https://example.com/".as_slice()).unwrap();
-	let cross_chain_compatibility = CrossChainCompatibility { xrpl: xls_compatible };
+	let cross_chain_compatibility = CrossChainCompatibility { xrpl: xls_compatible, eth: false };
 	assert_ok!(Nft::create_collection(
 		Some(owner).into(),
 		collection_name,
@@ -743,7 +743,7 @@ fn enable_xls20_compatibility_works() {
 		// XLS-20 compatibility disabled
 		assert_eq!(
 			CollectionInfo::<Test>::get(collection_id).unwrap().cross_chain_compatibility,
-			CrossChainCompatibility { xrpl: false },
+			CrossChainCompatibility { xrpl: false, eth: false },
 		);
 
 		// Can successfully enable XLS-20 compatibility
@@ -760,7 +760,7 @@ fn enable_xls20_compatibility_works() {
 		// XLS-20 compatibility now enabled
 		assert_eq!(
 			CollectionInfo::<Test>::get(collection_id).unwrap().cross_chain_compatibility,
-			CrossChainCompatibility { xrpl: true },
+			CrossChainCompatibility { xrpl: true, eth: false },
 		);
 	});
 }
