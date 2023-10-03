@@ -1980,3 +1980,88 @@ mod set_name {
 		});
 	}
 }
+
+mod toggle_eth_compatibility {
+	use super::*;
+
+	#[test]
+	fn toggle_eth_compatibility_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = Nft::next_collection_uuid().unwrap();
+
+			// Setup collection with no Max issuance
+			assert_ok!(Nft::do_create_collection(
+				collection_owner,
+				bounded_string("test-eth-collection"),
+				0,
+				None,
+				None,
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
+				None,
+				OriginChain::Ethereum,
+				CrossChainCompatibility::default(),
+			));
+
+			// Sanity check
+			assert_eq!(
+				CollectionInfo::<Test>::get(collection_id)
+					.unwrap()
+					.cross_chain_compatibility
+					.eth,
+				false
+			);
+
+			assert_ok!(Nft::toggle_eth_compatibility(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+			));
+
+			// Storage updated
+			assert_eq!(
+				CollectionInfo::<Test>::get(collection_id)
+					.unwrap()
+					.cross_chain_compatibility
+					.eth,
+				true
+			);
+
+			// Event thrown
+			assert!(has_event(Event::<Test>::EthCompatibilityToggled {
+				collection_id,
+				enabled: true
+			}));
+		});
+	}
+
+	#[test]
+	fn toggle_eth_compatibility_not_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+
+			// Call from not owner should fail
+			let bob = create_account(11);
+			assert_noop!(
+				Nft::toggle_eth_compatibility(RawOrigin::Signed(bob).into(), collection_id),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn toggle_eth_compatibliity_not_eth_origin_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+
+			assert_noop!(
+				Nft::toggle_eth_compatibility(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id
+				),
+				Error::<Test>::NotEthOrigin
+			);
+		});
+	}
+}
