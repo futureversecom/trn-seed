@@ -78,7 +78,7 @@ benchmarks! {
 
 	create_collection {
 		let metadata = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
-		let ccc = CrossChainCompatibility { xrpl: false };
+		let ccc = CrossChainCompatibility::default();
 	}: _(origin::<T>(&account::<T>("Alice")), BoundedVec::truncate_from("Collection".encode()), 0, None, None, metadata, None, ccc)
 
 	mint {
@@ -93,6 +93,25 @@ benchmarks! {
 	burn {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), TokenId::from((collection_id, 0)))
+
+	toggle_eth_compatibility {
+	   let collection_id = Nft::<T>::next_collection_uuid().unwrap();
+	   let caller = account::<T>("Alice");
+	   let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
+	   let cross_chain_compatibility = CrossChainCompatibility::default();
+
+	   assert_ok!(Nft::<T>::do_create_collection(
+		  caller,
+		  BoundedVec::truncate_from("New Collection".encode()),
+		  1,
+		  None,
+		  None,
+		  metadata_scheme,
+		  None,
+		  OriginChain::Ethereum,
+		  cross_chain_compatibility,
+	   ));
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id)
 }
 
 impl_benchmark_test_suite!(Nft, crate::mock::new_test_ext(), crate::mock::Test,);
