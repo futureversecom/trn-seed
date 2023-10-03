@@ -189,6 +189,8 @@ pub mod pallet {
 		Burn { collection_id: CollectionUuid, serial_number: SerialNumber },
 		/// Collection has been claimed
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
+		/// Eth Compatibility was toggled
+		EthCompatibilityToggled { collection_id: CollectionUuid, enabled: bool },
 	}
 
 	#[pallet::error]
@@ -262,6 +264,8 @@ pub mod pallet {
 		CollectionIssuanceNotZero,
 		/// Token(s) blocked from minting during the bridging process
 		BlockedMint,
+		/// Collection did not originate on Ethereum
+		NotEthOrigin,
 	}
 
 	#[pallet::call]
@@ -503,6 +507,37 @@ pub mod pallet {
 
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::NameSet { collection_id, name });
+			Ok(())
+		}
+
+		/// Toggle Ethereum cross-chain compatibility
+		/// Collection must have originated on Ethereum
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_name())]
+		pub fn toggle_eth_compatibility(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let mut collection_info =
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			ensure!(
+				collection_info.origin_chain == OriginChain::Ethereum,
+				Error::<T>::NotEthOrigin
+			);
+
+			let CrossChainCompatibility { eth, xrpl } = collection_info.cross_chain_compatibility;
+			collection_info.cross_chain_compatibility = CrossChainCompatibility { xrpl, eth: !eth };
+
+			<CollectionInfo<T>>::insert(collection_id, collection_info);
+			Self::deposit_event(Event::<T>::EthCompatibilityToggled {
+				collection_id,
+				enabled: !eth,
+			});
+
 			Ok(())
 		}
 	}
