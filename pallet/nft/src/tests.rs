@@ -1392,7 +1392,7 @@ fn create_xls20_collection_works() {
 		let collection_name = bounded_string("test-xls20-collection");
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let metadata_scheme = MetadataScheme::try_from(b"https://example.com".as_slice()).unwrap();
-		let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
+		let cross_chain_compatibility = CrossChainCompatibility { xrpl: true, eth: false };
 		let initial_issuance: TokenCount = 0;
 
 		assert_ok!(Nft::create_collection(
@@ -1444,7 +1444,7 @@ fn create_xls20_collection_with_initial_issuance_fails() {
 		let collection_owner = create_account(10);
 		let collection_name = bounded_string("test-xls20-collection");
 		let metadata_scheme = MetadataScheme::try_from(b"https://example.com".as_slice()).unwrap();
-		let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
+		let cross_chain_compatibility = CrossChainCompatibility { xrpl: true, eth: false };
 		let initial_issuance: TokenCount = 1;
 
 		assert_noop!(
