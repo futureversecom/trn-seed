@@ -33,31 +33,31 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 	// Storage: Nft CollectionInfo (r:1 w:1)
 	fn claim_unowned_collection() -> Weight {
-		Weight::from_ref_time(56_543_000 as u64)
+		Weight::from_ref_time(61_290_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Nft CollectionInfo (r:1 w:1)
 	fn set_owner() -> Weight {
-		Weight::from_ref_time(59_572_000 as u64)
+		Weight::from_ref_time(63_384_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Nft CollectionInfo (r:1 w:1)
 	fn set_max_issuance() -> Weight {
-		Weight::from_ref_time(58_955_000 as u64)
+		Weight::from_ref_time(63_020_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Nft CollectionInfo (r:1 w:1)
 	fn set_base_uri() -> Weight {
-		Weight::from_ref_time(60_336_000 as u64)
+		Weight::from_ref_time(66_963_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Nft CollectionInfo (r:1 w:1)
 	fn set_name() -> Weight {
-		Weight::from_ref_time(60_029_000 as u64)
+		Weight::from_ref_time(67_610_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -67,13 +67,13 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
 	// Storage: Nft CollectionInfo (r:0 w:1)
 	fn create_collection() -> Weight {
-		Weight::from_ref_time(95_483_000 as u64)
+		Weight::from_ref_time(103_001_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(4 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 	// Storage: Nft CollectionInfo (r:1 w:1)
 	fn mint() -> Weight {
-		Weight::from_ref_time(65_247_000 as u64)
+		Weight::from_ref_time(73_200_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -81,7 +81,7 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 	// Storage: Nft TokenLocks (r:1 w:0)
 	// Storage: TokenApprovals ERC721Approvals (r:0 w:1)
 	fn transfer() -> Weight {
-		Weight::from_ref_time(71_569_000 as u64)
+		Weight::from_ref_time(79_873_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
@@ -89,7 +89,7 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 	// Storage: Nft CollectionInfo (r:1 w:1)
 	// Storage: TokenApprovals ERC721Approvals (r:0 w:1)
 	fn burn() -> Weight {
-		Weight::from_ref_time(69_374_000 as u64)
+		Weight::from_ref_time(77_993_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}

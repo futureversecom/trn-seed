@@ -513,7 +513,7 @@ pub mod pallet {
 		/// Toggle Ethereum cross-chain compatibility
 		/// Collection must have originated on Ethereum
 		/// Caller must be the current collection owner
-		#[pallet::weight(T::WeightInfo::set_name())]
+		#[pallet::weight(T::WeightInfo::toggle_eth_compatibility())]
 		pub fn toggle_eth_compatibility(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,

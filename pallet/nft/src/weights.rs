@@ -51,12 +51,13 @@ pub trait WeightInfo {
 	fn claim_unowned_collection() -> Weight;
 	fn set_owner() -> Weight;
 	fn set_max_issuance() -> Weight;
-    fn set_base_uri() -> Weight;
-    fn set_name() -> Weight;
+   fn set_base_uri() -> Weight;
+   fn set_name() -> Weight;
 	fn create_collection() -> Weight;
 	fn mint() -> Weight;
 	fn transfer() -> Weight;
 	fn burn() -> Weight;
+   fn toggle_eth_compatibility() -> Weight;
 }
 
 /// Weights for pallet_nft using the Substrate node and recommended hardware.
@@ -124,6 +125,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
+	// Storage: Nft CollectionInfo (r:1 w:1)
+	fn toggle_eth_compatibility() -> Weight {
+		Weight::from_ref_time(59_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
 }
 
 // For backwards compatibility and tests
@@ -189,6 +196,12 @@ impl WeightInfo for () {
 		Weight::from_ref_time(77_279_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
+	}
+	// Storage: Nft CollectionInfo (r:1 w:1)
+	fn toggle_eth_compatibility() -> Weight {
+		Weight::from_ref_time(59_000_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(1 as u64))
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }
 
