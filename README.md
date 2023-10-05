@@ -30,9 +30,9 @@ Docker images are published for every tagged release, you can quickly have a nod
 # Root chainspec
 docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --chain=root
 # Porcini chainspec
-docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --chain=root
+docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --chain=porcini
 # Dev chainspec
-docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --dev
+docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --dev --unsafe-rpc-external --unsafe-ws-external
 ```
 
 ### Run using source code
