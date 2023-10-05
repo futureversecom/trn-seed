@@ -521,8 +521,8 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId> {
 		let Some(collection) = CollectionInfo::<T>::get(token_id.0) else {
-			return None
-		};
+            return None;
+        };
 		collection.get_token_owner(token_id.1)
 	}
 
@@ -556,10 +556,15 @@ impl<T: Config> NFTExt for Pallet<T> {
 		<TokenLocks<T>>::get(token_id)
 	}
 
-	fn set_token_lock(token_id: TokenId, lock_reason: Option<TokenLockReason>) -> DispatchResult {
+	fn set_token_lock(
+		token_id: TokenId,
+		lock_reason: Option<TokenLockReason>,
+		who: Self::AccountId,
+	) -> DispatchResult {
 		match lock_reason {
 			Some(reason) => {
 				ensure!(!<TokenLocks<T>>::contains_key(token_id), Error::<T>::TokenLocked);
+				ensure!(Self::get_token_owner(&token_id) == Some(who), Error::<T>::NotTokenOwner);
 				<TokenLocks<T>>::insert(token_id, reason);
 			},
 			None => {

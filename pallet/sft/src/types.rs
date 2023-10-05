@@ -114,8 +114,8 @@ where
 		amount: Balance,
 	) -> Result<(), TokenBalanceError> {
 		let Some((_, existing_balance)) = self.owned_tokens.iter_mut().find(|(account, _)| account == who) else {
-			return Err(TokenBalanceError::InsufficientBalance.into());
-		};
+            return Err(TokenBalanceError::InsufficientBalance.into());
+        };
 
 		existing_balance.remove_free_balance(amount)?;
 
@@ -125,6 +125,36 @@ where
 		}
 
 		Ok(())
+	}
+
+	/// Adds some balance into an account
+	pub fn reserve_balance(
+		&mut self,
+		who: &AccountId,
+		amount: Balance,
+	) -> Result<(), TokenBalanceError> {
+		let (_, balance) = self
+			.owned_tokens
+			.iter_mut()
+			.find(|(account, _)| account == who)
+			.ok_or(TokenBalanceError::InsufficientBalance)?;
+
+		balance.place_reserve(amount)
+	}
+
+	/// Adds some balance into an account
+	pub fn free_reserved_balance(
+		&mut self,
+		who: &AccountId,
+		amount: Balance,
+	) -> Result<(), TokenBalanceError> {
+		let (_, balance) = self
+			.owned_tokens
+			.iter_mut()
+			.find(|(account, _)| account == who)
+			.ok_or(TokenBalanceError::InsufficientBalance)?;
+
+		balance.remove_reserve(amount)
 	}
 
 	/// Transfers some balance from one account to another
@@ -200,10 +230,7 @@ impl SftTokenBalance {
 
 	/// Reserves some balance
 	pub fn place_reserve(&mut self, amount: Balance) -> Result<(), TokenBalanceError> {
-		if self.free_balance < amount {
-			return Err(TokenBalanceError::InsufficientBalance)
-		}
-		self.free_balance -= amount;
+		self.remove_free_balance(amount)?;
 		self.reserved_balance =
 			self.reserved_balance.checked_add(amount).ok_or(TokenBalanceError::Overflow)?;
 		Ok(())
@@ -215,8 +242,6 @@ impl SftTokenBalance {
 			return Err(TokenBalanceError::InsufficientBalance)
 		}
 		self.reserved_balance -= amount;
-		self.free_balance =
-			self.free_balance.checked_add(amount).ok_or(TokenBalanceError::Overflow)?;
-		Ok(())
+		self.add_free_balance(amount)
 	}
 }

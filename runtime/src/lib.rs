@@ -94,6 +94,7 @@ pub use pallet_staking::{Forcing, StakerStatus};
 pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
 }
+
 pub use seed_pallet_common::FeeConfig;
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
@@ -436,6 +437,7 @@ impl pallet_marketplace::Config for Runtime {
 	type DefaultFeeTo = DefaultFeeTo;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
+	type SFTExt = Sft;
 	type PalletId = MarketplacePalletId;
 	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type WeightInfo = weights::pallet_marketplace::WeightInfo<Runtime>;
@@ -1288,11 +1290,13 @@ pub type CheckedExtrinsic =
 	fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra, H160>;
 
 pub struct StakingMigrationV11OldPallet;
+
 impl Get<&'static str> for StakingMigrationV11OldPallet {
 	fn get() -> &'static str {
 		"VoterList"
 	}
 }
+
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,

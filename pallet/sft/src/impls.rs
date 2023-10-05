@@ -13,7 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::*;
+use crate::{traits::SFTExt, *};
 use frame_support::ensure;
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
 use seed_primitives::CollectionUuid;
@@ -362,7 +362,7 @@ impl<T: Config> Pallet<T> {
 	// Returns the balance of who of a token_id
 	pub fn balance_of(who: &T::AccountId, token_id: TokenId) -> Balance {
 		let Some(token_info) = TokenInfo::<T>::get(token_id) else {
-			return Balance::zero()
+			return Balance::zero();
 		};
 		token_info.free_balance_of(who)
 	}
@@ -370,7 +370,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns the total supply of a specified token_id
 	pub fn total_supply(token_id: TokenId) -> Balance {
 		let Some(token_info) = TokenInfo::<T>::get(token_id) else {
-			return Balance::zero()
+			return Balance::zero();
 		};
 		token_info.token_issuance
 	}
@@ -383,8 +383,46 @@ impl<T: Config> Pallet<T> {
 	/// Returns the metadatascheme or None if no collection exists
 	pub fn token_uri(token_id: TokenId) -> Vec<u8> {
 		let Some(collection_info) = SftCollectionInfo::<T>::get(token_id.0) else {
-			return Default::default()
+			return Default::default();
 		};
 		collection_info.metadata_scheme.construct_token_uri(token_id.1)
+	}
+}
+
+impl<T: Config> SFTExt for Pallet<T> {
+	type AccountId = T::AccountId;
+	type MaxSerialsPerMint = T::MaxSerialsPerMint;
+
+	fn do_transfer(
+		origin: Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: BoundedVec<(SerialNumber, Balance), Self::MaxSerialsPerMint>,
+		new_owner: Self::AccountId,
+	) -> DispatchResult {
+		Self::do_transfer(origin, collection_id, serial_numbers, new_owner)
+	}
+
+	fn reserve_balance(
+		token_id: TokenId,
+		amount: Balance,
+		who: &Self::AccountId,
+	) -> DispatchResult {
+		let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
+		token_info.reserve_balance(who, amount).map_err(|err| Error::<T>::from(err))?;
+		TokenInfo::<T>::insert(token_id, token_info);
+		Ok(())
+	}
+
+	fn free_reserved_balance(
+		token_id: TokenId,
+		amount: Balance,
+		who: &Self::AccountId,
+	) -> DispatchResult {
+		let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
+		token_info
+			.free_reserved_balance(who, amount)
+			.map_err(|err| Error::<T>::from(err))?;
+		TokenInfo::<T>::insert(token_id, token_info);
+		Ok(())
 	}
 }

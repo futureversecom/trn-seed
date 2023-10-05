@@ -29,6 +29,7 @@ use frame_support::{
 };
 pub use pallet::*;
 use pallet_nft::traits::NFTExt;
+use pallet_sft::traits::SFTExt;
 use seed_pallet_common::{CreateExt, Hold, TransferExt};
 use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, ListingId, SerialNumber, TokenId, TokenLockReason,
@@ -43,8 +44,11 @@ pub mod mock;
 #[cfg(test)]
 mod tests;
 pub mod types;
+
 use types::*;
+
 mod weights;
+
 pub use weights::WeightInfo;
 
 #[frame_support::pallet]
@@ -105,6 +109,8 @@ pub mod pallet {
 			+ Transfer<Self::AccountId, Balance = Balance>;
 		/// NFT Extension, used to retrieve nextCollectionUuid
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
+		/// SFT Extension, used to retrieve nextCollectionUuid
+		type SFTExt: SFTExt<AccountId = Self::AccountId>;
 		/// This pallet's Id, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -183,12 +189,11 @@ pub mod pallet {
 	pub type FeeTo<T: Config> = StorageValue<_, Option<T::AccountId>, ValueQuery, DefaultFeeTo<T>>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A fixed price sale has been listed
 		FixedPriceSaleList {
-			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
+			tokens: TokenBundle<T>,
 			listing_id: ListingId,
 			marketplace_id: Option<MarketplaceId>,
 			price: Balance,
@@ -197,8 +202,7 @@ pub mod pallet {
 		},
 		/// A fixed price sale has completed
 		FixedPriceSaleComplete {
-			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
+			tokens: TokenBundle<T>,
 			listing_id: ListingId,
 			price: Balance,
 			payment_asset: AssetId,
@@ -207,22 +211,19 @@ pub mod pallet {
 		},
 		/// A fixed price sale has closed without selling
 		FixedPriceSaleClose {
-			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
+			tokens: TokenBundle<T>,
 			listing_id: ListingId,
 			reason: FixedPriceClosureReason,
 		},
 		/// A fixed price sale has had its price updated
 		FixedPriceSalePriceUpdate {
-			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
+			tokens: TokenBundle<T>,
 			listing_id: ListingId,
 			new_price: Balance,
 		},
 		/// An auction has opened
 		AuctionOpen {
-			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
+			tokens: TokenBundle<T>,
 			payment_asset: AssetId,
 			reserve_price: Balance,
 			listing_id: ListingId,
@@ -231,26 +232,16 @@ pub mod pallet {
 		},
 		/// An auction has sold
 		AuctionSold {
-			collection_id: CollectionUuid,
+			tokens: TokenBundle<T>,
 			listing_id: ListingId,
 			payment_asset: AssetId,
 			hammer_price: Balance,
 			winner: T::AccountId,
 		},
 		/// An auction has closed without selling
-		AuctionClose {
-			collection_id: CollectionUuid,
-			listing_id: ListingId,
-			reason: AuctionClosureReason,
-		},
+		AuctionClose { tokens: TokenBundle<T>, listing_id: ListingId, reason: AuctionClosureReason },
 		/// A new highest bid was placed
-		Bid {
-			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
-			listing_id: ListingId,
-			amount: Balance,
-			bidder: T::AccountId,
-		},
+		Bid { tokens: TokenBundle<T>, listing_id: ListingId, amount: Balance, bidder: T::AccountId },
 		/// An account has been registered as a marketplace
 		MarketplaceRegister {
 			account: T::AccountId,
@@ -358,10 +349,9 @@ pub mod pallet {
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
 		#[pallet::weight(T::WeightInfo::sell())]
-		pub fn sell_nft(
+		pub fn sell(
 			origin: OriginFor<T>,
-			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing>,
+			tokens: TokenBundle<T>,
 			buyer: Option<T::AccountId>,
 			payment_asset: AssetId,
 			fixed_price: Balance,
@@ -369,16 +359,7 @@ pub mod pallet {
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_sell_nft(
-				who,
-				collection_id,
-				serial_numbers,
-				buyer,
-				payment_asset,
-				fixed_price,
-				duration,
-				marketplace_id,
-			)
+			Self::do_sell(who, tokens, buyer, payment_asset, fixed_price, duration, marketplace_id)
 		}
 
 		/// Update fixed price for a single token sale
@@ -413,25 +394,16 @@ pub mod pallet {
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
 		#[pallet::weight(T::WeightInfo::auction())]
-		pub fn auction_nft(
+		pub fn auction(
 			origin: OriginFor<T>,
-			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing>,
+			tokens: TokenBundle<T>,
 			payment_asset: AssetId,
 			reserve_price: Balance,
 			duration: Option<T::BlockNumber>,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_auction_nft(
-				who,
-				collection_id,
-				serial_numbers,
-				payment_asset,
-				reserve_price,
-				duration,
-				marketplace_id,
-			)
+			Self::do_auction(who, tokens, payment_asset, reserve_price, duration, marketplace_id)
 		}
 
 		/// Place a bid on an open auction

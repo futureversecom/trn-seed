@@ -41,8 +41,10 @@ mod tests;
 mod benchmarking;
 
 mod impls;
+pub mod traits;
 mod types;
 mod weights;
+
 pub use weights::WeightInfo;
 
 pub use impls::*;
@@ -124,7 +126,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new collection of tokens was created
 		CollectionCreate {

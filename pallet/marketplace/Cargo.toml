@@ -22,7 +22,8 @@ scale-info = { version = "2.3.0", default-features = false, features = ["derive"
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
 pallet-nft = { path = "../nft", default-features = false }
-log = { default-features = false, version = "0.4.14"}
+pallet-sft = { path = "../sft", default-features = false }
+log = { default-features = false, version = "0.4.14" }
 
 [dev-dependencies]
 serde_json = "1.0"
@@ -36,18 +37,19 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 [features]
 default = ["std"]
 std = [
-	"seed-primitives/std",
-	"seed-pallet-common/std",
-	"pallet-nft/std",
-	"codec/std",
-	"serde",
-	"sp-core/std",
-	"sp-io/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"frame-support/std",
-	"frame-system/std",
-	"scale-info/std",
+    "seed-primitives/std",
+    "seed-pallet-common/std",
+    "pallet-nft/std",
+    "pallet-sft/std",
+    "codec/std",
+    "serde",
+    "sp-core/std",
+    "sp-io/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "frame-support/std",
+    "frame-system/std",
+    "scale-info/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]
