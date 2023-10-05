@@ -2,10 +2,10 @@
 
 | Function Call            | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |
 |:-------------------------|:------------:|:--------------:|:-------------------------:|
-| addLiquidity             |    176010    |     102577     |           28021           |
-| removeLiquidity          |    152430    |     73769      |           23346           |
-| swapExactTokensForTokens |    120570    |     53790      |           23342           |
-| swapTokensForExactTokens |    120737    |     53838      |           25008           |
+| addLiquidity             |    179730    |     116408     |           28025           |
+| removeLiquidity          |    146054    |     83508      |           23349           |
+| swapExactTokensForTokens |    113893    |     69284      |           23345           |
+| swapTokensForExactTokens |    114034    |     70190      |           25011           |
 | quote                    |    23716     |     22377      |             0             |
 | getAmountOut             |    26047     |     22447      |             0             |
 | getAmountsOut            |    43843     |     42619      |             0             |
@@ -16,7 +16,7 @@
 
 | Function Call            | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
 |:-------------------------|:---------------------:|:-----------------------:|:----------------------:|
-| addLiquidity             |        2261896        |         1479087         |         420318         |
-| removeLiquidity          |        1722772        |         1043234         |         350197         |
-| swapExactTokensForTokens |        1490489        |         804635          |         350130         |
-| swapTokensForExactTokens |        1492814        |         805655          |         375130         |
+| addLiquidity             |        2414041        |         1712061         |         420383         |
+| removeLiquidity          |        1808055        |         1216381         |         350245         |
+| swapExactTokensForTokens |        1629567        |         963486          |         350175         |
+| swapTokensForExactTokens |        1631893        |         979612          |         375179         |
