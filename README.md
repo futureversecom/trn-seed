@@ -32,7 +32,7 @@ docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:
 # Porcini chainspec
 docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --chain=porcini
 # Dev chainspec
-docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --dev --unsafe-rpc-external --unsafe-ws-external
+docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --dev --unsafe-rpc-external --unsafe-ws-external --rpc-cors=all
 ```
 
 ### Run using source code
@@ -63,7 +63,7 @@ After building the source code, run the following commands to start the node.
 # Porcini chainspec
 ./target/release/seed --chain=porcini
 # Dev chainspec
-./target/release/seed --dev --unsafe-rpc-external --unsafe-ws-external
+./target/release/seed --dev --unsafe-rpc-external --unsafe-ws-external --rpc-cors=all
 ```
 
 ## 🚧 Development
