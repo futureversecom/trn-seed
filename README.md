@@ -63,7 +63,7 @@ After building the source code, run the following commands to start the node.
 # Porcini chainspec
 ./target/release/seed --chain=porcini
 # Dev chainspec
-./target/release/seed --dev
+./target/release/seed --dev --unsafe-rpc-external --unsafe-ws-external
 ```
 
 ## 🚧 Development
