@@ -234,7 +234,9 @@ where
 
 		// Manually record gas
 		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-			<Runtime as pallet_nft_peg::Config>::NftPegWeightInfo::withdraw(),
+			<Runtime as pallet_nft_peg::Config>::NftPegWeightInfo::withdraw(
+				serial_numbers.len() as u32
+			),
 		))?;
 
 		// Dispatch call

@@ -43,6 +43,7 @@ mod benchmarking;
 mod impls;
 mod types;
 mod weights;
+
 pub use weights::WeightInfo;
 
 pub use impls::*;
@@ -124,7 +125,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new collection of tokens was created
 		CollectionCreate {
@@ -275,7 +276,9 @@ pub mod pallet {
 		/// `serial_numbers` - A list of serial numbers to mint into
 		/// `quantities` - A list of quantities to mint into each serial number
 		/// `token_owner` - The owner of the tokens, defaults to the caller
-		#[pallet::weight(T::WeightInfo::mint())]
+		#[pallet::weight({
+        T::WeightInfo::mint(serial_numbers.len() as u32)
+        })]
 		#[transactional]
 		pub fn mint(
 			origin: OriginFor<T>,
@@ -289,7 +292,9 @@ pub mod pallet {
 
 		/// Transfer ownership of an SFT
 		/// Caller must be the token owner
-		#[pallet::weight(T::WeightInfo::transfer())]
+		#[pallet::weight({
+        T::WeightInfo::transfer(serial_numbers.len() as u32)
+        })]
 		#[transactional]
 		pub fn transfer(
 			origin: OriginFor<T>,
@@ -304,7 +309,9 @@ pub mod pallet {
 		/// Burn a token 🔥
 		///
 		/// Caller must be the token owner
-		#[pallet::weight(T::WeightInfo::burn())]
+		#[pallet::weight({
+        T::WeightInfo::burn(serial_numbers.len() as u32)
+        })]
 		#[transactional]
 		pub fn burn(
 			origin: OriginFor<T>,

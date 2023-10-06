@@ -155,11 +155,13 @@ parameter_types! {
 }
 
 pub struct MockTransferSubscriber;
+
 impl OnTransferSubscriber for MockTransferSubscriber {
 	fn on_nft_transfer(_token_id: &TokenId) {}
 }
 
 pub struct MockXls20MintRequest;
+
 impl Xls20MintRequest for MockXls20MintRequest {
 	type AccountId = AccountId;
 	fn request_xls20_mint(
@@ -201,9 +203,9 @@ parameter_types! {
 	pub const NftPegPalletId: PalletId = PalletId(*b"  nftpeg");
 	pub const DelayLength: BlockNumber = 5;
 	pub const MaxAddresses: u32 = 30;
-	pub const MaxIdsPerMultipleMint: u32 = 50;
+	pub const MaxIdsPerMultipleMint: u32 = 5000;
 	pub const MaxCollectionsPerWithdraw: u32 = 10;
-	pub const MaxSerialsPerWithdraw: u32 = 50;
+	pub const MaxSerialsPerWithdraw: u32 = 5000;
 }
 
 impl pallet_nft_peg::Config for Test {
@@ -220,6 +222,7 @@ impl pallet_nft_peg::Config for Test {
 
 /// Mock ethereum bridge
 pub struct MockEthBridge;
+
 impl EthereumBridge for MockEthBridge {
 	fn send_event(
 		_source: &H160,

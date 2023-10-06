@@ -114,7 +114,7 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// An ERC721 deposit was made
 		Erc721Deposit { destination: T::AccountId },
@@ -158,7 +158,9 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(T::NftPegWeightInfo::withdraw())]
+		#[pallet::weight({
+        T::NftPegWeightInfo::withdraw(serial_numbers.len() as u32)
+        })]
 		#[transactional]
 		pub fn withdraw(
 			origin: OriginFor<T>,
@@ -238,8 +240,8 @@ where
 
 			for token_id in token_ids.iter() {
 				let Token::Array(token) = token_id else {
-					return Err((weight, Error::<T>::ExceedsMaxTokens.into()));
-				};
+                    return Err((weight, Error::<T>::ExceedsMaxTokens.into()));
+                };
 
 				let vec: Vec<SerialNumber> = token
 					.iter()

@@ -48,81 +48,100 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_xls20.
 pub trait WeightInfo {
-	fn set_relayer() -> Weight;
-	fn set_xls20_fee() -> Weight;
-	fn enable_xls20_compatibility() -> Weight;
-	fn re_request_xls20_mint() -> Weight;
-	fn fulfill_xls20_mint() -> Weight;
+    fn set_relayer() -> Weight;
+    fn set_xls20_fee() -> Weight;
+    fn enable_xls20_compatibility() -> Weight;
+    fn re_request_xls20_mint(p: u32) -> Weight;
+    fn fulfill_xls20_mint(p: u32) -> Weight;
 }
 
 /// Weights for pallet_xls20 using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
+
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	// Storage: Xls20 Relayer (r:0 w:1)
-	fn set_relayer() -> Weight {
-		Weight::from_ref_time(37_023_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Xls20 Xls20MintFee (r:0 w:1)
-	fn set_xls20_fee() -> Weight {
-		Weight::from_ref_time(37_153_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Nft CollectionInfo (r:1 w:1)
-	fn enable_xls20_compatibility() -> Weight {
-		Weight::from_ref_time(58_855_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	// Storage: Xls20 Xls20TokenMap (r:1 w:0)
-	// Storage: Xls20 Xls20MintFee (r:1 w:0)
-	fn re_request_xls20_mint() -> Weight {
-		Weight::from_ref_time(73_846_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-	}
-	// Storage: Xls20 Relayer (r:1 w:0)
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	// Storage: Xls20 Xls20TokenMap (r:1 w:1)
-	fn fulfill_xls20_mint() -> Weight {
-		Weight::from_ref_time(77_416_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
+    // Storage: Xls20 Relayer (r:0 w:1)
+    fn set_relayer() -> Weight {
+        Weight::from_ref_time(18_455_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Xls20 Xls20MintFee (r:0 w:1)
+    fn set_xls20_fee() -> Weight {
+        Weight::from_ref_time(18_054_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Nft CollectionInfo (r:1 w:1)
+    fn enable_xls20_compatibility() -> Weight {
+        Weight::from_ref_time(26_911_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Nft CollectionInfo (r:1 w:0)
+    // Storage: Xls20 Xls20TokenMap (r:1 w:0)
+    // Storage: Xls20 Xls20MintFee (r:1 w:0)
+    /// The range of component `p` is `[1, 50]`.
+    fn re_request_xls20_mint(p: u32) -> Weight {
+        Weight::from_ref_time(34_576_000 as u64)
+            // Standard Error: 1_357
+            .saturating_add(Weight::from_ref_time(2_089_052 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().reads(3 as u64))
+            .saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
+    }
+    // Storage: Xls20 Relayer (r:1 w:0)
+    // Storage: Nft CollectionInfo (r:1 w:0)
+    // Storage: Xls20 Xls20TokenMap (r:1 w:1)
+    /// The range of component `p` is `[1, 50]`.
+    fn fulfill_xls20_mint(p: u32) -> Weight {
+        Weight::from_ref_time(36_068_000 as u64)
+            // Standard Error: 3_148
+            .saturating_add(Weight::from_ref_time(3_703_821 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().reads(3 as u64))
+            .saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+    }
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	// Storage: Xls20 Relayer (r:0 w:1)
-	fn set_relayer() -> Weight {
-		Weight::from_ref_time(37_023_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Xls20 Xls20MintFee (r:0 w:1)
-	fn set_xls20_fee() -> Weight {
-		Weight::from_ref_time(37_153_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Nft CollectionInfo (r:1 w:1)
-	fn enable_xls20_compatibility() -> Weight {
-		Weight::from_ref_time(58_855_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	// Storage: Xls20 Xls20TokenMap (r:1 w:0)
-	// Storage: Xls20 Xls20MintFee (r:1 w:0)
-	fn re_request_xls20_mint() -> Weight {
-		Weight::from_ref_time(73_846_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(3 as u64))
-	}
-	// Storage: Xls20 Relayer (r:1 w:0)
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	// Storage: Xls20 Xls20TokenMap (r:1 w:1)
-	fn fulfill_xls20_mint() -> Weight {
-		Weight::from_ref_time(77_416_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(3 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
+    // Storage: Xls20 Relayer (r:0 w:1)
+    fn set_relayer() -> Weight {
+        Weight::from_ref_time(18_455_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Xls20 Xls20MintFee (r:0 w:1)
+    fn set_xls20_fee() -> Weight {
+        Weight::from_ref_time(18_054_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Nft CollectionInfo (r:1 w:1)
+    fn enable_xls20_compatibility() -> Weight {
+        Weight::from_ref_time(26_911_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Nft CollectionInfo (r:1 w:0)
+    // Storage: Xls20 Xls20TokenMap (r:1 w:0)
+    // Storage: Xls20 Xls20MintFee (r:1 w:0)
+    /// The range of component `p` is `[1, 50]`.
+    fn re_request_xls20_mint(p: u32) -> Weight {
+        Weight::from_ref_time(34_576_000 as u64)
+            // Standard Error: 1_357
+            .saturating_add(Weight::from_ref_time(2_089_052 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().reads(3 as u64))
+            .saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
+    }
+    // Storage: Xls20 Relayer (r:1 w:0)
+    // Storage: Nft CollectionInfo (r:1 w:0)
+    // Storage: Xls20 Xls20TokenMap (r:1 w:1)
+    /// The range of component `p` is `[1, 50]`.
+    fn fulfill_xls20_mint(p: u32) -> Weight {
+        Weight::from_ref_time(36_068_000 as u64)
+            // Standard Error: 3_148
+            .saturating_add(Weight::from_ref_time(3_703_821 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().reads(3 as u64))
+            .saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+    }
 }
 

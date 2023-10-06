@@ -39,7 +39,9 @@ use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod types;
+
 use types::*;
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -240,7 +242,9 @@ decl_module! {
 			Self::deposit_event(<Event<T>>::SetContractAddress(eth_address));
 		}
 
-		#[weight = T::WeightInfo::set_erc20_meta()]
+		#[weight =
+			T::WeightInfo::set_erc20_meta(details.len() as u32)
+		]
 		/// Set the metadata details for a given ERC20 address (requires governance)
 		/// details: `[(contract address, symbol, decimals)]`
 		pub fn set_erc20_meta(origin, details: Vec<(EthAddress, Vec<u8>, u8)>) {

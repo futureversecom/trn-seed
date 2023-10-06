@@ -51,10 +51,18 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 
 /// Helper function to create a token
 /// Returns the TokenId (CollectionId, SerialNumber)
-pub fn build_token<T: Config>(caller: Option<T::AccountId>, initial_issuance: Balance) -> TokenId {
+pub fn build_token<T: Config>(
+	caller: Option<T::AccountId>,
+	initial_issuance: Balance,
+	collection_id: Option<CollectionUuid>,
+) -> TokenId {
 	let caller = caller.unwrap_or_else(|| account::<T>("Alice"));
-	let collection_id = build_collection::<T>(Some(caller.clone()));
+	let collection_id = match collection_id {
+		Some(id) => id,
+		None => build_collection::<T>(Some(caller.clone())),
+	};
 	let token_name = bounded_string::<T>("test-token");
+	let serial_number = SftCollectionInfo::<T>::get(collection_id).unwrap().next_serial_number;
 
 	assert_ok!(Sft::<T>::create_token(
 		origin::<T>(&caller).into(),
@@ -65,7 +73,7 @@ pub fn build_token<T: Config>(caller: Option<T::AccountId>, initial_issuance: Ba
 		None,
 	));
 
-	(collection_id, 0)
+	(collection_id, serial_number)
 }
 
 /// Helper function for creating the bounded (SerialNumbers, Balance) type
@@ -103,37 +111,61 @@ benchmarks! {
 
 	mint {
 		let owner = account::<T>("Alice");
-		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), 0);
-		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![u128::MAX]);
+		let p in 1 .. (500);
+		let collection_id = build_collection::<T>(None);
+		let mut serial_numbers: Vec<SerialNumber> = vec![];
+		let mut quantities: Vec<Balance> = vec![];
+		for i in 0..p {
+			let (_, serial_number) = build_token::<T>(Some(owner.clone()), 0, Some(collection_id));
+			serial_numbers.push(serial_number);
+			quantities.push(100_u128);
+		}
+		let serial_numbers = bounded_combined::<T>(serial_numbers, quantities);
 	}: _(origin::<T>(&owner), collection_id, serial_numbers, None)
 	verify {
-		let token = TokenInfo::<T>::get((collection_id, serial_number));
+		let token = TokenInfo::<T>::get((collection_id, 0));
 		assert!(token.is_some());
 		let token = token.unwrap();
-		assert_eq!(token.token_issuance, u128::MAX);
+		assert_eq!(token.token_issuance, 100_u128);
 	}
 
 	transfer {
 		let owner = account::<T>("Alice");
-		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), u128::MAX);
-		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![u128::MAX]);
+		let p in 1 .. (500);
+		let collection_id = build_collection::<T>(None);
+		let mut serial_numbers: Vec<SerialNumber> = vec![];
+		let mut quantities: Vec<Balance> = vec![];
+		for i in 0..p {
+			let (_, serial_number) = build_token::<T>(Some(owner.clone()), 100, Some(collection_id));
+			serial_numbers.push(serial_number);
+			quantities.push(100_u128);
+		}
+		let serial_numbers = bounded_combined::<T>(serial_numbers, quantities);
 	}: _(origin::<T>(&owner), collection_id, serial_numbers, account::<T>("Bob"))
 	verify {
-		let token = TokenInfo::<T>::get((collection_id, serial_number));
+		let token = TokenInfo::<T>::get((collection_id, 0));
 		assert!(token.is_some());
 		let token = token.unwrap();
 		assert_eq!(token.free_balance_of(&account::<T>("Alice")), 0);
-		assert_eq!(token.free_balance_of(&account::<T>("Bob")), u128::MAX);
+		assert_eq!(token.free_balance_of(&account::<T>("Bob")), 100_u128);
 	}
 
 	burn {
 		let owner = account::<T>("Alice");
+		let p in 1 .. (500);
 		let initial_issuance = 1000;
-		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), initial_issuance);
-		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![initial_issuance]);
+		let collection_id = build_collection::<T>(None);
+		let mut serial_numbers: Vec<SerialNumber> = vec![];
+		let mut quantities: Vec<Balance> = vec![];
+		for i in 0..p {
+			let (_, serial_number) = build_token::<T>(Some(owner.clone()), initial_issuance, Some(collection_id));
+			serial_numbers.push(serial_number);
+			quantities.push(initial_issuance);
+		}
+		let serial_numbers = bounded_combined::<T>(serial_numbers, quantities);
 	}: _(origin::<T>(&owner), collection_id, serial_numbers)
 	verify {
-		let token = TokenInfo::<T>::get((collection_id, serial_number));
+		let token = TokenInfo::<T>::get((collection_id, 0));
 		assert!(token.is_some());
 		let token = token.unwrap();
 		assert_eq!(token.token_issuance, 0);
@@ -152,7 +184,7 @@ benchmarks! {
 
 	set_max_issuance {
 		let owner = account::<T>("Alice");
-		let token_id = build_token::<T>(Some(owner.clone()), 0);
+		let token_id = build_token::<T>(Some(owner.clone()), 0, None);
 	}: _(origin::<T>(&owner), token_id, 32)
 	verify {
 		let token = TokenInfo::<T>::get(token_id);

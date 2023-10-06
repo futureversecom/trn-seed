@@ -90,8 +90,12 @@ benchmarks! {
 	}
 
 	set_erc20_meta {
+		let p in 1 .. (500);
 		let alice: EthAddress = account::<T>("Alice").into();
-		let details: Vec<(EthAddress, Vec<u8>, u8)> = vec![(alice, vec![0], 100)];
+		let mut details: Vec<(EthAddress, Vec<u8>, u8)> = vec![];
+		for i in 0..p {
+			details.push((alice, vec![0], 100));
+		}
 		// Sanity check
 		assert_eq!(Erc20Meta::get(details[0].0.clone()), None);
 

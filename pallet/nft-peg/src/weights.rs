@@ -48,85 +48,96 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_nft_peg.
 pub trait WeightInfo {
-	fn set_contract_address() -> Weight;
-	fn withdraw() -> Weight;
-	fn reclaim_blocked_nfts() -> Weight;
+    fn set_contract_address() -> Weight;
+    fn withdraw(p: u32) -> Weight;
+    fn reclaim_blocked_nfts() -> Weight;
 }
 
 /// Weights for pallet_nft_peg using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
+
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	// Storage: NftPeg ContractAddress (r:0 w:1)
-	fn set_contract_address() -> Weight {
-		Weight::from_ref_time(40_067_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Nft CollectionInfo (r:1 w:1)
-	// Storage: Nft TokenLocks (r:3 w:0)
-	// Storage: NftPeg RootNftToErc721 (r:1 w:0)
-	// Storage: NftPeg ContractAddress (r:1 w:0)
-	// Storage: EthBridge NextEventProofId (r:1 w:1)
-	// Storage: EthBridge NotaryKeys (r:1 w:0)
-	// Storage: EthBridge NotarySetId (r:1 w:0)
-	// Storage: EthBridge BridgePaused (r:1 w:0)
-	// Storage: System Digest (r:1 w:1)
-	// Storage: TokenApprovals ERC721Approvals (r:0 w:3)
-	fn withdraw() -> Weight {
-		Weight::from_ref_time(164_890_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(11 as u64))
-			.saturating_add(T::DbWeight::get().writes(6 as u64))
-	}
-	// Storage: NftPeg BlockedTokens (r:1 w:1)
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	// Storage: NftPeg RootNftToErc721 (r:1 w:0)
-	// Storage: NftPeg ContractAddress (r:1 w:0)
-	// Storage: EthBridge NextEventProofId (r:1 w:1)
-	// Storage: EthBridge NotaryKeys (r:1 w:0)
-	// Storage: EthBridge NotarySetId (r:1 w:0)
-	// Storage: EthBridge BridgePaused (r:1 w:0)
-	// Storage: System Digest (r:1 w:1)
-	fn reclaim_blocked_nfts() -> Weight {
-		Weight::from_ref_time(135_172_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(9 as u64))
-			.saturating_add(T::DbWeight::get().writes(3 as u64))
-	}
+    // Storage: NftPeg ContractAddress (r:0 w:1)
+    fn set_contract_address() -> Weight {
+        Weight::from_ref_time(18_795_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: NftPeg ContractAddress (r:1 w:0)
+    // Storage: EthBridge NextEventProofId (r:1 w:1)
+    // Storage: EthBridge NotaryKeys (r:1 w:0)
+    // Storage: EthBridge NotarySetId (r:1 w:0)
+    // Storage: EthBridge BridgePaused (r:1 w:0)
+    // Storage: System Digest (r:1 w:1)
+    // Storage: Nft CollectionInfo (r:1 w:1)
+    // Storage: Nft TokenLocks (r:3 w:0)
+    // Storage: NftPeg RootNftToErc721 (r:1 w:0)
+    // Storage: TokenApprovals ERC721Approvals (r:0 w:3)
+    /// The range of component `p` is `[0, 50]`.
+    fn withdraw(p: u32) -> Weight {
+        Weight::from_ref_time(45_436_000 as u64)
+            // Standard Error: 175_898
+            .saturating_add(Weight::from_ref_time(9_025_709 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().reads(6 as u64))
+            .saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
+            .saturating_add(RocksDbWeight::get().writes(2 as u64))
+            .saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+    }
+    // Storage: NftPeg BlockedTokens (r:1 w:1)
+    // Storage: Nft CollectionInfo (r:1 w:0)
+    // Storage: NftPeg RootNftToErc721 (r:1 w:0)
+    // Storage: NftPeg ContractAddress (r:1 w:0)
+    // Storage: EthBridge NextEventProofId (r:1 w:1)
+    // Storage: EthBridge NotaryKeys (r:1 w:0)
+    // Storage: EthBridge NotarySetId (r:1 w:0)
+    // Storage: EthBridge BridgePaused (r:1 w:0)
+    // Storage: System Digest (r:1 w:1)
+    fn reclaim_blocked_nfts() -> Weight {
+        Weight::from_ref_time(135_172_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(9 as u64))
+            .saturating_add(T::DbWeight::get().writes(3 as u64))
+    }
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	// Storage: NftPeg ContractAddress (r:0 w:1)
-	fn set_contract_address() -> Weight {
-		Weight::from_ref_time(40_067_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Nft CollectionInfo (r:1 w:1)
-	// Storage: Nft TokenLocks (r:3 w:0)
-	// Storage: NftPeg RootNftToErc721 (r:1 w:0)
-	// Storage: NftPeg ContractAddress (r:1 w:0)
-	// Storage: EthBridge NextEventProofId (r:1 w:1)
-	// Storage: EthBridge NotaryKeys (r:1 w:0)
-	// Storage: EthBridge NotarySetId (r:1 w:0)
-	// Storage: EthBridge BridgePaused (r:1 w:0)
-	// Storage: System Digest (r:1 w:1)
-	// Storage: TokenApprovals ERC721Approvals (r:0 w:3)
-	fn withdraw() -> Weight {
-		Weight::from_ref_time(164_890_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(11 as u64))
-			.saturating_add(RocksDbWeight::get().writes(6 as u64))
-	}
-	// Storage: NftPeg BlockedTokens (r:1 w:1)
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	// Storage: NftPeg RootNftToErc721 (r:1 w:0)
-	// Storage: NftPeg ContractAddress (r:1 w:0)
-	// Storage: EthBridge NextEventProofId (r:1 w:1)
-	// Storage: EthBridge NotaryKeys (r:1 w:0)
-	// Storage: EthBridge NotarySetId (r:1 w:0)
-	// Storage: EthBridge BridgePaused (r:1 w:0)
-	// Storage: System Digest (r:1 w:1)
-	fn reclaim_blocked_nfts() -> Weight {
-		Weight::from_ref_time(135_172_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(9 as u64))
-			.saturating_add(RocksDbWeight::get().writes(3 as u64))
-	}
+    // Storage: NftPeg ContractAddress (r:0 w:1)
+    fn set_contract_address() -> Weight {
+        Weight::from_ref_time(18_795_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: NftPeg ContractAddress (r:1 w:0)
+    // Storage: EthBridge NextEventProofId (r:1 w:1)
+    // Storage: EthBridge NotaryKeys (r:1 w:0)
+    // Storage: EthBridge NotarySetId (r:1 w:0)
+    // Storage: EthBridge BridgePaused (r:1 w:0)
+    // Storage: System Digest (r:1 w:1)
+    // Storage: Nft CollectionInfo (r:1 w:1)
+    // Storage: Nft TokenLocks (r:3 w:0)
+    // Storage: NftPeg RootNftToErc721 (r:1 w:0)
+    // Storage: TokenApprovals ERC721Approvals (r:0 w:3)
+    /// The range of component `p` is `[0, 50]`.
+    fn withdraw(p: u32) -> Weight {
+        Weight::from_ref_time(45_436_000 as u64)
+            // Standard Error: 175_898
+            .saturating_add(Weight::from_ref_time(9_025_709 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().reads(6 as u64))
+            .saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
+            .saturating_add(RocksDbWeight::get().writes(2 as u64))
+            .saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+    }
+    // Storage: NftPeg BlockedTokens (r:1 w:1)
+    // Storage: Nft CollectionInfo (r:1 w:0)
+    // Storage: NftPeg RootNftToErc721 (r:1 w:0)
+    // Storage: NftPeg ContractAddress (r:1 w:0)
+    // Storage: EthBridge NextEventProofId (r:1 w:1)
+    // Storage: EthBridge NotaryKeys (r:1 w:0)
+    // Storage: EthBridge NotarySetId (r:1 w:0)
+    // Storage: EthBridge BridgePaused (r:1 w:0)
+    // Storage: System Digest (r:1 w:1)
+    fn reclaim_blocked_nfts() -> Weight {
+        Weight::from_ref_time(135_172_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(9 as u64))
+            .saturating_add(RocksDbWeight::get().writes(3 as u64))
+    }
 }
 
