@@ -86,8 +86,8 @@ impl<T: Config> Pallet<T> {
 
 /// Alias for pallet-assets-ext NegativeImbalance
 type FeeNegativeImbalanceOf<T> = pallet_assets_ext::NegativeImbalance<T>;
-/// Alias for pallet-balances PositiveImbalance
-type FeePositiveImbalanceOf<T> = pallet_balances::PositiveImbalance<T>;
+/// Alias for pallet-assets-ext PositiveImbalance
+type FeePositiveImbalanceOf<T> = pallet_assets_ext::PositiveImbalance<T>;
 /// Alias for pallet-balances NegativeImbalance
 type StakeNegativeImbalanceOf<T> = pallet_balances::NegativeImbalance<T>;
 
