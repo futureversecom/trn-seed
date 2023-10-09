@@ -130,37 +130,47 @@ where
 	P: AccountProxy<AccountId>,
 {
 	/// Decodes the input for call_with_fee_preferences
-	pub fn decode_input(
-		input: Vec<u8>,
-	) -> Result<(AssetId, Balance, H160, Vec<u8>), FeePreferencesError> {
+	pub fn decode_input(input: Vec<u8>) -> Result<(AssetId, H160, Vec<u8>), FeePreferencesError> {
 		ensure!(input.len() >= 4, FeePreferencesError::InvalidInputArguments);
 		ensure!(
 			input[..4] == FEE_FUNCTION_SELECTOR_DEPRECATED || input[..4] == FEE_FUNCTION_SELECTOR,
 			FeePreferencesError::InvalidFunctionSelector,
 		);
 
-		let types =
-			[ParamType::Address, ParamType::Uint(128), ParamType::Address, ParamType::Bytes];
-		let tokens = ethabi::decode(&types, &input[4..])
-			.map_err(|_| FeePreferencesError::FailedToDecodeInput)?;
-
-		if let [Token::Address(payment_asset_address), Token::Uint(max_payment), Token::Address(new_target), Token::Bytes(new_input)] =
-			tokens.as_slice()
-		{
-			let payment_asset = U::evm_id_to_runtime_id(
-				(*payment_asset_address).into(),
-				ERC20_PRECOMPILE_ADDRESS_PREFIX,
-			);
-			ensure!(payment_asset.is_some(), FeePreferencesError::InvalidPaymentAsset);
-
-			Ok((
-				payment_asset.unwrap(),
-				(*max_payment).saturated_into::<Balance>(),
-				(*new_target).into(),
-				new_input.clone(),
-			))
+		if input[..4] == FEE_FUNCTION_SELECTOR_DEPRECATED {
+			log!(warn, "⚠️ using deprecated fee function selector: call_with_fee_preferences(address,uint128,address,bytes)");
+			let types =
+				[ParamType::Address, ParamType::Uint(128), ParamType::Address, ParamType::Bytes];
+			let tokens = ethabi::decode(&types, &input[4..])
+				.map_err(|_| FeePreferencesError::FailedToDecodeInput)?;
+			if let [Token::Address(payment_asset_address), Token::Uint(_max_payment), Token::Address(new_target), Token::Bytes(new_input)] =
+				tokens.as_slice()
+			{
+				let payment_asset = U::evm_id_to_runtime_id(
+					(*payment_asset_address).into(),
+					ERC20_PRECOMPILE_ADDRESS_PREFIX,
+				);
+				ensure!(payment_asset.is_some(), FeePreferencesError::InvalidPaymentAsset);
+				Ok((payment_asset.unwrap(), (*new_target).into(), new_input.clone()))
+			} else {
+				Err(FeePreferencesError::InvalidInputArguments)?
+			}
 		} else {
-			Err(FeePreferencesError::InvalidInputArguments)
+			let types = [ParamType::Address, ParamType::Address, ParamType::Bytes];
+			let tokens = ethabi::decode(&types, &input[4..])
+				.map_err(|_| FeePreferencesError::FailedToDecodeInput)?;
+			if let [Token::Address(payment_asset_address), Token::Address(new_target), Token::Bytes(new_input)] =
+				tokens.as_slice()
+			{
+				let payment_asset = U::evm_id_to_runtime_id(
+					(*payment_asset_address).into(),
+					ERC20_PRECOMPILE_ADDRESS_PREFIX,
+				);
+				ensure!(payment_asset.is_some(), FeePreferencesError::InvalidPaymentAsset);
+				Ok((payment_asset.unwrap(), (*new_target).into(), new_input.clone()))
+			} else {
+				Err(FeePreferencesError::InvalidInputArguments)?
+			}
 		}
 	}
 
@@ -272,7 +282,7 @@ where
 		if target == H160::from_low_u64_be(FEE_PROXY_ADDRESS) {
 			let (_, weight) = T::FeeCalculator::min_gas_price();
 
-			let (payment_asset_id, _max_payment, new_target, new_input) = Self::decode_input(input)
+			let (payment_asset_id, new_target, new_input) = Self::decode_input(input)
 				.map_err(|err| RunnerError { error: err.into(), weight })?;
 
 			// set input and target to new input and actual target for passthrough

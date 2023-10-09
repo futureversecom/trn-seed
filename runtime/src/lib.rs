@@ -1827,7 +1827,7 @@ fn transaction_asset_check(
 			_ => Err(TransactionValidityError::Invalid(InvalidTransaction::Call))?,
 		};
 
-		let (payment_asset_id, _max_payment, _target, _input) =
+		let (payment_asset_id, _target, _input) =
 			FeePreferencesRunner::<Runtime, Runtime, Futurepass>::decode_input(input)?;
 
 		let FeePreferencesData { max_fee_scaled, path, .. } =
