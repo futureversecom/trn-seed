@@ -71,7 +71,6 @@ describe("Fee Preferences under low token pair liquidity", function () {
     const iface = new utils.Interface(ERC20_ABI);
     const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
 
-    const maxFeePaymentInToken = 10_000_000_000;
     const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
     const nonce = await emptyAccountSigner.getTransactionCount();
     const chainId = 7672;
@@ -86,7 +85,6 @@ describe("Fee Preferences under low token pair liquidity", function () {
       nonce,
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
         feeToken.address,
-        maxFeePaymentInToken,
         feeToken.address,
         transferInput,
       ]),
