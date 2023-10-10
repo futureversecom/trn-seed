@@ -26,6 +26,7 @@
 //! substrate at this time
 
 #![cfg_attr(not(feature = "std"), no_std)]
+
 pub use pallet::*;
 
 use frame_support::{
@@ -70,7 +71,7 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
+	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::genesis_config]
@@ -134,7 +135,7 @@ pub mod pallet {
 	pub type NextAssetId<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Some assets have been placed on hold by a pallet
 		PlaceHold {
@@ -190,7 +191,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Creates a new asset with unique ID according to the network asset id scheme.
-		#[pallet::weight(<T as Config>::WeightInfo::create_asset())]
+		#[pallet::weight(< T as Config >::WeightInfo::create_asset())]
 		#[transactional]
 		pub fn create_asset(
 			origin: OriginFor<T>,
@@ -208,6 +209,40 @@ pub mod pallet {
 			let owner = owner.unwrap_or(who);
 			Self::create_with_metadata(&owner, name, symbol, decimals, min_balance)?;
 			Ok(().into())
+		}
+
+		#[pallet::weight(0)]
+		pub fn transfer(
+			origin: OriginFor<T>,
+			id: AssetId,
+			dest: T::AccountId,
+			#[pallet::compact] amount: T::Balance,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			<Self as Transfer<_>>::transfer(id, &who, &dest, amount, false)
+		}
+
+		#[pallet::weight(0)]
+		pub fn transfer_keep_alive(
+			origin: OriginFor<T>,
+			id: AssetId,
+			dest: T::AccountId,
+			#[pallet::compact] amount: T::Balance,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			<Self as Transfer<_>>::transfer(id, &who, &dest, amount, true)
+		}
+
+		#[pallet::weight(0)]
+		pub fn mint(
+			origin: OriginFor<T>,
+			id: AssetId,
+			beneficiary: T::AccountId,
+			#[pallet::compact] amount: T::Balance,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			// TODO Check that origin is signer
+			<Self as Mutate<_>>::mint_into(id, &beneficiary, amount)
 		}
 	}
 }
