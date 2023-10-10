@@ -224,6 +224,7 @@ pub mod pallet {
 	#[pallet::type_value]
 	/// XRPL ledger rate is between 3-5 seconds. let's take min 3 seconds and keep data for 10 days
 	pub fn DefaultSubmissionWindowWidth() -> u32 {
+		// 86400 is the number of seconds per day.
 		86400_u32.saturating_div(3).saturating_mul(10)
 	}
 	#[pallet::storage]
