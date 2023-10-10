@@ -241,7 +241,7 @@ pub mod pallet {
 			#[pallet::compact] amount: T::Balance,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			// TODO Check that origin is signer
+			// TODO Check that origin is asset owner (This isn't checked in mint_into)
 			<Self as Mutate<_>>::mint_into(id, &beneficiary, amount)
 		}
 	}
