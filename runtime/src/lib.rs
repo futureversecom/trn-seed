@@ -94,6 +94,7 @@ pub use pallet_staking::{Forcing, StakerStatus};
 pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
 }
+
 pub use seed_pallet_common::FeeConfig;
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
@@ -152,7 +153,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 41,
+	spec_version: 42,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 4,
@@ -1288,11 +1289,13 @@ pub type CheckedExtrinsic =
 	fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra, H160>;
 
 pub struct StakingMigrationV11OldPallet;
+
 impl Get<&'static str> for StakingMigrationV11OldPallet {
 	fn get() -> &'static str {
 		"VoterList"
 	}
 }
+
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
