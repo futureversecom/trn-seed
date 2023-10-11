@@ -33,7 +33,7 @@ use precompile_utils::{
 use seed_primitives::{AssetId, Balance, BlockNumber, CollectionUuid, SerialNumber, TokenId};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec, Permill};
-use sp_std::{marker::PhantomData, vec::Vec};
+use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 /// Solidity selector of the Marketplace register log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_MARKETPLACE_REGISTER: [u8; 32] =
@@ -543,7 +543,7 @@ where
 			handle.context().caller, //bidder
 			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
 			H256::from_slice(&EvmDataWriter::new().write(amount).build()),
-			alloc::vec![],
+			vec![],
 		)
 		.record(handle)?;
 
@@ -602,7 +602,6 @@ where
 				)
 				.record(handle)?;
 			},
-			_ => return Err(revert("Not valid")),
 		}
 
 		// Build output.
@@ -623,11 +622,11 @@ where
 				marketplace_id: U256
 			}
 		);
-		let marketplace_id: u32 = marketplace_id.saturated_into();
 		ensure!(
 			marketplace_id <= u32::MAX.into(),
 			revert("Marketplace: Expected marketplace id <= 2^32")
 		);
+		let marketplace_id: u32 = marketplace_id.saturated_into();
 		let marketplace_id: Option<u32> =
 			if marketplace_id == u32::default() { None } else { Some(marketplace_id) };
 		ensure!(amount <= u128::MAX.into(), revert("Marketplace: Expected amount <= 2^128"));
@@ -650,7 +649,6 @@ where
 			ERC20_PRECOMPILE_ADDRESS_PREFIX,
 		)
 		.ok_or_else(|| revert("Marketplace: Invalid asset address"))?;
-		ensure!(asset_id <= u32::MAX.into(), revert("Marketplace: Expected asset_id <= 2^32"));
 
 		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
 			<Runtime as pallet_marketplace::Config>::WeightInfo::make_simple_offer(),
@@ -684,7 +682,7 @@ where
 	}
 
 	fn cancel_offer(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(handle, { offer_id: U256 });
@@ -751,7 +749,7 @@ where
 		// Parse input.
 		read_args!(handle, { marketplace_id: U256 });
 
-		// handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		ensure!(
 			marketplace_id <= u32::MAX.into(),
 			revert("Marketplace: Expected marketplace id <= 2^32")
