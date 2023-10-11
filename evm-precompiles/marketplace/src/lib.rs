@@ -388,6 +388,9 @@ where
 			revert("Marketplace: Expected listing id <= 2^128")
 		);
 		let listing_id: u128 = listing_id.saturated_into();
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_marketplace::Config>::WeightInfo::buy(),
+		))?;
 
 		let caller: Runtime::AccountId = handle.context().caller.into(); // caller is the buyer
 		let listing = pallet_marketplace::Pallet::<Runtime>::do_buy(caller, listing_id)
