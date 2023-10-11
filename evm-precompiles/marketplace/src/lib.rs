@@ -449,10 +449,6 @@ where
 				ERC721_PRECOMPILE_ADDRESS_PREFIX,
 			)
 			.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
-		ensure!(
-			collection_id <= u32::MAX.into(),
-			revert("Marketplace: Expected collection id <= 2^32")
-		);
 		let serials_unbounded = serial_number_ids
 			.clone()
 			.into_iter()
@@ -645,10 +641,6 @@ where
 				ERC721_PRECOMPILE_ADDRESS_PREFIX,
 			)
 			.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
-		ensure!(
-			collection_id <= u32::MAX.into(),
-			revert("Marketplace: Expected collection_id <= 2^32")
-		);
 		ensure!(
 			serial_number <= u32::MAX.into(),
 			revert("Marketplace: Expected serial_number <= 2^32")
