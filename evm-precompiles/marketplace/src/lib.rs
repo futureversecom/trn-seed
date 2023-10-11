@@ -284,7 +284,11 @@ where
 			})
 			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
 
-		let serial_numbers = BoundedVec::try_from(serials_unbounded).unwrap();
+		let serial_numbers:
+			BoundedVec<SerialNumber, Runtime::MaxTokensPerListing>
+			= BoundedVec::try_from(serials_unbounded)
+			.or_else(|_| Err(revert("Marketplace: Too many serial numbers")))?;
+		// let serial_numbers = BoundedVec::try_from(serials_unbounded).unwrap();
 
 		let buyer: H160 = buyer.into();
 		let buyer: Option<Runtime::AccountId> =
@@ -471,7 +475,12 @@ where
 			})
 			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
 
-		let serial_numbers = BoundedVec::try_from(serials_unbounded).unwrap();
+		// Bound outer serial vec
+		let serial_numbers:
+			BoundedVec<SerialNumber, Runtime::MaxTokensPerListing>
+		 = BoundedVec::try_from(serials_unbounded)
+			.or_else(|_| Err(revert("Marketplace: Too many serial numbers")))?;
+		// let serial_numbers = BoundedVec::try_from(serials_unbounded).unwrap();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		ensure!(
@@ -815,10 +824,11 @@ where
 		let offer_id: OfferId = offer_id.saturated_into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id);
-		if offer.is_err() {
-			return Err(revert("Marketplace: Offer details not found"))
-		}
+		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id)
+		.map_err(|e| {
+			revert(alloc::format!("Marketplace: Offer details not found {:?}", e))
+		})?;
+
 		let offer = offer.unwrap();
 		let (collection_id, serial_number) = offer.token_id;
 		let buyer: H160 = offer.buyer.into();
