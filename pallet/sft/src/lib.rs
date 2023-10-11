@@ -43,16 +43,12 @@ mod benchmarking;
 mod impls;
 mod types;
 mod weights;
+
 pub use weights::WeightInfo;
 
 pub use impls::*;
 pub use pallet::*;
 pub use types::*;
-
-/// The maximum length of valid collection IDs
-pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
-/// The maximum amount of listings to return
-pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -124,7 +120,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new collection of tokens was created
 		CollectionCreate {

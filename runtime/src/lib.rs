@@ -414,6 +414,7 @@ impl pallet_nft::Config for Runtime {
 	type MintLimit = MintLimit;
 	type OnTransferSubscription = TokenApprovals;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
+	type MultiCurrency = AssetsExt;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type StringLimit = CollectionNameStringLimit;

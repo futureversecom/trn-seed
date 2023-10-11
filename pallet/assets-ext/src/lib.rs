@@ -26,6 +26,7 @@
 //! substrate at this time
 
 #![cfg_attr(not(feature = "std"), no_std)]
+
 pub use pallet::*;
 
 use frame_support::{
@@ -70,7 +71,7 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
+	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::genesis_config]
@@ -134,7 +135,7 @@ pub mod pallet {
 	pub type NextAssetId<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Some assets have been placed on hold by a pallet
 		PlaceHold {
@@ -190,7 +191,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Creates a new asset with unique ID according to the network asset id scheme.
-		#[pallet::weight(<T as Config>::WeightInfo::create_asset())]
+		#[pallet::weight(< T as Config >::WeightInfo::create_asset())]
 		#[transactional]
 		pub fn create_asset(
 			origin: OriginFor<T>,
@@ -208,6 +209,8 @@ pub mod pallet {
 			let owner = owner.unwrap_or(who);
 			Self::create_with_metadata(&owner, name, symbol, decimals, min_balance)?;
 			Ok(().into())
+			// 0.000_012_500
+			// 1_000_000_000
 		}
 	}
 }
