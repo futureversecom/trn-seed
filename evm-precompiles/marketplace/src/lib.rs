@@ -127,11 +127,11 @@ where
 				Action::UpdateFixedPrice |
 				Action::AuctionNft |
 				Action::Bid |
+				Action::Buy |
 				Action::CancelSale |
 				Action::MakeSimpleOffer |
 				Action::CancelOffer |
 				Action::AcceptOffer => FunctionModifier::NonPayable,
-				Action::Buy => FunctionModifier::Payable, // user would need to pay to buy nft
 				_ => FunctionModifier::View,
 			}) {
 				return Err(err.into())
@@ -290,8 +290,9 @@ where
 		let buyer: H160 = buyer.into();
 		let buyer: Option<Runtime::AccountId> =
 			if buyer == H160::default() { None } else { Some(buyer.into()) };
-		let marketplace_id: Option<u32> =
-			if marketplace_id == u32::default() { None } else { Some(marketplace_id) };
+		// let marketplace_id: Option<u32> = if marketplace_id == u32::MIN {}
+		//	if marketplace_id == u32::default() { None } else { Some(marketplace_id) };
+		let marketplace_id: Option<u32> = Some(marketplace_id);
 
 		let caller: Runtime::AccountId = handle.context().caller.into();
 		// Manually record gas
