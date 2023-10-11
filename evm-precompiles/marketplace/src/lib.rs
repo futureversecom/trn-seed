@@ -392,28 +392,39 @@ where
 		))?;
 
 		let caller: Runtime::AccountId = handle.context().caller.into(); // caller is the buyer
-		let listing = pallet_marketplace::Pallet::<Runtime>::do_buy(caller, listing_id)
-			.or_else(|_| Err(revert("Marketplace: NotForFixedPriceSale")))?;
 
-		let collection_id = H256::from_low_u64_be(listing.collection_id as u64);
-
-		let seller = listing.seller;
-		let seller: H160 = seller.into();
-		log4(
-			handle.code_address(),
-			SELECTOR_LOG_FIXED_PRICE_SALE_COMPLETE,
-			collection_id,
-			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-			H256::from_slice(&EvmDataWriter::new().write(listing.fixed_price).build()),
-			EvmDataWriter::new()
-				.write(Address::from(seller))
-				.write(listing.serial_numbers.into_inner())
-				.build(),
-		)
-		.record(handle)?;
+		// Dispatch call
+		let may_be_listing = pallet_marketplace::Pallet::<Runtime>::do_buy(caller, listing_id);
 
 		// Build output.
-		Ok(succeed([]))
+		match may_be_listing {
+			Ok(listing) => {
+				let collection_id = H256::from_low_u64_be(listing.collection_id as u64);
+
+				let seller = listing.seller;
+				let seller: H160 = seller.into();
+				log4(
+					handle.code_address(),
+					SELECTOR_LOG_FIXED_PRICE_SALE_COMPLETE,
+					collection_id,
+					H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
+					H256::from_slice(&EvmDataWriter::new().write(listing.fixed_price).build()),
+					EvmDataWriter::new()
+						.write(Address::from(seller))
+						.write(listing.serial_numbers.into_inner())
+						.build(),
+				)
+					.record(handle)?;
+
+				// Build output.
+				Ok(succeed([]))
+			}
+			Err(err) => Err(revert(
+				alloc::format!("Marketplace: buy nft failed {:?}", err.stripped())
+					.as_bytes()
+					.to_vec(),
+			)),
+		}
 	}
 
 	fn auction_nft(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
