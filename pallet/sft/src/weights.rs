@@ -48,145 +48,164 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_sft.
 pub trait WeightInfo {
-	fn create_collection() -> Weight;
-	fn create_token() -> Weight;
-	fn mint() -> Weight;
-	fn transfer() -> Weight;
-	fn burn() -> Weight;
-	fn set_owner() -> Weight;
-	fn set_max_issuance() -> Weight;
-	fn set_base_uri() -> Weight;
-	fn set_name() -> Weight;
+    fn create_collection() -> Weight;
+    fn create_token() -> Weight;
+    fn mint(p: u32) -> Weight;
+    fn transfer(p: u32) -> Weight;
+    fn burn(p: u32) -> Weight;
+    fn set_owner() -> Weight;
+    fn set_max_issuance() -> Weight;
+    fn set_base_uri() -> Weight;
+    fn set_name() -> Weight;
 }
 
 /// Weights for pallet_sft using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
+
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	// Storage: Nft NextCollectionId (r:1 w:1)
-	// Storage: EVM AccountCodes (r:1 w:1)
-	// Storage: Futurepass DefaultProxy (r:1 w:0)
-	// Storage: System Account (r:1 w:1)
-	// Storage: Sft SftCollectionInfo (r:0 w:1)
-	fn create_collection() -> Weight {
-		Weight::from_ref_time(105_424_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
-	}
-	// Storage: Sft SftCollectionInfo (r:1 w:1)
-	// Storage: Sft TokenInfo (r:0 w:1)
-	fn create_token() -> Weight {
-		Weight::from_ref_time(72_084_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
-	}
-	// Storage: Sft SftCollectionInfo (r:1 w:0)
-	// Storage: Sft TokenInfo (r:1 w:1)
-	fn mint() -> Weight {
-		Weight::from_ref_time(73_132_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(2 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Sft TokenInfo (r:1 w:1)
-	fn transfer() -> Weight {
-		Weight::from_ref_time(67_750_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Sft TokenInfo (r:1 w:1)
-	fn burn() -> Weight {
-		Weight::from_ref_time(69_837_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Sft SftCollectionInfo (r:1 w:1)
-	fn set_owner() -> Weight {
-		Weight::from_ref_time(62_575_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Sft SftCollectionInfo (r:1 w:0)
-	// Storage: Sft TokenInfo (r:1 w:1)
-	fn set_max_issuance() -> Weight {
-		Weight::from_ref_time(65_626_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(2 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Sft SftCollectionInfo (r:1 w:1)
-	fn set_base_uri() -> Weight {
-		Weight::from_ref_time(59_724_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Sft SftCollectionInfo (r:1 w:1)
-	fn set_name() -> Weight {
-		Weight::from_ref_time(59_769_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
+    // Storage: Nft NextCollectionId (r:1 w:1)
+    // Storage: EVM AccountCodes (r:1 w:1)
+    // Storage: Futurepass DefaultProxy (r:1 w:0)
+    // Storage: System Account (r:1 w:1)
+    // Storage: Sft SftCollectionInfo (r:0 w:1)
+    fn create_collection() -> Weight {
+        Weight::from_ref_time(50_786_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(4 as u64))
+            .saturating_add(RocksDbWeight::get().writes(4 as u64))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:1)
+    // Storage: Sft TokenInfo (r:0 w:1)
+    fn create_token() -> Weight {
+        Weight::from_ref_time(33_744_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(2 as u64))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:0)
+    // Storage: Sft TokenInfo (r:1 w:1)
+    /// The range of component `p` is `[1, 500]`.
+    fn mint(p: u32) -> Weight {
+        Weight::from_ref_time(34_185_000 as u64)
+            // Standard Error: 30_221
+            .saturating_add(Weight::from_ref_time(1_709_631 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().reads(2 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Sft TokenInfo (r:1 w:1)
+    /// The range of component `p` is `[1, 500]`.
+    fn transfer(p: u32) -> Weight {
+        Weight::from_ref_time(30_739_000 as u64)
+            // Standard Error: 29_508
+            .saturating_add(Weight::from_ref_time(1_686_018 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Sft TokenInfo (r:1 w:1)
+    /// The range of component `p` is `[1, 500]`.
+    fn burn(p: u32) -> Weight {
+        Weight::from_ref_time(30_908_000 as u64)
+            // Standard Error: 29_520
+            .saturating_add(Weight::from_ref_time(1_713_376 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:1)
+    fn set_owner() -> Weight {
+        Weight::from_ref_time(28_013_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:0)
+    // Storage: Sft TokenInfo (r:1 w:1)
+    fn set_max_issuance() -> Weight {
+        Weight::from_ref_time(30_248_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(2 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:1)
+    fn set_base_uri() -> Weight {
+        Weight::from_ref_time(26_530_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:1)
+    fn set_name() -> Weight {
+        Weight::from_ref_time(26_831_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	// Storage: Nft NextCollectionId (r:1 w:1)
-	// Storage: EVM AccountCodes (r:1 w:1)
-	// Storage: Futurepass DefaultProxy (r:1 w:0)
-	// Storage: System Account (r:1 w:1)
-	// Storage: Sft SftCollectionInfo (r:0 w:1)
-	fn create_collection() -> Weight {
-		Weight::from_ref_time(105_424_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(4 as u64))
-			.saturating_add(RocksDbWeight::get().writes(4 as u64))
-	}
-	// Storage: Sft SftCollectionInfo (r:1 w:1)
-	// Storage: Sft TokenInfo (r:0 w:1)
-	fn create_token() -> Weight {
-		Weight::from_ref_time(72_084_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(2 as u64))
-	}
-	// Storage: Sft SftCollectionInfo (r:1 w:0)
-	// Storage: Sft TokenInfo (r:1 w:1)
-	fn mint() -> Weight {
-		Weight::from_ref_time(73_132_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(2 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Sft TokenInfo (r:1 w:1)
-	fn transfer() -> Weight {
-		Weight::from_ref_time(67_750_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Sft TokenInfo (r:1 w:1)
-	fn burn() -> Weight {
-		Weight::from_ref_time(69_837_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Sft SftCollectionInfo (r:1 w:1)
-	fn set_owner() -> Weight {
-		Weight::from_ref_time(62_575_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Sft SftCollectionInfo (r:1 w:0)
-	// Storage: Sft TokenInfo (r:1 w:1)
-	fn set_max_issuance() -> Weight {
-		Weight::from_ref_time(65_626_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(2 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Sft SftCollectionInfo (r:1 w:1)
-	fn set_base_uri() -> Weight {
-		Weight::from_ref_time(59_724_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Sft SftCollectionInfo (r:1 w:1)
-	fn set_name() -> Weight {
-		Weight::from_ref_time(59_769_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
+    // Storage: Nft NextCollectionId (r:1 w:1)
+    // Storage: EVM AccountCodes (r:1 w:1)
+    // Storage: Futurepass DefaultProxy (r:1 w:0)
+    // Storage: System Account (r:1 w:1)
+    // Storage: Sft SftCollectionInfo (r:0 w:1)
+    fn create_collection() -> Weight {
+        Weight::from_ref_time(50_786_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(4 as u64))
+            .saturating_add(RocksDbWeight::get().writes(4 as u64))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:1)
+    // Storage: Sft TokenInfo (r:0 w:1)
+    fn create_token() -> Weight {
+        Weight::from_ref_time(33_744_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(2 as u64))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:0)
+    // Storage: Sft TokenInfo (r:1 w:1)
+    /// The range of component `p` is `[1, 500]`.
+    fn mint(p: u32) -> Weight {
+        Weight::from_ref_time(34_185_000 as u64)
+            // Standard Error: 30_221
+            .saturating_add(Weight::from_ref_time(1_709_631 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().reads(2 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Sft TokenInfo (r:1 w:1)
+    /// The range of component `p` is `[1, 500]`.
+    fn transfer(p: u32) -> Weight {
+        Weight::from_ref_time(30_739_000 as u64)
+            // Standard Error: 29_508
+            .saturating_add(Weight::from_ref_time(1_686_018 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Sft TokenInfo (r:1 w:1)
+    /// The range of component `p` is `[1, 500]`.
+    fn burn(p: u32) -> Weight {
+        Weight::from_ref_time(30_908_000 as u64)
+            // Standard Error: 29_520
+            .saturating_add(Weight::from_ref_time(1_713_376 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:1)
+    fn set_owner() -> Weight {
+        Weight::from_ref_time(28_013_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:0)
+    // Storage: Sft TokenInfo (r:1 w:1)
+    fn set_max_issuance() -> Weight {
+        Weight::from_ref_time(30_248_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(2 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:1)
+    fn set_base_uri() -> Weight {
+        Weight::from_ref_time(26_530_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:1)
+    fn set_name() -> Weight {
+        Weight::from_ref_time(26_831_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
 }
 

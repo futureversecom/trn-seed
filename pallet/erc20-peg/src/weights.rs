@@ -48,102 +48,109 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_erc20_peg.
 pub trait WeightInfo {
-	fn activate_deposits() -> Weight;
-	fn activate_withdrawals() -> Weight;
-	fn withdraw() -> Weight;
-	fn set_contract_address() -> Weight;
-	fn set_erc20_meta() -> Weight;
-	fn set_payment_delay() -> Weight;
+    fn activate_deposits() -> Weight;
+    fn activate_withdrawals() -> Weight;
+    fn withdraw() -> Weight;
+    fn set_contract_address() -> Weight;
+    fn set_erc20_meta(p: u32) -> Weight;
+    fn set_payment_delay() -> Weight;
 }
 
 /// Weights for pallet_erc20_peg using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
+
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	// Storage: Erc20Peg DepositsActive (r:0 w:1)
-	fn activate_deposits() -> Weight {
-		Weight::from_ref_time(18_463_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Erc20Peg WithdrawalsActive (r:0 w:1)
-	fn activate_withdrawals() -> Weight {
-		Weight::from_ref_time(18_658_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Erc20Peg WithdrawalsActive (r:1 w:0)
-	// Storage: Erc20Peg AssetIdToErc20 (r:1 w:0)
-	// Storage: Erc20Peg PaymentDelay (r:1 w:0)
-	// Storage: Assets Asset (r:1 w:1)
-	// Storage: Assets Account (r:1 w:1)
-	// Storage: Erc20Peg ContractAddress (r:1 w:0)
-	// Storage: EthBridge NextEventProofId (r:1 w:1)
-	// Storage: EthBridge NotaryKeys (r:1 w:0)
-	// Storage: EthBridge NotarySetId (r:1 w:0)
-	// Storage: EthBridge BridgePaused (r:1 w:0)
-	// Storage: System Digest (r:1 w:1)
-	fn withdraw() -> Weight {
-		Weight::from_ref_time(171_257_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(11 as u64))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
-	}
-	// Storage: Erc20Peg ContractAddress (r:0 w:1)
-	fn set_contract_address() -> Weight {
-		Weight::from_ref_time(44_122_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Erc20Peg Erc20Meta (r:0 w:1)
-	fn set_erc20_meta() -> Weight {
-		Weight::from_ref_time(22_293_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: Erc20Peg PaymentDelay (r:0 w:1)
-	fn set_payment_delay() -> Weight {
-		Weight::from_ref_time(45_869_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
+    // Storage: Erc20Peg DepositsActive (r:0 w:1)
+    fn activate_deposits() -> Weight {
+        Weight::from_ref_time(8_446_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Erc20Peg WithdrawalsActive (r:0 w:1)
+    fn activate_withdrawals() -> Weight {
+        Weight::from_ref_time(8_416_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Erc20Peg WithdrawalsActive (r:1 w:0)
+    // Storage: Erc20Peg AssetIdToErc20 (r:1 w:0)
+    // Storage: Erc20Peg PaymentDelay (r:1 w:0)
+    // Storage: Assets Asset (r:1 w:1)
+    // Storage: Assets Account (r:1 w:1)
+    // Storage: Erc20Peg ContractAddress (r:1 w:0)
+    // Storage: EthBridge NextEventProofId (r:1 w:1)
+    // Storage: EthBridge NotaryKeys (r:1 w:0)
+    // Storage: EthBridge NotarySetId (r:1 w:0)
+    // Storage: EthBridge BridgePaused (r:1 w:0)
+    // Storage: System Digest (r:1 w:1)
+    fn withdraw() -> Weight {
+        Weight::from_ref_time(86_775_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(11 as u64))
+            .saturating_add(RocksDbWeight::get().writes(4 as u64))
+    }
+    // Storage: Erc20Peg ContractAddress (r:0 w:1)
+    fn set_contract_address() -> Weight {
+        Weight::from_ref_time(21_040_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Erc20Peg Erc20Meta (r:0 w:1)
+    /// The range of component `p` is `[1, 500]`.
+    fn set_erc20_meta(p: u32) -> Weight {
+        Weight::from_ref_time(10_049_000 as u64)
+            // Standard Error: 492
+            .saturating_add(Weight::from_ref_time(1_496_950 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Erc20Peg PaymentDelay (r:0 w:1)
+    fn set_payment_delay() -> Weight {
+        Weight::from_ref_time(20_560_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	// Storage: Erc20Peg DepositsActive (r:0 w:1)
-	fn activate_deposits() -> Weight {
-		Weight::from_ref_time(18_463_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Erc20Peg WithdrawalsActive (r:0 w:1)
-	fn activate_withdrawals() -> Weight {
-		Weight::from_ref_time(18_658_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Erc20Peg WithdrawalsActive (r:1 w:0)
-	// Storage: Erc20Peg AssetIdToErc20 (r:1 w:0)
-	// Storage: Erc20Peg PaymentDelay (r:1 w:0)
-	// Storage: Assets Asset (r:1 w:1)
-	// Storage: Assets Account (r:1 w:1)
-	// Storage: Erc20Peg ContractAddress (r:1 w:0)
-	// Storage: EthBridge NextEventProofId (r:1 w:1)
-	// Storage: EthBridge NotaryKeys (r:1 w:0)
-	// Storage: EthBridge NotarySetId (r:1 w:0)
-	// Storage: EthBridge BridgePaused (r:1 w:0)
-	// Storage: System Digest (r:1 w:1)
-	fn withdraw() -> Weight {
-		Weight::from_ref_time(171_257_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(11 as u64))
-			.saturating_add(RocksDbWeight::get().writes(4 as u64))
-	}
-	// Storage: Erc20Peg ContractAddress (r:0 w:1)
-	fn set_contract_address() -> Weight {
-		Weight::from_ref_time(44_122_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Erc20Peg Erc20Meta (r:0 w:1)
-	fn set_erc20_meta() -> Weight {
-		Weight::from_ref_time(22_293_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: Erc20Peg PaymentDelay (r:0 w:1)
-	fn set_payment_delay() -> Weight {
-		Weight::from_ref_time(45_869_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
+    // Storage: Erc20Peg DepositsActive (r:0 w:1)
+    fn activate_deposits() -> Weight {
+        Weight::from_ref_time(8_446_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Erc20Peg WithdrawalsActive (r:0 w:1)
+    fn activate_withdrawals() -> Weight {
+        Weight::from_ref_time(8_416_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Erc20Peg WithdrawalsActive (r:1 w:0)
+    // Storage: Erc20Peg AssetIdToErc20 (r:1 w:0)
+    // Storage: Erc20Peg PaymentDelay (r:1 w:0)
+    // Storage: Assets Asset (r:1 w:1)
+    // Storage: Assets Account (r:1 w:1)
+    // Storage: Erc20Peg ContractAddress (r:1 w:0)
+    // Storage: EthBridge NextEventProofId (r:1 w:1)
+    // Storage: EthBridge NotaryKeys (r:1 w:0)
+    // Storage: EthBridge NotarySetId (r:1 w:0)
+    // Storage: EthBridge BridgePaused (r:1 w:0)
+    // Storage: System Digest (r:1 w:1)
+    fn withdraw() -> Weight {
+        Weight::from_ref_time(86_775_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(11 as u64))
+            .saturating_add(RocksDbWeight::get().writes(4 as u64))
+    }
+    // Storage: Erc20Peg ContractAddress (r:0 w:1)
+    fn set_contract_address() -> Weight {
+        Weight::from_ref_time(21_040_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Erc20Peg Erc20Meta (r:0 w:1)
+    /// The range of component `p` is `[1, 500]`.
+    fn set_erc20_meta(p: u32) -> Weight {
+        Weight::from_ref_time(10_049_000 as u64)
+            // Standard Error: 492
+            .saturating_add(Weight::from_ref_time(1_496_950 as u64).saturating_mul(p as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Erc20Peg PaymentDelay (r:0 w:1)
+    fn set_payment_delay() -> Weight {
+        Weight::from_ref_time(20_560_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
 }
 

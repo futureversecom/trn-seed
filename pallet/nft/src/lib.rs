@@ -47,6 +47,7 @@ pub mod mock;
 #[cfg(test)]
 mod tests;
 pub mod weights;
+
 pub use weights::WeightInfo;
 
 mod impls;
@@ -143,7 +144,7 @@ pub mod pallet {
 	pub type TokenLocks<T> = StorageMap<_, Twox64Concat, TokenId, TokenLockReason>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new collection of tokens was created
 		CollectionCreate {
@@ -370,7 +371,9 @@ pub mod pallet {
 		/// `metadata_scheme` - The off-chain metadata referencing scheme for tokens in this
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will
 		/// apply to all tokens in the collection by default.
-		#[pallet::weight(T::WeightInfo::create_collection())]
+		#[pallet::weight({
+        T::WeightInfo::create_collection(* initial_issuance as u32)
+        })]
 		#[transactional]
 		pub fn create_collection(
 			origin: OriginFor<T>,
@@ -405,7 +408,9 @@ pub mod pallet {
 		/// Caller must be the collection owner
 		/// -----------
 		/// Weight is O(N) where N is `quantity`
-		#[pallet::weight(T::WeightInfo::mint())]
+		#[pallet::weight({
+        T::WeightInfo::mint(* quantity as u32)
+        })]
 		#[transactional]
 		pub fn mint(
 			origin: OriginFor<T>,
@@ -457,7 +462,9 @@ pub mod pallet {
 
 		/// Transfer ownership of an NFT
 		/// Caller must be the token owner
-		#[pallet::weight(T::WeightInfo::transfer())]
+		#[pallet::weight({
+        T::WeightInfo::transfer(serial_numbers.len() as u32)
+        })]
 		#[transactional]
 		pub fn transfer(
 			origin: OriginFor<T>,

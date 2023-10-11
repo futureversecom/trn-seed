@@ -24,7 +24,6 @@ use codec::Encode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
-use sp_runtime::Permill;
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -44,7 +43,7 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 	assert_ok!(Nft::<T>::create_collection(
 		origin::<T>(&caller).into(),
 		BoundedVec::truncate_from("New Collection".encode()),
-		1,
+		1000,
 		None,
 		None,
 		metadata_scheme,
@@ -66,7 +65,7 @@ benchmarks! {
 
 	set_max_issuance {
 		let collection_id = build_collection::<T>(None);
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 32)
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 100001)
 
 	set_base_uri {
 		let collection_id = build_collection::<T>(None);
@@ -77,17 +76,21 @@ benchmarks! {
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, BoundedVec::truncate_from("New Name".encode()))
 
 	create_collection {
+		let p in 1 .. (500);
 		let metadata = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 		let ccc = CrossChainCompatibility { xrpl: false };
-	}: _(origin::<T>(&account::<T>("Alice")), BoundedVec::truncate_from("Collection".encode()), 0, None, None, metadata, None, ccc)
+	}: _(origin::<T>(&account::<T>("Alice")), BoundedVec::truncate_from("Collection".encode()), p, None, None, metadata, None, ccc)
 
 	mint {
+		let p in 1 .. (500);
 		let collection_id = build_collection::<T>(None);
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 1, None)
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, p, None)
 
 	transfer {
 		let collection_id = build_collection::<T>(None);
-		let serial_numbers = BoundedVec::try_from(vec![0]).unwrap();
+		let p in 1 .. (500);
+		let serial_numbers: Vec<SerialNumber> = (0..p).collect();
+		let serial_numbers = BoundedVec::try_from(serial_numbers).unwrap();
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, serial_numbers, account::<T>("Bob"))
 
 	burn {

@@ -69,9 +69,9 @@ fn deposit_max_tokens(owner: AccountId) {
 		}
 
 		let token_ids =
-		    BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::truncate_from(
-			    vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::truncate_from(token_ids)],
-		    );
+            BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::truncate_from(
+                vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::truncate_from(token_ids)],
+            );
 
 		let token_information = GroupedTokenInfo::new(token_ids, token_addresses.clone(), owner);
 
@@ -110,7 +110,7 @@ fn decode_deposit_event_errs_too_many_tokens() {
 		let test_vals = TestVals::default();
 
 		// Too many tokens
-		let excessive_inner = vec![Token::Uint(test_vals.inner_token_id); 1000];
+		let excessive_inner = vec![Token::Uint(test_vals.inner_token_id); 5001];
 
 		// NFT bridge data encoded
 		let data = ethabi::encode(&[
@@ -380,7 +380,7 @@ fn do_deposit_adds_to_blocked_on_fail() {
 			blocked_mint_id,
 			collection_id,
 			serial_numbers: BoundedVec::truncate_from(serial_numbers.clone()),
-			destination_address: test_vals.destination.into()
+			destination_address: test_vals.destination.into(),
 		}));
 
 		let blocked =

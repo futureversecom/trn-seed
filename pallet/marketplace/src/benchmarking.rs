@@ -45,7 +45,7 @@ pub fn build_collection<T: Config + pallet_nft::Config>(
 	assert_ok!(Nft::<T>::create_collection(
 		origin::<T>(&caller).into(),
 		BoundedVec::truncate_from("New Collection".encode()),
-		1,
+		1000,
 		None,
 		None,
 		metadata_scheme,
@@ -122,11 +122,17 @@ benchmarks! {
 	}: _(origin::<T>(&account::<T>("Alice")), None, Permill::zero())
 
 	sell_nft {
+		let p in 1 .. (50);
 		let alice = account::<T>("Alice");
 		let asset_id = build_asset::<T>(&alice);
+		let listing_id = NextListingId::<T>::get();
 		let collection_id = build_collection::<T>(None);
-		let serial_numbers = BoundedVec::try_from(vec![0]).unwrap();
+		let serial_numbers: Vec<SerialNumber> = (0..p).collect();
+		let serial_numbers = BoundedVec::try_from(serial_numbers).unwrap();
 	}: _(origin::<T>(&alice), collection_id, serial_numbers, None, asset_id, Balance::from(100u32), None, None)
+	verify {
+		assert_eq!(listing_id + 1, NextListingId::<T>::get())
+	}
 
 	buy {
 		let collection_id = build_collection::<T>(None);
@@ -134,11 +140,17 @@ benchmarks! {
 	}: _(origin::<T>(&account::<T>("Bob")), listing_id)
 
 	auction_nft {
+		let p in 1 .. (50);
 		let alice = account::<T>("Alice");
 		let asset_id = build_asset::<T>(&alice);
+		let listing_id = NextListingId::<T>::get();
 		let collection_id = build_collection::<T>(None);
-		let serial_numbers = BoundedVec::try_from(vec![0]).unwrap();
+		let serial_numbers: Vec<SerialNumber> = (0..p).collect();
+		let serial_numbers = BoundedVec::try_from(serial_numbers).unwrap();
 	}: _(origin::<T>(&alice), collection_id, serial_numbers, asset_id, Balance::from(1u32), Some(10u32.into()), None)
+	verify {
+		assert_eq!(listing_id + 1, NextListingId::<T>::get())
+	}
 
 	bid {
 		let collection_id = build_collection::<T>(None);
@@ -169,6 +181,10 @@ benchmarks! {
 		let collection_id = build_collection::<T>(None);
 		let offer_id = offer_builder::<T>(collection_id);
 	}: _(origin::<T>(&account::<T>("Alice")), offer_id)
+
+	set_fee_to {
+		let fee_account = account::<T>("Alice");
+	}: _(RawOrigin::Root, Some(fee_account))
 }
 
 impl_benchmark_test_suite!(Marketplace, crate::mock::new_test_ext(), crate::mock::Test,);

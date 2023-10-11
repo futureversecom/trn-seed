@@ -38,6 +38,7 @@ use sp_std::prelude::*;
 mod benchmarking;
 
 mod weights;
+
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -53,7 +54,6 @@ pub type Xls20TokenId = [u8; 64];
 
 #[frame_support::pallet]
 pub mod pallet {
-
 	use super::*;
 
 	/// The current storage version.
@@ -94,7 +94,7 @@ pub mod pallet {
 		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, SerialNumber, Xls20TokenId>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Request sent to XLS20 Relayer
 		Xls20MintRequest {
@@ -171,7 +171,9 @@ pub mod pallet {
 		}
 
 		// Collection owners can re-request XLS-20 mints on tokens that have failed
-		#[pallet::weight(T::WeightInfo::re_request_xls20_mint())]
+		#[pallet::weight({
+        T::WeightInfo::re_request_xls20_mint(serial_numbers.len() as u32)
+        })]
 		#[transactional]
 		pub fn re_request_xls20_mint(
 			origin: OriginFor<T>,
@@ -213,7 +215,9 @@ pub mod pallet {
 		/// Submit XLS-20 token ids to The Root Network
 		/// Only callable by the trusted relayer account
 		/// Can apply multiple mappings from the same collection in one transaction
-		#[pallet::weight(T::WeightInfo::fulfill_xls20_mint())]
+		#[pallet::weight({
+        T::WeightInfo::fulfill_xls20_mint(token_mappings.len() as u32)
+        })]
 		#[transactional]
 		pub fn fulfill_xls20_mint(
 			origin: OriginFor<T>,

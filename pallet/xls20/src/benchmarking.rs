@@ -91,16 +91,23 @@ benchmarks! {
 	}: _(origin::<T>(&caller), collection_id)
 
 	re_request_xls20_mint {
+		let p in 1 .. (50);
 		let caller = account::<T>("Alice");
-		let collection_id = build_xls20_collection::<T>(Some(caller.clone()), None, 1);
-		let serial_numbers = BoundedVec::try_from(vec![0]).unwrap();
+		let collection_id = build_xls20_collection::<T>(Some(caller.clone()), None, p);
+		let serial_numbers: Vec<SerialNumber> = (0..p).collect();
+		let serial_numbers = BoundedVec::try_from(serial_numbers).unwrap();
 	}: _(origin::<T>(&caller), collection_id, serial_numbers)
 
 	fulfill_xls20_mint {
+		let p in 1 .. (50);
 		let caller = account::<T>("Alice");
 		let relayer = account::<T>("Bob");
-		let collection_id = build_xls20_collection::<T>(Some(caller), Some(relayer.clone()), 1);
-		let serial_numbers = setup_token_mappings::<T>(vec![(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")]);
+		let collection_id = build_xls20_collection::<T>(Some(caller), Some(relayer.clone()), p);
+		let mut token_mappings: Vec<(SerialNumber, &str)> = vec![];
+		for i in 0..p {
+			token_mappings.push((i, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"));
+		}
+		let serial_numbers = setup_token_mappings::<T>(token_mappings);
 	}: _(origin::<T>(&relayer), collection_id, serial_numbers)
 }
 
