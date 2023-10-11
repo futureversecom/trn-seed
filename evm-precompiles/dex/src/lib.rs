@@ -482,8 +482,6 @@ where
 			.record(handle)?;
 		}
 
-		//Swap(T::AccountId, Vec<AssetId>, Balance, Balance, T::AccountId),
-
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(amounts).build()))
 	}
