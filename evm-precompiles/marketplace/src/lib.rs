@@ -496,7 +496,6 @@ where
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
 		})?;
 		let collection_id = H256::from_low_u64_be(collection_id as u64);
-		// let listing_id = convert_u128_to_h256(listing_id);
 		log4(
 			handle.code_address(),
 			SELECTOR_LOG_AUCTION_OPEN,
