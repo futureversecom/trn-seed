@@ -350,9 +350,6 @@ where
 		ensure!(new_price <= u128::MAX.into(), revert("Marketplace: Expected new price <= 2^128"));
 		let new_price: Balance = new_price.saturated_into();
 		let caller: Runtime::AccountId = handle.context().caller.into();
-		let _ = pallet_marketplace::Pallet::<Runtime>::do_update_fixed_price(
-			caller, listing_id, new_price,
-		);
 		let listing = match pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id) {
 			Ok(Listing::FixedPrice(listing)) => listing,
 			_ => return Err(revert("Not fixed price")),
