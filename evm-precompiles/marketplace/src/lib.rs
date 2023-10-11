@@ -188,7 +188,7 @@ where
 		);
 
 		let marketplace_account_h160: H160 = marketplace_account.into();
-		let marketplace_account_h160: Option<Runtime::AccountId> =
+		let marketplace_account_option: Option<Runtime::AccountId> =
 			if marketplace_account_h160 == H160::default() {
 				None
 			} else {
@@ -208,7 +208,7 @@ where
 		))?;
 		let marketplace_id = pallet_marketplace::Pallet::<Runtime>::do_register_marketplace(
 			caller,
-			marketplace_account_h160,
+			marketplace_account_option,
 			entitlement,
 		)
 		.map_err(|e| {
