@@ -286,7 +286,6 @@ where
 
 		let serial_numbers = BoundedVec::try_from(serials_unbounded).unwrap();
 
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let buyer: H160 = buyer.into();
 		let buyer: Option<Runtime::AccountId> =
 			if buyer == H160::default() { None } else { Some(buyer.into()) };
@@ -562,7 +561,7 @@ where
 		let listing_id: u128 = listing_id.saturated_into();
 
 		let origin = handle.context().caller;
-
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let listing = pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id)
 			.or_else(|_| Err(revert("Marketplace: listing details not found")))?;
 		let (collection_id, serial_numbers) = match listing.clone() {
@@ -689,10 +688,10 @@ where
 
 		ensure!(offer_id <= u64::MAX.into(), revert("Marketplace: Expected offer_id <= 2^64"));
 		let offer_id: OfferId = offer_id.saturated_into();
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id)
 			.or_else(|_| Err(revert("Marketplace: Offer details not found")))?;
 
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let origin = handle.context().caller;
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
@@ -770,7 +769,7 @@ where
 			revert("Marketplace: Expected listing id <= 2^128")
 		);
 		let listing_id: u128 = listing_id.saturated_into();
-
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let listing = pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id)
 			.or_else(|_| Err(revert("Marketplace: listing details not found")))?;
 		let (collection_id, serial_numbers, price, payment_asset) = match listing {
@@ -804,6 +803,7 @@ where
 		ensure!(offer_id <= u64::MAX.into(), revert("Marketplace: Expected offer_id <= 2^64"));
 		let offer_id: OfferId = offer_id.saturated_into();
 
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id);
 		if offer.is_err() {
 			return Err(revert("Marketplace: Offer details not found"))
