@@ -488,8 +488,9 @@ where
 			revert("Marketplace: Expected marketplace_id <= 2^32")
 		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
-		let marketplace_id: Option<u32> =
-			if marketplace_id == u32::default() { None } else { Some(marketplace_id) };
+		// let marketplace_id: Option<u32> =
+		// 	if marketplace_id == u32::default() { None } else { Some(marketplace_id) };
+		let marketplace_id: Option<u32> = Some(marketplace_id);
 		// Parse asset_id
 		let payment_asset: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
 			payment_asset,
@@ -646,8 +647,9 @@ where
 			revert("Marketplace: Expected marketplace id <= 2^32")
 		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
-		let marketplace_id: Option<u32> =
-			if marketplace_id == u32::default() { None } else { Some(marketplace_id) };
+		// let marketplace_id: Option<u32> =
+		// 	if marketplace_id == u32::default() { None } else { Some(marketplace_id) };
+		let marketplace_id: Option<u32> = Some(marketplace_id);
 		ensure!(amount <= u128::MAX.into(), revert("Marketplace: Expected amount <= 2^128"));
 		let amount: Balance = amount.saturated_into();
 		let collection_id: CollectionUuid =
@@ -812,7 +814,6 @@ where
 				.write::<Vec<u32>>(serial_numbers.into_inner())
 				.write::<u128>(price)
 				.write::<u32>(payment_asset)
-				// .write::<u32>(marketplace_id.unwrap())
 				.build(),
 		))
 	}
@@ -839,7 +840,6 @@ where
 				.write::<u32>(serial_number)
 				.write::<u128>(offer.amount)
 				.write::<Address>(Address::from(buyer))
-				// .write::<u32>(offer.marketplace_id.unwrap())
 				.build(),
 		))
 	}
