@@ -826,7 +826,6 @@ where
 		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id)
 			.map_err(|e| revert(alloc::format!("Marketplace: Offer details not found {:?}", e)))?;
 
-		let offer = offer.unwrap();
 		let (collection_id, serial_number) = offer.token_id;
 		let buyer: H160 = offer.buyer.into();
 
