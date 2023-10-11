@@ -195,11 +195,11 @@ where
 				Some(marketplace_account_h160.into())
 			};
 
-		let entitlement: u32 = entitlement.saturated_into();
 		ensure!(
 			entitlement <= u32::MAX.into(),
 			revert("Marketplace: Expected entitlement <= 2^32")
 		);
+		let entitlement: u32 = entitlement.saturated_into();
 		let entitlement: Permill = Permill::from_parts(entitlement);
 		let caller: Runtime::AccountId = handle.context().caller.into();
 		// Manually record gas
