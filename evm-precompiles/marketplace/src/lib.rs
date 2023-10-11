@@ -312,10 +312,6 @@ where
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
 		})?;
-		ensure!(
-			listing_id <= u128::MAX.into(),
-			revert("Marketplace: Expected listing id <= 2^128")
-		);
 
 		log4(
 			handle.code_address(),
