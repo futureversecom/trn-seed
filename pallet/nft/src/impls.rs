@@ -202,7 +202,7 @@ impl<T: Config> Pallet<T> {
 		// Caller must be collection_owner if public mint is disabled
 		ensure!(
 			collection_info.is_collection_owner(&who) || public_mint_enabled,
-			Error::<T>::NotCollectionOwner
+			Error::<T>::PublicMintDisabled
 		);
 		// Check we don't exceed the token limit
 		ensure!(
@@ -241,6 +241,7 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn charge_mint_fee(
 		who: &T::AccountId,
+		collection_id: CollectionUuid,
 		collection_owner: &T::AccountId,
 		public_mint_info: PublicMintInformation,
 		token_count: TokenCount,
@@ -257,6 +258,14 @@ impl<T: Config> Pallet<T> {
 		// Charge the fee if there is a fee set
 		if let Some((asset, total_fee)) = total_fee {
 			T::MultiCurrency::transfer(asset, who, &collection_owner, total_fee, false)?;
+			// Deposit event
+			Self::deposit_event(Event::<T>::MintFeePaid {
+				who: who.clone(),
+				collection_id,
+				payment_asset: asset,
+				payment_amount: total_fee,
+				token_count,
+			});
 		}
 
 		Ok(())

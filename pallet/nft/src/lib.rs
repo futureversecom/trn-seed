@@ -176,7 +176,7 @@ pub mod pallet {
 		},
 		/// Payment was made to cover a public mint
 		MintFeePaid {
-			owner: T::AccountId,
+			who: T::AccountId,
 			collection_id: CollectionUuid,
 			payment_asset: AssetId,
 			payment_amount: Balance,
@@ -225,50 +225,24 @@ pub mod pallet {
 		NotTokenOwner,
 		/// The token does not exist
 		NoToken,
-		/// The token is not listed for fixed price sale
-		NotForFixedPriceSale,
-		/// The token is not listed for auction sale
-		NotForAuction,
 		/// Origin is not the collection owner and is not permitted to perform the operation
 		NotCollectionOwner,
-		/// The token is not listed for sale
-		TokenNotListed,
-		/// The maximum number of offers on this token has been reached
-		MaxOffersReached,
+		/// This collection has not allowed public minting
+		PublicMintDisabled,
 		/// Cannot operate on a listed NFT
 		TokenLocked,
 		/// Total royalties would exceed 100% of sale or an empty vec is supplied
 		RoyaltiesInvalid,
-		/// Auction bid was lower than reserve or current highest bid
-		BidTooLow,
-		/// Selling tokens from different collection is not allowed
-		MixedBundleSale,
-		/// The account_id hasn't been registered as a marketplace
-		MarketplaceNotRegistered,
 		/// The collection does not exist
 		NoCollectionFound,
 		/// The metadata path is invalid (non-utf8 or empty)
 		InvalidMetadataPath,
-		/// No offer exists for the given OfferId
-		InvalidOffer,
-		/// Both price and asset must be None or Some
-		InvalidPaymentDetails,
-		/// The caller is not the specified buyer
-		NotBuyer,
-		/// The caller is not the seller of the NFT
-		NotSeller,
-		/// The caller owns the token and can't make an offer
-		IsTokenOwner,
 		/// The caller can not be the new owner
 		InvalidNewOwner,
-		/// Offer amount needs to be greater than 0
-		ZeroOffer,
 		/// The number of tokens have exceeded the max tokens allowed
 		TokenLimitExceeded,
 		/// The quantity exceeds the max tokens per mint limit
 		MintLimitExceeded,
-		/// Cannot make an offer on a token up for auction
-		TokenOnAuction,
 		/// Max issuance needs to be greater than 0 and initial_issuance
 		/// Cannot exceed MaxTokensPerCollection
 		InvalidMaxIssuance,
@@ -278,8 +252,6 @@ pub mod pallet {
 		MaxIssuanceReached,
 		/// Attemped to mint a token that was bridged from a different chain
 		AttemptedMintOnBridgedToken,
-		/// Failed to mint a token that was bridged from a different chain
-		FailedMintOnBridgedToken,
 		/// Cannot claim already claimed collections
 		CannotClaimNonClaimableCollections,
 		/// Initial issuance on XLS-20 compatible collections must be zero
@@ -423,7 +395,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::toggle_public_mint())]
 		pub fn toggle_public_mint(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -435,14 +407,24 @@ pub mod pallet {
 			// Only the owner can make this call
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 
+			// Get public mint info and set enabled flag
 			let mut public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
 			public_mint_info.enabled = enabled;
-			<PublicMintInfo<T>>::insert(collection_id, public_mint_info);
+
+			if public_mint_info == PublicMintInformation::default() {
+				// If the pricing details are None, and enabled is false
+				// Remove the storage entry
+				<PublicMintInfo<T>>::remove(collection_id);
+			} else {
+				// Otherwise, update the storage
+				<PublicMintInfo<T>>::insert(collection_id, public_mint_info);
+			}
+
 			Self::deposit_event(Event::<T>::PublicMintToggle { collection_id, enabled });
 			Ok(())
 		}
 
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::set_mint_price())]
 		pub fn set_mint_price(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -457,7 +439,15 @@ pub mod pallet {
 			// Get the existing public mint info if it exists
 			let mut public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
 			public_mint_info.pricing_details = pricing_details;
-			<PublicMintInfo<T>>::insert(collection_id, public_mint_info);
+
+			if public_mint_info == PublicMintInformation::default() {
+				// If the pricing details are None, and enabled is false
+				// Remove the storage entry
+				<PublicMintInfo<T>>::remove(collection_id);
+			} else {
+				// Otherwise, update the storage
+				<PublicMintInfo<T>>::insert(collection_id, public_mint_info);
+			}
 
 			// Extract payment asset and mint price for clearer event logging
 			let (payment_asset, mint_price) = match pricing_details {
@@ -511,7 +501,13 @@ pub mod pallet {
 
 			// Try charge mint fee for the mint, will not charge if not enabled or if the
 			// caller is the collection owner
-			Self::charge_mint_fee(&who, &collection_info.owner, public_mint_info, quantity)?;
+			Self::charge_mint_fee(
+				&who,
+				collection_id,
+				&collection_info.owner,
+				public_mint_info,
+				quantity,
+			)?;
 
 			// Perform the mint and update storage
 			Self::do_mint(collection_id, collection_info, &owner, &serial_numbers)?;
