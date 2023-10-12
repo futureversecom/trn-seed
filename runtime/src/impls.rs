@@ -740,6 +740,7 @@ where
 	<T as pallet_fee_proxy::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sudo::Call<T>>,
 	<T as pallet_sudo::Config>::RuntimeCall: IsSubType<frame_system::Call<T>>,
+	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
 	<T as pallet_fee_proxy::Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as pallet_fee_proxy::Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
 	Balance: From<
