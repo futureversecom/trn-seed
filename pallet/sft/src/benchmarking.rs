@@ -187,11 +187,11 @@ benchmarks! {
 
 	set_royalties_schedule {
 		let collection_owner = account::<T>("Alice");
-		let id = build_collection::<T>(Some(owner.clone()));
+		let id = build_collection::<T>(Some(collection_owner.clone()));
 		let royalties_schedule = RoyaltiesSchedule {
 			entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
 		};
-	}: _(origin::<T>(&owner), id, royalties_schedule.clone())
+	}: _(origin::<T>(&collection_owner), id, royalties_schedule.clone())
 	verify {
 		let collection = SftCollectionInfo::<T>::get(id);
 		assert!(collection.is_some());
