@@ -8,7 +8,7 @@
   ],
   "telemetryEndpoints": [
     [
-      "/dns/telemetry.rootnet.app/tcp/9443/x-parity-wss/%2Fsubmit%25200",
+      "/dns/telemetry.rootnet.app/tcp/9443/x-parity-wss/%2Fsubmit",
       0
     ]
   ],

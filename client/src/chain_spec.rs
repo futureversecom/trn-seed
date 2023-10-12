@@ -50,7 +50,7 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 
 type AccountPublic = <Signature as Verify>::Signer;
 
-const TELEMETRY_URL: &str = "wss://telemetry.rootnet.app:9443/submit 0";
+const TELEMETRY_URL: &str = "wss://telemetry.rootnet.app:9443/submit";
 
 /// Generate an account ID from seed.
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
