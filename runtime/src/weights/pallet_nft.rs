@@ -61,6 +61,12 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
+	// Storage: Nft CollectionInfo (r:1 w:1)
+	fn set_royalties_schedule() -> Weight {
+		Weight::from_ref_time(68_177_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
 	// Storage: Nft NextCollectionId (r:1 w:1)
 	// Storage: EVM AccountCodes (r:1 w:1)
 	// Storage: Futurepass DefaultProxy (r:1 w:0)

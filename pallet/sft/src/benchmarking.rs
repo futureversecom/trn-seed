@@ -184,6 +184,20 @@ benchmarks! {
 		let collection = collection.unwrap();
 		assert_eq!(collection.collection_name, collection_name);
 	}
+
+	set_royalties_schedule {
+		let owner = account::<T>("Alice");
+		let id = build_collection::<T>(Some(owner.clone()));
+		let royalties_schedule = RoyaltiesSchedule {
+			entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
+		};
+	}: _(origin::<T>(&owner), id, royalties_schedule.clone())
+	verify {
+		let collection = SftCollectionInfo::<T>::get(id);
+		assert!(collection.is_some());
+		let collection = collection.unwrap();
+		assert_eq!(collection.royalties_schedule, Some(royalties_schedule));
+	}
 }
 
 impl_benchmark_test_suite!(Sft, crate::mock::new_test_ext(), crate::mock::Test,);
