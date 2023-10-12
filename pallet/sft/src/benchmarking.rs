@@ -189,7 +189,7 @@ benchmarks! {
 		let collection_owner = account::<T>("Alice");
 		let id = build_collection::<T>(Some(collection_owner.clone()));
 		let royalties_schedule = RoyaltiesSchedule {
-			entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
+			entitlements: BoundedVec::truncate_from(vec![(collection_owner.clone(), Permill::one())]),
 		};
 	}: _(origin::<T>(&collection_owner), id, royalties_schedule.clone())
 	verify {
