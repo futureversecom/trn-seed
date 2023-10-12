@@ -85,7 +85,7 @@ benchmarks! {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, true)
 
-	set_mint_price {
+	set_mint_fee {
 		let collection_id = build_collection::<T>(None);
 		let pricing_details = Some((1, 100));
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, pricing_details)

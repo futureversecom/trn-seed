@@ -1981,17 +1981,17 @@ mod set_name {
 	}
 }
 
-mod set_mint_price {
+mod set_mint_fee {
 	use super::*;
 
 	#[test]
-	fn set_mint_price_works() {
+	fn set_mint_fee_works() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
 			let pricing_details: (AssetId, Balance) = (1, 100);
 
-			assert_ok!(Nft::set_mint_price(
+			assert_ok!(Nft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				Some(pricing_details)
@@ -2004,7 +2004,7 @@ mod set_mint_price {
 			// Setting to different value works
 			let pricing_details: (AssetId, Balance) = (2, 234);
 
-			assert_ok!(Nft::set_mint_price(
+			assert_ok!(Nft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				Some(pricing_details)
@@ -2015,7 +2015,7 @@ mod set_mint_price {
 			assert_eq!(PublicMintInfo::<Test>::get(collection_id).unwrap(), expected_mint_info);
 
 			// Setting to None removes from storage
-			assert_ok!(Nft::set_mint_price(
+			assert_ok!(Nft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				None
@@ -2025,7 +2025,7 @@ mod set_mint_price {
 	}
 
 	#[test]
-	fn set_mint_price_should_keep_enabled_flag_intact() {
+	fn set_mint_fee_should_keep_enabled_flag_intact() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
@@ -2039,7 +2039,7 @@ mod set_mint_price {
 			));
 
 			// Set mint price should update pricing details but keep enabled as true
-			assert_ok!(Nft::set_mint_price(
+			assert_ok!(Nft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				Some(pricing_details)
@@ -2052,13 +2052,13 @@ mod set_mint_price {
 	}
 
 	#[test]
-	fn set_mint_price_emits_event() {
+	fn set_mint_fee_emits_event() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
 			let pricing_details: (AssetId, Balance) = (1, 100);
 
-			assert_ok!(Nft::set_mint_price(
+			assert_ok!(Nft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				Some(pricing_details)
@@ -2073,7 +2073,7 @@ mod set_mint_price {
 	}
 
 	#[test]
-	fn set_mint_price_not_collection_owner_fails() {
+	fn set_mint_fee_not_collection_owner_fails() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
@@ -2081,7 +2081,7 @@ mod set_mint_price {
 			let bobby = create_account(11);
 
 			assert_noop!(
-				Nft::set_mint_price(
+				Nft::set_mint_fee(
 					RawOrigin::Signed(bobby).into(),
 					collection_id,
 					Some(pricing_details)
@@ -2092,14 +2092,14 @@ mod set_mint_price {
 	}
 
 	#[test]
-	fn set_mint_price_no_collection_fails() {
+	fn set_mint_fee_no_collection_fails() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = 1; // No collection
 			let pricing_details: (AssetId, Balance) = (1, 100);
 
 			assert_noop!(
-				Nft::set_mint_price(
+				Nft::set_mint_fee(
 					RawOrigin::Signed(collection_owner).into(),
 					collection_id,
 					Some(pricing_details)
@@ -2176,7 +2176,7 @@ mod toggle_public_mint {
 
 			// Set up pricing details
 			let pricing_details: (AssetId, Balance) = (2, 234);
-			assert_ok!(Nft::set_mint_price(
+			assert_ok!(Nft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				Some(pricing_details)
@@ -2254,7 +2254,7 @@ mod public_minting {
 
 				// Set up pricing details
 				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
-				assert_ok!(Nft::set_mint_price(
+				assert_ok!(Nft::set_mint_fee(
 					RawOrigin::Signed(collection_owner).into(),
 					collection_id,
 					Some(pricing_details)
@@ -2311,7 +2311,7 @@ mod public_minting {
 
 				// Set up pricing details
 				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
-				assert_ok!(Nft::set_mint_price(
+				assert_ok!(Nft::set_mint_fee(
 					RawOrigin::Signed(collection_owner).into(),
 					collection_id,
 					Some(pricing_details)
@@ -2345,7 +2345,7 @@ mod public_minting {
 
 			// Set up pricing details
 			let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
-			assert_ok!(Nft::set_mint_price(
+			assert_ok!(Nft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				Some(pricing_details)
@@ -2393,7 +2393,7 @@ mod public_minting {
 
 				// Set up pricing details
 				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
-				assert_ok!(Nft::set_mint_price(
+				assert_ok!(Nft::set_mint_fee(
 					RawOrigin::Signed(collection_owner).into(),
 					collection_id,
 					Some(pricing_details)

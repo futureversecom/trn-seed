@@ -424,8 +424,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(T::WeightInfo::set_mint_price())]
-		pub fn set_mint_price(
+		#[pallet::weight(T::WeightInfo::set_mint_fee())]
+		pub fn set_mint_fee(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
 			pricing_details: Option<(AssetId, Balance)>,
