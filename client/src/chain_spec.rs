@@ -15,6 +15,7 @@
 
 use hex_literal::hex;
 use sc_service::ChainType;
+use sc_telemetry::TelemetryEndpoints;
 use seed_runtime::{
 	constants::{
 		ONE_ROOT, ONE_XRP, ROOT_ASSET_ID, ROOT_DECIMALS, ROOT_MINIMUM_BALANCE, ROOT_NAME,
@@ -49,6 +50,8 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 
 type AccountPublic = <Signature as Verify>::Signer;
 
+const TELEMETRY_URL: &str = "wss://telemetry.rootnet.app:9443/submit 0";
+
 /// Generate an account ID from seed.
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
@@ -74,6 +77,70 @@ pub fn root_config() -> Result<ChainSpec, String> {
 
 pub fn porcini_config() -> Result<ChainSpec, String> {
 	ChainSpec::from_json_bytes(&include_bytes!("../../chain-spec/porcini.json")[..])
+}
+
+pub fn virosa_config() -> Result<ChainSpec, String> {
+	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
+	let boot_nodes = vec![
+		"/dns4/bootnode-0.virosa.rootnet.app/tcp/30333/p2p/12D3KooWNs1xUiJDsCvva6q2DYtfS13p9uiKCc3SCMmhQ7DieGKT".parse().unwrap(),
+		"/dns4/bootnode-1.virosa.rootnet.app/tcp/30333/p2p/12D3KooWAnmVLtcRrhkwnLHFvG2g2C5y52gEJcHVtnS52z96Knif".parse().unwrap()];
+	let mut properties = sc_service::Properties::new();
+	properties.insert("tokenSymbol".into(), ROOT_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), ROOT_DECIMALS.into());
+	Ok(ChainSpec::from_genesis(
+		// Name
+		"Virosa Testnet",
+		// ID
+		"virosa_testnet",
+		ChainType::Development,
+		move || {
+			testnet_genesis(
+				wasm_binary,
+				// Initial PoA authorities
+				vec![authority_keys_from_seed("Alice")],
+				// Sudo account
+				AccountId::from(hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac")),
+				// Pre-funded accounts
+				vec![
+					get_account_id_from_seed::<ecdsa::Public>("Alice"),
+					get_account_id_from_seed::<ecdsa::Public>("Bob"),
+					get_account_id_from_seed::<ecdsa::Public>("Charlie"),
+					get_account_id_from_seed::<ecdsa::Public>("Dave"),
+					get_account_id_from_seed::<ecdsa::Public>("Eve"),
+					get_account_id_from_seed::<ecdsa::Public>("Ferdie"),
+					get_account_id_from_seed::<ecdsa::Public>("Alice//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Bob//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Charlie//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Dave//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
+					AccountId::from(hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac")), // Alith
+					AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0")), // Baltathar
+					AccountId::from(hex!("798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFc")), // Charleth
+					AccountId::from(hex!("773539d4Ac0e786233D90A233654ccEE26a613D9")), // Dorothy
+					AccountId::from(hex!("Ff64d3F6efE2317EE2807d223a0Bdc4c0c49dfDB")), // Ethan
+					AccountId::from(hex!("C0F0f4ab324C46e55D02D0033343B4Be8A55532d")), // Faith
+				],
+				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
+				vec![authority_keys_from_seed("Alice").4],
+				false,
+			)
+		},
+		// Bootnodes
+		boot_nodes,
+		// Telemetry
+		Some(
+			TelemetryEndpoints::new(vec![(TELEMETRY_URL.to_string(), 0)])
+				.expect("Staging telemetry url is valid; qed"),
+		),
+		// Protocol ID
+		Some("virosa-testnet"),
+		None,
+		// Properties
+		Some(properties),
+		// Extensions
+		None,
+	))
 }
 
 pub fn dev_config() -> Result<ChainSpec, String> {

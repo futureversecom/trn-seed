@@ -51,6 +51,7 @@ impl SubstrateCli for Cli {
 		Ok(match id {
 			"dev" => Box::new(chain_spec::dev_config()?),
 			"porcini" => Box::new(chain_spec::porcini_config()?),
+			"virosa" => Box::new(chain_spec::virosa_config()?),
 			"root" => Box::new(chain_spec::root_config()?),
 			"" => return Err("Please specify which chain you want to run!".into()),
 			path =>
