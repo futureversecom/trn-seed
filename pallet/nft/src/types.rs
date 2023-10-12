@@ -79,11 +79,13 @@ where
 pub struct CrossChainCompatibility {
 	/// This collection is compatible with the XLS-20 standard on XRPL
 	pub xrpl: bool,
+	/// This collection can be bridged back to Ethereum
+	pub eth: bool,
 }
 
 impl Default for CrossChainCompatibility {
 	fn default() -> Self {
-		Self { xrpl: false }
+		Self { xrpl: false, eth: false }
 	}
 }
 
