@@ -211,8 +211,11 @@ export const DEX_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000DDD
 // Futurepass delegate reserve amount
 export const FP_DELEGATE_RESERVE = 126 * 1; // ProxyDepositFactor * 1(num of delegates)
 
-// XRP PreCompile contract address
+// XRP Precompile contract address
 export const XRP_PRECOMPILE_ADDRESS = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
+
+// XRP Precompile contract address
+export const ROOT_PRECOMPILE_ADDRESS = web3.utils.toChecksumAddress("0xCCCCCCCC00000001000000000000000000000000");
 
 // Futurepass creation reserve amount
 export const FP_CREATION_RESERVE = 148 + FP_DELEGATE_RESERVE; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
@@ -292,12 +295,16 @@ export const ERC721_PRECOMPILE_ABI = [
   // Root specific precompiles
   "event MaxSupplyUpdated(uint32 maxSupply)",
   "event BaseURIUpdated(string baseURI)",
+  "event PublicMintToggled(bool enabled)",
+  "event MintFeeUpdated(address indexed paymentAsset, uint128 indexed mintFee)",
 
   "function totalSupply() external view returns (uint256)",
   "function mint(address owner, uint32 quantity)",
   "function setMaxSupply(uint32 maxSupply)",
   "function setBaseURI(bytes baseURI)",
   "function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32, uint32[] memory)",
+  "function togglePublicMint(bool enabled)",
+  "function setMintFee(address paymentAsset, uint128 mintFee)",
 
   // Ownable
   ...OWNABLE_ABI,

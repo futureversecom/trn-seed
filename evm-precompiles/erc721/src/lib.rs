@@ -887,7 +887,7 @@ where
 		log1(
 			handle.code_address(),
 			SELECTOR_LOG_PUBLIC_MINT_TOGGLED,
-			EvmDataWriter::new().write(approved).build(),
+			EvmDataWriter::new().write(enabled).build(),
 		)
 		.record(handle)?;
 
@@ -898,7 +898,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		read_args!(handle, { payment_asset: Address, mint_fee: U256 });
 
@@ -927,8 +927,14 @@ where
 			pallet_nft::Call::<Runtime>::set_mint_fee { collection_id, pricing_details },
 		)?;
 
-		log3(handle.code_address(), SELECTOR_LOG_MINT_FEE_SET, payment_asset, mint_fee, vec![])
-			.record(handle)?;
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_MINT_FEE_UPDATED,
+			H160::from(payment_asset),
+			H256::from_slice(&EvmDataWriter::new().write(mint_fee).build()),
+			vec![],
+		)
+		.record(handle)?;
 
 		Ok(succeed([]))
 	}
