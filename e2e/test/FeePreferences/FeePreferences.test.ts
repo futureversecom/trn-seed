@@ -739,7 +739,7 @@ describe("Fee Preferences", function () {
       .paymentInfo(sender);
     const feeProxyGasEstimateinXRP = extrinsicInfo.partialFee;
 
-    // cost for fee proxy with proxy_extrinsic + cost for evm call
+    // cost for fee proxy with proxy_extrinsic + cost for evm call, but the actual cost will be lesser than this value.
     const estimatedTotalGasCost = evmCallGasEstimateinXRP.toNumber() + feeProxyGasEstimateinXRP.toNumber();
 
     // convert estimatedTotalGasCost to FEE_TOKEN_ASSET_ID amount
