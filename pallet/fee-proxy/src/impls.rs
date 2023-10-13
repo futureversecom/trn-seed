@@ -32,6 +32,7 @@ where
 		+ pallet_assets_ext::Config
 		+ pallet_futurepass::Config,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<crate::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
@@ -53,6 +54,16 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		let mut who = who;
+
+		// if the call is pallet_futurepass::Call::proxy_extrinsic(), and the caller is a delegate
+		// of the FP(futurepass), we switch the gas payer to the FP
+		if let Some(pallet_futurepass::Call::proxy_extrinsic { futurepass, .. }) =
+			call.is_sub_type()
+		{
+			if <T as pallet_futurepass::Config>::Proxy::exists(futurepass, who, None) {
+				who = futurepass;
+			}
+		}
 
 		// Check whether this call has specified fee preferences
 		if let Some(call_with_fee_preferences { payment_asset, max_payment, call }) =
@@ -149,7 +160,10 @@ where
 		tip: Self::Balance,
 		already_withdrawn: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError> {
-		// <T as OnChargeTransaction<T>>::correct_and_deposit_fee(
+		// NOTE - ideally we should check and switch the account to FP here also, But we don't have
+		// the call information within this function. What this means, if any extra fee was charged,
+		// that fee wont return to FP but the caller. Ideally we could pass the required info via
+		// pre, But this requires a new signed extension and some research.
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::correct_and_deposit_fee(
 			who,
 			dispatch_info,
