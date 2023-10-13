@@ -901,6 +901,7 @@ impl pallet_sudo::Config for Runtime {
 
 impl pallet_tx_fee_pot::Config for Runtime {
 	type FeeCurrency = XrpCurrency;
+	type StakeCurrency = Balances;
 	type TxFeePotId = TxFeePotId;
 }
 
