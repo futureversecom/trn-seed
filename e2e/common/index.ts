@@ -214,7 +214,7 @@ export const FP_DELEGATE_RESERVE = 126 * 1; // ProxyDepositFactor * 1(num of del
 // XRP Precompile contract address
 export const XRP_PRECOMPILE_ADDRESS = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
 
-// XRP Precompile contract address
+// ROOT Precompile contract address
 export const ROOT_PRECOMPILE_ADDRESS = web3.utils.toChecksumAddress("0xCCCCCCCC00000001000000000000000000000000");
 
 // Futurepass creation reserve amount
