@@ -202,6 +202,11 @@ pub mod pallet {
 		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
 		/// Name was set
 		NameSet { collection_id: CollectionUuid, name: BoundedVec<u8, T::StringLimit> },
+		/// Royalties schedule was set
+		RoyaltiesScheduleSet {
+			collection_id: CollectionUuid,
+			royalties_schedule: RoyaltiesSchedule<T::AccountId>,
+		},
 		/// A token was transferred
 		Transfer {
 			previous_owner: T::AccountId,
@@ -583,6 +588,31 @@ pub mod pallet {
 
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::NameSet { collection_id, name });
+			Ok(())
+		}
+
+		/// Set the royalties schedule of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_royalties_schedule())]
+		pub fn set_royalties_schedule(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			royalties_schedule: RoyaltiesSchedule<T::AccountId>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut collection_info =
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
+
+			collection_info.royalties_schedule = Some(royalties_schedule.clone());
+
+			<CollectionInfo<T>>::insert(collection_id, collection_info);
+			Self::deposit_event(Event::<T>::RoyaltiesScheduleSet {
+				collection_id,
+				royalties_schedule,
+			});
 			Ok(())
 		}
 	}

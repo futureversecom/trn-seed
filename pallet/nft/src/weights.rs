@@ -51,8 +51,9 @@ pub trait WeightInfo {
 	fn claim_unowned_collection() -> Weight;
 	fn set_owner() -> Weight;
 	fn set_max_issuance() -> Weight;
-	fn set_base_uri() -> Weight;
-	fn set_name() -> Weight;
+    fn set_base_uri() -> Weight;
+    fn set_name() -> Weight;
+	fn set_royalties_schedule() -> Weight;
 	fn create_collection() -> Weight;
 	fn toggle_public_mint() -> Weight;
 	fn set_mint_fee() -> Weight;
@@ -63,7 +64,6 @@ pub trait WeightInfo {
 
 /// Weights for pallet_nft using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
-
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Nft CollectionInfo (r:1 w:1)
 	fn claim_unowned_collection() -> Weight {
@@ -91,6 +91,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	// Storage: Nft CollectionInfo (r:1 w:1)
 	fn set_name() -> Weight {
+		Weight::from_ref_time(68_177_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+	// Storage: Nft CollectionInfo (r:1 w:1)
+	fn set_royalties_schedule() -> Weight {
 		Weight::from_ref_time(68_177_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
@@ -171,6 +177,12 @@ impl WeightInfo for () {
 	}
 	// Storage: Nft CollectionInfo (r:1 w:1)
 	fn set_name() -> Weight {
+		Weight::from_ref_time(68_177_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(1 as u64))
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+	// Storage: Nft CollectionInfo (r:1 w:1)
+	fn set_royalties_schedule() -> Weight {
 		Weight::from_ref_time(68_177_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))

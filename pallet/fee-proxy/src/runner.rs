@@ -20,6 +20,7 @@ use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator,
 	Runner as RunnerT, RunnerError,
 };
+#[allow(deprecated)]
 use precompile_utils::{
 	constants::{
 		ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR, FEE_FUNCTION_SELECTOR_DEPRECATED,
@@ -123,6 +124,7 @@ pub struct FeePreferencesRunner<T, U, P: AccountProxy<AccountId>> {
 	_phantom: PhantomData<(T, U)>,
 }
 
+#[allow(deprecated)]
 impl<T, U, P> FeePreferencesRunner<T, U, P>
 where
 	T: pallet_evm::Config<AccountId = AccountId>,

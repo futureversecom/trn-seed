@@ -1981,6 +1981,126 @@ mod set_name {
 	}
 }
 
+mod set_royalties_schedule {
+	use super::*;
+
+	#[test]
+	fn set_royalties_schedule_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let name = bounded_string("test-collection");
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
+			};
+			// Setup collection with no Max issuance
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				name.clone(),
+				0,
+				None,
+				None,
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
+				None,
+				CrossChainCompatibility::default(),
+			));
+
+			// Sanity check
+			assert!(CollectionInfo::<Test>::get(collection_id)
+				.unwrap()
+				.royalties_schedule
+				.is_none());
+
+			assert_ok!(Nft::set_royalties_schedule(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				royalties_schedule.clone()
+			));
+
+			// Storage updated
+			assert_eq!(
+				CollectionInfo::<Test>::get(collection_id).unwrap().royalties_schedule.unwrap(),
+				royalties_schedule
+			);
+
+			// Event thrown
+			assert!(has_event(Event::<Test>::RoyaltiesScheduleSet {
+				collection_id,
+				royalties_schedule
+			}));
+		});
+	}
+
+	#[test]
+	fn set_royalties_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = 1;
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
+			};
+
+			// Call to unknown collection should fail
+			assert_noop!(
+				Nft::set_royalties_schedule(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					royalties_schedule.clone()
+				),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn set_royalties_not_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
+			};
+
+			// Call from not owner should fail
+			let bob = create_account(11);
+			assert_noop!(
+				Nft::set_royalties_schedule(
+					RawOrigin::Signed(bob).into(),
+					collection_id,
+					royalties_schedule.clone()
+				),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_royalties_invalid_royalties_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+
+			// Too big royalties should fail
+			let royalties_schedule = RoyaltiesSchedule::<AccountId> {
+				entitlements: BoundedVec::truncate_from(vec![
+					(create_account(3), Permill::from_float(1.2)),
+					(create_account(4), Permill::from_float(3.3)),
+				]),
+			};
+
+			// Calls with invalid royalties should fail
+			assert_noop!(
+				Nft::set_royalties_schedule(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					royalties_schedule.clone()
+				),
+				Error::<Test>::RoyaltiesInvalid
+			);
+		});
+	}
+}
+
 mod set_mint_fee {
 	use super::*;
 
