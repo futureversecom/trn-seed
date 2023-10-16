@@ -130,6 +130,28 @@ fn submit_transaction_outside_submission_window() {
 }
 
 #[test]
+fn submit_transaction_with_default_replay_protection_values_works() {
+	new_test_ext().execute_with(|| {
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
+		let ledger_index = 1;
+		let transaction =
+			XrplTxData::Payment { amount: 1000 as Balance, address: H160::from_low_u64_be(555) };
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+
+		// We don't set  replay protection data so that it would use default values.
+
+		assert_ok!(XRPLBridge::submit_transaction(
+			RuntimeOrigin::signed(relayer),
+			ledger_index,
+			XrplTxHash::from_slice(transaction_hash),
+			transaction,
+			1234
+		));
+	});
+}
+
+#[test]
 fn add_transaction_works() {
 	new_test_ext().execute_with(|| {
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";

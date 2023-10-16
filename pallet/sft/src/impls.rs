@@ -339,6 +339,26 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Perform the set name operation
+	/// Caller must be collection owner
+	pub fn do_set_royalties_schedule(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		royalties_schedule: RoyaltiesSchedule<T::AccountId>,
+	) -> DispatchResult {
+		let mut collection_info =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
+
+		ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
+
+		collection_info.royalties_schedule = Some(royalties_schedule.clone());
+
+		SftCollectionInfo::<T>::insert(collection_id, collection_info);
+		Self::deposit_event(Event::<T>::RoyaltiesScheduleSet { collection_id, royalties_schedule });
+		Ok(())
+	}
+
 	/// Unzips the bounded vec of tuples (SerialNumber, Balance)
 	/// into two bounded vecs of SerialNumber and Balance
 	fn unzip_serial_numbers(

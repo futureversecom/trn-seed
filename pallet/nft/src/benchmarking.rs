@@ -76,6 +76,14 @@ benchmarks! {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, BoundedVec::truncate_from("New Name".encode()))
 
+	set_royalties_schedule {
+		let collection_id = build_collection::<T>(None);
+		let collection_owner = account::<T>("Alice");
+		let royalties_schedule = RoyaltiesSchedule {
+			entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
+		};
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, royalties_schedule)
+
 	create_collection {
 		let metadata = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 		let ccc = CrossChainCompatibility { xrpl: false };
