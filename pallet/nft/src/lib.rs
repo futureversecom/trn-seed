@@ -505,7 +505,7 @@ pub mod pallet {
 				next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
 
 			// Only charge mint fee if public mint enabled and caller is not collection owner
-			if public_mint_info.enabled && collection_owner != who {
+			if public_mint_info.enabled && !collection_info.is_collection_owner(&who) {
 				// Charge the mint fee for the mint
 				Self::charge_mint_fee(
 					&who,
