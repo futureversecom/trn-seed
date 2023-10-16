@@ -298,7 +298,7 @@ describe("ERC721 Precompile", function () {
   });
 
   it("setMintFee", async () => {
-    const paymentAsset = XRP_PRECOMPILE_ADDRESS;
+    const paymentAsset = ROOT_PRECOMPILE_ADDRESS;
     const mintFee = 100000;
     // Set Mint Fee
     const tx = await erc721Precompile.connect(bobSigner).setMintFee(paymentAsset, mintFee);
