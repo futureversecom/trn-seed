@@ -20,12 +20,15 @@ interface Marketplace {
 
     function registerMarketplace(address marketplaceAccount, uint256 entitlement) external returns (uint marketplaceId),
     function sellNft(address collectionAddress, uint256[] serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration, uint32 marketplaceId) external returns (uint listingId),
+    function SellNftWithoutMarketplace(address collectionAddress, uint256[] serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration) external returns (uint listingId),
     function updateFixedPrice(uint128 listingId, uint256 newPrice) external,
     function buy(uint128 listingId) external payable,
     function auctionNft(address collectionAddress, uint256[] serialNumberIds, address paymentAsset, uint256 reservePrice, uint256 duration, uint256 marketplaceId) external payable,
+    function auctionNftWithoutMarketplace(address collectionAddress, uint256[] serialNumberIds, address paymentAsset, uint256 reservePrice, uint256 duration) external payable
     function bid(uint128 listingId, uint256 amount) external,
     function cancelSale(uint128 listingId) external,
     function makeSimpleOffer(address collectionAddress, uint32 serialNumber, uint256 amount, address assetId, uint32 marketplaceId) external returns (uint offerId),
+    function makeSimpleOfferWithoutMarketplace(address collectionAddress, uint32 serialNumber, uint256 amount, address assetId) external returns (uint offerId),
     function cancelOffer(uint64 offerId) external,
     function acceptOffer(uint64 offerId) external,
 
