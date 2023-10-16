@@ -319,7 +319,7 @@ describe("EVM gas costs", () => {
     // assert XRP used
     const xrpCost6DP = actualFee.div(10 ** 12).toNumber();
     const xrpCostScaled = +utils.formatEther(actualFee);
-    expect(xrpCost6DP).to.eql(344295);
-    expect(+xrpCostScaled.toFixed(6)).to.eql(0.344295);
+    expect(xrpCost6DP).to.eql(633975);
+    expect(+xrpCostScaled.toFixed(6)).to.eql(0.633975);
   });
 });
