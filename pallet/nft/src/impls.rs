@@ -246,10 +246,6 @@ impl<T: Config> Pallet<T> {
 		public_mint_info: PublicMintInformation,
 		token_count: TokenCount,
 	) -> DispatchResult {
-		// If public mint is disabled, or the caller is the collection owner, do nothing
-		if !public_mint_info.enabled || collection_owner == who {
-			return Ok(())
-		}
 		// Calculate the total fee
 		let total_fee = match public_mint_info.pricing_details {
 			Some((asset, price)) => Some((asset, price.saturating_mul(token_count as Balance))),

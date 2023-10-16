@@ -499,15 +499,17 @@ pub mod pallet {
 			collection_info.next_serial_number =
 				next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
 
-			// Try charge mint fee for the mint, will not charge if not enabled or if the
-			// caller is the collection owner
-			Self::charge_mint_fee(
-				&who,
-				collection_id,
-				&collection_info.owner,
-				public_mint_info,
-				quantity,
-			)?;
+			// Only charge mint fee if public mint enabled and caller is not collection owner
+			if public_mint_info.enabled && collection_owner != who {
+				// Charge the mint fee for the mint
+				Self::charge_mint_fee(
+					&who,
+					collection_id,
+					&collection_info.owner,
+					public_mint_info,
+					quantity,
+				)?;
+			}
 
 			// Perform the mint and update storage
 			Self::do_mint(collection_id, collection_info, &owner, &serial_numbers)?;

@@ -209,8 +209,6 @@ pub mod pallet {
 			let owner = owner.unwrap_or(who);
 			Self::create_with_metadata(&owner, name, symbol, decimals, min_balance)?;
 			Ok(().into())
-			// 0.000_012_500
-			// 1_000_000_000
 		}
 	}
 }
