@@ -94,6 +94,7 @@ pub use pallet_staking::{Forcing, StakerStatus};
 pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
 }
+
 pub use seed_pallet_common::FeeConfig;
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
@@ -149,7 +150,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 41,
+	spec_version: 43,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 4,
@@ -327,7 +328,7 @@ impl frame_support::weights::WeightToFee for FeeControlLengthToFee {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = impls::FuturepassTransactionFee;
+	type OnChargeTransaction = FeeProxy;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightToFee = FeeControlWeightToFee;
 	type LengthToFee = FeeControlLengthToFee;
@@ -1297,15 +1298,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	(
-		pallet_staking::migrations::v11::MigrateToV11<
-			Runtime,
-			VoterList,
-			StakingMigrationV11OldPallet,
-		>,
-		pallet_staking::migrations::v12::MigrateToV12<Runtime>,
-		migrations::AllMigrations,
-	),
+	migrations::AllMigrations,
 >;
 
 impl_runtime_apis! {
@@ -1824,7 +1817,7 @@ fn transaction_asset_check(
 			_ => Err(TransactionValidityError::Invalid(InvalidTransaction::Call))?,
 		};
 
-		let (payment_asset_id, _max_payment, _target, _input) =
+		let (payment_asset_id, _target, _input) =
 			FeePreferencesRunner::<Runtime, Runtime, Futurepass>::decode_input(input)?;
 
 		let FeePreferencesData { max_fee_scaled, path, .. } =

@@ -150,6 +150,11 @@ pub mod pallet {
 		BaseUriSet { collection_id: CollectionUuid, metadata_scheme: MetadataScheme },
 		/// Name was set
 		NameSet { collection_id: CollectionUuid, collection_name: BoundedVec<u8, T::StringLimit> },
+		/// Royalties schedule was set
+		RoyaltiesScheduleSet {
+			collection_id: CollectionUuid,
+			royalties_schedule: RoyaltiesSchedule<T::AccountId>,
+		},
 		/// A new token was created within a collection
 		TokenCreate {
 			token_id: TokenId,
@@ -362,6 +367,18 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_set_name(who, collection_id, collection_name)
+		}
+
+		/// Set the royalties schedule of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_royalties_schedule())]
+		pub fn set_royalties_schedule(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			royalties_schedule: RoyaltiesSchedule<T::AccountId>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_set_royalties_schedule(who, collection_id, royalties_schedule)
 		}
 	}
 }

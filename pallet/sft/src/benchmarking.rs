@@ -18,11 +18,11 @@
 
 use super::*;
 
+use crate::Pallet as Sft;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
-
-use crate::Pallet as Sft;
+use sp_runtime::Permill;
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -183,6 +183,20 @@ benchmarks! {
 		assert!(collection.is_some());
 		let collection = collection.unwrap();
 		assert_eq!(collection.collection_name, collection_name);
+	}
+
+	set_royalties_schedule {
+		let collection_owner = account::<T>("Alice");
+		let id = build_collection::<T>(Some(collection_owner.clone()));
+		let royalties_schedule = RoyaltiesSchedule {
+			entitlements: BoundedVec::truncate_from(vec![(collection_owner.clone(), Permill::one())]),
+		};
+	}: _(origin::<T>(&collection_owner), id, royalties_schedule.clone())
+	verify {
+		let collection = SftCollectionInfo::<T>::get(id);
+		assert!(collection.is_some());
+		let collection = collection.unwrap();
+		assert_eq!(collection.royalties_schedule, Some(royalties_schedule));
 	}
 }
 
