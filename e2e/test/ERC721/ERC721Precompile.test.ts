@@ -36,7 +36,7 @@ describe("ERC721 Precompile", function () {
 
   // Setup api instance
   before(async () => {
-    // node = await startNode();
+    node = await startNode();
 
     const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
 

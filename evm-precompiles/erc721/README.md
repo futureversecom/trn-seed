@@ -33,7 +33,7 @@ interface TRN721 is IERC165 {
     event MaxSupplyUpdated(uint32 maxSupply);
     event BaseURIUpdated(string baseURI);
     event PublicMintToggled(bool indexed enabled);
-    event MintFeeUpdated(address indexed paymentAsset, uint128 indexed mintFee);
+    event MintFeeUpdated(address indexed paymentAsset, uint256 indexed mintFee);
 
     function totalSupply() external view returns (uint256);
     function mint(address owner, uint32 quantity) external;
@@ -41,7 +41,7 @@ interface TRN721 is IERC165 {
     function setBaseURI(bytes calldata baseURI) external;
     function ownedTokens(address who, uint16 limit, uint32 cursor) external view returns (uint32, uint32, uint32[] memory);
     function togglePublicMint(bool enabled) external;
-    function setMintFee(address paymentAsset, uint128 mintFee) external;
+    function setMintFee(address paymentAsset, uint256 mintFee) external;
 }
 ```
 
