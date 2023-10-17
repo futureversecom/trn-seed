@@ -422,7 +422,7 @@ fn transfer() {
 			previous_owner: token_owner,
 			collection_id,
 			new_owner,
-			serial_numbers: serial_numbers.into_inner()
+			serial_numbers: serial_numbers.into_inner(),
 		}));
 
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 0);
@@ -697,10 +697,10 @@ fn mint_fails() {
 			Error::<Test>::NoCollectionFound
 		);
 
-		// not collection owner
+		// public mint not enabled
 		assert_noop!(
 			Nft::mint(Some(create_account(2)).into(), collection_id, 5, None),
-			Error::<Test>::NotCollectionOwner
+			Error::<Test>::PublicMintDisabled
 		);
 	});
 }
@@ -965,7 +965,7 @@ fn transfer_many_tokens_at_once_changes_token_balance() {
 			previous_owner: token_owner,
 			collection_id,
 			new_owner,
-			serial_numbers: serial_numbers_unbounded
+			serial_numbers: serial_numbers_unbounded,
 		}));
 
 		// Check storage
@@ -1800,7 +1800,7 @@ mod set_base_uri {
 			// Event thrown
 			assert!(has_event(Event::<Test>::BaseUriSet {
 				collection_id,
-				base_uri: new_metadata_scheme
+				base_uri: new_metadata_scheme,
 			}));
 		});
 	}
@@ -2098,5 +2098,469 @@ mod set_royalties_schedule {
 				Error::<Test>::RoyaltiesInvalid
 			);
 		});
+	}
+}
+
+mod set_mint_fee {
+	use super::*;
+
+	#[test]
+	fn set_mint_fee_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let pricing_details: (AssetId, Balance) = (1, 100);
+
+			assert_ok!(Nft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				Some(pricing_details)
+			));
+
+			let expected_mint_info =
+				PublicMintInformation { enabled: false, pricing_details: Some(pricing_details) };
+			assert_eq!(PublicMintInfo::<Test>::get(collection_id).unwrap(), expected_mint_info);
+
+			// Setting to different value works
+			let pricing_details: (AssetId, Balance) = (2, 234);
+
+			assert_ok!(Nft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				Some(pricing_details)
+			));
+
+			let expected_mint_info =
+				PublicMintInformation { enabled: false, pricing_details: Some(pricing_details) };
+			assert_eq!(PublicMintInfo::<Test>::get(collection_id).unwrap(), expected_mint_info);
+
+			// Setting to None removes from storage
+			assert_ok!(Nft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				None
+			));
+			assert_eq!(PublicMintInfo::<Test>::get(collection_id), None);
+		});
+	}
+
+	#[test]
+	fn set_mint_fee_should_keep_enabled_flag_intact() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let pricing_details: (AssetId, Balance) = (1, 100);
+
+			// Toggle mint should set enabled to true
+			assert_ok!(Nft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				true
+			));
+
+			// Set mint price should update pricing details but keep enabled as true
+			assert_ok!(Nft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				Some(pricing_details)
+			));
+
+			let expected_mint_info =
+				PublicMintInformation { enabled: true, pricing_details: Some(pricing_details) };
+			assert_eq!(PublicMintInfo::<Test>::get(collection_id).unwrap(), expected_mint_info);
+		});
+	}
+
+	#[test]
+	fn set_mint_fee_emits_event() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let pricing_details: (AssetId, Balance) = (1, 100);
+
+			assert_ok!(Nft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				Some(pricing_details)
+			));
+
+			assert!(has_event(Event::<Test>::MintPriceSet {
+				collection_id,
+				payment_asset: Some(pricing_details.0),
+				mint_price: Some(pricing_details.1),
+			}));
+		});
+	}
+
+	#[test]
+	fn set_mint_fee_not_collection_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let pricing_details: (AssetId, Balance) = (1, 100);
+			let bobby = create_account(11);
+
+			assert_noop!(
+				Nft::set_mint_fee(
+					RawOrigin::Signed(bobby).into(),
+					collection_id,
+					Some(pricing_details)
+				),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_mint_fee_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = 1; // No collection
+			let pricing_details: (AssetId, Balance) = (1, 100);
+
+			assert_noop!(
+				Nft::set_mint_fee(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					Some(pricing_details)
+				),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+}
+
+mod toggle_public_mint {
+	use super::*;
+
+	#[test]
+	fn toggle_public_mint_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let enabled = true;
+
+			assert_ok!(Nft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				enabled
+			));
+
+			assert_eq!(PublicMintInfo::<Test>::get(collection_id).unwrap().enabled, enabled);
+
+			// Disable again should work and clear storage
+			let enabled = false;
+			assert_ok!(Nft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				enabled
+			));
+
+			assert_eq!(PublicMintInfo::<Test>::get(collection_id), None);
+		});
+	}
+
+	#[test]
+	fn toggle_public_mint_emits_event() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let enabled = true;
+
+			assert_ok!(Nft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				enabled
+			));
+
+			assert!(has_event(Event::<Test>::PublicMintToggle { collection_id, enabled }));
+
+			// Disable again should work and still throw event
+			let enabled = false;
+			assert_ok!(Nft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				enabled
+			));
+
+			assert!(has_event(Event::<Test>::PublicMintToggle { collection_id, enabled }));
+		});
+	}
+
+	#[test]
+	fn toggle_public_mint_should_keep_pricing_details() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let enabled = true;
+
+			// Set up pricing details
+			let pricing_details: (AssetId, Balance) = (2, 234);
+			assert_ok!(Nft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				Some(pricing_details)
+			));
+
+			// Toggle mint should set enabled to true but keep pricing_details in tact
+			assert_ok!(Nft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				enabled
+			));
+
+			let expected_mint_info =
+				PublicMintInformation { enabled: true, pricing_details: Some(pricing_details) };
+			assert_eq!(PublicMintInfo::<Test>::get(collection_id).unwrap(), expected_mint_info);
+		});
+	}
+}
+
+mod public_minting {
+	use super::*;
+	use crate::mock::{AssetsExt, XRP_ASSET_ID};
+	use frame_support::traits::fungibles::Inspect;
+
+	#[test]
+	fn public_mint_should_let_user_mint() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let minter = create_account(11);
+			let quantity = 100;
+
+			// Minter should not be able to mint token
+			assert_noop!(
+				Nft::mint(Some(minter).into(), collection_id, quantity, None),
+				Error::<Test>::PublicMintDisabled
+			);
+
+			// Enable public minting
+			assert_ok!(Nft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				true
+			));
+
+			// Minter should have no troubles minting now
+			assert_ok!(Nft::mint(Some(minter).into(), collection_id, quantity, None));
+
+			// Should emit event
+			assert!(has_event(Event::<Test>::Mint {
+				collection_id,
+				start: 0,
+				end: 99,
+				owner: minter,
+			}));
+
+			// Check that minter has 100 token
+			assert_eq!(Nft::token_balance_of(&minter, collection_id), quantity);
+		});
+	}
+
+	#[test]
+	fn public_mint_with_price_should_charge_user() {
+		let minter = create_account(11);
+		let initial_balance = 100000;
+		TestExt::default()
+			.with_xrp_balances(&[(minter, initial_balance)])
+			.build()
+			.execute_with(|| {
+				let collection_owner = create_account(10);
+				let collection_id = setup_collection(collection_owner);
+				let quantity = 100;
+				let mint_price = 25;
+				let payment_asset = XRP_ASSET_ID;
+
+				// Set up pricing details
+				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
+				assert_ok!(Nft::set_mint_fee(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					Some(pricing_details)
+				));
+
+				// Enable public minting
+				assert_ok!(Nft::toggle_public_mint(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					true
+				));
+
+				// Minter should be able to mint
+				assert_ok!(Nft::mint(Some(minter).into(), collection_id, quantity, None));
+				// Check that minter has 100 token
+				assert_eq!(Nft::token_balance_of(&minter, collection_id), quantity);
+
+				// Should emit both mint and payment event
+				assert!(has_event(Event::<Test>::Mint {
+					collection_id,
+					start: 0,
+					end: 99,
+					owner: minter,
+				}));
+
+				let payment_amount: Balance = mint_price * quantity as u128;
+				assert!(has_event(Event::<Test>::MintFeePaid {
+					who: minter,
+					collection_id,
+					payment_asset,
+					payment_amount,
+					token_count: quantity,
+				}));
+
+				// Check minter was charged the correct amount
+				let minter_balance = AssetsExt::reducible_balance(payment_asset, &minter, false);
+				assert_eq!(minter_balance, initial_balance - payment_amount);
+			});
+	}
+
+	#[test]
+	fn public_mint_insufficient_balance_should_fail() {
+		let minter = create_account(11);
+		let initial_balance = 99; // Not enough
+		TestExt::default()
+			.with_xrp_balances(&[(minter, initial_balance)])
+			.build()
+			.execute_with(|| {
+				let collection_owner = create_account(10);
+				let collection_id = setup_collection(collection_owner);
+				let quantity = 1;
+				let mint_price = 100;
+				let payment_asset = XRP_ASSET_ID;
+
+				// Set up pricing details
+				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
+				assert_ok!(Nft::set_mint_fee(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					Some(pricing_details)
+				));
+
+				// Enable public minting
+				assert_ok!(Nft::toggle_public_mint(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					true
+				));
+
+				// Minter doesn't have enough XRP to cover mint
+				assert_noop!(
+					Nft::mint(Some(minter).into(), collection_id, quantity, None),
+					pallet_assets::Error::<Test>::BalanceLow
+				);
+			});
+	}
+
+	#[test]
+	fn public_mint_collection_owner_should_not_be_charged() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let quantity = 1;
+			let mint_price = 100000000;
+			let payment_asset = XRP_ASSET_ID;
+			let owner_balance_before =
+				AssetsExt::reducible_balance(payment_asset, &collection_owner, false);
+
+			// Set up pricing details
+			let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
+			assert_ok!(Nft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				Some(pricing_details)
+			));
+
+			// Enable public minting
+			assert_ok!(Nft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				true
+			));
+
+			// Collection owner mints
+			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, quantity, None));
+			// Check that minter has 100 token
+			assert_eq!(Nft::token_balance_of(&collection_owner, collection_id), quantity);
+
+			let owner_balance_after =
+				AssetsExt::reducible_balance(payment_asset, &collection_owner, false);
+
+			// Should not have been charged
+			assert_eq!(owner_balance_before, owner_balance_after);
+		});
+	}
+
+	#[test]
+	fn public_mint_token_owner_not_charged() {
+		// Title is confusing, but basically this test checks that if a token owner is specified,
+		// the caller is charged, not the specified owner
+		let minter = create_account(11);
+		let initial_balance = 1000;
+		TestExt::default()
+			.with_xrp_balances(&[(minter, initial_balance)])
+			.build()
+			.execute_with(|| {
+				let collection_owner = create_account(10);
+				let token_owner = create_account(12);
+				let collection_id = setup_collection(collection_owner);
+				let quantity = 3;
+				let mint_price = 200;
+				let payment_asset = XRP_ASSET_ID;
+
+				let token_owner_balance_before =
+					AssetsExt::reducible_balance(payment_asset, &token_owner, false);
+
+				// Set up pricing details
+				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
+				assert_ok!(Nft::set_mint_fee(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					Some(pricing_details)
+				));
+				// Enable public minting
+				assert_ok!(Nft::toggle_public_mint(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					true
+				));
+
+				// Minter should be able to mint
+				assert_ok!(Nft::mint(
+					Some(minter).into(),
+					collection_id,
+					quantity,
+					Some(token_owner)
+				));
+
+				// Check that token_owner has tokens, but minter has none
+				assert_eq!(Nft::token_balance_of(&token_owner, collection_id), quantity);
+				assert_eq!(Nft::token_balance_of(&minter, collection_id), 0);
+
+				// Should emit both mint and payment event
+				assert!(has_event(Event::<Test>::Mint {
+					collection_id,
+					start: 0,
+					end: 2,
+					owner: token_owner,
+				}));
+				let payment_amount: Balance = mint_price * quantity as u128;
+				assert!(has_event(Event::<Test>::MintFeePaid {
+					who: minter,
+					collection_id,
+					payment_asset,
+					payment_amount,
+					token_count: quantity,
+				}));
+
+				// Check minter was charged the correct amount
+				let minter_balance = AssetsExt::reducible_balance(payment_asset, &minter, false);
+				assert_eq!(minter_balance, initial_balance - payment_amount);
+
+				// Token owner should not have been charged
+				let token_owner_balance_after =
+					AssetsExt::reducible_balance(payment_asset, &token_owner, false);
+				assert_eq!(token_owner_balance_before, token_owner_balance_after);
+			});
 	}
 }

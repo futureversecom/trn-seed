@@ -151,6 +151,7 @@ impl pallet_balances::Config for Test {
 }
 
 pub struct FindAuthorTruncated;
+
 impl FindAuthor<H160> for FindAuthorTruncated {
 	fn find_author<'a, I>(_digests: I) -> Option<H160>
 	where
@@ -161,6 +162,7 @@ impl FindAuthor<H160> for FindAuthorTruncated {
 }
 
 pub struct MockAddressMapping;
+
 impl AddressMapping<AccountId> for MockAddressMapping {
 	fn into_account_id(address: H160) -> AccountId {
 		address.into()
@@ -168,6 +170,7 @@ impl AddressMapping<AccountId> for MockAddressMapping {
 }
 
 pub struct MockBlockHashMapping<Test>(PhantomData<Test>);
+
 impl<Test> BlockHashMapping for MockBlockHashMapping<Test> {
 	fn block_hash(_number: u32) -> H256 {
 		H256::default()
@@ -175,6 +178,7 @@ impl<Test> BlockHashMapping for MockBlockHashMapping<Test> {
 }
 
 pub struct FixedGasPrice;
+
 impl FeeCalculator for FixedGasPrice {
 	fn min_gas_price() -> (U256, Weight) {
 		(1.into(), Weight::zero())
@@ -182,6 +186,7 @@ impl FeeCalculator for FixedGasPrice {
 }
 
 pub struct FixedGasWeightMapping;
+
 impl GasWeightMapping for FixedGasWeightMapping {
 	fn gas_to_weight(_gas: u64, _without_base_weight: bool) -> Weight {
 		Weight::zero()
@@ -190,6 +195,7 @@ impl GasWeightMapping for FixedGasWeightMapping {
 		0u64
 	}
 }
+
 impl pallet_evm::Config for Test {
 	type FeeCalculator = FixedGasPrice;
 	type GasWeightMapping = FixedGasWeightMapping;
@@ -222,6 +228,7 @@ impl pallet_timestamp::Config for Test {
 }
 
 pub struct MockTransferSubscriber;
+
 impl OnTransferSubscriber for MockTransferSubscriber {
 	fn on_nft_transfer(_token_id: &TokenId) {}
 }
@@ -274,6 +281,7 @@ impl crate::Config for Test {
 	type MintLimit = MintLimit;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = MockNewAssetSubscription;
+	type MultiCurrency = AssetsExt;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;
