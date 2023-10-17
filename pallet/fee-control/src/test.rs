@@ -13,7 +13,11 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::mock::*;
+use super::Event;
+use crate::{
+	mock::{RuntimeEvent as MockEvent, *},
+	Data,
+};
 use frame_support::{
 	assert_ok,
 	dispatch::{DispatchClass, GetDispatchInfo},
@@ -22,6 +26,7 @@ use frame_support::{
 use frame_system::{limits::BlockWeights, RawOrigin};
 use pallet_transaction_payment::ChargeTransactionPayment;
 use seed_pallet_common::CreateExt;
+use sp_core::U256;
 use sp_runtime::{traits::SignedExtension, Perbill};
 
 #[test]
@@ -100,5 +105,47 @@ fn charges_extrinsic_fee_based_on_setting() {
 			Assets::balance(100, account),
 			starting_fee_token_asset_balance - base_fee - extrinsic_fee as u128
 		);
+	});
+}
+
+#[test]
+fn set_evm_base_fee_works() {
+	TestExt::default().build().execute_with(|| {
+		let new_value = U256::from(12345);
+		assert_ok!(FeeControl::set_evm_base_fee(RawOrigin::Root.into(), new_value));
+
+		assert_eq!(Data::<Test>::get().evm_base_fee_per_gas, new_value);
+
+		System::assert_last_event(MockEvent::FeeControl(Event::<Test>::EvmBaseFeeSet {
+			base_fee: new_value,
+		}));
+	});
+}
+
+#[test]
+fn set_weight_multiplier_works() {
+	TestExt::default().build().execute_with(|| {
+		let new_value = Perbill::from_parts(12345);
+		assert_ok!(FeeControl::set_weight_multiplier(RawOrigin::Root.into(), new_value));
+
+		assert_eq!(Data::<Test>::get().weight_multiplier, new_value);
+
+		System::assert_last_event(MockEvent::FeeControl(Event::<Test>::WeightMultiplierSet {
+			weight_multiplier: new_value,
+		}));
+	});
+}
+
+#[test]
+fn set_length_multiplier_works() {
+	TestExt::default().build().execute_with(|| {
+		let new_value: Balance = 12345;
+		assert_ok!(FeeControl::set_length_multiplier(RawOrigin::Root.into(), new_value));
+
+		assert_eq!(Data::<Test>::get().length_multiplier, new_value);
+
+		System::assert_last_event(MockEvent::FeeControl(Event::<Test>::LengthMultiplierSet {
+			length_multiplier: new_value,
+		}));
 	});
 }

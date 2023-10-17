@@ -22,7 +22,9 @@ use crate::Pallet as FeeControl;
 
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
+use seed_primitives::Balance;
 use sp_core::U256;
+use sp_runtime::traits::One;
 
 benchmarks! {
 	set_evm_base_fee {
@@ -30,6 +32,9 @@ benchmarks! {
 
 	set_weight_multiplier {
 	}: _(RawOrigin::Root, Perbill::one())
+
+	set_length_multiplier {
+	}: _(RawOrigin::Root, Balance::one())
 }
 
 impl_benchmark_test_suite!(FeeControl, crate::mock::TestExt::default().build(), crate::mock::Test);
