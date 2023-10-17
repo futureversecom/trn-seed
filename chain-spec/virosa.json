@@ -256,7 +256,9 @@
         "validatorCount": 21,
         "minimumValidatorCount": 1,
         "invulnerables": [
-          "0xe04cc55ebee1cbce552f250e85c57b70b2e2625b"
+          "0xe04cc55ebee1cbce552f250e85c57b70b2e2625b",
+          "0x25451a4de12dccc2d166922fa938e900fcc4ed24",
+          "0x5630a480727cd7799073b36472d9b1a6031f840b"
         ],
         "forceEra": "NotForcing",
         "slashRewardFraction": 100000000,
@@ -265,6 +267,18 @@
           [
             "0xe04cc55ebee1cbce552f250e85c57b70b2e2625b",
             "0xe04cc55ebee1cbce552f250e85c57b70b2e2625b",
+            100000000000,
+            "Validator"
+          ],
+          [
+            "0x25451a4de12dccc2d166922fa938e900fcc4ed24",
+            "0x25451a4de12dccc2d166922fa938e900fcc4ed24",
+            100000000000,
+            "Validator"
+          ],
+          [
+            "0x5630a480727cd7799073b36472d9b1a6031f840b",
+            "0x5630a480727cd7799073b36472d9b1a6031f840b",
             100000000000,
             "Validator"
           ]
@@ -284,6 +298,26 @@
               "im_online": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
               "grandpa": "5FA9nQDVg267DEd8m1ZypXLBnvN7SFxYwV7ndqSYGiN9TTpu",
               "ethy": "KW39r9CJjAVzmkf9zQ4YDb2hqfAVGdRqn53eRqyruqpxAP5YL"
+            }
+          ],
+          [
+            "0x25451a4de12dccc2d166922fa938e900fcc4ed24",
+            "0x25451a4de12dccc2d166922fa938e900fcc4ed24",
+            {
+              "babe": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+              "im_online": "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+              "grandpa": "5GoNkf6WdbxCFnPdAnYYQyCjAKPJgLNxXwPjwTh6DGg6gN3E",
+              "ethy": "KWByAN7WfZABWS5AoWqxriRmF5f2jnDqy3rB5pfHLGkY93ibN"
+            }
+          ],
+          [
+            "0x5630a480727cd7799073b36472d9b1a6031f840b",
+            "0x5630a480727cd7799073b36472d9b1a6031f840b",
+            {
+              "babe": "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",
+              "im_online": "5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",
+              "grandpa": "5DbKjhNLpqX3zqZdNBc9BGb4fHU1cRBaDhJUskrvkwfraDi6",
+              "ethy": "KWBpGtyJLBkJERdZT1a1uu19c2uPpZm9nFd8SGtCfRUAT3Y4w"
             }
           ]
         ]
