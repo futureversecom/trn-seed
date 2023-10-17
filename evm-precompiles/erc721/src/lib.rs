@@ -28,8 +28,13 @@ use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
-use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId};
+use precompile_utils::{
+	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, ERC721_PRECOMPILE_ADDRESS_PREFIX},
+	prelude::*,
+};
+use seed_primitives::{
+	AssetId, Balance, CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId,
+};
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
@@ -57,6 +62,10 @@ pub const MAX_SUPPLY_UPDATED: [u8; 32] = keccak256!("MaxSupplyUpdated(uint32)");
 
 pub const BASE_URI_UPDATED: [u8; 32] = keccak256!("BaseURIUpdated(string)");
 
+pub const SELECTOR_LOG_PUBLIC_MINT_TOGGLED: [u8; 32] = keccak256!("PublicMintToggled(bool)");
+
+pub const SELECTOR_LOG_MINT_FEE_UPDATED: [u8; 32] = keccak256!("MintFeeUpdated(address,uint128)");
+
 /// Solidity selector of the onERC721Received(address,address,uint256,bytes) function
 pub const ON_ERC721_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0x15, 0x0b, 0x7a, 0x02];
 
@@ -81,13 +90,13 @@ pub enum Action {
 	RenounceOwnership = "renounceOwnership()",
 	TransferOwnership = "transferOwnership(address)",
 	// The Root Network extensions
-	// Mint an NFT in a collection
-	// quantity, receiver
 	TotalSupply = "totalSupply()",
 	Mint = "mint(address,uint32)",
 	SetMaxSupply = "setMaxSupply(uint32)",
 	SetBaseURI = "setBaseURI(bytes)",
 	OwnedTokens = "ownedTokens(address,uint16,uint32)",
+	TogglePublicMint = "togglePublicMint(bool)",
+	SetMintFee = "setMintFee(address,uint128)",
 	// Selector used by SafeTransferFrom function
 	OnErc721Received = "onERC721Received(address,address,uint256,bytes)",
 	// XLS-20 extensions
@@ -149,7 +158,17 @@ where
 						Action::Approve |
 						Action::SafeTransferFrom |
 						Action::TransferFrom |
-						Action::SafeTransferFromCallData => FunctionModifier::NonPayable,
+						Action::SafeTransferFromCallData |
+						Action::SetApprovalForAll |
+						Action::SetMaxSupply |
+						Action::RenounceOwnership |
+						Action::TransferOwnership |
+						Action::SetBaseURI |
+						Action::EnableXls20Compatibility |
+						Action::ReRequestXls20Mint |
+						Action::TogglePublicMint |
+						Action::SetMintFee |
+						Action::Mint => FunctionModifier::NonPayable,
 						_ => FunctionModifier::View,
 					}) {
 						return Some(Err(err.into()))
@@ -185,6 +204,8 @@ where
 						Action::SetMaxSupply => Self::set_max_supply(collection_id, handle),
 						Action::SetBaseURI => Self::set_base_uri(collection_id, handle),
 						Action::OwnedTokens => Self::owned_tokens(collection_id, handle),
+						Action::TogglePublicMint => Self::toggle_public_mint(collection_id, handle),
+						Action::SetMintFee => Self::set_mint_fee(collection_id, handle),
 						// XLS-20 extensions
 						Action::EnableXls20Compatibility =>
 							Self::enable_xls20_compatibility(collection_id, handle),
@@ -845,6 +866,77 @@ where
 				.write::<Vec<u32>>(collected_tokens)
 				.build(),
 		))
+	}
+
+	fn toggle_public_mint(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		read_args!(handle, { enabled: bool });
+
+		// Dispatch call (if enough gas).
+		let origin = handle.context().caller;
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_nft::Call::<Runtime>::toggle_public_mint { collection_id, enabled },
+		)?;
+
+		log1(
+			handle.code_address(),
+			SELECTOR_LOG_PUBLIC_MINT_TOGGLED,
+			EvmDataWriter::new().write(enabled).build(),
+		)
+		.record(handle)?;
+
+		Ok(succeed([]))
+	}
+
+	fn set_mint_fee(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		read_args!(handle, { payment_asset: Address, mint_fee: U256 });
+
+		// Parse inputs
+		let asset_id: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+			payment_asset,
+			ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		)
+		.ok_or_else(|| revert("ERC721: Invalid payment asset address"))?;
+		if mint_fee > Balance::MAX.into() {
+			return Err(revert("ERC721: Expected mint_fee <= 2^128").into())
+		}
+		let fee: Balance = mint_fee.saturated_into();
+		// If the mint fee is 0, we can assume this means no mint fee
+		// Pass in None for pricing_details
+		let pricing_details = match fee {
+			0 => None,
+			_ => Some((asset_id, fee)),
+		};
+
+		// Dispatch call (if enough gas).
+		let origin = handle.context().caller;
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_nft::Call::<Runtime>::set_mint_fee { collection_id, pricing_details },
+		)?;
+
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_MINT_FEE_UPDATED,
+			H160::from(payment_asset),
+			H256::from_slice(&EvmDataWriter::new().write(mint_fee).build()),
+			vec![],
+		)
+		.record(handle)?;
+
+		Ok(succeed([]))
 	}
 
 	fn owner(
