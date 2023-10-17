@@ -700,7 +700,7 @@ describe("Fee Preferences", function () {
     const erc20PrecompileAddress = assetIdToERC20ContractAddress(FEE_TOKEN_ASSET_ID);
     const sender = futurepassAddress;
     const value = 0; //eth
-    const gasLimit = 22953;
+    const gasLimit = 42953;
     const maxFeePerGas = "15000000000000";
     const maxPriorityFeePerGas = null;
     const nonce = null;
