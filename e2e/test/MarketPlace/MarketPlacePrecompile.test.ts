@@ -398,7 +398,7 @@ describe("Marketplace Precompile", function () {
     const [, listingId, , ,] = (sellReceipt?.events as any)[0].args;
 
     const listingDetails = await marketPlacePrecompile.getListingFromId(listingId.toNumber());
-    const [collectionId, seriesId, amountFromCall, paymentAssetFromCall, typeOfListing] = listingDetails;
+    const [collectionId, seriesId, amountFromCall, , typeOfListing] = listingDetails;
     expect(amountFromCall.toNumber()).to.equal(fixedPrice);
     expect(collectionId).to.gte(0);
     expect(JSON.stringify(seriesId)).to.equal(JSON.stringify(sellNFTSeries));
