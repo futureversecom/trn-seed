@@ -465,11 +465,9 @@ impl<T: Config> Pallet<T> {
 			ensure!(collection_info.is_token_owner(who, serial_number), Error::<T>::NotTokenOwner);
 			collection_info.collection_issuance =
 				collection_info.collection_issuance.saturating_sub(1);
-			collection_info.owned_tokens.iter_mut().for_each(|token_ownership| {
-				if token_ownership.owner == *who {
-					token_ownership.owned_serials.retain(|&serial| serial != serial_number)
-				}
-			});
+			let serial_numbers = BoundedVec::truncate_from(vec![serial_number]);
+			collection_info.remove_user_tokens(who, serial_numbers);
+
 			// Remove approvals for this token
 			T::OnTransferSubscription::on_nft_transfer(&(collection_id, serial_number));
 			Ok(())

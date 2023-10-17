@@ -514,7 +514,10 @@ fn burn() {
 		assert_ok!(Nft::burn(Some(token_owner).into(), (collection_id, 2)));
 		assert!(has_event(Event::<Test>::Burn { collection_id, serial_number: 2 }));
 
-		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().collection_issuance, 0);
+		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+		assert_eq!(collection_info.collection_issuance, 0);
+		// Check owned tokens length is 0, this means the storage item was properly removed
+		assert_eq!(collection_info.owned_tokens.len(), 0);
 		assert_eq!(
 			Nft::owned_tokens(collection_id, &token_owner, 0, 1000),
 			(0_u32, 0_u32, vec![].into())
