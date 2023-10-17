@@ -84,6 +84,11 @@ pub fn virosa_config() -> Result<ChainSpec, String> {
 	let boot_nodes = vec![
 		"/dns4/bootnode-0.virosa.rootnet.app/tcp/30333/p2p/12D3KooWNs1xUiJDsCvva6q2DYtfS13p9uiKCc3SCMmhQ7DieGKT".parse().unwrap(),
 		"/dns4/bootnode-1.virosa.rootnet.app/tcp/30333/p2p/12D3KooWAnmVLtcRrhkwnLHFvG2g2C5y52gEJcHVtnS52z96Knif".parse().unwrap()];
+	let poa_accounts = vec![
+		authority_keys_from_seed("Alice"),
+		authority_keys_from_seed("Bob"),
+		authority_keys_from_seed("Charlie")
+	]
 	let mut properties = sc_service::Properties::new();
 	properties.insert("tokenSymbol".into(), ROOT_SYMBOL.into());
 	properties.insert("tokenDecimals".into(), ROOT_DECIMALS.into());
@@ -97,7 +102,7 @@ pub fn virosa_config() -> Result<ChainSpec, String> {
 			testnet_genesis(
 				wasm_binary,
 				// Initial PoA authorities
-				vec![authority_keys_from_seed("Alice")],
+				poa_accounts,
 				// Sudo account
 				AccountId::from(hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac")),
 				// Pre-funded accounts
@@ -121,7 +126,9 @@ pub fn virosa_config() -> Result<ChainSpec, String> {
 					AccountId::from(hex!("Ff64d3F6efE2317EE2807d223a0Bdc4c0c49dfDB")), // Ethan
 					AccountId::from(hex!("C0F0f4ab324C46e55D02D0033343B4Be8A55532d")), // Faith
 				],
+				// xrp_relayers: Vec<AccountId>
 				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
+				// xrp_door_signers: Vec<EthBridgeId>
 				vec![authority_keys_from_seed("Alice").4],
 				false,
 			)
