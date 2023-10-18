@@ -217,9 +217,18 @@ pub mod pallet {
 	pub type SettledXRPTransactionDetails<T: Config> =
 		StorageMap<_, Twox64Concat, u32, BoundedVec<XrplTxHash, T::XRPLTransactionLimitPerLedger>>;
 
+	#[pallet::type_value]
+	/// Default value for HighestSettledLedgerIndex.
+	// we set this value to 83287000 as the remediation plan for the mainnet issues described in
+	// here -> https://www.notion.so/futureverse/TRN-Revive-Plan-834df8a7605440ccb62eb4b6f4273ef9
+	pub fn DefaultHighestSettledLedgerIndex() -> u32 {
+		83287000_u32
+	}
+
 	#[pallet::storage]
 	/// Highest settled XRPL ledger index
-	pub type HighestSettledLedgerIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type HighestSettledLedgerIndex<T: Config> =
+		StorageValue<_, u32, ValueQuery, DefaultHighestSettledLedgerIndex>;
 
 	#[pallet::type_value]
 	/// XRPL ledger rate is between 3-5 seconds. let's take min 3 seconds and keep data for 10 days
@@ -576,8 +585,9 @@ impl<T: Config> Pallet<T> {
 		let mut writes = 0u64;
 		reads += 2;
 		let previous_end = end_ledger_index;
-		let current_end =
-			HighestSettledLedgerIndex::<T>::get().saturating_sub(SubmissionWindowWidth::<T>::get());
+		let highest_settled_ledger_index = HighestSettledLedgerIndex::<T>::get();
+		let submission_window_width = SubmissionWindowWidth::<T>::get();
+		let current_end = highest_settled_ledger_index.saturating_sub(submission_window_width);
 
 		for ledger_index in previous_end..current_end {
 			reads += 1;
