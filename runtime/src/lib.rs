@@ -222,6 +222,8 @@ impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 		match call {
 			// Prevent asset `create` transactions from executing
 			RuntimeCall::Assets(pallet_assets::Call::create { .. }) => false,
+			// Disable EthBridge `submit_challenge` call
+			RuntimeCall::EthBridge(pallet_ethy::Call::submit_challenge { .. }) => false,
 			// Disable XRPLBridge `submit_challenge` call
 			RuntimeCall::XRPLBridge(pallet_xrpl_bridge::Call::submit_challenge { .. }) => false,
 			// Calls to direct rewards to be re-staked are not allowed, as it does not make sense in
