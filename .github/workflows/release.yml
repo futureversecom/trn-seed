@@ -3,9 +3,9 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      tag:
+      patch:
         type: number
-        description: "Tag number for the release (default 0)"
+        description: "Release patch version number (default 0)"
         default: 0
         required: true
 
@@ -28,9 +28,9 @@ jobs:
         run: |
           echo ::set-output name=spec_version::$(grep 'spec_version:.*,$' runtime/src/lib.rs | sed 's/[^0-9]*//g')
       - name: Generate release tag name 🏷️  
-        id: generate_tag_name # v<client-version>.<spec-version>.<tag>
+        id: generate_tag_name # v<client-version>.<spec-version>.<patch>
         run: |
-          echo ::set-output name=tag_name::v${{ steps.find_client_version.outputs.client_version }}.${{ steps.find_spec_version.outputs.spec_version }}.${{ github.event.inputs.tag }}
+          echo ::set-output name=tag_name::v${{ steps.find_client_version.outputs.client_version }}.${{ steps.find_spec_version.outputs.spec_version }}.${{ github.event.inputs.patch }}
       - name: Generate changelog 📜
         # generate changelog from commits since previous latest tag
         run: git log $(git tag --sort=committerdate | tail -1)..HEAD > CHANGELOG.md
