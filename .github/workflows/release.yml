@@ -27,10 +27,6 @@ jobs:
         id: find_spec_version
         run: |
           echo ::set-output name=spec_version::$(grep 'spec_version:.*,$' runtime/src/lib.rs | sed 's/[^0-9]*//g')
-      - name: Set tag
-        id: set_tag
-        run: |
-          
       - name: Generate release tag name 🏷️  
         id: generate_tag_name # v<client-version>.<spec-version>.<tag>
         run: |
