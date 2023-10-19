@@ -21,23 +21,23 @@ seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
 
 # Substrate packages
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-application-crypto = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
+frame-support = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
+frame-system = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
+sp-application-crypto = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
+sp-core = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
+sp-io = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
+sp-runtime = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
+sp-std = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.3"
 parking_lot = "0.12.1"
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+sp-core = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped" }
+sp-keystore = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped" }
 pallet-assets-ext = { path = "../assets-ext" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-scheduler = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+pallet-balances = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped" }
+pallet-assets = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped" }
+pallet-scheduler = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped" }
 
 [features]
 default = ["std"]
