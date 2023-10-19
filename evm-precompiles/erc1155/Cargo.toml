@@ -19,15 +19,15 @@ scale-info = { version = "2.3.0", default-features = false, features = ["derive"
 ethereum-types = { version = "0.13.1", default-features = false, features = ["serialize", "codec"] }
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
+frame-support = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
+frame-system = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
+sp-core = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
+sp-runtime = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
+sp-std = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
 
 # Frontier
-fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
-pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
+fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-substrate-v0.9.30" }
+pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-substrate-v0.9.30" }
 
 [features]
 default = ["std"]
