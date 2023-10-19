@@ -3,6 +3,11 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      branch:
+        type: string
+        description: 'Branch name'
+        default: 'main'
+        required: true
       patch:
         type: number
         description: "Release patch version number (default 0)"
@@ -18,6 +23,9 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
       - name: Find release version
         id: find_client_version
         # client version is `x.y.z` in `client/Cargo.toml`; only get `z` part
