@@ -16,20 +16,20 @@ log = "0.4"
 ethabi = { version = "17.1.0", default-features = false }
 
 # Substrate
-frame-support = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false  }
-frame-system = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false  }
-frame-benchmarking = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", optional = true, default-features = false }
-sp-std = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false  }
-sp-runtime = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false  }
-sp-core = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
+frame-support = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false  }
+frame-system = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false  }
+frame-benchmarking = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", optional = true, default-features = false }
+sp-std = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false  }
+sp-runtime = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false  }
+sp-core = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
 
 [dev-dependencies]
 pallet-nft = { path = "../nft" }
-sp-io = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30" }
+sp-io = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped" }
 hex-literal = { version = "0.3.4" }
 pallet-assets-ext = { path = "../assets-ext" }
-pallet-balances = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30" }
-pallet-assets = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30" }
+pallet-balances = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped" }
+pallet-assets = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped" }
 
 [features]
 default = ["std"]

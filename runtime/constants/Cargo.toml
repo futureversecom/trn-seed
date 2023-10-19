@@ -5,9 +5,9 @@ authors = ["The Root Network Team"]
 edition = "2021"
 
 [dependencies]
-sp-runtime = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-core = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-weights = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
+sp-runtime = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
+sp-core = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
+sp-weights = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
 
 [features]
 default = ["std"]

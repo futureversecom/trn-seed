@@ -10,14 +10,14 @@ license = "GPL-3.0"
 codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
 jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
 
-sp-api = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-arithmetic = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-blockchain = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-core = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-io = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-rpc = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-runtime = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-std = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30" }
+sp-api = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30-warped" }
+sp-arithmetic = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30-warped" }
+sp-blockchain = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30-warped" }
+sp-core = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30-warped" }
+sp-io = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30-warped" }
+sp-rpc = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30-warped" }
+sp-runtime = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30-warped" }
+sp-std = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30-warped" }
 
 pallet-sft = { path = "../" }
 pallet-sft-rpc-runtime-api = { path = "./runtime-api" }

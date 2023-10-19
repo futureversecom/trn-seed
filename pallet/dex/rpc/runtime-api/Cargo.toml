@@ -6,11 +6,11 @@ edition = "2021"
 license = "GPL-3.0"
 
 [dependencies]
-sp-api = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-runtime = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-std = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30" }
-frame-system = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-core = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30" }
+sp-api = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30-warped" }
+sp-runtime = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30-warped" }
+sp-std = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30-warped" }
+frame-system = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30-warped" }
+sp-core = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, branch = "polkadot-v0.9.30-warped" }
 pallet-dex = { path = "../../", default-features = false }
 seed-primitives = { path = "../../../../primitives", default-features = false}
 

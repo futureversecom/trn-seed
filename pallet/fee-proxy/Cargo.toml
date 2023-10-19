@@ -19,22 +19,22 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
 ethabi = { version = "17.1.0", default-features = false }
 
-sp-std = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
-frame-benchmarking = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, optional = true , branch = "polkadot-v0.9.30" }
-frame-support = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
-frame-system = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
-pallet-transaction-payment = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-core = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-runtime = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30", default-features = false }
+sp-std = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
+frame-benchmarking = { git = "https://github.com/futureversecom/trn-substrate", default-features = false, optional = true , branch = "polkadot-v0.9.30-warped" }
+frame-support = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
+frame-system = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
+pallet-transaction-payment = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
+sp-core = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
+sp-runtime = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped", default-features = false }
 
-pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-substrate-v0.9.30" }
+pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-substrate-v0.9.30-warped2" }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30" }
+sp-io = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped" }
 hex-literal = { version = "0.3.4" }
-pallet-balances = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30" }
-pallet-assets = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30" }
-pallet-timestamp = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30" }
+pallet-balances = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped" }
+pallet-assets = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped" }
+pallet-timestamp = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v0.9.30-warped" }
 
 [features]
 default = ["std"]
