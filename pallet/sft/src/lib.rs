@@ -27,7 +27,7 @@ use seed_pallet_common::{
 };
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
-	SerialNumber, TokenId,
+	SerialNumber, TokenCount, TokenId, TokenLockReason,
 };
 use sp_runtime::{BoundedVec, DispatchResult};
 use sp_std::prelude::*;
@@ -55,6 +55,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use pallet_nft::PublicMintInformation;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -110,6 +111,11 @@ pub mod pallet {
 		SftCollectionInformation<T::AccountId, T::StringLimit>,
 	>;
 
+	/// Map from collection to its public minting information
+	#[pallet::storage]
+	pub type PublicMintInfo<T: Config> =
+		StorageMap<_, Twox64Concat, CollectionUuid, PublicMintInformation>;
+
 	/// Map from token to its token information, including ownership information
 	#[pallet::storage]
 	pub type TokenInfo<T: Config> = StorageMap<
@@ -131,12 +137,28 @@ pub mod pallet {
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 			origin_chain: OriginChain,
 		},
+		/// Public minting was enabled/disabled for a collection
+		PublicMintToggle { collection_id: CollectionUuid, enabled: bool },
 		/// Token(s) were minted
 		Mint {
 			collection_id: CollectionUuid,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
 			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			owner: T::AccountId,
+		},
+		/// Payment was made to cover a public mint
+		MintFeePaid {
+			who: T::AccountId,
+			collection_id: CollectionUuid,
+			payment_asset: AssetId,
+			payment_amount: Balance,
+			token_count: Balance,
+		},
+		/// A mint price was set for a collection
+		MintPriceSet {
+			collection_id: CollectionUuid,
+			payment_asset: Option<AssetId>,
+			mint_price: Option<Balance>,
 		},
 		/// A new owner was set
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
@@ -205,6 +227,8 @@ pub mod pallet {
 		MaxOwnersReached,
 		/// The operation would cause a numeric overflow
 		Overflow,
+		/// This collection has not allowed public minting
+		PublicMintDisabled,
 	}
 
 	#[pallet::call]
@@ -375,6 +399,74 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_set_royalties_schedule(who, collection_id, royalties_schedule)
+		}
+
+		#[pallet::weight(T::WeightInfo::toggle_public_mint())]
+		pub fn toggle_public_mint(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			enabled: bool,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<SftCollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			// Only the owner can make this call
+			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
+
+			// Get public mint info and set enabled flag
+			let mut public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
+			public_mint_info.enabled = enabled;
+
+			if public_mint_info == PublicMintInformation::default() {
+				// If the pricing details are None, and enabled is false
+				// Remove the storage entry
+				<PublicMintInfo<T>>::remove(collection_id);
+			} else {
+				// Otherwise, update the storage
+				<PublicMintInfo<T>>::insert(collection_id, public_mint_info);
+			}
+
+			Self::deposit_event(Event::<T>::PublicMintToggle { collection_id, enabled });
+			Ok(())
+		}
+
+		#[pallet::weight(T::WeightInfo::set_mint_fee())]
+		pub fn set_mint_fee(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			pricing_details: Option<(AssetId, Balance)>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<SftCollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			// Only the owner can make this call
+			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
+
+			// Get the existing public mint info if it exists
+			let mut public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
+			public_mint_info.pricing_details = pricing_details;
+
+			if public_mint_info == PublicMintInformation::default() {
+				// If the pricing details are None, and enabled is false
+				// Remove the storage entry
+				<PublicMintInfo<T>>::remove(collection_id);
+			} else {
+				// Otherwise, update the storage
+				<PublicMintInfo<T>>::insert(collection_id, public_mint_info);
+			}
+
+			// Extract payment asset and mint price for clearer event logging
+			let (payment_asset, mint_price) = match pricing_details {
+				Some((asset, price)) => (Some(asset), Some(price)),
+				None => (None, None),
+			};
+
+			Self::deposit_event(Event::<T>::MintPriceSet {
+				collection_id,
+				payment_asset,
+				mint_price,
+			});
+			Ok(())
 		}
 	}
 }

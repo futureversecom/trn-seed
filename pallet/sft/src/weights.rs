@@ -49,6 +49,8 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for pallet_sft.
 pub trait WeightInfo {
 	fn create_collection() -> Weight;
+	fn toggle_public_mint() -> Weight;
+	fn set_mint_fee() -> Weight;
 	fn create_token() -> Weight;
 	fn mint() -> Weight;
 	fn transfer() -> Weight;
@@ -124,10 +126,24 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
-	// Storage: Nft CollectionInfo (r:1 w:1)
+	// Storage: Sft CollectionInfo (r:1 w:1)
 	fn set_royalties_schedule() -> Weight {
 		Weight::from_ref_time(68_177_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+	// Storage: Sft CollectionInfo (r:1 w:0)
+	// Storage: Sft PublicMintInfo (r:1 w:1)
+	fn toggle_public_mint() -> Weight {
+		Weight::from_ref_time(30_057_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(2 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+	// Storage: Sft CollectionInfo (r:1 w:0)
+	// Storage: Sft PublicMintInfo (r:1 w:1)
+	fn set_mint_fee() -> Weight {
+		Weight::from_ref_time(30_177_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
@@ -195,10 +211,25 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
-	// Storage: Nft CollectionInfo (r:1 w:1)
+	// Storage: Sft CollectionInfo (r:1 w:1)
 	fn set_royalties_schedule() -> Weight {
 		Weight::from_ref_time(68_177_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+
+	// Storage: Sft CollectionInfo (r:1 w:0)
+	// Storage: Sft PublicMintInfo (r:1 w:1)
+	fn toggle_public_mint() -> Weight {
+		Weight::from_ref_time(30_057_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(2 as u64))
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+	// Storage: Sft CollectionInfo (r:1 w:0)
+	// Storage: Sft PublicMintInfo (r:1 w:1)
+	fn set_mint_fee() -> Weight {
+		Weight::from_ref_time(30_177_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }

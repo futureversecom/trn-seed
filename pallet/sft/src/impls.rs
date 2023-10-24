@@ -15,6 +15,7 @@
 
 use crate::*;
 use frame_support::ensure;
+use pallet_nft::PublicMintInformation;
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
 use seed_primitives::CollectionUuid;
 use sp_runtime::{traits::Zero, DispatchError};
@@ -125,6 +126,34 @@ impl<T: Config> Pallet<T> {
 		Ok(next_serial_number)
 	}
 
+	pub(crate) fn charge_mint_fee(
+		who: &T::AccountId,
+		collection_id: CollectionUuid,
+		collection_owner: &T::AccountId,
+		public_mint_info: PublicMintInformation,
+		token_count: Balance,
+	) -> DispatchResult {
+		// Calculate the total fee
+		let total_fee = match public_mint_info.pricing_details {
+			Some((asset, price)) => Some((asset, price.saturating_mul(token_count as Balance))),
+			None => None,
+		};
+		// Charge the fee if there is a fee set
+		if let Some((asset, total_fee)) = total_fee {
+			T::MultiCurrency::transfer(asset, who, &collection_owner, total_fee, false)?;
+			// Deposit event
+			Self::deposit_event(Event::<T>::MintFeePaid {
+				who: who.clone(),
+				collection_id,
+				payment_asset: asset,
+				payment_amount: total_fee,
+				token_count,
+			});
+		}
+
+		Ok(())
+	}
+
 	/// Perform the mint operation and increase the quantity of the user
 	/// Note there is one storage read and write per serial number minted
 	pub fn do_mint(
@@ -139,10 +168,17 @@ impl<T: Config> Pallet<T> {
 		let sft_collection_info =
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
-		// Caller must be collection_owner
-		ensure!(sft_collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
+		let public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
 
-		let owner = token_owner.unwrap_or(who);
+		// Caller must be collection_owner if public mint is disabled
+		ensure!(
+			sft_collection_info.collection_owner == who || public_mint_info.enabled,
+			Error::<T>::PublicMintDisabled
+		);
+
+		let owner = token_owner.unwrap_or(who.clone());
+
+		let mut total_quantity: Balance = 0;
 
 		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
@@ -168,6 +204,19 @@ impl<T: Config> Pallet<T> {
 			token_info.add_balance(&owner, *quantity).map_err(|err| Error::<T>::from(err))?;
 			token_info.token_issuance += quantity;
 			TokenInfo::<T>::insert(token_id, token_info);
+			// let quant: u32 = *quantity.saturated_into();
+			total_quantity = total_quantity + *quantity;
+		}
+		// Only charge mint fee if public mint enabled and caller is not collection owner
+		if public_mint_info.enabled && sft_collection_info.collection_owner != who {
+			// Charge the mint fee for the mint
+			Self::charge_mint_fee(
+				&who,
+				collection_id,
+				&sft_collection_info.collection_owner,
+				public_mint_info,
+				total_quantity,
+			)?;
 		}
 
 		let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
