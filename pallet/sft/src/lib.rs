@@ -43,16 +43,12 @@ mod benchmarking;
 mod impls;
 mod types;
 mod weights;
+
 pub use weights::WeightInfo;
 
 pub use impls::*;
 pub use pallet::*;
 pub use types::*;
-
-/// The maximum length of valid collection IDs
-pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
-/// The maximum amount of listings to return
-pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -124,7 +120,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new collection of tokens was created
 		CollectionCreate {
@@ -150,6 +146,11 @@ pub mod pallet {
 		BaseUriSet { collection_id: CollectionUuid, metadata_scheme: MetadataScheme },
 		/// Name was set
 		NameSet { collection_id: CollectionUuid, collection_name: BoundedVec<u8, T::StringLimit> },
+		/// Royalties schedule was set
+		RoyaltiesScheduleSet {
+			collection_id: CollectionUuid,
+			royalties_schedule: RoyaltiesSchedule<T::AccountId>,
+		},
 		/// A new token was created within a collection
 		TokenCreate {
 			token_id: TokenId,
@@ -362,6 +363,18 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_set_name(who, collection_id, collection_name)
+		}
+
+		/// Set the royalties schedule of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_royalties_schedule())]
+		pub fn set_royalties_schedule(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			royalties_schedule: RoyaltiesSchedule<T::AccountId>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_set_royalties_schedule(who, collection_id, royalties_schedule)
 		}
 	}
 }

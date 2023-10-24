@@ -1618,3 +1618,97 @@ mod set_name {
 		});
 	}
 }
+
+mod set_royalties_schedule {
+	use super::*;
+
+	#[test]
+	fn set_royalties_schedule_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
+			};
+
+			assert_ok!(Sft::set_royalties_schedule(
+				Some(collection_owner).into(),
+				token_id.0,
+				royalties_schedule.clone()
+			));
+
+			let collection_info = SftCollectionInfo::<Test>::get(token_id.0).unwrap();
+
+			// Storage updated
+			assert_eq!(collection_info.royalties_schedule.unwrap(), royalties_schedule);
+		});
+	}
+
+	#[test]
+	fn set_royalties_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(11);
+			let collection_id = 1;
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
+			};
+
+			// Call to unknown collection should fail
+			assert_noop!(
+				Sft::set_royalties_schedule(
+					Some(collection_owner).into(),
+					collection_id,
+					royalties_schedule.clone()
+				),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn set_royalties_not_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
+			};
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+
+			// Set royalties schedule fails because not collection owner
+			assert_noop!(
+				Sft::set_royalties_schedule(
+					Some(bob()).into(),
+					token_id.0,
+					royalties_schedule.clone()
+				),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_royalties_invalid_royalties_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_id = create_test_token(collection_owner, collection_owner, 8100);
+
+			// Too big royalties should fail
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![
+					(create_account(3), Permill::from_float(1.2)),
+					(create_account(4), Permill::from_float(3.3)),
+				]),
+			};
+
+			// Calls with invalid royalties should fail
+			assert_noop!(
+				Sft::set_royalties_schedule(
+					Some(collection_owner).into(),
+					token_id.0,
+					royalties_schedule.clone()
+				),
+				Error::<Test>::RoyaltiesInvalid
+			);
+		});
+	}
+}

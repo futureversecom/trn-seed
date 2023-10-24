@@ -16,7 +16,7 @@ interface IERC721 is IERC165 {
     function getApproved(uint256 tokenId) external view returns (address operator);
     function setApprovalForAll(address operator, bool _approved) external;
     function isApprovedForAll(address owner, address operator) external view returns (bool);
-    function safeTransferFrom(address from,address to,uint256 tokenId,bytes calldata data) external;
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes calldata data) external;
 }
 ```
 
@@ -32,12 +32,16 @@ interface IERC721Metadata is IERC721 {
 interface TRN721 is IERC165 {
     event MaxSupplyUpdated(uint32 maxSupply);
     event BaseURIUpdated(string baseURI);
+    event PublicMintToggled(bool indexed enabled);
+    event MintFeeUpdated(address indexed paymentAsset, uint256 indexed mintFee);
 
     function totalSupply() external view returns (uint256);
     function mint(address owner, uint32 quantity) external;
     function setMaxSupply(uint32 maxSupply) external;
     function setBaseURI(bytes calldata baseURI) external;
     function ownedTokens(address who, uint16 limit, uint32 cursor) external view returns (uint32, uint32, uint32[] memory);
+    function togglePublicMint(bool enabled) external;
+    function setMintFee(address paymentAsset, uint256 mintFee) external;
 }
 ```
 

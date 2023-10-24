@@ -24,7 +24,8 @@ use frame_support::{
 		OriginTrait,
 	},
 };
-use pallet_evm::PrecompileSet;
+use pallet_assets::WeightInfo;
+use pallet_evm::{GasWeightMapping, PrecompileSet};
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{AssetId, Balance};
 use sp_core::{H160, U256};
@@ -271,8 +272,11 @@ where
 		read_args!(handle, { to: Address, amount: U256 });
 		let to: H160 = to.into();
 		let amount: Balance = amount.saturated_into();
-
 		let origin: Runtime::AccountId = handle.context().caller.into();
+
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_assets::Config>::WeightInfo::transfer(),
+		))?;
 		let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
 			asset_id,
 			&origin,
@@ -332,6 +336,9 @@ where
 			)?;
 
 			// Transfer
+			handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+				<Runtime as pallet_assets::Config>::WeightInfo::transfer(),
+			))?;
 			let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
 				asset_id,
 				&from,

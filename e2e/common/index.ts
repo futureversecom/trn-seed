@@ -214,8 +214,11 @@ export const MARKETPLACE_PRECOMPILE_ADDRESS = "0x0000000000000000000000000000000
 // Futurepass delegate reserve amount
 export const FP_DELEGATE_RESERVE = 126 * 1; // ProxyDepositFactor * 1(num of delegates)
 
-// XRP PreCompile contract address
+// XRP Precompile contract address
 export const XRP_PRECOMPILE_ADDRESS = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
+
+// ROOT Precompile contract address
+export const ROOT_PRECOMPILE_ADDRESS = web3.utils.toChecksumAddress("0xCCCCCCCC00000001000000000000000000000000");
 
 // Futurepass creation reserve amount
 export const FP_CREATION_RESERVE = 148 + FP_DELEGATE_RESERVE; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
@@ -236,9 +239,10 @@ const OWNABLE_ABI = [
   "function transferOwnership(address owner)",
 ];
 
-export const FEE_PROXY_ABI = [
+export const FEE_PROXY_ABI_DEPRECATED = [
   "function callWithFeePreferences(address asset, uint128 maxPayment, address target, bytes input)",
 ];
+export const FEE_PROXY_ABI = ["function callWithFeePreferences(address asset, address target, bytes input)"];
 
 export const ERC20_ABI = [
   "event Transfer(address indexed from, address indexed to, uint256 value)",
@@ -294,12 +298,16 @@ export const ERC721_PRECOMPILE_ABI = [
   // Root specific precompiles
   "event MaxSupplyUpdated(uint32 maxSupply)",
   "event BaseURIUpdated(string baseURI)",
+  "event PublicMintToggled(bool enabled)",
+  "event MintFeeUpdated(address indexed paymentAsset, uint128 indexed mintFee)",
 
   "function totalSupply() external view returns (uint256)",
   "function mint(address owner, uint32 quantity)",
   "function setMaxSupply(uint32 maxSupply)",
   "function setBaseURI(bytes baseURI)",
   "function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32, uint32[] memory)",
+  "function togglePublicMint(bool enabled)",
+  "function setMintFee(address paymentAsset, uint128 mintFee)",
 
   // Ownable
   ...OWNABLE_ABI,

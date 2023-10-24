@@ -195,11 +195,15 @@ impl<T: Config> Pallet<T> {
 			T::MaxTokensPerCollection,
 			T::StringLimit,
 		>,
+		public_mint_enabled: bool,
 	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
 		// Quantity must be some
 		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
-		// Caller must be collection_owner
-		ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+		// Caller must be collection_owner if public mint is disabled
+		ensure!(
+			collection_info.is_collection_owner(&who) || public_mint_enabled,
+			Error::<T>::PublicMintDisabled
+		);
 		// Check we don't exceed the token limit
 		ensure!(
 			collection_info.collection_issuance.saturating_add(quantity) <
@@ -233,6 +237,34 @@ impl<T: Config> Pallet<T> {
 			BoundedVec::try_from(serial_numbers_unbounded)
 				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
 		Ok(serial_numbers)
+	}
+
+	pub(crate) fn charge_mint_fee(
+		who: &T::AccountId,
+		collection_id: CollectionUuid,
+		collection_owner: &T::AccountId,
+		public_mint_info: PublicMintInformation,
+		token_count: TokenCount,
+	) -> DispatchResult {
+		// Calculate the total fee
+		let total_fee = match public_mint_info.pricing_details {
+			Some((asset, price)) => Some((asset, price.saturating_mul(token_count as Balance))),
+			None => None,
+		};
+		// Charge the fee if there is a fee set
+		if let Some((asset, total_fee)) = total_fee {
+			T::MultiCurrency::transfer(asset, who, &collection_owner, total_fee, false)?;
+			// Deposit event
+			Self::deposit_event(Event::<T>::MintFeePaid {
+				who: who.clone(),
+				collection_id,
+				payment_asset: asset,
+				payment_amount: total_fee,
+				token_count,
+			});
+		}
+
+		Ok(())
 	}
 
 	/// Perform the mint operation and update storage accordingly.
@@ -521,8 +553,8 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId> {
 		let Some(collection) = CollectionInfo::<T>::get(token_id.0) else {
-			return None
-		};
+            return None;
+        };
 		collection.get_token_owner(token_id.1)
 	}
 

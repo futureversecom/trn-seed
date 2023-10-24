@@ -28,11 +28,15 @@
 //!  Individual tokens within a collection. Globally identifiable by a tuple of (collection, serial
 //! number)
 
-use frame_support::{ensure, traits::Get, transactional, PalletId};
+use frame_support::{
+	ensure,
+	traits::{fungibles::Transfer, Get},
+	transactional, PalletId,
+};
 use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest};
 use seed_primitives::{
-	CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule, SerialNumber,
-	TokenCount, TokenId, TokenLockReason,
+	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
+	SerialNumber, TokenCount, TokenId, TokenLockReason,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
@@ -47,6 +51,7 @@ pub mod mock;
 #[cfg(test)]
 mod tests;
 pub mod weights;
+
 pub use weights::WeightInfo;
 
 mod impls;
@@ -57,10 +62,6 @@ pub use impls::*;
 pub use pallet::*;
 pub use types::*;
 
-/// The maximum length of valid collection IDs
-pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
-/// The maximum amount of listings to return
-pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
 /// The maximum amount of owned tokens to be returned by the RPC
 pub const MAX_OWNED_TOKENS_LIMIT: u16 = 1000;
 /// The logging target for this module
@@ -111,6 +112,8 @@ pub mod pallet {
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an NFT collection has been created
 		type OnNewAssetSubscription: OnNewAssetSubscriber<CollectionUuid>;
+		/// Handles a multi-currency fungible asset system
+		type MultiCurrency: Transfer<Self::AccountId, Balance = Balance, AssetId = AssetId>;
 		/// This pallet's Id, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -134,6 +137,11 @@ pub mod pallet {
 		CollectionInformation<T::AccountId, T::MaxTokensPerCollection, T::StringLimit>,
 	>;
 
+	/// Map from collection to its public minting information
+	#[pallet::storage]
+	pub type PublicMintInfo<T: Config> =
+		StorageMap<_, Twox64Concat, CollectionUuid, PublicMintInformation>;
+
 	/// The next available incrementing collection id
 	#[pallet::storage]
 	pub type NextCollectionId<T> = StorageValue<_, u32, ValueQuery>;
@@ -143,7 +151,7 @@ pub mod pallet {
 	pub type TokenLocks<T> = StorageMap<_, Twox64Concat, TokenId, TokenLockReason>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new collection of tokens was created
 		CollectionCreate {
@@ -157,12 +165,28 @@ pub mod pallet {
 			origin_chain: OriginChain,
 			compatibility: CrossChainCompatibility,
 		},
+		/// Public minting was enabled/disabled for a collection
+		PublicMintToggle { collection_id: CollectionUuid, enabled: bool },
 		/// Token(s) were minted
 		Mint {
 			collection_id: CollectionUuid,
 			start: SerialNumber,
 			end: SerialNumber,
 			owner: T::AccountId,
+		},
+		/// Payment was made to cover a public mint
+		MintFeePaid {
+			who: T::AccountId,
+			collection_id: CollectionUuid,
+			payment_asset: AssetId,
+			payment_amount: Balance,
+			token_count: TokenCount,
+		},
+		/// A mint price was set for a collection
+		MintPriceSet {
+			collection_id: CollectionUuid,
+			payment_asset: Option<AssetId>,
+			mint_price: Option<Balance>,
 		},
 		/// Token(s) were bridged
 		BridgedMint {
@@ -178,6 +202,11 @@ pub mod pallet {
 		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
 		/// Name was set
 		NameSet { collection_id: CollectionUuid, name: BoundedVec<u8, T::StringLimit> },
+		/// Royalties schedule was set
+		RoyaltiesScheduleSet {
+			collection_id: CollectionUuid,
+			royalties_schedule: RoyaltiesSchedule<T::AccountId>,
+		},
 		/// A token was transferred
 		Transfer {
 			previous_owner: T::AccountId,
@@ -201,48 +230,24 @@ pub mod pallet {
 		NotTokenOwner,
 		/// The token does not exist
 		NoToken,
-		/// The token is not listed for fixed price sale
-		NotForFixedPriceSale,
-		/// The token is not listed for auction sale
-		NotForAuction,
 		/// Origin is not the collection owner and is not permitted to perform the operation
 		NotCollectionOwner,
-		/// The token is not listed for sale
-		TokenNotListed,
-		/// The maximum number of offers on this token has been reached
-		MaxOffersReached,
+		/// This collection has not allowed public minting
+		PublicMintDisabled,
 		/// Cannot operate on a listed NFT
 		TokenLocked,
 		/// Total royalties would exceed 100% of sale or an empty vec is supplied
 		RoyaltiesInvalid,
-		/// Auction bid was lower than reserve or current highest bid
-		BidTooLow,
-		/// Selling tokens from different collection is not allowed
-		MixedBundleSale,
-		/// The account_id hasn't been registered as a marketplace
-		MarketplaceNotRegistered,
 		/// The collection does not exist
 		NoCollectionFound,
 		/// The metadata path is invalid (non-utf8 or empty)
 		InvalidMetadataPath,
-		/// No offer exists for the given OfferId
-		InvalidOffer,
-		/// The caller is not the specified buyer
-		NotBuyer,
-		/// The caller is not the seller of the NFT
-		NotSeller,
-		/// The caller owns the token and can't make an offer
-		IsTokenOwner,
 		/// The caller can not be the new owner
 		InvalidNewOwner,
-		/// Offer amount needs to be greater than 0
-		ZeroOffer,
 		/// The number of tokens have exceeded the max tokens allowed
 		TokenLimitExceeded,
 		/// The quantity exceeds the max tokens per mint limit
 		MintLimitExceeded,
-		/// Cannot make an offer on a token up for auction
-		TokenOnAuction,
 		/// Max issuance needs to be greater than 0 and initial_issuance
 		/// Cannot exceed MaxTokensPerCollection
 		InvalidMaxIssuance,
@@ -252,8 +257,6 @@ pub mod pallet {
 		MaxIssuanceReached,
 		/// Attemped to mint a token that was bridged from a different chain
 		AttemptedMintOnBridgedToken,
-		/// Failed to mint a token that was bridged from a different chain
-		FailedMintOnBridgedToken,
 		/// Cannot claim already claimed collections
 		CannotClaimNonClaimableCollections,
 		/// Initial issuance on XLS-20 compatible collections must be zero
@@ -397,6 +400,74 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::weight(T::WeightInfo::toggle_public_mint())]
+		pub fn toggle_public_mint(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			enabled: bool,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			// Only the owner can make this call
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			// Get public mint info and set enabled flag
+			let mut public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
+			public_mint_info.enabled = enabled;
+
+			if public_mint_info == PublicMintInformation::default() {
+				// If the pricing details are None, and enabled is false
+				// Remove the storage entry
+				<PublicMintInfo<T>>::remove(collection_id);
+			} else {
+				// Otherwise, update the storage
+				<PublicMintInfo<T>>::insert(collection_id, public_mint_info);
+			}
+
+			Self::deposit_event(Event::<T>::PublicMintToggle { collection_id, enabled });
+			Ok(())
+		}
+
+		#[pallet::weight(T::WeightInfo::set_mint_fee())]
+		pub fn set_mint_fee(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			pricing_details: Option<(AssetId, Balance)>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			// Only the owner can make this call
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			// Get the existing public mint info if it exists
+			let mut public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
+			public_mint_info.pricing_details = pricing_details;
+
+			if public_mint_info == PublicMintInformation::default() {
+				// If the pricing details are None, and enabled is false
+				// Remove the storage entry
+				<PublicMintInfo<T>>::remove(collection_id);
+			} else {
+				// Otherwise, update the storage
+				<PublicMintInfo<T>>::insert(collection_id, public_mint_info);
+			}
+
+			// Extract payment asset and mint price for clearer event logging
+			let (payment_asset, mint_price) = match pricing_details {
+				Some((asset, price)) => (Some(asset), Some(price)),
+				None => (None, None),
+			};
+
+			Self::deposit_event(Event::<T>::MintPriceSet {
+				collection_id,
+				payment_asset,
+				mint_price,
+			});
+			Ok(())
+		}
+
 		/// Mint tokens for an existing collection
 		///
 		/// `collection_id` - the collection to mint tokens in
@@ -419,9 +490,11 @@ pub mod pallet {
 
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			let public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
 
 			// Perform pre mint checks
-			let serial_numbers = Self::pre_mint(&who, quantity, &collection_info)?;
+			let serial_numbers =
+				Self::pre_mint(&who, quantity, &collection_info, public_mint_info.enabled)?;
 			let owner = token_owner.unwrap_or(who.clone());
 			let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
 			let metadata_scheme = collection_info.metadata_scheme.clone();
@@ -430,6 +503,18 @@ pub mod pallet {
 			let next_serial_number = collection_info.next_serial_number;
 			collection_info.next_serial_number =
 				next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
+
+			// Only charge mint fee if public mint enabled and caller is not collection owner
+			if public_mint_info.enabled && !collection_info.is_collection_owner(&who) {
+				// Charge the mint fee for the mint
+				Self::charge_mint_fee(
+					&who,
+					collection_id,
+					&collection_info.owner,
+					public_mint_info,
+					quantity,
+				)?;
+			}
 
 			// Perform the mint and update storage
 			Self::do_mint(collection_id, collection_info, &owner, &serial_numbers)?;
@@ -503,6 +588,31 @@ pub mod pallet {
 
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::NameSet { collection_id, name });
+			Ok(())
+		}
+
+		/// Set the royalties schedule of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_royalties_schedule())]
+		pub fn set_royalties_schedule(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			royalties_schedule: RoyaltiesSchedule<T::AccountId>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut collection_info =
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
+
+			collection_info.royalties_schedule = Some(royalties_schedule.clone());
+
+			<CollectionInfo<T>>::insert(collection_id, collection_info);
+			Self::deposit_event(Event::<T>::RoyaltiesScheduleSet {
+				collection_id,
+				royalties_schedule,
+			});
 			Ok(())
 		}
 	}
