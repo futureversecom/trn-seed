@@ -81,15 +81,15 @@ fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileF
 pub enum Action {
 	RegisterMarketplace = "registerMarketplace(address,uint256)",
 	SellNft = "sellNft(address,uint256[],address,address,uint256,uint256,uint32)",
-	SellNftWithoutMarketplace = "sellNft(address,uint256[],address,address,uint256,uint256)",
+	SellNftV2 = "sellNftV2(address,uint256[],address,address,uint256,uint256)",
 	UpdateFixedPrice = "updateFixedPrice(uint128,uint256)",
 	Buy = "buy(uint128)",
 	AuctionNft = "auctionNft(address,uint256[],address,uint256,uint256,uint256)",
-	AuctionNftWithoutMarketplace = "auctionNft(address,uint256[],address,uint256,uint256)",
+	AuctionNftV2 = "auctionNftV2(address,uint256[],address,uint256,uint256)",
 	Bid = "bid(uint128,uint256)",
 	CancelSale = "cancelSale(uint128)",
 	MakeSimpleOffer = "makeSimpleOffer(address,uint32,uint256,address,uint32)",
-	MakeSimpleOfferWithoutMarketplace = "makeSimpleOffer(address,uint32,uint256,address)",
+	MakeSimpleOfferV2 = "makeSimpleOfferV2(address,uint32,uint256,address)",
 	CancelOffer = "cancelOffer(uint64)",
 	AcceptOffer = "acceptOffer(uint64)",
 	GetMarketplaceAccount = "getMarketplaceAccount(uint32)",
@@ -127,15 +127,15 @@ where
 			if let Err(err) = handle.check_function_modifier(match selector {
 				Action::RegisterMarketplace |
 				Action::SellNft |
-				Action::SellNftWithoutMarketplace |
+				Action::SellNftV2 |
 				Action::UpdateFixedPrice |
 				Action::AuctionNft |
-				Action::AuctionNftWithoutMarketplace |
+				Action::AuctionNftV2 |
 				Action::Bid |
 				Action::Buy |
 				Action::CancelSale |
 				Action::MakeSimpleOffer |
-				Action::MakeSimpleOfferWithoutMarketplace |
+				Action::MakeSimpleOfferV2 |
 				Action::CancelOffer |
 				Action::AcceptOffer => FunctionModifier::NonPayable,
 				_ => FunctionModifier::View,
@@ -145,16 +145,16 @@ where
 
 			match selector {
 				Action::RegisterMarketplace => Self::register_marketplace(handle),
-				Action::SellNft => Self::sell_nft(handle, true),
-				Action::SellNftWithoutMarketplace => Self::sell_nft(handle, false),
+				Action::SellNft => Self::sell_nft(handle),
+				Action::SellNftV2 => Self::sell_nft_v2(handle),
 				Action::UpdateFixedPrice => Self::update_fixed_price(handle),
 				Action::Buy => Self::buy(handle),
-				Action::AuctionNft => Self::auction_nft(handle, true),
-				Action::AuctionNftWithoutMarketplace => Self::auction_nft(handle, false),
+				Action::AuctionNft => Self::auction_nft(handle),
+				Action::AuctionNftV2 => Self::auction_nft_v2(handle),
 				Action::Bid => Self::bid(handle),
 				Action::CancelSale => Self::cancel_sale(handle),
-				Action::MakeSimpleOffer => Self::make_simple_offer(handle, true),
-				Action::MakeSimpleOfferWithoutMarketplace => Self::make_simple_offer(handle, false),
+				Action::MakeSimpleOffer => Self::make_simple_offer(handle),
+				Action::MakeSimpleOfferV2 => Self::make_simple_offer_v2(handle),
 				Action::CancelOffer => Self::cancel_offer(handle),
 				Action::AcceptOffer => Self::accept_offer(handle),
 				Action::GetMarketplaceAccount => Self::get_marketplace_account(handle),
@@ -243,10 +243,7 @@ where
 		Ok(succeed(EvmDataWriter::new().write(marketplace_id).build()))
 	}
 
-	fn sell_nft(
-		handle: &mut impl PrecompileHandle,
-		use_marketplace: bool,
-	) -> EvmResult<PrecompileOutput> {
+	fn sell_nft(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(3, 32)?;
 		read_args!(
 			handle,
@@ -260,6 +257,62 @@ where
 				marketplace_id: U256
 			}
 		);
+		ensure!(
+			marketplace_id <= u32::MAX.into(),
+			revert("Marketplace: Expected marketplace id <= 2^32")
+		);
+		let marketplace_id: u32 = marketplace_id.saturated_into();
+
+		Self::sell_nft_internal(
+			handle,
+			collection_address,
+			serial_number_ids,
+			buyer,
+			payment_asset,
+			fixed_price,
+			duration,
+			Some(marketplace_id),
+		)
+	}
+
+	fn sell_nft_v2(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		read_args!(
+			handle,
+			{
+				collection_address: Address,
+				serial_number_ids: Vec<U256>,
+				buyer: Address,
+				payment_asset: Address,
+				fixed_price: U256,
+				duration: U256
+			}
+		);
+		let marketplace_id: Option<MarketplaceId> = None;
+
+		Self::sell_nft_internal(
+			handle,
+			collection_address,
+			serial_number_ids,
+			buyer,
+			payment_asset,
+			fixed_price,
+			duration,
+			marketplace_id,
+		)
+	}
+
+	fn sell_nft_internal(
+		handle: &mut impl PrecompileHandle,
+		collection_address: Address,
+		serial_number_ids: Vec<U256>,
+		buyer: Address,
+		payment_asset: Address,
+		fixed_price: U256,
+		duration: U256,
+		marketplace_id: Option<MarketplaceId>,
+	) -> EvmResult<PrecompileOutput> {
 		// Parse asset_id
 		let payment_asset: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
 			payment_asset,
@@ -300,16 +353,6 @@ where
 		let buyer: H160 = buyer.into();
 		let buyer: Option<Runtime::AccountId> =
 			if buyer == H160::default() { None } else { Some(buyer.into()) };
-		let marketplace_id: Option<u32> = if use_marketplace == false {
-			None
-		} else {
-			ensure!(
-				marketplace_id <= u32::MAX.into(),
-				revert("Marketplace: Expected marketplace id <= 2^32")
-			);
-			let marketplace_id: u32 = marketplace_id.saturated_into();
-			Some(marketplace_id)
-		};
 
 		let caller: Runtime::AccountId = handle.context().caller.into();
 		// Manually record gas
@@ -445,10 +488,35 @@ where
 		}
 	}
 
-	fn auction_nft(
-		handle: &mut impl PrecompileHandle,
-		use_marketplace: bool,
-	) -> EvmResult<PrecompileOutput> {
+	fn auction_nft_v2(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				collection_address: Address,
+				serial_number_ids: Vec<U256>,
+				payment_asset: Address,
+				reserve_price: U256,
+				duration: U256
+			}
+		);
+
+		let marketplace_id: Option<MarketplaceId> = None;
+
+		Self::auction_nft_internal(
+			handle,
+			collection_address,
+			serial_number_ids,
+			payment_asset,
+			reserve_price,
+			duration,
+			marketplace_id,
+		)
+	}
+
+	fn auction_nft(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
@@ -463,6 +531,33 @@ where
 				marketplace_id: U256
 			}
 		);
+
+		ensure!(
+			marketplace_id <= u32::MAX.into(),
+			revert("Marketplace: Expected marketplace id <= 2^32")
+		);
+		let marketplace_id: u32 = marketplace_id.saturated_into();
+
+		Self::auction_nft_internal(
+			handle,
+			collection_address,
+			serial_number_ids,
+			payment_asset,
+			reserve_price,
+			duration,
+			Some(marketplace_id),
+		)
+	}
+
+	fn auction_nft_internal(
+		handle: &mut impl PrecompileHandle,
+		collection_address: Address,
+		serial_number_ids: Vec<U256>,
+		payment_asset: Address,
+		reserve_price: U256,
+		duration: U256,
+		marketplace_id: Option<MarketplaceId>,
+	) -> EvmResult<PrecompileOutput> {
 		let duration = Some(saturated_convert_blocknumber(duration)?.into());
 		ensure!(
 			reserve_price <= Balance::MAX.into(),
@@ -494,16 +589,6 @@ where
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
-		let marketplace_id: Option<u32> = if use_marketplace == false {
-			None
-		} else {
-			ensure!(
-				marketplace_id <= u32::MAX.into(),
-				revert("Marketplace: Expected marketplace id <= 2^32")
-			);
-			let marketplace_id: u32 = marketplace_id.saturated_into();
-			Some(marketplace_id)
-		};
 		// Parse asset_id
 		let payment_asset: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
 			payment_asset,
@@ -640,11 +725,32 @@ where
 		// Build output.
 		Ok(succeed([]))
 	}
+	fn make_simple_offer_v2(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
 
-	fn make_simple_offer(
-		handle: &mut impl PrecompileHandle,
-		use_marketplace: bool,
-	) -> EvmResult<PrecompileOutput> {
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				collection_address: Address,
+				serial_number: U256,
+				amount: U256,
+				asset_id: Address
+			}
+		);
+		let marketplace_id: Option<MarketplaceId> = None;
+
+		Self::make_simple_offer_internal(
+			handle,
+			collection_address,
+			serial_number,
+			amount,
+			asset_id,
+			marketplace_id,
+		)
+	}
+
+	fn make_simple_offer(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
@@ -658,16 +764,25 @@ where
 				marketplace_id: U256
 			}
 		);
-		let marketplace_id: Option<u32> = if use_marketplace == false {
-			None
-		} else {
-			ensure!(
-				marketplace_id <= u32::MAX.into(),
-				revert("Marketplace: Expected marketplace id <= 2^32")
-			);
-			let marketplace_id: u32 = marketplace_id.saturated_into();
-			Some(marketplace_id)
-		};
+		let marketplace_id: u32 = marketplace_id.saturated_into();
+		Self::make_simple_offer_internal(
+			handle,
+			collection_address,
+			serial_number,
+			amount,
+			asset_id,
+			Some(marketplace_id),
+		)
+	}
+
+	fn make_simple_offer_internal(
+		handle: &mut impl PrecompileHandle,
+		collection_address: Address,
+		serial_number: U256,
+		amount: U256,
+		asset_id: Address,
+		marketplace_id: Option<MarketplaceId>,
+	) -> EvmResult<PrecompileOutput> {
 		ensure!(amount <= u128::MAX.into(), revert("Marketplace: Expected amount <= 2^128"));
 		let amount: Balance = amount.saturated_into();
 		let collection_id: CollectionUuid =
@@ -704,7 +819,6 @@ where
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
 		})?;
-		// let offer_id = H256::from_low_u64_be(offer_id);
 
 		log3(
 			handle.code_address(),
@@ -814,21 +928,21 @@ where
 		match listing {
 			Listing::FixedPrice(listing) => Ok(succeed(
 				EvmDataWriter::new()
+					.write::<Bytes>("fixed_price_listing_for_nft".as_bytes().into())
 					.write::<u32>(listing.collection_id)
 					.write::<Vec<u32>>(listing.serial_numbers.into_inner())
 					.write::<u128>(listing.fixed_price)
 					.write::<u32>(listing.payment_asset)
-					.write::<Bytes>("fixed_price_listing_for_nft".as_bytes().into())
 					.build(),
 			)),
 
 			Listing::Auction(listing) => Ok(succeed(
 				EvmDataWriter::new()
+					.write::<Bytes>("auction_listing_for_nft".as_bytes().into())
 					.write::<u32>(listing.collection_id)
 					.write::<Vec<u32>>(listing.serial_numbers.into_inner())
 					.write::<u128>(listing.reserve_price)
 					.write::<u32>(listing.payment_asset)
-					.write::<Bytes>("auction_listing_for_nft".as_bytes().into())
 					.build(),
 			)),
 		}

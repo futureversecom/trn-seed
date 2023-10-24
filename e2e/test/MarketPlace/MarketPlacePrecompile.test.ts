@@ -1,6 +1,6 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
-import { hexToU8a } from "@polkadot/util";
+import { hexToString, hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { BigNumber, Contract, Wallet } from "ethers";
 import Web3 from "web3";
@@ -132,6 +132,26 @@ describe("Marketplace Precompile", function () {
     expect(JSON.stringify(s)).to.equal(JSON.stringify(sellNFTSeries));
   });
 
+  it("sell nft without marketplace", async () => {
+    const sellNFTSeries = [34, 35, 36];
+    const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
+    const fixedPrice = 1000000;
+    const duration = 1000; //blocks
+
+    const sellNftTx = await marketPlacePrecompile
+      .connect(bobSigner)
+      .sellNftV2(erc721Precompile.address, sellNFTSeries, alithSigner.address, paymentAsset, fixedPrice, duration);
+    const receipt = await sellNftTx.wait();
+    const [seller, listingId, fixedPriceFromCall, serialNumbers, collectionAddress] = (receipt?.events as any)[0].args;
+    expect((receipt?.events as any)[0].event).to.equal("FixedPriceSaleList");
+    expect(collectionAddress).to.equal(erc721Precompile.address);
+    expect(listingId.toNumber()).to.gte(0);
+    expect(fixedPriceFromCall.toNumber()).to.equal(fixedPrice);
+    expect(seller).to.equal(bobSigner.address);
+    const s = serialNumbers.map((s: BigNumber) => s.toNumber());
+    expect(JSON.stringify(s)).to.equal(JSON.stringify(sellNFTSeries));
+  });
+
   it("auction nft", async () => {
     const auctionNFTSeries = [4, 5, 6];
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
@@ -142,6 +162,26 @@ describe("Marketplace Precompile", function () {
     const auctionNftTx = await marketPlacePrecompile
       .connect(bobSigner)
       .auctionNft(erc721Precompile.address, auctionNFTSeries, paymentAsset, reservePrice, duration, marketplaceId);
+    const receipt = await auctionNftTx.wait();
+    const [collectionId, listingId, reservePriceFromChain, seller, serialNumbers] = (receipt?.events as any)[0].args;
+    expect((receipt?.events as any)[0].event).to.equal("AuctionOpen");
+    expect(collectionId.toNumber()).to.gte(0);
+    expect(listingId.toNumber()).to.gte(0);
+    expect(reservePriceFromChain.toNumber()).to.equal(reservePrice);
+    expect(seller).to.equal(bobSigner.address);
+    const s = serialNumbers.map((s: BigNumber) => s.toNumber());
+    expect(JSON.stringify(s)).to.equal(JSON.stringify(auctionNFTSeries));
+  });
+
+  it("auction nft without marketplace", async () => {
+    const auctionNFTSeries = [7, 8];
+    const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
+    const reservePrice = 1000000;
+    const duration = 10000; //blocks
+
+    const auctionNftTx = await marketPlacePrecompile
+      .connect(bobSigner)
+      .auctionNftV2(erc721Precompile.address, auctionNFTSeries, paymentAsset, reservePrice, duration);
     const receipt = await auctionNftTx.wait();
     const [collectionId, listingId, reservePriceFromChain, seller, serialNumbers] = (receipt?.events as any)[0].args;
     expect((receipt?.events as any)[0].event).to.equal("AuctionOpen");
@@ -172,13 +212,13 @@ describe("Marketplace Precompile", function () {
   });
 
   it("make simple offer without marketplace id", async () => {
-    const offerSeries = 190;
+    const offerSeries = 11;
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const amount = 1000000;
 
     const offerNftTx = await marketPlacePrecompile
       .connect(alithSigner)
-      .makeSimpleOfferWithoutMarketplace(erc721Precompile.address, offerSeries, amount, paymentAsset);
+      .makeSimpleOfferV2(erc721Precompile.address, offerSeries, amount, paymentAsset);
     const receipt = await offerNftTx.wait();
     const [offerId, buyer, collectionId, serialId] = (receipt?.events as any)[0].args;
     expect((receipt?.events as any)[0].event).to.equal("Offer");
@@ -398,11 +438,11 @@ describe("Marketplace Precompile", function () {
     const [, listingId, , ,] = (sellReceipt?.events as any)[0].args;
 
     const listingDetails = await marketPlacePrecompile.getListingFromId(listingId.toNumber());
-    const [collectionId, seriesId, amountFromCall, , typeOfListing] = listingDetails;
+    const [typeOfListing, collectionId, seriesId, amountFromCall] = listingDetails;
     expect(amountFromCall.toNumber()).to.equal(fixedPrice);
     expect(collectionId).to.gte(0);
     expect(JSON.stringify(seriesId)).to.equal(JSON.stringify(sellNFTSeries));
-    console.log("typeOfListing::::::", typeOfListing);
+    expect(hexToString(typeOfListing)).to.equal("fixed_price_listing_for_nft");
   });
 
   /// SAD flow
