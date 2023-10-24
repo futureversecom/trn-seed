@@ -264,7 +264,7 @@ describe("Marketplace Precompile", function () {
   });
 
   it("make bid", async () => {
-    const listingId = 1;
+    const listingId = 2;
     const amount = 10000000;
 
     const bidNftTx = await marketPlacePrecompile.connect(alithSigner).bid(listingId, amount);
