@@ -42,12 +42,16 @@ interface TRN1155 is IERC165 {
     event TokenCreated(uint32 indexed serialNumber);
     event MaxSupplyUpdated(uint128 indexed maxSupply);
     event BaseURIUpdated(string baseURI);
+    event PublicMintToggled(bool indexed enabled);
+    event MintFeeUpdated(address indexed paymentAsset, uint256 indexed mintFee);
 
     function createToken(bytes calldata name, uint128 initialIssuance, uint128 maxIssuance, address tokenOwner) external returns (uint32);
     function mint(address owner, uint256 id, uint256 amount) external;
     function mintBatch(address owner, uint256[] calldata ids, uint256[] calldata amounts) external;
     function setMaxSupply(uint256 id, uint32 maxSupply) external;
     function setBaseURI(bytes calldata baseURI) external;
+    function togglePublicMint(bool enabled) external;
+    function setMintFee(address paymentAsset, uint256 mintFee) external;
 }
 ```
 
