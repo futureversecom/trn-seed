@@ -588,7 +588,6 @@ describe("ERC1155 Precompile", function () {
 
   it("togglePublicMint", async () => {
     // Enable public mint
-    const owner = await erc1155Precompile.owner();
     const tx = await erc1155Precompile.connect(bobSigner).togglePublicMint(true);
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("PublicMintToggled");
