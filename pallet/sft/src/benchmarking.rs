@@ -101,6 +101,16 @@ benchmarks! {
 		assert!(token.is_some());
 	}
 
+	toggle_public_mint {
+		let collection_id = build_collection::<T>(None);
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, true)
+
+	set_mint_fee {
+		let collection_id = build_collection::<T>(None);
+		let pricing_details = Some((1, 100));
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, pricing_details)
+
+
 	mint {
 		let owner = account::<T>("Alice");
 		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), 0);
