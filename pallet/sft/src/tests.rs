@@ -20,8 +20,7 @@ use crate::{
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use seed_primitives::{
-	AccountId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule,
-	SerialNumber, TokenId,
+	Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenId,
 };
 use sp_core::H160;
 use sp_runtime::{BoundedVec, Permill};
@@ -1725,7 +1724,6 @@ mod set_mint_fee {
 	fn set_mint_fee_works() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
-			// let collection_id = setup_collection(collection_owner);
 			let collection_id = create_test_collection(collection_owner);
 			let pricing_details: (AssetId, Balance) = (1, 100);
 
@@ -1766,7 +1764,6 @@ mod set_mint_fee {
 	fn set_mint_fee_should_keep_enabled_flag_intact() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
-			// let collection_id = setup_collection(collection_owner);
 			let collection_id = create_test_collection(collection_owner);
 			let pricing_details: (AssetId, Balance) = (1, 100);
 
@@ -1794,7 +1791,6 @@ mod set_mint_fee {
 	fn set_mint_fee_emits_event() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
-			// let collection_id = setup_collection(collection_owner);
 			let collection_id = create_test_collection(collection_owner);
 			let pricing_details: (AssetId, Balance) = (1, 100);
 
@@ -1860,7 +1856,6 @@ mod toggle_public_mint {
 	fn toggle_public_mint_works() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
-			// let collection_id = setup_collection(collection_owner);
 			let collection_id = create_test_collection(collection_owner);
 			let enabled = true;
 
@@ -1888,7 +1883,6 @@ mod toggle_public_mint {
 	fn toggle_public_mint_emits_event() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
-			// let collection_id = setup_collection(collection_owner);
 			let collection_id = create_test_collection(collection_owner);
 			let enabled = true;
 
@@ -1916,7 +1910,6 @@ mod toggle_public_mint {
 	fn toggle_public_mint_should_keep_pricing_details() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
-			// let collection_id = setup_collection(collection_owner);
 			let collection_id = create_test_collection(collection_owner);
 			let enabled = true;
 
@@ -1955,10 +1948,9 @@ mod public_minting {
 	fn public_mint_should_let_user_mint() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
-			// let collection_id = setup_collection(collection_owner);
 			let collection_id = create_test_collection(collection_owner);
 			let minter = create_account(11);
-			let max_issuance = 100;
+			let max_issuance = 10_000;
 
 			assert_ok!(Sft::create_token(
 				Some(collection_owner).into(),
@@ -2058,26 +2050,36 @@ mod public_minting {
 					collection_id,
 					true
 				));
-				let serial_numbers = 0;
+				let serial_number = 0;
+
+				assert_ok!(Sft::create_token(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_string("my-token"),
+					0,
+					None,
+					None,
+				));
 
 				// Minter should be able to mint
-				// assert_ok!(Sft::mint(Some(minter).into(), collection_id, quantity, None));
 				// Mint the quantities to the token_owner for each serial
 				assert_ok!(Sft::mint(
 					Some(minter).into(),
 					collection_id,
-					bounded_combined(vec![serial_numbers], vec![quantity]),
+					bounded_combined(vec![serial_number], vec![quantity]),
 					None,
 				));
-				// Check that minter has 100 token
-				// assert_eq!(Nft::token_balance_of(&minter, collection_id), quantity);
+
+				let token_id = (collection_id, serial_number);
+				let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+				assert_eq!(token_info.free_balance_of(&minter), quantity);
 
 				// Should emit both mint and payment event
 				assert!(has_event(Event::<Test>::Mint {
 					collection_id,
-					serial_numbers: Default::default(),
+					serial_numbers: bounded_serials(vec![serial_number]),
+					balances: bounded_quantities(vec![quantity]),
 					owner: minter,
-					balances: Default::default()
 				}));
 
 				let payment_amount: Balance = mint_price * quantity as u128;
@@ -2124,18 +2126,26 @@ mod public_minting {
 					true
 				));
 
-				// Minter doesn't have enough XRP to cover mint
-				// assert_noop!(
-				// 	Sft::mint(Some(minter).into(), collection_id, quantity, None),
-				// 	pallet_assets::Error::<Test>::BalanceLow
-				// );
-				let serial_numbers = 0;
-				assert_ok!(Sft::mint(
-					Some(minter).into(),
+				assert_ok!(Sft::create_token(
+					Some(collection_owner).into(),
 					collection_id,
-					bounded_combined(vec![serial_numbers], vec![quantity]),
+					bounded_string("my-token"),
+					0,
+					None,
 					None,
 				));
+
+				// Minter doesn't have enough XRP to cover mint
+				let serial_numbers = 0;
+				assert_noop!(
+					Sft::mint(
+						Some(minter).into(),
+						collection_id,
+						bounded_combined(vec![serial_numbers], vec![quantity]),
+						None,
+					),
+					pallet_assets::Error::<Test>::BalanceLow
+				);
 			});
 	}
 
@@ -2144,7 +2154,6 @@ mod public_minting {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
-			// let collection_id = setup_collection(collection_owner);
 			let quantity = 1;
 			let mint_price = 100000000;
 			let payment_asset = XRP_ASSET_ID;
@@ -2173,10 +2182,6 @@ mod public_minting {
 				bounded_combined(vec![serial_numbers], vec![quantity]),
 				None,
 			));
-			// Collection owner mints
-			// assert_ok!(Sft::mint(Some(collection_owner).into(), collection_id, quantity, None));
-			// Check that minter has 100 token
-			// assert_eq!(Sft::token_balance_of(&collection_owner, collection_id), quantity);
 
 			let owner_balance_after =
 				AssetsExt::reducible_balance(payment_asset, &collection_owner, false);
@@ -2191,7 +2196,7 @@ mod public_minting {
 		// Title is confusing, but basically this test checks that if a token owner is specified,
 		// the caller is charged, not the specified owner
 		let minter = create_account(11);
-		let initial_balance = 1000;
+		let initial_balance = 100000;
 		TestExt::default()
 			.with_xrp_balances(&[(minter, initial_balance)])
 			.build()
@@ -2199,7 +2204,6 @@ mod public_minting {
 				let collection_owner = create_account(10);
 				let token_owner = create_account(12);
 				let collection_id = create_test_collection(collection_owner);
-				let quantity: Balance = 3;
 				let mint_price = 200;
 				let payment_asset = XRP_ASSET_ID;
 
@@ -2222,7 +2226,7 @@ mod public_minting {
 				let max_issuance = 100;
 
 				assert_ok!(Sft::create_token(
-					Some(minter).into(),
+					Some(collection_owner).into(),
 					collection_id,
 					bounded_string("my-token"),
 					0,
@@ -2241,25 +2245,23 @@ mod public_minting {
 
 				let token_id = (collection_id, serial_number);
 				let token_info = TokenInfo::<Test>::get(token_id).unwrap();
-				assert_eq!(token_info.free_balance_of(&minter), quantity);
-				assert_eq!(token_info.free_balance_of(&token_owner), quantity);
-				// assert_eq!(token_info.token_issuance, *quantity);
-				// Check that token_owner has tokens, but minter has none
+				assert_eq!(token_info.free_balance_of(&minter), max_issuance);
+				assert_eq!(token_info.free_balance_of(&token_owner), 0);
 
 				// Should emit both mint and payment event
 				assert!(has_event(Event::<Test>::Mint {
 					collection_id,
-					serial_numbers: Default::default(),
-					owner: token_owner,
-					balances: Default::default()
+					serial_numbers: bounded_serials(vec![serial_number]),
+					balances: bounded_quantities(vec![max_issuance]),
+					owner: minter,
 				}));
-				let payment_amount: Balance = mint_price * quantity as u128;
+				let payment_amount: Balance = mint_price * max_issuance as u128;
 				assert!(has_event(Event::<Test>::MintFeePaid {
 					who: minter,
 					collection_id,
 					payment_asset,
 					payment_amount,
-					token_count: quantity,
+					token_count: max_issuance,
 				}));
 
 				// Check minter was charged the correct amount

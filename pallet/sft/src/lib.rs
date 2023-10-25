@@ -27,7 +27,7 @@ use seed_pallet_common::{
 };
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId, TokenLockReason,
+	SerialNumber, TokenId,
 };
 use sp_runtime::{BoundedVec, DispatchResult};
 use sp_std::prelude::*;

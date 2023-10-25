@@ -204,7 +204,6 @@ impl<T: Config> Pallet<T> {
 			token_info.add_balance(&owner, *quantity).map_err(|err| Error::<T>::from(err))?;
 			token_info.token_issuance += quantity;
 			TokenInfo::<T>::insert(token_id, token_info);
-			// let quant: u32 = *quantity.saturated_into();
 			total_quantity = total_quantity + *quantity;
 		}
 		// Only charge mint fee if public mint enabled and caller is not collection owner
