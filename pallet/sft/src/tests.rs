@@ -2175,6 +2175,15 @@ mod public_minting {
 				true
 			));
 
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				0,
+				None,
+				None,
+			));
+
 			let serial_numbers = 0;
 			assert_ok!(Sft::mint(
 				Some(collection_owner).into(),
