@@ -388,12 +388,12 @@ export const MARKET_PLACE_ABI = [
   "event OfferAccept(uint256 indexed offerId, uint256 indexed amount, address indexed sender, uint256 collectionId, uint256 seriesId)", // uint256,uint256,address,uint256
 
   "function registerMarketplace(address marketplaceAccount, uint256 entitlement) external returns (uint marketplaceId)",
-  "function sellNft(address collectionAddress, uint256[] serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration, uint32 marketplaceId) external returns (uint listingId)",
-  "function sellNftV2(address collectionAddress, uint256[] serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration) external returns (uint listingId)",
+  "function sellNft(address collectionAddress, uint256[] calldata serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration, uint32 marketplaceId) external returns (uint listingId)",
+  "function sellNftV2(address collectionAddress, uint256[] calldata serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration) external returns (uint listingId)",
   "function updateFixedPrice(uint128 listingId, uint256 newPrice) external",
   "function buy(uint128 listingId) external payable",
-  "function auctionNft(address collectionAddress, uint256[] serialNumberIds, address paymentAsset, uint256 reservePrice, uint256 duration, uint256 marketplaceId)",
-  "function auctionNftV2(address collectionAddress, uint256[] serialNumberIds, address paymentAsset, uint256 reservePrice, uint256 duration)",
+  "function auctionNft(address collectionAddress, uint256[] calldata serialNumberIds, address paymentAsset, uint256 reservePrice, uint256 duration, uint256 marketplaceId)",
+  "function auctionNftV2(address collectionAddress, uint256[] calldata serialNumberIds, address paymentAsset, uint256 reservePrice, uint256 duration)",
   "function bid(uint128 listingId, uint256 amount) external",
   "function cancelSale(uint128 listingId) external",
   "function makeSimpleOffer(address collectionAddress, uint32 serialNumber, uint256 amount, address assetId, uint32 marketplaceId) external returns (uint offerId)",
@@ -403,7 +403,7 @@ export const MARKET_PLACE_ABI = [
 
   // read
   "function getMarketplaceAccount(uint32 marketplaceId) external view returns(address marketplaceAccount)",
-  "function getListingFromId(uint128 listingId) external view returns (bytes type, uint32 collectionId, uint32[] serial_numbers, uint128 price, uint32 paymentAsset)",
+  "function getListingFromId(uint128 listingId) external view returns (bytes type, uint32 collectionId, uint32[] calldata serial_numbers, uint128 price, uint32 paymentAsset)",
   "function getOfferFromId(uint64 offerId) external view returns (uint32 collectionId, uint32 serial_number, uint128 amount, address buyer)",
 ];
 
