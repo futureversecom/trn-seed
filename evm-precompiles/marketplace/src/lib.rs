@@ -80,16 +80,19 @@ fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileF
 #[derive(Debug, PartialEq)]
 pub enum Action {
 	RegisterMarketplace = "registerMarketplace(address,uint256)",
-	SellNft = "sellNft(address,uint256[],address,address,uint256,uint256,uint32)",
-	SellNftV2 = "sellNftV2(address,uint256[],address,address,uint256,uint256)",
+	SellNftWithMarketplaceId =
+		"sellNftWithMarketplaceId(address,uint256[],address,address,uint256,uint256,uint32)",
+	SellNft = "sellNft(address,uint256[],address,address,uint256,uint256)",
 	UpdateFixedPrice = "updateFixedPrice(uint128,uint256)",
 	Buy = "buy(uint128)",
-	AuctionNft = "auctionNft(address,uint256[],address,uint256,uint256,uint256)",
-	AuctionNftV2 = "auctionNftV2(address,uint256[],address,uint256,uint256)",
+	AuctionNftWithMarketplaceId =
+		"auctionNftWithMarketplaceId(address,uint256[],address,uint256,uint256,uint256)",
+	AuctionNft = "auctionNft(address,uint256[],address,uint256,uint256)",
 	Bid = "bid(uint128,uint256)",
 	CancelSale = "cancelSale(uint128)",
-	MakeSimpleOffer = "makeSimpleOffer(address,uint32,uint256,address,uint32)",
-	MakeSimpleOfferV2 = "makeSimpleOfferV2(address,uint32,uint256,address)",
+	MakeSimpleOfferWithMarketplaceId =
+		"makeSimpleOfferWithMarketplaceId(address,uint32,uint256,address,uint32)",
+	MakeSimpleOffer = "makeSimpleOffer(address,uint32,uint256,address)",
 	CancelOffer = "cancelOffer(uint64)",
 	AcceptOffer = "acceptOffer(uint64)",
 	GetMarketplaceAccount = "getMarketplaceAccount(uint32)",
@@ -127,15 +130,15 @@ where
 			if let Err(err) = handle.check_function_modifier(match selector {
 				Action::RegisterMarketplace |
 				Action::SellNft |
-				Action::SellNftV2 |
+				Action::SellNftWithMarketplaceId |
 				Action::UpdateFixedPrice |
 				Action::AuctionNft |
-				Action::AuctionNftV2 |
+				Action::AuctionNftWithMarketplaceId |
 				Action::Bid |
 				Action::Buy |
 				Action::CancelSale |
 				Action::MakeSimpleOffer |
-				Action::MakeSimpleOfferV2 |
+				Action::MakeSimpleOfferWithMarketplaceId |
 				Action::CancelOffer |
 				Action::AcceptOffer => FunctionModifier::NonPayable,
 				_ => FunctionModifier::View,
@@ -145,16 +148,18 @@ where
 
 			match selector {
 				Action::RegisterMarketplace => Self::register_marketplace(handle),
+				Action::SellNftWithMarketplaceId => Self::sell_nft_with_marketplace_id(handle),
 				Action::SellNft => Self::sell_nft(handle),
-				Action::SellNftV2 => Self::sell_nft_v2(handle),
 				Action::UpdateFixedPrice => Self::update_fixed_price(handle),
 				Action::Buy => Self::buy(handle),
+				Action::AuctionNftWithMarketplaceId =>
+					Self::auction_nft_with_marketplace_id(handle),
 				Action::AuctionNft => Self::auction_nft(handle),
-				Action::AuctionNftV2 => Self::auction_nft_v2(handle),
 				Action::Bid => Self::bid(handle),
 				Action::CancelSale => Self::cancel_sale(handle),
+				Action::MakeSimpleOfferWithMarketplaceId =>
+					Self::make_simple_offer_with_marketplace_id(handle),
 				Action::MakeSimpleOffer => Self::make_simple_offer(handle),
-				Action::MakeSimpleOfferV2 => Self::make_simple_offer_v2(handle),
 				Action::CancelOffer => Self::cancel_offer(handle),
 				Action::AcceptOffer => Self::accept_offer(handle),
 				Action::GetMarketplaceAccount => Self::get_marketplace_account(handle),
@@ -243,7 +248,9 @@ where
 		Ok(succeed(EvmDataWriter::new().write(marketplace_id).build()))
 	}
 
-	fn sell_nft(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+	fn sell_nft_with_marketplace_id(
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(7, 32)?;
 		read_args!(
 			handle,
@@ -275,7 +282,7 @@ where
 		)
 	}
 
-	fn sell_nft_v2(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+	fn sell_nft(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(6, 32)?;
 
 		read_args!(
@@ -488,7 +495,7 @@ where
 		}
 	}
 
-	fn auction_nft_v2(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+	fn auction_nft(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(5, 32)?;
 
 		// Parse input.
@@ -516,7 +523,9 @@ where
 		)
 	}
 
-	fn auction_nft(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+	fn auction_nft_with_marketplace_id(
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(6, 32)?;
 
 		// Parse input.
@@ -725,7 +734,7 @@ where
 		// Build output.
 		Ok(succeed([]))
 	}
-	fn make_simple_offer_v2(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+	fn make_simple_offer(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(4, 32)?;
 
 		// Parse input.
@@ -750,7 +759,9 @@ where
 		)
 	}
 
-	fn make_simple_offer(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+	fn make_simple_offer_with_marketplace_id(
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(5, 32)?;
 
 		// Parse input.

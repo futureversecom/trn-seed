@@ -19,16 +19,16 @@ interface Marketplace {
     event OfferAccept(uint256 indexed offerId, uint256 indexed amount, address indexed sender, uint256 collectionId, uint256 seriesId); // uint256,uint256,address,uint256
     
     function registerMarketplace(address marketplaceAccount, uint256 entitlement) external returns (uint marketplaceId);
-    function sellNft(address collectionAddress, uint256[] calldata serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration, uint32 marketplaceId) external returns (uint listingId);
-    function SellNftWithoutMarketplace(address collectionAddress, uint256[] calldata serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration) external returns (uint listingId);
+    function sellNftWithMarketplaceId(address collectionAddress, uint256[] calldata serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration, uint32 marketplaceId) external returns (uint listingId);
+    function SellNft(address collectionAddress, uint256[] calldata serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration) external returns (uint listingId);
     function updateFixedPrice(uint128 listingId, uint256 newPrice) external;
     function buy(uint128 listingId) external payable;
-    function auctionNft(address collectionAddress, uint256[] calldata serialNumberIds, address paymentAsset, uint256 reservePrice, uint256 duration, uint256 marketplaceId) external payable;
-    function auctionNftWithoutMarketplace(address collectionAddress, uint256[] calldata serialNumberIds, address paymentAsset, uint256 reservePrice, uint256 duration) external payable;
+    function auctionNftWithMarketplaceId(address collectionAddress, uint256[] calldata serialNumberIds, address paymentAsset, uint256 reservePrice, uint256 duration, uint256 marketplaceId) external payable;
+    function auctionNft(address collectionAddress, uint256[] calldata serialNumberIds, address paymentAsset, uint256 reservePrice, uint256 duration) external payable;
     function bid(uint128 listingId, uint256 amount) external;
     function cancelSale(uint128 listingId) external;
-    function makeSimpleOffer(address collectionAddress, uint32 serialNumber, uint256 amount, address assetId, uint32 marketplaceId) external returns (uint offerId);
-    function makeSimpleOfferWithoutMarketplace(address collectionAddress, uint32 serialNumber, uint256 amount, address assetId) external returns (uint offerId);
+    function makeSimpleOfferWithMarketplaceId(address collectionAddress, uint32 serialNumber, uint256 amount, address assetId, uint32 marketplaceId) external returns (uint offerId);
+    function makeSimpleOffer(address collectionAddress, uint32 serialNumber, uint256 amount, address assetId) external returns (uint offerId);
     function cancelOffer(uint64 offerId) external;
     function acceptOffer(uint64 offerId) external;
 
