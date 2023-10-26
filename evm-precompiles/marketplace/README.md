@@ -34,7 +34,7 @@ interface Marketplace {
 
     // read
     function getMarketplaceAccount(uint32 marketplaceId) external view returns(address marketplaceAccount),
-    function getListingFromId(uint128 listingId) external view returns (uint32 collectionId, uint32[] serial_numbers, uint128 price, uint32 paymentAsset),
+    function getListingFromId(uint128 listingId) external view returns (uint32 collectionId, uint32[] serialNumbers, uint128 price, uint32 paymentAsset),
     function getOfferFromId(uint64 offerId) external view returns (uint32 collectionId, uint32 serial_number, uint128 amount, address buyer),
 }
 ```
