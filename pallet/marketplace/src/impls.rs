@@ -307,8 +307,8 @@ impl<T: Config> Pallet<T> {
 		marketplace_id: Option<MarketplaceId>,
 	) -> DispatchResult {
 		ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
-		let collection_info = T::NFTExt::get_collection_info(token_id.0)?;
-		ensure!(!collection_info.is_token_owner(&who, token_id.1), Error::<T>::IsTokenOwner);
+		let token_owner = T::NFTExt::get_token_owner(&token_id).ok_or(Error::<T>::NoToken)?;
+		ensure!(token_owner != who, Error::<T>::IsTokenOwner);
 		let offer_id = Self::next_offer_id();
 		ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
@@ -554,7 +554,7 @@ impl<T: Config> Pallet<T> {
 		owner: &T::AccountId,
 		listing_id: ListingId,
 	) -> DispatchResult {
-		let collection_info = T::NFTExt::get_collection_info(collection_id)?;
+		let ownership_info = T::NFTExt::get_ownership_info(collection_id)?;
 
 		// Check whether token is locked and that owner owns each token
 		for serial_number in serial_numbers.iter() {
@@ -563,7 +563,7 @@ impl<T: Config> Pallet<T> {
 				Error::<T>::TokenLocked
 			);
 			ensure!(
-				collection_info.is_token_owner(owner, *serial_number),
+				ownership_info.is_token_owner(owner, *serial_number),
 				Error::<T>::NotTokenOwner
 			);
 		}

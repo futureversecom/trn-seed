@@ -28,7 +28,7 @@ use sp_core::H160;
 use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
 
 type OwnedTokens = BoundedVec<
-	TokenOwnership<
+	TokenOwners<
 		<Test as frame_system::Config>::AccountId,
 		<Test as Config>::MaxTokensPerCollection,
 	>,
@@ -54,13 +54,13 @@ fn setup_collection(owner: AccountId) -> CollectionUuid {
 	collection_id
 }
 
-/// Helper function to create bounded vec of TokenOwnership
+/// Helper function to create bounded vec of TokenOwners
 pub fn create_owned_tokens(owned_tokens: Vec<(AccountId, Vec<SerialNumber>)>) -> OwnedTokens {
 	let mut token_ownership: OwnedTokens = BoundedVec::default();
 	for (owner, serial_numbers) in owned_tokens {
 		let serial_numbers_bounded: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(serial_numbers).unwrap();
-		let new_token_ownership = TokenOwnership::new(owner, serial_numbers_bounded);
+		let new_token_ownership = TokenOwners::new(owner, serial_numbers_bounded);
 		token_ownership.try_push(new_token_ownership).unwrap();
 	}
 	token_ownership

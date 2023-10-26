@@ -280,13 +280,13 @@ where
 		current_owner: &T::AccountId,
 		new_owner: &T::AccountId,
 	) -> DispatchResult {
-		let collection_info = pallet_nft::CollectionInfo::<T>::get(collection_id)
+		let ownership_info = pallet_nft::OwnershipInfo::<T>::get(collection_id)
 			.ok_or(pallet_nft::Error::<T>::NoCollectionFound)?;
-		let serials = collection_info
+		let serials = ownership_info
 			.owned_tokens
 			.into_iter()
-			.filter(|ownership| ownership.owner == *current_owner)
-			.flat_map(|ownership| ownership.owned_serials)
+			.filter(|(owner, _)| owner == current_owner)
+			.flat_map(|(_, owned_serials)| owned_serials)
 			.collect::<Vec<_>>();
 		let serials_bounded: BoundedVec<_, <T as pallet_nft::Config>::MaxTokensPerCollection> =
 			BoundedVec::try_from(serials)

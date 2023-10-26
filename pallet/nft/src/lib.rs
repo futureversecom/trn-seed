@@ -134,7 +134,16 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		CollectionUuid,
-		CollectionInformation<T::AccountId, T::MaxTokensPerCollection, T::StringLimit>,
+		CollectionInformation<T::AccountId, T::StringLimit>,
+	>;
+
+	/// Map from collection to its information
+	#[pallet::storage]
+	pub type OwnershipInfo<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		CollectionUuid,
+		TokenOwnership<T::AccountId, T::MaxTokensPerCollection>,
 	>;
 
 	/// Map from collection to its public minting information
@@ -307,7 +316,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
 			collection_info.owner = new_owner.clone();
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::OwnerSet { collection_id, new_owner });
@@ -326,7 +335,7 @@ pub mod pallet {
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(!max_issuance.is_zero(), Error::<T>::InvalidMaxIssuance);
-			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
 			ensure!(collection_info.max_issuance.is_none(), Error::<T>::MaxIssuanceAlreadySet);
 			ensure!(
 				collection_info.collection_issuance <= max_issuance,
@@ -350,7 +359,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
 
 			collection_info.metadata_scheme = base_uri
 				.clone()
@@ -410,7 +419,7 @@ pub mod pallet {
 			let collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			// Only the owner can make this call
-			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
 
 			// Get public mint info and set enabled flag
 			let mut public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
@@ -439,7 +448,7 @@ pub mod pallet {
 			let collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			// Only the owner can make this call
-			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
 
 			// Get the existing public mint info if it exists
 			let mut public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
@@ -505,7 +514,7 @@ pub mod pallet {
 				next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
 
 			// Only charge mint fee if public mint enabled and caller is not collection owner
-			if public_mint_info.enabled && !collection_info.is_collection_owner(&who) {
+			if public_mint_info.enabled && !(collection_info.owner == who) {
 				// Charge the mint fee for the mint
 				Self::charge_mint_fee(
 					&who,
@@ -580,7 +589,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
 
 			ensure!(!name.is_empty(), Error::<T>::CollectionNameInvalid);
 			ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
@@ -602,7 +611,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
 
 			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
 
@@ -614,14 +623,6 @@ pub mod pallet {
 				royalties_schedule,
 			});
 			Ok(())
-		}
-	}
-}
-
-impl<T: Config> From<TokenOwnershipError> for Error<T> {
-	fn from(val: TokenOwnershipError) -> Error<T> {
-		match val {
-			TokenOwnershipError::TokenLimitExceeded => Error::<T>::TokenLimitExceeded,
 		}
 	}
 }
