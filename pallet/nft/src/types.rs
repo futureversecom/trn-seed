@@ -19,7 +19,7 @@ use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use seed_primitives::{AccountId, AssetId, Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount};
+use seed_primitives::{AssetId, Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount};
 use sp_runtime::BoundedVec;
 use sp_std::{fmt::Debug, prelude::*};
 
@@ -90,6 +90,7 @@ impl<T: Config> From<TokenOwnershipError> for crate::Error<T> {
 	}
 }
 
+/// Type to denote an account and it's owned serial numbers within a collection
 pub type OwnedTokens<AccountId, MaxTokensPerCollection> =
 	(AccountId, BoundedVec<SerialNumber, MaxTokensPerCollection>);
 

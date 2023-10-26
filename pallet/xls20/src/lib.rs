@@ -226,8 +226,8 @@ pub mod pallet {
 			ensure!(!token_mappings.is_empty(), Error::<T>::NoToken);
 			// Ensure only relayer can call extrinsic
 			ensure!(Some(who) == Relayer::<T>::get(), Error::<T>::NotRelayer);
-
-			let collection_info = T::NFTExt::get_collection_info(collection_id)?;
+			// Verify collection exists
+			let _ = T::NFTExt::get_collection_info(collection_id)?;
 
 			for (serial_number, xls20_token_id) in token_mappings.iter() {
 				// Ensure token exists on TRN

@@ -23,7 +23,7 @@ use crate::{BlockedTokens, EthToRootNft, NextBlockedMintId, Pallet as NftPeg, Ro
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use pallet_nft::{CollectionInfo, CollectionInformation, CrossChainCompatibility, Pallet as Nft};
+use pallet_nft::{CollectionInfo, OwnershipInfo, TokenOwnership, CollectionInformation, CrossChainCompatibility, Pallet as Nft};
 use seed_primitives::MetadataScheme;
 use sp_std::vec;
 
@@ -66,15 +66,15 @@ benchmarks! {
 		assert_ok!(NftPeg::do_deposit(token_info, alice.clone().into()));
 
 		// Sanity Check
-		let collection_info: CollectionInformation<T::AccountId, T::StringLimit> = CollectionInfo::<T>::get(coll_id).expect("Collection exists");
+		let ownership_info: TokenOwnership<T::AccountId, T::MaxTokensPerCollection> = OwnershipInfo::<T>::get(coll_id).expect("Collection exists");
 		for serial_id in &serial_numbers {
-			assert!(collection_info.token_exists(*serial_id));
+			assert!(ownership_info.token_exists(*serial_id));
 		}
-
 	}: _(origin::<T>(&alice), collection_ids, bounded_serial_numbers, alice.clone().into())
 	verify {
+		let ownership_info: TokenOwnership<T::AccountId, T::MaxTokensPerCollection> = OwnershipInfo::<T>::get(coll_id).expect("Collection exists");
 		for serial_id in serial_numbers {
-			assert!(collection_info.token_exists(serial_id));
+			assert!(!ownership_info.token_exists(serial_id));
 		}
 	}
 
@@ -102,7 +102,6 @@ benchmarks! {
 			next_serial_number: 1_000_000_001_u32,
 			collection_issuance: 1_000_000_000_u32,
 			cross_chain_compatibility: CrossChainCompatibility::default(),
-			owned_tokens: BoundedVec::truncate_from(vec![]),
 		};
 
 		CollectionInfo::<T>::insert(collection_id, collection_info);

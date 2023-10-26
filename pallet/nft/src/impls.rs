@@ -459,17 +459,15 @@ impl<T: Config> Pallet<T> {
 			!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
 			Error::<T>::TokenLocked
 		);
+		let mut collection_info =
+			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		let mut ownership_info = OwnershipInfo::<T>::get(collection_id).unwrap_or_default();
 		ensure!(ownership_info.is_token_owner(who, serial_number), Error::<T>::NotTokenOwner);
 
 		// Update collection issuance
-		CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection_info| -> DispatchResult {
-			let collection_info =
-				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
-			collection_info.collection_issuance =
-				collection_info.collection_issuance.saturating_sub(1);
-			Ok(())
-		})?;
+		collection_info.collection_issuance =
+			collection_info.collection_issuance.saturating_sub(1);
+		CollectionInfo::<T>::insert(collection_id, collection_info);
 
 		// Update OwnershipInfo
 		let serial_numbers = BoundedVec::truncate_from(vec![serial_number]);
