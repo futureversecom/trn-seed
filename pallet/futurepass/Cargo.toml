@@ -5,14 +5,12 @@ authors = ["The Root Network Team"]
 edition = "2021"
 license = "Apache-2.0"
 description = "FuturePass"
-repository = "https://github.com/futureversecom/seed"
+repository = "https://github.com/futureversecom/trn-seed"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-serde = { version = "1.0.145", features = ["derive"], optional = true }
-
 # Parity
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
 scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
@@ -30,6 +28,7 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 
 # Custom
 log = "0.4"
+serde = { version = "1.0.145", features = ["derive"], optional = true }
 hex = { version = "0.4.3", default-features = false }
 hex-literal = { version = "0.3.4", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
