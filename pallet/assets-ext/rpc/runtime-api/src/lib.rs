@@ -20,7 +20,6 @@
 use codec::Codec;
 use pallet_assets_ext::Config;
 use seed_primitives::{AssetId, Balance};
-use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with AssetExt module
