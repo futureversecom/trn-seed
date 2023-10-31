@@ -82,6 +82,7 @@ pallet-evm-precompiles-futurepass-registrar = { path = "../evm-precompiles/futur
 rustc-hex = { version = "2.1.0", default-features = false }
 
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
+pallet-assets-ext-rpc-runtime-api = { path = "../pallet/assets-ext/rpc/runtime-api", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
 pallet-dex-rpc-runtime-api = { path = "../pallet/dex/rpc/runtime-api", default-features = false }
 pallet-echo = { path = "../pallet/echo", default-features = false }
@@ -180,6 +181,7 @@ std = [
 	"sp-version/std",
 	"seed-pallet-common/std",
 	"pallet-assets-ext/std",
+	"pallet-assets-ext-rpc-runtime-api/std",
 	"pallet-dex/std",
 	"pallet-dex-rpc-runtime-api/std",
 	"pallet-ethy/std",

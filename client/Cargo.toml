@@ -89,7 +89,7 @@ pallet-maintenance-mode = { path = "../pallet/maintenance-mode" }
 pallet-dex-rpc = { path = "../pallet/dex/rpc" }
 pallet-nft-rpc = { path = "../pallet/nft/rpc" }
 pallet-sft-rpc = { path = "../pallet/sft/rpc" }
-
+pallet-assets-ext-rpc = { path = "../pallet/assets-ext/rpc"}
 # Diagnostics
 log = "0.4.0"
 

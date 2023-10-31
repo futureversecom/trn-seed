@@ -4807,6 +4807,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-assets-ext-rpc"
+version = "2.2.0"
+dependencies = [
+ "jsonrpsee",
+ "pallet-assets-ext",
+ "pallet-assets-ext-rpc-runtime-api",
+ "parity-scale-codec",
+ "seed-primitives",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-blockchain",
+ "sp-core",
+ "sp-io",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-assets-ext-rpc-runtime-api"
+version = "2.2.0"
+dependencies = [
+ "pallet-assets-ext",
+ "parity-scale-codec",
+ "seed-primitives",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-authorship"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
@@ -8456,6 +8487,7 @@ dependencies = [
  "jsonrpsee",
  "libsecp256k1 0.6.0",
  "log",
+ "pallet-assets-ext-rpc",
  "pallet-dex-rpc",
  "pallet-maintenance-mode",
  "pallet-nft-rpc",
@@ -8569,6 +8601,7 @@ dependencies = [
  "log",
  "pallet-assets",
  "pallet-assets-ext",
+ "pallet-assets-ext-rpc-runtime-api",
  "pallet-authorship",
  "pallet-babe",
  "pallet-bags-list",
