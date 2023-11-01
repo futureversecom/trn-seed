@@ -2103,6 +2103,7 @@ mod set_royalties_schedule {
 
 mod set_mint_fee {
 	use super::*;
+	use seed_pallet_common::utils::PublicMintInformation;
 
 	#[test]
 	fn set_mint_fee_works() {

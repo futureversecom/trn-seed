@@ -1717,7 +1717,6 @@ mod set_royalties_schedule {
 mod set_mint_fee {
 	use super::*;
 	use crate::{Event, PublicMintInfo};
-	use pallet_nft::PublicMintInformation;
 	use seed_pallet_common::utils::PublicMintInformation;
 	use seed_primitives::AssetId;
 
@@ -1727,6 +1726,7 @@ mod set_mint_fee {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
 			let pricing_details: (AssetId, Balance) = (1, 100);
+			let initial_issuance = 1000;
 			assert_ok!(Sft::create_token(
 				Some(collection_owner).into(),
 				collection_id,
@@ -1776,6 +1776,7 @@ mod set_mint_fee {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
+			let initial_issuance = 1000;
 			assert_ok!(Sft::create_token(
 				Some(collection_owner).into(),
 				collection_id,
@@ -1813,6 +1814,7 @@ mod set_mint_fee {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
+			let initial_issuance = 1000;
 			assert_ok!(Sft::create_token(
 				Some(collection_owner).into(),
 				collection_id,
@@ -1844,6 +1846,7 @@ mod set_mint_fee {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
+			let initial_issuance = 1000;
 			assert_ok!(Sft::create_token(
 				Some(collection_owner).into(),
 				collection_id,
@@ -1886,7 +1889,6 @@ mod set_mint_fee {
 mod toggle_public_mint {
 	use super::*;
 	use crate::{Event, PublicMintInfo};
-	use pallet_nft::PublicMintInformation;
 	use seed_pallet_common::utils::PublicMintInformation;
 	use seed_primitives::AssetId;
 
@@ -1895,6 +1897,7 @@ mod toggle_public_mint {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
+			let initial_issuance = 1000;
 			assert_ok!(Sft::create_token(
 				Some(collection_owner).into(),
 				collection_id,
@@ -1932,6 +1935,7 @@ mod toggle_public_mint {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
+			let initial_issuance = 1000;
 			assert_ok!(Sft::create_token(
 				Some(collection_owner).into(),
 				collection_id,
@@ -1969,6 +1973,7 @@ mod toggle_public_mint {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
+			let initial_issuance = 1000;
 			assert_ok!(Sft::create_token(
 				Some(collection_owner).into(),
 				collection_id,
@@ -2035,7 +2040,7 @@ mod public_minting {
 			assert_noop!(
 				Sft::mint(
 					Some(minter).into(),
-					token_id,
+					collection_id,
 					bounded_combined(vec![serial_number], vec![max_issuance]),
 					None
 				),
@@ -2208,7 +2213,7 @@ mod public_minting {
 					Sft::mint(
 						Some(minter).into(),
 						collection_id,
-						bounded_combined(vec![serial_numbers], vec![quantity]),
+						bounded_combined(vec![serial_number], vec![quantity]),
 						None,
 					),
 					pallet_assets::Error::<Test>::BalanceLow
@@ -2317,7 +2322,7 @@ mod public_minting {
 				// Enable public minting
 				assert_ok!(Sft::toggle_public_mint(
 					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
+					token_id,
 					true
 				));
 				let max_issuance = 100;
