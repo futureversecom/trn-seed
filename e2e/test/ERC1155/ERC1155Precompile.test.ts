@@ -589,11 +589,9 @@ describe("ERC1155 Precompile", function () {
   it("togglePublicMint", async () => {
     const initialIssuance = 100;
     const serialNumber = await createToken(initialIssuance);
-    console.log("serialNumber::", serialNumber);
     // Enable public mint
     const tx = await erc1155Precompile.connect(bobSigner).togglePublicMint(serialNumber, true);
     const receipt = await tx.wait();
-    console.log("receipt:::", receipt);
     expect((receipt?.events as any)[0].event).to.equal("PublicMintToggled");
     expect((receipt?.events as any)[0].args.id).to.equal(serialNumber);
     expect((receipt?.events as any)[0].args.enabled).to.equal(true);

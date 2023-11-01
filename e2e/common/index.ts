@@ -295,8 +295,6 @@ export const ERC721_PRECOMPILE_ABI = [
   // Root specific precompiles
   "event MaxSupplyUpdated(uint32 maxSupply)",
   "event BaseURIUpdated(string baseURI)",
-  "event PublicMintToggled(bool enabled)",
-  "event MintFeeUpdated(address indexed paymentAsset, uint128 indexed mintFee)",
 
   "function totalSupply() external view returns (uint256)",
   "function mint(address owner, uint32 quantity)",
@@ -315,8 +313,6 @@ export const ERC1155_PRECOMPILE_ABI = [
   "event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)",
   "event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] balances)",
   "event ApprovalForAll(address indexed account, address indexed operator, bool approved)",
-  "event PublicMintToggled(uint256 id, bool enabled)",
-  "event MintFeeUpdated(uint256 id, address indexed paymentAsset, uint128 indexed mintFee)",
 
   "function balanceOf(address owner, uint256 id) external view returns (uint256)",
   "function balanceOfBatch(address[] owners, uint256[] ids) external view returns (uint256[] memory)",
@@ -340,6 +336,8 @@ export const ERC1155_PRECOMPILE_ABI = [
   "event TokenCreated(uint32 indexed serialNumber)",
   "event MaxSupplyUpdated(uint128 indexed maxSupply)",
   "event BaseURIUpdated(string baseURI)",
+  "event PublicMintToggled(uint32 indexed id,bool enabled)",
+  "event MintFeeUpdated(uint32 indexed id,address indexed paymentAsset, uint128 indexed mintFee)",
 
   "function createToken(bytes name, uint128 initialIssuance, uint128 maxIssuance, address tokenOwner) external returns (uint32)",
   "function mint(address owner, uint256 id, uint256 amount) external",
