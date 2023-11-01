@@ -2233,6 +2233,7 @@ mod set_mint_fee {
 
 mod toggle_public_mint {
 	use super::*;
+	use seed_pallet_common::utils::PublicMintInformation;
 
 	#[test]
 	fn toggle_public_mint_works() {
