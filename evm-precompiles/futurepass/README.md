@@ -11,7 +11,7 @@ interface FuturePass {
     
     function delegateType(address delegate) external view returns (uint8);
 
-    function registerDelegateWithSignature(address delegate, uint8 proxyType, uint32 deadline, bytes signature) external;
+    function registerDelegateWithSignature(address delegate, uint8 proxyType, uint32 deadline, bytes memory signature) external;
     function unregisterDelegate(address delegate) external;
     function proxyCall(uint8 callType, address callTo, uint256 value, bytes memory callData) external payable;
 }
