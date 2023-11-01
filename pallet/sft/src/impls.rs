@@ -15,8 +15,8 @@
 
 use crate::*;
 use frame_support::ensure;
-use pallet_nft::PublicMintInformation;
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
+use seed_pallet_common::utils::PublicMintInformation;
 use seed_primitives::CollectionUuid;
 use sp_runtime::{traits::Zero, DispatchError};
 
@@ -128,7 +128,7 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn charge_mint_fee(
 		who: &T::AccountId,
-		collection_id: CollectionUuid,
+		token_id: TokenId,
 		collection_owner: &T::AccountId,
 		public_mint_info: PublicMintInformation,
 		token_count: Balance,
@@ -144,7 +144,7 @@ impl<T: Config> Pallet<T> {
 			// Deposit event
 			Self::deposit_event(Event::<T>::MintFeePaid {
 				who: who.clone(),
-				collection_id,
+				token_id,
 				payment_asset: asset,
 				payment_amount: total_fee,
 				token_count,
@@ -168,23 +168,33 @@ impl<T: Config> Pallet<T> {
 		let sft_collection_info =
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
-		let public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
-
-		// Caller must be collection_owner if public mint is disabled
-		ensure!(
-			sft_collection_info.collection_owner == who || public_mint_info.enabled,
-			Error::<T>::PublicMintDisabled
-		);
-
 		let owner = token_owner.unwrap_or(who.clone());
-
-		let mut total_quantity: Balance = 0;
 
 		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
 			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
 
 			let token_id: TokenId = (collection_id, *serial_number);
+
+			let public_mint_info = <PublicMintInfo<T>>::get(token_id).unwrap_or_default();
+
+			// Only charge mint fee if public mint enabled and caller is not collection owner
+			if public_mint_info.enabled && sft_collection_info.collection_owner != who {
+				// Charge the mint fee for the mint
+				Self::charge_mint_fee(
+					&who,
+					token_id,
+					&sft_collection_info.collection_owner,
+					public_mint_info,
+					*quantity,
+				)?;
+			}
+
+			// Caller must be collection_owner if public mint is disabled
+			ensure!(
+				sft_collection_info.collection_owner == who || public_mint_info.enabled,
+				Error::<T>::PublicMintDisabled
+			);
 			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 			// Check for overflow
 			ensure!(
@@ -204,18 +214,6 @@ impl<T: Config> Pallet<T> {
 			token_info.add_balance(&owner, *quantity).map_err(|err| Error::<T>::from(err))?;
 			token_info.token_issuance += quantity;
 			TokenInfo::<T>::insert(token_id, token_info);
-			total_quantity = total_quantity + *quantity;
-		}
-		// Only charge mint fee if public mint enabled and caller is not collection owner
-		if public_mint_info.enabled && sft_collection_info.collection_owner != who {
-			// Charge the mint fee for the mint
-			Self::charge_mint_fee(
-				&who,
-				collection_id,
-				&sft_collection_info.collection_owner,
-				public_mint_info,
-				total_quantity,
-			)?;
 		}
 
 		let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);

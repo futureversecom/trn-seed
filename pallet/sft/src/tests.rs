@@ -1718,6 +1718,7 @@ mod set_mint_fee {
 	use super::*;
 	use crate::{Event, PublicMintInfo};
 	use pallet_nft::PublicMintInformation;
+	use seed_pallet_common::utils::PublicMintInformation;
 	use seed_primitives::AssetId;
 
 	#[test]
@@ -1726,37 +1727,47 @@ mod set_mint_fee {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
 			let pricing_details: (AssetId, Balance) = (1, 100);
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
 
 			assert_ok!(Sft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				Some(pricing_details)
 			));
 
 			let expected_mint_info =
 				PublicMintInformation { enabled: false, pricing_details: Some(pricing_details) };
-			assert_eq!(PublicMintInfo::<Test>::get(collection_id).unwrap(), expected_mint_info);
+			assert_eq!(PublicMintInfo::<Test>::get(token_id).unwrap(), expected_mint_info);
 
 			// Setting to different value works
 			let pricing_details: (AssetId, Balance) = (2, 234);
 
 			assert_ok!(Sft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				Some(pricing_details)
 			));
 
 			let expected_mint_info =
 				PublicMintInformation { enabled: false, pricing_details: Some(pricing_details) };
-			assert_eq!(PublicMintInfo::<Test>::get(collection_id).unwrap(), expected_mint_info);
+			assert_eq!(PublicMintInfo::<Test>::get(token_id).unwrap(), expected_mint_info);
 
 			// Setting to None removes from storage
 			assert_ok!(Sft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				None
 			));
-			assert_eq!(PublicMintInfo::<Test>::get(collection_id), None);
+			assert_eq!(PublicMintInfo::<Test>::get(token_id), None);
 		});
 	}
 
@@ -1765,25 +1776,35 @@ mod set_mint_fee {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
 			let pricing_details: (AssetId, Balance) = (1, 100);
 
 			// Toggle mint should set enabled to true
 			assert_ok!(Sft::toggle_public_mint(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				true
 			));
 
 			// Set mint price should update pricing details but keep enabled as true
 			assert_ok!(Sft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				Some(pricing_details)
 			));
 
 			let expected_mint_info =
 				PublicMintInformation { enabled: true, pricing_details: Some(pricing_details) };
-			assert_eq!(PublicMintInfo::<Test>::get(collection_id).unwrap(), expected_mint_info);
+			assert_eq!(PublicMintInfo::<Test>::get(token_id).unwrap(), expected_mint_info);
 		});
 	}
 
@@ -1792,16 +1813,26 @@ mod set_mint_fee {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
 			let pricing_details: (AssetId, Balance) = (1, 100);
 
 			assert_ok!(Sft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				Some(pricing_details)
 			));
 
 			assert!(has_event(Event::<Test>::MintPriceSet {
-				collection_id,
+				token_id,
 				payment_asset: Some(pricing_details.0),
 				mint_price: Some(pricing_details.1),
 			}));
@@ -1813,15 +1844,21 @@ mod set_mint_fee {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
 			let pricing_details: (AssetId, Balance) = (1, 100);
 			let bobby = create_account(11);
 
 			assert_noop!(
-				Sft::set_mint_fee(
-					RawOrigin::Signed(bobby).into(),
-					collection_id,
-					Some(pricing_details)
-				),
+				Sft::set_mint_fee(RawOrigin::Signed(bobby).into(), token_id, Some(pricing_details)),
 				Error::<Test>::NotCollectionOwner
 			);
 		});
@@ -1831,7 +1868,7 @@ mod set_mint_fee {
 	fn set_mint_fee_no_collection_fails() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
-			let collection_id = 1; // No collection
+			let token_id = (1, 1); // No collection
 			let pricing_details: (AssetId, Balance) = (1, 100);
 
 			assert_noop!(
@@ -1850,6 +1887,7 @@ mod toggle_public_mint {
 	use super::*;
 	use crate::{Event, PublicMintInfo};
 	use pallet_nft::PublicMintInformation;
+	use seed_pallet_common::utils::PublicMintInformation;
 	use seed_primitives::AssetId;
 
 	#[test]
@@ -1857,25 +1895,35 @@ mod toggle_public_mint {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
 			let enabled = true;
 
 			assert_ok!(Sft::toggle_public_mint(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				enabled
 			));
 
-			assert_eq!(PublicMintInfo::<Test>::get(collection_id).unwrap().enabled, enabled);
+			assert_eq!(PublicMintInfo::<Test>::get(token_id).unwrap().enabled, enabled);
 
 			// Disable again should work and clear storage
 			let enabled = false;
 			assert_ok!(Sft::toggle_public_mint(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				enabled
 			));
 
-			assert_eq!(PublicMintInfo::<Test>::get(collection_id), None);
+			assert_eq!(PublicMintInfo::<Test>::get(token_id), None);
 		});
 	}
 
@@ -1884,25 +1932,35 @@ mod toggle_public_mint {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
 			let enabled = true;
 
 			assert_ok!(Sft::toggle_public_mint(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				enabled
 			));
 
-			assert!(has_event(Event::<Test>::PublicMintToggle { collection_id, enabled }));
+			assert!(has_event(Event::<Test>::PublicMintToggle { token_id, enabled }));
 
 			// Disable again should work and still throw event
 			let enabled = false;
 			assert_ok!(Sft::toggle_public_mint(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				enabled
 			));
 
-			assert!(has_event(Event::<Test>::PublicMintToggle { collection_id, enabled }));
+			assert!(has_event(Event::<Test>::PublicMintToggle { token_id, enabled }));
 		});
 	}
 
@@ -1911,26 +1969,36 @@ mod toggle_public_mint {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
 			let enabled = true;
 
 			// Set up pricing details
 			let pricing_details: (AssetId, Balance) = (2, 234);
 			assert_ok!(Sft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				Some(pricing_details)
 			));
 
 			// Toggle mint should set enabled to true but keep pricing_details in tact
 			assert_ok!(Sft::toggle_public_mint(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				enabled
 			));
 
 			let expected_mint_info =
 				PublicMintInformation { enabled: true, pricing_details: Some(pricing_details) };
-			assert_eq!(PublicMintInfo::<Test>::get(collection_id).unwrap(), expected_mint_info);
+			assert_eq!(PublicMintInfo::<Test>::get(token_id).unwrap(), expected_mint_info);
 		});
 	}
 }
@@ -1961,12 +2029,13 @@ mod public_minting {
 				None,
 			));
 			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
 
 			// Minter should not be able to mint token
 			assert_noop!(
 				Sft::mint(
 					Some(minter).into(),
-					collection_id,
+					token_id,
 					bounded_combined(vec![serial_number], vec![max_issuance]),
 					None
 				),
@@ -1976,7 +2045,7 @@ mod public_minting {
 			// Enable public minting
 			assert_ok!(Sft::toggle_public_mint(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				true
 			));
 
@@ -2009,7 +2078,6 @@ mod public_minting {
 				serial_numbers: bounded_serials(serial_numbers.clone()),
 				balances: bounded_quantities(quantities.clone()),
 				owner: minter,
-				// balances: Default::default()
 			}));
 
 			// Check that minter has 100 token
@@ -2035,30 +2103,30 @@ mod public_minting {
 				let quantity = 100;
 				let mint_price = 25;
 				let payment_asset = XRP_ASSET_ID;
+				assert_ok!(Sft::create_token(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_string("my-token"),
+					0,
+					Some(max_issuance),
+					None,
+				));
+				let serial_number = 0;
+				let token_id = (collection_id, serial_number);
 
 				// Set up pricing details
 				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
 				assert_ok!(Sft::set_mint_fee(
 					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
+					token_id,
 					Some(pricing_details)
 				));
 
 				// Enable public minting
 				assert_ok!(Sft::toggle_public_mint(
 					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
+					token_id,
 					true
-				));
-				let serial_number = 0;
-
-				assert_ok!(Sft::create_token(
-					Some(collection_owner).into(),
-					collection_id,
-					bounded_string("my-token"),
-					0,
-					None,
-					None,
 				));
 
 				// Minter should be able to mint
@@ -2070,7 +2138,6 @@ mod public_minting {
 					None,
 				));
 
-				let token_id = (collection_id, serial_number);
 				let token_info = TokenInfo::<Test>::get(token_id).unwrap();
 				assert_eq!(token_info.free_balance_of(&minter), quantity);
 
@@ -2085,7 +2152,7 @@ mod public_minting {
 				let payment_amount: Balance = mint_price * quantity as u128;
 				assert!(has_event(Event::<Test>::MintFeePaid {
 					who: minter,
-					collection_id,
+					token_id,
 					payment_asset,
 					payment_amount,
 					token_count: quantity,
@@ -2110,22 +2177,6 @@ mod public_minting {
 				let quantity = 1;
 				let mint_price = 100;
 				let payment_asset = XRP_ASSET_ID;
-
-				// Set up pricing details
-				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
-				assert_ok!(Sft::set_mint_fee(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-					Some(pricing_details)
-				));
-
-				// Enable public minting
-				assert_ok!(Sft::toggle_public_mint(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-					true
-				));
-
 				assert_ok!(Sft::create_token(
 					Some(collection_owner).into(),
 					collection_id,
@@ -2134,9 +2185,25 @@ mod public_minting {
 					None,
 					None,
 				));
+				let serial_number = 0;
+				let token_id = (collection_id, serial_number);
+
+				// Set up pricing details
+				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
+				assert_ok!(Sft::set_mint_fee(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(pricing_details)
+				));
+
+				// Enable public minting
+				assert_ok!(Sft::toggle_public_mint(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					true
+				));
 
 				// Minter doesn't have enough XRP to cover mint
-				let serial_numbers = 0;
 				assert_noop!(
 					Sft::mint(
 						Some(minter).into(),
@@ -2162,16 +2229,27 @@ mod public_minting {
 
 			// Set up pricing details
 			let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				0,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
+
 			assert_ok!(Sft::set_mint_fee(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				Some(pricing_details)
 			));
 
 			// Enable public minting
 			assert_ok!(Sft::toggle_public_mint(
 				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
+				token_id,
 				true
 			));
 
@@ -2221,9 +2299,19 @@ mod public_minting {
 
 				// Set up pricing details
 				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
+				assert_ok!(Sft::create_token(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_string("my-token"),
+					0,
+					None,
+					None,
+				));
+				let serial_number = 0;
+				let token_id = (collection_id, serial_number);
 				assert_ok!(Sft::set_mint_fee(
 					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
+					token_id,
 					Some(pricing_details)
 				));
 				// Enable public minting
@@ -2267,7 +2355,7 @@ mod public_minting {
 				let payment_amount: Balance = mint_price * max_issuance as u128;
 				assert!(has_event(Event::<Test>::MintFeePaid {
 					who: minter,
-					collection_id,
+					token_id,
 					payment_asset,
 					payment_amount,
 					token_count: max_issuance,

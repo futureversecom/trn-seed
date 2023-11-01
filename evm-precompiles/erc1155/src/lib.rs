@@ -29,7 +29,7 @@ use precompile_utils::{
 	constants::{ERC1155_PRECOMPILE_ADDRESS_PREFIX, ERC20_PRECOMPILE_ADDRESS_PREFIX},
 	prelude::*,
 };
-use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber};
+use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
@@ -67,9 +67,10 @@ pub const ON_ERC1155_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0xf2, 0x3a, 0x6e, 0x
 /// bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"));
 pub const ON_ERC1155_BATCH_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0xbc, 0x19, 0x7c, 0x81];
 
-pub const SELECTOR_LOG_PUBLIC_MINT_TOGGLED: [u8; 32] = keccak256!("PublicMintToggled(bool)");
+pub const SELECTOR_LOG_PUBLIC_MINT_TOGGLED: [u8; 32] = keccak256!("PublicMintToggled(uint32,bool)");
 
-pub const SELECTOR_LOG_MINT_FEE_UPDATED: [u8; 32] = keccak256!("MintFeeUpdated(address,uint128)");
+pub const SELECTOR_LOG_MINT_FEE_UPDATED: [u8; 32] =
+	keccak256!("MintFeeUpdated(uint32,address,uint128)");
 
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -99,8 +100,8 @@ pub enum Action {
 	MintBatch = "mintBatch(address,uint256[],uint256[])",
 	SetMaxSupply = "setMaxSupply(uint256,uint32)",
 	SetBaseURI = "setBaseURI(bytes)",
-	TogglePublicMint = "togglePublicMint(bool)",
-	SetMintFee = "setMintFee(address,uint128)",
+	TogglePublicMint = "togglePublicMint(uint256,bool)",
+	SetMintFee = "setMintFee(uint256,address,uint128)",
 	// Selector used by SafeTransferFrom function
 	OnErc1155Received = "onERC1155Received(address,address,uint256,uint256,bytes)",
 	OnErc1155BatchReceived = "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)",
@@ -1085,22 +1086,26 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 
-		read_args!(handle, { enabled: bool });
+		read_args!(handle, { id: U256, enabled: bool });
+
+		ensure!(id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		let serial_number: SerialNumber = id.saturated_into();
+		let token_id: TokenId = (collection_id, serial_number);
 
 		// Dispatch call (if enough gas).
 		let origin = handle.context().caller;
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin.into()).into(),
-			pallet_sft::Call::<Runtime>::toggle_public_mint { collection_id, enabled },
+			pallet_sft::Call::<Runtime>::toggle_public_mint { token_id, enabled },
 		)?;
 
 		log1(
 			handle.code_address(),
 			SELECTOR_LOG_PUBLIC_MINT_TOGGLED,
-			EvmDataWriter::new().write(enabled).build(),
+			EvmDataWriter::new().write(id).write(enabled).build(),
 		)
 		.record(handle)?;
 
@@ -1113,7 +1118,11 @@ where
 	) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(3, 32)?;
 
-		read_args!(handle, { payment_asset: Address, mint_fee: U256 });
+		read_args!(handle, { id: U256, payment_asset: Address, mint_fee: U256 });
+
+		ensure!(id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		let serial_number: SerialNumber = id.saturated_into();
+		let token_id: TokenId = (collection_id, serial_number);
 
 		// Parse inputs
 		let asset_id: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
@@ -1137,12 +1146,13 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin.into()).into(),
-			pallet_sft::Call::<Runtime>::set_mint_fee { collection_id, pricing_details },
+			pallet_sft::Call::<Runtime>::set_mint_fee { token_id, pricing_details },
 		)?;
 
-		log3(
+		log4(
 			handle.code_address(),
 			SELECTOR_LOG_MINT_FEE_UPDATED,
+			H256::from_slice(&EvmDataWriter::new().write(id).build()),
 			H160::from(payment_asset),
 			H256::from_slice(&EvmDataWriter::new().write(mint_fee).build()),
 			vec![],

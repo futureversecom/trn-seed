@@ -55,7 +55,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use pallet_nft::PublicMintInformation;
+	use seed_pallet_common::utils::PublicMintInformation;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -114,7 +114,7 @@ pub mod pallet {
 	/// Map from collection to its public minting information
 	#[pallet::storage]
 	pub type PublicMintInfo<T: Config> =
-		StorageMap<_, Twox64Concat, CollectionUuid, PublicMintInformation>;
+		StorageMap<_, Twox64Concat, TokenId, PublicMintInformation>;
 
 	/// Map from token to its token information, including ownership information
 	#[pallet::storage]
@@ -138,7 +138,7 @@ pub mod pallet {
 			origin_chain: OriginChain,
 		},
 		/// Public minting was enabled/disabled for a collection
-		PublicMintToggle { collection_id: CollectionUuid, enabled: bool },
+		PublicMintToggle { token_id: TokenId, enabled: bool },
 		/// Token(s) were minted
 		Mint {
 			collection_id: CollectionUuid,
@@ -149,14 +149,14 @@ pub mod pallet {
 		/// Payment was made to cover a public mint
 		MintFeePaid {
 			who: T::AccountId,
-			collection_id: CollectionUuid,
+			token_id: TokenId,
 			payment_asset: AssetId,
 			payment_amount: Balance,
 			token_count: Balance,
 		},
 		/// A mint price was set for a collection
 		MintPriceSet {
-			collection_id: CollectionUuid,
+			token_id: TokenId,
 			payment_asset: Option<AssetId>,
 			mint_price: Option<Balance>,
 		},
@@ -404,55 +404,55 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::toggle_public_mint())]
 		pub fn toggle_public_mint(
 			origin: OriginFor<T>,
-			collection_id: CollectionUuid,
+			token_id: TokenId,
 			enabled: bool,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let collection_info =
-				<SftCollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-			// Only the owner can make this call
+				SftCollectionInfo::<T>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
+			// Caller must be collection_owner
 			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
 
 			// Get public mint info and set enabled flag
-			let mut public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
+			let mut public_mint_info = <PublicMintInfo<T>>::get(token_id).unwrap_or_default();
 			public_mint_info.enabled = enabled;
 
 			if public_mint_info == PublicMintInformation::default() {
 				// If the pricing details are None, and enabled is false
 				// Remove the storage entry
-				<PublicMintInfo<T>>::remove(collection_id);
+				<PublicMintInfo<T>>::remove(token_id);
 			} else {
 				// Otherwise, update the storage
-				<PublicMintInfo<T>>::insert(collection_id, public_mint_info);
+				<PublicMintInfo<T>>::insert(token_id, public_mint_info);
 			}
 
-			Self::deposit_event(Event::<T>::PublicMintToggle { collection_id, enabled });
+			Self::deposit_event(Event::<T>::PublicMintToggle { token_id, enabled });
 			Ok(())
 		}
 
 		#[pallet::weight(T::WeightInfo::set_mint_fee())]
 		pub fn set_mint_fee(
 			origin: OriginFor<T>,
-			collection_id: CollectionUuid,
+			token_id: TokenId,
 			pricing_details: Option<(AssetId, Balance)>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let collection_info =
-				<SftCollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+				<SftCollectionInfo<T>>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
 			// Only the owner can make this call
 			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
 
 			// Get the existing public mint info if it exists
-			let mut public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
+			let mut public_mint_info = <PublicMintInfo<T>>::get(token_id).unwrap_or_default();
 			public_mint_info.pricing_details = pricing_details;
 
 			if public_mint_info == PublicMintInformation::default() {
 				// If the pricing details are None, and enabled is false
 				// Remove the storage entry
-				<PublicMintInfo<T>>::remove(collection_id);
+				<PublicMintInfo<T>>::remove(token_id);
 			} else {
 				// Otherwise, update the storage
-				<PublicMintInfo<T>>::insert(collection_id, public_mint_info);
+				<PublicMintInfo<T>>::insert(token_id, public_mint_info);
 			}
 
 			// Extract payment asset and mint price for clearer event logging
@@ -461,11 +461,7 @@ pub mod pallet {
 				None => (None, None),
 			};
 
-			Self::deposit_event(Event::<T>::MintPriceSet {
-				collection_id,
-				payment_asset,
-				mint_price,
-			});
+			Self::deposit_event(Event::<T>::MintPriceSet { token_id, payment_asset, mint_price });
 			Ok(())
 		}
 	}

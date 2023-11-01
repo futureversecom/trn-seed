@@ -587,34 +587,42 @@ describe("ERC1155 Precompile", function () {
   });
 
   it("togglePublicMint", async () => {
+    const initialIssuance = 100;
+    const serialNumber = await createToken(initialIssuance);
     // Enable public mint
-    const tx = await erc1155Precompile.connect(bobSigner).togglePublicMint(true);
+    const tx = await erc1155Precompile.connect(bobSigner).togglePublicMint(serialNumber, true);
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("PublicMintToggled");
+    expect((receipt?.events as any)[0].args.id).to.equal(serialNumber);
     expect((receipt?.events as any)[0].args.enabled).to.equal(true);
 
     // Disable again
-    const tx2 = await erc1155Precompile.connect(bobSigner).togglePublicMint(false);
+    const tx2 = await erc1155Precompile.connect(bobSigner).togglePublicMint(serialNumber, false);
     const receipt2 = await tx2.wait();
     expect((receipt2?.events as any)[0].event).to.equal("PublicMintToggled");
+    expect((receipt?.events as any)[0].args.id).to.equal(serialNumber);
     expect((receipt2?.events as any)[0].args.enabled).to.equal(false);
   });
 
   it("setMintFee", async () => {
     const paymentAsset = ROOT_PRECOMPILE_ADDRESS;
     const mintFee = 100000;
+    const initialIssuance = 100;
+    const serialNumber = await createToken(initialIssuance);
     // Set Mint Fee
-    const tx = await erc1155Precompile.connect(bobSigner).setMintFee(paymentAsset, mintFee);
+    const tx = await erc1155Precompile.connect(bobSigner).setMintFee(serialNumber, paymentAsset, mintFee);
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("MintFeeUpdated");
+    expect((receipt?.events as any)[0].args.id).to.equal(serialNumber);
     expect((receipt?.events as any)[0].args.paymentAsset).to.equal(paymentAsset);
     expect((receipt?.events as any)[0].args.mintFee).to.equal(mintFee);
 
     // Set mint fee again
     const mintFee2 = 0;
-    const tx2 = await erc1155Precompile.connect(bobSigner).setMintFee(paymentAsset, mintFee2);
+    const tx2 = await erc1155Precompile.connect(bobSigner).setMintFee(serialNumber, paymentAsset, mintFee2);
     const receipt2 = await tx2.wait();
     expect((receipt2?.events as any)[0].event).to.equal("MintFeeUpdated");
+    expect((receipt2?.events as any)[0].args.id).to.equal(serialNumber);
     expect((receipt2?.events as any)[0].args.paymentAsset).to.equal(paymentAsset);
     expect((receipt2?.events as any)[0].args.mintFee).to.equal(mintFee2);
   });
@@ -637,11 +645,11 @@ describe("ERC1155 Precompile", function () {
       });
 
     // Set Mint Fee
-    const mintFeeTx = await erc1155Precompile.connect(bobSigner).setMintFee(paymentAsset, mintFee);
+    const mintFeeTx = await erc1155Precompile.connect(bobSigner).setMintFee(serialNumber, paymentAsset, mintFee);
     await mintFeeTx.wait();
 
     // Enable public mint
-    const togglePublicMintTx = await erc1155Precompile.connect(bobSigner).togglePublicMint(true);
+    const togglePublicMintTx = await erc1155Precompile.connect(bobSigner).togglePublicMint(serialNumber, true);
     await togglePublicMintTx.wait();
 
     const balanceBefore: any = ((await api.query.system.account(alithSigner.address)).toJSON() as any).data.free;

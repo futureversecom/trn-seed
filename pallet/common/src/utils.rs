@@ -14,9 +14,10 @@
 // You may obtain a copy of the License at the root of this project source code
 
 //! shared pallet common utilities
-use seed_primitives::Balance;
+use codec::{Decode, Encode, MaxEncodedLen};
+use scale_info::TypeInfo;
+use seed_primitives::{AssetId, Balance};
 use sp_core::U256;
-
 // Maximum value that fits into 22 bits
 const MAX_U22: u32 = (1 << 22) - 1;
 // Maximum value that fits into 10 bits
@@ -62,4 +63,12 @@ pub fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> Balance {
 pub fn scale_decimals_to_wei(value: U256, decimals: u8) -> Balance {
 	let unit_value = U256::from(10).pow(U256::from(18) - U256::from(decimals));
 	(value * unit_value).as_u128()
+}
+
+#[derive(Debug, Default, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
+pub struct PublicMintInformation {
+	/// Whether public minting is enabled for the collection
+	pub enabled: bool,
+	/// If pricing_details are set, the user will be charged this amount per token
+	pub pricing_details: Option<(AssetId, Balance)>,
 }

@@ -315,8 +315,8 @@ export const ERC1155_PRECOMPILE_ABI = [
   "event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)",
   "event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] balances)",
   "event ApprovalForAll(address indexed account, address indexed operator, bool approved)",
-  "event PublicMintToggled(bool enabled)",
-  "event MintFeeUpdated(address indexed paymentAsset, uint128 indexed mintFee)",
+  "event PublicMintToggled(uint256 id, bool enabled)",
+  "event MintFeeUpdated(uint256 id, address indexed paymentAsset, uint128 indexed mintFee)",
 
   "function balanceOf(address owner, uint256 id) external view returns (uint256)",
   "function balanceOfBatch(address[] owners, uint256[] ids) external view returns (uint256[] memory)",
@@ -346,8 +346,8 @@ export const ERC1155_PRECOMPILE_ABI = [
   "function mintBatch(address owner, uint256[] ids, uint256[] amounts) external",
   "function setMaxSupply(uint256 id, uint32 maxSupply) external",
   "function setBaseURI(bytes baseURI) external",
-  "function togglePublicMint(bool enabled)",
-  "function setMintFee(address paymentAsset, uint128 mintFee)",
+  "function togglePublicMint(uint256 id, bool enabled)",
+  "function setMintFee(uint256 id, address paymentAsset, uint128 mintFee)",
 
   // Ownable
   ...OWNABLE_ABI,
