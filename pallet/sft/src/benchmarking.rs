@@ -102,10 +102,12 @@ benchmarks! {
 	}
 
 	toggle_public_mint {
+		let owner = account::<T>("Alice");
 		let token_id = build_token::<T>(Some(owner.clone()), 0);
 	}: _(origin::<T>(&account::<T>("Alice")), token_id, true)
 
 	set_mint_fee {
+		let owner = account::<T>("Alice");
 		let token_id = build_token::<T>(Some(owner.clone()), 0);
 		let pricing_details = Some((1, 100));
 	}: _(origin::<T>(&account::<T>("Alice")), token_id, pricing_details)
