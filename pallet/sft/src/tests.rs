@@ -2047,18 +2047,12 @@ mod public_minting {
 				Error::<Test>::PublicMintDisabled
 			);
 
-			// Enable public minting
-			assert_ok!(Sft::toggle_public_mint(
-				RawOrigin::Signed(collection_owner).into(),
-				token_id,
-				true
-			));
-
 			let serial_numbers: Vec<SerialNumber> = vec![0, 1, 2, 3, 4, 5, 6];
 			let quantities: Vec<Balance> = vec![1000, 2000, 3000, 4000, 5000, 6000, 7000];
 
 			// Create each token with initial_issuance = 0
-			for _ in serial_numbers.iter() {
+			for serial_number in serial_numbers.iter() {
+				let token_id = (collection_id, *serial_number);
 				assert_ok!(Sft::create_token(
 					Some(collection_owner).into(),
 					collection_id,
@@ -2066,6 +2060,12 @@ mod public_minting {
 					0,
 					None,
 					None,
+				));
+				// Enable public minting
+				assert_ok!(Sft::toggle_public_mint(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					true
 				));
 			}
 
