@@ -1102,10 +1102,11 @@ where
 			pallet_sft::Call::<Runtime>::toggle_public_mint { token_id, enabled },
 		)?;
 
-		log1(
+		log2(
 			handle.code_address(),
 			SELECTOR_LOG_PUBLIC_MINT_TOGGLED,
-			EvmDataWriter::new().write(id).write(enabled).build(),
+			H256::from_uint(&U256::from(serial_number)),
+			EvmDataWriter::new().write(enabled).build(),
 		)
 		.record(handle)?;
 
@@ -1148,11 +1149,10 @@ where
 			Some(origin.into()).into(),
 			pallet_sft::Call::<Runtime>::set_mint_fee { token_id, pricing_details },
 		)?;
-
 		log4(
 			handle.code_address(),
 			SELECTOR_LOG_MINT_FEE_UPDATED,
-			H256::from_slice(&EvmDataWriter::new().write(id).build()),
+			H256::from_uint(&U256::from(serial_number)),
 			H160::from(payment_asset),
 			H256::from_slice(&EvmDataWriter::new().write(mint_fee).build()),
 			vec![],

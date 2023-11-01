@@ -1877,7 +1877,7 @@ mod set_mint_fee {
 			assert_noop!(
 				Sft::set_mint_fee(
 					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
+					token_id,
 					Some(pricing_details)
 				),
 				Error::<Test>::NoCollectionFound
@@ -2108,6 +2108,7 @@ mod public_minting {
 				let quantity = 100;
 				let mint_price = 25;
 				let payment_asset = XRP_ASSET_ID;
+				let max_issuance = 10_000;
 				assert_ok!(Sft::create_token(
 					Some(collection_owner).into(),
 					collection_id,
