@@ -295,6 +295,8 @@ export const ERC721_PRECOMPILE_ABI = [
   // Root specific precompiles
   "event MaxSupplyUpdated(uint32 maxSupply)",
   "event BaseURIUpdated(string baseURI)",
+  "event PublicMintToggled(bool enabled)",
+  "event MintFeeUpdated(address indexed paymentAsset, uint128 indexed mintFee)",
 
   "function totalSupply() external view returns (uint256)",
   "function mint(address owner, uint32 quantity)",
