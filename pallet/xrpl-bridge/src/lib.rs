@@ -117,6 +117,8 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		NotPermitted,
+		/// There is no settledXRPTransactionDetails for this ledger index
+		NoTransactionDetails,
 		RelayerDoesNotExists,
 		/// Withdraw amount must be non-zero and <= u64
 		WithdrawInvalidAmount,
@@ -126,6 +128,9 @@ pub mod pallet {
 		TooManySigners,
 		/// The signers are not known by ethy
 		InvalidSigners,
+		/// highest_pruned_ledger_index must be less than highest_settled_ledger_index -
+		/// submission_window_width
+		InvalidHighestPrunedIndex,
 		/// Submitted a duplicate transaction hash
 		TxReplay,
 		/// The NextTicketSequenceParams has not been set
@@ -136,6 +141,8 @@ pub mod pallet {
 		TicketSequenceParamsInvalid,
 		/// Cannot process more transactions at that block
 		CannotProcessMoreTransactionsAtThatBlock,
+		/// This ledger index is within the submission window and can't be pruned
+		CannotPruneActiveLedgerIndex,
 		/// Transaction submitted is outside the submission window
 		OutSideSubmissionWindow,
 		/// Too Many transactions per ledger
@@ -172,6 +179,10 @@ pub mod pallet {
 			ticket_sequence_start: u32,
 			ticket_bucket_size: u32,
 		},
+		LedgerIndexManualPrune {
+			ledger_index: u32,
+			total_cleared: u32,
+		},
 		TicketSequenceThresholdReached(u32),
 	}
 
@@ -181,10 +192,11 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
 		fn on_initialize(n: T::BlockNumber) -> Weight {
-			let submission_window_end = HighestSettledLedgerIndex::<T>::get()
-				.saturating_sub(SubmissionWindowWidth::<T>::get());
-			let weights = Self::process_xrp_tx(n);
-			weights + Self::clear_storages(submission_window_end)
+			Self::process_xrp_tx(n)
+		}
+
+		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
+			Self::clear_storages(remaining_weight)
 		}
 	}
 
@@ -220,6 +232,17 @@ pub mod pallet {
 	#[pallet::storage]
 	/// Highest settled XRPL ledger index
 	pub type HighestSettledLedgerIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	#[pallet::type_value]
+	pub fn DefaultHighestPrunedLedgerIndex() -> u32 {
+		// TODO determine appropriate value
+		8_267_856_u32
+	}
+
+	#[pallet::storage]
+	/// Highest pruned XRPL ledger index
+	pub type HighestPrunedLedgerIndex<T: Config> =
+		StorageValue<_, u32, ValueQuery, DefaultHighestPrunedLedgerIndex>;
 
 	#[pallet::type_value]
 	/// XRPL ledger rate is between 3-5 seconds. let's take min 3 seconds and keep data for 10 days
@@ -476,9 +499,18 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			highest_settled_ledger_index: u32,
 			submission_window_width: u32,
+			highest_pruned_ledger_index: Option<u32>,
 			settled_tx_data: Option<Vec<(XrplTxHash, u32, XrpTransaction, T::AccountId)>>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+			if let Some(highest_pruned_ledger_index) = highest_pruned_ledger_index {
+				ensure!(
+					highest_pruned_ledger_index <=
+						highest_settled_ledger_index.saturating_sub(submission_window_width),
+					Error::<T>::InvalidHighestPrunedIndex
+				);
+				HighestPrunedLedgerIndex::<T>::put(highest_pruned_ledger_index);
+			}
 			HighestSettledLedgerIndex::<T>::put(highest_settled_ledger_index);
 			SubmissionWindowWidth::<T>::put(submission_window_width);
 
@@ -494,6 +526,31 @@ pub mod pallet {
 				}
 			}
 
+			Ok(())
+		}
+
+		#[pallet::weight(0)]
+		pub fn prune_settled_ledger_index(
+			origin: OriginFor<T>,
+			ledger_index: u32,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			// Ensure the ledger index is not within the submission window
+			let max_ledger_index = HighestSettledLedgerIndex::<T>::get()
+				.saturating_sub(SubmissionWindowWidth::<T>::get());
+			ensure!(ledger_index < max_ledger_index, Error::<T>::CannotPruneActiveLedgerIndex);
+
+			// Clear the tx hashes for this ledger index
+			let tx_hashes = <SettledXRPTransactionDetails<T>>::take(ledger_index)
+				.ok_or(Error::<T>::NoTransactionDetails)?;
+			let total_cleared = tx_hashes.len() as u32;
+
+			for tx_hash in tx_hashes {
+				<ProcessXRPTransactionDetails<T>>::remove(tx_hash);
+			}
+
+			Self::deposit_event(Event::LedgerIndexManualPrune { ledger_index, total_cleared });
 			Ok(())
 		}
 	}
@@ -571,28 +628,93 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Prune settled transaction data from storage
-	pub fn clear_storages(end_ledger_index: u32) -> Weight {
-		let mut reads = 0u64;
-		let mut writes = 0u64;
-		reads += 2;
-		let previous_end = end_ledger_index;
+	pub fn clear_storages(remaining_weight: Weight) -> Weight {
+		// Initial reads for the following:
+		// Read: HighestSettledLedgerIndex, SubmissionWindowWidth, HighestPrunedLedgerIndex
+		let base_pruning_weight = DbWeight::get().reads(3u64);
+		// the weight per transaction is at least two writes
+		// Reads: SettledXRPTransactionDetails
+		// Writes: SettledXRPTransactionDetails, ProcessXRPTransactionDetails,
+		// HighestPrunedLedgerIndex
+		let min_weight_per_index = DbWeight::get().reads_writes(1, 3);
+
+		// Ensure we have enough weight to perform the initial reads + at least one clear
+		if remaining_weight.all_lte(base_pruning_weight + min_weight_per_index) {
+			return Weight::zero()
+		}
+
+		// Add the cost of the initial reads and read the data
+		let mut used_weight = base_pruning_weight;
 		let current_end =
 			HighestSettledLedgerIndex::<T>::get().saturating_sub(SubmissionWindowWidth::<T>::get());
 
-		for ledger_index in previous_end..current_end {
-			reads += 1;
-			if !SettledXRPTransactionDetails::<T>::contains_key(ledger_index) {
-				continue
+		// Get range of indexes to clear
+		let highest_pruned_index = <HighestPrunedLedgerIndex<T>>::get();
+		let mut new_highest = highest_pruned_index;
+		let settled_txs_to_clear = (highest_pruned_index..current_end).collect::<Vec<u32>>();
+
+		if settled_txs_to_clear.len() == 0 {
+			return used_weight
+		}
+
+		// Add the write cost for HighestPrunedLedgerIndex if we have txs to clear
+		// If we don't update this storage value we will remove this write later.
+		used_weight = used_weight.saturating_add(DbWeight::get().writes(1u64));
+
+		for ledger_index in settled_txs_to_clear {
+			// Check if we have enough remaining to mutate storage this index
+			if remaining_weight
+				.all_lte(used_weight.saturating_add(DbWeight::get().reads_writes(1, 2)))
+			{
+				break
 			}
-			if let Some(tx_hashes) = <SettledXRPTransactionDetails<T>>::take(ledger_index) {
-				writes += 1 + tx_hashes.len() as u64;
-				for tx_hash in tx_hashes {
-					<ProcessXRPTransactionDetails<T>>::remove(tx_hash);
-				}
+
+			// Add weight for reading SettledXRPTransactionDetails
+			used_weight = used_weight.saturating_add(DbWeight::get().reads(1));
+			let Some(tx_hashes) = <SettledXRPTransactionDetails<T>>::get(ledger_index) else {
+				// No SettledXRPTransactionDetails for this index
+				new_highest = new_highest.saturating_add(1);
+				continue;
+			};
+			// Add weight for writing SettledXRPTransactionDetails
+			used_weight = used_weight.saturating_add(DbWeight::get().writes(1));
+
+			// Check how many tx_hashes we are able to clear with the remaining weight
+			let weight_per_tx = DbWeight::get().writes(1u64);
+			let max_to_clear =
+				remaining_weight.saturating_sub(used_weight).div(weight_per_tx.ref_time());
+			let max_to_clear = max_to_clear.ref_time().min(tx_hashes.len() as u64) as usize;
+
+			// Remove as many tx_hashes as we can
+			for i in 0..max_to_clear {
+				let tx_hash = tx_hashes[i];
+				<ProcessXRPTransactionDetails<T>>::remove(tx_hash);
+			}
+			// Add weight for the tx_hashes we cleared
+			used_weight =
+				used_weight.saturating_add(weight_per_tx.saturating_mul(max_to_clear as u64));
+
+			// If we have tx_hashes left, reinsert them
+			if max_to_clear < tx_hashes.len() {
+				let tx_hashes_pruned = tx_hashes[max_to_clear..].to_vec();
+				let tx_hashes_pruned = BoundedVec::truncate_from(tx_hashes_pruned);
+				<SettledXRPTransactionDetails<T>>::insert(ledger_index, tx_hashes_pruned);
+				break
+			} else {
+				new_highest = new_highest.saturating_add(1);
+				<SettledXRPTransactionDetails<T>>::remove(ledger_index);
 			}
 		}
 
-		DbWeight::get().reads_writes(reads, writes)
+		// Update highest prunedLedgerIndex with the last ledger index we cleared
+		if new_highest > highest_pruned_index {
+			<HighestPrunedLedgerIndex<T>>::put(new_highest);
+		} else {
+			// We didn't actually update the highestPrunedLedgerIndex so remove the recorded weight
+			used_weight = used_weight.saturating_sub(DbWeight::get().writes(1u64));
+		}
+
+		used_weight
 	}
 
 	pub fn add_to_relay(
