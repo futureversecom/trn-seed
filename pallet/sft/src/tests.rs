@@ -2200,7 +2200,7 @@ mod public_minting {
 						true
 					));
 					// Set up pricing details
-					let pricing_details: (AssetId, Balance) = (payment_asset, price);
+					let pricing_details: (AssetId, Balance) = (payment_asset, *price);
 					assert_ok!(Sft::set_mint_fee(
 						RawOrigin::Signed(collection_owner).into(),
 						token_id,
@@ -2219,8 +2219,8 @@ mod public_minting {
 				// Should emit both mint and payment event
 				assert!(has_event(Event::<Test>::Mint {
 					collection_id,
-					serial_numbers: bounded_serials(vec![serial_number]),
-					balances: bounded_quantities(vec![quantity]),
+					serial_numbers: bounded_serials(serial_numbers),
+					balances: bounded_quantities(quantities),
 					owner: minter,
 				}));
 
@@ -2231,7 +2231,7 @@ mod public_minting {
 					let token_id = (collection_id, *serial_number);
 
 					let token_info = TokenInfo::<Test>::get(token_id).unwrap();
-					assert_eq!(token_info.free_balance_of(&minter), quantity);
+					assert_eq!(token_info.free_balance_of(&minter), *quantity);
 
 					let payment_amount: Balance = *price * *quantity as u128;
 					total_fee_paid = total_fee_paid + payment_amount;
