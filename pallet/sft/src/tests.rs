@@ -2172,7 +2172,7 @@ mod public_minting {
 	#[test]
 	fn public_batch_mint_with_price_should_charge_user() {
 		let minter = create_account(11);
-		let initial_balance = 100000;
+		let initial_balance = 1000000;
 		TestExt::default()
 			.with_xrp_balances(&[(minter, initial_balance)])
 			.build()
@@ -2219,8 +2219,8 @@ mod public_minting {
 				// Should emit both mint and payment event
 				assert!(has_event(Event::<Test>::Mint {
 					collection_id,
-					serial_numbers: bounded_serials(serial_numbers),
-					balances: bounded_quantities(quantities),
+					serial_numbers: bounded_serials(serial_numbers.clone()),
+					balances: bounded_quantities(quantities.clone()),
 					owner: minter,
 				}));
 
