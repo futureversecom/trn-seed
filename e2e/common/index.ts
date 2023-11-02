@@ -336,8 +336,8 @@ export const ERC1155_PRECOMPILE_ABI = [
   "event TokenCreated(uint32 indexed serialNumber)",
   "event MaxSupplyUpdated(uint128 indexed maxSupply)",
   "event BaseURIUpdated(string baseURI)",
-  "event PublicMintToggled(uint32 indexed id,bool enabled)",
-  "event MintFeeUpdated(uint32 indexed id,address indexed paymentAsset, uint128 indexed mintFee)",
+  "event PublicMintToggled(uint32 indexed id, bool enabled)",
+  "event MintFeeUpdated(uint32 indexed id, address indexed paymentAsset, uint128 indexed mintFee)",
 
   "function createToken(bytes name, uint128 initialIssuance, uint128 maxIssuance, address tokenOwner) external returns (uint32)",
   "function mint(address owner, uint256 id, uint256 amount) external",

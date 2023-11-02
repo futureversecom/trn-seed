@@ -656,6 +656,7 @@ describe("ERC1155 Precompile", function () {
     const mintTx = await erc1155Precompile.connect(alithSigner).mint(tokenOwner, serialNumber, initialIssuance);
     await mintTx.wait();
     const bal = await erc1155Precompile.balanceOf(tokenOwner, serialNumber);
+    console.log(" bal::", bal.toString());
     // Check tokenOwner received the tokens
     expect(bal).to.equal(initialIssuance);
 
@@ -663,6 +664,7 @@ describe("ERC1155 Precompile", function () {
     const balanceAfter: any = ((await api.query.system.account(alithSigner.address)).toJSON() as any).data.free;
     const balanceDiff = balanceBefore - balanceAfter;
     const expectedDiff = mintFee * initialIssuance;
+    console.log(" balanceDiff::", balanceDiff.toString());
     expect(balanceDiff).to.equal(expectedDiff);
   });
 
