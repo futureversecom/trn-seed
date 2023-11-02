@@ -654,7 +654,7 @@ describe("ERC1155 Precompile", function () {
 
     const balanceBefore: any = ((await api.query.system.account(alithSigner.address)).toJSON() as any).data.free;
     const mintTx = await erc1155Precompile.connect(alithSigner).mint(tokenOwner, serialNumber, initialIssuance);
-    let r = await mintTx.wait();
+    const r = await mintTx.wait();
     console.log("r::::::", r);
     const bal = await erc1155Precompile.balanceOf(tokenOwner, serialNumber);
     console.log(" bal::", bal.toString());
