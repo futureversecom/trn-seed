@@ -179,7 +179,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     balanceBefore = await bobSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.marketplace
-        .sellNft(collectionId, sellNFTSeries, alithSigner.address, paymentAsset, fixedPrice, duration, marketplaceId)
+        .sellNftWithoutMarketplace(collectionId, sellNFTSeries, alithSigner.address, paymentAsset, fixedPrice, duration, marketplaceId)
         .signAndSend(bobKeyring, ({ status }) => {
           if (status.isInBlock) resolve();
         });
@@ -239,7 +239,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     balanceBefore = await bobSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.marketplace
-        .auctionNft(collectionId, auctionNFTSeries, paymentAsset, reservePrice, duration, marketplaceId)
+        .auctionNftWithoutMarketplace(collectionId, auctionNFTSeries, paymentAsset, reservePrice, duration, marketplaceId)
         .signAndSend(bobKeyring, ({ status }) => {
           if (status.isInBlock) resolve();
         });
@@ -292,7 +292,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.marketplace
-        .makeSimpleOffer([collectionId, offerSeries], amount, paymentAsset, marketplaceId)
+        .makeSimpleOfferWithoutMarketplace([collectionId, offerSeries], amount, paymentAsset, marketplaceId)
         .signAndSend(alithKeyring, ({ status }) => {
           if (status.isInBlock) resolve();
         });
