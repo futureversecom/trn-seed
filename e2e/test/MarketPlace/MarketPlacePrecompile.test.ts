@@ -140,7 +140,14 @@ describe("Marketplace Precompile", function () {
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .sellNft(erc721Precompile.address, sellNFTSeries, alithSigner.address, paymentAsset, fixedPrice, duration);
+      .sellNftWithoutMarketplace(
+        erc721Precompile.address,
+        sellNFTSeries,
+        alithSigner.address,
+        paymentAsset,
+        fixedPrice,
+        duration,
+      );
     const receipt = await sellNftTx.wait();
     const [seller, listingId, fixedPriceFromCall, serialNumbers, collectionAddress] = (receipt?.events as any)[0].args;
     expect((receipt?.events as any)[0].event).to.equal("FixedPriceSaleList");
@@ -188,7 +195,7 @@ describe("Marketplace Precompile", function () {
 
     const auctionNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .auctionNft(erc721Precompile.address, auctionNFTSeries, paymentAsset, reservePrice, duration);
+      .auctionNftWithoutMarketplace(erc721Precompile.address, auctionNFTSeries, paymentAsset, reservePrice, duration);
     const receipt = await auctionNftTx.wait();
     const [collectionId, listingId, reservePriceFromChain, seller, serialNumbers] = (receipt?.events as any)[0].args;
     expect((receipt?.events as any)[0].event).to.equal("AuctionOpen");
@@ -225,7 +232,7 @@ describe("Marketplace Precompile", function () {
 
     const offerNftTx = await marketPlacePrecompile
       .connect(alithSigner)
-      .makeSimpleOffer(erc721Precompile.address, offerSeries, amount, paymentAsset);
+      .makeSimpleOfferWithoutMarketplace(erc721Precompile.address, offerSeries, amount, paymentAsset);
     const receipt = await offerNftTx.wait();
     const [offerId, buyer, collectionId, serialId] = (receipt?.events as any)[0].args;
     expect((receipt?.events as any)[0].event).to.equal("Offer");
