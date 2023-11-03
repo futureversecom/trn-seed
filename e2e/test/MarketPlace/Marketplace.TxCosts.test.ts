@@ -179,7 +179,15 @@ describe("Marketplace Precompile Gas Estimates", function () {
     balanceBefore = await bobSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.marketplace
-        .sellNftWithoutMarketplace(collectionId, sellNFTSeries, alithSigner.address, paymentAsset, fixedPrice, duration, marketplaceId)
+        .sellNftWithoutMarketplace(
+          collectionId,
+          sellNFTSeries,
+          alithSigner.address,
+          paymentAsset,
+          fixedPrice,
+          duration,
+          marketplaceId,
+        )
         .signAndSend(bobKeyring, ({ status }) => {
           if (status.isInBlock) resolve();
         });
@@ -239,7 +247,14 @@ describe("Marketplace Precompile Gas Estimates", function () {
     balanceBefore = await bobSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.marketplace
-        .auctionNftWithoutMarketplace(collectionId, auctionNFTSeries, paymentAsset, reservePrice, duration, marketplaceId)
+        .auctionNftWithoutMarketplace(
+          collectionId,
+          auctionNFTSeries,
+          paymentAsset,
+          reservePrice,
+          duration,
+          marketplaceId,
+        )
         .signAndSend(bobKeyring, ({ status }) => {
           if (status.isInBlock) resolve();
         });

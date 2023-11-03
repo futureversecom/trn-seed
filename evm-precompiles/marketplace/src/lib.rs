@@ -256,7 +256,7 @@ where
 	fn sell_nft_with_marketplace_id(
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(7, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 		read_args!(
 			handle,
 			{
@@ -290,7 +290,7 @@ where
 	fn sell_nft_without_marketplace(
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(6, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		read_args!(
 			handle,
@@ -401,7 +401,7 @@ where
 	}
 
 	fn update_fixed_price(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(
@@ -452,7 +452,7 @@ where
 	}
 
 	fn buy(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(handle, { listing_id: U256 });
@@ -504,7 +504,7 @@ where
 	fn auction_nft_without_marketplace(
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(5, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(
@@ -534,7 +534,7 @@ where
 	fn auction_nft_with_marketplace_id(
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(6, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(
@@ -649,7 +649,7 @@ where
 	}
 
 	fn bid(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 		// Parse input.
 		read_args!(
 			handle,
@@ -686,7 +686,7 @@ where
 	}
 
 	fn cancel_sale(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 		// Parse input.
 		read_args!(handle, { listing_id: U256 });
 
@@ -745,7 +745,7 @@ where
 	fn make_simple_offer_without_marketplace(
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(4, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Parse input.
 		read_args!(
@@ -772,7 +772,7 @@ where
 	fn make_simple_offer_with_marketplace_id(
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(5, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Parse input.
 		read_args!(
@@ -855,7 +855,7 @@ where
 	}
 
 	fn cancel_offer(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Parse input.
 		read_args!(handle, { offer_id: U256 });
@@ -886,7 +886,7 @@ where
 	}
 
 	fn accept_offer(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(handle, { offer_id: U256 });
