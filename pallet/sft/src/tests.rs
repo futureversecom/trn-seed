@@ -276,32 +276,6 @@ mod create_collection {
 				Error::<Test>::RoyaltiesInvalid
 			);
 
-			// Too Large RoyaltiesSchedule vec
-			// MAX_ENTITLEMENTS is set to 8 so anything over 8 should fail
-			let large_royalties_schedule = RoyaltiesSchedule {
-				entitlements: BoundedVec::truncate_from(vec![
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-				]),
-			};
-			assert_noop!(
-				Sft::create_collection(
-					Some(alice()).into(),
-					bounded_string("test-collection"),
-					None,
-					metadata_scheme.clone(),
-					Some(large_royalties_schedule),
-				),
-				Error::<Test>::RoyaltiesInvalid
-			);
-
 			// Royalties over 100%
 			// MAX_ENTITLEMENTS is set to 8 so anything over 8 should fail
 			let large_royalties_schedule = RoyaltiesSchedule {
@@ -320,6 +294,61 @@ mod create_collection {
 				),
 				Error::<Test>::RoyaltiesInvalid
 			);
+		});
+	}
+
+	#[test]
+	fn create_collection_too_many_entitlements_fails() {
+		TestExt::default().build().execute_with(|| {
+			let owner = create_account(1);
+			let name = bounded_string("test-collection");
+			let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
+
+			// Too many entitlements should fail
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![
+					(create_account(1), Permill::from_parts(1)),
+					(create_account(2), Permill::from_parts(1)),
+					(create_account(3), Permill::from_parts(1)),
+					(create_account(4), Permill::from_parts(1)),
+					(create_account(5), Permill::from_parts(1)),
+					(create_account(6), Permill::from_parts(1)),
+					(create_account(7), Permill::from_parts(1)),
+				]),
+			};
+
+			// Call with invalid royalties should fail
+			assert_noop!(
+				Sft::create_collection(
+					Some(owner).into(),
+					name.clone(),
+					None,
+					metadata_scheme.clone(),
+					Some(royalties_schedule),
+				),
+				Error::<Test>::RoyaltiesInvalid
+			);
+
+			// 6 royalties should pass
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![
+					(create_account(1), Permill::from_parts(1)),
+					(create_account(2), Permill::from_parts(1)),
+					(create_account(3), Permill::from_parts(1)),
+					(create_account(4), Permill::from_parts(1)),
+					(create_account(5), Permill::from_parts(1)),
+					(create_account(6), Permill::from_parts(1)),
+				]),
+			};
+
+			// Call should pass with 6 entitlements
+			assert_ok!(Sft::create_collection(
+				Some(owner).into(),
+				name.clone(),
+				None,
+				metadata_scheme.clone(),
+				Some(royalties_schedule),
+			));
 		});
 	}
 }
@@ -1709,6 +1738,56 @@ mod set_royalties_schedule {
 				),
 				Error::<Test>::RoyaltiesInvalid
 			);
+		});
+	}
+
+	#[test]
+	fn set_royalties_too_many_entitlements_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_id = create_test_token(collection_owner, collection_owner, 8100);
+
+			// Too many entitlements should fail
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![
+					(create_account(1), Permill::from_parts(1)),
+					(create_account(2), Permill::from_parts(1)),
+					(create_account(3), Permill::from_parts(1)),
+					(create_account(4), Permill::from_parts(1)),
+					(create_account(5), Permill::from_parts(1)),
+					(create_account(6), Permill::from_parts(1)),
+					(create_account(7), Permill::from_parts(1)),
+				]),
+			};
+
+			// Calls with invalid royalties should fail
+			assert_noop!(
+				Sft::set_royalties_schedule(
+					Some(collection_owner).into(),
+					token_id.0,
+					royalties_schedule.clone()
+				),
+				Error::<Test>::RoyaltiesInvalid
+			);
+
+			// 6 royalties should pass
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![
+					(create_account(1), Permill::from_parts(1)),
+					(create_account(2), Permill::from_parts(1)),
+					(create_account(3), Permill::from_parts(1)),
+					(create_account(4), Permill::from_parts(1)),
+					(create_account(5), Permill::from_parts(1)),
+					(create_account(6), Permill::from_parts(1)),
+				]),
+			};
+
+			// Call should pass with 6 entitlements
+			assert_ok!(Sft::set_royalties_schedule(
+				Some(collection_owner).into(),
+				token_id.0,
+				royalties_schedule.clone()
+			),);
 		});
 	}
 }
