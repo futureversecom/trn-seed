@@ -529,7 +529,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(0)]
+		#[pallet::weight((T::WeightInfo::prune_settled_ledger_index(), DispatchClass::Operational))]
 		pub fn prune_settled_ledger_index(
 			origin: OriginFor<T>,
 			ledger_index: u32,
