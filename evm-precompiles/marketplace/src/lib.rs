@@ -332,7 +332,7 @@ where
 			payment_asset,
 			ERC20_PRECOMPILE_ADDRESS_PREFIX,
 		)
-		.ok_or_else(|| revert("MARKETPLACE: Invalid payment asset address"))?;
+		.ok_or_else(|| revert("Marketplace: Invalid payment asset address"))?;
 
 		let duration = Some(saturated_convert_blocknumber(duration)?.into());
 		ensure!(
@@ -362,7 +362,6 @@ where
 		let serial_numbers: BoundedVec<SerialNumber, Runtime::MaxTokensPerListing> =
 			BoundedVec::try_from(serials_unbounded)
 				.or_else(|_| Err(revert("Marketplace: Too many serial numbers")))?;
-		// let serial_numbers = BoundedVec::try_from(serials_unbounded).unwrap();
 
 		let buyer: H160 = buyer.into();
 		let buyer: Option<Runtime::AccountId> =
