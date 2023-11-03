@@ -105,13 +105,25 @@ benchmarks! {
 		let owner = account::<T>("Alice");
 		let token_id = build_token::<T>(Some(owner.clone()), 0);
 	}: _(origin::<T>(&account::<T>("Alice")), token_id, true)
+	verify {
+		let token = TokenInfo::<T>::get(token_id);
+		assert!(token.is_some());
+		let isEnabled = PublicMintInfo::<Test>::get(token_id).unwrap().enabled;
+		assert_eq!(isEnabled, true);
+	}
 
 	set_mint_fee {
 		let owner = account::<T>("Alice");
 		let token_id = build_token::<T>(Some(owner.clone()), 0);
 		let pricing_details = Some((1, 100));
 	}: _(origin::<T>(&account::<T>("Alice")), token_id, pricing_details)
-
+	verify {
+		let token = TokenInfo::<T>::get(token_id);
+		assert!(token.is_some());
+		let pricing_details = PublicMintInfo::<Test>::get(token_id).unwrap().pricing_details;
+		let expected_pricing_details = Some((1, 100));
+		assert_eq!(pricing_details, expected_pricing_details);
+	}
 
 	mint {
 		let owner = account::<T>("Alice");
