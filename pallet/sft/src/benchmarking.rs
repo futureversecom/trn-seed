@@ -108,7 +108,7 @@ benchmarks! {
 	verify {
 		let token = TokenInfo::<T>::get(token_id);
 		assert!(token.is_some());
-		let isEnabled = PublicMintInfo::<Test>::get(token_id).unwrap().enabled;
+		let isEnabled = PublicMintInfo::<T>::get(token_id).unwrap().enabled;
 		assert_eq!(isEnabled, true);
 	}
 
@@ -120,7 +120,7 @@ benchmarks! {
 	verify {
 		let token = TokenInfo::<T>::get(token_id);
 		assert!(token.is_some());
-		let pricing_details = PublicMintInfo::<Test>::get(token_id).unwrap().pricing_details;
+		let pricing_details = PublicMintInfo::<T>::get(token_id).unwrap().pricing_details;
 		let expected_pricing_details = Some((1, 100));
 		assert_eq!(pricing_details, expected_pricing_details);
 	}
