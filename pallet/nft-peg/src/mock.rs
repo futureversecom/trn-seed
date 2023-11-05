@@ -190,6 +190,7 @@ impl pallet_nft::Config for Test {
 	type MintLimit = MintLimit;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = ();
+	type MultiCurrency = AssetsExt;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;

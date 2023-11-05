@@ -13,28 +13,25 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-#![cfg(feature = "runtime-benchmarks")]
+//! Runtime API definition required by ASSETS-EXT RPC extensions.
 
-use super::*;
+#![cfg_attr(not(feature = "std"), no_std)]
 
-#[allow(unused_imports)]
-use crate::Pallet as FeeControl;
+use codec::Codec;
+use pallet_assets_ext::Config;
+use seed_primitives::{AssetId, Balance};
 
-use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
-use frame_system::RawOrigin;
-use seed_primitives::Balance;
-use sp_core::U256;
-use sp_runtime::traits::One;
+sp_api::decl_runtime_apis! {
+	/// The RPC API to interact with AssetExt module
+	pub trait AssetsExtApi<AccountId, T> where
+		AccountId: Codec,
+		T: Config,
+	{
+		/// Find asset balance owned by `who` for a given assetId
+		fn asset_balance(
+			asset_id: AssetId,
+			who: AccountId,
+		) -> Balance;
 
-benchmarks! {
-	set_evm_base_fee {
-	}: _(RawOrigin::Root, U256::one())
-
-	set_weight_multiplier {
-	}: _(RawOrigin::Root, Perbill::one())
-
-	set_length_multiplier {
-	}: _(RawOrigin::Root, Balance::one())
+	}
 }
-
-impl_benchmark_test_suite!(FeeControl, crate::mock::TestExt::default().build(), crate::mock::Test);

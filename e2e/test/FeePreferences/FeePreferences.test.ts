@@ -677,6 +677,106 @@ describe("Fee Preferences", function () {
     expect(fpTokenBalanceAfter).to.be.lessThan(fpTokenBalanceBefore);
   });
 
+  it("Futurepass account pays fees in non-native token for an evm call using proxy_extrinsic", async () => {
+    // create futurepass for random user
+    const user = Wallet.createRandom().connect(provider);
+    const userKeyring = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(user.privateKey));
+    await finalizeTx(alith, api.tx.futurepass.create(user.address));
+    const futurepassAddress = (await api.query.futurepass.holders(user.address)).toString();
+
+    // mint fee tokens to futurepass
+    await finalizeTx(alith, api.tx.assets.mint(FEE_TOKEN_ASSET_ID, futurepassAddress, 2_000_000_000_000));
+
+    const eoaXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const eoaTokenBalanceBefore =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const fpXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+    const fpTokenBalanceBefore =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+
+    // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
+    const erc20PrecompileAddress = assetIdToERC20ContractAddress(FEE_TOKEN_ASSET_ID);
+    const sender = futurepassAddress;
+    const value = 0; //eth
+    const gasLimit = 42953;
+    const maxFeePerGas = "15000000000000";
+    const maxPriorityFeePerGas = null;
+    const nonce = null;
+    const accessList = null;
+    const transferAmount = 1;
+    const iface = new utils.Interface(ERC20_ABI);
+    const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
+    const evmCall = api.tx.evm.call(
+      sender,
+      erc20PrecompileAddress,
+      transferInput,
+      value,
+      gasLimit,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      nonce,
+      accessList,
+    );
+
+    // record bob's token balance
+    const bobTokenBalanceBefore =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, bob.address)).toJSON() as any)?.balance ?? 0;
+
+    const evmCallGasEstimate = await evmCall.paymentInfo(sender);
+    const evmCallGasEstimateinXRP = evmCallGasEstimate.partialFee;
+
+    const proxyExtrinsic = api.tx.futurepass.proxyExtrinsic(futurepassAddress, evmCall);
+
+    // Find estimate cost for feeProxy call
+    const extrinsicInfo = await api.tx.feeProxy
+      .callWithFeePreferences(
+        FEE_TOKEN_ASSET_ID,
+        utils.parseEther("1").toString(), // 10e18
+        proxyExtrinsic,
+      )
+      .paymentInfo(sender);
+    const feeProxyGasEstimateinXRP = extrinsicInfo.partialFee;
+
+    // cost for fee proxy with proxy_extrinsic + cost for evm call, but the actual cost will be lesser than this value.
+    const estimatedTotalGasCost = evmCallGasEstimateinXRP.toNumber() + feeProxyGasEstimateinXRP.toNumber();
+
+    // convert estimatedTotalGasCost to FEE_TOKEN_ASSET_ID amount
+    const {
+      Ok: [estimatedTokenTxCost],
+    } = await (api.rpc as any).dex.getAmountsIn(estimatedTotalGasCost, [FEE_TOKEN_ASSET_ID, GAS_TOKEN_ID]);
+
+    // Now call the callWithFeePreferences with sufficient max_payment of estimatedTokenTxCost
+    const feeproxiedCall = api.tx.feeProxy.callWithFeePreferences(
+      FEE_TOKEN_ASSET_ID,
+      estimatedTokenTxCost,
+      proxyExtrinsic,
+    );
+    await finalizeTx(userKeyring, feeproxiedCall);
+
+    const eoaXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const eoaTokenBalanceAfter =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const fpXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+    const fpTokenBalanceAfter =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+    const bobTokenBalanceAfter =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, bob.address)).toJSON() as any)?.balance ?? 0;
+
+    // eoa token and XRP balance should remain untouched.
+    expect(eoaXRPBalanceBefore).to.be.eq(eoaXRPBalanceAfter);
+    expect(eoaTokenBalanceBefore).to.be.eq(eoaTokenBalanceAfter);
+    // futurepass should pay for the fees and transfer amount in tokens
+    expect(fpTokenBalanceAfter).to.be.lt(fpTokenBalanceBefore);
+    // futurepass might have remaining XRP from the dex swap. this is due to the evm call's input gasLimit and the actual gas used having differences.
+    expect(fpXRPBalanceAfter).to.be.gte(fpXRPBalanceBefore);
+    // check bob received 1 token
+    expect(bobTokenBalanceAfter).to.be.eq(bobTokenBalanceBefore + 1);
+  });
+
   it("Pays fees in non-native token with extrinsic - check maxPayment works fine", async () => {
     const erc20PrecompileAddress = assetIdToERC20ContractAddress(FEE_TOKEN_ASSET_ID);
     const sender = alith.address;

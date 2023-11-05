@@ -143,9 +143,6 @@ mod tests;
 
 /// Currency implementation mapped to XRP
 pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Runtime, XrpAssetId>;
-/// Dual currency implementation mapped to ROOT & XRP for staking
-pub type DualStakingCurrency =
-	pallet_assets_ext::DualStakingCurrency<Runtime, XrpCurrency, Balances>;
 
 /// This runtime version.
 #[sp_version::runtime_version]
@@ -153,7 +150,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 42,
+	spec_version: 43,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 4,
@@ -225,6 +222,8 @@ impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 		match call {
 			// Prevent asset `create` transactions from executing
 			RuntimeCall::Assets(pallet_assets::Call::create { .. }) => false,
+			// Disable EthBridge `submit_challenge` call
+			RuntimeCall::EthBridge(pallet_ethy::Call::submit_challenge { .. }) => false,
 			// Disable XRPLBridge `submit_challenge` call
 			RuntimeCall::XRPLBridge(pallet_xrpl_bridge::Call::submit_challenge { .. }) => false,
 			// Calls to direct rewards to be re-staked are not allowed, as it does not make sense in
@@ -331,7 +330,7 @@ impl frame_support::weights::WeightToFee for FeeControlLengthToFee {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = impls::FuturepassTransactionFee;
+	type OnChargeTransaction = FeeProxy;
 	type RuntimeEvent = RuntimeEvent;
 	type WeightToFee = FeeControlWeightToFee;
 	type LengthToFee = FeeControlLengthToFee;
@@ -414,6 +413,7 @@ impl pallet_nft::Config for Runtime {
 	type MintLimit = MintLimit;
 	type OnTransferSubscription = TokenApprovals;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
+	type MultiCurrency = AssetsExt;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type StringLimit = CollectionNameStringLimit;
@@ -634,7 +634,7 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but lets be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
-	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
 }
 
 impl pallet_session::historical::Config for Runtime {
@@ -793,19 +793,16 @@ type SlashCancelOrigin = EnsureRoot<AccountId>;
 
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;
-	type Currency = DualStakingCurrency;
+	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
 	// Decides the total reward to be distributed each era
 	// For root network it is the balance of the tx fee pot
 	type EraPayout = TxFeePot;
 	type RuntimeEvent = RuntimeEvent;
-	// After a validator payout is made (to it and all its stakers), this receives the pending
-	// positive imbalance (total amount newly minted during the payout process) since the XRP
-	// already exists the issuance should not be modified
-	//
-	// pallet-staking validator payouts always _mint_ tokens (with `deposit_creating`) assuming an
-	// inflationary model instead rewards should be redistributed from fees only
+	// In our current implementation we have filtered the payout_stakers call so this Reward will
+	// never be triggered. We have decided to keep the TxFeePot in the case this is overlooked
+	// to prevent unwanted changes in Root token issuance
 	type Reward = TxFeePot;
 	// Handles any era reward amount indivisible among stakers at end of an era.
 	// some account should receive the amount to ensure total issuance of XRP is constant (vs.
@@ -833,7 +830,7 @@ impl pallet_staking::Config for Runtime {
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type BenchmarkingConfig = staking::StakingBenchmarkConfig;
 	type OnStakerSlash = ();
-	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 }
 
@@ -908,6 +905,7 @@ impl pallet_sudo::Config for Runtime {
 
 impl pallet_tx_fee_pot::Config for Runtime {
 	type FeeCurrency = XrpCurrency;
+	type StakeCurrency = Balances;
 	type TxFeePotId = TxFeePotId;
 }
 
@@ -1523,6 +1521,16 @@ impl_runtime_apis! {
 		}
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Nft::token_uri(token_id)
+		}
+	}
+
+	impl pallet_assets_ext_rpc_runtime_api::AssetsExtApi<
+		Block,
+		AccountId,
+		Runtime,
+	> for Runtime {
+		fn asset_balance(asset_id: AssetId, who: AccountId) -> Balance {
+			AssetsExt::reducible_balance(asset_id, &who, false)
 		}
 	}
 

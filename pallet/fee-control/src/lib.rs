@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg_attr(not(feature = "std"), no_std)]
+
 pub use pallet::*;
 
 use frame_support::pallet_prelude::*;
@@ -24,12 +25,14 @@ use sp_core::U256;
 use sp_runtime::Perbill;
 
 use core::ops::Mul;
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod test;
 
 mod weights;
+
 pub use weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -49,7 +52,7 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
+	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
@@ -76,7 +79,15 @@ pub mod pallet {
 	pub type Data<T> = StorageValue<_, FeeControlFeeConfig, ValueQuery, DefaultFeeConfig<T>>;
 
 	#[pallet::event]
-	pub enum Event<T> {}
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
+	pub enum Event<T> {
+		/// The EVM base fee has been set to `base_fee`
+		EvmBaseFeeSet { base_fee: U256 },
+		/// The weight multiplier has been set to `weight_multiplier`
+		WeightMultiplierSet { weight_multiplier: Perbill },
+		/// The length multiplier has been set to `length_multiplier`
+		LengthMultiplierSet { length_multiplier: Balance },
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -87,6 +98,7 @@ pub mod pallet {
 				x.evm_base_fee_per_gas = value;
 			});
 
+			Self::deposit_event(Event::<T>::EvmBaseFeeSet { base_fee: value });
 			Ok(())
 		}
 
@@ -97,6 +109,18 @@ pub mod pallet {
 				x.weight_multiplier = value;
 			});
 
+			Self::deposit_event(Event::<T>::WeightMultiplierSet { weight_multiplier: value });
+			Ok(())
+		}
+
+		#[pallet::weight(T::WeightInfo::set_weight_multiplier())]
+		pub fn set_length_multiplier(origin: OriginFor<T>, value: Balance) -> DispatchResult {
+			ensure_root(origin)?;
+			Data::<T>::mutate(|x| {
+				x.length_multiplier = value;
+			});
+
+			Self::deposit_event(Event::<T>::LengthMultiplierSet { length_multiplier: value });
 			Ok(())
 		}
 	}
