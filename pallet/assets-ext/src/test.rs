@@ -14,14 +14,18 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{
-	mock::{test_ext, AssetId, AssetsExt, AssetsExtPalletId, MockAccountId, NativeAssetId, Test},
-	Config, Error, Holds, NextAssetId,
+	mock::{
+		test_ext, AssetId, AssetsExt, AssetsExtPalletId, Balances, MockAccountId, NativeAssetId,
+		Test,
+	},
+	AssetDeposit, Config, Error, Holds, NextAssetId,
 };
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop,
 	traits::fungibles::{Inspect, InspectMetadata, Transfer},
 	PalletId,
 };
+use frame_system::RawOrigin;
 use seed_pallet_common::{CreateExt, Hold, TransferExt};
 use seed_primitives::Balance;
 use sp_core::H160;
@@ -1230,5 +1234,56 @@ fn create_asset_fails() {
 			),
 			pallet_assets::Error::<Test>::BadMetadata
 		);
+	});
+}
+
+#[test]
+fn set_asset_deposit_works() {
+	test_ext().build().execute_with(|| {
+		let alice: MockAccountId = 1;
+		// Set asset deposit not root should fail
+		assert_noop!(
+			AssetsExt::set_asset_deposit(Some(alice).into(), 123,),
+			frame_support::dispatch::DispatchError::BadOrigin
+		);
+		assert_eq!(AssetDeposit::<Test>::get(), 0);
+
+		// Sudo call should pass
+		assert_ok!(AssetsExt::set_asset_deposit(RawOrigin::Root.into(), 123,));
+		assert_eq!(AssetDeposit::<Test>::get(), 123);
+	});
+}
+
+#[test]
+fn set_asset_deposit_reserves_the_correct_amount() {
+	let alice: MockAccountId = 1;
+	let initial_balance = 5_000_000;
+
+	test_ext().with_balances(&[(alice, initial_balance)]).build().execute_with(|| {
+		let deposit = 123;
+
+		// Set asset deposit
+		assert_ok!(AssetsExt::set_asset_deposit(RawOrigin::Root.into(), deposit,));
+		assert_eq!(AssetDeposit::<Test>::get(), deposit);
+
+		let name: Vec<u8> = b"USD-Coin".to_vec();
+		let symbol: Vec<u8> = b"USDC".to_vec();
+		let decimals: u8 = 6;
+		assert_ok!(AssetsExt::create_asset(
+			Some(alice).into(),
+			name.clone(),
+			symbol.clone(),
+			decimals,
+			None,
+			None
+		));
+
+		// Alice balance should now be reduced by deposit amount
+		let alice_balance = AssetsExt::reducible_balance(NativeAssetId::get(), &alice, false);
+		assert_eq!(alice_balance, initial_balance - deposit);
+
+		// The deposit should be reserved
+		let alice_reserved = Balances::reserved_balance(&alice);
+		assert_eq!(alice_reserved, deposit);
 	});
 }

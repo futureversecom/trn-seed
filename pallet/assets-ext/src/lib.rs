@@ -36,11 +36,12 @@ use frame_support::{
 		fungible::{self, Inspect as _, Mutate as _},
 		fungibles::{self, Inspect, Mutate, Transfer},
 		tokens::{DepositConsequence, WithdrawConsequence},
-		ReservableCurrency,
+		Currency, ReservableCurrency,
 	},
 	transactional, PalletId,
 };
 use frame_system::pallet_prelude::*;
+use pallet_assets::WeightInfo as AssetsWeightInfo;
 use precompile_utils::constants::ERC20_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	utils::next_asset_uuid, CreateExt, Hold, OnNewAssetSubscriber, TransferExt,
@@ -66,6 +67,11 @@ pub use weights::WeightInfo;
 /// The inner value of a `PalletId`, extracted for convenience as `PalletId` is missing trait
 /// derivations e.g. `Ord`
 pub type PalletIdValue = [u8; 8];
+
+// Type used for AssetDeposit
+pub type DepositBalanceOf<T, I = ()> = <<T as pallet_assets::Config<I>>::Currency as Currency<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
@@ -139,6 +145,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextAssetId<T: Config> = StorageValue<_, u32, ValueQuery>;
 
+	/// The minimum deposit for creating an asset
+	#[pallet::storage]
+	pub type AssetDeposit<T: Config> = StorageValue<_, DepositBalanceOf<T>, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -175,6 +185,8 @@ pub mod pallet {
 		InternalWithdraw { asset_id: AssetId, who: T::AccountId, amount: Balance },
 		/// Assets were deposited into this account by the system e.g. refunding gas
 		InternalDeposit { asset_id: AssetId, who: T::AccountId, amount: Balance },
+		/// The asset deposit was set
+		AssetDepositSet { asset_deposit: DepositBalanceOf<T> },
 	}
 
 	#[pallet::error]
@@ -199,6 +211,20 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Sudo call to set the asset deposit for creating assets
+		/// Note, this does not change the deposit when calling create within the assets pallet
+		/// However that call is filtered
+		#[pallet::weight(< T as Config >::WeightInfo::create_asset())]
+		pub fn set_asset_deposit(
+			origin: OriginFor<T>,
+			asset_deposit: DepositBalanceOf<T>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			<AssetDeposit<T>>::put(asset_deposit);
+			Self::deposit_event(Event::AssetDepositSet { asset_deposit });
+			Ok(())
+		}
+
 		/// Creates a new asset with unique ID according to the network asset id scheme.
 		#[pallet::weight(< T as Config >::WeightInfo::create_asset())]
 		#[transactional]
@@ -215,14 +241,14 @@ pub mod pallet {
 			// scale_wei_to_correct_decimals
 			ensure!(decimals <= 18u8, Error::<T>::DecimalsTooHigh);
 			// reserves some native currency from the user - as this should be a costly operation
-			let deposit = T::AssetDeposit::get();
+			let deposit = <AssetDeposit<T>>::get();
 			T::Currency::reserve(&who, deposit)?;
 			let owner = owner.unwrap_or(who);
 			Self::create_with_metadata(&owner, name, symbol, decimals, min_balance)?;
 			Ok(())
 		}
 
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::mint())]
 		pub fn mint(
 			origin: OriginFor<T>,
 			asset_id: AssetId,
@@ -238,7 +264,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::transfer())]
 		pub fn transfer(
 			origin: OriginFor<T>,
 			asset_id: AssetId,
@@ -254,7 +280,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::transfer_keep_alive())]
 		pub fn transfer_keep_alive(
 			origin: OriginFor<T>,
 			asset_id: AssetId,
@@ -275,7 +301,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(0)]
+		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::burn())]
 		pub fn burn_from(
 			origin: OriginFor<T>,
 			asset_id: AssetId,

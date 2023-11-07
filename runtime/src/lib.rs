@@ -358,7 +358,8 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
-	pub const AssetDeposit: Balance = ONE_XRP;
+	// Note, this is unused in favor of a storage value in AssetsExt when calling AssetsExt::create_asset
+	pub const AssetDeposit: Balance = ONE_ROOT;
 	pub const AssetAccountDeposit: Balance = 16;
 	pub const ApprovalDeposit: Balance = 1;
 	pub const AssetsStringLimit: u32 = 50;
