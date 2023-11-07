@@ -91,6 +91,7 @@ pub use sp_runtime::BuildStorage;
 // Export for chain_specs
 #[cfg(feature = "std")]
 pub use pallet_staking::{Forcing, StakerStatus};
+use sp_runtime::traits::SignedExtension;
 
 pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
@@ -137,7 +138,7 @@ use crate::impls::{
 };
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
-use seed_primitives::BlakeTwo256Hash;
+use seed_primitives::{AccountId20, BlakeTwo256Hash};
 
 #[cfg(test)]
 mod tests;
@@ -1166,6 +1167,11 @@ impl pallet_fee_control::Config for Runtime {
 	type FeeConfig = ();
 }
 
+impl pallet_doughnut::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+}
+
 parameter_types! {
 	pub const ConfigDepositBase: u64 = 10;
 	pub const FriendDepositFactor: u64 = 1;
@@ -1314,6 +1320,7 @@ construct_runtime! {
 		FeeProxy: pallet_fee_proxy = 31,
 		FeeControl: pallet_fee_control = 40,
 		Xls20: pallet_xls20 = 42,
+		Doughnut: pallet_doughnut = 48,
 		MaintenanceMode: pallet_maintenance_mode = 47,
 
 		// Election pallet. Only works with staking
@@ -1931,6 +1938,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	fn is_self_contained(&self) -> bool {
 		match self {
 			RuntimeCall::Ethereum(call) => call.is_self_contained(),
+			RuntimeCall::Doughnut(call) => call.is_self_contained(),
 			_ => false,
 		}
 	}
@@ -1938,6 +1946,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	fn check_self_contained(&self) -> Option<Result<Self::SignedInfo, TransactionValidityError>> {
 		match self {
 			RuntimeCall::Ethereum(call) => call.check_self_contained(),
+			RuntimeCall::Doughnut(call) => call.check_self_contained(),
 			_ => None,
 		}
 	}
@@ -1951,6 +1960,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		match self {
 			RuntimeCall::Ethereum(ref call) =>
 				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len)),
+			RuntimeCall::Doughnut(ref call) =>
+				call.validate_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
 	}
@@ -1964,6 +1975,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		match self {
 			RuntimeCall::Ethereum(call) =>
 				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::Doughnut(ref call) =>
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
 	}
@@ -1971,12 +1984,20 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	fn apply_self_contained(
 		self,
 		info: Self::SignedInfo,
+		dispatch_info: &DispatchInfoOf<Self>,
+		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
 		match self {
 			call @ RuntimeCall::Ethereum(pallet_ethereum::Call::transact { .. }) =>
 				Some(call.dispatch(RuntimeOrigin::from(
 					pallet_ethereum::RawOrigin::EthereumTransaction(info),
 				))),
+			RuntimeCall::Doughnut(call) => pallet_doughnut::Call::<Runtime>::apply_self_contained(
+				call.into(),
+				&info,
+				&dispatch_info,
+				len,
+			),
 			_ => None,
 		}
 	}
@@ -2023,6 +2044,49 @@ fn validate_self_contained_inner(
 		))
 	}
 }
+
+// fn validate_self_contained_doughnut(
+// 	call: &RuntimeCall,
+// 	doughnut_call: &pallet_doughnut::Call<Runtime>,
+// 	signed_info: &<RuntimeCall as fp_self_contained::SelfContainedCall>::SignedInfo,
+// 	dispatch_info: &DispatchInfoOf<RuntimeCall>,
+// 	len: usize,
+// ) -> TransactionValidity {
+// 	// pass the control to the call. validations
+// 	Ok(doughnut_call.validate_self_contained(signed_info, dispatch_info, len)
+// 		.ok_or(TransactionValidityError::Invalid(InvalidTransaction::BadProof))??)
+// }
+
+// fn handle_doughnut_call(
+// 	call: RuntimeCall,
+// 	info: &<RuntimeCall as fp_self_contained::SelfContainedCall>::SignedInfo,
+// 	dispatch_info: &DispatchInfoOf<RuntimeCall>,
+// 	len: usize,
+// ) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<RuntimeCall>>> {
+//
+// 	// Pre dispatch
+// 	let payemt_mod = pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0_u128);
+// 	let pre = payemt_mod.pre_dispatch(&AccountId20::from(*info), &call, &dispatch_info,
+// len).unwrap(); // TODO - fix it
+//
+// 	// Dispatch
+// 	let origin: RuntimeOrigin = frame_system::RawOrigin::Signed(AccountId::from(*info)).into();
+// 	let res = call.dispatch(origin);
+// 	let post_info = match res {
+// 		Ok(info) => info,
+// 		Err(err) => err.post_info,
+// 	};
+//
+// 	// post dispatch
+// 	pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::post_dispatch(
+// 		Some(pre),
+// 		dispatch_info,
+// 		&post_info,
+// 		len,
+// 		&res.map(|_| ()).map_err(|e| e.error),
+// 	).ok();
+// 	return Some(res)
+// }
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
