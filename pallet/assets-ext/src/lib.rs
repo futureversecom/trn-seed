@@ -214,7 +214,7 @@ pub mod pallet {
 		/// Sudo call to set the asset deposit for creating assets
 		/// Note, this does not change the deposit when calling create within the assets pallet
 		/// However that call is filtered
-		#[pallet::weight(< T as Config >::WeightInfo::create_asset())]
+		#[pallet::weight(< T as Config >::WeightInfo::set_asset_deposit())]
 		pub fn set_asset_deposit(
 			origin: OriginFor<T>,
 			asset_deposit: DepositBalanceOf<T>,
@@ -248,6 +248,8 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Mints an asset to an account if the caller is the asset owner
+		/// Attempting to mint ROOT token will throw an error
 		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::mint())]
 		pub fn mint(
 			origin: OriginFor<T>,
@@ -264,6 +266,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Transfers either ROOT or an asset
 		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::transfer())]
 		pub fn transfer(
 			origin: OriginFor<T>,
@@ -280,6 +283,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Transfers either ROOT or an asset with respect to minimum balance
 		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::transfer_keep_alive())]
 		pub fn transfer_keep_alive(
 			origin: OriginFor<T>,
@@ -301,6 +305,8 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Burns an asset from an account. Caller must be the asset owner
+		/// Attempting to burn ROOT token will throw an error
 		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::burn())]
 		pub fn burn_from(
 			origin: OriginFor<T>,

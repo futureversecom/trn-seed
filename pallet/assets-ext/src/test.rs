@@ -1188,6 +1188,8 @@ fn create_asset_fails() {
 	let initial_balance = 5_000_000;
 
 	test_ext().with_balances(&[(ALICE, initial_balance)]).build().execute_with(|| {
+		assert_ok!(AssetsExt::set_asset_deposit(RawOrigin::Root.into(), 1));
+
 		// Create asset insufficient balance should fail
 		assert_noop!(
 			AssetsExt::create_asset(
