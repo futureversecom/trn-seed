@@ -115,11 +115,15 @@ impl pallet_assets::Config for Test {
 	type AssetAccountDeposit = AssetAccountDeposit;
 }
 
+parameter_types! {
+	pub const ExistentialDeposit: Balance = 1;
+}
+
 impl pallet_balances::Config for Test {
 	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
-	type ExistentialDeposit = ();
+	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type MaxLocks = ();
 	type WeightInfo = ();

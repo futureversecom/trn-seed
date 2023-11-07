@@ -46,7 +46,7 @@ use seed_pallet_common::{
 	utils::next_asset_uuid, CreateExt, Hold, OnNewAssetSubscriber, TransferExt,
 };
 use seed_primitives::{AssetId, Balance, ParachainId};
-use sp_runtime::traits::{AccountIdConversion, One, Zero};
+use sp_runtime::traits::{AccountIdConversion, One, StaticLookup, Zero};
 use sp_std::prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -66,6 +66,8 @@ pub use weights::WeightInfo;
 /// The inner value of a `PalletId`, extracted for convenience as `PalletId` is missing trait
 /// derivations e.g. `Ord`
 pub type PalletIdValue = [u8; 8];
+
+type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -177,8 +179,12 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Decimals cannot be higher than 18
+		DecimalsTooHigh,
 		/// No more Ids are available, they've been exhausted
 		NoAvailableIds,
+		/// The signer does not have permission to perform this action
+		NoPermission,
 		/// Hold balance is less then the required amount
 		BalanceLow,
 		/// The account to alter does not exist
@@ -204,48 +210,85 @@ pub mod pallet {
 			min_balance: Option<Balance>,
 			owner: Option<T::AccountId>,
 		) -> DispatchResult {
-			let who = frame_system::ensure_signed(origin)?;
-
+			let who = ensure_signed(origin)?;
+			// Decimals cannot be higher than 18 due to a restriction in the conversion function
+			// scale_wei_to_correct_decimals
+			ensure!(decimals <= 18u8, Error::<T>::DecimalsTooHigh);
 			// reserves some native currency from the user - as this should be a costly operation
 			let deposit = T::AssetDeposit::get();
 			T::Currency::reserve(&who, deposit)?;
 			let owner = owner.unwrap_or(who);
 			Self::create_with_metadata(&owner, name, symbol, decimals, min_balance)?;
-			Ok(().into())
-		}
-
-		#[pallet::weight(0)]
-		pub fn transfer(
-			origin: OriginFor<T>,
-			id: AssetId,
-			dest: T::AccountId,
-			#[pallet::compact] amount: T::Balance,
-		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-			<Self as Transfer<_>>::transfer(id, &who, &dest, amount, false)
-		}
-
-		#[pallet::weight(0)]
-		pub fn transfer_keep_alive(
-			origin: OriginFor<T>,
-			id: AssetId,
-			dest: T::AccountId,
-			#[pallet::compact] amount: T::Balance,
-		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-			<Self as Transfer<_>>::transfer(id, &who, &dest, amount, true)
+			Ok(())
 		}
 
 		#[pallet::weight(0)]
 		pub fn mint(
 			origin: OriginFor<T>,
-			id: AssetId,
-			beneficiary: T::AccountId,
-			#[pallet::compact] amount: T::Balance,
-		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin)?;
-			// TODO Check that origin is asset owner (This isn't checked in mint_into)
-			<Self as Mutate<_>>::mint_into(id, &beneficiary, amount)
+			asset_id: AssetId,
+			beneficiary: AccountIdLookupOf<T>,
+			#[pallet::compact] amount: Balance,
+		) -> DispatchResult {
+			if asset_id == T::NativeAssetId::get() {
+				// We do not allow minting of the ROOT token
+				Err(Error::<T>::NoPermission)?;
+			} else {
+				<pallet_assets::Pallet<T>>::mint(origin, asset_id, beneficiary, amount)?;
+			}
+			Ok(())
+		}
+
+		#[pallet::weight(0)]
+		pub fn transfer(
+			origin: OriginFor<T>,
+			asset_id: AssetId,
+			destination: AccountIdLookupOf<T>,
+			#[pallet::compact] amount: Balance,
+		) -> DispatchResult {
+			if asset_id == T::NativeAssetId::get() {
+				<pallet_balances::Pallet<T, _>>::transfer(origin, destination, amount)
+					.map_err(|e| e.error)?;
+			} else {
+				<pallet_assets::Pallet<T>>::transfer(origin, asset_id, destination, amount)?;
+			}
+			Ok(())
+		}
+
+		#[pallet::weight(0)]
+		pub fn transfer_keep_alive(
+			origin: OriginFor<T>,
+			asset_id: AssetId,
+			destination: AccountIdLookupOf<T>,
+			#[pallet::compact] amount: Balance,
+		) -> DispatchResult {
+			if asset_id == T::NativeAssetId::get() {
+				<pallet_balances::Pallet<T, _>>::transfer_keep_alive(origin, destination, amount)
+					.map_err(|e| e.error)?;
+			} else {
+				<pallet_assets::Pallet<T>>::transfer_keep_alive(
+					origin,
+					asset_id,
+					destination,
+					amount,
+				)?;
+			}
+			Ok(())
+		}
+
+		#[pallet::weight(0)]
+		pub fn burn_from(
+			origin: OriginFor<T>,
+			asset_id: AssetId,
+			who: AccountIdLookupOf<T>,
+			#[pallet::compact] amount: Balance,
+		) -> DispatchResult {
+			if asset_id == T::NativeAssetId::get() {
+				// We do not allow burning of the ROOT token
+				Err(Error::<T>::NoPermission)?;
+			} else {
+				<pallet_assets::Pallet<T>>::burn(origin, asset_id, who, amount)?;
+			}
+			Ok(())
 		}
 	}
 }
@@ -391,7 +434,7 @@ impl<T: Config> TransferExt for Pallet<T> {
 		ensure!(Self::reducible_balance(asset_id, who, false) >= total, Error::<T>::BalanceLow);
 
 		for (payee, amount) in transfers.into_iter() {
-			Self::transfer(asset_id, who, payee, *amount, false)?;
+			<Self as Transfer<T::AccountId>>::transfer(asset_id, who, payee, *amount, false)?;
 		}
 
 		Self::deposit_event(Event::SplitTransfer {
@@ -431,7 +474,7 @@ impl<T: Config> Hold for Pallet<T> {
 			},
 		}
 
-		let _ = Self::transfer(
+		let _ = <Self as Transfer<T::AccountId>>::transfer(
 			asset_id,
 			who,
 			&T::PalletId::get().into_account_truncating(),
@@ -467,7 +510,7 @@ impl<T: Config> Hold for Pallet<T> {
 				holds[index].1 = decreased_hold;
 			}
 
-			let _ = Self::transfer(
+			let _ = <Self as Transfer<T::AccountId>>::transfer(
 				asset_id,
 				&T::PalletId::get().into_account_truncating(),
 				who,
