@@ -338,12 +338,16 @@ export const ERC1155_PRECOMPILE_ABI = [
   "event TokenCreated(uint32 indexed serialNumber)",
   "event MaxSupplyUpdated(uint128 indexed maxSupply)",
   "event BaseURIUpdated(string baseURI)",
+  "event PublicMintToggled(uint32 indexed id, bool enabled)",
+  "event MintFeeUpdated(uint32 indexed id, address indexed paymentAsset, uint128 indexed mintFee)",
 
   "function createToken(bytes name, uint128 initialIssuance, uint128 maxIssuance, address tokenOwner) external returns (uint32)",
   "function mint(address owner, uint256 id, uint256 amount) external",
   "function mintBatch(address owner, uint256[] ids, uint256[] amounts) external",
   "function setMaxSupply(uint256 id, uint32 maxSupply) external",
   "function setBaseURI(bytes baseURI) external",
+  "function togglePublicMint(uint256 id, bool enabled)",
+  "function setMintFee(uint256 id, address paymentAsset, uint128 mintFee)",
 
   // Ownable
   ...OWNABLE_ABI,
