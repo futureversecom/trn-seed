@@ -15,7 +15,10 @@
 
 use super::*;
 use crate::{
-	mock::{AssetsExt, Erc20Peg, ExtBuilder, MockEthereumEventRouter, Test, SPENDING_ASSET_ID},
+	mock::{
+		make_account_id, AssetsExt, Erc20Peg, ExtBuilder, MockEthereumEventRouter, PegPalletId,
+		Test, ROOT_ASSET_ID, SPENDING_ASSET_ID,
+	},
 	types::{DelayedPaymentId, Erc20DepositEvent, PendingPayment, WithdrawMessage},
 };
 use frame_support::{
@@ -28,9 +31,58 @@ use frame_support::{
 };
 use hex_literal::hex;
 use seed_pallet_common::{EthereumEventRouter, EventRouterError};
+use sp_runtime::traits::BadOrigin;
 
-fn make_account_id(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
+#[test]
+fn set_contract_address_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let signer = make_account_id(22);
+		let contract_address = H160::from_low_u64_be(123);
+
+		// Setting as not sudo fails
+		assert_noop!(
+			Erc20Peg::set_contract_address(Some(signer).into(), contract_address),
+			BadOrigin
+		);
+
+		// Sanity check
+		assert_eq!(Erc20Peg::contract_address(), H160::default());
+
+		// Calling as sudo should work
+		assert_ok!(Erc20Peg::set_contract_address(
+			frame_system::RawOrigin::Root.into(),
+			contract_address
+		));
+
+		// Storage updated
+		assert_eq!(Erc20Peg::contract_address(), contract_address);
+	});
+}
+
+#[test]
+fn set_root_contract_address_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let signer = make_account_id(22);
+		let contract_address = H160::from_low_u64_be(123);
+
+		// Setting as not sudo fails
+		assert_noop!(
+			Erc20Peg::set_root_contract_address(Some(signer).into(), contract_address),
+			BadOrigin
+		);
+
+		// Sanity check
+		assert_eq!(Erc20Peg::root_contract_address(), H160::default());
+
+		// Calling as sudo should work
+		assert_ok!(Erc20Peg::set_root_contract_address(
+			frame_system::RawOrigin::Root.into(),
+			contract_address
+		));
+
+		// Storage updated
+		assert_eq!(Erc20Peg::root_contract_address(), contract_address);
+	});
 }
 
 #[test]
@@ -190,6 +242,51 @@ fn on_deposit_mints() {
 			AssetsExt::balance(expected_asset_id, &AccountId::from(beneficiary)),
 			deposit_amount
 		);
+	});
+}
+
+#[test]
+fn on_deposit_transfers_root_token() {
+	ExtBuilder::default().build().execute_with(|| {
+		let token_address: H160 = H160::from_low_u64_be(666);
+		let beneficiary: H160 = H160::from_low_u64_be(456);
+		let deposit_amount: Balance = 1_000_000;
+
+		// Activate deposits
+		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
+
+		// Setup storage values
+		Erc20ToAssetId::insert(token_address, ROOT_ASSET_ID);
+		AssetIdToErc20::insert(ROOT_ASSET_ID, token_address);
+
+		assert_ok!(Erc20Peg::set_root_contract_address(
+			frame_system::RawOrigin::Root.into(),
+			token_address
+		));
+
+		// Mint tokens to peg address (To simulate a withdrawal)
+		let pallet_address: AccountId = PegPalletId::get().into_account_truncating();
+
+		let _ =
+			<Test as Config>::MultiCurrency::mint_into(ROOT_ASSET_ID, &pallet_address, 1_000_000);
+		let root_issuance = AssetsExt::total_issuance(ROOT_ASSET_ID);
+
+		// Do the deposit
+		assert_ok!(Erc20Peg::do_deposit(Erc20DepositEvent {
+			token_address,
+			amount: deposit_amount.into(),
+			beneficiary
+		}));
+
+		// Check beneficiary account received funds
+		assert_eq!(
+			AssetsExt::balance(ROOT_ASSET_ID, &AccountId::from(beneficiary)),
+			deposit_amount
+		);
+		// Check peg address has no funds
+		assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &pallet_address), 0);
+		// Check total issuance is unchanged
+		assert_eq!(AssetsExt::total_issuance(ROOT_ASSET_ID), root_issuance);
 	});
 }
 
@@ -478,5 +575,45 @@ fn withdraw_not_active_should_fail() {
 			Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary),
 			Error::<Test>::WithdrawalsPaused
 		);
+	});
+}
+
+#[test]
+fn withdraw_transfers_root_token() {
+	ExtBuilder::default().build().execute_with(|| {
+		let token_address: H160 = H160::from_low_u64_be(666);
+		let account: AccountId = make_account_id(456);
+		let beneficiary: H160 = H160::from_low_u64_be(457);
+		let withdraw_amount: Balance = 1_000_000;
+
+		// Activate deposits
+		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
+
+		// Setup storage values
+		AssetIdToErc20::insert(ROOT_ASSET_ID, token_address);
+
+		// Mint tokens to account
+		let _ =
+			<Test as Config>::MultiCurrency::mint_into(ROOT_ASSET_ID, &account, withdraw_amount);
+		let root_issuance = AssetsExt::total_issuance(ROOT_ASSET_ID);
+		let pallet_address: AccountId = PegPalletId::get().into_account_truncating();
+		// Check initial balances
+		assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &pallet_address), 0);
+		assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &account), withdraw_amount);
+
+		// Do the withdrawal
+		assert_ok!(Erc20Peg::withdraw(
+			Some(account.clone()).into(),
+			ROOT_ASSET_ID,
+			withdraw_amount,
+			beneficiary
+		));
+
+		// Check account has no funds
+		assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &account), 0);
+		// Check peg address has withdrawn funds
+		assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &pallet_address), withdraw_amount);
+		// Check total issuance is unchanged
+		assert_eq!(AssetsExt::total_issuance(ROOT_ASSET_ID), root_issuance);
 	});
 }

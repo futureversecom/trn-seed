@@ -20,7 +20,11 @@ use ethabi::{ParamType, Token};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
 	pallet_prelude::*,
-	traits::{fungibles, fungibles::Mutate, Get, IsType},
+	traits::{
+		fungibles,
+		fungibles::{Mutate, Transfer},
+		Get, IsType,
+	},
 	transactional,
 	weights::constants::RocksDbWeight as DbWeight,
 	PalletId,
@@ -63,6 +67,9 @@ pub trait Config: frame_system::Config<AccountId = AccountId> {
 
 	/// Interface to generate weights
 	type WeightInfo: WeightInfo;
+
+	/// The native token asset Id (managed by pallet-balances)
+	type NativeAssetId: Get<AssetId>;
 }
 
 decl_storage! {
@@ -89,6 +96,8 @@ decl_storage! {
 		NextDelayedPaymentId get(fn next_delayed_payment_id): DelayedPaymentId;
 		/// The peg contract address on Ethereum
 		pub ContractAddress get(fn contract_address): EthAddress;
+		/// The ROOT peg contract address on Ethereum
+		pub RootContractAddress get(fn root_contract_address): EthAddress;
 	}
 	add_extra_genesis {
 		config(erc20s): Vec<(EthAddress, Vec<u8>, u8)>;
@@ -121,6 +130,8 @@ decl_event! {
 		Erc20DepositFail(H160, Vec<u8>),
 		/// The peg contract address has been set
 		SetContractAddress(EthAddress),
+		/// The ROOT peg contract address has been set
+		SetRootContractAddress(EthAddress),
 		/// A delay was added for an asset_id (asset_id, min_balance, delay)
 		PaymentDelaySet(AssetId, Balance, BlockNumber),
 		/// There are no more payment ids available, they've been exhausted
@@ -240,6 +251,14 @@ decl_module! {
 			Self::deposit_event(<Event<T>>::SetContractAddress(eth_address));
 		}
 
+		#[weight = T::WeightInfo::set_contract_address()]
+		/// Set the ROOT peg contract address on Ethereum (requires governance)
+		pub fn set_root_contract_address(origin, eth_address: EthAddress) {
+			ensure_root(origin)?;
+			RootContractAddress::put(eth_address);
+			Self::deposit_event(<Event<T>>::SetRootContractAddress(eth_address));
+		}
+
 		#[weight = T::WeightInfo::set_erc20_meta()]
 		/// Set the metadata details for a given ERC20 address (requires governance)
 		/// details: `[(contract address, symbol, decimals)]`
@@ -290,7 +309,7 @@ impl<T: Config> Module<T> {
 				return match call_origin {
 					WithdrawCallOrigin::Runtime => {
 						// Delay the payment
-						let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
+						let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
 						Self::delay_payment(delay, PendingPayment::Withdrawal(message));
 						Ok(None)
 					},
@@ -303,8 +322,25 @@ impl<T: Config> Module<T> {
 		};
 
 		// Process transfer or withdrawal of payment asset
-		let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
+		let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
 		Self::process_withdrawal(message, asset_id)
+	}
+
+	/// For a withdrawal, either transfer ROOT tokens to Peg address or burn all other tokens
+	fn burn_or_transfer(
+		asset_id: AssetId,
+		origin: &T::AccountId,
+		amount: Balance,
+	) -> DispatchResult {
+		if asset_id == T::NativeAssetId::get() {
+			// transfer all ROOT tokens to the peg address
+			let pallet_address: T::AccountId = T::PegPalletId::get().into_account_truncating();
+			T::MultiCurrency::transfer(asset_id, origin, &pallet_address, amount, false)?;
+		} else {
+			// burn all other tokens
+			T::MultiCurrency::burn_from(asset_id, origin, amount)?;
+		}
+		Ok(())
 	}
 
 	/// Process withdrawal and send
@@ -461,10 +497,27 @@ impl<T: Config> Module<T> {
 		let beneficiary: T::AccountId = verified_event.beneficiary.into();
 		// Asserted prior
 		let amount = verified_event.amount.as_u128();
-		// mint tokens to user
-		T::MultiCurrency::mint_into(asset_id, &beneficiary, amount)?;
+		// Give tokens to user
+		Self::mint_or_transfer(asset_id, &beneficiary, amount)?;
 
 		Self::deposit_event(Event::<T>::Erc20Deposit(asset_id, amount, beneficiary));
+		Ok(())
+	}
+
+	/// For a deposit, either transfer ROOT tokens from Peg address or mint all other tokens
+	fn mint_or_transfer(
+		asset_id: AssetId,
+		beneficiary: &T::AccountId,
+		amount: Balance,
+	) -> DispatchResult {
+		if asset_id == T::NativeAssetId::get() {
+			// Transfer all ROOT tokens from the peg address
+			let pallet_address: T::AccountId = T::PegPalletId::get().into_account_truncating();
+			T::MultiCurrency::transfer(asset_id, &pallet_address, beneficiary, amount, false)?;
+		} else {
+			// Mint all other tokens
+			T::MultiCurrency::mint_into(asset_id, beneficiary, amount)?;
+		}
 		Ok(())
 	}
 }
@@ -479,6 +532,23 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 	type Address = T::PegPalletId;
 
 	type SourceAddress = ContractAddress;
+
+	/// Verifies the source address with either the erc20Peg contract address
+	/// Or the RootPeg contract address
+	fn verify_source(source: &H160) -> OnEventResult {
+		let erc20_peg_contract_address: H160 =
+			<Self::SourceAddress as storage::StorageValue<_>>::get();
+		let root_peg_contract_address: H160 =
+			<RootContractAddress as storage::StorageValue<_>>::get();
+		if source == &erc20_peg_contract_address || source == &root_peg_contract_address {
+			Ok(DbWeight::get().reads(1u64))
+		} else {
+			Err((
+				DbWeight::get().reads(1u64),
+				DispatchError::Other("Invalid source address").into(),
+			))
+		}
+	}
 
 	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
 		let abi_decoded = match ethabi::decode(
