@@ -356,8 +356,14 @@ impl<T: Config> Module<T> {
 		]);
 
 		// Call whatever handler loosely coupled from ethy
-		let event_proof_id =
-			T::EthBridge::send_event(&source.into(), &Self::contract_address(), &message)?;
+		let event_proof_id = if asset_id == T::NativeAssetId::get() {
+			// Call with ROOT contract address
+			T::EthBridge::send_event(&source.into(), &Self::root_contract_address(), &message)?
+		} else {
+			// Call with ERC20Peg contract address
+			T::EthBridge::send_event(&source.into(), &Self::contract_address(), &message)?
+		};
+
 		Self::deposit_event(Event::<T>::Erc20Withdraw(
 			asset_id,
 			withdrawal_message.amount.saturated_into(),
