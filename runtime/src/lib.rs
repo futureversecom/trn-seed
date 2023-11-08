@@ -425,6 +425,25 @@ impl pallet_nft::Config for Runtime {
 }
 
 parameter_types! {
+	pub const IncentivePalletId: PalletId = PalletId(*b"incentiv");
+	pub const IncentiveUnsignedInterval: BlockNumber =  MINUTES / 2;
+	pub const RolloverBatchSize: u32 = 799;
+}
+impl pallet_incentive::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AssetId = AssetId;
+	type Balance = Balance;
+	type PoolId = u32;
+	type ApproveOrigin = EnsureRoot<AccountId>;
+	type Currency = Balances;
+	type Assets = AssetsExt;
+	type PalletId = IncentivePalletId;
+	type UnsignedInterval = IncentiveUnsignedInterval;
+	type RolloverBatchSize = RolloverBatchSize;
+	type WeightInfo = weights::pallet_incentive::WeightInfo<Runtime>;
+}
+
+parameter_types! {
 	pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
 	/// How long listings are open for by default
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
@@ -1312,6 +1331,8 @@ construct_runtime! {
 		// FuturePass Account
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 32,
 		Futurepass: pallet_futurepass::{Pallet, Call, Storage, Event<T>} = 34,
+
+		Incentive: pallet_incentive::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 35,
 	}
 }
 
@@ -2034,6 +2055,7 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_preimage, Preimage]
 		// Local
+		[pallet_incentive, Incentive]
 		[pallet_nft, Nft]
 		[pallet_sft, Sft]
 		[pallet_fee_control, FeeControl]
