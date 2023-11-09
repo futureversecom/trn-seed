@@ -97,7 +97,7 @@ decl_storage! {
 		/// The peg contract address on Ethereum
 		pub ContractAddress get(fn contract_address): EthAddress;
 		/// The ROOT peg contract address on Ethereum
-		pub RootContractAddress get(fn root_contract_address): EthAddress;
+		pub RootPegContractAddress get(fn root_peg_contract_address): EthAddress;
 	}
 	add_extra_genesis {
 		config(erc20s): Vec<(EthAddress, Vec<u8>, u8)>;
@@ -257,7 +257,7 @@ decl_module! {
 		/// Set the ROOT peg contract address on Ethereum (requires governance)
 		pub fn set_root_peg_address(origin, eth_address: EthAddress) {
 			ensure_root(origin)?;
-			RootContractAddress::put(eth_address);
+			RootPegContractAddress::put(eth_address);
 			Self::deposit_event(<Event<T>>::SetRootPegContract(eth_address));
 		}
 
@@ -369,7 +369,7 @@ impl<T: Config> Module<T> {
 		// Call whatever handler loosely coupled from ethy
 		let event_proof_id = if asset_id == T::NativeAssetId::get() {
 			// Call with ROOT contract address
-			T::EthBridge::send_event(&source.into(), &Self::root_contract_address(), &message)?
+			T::EthBridge::send_event(&source.into(), &Self::root_peg_contract_address(), &message)?
 		} else {
 			// Call with ERC20Peg contract address
 			T::EthBridge::send_event(&source.into(), &Self::contract_address(), &message)?
@@ -467,7 +467,10 @@ impl<T: Config> Module<T> {
 			let asset_id = asset_id.unwrap();
 			if asset_id == T::NativeAssetId::get() {
 				// If this is the root token, check it comes from the root peg contract address
-				ensure!(source == &Self::root_contract_address(), Error::<T>::InvalidSourceAddress);
+				ensure!(
+					source == &Self::root_peg_contract_address(),
+					Error::<T>::InvalidSourceAddress
+				);
 			} else {
 				// If this is not a root token, check it comes from the erc20peg contract address
 				ensure!(source == &Self::contract_address(), Error::<T>::InvalidSourceAddress);
@@ -563,7 +566,7 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 		let erc20_peg_contract_address: H160 =
 			<Self::SourceAddress as storage::StorageValue<_>>::get();
 		let root_peg_contract_address: H160 =
-			<RootContractAddress as storage::StorageValue<_>>::get();
+			<RootPegContractAddress as storage::StorageValue<_>>::get();
 		if source == &erc20_peg_contract_address || source == &root_peg_contract_address {
 			Ok(DbWeight::get().reads(2u64))
 		} else {

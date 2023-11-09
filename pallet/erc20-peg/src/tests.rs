@@ -72,7 +72,7 @@ fn set_root_peg_address_works() {
 		);
 
 		// Sanity check
-		assert_eq!(Erc20Peg::root_contract_address(), H160::default());
+		assert_eq!(Erc20Peg::root_peg_contract_address(), H160::default());
 
 		// Calling as sudo should work
 		assert_ok!(Erc20Peg::set_root_peg_address(
@@ -81,7 +81,7 @@ fn set_root_peg_address_works() {
 		));
 
 		// Storage updated
-		assert_eq!(Erc20Peg::root_contract_address(), contract_address);
+		assert_eq!(Erc20Peg::root_peg_contract_address(), contract_address);
 	});
 }
 

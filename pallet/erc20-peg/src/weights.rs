@@ -92,7 +92,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_ref_time(44_122_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
-	// Storage: Erc20Peg RootContractAddress (r:0 w:1)
+	// Storage: Erc20Peg RootPegContractAddress (r:0 w:1)
 	fn set_root_peg_address() -> Weight {
 		Weight::from_ref_time(11_772_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
@@ -148,7 +148,7 @@ impl WeightInfo for () {
 		Weight::from_ref_time(44_122_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
-	// Storage: Erc20Peg RootContractAddress (r:0 w:1)
+	// Storage: Erc20Peg RootPegContractAddress (r:0 w:1)
 	fn set_root_peg_address() -> Weight {
 		Weight::from_ref_time(11_772_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))

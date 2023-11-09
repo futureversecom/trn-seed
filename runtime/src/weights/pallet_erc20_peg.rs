@@ -62,7 +62,7 @@ impl<T: frame_system::Config> pallet_erc20_peg::WeightInfo for WeightInfo<T> {
 		Weight::from_ref_time(41_085_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
-	// Storage: Erc20Peg RootContractAddress (r:0 w:1)
+	// Storage: Erc20Peg RootPegContractAddress (r:0 w:1)
 	fn set_root_peg_address() -> Weight {
 		Weight::from_ref_time(41_437_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))

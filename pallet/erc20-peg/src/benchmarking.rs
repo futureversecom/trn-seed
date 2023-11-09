@@ -92,10 +92,10 @@ benchmarks! {
 	set_root_peg_address {
 		let alice: EthAddress = account::<T>("Alice").into();
 		// Sanity check
-		assert_ne!(Erc20Peg::<T>::root_contract_address(), alice);
+		assert_ne!(Erc20Peg::<T>::root_peg_contract_address(), alice);
 	}: _(RawOrigin::Root, alice)
 	verify {
-		assert_eq!(Erc20Peg::<T>::root_contract_address(), alice);
+		assert_eq!(Erc20Peg::<T>::root_peg_contract_address(), alice);
 	}
 
 	set_erc20_asset_map {
