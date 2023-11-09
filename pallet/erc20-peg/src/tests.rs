@@ -86,6 +86,32 @@ fn set_root_contract_address_works() {
 }
 
 #[test]
+fn set_erc20_asset_map_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let signer = make_account_id(22);
+		let contract_address = H160::from_low_u64_be(123);
+		let asset_id: AssetId = 12;
+
+		// Setting as not sudo fails
+		assert_noop!(
+			Erc20Peg::set_erc20_asset_map(Some(signer).into(), asset_id, contract_address),
+			BadOrigin
+		);
+
+		// Calling as sudo should work
+		assert_ok!(Erc20Peg::set_erc20_asset_map(
+			frame_system::RawOrigin::Root.into(),
+			asset_id,
+			contract_address
+		));
+
+		// Storage updated
+		assert_eq!(Erc20Peg::erc20_to_asset(contract_address).unwrap(), asset_id);
+		assert_eq!(Erc20Peg::asset_to_erc20(asset_id).unwrap(), contract_address);
+	});
+}
+
+#[test]
 fn set_payment_delay() {
 	ExtBuilder::default().build().execute_with(|| {
 		let asset_id: AssetId = 1;
