@@ -16,7 +16,7 @@ assignees: ''
 **Client Version:** `<client-version>.0.0`
 
 ## PRs included:
-- (list of merged PRs... from previous release - get from [here](https://github.com/futureversecom/trn-seed/pulls?q=is%3Aclosed))
+- (list of merged PRs... from previous release - get from [here](https://github.com/futureversecom/trn-seed/pulls?q=is%3Aclosed); previous examples [here](https://github.com/futureversecom/trn-seed/issues?q=is%3Aissue+is%3Aclosed))
 
 ---
 
