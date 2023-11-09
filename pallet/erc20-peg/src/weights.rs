@@ -52,6 +52,8 @@ pub trait WeightInfo {
 	fn activate_withdrawals() -> Weight;
 	fn withdraw() -> Weight;
 	fn set_contract_address() -> Weight;
+	fn set_root_contract_address() -> Weight;
+	fn set_erc20_asset_map() -> Weight;
 	fn set_erc20_meta() -> Weight;
 	fn set_payment_delay() -> Weight;
 }
@@ -89,6 +91,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn set_contract_address() -> Weight {
 		Weight::from_ref_time(44_122_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+	// Storage: Erc20Peg RootContractAddress (r:0 w:1)
+	fn set_root_contract_address() -> Weight {
+		Weight::from_ref_time(11_772_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+	// Storage: Erc20Peg Erc20ToAssetId (r:0 w:1)
+	// Storage: Erc20Peg AssetIdToErc20 (r:0 w:1)
+	fn set_erc20_asset_map() -> Weight {
+		Weight::from_ref_time(5_891_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: Erc20Peg Erc20Meta (r:0 w:1)
 	fn set_erc20_meta() -> Weight {
@@ -134,6 +147,17 @@ impl WeightInfo for () {
 	fn set_contract_address() -> Weight {
 		Weight::from_ref_time(44_122_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+	// Storage: Erc20Peg RootContractAddress (r:0 w:1)
+	fn set_root_contract_address() -> Weight {
+		Weight::from_ref_time(11_772_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+	// Storage: Erc20Peg Erc20ToAssetId (r:0 w:1)
+	// Storage: Erc20Peg AssetIdToErc20 (r:0 w:1)
+	fn set_erc20_asset_map() -> Weight {
+		Weight::from_ref_time(5_891_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	// Storage: Erc20Peg Erc20Meta (r:0 w:1)
 	fn set_erc20_meta() -> Weight {

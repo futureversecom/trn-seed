@@ -62,6 +62,17 @@ impl<T: frame_system::Config> pallet_erc20_peg::WeightInfo for WeightInfo<T> {
 		Weight::from_ref_time(42_725_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
+	// Storage: Erc20Peg RootContractAddress (r:0 w:1)
+	fn set_root_contract_address() -> Weight {
+		Weight::from_ref_time(11_772_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+	// Storage: Erc20Peg Erc20ToAssetId (r:0 w:1)
+	// Storage: Erc20Peg AssetIdToErc20 (r:0 w:1)
+	fn set_erc20_asset_map() -> Weight {
+		Weight::from_ref_time(5_891_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(2 as u64))
+	}
 	// Storage: Erc20Peg Erc20Meta (r:0 w:1)
 	fn set_erc20_meta() -> Weight {
 		Weight::from_ref_time(21_982_000 as u64)

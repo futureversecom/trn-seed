@@ -191,7 +191,7 @@ fn deposit_payment_with_ethereum_event_router_source_address_not_set() {
 		assert_noop!(
 			MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()),
 			(
-				DbWeight::get().reads(1u64),
+				DbWeight::get().reads(2u64),
 				EventRouterError::FailedProcessing(
 					DispatchError::Other("Invalid source address").into()
 				)
@@ -230,7 +230,7 @@ fn deposit_payment_with_ethereum_event_router_incorrect_source_address() {
 		assert_noop!(
 			MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()),
 			(
-				DbWeight::get().reads(1u64),
+				DbWeight::get().reads(2u64),
 				EventRouterError::FailedProcessing(
 					DispatchError::Other("Invalid source address").into()
 				)

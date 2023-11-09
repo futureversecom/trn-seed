@@ -108,8 +108,8 @@ benchmarks! {
 	verify {
 		let token = TokenInfo::<T>::get(token_id);
 		assert!(token.is_some());
-		let isEnabled = PublicMintInfo::<T>::get(token_id).unwrap().enabled;
-		assert_eq!(isEnabled, true);
+		let is_enabled = PublicMintInfo::<T>::get(token_id).unwrap().enabled;
+		assert_eq!(is_enabled, true);
 	}
 
 	set_mint_fee {

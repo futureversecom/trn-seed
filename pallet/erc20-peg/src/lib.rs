@@ -251,7 +251,7 @@ decl_module! {
 			Self::deposit_event(<Event<T>>::SetContractAddress(eth_address));
 		}
 
-		#[weight = T::WeightInfo::set_contract_address()]
+		#[weight = T::WeightInfo::set_root_contract_address()]
 		/// Set the ROOT peg contract address on Ethereum (requires governance)
 		pub fn set_root_contract_address(origin, eth_address: EthAddress) {
 			ensure_root(origin)?;
@@ -269,7 +269,7 @@ decl_module! {
 			}
 		}
 
-		#[weight = T::WeightInfo::set_contract_address()]
+		#[weight = T::WeightInfo::set_erc20_asset_map()]
 		/// Sets the mapping for an asset to an ERC20 address (requires governance)
 		/// Sets both Erc20ToAssetId and AssetIdToErc20
 		pub fn set_erc20_asset_map(origin, asset_id: AssetId, eth_address: EthAddress) {
