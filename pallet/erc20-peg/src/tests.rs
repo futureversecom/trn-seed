@@ -17,7 +17,7 @@ use super::*;
 use crate::{
 	mock::{
 		make_account_id, AssetsExt, Erc20Peg, ExtBuilder, MockEthereumEventRouter, PegPalletId,
-		Test, ROOT_ASSET_ID, SPENDING_ASSET_ID,
+		Test, ROOT_ASSET_ID, SPENDING_ASSET_ID, XRP_ASSET_ID,
 	},
 	types::{DelayedPaymentId, Erc20DepositEvent, PendingPayment, WithdrawMessage},
 };
@@ -41,7 +41,7 @@ fn set_peg_contract_address_works() {
 
 		// Setting as not sudo fails
 		assert_noop!(
-			Erc20Peg::set_contract_address(Some(signer).into(), contract_address),
+			Erc20Peg::set_erc20_peg_address(Some(signer).into(), contract_address),
 			BadOrigin
 		);
 
@@ -49,7 +49,7 @@ fn set_peg_contract_address_works() {
 		assert_eq!(Erc20Peg::contract_address(), H160::default());
 
 		// Calling as sudo should work
-		assert_ok!(Erc20Peg::set_contract_address(
+		assert_ok!(Erc20Peg::set_erc20_peg_address(
 			frame_system::RawOrigin::Root.into(),
 			contract_address
 		));
@@ -60,14 +60,14 @@ fn set_peg_contract_address_works() {
 }
 
 #[test]
-fn set_root_contract_address_works() {
+fn set_root_peg_address_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let signer = make_account_id(22);
 		let contract_address = H160::from_low_u64_be(123);
 
 		// Setting as not sudo fails
 		assert_noop!(
-			Erc20Peg::set_root_contract_address(Some(signer).into(), contract_address),
+			Erc20Peg::set_root_peg_address(Some(signer).into(), contract_address),
 			BadOrigin
 		);
 
@@ -75,7 +75,7 @@ fn set_root_contract_address_works() {
 		assert_eq!(Erc20Peg::root_contract_address(), H160::default());
 
 		// Calling as sudo should work
-		assert_ok!(Erc20Peg::set_root_contract_address(
+		assert_ok!(Erc20Peg::set_root_peg_address(
 			frame_system::RawOrigin::Root.into(),
 			contract_address
 		));
@@ -134,7 +134,7 @@ fn deposit_payment_with_ethereum_event_router() {
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 		// Set contract address
 		let contract_address = H160::from_low_u64_be(123);
-		assert_ok!(Erc20Peg::set_contract_address(
+		assert_ok!(Erc20Peg::set_erc20_peg_address(
 			frame_system::RawOrigin::Root.into(),
 			contract_address
 		));
@@ -207,7 +207,7 @@ fn deposit_payment_with_ethereum_event_router_incorrect_source_address() {
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 		// Set contract address to different value
 		let contract_address = H160::from_low_u64_be(8910);
-		assert_ok!(Erc20Peg::set_contract_address(
+		assert_ok!(Erc20Peg::set_erc20_peg_address(
 			frame_system::RawOrigin::Root.into(),
 			contract_address
 		));
@@ -244,21 +244,24 @@ fn on_deposit_mints() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
-
 		let token_address: H160 = H160::from_low_u64_be(666);
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 		let deposit_amount: Balance = 100;
 		let expected_asset_id = AssetsExt::next_asset_uuid().unwrap();
+		let root_peg_address: H160 = H160::from_low_u64_be(555);
+		assert_ok!(Erc20Peg::set_root_peg_address(
+			frame_system::RawOrigin::Root.into(),
+			root_peg_address
+		));
 
 		// No assets expected at first
 		assert!(Erc20Peg::erc20_to_asset(token_address).is_none());
 
 		// Do the deposit
-		assert_ok!(Erc20Peg::do_deposit(Erc20DepositEvent {
-			token_address,
-			amount: deposit_amount.into(),
-			beneficiary
-		}));
+		assert_ok!(Erc20Peg::do_deposit(
+			&root_peg_address,
+			Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary }
+		));
 		// Check mapping has been updated
 		assert_eq!(Erc20Peg::erc20_to_asset(token_address), Some(expected_asset_id));
 		assert_eq!(Erc20Peg::asset_to_erc20(expected_asset_id), Some(token_address));
@@ -272,11 +275,87 @@ fn on_deposit_mints() {
 }
 
 #[test]
+fn on_deposit_fails_with_wrong_source() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Activate deposits
+		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
+
+		let beneficiary: H160 = H160::from_low_u64_be(456);
+		let deposit_amount: Balance = 0;
+		let root_token_address: H160 = H160::from_low_u64_be(666);
+		let erc20_token_address: H160 = H160::from_low_u64_be(667);
+		let root_peg_address: H160 = H160::from_low_u64_be(555);
+		let erc20_peg_address: H160 = H160::from_low_u64_be(444);
+
+		// Set the contract addresses for each
+		assert_ok!(Erc20Peg::set_root_peg_address(
+			frame_system::RawOrigin::Root.into(),
+			root_peg_address
+		));
+		assert_ok!(Erc20Peg::set_erc20_peg_address(
+			frame_system::RawOrigin::Root.into(),
+			erc20_peg_address
+		));
+
+		// Insert mappings for root and xrp token addresses
+		Erc20ToAssetId::insert(root_token_address, ROOT_ASSET_ID);
+		Erc20ToAssetId::insert(erc20_token_address, XRP_ASSET_ID);
+
+		// Do deposit fails with incorrect source
+		assert_noop!(
+			Erc20Peg::do_deposit(
+				&erc20_peg_address,
+				Erc20DepositEvent {
+					token_address: root_token_address,
+					amount: deposit_amount.into(),
+					beneficiary
+				}
+			),
+			Error::<Test>::InvalidSourceAddress
+		);
+		assert_noop!(
+			Erc20Peg::do_deposit(
+				&root_peg_address,
+				Erc20DepositEvent {
+					token_address: erc20_token_address,
+					amount: deposit_amount.into(),
+					beneficiary
+				}
+			),
+			Error::<Test>::InvalidSourceAddress
+		);
+
+		// Do deposit works when correct source is supplied
+		assert_ok!(Erc20Peg::do_deposit(
+			&root_peg_address,
+			Erc20DepositEvent {
+				token_address: root_token_address,
+				amount: deposit_amount.into(),
+				beneficiary
+			}
+		));
+		assert_ok!(Erc20Peg::do_deposit(
+			&erc20_peg_address,
+			Erc20DepositEvent {
+				token_address: erc20_token_address,
+				amount: deposit_amount.into(),
+				beneficiary
+			}
+		));
+	});
+}
+
+#[test]
 fn on_deposit_transfers_root_token() {
 	ExtBuilder::default().build().execute_with(|| {
 		let token_address: H160 = H160::from_low_u64_be(666);
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 		let deposit_amount: Balance = 1_000_000;
+		let root_peg_address: H160 = H160::from_low_u64_be(555);
+		assert_ok!(Erc20Peg::set_root_peg_address(
+			frame_system::RawOrigin::Root.into(),
+			root_peg_address
+		));
 
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
@@ -285,9 +364,9 @@ fn on_deposit_transfers_root_token() {
 		Erc20ToAssetId::insert(token_address, ROOT_ASSET_ID);
 		AssetIdToErc20::insert(ROOT_ASSET_ID, token_address);
 
-		assert_ok!(Erc20Peg::set_root_contract_address(
+		assert_ok!(Erc20Peg::set_root_peg_address(
 			frame_system::RawOrigin::Root.into(),
-			token_address
+			root_peg_address
 		));
 
 		// Mint tokens to peg address (To simulate a withdrawal)
@@ -298,11 +377,10 @@ fn on_deposit_transfers_root_token() {
 		let root_issuance = AssetsExt::total_issuance(ROOT_ASSET_ID);
 
 		// Do the deposit
-		assert_ok!(Erc20Peg::do_deposit(Erc20DepositEvent {
-			token_address,
-			amount: deposit_amount.into(),
-			beneficiary
-		}));
+		assert_ok!(Erc20Peg::do_deposit(
+			&root_peg_address,
+			Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary }
+		));
 
 		// Check beneficiary account received funds
 		assert_eq!(
@@ -321,6 +399,11 @@ fn deposit_payment_less_than_delay_goes_through() {
 	ExtBuilder::default().build().execute_with(|| {
 		let deposit_amount: Balance = 100;
 		let beneficiary: H160 = H160::from_low_u64_be(456);
+		let erc20_peg_address: H160 = H160::from_low_u64_be(555);
+		assert_ok!(Erc20Peg::set_erc20_peg_address(
+			frame_system::RawOrigin::Root.into(),
+			erc20_peg_address
+		));
 
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
@@ -340,11 +423,10 @@ fn deposit_payment_less_than_delay_goes_through() {
 
 		// Process deposit, this should go through as the value is less than the payment_delay
 		// amount
-		assert_ok!(Erc20Peg::do_deposit(Erc20DepositEvent {
-			token_address,
-			amount: deposit_amount.into(),
-			beneficiary
-		}));
+		assert_ok!(Erc20Peg::do_deposit(
+			&erc20_peg_address,
+			Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary }
+		));
 
 		// Check payment has not been put in delayed payments
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
@@ -369,6 +451,11 @@ fn deposit_payment_with_delay() {
 	ExtBuilder::default().build().execute_with(|| {
 		let deposit_amount: Balance = 100;
 		let beneficiary: H160 = H160::from_low_u64_be(456);
+		let erc20_peg_address: H160 = H160::from_low_u64_be(555);
+		assert_ok!(Erc20Peg::set_erc20_peg_address(
+			frame_system::RawOrigin::Root.into(),
+			erc20_peg_address
+		));
 
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
@@ -388,11 +475,10 @@ fn deposit_payment_with_delay() {
 		let delayed_payment_id = <NextDelayedPaymentId>::get();
 
 		// Process deposit, this should not go through and be added to delays
-		assert_ok!(Erc20Peg::do_deposit(Erc20DepositEvent {
-			token_address,
-			amount: deposit_amount.into(),
-			beneficiary
-		}));
+		assert_ok!(Erc20Peg::do_deposit(
+			&erc20_peg_address,
+			Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary }
+		));
 
 		// Check payment has been put in delayed payments
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;

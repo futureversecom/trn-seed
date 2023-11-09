@@ -147,6 +147,8 @@ decl_error! {
 		InvalidAmount,
 		/// Could not convert pallet id to account
 		InvalidPalletId,
+		/// The peg source address is incorrect for the token being bridged
+		InvalidSourceAddress,
 		/// Deposits are inactive
 		DepositsPaused,
 		/// Withdrawals are inactive
@@ -243,17 +245,17 @@ decl_module! {
 			Self::do_withdrawal(origin, asset_id, amount, beneficiary, WithdrawCallOrigin::Runtime)?;
 		}
 
-		#[weight = T::WeightInfo::set_contract_address()]
-		/// Set the peg contract address on Ethereum (requires governance)
-		pub fn set_contract_address(origin, eth_address: EthAddress) {
+		#[weight = T::WeightInfo::set_erc20_peg_address()]
+		/// Set the ERC20 peg contract address on Ethereum (requires governance)
+		pub fn set_erc20_peg_address(origin, eth_address: EthAddress) {
 			ensure_root(origin)?;
 			ContractAddress::put(eth_address);
 			Self::deposit_event(<Event<T>>::SetContractAddress(eth_address));
 		}
 
-		#[weight = T::WeightInfo::set_root_contract_address()]
+		#[weight = T::WeightInfo::set_root_peg_address()]
 		/// Set the ROOT peg contract address on Ethereum (requires governance)
-		pub fn set_root_contract_address(origin, eth_address: EthAddress) {
+		pub fn set_root_peg_address(origin, eth_address: EthAddress) {
 			ensure_root(origin)?;
 			RootContractAddress::put(eth_address);
 			Self::deposit_event(<Event<T>>::SetRootContractAddress(eth_address));
@@ -455,16 +457,23 @@ impl<T: Config> Module<T> {
 	/// Deposit received from bridge, do pre flight checks
 	/// If the token has a delay and the amount is above the delay amount, add this deposit to
 	/// pending
-	pub fn do_deposit(deposit_event: Erc20DepositEvent) -> DispatchResult {
+	pub fn do_deposit(source: &H160, deposit_event: Erc20DepositEvent) -> DispatchResult {
 		ensure!(Self::deposits_active(), Error::<T>::DepositsPaused);
 		// fail a deposit early for an amount that is too large
 		ensure!(deposit_event.amount < U256::from(Balance::max_value()), Error::<T>::InvalidAmount);
 
 		let asset_id = Self::erc20_to_asset(deposit_event.token_address);
 		if asset_id.is_some() {
+			let asset_id = asset_id.unwrap();
+			if asset_id == T::NativeAssetId::get() {
+				// If this is the root token, check it comes from the root peg contract address
+				ensure!(source == &Self::root_contract_address(), Error::<T>::InvalidSourceAddress);
+			} else {
+				// If this is not a root token, check it comes from the erc20peg contract address
+				ensure!(source == &Self::contract_address(), Error::<T>::InvalidSourceAddress);
+			}
 			// Asset exists, check if there are delays on this deposit
-			let payment_delay: Option<(Balance, T::BlockNumber)> =
-				Self::payment_delay(asset_id.unwrap());
+			let payment_delay: Option<(Balance, T::BlockNumber)> = Self::payment_delay(asset_id);
 			if let Some((min_amount, delay)) = payment_delay {
 				if U256::from(min_amount) <= deposit_event.amount {
 					Self::delay_payment(delay, PendingPayment::Deposit(deposit_event.clone()));
@@ -582,7 +591,8 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			let beneficiary: H160 = beneficiary.into();
 			// The total weight of do_deposit assuming it reaches every path
 			let deposit_weight = DbWeight::get().reads(6u64) + DbWeight::get().writes(4u64);
-			match Self::do_deposit(Erc20DepositEvent { token_address, amount, beneficiary }) {
+			match Self::do_deposit(source, Erc20DepositEvent { token_address, amount, beneficiary })
+			{
 				Ok(_) => Ok(deposit_weight),
 				Err(e) => {
 					Self::deposit_event(Event::<T>::Erc20DepositFail(*source, data.to_vec()));

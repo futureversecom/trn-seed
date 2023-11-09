@@ -79,7 +79,7 @@ benchmarks! {
 		assert_eq!(actual_balance, expected_balance);
 	}
 
-	set_contract_address {
+	set_erc20_peg_address {
 		let alice: EthAddress = account::<T>("Alice").into();
 		// Sanity check
 		assert_ne!(Erc20Peg::<T>::contract_address(), alice);
@@ -89,7 +89,7 @@ benchmarks! {
 		assert_eq!(Erc20Peg::<T>::contract_address(), alice);
 	}
 
-	set_root_contract_address {
+	set_root_peg_address {
 		let alice: EthAddress = account::<T>("Alice").into();
 		// Sanity check
 		assert_ne!(Erc20Peg::<T>::root_contract_address(), alice);
