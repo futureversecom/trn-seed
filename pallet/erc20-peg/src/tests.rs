@@ -698,7 +698,7 @@ fn withdraw_transfers_root_token() {
 		let beneficiary: H160 = H160::from_low_u64_be(457);
 		let withdraw_amount: Balance = 1_000_000;
 
-		// Activate deposits
+		// Activate withdrawals
 		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 
 		// Setup storage values

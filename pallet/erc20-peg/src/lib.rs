@@ -131,7 +131,7 @@ decl_event! {
 		/// The peg contract address has been set
 		SetContractAddress(EthAddress),
 		/// The ROOT peg contract address has been set
-		SetRootContractAddress(EthAddress),
+		SetRootPegContract(EthAddress),
 		/// A delay was added for an asset_id (asset_id, min_balance, delay)
 		PaymentDelaySet(AssetId, Balance, BlockNumber),
 		/// There are no more payment ids available, they've been exhausted
@@ -258,7 +258,7 @@ decl_module! {
 		pub fn set_root_peg_address(origin, eth_address: EthAddress) {
 			ensure_root(origin)?;
 			RootContractAddress::put(eth_address);
-			Self::deposit_event(<Event<T>>::SetRootContractAddress(eth_address));
+			Self::deposit_event(<Event<T>>::SetRootPegContract(eth_address));
 		}
 
 		#[weight = T::WeightInfo::set_erc20_meta()]
