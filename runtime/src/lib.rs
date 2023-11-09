@@ -143,6 +143,9 @@ mod tests;
 
 /// Currency implementation mapped to XRP
 pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Runtime, XrpAssetId>;
+/// Dual currency implementation mapped to ROOT & XRP for staking
+pub type DualStakingCurrency =
+	pallet_assets_ext::DualStakingCurrency<Runtime, XrpCurrency, Balances>;
 
 /// This runtime version.
 #[sp_version::runtime_version]
@@ -634,7 +637,7 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but lets be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
-	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
+	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_session::historical::Config for Runtime {
@@ -793,16 +796,19 @@ type SlashCancelOrigin = EnsureRoot<AccountId>;
 
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;
-	type Currency = Balances;
+	type Currency = DualStakingCurrency;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
 	// Decides the total reward to be distributed each era
 	// For root network it is the balance of the tx fee pot
 	type EraPayout = TxFeePot;
 	type RuntimeEvent = RuntimeEvent;
-	// In our current implementation we have filtered the payout_stakers call so this Reward will
-	// never be triggered. We have decided to keep the TxFeePot in the case this is overlooked
-	// to prevent unwanted changes in Root token issuance
+	// After a validator payout is made (to it and all its stakers), this receives the pending
+	// positive imbalance (total amount newly minted during the payout process) since the XRP
+	// already exists the issuance should not be modified
+	//
+	// pallet-staking validator payouts always _mint_ tokens (with `deposit_creating`) assuming an
+	// inflationary model instead rewards should be redistributed from fees only
 	type Reward = TxFeePot;
 	// Handles any era reward amount indivisible among stakers at end of an era.
 	// some account should receive the amount to ensure total issuance of XRP is constant (vs.
@@ -830,7 +836,7 @@ impl pallet_staking::Config for Runtime {
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type BenchmarkingConfig = staking::StakingBenchmarkConfig;
 	type OnStakerSlash = ();
-	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
+	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 }
 
@@ -905,7 +911,6 @@ impl pallet_sudo::Config for Runtime {
 
 impl pallet_tx_fee_pot::Config for Runtime {
 	type FeeCurrency = XrpCurrency;
-	type StakeCurrency = Balances;
 	type TxFeePotId = TxFeePotId;
 }
 
