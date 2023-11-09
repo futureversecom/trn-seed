@@ -269,6 +269,15 @@ decl_module! {
 			}
 		}
 
+		#[weight = T::WeightInfo::set_contract_address()]
+		/// Sets the mapping for an asset to an ERC20 address (requires governance)
+		/// Sets both Erc20ToAssetId and AssetIdToErc20
+		pub fn set_erc20_asset_map(origin, asset_id: AssetId, eth_address: EthAddress) {
+			ensure_root(origin)?;
+			Erc20ToAssetId::insert(eth_address, asset_id);
+			AssetIdToErc20::insert(asset_id, eth_address);
+		}
+
 		#[weight = T::WeightInfo::set_payment_delay()]
 		/// Sets the payment delay for a given AssetId
 		pub fn set_payment_delay(origin, asset_id: AssetId, min_balance: Balance, delay: T::BlockNumber) {
