@@ -34,7 +34,7 @@ use seed_pallet_common::{EthereumEventRouter, EventRouterError};
 use sp_runtime::traits::BadOrigin;
 
 #[test]
-fn set_contract_address_works() {
+fn set_peg_contract_address_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let signer = make_account_id(22);
 		let contract_address = H160::from_low_u64_be(123);

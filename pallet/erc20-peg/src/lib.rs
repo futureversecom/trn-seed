@@ -556,10 +556,10 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 		let root_peg_contract_address: H160 =
 			<RootContractAddress as storage::StorageValue<_>>::get();
 		if source == &erc20_peg_contract_address || source == &root_peg_contract_address {
-			Ok(DbWeight::get().reads(1u64))
+			Ok(DbWeight::get().reads(2u64))
 		} else {
 			Err((
-				DbWeight::get().reads(1u64),
+				DbWeight::get().reads(2u64),
 				DispatchError::Other("Invalid source address").into(),
 			))
 		}
