@@ -182,5 +182,8 @@ benchmarks! {
 		assert_eq!(T::MultiCurrency::balance(T::VtxAssetId::get(), &account::<T>("test")), 2u32.into());
 	}
 }
-
-impl_benchmark_test_suite!(VortexDistribution, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	VortexDistribution,
+	crate::mock::TestExt::benchmark().build(),
+	crate::mock::Test,
+);

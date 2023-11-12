@@ -148,10 +148,10 @@ impl crate::Config for Test {
 	type UnsignedInterval = UnsignedInterval;
 	type PayoutBatchSize = PayoutBatchSize;
 	type VtxDistIdentifier = u32;
-	type VtxDistAdminOrigin = EnsureRoot<AccountId>; //TODO: change to proper committee later on
+	type VtxDistAdminOrigin = EnsureRoot<AccountId>;
 	type MultiCurrency = AssetsExt;
 	type HistoryDepth = HistoryDepth;
-	type MaxAssetPrices = ConstU32<10>;
+	type MaxAssetPrices = ConstU32<1000>;
 	type MaxRewards = ConstU32<10_000>;
 	type MaxStringLength = ConstU32<1000>;
 }
@@ -190,6 +190,18 @@ impl TestExt {
 	pub fn with_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
 		self.balances = balances.to_vec();
 		self
+	}
+
+    pub fn benchmark() -> Self {
+		let alice: AccountId = create_account(1);
+		Self::default()
+			.with_balances(&[(alice, 1_000_000)])
+			.with_asset(
+				<Test as crate::Config>::NativeAssetId::get(),
+				"ROOT",
+				&[(alice, 1_000_000)],
+			)
+			.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(alice, 0)])
 	}
 
 	pub fn build(self) -> sp_io::TestExternalities {

@@ -1,10 +1,7 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
-import { SubmittableExtrinsic } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import fs from "fs";
-import path from "path";
 
 import {
   ALITH_PRIVATE_KEY,
