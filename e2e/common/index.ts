@@ -1,12 +1,12 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
-import { ApiPromise } from "@polkadot/api";
+import { ApiPromise, Keyring } from "@polkadot/api";
 import { SubmittableExtrinsic } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
 import { BigNumber } from "ethers";
-import { writeFileSync } from "fs";
+import fs, { writeFileSync } from "fs";
 import { CliPrettify } from "markdown-table-prettify";
-import { join } from "path";
+import path, { join } from "path";
 import web3 from "web3";
 
 export * from "./node";
@@ -647,4 +647,23 @@ export const executeForPreviousEvent = async (
     });
     currentInHistory++;
   }
+};
+
+export const loadTestUsers = (userAmount?: number): KeyringPair[] => {
+  const content = fs.readFileSync(path.resolve(__dirname, "./generated_users.txt"), "utf-8");
+  const mnemonics = content
+    .replace(/\n{2,}/g, "\n")
+    .toString()
+    .split("\n");
+  const keyring = new Keyring({ type: "ethereum" });
+  const keypairs: KeyringPair[] = [];
+
+  for (let i = 0; i < mnemonics.length; i++) {
+    const mnemonic = mnemonics[i];
+    if (mnemonic !== "" && (userAmount === undefined || i < userAmount)) {
+      keypairs.push(keyring.addFromMnemonic(mnemonic, {}));
+    }
+  }
+  console.log(`loaded ${keypairs.length} users`);
+  return keypairs;
 };

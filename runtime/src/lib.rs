@@ -26,6 +26,7 @@ use codec::{Decode, Encode};
 use core::ops::Mul;
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
+use frame_support::ord_parameter_types;
 use pallet_dex::TradingPairStatus;
 use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
@@ -37,7 +38,7 @@ use pallet_evm::{
 use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
+use sp_core::{crypto::KeyTypeId, ConstU16, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
 	create_runtime_str, generic,
 	traits::{
@@ -78,7 +79,7 @@ pub use frame_support::{
 
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot,
+	EnsureRoot, EnsureSignedBy,
 };
 pub use pallet_grandpa::AuthorityId as GrandpaId;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
@@ -108,7 +109,7 @@ pub mod constants;
 
 use constants::{
 	deposit, RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES,
-	ONE_ROOT, ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
+	ONE_ROOT, ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION, VTX_ASSET_ID,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
@@ -542,6 +543,23 @@ impl pallet_utility::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type PalletsOrigin = OriginCaller;
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
+	pub const DepositBase: Balance = deposit(1, 88);
+	// Additional storage item size of 32 bytes.
+	pub const DepositFactor: Balance = deposit(0, 32);
+}
+
+impl pallet_multisig::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type DepositBase = DepositBase;
+	type DepositFactor = DepositFactor;
+	type MaxSignatories = ConstU16<100>;
+	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1203,6 +1221,36 @@ impl pallet_futurepass::Config for Runtime {
 	type MultiCurrency = AssetsExt;
 }
 
+ord_parameter_types! {
+	pub const VtxDistAdmin: AccountId = AccountId::from(hex_literal::hex!("0f301798b041bf0D5bCf3e109e535FbF3500bE09"));
+}
+parameter_types! {
+	pub const VortexPalletId: PalletId = PalletId(*b"root/vtx");
+	pub const UnsignedInterval: BlockNumber =  MINUTES / 2;
+	pub const PayoutBatchSize: u32 =  99;
+	pub const HistoryDepth: u32 = 84;
+	pub const VortexAssetId: AssetId = VTX_ASSET_ID;
+	pub const MaxAssetPrices: u32 = 1_000;
+	pub const MaxRewards: u32 = 10_000;
+	pub const MaxStringLength: u32 = 1_000;
+}
+impl pallet_vortex::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_vortex::WeightInfo<Runtime>;
+	type NativeAssetId = RootAssetId;
+	type VtxAssetId = VortexAssetId;
+	type VtxDistPalletId = VortexPalletId;
+	type UnsignedInterval = UnsignedInterval;
+	type PayoutBatchSize = PayoutBatchSize;
+	type VtxDistIdentifier = u32;
+	type VtxDistAdminOrigin = EnsureSignedBy<VtxDistAdmin, AccountId>;
+	type MultiCurrency = AssetsExt;
+	type MaxAssetPrices = MaxAssetPrices;
+	type MaxRewards = MaxRewards;
+	type MaxStringLength = MaxStringLength;
+	type HistoryDepth = HistoryDepth;
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -1215,7 +1263,7 @@ construct_runtime! {
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 3,
 		Utility: pallet_utility::{Pallet, Call, Event} = 4,
 		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 33,
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 45,
+		Multisig: pallet_multisig = 28,
 
 		// Monetary
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
@@ -1241,6 +1289,8 @@ construct_runtime! {
 		Historical: pallet_session::historical::{Pallet} = 20,
 		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
 		Marketplace: pallet_marketplace::{Pallet, Call, Storage, Event<T>} = 44,
+		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 45,
+		VortexDistribution: pallet_vortex::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 46,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
@@ -1976,6 +2026,7 @@ mod benches {
 		[pallet_staking, Staking]
 		[pallet_grandpa, Grandpa]
 		[pallet_im_online, ImOnline]
+		[pallet_multisig, Multisig]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_bags_list, VoterList]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
@@ -1996,6 +2047,7 @@ mod benches {
 		[pallet_token_approvals, TokenApprovals]
 		[pallet_xls20, Xls20]
 		[pallet_futurepass, Futurepass]
+		[pallet_vortex, VortexDistribution]
 		[pallet_dex, Dex]
 		[pallet_marketplace, Marketplace]
 	);
