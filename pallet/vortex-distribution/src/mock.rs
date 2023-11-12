@@ -192,7 +192,7 @@ impl TestExt {
 		self
 	}
 
-    pub fn benchmark() -> Self {
+	pub fn benchmark() -> Self {
 		let alice: AccountId = create_account(1);
 		Self::default()
 			.with_balances(&[(alice, 1_000_000)])
