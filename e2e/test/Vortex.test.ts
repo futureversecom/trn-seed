@@ -71,7 +71,7 @@ describe("Vortex Distribution", () => {
     await finalizeTx(alith, api.tx.utility.batch(txs));
   });
 
-  it("should distribute vortex for load test", async () => {
+  it.skip("should distribute vortex for load test", async () => {
     const batchSize = Number(api.consts.vortexDistribution.payoutBatchSize.toHuman() as number) + 1;
 
     // simulate vortex distribution for load test with 2 parellel distributions

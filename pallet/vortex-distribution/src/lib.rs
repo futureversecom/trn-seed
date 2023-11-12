@@ -386,7 +386,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `current_block` - Current block number
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::pay_unsigned())]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::pay_unsigned() * 99)]
 		#[transactional]
 		pub fn pay_unsigned(
 			origin: OriginFor<T>,
