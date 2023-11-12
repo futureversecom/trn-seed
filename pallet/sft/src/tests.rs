@@ -2251,7 +2251,7 @@ mod public_minting {
 	}
 
 	#[test]
-	fn public_batch_mint_fails_when_public_minting_not_enabled_for_all_tokenId() {
+	fn public_batch_mint_fails_when_public_minting_not_enabled_for_all_token_ids() {
 		let minter = create_account(11);
 		let initial_balance = 100000;
 		TestExt::default()

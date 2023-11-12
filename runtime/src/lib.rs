@@ -1111,6 +1111,7 @@ impl pallet_erc20_peg::Config for Runtime {
 	/// The overarching event type.
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_erc20_peg::WeightInfo<Runtime>;
+	type NativeAssetId = RootAssetId;
 }
 
 parameter_types! {

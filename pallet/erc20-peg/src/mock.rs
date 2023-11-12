@@ -28,8 +28,13 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 };
 
-pub const XRP_ASSET_ID: AssetId = 1;
+pub const XRP_ASSET_ID: AssetId = 2;
+pub const ROOT_ASSET_ID: AssetId = 1;
 pub const SPENDING_ASSET_ID: AssetId = XRP_ASSET_ID;
+
+pub fn make_account_id(seed: u64) -> AccountId {
+	AccountId::from(H160::from_low_u64_be(seed))
+}
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -109,7 +114,7 @@ impl pallet_assets::Config for Test {
 parameter_types! {
 	pub const TestParachainId: u32 = 100;
 	pub const MaxHolds: u32 = 16;
-	pub const NativeAssetId: AssetId = 1;
+	pub const NativeAssetId: AssetId = ROOT_ASSET_ID;
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
 }
 
@@ -149,6 +154,7 @@ impl crate::Config for Test {
 	type PegPalletId = PegPalletId;
 	type MultiCurrency = AssetsExt;
 	type WeightInfo = ();
+	type NativeAssetId = NativeAssetId;
 }
 
 /// Mock ethereum bridge
@@ -187,9 +193,17 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext: sp_io::TestExternalities =
-			frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into();
+		let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
+		// Setup XRP asset
+		let metadata = vec![(XRP_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), 6)];
+		let default_account = make_account_id(100_u64);
+		let assets = vec![(XRP_ASSET_ID, default_account, true, 1)];
+		pallet_assets::GenesisConfig::<Test> { assets, metadata, accounts: vec![] }
+			.assimilate_storage(&mut t)
+			.unwrap();
+
+		let mut ext: sp_io::TestExternalities = t.into();
 		ext.execute_with(|| {
 			System::initialize(&1, &[0u8; 32].into(), &Default::default());
 		});
