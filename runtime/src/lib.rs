@@ -26,7 +26,6 @@ use codec::{Decode, Encode};
 use core::ops::Mul;
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
-use frame_support::{ord_parameter_types, traits::EitherOfDiverse};
 use pallet_dex::TradingPairStatus;
 use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
@@ -79,7 +78,7 @@ pub use frame_support::{
 
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureSignedBy,
+	EnsureRoot,
 };
 pub use pallet_grandpa::AuthorityId as GrandpaId;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
@@ -1221,12 +1220,10 @@ impl pallet_futurepass::Config for Runtime {
 	type MultiCurrency = AssetsExt;
 }
 
-ord_parameter_types! {
-	pub const VtxDistAdmin: AccountId = AccountId::from(hex_literal::hex!("0f301798b041bf0D5bCf3e109e535FbF3500bE09"));
-}
 parameter_types! {
 	pub const VtxVortexPotId: PalletId = PalletId(*b"vtx/vpot");
 	pub const VtxRootPotId: PalletId = PalletId(*b"vtx/rpot");
+	pub const VtxTxFeePotId: PalletId = PalletId(*b"vtx/fpot");
 	pub const UnsignedInterval: BlockNumber =  MINUTES / 2;
 	pub const PayoutBatchSize: u32 =  99;
 	pub const HistoryDepth: u32 = 84;
@@ -1242,12 +1239,10 @@ impl pallet_vortex::Config for Runtime {
 	type VtxAssetId = VortexAssetId;
 	type VtxDistPotId = VtxVortexPotId;
 	type RootPotId = VtxRootPotId;
-	type TxFeePotId = TxFeePotId;
+	type TxFeePotId = VtxTxFeePotId;
 	type UnsignedInterval = UnsignedInterval;
 	type PayoutBatchSize = PayoutBatchSize;
 	type VtxDistIdentifier = u32;
-	type VtxDistAdminOrigin =
-		EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<VtxDistAdmin, AccountId>>;
 	type MultiCurrency = AssetsExt;
 	type MaxAssetPrices = MaxAssetPrices;
 	type MaxRewards = MaxRewards;

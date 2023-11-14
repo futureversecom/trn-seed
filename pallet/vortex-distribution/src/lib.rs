@@ -33,7 +33,7 @@ use scale_info::TypeInfo;
 use seed_pallet_common::CreateExt;
 use seed_primitives::{AssetId, OffchainErr};
 use sp_runtime::{
-	traits::{AccountIdConversion, CheckedAdd, One, Saturating, Zero},
+	traits::{AccountIdConversion, CheckedAdd, One, Saturating, StaticLookup, Zero},
 	RuntimeDebug,
 };
 use sp_staking::EraIndex;
@@ -57,6 +57,8 @@ impl Default for VtxDistStatus {
 		Self::NotEnabled
 	}
 }
+
+type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -120,9 +122,6 @@ pub mod pallet {
 		/// Max pivot string length
 		type MaxStringLength: Get<u32>;
 
-		/// Vortex distribution admin origin
-		type VtxDistAdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
 		/// Vortex distribution identifier
 		type VtxDistIdentifier: Member
 			+ Parameter
@@ -140,6 +139,9 @@ pub mod pallet {
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
+
+	#[pallet::storage]
+	pub(super) type Key<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::storage]
 	pub(super) type NextVortexId<T: Config> = StorageValue<_, T::VtxDistIdentifier, ValueQuery>;
@@ -221,6 +223,9 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// Key changed
+		KeyChanged { old_key: Option<T::AccountId> },
+
 		/// Rewards registered
 		RewardRegistered {
 			id: T::VtxDistIdentifier,
@@ -278,6 +283,9 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Require to be previous admin
+		RequireAdmin,
+
 		/// No available Dist id
 		VtxDistIdNotAvailable,
 
@@ -320,11 +328,22 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		#[pallet::weight(1000)]
+		pub fn set_admin(origin: OriginFor<T>, new: AccountIdLookupOf<T>) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let new = T::Lookup::lookup(new)?;
+
+			Self::deposit_event(Event::KeyChanged { old_key: Key::<T>::get() });
+			Key::<T>::put(&new);
+			Ok(())
+		}
+
 		/// List a vortex distribution
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::create_vtx_dist())]
 		#[transactional]
 		pub fn create_vtx_dist(origin: OriginFor<T>) -> DispatchResult {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 
 			let id = NextVortexId::<T>::get();
 			let next_pool_id =
@@ -344,7 +363,7 @@ pub mod pallet {
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::disable_vtx_dist())]
 		#[transactional]
 		pub fn disable_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 			ensure!(
 				VtxDistStatuses::<T>::get(id.clone()) != VtxDistStatus::NotEnabled,
 				Error::<T>::VtxDistNotEnabled
@@ -360,8 +379,7 @@ pub mod pallet {
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::start_vtx_dist())]
 		#[transactional]
 		pub fn start_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
-
+			Self::ensure_root_or_admin(origin)?;
 			ensure!(
 				VtxDistStatuses::<T>::get(id.clone()) == VtxDistStatus::Triggered,
 				Error::<T>::NotTriggered
@@ -459,7 +477,7 @@ pub mod pallet {
 			start_era: EraIndex,
 			end_era: EraIndex,
 		) -> DispatchResult {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 			ensure!(start_era <= end_era, Error::<T>::InvalidEndBlock);
 			VtxDistEras::<T>::insert(id, (start_era, end_era));
 
@@ -478,7 +496,7 @@ pub mod pallet {
 			asset_prices: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 			id: T::VtxDistIdentifier,
 		) -> DispatchResultWithPostInfo {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 			Self::do_asset_price_setter(asset_prices, id)
 		}
 
@@ -492,7 +510,8 @@ pub mod pallet {
 			id: T::VtxDistIdentifier,
 			rewards: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
 		) -> DispatchResult {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
+			Self::ensure_root_or_admin(origin)?;
+
 			let s = VtxDistStatuses::<T>::get(id);
 
 			match s {
@@ -522,7 +541,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			id: T::VtxDistIdentifier,
 		) -> DispatchResultWithPostInfo {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 
 			ensure!(
 				VtxDistStatuses::<T>::get(id.clone()) < VtxDistStatus::Triggered,
@@ -742,6 +761,18 @@ pub mod pallet {
 				T::MultiCurrency::transfer(asset_id, source, dest, amount, false)?;
 			ensure!(transfer_result == amount, Error::<T>::InvalidAmount);
 			Ok(())
+		}
+
+		fn ensure_root_or_admin(
+			origin: OriginFor<T>,
+		) -> Result<Option<T::AccountId>, DispatchError> {
+			match ensure_signed_or_root(origin)? {
+				Some(who) => {
+					ensure!(Key::<T>::get().map_or(false, |k| who == k), Error::<T>::RequireAdmin);
+					Ok(Some(who))
+				},
+				None => Ok(None),
+			}
 		}
 	}
 }

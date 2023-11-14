@@ -44,7 +44,7 @@ fn create_vtx_dist_without_root_origin_should_fail() {
 
 		assert_noop!(
 			Vortex::create_vtx_dist(Origin::signed(non_admin)),
-			frame_support::dispatch::DispatchError::BadOrigin
+			crate::Error::<Test>::RequireAdmin
 		);
 	});
 }
@@ -110,7 +110,7 @@ fn disable_vtx_dist_without_permission_should_fail() {
 
 		assert_noop!(
 			Vortex::disable_vtx_dist(Origin::signed(non_admin), vortex_dist_id),
-			frame_support::dispatch::DispatchError::BadOrigin
+			crate::Error::<Test>::RequireAdmin
 		);
 	});
 }
@@ -164,7 +164,7 @@ fn start_vtx_dist_without_root_origin_should_fail() {
 
 		assert_noop!(
 			Vortex::start_vtx_dist(Origin::signed(non_admin), vortex_dist_id),
-			frame_support::dispatch::DispatchError::BadOrigin
+			crate::Error::<Test>::RequireAdmin
 		);
 	});
 }
@@ -427,7 +427,7 @@ fn set_vtx_dist_eras_without_permission_should_fail() {
 				start_era,
 				end_era
 			),
-			frame_support::dispatch::DispatchError::BadOrigin
+			crate::Error::<Test>::RequireAdmin
 		);
 	});
 }
@@ -497,7 +497,7 @@ fn set_asset_prices_without_permission_should_fail() {
 				bounded_asset_prices,
 				vortex_dist_id
 			),
-			frame_support::dispatch::DispatchError::BadOrigin
+			crate::Error::<Test>::RequireAdmin
 		);
 	});
 }
@@ -563,7 +563,7 @@ fn register_rewards_without_permission_should_fail() {
 		// Attempt to register rewards without the required permissions.
 		assert_noop!(
 			Vortex::register_rewards(Origin::signed(non_admin), vortex_dist_id, bounded_rewards),
-			frame_support::dispatch::DispatchError::BadOrigin
+			crate::Error::<Test>::RequireAdmin
 		);
 	});
 }
@@ -587,20 +587,68 @@ fn redeem_fails_if_amount_exceeds_balance() {
 
 #[test]
 fn trigger_vtx_distribution_should_work() {
-	TestExt::default().build().execute_with(|| {
-		// Retrieve the ID of the newly created vortex distribution.
-		let vortex_dist_id = NextVortexId::<Test>::get();
+	let alice: AccountId = create_account(1);
+	let bob: AccountId = create_account(2);
+	let charlie: AccountId = create_account(3);
 
-		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+	TestExt::default()
+		.with_balances(&[(alice, 2_000_000)])
+		.with_asset(<Test as crate::Config>::NativeAssetId::get(), "ROOT", &[(alice, 1_000_000)])
+		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(alice, 0)])
+		.build()
+		.execute_with(|| {
+			// create 3 tokens
+			let usdc = AssetsExt::create(&alice, None).unwrap();
+			let weth = AssetsExt::create(&alice, None).unwrap();
 
-		// Trigger the vortex distribution process.
-		assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id,));
+			let vortex_dist_id = NextVortexId::<Test>::get();
 
-		// Check that the correct event was emitted.
-		System::assert_last_event(MockEvent::Vortex(crate::Event::TriggerVtxDistribution {
-			id: vortex_dist_id,
-		}));
-	});
+			// mint tokens to user - fee vault
+			let root_vault = Vortex::get_root_vault_account();
+			assert_ok!(Vortex::safe_transfer(
+				NativeAssetId::get(),
+				&alice,
+				&root_vault,
+				1_000_000,
+				false
+			));
+			let fee_vault = Vortex::get_fee_vault_account();
+			assert_ok!(Vortex::safe_transfer(
+				NativeAssetId::get(),
+				&alice,
+				&fee_vault,
+				1_000_000,
+				false
+			));
+			assert_ok!(AssetsExt::mint_into(usdc, &fee_vault, 1_000_000)); //fee vault
+			assert_ok!(AssetsExt::mint_into(weth, &fee_vault, 1_000_000)); //fee vault
+
+			// list vortex distribution
+			assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+			//set asset price
+			assert_ok!(Vortex::set_asset_prices(
+				Origin::root(),
+				BoundedVec::try_from(vec![(usdc, 100), (weth, 200)]).unwrap(),
+				vortex_dist_id,
+			));
+
+			//register vortex token rewards for everyone
+			assert_ok!(Vortex::register_rewards(
+				Origin::root(),
+				vortex_dist_id,
+				BoundedVec::try_from(vec![(bob, 500_000), (charlie, 500_000)]).unwrap()
+			));
+
+			//trigger vortext reward calcuation and assets/root transfer to vault
+			assert_eq!(Balances::free_balance(&fee_vault), 1_000_000);
+			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id,));
+			assert_eq!(Balances::free_balance(&fee_vault), 0);
+
+			// Check that the correct event was emitted.
+			System::assert_last_event(MockEvent::Vortex(crate::Event::TriggerVtxDistribution {
+				id: vortex_dist_id,
+			}));
+		});
 }
 
 #[test]
@@ -635,7 +683,7 @@ fn trigger_vtx_distribution_should_fail_without_permission() {
 		let non_admin_account = create_account(4);
 		assert_noop!(
 			Vortex::trigger_vtx_distribution(Origin::signed(non_admin_account), vortex_dist_id,),
-			frame_support::dispatch::DispatchError::BadOrigin
+			crate::Error::<Test>::RequireAdmin
 		);
 	});
 }
@@ -670,6 +718,13 @@ fn redeem_tokens_from_vault_should_work() {
 				false
 			));
 			let fee_vault = Vortex::get_fee_vault_account();
+			assert_ok!(Vortex::safe_transfer(
+				NativeAssetId::get(),
+				&alice,
+				&fee_vault,
+				1_000_000,
+				false
+			));
 			assert_ok!(AssetsExt::mint_into(usdc, &fee_vault, 1_000_000)); //fee vault
 			assert_ok!(AssetsExt::mint_into(weth, &fee_vault, 1_000_000)); //fee vault
 
@@ -732,7 +787,7 @@ fn redeem_tokens_from_vault_should_work() {
 
 			//check withdraw result
 			assert_eq!(AssetsExt::balance(usdc, &bob), 500_000);
-			assert_eq!(Balances::free_balance(&bob), 500_000);
+			assert_eq!(Balances::free_balance(&bob), 1_000_000);
 		});
 }
 

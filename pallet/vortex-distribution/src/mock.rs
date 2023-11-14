@@ -152,7 +152,6 @@ impl crate::Config for Test {
 	type UnsignedInterval = UnsignedInterval;
 	type PayoutBatchSize = PayoutBatchSize;
 	type VtxDistIdentifier = u32;
-	type VtxDistAdminOrigin = EnsureRoot<AccountId>;
 	type MultiCurrency = AssetsExt;
 	type HistoryDepth = HistoryDepth;
 	type MaxAssetPrices = ConstU32<1000>;
