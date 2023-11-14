@@ -130,7 +130,9 @@ where
 }
 
 parameter_types! {
-	pub const VortexPalletId: PalletId = PalletId(*b"vort/idx");
+	pub const VtxVortexPotId: PalletId = PalletId(*b"vtx/vpot");
+	pub const VtxRootPotId: PalletId = PalletId(*b"vtx/rpot");
+	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
 	pub const UnsignedInterval: BlockNumber =  MINUTES / 2;
 	pub const PayoutBatchSize: u32 =  799;
 	pub const HistoryDepth: u32 = 84;
@@ -144,7 +146,9 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type NativeAssetId = RootAssetId;
 	type VtxAssetId = VortexAssetId;
-	type VtxDistPalletId = VortexPalletId;
+	type VtxDistPotId = VtxVortexPotId;
+	type RootPotId = VtxRootPotId;
+	type TxFeePotId = TxFeePotId;
 	type UnsignedInterval = UnsignedInterval;
 	type PayoutBatchSize = PayoutBatchSize;
 	type VtxDistIdentifier = u32;
