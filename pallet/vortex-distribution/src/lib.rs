@@ -141,7 +141,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	pub(super) type Key<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+	pub(super) type AdminAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::storage]
 	pub(super) type NextVortexId<T: Config> = StorageValue<_, T::VtxDistIdentifier, ValueQuery>;
@@ -223,8 +223,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Key changed
-		KeyChanged { old_key: Option<T::AccountId> },
+		/// Admin Account changed
+		AdminAccountChanged { old_key: Option<T::AccountId> },
 
 		/// Rewards registered
 		RewardRegistered {
@@ -334,8 +334,8 @@ pub mod pallet {
 
 			let new = T::Lookup::lookup(new)?;
 
-			Self::deposit_event(Event::KeyChanged { old_key: Key::<T>::get() });
-			Key::<T>::put(&new);
+			Self::deposit_event(Event::AdminAccountChanged { old_key: AdminAccount::<T>::get() });
+			AdminAccount::<T>::put(&new);
 			Ok(())
 		}
 
@@ -768,7 +768,7 @@ pub mod pallet {
 		) -> Result<Option<T::AccountId>, DispatchError> {
 			match ensure_signed_or_root(origin)? {
 				Some(who) => {
-					ensure!(Key::<T>::get().map_or(false, |k| who == k), Error::<T>::RequireAdmin);
+					ensure!(AdminAccount::<T>::get().map_or(false, |k| who == k), Error::<T>::RequireAdmin);
 					Ok(Some(who))
 				},
 				None => Ok(None),
