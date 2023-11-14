@@ -768,7 +768,10 @@ pub mod pallet {
 		) -> Result<Option<T::AccountId>, DispatchError> {
 			match ensure_signed_or_root(origin)? {
 				Some(who) => {
-					ensure!(AdminAccount::<T>::get().map_or(false, |k| who == k), Error::<T>::RequireAdmin);
+					ensure!(
+						AdminAccount::<T>::get().map_or(false, |k| who == k),
+						Error::<T>::RequireAdmin
+					);
 					Ok(Some(who))
 				},
 				None => Ok(None),
