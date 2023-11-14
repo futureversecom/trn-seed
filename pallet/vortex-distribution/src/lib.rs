@@ -674,14 +674,26 @@ pub mod pallet {
 				)?;
 			}
 			// move bootstrap incenive here
-			// move root token from root_vault to get_vault_account
-			let root_token_balance =
+			// move root token from fee_vault to vault_account
+			let fee_vault_root_token_balance =
+				T::MultiCurrency::balance(T::NativeAssetId::get(), &fee_vault_account);
+			if fee_vault_root_token_balance > Zero::zero() {
+				Self::safe_transfer(
+					T::NativeAssetId::get(),
+					&fee_vault_account,
+					&vault_account,
+					fee_vault_root_token_balance,
+					false,
+				)?;
+			}
+			// move root token from root_vault to vault_account
+			let root_vault_root_token_balance =
 				T::MultiCurrency::balance(T::NativeAssetId::get(), &root_vault_account);
 			Self::safe_transfer(
 				T::NativeAssetId::get(),
 				&root_vault_account,
 				&vault_account,
-				root_token_balance,
+				root_vault_root_token_balance,
 				false,
 			)?;
 
