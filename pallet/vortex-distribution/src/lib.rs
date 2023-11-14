@@ -24,30 +24,29 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::pallet_prelude::*;
+use frame_system::{
+	offchain::{SendTransactionTypes, SubmitTransaction},
+	pallet_prelude::*,
+};
+use pallet_staking::{BalanceOf, RewardPoint};
 use scale_info::TypeInfo;
 use seed_pallet_common::CreateExt;
 use seed_primitives::{AssetId, OffchainErr};
-use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{AccountIdConversion, CheckedAdd, One, Saturating, Zero},
+	traits::{AccountIdConversion, CheckedAdd, One, Saturating, StaticLookup, Zero},
 	RuntimeDebug,
 };
-
-// use pallet_staking::{EraIndex};
-use pallet_staking::{BalanceOf, RewardPoint};
 use sp_staking::EraIndex;
-
-use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
 use sp_std::{convert::TryInto, prelude::*};
+
 pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::max_value() / 2;
 
 #[derive(
 	Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, PartialOrd, Eq, TypeInfo, MaxEncodedLen,
 )]
 pub enum VtxDistStatus {
-	NotEnabled,
 	Enabled,
+	Disabled,
 	Triggered,
 	Paying,
 	Done,
@@ -55,9 +54,11 @@ pub enum VtxDistStatus {
 
 impl Default for VtxDistStatus {
 	fn default() -> Self {
-		Self::NotEnabled
+		Self::Disabled
 	}
 }
+
+type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -92,9 +93,17 @@ pub mod pallet {
 		#[pallet::constant]
 		type VtxAssetId: Get<AssetId>;
 
-		/// Vortex distribution pallet id
+		/// Vortex distribution pot id
 		#[pallet::constant]
-		type VtxDistPalletId: Get<PalletId>;
+		type VtxDistPotId: Get<PalletId>;
+
+		/// Vortex root pot id
+		#[pallet::constant]
+		type RootPotId: Get<PalletId>;
+
+		/// Vortex fee pot id
+		#[pallet::constant]
+		type TxFeePotId: Get<PalletId>;
 
 		/// Unsigned transaction interval
 		#[pallet::constant]
@@ -113,9 +122,6 @@ pub mod pallet {
 		/// Max pivot string length
 		type MaxStringLength: Get<u32>;
 
-		/// Vortex distribution admin origin
-		type VtxDistAdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
 		/// Vortex distribution identifier
 		type VtxDistIdentifier: Member
 			+ Parameter
@@ -133,6 +139,9 @@ pub mod pallet {
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
+
+	#[pallet::storage]
+	pub(super) type AdminAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::storage]
 	pub(super) type NextVortexId<T: Config> = StorageValue<_, T::VtxDistIdentifier, ValueQuery>;
@@ -214,14 +223,17 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// Admin Account changed
+		AdminAccountChanged { old_key: Option<T::AccountId>, new_key: T::AccountId },
+
 		/// Rewards registered
 		RewardRegistered {
 			id: T::VtxDistIdentifier,
 			rewards: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
 		},
 
-		/// Distribution enabled
-		VtxDistEnabled { id: T::VtxDistIdentifier },
+		/// Distribution created
+		VtxDistCreated { id: T::VtxDistIdentifier },
 
 		/// Distribution disabled
 		VtxDistDisabled { id: T::VtxDistIdentifier },
@@ -245,13 +257,7 @@ pub mod pallet {
 		},
 
 		/// Trigger distribution calculation
-		TriggerVtxDistribution {
-			id: T::VtxDistIdentifier,
-			root_vault: T::AccountId,
-			fee_vault: T::AccountId,
-			root_price: <T as pallet_staking::Config>::CurrencyBalance,
-			vortex_price: <T as pallet_staking::Config>::CurrencyBalance,
-		},
+		TriggerVtxDistribution { id: T::VtxDistIdentifier },
 	}
 
 	#[pallet::hooks]
@@ -277,14 +283,17 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Require to be previous admin
+		RequireAdmin,
+
 		/// No available Dist id
 		VtxDistIdNotAvailable,
 
 		/// Vortex distribution already enabled
 		VtxDistAlreadyEnabled,
 
-		/// Vortex distribution not enabled
-		VtxDistNotEnabled,
+		/// Vortex distribution disabled
+		VtxDistDisabled,
 
 		/// Invalid end block
 		InvalidEndBlock,
@@ -304,9 +313,6 @@ pub mod pallet {
 		/// Vortex period not set
 		VortexPeriodNotSet,
 
-		/// Vault account not found
-		VaultAccountNotFound,
-
 		/// Pivot string too long
 		PivotStringTooLong,
 
@@ -322,29 +328,35 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		#[pallet::weight(1000)]
+		pub fn set_admin(origin: OriginFor<T>, new: AccountIdLookupOf<T>) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let new = T::Lookup::lookup(new)?;
+
+			AdminAccount::<T>::put(&new);
+			Self::deposit_event(Event::AdminAccountChanged {
+				old_key: AdminAccount::<T>::get(),
+				new_key: new,
+			});
+			Ok(())
+		}
+
 		/// List a vortex distribution
-		///
-		/// `vortex_token_amount` - Total amount of vortex to distribute
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::create_vtx_dist())]
 		#[transactional]
-		pub fn create_vtx_dist(
-			origin: OriginFor<T>,
-			vortex_token_amount: BalanceOf<T>,
-		) -> DispatchResult {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
+		pub fn create_vtx_dist(origin: OriginFor<T>) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
 
 			let id = NextVortexId::<T>::get();
 			let next_pool_id =
 				id.checked_add(&One::one()).ok_or(Error::<T>::VtxDistIdNotAvailable)?;
 
-			ensure!(vortex_token_amount > Zero::zero(), Error::<T>::InvalidAmount);
-
 			NextVortexId::<T>::mutate(|next_id| {
 				*next_id = next_pool_id;
 			});
 			VtxDistStatuses::<T>::insert(id, VtxDistStatus::Enabled);
-			TotalVortex::<T>::insert(id, vortex_token_amount);
-			Self::deposit_event(Event::VtxDistEnabled { id });
+			Self::deposit_event(Event::VtxDistCreated { id });
 			Ok(())
 		}
 
@@ -354,10 +366,10 @@ pub mod pallet {
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::disable_vtx_dist())]
 		#[transactional]
 		pub fn disable_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 			ensure!(
-				VtxDistStatuses::<T>::get(id.clone()) != VtxDistStatus::NotEnabled,
-				Error::<T>::VtxDistNotEnabled
+				VtxDistStatuses::<T>::get(id.clone()) != VtxDistStatus::Disabled,
+				Error::<T>::VtxDistDisabled
 			);
 			Self::do_disable_vtx_dist(id);
 			Self::deposit_event(Event::VtxDistDisabled { id });
@@ -370,14 +382,13 @@ pub mod pallet {
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::start_vtx_dist())]
 		#[transactional]
 		pub fn start_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
-
+			Self::ensure_root_or_admin(origin)?;
 			ensure!(
 				VtxDistStatuses::<T>::get(id.clone()) == VtxDistStatus::Triggered,
 				Error::<T>::NotTriggered
 			);
 
-			Self::do_start_vtx_dist(id);
+			Self::do_start_vtx_dist(id)?;
 			Self::deposit_event(Event::VtxDistStarted { id });
 			Ok(())
 		}
@@ -395,54 +406,59 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_none(origin)?;
 			if let VtxDistStatus::Paying = VtxDistStatuses::<T>::get(id) {
-				if let Some(_vault_account) = Self::get_vault_account_accum() {
-					let start_key = VtxDistPayoutPivot::<T>::get(id);
-					let payout_pivot: Vec<u8> =
-						start_key.clone().try_into().map_err(|_| Error::<T>::PivotStringTooLong)?;
+				let vault_account = Self::get_vtx_vault_account();
+				let start_key = VtxDistPayoutPivot::<T>::get(id);
+				let payout_pivot: Vec<u8> =
+					start_key.clone().try_into().map_err(|_| Error::<T>::PivotStringTooLong)?;
 
-					let mut map_iterator = match VtxDistPayoutPivot::<T>::contains_key(id) {
-						true => <VtxDistOrderbook<T>>::iter_prefix_from(id, payout_pivot),
-						false => <VtxDistOrderbook<T>>::iter_prefix(id),
-					};
+				let mut map_iterator = match VtxDistPayoutPivot::<T>::contains_key(id) {
+					true => <VtxDistOrderbook<T>>::iter_prefix_from(id, payout_pivot),
+					false => <VtxDistOrderbook<T>>::iter_prefix(id),
+				};
 
-					let mut count = 0u32;
-					while let Some((who, entry)) = map_iterator.next() {
-						// if the user is already paid out, skip
-						if entry.1 {
-							continue
-						}
-
-						let share = entry.0;
-						let transfer_result =
-							T::MultiCurrency::mint_into(T::VtxAssetId::get(), &who, share);
-						if transfer_result.is_ok() {
-							Self::deposit_event(Event::VtxDistPaidOut {
-								id,
-								who: who.clone(),
-								amount: share,
-							});
-						}
-						VtxDistOrderbook::<T>::mutate(id, who.clone(), |entry| {
-							*entry = (entry.0, true);
-						});
-						count += 1;
-						if count > T::PayoutBatchSize::get() {
-							break
-						}
+				let mut count = 0u32;
+				while let Some((who, entry)) = map_iterator.next() {
+					// if the user is already paid out, skip
+					if entry.1 {
+						continue
 					}
-					let current_last_raw_key: BoundedVec<u8, T::MaxStringLength> =
-						BoundedVec::try_from(map_iterator.last_raw_key().to_vec())
-							.map_err(|_| Error::<T>::PivotStringTooLong)?;
 
-					if current_last_raw_key == start_key.clone() {
-						VtxDistStatuses::<T>::mutate(id, |status| {
-							*status = VtxDistStatus::Done;
+					let share = entry.0;
+					let transfer_result = Self::safe_transfer(
+						T::VtxAssetId::get(),
+						&vault_account,
+						&who,
+						share,
+						false,
+					);
+
+					if transfer_result.is_ok() {
+						Self::deposit_event(Event::VtxDistPaidOut {
+							id,
+							who: who.clone(),
+							amount: share,
 						});
-						VtxDistOrderbook::<T>::drain_prefix(id);
-						Self::deposit_event(Event::VtxDistDone { id });
 					}
-					VtxDistPayoutPivot::<T>::insert(id, current_last_raw_key);
+					VtxDistOrderbook::<T>::mutate(id, who.clone(), |entry| {
+						*entry = (entry.0, true);
+					});
+					count += 1;
+					if count > T::PayoutBatchSize::get() {
+						break
+					}
 				}
+				let current_last_raw_key: BoundedVec<u8, T::MaxStringLength> =
+					BoundedVec::try_from(map_iterator.last_raw_key().to_vec())
+						.map_err(|_| Error::<T>::PivotStringTooLong)?;
+
+				if current_last_raw_key == start_key.clone() {
+					VtxDistStatuses::<T>::mutate(id, |status| {
+						*status = VtxDistStatus::Done;
+					});
+					VtxDistOrderbook::<T>::drain_prefix(id);
+					Self::deposit_event(Event::VtxDistDone { id });
+				}
+				VtxDistPayoutPivot::<T>::insert(id, current_last_raw_key);
 			}
 
 			let current_block = <frame_system::Pallet<T>>::block_number();
@@ -464,7 +480,7 @@ pub mod pallet {
 			start_era: EraIndex,
 			end_era: EraIndex,
 		) -> DispatchResult {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 			ensure!(start_era <= end_era, Error::<T>::InvalidEndBlock);
 			VtxDistEras::<T>::insert(id, (start_era, end_era));
 
@@ -483,7 +499,7 @@ pub mod pallet {
 			asset_prices: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 			id: T::VtxDistIdentifier,
 		) -> DispatchResultWithPostInfo {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 			Self::do_asset_price_setter(asset_prices, id)
 		}
 
@@ -497,56 +513,45 @@ pub mod pallet {
 			id: T::VtxDistIdentifier,
 			rewards: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
 		) -> DispatchResult {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
+			Self::ensure_root_or_admin(origin)?;
+
 			let s = VtxDistStatuses::<T>::get(id);
-
-			let mut total_rewards: BalanceOf<T> = Zero::zero();
-			for (_, amount) in &rewards {
-				total_rewards += *amount;
-			}
-
-			let total_vortex = TotalVortex::<T>::get(id);
-			ensure!(total_rewards <= total_vortex, Error::<T>::InvalidAmount);
 
 			match s {
 				VtxDistStatus::Enabled => {
+					let mut total_rewards: BalanceOf<T> = Zero::zero();
 					for (who, amount) in rewards.iter() {
+						total_rewards += *amount;
 						VtxDistOrderbook::<T>::mutate(id, who.clone(), |entry| {
 							*entry = (entry.0.saturating_add(*amount), entry.1);
 						});
 					}
+					TotalVortex::<T>::mutate(id, |total_vortex| {
+						*total_vortex = total_vortex.saturating_add(total_rewards);
+					});
 					Self::deposit_event(Event::RewardRegistered { id, rewards });
 					Ok(())
 				},
-				_ => Err(Error::<T>::VtxDistNotEnabled)?,
+				_ => Err(Error::<T>::VtxDistDisabled)?,
 			}
 		}
 
-		/// Trigger distribution calculation
-		/// calc how many vortex to mint, mint vortex and move root and other tokens into vault
+		/// Trigger distribution
 		///
-		/// `root_price` - Native asset price
-		/// `vortex_price` - Vortex price
-		/// `root_vault` - Native token vault
-		/// `fee_vault` - Fee vault
 		/// `id` - The distribution id
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution())]
 		pub fn trigger_vtx_distribution(
 			origin: OriginFor<T>,
-			root_price: <T as pallet_staking::Config>::CurrencyBalance,
-			vortex_price: <T as pallet_staking::Config>::CurrencyBalance,
-			root_vault: T::AccountId,
-			fee_vault: T::AccountId,
 			id: T::VtxDistIdentifier,
 		) -> DispatchResultWithPostInfo {
-			T::VtxDistAdminOrigin::ensure_origin(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 
 			ensure!(
 				VtxDistStatuses::<T>::get(id.clone()) < VtxDistStatus::Triggered,
 				Error::<T>::AlreadyTriggered
 			);
 
-			Self::do_vtx_distribution_trigger(root_price, vortex_price, root_vault, fee_vault, id)
+			Self::do_vtx_distribution_trigger(id)
 		}
 
 		/// Redeem tokens from vault
@@ -561,8 +566,7 @@ pub mod pallet {
 			vortex_token_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let vault_account =
-				Self::get_vault_account_accum().ok_or(Error::<T>::VaultAccountNotFound)?;
+			let vault_account = Self::get_vtx_vault_account();
 			let total_vortex = T::MultiCurrency::total_issuance(T::VtxAssetId::get());
 			let vortex_balance = vortex_token_amount;
 			ensure!(total_vortex > Zero::zero(), Error::<T>::NoVtxAssetMinted);
@@ -620,45 +624,39 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Account id of this pallet.
-		fn account_id() -> T::AccountId {
-			T::VtxDistPalletId::get().into_account_truncating()
+		/// Account id of vtx asset.
+		pub fn get_vtx_vault_account() -> T::AccountId {
+			T::VtxDistPotId::get().into_account_truncating()
 		}
 
-		/// Get accumulative vault account
-		pub fn get_vault_account_accum() -> Option<T::AccountId> {
-			// use vtx_dist module account id as entropy to generate reward vault id
-			let entropy = (b"modlpy/palletvtx_dist", Self::account_id()).using_encoded(blake2_256);
-			if let Ok(vtx_dist_vault_account) = T::AccountId::decode(&mut &entropy[..]) {
-				return Some(vtx_dist_vault_account)
-			}
-			None
+		/// Get root vault account
+		pub fn get_root_vault_account() -> T::AccountId {
+			T::RootPotId::get().into_account_truncating()
 		}
 
-		/// Get vault account for a distribution
-		pub fn get_vault_account(vtx_dist_id: T::VtxDistIdentifier) -> Option<T::AccountId> {
-			// use vtx_dist module account id and offered asset id as entropy to generate reward
-			// vault id.
-			let entropy = (b"modlpy/palletvtx_dist", Self::account_id(), vtx_dist_id)
-				.using_encoded(blake2_256);
-			if let Ok(vtx_dist_vault_account) = T::AccountId::decode(&mut &entropy[..]) {
-				return Some(vtx_dist_vault_account)
-			}
-			None
+		/// Get fee vault account
+		pub fn get_fee_vault_account() -> T::AccountId {
+			T::TxFeePotId::get().into_account_truncating()
 		}
 
 		/// disable a distribution
 		fn do_disable_vtx_dist(id: T::VtxDistIdentifier) {
 			VtxDistStatuses::<T>::mutate(id, |status| {
-				*status = VtxDistStatus::NotEnabled;
+				*status = VtxDistStatus::Disabled;
 			});
 		}
 
 		/// start a distribution
-		fn do_start_vtx_dist(id: T::VtxDistIdentifier) {
+		fn do_start_vtx_dist(id: T::VtxDistIdentifier) -> DispatchResult {
+			let vault_account = Self::get_vtx_vault_account();
+			let total_vortex = TotalVortex::<T>::get(id);
+			T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vault_account, total_vortex)?;
+
+			TotalVortex::<T>::remove(id);
 			VtxDistStatuses::<T>::mutate(id, |status| {
 				*status = VtxDistStatus::Paying;
 			});
+			Ok(().into())
 		}
 
 		/// set asset prices
@@ -679,55 +677,52 @@ pub mod pallet {
 		}
 
 		/// trigger a distribution
-		fn do_vtx_distribution_trigger(
-			_root_price: <T as pallet_staking::Config>::CurrencyBalance,
-			_vortex_price: <T as pallet_staking::Config>::CurrencyBalance,
-			root_vault: T::AccountId,
-			fee_vault: T::AccountId,
-			id: T::VtxDistIdentifier,
-		) -> DispatchResultWithPostInfo {
-			let _weight_info = <() as pallet_staking::WeightInfo>::payout_stakers_alive_staked(0);
-			let _total_vortex = TotalVortex::<T>::get(id); //TODO: take out this one after turn on onchain rewards
+		fn do_vtx_distribution_trigger(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
+			let vault_account = Self::get_vtx_vault_account();
 
-			// mint VtxAssetId asset for amount total_vortex into get_vault_account_accum()
-			let get_vault_account =
-				Self::get_vault_account_accum().ok_or(Error::<T>::VaultAccountNotFound)?;
+			let root_vault_account = Self::get_root_vault_account();
+			let fee_vault_account = Self::get_fee_vault_account();
 
 			// move gas & network fee to a vault here
 			// move all asset in fee_vault to get_vault_account based on asset list in AssetPrices
 			for (asset_id, _) in AssetPrices::<T>::iter_prefix(id) {
-				let asset_balance = T::MultiCurrency::balance(asset_id, &fee_vault);
+				let asset_balance = T::MultiCurrency::balance(asset_id, &fee_vault_account);
 				Self::safe_transfer(
 					asset_id,
-					&fee_vault,
-					&get_vault_account,
+					&fee_vault_account,
+					&vault_account,
 					asset_balance,
 					false,
 				)?;
 			}
 			// move bootstrap incenive here
-			// move root token from root_vault to get_vault_account
-			let root_token_balance =
-				T::MultiCurrency::balance(T::NativeAssetId::get(), &root_vault);
+			// move root token from fee_vault to vault_account
+			let fee_vault_root_token_balance =
+				T::MultiCurrency::balance(T::NativeAssetId::get(), &fee_vault_account);
+			if fee_vault_root_token_balance > Zero::zero() {
+				Self::safe_transfer(
+					T::NativeAssetId::get(),
+					&fee_vault_account,
+					&vault_account,
+					fee_vault_root_token_balance,
+					false,
+				)?;
+			}
+			// move root token from root_vault to vault_account
+			let root_vault_root_token_balance =
+				T::MultiCurrency::balance(T::NativeAssetId::get(), &root_vault_account);
 			Self::safe_transfer(
 				T::NativeAssetId::get(),
-				&root_vault,
-				&get_vault_account,
-				root_token_balance,
+				&root_vault_account,
+				&vault_account,
+				root_vault_root_token_balance,
 				false,
 			)?;
 
 			VtxDistStatuses::<T>::mutate(id, |status| {
 				*status = VtxDistStatus::Triggered;
 			});
-
-			Self::deposit_event(Event::TriggerVtxDistribution {
-				id,
-				root_vault,
-				fee_vault,
-				root_price: _root_price,
-				vortex_price: _vortex_price,
-			});
+			Self::deposit_event(Event::TriggerVtxDistribution { id });
 
 			Ok(().into())
 		}
@@ -769,6 +764,21 @@ pub mod pallet {
 				T::MultiCurrency::transfer(asset_id, source, dest, amount, false)?;
 			ensure!(transfer_result == amount, Error::<T>::InvalidAmount);
 			Ok(())
+		}
+
+		fn ensure_root_or_admin(
+			origin: OriginFor<T>,
+		) -> Result<Option<T::AccountId>, DispatchError> {
+			match ensure_signed_or_root(origin)? {
+				Some(who) => {
+					ensure!(
+						AdminAccount::<T>::get().map_or(false, |k| who == k),
+						Error::<T>::RequireAdmin
+					);
+					Ok(Some(who))
+				},
+				None => Ok(None),
+			}
 		}
 	}
 }

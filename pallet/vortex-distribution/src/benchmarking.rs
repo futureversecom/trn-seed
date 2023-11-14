@@ -15,31 +15,30 @@ pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 	bench_account(name, 0, 0)
 }
 
-fn mint_asset<T: Config>(fee_vault: &T::AccountId, root_vault: &T::AccountId) -> AssetId {
-	let asset_id = T::MultiCurrency::create(&fee_vault, None).unwrap();
+fn mint_asset<T: Config>() -> AssetId {
+	let asset_account = account::<T>("asset_vault");
+	let asset_id = T::MultiCurrency::create(&asset_account, None).unwrap();
 	let mint_amount = <T as pallet_staking::Config>::CurrencyBalance::one();
-	assert_ok!(T::MultiCurrency::mint_into(asset_id, &fee_vault, mint_amount.into()));
-	assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get(), &root_vault, mint_amount));
-	assert_ok!(T::MultiCurrency::mint_into(T::VtxAssetId::get(), &root_vault, mint_amount));
+	assert_ok!(T::MultiCurrency::mint_into(asset_id, &asset_account, mint_amount.into()));
+	assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get(), &asset_account, mint_amount));
+	assert_ok!(T::MultiCurrency::mint_into(T::VtxAssetId::get(), &asset_account, mint_amount));
 	asset_id
 }
 
 benchmarks! {
 	create_vtx_dist {
 		let vortex_dist_id = NextVortexId::<T>::get();
-		let amount = 100u32.into();
-	}: _(RawOrigin::Root,  amount)
+	}: _(RawOrigin::Root)
 	verify {
 		assert_eq!(VtxDistStatuses::<T>::get(vortex_dist_id), VtxDistStatus::Enabled);
 	}
 
 	disable_vtx_dist {
 		let vortex_dist_id = NextVortexId::<T>::get();
-		let amount = 100u32.into();
-		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into(), amount));
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
 	}: _(RawOrigin::Root, vortex_dist_id)
 	verify {
-		assert_eq!(VtxDistStatuses::<T>::get(vortex_dist_id), VtxDistStatus::NotEnabled);
+		assert_eq!(VtxDistStatuses::<T>::get(vortex_dist_id), VtxDistStatus::Disabled);
 	}
 
 	start_vtx_dist {
@@ -48,10 +47,9 @@ benchmarks! {
 		let vortex_price = <T as pallet_staking::Config>::CurrencyBalance::one();
 		let root_vault = account::<T>("root_vault");
 		let fee_vault = account::<T>("fee_vault");
-		let asset_id = mint_asset::<T>(&fee_vault, &root_vault);
-		let amount = 100u32.into();
-		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into(), amount));
-		assert_ok!(VortexDistribution::<T>::trigger_vtx_distribution(RawOrigin::Root.into(), root_price, vortex_price, root_vault, fee_vault, vortex_dist_id));
+		let asset_id = mint_asset::<T>();
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
+		assert_ok!(VortexDistribution::<T>::trigger_vtx_distribution(RawOrigin::Root.into(), vortex_dist_id));
 	}: _(RawOrigin::Root, vortex_dist_id)
 	verify {
 		assert_eq!(VtxDistStatuses::<T>::get(vortex_dist_id), VtxDistStatus::Paying);
@@ -59,32 +57,28 @@ benchmarks! {
 
 	set_vtx_dist_eras {
 		let vortex_dist_id = NextVortexId::<T>::get();
-		let amount = 100u32.into();
 		let start_era = 1u32;
 		let end_era = 64u32;
-		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into(), amount));
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
 	}: _(RawOrigin::Root, vortex_dist_id, start_era, end_era)
 	verify {
 		assert_eq!(VtxDistEras::<T>::get(vortex_dist_id), (start_era, end_era));
 	}
 
 	set_asset_prices {
-		let b in 1..1000;
+		let b in 1..500;
 
-		let amount = 100u32.into();
 		let balance =  <T as pallet_staking::Config>::CurrencyBalance::one();
 
-		let root_vault = account::<T>("root_vault");
-		let fee_vault = account::<T>("fee_vault");
 		let mut asset_prices_vec = vec![];
 		for i in 0..b {
-			let asset_id = mint_asset::<T>(&fee_vault, &root_vault);
+			let asset_id = mint_asset::<T>();
 			asset_prices_vec.push((asset_id, balance.into()));
 		}
 
 		let asset_prices = BoundedVec::try_from(asset_prices_vec).unwrap();
 		let vortex_dist_id = NextVortexId::<T>::get();
-		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into(), amount));
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
 	}: _(RawOrigin::Root, asset_prices.clone(), vortex_dist_id)
 	verify {
 		for (asset_id, _) in asset_prices.into_iter() {
@@ -94,9 +88,8 @@ benchmarks! {
 
 	register_rewards {
 		let vortex_dist_id = NextVortexId::<T>::get();
-		let amount = 1_000_000u32.into();
-		let rewards = BoundedVec::try_from(vec![(account::<T>("test"), 100u32.into())]).unwrap();		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into(), amount));
-		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into(), amount));
+		let rewards = BoundedVec::try_from(vec![(account::<T>("test"), 100u32.into())]).unwrap();
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
 	}: _(RawOrigin::Root, vortex_dist_id, rewards)
 	verify {
 		let reward = VtxDistOrderbook::<T>::get(vortex_dist_id, account::<T>("test"));
@@ -105,46 +98,38 @@ benchmarks! {
 
 	trigger_vtx_distribution {
 		let vortex_dist_id = NextVortexId::<T>::get();
-		let root_price = <T as pallet_staking::Config>::CurrencyBalance::one();
-		let vortex_price = <T as pallet_staking::Config>::CurrencyBalance::one();
-		let root_vault = account::<T>("root_vault");
-		let fee_vault = account::<T>("fee_vault");
-		let amount = 100u32.into();
-		let asset_id = mint_asset::<T>(&fee_vault, &root_vault);
-		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into(), amount));
+		let asset_id = mint_asset::<T>();
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
 		let balance = <T as pallet_staking::Config>::CurrencyBalance::one();
 		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into())]).unwrap();
 		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), asset_prices, vortex_dist_id));
-	}: _(RawOrigin::Root, root_price, vortex_price, root_vault.clone(), fee_vault.clone(), vortex_dist_id)
-	verify {
-		assert_eq!(T::MultiCurrency::balance(asset_id, &root_vault), 0u32.into());
-		assert_eq!(T::MultiCurrency::balance(T::NativeAssetId::get(), &root_vault), 0u32.into());
 
-		assert_eq!(T::MultiCurrency::balance(asset_id, &fee_vault), 0u32.into());
-		assert_eq!(T::MultiCurrency::balance(T::NativeAssetId::get(), &fee_vault), 0u32.into());
+		let vault_account = VortexDistribution::<T>::get_vtx_vault_account();
+		let root_vault = VortexDistribution::<T>::get_root_vault_account();
+		let fee_vault = VortexDistribution::<T>::get_fee_vault_account();
 
 		let mint_amount = <T as pallet_staking::Config>::CurrencyBalance::one();
-		let accum_vault = Vortex::<T>::get_vault_account_accum().unwrap();
+		assert_ok!(T::MultiCurrency::mint_into(asset_id, &fee_vault, mint_amount.into()));
+		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get(), &root_vault, mint_amount));
+		assert_ok!(T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vault_account, mint_amount));
+	}: _(RawOrigin::Root, vortex_dist_id)
+	verify {
+		let accum_vault = Vortex::<T>::get_vtx_vault_account();
 		assert_eq!(T::MultiCurrency::balance(asset_id, &accum_vault), mint_amount);
 		assert_eq!(T::MultiCurrency::balance(T::NativeAssetId::get(), &accum_vault), mint_amount);
 	}
 
 	redeem_tokens_from_vault {
 		let vortex_dist_id = NextVortexId::<T>::get();
-		let root_price = <T as pallet_staking::Config>::CurrencyBalance::one();
-		let vortex_price = <T as pallet_staking::Config>::CurrencyBalance::one();
-		let root_vault = account::<T>("root_vault");
-		let fee_vault = account::<T>("fee_vault");
-		let amount = 2u32.into();
-		let asset_id = mint_asset::<T>(&fee_vault, &root_vault);
-		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into(), amount));
+		let asset_id = mint_asset::<T>();
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
 		let balance = <T as pallet_staking::Config>::CurrencyBalance::one();
 		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into())]).unwrap();
 		let end_block: u32 = 500;
 		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), asset_prices, vortex_dist_id));
 		let rewards = BoundedVec::try_from(vec![(account::<T>("test"), 2u32.into())]).unwrap();
 		assert_ok!(VortexDistribution::<T>::register_rewards(RawOrigin::Root.into(), vortex_dist_id, rewards));
-		assert_ok!(VortexDistribution::<T>::trigger_vtx_distribution(RawOrigin::Root.into(), root_price, vortex_price, root_vault, fee_vault, vortex_dist_id));
+		assert_ok!(VortexDistribution::<T>::trigger_vtx_distribution(RawOrigin::Root.into(), vortex_dist_id));
 		assert_ok!(VortexDistribution::<T>::start_vtx_dist(RawOrigin::Root.into(), vortex_dist_id));
 		System::<T>::set_block_number(end_block.into());
 		assert_ok!(VortexDistribution::<T>::pay_unsigned(RawOrigin::None.into(), vortex_dist_id, end_block.into()));
@@ -152,7 +137,7 @@ benchmarks! {
 	verify {
 		assert_eq!(T::MultiCurrency::balance(T::VtxAssetId::get(), &account::<T>("test")), balance);
 
-		let ratio = Perbill::from_rational(balance, amount * 2u32.into());
+		let ratio = Perbill::from_rational(balance, 20u32.into());
 		let mint_amount = <T as pallet_staking::Config>::CurrencyBalance::one();
 		let expect_balance = ratio * mint_amount;
 		assert_eq!(T::MultiCurrency::balance(asset_id, &account::<T>("test")), expect_balance);
@@ -161,20 +146,15 @@ benchmarks! {
 
 	pay_unsigned {
 		let vortex_dist_id = NextVortexId::<T>::get();
-		let root_price = <T as pallet_staking::Config>::CurrencyBalance::one();
-		let vortex_price = <T as pallet_staking::Config>::CurrencyBalance::one();
-		let root_vault = account::<T>("root_vault");
-		let fee_vault = account::<T>("fee_vault");
-		let amount = 2u32.into();
-		let asset_id = mint_asset::<T>(&fee_vault, &root_vault);
-		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into(), amount));
+		let asset_id = mint_asset::<T>();
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
 		let balance = <T as pallet_staking::Config>::CurrencyBalance::one();
 		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into())]).unwrap();
 		let end_block: u32 = 500;
 		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), asset_prices, vortex_dist_id));
 		let rewards = BoundedVec::try_from(vec![(account::<T>("test"), 2u32.into())]).unwrap();
 		assert_ok!(VortexDistribution::<T>::register_rewards(RawOrigin::Root.into(), vortex_dist_id, rewards));
-		assert_ok!(VortexDistribution::<T>::trigger_vtx_distribution(RawOrigin::Root.into(), root_price, vortex_price, root_vault, fee_vault, vortex_dist_id));
+		assert_ok!(VortexDistribution::<T>::trigger_vtx_distribution(RawOrigin::Root.into(), vortex_dist_id));
 		assert_ok!(VortexDistribution::<T>::start_vtx_dist(RawOrigin::Root.into(), vortex_dist_id));
 		System::<T>::set_block_number(end_block.into());
 	}: _(RawOrigin::None, vortex_dist_id, end_block.into())
