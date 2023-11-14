@@ -45,8 +45,8 @@ pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority:
 	Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, PartialOrd, Eq, TypeInfo, MaxEncodedLen,
 )]
 pub enum VtxDistStatus {
-	NotEnabled,
 	Enabled,
+	Disabled,
 	Triggered,
 	Paying,
 	Done,
@@ -54,7 +54,7 @@ pub enum VtxDistStatus {
 
 impl Default for VtxDistStatus {
 	fn default() -> Self {
-		Self::NotEnabled
+		Self::Disabled
 	}
 }
 
@@ -224,7 +224,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Admin Account changed
-		AdminAccountChanged { old_key: Option<T::AccountId> },
+		AdminAccountChanged { old_key: Option<T::AccountId>, new_key: T::AccountId },
 
 		/// Rewards registered
 		RewardRegistered {
@@ -232,8 +232,8 @@ pub mod pallet {
 			rewards: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
 		},
 
-		/// Distribution enabled
-		VtxDistEnabled { id: T::VtxDistIdentifier },
+		/// Distribution created
+		VtxDistCreated { id: T::VtxDistIdentifier },
 
 		/// Distribution disabled
 		VtxDistDisabled { id: T::VtxDistIdentifier },
@@ -292,8 +292,8 @@ pub mod pallet {
 		/// Vortex distribution already enabled
 		VtxDistAlreadyEnabled,
 
-		/// Vortex distribution not enabled
-		VtxDistNotEnabled,
+		/// Vortex distribution disabled
+		VtxDistDisabled,
 
 		/// Invalid end block
 		InvalidEndBlock,
@@ -334,8 +334,11 @@ pub mod pallet {
 
 			let new = T::Lookup::lookup(new)?;
 
-			Self::deposit_event(Event::AdminAccountChanged { old_key: AdminAccount::<T>::get() });
 			AdminAccount::<T>::put(&new);
+			Self::deposit_event(Event::AdminAccountChanged {
+				old_key: AdminAccount::<T>::get(),
+				new_key: new,
+			});
 			Ok(())
 		}
 
@@ -353,7 +356,7 @@ pub mod pallet {
 				*next_id = next_pool_id;
 			});
 			VtxDistStatuses::<T>::insert(id, VtxDistStatus::Enabled);
-			Self::deposit_event(Event::VtxDistEnabled { id });
+			Self::deposit_event(Event::VtxDistCreated { id });
 			Ok(())
 		}
 
@@ -365,8 +368,8 @@ pub mod pallet {
 		pub fn disable_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
 			Self::ensure_root_or_admin(origin)?;
 			ensure!(
-				VtxDistStatuses::<T>::get(id.clone()) != VtxDistStatus::NotEnabled,
-				Error::<T>::VtxDistNotEnabled
+				VtxDistStatuses::<T>::get(id.clone()) != VtxDistStatus::Disabled,
+				Error::<T>::VtxDistDisabled
 			);
 			Self::do_disable_vtx_dist(id);
 			Self::deposit_event(Event::VtxDistDisabled { id });
@@ -529,7 +532,7 @@ pub mod pallet {
 					Self::deposit_event(Event::RewardRegistered { id, rewards });
 					Ok(())
 				},
-				_ => Err(Error::<T>::VtxDistNotEnabled)?,
+				_ => Err(Error::<T>::VtxDistDisabled)?,
 			}
 		}
 
@@ -639,7 +642,7 @@ pub mod pallet {
 		/// disable a distribution
 		fn do_disable_vtx_dist(id: T::VtxDistIdentifier) {
 			VtxDistStatuses::<T>::mutate(id, |status| {
-				*status = VtxDistStatus::NotEnabled;
+				*status = VtxDistStatus::Disabled;
 			});
 		}
 

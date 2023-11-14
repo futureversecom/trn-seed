@@ -38,7 +38,7 @@ benchmarks! {
 		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
 	}: _(RawOrigin::Root, vortex_dist_id)
 	verify {
-		assert_eq!(VtxDistStatuses::<T>::get(vortex_dist_id), VtxDistStatus::NotEnabled);
+		assert_eq!(VtxDistStatuses::<T>::get(vortex_dist_id), VtxDistStatus::Disabled);
 	}
 
 	start_vtx_dist {
