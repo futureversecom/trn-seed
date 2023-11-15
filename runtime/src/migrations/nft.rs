@@ -9,7 +9,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{Marketplace, Nft, Runtime, Weight};
+use crate::{Nft, Runtime, Weight};
 use frame_support::{
 	dispatch::GetStorageVersion,
 	traits::{OnRuntimeUpgrade, StorageVersion},
@@ -33,12 +33,11 @@ impl OnRuntimeUpgrade for Upgrade {
 
 		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(2);
 
-		if onchain == 5 {
-			log::info!(target: "Migration", "Nft: Migrating from on-chain version 5 to on-chain version 6.");
+		if onchain == 6 {
+			log::info!(target: "Migration", "Nft: Migrating from on-chain version 6 to on-chain version 7.");
 			weight += v7::migrate::<Runtime>();
 
-			StorageVersion::new(6).put::<Nft>();
-			StorageVersion::new(1).put::<Marketplace>();
+			StorageVersion::new(7).put::<Nft>();
 
 			log::info!(target: "Migration", "Nft: Migration successfully finished.");
 		} else {
@@ -170,16 +169,30 @@ pub mod v7 {
 		log::info!(target: "Migration", "Nft: Migrating token ownership to it's own storage item.");
 		let mut weight = Weight::zero();
 
-		Map::iter::<
-			CollectionInfo<Runtime>,
-			CollectionUuid,
+		CollectionInfo::<Runtime>::translate::<
 			OldCollectionInformation<AccountId, MaxTokensPerCollection, CollectionNameStringLimit>,
-		>()
-		.iter()
-		.for_each(|(collection_id, collection_info)| {
+			_,
+		>(|collection_id, collection_info| {
 			// Reads: CollectionInfo
 			// Writes: CollectionInfo, TokenOwnership
 			weight += <Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 2);
+
+			// Construct ownership info out of old ownership info
+			let token_ownership_old = collection_info.owned_tokens;
+			let mut token_ownership_new = TokenOwnership::default();
+			token_ownership_old.iter().for_each(|ownership| {
+				// TODO better error handling
+				let _ = token_ownership_new
+					.owned_tokens
+					.try_push((ownership.owner, ownership.clone().owned_serials));
+			});
+			let collection_id_key = Twox64Concat::hash(&collection_id.encode());
+			Map::unsafe_storage_put::<TokenOwnership<AccountId, MaxTokensPerCollection>>(
+				b"Nft",
+				b"OwnershipInfo",
+				&collection_id_key,
+				token_ownership_new,
+			);
 
 			// Construct new collection info without ownership info
 			let new_collection_info = CollectionInformation {
@@ -193,29 +206,8 @@ pub mod v7 {
 				collection_issuance: collection_info.collection_issuance,
 				cross_chain_compatibility: collection_info.cross_chain_compatibility,
 			};
-			let collection_id_key = Twox64Concat::hash(&collection_id.encode());
-			Map::unsafe_storage_put::<CollectionInformation<AccountId, CollectionNameStringLimit>>(
-				b"Nft",
-				b"CollectionInfo",
-				&collection_id_key,
-				new_collection_info,
-			);
 
-			// Construct ownership info out of old ownership info
-			let token_ownership_old = collection_info.owned_tokens;
-			let mut token_ownership_new = TokenOwnership::default();
-			token_ownership_old.iter().for_each(|ownership| {
-				// TODO better error handling
-				let _ = token_ownership_new
-					.owned_tokens
-					.try_push((ownership.owner, ownership.owned_serials));
-			});
-			Map::unsafe_storage_put::<TokenOwnership<AccountId, MaxTokensPerCollection>>(
-				b"Nft",
-				b"OwnershipInfo",
-				&collection_id_key,
-				token_ownership_new,
-			);
+			Some(new_collection_info)
 		});
 
 		log::info!(target: "Nft", "...Successfully migrated token ownership map");
@@ -275,7 +267,7 @@ pub mod v7 {
 				Upgrade::on_runtime_upgrade();
 
 				// Check if version has been set correctly
-				assert_eq!(Nft::on_chain_storage_version(), 6);
+				assert_eq!(Nft::on_chain_storage_version(), 7);
 
 				// Check storage is correctly updated
 				let new_collection_info = CollectionInformation {
