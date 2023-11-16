@@ -696,9 +696,9 @@ impl<T: Config> Pallet<T> {
 
 			// If we have tx_hashes left, reinsert them
 			if max_to_clear < tx_hashes.len() {
-				let tx_hashes_pruned = tx_hashes[max_to_clear..].to_vec();
-				let tx_hashes_pruned = BoundedVec::truncate_from(tx_hashes_pruned);
-				<SettledXRPTransactionDetails<T>>::insert(ledger_index, tx_hashes_pruned);
+				let remaining_tx_hashes = tx_hashes[max_to_clear..].to_vec();
+				let remaining_tx_hashes = BoundedVec::truncate_from(remaining_tx_hashes);
+				<SettledXRPTransactionDetails<T>>::insert(ledger_index, remaining_tx_hashes);
 				break
 			} else {
 				new_highest = new_highest.saturating_add(1);
