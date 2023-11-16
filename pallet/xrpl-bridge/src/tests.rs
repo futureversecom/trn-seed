@@ -677,7 +677,7 @@ fn clear_storages_in_on_idle_works() {
 
 		let ledger_index = 2;
 
-		// Add settled tx data within the window
+		// Add settled tx data outside the window
 		<SettledXRPTransactionDetails<Test>>::try_append(ledger_index, tx_hash_1).unwrap();
 		<SettledXRPTransactionDetails<Test>>::try_append(ledger_index, tx_hash_2).unwrap();
 		let account: AccountId = [1_u8; 20].into();
