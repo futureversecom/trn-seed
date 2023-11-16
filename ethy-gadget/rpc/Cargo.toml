@@ -3,7 +3,7 @@ name = "ethy-gadget-rpc"
 version = "0.1.0"
 authors = ["Parity Technologies <admin@parity.io>", "The Root Network Team"]
 edition = "2021"
-license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+license = "Apache-2.0"
 
 [dependencies]
 codec = { version = "3.0.0", package = "parity-scale-codec", features = ["derive"] }
