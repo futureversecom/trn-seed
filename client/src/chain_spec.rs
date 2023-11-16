@@ -18,7 +18,8 @@ use sc_service::ChainType;
 use seed_runtime::{
 	constants::{
 		ONE_ROOT, ONE_XRP, ROOT_ASSET_ID, ROOT_DECIMALS, ROOT_MINIMUM_BALANCE, ROOT_NAME,
-		ROOT_SYMBOL, XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
+		ROOT_SYMBOL, VTX_ASSET_ID, VTX_DECIMALS, VTX_MINIMUM_BALANCE, VTX_NAME, VTX_SYMBOL,
+		XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	keys::*,
 	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, EthBridgeConfig, GenesisConfig,
@@ -153,10 +154,12 @@ fn testnet_genesis(
 			ROOT_DECIMALS,
 		),
 		(XRP_ASSET_ID, XRP_NAME.as_bytes().to_vec(), XRP_SYMBOL.as_bytes().to_vec(), XRP_DECIMALS),
+		(VTX_ASSET_ID, VTX_NAME.as_bytes().to_vec(), VTX_SYMBOL.as_bytes().to_vec(), VTX_DECIMALS),
 	];
 	let assets = vec![
 		(ROOT_ASSET_ID, root_key, true, ROOT_MINIMUM_BALANCE),
 		(XRP_ASSET_ID, root_key, true, XRP_MINIMUM_BALANCE),
+		(VTX_ASSET_ID, root_key, true, VTX_MINIMUM_BALANCE),
 	];
 	let mut endowed_assets = Vec::with_capacity(accounts_to_fund.len());
 	let mut endowed_balances = Vec::with_capacity(accounts_to_fund.len());

@@ -18,9 +18,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use seed_primitives::{
-	AssetId, Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
-};
+use seed_primitives::{MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount};
 use sp_runtime::BoundedVec;
 use sp_std::{fmt::Debug, prelude::*};
 
@@ -213,12 +211,4 @@ where
 				.retain(|token_ownership| &token_ownership.owner != token_owner);
 		}
 	}
-}
-
-#[derive(Debug, Default, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
-pub struct PublicMintInformation {
-	/// Whether public minting is enabled for the collection
-	pub enabled: bool,
-	/// If pricing_details are set, the user will be charged this amount per token
-	pub pricing_details: Option<(AssetId, Balance)>,
 }

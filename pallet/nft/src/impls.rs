@@ -17,7 +17,11 @@ use crate::{traits::NFTExt, *};
 use frame_support::{ensure, traits::Get, weights::Weight};
 use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
-use seed_pallet_common::{log, utils::next_asset_uuid, OnNewAssetSubscriber, OnTransferSubscriber};
+use seed_pallet_common::{
+	log,
+	utils::{next_asset_uuid, PublicMintInformation},
+	OnNewAssetSubscriber, OnTransferSubscriber,
+};
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
 	TokenId,
