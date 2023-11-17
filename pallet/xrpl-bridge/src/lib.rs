@@ -105,6 +105,8 @@ pub mod pallet {
 		/// Threshold to emit event TicketSequenceThresholdReached
 		type TicketSequenceThreshold: Get<Percent>;
 
+		type SourceTag: Get<u32>;
+
 		/// Represents the maximum number of XRPL transactions that can be stored and processed in a
 		/// single block in the temporary storage and the maximum number of XRPL transactions that
 		/// can be stored in the settled transaction details storage for each block.
@@ -674,6 +676,7 @@ impl<T: Config> Pallet<T> {
 			tx_fee,
 			// omit signer key since this is a 'MultiSigner' tx
 			None,
+			T::SourceTag::get().into(),
 		);
 		let tx_blob = payment.binary_serialize(true);
 
@@ -752,6 +755,7 @@ impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
 			signer_entries,
 			// omit signer key since this is a 'MultiSigner' tx
 			None,
+			T::SourceTag::get().into(),
 		);
 		let tx_blob = signer_list_set.binary_serialize(true);
 
