@@ -51,11 +51,6 @@ pub mod pallet {
 			Balance = Balance,
 			NegativeImbalance = pallet_assets_ext::NegativeImbalance<Self>,
 		>;
-		type StakeCurrency: Currency<
-			Self::AccountId,
-			Balance = Balance,
-			NegativeImbalance = pallet_balances::NegativeImbalance<Self>,
-		>;
 		#[pallet::constant]
 		type TxFeePotId: Get<PalletId>;
 	}
@@ -91,16 +86,16 @@ impl<T: Config> Pallet<T> {
 
 /// Alias for pallet-assets-ext NegativeImbalance
 type FeeNegativeImbalanceOf<T> = pallet_assets_ext::NegativeImbalance<T>;
-/// Alias for pallet-assets-ext PositiveImbalance
+/// Alias for pallet-balances PositiveImbalance
 type FeePositiveImbalanceOf<T> = pallet_assets_ext::PositiveImbalance<T>;
 /// Alias for pallet-balances NegativeImbalance
 type StakeNegativeImbalanceOf<T> = pallet_balances::NegativeImbalance<T>;
-/// Alias for pallet-balances PositiveImbalance
-type StakePositiveImbalanceOf<T> = pallet_balances::PositiveImbalance<T>;
 
-// In our current implementation we have filtered the payout_stakers call so this will never
-// be triggered. We have decided to keep the TxFeePot in the case this is overlooked
-// to prevent unwanted changes in Root token issuance
+/// Handles imbalances of transaction fee amounts for the transaction fee pot, used to payout
+/// stakers
+
+/// On era reward payouts, offset minted tokens from the tx fee pot to maintain total issuance
+/// staking pallet calls this to notify it minted `total_rewarded`
 impl<T: Config> OnUnbalanced<FeePositiveImbalanceOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(total_rewarded: FeePositiveImbalanceOf<T>) {
 		// burn `amount` from TxFeePot, reducing total issuance immediately
@@ -132,36 +127,16 @@ impl<T: Config> OnUnbalanced<FeeNegativeImbalanceOf<T>> for Pallet<T> {
 	}
 }
 
-// In our current implementation we have filtered the payout_stakers call so this will never
-// be triggered. We have decided to keep the TxFeePot in the case this is overlooked
-// to prevent unwanted changes in Root token issuance
-impl<T: Config> OnUnbalanced<StakePositiveImbalanceOf<T>> for Pallet<T> {
-	fn on_nonzero_unbalanced(total_rewarded: StakePositiveImbalanceOf<T>) {
-		// burn `amount` from TxFeePot, reducing total issuance immediately
-		// later `total_rewarded` will be dropped keeping total issuance constant
-		if let Err(_err) = T::StakeCurrency::withdraw(
-			&Self::account_id(),
-			total_rewarded.peek(),
-			WithdrawReasons::all(),
-			ExistenceRequirement::AllowDeath,
-		) {
-			// tx fee pot did not have enough to reward the amount, this should not happen...
-			// there's no way to error out here, just log it
-			log!(error, "💸 era payout was underfunded, please open an issue at https://github.com/futureversecom/seed: {:?}", total_rewarded.peek())
-		}
-	}
-}
-
 /// On era payout remainder
-/// Not currently used, see note above. This also does not affect any local storage of tx_fees
-/// within the TXFeePot pallet, simply deposits into the account
 /// staking pallet calls this to notify it has `amount` left over after reward payments
 impl<T: Config> OnUnbalanced<StakeNegativeImbalanceOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: StakeNegativeImbalanceOf<T>) {
 		let note_amount = amount.peek();
 
 		// mint `note_amount` (offsets `amount` imbalance)
-		T::StakeCurrency::deposit_creating(&Self::account_id(), note_amount);
+		T::FeeCurrency::deposit_creating(&Self::account_id(), note_amount);
+
+		Self::accrue_era_tx_fees(note_amount);
 	}
 }
 

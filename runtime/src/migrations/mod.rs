@@ -30,7 +30,7 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-		Ok(vec![])
+		Ok(Vec::<u8>::new())
 	}
 
 	fn on_runtime_upgrade() -> Weight {

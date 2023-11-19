@@ -37,7 +37,7 @@ use pallet_evm::{
 use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
+use sp_core::{crypto::KeyTypeId, ConstU16, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
 	create_runtime_str, generic,
 	traits::{
@@ -108,7 +108,7 @@ pub mod constants;
 
 use constants::{
 	deposit, RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES,
-	ONE_ROOT, ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
+	ONE_ROOT, ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION, VTX_ASSET_ID,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
@@ -143,6 +143,9 @@ mod tests;
 
 /// Currency implementation mapped to XRP
 pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Runtime, XrpAssetId>;
+/// Dual currency implementation mapped to ROOT & XRP for staking
+pub type DualStakingCurrency =
+	pallet_assets_ext::DualStakingCurrency<Runtime, XrpCurrency, Balances>;
 
 /// This runtime version.
 #[sp_version::runtime_version]
@@ -150,10 +153,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 43,
+	spec_version: 45,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 4,
+	transaction_version: 6,
 	state_version: 0,
 };
 
@@ -543,6 +546,23 @@ impl pallet_utility::Config for Runtime {
 }
 
 parameter_types! {
+	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
+	pub const DepositBase: Balance = deposit(1, 88);
+	// Additional storage item size of 32 bytes.
+	pub const DepositFactor: Balance = deposit(0, 32);
+}
+
+impl pallet_multisig::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type DepositBase = DepositBase;
+	type DepositFactor = DepositFactor;
+	type MaxSignatories = ConstU16<100>;
+	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
+}
+
+parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 	/// % threshold to emit event TicketSequenceThresholdReached
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
@@ -635,7 +655,7 @@ impl pallet_session::Config for Runtime {
 	// Essentially just Aura, but lets be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
-	type WeightInfo = weights::pallet_session::WeightInfo<Runtime>;
+	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_session::historical::Config for Runtime {
@@ -794,16 +814,19 @@ type SlashCancelOrigin = EnsureRoot<AccountId>;
 
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;
-	type Currency = Balances;
+	type Currency = DualStakingCurrency;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
 	// Decides the total reward to be distributed each era
 	// For root network it is the balance of the tx fee pot
 	type EraPayout = TxFeePot;
 	type RuntimeEvent = RuntimeEvent;
-	// In our current implementation we have filtered the payout_stakers call so this Reward will
-	// never be triggered. We have decided to keep the TxFeePot in the case this is overlooked
-	// to prevent unwanted changes in Root token issuance
+	// After a validator payout is made (to it and all its stakers), this receives the pending
+	// positive imbalance (total amount newly minted during the payout process) since the XRP
+	// already exists the issuance should not be modified
+	//
+	// pallet-staking validator payouts always _mint_ tokens (with `deposit_creating`) assuming an
+	// inflationary model instead rewards should be redistributed from fees only
 	type Reward = TxFeePot;
 	// Handles any era reward amount indivisible among stakers at end of an era.
 	// some account should receive the amount to ensure total issuance of XRP is constant (vs.
@@ -831,7 +854,7 @@ impl pallet_staking::Config for Runtime {
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type BenchmarkingConfig = staking::StakingBenchmarkConfig;
 	type OnStakerSlash = ();
-	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
+	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 }
 
@@ -906,7 +929,6 @@ impl pallet_sudo::Config for Runtime {
 
 impl pallet_tx_fee_pot::Config for Runtime {
 	type FeeCurrency = XrpCurrency;
-	type StakeCurrency = Balances;
 	type TxFeePotId = TxFeePotId;
 }
 
@@ -1107,6 +1129,7 @@ impl pallet_erc20_peg::Config for Runtime {
 	/// The overarching event type.
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_erc20_peg::WeightInfo<Runtime>;
+	type NativeAssetId = RootAssetId;
 }
 
 parameter_types! {
@@ -1198,6 +1221,36 @@ impl pallet_futurepass::Config for Runtime {
 	type MultiCurrency = AssetsExt;
 }
 
+parameter_types! {
+	pub const VtxVortexPotId: PalletId = PalletId(*b"vtx/vpot");
+	pub const VtxRootPotId: PalletId = PalletId(*b"vtx/rpot");
+	pub const VtxTxFeePotId: PalletId = PalletId(*b"vtx/fpot");
+	pub const UnsignedInterval: BlockNumber =  MINUTES / 2;
+	pub const PayoutBatchSize: u32 =  99;
+	pub const HistoryDepth: u32 = 84;
+	pub const VortexAssetId: AssetId = VTX_ASSET_ID;
+	pub const MaxAssetPrices: u32 = 500;
+	pub const MaxRewards: u32 = 500;
+	pub const MaxStringLength: u32 = 1_000;
+}
+impl pallet_vortex::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_vortex::WeightInfo<Runtime>;
+	type NativeAssetId = RootAssetId;
+	type VtxAssetId = VortexAssetId;
+	type VtxDistPotId = VtxVortexPotId;
+	type RootPotId = VtxRootPotId;
+	type TxFeePotId = VtxTxFeePotId;
+	type UnsignedInterval = UnsignedInterval;
+	type PayoutBatchSize = PayoutBatchSize;
+	type VtxDistIdentifier = u32;
+	type MultiCurrency = AssetsExt;
+	type MaxAssetPrices = MaxAssetPrices;
+	type MaxRewards = MaxRewards;
+	type MaxStringLength = MaxStringLength;
+	type HistoryDepth = HistoryDepth;
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -1210,7 +1263,7 @@ construct_runtime! {
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 3,
 		Utility: pallet_utility::{Pallet, Call, Event} = 4,
 		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 33,
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 45,
+		Multisig: pallet_multisig = 28,
 
 		// Monetary
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
@@ -1236,6 +1289,8 @@ construct_runtime! {
 		Historical: pallet_session::historical::{Pallet} = 20,
 		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
 		Marketplace: pallet_marketplace::{Pallet, Call, Storage, Event<T>} = 44,
+		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 45,
+		VortexDistribution: pallet_vortex::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 46,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
@@ -1981,6 +2036,7 @@ mod benches {
 		[pallet_staking, Staking]
 		[pallet_grandpa, Grandpa]
 		[pallet_im_online, ImOnline]
+		[pallet_multisig, Multisig]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_bags_list, VoterList]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
@@ -2001,6 +2057,7 @@ mod benches {
 		[pallet_token_approvals, TokenApprovals]
 		[pallet_xls20, Xls20]
 		[pallet_futurepass, Futurepass]
+		[pallet_vortex, VortexDistribution]
 		[pallet_dex, Dex]
 		[pallet_marketplace, Marketplace]
 	);
