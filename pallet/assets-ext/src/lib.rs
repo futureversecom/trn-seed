@@ -75,6 +75,9 @@ pub type DepositBalanceOf<T, I = ()> = <<T as pallet_assets::Config<I>>::Currenc
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
+/// The maximum number of decimals allowed for an asset
+pub const MAX_DECIMALS: u8 = 18;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -239,7 +242,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// Decimals cannot be higher than 18 due to a restriction in the conversion function
 			// scale_wei_to_correct_decimals
-			ensure!(decimals <= 18u8, Error::<T>::DecimalsTooHigh);
+			ensure!(decimals <= MAX_DECIMALS, Error::<T>::DecimalsTooHigh);
 			// reserves some native currency from the user - as this should be a costly operation
 			let deposit = <AssetDeposit<T>>::get();
 			T::Currency::reserve(&who, deposit)?;
@@ -271,37 +274,18 @@ pub mod pallet {
 		pub fn transfer(
 			origin: OriginFor<T>,
 			asset_id: AssetId,
-			destination: AccountIdLookupOf<T>,
+			destination: T::AccountId,
 			#[pallet::compact] amount: Balance,
+			keep_alive: bool,
 		) -> DispatchResult {
-			if asset_id == T::NativeAssetId::get() {
-				<pallet_balances::Pallet<T, _>>::transfer(origin, destination, amount)
-					.map_err(|e| e.error)?;
-			} else {
-				<pallet_assets::Pallet<T>>::transfer(origin, asset_id, destination, amount)?;
-			}
-			Ok(())
-		}
-
-		/// Transfers either ROOT or an asset with respect to minimum balance
-		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::transfer_keep_alive())]
-		pub fn transfer_keep_alive(
-			origin: OriginFor<T>,
-			asset_id: AssetId,
-			destination: AccountIdLookupOf<T>,
-			#[pallet::compact] amount: Balance,
-		) -> DispatchResult {
-			if asset_id == T::NativeAssetId::get() {
-				<pallet_balances::Pallet<T, _>>::transfer_keep_alive(origin, destination, amount)
-					.map_err(|e| e.error)?;
-			} else {
-				<pallet_assets::Pallet<T>>::transfer_keep_alive(
-					origin,
-					asset_id,
-					destination,
-					amount,
-				)?;
-			}
+			let who = ensure_signed(origin)?;
+			<Self as Transfer<T::AccountId>>::transfer(
+				asset_id,
+				&who,
+				&destination,
+				amount,
+				keep_alive,
+			)?;
 			Ok(())
 		}
 

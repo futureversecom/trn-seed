@@ -15,8 +15,8 @@
 
 use crate::{
 	mock::{
-		test_ext, AssetId, AssetsExt, AssetsExtPalletId, Balances, MockAccountId, NativeAssetId,
-		Test,
+		has_event, test_ext, AssetId, AssetsExt, AssetsExtPalletId, Balances, MockAccountId,
+		NativeAssetId, RuntimeEvent, System, Test,
 	},
 	AssetDeposit, Config, Error, Holds, NextAssetId,
 };
@@ -82,12 +82,18 @@ fn transfer_extrinsic() {
 		.execute_with(|| {
 			// native token transfer
 			let alice_balance = AssetsExt::balance(NativeAssetId::get(), &alice);
-			assert_ok!(AssetsExt::transfer(Some(alice).into(), NativeAssetId::get(), bob, 100,));
+			assert_ok!(AssetsExt::transfer(
+				Some(alice).into(),
+				NativeAssetId::get(),
+				bob,
+				100,
+				false
+			));
 			assert_eq!(alice_balance - 100, AssetsExt::balance(NativeAssetId::get(), &alice),);
 			assert_eq!(100, AssetsExt::balance(NativeAssetId::get(), &bob),);
 
 			// XRP transfer
-			assert_ok!(AssetsExt::transfer(Some(alice).into(), xrp_asset_id, bob, 100,));
+			assert_ok!(AssetsExt::transfer(Some(alice).into(), xrp_asset_id, bob, 100, false));
 			assert_eq!(alice_balance - 100, AssetsExt::balance(xrp_asset_id, &alice),);
 			assert_eq!(100, AssetsExt::balance(xrp_asset_id, &bob),);
 		});
@@ -106,20 +112,20 @@ fn transfer_extrinsic_low_balance() {
 		.execute_with(|| {
 			// native token transfer with insufficient balance
 			assert_noop!(
-				AssetsExt::transfer(Some(alice).into(), NativeAssetId::get(), bob, 100,),
+				AssetsExt::transfer(Some(alice).into(), NativeAssetId::get(), bob, 100, false),
 				pallet_balances::Error::<Test>::InsufficientBalance
 			);
 
 			// XRP transfer with insufficient balance
 			assert_noop!(
-				AssetsExt::transfer(Some(alice).into(), xrp_asset_id, bob, 100,),
+				AssetsExt::transfer(Some(alice).into(), xrp_asset_id, bob, 100, false),
 				pallet_assets::Error::<Test>::BalanceLow
 			);
 		});
 }
 
 #[test]
-fn transfer_keep_alive_extrinsic() {
+fn transfer_extrinsic_keep_alive() {
 	let initial_balance = 1_000_000;
 	let alice = 1 as MockAccountId;
 	let bob = 2 as MockAccountId;
@@ -134,21 +140,23 @@ fn transfer_keep_alive_extrinsic() {
 			let transfer_amount = initial_balance - 1;
 
 			// native token transfer
-			assert_ok!(AssetsExt::transfer_keep_alive(
+			assert_ok!(AssetsExt::transfer(
 				Some(alice).into(),
 				NativeAssetId::get(),
 				bob,
-				transfer_amount
+				transfer_amount,
+				true // keep alive
 			));
 			assert_eq!(1, AssetsExt::balance(NativeAssetId::get(), &alice),);
 			assert_eq!(transfer_amount, AssetsExt::balance(NativeAssetId::get(), &bob),);
 
 			// XRP transfer
-			assert_ok!(AssetsExt::transfer_keep_alive(
+			assert_ok!(AssetsExt::transfer(
 				Some(alice).into(),
 				xrp_asset_id,
 				bob,
 				transfer_amount,
+				true
 			));
 			assert_eq!(1, AssetsExt::balance(xrp_asset_id, &alice),);
 			assert_eq!(transfer_amount, AssetsExt::balance(xrp_asset_id, &bob),);
@@ -156,7 +164,7 @@ fn transfer_keep_alive_extrinsic() {
 }
 
 #[test]
-fn transfer_keep_alive_extrinsic_above_min() {
+fn transfer_extrinsic_keep_alive_above_min() {
 	let initial_balance = 1_000_000;
 	let alice = 1 as MockAccountId;
 	let bob = 2 as MockAccountId;
@@ -169,23 +177,19 @@ fn transfer_keep_alive_extrinsic_above_min() {
 		.execute_with(|| {
 			// native token transfer
 			assert_noop!(
-				AssetsExt::transfer_keep_alive(
+				AssetsExt::transfer(
 					Some(alice).into(),
 					NativeAssetId::get(),
 					bob,
-					initial_balance
+					initial_balance,
+					true
 				),
 				pallet_balances::Error::<Test>::KeepAlive
 			);
 
 			// XRP transfer
 			assert_noop!(
-				AssetsExt::transfer_keep_alive(
-					Some(alice).into(),
-					xrp_asset_id,
-					bob,
-					initial_balance,
-				),
+				AssetsExt::transfer(Some(alice).into(), xrp_asset_id, bob, initial_balance, true),
 				pallet_assets::Error::<Test>::BalanceLow
 			);
 		});
