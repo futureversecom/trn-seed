@@ -167,6 +167,7 @@ parameter_types! {
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
 	pub const XRPTransactionLimit: u32 = 10;
 	pub const XRPLTransactionLimitPerLedger: u32 = 10;
+	pub const SourceTag: u32 = 38887387;
 }
 
 impl pallet_xrpl_bridge::Config for Test {
