@@ -674,9 +674,9 @@ impl<T: Config> Pallet<T> {
 			tx_nonce,
 			tx_ticket_sequence,
 			tx_fee,
+			T::SourceTag::get().into(),
 			// omit signer key since this is a 'MultiSigner' tx
 			None,
-			T::SourceTag::get().into(),
 		);
 		let tx_blob = payment.binary_serialize(true);
 
@@ -753,9 +753,9 @@ impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
 			ticket_sequence,
 			signer_quorum,
 			signer_entries,
+			T::SourceTag::get().into(),
 			// omit signer key since this is a 'MultiSigner' tx
 			None,
-			T::SourceTag::get().into(),
 		);
 		let tx_blob = signer_list_set.binary_serialize(true);
 
