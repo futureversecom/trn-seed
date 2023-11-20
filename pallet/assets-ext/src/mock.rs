@@ -25,6 +25,7 @@ use pallet_evm::{
 	AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator, GasWeightMapping,
 };
 use seed_pallet_common::OnNewAssetSubscriber;
+pub(crate) use seed_primitives::{AssetId, Balance, Index};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	testing::Header,
@@ -32,8 +33,6 @@ use sp_runtime::{
 	ConsensusEngineId,
 };
 use std::marker::PhantomData;
-
-pub(crate) use seed_primitives::{AssetId, Balance, Index};
 
 use crate::{self as pallet_assets_ext};
 
@@ -47,12 +46,12 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
-		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Event<T>},
-		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
-		TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		System: frame_system,
+		Balances: pallet_balances,
+		Assets: pallet_assets,
+		AssetsExt: pallet_assets_ext,
+		EVM: pallet_evm,
+		TimestampPallet: pallet_timestamp,
 	}
 );
 

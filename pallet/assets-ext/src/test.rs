@@ -15,8 +15,8 @@
 
 use crate::{
 	mock::{
-		has_event, test_ext, AssetId, AssetsExt, AssetsExtPalletId, Balances, MockAccountId,
-		NativeAssetId, RuntimeEvent, System, Test,
+		test_ext, AssetId, AssetsExt, AssetsExtPalletId, Balances, MockAccountId, NativeAssetId,
+		System, Test,
 	},
 	AssetDeposit, Config, Error, Holds, NextAssetId,
 };
@@ -80,6 +80,8 @@ fn transfer_extrinsic() {
 		.with_asset(xrp_asset_id, "XRP", &[(alice, 1_000_000)])
 		.build()
 		.execute_with(|| {
+			System::set_block_number(1);
+
 			// native token transfer
 			let alice_balance = AssetsExt::balance(NativeAssetId::get(), &alice);
 			assert_ok!(AssetsExt::transfer(
@@ -91,11 +93,27 @@ fn transfer_extrinsic() {
 			));
 			assert_eq!(alice_balance - 100, AssetsExt::balance(NativeAssetId::get(), &alice),);
 			assert_eq!(100, AssetsExt::balance(NativeAssetId::get(), &bob),);
+			// Assert event is thrown
+			System::assert_has_event(
+				pallet_balances::Event::<Test>::Transfer { from: alice, to: bob, amount: 100 }
+					.into(),
+			);
 
 			// XRP transfer
 			assert_ok!(AssetsExt::transfer(Some(alice).into(), xrp_asset_id, bob, 100, false));
 			assert_eq!(alice_balance - 100, AssetsExt::balance(xrp_asset_id, &alice),);
 			assert_eq!(100, AssetsExt::balance(xrp_asset_id, &bob),);
+
+			// Assert event is thrown
+			System::assert_has_event(
+				pallet_assets::Event::<Test>::Transferred {
+					asset_id: xrp_asset_id,
+					from: alice,
+					to: bob,
+					amount: 100,
+				}
+				.into(),
+			);
 		});
 }
 
@@ -136,6 +154,8 @@ fn transfer_extrinsic_keep_alive() {
 		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
 		.build()
 		.execute_with(|| {
+			System::set_block_number(1);
+
 			// Subtract one to allow for existential deposit/ minimum balance
 			let transfer_amount = initial_balance - 1;
 
@@ -149,6 +169,15 @@ fn transfer_extrinsic_keep_alive() {
 			));
 			assert_eq!(1, AssetsExt::balance(NativeAssetId::get(), &alice),);
 			assert_eq!(transfer_amount, AssetsExt::balance(NativeAssetId::get(), &bob),);
+			// Assert event is thrown
+			System::assert_has_event(
+				pallet_balances::Event::<Test>::Transfer {
+					from: alice,
+					to: bob,
+					amount: transfer_amount,
+				}
+				.into(),
+			);
 
 			// XRP transfer
 			assert_ok!(AssetsExt::transfer(
@@ -160,11 +189,21 @@ fn transfer_extrinsic_keep_alive() {
 			));
 			assert_eq!(1, AssetsExt::balance(xrp_asset_id, &alice),);
 			assert_eq!(transfer_amount, AssetsExt::balance(xrp_asset_id, &bob),);
+			// Assert event is thrown
+			System::assert_has_event(
+				pallet_assets::Event::<Test>::Transferred {
+					asset_id: xrp_asset_id,
+					from: alice,
+					to: bob,
+					amount: transfer_amount,
+				}
+				.into(),
+			);
 		});
 }
 
 #[test]
-fn transfer_extrinsic_keep_alive_above_min() {
+fn transfer_extrinsic_keep_alive_above_min_should_fail() {
 	let initial_balance = 1_000_000;
 	let alice = 1 as MockAccountId;
 	let bob = 2 as MockAccountId;
@@ -205,6 +244,8 @@ fn mint_extrinsic() {
 		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
 		.build()
 		.execute_with(|| {
+			System::set_block_number(1);
+
 			// native token mint is blocked
 			assert_noop!(
 				AssetsExt::mint(Some(alice).into(), NativeAssetId::get(), alice, 100),
@@ -215,6 +256,16 @@ fn mint_extrinsic() {
 			let xrp_owner = 100 as MockAccountId;
 			assert_ok!(AssetsExt::mint(Some(xrp_owner).into(), xrp_asset_id, xrp_owner, 100));
 			assert_eq!(100, AssetsExt::balance(xrp_asset_id, &xrp_owner));
+
+			// Assert event is thrown
+			System::assert_has_event(
+				pallet_assets::Event::<Test>::Issued {
+					asset_id: xrp_asset_id,
+					owner: xrp_owner,
+					total_supply: 100,
+				}
+				.into(),
+			);
 
 			// XRP mint from not owner
 			assert_noop!(
@@ -236,6 +287,8 @@ fn burn_extrinsic() {
 		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance), (xrp_owner, initial_balance)])
 		.build()
 		.execute_with(|| {
+			System::set_block_number(1);
+
 			// native token burn is blocked
 			assert_noop!(
 				AssetsExt::burn_from(Some(alice).into(), NativeAssetId::get(), alice, 100),
@@ -245,6 +298,16 @@ fn burn_extrinsic() {
 			// XRP burn from owner
 			assert_ok!(AssetsExt::burn_from(Some(xrp_owner).into(), xrp_asset_id, xrp_owner, 100));
 			assert_eq!(initial_balance - 100, AssetsExt::balance(xrp_asset_id, &xrp_owner));
+
+			// Assert event is thrown
+			System::assert_has_event(
+				pallet_assets::Event::<Test>::Burned {
+					asset_id: xrp_asset_id,
+					owner: xrp_owner,
+					balance: 100,
+				}
+				.into(),
+			);
 
 			// XRP burn from not owner
 			assert_noop!(
