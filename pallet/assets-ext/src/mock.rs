@@ -162,21 +162,21 @@ impl GasWeightMapping for FixedGasWeightMapping {
 impl pallet_evm::Config for Test {
 	type FeeCalculator = FixedGasPrice;
 	type GasWeightMapping = FixedGasWeightMapping;
+	type WeightPerGas = ();
 	type BlockHashMapping = MockBlockHashMapping<Test>;
 	type CallOrigin = EnsureAddressNever<MockAccountId>;
 	type WithdrawOrigin = EnsureAddressNever<MockAccountId>;
 	type AddressMapping = MockAddressMapping;
 	type Currency = Balances;
 	type RuntimeEvent = RuntimeEvent;
-	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type PrecompilesType = ();
 	type PrecompilesValue = ();
 	type ChainId = ();
 	type BlockGasLimit = ();
+	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type OnChargeTransaction = ();
 	type FindAuthor = FindAuthorTruncated;
 	type HandleTxValidation = ();
-	type WeightPerGas = ();
 }
 
 parameter_types! {

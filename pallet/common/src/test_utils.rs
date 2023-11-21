@@ -45,6 +45,9 @@ pub mod test_prelude {
 	pub use sp_std::{vec, vec::Vec};
 }
 
+// TODO Try make a TestExt that can be used across pallets.
+// Maybe split up into traits such as TextExtWithAssets, TextExtWithBalances etc
+
 pub mod test_types {
 	pub type BlockNumber = u64;
 

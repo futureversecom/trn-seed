@@ -30,40 +30,14 @@ construct_runtime!(
 		NodeBlock = Block<Test>,
 		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Echo: pallet_echo::{Pallet, Call, Storage, Event},
+		System: frame_system,
+		Balances: pallet_balances,
+		Echo: pallet_echo,
 	}
 );
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-impl frame_system::Config for Test {
-	type BlockWeights = ();
-	type BlockLength = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = BlockNumber;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type BlockHashCount = BlockHashCount;
-	type RuntimeEvent = RuntimeEvent;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-}
+impl_frame_system_config!(Test);
+impl_pallet_balance_config!(Test);
 
 parameter_types! {
 	pub const MockEchoPalletId: PalletId = PalletId(*b"pingpong");
