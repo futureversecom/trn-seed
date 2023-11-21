@@ -529,7 +529,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight((T::WeightInfo::prune_settled_ledger_index(), DispatchClass::Operational))]
+		#[pallet::weight({
+			let ledger_count = SettledXRPTransactionDetails::<T>::get(ledger_index).unwrap_or_default().len() as u32;
+			(T::WeightInfo::prune_settled_ledger_index(ledger_count), DispatchClass::Operational)
+		})]
 		pub fn prune_settled_ledger_index(
 			origin: OriginFor<T>,
 			ledger_index: u32,

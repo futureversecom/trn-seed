@@ -187,31 +187,31 @@ benchmarks! {
 	}
 
 	prune_settled_ledger_index {
+		// The amount of transactions stored under the ledger index
+		let i in 0..10;
 		let alice = account::<T>("Alice");
 
 		HighestSettledLedgerIndex::<T>::put(100);
 		SubmissionWindowWidth::<T>::put(10);
-		let ledger_index = 10;
-		// An arbitrary value that should cover 90% of cases.
-		// There is no way to adjust weight automatically for the number of tx-hashes stored
-		// However this is a sudo only call
-		let tx_count = 10;
+		let ledger_index = i;
 
-		for i in 0..tx_count {
-			let tx_hash = XrplTxHash::from_low_u64_be(i);
-			<SettledXRPTransactionDetails<T>>::try_append(ledger_index, tx_hash).unwrap();
+		let mut settled_data = Vec::default();
+		for tx in 0..i {
+			let tx_hash = XrplTxHash::from_low_u64_be(tx as u64);
+			settled_data.push(tx_hash);
 			<ProcessXRPTransactionDetails<T>>::insert(
 				tx_hash,
 				(ledger_index as LedgerIndex, XrpTransaction::default(), alice.clone()),
 			);
 		}
+		<SettledXRPTransactionDetails<T>>::insert(ledger_index, BoundedVec::truncate_from(settled_data));
 	}: _(RawOrigin::Root, ledger_index )
 	verify {
 		assert!(<SettledXRPTransactionDetails<T>>::get(ledger_index).is_none());
 
 		//check all the settled tx details are added to the storage
-		for i in 0..tx_count {
-			let tx_hash = XrplTxHash::from_low_u64_be(i);
+		for tx in 0..i {
+			let tx_hash = XrplTxHash::from_low_u64_be(tx as u64);
 			assert!(ProcessXRPTransactionDetails::<T>::get(tx_hash).is_none());
 		}
 	}

@@ -117,10 +117,14 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 	// Storage: XRPLBridge HighestSettledLedgerIndex (r:1 w:0)
 	// Storage: XRPLBridge SubmissionWindowWidth (r:1 w:0)
 	// Storage: XRPLBridge SettledXRPTransactionDetails (r:1 w:1)
-	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:10)
-	fn prune_settled_ledger_index() -> Weight {
-		Weight::from_ref_time(42_601_000 as u64)
+	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:1)
+	/// The range of component `i` is `[0, 10]`.
+	fn prune_settled_ledger_index(i: u32, ) -> Weight {
+		Weight::from_ref_time(16_281_000 as u64)
+			// Standard Error: 4_806
+			.saturating_add(Weight::from_ref_time(916_903 as u64).saturating_mul(i as u64))
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().writes(11 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(i as u64)))
 	}
 }

@@ -58,7 +58,7 @@ pub trait WeightInfo {
 	fn set_ticket_sequence_next_allocation() -> Weight;
 	fn set_ticket_sequence_current_allocation() -> Weight;
 	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight;
-	fn prune_settled_ledger_index() -> Weight;
+	fn prune_settled_ledger_index(i: u32, ) -> Weight;
 }
 
 /// Weights for pallet_xrpl_bridge using the Substrate node and recommended hardware.
@@ -150,11 +150,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: XRPLBridge HighestSettledLedgerIndex (r:1 w:0)
 	// Storage: XRPLBridge SubmissionWindowWidth (r:1 w:0)
 	// Storage: XRPLBridge SettledXRPTransactionDetails (r:1 w:1)
-	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:10)
-	fn prune_settled_ledger_index() -> Weight {
-		Weight::from_ref_time(42_601_000 as u64)
+	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:1)
+	/// The range of component `i` is `[0, 10]`.
+	fn prune_settled_ledger_index(i: u32, ) -> Weight {
+		Weight::from_ref_time(16_281_000 as u64)
+			// Standard Error: 4_806
+			.saturating_add(Weight::from_ref_time(916_903 as u64).saturating_mul(i as u64))
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().writes(11 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(i as u64)))
 	}
 }
 
@@ -246,11 +250,15 @@ impl WeightInfo for () {
 	// Storage: XRPLBridge HighestSettledLedgerIndex (r:1 w:0)
 	// Storage: XRPLBridge SubmissionWindowWidth (r:1 w:0)
 	// Storage: XRPLBridge SettledXRPTransactionDetails (r:1 w:1)
-	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:10)
-	fn prune_settled_ledger_index() -> Weight {
-		Weight::from_ref_time(42_601_000 as u64)
+	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:1)
+	/// The range of component `i` is `[0, 10]`.
+	fn prune_settled_ledger_index(i: u32, ) -> Weight {
+		Weight::from_ref_time(16_281_000 as u64)
+			// Standard Error: 4_806
+			.saturating_add(Weight::from_ref_time(916_903 as u64).saturating_mul(i as u64))
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
-			.saturating_add(RocksDbWeight::get().writes(11 as u64))
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+			.saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(i as u64)))
 	}
 }
 
