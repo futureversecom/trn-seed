@@ -198,10 +198,7 @@ impl<T: Config> Pallet<T> {
 	pub fn pre_mint(
 		who: &T::AccountId,
 		quantity: TokenCount,
-		collection_info: &CollectionInformation<
-			T::AccountId,
-			T::StringLimit,
-		>,
+		collection_info: &CollectionInformation<T::AccountId, T::StringLimit>,
 		public_mint_enabled: bool,
 	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
 		// Quantity must be some
@@ -277,10 +274,7 @@ impl<T: Config> Pallet<T> {
 	/// Perform the mint operation and update storage accordingly.
 	pub(crate) fn do_mint(
 		collection_id: CollectionUuid,
-		collection_info: CollectionInformation<
-			T::AccountId,
-			T::StringLimit,
-		>,
+		collection_info: CollectionInformation<T::AccountId, T::StringLimit>,
 		token_owner: &T::AccountId,
 		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) -> DispatchResult {
@@ -298,7 +292,8 @@ impl<T: Config> Pallet<T> {
 
 		// Update OwnershipInfo
 		let mut ownership_info = OwnershipInfo::<T>::get(collection_id).unwrap_or_default();
-		ownership_info.add_user_tokens(token_owner, serial_numbers.clone())
+		ownership_info
+			.add_user_tokens(token_owner, serial_numbers.clone())
 			.map_err(|e| Error::<T>::from(e))?;
 		<OwnershipInfo<T>>::insert(collection_id, ownership_info);
 
@@ -323,15 +318,11 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Collect all tokens owned by address
-		let mut owned_tokens: Vec<SerialNumber> = match ownership_info
-			.owned_tokens
-			.into_inner()
-			.iter()
-			.find(|(owner, _)| owner == who)
-		{
-			Some((_, owned_serials)) => owned_serials.clone().into_inner(),
-			None => vec![],
-		};
+		let mut owned_tokens: Vec<SerialNumber> =
+			match ownership_info.owned_tokens.into_inner().iter().find(|(owner, _)| owner == who) {
+				Some((_, owned_serials)) => owned_serials.clone().into_inner(),
+				None => vec![],
+			};
 
 		// Sort the vec to ensure no tokens are missed
 		owned_tokens.sort();
@@ -469,8 +460,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(ownership_info.is_token_owner(who, serial_number), Error::<T>::NotTokenOwner);
 
 		// Update collection issuance
-		collection_info.collection_issuance =
-			collection_info.collection_issuance.saturating_sub(1);
+		collection_info.collection_issuance = collection_info.collection_issuance.saturating_sub(1);
 		CollectionInfo::<T>::insert(collection_id, collection_info);
 
 		// Update OwnershipInfo
@@ -572,13 +562,9 @@ impl<T: Config> NFTExt for Pallet<T> {
 		ownership_info.token_exists(token_id.1)
 	}
 
-
 	fn get_collection_info(
 		collection_id: CollectionUuid,
-	) -> Result<
-		CollectionInformation<Self::AccountId, Self::StringLimit>,
-		DispatchError,
-	> {
+	) -> Result<CollectionInformation<Self::AccountId, Self::StringLimit>, DispatchError> {
 		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
 	}
 

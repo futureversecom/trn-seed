@@ -27,7 +27,6 @@ use seed_primitives::{AccountId, MetadataScheme, OriginChain, RoyaltiesSchedule,
 use sp_core::H160;
 use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
 
-
 // Create an NFT collection
 // Returns the created `collection_id`
 fn setup_collection(owner: AccountId) -> CollectionUuid {
@@ -48,8 +47,11 @@ fn setup_collection(owner: AccountId) -> CollectionUuid {
 }
 
 /// Helper function to create bounded vec of TokenOwners
-pub fn create_ownership_info(owned_tokens: Vec<(AccountId, Vec<SerialNumber>)>) -> TokenOwnership<AccountId, MaxTokensPerCollection> {
-	let mut token_ownership: TokenOwnership<AccountId, MaxTokensPerCollection> = TokenOwnership::default();
+pub fn create_ownership_info(
+	owned_tokens: Vec<(AccountId, Vec<SerialNumber>)>,
+) -> TokenOwnership<AccountId, MaxTokensPerCollection> {
+	let mut token_ownership: TokenOwnership<AccountId, MaxTokensPerCollection> =
+		TokenOwnership::default();
 	for (owner, serial_numbers) in owned_tokens {
 		let serial_numbers_bounded: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(serial_numbers).unwrap();
@@ -420,9 +422,7 @@ fn transfer() {
 
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 0);
 		assert_eq!(Nft::token_balance_of(&new_owner, collection_id), 1);
-		assert!(OwnershipInfo::<Test>::get(collection_id)
-			.unwrap()
-			.is_token_owner(&new_owner, 0));
+		assert!(OwnershipInfo::<Test>::get(collection_id).unwrap().is_token_owner(&new_owner, 0));
 	});
 }
 

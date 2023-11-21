@@ -193,7 +193,10 @@ pub mod pallet {
 
 			// Check whether token exists but mapping does not exist
 			for serial_number in serial_numbers.iter() {
-				ensure!(T::NFTExt::token_exists(&(collection_id, *serial_number)), Error::<T>::NoToken);
+				ensure!(
+					T::NFTExt::token_exists(&(collection_id, *serial_number)),
+					Error::<T>::NoToken
+				);
 				ensure!(
 					!Xls20TokenMap::<T>::contains_key(collection_id, serial_number),
 					Error::<T>::MappingAlreadyExists
@@ -231,7 +234,10 @@ pub mod pallet {
 
 			for (serial_number, xls20_token_id) in token_mappings.iter() {
 				// Ensure token exists on TRN
-				ensure!(T::NFTExt::token_exists(&(collection_id, *serial_number)), Error::<T>::NoToken);
+				ensure!(
+					T::NFTExt::token_exists(&(collection_id, *serial_number)),
+					Error::<T>::NoToken
+				);
 				// Ensure mapping doesn't already exist
 				ensure!(
 					!Xls20TokenMap::<T>::contains_key(collection_id, serial_number),

@@ -59,17 +59,11 @@ pub trait NFTExt {
 
 	fn get_collection_info(
 		collection_id: CollectionUuid,
-	) -> Result<
-		CollectionInformation<Self::AccountId, Self::StringLimit>,
-		DispatchError,
-	>;
+	) -> Result<CollectionInformation<Self::AccountId, Self::StringLimit>, DispatchError>;
 
 	fn get_ownership_info(
 		collection_id: CollectionUuid,
-	) -> Result<
-		TokenOwnership<Self::AccountId, Self::MaxTokensPerCollection>,
-		DispatchError,
-	>;
+	) -> Result<TokenOwnership<Self::AccountId, Self::MaxTokensPerCollection>, DispatchError>;
 
 	fn enable_xls20_compatibility(
 		who: Self::AccountId,

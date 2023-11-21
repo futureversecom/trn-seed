@@ -23,7 +23,10 @@ use crate::{BlockedTokens, EthToRootNft, NextBlockedMintId, Pallet as NftPeg, Ro
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use pallet_nft::{CollectionInfo, OwnershipInfo, TokenOwnership, CollectionInformation, CrossChainCompatibility, Pallet as Nft};
+use pallet_nft::{
+	CollectionInfo, CollectionInformation, CrossChainCompatibility, OwnershipInfo, Pallet as Nft,
+	TokenOwnership,
+};
 use seed_primitives::MetadataScheme;
 use sp_std::vec;
 
