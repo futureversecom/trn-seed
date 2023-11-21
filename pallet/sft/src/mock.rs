@@ -14,8 +14,10 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_sft;
-use crate::Config;
-use frame_support::{dispatch::DispatchResult, parameter_types, PalletId};
+use crate::{tests::create_account, Config};
+use frame_support::{
+	dispatch::DispatchResult, pallet_prelude::GenesisBuild, parameter_types, PalletId,
+};
 use frame_system::EnsureRoot;
 use seed_pallet_common::*;
 use seed_primitives::{
@@ -85,11 +87,44 @@ impl Config for Test {
 }
 
 #[derive(Default)]
-pub struct TestExt {}
+pub struct TestExt {
+	balances: Vec<(AccountId, Balance)>,
+	xrp_balances: Vec<(AssetId, AccountId, Balance)>,
+}
 
 impl TestExt {
+	/// Configure some native token balances
+	pub fn with_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
+		self.balances = balances.to_vec();
+		self
+	}
+	/// Configure some XRP asset balances
+	pub fn with_xrp_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
+		self.xrp_balances = balances
+			.to_vec()
+			.into_iter()
+			.map(|(who, balance)| (XRP_ASSET_ID, who, balance))
+			.collect();
+		self
+	}
+
 	pub fn build(self) -> sp_io::TestExternalities {
-		let ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let mut ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+		if !self.balances.is_empty() {
+			pallet_balances::GenesisConfig::<Test> { balances: self.balances }
+				.assimilate_storage(&mut ext)
+				.unwrap();
+		}
+
+		if !self.xrp_balances.is_empty() {
+			let assets = vec![(XRP_ASSET_ID, create_account(10), true, 1)];
+			let metadata = vec![(XRP_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), 6_u8)];
+			let accounts = self.xrp_balances;
+			pallet_assets::GenesisConfig::<Test> { assets, metadata, accounts }
+				.assimilate_storage(&mut ext)
+				.unwrap();
+		}
 
 		let mut ext: sp_io::TestExternalities = ext.into();
 		ext.execute_with(|| {
@@ -98,6 +133,16 @@ impl TestExt {
 
 		ext
 	}
+}
+
+/// Check the system event record contains `event`
+pub(crate) fn has_event(event: crate::Event<Test>) -> bool {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		// .filter_map(|e| if let Event::Nft(inner) = e { Some(inner) } else { None })
+		.find(|e| *e == RuntimeEvent::Sft(event.clone()))
+		.is_some()
 }
 
 #[allow(dead_code)]

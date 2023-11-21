@@ -19,7 +19,9 @@ use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use seed_primitives::{AssetId, Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount};
+use seed_primitives::{
+	AssetId, Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
+};
 use sp_runtime::BoundedVec;
 use sp_std::{fmt::Debug, prelude::*};
 
@@ -40,14 +42,14 @@ impl Default for CrossChainCompatibility {
 
 /// Information related to a specific collection
 #[derive(
-PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
+	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(StringLimit))]
 pub struct CollectionInformation<AccountId, StringLimit>
-	where
-		AccountId: Debug + PartialEq + Clone,
-		StringLimit: Get<u32>,
+where
+	AccountId: Debug + PartialEq + Clone,
+	StringLimit: Get<u32>,
 {
 	/// The owner of the collection
 	pub owner: AccountId,
@@ -110,15 +112,14 @@ where
 		BoundedVec<OwnedTokens<AccountId, MaxTokensPerCollection>, MaxTokensPerCollection>,
 }
 
-impl<AccountId, MaxTokensPerCollection> Default for TokenOwnership<AccountId, MaxTokensPerCollection>
+impl<AccountId, MaxTokensPerCollection> Default
+	for TokenOwnership<AccountId, MaxTokensPerCollection>
 where
 	AccountId: Debug + PartialEq + Clone,
 	MaxTokensPerCollection: Get<u32>,
 {
 	fn default() -> Self {
-		Self {
-			owned_tokens: BoundedVec::default(),
-		}
+		Self { owned_tokens: BoundedVec::default() }
 	}
 }
 
@@ -127,7 +128,10 @@ where
 	AccountId: Debug + PartialEq + Clone,
 	MaxTokensPerCollection: Get<u32>,
 {
-	pub fn new(account: AccountId, serials: BoundedVec<SerialNumber, MaxTokensPerCollection>) -> Self {
+	pub fn new(
+		account: AccountId,
+		serials: BoundedVec<SerialNumber, MaxTokensPerCollection>,
+	) -> Self {
 		let owned_tokens = BoundedVec::truncate_from(vec![(account, serials)]);
 		Self { owned_tokens }
 	}
@@ -209,8 +213,7 @@ where
 		}
 		// Check whether the owner has any tokens left, if not remove them from the collection
 		if removing_all_tokens {
-			self.owned_tokens
-				.retain(|(owner, _)| owner != token_owner);
+			self.owned_tokens.retain(|(owner, _)| owner != token_owner);
 		}
 	}
 }
