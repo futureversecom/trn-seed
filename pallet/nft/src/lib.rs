@@ -36,7 +36,7 @@ use frame_support::{
 use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest};
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId, TokenLockReason, MAX_ENTITLEMENTS,
+	SerialNumber, TokenCount, TokenId, TokenLockReason, MAX_COLLECTION_ENTITLEMENTS,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
@@ -608,7 +608,7 @@ pub mod pallet {
 			// This is because when the token is listed, two more entitlements will be added
 			// for the network fee and marketplace fee
 			ensure!(
-				royalties_schedule.entitlements.len() <= (MAX_ENTITLEMENTS - 2) as usize,
+				royalties_schedule.entitlements.len() <= MAX_COLLECTION_ENTITLEMENTS as usize,
 				Error::<T>::RoyaltiesInvalid
 			);
 			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);

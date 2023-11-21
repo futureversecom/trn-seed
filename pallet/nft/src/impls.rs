@@ -20,7 +20,7 @@ use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{log, utils::next_asset_uuid, OnNewAssetSubscriber, OnTransferSubscriber};
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
-	TokenId,
+	TokenId, MAX_COLLECTION_ENTITLEMENTS,
 };
 use sp_runtime::{
 	traits::Zero, ArithmeticError, BoundedVec, DispatchError, DispatchResult, SaturatedConversion,
@@ -390,7 +390,7 @@ impl<T: Config> Pallet<T> {
 			// This is because when the token is listed, two more entitlements will be added
 			// for the network fee and marketplace fee
 			ensure!(
-				royalties_schedule.entitlements.len() <= (MAX_ENTITLEMENTS - 2) as usize,
+				royalties_schedule.entitlements.len() <= MAX_COLLECTION_ENTITLEMENTS as usize,
 				Error::<T>::RoyaltiesInvalid
 			);
 			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
