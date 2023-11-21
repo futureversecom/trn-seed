@@ -3,7 +3,7 @@ name = "pallet-xrpl-bridge"
 version = "0.0.1"
 authors = ["The Root Network Team"]
 edition = "2021"
-license = "GPL-3.0"
+license = "Apache-2.0"
 repository = "https://github.com/futureversecom/seed-network"
 description = "XRPL Bridge to process transactions"
 

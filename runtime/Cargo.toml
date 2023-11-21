@@ -24,6 +24,7 @@ pallet-bags-list = { git = "https://github.com/paritytech/substrate", branch = "
 pallet-election-provider-multi-phase = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 pallet-im-online = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
+pallet-multisig = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 pallet-nomination-pools = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 pallet-offences = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 pallet-proxy = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
@@ -100,6 +101,7 @@ pallet-fee-control = { path = "../pallet/fee-control", default-features = false 
 pallet-xls20 = { path = "../pallet/xls20", default-features = false }
 pallet-futurepass = { path = "../pallet/futurepass", default-features = false }
 pallet-marketplace = { path = "../pallet/marketplace", default-features = false }
+pallet-vortex = { path = "../pallet/vortex-distribution", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
@@ -150,6 +152,7 @@ std = [
 	"pallet-election-provider-multi-phase/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
+	'pallet-multisig/std',
 	"pallet-nomination-pools/std",
 	"pallet-offences/std",
 	"pallet-proxy/std",
@@ -192,6 +195,7 @@ std = [
 	"pallet-xls20/std",
 	"pallet-futurepass/std",
 	"pallet-marketplace/std",
+	"pallet-vortex/std",
 	"seed-primitives/std",
 	"primitive-types/std",
 	"fp-rpc/std",
@@ -247,6 +251,7 @@ try-runtime = [
 	"pallet-session/try-runtime",
 	"pallet-grandpa/try-runtime",
 	"pallet-im-online/try-runtime",
+	"pallet-multisig/try-runtime",
 	"pallet-sudo/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
@@ -268,6 +273,7 @@ try-runtime = [
 	"pallet-xls20/try-runtime",
 	"pallet-futurepass/try-runtime",
 	"pallet-marketplace/try-runtime",
+	"pallet-vortex/try-runtime",
 	"pallet-evm/try-runtime",
 	"pallet-fee-control/try-runtime",
 	"pallet-fee-proxy/try-runtime",
@@ -296,6 +302,7 @@ runtime-benchmarks = [
 	"pallet-staking/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-im-online/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	# Local
@@ -313,6 +320,7 @@ runtime-benchmarks = [
 	"pallet-xls20/runtime-benchmarks",
 	"pallet-futurepass/runtime-benchmarks",
 	"pallet-marketplace/runtime-benchmarks",
+	"pallet-vortex/runtime-benchmarks",
 	"pallet-evm/runtime-benchmarks",
 	"pallet-fee-proxy/runtime-benchmarks",
 ]
