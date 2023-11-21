@@ -17,12 +17,16 @@
 extern crate alloc;
 
 use fp_evm::{PrecompileHandle, PrecompileOutput, PrecompileResult};
-use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
+use frame_support::{
+	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
+	ensure,
+};
 use pallet_evm::{GasWeightMapping, Precompile};
 use pallet_sft::WeightInfo;
 use precompile_utils::{constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{
-	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, MAX_ENTITLEMENTS,
+	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, MAX_COLLECTION_ENTITLEMENTS,
+	MAX_ENTITLEMENTS,
 };
 use sp_core::{H160, U256};
 use sp_runtime::{
@@ -142,11 +146,14 @@ where
 					.map(|address| H160::from(address).into())
 					.zip(royalty_entitlements)
 					.collect();
+				ensure!(
+					entitlements_unbounded.len() <= MAX_COLLECTION_ENTITLEMENTS as usize,
+					revert("SFT: Too many royalty entitlements provided")
+				);
 				let entitlements: BoundedVec<
 					(Runtime::AccountId, Permill),
 					ConstU32<MAX_ENTITLEMENTS>,
-				> = BoundedVec::try_from(entitlements_unbounded)
-					.map_err(|_| revert("SFT: Too many royalty entitlements provided"))?;
+				> = BoundedVec::truncate_from(entitlements_unbounded);
 
 				Some(RoyaltiesSchedule { entitlements })
 			} else {
