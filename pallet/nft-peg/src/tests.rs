@@ -13,11 +13,12 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{mock::*, EthToRootNft, NextBlockedMintId, RootNftToErc721, *};
-use frame_support::{assert_noop, assert_ok, traits::Hooks};
+use crate::{mock::*, *};
+use frame_support::traits::Hooks;
 use hex_literal::hex;
 use pallet_nft::CollectionInfo;
-use seed_primitives::{AccountId, MetadataScheme};
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::MetadataScheme;
 
 struct TestVals {
 	source: H160,
@@ -383,9 +384,7 @@ fn do_deposit_adds_to_blocked_on_fail() {
 			destination_address: test_vals.destination.into()
 		}));
 
-		let blocked =
-			<pallet::Pallet<mock::Test> as pallet::Store>::BlockedTokens::get(blocked_mint_id)
-				.unwrap();
+		let blocked = <Pallet<Test> as pallet::Store>::BlockedTokens::get(blocked_mint_id).unwrap();
 
 		assert_eq!(blocked.collection_id, collection_id);
 		assert_eq!(blocked.serial_numbers, serial_numbers);

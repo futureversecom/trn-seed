@@ -14,36 +14,18 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_erc20_peg;
-use seed_pallet_common::{
-	EthereumBridge, EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber,
-	EventRouterError, EventRouterResult,
-};
-use seed_primitives::types::{AccountId, AssetId, Balance};
-
-use frame_support::{pallet_prelude::*, parameter_types, PalletId};
-use frame_system::EnsureRoot;
-use sp_core::{H160, H256};
+use frame_support::pallet_prelude::*;
+use seed_pallet_common::test_prelude::*;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
 
-pub const XRP_ASSET_ID: AssetId = 2;
-pub const ROOT_ASSET_ID: AssetId = 1;
-pub const SPENDING_ASSET_ID: AssetId = XRP_ASSET_ID;
-
-pub fn make_account_id(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
-}
-
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
-
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
@@ -172,7 +154,7 @@ impl EthereumBridge for MockEthBridge {
 /// Handles routing verified bridge messages to other pallets
 pub struct MockEthereumEventRouter;
 
-impl EthereumEventRouterT for MockEthereumEventRouter {
+impl EthereumEventRouter for MockEthereumEventRouter {
 	/// Route an event to a handler at `destination`
 	/// - `source` the sender address on Ethereum
 	/// - `destination` the intended handler (pseudo) address
@@ -197,7 +179,7 @@ impl ExtBuilder {
 
 		// Setup XRP asset
 		let metadata = vec![(XRP_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), 6)];
-		let default_account = make_account_id(100_u64);
+		let default_account = create_account(100_u64);
 		let assets = vec![(XRP_ASSET_ID, default_account, true, 1)];
 		pallet_assets::GenesisConfig::<Test> { assets, metadata, accounts: vec![] }
 			.assimilate_storage(&mut t)

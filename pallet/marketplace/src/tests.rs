@@ -15,24 +15,16 @@
 
 use super::*;
 use crate::mock::{
-	create_account, AssetsExt, FeePotId, Marketplace, MarketplaceNetworkFeePercentage,
-	MarketplacePalletId, MaxTokensPerCollection, MaxTokensPerListing, NativeAssetId, Nft,
-	RuntimeEvent as MockEvent, System, Test, TestExt, XRP_ASSET_ID,
+	AssetsExt, FeePotId, Marketplace, MarketplaceNetworkFeePercentage, MarketplacePalletId,
+	MaxTokensPerCollection, MaxTokensPerListing, NativeAssetId, Nft, RuntimeEvent as MockEvent,
+	System, Test, TestExt,
 };
 use core::ops::Mul;
-use frame_support::{
-	assert_noop, assert_ok,
-	traits::{fungibles::Inspect, OnInitialize},
-};
-use frame_system::RawOrigin;
+use frame_support::traits::{fungibles::Inspect, OnInitialize};
 use pallet_nft::{CrossChainCompatibility, TokenLocks};
-use seed_primitives::{AccountId, MetadataScheme, RoyaltiesSchedule, TokenCount, TokenId};
-use sp_runtime::{
-	traits::{AccountIdConversion, Zero},
-	BoundedVec,
-	DispatchError::BadOrigin,
-	Permill,
-};
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::{MetadataScheme, RoyaltiesSchedule, TokenCount};
+use sp_runtime::traits::{AccountIdConversion, Zero};
 
 // Create an NFT collection
 // Returns the created `collection_id`

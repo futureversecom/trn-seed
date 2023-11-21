@@ -19,14 +19,12 @@ use crate::{
 	Data,
 };
 use frame_support::{
-	assert_ok,
 	dispatch::{DispatchClass, GetDispatchInfo},
 	traits::fungibles::Mutate,
 };
 use frame_system::{limits::BlockWeights, RawOrigin};
 use pallet_transaction_payment::ChargeTransactionPayment;
-use seed_pallet_common::CreateExt;
-use sp_core::U256;
+use seed_pallet_common::test_prelude::*;
 use sp_runtime::{traits::SignedExtension, Perbill};
 
 #[test]

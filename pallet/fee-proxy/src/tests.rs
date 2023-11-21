@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
+#![allow(deprecated)]
 
 use super::*;
 use crate::{
-	mock::{FeeProxy, Futurepass, Runner, RuntimeOrigin, System, Test, TestExt, XRP_ASSET_ID},
+	mock::{FeeProxy, Futurepass, Runner, RuntimeOrigin, System, Test, TestExt},
 	runner::*,
 };
 use ethabi::Token;
-use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
 use precompile_utils::{
 	constants::{
@@ -27,12 +27,7 @@ use precompile_utils::{
 	},
 	ErcIdConversion,
 };
-use seed_primitives::{AccountId, AssetId, Balance};
-use sp_core::{H160, U256};
-
-fn create_account(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
-}
+use seed_pallet_common::test_prelude::*;
 
 /// Tests for the extrinsic call_with_fee_preferences
 mod call_with_fee_preferences {

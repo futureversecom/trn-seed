@@ -14,31 +14,17 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_xls20;
-use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
-use frame_system::EnsureRoot;
-use seed_pallet_common::*;
-use seed_primitives::{AccountId, AssetId, Balance, TokenId};
-use sp_core::{H160, H256};
+use seed_pallet_common::test_prelude::*;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	Permill,
 };
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
-
-pub const XRP_ASSET_ID: AssetId = 2;
-
-pub fn create_account(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
-}
-
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system,
 		Balances: pallet_balances,

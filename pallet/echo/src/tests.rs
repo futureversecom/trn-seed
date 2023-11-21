@@ -16,20 +16,17 @@
 #![cfg(test)]
 use super::*;
 use crate::mock::{
-	has_event, test_storage::NextEventProofId, Echo, ExtBuilder, MockEthereumEventRouter,
-	TestRuntime,
+	has_event, test_storage::NextEventProofId, Echo, ExtBuilder, MockEthereumEventRouter, Test,
 };
-use frame_support::{assert_ok, storage::StorageValue};
-use seed_pallet_common::EthereumEventRouter;
-use seed_primitives::AccountId;
-use sp_core::H160;
+use frame_support::storage::StorageValue;
+use seed_pallet_common::test_prelude::*;
 use sp_runtime::traits::AccountIdConversion;
 
 #[test]
 fn ping_works_from_runtime() {
 	ExtBuilder::default().build().execute_with(|| {
 		let caller = H160::from_low_u64_be(123);
-		let destination = <TestRuntime as Config>::PalletId::get().into_account_truncating();
+		let destination = <Test as Config>::PalletId::get().into_account_truncating();
 		// let destination = H160::from_low_u64_be(124);
 		let next_session_id = Echo::next_session_id();
 		let next_event_proof_id = NextEventProofId::get();
@@ -65,7 +62,7 @@ fn ping_works_from_runtime() {
 fn ping_works_from_ethereum() {
 	ExtBuilder::default().build().execute_with(|| {
 		let caller = H160::from_low_u64_be(123);
-		let destination = <TestRuntime as Config>::PalletId::get().into_account_truncating();
+		let destination = <Test as Config>::PalletId::get().into_account_truncating();
 		// let destination = H160::from_low_u64_be(124);
 		let next_session_id = Echo::next_session_id();
 		let next_event_proof_id = NextEventProofId::get();

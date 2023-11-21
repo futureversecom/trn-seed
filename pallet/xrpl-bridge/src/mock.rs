@@ -13,37 +13,26 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use frame_support::{
-	construct_runtime, parameter_types,
-	traits::{ConstU16, ConstU64},
-	PalletId,
-};
+use frame_support::traits::{ConstU16, ConstU64};
 use frame_system as system;
-use frame_system::{limits, EnsureRoot};
-use sp_core::{ByteArray, H256};
+use frame_system::limits;
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::ethy::{crypto::AuthorityId, EventProofId};
+use sp_core::ByteArray;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 	DispatchError, Percent,
 };
 
-use seed_pallet_common::XrplBridgeToEthyAdapter;
-use seed_primitives::{
-	ethy::{crypto::AuthorityId, EventProofId},
-	AccountId, AssetId, Balance, BlockNumber,
-};
-
 use crate as pallet_xrpl_bridge;
-
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
@@ -159,11 +148,9 @@ impl pallet_timestamp::Config for Test {
 // Time is measured by number of blocks.
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
 
 parameter_types! {
-	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
+	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES as u32;
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
 	pub const XRPTransactionLimit: u32 = 10;
 	pub const XRPLTransactionLimitPerLedger: u32 = 10;

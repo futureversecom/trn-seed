@@ -14,18 +14,13 @@
 // You may obtain a copy of the License at the root of this project source code
 
 //! A mock runtime for integration testing common runtime functionality
-use frame_support::{
-	parameter_types,
-	traits::{FindAuthor, GenesisBuild},
-	weights::Weight,
-	PalletId,
-};
-use frame_system::{limits, EnsureRoot};
+use frame_support::traits::FindAuthor;
+use frame_system::limits;
 use pallet_evm::{
 	AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator, GasWeightMapping,
 };
-use seed_pallet_common::OnNewAssetSubscriber;
-use sp_core::{H160, H256, U256};
+use seed_pallet_common::test_prelude::*;
+pub(crate) use seed_primitives::Index;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -33,19 +28,15 @@ use sp_runtime::{
 };
 use std::marker::PhantomData;
 
-pub(crate) use seed_primitives::{AssetId, Balance, Index};
-
 use crate::{self as pallet_assets_ext};
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
 pub type MockAccountId = u64;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},

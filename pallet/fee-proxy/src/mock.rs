@@ -16,36 +16,27 @@
 use crate as pallet_fee_proxy;
 use crate::*;
 use frame_support::{
-	parameter_types,
 	traits::{FindAuthor, InstanceFilter},
-	weights::{ConstantMultiplier, Weight, WeightToFee},
-	PalletId,
+	weights::{ConstantMultiplier, WeightToFee},
 };
-use frame_system::{limits, EnsureRoot};
+use frame_system::limits;
 use pallet_evm::{
 	AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator, GasWeightMapping,
 };
 use precompile_utils::{Address, ErcIdConversion};
-use seed_pallet_common::*;
-use seed_primitives::{AccountId, AssetId};
-use sp_core::{H160, H256, U256};
+use seed_pallet_common::test_prelude::*;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	ConsensusEngineId, Permill,
+	ConsensusEngineId,
 };
 use std::ops::Mul;
 
-pub const XRP_ASSET_ID: AssetId = 1;
-
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
-
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		FeeProxy: pallet_fee_proxy::{Pallet, Call, Storage, Event<T>},

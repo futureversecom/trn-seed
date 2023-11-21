@@ -13,42 +13,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use std::{
-	sync::Arc,
-	time::{SystemTime, UNIX_EPOCH},
-};
-
-use codec::{Decode, Encode};
-use ethereum_types::U64;
-use frame_support::{
-	parameter_types,
-	storage::{StorageDoubleMap, StorageValue},
-	traits::{UnixTime, ValidatorSet as ValidatorSetT},
-	weights::Weight,
-	PalletId,
-};
-use frame_system::EnsureRoot;
-use scale_info::TypeInfo;
-use sp_application_crypto::RuntimeAppPublic;
-use sp_core::{ByteArray, H160, H256, U256};
-use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
-use sp_runtime::{
-	testing::{Header, TestXt},
-	traits::{
-		BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify,
-	},
-	DispatchError, Percent,
-};
-
-use seed_pallet_common::{
-	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EthyToXrplBridgeAdapter,
-	EventRouterResult, FinalSessionTracker,
-};
-use seed_primitives::{
-	ethy::{crypto::AuthorityId, EventProofId},
-	AssetId, Balance, Signature,
-};
-
 use crate::{
 	self as pallet_ethy,
 	sp_api_hidden_includes_decl_storage::hidden_include::{IterableStorageMap, StorageMap},
@@ -58,22 +22,40 @@ use crate::{
 	},
 	Config,
 };
+use codec::{Decode, Encode};
+use ethereum_types::U64;
+use frame_support::{
+	storage::StorageDoubleMap,
+	traits::{UnixTime, ValidatorSet as ValidatorSetT},
+};
+use scale_info::TypeInfo;
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::{
+	ethy::{crypto::AuthorityId, EventProofId},
+	AssetId, Balance, Signature,
+};
+use sp_application_crypto::RuntimeAppPublic;
+use sp_core::ByteArray;
+use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
+use sp_runtime::{
+	testing::{Header, TestXt},
+	traits::{BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentityLookup, Verify},
+	Percent,
+};
+use std::{
+	sync::Arc,
+	time::{SystemTime, UNIX_EPOCH},
+};
 
-pub const XRP_ASSET_ID: AssetId = 1;
-
-type BlockNumber = u64;
 pub type SessionIndex = u32;
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
-pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
-pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
 frame_support::construct_runtime!(
-	pub enum TestRuntime where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+	pub enum Test where
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
@@ -87,7 +69,7 @@ frame_support::construct_runtime!(
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
-impl frame_system::Config for TestRuntime {
+impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = ();
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -120,12 +102,11 @@ parameter_types! {
 	pub const EpochDuration: u64 = 1000_u64;
 	pub const ChallengerBond: Balance = 100;
 	pub const RelayerBond: Balance = 202;
-	pub const XrpAssetId: AssetId = XRP_ASSET_ID;
 	pub const MaxXrplKeys: u8 = 8;
 	pub const MaxNewSigners: u8 = 20;
 	pub const AuthorityChangeDelay: BlockNumber = 75;
 }
-impl Config for TestRuntime {
+impl Config for Test {
 	type AuthorityChangeDelay = AuthorityChangeDelay;
 	type AuthoritySet = MockValidatorSet;
 	type BridgePalletId = BridgePalletId;
@@ -141,7 +122,7 @@ impl Config for TestRuntime {
 	type EpochDuration = EpochDuration;
 	type ChallengeBond = ChallengerBond;
 	type MultiCurrency = AssetsExt;
-	type NativeAssetId = XrpAssetId;
+	type NativeAssetId = NativeAssetId;
 	type RelayerBond = RelayerBond;
 	type MaxXrplKeys = MaxXrplKeys;
 	type Scheduler = Scheduler;
@@ -167,7 +148,7 @@ parameter_types! {
 	pub const MetadataDepositPerByte: Balance = 1;
 }
 
-impl pallet_assets::Config for TestRuntime {
+impl pallet_assets::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
@@ -185,13 +166,13 @@ impl pallet_assets::Config for TestRuntime {
 }
 
 parameter_types! {
-	pub const NativeAssetId: AssetId = 1;
+	pub const NativeAssetId: AssetId = ROOT_ASSET_ID;
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
 	pub const MaxHolds: u32 = 16;
 	pub const TestParachainId: u32 = 100;
 }
 
-impl pallet_assets_ext::Config for TestRuntime {
+impl pallet_assets_ext::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
@@ -205,7 +186,7 @@ parameter_types! {
 	pub const MaxReserves: u32 = 50;
 }
 
-impl pallet_balances::Config for TestRuntime {
+impl pallet_balances::Config for Test {
 	type Balance = Balance;
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
@@ -220,7 +201,7 @@ impl pallet_balances::Config for TestRuntime {
 parameter_types! {
 	pub const MaxScheduledPerBlock: u32 = 50;
 }
-impl pallet_scheduler::Config for TestRuntime {
+impl pallet_scheduler::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeOrigin = RuntimeOrigin;
 	type PalletsOrigin = OriginCaller;
@@ -552,7 +533,7 @@ impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for NoopConverter<T>
 pub struct MockValidatorSet;
 impl ValidatorSetT<AccountId> for MockValidatorSet {
 	type ValidatorId = AccountId;
-	type ValidatorIdOf = NoopConverter<TestRuntime>;
+	type ValidatorIdOf = NoopConverter<Test>;
 	/// Returns current session index.
 	fn session_index() -> SessionIndex {
 		1
@@ -617,7 +598,7 @@ pub struct MockFinalSessionTracker;
 impl FinalSessionTracker for MockFinalSessionTracker {
 	fn is_active_session_final() -> bool {
 		// at block 100, or if we are forcing, the active session is final
-		frame_system::Pallet::<TestRuntime>::block_number() == 100 || test_storage::Forcing::get()
+		frame_system::Pallet::<Test>::block_number() == 100 || test_storage::Forcing::get()
 	}
 }
 
@@ -635,12 +616,12 @@ impl UnixTime for MockUnixTime {
 	}
 }
 
-impl frame_system::offchain::SigningTypes for TestRuntime {
+impl frame_system::offchain::SigningTypes for Test {
 	type Public = <Signature as Verify>::Signer;
 	type Signature = Signature;
 }
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
 where
 	RuntimeCall: From<C>,
 {
@@ -648,7 +629,7 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
 where
 	RuntimeCall: From<LocalCall>,
 {
@@ -698,8 +679,7 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext =
-			frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+		let mut ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
 		let mut endowed_accounts: Vec<(AccountId, Balance)> = vec![];
 		if self.endowed_account.is_some() {
@@ -712,7 +692,7 @@ impl ExtBuilder {
 		}
 
 		if !endowed_accounts.is_empty() {
-			pallet_balances::GenesisConfig::<TestRuntime> { balances: endowed_accounts }
+			pallet_balances::GenesisConfig::<Test> { balances: endowed_accounts }
 				.assimilate_storage(&mut ext)
 				.unwrap();
 		}
@@ -720,7 +700,7 @@ impl ExtBuilder {
 		if self.xrp_door_signer.is_some() {
 			let xrp_door_signers: Vec<AuthorityId> =
 				vec![AuthorityId::from_slice(self.xrp_door_signer.unwrap().as_slice()).unwrap()];
-			pallet_ethy::GenesisConfig::<TestRuntime> { xrp_door_signers }
+			pallet_ethy::GenesisConfig::<Test> { xrp_door_signers }
 				.assimilate_storage(&mut ext)
 				.unwrap();
 		}
@@ -745,9 +725,9 @@ impl ExtBuilder {
 		}
 
 		if self.next_session_final {
-			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1));
+			ext.execute_with(|| frame_system::Pallet::<Test>::set_block_number(1));
 		} else if self.active_session_final {
-			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(100));
+			ext.execute_with(|| frame_system::Pallet::<Test>::set_block_number(100));
 		}
 
 		ext

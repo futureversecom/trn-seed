@@ -352,10 +352,9 @@ where
 
 #[cfg(test)]
 mod tests {
-	use crate::mock::{test_ext, AssetId, AssetsExt, MockAccountId, Test};
-	use frame_support::{assert_noop, assert_storage_noop, parameter_types};
-
 	use super::*;
+	use crate::mock::{test_ext, AssetsExt, MockAccountId, Test};
+	use seed_pallet_common::test_prelude::*;
 
 	const TEST_ASSET_ID: AssetId = 5;
 	parameter_types! {

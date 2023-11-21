@@ -14,40 +14,26 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{self as pallet_futurepass, *};
-use frame_support::{
-	parameter_types,
-	traits::{
-		fungibles::{Inspect, Transfer},
-		Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency,
-	},
-	PalletId,
+use frame_support::traits::{
+	fungibles::{Inspect, Transfer},
+	Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency,
 };
-use frame_system::EnsureRoot;
-use seed_pallet_common::*;
-use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
-};
+use seed_pallet_common::test_prelude::*;
 use seed_runtime::{
 	impls::{ProxyPalletProvider, ProxyType},
 	AnnouncementDepositBase, AnnouncementDepositFactor, ProxyDepositBase, ProxyDepositFactor,
 };
-use sp_core::{ecdsa, Pair, H160, H256};
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-};
-
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
+use sp_core::{ecdsa, Pair};
+use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
 
 pub const MOCK_PAYMENT_ASSET_ID: AssetId = 100;
-pub const MOCK_NATIVE_ASSET_ID: AssetId = 1;
+pub const MOCK_NATIVE_ASSET_ID: AssetId = ROOT_ASSET_ID;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -255,7 +241,7 @@ pub struct MockMigrationProvider;
 impl<T: pallet_nft::Config + pallet_assets_ext::Config> crate::FuturepassMigrator<T>
 	for MockMigrationProvider
 where
-	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+	<T as frame_system::Config>::AccountId: From<H160>,
 {
 	fn transfer_asset(
 		asset_id: AssetId,
@@ -302,12 +288,10 @@ where
 	}
 }
 
-pub fn create_account(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
-}
-pub fn create_random() -> AccountId {
-	AccountId::from(H160::random())
-}
+// pub fn random_account() -> AccountId {
+// 	AccountId::from(H160::random())
+// }
+
 pub fn create_random_pair() -> (ecdsa::Pair, AccountId) {
 	let (pair, _) = ecdsa::Pair::generate();
 	let account: AccountId = pair.public().try_into().unwrap();

@@ -16,16 +16,12 @@
 #![cfg(test)]
 use super::*;
 use crate::mock::*;
-use frame_support::{
-	assert_err, assert_noop, assert_ok,
-	traits::tokens::fungibles::{Mutate, Transfer},
-};
+use frame_support::traits::tokens::fungibles::{Mutate, Transfer};
 use hex_literal::hex;
-use seed_primitives::{AccountId, AssetId, Balance};
-use seed_runtime::{impls::ProxyType, Inspect};
-
 use pallet_nft::CrossChainCompatibility;
-use seed_primitives::{CollectionUuid, MetadataScheme};
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::MetadataScheme;
+use seed_runtime::{impls::ProxyType, Inspect};
 
 type MockCall = crate::mock::RuntimeCall;
 
@@ -426,7 +422,7 @@ fn register_delegate_failures_common() {
 			assert_noop!(
 				Futurepass::register_delegate_with_signature(
 					RuntimeOrigin::signed(owner),
-					create_random(),
+					random_account(),
 					delegate_1,
 					proxy_type,
 					deadline,
@@ -813,7 +809,7 @@ fn unregister_delegate_failures_common() {
 			assert_noop!(
 				Futurepass::unregister_delegate(
 					RuntimeOrigin::signed(owner),
-					create_random(),
+					random_account(),
 					delegate_1
 				),
 				Error::<Test>::PermissionDenied
@@ -823,7 +819,7 @@ fn unregister_delegate_failures_common() {
 				Futurepass::unregister_delegate(
 					RuntimeOrigin::signed(owner),
 					futurepass,
-					create_random()
+					random_account()
 				),
 				Error::<Test>::DelegateNotRegistered
 			);
@@ -1065,9 +1061,9 @@ fn transfer_futurepass_failures() {
 			// call transfer_futurepass by other than owner should fail
 			assert_noop!(
 				Futurepass::transfer_futurepass(
-					RuntimeOrigin::signed(create_random()),
+					RuntimeOrigin::signed(random_account()),
 					owner,
-					Some(create_random())
+					Some(random_account())
 				),
 				Error::<Test>::NotFuturepassOwner
 			);
@@ -1405,7 +1401,7 @@ fn proxy_extrinsic_to_futurepass_non_whitelist_fails() {
 			// pallet_futurepass calls other than the whitelist can not be called via
 			// proxy_extrinsic
 			let inner_call =
-				Box::new(MockCall::Futurepass(Call::create { account: create_random() }));
+				Box::new(MockCall::Futurepass(Call::create { account: random_account() }));
 			// call proxy_extrinsic by owner
 			System::reset_events();
 			assert_ok!(Futurepass::proxy_extrinsic(
@@ -1487,7 +1483,7 @@ fn proxy_extrinsic_to_proxy_pallet_fails() {
 
 			// pallet_proxy calls can not be called via proxy_extrinsic
 			let inner_call = Box::new(MockCall::Proxy(pallet_proxy::Call::add_proxy {
-				delegate: create_random(),
+				delegate: random_account(),
 				proxy_type,
 				delay: 0,
 			}));
@@ -1580,7 +1576,7 @@ fn proxy_extrinsic_failures_common() {
 			assert_err!(
 				Futurepass::proxy_extrinsic(
 					RuntimeOrigin::signed(other),
-					create_random(),
+					random_account(),
 					inner_call.clone()
 				),
 				pallet_proxy::Error::<Test>::NotProxy

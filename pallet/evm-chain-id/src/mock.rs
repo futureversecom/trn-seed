@@ -15,8 +15,7 @@
 
 use crate::{self as pallet_evm_chain_id, Config};
 use frame_support::parameter_types;
-use frame_system::EnsureRoot;
-use sp_core::H256;
+use seed_pallet_common::test_prelude::*;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -25,15 +24,11 @@ use sp_runtime::{
 pub type AccountId = u64;
 pub const ALICE: AccountId = 10;
 
-pub type BlockNumber = u64;
-pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
-pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
-
-frame_support::construct_runtime!(
-	pub enum TestRuntime where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+construct_runtime!(
+	pub enum Test where
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		EVMChainId: pallet_evm_chain_id::{Pallet, Call, Storage, Event<T>},
@@ -43,7 +38,7 @@ frame_support::construct_runtime!(
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
-impl frame_system::Config for TestRuntime {
+impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = ();
 	type BaseCallFilter = frame_support::traits::Everything;
@@ -73,7 +68,7 @@ impl frame_system::Config for TestRuntime {
 parameter_types! {
 	pub const DefaultChainId: u64 = 7672;
 }
-impl Config for TestRuntime {
+impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 	type DefaultChainId = DefaultChainId;
@@ -84,8 +79,7 @@ impl Config for TestRuntime {
 pub struct TestExt;
 impl TestExt {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let storage =
-			frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+		let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 		let mut ext: sp_io::TestExternalities = storage.into();
 		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
 		ext

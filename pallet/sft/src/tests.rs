@@ -17,13 +17,8 @@ use crate::{
 	mock::*, Config, Error, SftCollectionInfo, SftCollectionInformation, SftTokenBalance,
 	SftTokenInformation, TokenInfo,
 };
-use frame_support::{assert_noop, assert_ok};
-use frame_system::RawOrigin;
-use seed_primitives::{
-	Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenId,
-};
-use sp_core::H160;
-use sp_runtime::{BoundedVec, Permill};
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::{MetadataScheme, OriginChain, RoyaltiesSchedule};
 
 /// Helper function to create a collection used for tests
 /// Returns the collectionUuid
@@ -71,26 +66,6 @@ pub fn create_test_token(
 	);
 
 	token_id
-}
-
-/// Helper functions for creating accounts from a u64 seed
-pub fn create_account(seed: u64) -> <Test as frame_system::Config>::AccountId {
-	<Test as frame_system::Config>::AccountId::from(H160::from_low_u64_be(seed))
-}
-
-/// Common account Alice
-pub fn alice() -> <Test as frame_system::Config>::AccountId {
-	create_account(1)
-}
-
-/// Common account Bob
-pub fn bob() -> <Test as frame_system::Config>::AccountId {
-	create_account(2)
-}
-
-/// Common account Charlie
-pub fn charlie() -> <Test as frame_system::Config>::AccountId {
-	create_account(3)
 }
 
 /// Helper function for creating the collection name type
@@ -2010,12 +1985,8 @@ mod toggle_public_mint {
 
 mod public_minting {
 	use super::*;
-	use crate::{
-		mock::{AssetsExt, XRP_ASSET_ID},
-		Event,
-	};
+	use crate::{mock::AssetsExt, Event};
 	use frame_support::traits::fungibles::Inspect;
-	use seed_primitives::AssetId;
 
 	#[test]
 	fn public_mint_should_let_user_mint() {

@@ -14,22 +14,13 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_nft;
-use frame_support::{
-	dispatch::DispatchResult,
-	parameter_types,
-	traits::{FindAuthor, GenesisBuild},
-	weights::Weight,
-	PalletId,
-};
-use frame_system::{limits, EnsureRoot};
+use frame_support::traits::FindAuthor;
+use frame_system::limits;
 use pallet_evm::{
 	AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator, GasWeightMapping,
 };
-use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest};
-use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
-};
-use sp_core::{H160, H256, U256};
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::MetadataScheme;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -37,20 +28,11 @@ use sp_runtime::{
 };
 use std::marker::PhantomData;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
-
-pub const XRP_ASSET_ID: AssetId = 2;
-
-pub fn create_account(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
-}
-
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},

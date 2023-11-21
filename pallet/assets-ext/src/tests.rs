@@ -14,18 +14,13 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{
-	mock::{test_ext, AssetId, AssetsExt, AssetsExtPalletId, MockAccountId, NativeAssetId, Test},
+	mock::{test_ext, AssetsExt, AssetsExtPalletId, MockAccountId, NativeAssetId, Test},
 	Config, Error, Holds, NextAssetId,
 };
-use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop,
-	traits::fungibles::{Inspect, InspectMetadata, Transfer},
-	PalletId,
-};
-use seed_pallet_common::{CreateExt, Hold, TransferExt};
-use seed_primitives::Balance;
-use sp_core::H160;
+use frame_support::traits::fungibles::{Inspect, InspectMetadata, Transfer};
+use seed_pallet_common::{test_prelude::*, CreateExt, Hold, TransferExt};
 use sp_runtime::traits::{AccountIdConversion, Zero};
+
 const TEST_PALLET_ID: PalletId = PalletId(*b"pal/test");
 
 #[test]

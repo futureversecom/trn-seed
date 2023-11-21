@@ -15,10 +15,8 @@
 
 use super::*;
 use crate::mock::{Nft, Test, TestExt, TokenApprovals};
-use frame_support::{assert_noop, assert_ok};
-use frame_system::RawOrigin;
-use seed_primitives::{AccountId, MetadataScheme, OriginChain, TokenId};
-use sp_core::H160;
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::{MetadataScheme, OriginChain};
 
 pub fn create_account(seed: u64) -> AccountId {
 	AccountId::from(H160::from_low_u64_be(seed))

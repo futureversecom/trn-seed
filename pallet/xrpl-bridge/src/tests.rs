@@ -18,10 +18,7 @@ use crate::mock::{
 	new_test_ext, AssetsExt, RuntimeOrigin, System, Test, XRPLBridge, XrpAssetId,
 	XrpTxChallengePeriod,
 };
-use frame_support::{assert_err, assert_noop, assert_ok};
-use seed_primitives::{AccountId, Balance};
-use sp_core::{H160, H256};
-use sp_runtime::traits::BadOrigin;
+use seed_pallet_common::test_prelude::*;
 
 /// Helper function to create an AccountId from  a slice
 fn create_account(address: &[u8]) -> AccountId {
@@ -234,10 +231,7 @@ fn set_door_tx_fee_works() {
 
 		// Only root can sign this tx, this should fail
 		let account = AccountId::from(H160::from_slice(b"6490B68F1116BFE87DDC"));
-		assert_noop!(
-			XRPLBridge::set_door_tx_fee(RuntimeOrigin::signed(account), 0),
-			DispatchError::BadOrigin
-		);
+		assert_noop!(XRPLBridge::set_door_tx_fee(RuntimeOrigin::signed(account), 0), BadOrigin);
 	});
 }
 
@@ -621,7 +615,7 @@ fn reset_settled_xrpl_tx_data_can_only_be_called_by_root() {
 		let account: AccountId = [1_u8; 20].into();
 		assert_noop!(
 			XRPLBridge::reset_settled_xrpl_tx_data(RuntimeOrigin::signed(account), 9, 6, None),
-			DispatchError::BadOrigin
+			BadOrigin
 		);
 
 		assert_ok!(XRPLBridge::reset_settled_xrpl_tx_data(RuntimeOrigin::root(), 9, 6, None));

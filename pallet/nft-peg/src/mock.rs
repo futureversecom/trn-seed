@@ -15,39 +15,19 @@
 
 use crate as pallet_nft_peg;
 
-use seed_pallet_common::{
-	EthereumBridge, EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber,
-	EventRouterError, EventRouterResult, Xls20MintRequest,
-};
-use seed_primitives::types::{AccountId, AssetId, Balance};
-
-use frame_support::{pallet_prelude::*, parameter_types, PalletId};
-use frame_system::EnsureRoot;
-use sp_core::{H160, H256};
+use frame_support::pallet_prelude::*;
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::MetadataScheme;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	Permill,
 };
 
-use seed_pallet_common::OnTransferSubscriber;
-use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber, TokenId};
-
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
-
-pub const XRP_ASSET_ID: AssetId = 1;
-pub const SPENDING_ASSET_ID: AssetId = XRP_ASSET_ID;
-
-pub fn create_account(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
-}
-
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
@@ -234,7 +214,7 @@ impl EthereumBridge for MockEthBridge {
 /// Handles routing verified bridge messages to other pallets
 pub struct MockEthereumEventRouter;
 
-impl EthereumEventRouterT for MockEthereumEventRouter {
+impl EthereumEventRouter for MockEthereumEventRouter {
 	/// Route an event to a handler at `destination`
 	/// - `source` the sender address on Ethereum
 	/// - `destination` the intended handler (pseudo) address

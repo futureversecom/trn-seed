@@ -34,7 +34,8 @@ use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
 };
 
-pub mod mock;
+pub mod test_utils;
+pub use test_utils::test_prelude;
 pub mod utils;
 
 /// syntactic sugar for logging.

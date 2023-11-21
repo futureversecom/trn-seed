@@ -16,21 +16,29 @@
 #![cfg(test)]
 
 use super::*;
-use frame_support::{construct_runtime, parameter_types};
-use frame_system::{limits, EnsureRoot};
-use sp_core::H256;
+use frame_system::limits;
+use seed_pallet_common::test_prelude::*;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 	Perbill,
 };
 
-use seed_primitives::AccountId;
-pub(crate) use seed_primitives::{AssetId, Balance, Index};
+pub(crate) use seed_primitives::Index;
 
-mod dex {
-	pub use super::super::*;
-}
+construct_runtime!(
+	pub enum Test where
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	{
+		System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
+		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
+		Dex: crate::{Pallet, Call, Storage, Event<T>},
+	}
+);
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
@@ -139,23 +147,6 @@ impl Config for Test {
 	type WeightInfo = ();
 	type MultiCurrency = AssetsExt;
 }
-
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
-
-construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
-		System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
-		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
-		Dex: crate::{Pallet, Call, Storage, Event<T>},
-	}
-);
 
 #[derive(Default)]
 pub struct TestExt;

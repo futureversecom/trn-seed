@@ -14,31 +14,19 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_sft;
-use crate::{tests::create_account, Config};
-use frame_support::{
-	dispatch::DispatchResult, pallet_prelude::GenesisBuild, parameter_types, PalletId,
-};
-use frame_system::EnsureRoot;
-use seed_pallet_common::*;
-use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
-};
-use sp_core::H256;
+use crate::Config;
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::MetadataScheme;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
-
-pub const XRP_ASSET_ID: AssetId = 2;
-
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system,
 		Balances: pallet_balances,

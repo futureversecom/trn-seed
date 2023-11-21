@@ -16,14 +16,13 @@
 #![cfg(test)]
 use super::*;
 use crate::mock::{
-	create_account, has_event, AssetsExt, MaxTokensPerXls20Mint, Nft, RuntimeEvent as MockEvent,
-	System, Test, TestExt, Xls20, Xls20PaymentAsset,
+	has_event, AssetsExt, MaxTokensPerXls20Mint, Nft, RuntimeEvent as MockEvent, System, Test,
+	TestExt, Xls20, Xls20PaymentAsset,
 };
-use frame_support::{assert_noop, assert_ok, traits::fungibles::Inspect};
-use frame_system::RawOrigin;
+use frame_support::traits::fungibles::Inspect;
 use pallet_nft::{CollectionInfo, CrossChainCompatibility};
-use seed_primitives::{AccountId, MetadataScheme};
-use sp_runtime::{BoundedVec, DispatchError::BadOrigin};
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::MetadataScheme;
 
 // Create an NFT collection with xls20 compatibility
 // Returns the created `collection_id`

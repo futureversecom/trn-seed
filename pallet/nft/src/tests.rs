@@ -16,16 +16,12 @@
 use super::*;
 use crate::{
 	mock::{
-		create_account, has_event, MaxTokensPerCollection, Nft, RuntimeEvent as MockEvent, System,
-		Test, TestExt,
+		has_event, MaxTokensPerCollection, Nft, RuntimeEvent as MockEvent, System, Test, TestExt,
 	},
 	CollectionInfo, Event as NftEvent, TokenLocks,
 };
-use frame_support::{assert_noop, assert_ok};
-use frame_system::RawOrigin;
-use seed_primitives::{AccountId, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount};
-use sp_core::H160;
-use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::{MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount};
 
 type OwnedTokens = BoundedVec<
 	TokenOwnership<
@@ -2320,7 +2316,7 @@ mod toggle_public_mint {
 
 mod public_minting {
 	use super::*;
-	use crate::mock::{AssetsExt, XRP_ASSET_ID};
+	use crate::mock::AssetsExt;
 	use frame_support::traits::fungibles::Inspect;
 
 	#[test]
