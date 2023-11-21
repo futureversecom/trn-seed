@@ -288,10 +288,6 @@ where
 	}
 }
 
-// pub fn random_account() -> AccountId {
-// 	AccountId::from(H160::random())
-// }
-
 pub fn create_random_pair() -> (ecdsa::Pair, AccountId) {
 	let (pair, _) = ecdsa::Pair::generate();
 	let account: AccountId = pair.public().try_into().unwrap();
