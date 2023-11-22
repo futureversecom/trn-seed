@@ -3,6 +3,7 @@ use crate::*;
 use frame_support::{sp_io, traits::GenesisBuild};
 use sp_core::H160;
 
+/// Generec TestExternalities builder to be used across all pallets
 pub struct TestExt<T: frame_system::Config + pallet_balances::Config + pallet_assets::Config> {
 	balances: Vec<(T::AccountId, <T as pallet_balances::Config>::Balance)>,
 	xrp_balances: Vec<(
@@ -18,11 +19,13 @@ where
 	T: frame_system::Config + pallet_balances::Config + pallet_assets::Config,
 	<T as pallet_balances::Config>::Balance: From<Balance>,
 {
+	/// Create new TestExt
 	pub fn new() -> Self {
 		Self { balances: vec![], xrp_balances: vec![], block_number: 1 }
 	}
 }
 
+/// Small helper to create a TestExt
 pub fn test_ext<T>() -> TestExt<T>
 where
 	T: frame_system::Config + pallet_balances::Config + pallet_assets::Config,
