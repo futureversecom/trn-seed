@@ -97,6 +97,11 @@ pub mod account_creation {
 	pub fn charlie() -> AccountId {
 		create_account(3000)
 	}
+
+	/// Common account Dave
+	pub fn dave() -> AccountId {
+		create_account(4000)
+	}
 }
 
 #[macro_export]
@@ -201,7 +206,7 @@ macro_rules! impl_pallet_assets_config {
 			pub const AssetDeposit: Balance = 1_000_000;
 			pub const AssetAccountDeposit: Balance = 16;
 			pub const ApprovalDeposit: Balance = 1;
-			pub const AssetsStringLimit: u32 = 50;
+			pub const AssetsStringLimit: u32 = 10;
 			pub const MetadataDepositBase: Balance = 1 * 68;
 			pub const MetadataDepositPerByte: Balance = 1;
 		}

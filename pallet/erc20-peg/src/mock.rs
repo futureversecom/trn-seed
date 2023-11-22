@@ -27,104 +27,18 @@ construct_runtime!(
 		NodeBlock = Block<Test>,
 		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
-		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
+		System: frame_system,
+		AssetsExt: pallet_assets_ext,
+		Assets: pallet_assets,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>}
+		Balances: pallet_balances
 	}
 );
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-
-impl frame_system::Config for Test {
-	type BlockWeights = ();
-	type BlockLength = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type BlockHashCount = BlockHashCount;
-	type RuntimeEvent = RuntimeEvent;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-}
-
-parameter_types! {
-	pub const AssetDeposit: Balance = 1_000_000;
-	pub const AssetAccountDeposit: Balance = 16;
-	pub const ApprovalDeposit: Balance = 1;
-	pub const AssetsStringLimit: u32 = 50;
-	pub const MetadataDepositBase: Balance = 1 * 68;
-	pub const MetadataDepositPerByte: Balance = 1;
-}
-pub type AssetsForceOrigin = EnsureRoot<AccountId>;
-
-impl pallet_assets::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type AssetId = AssetId;
-	type Currency = Balances;
-	type ForceOrigin = AssetsForceOrigin;
-	type AssetDeposit = AssetDeposit;
-	type MetadataDepositBase = MetadataDepositBase;
-	type MetadataDepositPerByte = MetadataDepositPerByte;
-	type ApprovalDeposit = ApprovalDeposit;
-	type StringLimit = AssetsStringLimit;
-	type Freezer = ();
-	type Extra = ();
-	type WeightInfo = ();
-	type AssetAccountDeposit = AssetAccountDeposit;
-}
-
-parameter_types! {
-	pub const TestParachainId: u32 = 100;
-	pub const MaxHolds: u32 = 16;
-	pub const NativeAssetId: AssetId = ROOT_ASSET_ID;
-	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
-}
-
-impl pallet_assets_ext::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type ParachainId = TestParachainId;
-	type MaxHolds = MaxHolds;
-	type NativeAssetId = NativeAssetId;
-	type OnNewAssetSubscription = ();
-	type PalletId = AssetsExtPalletId;
-	type WeightInfo = ();
-}
-
-parameter_types! {
-	pub const MaxReserves: u32 = 50;
-}
-
-impl pallet_balances::Config for Test {
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ();
-	type AccountStore = System;
-	type MaxLocks = ();
-	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-}
+impl_frame_system_config!(Test);
+impl_pallet_balance_config!(Test);
+impl_pallet_assets_config!(Test);
+impl_pallet_assets_ext_config!(Test);
 
 parameter_types! {
 	pub const PegPalletId: PalletId = PalletId(*b"py/erc20");
