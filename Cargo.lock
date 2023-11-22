@@ -4956,6 +4956,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
@@ -8496,11 +8497,15 @@ dependencies = [
 name = "seed-primitives"
 version = "1.0.0"
 dependencies = [
+ "frame-support",
+ "frame-system",
  "hex",
  "hex-literal 0.3.4",
  "impl-serde 0.4.0",
  "libsecp256k1 0.7.1",
  "log",
+ "pallet-assets",
+ "pallet-balances",
  "parity-scale-codec",
  "ripemd",
  "scale-info",

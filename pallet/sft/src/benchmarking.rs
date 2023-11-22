@@ -224,4 +224,8 @@ benchmarks! {
 	}
 }
 
-impl_benchmark_test_suite!(Sft, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	Sft,
+	seed_primitives::test_utils::test_ext::<crate::mock::Test>().build(),
+	crate::mock::Test
+);

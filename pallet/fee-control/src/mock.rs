@@ -104,15 +104,3 @@ pub mod mock_pallet {
 		}
 	}
 }
-
-#[derive(Default)]
-pub struct TestExt;
-
-impl TestExt {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-		let mut ext: sp_io::TestExternalities = storage.into();
-		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
-		ext
-	}
-}

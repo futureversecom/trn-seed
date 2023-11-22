@@ -148,4 +148,8 @@ benchmarks! {
 	}
 }
 
-impl_benchmark_test_suite!(Futurepass, crate::mock::TestExt::default().build(), crate::mock::Test);
+impl_benchmark_test_suite!(
+	Futurepass,
+	seed_primitives::test_utils::test_ext::<crate::mock::Test>().build(),
+	crate::mock::Test
+);

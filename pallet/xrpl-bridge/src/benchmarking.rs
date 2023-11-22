@@ -185,4 +185,8 @@ benchmarks! {
 	}
 }
 
-impl_benchmark_test_suite!(XrplBridge, crate::mock::new_test_ext_benchmark(), crate::mock::Test);
+impl_benchmark_test_suite!(
+	XrplBridge,
+	seed_primitives::test_utils::test_ext::<crate::mock::Test>().build(),
+	crate::mock::Test
+);

@@ -98,7 +98,7 @@ fn mock_token_information(
 
 #[test]
 fn event_handler_decodes_correctly() {
-	ExtBuilder::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let test_vals = TestVals::default();
 		assert_ok!(Pallet::<Test>::on_event(&test_vals.source, &test_vals.data));
 	});
@@ -106,7 +106,7 @@ fn event_handler_decodes_correctly() {
 
 #[test]
 fn decode_deposit_event_errs_too_many_tokens() {
-	ExtBuilder::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let test_vals = TestVals::default();
 
 		// Too many tokens
@@ -129,7 +129,7 @@ fn decode_deposit_event_errs_too_many_tokens() {
 
 #[test]
 fn decode_deposit_event_errs_too_many_addresses() {
-	ExtBuilder::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let test_vals = TestVals::default();
 
 		let inner_token = vec![Token::Uint(test_vals.inner_token_id)];
@@ -152,7 +152,7 @@ fn decode_deposit_event_errs_too_many_addresses() {
 
 #[test]
 fn do_deposit_creates_tokens_and_collection() {
-	ExtBuilder::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let test_vals = TestVals::default();
 		let expected_collection_id = Nft::next_collection_uuid().unwrap();
 
@@ -161,11 +161,14 @@ fn do_deposit_creates_tokens_and_collection() {
 			mock_token_information(test_vals.destination.into(), serial_numbers.clone());
 
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
-		assert!(has_event(crate::Event::<Test>::Erc721Mint {
-			collection_id: expected_collection_id,
-			owner: test_vals.destination.into(),
-			serial_numbers: BoundedVec::truncate_from(serial_numbers),
-		}));
+		System::assert_has_event(
+			Event::<Test>::Erc721Mint {
+				collection_id: expected_collection_id,
+				owner: test_vals.destination.into(),
+				serial_numbers: BoundedVec::truncate_from(serial_numbers),
+			}
+			.into(),
+		);
 
 		assert_eq!(
 			EthToRootNft::<Test>::get(test_vals.token_address),
@@ -195,7 +198,7 @@ fn do_deposit_creates_tokens_and_collection() {
 
 #[test]
 fn do_deposit_works_with_existing_bridged_collection() {
-	ExtBuilder::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let test_vals = TestVals::default();
 		let expected_collection_id = Nft::next_collection_uuid().unwrap();
 
@@ -204,11 +207,14 @@ fn do_deposit_works_with_existing_bridged_collection() {
 			mock_token_information(test_vals.destination.into(), serial_numbers.clone());
 
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
-		assert!(has_event(crate::Event::<Test>::Erc721Mint {
-			collection_id: expected_collection_id,
-			owner: test_vals.destination.into(),
-			serial_numbers: BoundedVec::truncate_from(serial_numbers),
-		}));
+		System::assert_has_event(
+			Event::<Test>::Erc721Mint {
+				collection_id: expected_collection_id,
+				owner: test_vals.destination.into(),
+				serial_numbers: BoundedVec::truncate_from(serial_numbers),
+			}
+			.into(),
+		);
 
 		assert_eq!(
 			EthToRootNft::<Test>::get(test_vals.token_address),
@@ -231,11 +237,14 @@ fn do_deposit_works_with_existing_bridged_collection() {
 
 		// When bridged tokens are sent for existing collection
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
-		assert!(has_event(crate::Event::<Test>::Erc721Mint {
-			collection_id: expected_collection_id,
-			owner: test_vals.destination.into(),
-			serial_numbers: BoundedVec::truncate_from(new_serial_numbers),
-		}));
+		System::assert_has_event(
+			Event::<Test>::Erc721Mint {
+				collection_id: expected_collection_id,
+				owner: test_vals.destination.into(),
+				serial_numbers: BoundedVec::truncate_from(new_serial_numbers),
+			}
+			.into(),
+		);
 
 		assert_eq!(
 			EthToRootNft::<Test>::get(test_vals.token_address),
@@ -255,7 +264,7 @@ fn do_deposit_works_with_existing_bridged_collection() {
 
 #[test]
 fn handles_duplicated_tokens_sent() {
-	ExtBuilder::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let test_vals = TestVals::default();
 		let expected_collection_id = Nft::next_collection_uuid().unwrap();
 
@@ -266,11 +275,14 @@ fn handles_duplicated_tokens_sent() {
 			mock_token_information(test_vals.destination.into(), token_set.clone());
 
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
-		assert!(has_event(crate::Event::<Test>::Erc721Mint {
-			collection_id: expected_collection_id,
-			owner: test_vals.destination.into(),
-			serial_numbers: BoundedVec::truncate_from(token_set),
-		}));
+		System::assert_has_event(
+			Event::<Test>::Erc721Mint {
+				collection_id: expected_collection_id,
+				owner: test_vals.destination.into(),
+				serial_numbers: BoundedVec::truncate_from(token_set),
+			}
+			.into(),
+		);
 
 		assert_eq!(
 			EthToRootNft::<Test>::get(test_vals.token_address),
@@ -292,11 +304,14 @@ fn handles_duplicated_tokens_sent() {
 
 		// When bridged tokens are sent for existing collection
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
-		assert!(has_event(crate::Event::<Test>::Erc721Mint {
-			collection_id: expected_collection_id,
-			owner: test_vals.destination.into(),
-			serial_numbers: BoundedVec::truncate_from(token_set_duplicates),
-		}));
+		System::assert_has_event(
+			Event::<Test>::Erc721Mint {
+				collection_id: expected_collection_id,
+				owner: test_vals.destination.into(),
+				serial_numbers: BoundedVec::truncate_from(token_set_duplicates),
+			}
+			.into(),
+		);
 
 		assert_eq!(
 			EthToRootNft::<Test>::get(test_vals.token_address),
@@ -317,7 +332,7 @@ fn handles_duplicated_tokens_sent() {
 
 #[test]
 fn do_withdraw_works() {
-	ExtBuilder::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let test_vals = TestVals::default();
 
@@ -341,7 +356,7 @@ fn do_withdraw_works() {
 
 #[test]
 fn do_withdraw_invalid_token_length_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let collection_ids = BoundedVec::truncate_from(vec![1, 2, 3]);
 		let serial_numbers = BoundedVec::truncate_from(vec![BoundedVec::truncate_from(vec![1])]);
 		assert_noop!(
@@ -358,7 +373,7 @@ fn do_withdraw_invalid_token_length_should_fail() {
 
 #[test]
 fn do_deposit_adds_to_blocked_on_fail() {
-	ExtBuilder::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let test_vals = TestVals::default();
 		let blocked_mint_id = NextBlockedMintId::<Test>::get();
 		let collection_id = Nft::next_collection_uuid().unwrap();
@@ -376,12 +391,15 @@ fn do_deposit_adds_to_blocked_on_fail() {
 
 		assert_eq!(err, pallet_nft::Error::<Test>::BlockedMint.into());
 
-		assert!(has_event(crate::Event::<Test>::ERC721Blocked {
-			blocked_mint_id,
-			collection_id,
-			serial_numbers: BoundedVec::truncate_from(serial_numbers.clone()),
-			destination_address: test_vals.destination.into()
-		}));
+		System::assert_last_event(
+			Event::<Test>::ERC721Blocked {
+				blocked_mint_id,
+				collection_id,
+				serial_numbers: BoundedVec::truncate_from(serial_numbers.clone()),
+				destination_address: test_vals.destination.into(),
+			}
+			.into(),
+		);
 
 		let blocked = <Pallet<Test> as pallet::Store>::BlockedTokens::get(blocked_mint_id).unwrap();
 
@@ -393,7 +411,7 @@ fn do_deposit_adds_to_blocked_on_fail() {
 
 #[test]
 fn reclaim_blocked_nfts() {
-	ExtBuilder::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let blocked_mint_id = NextBlockedMintId::<Test>::get();
 
 		let collection_owner = create_account(1);
@@ -418,7 +436,7 @@ fn reclaim_blocked_nfts() {
 
 #[test]
 fn reclaim_blocked_nfts_called_by_wrong_account_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let blocked_mint_id = NextBlockedMintId::<Test>::get();
 
 		let collection_owner = create_account(1);

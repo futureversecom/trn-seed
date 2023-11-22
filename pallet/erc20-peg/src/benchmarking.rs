@@ -134,4 +134,8 @@ benchmarks! {
 	}
 }
 
-impl_benchmark_test_suite!(Erc20Peg, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	Erc20Peg,
+	seed_primitives::test_utils::test_ext::<crate::mock::Test>().build(),
+	crate::mock::Test
+);

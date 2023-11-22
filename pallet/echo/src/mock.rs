@@ -27,12 +27,14 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system,
+		Assets: pallet_assets,
 		Balances: pallet_balances,
 		Echo: pallet_echo,
 	}
 );
 
 impl_frame_system_config!(Test);
+impl_pallet_assets_config!(Test);
 impl_pallet_balance_config!(Test);
 
 parameter_types! {
@@ -105,37 +107,4 @@ impl EthereumEventRouter for MockEthereumEventRouter {
 			Err((Weight::zero(), EventRouterError::NoReceiver))
 		}
 	}
-}
-
-#[derive(Clone, Copy, Default)]
-pub struct ExtBuilder;
-
-impl ExtBuilder {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext: sp_io::TestExternalities =
-			frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into();
-
-		ext.execute_with(|| frame_system::Pallet::<Test>::set_block_number(1));
-
-		ext
-	}
-}
-
-/// Check the system event record contains `event`
-pub(crate) fn has_event(event: crate::Event) -> bool {
-	System::events()
-		.into_iter()
-		.map(|r| r.event)
-		// .filter_map(|e| if let Event::Nft(inner) = e { Some(inner) } else { None })
-		.find(|e| *e == RuntimeEvent::Echo(event.clone()))
-		.is_some()
-}
-
-#[allow(dead_code)]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
-	ext
 }

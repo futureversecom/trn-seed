@@ -89,37 +89,3 @@ impl EthereumEventRouter for MockEthereumEventRouter {
 		}
 	}
 }
-
-/// Check the system event record contains `event`
-pub(crate) fn has_event(event: crate::Event<Test>) -> bool {
-	System::events()
-		.into_iter()
-		.map(|r| r.event)
-		.find(|e| *e == RuntimeEvent::NftPeg(event.clone()))
-		.is_some()
-}
-
-#[derive(Default)]
-pub struct ExtBuilder;
-
-impl ExtBuilder {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext: sp_io::TestExternalities =
-			frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into();
-
-		ext.execute_with(|| {
-			System::initialize(&1, &[0u8; 32].into(), &Default::default());
-		});
-
-		ext
-	}
-}
-
-#[allow(dead_code)]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
-	ext
-}

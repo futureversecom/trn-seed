@@ -112,4 +112,8 @@ benchmarks! {
 	}: _(origin::<T>(&account::<T>("Alice")), TokenId::from((collection_id, 0)))
 }
 
-impl_benchmark_test_suite!(Nft, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	Nft,
+	seed_primitives::test_utils::test_ext::<crate::mock::Test>().build(),
+	crate::mock::Test
+);

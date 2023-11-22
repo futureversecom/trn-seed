@@ -41,28 +41,3 @@ impl crate::Config for Test {
 	type NFTExt = Nft;
 	type WeightInfo = ();
 }
-
-#[derive(Default)]
-pub struct TestExt;
-
-impl TestExt {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext: sp_io::TestExternalities =
-			frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into();
-
-		ext.execute_with(|| {
-			System::initialize(&1, &[0u8; 32].into(), &Default::default());
-		});
-
-		ext
-	}
-}
-
-#[allow(dead_code)]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
-	ext
-}

@@ -17,7 +17,7 @@ use super::*;
 use crate::mock::{
 	AssetsExt, FeePotId, Marketplace, MarketplaceNetworkFeePercentage, MarketplacePalletId,
 	MaxTokensPerCollection, MaxTokensPerListing, NativeAssetId, Nft, RuntimeEvent as MockEvent,
-	System, Test, TestExt,
+	System, Test,
 };
 use core::ops::Mul;
 use frame_support::traits::{fungibles::Inspect, OnInitialize};
@@ -136,7 +136,7 @@ fn sell() {
 	let buyer = create_account(3);
 	let initial_balance = 11_111_225;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, initial_balance)])
 		.build()
 		.execute_with(|| {
@@ -201,7 +201,7 @@ fn sell_with_empty_royalties() {
 	let buyer = create_account(3);
 	let initial_balance = 11_111_225;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, initial_balance)])
 		.build()
 		.execute_with(|| {
@@ -242,7 +242,7 @@ fn sell_with_empty_royalties() {
 
 #[test]
 fn sell_multiple_fails() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let collection_owner = create_account(1);
 		let collection_id = setup_collection(collection_owner);
 		// mint some tokens
@@ -269,7 +269,7 @@ fn sell_multiple_fails() {
 
 #[test]
 fn sell_multiple() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 		let listing_id = Marketplace::next_listing_id();
 
@@ -345,7 +345,7 @@ fn sell_multiple() {
 
 #[test]
 fn sell_fails() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 		// Not token owner
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
@@ -411,7 +411,7 @@ fn sell_fails() {
 
 #[test]
 fn cancel_sell() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 		let listing_id = Marketplace::next_listing_id();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
@@ -458,7 +458,7 @@ fn cancel_sell() {
 
 #[test]
 fn sell_closes_on_schedule() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 		let listing_duration = 100;
 		let listing_id = Marketplace::next_listing_id();
@@ -507,7 +507,7 @@ fn listing_price_splits_royalties_and_network_fee() {
 	let starting_balance = price * 2;
 	let entitlement_amount = Permill::from_float(0.25);
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, starting_balance)])
 		.build()
 		.execute_with(|| {
@@ -572,7 +572,7 @@ fn listing_price_splits_multiple_royalties_and_network_fee() {
 	let entitlement_amount = Permill::from_float(0.25);
 	let entitlement_amount_beneficiary_2 = Permill::from_float(0.5);
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, starting_balance)])
 		.build()
 		.execute_with(|| {
@@ -644,7 +644,7 @@ fn network_fee_royalties_split_is_respected_xrpl() {
 	let entitlement_amount = Permill::from_float(0.25);
 	let asset_used = XRP_ASSET_ID;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_xrp_balances(&[(buyer, starting_balance)])
 		.build()
 		.execute_with(|| {
@@ -694,7 +694,7 @@ fn network_fee_royalties_split_is_respected_xrpl() {
 
 #[test]
 fn update_fixed_price() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 		let listing_id = Marketplace::next_listing_id();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
@@ -746,7 +746,7 @@ fn update_fixed_price() {
 
 #[test]
 fn update_fixed_price_fails() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 
 		let reserve_price = 1_000;
@@ -779,7 +779,7 @@ fn update_fixed_price_fails() {
 
 #[test]
 fn update_fixed_price_fails_not_owner() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 		let listing_id = Marketplace::next_listing_id();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
@@ -805,7 +805,7 @@ fn update_fixed_price_fails_not_owner() {
 
 #[test]
 fn register_marketplace() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let account = create_account(1);
 		let entitlement: Permill = Permill::from_float(0.1);
 		let marketplace_id = Marketplace::next_marketplace_id();
@@ -821,7 +821,7 @@ fn register_marketplace() {
 
 #[test]
 fn register_marketplace_separate_account() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let account = create_account(1);
 		let marketplace_account = create_account(2);
 		let marketplace_id = Marketplace::next_marketplace_id();
@@ -845,7 +845,7 @@ fn buy_with_marketplace_royalties() {
 	let buyer = create_account(5);
 	let sale_price = 1_000_008;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, sale_price * 2)])
 		.build()
 		.execute_with(|| {
@@ -920,7 +920,7 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 	let buyer = create_account(5);
 	let sale_price = 1_000_008;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, sale_price * 2)])
 		.build()
 		.execute_with(|| {
@@ -968,7 +968,7 @@ fn buy() {
 	let price = 1_000;
 	let starting_balance = price * 2;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, starting_balance)])
 		.build()
 		.execute_with(|| {
@@ -1032,7 +1032,7 @@ fn buy_with_royalties() {
 	let buyer = create_account(5);
 	let sale_price = 1_000_008;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, sale_price * 2)])
 		.build()
 		.execute_with(|| {
@@ -1122,7 +1122,7 @@ fn buy_with_royalties() {
 fn buy_fails_prechecks() {
 	let buyer = create_account(5);
 	let price = 1_000;
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, price - 1)])
 		.build()
 		.execute_with(|| {
@@ -1168,7 +1168,7 @@ fn buy_fails_prechecks() {
 fn sell_to_anybody() {
 	let buyer = create_account(5);
 	let price = 1_000;
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, price + 995)])
 		.build()
 		.execute_with(|| {
@@ -1214,7 +1214,7 @@ fn sell_to_anybody() {
 fn buy_with_overcommitted_royalties() {
 	let buyer = create_account(5);
 	let price = 1_000;
-	TestExt::default().with_balances(&[(buyer, 1995)]).build().execute_with(|| {
+	test_ext::<Test>().with_balances(&[(buyer, 1995)]).build().execute_with(|| {
 		// royalties are > 100% total which could create funds out of nothing
 		// in this case, default to 0 royalties.
 		// royalty schedules should not make it into storage but we protect against it anyway
@@ -1254,7 +1254,7 @@ fn buy_with_overcommitted_royalties() {
 
 #[test]
 fn cancel_auction() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 
 		let reserve_price = 100_000;
@@ -1305,7 +1305,7 @@ fn cancel_auction() {
 fn auction_bundle() {
 	let buyer = create_account(5);
 	let price = 1_000;
-	TestExt::default().with_balances(&[(buyer, price)]).build().execute_with(|| {
+	test_ext::<Test>().with_balances(&[(buyer, price)]).build().execute_with(|| {
 		let collection_owner = create_account(1);
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let quantity = 5;
@@ -1360,7 +1360,7 @@ fn auction_bundle() {
 
 #[test]
 fn auction_bundle_fails() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let collection_owner = create_account(1);
 		let collection_id = setup_collection(collection_owner);
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
@@ -1388,7 +1388,7 @@ fn auction() {
 	let reserve_price = 100_000;
 	let winning_bid = reserve_price + 1;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(bidder_1, reserve_price), (bidder_2, winning_bid)])
 		.build()
 		.execute_with(|| {
@@ -1489,7 +1489,7 @@ fn bid_auto_extends() {
 	let bidder_1 = create_account(5);
 	let reserve_price = 100_000;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(bidder_1, reserve_price)])
 		.build()
 		.execute_with(|| {
@@ -1527,7 +1527,7 @@ fn auction_royalty_payments() {
 	let bidder = create_account(5);
 	let reserve_price = 100_004;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(bidder, reserve_price)])
 		.build()
 		.execute_with(|| {
@@ -1617,7 +1617,7 @@ fn auction_royalty_payments() {
 
 #[test]
 fn close_listings_at_removes_listing_data() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let price = 123_456;
 		let token_1 = (collection_id, 0);
@@ -1687,7 +1687,7 @@ fn close_listings_at_removes_listing_data() {
 
 #[test]
 fn auction_fails_prechecks() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 
 		let reserve_price = 100_000;
@@ -1771,7 +1771,7 @@ fn bid_fails_prechecks() {
 	let bidder = create_account(5);
 	let reserve_price = 100_004;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(bidder, reserve_price)])
 		.build()
 		.execute_with(|| {
@@ -1832,7 +1832,7 @@ fn bid_fails_prechecks() {
 fn bid_no_balance_should_fail() {
 	let bidder = create_account(5);
 
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let missing_listing_id = 5;
 		assert_noop!(
 			Marketplace::bid(Some(create_account(1)).into(), missing_listing_id, 100),
@@ -1867,7 +1867,7 @@ fn make_simple_offer() {
 	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, initial_balance_buyer)])
 		.build()
 		.execute_with(|| {
@@ -1889,7 +1889,7 @@ fn make_simple_offer() {
 
 #[test]
 fn make_simple_offer_insufficient_funds_should_fail() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let (_, token_id, _) = setup_token();
 		let buyer = create_account(3);
 		let offer_amount: Balance = 100;
@@ -1910,7 +1910,7 @@ fn make_simple_offer_insufficient_funds_should_fail() {
 
 #[test]
 fn make_simple_offer_zero_amount_should_fail() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let (_, token_id, _) = setup_token();
 		let buyer = create_account(3);
 		let offer_amount: Balance = 0;
@@ -1931,7 +1931,7 @@ fn make_simple_offer_zero_amount_should_fail() {
 
 #[test]
 fn make_simple_offer_token_owner_should_fail() {
-	TestExt::default().build().execute_with(|| {
+	test_ext::<Test>().build().execute_with(|| {
 		let (_, token_id, token_owner) = setup_token();
 		let offer_amount: Balance = 100;
 
@@ -1953,7 +1953,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, initial_balance_buyer)])
 		.build()
 		.execute_with(|| {
@@ -2021,7 +2021,7 @@ fn make_simple_offer_on_auction_should_fail() {
 	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, initial_balance_buyer)])
 		.build()
 		.execute_with(|| {
@@ -2058,7 +2058,7 @@ fn cancel_offer() {
 	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, initial_balance_buyer)])
 		.build()
 		.execute_with(|| {
@@ -2097,7 +2097,7 @@ fn cancel_offer_multiple_offers() {
 	let initial_balance_buyer_1: Balance = 1000;
 	let initial_balance_buyer_2: Balance = 1000;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer_1, initial_balance_buyer_1), (buyer_2, initial_balance_buyer_2)])
 		.build()
 		.execute_with(|| {
@@ -2160,7 +2160,7 @@ fn cancel_offer_not_buyer_should_fail() {
 	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, initial_balance_buyer)])
 		.build()
 		.execute_with(|| {
@@ -2180,7 +2180,7 @@ fn accept_offer() {
 	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, initial_balance_buyer)])
 		.build()
 		.execute_with(|| {
@@ -2223,7 +2223,7 @@ fn accept_offer_multiple_offers() {
 	let initial_balance_buyer_1: Balance = 1000;
 	let initial_balance_buyer_2: Balance = 1000;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer_1, initial_balance_buyer_1), (buyer_2, initial_balance_buyer_2)])
 		.build()
 		.execute_with(|| {
@@ -2291,7 +2291,7 @@ fn accept_offer_pays_marketplace_royalties() {
 	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, initial_balance_buyer)])
 		.build()
 		.execute_with(|| {
@@ -2341,7 +2341,7 @@ fn accept_offer_not_token_owner_should_fail() {
 	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
-	TestExt::default()
+	test_ext::<Test>()
 		.with_balances(&[(buyer, initial_balance_buyer)])
 		.build()
 		.execute_with(|| {
@@ -2361,7 +2361,7 @@ mod set_fee_to {
 
 	#[test]
 	fn set_fee_to_works() {
-		TestExt::default().build().execute_with(|| {
+		test_ext::<Test>().build().execute_with(|| {
 			// Ensure default is correct
 			let default_fee_to: AccountId =
 				mock::DefaultFeeTo::get().unwrap().into_account_truncating();
@@ -2382,7 +2382,7 @@ mod set_fee_to {
 
 	#[test]
 	fn set_fee_to_not_root_fails() {
-		TestExt::default().build().execute_with(|| {
+		test_ext::<Test>().build().execute_with(|| {
 			// Change fee_to account from not sudo should fail
 			let new_fee_to = create_account(10);
 			assert_noop!(

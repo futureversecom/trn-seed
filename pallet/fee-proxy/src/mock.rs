@@ -98,17 +98,3 @@ impl Config for Test {
 
 /// type alias for runtime configured FeePreferencesRunner
 pub type Runner = FeePreferencesRunner<Test, Test, Futurepass>;
-
-#[derive(Default)]
-pub struct TestExt;
-
-impl TestExt {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext: sp_io::TestExternalities =
-			frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into();
-		ext.execute_with(|| {
-			System::initialize(&1, &[0u8; 32].into(), &Default::default());
-		});
-		ext
-	}
-}

@@ -30,6 +30,8 @@ pub mod test_prelude {
 		PalletId,
 	};
 	pub use frame_system::{EnsureRoot, RawOrigin};
+	#[cfg(feature = "std")]
+	pub use seed_primitives::test_utils::{test_ext, TestExt};
 	pub use seed_primitives::{
 		AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
 	};
@@ -47,6 +49,59 @@ pub mod test_prelude {
 
 // TODO Try make a TestExt that can be used across pallets.
 // Maybe split up into traits such as TextExtWithAssets, TextExtWithBalances etc
+//
+// pub mod text_ext {
+// 	use super::test_prelude::*;
+// 	use frame_support::sp_io;
+//
+// 	#[derive(Default)]
+// 	pub struct TestExt<T> {
+// 		balances: Vec<(AccountId, Balance)>,
+// 		xrp_balances: Vec<(AssetId, AccountId, Balance)>,
+// 	}
+//
+// 	impl<T> TestExt<T> {
+// 		/// Configure some native token balances
+// 		pub fn with_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
+// 			self.balances = balances.to_vec();
+// 			self
+// 		}
+// 		/// Configure some XRP asset balances
+// 		pub fn with_xrp_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
+// 			self.xrp_balances = balances
+// 				.to_vec()
+// 				.into_iter()
+// 				.map(|(who, balance)| (XRP_ASSET_ID, who, balance))
+// 				.collect();
+// 			self
+// 		}
+// 		pub fn build(self) -> sp_io::TestExternalities {
+// 			let mut ext = frame_system::GenesisConfig::default().build_storage::<T>().unwrap();
+//
+// 			if !self.balances.is_empty() {
+// 				pallet_balances::GenesisConfig::<T> { balances: self.balances }
+// 					.assimilate_storage(&mut ext)
+// 					.unwrap();
+// 			}
+//
+// 			if !self.xrp_balances.is_empty() {
+// 				let assets = vec![(XRP_ASSET_ID, create_account(10), true, 1)];
+// 				let metadata = vec![(XRP_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), 6_u8)];
+// 				let accounts = self.xrp_balances;
+// 				pallet_assets::GenesisConfig::<T> { assets, metadata, accounts }
+// 					.assimilate_storage(&mut ext)
+// 					.unwrap();
+// 			}
+//
+// 			let mut ext: sp_io::TestExternalities = ext.into();
+// 			ext.execute_with(|| {
+// 				System::initialize(&1, &[0u8; 32].into(), &Default::default());
+// 			});
+//
+// 			ext
+// 		}
+// 	}
+// }
 
 pub mod test_types {
 	pub type BlockNumber = u64;

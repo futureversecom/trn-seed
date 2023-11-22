@@ -121,4 +121,8 @@ benchmarks! {
 	}
 }
 
-impl_benchmark_test_suite!(NftPeg, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	NftPeg,
+	seed_primitives::test_utils::test_ext::<crate::mock::Test>().build(),
+	crate::mock::Test
+);
