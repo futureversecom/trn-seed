@@ -18,11 +18,7 @@ use crate::{self as pallet_assets_ext};
 use frame_support::traits::FindAuthor;
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, GasWeightMapping};
 use seed_pallet_common::test_prelude::*;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	ConsensusEngineId,
-};
+use sp_runtime::ConsensusEngineId;
 use std::marker::PhantomData;
 
 construct_runtime!(

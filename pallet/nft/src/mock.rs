@@ -15,17 +15,10 @@
 
 use crate as pallet_nft;
 use frame_support::traits::FindAuthor;
-use frame_system::limits;
-use pallet_evm::{
-	AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator, GasWeightMapping,
-};
+use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, GasWeightMapping};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::MetadataScheme;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	ConsensusEngineId,
-};
+use sp_runtime::ConsensusEngineId;
 use std::marker::PhantomData;
 
 construct_runtime!(
@@ -34,180 +27,24 @@ construct_runtime!(
 		NodeBlock = Block<Test>,
 		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
-		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
-		Nft: pallet_nft::{Pallet, Call, Storage, Event<T>},
-		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
-		TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		System: frame_system,
+		Balances: pallet_balances,
+		Assets: pallet_assets,
+		AssetsExt: pallet_assets_ext,
+		Nft: pallet_nft,
+		EVM: pallet_evm,
+		TimestampPallet: pallet_timestamp,
+		FeeControl: pallet_fee_control,
 	}
 );
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-	pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
-	pub const MaxReserves: u32 = 50;
-}
-
-impl frame_system::Config for Test {
-	type BlockWeights = ();
-	type BlockLength = BlockLength;
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type BlockHashCount = BlockHashCount;
-	type RuntimeEvent = RuntimeEvent;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-}
-
-parameter_types! {
-	pub const AssetDeposit: Balance = 1_000_000;
-	pub const AssetAccountDeposit: Balance = 16;
-	pub const ApprovalDeposit: Balance = 1;
-	pub const AssetsStringLimit: u32 = 50;
-	pub const MetadataDepositBase: Balance = 1 * 68;
-	pub const MetadataDepositPerByte: Balance = 1;
-}
-pub type AssetsForceOrigin = EnsureRoot<AccountId>;
-
-impl pallet_assets::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type AssetId = AssetId;
-	type Currency = Balances;
-	type ForceOrigin = AssetsForceOrigin;
-	type AssetDeposit = AssetDeposit;
-	type MetadataDepositBase = MetadataDepositBase;
-	type MetadataDepositPerByte = MetadataDepositPerByte;
-	type ApprovalDeposit = ApprovalDeposit;
-	type StringLimit = AssetsStringLimit;
-	type Freezer = ();
-	type Extra = ();
-	type WeightInfo = ();
-	type AssetAccountDeposit = AssetAccountDeposit;
-}
-
-parameter_types! {
-	pub const NativeAssetId: AssetId = 1;
-	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
-	pub const MaxHolds: u32 = 16;
-}
-
-impl pallet_assets_ext::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type ParachainId = TestParachainId;
-	type MaxHolds = MaxHolds;
-	type NativeAssetId = NativeAssetId;
-	type OnNewAssetSubscription = ();
-	type PalletId = AssetsExtPalletId;
-	type WeightInfo = ();
-}
-
-impl pallet_balances::Config for Test {
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ();
-	type AccountStore = System;
-	type MaxLocks = ();
-	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-}
-
-pub struct FindAuthorTruncated;
-
-impl FindAuthor<H160> for FindAuthorTruncated {
-	fn find_author<'a, I>(_digests: I) -> Option<H160>
-	where
-		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
-	{
-		None
-	}
-}
-
-pub struct MockAddressMapping;
-
-impl AddressMapping<AccountId> for MockAddressMapping {
-	fn into_account_id(address: H160) -> AccountId {
-		address.into()
-	}
-}
-
-pub struct MockBlockHashMapping<Test>(PhantomData<Test>);
-
-impl<Test> BlockHashMapping for MockBlockHashMapping<Test> {
-	fn block_hash(_number: u32) -> H256 {
-		H256::default()
-	}
-}
-
-pub struct FixedGasPrice;
-
-impl FeeCalculator for FixedGasPrice {
-	fn min_gas_price() -> (U256, Weight) {
-		(1.into(), Weight::zero())
-	}
-}
-
-pub struct FixedGasWeightMapping;
-
-impl GasWeightMapping for FixedGasWeightMapping {
-	fn gas_to_weight(_gas: u64, _without_base_weight: bool) -> Weight {
-		Weight::zero()
-	}
-	fn weight_to_gas(_weight: Weight) -> u64 {
-		0u64
-	}
-}
-
-impl pallet_evm::Config for Test {
-	type FeeCalculator = FixedGasPrice;
-	type GasWeightMapping = FixedGasWeightMapping;
-	type BlockHashMapping = MockBlockHashMapping<Test>;
-	type CallOrigin = EnsureAddressNever<AccountId>;
-	type WithdrawOrigin = EnsureAddressNever<AccountId>;
-	type AddressMapping = MockAddressMapping;
-	type Currency = Balances;
-	type RuntimeEvent = RuntimeEvent;
-	type Runner = pallet_evm::runner::stack::Runner<Self>;
-	type PrecompilesType = ();
-	type PrecompilesValue = ();
-	type ChainId = ();
-	type BlockGasLimit = ();
-	type OnChargeTransaction = ();
-	type FindAuthor = FindAuthorTruncated;
-	type HandleTxValidation = ();
-	type WeightPerGas = ();
-}
-
-parameter_types! {
-	pub const MinimumPeriod: u64 = 5;
-}
-
-impl pallet_timestamp::Config for Test {
-	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = MinimumPeriod;
-	type WeightInfo = ();
-}
+impl_frame_system_config!(Test);
+impl_pallet_balance_config!(Test);
+impl_pallet_assets_config!(Test);
+impl_pallet_assets_ext_config!(Test);
+impl_pallet_timestamp_config!(Test);
+impl_pallet_evm_config!(Test);
+impl_pallet_fee_control_config!(Test);
 
 pub struct MockTransferSubscriber;
 
@@ -250,7 +87,6 @@ parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxOffers: u32 = 10;
-	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const MintLimit: u32 = 5000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;

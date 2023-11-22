@@ -21,7 +21,7 @@ use crate::{
 	CollectionInfo, Event as NftEvent, TokenLocks,
 };
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::{MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount};
+use seed_primitives::{OriginChain, RoyaltiesSchedule, TokenCount};
 
 type OwnedTokens = BoundedVec<
 	TokenOwnership<

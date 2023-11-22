@@ -22,11 +22,7 @@ use frame_support::{
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, GasWeightMapping};
 use precompile_utils::{Address, ErcIdConversion};
 use seed_pallet_common::test_prelude::*;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	ConsensusEngineId,
-};
+use sp_runtime::ConsensusEngineId;
 
 pub const MOCK_PAYMENT_ASSET_ID: AssetId = 100;
 

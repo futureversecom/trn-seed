@@ -16,10 +16,7 @@
 use crate as pallet_vortex;
 use frame_support::traits::{ConstU32, Hooks};
 use seed_pallet_common::test_prelude::*;
-use sp_runtime::{
-	testing::{Header, TestXt},
-	traits::{BlakeTwo256, IdentityLookup},
-};
+use sp_runtime::testing::{Header, TestXt};
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;

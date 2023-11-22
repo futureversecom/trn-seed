@@ -16,10 +16,6 @@
 use crate as pallet_erc20_peg;
 use frame_support::pallet_prelude::*;
 use seed_pallet_common::test_prelude::*;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-};
 
 construct_runtime!(
 	pub enum Test where

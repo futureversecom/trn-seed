@@ -18,11 +18,7 @@ use ethabi::{ParamType, Token};
 use frame_support::storage::StorageValue;
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::ethy::EventProofId;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	SaturatedConversion,
-};
+use sp_runtime::SaturatedConversion;
 
 construct_runtime!(
 	pub enum Test where

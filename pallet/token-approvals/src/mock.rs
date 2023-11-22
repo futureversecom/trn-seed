@@ -15,11 +15,6 @@
 
 use crate as token_approvals;
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::MetadataScheme;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-};
 
 construct_runtime!(
 	pub enum Test where

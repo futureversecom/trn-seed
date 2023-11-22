@@ -206,7 +206,7 @@ macro_rules! impl_pallet_assets_config {
 			pub const AssetDeposit: Balance = 1_000_000;
 			pub const AssetAccountDeposit: Balance = 16;
 			pub const ApprovalDeposit: Balance = 1;
-			pub const AssetsStringLimit: u32 = 10;
+			pub const AssetsStringLimit: u32 = 50;
 			pub const MetadataDepositBase: Balance = 1 * 68;
 			pub const MetadataDepositPerByte: Balance = 1;
 		}
@@ -704,6 +704,29 @@ macro_rules! impl_pallet_proxy_config {
 			type AnnouncementDepositBase = AnnouncementDepositBase;
 			type AnnouncementDepositFactor = AnnouncementDepositFactor;
 			type WeightInfo = ();
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_pallet_scheduler_config {
+	($test:ident) => {
+		parameter_types! {
+			pub const MaxScheduledPerBlock: u32 = 50;
+		}
+
+		impl pallet_scheduler::Config for Test {
+			type RuntimeEvent = RuntimeEvent;
+			type RuntimeOrigin = RuntimeOrigin;
+			type PalletsOrigin = OriginCaller;
+			type RuntimeCall = RuntimeCall;
+			type MaximumWeight = ();
+			type ScheduleOrigin = EnsureRoot<AccountId>;
+			type MaxScheduledPerBlock = MaxScheduledPerBlock;
+			type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
+			type WeightInfo = ();
+			type PreimageProvider = ();
+			type NoPreimagePostponement = ();
 		}
 	};
 }

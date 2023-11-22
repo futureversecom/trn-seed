@@ -18,7 +18,6 @@ use frame_support::traits::Hooks;
 use hex_literal::hex;
 use pallet_nft::CollectionInfo;
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::MetadataScheme;
 
 struct TestVals {
 	source: H160,

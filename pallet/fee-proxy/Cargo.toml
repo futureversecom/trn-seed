@@ -35,6 +35,7 @@ hex-literal = { version = "0.3.4" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+pallet-fee-control = { path = "../fee-control" }
 
 [features]
 default = ["std"]

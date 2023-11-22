@@ -24,7 +24,6 @@ use seed_runtime::{
 	AnnouncementDepositBase, AnnouncementDepositFactor, ProxyDepositBase, ProxyDepositFactor,
 };
 use sp_core::{ecdsa, Pair};
-use sp_runtime::traits::{BlakeTwo256, IdentityLookup};
 
 pub const MOCK_PAYMENT_ASSET_ID: AssetId = 100;
 pub const MOCK_NATIVE_ASSET_ID: AssetId = ROOT_ASSET_ID;
@@ -41,10 +40,7 @@ construct_runtime!(
 		AssetsExt: pallet_assets_ext,
 		Nft: pallet_nft,
 		FeeControl: pallet_fee_control,
-		// TransactionPayment: pallet_transaction_payment,
-		// FeeProxy: pallet_fee_proxy,
 		Dex: pallet_dex,
-		// Evm: pallet_evm,
 		Proxy: pallet_proxy,
 		Futurepass: pallet_futurepass,
 	}

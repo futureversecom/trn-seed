@@ -16,13 +16,6 @@
 use crate::{self as pallet_evm_chain_id, Config};
 use frame_support::parameter_types;
 use seed_pallet_common::test_prelude::*;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-};
-
-pub type AccountId = u64;
-pub const ALICE: AccountId = 10;
 
 construct_runtime!(
 	pub enum Test where
@@ -30,40 +23,12 @@ construct_runtime!(
 		NodeBlock = Block<Test>,
 		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		EVMChainId: pallet_evm_chain_id::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		EVMChainId: pallet_evm_chain_id,
 	}
 );
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-impl frame_system::Config for Test {
-	type BlockWeights = ();
-	type BlockLength = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = BlockNumber;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type BlockHashCount = BlockHashCount;
-	type RuntimeEvent = RuntimeEvent;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-}
+impl_frame_system_config!(Test);
 
 parameter_types! {
 	pub const DefaultChainId: u64 = 7672;

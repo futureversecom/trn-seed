@@ -937,7 +937,7 @@ fn create_asset_fails() {
 			);
 
 			// Create asset insufficient name should fail
-			let name: Vec<u8> = b"01234567891".to_vec();
+			let name: Vec<u8> = b"012345678901234567890123456789012345678901234567891".to_vec();
 			assert_noop!(
 				AssetsExt::create_asset(
 					Some(alice()).into(),
@@ -951,7 +951,7 @@ fn create_asset_fails() {
 			);
 
 			// Create asset insufficient symbol should fail
-			let symbol: Vec<u8> = b"01234567891".to_vec();
+			let symbol: Vec<u8> = b"012345678901234567890123456789012345678901234567891".to_vec();
 			assert_noop!(
 				AssetsExt::create_asset(
 					Some(alice()).into(),
