@@ -53,6 +53,7 @@ impl pallet_assets_ext::Config for Test {
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	// TODO These tests should use ROOT as NativeAssetId. Changing to ROOT causes tests to fail
+	// https://futureverse.atlassian.net/jira/software/c/projects/TRN/boards/39/backlog?selectedIssue=TRN-279
 	type NativeAssetId = XrpAssetId;
 	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
