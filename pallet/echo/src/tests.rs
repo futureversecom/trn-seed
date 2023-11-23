@@ -22,7 +22,7 @@ use sp_runtime::traits::AccountIdConversion;
 
 #[test]
 fn ping_works_from_runtime() {
-	test_ext::<Test>().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let caller = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PalletId::get().into_account_truncating();
 		// let destination = H160::from_low_u64_be(124);
@@ -64,7 +64,7 @@ fn ping_works_from_runtime() {
 
 #[test]
 fn ping_works_from_ethereum() {
-	test_ext::<Test>().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let caller = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PalletId::get().into_account_truncating();
 		// let destination = H160::from_low_u64_be(124);

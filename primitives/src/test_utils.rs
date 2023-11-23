@@ -14,24 +14,15 @@ pub struct TestExt<T: frame_system::Config + pallet_balances::Config + pallet_as
 	block_number: BlockNumber,
 }
 
-impl<T> TestExt<T>
+impl<T> Default for TestExt<T>
 where
 	T: frame_system::Config + pallet_balances::Config + pallet_assets::Config,
 	<T as pallet_balances::Config>::Balance: From<Balance>,
 {
-	/// Create new TestExt
-	pub fn new() -> Self {
+	/// Create new TestExt with default values
+	fn default() -> Self {
 		Self { balances: vec![], xrp_balances: vec![], block_number: 1 }
 	}
-}
-
-/// Small helper to create a TestExt
-pub fn test_ext<T>() -> TestExt<T>
-where
-	T: frame_system::Config + pallet_balances::Config + pallet_assets::Config,
-	<T as pallet_balances::Config>::Balance: From<Balance>,
-{
-	TestExt::<T>::new()
 }
 
 impl<T> TestExt<T>

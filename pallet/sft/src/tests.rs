@@ -119,7 +119,7 @@ mod create_collection {
 
 	#[test]
 	fn create_collection_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			// CollectionId stored in the NFT pallet, get here to check it is incremented
 			// properly after we create a collection
 			let nft_collection_id = pallet_nft::NextCollectionId::<Test>::get();
@@ -174,7 +174,7 @@ mod create_collection {
 
 	#[test]
 	fn create_collection_no_specified_owner() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_uuid = next_collection_uuid();
 			let caller = alice();
 			let collection_name = bounded_string("test");
@@ -200,7 +200,7 @@ mod create_collection {
 
 	#[test]
 	fn create_collection_invalid_collection_name_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let metadata_scheme =
 				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 
@@ -234,7 +234,7 @@ mod create_collection {
 
 	#[test]
 	fn create_collection_invalid_royalties_schedule_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let metadata_scheme =
 				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 
@@ -305,7 +305,7 @@ mod create_token {
 
 	#[test]
 	fn create_token_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let collection_id = create_test_collection(collection_owner);
 			let token_name = bounded_string("my-token");
@@ -351,7 +351,7 @@ mod create_token {
 
 	#[test]
 	fn do_create_token_returns_serial() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let collection_id = create_test_collection(collection_owner);
 			let token_name = bounded_string("my-token");
@@ -382,7 +382,7 @@ mod create_token {
 
 	#[test]
 	fn create_token_zero_initial_issuance_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let collection_id = create_test_collection(collection_owner);
 			let token_name = bounded_string("my-token");
@@ -421,7 +421,7 @@ mod create_token {
 
 	#[test]
 	fn create_token_no_collection_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_id = 1;
 
 			assert_noop!(
@@ -440,7 +440,7 @@ mod create_token {
 
 	#[test]
 	fn create_token_not_collection_owner_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let collection_id = create_test_collection(collection_owner);
 			let malicious_actor = bob();
@@ -461,7 +461,7 @@ mod create_token {
 
 	#[test]
 	fn create_token_invalid_token_name_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let collection_id = create_test_collection(collection_owner);
 
@@ -497,7 +497,7 @@ mod create_token {
 
 	#[test]
 	fn create_token_invalid_max_issuance_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let collection_id = create_test_collection(collection_owner);
 
@@ -534,7 +534,7 @@ mod create_token {
 
 	#[test]
 	fn create_token_invalid_next_serial_number_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let metadata_scheme =
 				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
@@ -572,7 +572,7 @@ mod mint {
 
 	#[test]
 	fn mint_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_owner = bob();
 			let token_id = create_test_token(collection_owner, collection_owner, 0);
@@ -636,7 +636,7 @@ mod mint {
 
 	#[test]
 	fn mint_over_multiple_tokens_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_owner = bob();
 			let collection_id = create_test_collection(collection_owner);
@@ -683,7 +683,7 @@ mod mint {
 
 	#[test]
 	fn mint_with_duplicate_serial_numbers_work() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_owner = bob();
 			let (collection_id, serial_number) =
@@ -717,7 +717,7 @@ mod mint {
 
 	#[test]
 	fn mint_no_collection_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let collection_id = 0;
 			let serial_number = 0;
@@ -737,7 +737,7 @@ mod mint {
 
 	#[test]
 	fn mint_not_collection_owner_public_mint_disabled_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 0);
 			let (collection_id, serial_number) = token_id;
@@ -757,7 +757,7 @@ mod mint {
 
 	#[test]
 	fn mint_invalid_quantity_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 0);
 			let (collection_id, serial_number) = token_id;
@@ -778,7 +778,7 @@ mod mint {
 
 	#[test]
 	fn mint_invalid_serial_number_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 0);
 			let (collection_id, serial_number) = token_id;
@@ -798,7 +798,7 @@ mod mint {
 
 	#[test]
 	fn mint_over_u128_max_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let collection_id = create_test_collection(collection_owner);
 			let initial_issuance = u128::MAX;
@@ -833,7 +833,7 @@ mod mint {
 
 	#[test]
 	fn mint_over_max_issuance_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let collection_id = create_test_collection(collection_owner);
 			let max_issuance = 100;
@@ -875,7 +875,7 @@ mod mint {
 
 	#[test]
 	fn mint_over_max_owners_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_owner = bob();
 			let token_id = create_test_token(collection_owner, collection_owner, 0);
@@ -912,7 +912,7 @@ mod transfer {
 
 	#[test]
 	fn transfer_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_owner = bob();
 			let initial_issuance = 1000;
@@ -959,7 +959,7 @@ mod transfer {
 
 	#[test]
 	fn transfer_multiple_tokens_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_owner = bob();
 			let collection_id = create_test_collection(collection_owner);
@@ -1011,7 +1011,7 @@ mod transfer {
 
 	#[test]
 	fn transfer_entire_balance_clears_storage() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let initial_issuance = 1000;
 			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
@@ -1042,7 +1042,7 @@ mod transfer {
 
 	#[test]
 	fn transfer_insufficient_balance_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let new_owner = bob();
 			let initial_issuance = 1000;
@@ -1064,7 +1064,7 @@ mod transfer {
 
 	#[test]
 	fn transfer_multiple_insufficient_balance_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let new_owner = bob();
 			let initial_issuance = 1000;
@@ -1101,7 +1101,7 @@ mod transfer {
 
 	#[test]
 	fn transfer_invalid_quantity_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let new_owner = bob();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
@@ -1123,7 +1123,7 @@ mod transfer {
 
 	#[test]
 	fn transfer_invalid_serial_number_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let new_owner = bob();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
@@ -1144,7 +1144,7 @@ mod transfer {
 
 	#[test]
 	fn transfer_new_owner_is_signer_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 			let (collection_id, serial_number) = token_id;
@@ -1168,7 +1168,7 @@ mod burn {
 
 	#[test]
 	fn burn_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let initial_issuance = 1000;
 			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
@@ -1210,7 +1210,7 @@ mod burn {
 
 	#[test]
 	fn burn_multiple_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let initial_issuance = 1000;
 			let initial_issuance_2 = 3000;
@@ -1257,7 +1257,7 @@ mod burn {
 
 	#[test]
 	fn burn_insufficient_balance_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let initial_issuance = 1000;
 			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
@@ -1287,7 +1287,7 @@ mod burn {
 
 	#[test]
 	fn burn_invalid_serial_number_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let initial_issuance = 1000;
 			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
@@ -1308,7 +1308,7 @@ mod burn {
 
 	#[test]
 	fn burn_invalid_quantity_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let initial_issuance = 1000;
 			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
@@ -1339,7 +1339,7 @@ mod set_owner {
 
 	#[test]
 	fn transfers_ownership() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let new_owner = bob();
 			let collection_id = create_test_collection(collection_owner);
@@ -1354,7 +1354,7 @@ mod set_owner {
 
 	#[test]
 	fn cannot_transfer_ownership_if_not_owner() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let not_owner = bob();
 			let collection_id = create_test_collection(collection_owner);
@@ -1368,7 +1368,7 @@ mod set_owner {
 
 	#[test]
 	fn errors_if_no_collection() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let other_account = bob();
 
@@ -1385,7 +1385,7 @@ mod set_max_issuance {
 
 	#[test]
 	fn set_max_issuance_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 			let new_max_issuance = 2000;
@@ -1405,7 +1405,7 @@ mod set_max_issuance {
 
 	#[test]
 	fn set_max_issuance_not_collection_owner_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 			let new_max_issuance = 2000;
@@ -1420,7 +1420,7 @@ mod set_max_issuance {
 
 	#[test]
 	fn set_max_issuance_invalid_token_id_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 			let new_max_issuance = 2000;
@@ -1439,7 +1439,7 @@ mod set_max_issuance {
 
 	#[test]
 	fn set_max_issuance_less_than_token_issuance_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 			let new_max_issuance = 999;
@@ -1455,7 +1455,7 @@ mod set_max_issuance {
 	// Max issuance already set fails
 	#[test]
 	fn set_max_issuance_already_set_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 			let new_max_issuance = 2000;
@@ -1481,7 +1481,7 @@ mod set_base_uri {
 
 	#[test]
 	fn set_base_uri_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 
@@ -1503,7 +1503,7 @@ mod set_base_uri {
 
 	#[test]
 	fn set_base_uri_not_collection_owner_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 			let metadata_scheme =
@@ -1523,7 +1523,7 @@ mod set_name {
 
 	#[test]
 	fn set_name_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 			let collection_name = bounded_string("test-collection");
@@ -1543,7 +1543,7 @@ mod set_name {
 
 	#[test]
 	fn set_name_no_collection_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let collection_id: u32 = 1;
 			let new_name = bounded_string("yeet");
@@ -1558,7 +1558,7 @@ mod set_name {
 
 	#[test]
 	fn set_name_not_collection_owner_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 			let collection_name = bounded_string("test-collection");
@@ -1573,7 +1573,7 @@ mod set_name {
 
 	#[test]
 	fn set_name_invalid_name_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 
@@ -1601,7 +1601,7 @@ mod set_royalties_schedule {
 
 	#[test]
 	fn set_royalties_schedule_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 			let royalties_schedule = RoyaltiesSchedule {
@@ -1623,7 +1623,7 @@ mod set_royalties_schedule {
 
 	#[test]
 	fn set_royalties_no_collection_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(11);
 			let collection_id = 1;
 			let royalties_schedule = RoyaltiesSchedule {
@@ -1644,7 +1644,7 @@ mod set_royalties_schedule {
 
 	#[test]
 	fn set_royalties_not_owner_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let royalties_schedule = RoyaltiesSchedule {
 				entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
@@ -1665,7 +1665,7 @@ mod set_royalties_schedule {
 
 	#[test]
 	fn set_royalties_invalid_royalties_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let token_id = create_test_token(collection_owner, collection_owner, 8100);
 
@@ -1698,7 +1698,7 @@ mod set_mint_fee {
 
 	#[test]
 	fn set_mint_fee_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
 			let pricing_details: (AssetId, Balance) = (1, 100);
@@ -1749,7 +1749,7 @@ mod set_mint_fee {
 
 	#[test]
 	fn set_mint_fee_should_keep_enabled_flag_intact() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
 			let initial_issuance = 1000;
@@ -1787,7 +1787,7 @@ mod set_mint_fee {
 
 	#[test]
 	fn set_mint_fee_emits_event() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
 			let initial_issuance = 1000;
@@ -1822,7 +1822,7 @@ mod set_mint_fee {
 
 	#[test]
 	fn set_mint_fee_not_collection_owner_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
 			let initial_issuance = 1000;
@@ -1848,7 +1848,7 @@ mod set_mint_fee {
 
 	#[test]
 	fn set_mint_fee_no_collection_fails() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let token_id = (1, 1); // No collection
 			let pricing_details: (AssetId, Balance) = (1, 100);
@@ -1873,7 +1873,7 @@ mod toggle_public_mint {
 
 	#[test]
 	fn toggle_public_mint_works() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
 			let initial_issuance = 1000;
@@ -1911,7 +1911,7 @@ mod toggle_public_mint {
 
 	#[test]
 	fn toggle_public_mint_emits_event() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
 			let initial_issuance = 1000;
@@ -1949,7 +1949,7 @@ mod toggle_public_mint {
 
 	#[test]
 	fn toggle_public_mint_should_keep_pricing_details() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
 			let initial_issuance = 1000;
@@ -1994,7 +1994,7 @@ mod public_minting {
 
 	#[test]
 	fn public_mint_should_let_user_mint() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
 			let minter = create_account(11);
@@ -2076,7 +2076,7 @@ mod public_minting {
 	fn public_mint_with_price_should_charge_user() {
 		let minter = create_account(11);
 		let initial_balance = 100000;
-		test_ext::<Test>()
+		TestExt::<Test>::default()
 			.with_xrp_balances(&[(minter, initial_balance)])
 			.build()
 			.execute_with(|| {
@@ -2157,7 +2157,7 @@ mod public_minting {
 	fn public_batch_mint_with_price_should_charge_user() {
 		let minter = create_account(11);
 		let initial_balance = 1000000;
-		test_ext::<Test>()
+		TestExt::<Test>::default()
 			.with_xrp_balances(&[(minter, initial_balance)])
 			.build()
 			.execute_with(|| {
@@ -2244,7 +2244,7 @@ mod public_minting {
 	fn public_batch_mint_fails_when_public_minting_not_enabled_for_all_token_ids() {
 		let minter = create_account(11);
 		let initial_balance = 100000;
-		test_ext::<Test>()
+		TestExt::<Test>::default()
 			.with_xrp_balances(&[(minter, initial_balance)])
 			.build()
 			.execute_with(|| {
@@ -2304,7 +2304,7 @@ mod public_minting {
 	fn public_mint_insufficient_balance_should_fail() {
 		let minter = create_account(11);
 		let initial_balance = 99; // Not enough
-		test_ext::<Test>()
+		TestExt::<Test>::default()
 			.with_xrp_balances(&[(minter, initial_balance)])
 			.build()
 			.execute_with(|| {
@@ -2354,7 +2354,7 @@ mod public_minting {
 
 	#[test]
 	fn public_mint_collection_owner_should_not_be_charged() {
-		test_ext::<Test>().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
 			let quantity = 1;
@@ -2420,7 +2420,7 @@ mod public_minting {
 		// the caller is charged, not the specified owner
 		let minter = create_account(11);
 		let initial_balance = 100000;
-		test_ext::<Test>()
+		TestExt::<Test>::default()
 			.with_xrp_balances(&[(minter, initial_balance)])
 			.build()
 			.execute_with(|| {

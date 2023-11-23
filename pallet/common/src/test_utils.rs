@@ -31,7 +31,7 @@ pub mod test_prelude {
 	};
 	pub use frame_system::{EnsureRoot, RawOrigin};
 	#[cfg(feature = "std")]
-	pub use seed_primitives::test_utils::{test_ext, TestExt};
+	pub use seed_primitives::test_utils::TestExt;
 	pub use seed_primitives::{
 		AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
 	};

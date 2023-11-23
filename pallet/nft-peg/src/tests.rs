@@ -98,7 +98,7 @@ fn mock_token_information(
 
 #[test]
 fn event_handler_decodes_correctly() {
-	test_ext::<Test>().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let test_vals = TestVals::default();
 		assert_ok!(Pallet::<Test>::on_event(&test_vals.source, &test_vals.data));
 	});
@@ -106,7 +106,7 @@ fn event_handler_decodes_correctly() {
 
 #[test]
 fn decode_deposit_event_errs_too_many_tokens() {
-	test_ext::<Test>().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let test_vals = TestVals::default();
 
 		// Too many tokens
@@ -129,7 +129,7 @@ fn decode_deposit_event_errs_too_many_tokens() {
 
 #[test]
 fn decode_deposit_event_errs_too_many_addresses() {
-	test_ext::<Test>().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let test_vals = TestVals::default();
 
 		let inner_token = vec![Token::Uint(test_vals.inner_token_id)];
@@ -152,7 +152,7 @@ fn decode_deposit_event_errs_too_many_addresses() {
 
 #[test]
 fn do_deposit_creates_tokens_and_collection() {
-	test_ext::<Test>().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let test_vals = TestVals::default();
 		let expected_collection_id = Nft::next_collection_uuid().unwrap();
 
@@ -198,7 +198,7 @@ fn do_deposit_creates_tokens_and_collection() {
 
 #[test]
 fn do_deposit_works_with_existing_bridged_collection() {
-	test_ext::<Test>().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let test_vals = TestVals::default();
 		let expected_collection_id = Nft::next_collection_uuid().unwrap();
 
@@ -264,7 +264,7 @@ fn do_deposit_works_with_existing_bridged_collection() {
 
 #[test]
 fn handles_duplicated_tokens_sent() {
-	test_ext::<Test>().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let test_vals = TestVals::default();
 		let expected_collection_id = Nft::next_collection_uuid().unwrap();
 
@@ -332,7 +332,7 @@ fn handles_duplicated_tokens_sent() {
 
 #[test]
 fn do_withdraw_works() {
-	test_ext::<Test>().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let test_vals = TestVals::default();
 
@@ -356,7 +356,7 @@ fn do_withdraw_works() {
 
 #[test]
 fn do_withdraw_invalid_token_length_should_fail() {
-	test_ext::<Test>().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_ids = BoundedVec::truncate_from(vec![1, 2, 3]);
 		let serial_numbers = BoundedVec::truncate_from(vec![BoundedVec::truncate_from(vec![1])]);
 		assert_noop!(
@@ -373,7 +373,7 @@ fn do_withdraw_invalid_token_length_should_fail() {
 
 #[test]
 fn do_deposit_adds_to_blocked_on_fail() {
-	test_ext::<Test>().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let test_vals = TestVals::default();
 		let blocked_mint_id = NextBlockedMintId::<Test>::get();
 		let collection_id = Nft::next_collection_uuid().unwrap();
@@ -411,7 +411,7 @@ fn do_deposit_adds_to_blocked_on_fail() {
 
 #[test]
 fn reclaim_blocked_nfts() {
-	test_ext::<Test>().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let blocked_mint_id = NextBlockedMintId::<Test>::get();
 
 		let collection_owner = create_account(1);
@@ -436,7 +436,7 @@ fn reclaim_blocked_nfts() {
 
 #[test]
 fn reclaim_blocked_nfts_called_by_wrong_account_should_fail() {
-	test_ext::<Test>().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let blocked_mint_id = NextBlockedMintId::<Test>::get();
 
 		let collection_owner = create_account(1);
