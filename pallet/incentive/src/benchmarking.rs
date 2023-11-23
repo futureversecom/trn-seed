@@ -53,7 +53,7 @@ benchmarks! {
 	}: _(RawOrigin::Root, asset_id, interest_rate, max_tokens, start_block, end_block)
 	verify {
 		let next_pool_id = T::PoolId::default();
-		assert_eq!(Incentive::<T>::pools(next_pool_id).is_some(), true);
+		assert_eq!(Pools::<T>::get(next_pool_id).is_some(), true);
 	}
 
 	close_pool {
@@ -67,7 +67,7 @@ benchmarks! {
 	}: _(RawOrigin::Root, id)
 	verify {
 		let next_pool_id = T::PoolId::default();
-		assert_eq!(Incentive::<T>::pools(id).is_none(), true);
+		assert_eq!(Pools::<T>::get(id).is_none(), true);
 	}
 
 	set_incentive_pool_succession {
@@ -85,7 +85,7 @@ benchmarks! {
 		Incentive::<T>::create_pool(RawOrigin::Root.into(), asset_id, interest_rate, max_tokens, start_block, end_block).unwrap();
 	}: _(RawOrigin::Root, predecessor_id, successor_id)
 	verify {
-		assert_eq!(Incentive::<T>::pool_relationships(predecessor_id).unwrap().successor_id, Some(successor_id));
+		assert_eq!(PoolRelationships::<T>::get(predecessor_id).unwrap().successor_id, Some(successor_id));
 	}
 
 	// Update user rollover preference
@@ -111,7 +111,7 @@ benchmarks! {
 		Incentive::<T>::join_pool(RawOrigin::Signed(user.clone()).into(), id, 10u32.into()).unwrap();
 	}: _(RawOrigin::Signed(user), id, true)
 	verify {
-		assert_eq!(Incentive::<T>::pool_users(id, user).unwrap().should_rollover, true);
+		assert_eq!(PoolUsers::<T>::get(id, user).unwrap().should_rollover, true);
 	}
 
 	// Join reward pool
@@ -137,7 +137,7 @@ benchmarks! {
 		Incentive::<T>::on_initialize(start_block);
 	}: _(RawOrigin::Signed(user.clone()), id, amount)
 	verify {
-		assert_eq!(Incentive::<T>::pool_users(id, user).unwrap().amount, amount);
+		assert_eq!(PoolUsers::<T>::get(id, user).unwrap().amount, amount);
 	}
 
 	// Exit reward pool
@@ -163,7 +163,7 @@ benchmarks! {
 		Incentive::<T>::join_pool(RawOrigin::Signed(user.clone()).into(), id, 10u32.into()).unwrap();
 	}: _(RawOrigin::Signed(user.clone()), id)
 	verify {
-		assert!(Incentive::<T>::pool_users(id, user).is_none());
+		assert!(PoolUsers::<T>::get(id, user).is_none());
 	}
 
 	// Claim reward
@@ -192,12 +192,11 @@ benchmarks! {
 		for i in 0..50+50 as u32 {
 			System::<T>::set_block_number(i.into());
 			Incentive::<T>::on_initialize(i.into());
-			Incentive::<T>::offchain_worker(i.into());
 		}
 	}: _(RawOrigin::Signed(user.clone()), id)
 	verify {
 		// User reward debt should have increased
-		let user_info = Incentive::<T>::pool_users(id, user).unwrap();
+		let user_info = PoolUsers::<T>::get(id, user).unwrap();
 		assert_eq!(user_info.reward_debt, 10u32.into());
 	}
 
@@ -234,8 +233,4 @@ benchmarks! {
 	}:_(RawOrigin::None, id, end_block)
 }
 
-impl_benchmark_test_suite!(
-	Incentive,
-	crate::mock::ExtBuilder::default().build(),
-	crate::mock::Test
-);
+impl_benchmark_test_suite!(Incentive, crate::mock::TestExt::default().build(), crate::mock::Test);

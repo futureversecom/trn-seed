@@ -649,21 +649,15 @@ export const executeForPreviousEvent = async (
   }
 };
 
-export const loadTestUsers = (userAmount?: number): KeyringPair[] => {
-  const content = fs.readFileSync(path.resolve(__dirname, "./generated_users.txt"), "utf-8");
-  const mnemonics = content
-    .replace(/\n{2,}/g, "\n")
-    .toString()
-    .split("\n");
+export const generateTestUsers = (userAmount: number): KeyringPair[] => {
   const keyring = new Keyring({ type: "ethereum" });
-  const keypairs: KeyringPair[] = [];
 
-  for (let i = 0; i < mnemonics.length; i++) {
-    const mnemonic = mnemonics[i];
-    if (mnemonic !== "" && (userAmount === undefined || i < userAmount)) {
-      keypairs.push(keyring.addFromMnemonic(mnemonic, {}));
-    }
+  const keypairs: KeyringPair[] = [];
+  for (let i = 0; i < userAmount; i++) {
+    const pair = keyring.addFromUri(`${Math.random().toString(36).substring(2)}`);
+    keypairs.push(pair);
   }
+
   console.log(`loaded ${keypairs.length} users`);
   return keypairs;
 };

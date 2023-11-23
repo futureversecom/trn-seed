@@ -26,6 +26,7 @@ use codec::{Decode, Encode};
 use core::ops::Mul;
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
+use frame_support::ord_parameter_types;
 use pallet_dex::TradingPairStatus;
 use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
@@ -153,10 +154,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 45,
+	spec_version: 44,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 6,
+	transaction_version: 5,
 	state_version: 0,
 };
 
@@ -427,7 +428,8 @@ impl pallet_nft::Config for Runtime {
 parameter_types! {
 	pub const IncentivePalletId: PalletId = PalletId(*b"incentiv");
 	pub const IncentiveUnsignedInterval: BlockNumber =  MINUTES / 2;
-	pub const RolloverBatchSize: u32 = 799;
+	/// How many users to rollover at a block time
+	pub const RolloverBatchSize: u32 = 99;
 }
 impl pallet_incentive::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -440,6 +442,7 @@ impl pallet_incentive::Config for Runtime {
 	type PalletId = IncentivePalletId;
 	type UnsignedInterval = IncentiveUnsignedInterval;
 	type RolloverBatchSize = RolloverBatchSize;
+	type MaxStringLength = MaxStringLength;
 	type WeightInfo = weights::pallet_incentive::WeightInfo<Runtime>;
 }
 
@@ -1239,6 +1242,9 @@ impl pallet_futurepass::Config for Runtime {
 	type MultiCurrency = AssetsExt;
 }
 
+ord_parameter_types! {
+	pub const VtxDistAdmin: AccountId = AccountId::from(hex_literal::hex!("0f301798b041bf0D5bCf3e109e535FbF3500bE09"));
+}
 parameter_types! {
 	pub const VtxVortexPotId: PalletId = PalletId(*b"vtx/vpot");
 	pub const VtxRootPotId: PalletId = PalletId(*b"vtx/rpot");
@@ -1309,6 +1315,7 @@ construct_runtime! {
 		Marketplace: pallet_marketplace::{Pallet, Call, Storage, Event<T>} = 44,
 		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 45,
 		VortexDistribution: pallet_vortex::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 46,
+		Incentive: pallet_incentive::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 47,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
@@ -1331,8 +1338,6 @@ construct_runtime! {
 		// FuturePass Account
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 32,
 		Futurepass: pallet_futurepass::{Pallet, Call, Storage, Event<T>} = 34,
-
-		Incentive: pallet_incentive::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 35,
 	}
 }
 

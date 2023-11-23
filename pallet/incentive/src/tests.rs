@@ -1220,3 +1220,74 @@ fn rollover_should_work_when_exceeding_successor_pool_maxtokens() {
 			);
 		});
 }
+
+#[test]
+fn cannot_join_pool_when_not_provisioning() {
+	new_test_ext().execute_with(|| {
+		let asset_id = 1;
+		let interest_rate = 1;
+		let max_tokens = 100;
+		let reward_period = 100;
+		let start_block = System::block_number() + 1;
+		let end_block = start_block + reward_period;
+
+		assert_ok!(Incentive::create_pool(
+			Origin::root(),
+			asset_id,
+			interest_rate,
+			max_tokens,
+			start_block,
+			end_block
+		));
+
+		let pool_id = NextPoolId::<Test>::get() - 1;
+		let amount = 10;
+
+		// Simulate the pool moving to a different state
+		Pools::<Test>::mutate(pool_id, |pool| {
+			*pool = Some(PoolInfo {
+				pool_status: PoolStatus::Inactive, // Not Provisioning
+				..pool.clone().unwrap()
+			});
+		});
+
+		assert_noop!(
+			Incentive::join_pool(Origin::signed(create_account(1)), pool_id, amount),
+			Error::<Test>::PoolNotActive
+		);
+	});
+}
+
+#[test]
+fn cannot_exit_pool_when_not_joined() {
+	new_test_ext().execute_with(|| {
+		let asset_id = 1;
+		let interest_rate = 1;
+		let max_tokens = 100;
+		let reward_period = 100;
+		let start_block = System::block_number() + 1;
+		let end_block = start_block + reward_period;
+
+		assert_ok!(Incentive::create_pool(
+			Origin::root(),
+			asset_id,
+			interest_rate,
+			max_tokens,
+			start_block,
+			end_block
+		));
+
+		let pool_id = NextPoolId::<Test>::get() - 1;
+		Pools::<Test>::mutate(NextPoolId::<Test>::get() - 1, |pool| {
+			*pool = Some(PoolInfo {
+				pool_status: PoolStatus::Provisioning, // Not Provisioning
+				..pool.clone().unwrap()
+			});
+		});
+
+		assert_noop!(
+			Incentive::exit_pool(Origin::signed(create_account(1)), pool_id),
+			Error::<Test>::NoTokensStaked
+		);
+	});
+}

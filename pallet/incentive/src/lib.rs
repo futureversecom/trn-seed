@@ -16,11 +16,24 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
-use frame_support::{log, pallet_prelude::*, sp_runtime::traits::One, PalletId};
-use frame_system::pallet_prelude::*;
-use seed_primitives::AccountId;
+#[cfg(feature = "runtime-benchmarks")]
+use frame_support::traits::fungibles::Mutate;
+use frame_support::{
+	log,
+	pallet_prelude::*,
+	sp_runtime::traits::One,
+	traits::{fungibles::Transfer, Currency, ExistenceRequirement},
+	transactional, PalletId,
+};
+use frame_system::{
+	offchain::{SendTransactionTypes, SubmitTransaction},
+	pallet_prelude::*,
+};
+#[cfg(feature = "runtime-benchmarks")]
+use seed_pallet_common::{CreateExt, Hold};
+use seed_primitives::{AccountId, BlockNumber};
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::{AccountIdConversion, CheckedAdd, Saturating};
+use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, Saturating, Zero};
 use sp_std::prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -33,24 +46,75 @@ mod tests;
 pub mod weights;
 pub use weights::WeightInfo;
 
+/// Stores information about a reward pool.
+#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(T))]
+pub struct PoolInfo<PoolId, AssetId, Balance, BlockNumber> {
+	pub id: PoolId,
+	pub asset_id: AssetId,
+	pub interest_rate: u32,
+	pub max_tokens: Balance,
+	pub last_updated: BlockNumber,
+	pub start_block: BlockNumber,
+	pub end_block: BlockNumber,
+	pub locked_amount: Balance,
+	pub pool_status: PoolStatus,
+}
+
+#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum PoolStatus {
+	Inactive,
+	Provisioning,
+	RollingOver,
+	Done,
+}
+
+impl Default for PoolStatus {
+	fn default() -> Self {
+		Self::Inactive
+	}
+}
+
+/// Stores relationship between pools.
+#[derive(Default, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(T))]
+pub struct PoolRelationship<PoolId> {
+	pub predecessor_id: Option<PoolId>,
+	pub successor_id: Option<PoolId>,
+}
+
+/// Stores user information for a pool.
+#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(T))]
+pub struct UserInfo<Balance> {
+	pub amount: Balance,
+	pub reward_debt: Balance,
+	pub should_rollover: bool,
+	pub rolled_over: bool,
+}
+
+impl<Balance: Default> UserInfo<Balance> {
+	fn should_migrate(&self) -> bool {
+		self.should_rollover && !self.rolled_over
+	}
+}
+
+impl<Balance: Default> Default for UserInfo<Balance> {
+	fn default() -> Self {
+		Self {
+			amount: Balance::default(),
+			reward_debt: Balance::default(),
+			should_rollover: true,
+			rolled_over: false,
+		}
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
-	#[cfg(feature = "runtime-benchmarks")]
-	use frame_support::traits::fungibles::Mutate;
-	use frame_support::{
-		traits::{fungibles::Transfer, Currency, ExistenceRequirement},
-		transactional,
-	};
-	use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
-	#[cfg(feature = "runtime-benchmarks")]
-	use seed_pallet_common::{CreateExt, Hold};
-	use seed_primitives::BlockNumber;
-	use sp_runtime::traits::{AtLeast32BitUnsigned, Zero};
-
 	use super::*;
 
 	#[pallet::pallet]
-	#[pallet::without_storage_info]
 	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
@@ -77,11 +141,17 @@ pub mod pallet {
 			+ MaxEncodedLen
 			+ TypeInfo;
 
+		/// Incentive admin origin
 		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
+		/// Currency type
 		type Currency: Currency<Self::AccountId, Balance = Self::Balance>;
+
+		/// Assets pallet
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		type Assets: Transfer<Self::AccountId, AssetId = Self::AssetId, Balance = Self::Balance>;
+
+		/// Assets pallet - for benchmarking to manipulate assets
 		#[cfg(feature = "runtime-benchmarks")]
 		type Assets: Transfer<Self::AccountId, AssetId = Self::AssetId, Balance = Self::Balance>
 			+ Hold<AccountId = Self::AccountId>
@@ -89,19 +159,26 @@ pub mod pallet {
 			+ CreateExt<AccountId = Self::AccountId>
 			+ Transfer<Self::AccountId, Balance = Self::Balance>;
 
+		/// Pallete ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+
+		/// Interval between unsigned transactions
 		#[pallet::constant]
 		type UnsignedInterval: Get<BlockNumber>;
+
+		/// Max number of users to rollover per block
 		#[pallet::constant]
 		type RolloverBatchSize: Get<u32>;
+
+		/// Max pivot string length
+		type MaxStringLength: Get<u32>;
 
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn pools)]
 	pub(super) type Pools<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -110,7 +187,6 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn pool_users)]
 	pub(super) type PoolUsers<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -121,81 +197,19 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn pool_relationships)]
 	pub type PoolRelationships<T: Config> =
 		StorageMap<_, Twox64Concat, T::PoolId, PoolRelationship<T::PoolId>>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn next_pool_id)]
 	pub(super) type NextPoolId<T: Config> = StorageValue<_, T::PoolId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn next_rollover_unsigned_at)]
 	pub(super) type NextRolloverUnsignedAt<T: Config> =
 		StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn rollover_pivot)]
 	pub(super) type RolloverPivot<T: Config> =
-		StorageMap<_, Twox64Concat, T::PoolId, Vec<u8>, ValueQuery>;
-
-	/// Stores information about a reward pool.
-	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-	#[scale_info(skip_type_params(T))]
-	pub struct PoolInfo<PoolId, AssetId, Balance, BlockNumber> {
-		pub id: PoolId,
-		pub asset_id: AssetId,
-		pub interest_rate: u32,
-		pub max_tokens: Balance,
-		pub last_updated: BlockNumber,
-		pub start_block: BlockNumber,
-		pub end_block: BlockNumber,
-		pub locked_amount: Balance,
-		pub pool_status: PoolStatus,
-	}
-
-	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-	pub enum PoolStatus {
-		Inactive,
-		Provisioning,
-		RollingOver,
-		Done,
-	}
-
-	impl Default for PoolStatus {
-		fn default() -> Self {
-			Self::Inactive
-		}
-	}
-
-	/// Stores relationship between pools.
-	#[derive(Default, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-	#[scale_info(skip_type_params(T))]
-	pub struct PoolRelationship<PoolId> {
-		pub predecessor_id: Option<PoolId>,
-		pub successor_id: Option<PoolId>,
-	}
-
-	/// Stores user information for a pool.
-	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-	#[scale_info(skip_type_params(T))]
-	pub struct UserInfo<Balance> {
-		pub amount: Balance,
-		pub reward_debt: Balance,
-		pub should_rollover: bool,
-		pub rolled_over: bool,
-	}
-
-	impl<Balance: Default> Default for UserInfo<Balance> {
-		fn default() -> Self {
-			Self {
-				amount: Balance::default(),
-				reward_debt: Balance::default(),
-				should_rollover: true,
-				rolled_over: false,
-			}
-		}
-	}
+		StorageMap<_, Twox64Concat, T::PoolId, BoundedVec<u8, T::MaxStringLength>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -252,6 +266,8 @@ pub mod pallet {
 		OffchainErrTooEarly,
 		/// Offchain error on submitting transaction
 		OffchainErrSubmitTransaction,
+		/// Pivot string too long
+		PivotStringTooLong,
 	}
 
 	#[pallet::call]
@@ -491,7 +507,8 @@ pub mod pallet {
 				Error::<T>::NotReadyForClaimingReward
 			);
 
-			let reward = Self::calculate_reward(&user_info, &pool);
+			let reward =
+				Self::calculate_reward(user_info.amount, pool.interest_rate, user_info.reward_debt);
 			if reward == Zero::zero() {
 				return Ok(())
 			}
@@ -545,9 +562,14 @@ pub mod pallet {
 							return Err(Error::<T>::PoolDoesNotExist.into())
 						};
 						// Migrate users to successor
-						let start_key = Self::rollover_pivot(id);
+						let start_key = RolloverPivot::<T>::get(id);
+						let payout_pivot: Vec<u8> = start_key
+							.clone()
+							.try_into()
+							.map_err(|_| Error::<T>::PivotStringTooLong)?;
+
 						let mut map_iterator = match RolloverPivot::<T>::contains_key(id) {
-							true => <PoolUsers<T>>::iter_prefix_from(id, start_key.clone()),
+							true => <PoolUsers<T>>::iter_prefix_from(id, payout_pivot),
 							false => <PoolUsers<T>>::iter_prefix(id),
 						};
 
@@ -558,7 +580,7 @@ pub mod pallet {
 							Self::get_vault_account(successor_id).unwrap();
 
 						while let Some((who, user_info)) = map_iterator.next() {
-							if Self::should_migrate(&user_info) {
+							if user_info.should_migrate() {
 								total_rolled_over_amount =
 									total_rolled_over_amount.saturating_add(user_info.amount);
 								// Check if successor pool has enough space
@@ -624,7 +646,9 @@ pub mod pallet {
 								break
 							}
 						}
-						let current_last_raw_key = map_iterator.last_raw_key().to_vec();
+						let current_last_raw_key: BoundedVec<u8, T::MaxStringLength> =
+							BoundedVec::try_from(map_iterator.last_raw_key().to_vec())
+								.map_err(|_| Error::<T>::PivotStringTooLong)?;
 						if current_last_raw_key == start_key.clone() {
 							Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
 								let pool_info =
@@ -705,14 +729,14 @@ pub mod pallet {
 		fn offchain_worker(now: BlockNumberFor<T>) {
 			if let Err(e) = Self::do_offchain_worker(now) {
 				log::info!(
-				  target: "ieo offchain worker",
+				  target: "incentive offchain worker",
 				  "error happened in offchain worker at {:?}: {:?}",
 				  now,
 				  e,
 				);
 			} else {
 				log::debug!(
-				  target: "ieo offchain worker",
+				  target: "incentive offchain worker",
 				  "offchain worker start at block: {:?} already done!",
 				  now,
 				);
@@ -728,14 +752,14 @@ pub mod pallet {
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			match call {
-				Call::rollover_unsigned { id: _id, current_block } => {
-					let _current_block = <frame_system::Pallet<T>>::block_number();
-					if &_current_block < current_block {
+				Call::rollover_unsigned { id, current_block } => {
+					let current_block_number = <frame_system::Pallet<T>>::block_number();
+					if &current_block_number < current_block {
 						return InvalidTransaction::Future.into()
 					}
 					ValidTransaction::with_tag_prefix("IncentiveChainWorker")
 						.priority(UNSIGNED_PRIORITY)
-						.and_provides(current_block)
+						.and_provides(id)
 						.longevity(64_u64)
 						.propagate(true)
 						.build()
@@ -747,17 +771,14 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		fn calculate_reward(
-			user_info: &UserInfo<T::Balance>,
-			pool_info: &PoolInfo<T::PoolId, T::AssetId, T::Balance, T::BlockNumber>,
+			user_joined_amount: T::Balance,
+			interest_rate: u32,
+			reward_debt: T::Balance,
 		) -> T::Balance {
-			let mut reward = user_info.amount.saturating_mul(pool_info.interest_rate.into());
-			reward = reward.saturating_sub(user_info.reward_debt);
+			let mut reward = user_joined_amount.saturating_mul(interest_rate.into());
+			reward = reward.saturating_sub(reward_debt);
 
 			reward
-		}
-
-		fn should_migrate(user_info: &UserInfo<T::Balance>) -> bool {
-			user_info.should_rollover && !user_info.rolled_over
 		}
 
 		pub fn get_vault_account(pool_id: T::PoolId) -> Option<T::AccountId> {

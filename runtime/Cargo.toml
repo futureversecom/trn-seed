@@ -307,11 +307,11 @@ runtime-benchmarks = [
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	# Local
-	"pallet-incentive/runtime-benchmarks",
 	"pallet-nft/runtime-benchmarks",
 	"pallet-sft/runtime-benchmarks",
 	"pallet-xrpl-bridge/runtime-benchmarks",
 	"pallet-dex/runtime-benchmarks",
+	"pallet-incentive/runtime-benchmarks",
 	"pallet-fee-control/runtime-benchmarks",
 	"pallet-nft-peg/runtime-benchmarks",
 	"pallet-erc20-peg/runtime-benchmarks",

@@ -8,25 +8,25 @@ import {
   GAS_TOKEN_ID,
   NodeProcess,
   finalizeTx,
+  generateTestUsers,
   getNextAssetId,
-  loadTestUsers,
   rpcs,
   sleep,
   startNode,
   typedefs,
-} from "../../common";
+} from "../common";
 
 describe("Reward", () => {
   let TOKEN_ID: number;
   let node: NodeProcess;
   let api: ApiPromise;
   let alith: KeyringPair;
+  let testUsers: KeyringPair[];
 
   before(async () => {
     node = await startNode();
 
     const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
-    // const wsProvider = new WsProvider(`wss://archive.morel.micklelab.xyz/ws`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -37,6 +37,9 @@ describe("Reward", () => {
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
 
     TOKEN_ID = await getNextAssetId(api);
+
+    // load test users
+    testUsers = generateTestUsers(10);
 
     const txs = [
       api.tx.assetsExt.createAsset("testincentive", "TESTINCENTIVE", 6, 1, alith.address), // create asset
@@ -49,8 +52,6 @@ describe("Reward", () => {
 
   it("load test for rollover", async () => {
     const batchSize = Number(api.consts.incentive.rolloverBatchSize.toHuman() as number) + 1;
-    // load test users
-    const testUsers = loadTestUsers();
 
     const amount = 1000;
     const joinPoolAmount = 100;
@@ -73,29 +74,25 @@ describe("Reward", () => {
     console.log(`${testUsers.length} test users funded`);
 
     const incentiveVaultForPool1 = process.env.INCENTIVE_VAULT_ADDRESS_POOL_1;
-    // fund vault account
-    await finalizeTx(
-      alith,
-      api.tx.utility.batch([api.tx.balances.transfer(incentiveVaultForPool1, testUsers.length * joinPoolAmount)]),
-    );
-    console.log(`vault account ${incentiveVaultForPool1} funded`);
-
     const incentiveVaultForPool2 = process.env.INCENTIVE_VAULT_ADDRESS_POOL_2;
     // fund vault account
     await finalizeTx(
       alith,
-      api.tx.utility.batch([api.tx.balances.transfer(incentiveVaultForPool2, testUsers.length * joinPoolAmount)]),
+      api.tx.utility.batch([
+        api.tx.balances.transfer(incentiveVaultForPool1, testUsers.length * joinPoolAmount),
+        api.tx.balances.transfer(incentiveVaultForPool2, testUsers.length * joinPoolAmount),
+      ]),
     );
-    console.log(`vault account ${incentiveVaultForPool2} funded`);
+    console.log(`vault account ${incentiveVaultForPool1} and ${incentiveVaultForPool2} funded`);
 
     // pool 1
     const pool1 = await api.query.incentive.nextPoolId();
     const interestRate = 1;
     const maxTokens = 1000_000;
     const blockDuration = 4000;
-    const intervalBlock = 10;
+    const intervalBlock = 5;
     let startBlock = intervalBlock + Number((await api.rpc.chain.getHeader()).number);
-    let rewardPeriod = Math.ceil((testUsers.length * 1.5) / batchSize) + 20;
+    let rewardPeriod = Math.ceil(testUsers.length / batchSize) + intervalBlock;
     let endBlock = startBlock + rewardPeriod;
 
     // create pool
@@ -114,7 +111,7 @@ describe("Reward", () => {
       api.tx.incentive.joinPool(pool1, joinPoolAmount).signAndSend(user);
 
       if (i % batchSize === 0 || i === testUsers.length - 1) {
-        await sleep(2 * blockDuration);
+        await sleep(blockDuration);
       }
     }
     console.log(`${testUsers.length} test users joined pool ${pool1}`);
@@ -147,11 +144,6 @@ describe("Reward", () => {
     // wait for reward period
     await sleep(rewardPeriod * blockDuration);
     console.log(`waited for reward period ${rewardPeriod} blocks`);
-    // wait for rollover
-    const blockLength =
-      (Math.ceil(testUsers.length / batchSize) + 1) * 2 * (api.consts.incentive.unsignedInterval.toHuman() as number);
-    await sleep(blockLength * 4000);
-    console.log(`waited for rollover ${blockLength} blocks`);
 
     // verify successor pool's lock amount
     // @ts-ignore
