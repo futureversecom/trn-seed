@@ -105,6 +105,8 @@ pub mod pallet {
 		/// Threshold to emit event TicketSequenceThresholdReached
 		type TicketSequenceThreshold: Get<Percent>;
 
+		/// Source tag to be used to indicate the transaction is happening from futureverse
+		#[pallet::constant]
 		type SourceTag: Get<u32>;
 
 		/// Represents the maximum number of XRPL transactions that can be stored and processed in a

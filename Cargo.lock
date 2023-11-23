@@ -1740,7 +1740,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "xrpl-codec 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8)",
+ "xrpl-codec",
 ]
 
 [[package]]
@@ -6028,7 +6028,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std",
- "xrpl-codec 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?branch=support/sourceTag)",
+ "xrpl-codec",
 ]
 
 [[package]]
@@ -11240,28 +11240,18 @@ dependencies = [
 
 [[package]]
 name = "xrpl-codec"
-version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec?branch=support/sourceTag#4fd55b30e71698b897589ea284bf46be253ac29b"
+version = "0.1.1"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec#3986c2bdb82e14cd66747cdaf69d10472eecfa41"
 dependencies = [
  "ripemd",
  "sha2 0.10.8",
- "xrpl-codec-utils 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?branch=support/sourceTag)",
-]
-
-[[package]]
-name = "xrpl-codec"
-version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
-dependencies = [
- "ripemd",
- "sha2 0.10.8",
- "xrpl-codec-utils 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8)",
+ "xrpl-codec-utils",
 ]
 
 [[package]]
 name = "xrpl-codec-utils"
 version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec?branch=support/sourceTag#4fd55b30e71698b897589ea284bf46be253ac29b"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec#3986c2bdb82e14cd66747cdaf69d10472eecfa41"
 dependencies = [
  "hashbrown 0.12.3",
  "lazy_static",
@@ -11269,19 +11259,6 @@ dependencies = [
  "quote",
  "serde_json",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "xrpl-codec-utils"
-version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
-dependencies = [
- "hashbrown 0.12.3",
- "lazy_static",
- "proc-macro2",
- "quote",
- "serde_json",
- "syn 2.0.38",
 ]
 
 [[package]]
