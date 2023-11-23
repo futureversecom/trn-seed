@@ -19,26 +19,23 @@ pub mod test_prelude {
 		test_utils::{account_creation::*, test_constants::*, test_types::*, *},
 		*,
 	};
-	#[cfg(feature = "std")]
-	pub use frame_support::traits::GenesisBuild;
 	pub use frame_support::{
 		assert_err, assert_noop, assert_ok, assert_storage_noop, construct_runtime,
 		dispatch::{DispatchError, DispatchResult},
 		parameter_types,
 		storage::{StorageMap, StorageValue},
+		traits::GenesisBuild,
 		weights::{constants::RocksDbWeight as DbWeight, Weight},
 		PalletId,
 	};
 	pub use frame_system::{EnsureRoot, RawOrigin};
-	#[cfg(feature = "std")]
-	pub use seed_primitives::test_utils::TestExt;
 	pub use seed_primitives::{
-		AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
+		test_utils::TestExt, AccountId, AssetId, Balance, CollectionUuid, MetadataScheme,
+		SerialNumber, TokenId,
 	};
 	pub use sp_core::{H160, H256, U256};
-	#[cfg(feature = "std")]
-	pub use sp_runtime::testing::Header;
 	pub use sp_runtime::{
+		testing::Header,
 		traits::{BlakeTwo256, IdentityLookup},
 		BoundedVec,
 		DispatchError::BadOrigin,
@@ -50,10 +47,8 @@ pub mod test_prelude {
 pub mod test_types {
 	pub type BlockNumber = u64;
 
-	#[cfg(feature = "std")]
 	pub type UncheckedExtrinsic<Test> = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 
-	#[cfg(feature = "std")]
 	pub type Block<Test> = frame_system::mocking::MockBlock<Test>;
 }
 
@@ -77,7 +72,6 @@ pub mod account_creation {
 	}
 
 	/// Creates a random AccountId
-	#[cfg(feature = "std")]
 	pub fn random_account() -> AccountId {
 		AccountId::from(H160::random())
 	}

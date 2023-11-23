@@ -150,6 +150,6 @@ benchmarks! {
 
 impl_benchmark_test_suite!(
 	Futurepass,
-	seed_primitives::test_utils::test_ext::<crate::mock::Test>().build(),
+	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default().build(),
 	crate::mock::Test
 );
