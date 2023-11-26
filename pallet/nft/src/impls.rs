@@ -24,7 +24,7 @@ use seed_pallet_common::{
 };
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
-	TokenId,
+	TokenId, MAX_COLLECTION_ENTITLEMENTS,
 };
 use sp_runtime::{
 	traits::Zero, ArithmeticError, BoundedVec, DispatchError, DispatchResult, SaturatedConversion,
@@ -390,6 +390,13 @@ impl<T: Config> Pallet<T> {
 		ensure!(!name.is_empty(), Error::<T>::CollectionNameInvalid);
 		ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
 		if let Some(royalties_schedule) = royalties_schedule.clone() {
+			// Check that the entitlements are less than MAX_ENTITLEMENTS - 2
+			// This is because when the token is listed, two more entitlements will be added
+			// for the network fee and marketplace fee
+			ensure!(
+				royalties_schedule.entitlements.len() <= MAX_COLLECTION_ENTITLEMENTS as usize,
+				Error::<T>::RoyaltiesInvalid
+			);
 			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
 		}
 
