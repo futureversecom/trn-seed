@@ -16,7 +16,10 @@
 use frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,
-	traits::{Currency, ExistenceRequirement, Get, SignedImbalance, WithdrawReasons},
+	traits::{
+		Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency,
+		SignedImbalance, WithdrawReasons,
+	},
 };
 use sp_runtime::{traits::Zero, DispatchError};
 use sp_std::marker::PhantomData;
@@ -213,6 +216,137 @@ where
 	}
 	fn issue(_amount: Self::Balance) -> Self::NegativeImbalance {
 		NegativeImbalance::default()
+	}
+}
+
+/// Dual currency shim for staking
+/// Maps stake operations to currency `S` and reward operations to currency `R`
+pub struct DualStakingCurrency<T, R, S>(PhantomData<(T, R, S)>);
+
+impl<T, R, S> Currency<T::AccountId> for DualStakingCurrency<T, R, S>
+where
+	T: Config,
+	R: Currency<
+		T::AccountId,
+		Balance = Balance,
+		NegativeImbalance = imbalances::NegativeImbalance<T>,
+		PositiveImbalance = imbalances::PositiveImbalance<T>,
+	>,
+	S: Currency<
+			T::AccountId,
+			Balance = Balance,
+			NegativeImbalance = pallet_balances::NegativeImbalance<T>,
+			PositiveImbalance = pallet_balances::PositiveImbalance<T>,
+		> + LockableCurrency<T::AccountId, Balance = Balance>,
+{
+	type Balance = Balance;
+	type NegativeImbalance = imbalances::NegativeImbalance<T>;
+	type PositiveImbalance = imbalances::PositiveImbalance<T>;
+	// these functions proxy to `S` for staking currency inspection
+	fn free_balance(who: &T::AccountId) -> Self::Balance {
+		S::free_balance(who)
+	}
+	fn total_issuance() -> Self::Balance {
+		S::total_issuance()
+	}
+	fn minimum_balance() -> Self::Balance {
+		S::minimum_balance()
+	}
+	fn total_balance(who: &T::AccountId) -> Self::Balance {
+		S::total_balance(who)
+	}
+	fn transfer(
+		from: &T::AccountId,
+		to: &T::AccountId,
+		value: Self::Balance,
+		req: ExistenceRequirement,
+	) -> DispatchResult {
+		S::transfer(from, to, value, req)
+	}
+	fn ensure_can_withdraw(
+		who: &T::AccountId,
+		amount: Self::Balance,
+		reasons: WithdrawReasons,
+		new_balance: Self::Balance,
+	) -> DispatchResult {
+		S::ensure_can_withdraw(who, amount, reasons, new_balance)
+	}
+	fn withdraw(
+		who: &T::AccountId,
+		value: Self::Balance,
+		reasons: WithdrawReasons,
+		req: ExistenceRequirement,
+	) -> Result<Self::NegativeImbalance, DispatchError> {
+		let n = S::withdraw(who, value, reasons, req)?;
+		Ok(Self::NegativeImbalance::new(n.peek(), T::NativeAssetId::get()))
+	}
+	fn can_slash(who: &T::AccountId, value: Self::Balance) -> bool {
+		S::can_slash(who, value)
+	}
+	fn slash(who: &T::AccountId, value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
+		let (n, b) = S::slash(who, value);
+		(Self::NegativeImbalance::new(n.peek(), T::NativeAssetId::get()), b)
+	}
+	fn burn(amount: Self::Balance) -> Self::PositiveImbalance {
+		Self::PositiveImbalance::new(S::burn(amount).peek(), T::NativeAssetId::get())
+	}
+	fn issue(amount: Self::Balance) -> Self::NegativeImbalance {
+		R::issue(amount)
+	}
+	// these functions proxy to `R` for reward payouts
+	fn deposit_into_existing(
+		who: &T::AccountId,
+		value: Self::Balance,
+	) -> Result<Self::PositiveImbalance, DispatchError> {
+		R::deposit_into_existing(who, value)
+	}
+	fn deposit_creating(who: &T::AccountId, value: Self::Balance) -> Self::PositiveImbalance {
+		Self::deposit_into_existing(who, value).unwrap_or_default()
+	}
+	fn make_free_balance_be(
+		who: &T::AccountId,
+		new_balance: Self::Balance,
+	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
+		R::make_free_balance_be(who, new_balance)
+	}
+}
+
+impl<T, R, S> LockableCurrency<T::AccountId> for DualStakingCurrency<T, R, S>
+where
+	T: Config,
+	R: Currency<
+		T::AccountId,
+		Balance = Balance,
+		NegativeImbalance = imbalances::NegativeImbalance<T>,
+		PositiveImbalance = imbalances::PositiveImbalance<T>,
+	>,
+	S: Currency<
+			T::AccountId,
+			Balance = Balance,
+			NegativeImbalance = pallet_balances::NegativeImbalance<T>,
+			PositiveImbalance = pallet_balances::PositiveImbalance<T>,
+		> + LockableCurrency<T::AccountId, Balance = Balance>,
+{
+	type Moment = S::Moment;
+	type MaxLocks = S::MaxLocks;
+	fn set_lock(
+		id: LockIdentifier,
+		who: &T::AccountId,
+		amount: Self::Balance,
+		reasons: WithdrawReasons,
+	) {
+		S::set_lock(id, who, amount, reasons)
+	}
+	fn extend_lock(
+		id: LockIdentifier,
+		who: &T::AccountId,
+		amount: Self::Balance,
+		reasons: WithdrawReasons,
+	) {
+		S::extend_lock(id, who, amount, reasons)
+	}
+	fn remove_lock(id: LockIdentifier, who: &T::AccountId) {
+		S::remove_lock(id, who)
 	}
 }
 

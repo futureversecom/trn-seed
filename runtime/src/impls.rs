@@ -274,6 +274,17 @@ where
 /// account
 pub struct SlashImbalanceHandler;
 
+/// Slash handler for pallet-staking (imbalance is in $ROOT)
+/// On slash move funds to a dedicated slash pot, it could be managed by treasury later
+impl OnUnbalanced<pallet_assets_ext::NegativeImbalance<Runtime>> for SlashImbalanceHandler {
+	fn on_nonzero_unbalanced(amount: pallet_assets_ext::NegativeImbalance<Runtime>) {
+		<Runtime as pallet_staking::Config>::Currency::resolve_creating(
+			&SlashPotId::get().into_account_truncating(),
+			amount,
+		);
+	}
+}
+
 // Slash handler for elections-phragmen-pallet (imbalance is in $ROOT)
 /// On slash move funds to a dedicated slash pot, it could be managed by treasury later
 impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for SlashImbalanceHandler {

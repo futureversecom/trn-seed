@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: Apache License, Version 2.0 (the "License");
 pragma solidity >=0.8.3;
 
 /// @title Solidity test file with incorrectly defined selectors

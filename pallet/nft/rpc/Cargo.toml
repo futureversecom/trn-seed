@@ -4,7 +4,7 @@ name = "pallet-nft-rpc"
 version = "2.2.0"
 authors = ["The Root Network Team"]
 edition = "2021"
-license = "GPL-3.0"
+license = "Apache-2.0"
 
 [dependencies]
 codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
