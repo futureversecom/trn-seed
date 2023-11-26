@@ -25,9 +25,13 @@ use sp_std::prelude::*;
 /// constant
 const METADATA_SCHEME_LIMIT: u32 = 200;
 
-/// The max. number of entitlements any royalties schedule can have
-/// just a sensible upper bound
+/// The maximum number of entitlements any royalties schedule can have in totality
 pub const MAX_ENTITLEMENTS: u32 = 8;
+
+/// The maximum number of entitlements a single collection can have. This is 2 less then
+/// MAX_ENTITLEMENTS due to the network and marketplace royalties being added in the listing step
+/// By restricting to 2 less, we avoid these listings failing when created.
+pub const MAX_COLLECTION_ENTITLEMENTS: u32 = MAX_ENTITLEMENTS - 2;
 
 /// Unique Id for a listing
 pub type ListingId = u128;
