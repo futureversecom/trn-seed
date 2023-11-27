@@ -389,7 +389,7 @@ fn create_collection_royalties_invalid() {
 
 #[test]
 fn create_collection_too_many_entitlements_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let owner = create_account(1);
 		let name = bounded_string("test-collection");
 		let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
@@ -2164,7 +2164,7 @@ mod set_royalties_schedule {
 
 	#[test]
 	fn set_royalties_too_many_entitlements_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
 

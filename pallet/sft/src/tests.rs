@@ -18,7 +18,7 @@ use crate::{
 	SftTokenInformation, TokenInfo,
 };
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::{MetadataScheme, OriginChain, RoyaltiesSchedule};
+use seed_primitives::{OriginChain, RoyaltiesSchedule};
 
 /// Helper function to create a collection used for tests
 /// Returns the collectionUuid
@@ -275,7 +275,7 @@ mod create_collection {
 
 	#[test]
 	fn create_collection_too_many_entitlements_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let owner = create_account(1);
 			let name = bounded_string("test-collection");
 			let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
@@ -1720,7 +1720,7 @@ mod set_royalties_schedule {
 
 	#[test]
 	fn set_royalties_too_many_entitlements_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let token_id = create_test_token(collection_owner, collection_owner, 8100);
 
