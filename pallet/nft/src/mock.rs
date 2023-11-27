@@ -17,7 +17,6 @@ use crate as pallet_nft;
 use frame_support::traits::FindAuthor;
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, GasWeightMapping};
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::MetadataScheme;
 use sp_runtime::ConsensusEngineId;
 use std::marker::PhantomData;
 
