@@ -171,16 +171,48 @@ benchmarks! {
 		// Submission window related data
 		let highest_settled_ledger_index = i + 1;
 		let submission_window_width = i;
+		let highest_pruned_ledger_index = Some(0);
 
-	}: _(RawOrigin::Root, highest_settled_ledger_index, submission_window_width, Some(settled_data) )
+	}: _(RawOrigin::Root, highest_settled_ledger_index, submission_window_width, highest_pruned_ledger_index, Some(settled_data) )
 	verify {
 		assert_eq!(HighestSettledLedgerIndex::<T>::get(), highest_settled_ledger_index);
+		assert_eq!(HighestPrunedLedgerIndex::<T>::get(), 0);
 		assert_eq!(SubmissionWindowWidth::<T>::get(), submission_window_width);
 
 		//check all the settled tx details are added to the storage
 		for j in 0..i {
 			assert_eq!(ProcessXRPTransactionDetails::<T>::get(XrplTxHash::from([j as u8; 64])).is_some(), true);
 			assert_eq!(SettledXRPTransactionDetails::<T>::get(j).is_some(), true);
+		}
+	}
+
+	prune_settled_ledger_index {
+		// The amount of transactions stored under the ledger index
+		let i in 0..10;
+		let alice = account::<T>("Alice");
+
+		HighestSettledLedgerIndex::<T>::put(100);
+		SubmissionWindowWidth::<T>::put(10);
+		let ledger_index = i;
+
+		let mut settled_data = Vec::default();
+		for tx in 0..i {
+			let tx_hash = XrplTxHash::from_low_u64_be(tx as u64);
+			settled_data.push(tx_hash);
+			<ProcessXRPTransactionDetails<T>>::insert(
+				tx_hash,
+				(ledger_index as LedgerIndex, XrpTransaction::default(), alice.clone()),
+			);
+		}
+		<SettledXRPTransactionDetails<T>>::insert(ledger_index, BoundedVec::truncate_from(settled_data));
+	}: _(RawOrigin::Root, ledger_index )
+	verify {
+		assert!(<SettledXRPTransactionDetails<T>>::get(ledger_index).is_none());
+
+		//check all the settled tx details are added to the storage
+		for tx in 0..i {
+			let tx_hash = XrplTxHash::from_low_u64_be(tx as u64);
+			assert!(ProcessXRPTransactionDetails::<T>::get(tx_hash).is_none());
 		}
 	}
 }
