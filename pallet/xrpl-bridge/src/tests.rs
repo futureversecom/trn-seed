@@ -19,28 +19,22 @@ use crate::mock::{
 };
 use seed_pallet_common::test_prelude::*;
 
-/// Helper function to create an AccountId from  a slice
-fn create_account(address: &[u8]) -> AccountId {
-	AccountId::from(H160::from_slice(address))
+/// Helper function to get the xrp balance of an address
+fn xrp_balance_of(who: AccountId) -> u64 {
+	AssetsExt::balance(XrpAssetId::get(), &who) as u64
 }
 
-/// Helper function to get the xrp balance of an address slice
-fn xrp_balance_of(address: &[u8]) -> u64 {
-	AssetsExt::balance(XrpAssetId::get(), &H160::from_slice(address).into()) as u64
-}
-
-fn process_transaction(account_address: &[u8; 20]) {
+fn process_transaction(relayer: AccountId) {
 	let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
 	let transaction_hash_1 = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317C";
-	let relayer = create_account(b"6490B68F1116BFE87DDD");
 	XRPLBridge::initialize_relayer(&vec![relayer]);
-	submit_transaction(relayer, 1_000_000, transaction_hash, account_address, 1);
-	submit_transaction(relayer, 1_000_001, transaction_hash_1, account_address, 1);
+	submit_transaction(relayer, 1_000_000, transaction_hash, relayer.into(), 1);
+	submit_transaction(relayer, 1_000_001, transaction_hash_1, relayer.into(), 1);
 
 	XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64 + 1);
 	System::set_block_number(XrpTxChallengePeriod::get() as u64 + 1);
 
-	let xrp_balance = xrp_balance_of(account_address);
+	let xrp_balance = xrp_balance_of(relayer);
 	assert_eq!(xrp_balance, 2000);
 }
 
@@ -48,13 +42,11 @@ fn submit_transaction(
 	relayer: AccountId,
 	ledger_index: u64,
 	transaction_hash: &[u8; 64],
-	account_address: &[u8; 20],
+	account_address: H160,
 	i: u64,
 ) {
-	let transaction = XrplTxData::Payment {
-		amount: (i * 1000u64) as Balance,
-		address: H160::from_slice(account_address),
-	};
+	let transaction =
+		XrplTxData::Payment { amount: (i * 1000u64) as Balance, address: account_address };
 	assert_ok!(XRPLBridge::submit_transaction(
 		RuntimeOrigin::signed(relayer),
 		ledger_index,
@@ -67,7 +59,7 @@ fn submit_transaction(
 #[test]
 fn submit_transaction_replay_within_submission_window() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
 		let transaction =
 			XrplTxData::Payment { amount: 1000 as Balance, address: H160::from_low_u64_be(555) };
@@ -101,7 +93,7 @@ fn submit_transaction_replay_within_submission_window() {
 #[test]
 fn submit_transaction_outside_submission_window() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
 		let transaction =
 			XrplTxData::Payment { amount: 1000 as Balance, address: H160::from_low_u64_be(555) };
@@ -128,7 +120,7 @@ fn submit_transaction_outside_submission_window() {
 #[test]
 fn submit_transaction_with_default_replay_protection_values_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
 		let ledger_index = 1;
 		let transaction =
@@ -151,13 +143,13 @@ fn submit_transaction_with_default_replay_protection_values_works() {
 fn add_transaction_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
-		let tx_address = b"6490B68F1116BFE87DDD";
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let tx_address = create_account(12);
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 		for i in 0..9u64 {
 			let mut transaction_hash = transaction_hash.clone();
 			transaction_hash[0] = i as u8;
-			submit_transaction(relayer, i * 1_000_000, &transaction_hash, tx_address, i);
+			submit_transaction(relayer, i * 1_000_000, &transaction_hash, tx_address.into(), i);
 		}
 	})
 }
@@ -166,20 +158,18 @@ fn add_transaction_works() {
 fn adding_more_transactions_than_the_limit_returns_error() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
-		let tx_address = b"6490B68F1116BFE87DDD";
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let tx_address = create_account(12);
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 		for i in 0..<Test as crate::Config>::XRPTransactionLimit::get() {
 			let i = i as u64;
 			let mut transaction_hash = transaction_hash.clone();
 			transaction_hash[0] = i as u8;
-			submit_transaction(relayer, i * 1_000_000, &transaction_hash, tx_address, i);
+			submit_transaction(relayer, i * 1_000_000, &transaction_hash, tx_address.into(), i);
 		}
 
-		let transaction = XrplTxData::Payment {
-			amount: (1 * 1000u64) as Balance,
-			address: H160::from_slice(tx_address),
-		};
+		let transaction =
+			XrplTxData::Payment { amount: (1 * 1000u64) as Balance, address: tx_address.into() };
 
 		let err = XRPLBridge::submit_transaction(
 			RuntimeOrigin::signed(relayer),
@@ -195,8 +185,7 @@ fn adding_more_transactions_than_the_limit_returns_error() {
 #[test]
 fn process_transaction_works() {
 	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
-		let account_address = b"6490B68F1116BFE87DDC";
-		process_transaction(account_address);
+		process_transaction(create_account(1));
 	})
 }
 
@@ -204,11 +193,11 @@ fn process_transaction_works() {
 fn process_transaction_challenge_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
-		let tx_address = b"6490B68F1116BFE87DDC";
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
-		let challenger = create_account(b"6490B68F1116BFE87DDE");
+		let tx_address = create_account(12);
+		let relayer = create_account(1);
+		let challenger = create_account(2);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
-		submit_transaction(relayer, 1_000_000, transaction_hash, tx_address, 1);
+		submit_transaction(relayer, 1_000_000, transaction_hash, tx_address.into(), 1);
 		assert_ok!(XRPLBridge::submit_challenge(
 			RuntimeOrigin::signed(challenger),
 			XrplTxHash::from_slice(transaction_hash),
@@ -242,9 +231,8 @@ fn withdraw_request_works() {
 
 		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-		let account_address = b"6490B68F1116BFE87DDC";
-		let account = create_account(account_address);
-		process_transaction(account_address); // 2000 XRP deposited
+		let account = create_account(1);
+		process_transaction(account); // 2000 XRP deposited
 
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
@@ -263,7 +251,7 @@ fn withdraw_request_works() {
 
 		// Withdraw half of available xrp
 		assert_ok!(XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1000, destination));
-		let xrp_balance = xrp_balance_of(account_address);
+		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, 1000);
 
 		// Withdraw more than available XRP should throw BalanceLow error
@@ -274,7 +262,7 @@ fn withdraw_request_works() {
 
 		// Withdraw second half
 		assert_ok!(XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1000, destination));
-		let xrp_balance = xrp_balance_of(account_address);
+		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, 0);
 
 		// No xrp left to withdraw, should fail as account is reaped
@@ -291,11 +279,10 @@ fn withdraw_request_works_with_door_fee() {
 		// For this test we will set the door_tx_fee to 100
 		let door_tx_fee = 100_u64;
 		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), door_tx_fee));
-		let account_address = b"6490B68F1116BFE87DDC";
-		let account = create_account(account_address);
-		process_transaction(account_address); // 2000 XRP deposited
+		let account = create_account(1);
+		process_transaction(account); // 2000 XRP deposited
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-		let initial_xrp_balance = xrp_balance_of(account_address);
+		let initial_xrp_balance = xrp_balance_of(account);
 		let withdraw_amount: u64 = 1_000;
 
 		// set initial ticket sequence params
@@ -318,11 +305,11 @@ fn withdraw_request_works_with_door_fee() {
 		));
 
 		// Balance should be less withdraw amount and door fee
-		let xrp_balance = xrp_balance_of(account_address);
+		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, initial_xrp_balance - withdraw_amount - door_tx_fee);
 
 		// Try again for remainding
-		let initial_xrp_balance = xrp_balance_of(account_address);
+		let initial_xrp_balance = xrp_balance_of(account);
 		let withdraw_amount: u64 = 800;
 		assert_ok!(XRPLBridge::withdraw_xrp(
 			RuntimeOrigin::signed(account),
@@ -331,7 +318,7 @@ fn withdraw_request_works_with_door_fee() {
 		));
 
 		// Balance should be less withdraw amount and door fee
-		let xrp_balance = xrp_balance_of(account_address);
+		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, initial_xrp_balance - withdraw_amount - door_tx_fee);
 
 		// No funds left to withdraw
@@ -354,7 +341,7 @@ fn withdraw_request_burn_fails() {
 			b"6490B68F1116BFE87DDC".into()
 		));
 
-		let account = create_account(b"6490B68F1116BFE87DDC");
+		let account = create_account(2);
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1000, destination),
@@ -394,7 +381,7 @@ fn set_door_address_fail() {
 #[test]
 fn settle_new_higher_ledger_index_brings_submission_window_forward() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
 
 		let tx_hash_1 = XrplTxHash::from_low_u64_be(123);
@@ -490,7 +477,7 @@ fn settle_new_higher_ledger_index_brings_submission_window_forward() {
 #[test]
 fn reset_settled_xrpl_tx_data_success() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
 
 		let tx_hash_1 = XrplTxHash::from_low_u64_be(123);
@@ -649,7 +636,7 @@ fn get_door_ticket_sequence_success_at_start() {
 fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		assert_noop!(
@@ -685,7 +672,7 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 #[test]
 fn get_door_ticket_sequence_success_over_next_round() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// set initial ticket sequence params
@@ -719,7 +706,7 @@ fn get_door_ticket_sequence_success_over_next_round() {
 #[test]
 fn get_door_ticket_sequence_success_force_set_current_round() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// set initial ticket sequence params
@@ -758,7 +745,7 @@ fn get_door_ticket_sequence_success_force_set_current_round() {
 fn get_door_ticket_sequence_check_events_emitted() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		assert_noop!(
@@ -812,7 +799,7 @@ fn get_door_ticket_sequence_check_events_emitted() {
 fn set_ticket_sequence_current_allocation_success() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// set initial ticket sequence params
@@ -858,7 +845,7 @@ fn set_ticket_sequence_current_allocation_success() {
 fn set_ticket_sequence_current_allocation_failure() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// set initial ticket sequence params - success
@@ -953,7 +940,7 @@ fn set_ticket_sequence_current_allocation_failure() {
 fn set_ticket_sequence_next_allocation_success() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// no initial ticket sequence params, start setting the params for next allocation
@@ -1025,7 +1012,7 @@ fn set_ticket_sequence_next_allocation_success() {
 fn set_ticket_sequence_next_allocation_failure() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// set initial ticket sequence params - success
@@ -1090,7 +1077,7 @@ fn set_ticket_sequence_next_allocation_failure() {
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_next_allocation(
-				RuntimeOrigin::signed(create_account(b"6490B68F1116BFE87DDE")),
+				RuntimeOrigin::signed(create_account(2)),
 				10_u32,
 				200_u32
 			),
@@ -1125,16 +1112,14 @@ fn set_ticket_sequence_next_allocation_failure() {
 fn process_xrp_tx_success() {
 	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
 		System::set_block_number(1);
-		let account_address = b"6490B68F1116BFE87DDC";
+		let account = create_account(12);
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// submit payment tx
-		let payment_tx = XrplTxData::Payment {
-			amount: (1 * 1000u64) as Balance,
-			address: H160::from_slice(account_address),
-		};
+		let payment_tx =
+			XrplTxData::Payment { amount: (1 * 1000u64) as Balance, address: account.into() };
 		assert_ok!(XRPLBridge::submit_transaction(
 			RuntimeOrigin::signed(relayer),
 			1_000_000,
@@ -1151,7 +1136,7 @@ fn process_xrp_tx_success() {
 				.into(),
 		);
 
-		let xrp_balance = xrp_balance_of(account_address);
+		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, 1000);
 	})
 }
@@ -1160,15 +1145,15 @@ fn process_xrp_tx_success() {
 fn process_xrp_tx_not_supported_transaction() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let account_address = b"6490B68F1116BFE87DDC";
+		let account = create_account(2);
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// submit currency payment tx
 		let currency_payment_tx = XrplTxData::CurrencyPayment {
 			amount: (1 * 1000u64) as Balance,
-			address: H160::from_slice(account_address),
+			address: account.into(),
 			currency_id: H256::random(),
 		};
 		assert_ok!(XRPLBridge::submit_transaction(
@@ -1184,7 +1169,7 @@ fn process_xrp_tx_not_supported_transaction() {
 		System::set_block_number(XrpTxChallengePeriod::get() as u64 + 1);
 		System::assert_has_event(Event::<Test>::NotSupportedTransaction.into());
 
-		let xrp_balance = xrp_balance_of(account_address);
+		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, 0);
 	})
 }
@@ -1196,7 +1181,7 @@ fn process_xrp_tx_processing_failed() {
 		let account_address = b"6490B68F1116BFE87DDC";
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317C";
 		let transaction_hash2 = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317D";
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 		{
 			// submit payment tx - this will mint the max Balance for the asset ID
