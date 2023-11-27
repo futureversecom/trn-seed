@@ -41,24 +41,7 @@ impl_frame_system_config!(Test);
 impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_timestamp_config!(Test);
-
-parameter_types! {
-	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
-	pub const MaxHolds: u32 = 16;
-	pub const TestParachainId: u32 = 100;
-}
-
-impl pallet_assets_ext::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type ParachainId = TestParachainId;
-	type MaxHolds = MaxHolds;
-	// TODO These tests should use ROOT as NativeAssetId. Changing to ROOT causes tests to fail
-	// https://futureverse.atlassian.net/jira/software/c/projects/TRN/boards/39/backlog?selectedIssue=TRN-279
-	type NativeAssetId = XrpAssetId;
-	type OnNewAssetSubscription = ();
-	type PalletId = AssetsExtPalletId;
-	type WeightInfo = ();
-}
+impl_pallet_assets_ext_config!(Test);
 
 // Time is measured by number of blocks.
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;
