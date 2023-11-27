@@ -610,7 +610,7 @@ fn reset_settled_xrpl_tx_data_success() {
 
 #[test]
 fn reset_settled_xrpl_tx_data_invalid_highest_pruned_ledger_index() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let highest_settled_ledger_index = 9;
 		let submission_window_width = 6;
 		let highest_pruned_ledger_index =
@@ -644,8 +644,8 @@ fn reset_settled_xrpl_tx_data_invalid_highest_pruned_ledger_index() {
 
 #[test]
 fn clear_storages_in_on_idle_works() {
-	new_test_ext().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(2);
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
 
 		let tx_hash_1 = XrplTxHash::from_low_u64_be(123);
@@ -692,8 +692,8 @@ fn clear_storages_in_on_idle_works() {
 
 #[test]
 fn clear_storages_in_on_idle_returns_zero_if_not_enough_weight() {
-	new_test_ext().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(2);
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
 
 		// Set replay protection data
@@ -740,8 +740,8 @@ fn clear_storages_in_on_idle_returns_zero_if_not_enough_weight() {
 
 #[test]
 fn clear_storages_doesnt_exceed_on_idle_weight() {
-	new_test_ext().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(2);
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
 
 		// Set replay protection data
@@ -830,8 +830,8 @@ fn clear_storages_doesnt_exceed_on_idle_weight() {
 
 #[test]
 fn clear_storages_across_multiple_ledger_indices() {
-	new_test_ext().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(2);
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
 
 		// Set replay protection data
@@ -891,7 +891,7 @@ fn clear_storages_across_multiple_ledger_indices() {
 
 #[test]
 fn clear_storages_nothing_to_prune() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		// Set replay protection data
 		HighestSettledLedgerIndex::<Test>::put(8);
 		SubmissionWindowWidth::<Test>::put(5);
@@ -923,7 +923,7 @@ fn clear_storages_nothing_to_prune() {
 
 #[test]
 fn clear_storages_nothing_to_prune_increases_ledger_index() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		// Set replay protection data
 		HighestSettledLedgerIndex::<Test>::put(10500);
 		SubmissionWindowWidth::<Test>::put(500);
@@ -952,7 +952,7 @@ fn clear_storages_nothing_to_prune_increases_ledger_index() {
 
 #[test]
 fn prune_settled_ledger_index_works() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		System::reset_events();
 		HighestSettledLedgerIndex::<Test>::put(8);
 		SubmissionWindowWidth::<Test>::put(5);
@@ -987,7 +987,7 @@ fn prune_settled_ledger_index_works() {
 
 #[test]
 fn prune_settled_ledger_index_inside_submission_window_fails() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		HighestSettledLedgerIndex::<Test>::put(8);
 		SubmissionWindowWidth::<Test>::put(5);
 
@@ -1001,7 +1001,7 @@ fn prune_settled_ledger_index_inside_submission_window_fails() {
 
 #[test]
 fn prune_settled_ledger_index_no_transaction_details_fails() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		HighestSettledLedgerIndex::<Test>::put(8);
 		SubmissionWindowWidth::<Test>::put(5);
 
@@ -1015,7 +1015,7 @@ fn prune_settled_ledger_index_no_transaction_details_fails() {
 
 #[test]
 fn prune_settled_ledger_index_only_root() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let account: AccountId = [1_u8; 20].into();
 		assert_noop!(
 			XRPLBridge::prune_settled_ledger_index(RuntimeOrigin::signed(account), 9,),
