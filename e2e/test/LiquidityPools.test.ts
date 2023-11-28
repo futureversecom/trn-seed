@@ -73,7 +73,7 @@ describe("Reward", () => {
     }
     console.log(`${testUsers.length} test users funded`);
 
-    const liquidityPoolsVaultAccount = process.env.LIQUIDITYPOOLS_VAULT_ADDRESS;
+    const liquidityPoolsVaultAccount = "0x6d6f646c6c7164706f6f6c730000000000000000";
     // fund vault account
     await finalizeTx(
       alith,
