@@ -9,8 +9,8 @@ import {
   GAS_TOKEN_ID,
   NodeProcess,
   finalizeTx,
+  generateTestUsers,
   getNextAssetId,
-  loadTestUsers,
   sleep,
   startNode,
   typedefs,
@@ -35,7 +35,6 @@ describe("Vortex Distribution", () => {
     node = await startNode();
 
     const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
-    // const wsProvider = new WsProvider(`wss://archive.morel.micklelab.xyz/ws`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -112,7 +111,7 @@ describe("Vortex Distribution", () => {
     );
 
     // load test users
-    const users = loadTestUsers(20);
+    const users = generateTestUsers(20);
 
     // transfer native token to users to create accounts
     txs = [];

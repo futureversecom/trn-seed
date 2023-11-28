@@ -87,6 +87,7 @@ pallet-dex-rpc-runtime-api = { path = "../pallet/dex/rpc/runtime-api", default-f
 pallet-echo = { path = "../pallet/echo", default-features = false }
 pallet-ethy = { path = "../pallet/ethy", default-features = false }
 pallet-fee-proxy = { path = "../pallet/fee-proxy", default-features = false }
+pallet-liquidity-pools = { path = "../pallet/liquidity-pools", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
 pallet-nft-rpc-runtime-api = { path = "../pallet/nft/rpc/runtime-api", default-features = false }
 pallet-sft = { path = "../pallet/sft", default-features = false }
@@ -183,6 +184,7 @@ std = [
 	"pallet-dex-rpc-runtime-api/std",
 	"pallet-ethy/std",
 	"pallet-fee-proxy/std",
+	"pallet-liquidity-pools/std",
 	"pallet-nft/std",
 	"pallet-nft-rpc-runtime-api/std",
 	"pallet-sft/std",
@@ -259,6 +261,7 @@ try-runtime = [
 	# Local
 	"pallet-assets-ext/try-runtime",
 	"pallet-dex/try-runtime",
+	"pallet-liquidity-pools/try-runtime",
 	"pallet-nft/try-runtime",
 	"pallet-sft/try-runtime",
 	"pallet-xrpl-bridge/try-runtime",
@@ -308,6 +311,7 @@ runtime-benchmarks = [
 	"pallet-sft/runtime-benchmarks",
 	"pallet-xrpl-bridge/runtime-benchmarks",
 	"pallet-dex/runtime-benchmarks",
+	"pallet-liquidity-pools/runtime-benchmarks",
 	"pallet-fee-control/runtime-benchmarks",
 	"pallet-nft-peg/runtime-benchmarks",
 	"pallet-erc20-peg/runtime-benchmarks",
