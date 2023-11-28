@@ -7,6 +7,7 @@ import xxhash
 import os
 import argparse
 import yaml
+import sys
 
 FORK_SPEC, RAW_STORAGE = "./output/fork.json", "./output/raw_storage.json"
 
@@ -43,7 +44,11 @@ def fetch_storage_keys_task(hash, keys, prefixes, lock, url):
         prefix = prefixes.pop()
         lock.release()
 
-        rpc_result = fetch_paged_storage_keys(substrate, prefix, hash, None, None)
+        try:
+            rpc_result = fetch_paged_storage_keys(substrate, prefix, hash, None, None)
+        except Exception as e:
+            print("An error occured: ", e)
+            exit(-1)
 
 def fetch_storage_keys(hash, url):
     keys = []
@@ -235,6 +240,10 @@ def maybe_do_tag_switch(tag_switch, node_version):
 
 
 def main():
+    # set python recursion limit to 3000, this is required when we query large keyed prefixes for the state keys.
+    # it should give upto 3_000_000 entries per single prefix.
+    sys.setrecursionlimit(3000)
+
     configuration = read_configuration_file()
     url, tag_switch = configuration['endpoint'], configuration['tag_switch']
 

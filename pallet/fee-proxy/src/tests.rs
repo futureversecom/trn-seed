@@ -205,20 +205,19 @@ mod decode_input {
 
 			assert_eq!(
 				Runner::decode_input(input),
-				Ok((exp_payment_asset, exp_max_payment, exp_target, exp_input.clone()))
+				Ok((exp_payment_asset, exp_target, exp_input.clone()))
 			);
 
 			let mut input = FEE_FUNCTION_SELECTOR.to_vec();
 			input.append(&mut ethabi::encode(&[
 				Token::Address(Test::runtime_id_to_evm_id(exp_payment_asset, ERC20_PRECOMPILE_ADDRESS_PREFIX).0),
-				Token::Uint(exp_max_payment.into()),
 				Token::Address(exp_target),
 				Token::Bytes(exp_input.clone())],
 			));
 
 			assert_eq!(
 				Runner::decode_input(input),
-				Ok((exp_payment_asset, exp_max_payment, exp_target, exp_input))
+				Ok((exp_payment_asset, exp_target, exp_input))
 			);
 		});
 	}

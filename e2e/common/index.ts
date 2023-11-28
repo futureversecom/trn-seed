@@ -1,12 +1,12 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
-import { ApiPromise } from "@polkadot/api";
+import { ApiPromise, Keyring } from "@polkadot/api";
 import { SubmittableExtrinsic } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
 import { BigNumber } from "ethers";
-import { writeFileSync } from "fs";
+import fs, { writeFileSync } from "fs";
 import { CliPrettify } from "markdown-table-prettify";
-import { join } from "path";
+import path, { join } from "path";
 import web3 from "web3";
 
 export * from "./node";
@@ -211,8 +211,11 @@ export const DEX_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000DDD
 // Futurepass delegate reserve amount
 export const FP_DELEGATE_RESERVE = 126 * 1; // ProxyDepositFactor * 1(num of delegates)
 
-// XRP PreCompile contract address
+// XRP Precompile contract address
 export const XRP_PRECOMPILE_ADDRESS = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
+
+// ROOT Precompile contract address
+export const ROOT_PRECOMPILE_ADDRESS = web3.utils.toChecksumAddress("0xCCCCCCCC00000001000000000000000000000000");
 
 // Futurepass creation reserve amount
 export const FP_CREATION_RESERVE = 148 + FP_DELEGATE_RESERVE; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
@@ -233,9 +236,10 @@ const OWNABLE_ABI = [
   "function transferOwnership(address owner)",
 ];
 
-export const FEE_PROXY_ABI = [
+export const FEE_PROXY_ABI_DEPRECATED = [
   "function callWithFeePreferences(address asset, uint128 maxPayment, address target, bytes input)",
 ];
+export const FEE_PROXY_ABI = ["function callWithFeePreferences(address asset, address target, bytes input)"];
 
 export const ERC20_ABI = [
   "event Transfer(address indexed from, address indexed to, uint256 value)",
@@ -291,12 +295,16 @@ export const ERC721_PRECOMPILE_ABI = [
   // Root specific precompiles
   "event MaxSupplyUpdated(uint32 maxSupply)",
   "event BaseURIUpdated(string baseURI)",
+  "event PublicMintToggled(bool enabled)",
+  "event MintFeeUpdated(address indexed paymentAsset, uint128 indexed mintFee)",
 
   "function totalSupply() external view returns (uint256)",
   "function mint(address owner, uint32 quantity)",
   "function setMaxSupply(uint32 maxSupply)",
   "function setBaseURI(bytes baseURI)",
   "function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32, uint32[] memory)",
+  "function togglePublicMint(bool enabled)",
+  "function setMintFee(address paymentAsset, uint128 mintFee)",
 
   // Ownable
   ...OWNABLE_ABI,
@@ -330,12 +338,16 @@ export const ERC1155_PRECOMPILE_ABI = [
   "event TokenCreated(uint32 indexed serialNumber)",
   "event MaxSupplyUpdated(uint128 indexed maxSupply)",
   "event BaseURIUpdated(string baseURI)",
+  "event PublicMintToggled(uint32 indexed id, bool enabled)",
+  "event MintFeeUpdated(uint32 indexed id, address indexed paymentAsset, uint128 indexed mintFee)",
 
   "function createToken(bytes name, uint128 initialIssuance, uint128 maxIssuance, address tokenOwner) external returns (uint32)",
   "function mint(address owner, uint256 id, uint256 amount) external",
   "function mintBatch(address owner, uint256[] ids, uint256[] amounts) external",
   "function setMaxSupply(uint256 id, uint32 maxSupply) external",
   "function setBaseURI(bytes baseURI) external",
+  "function togglePublicMint(uint256 id, bool enabled)",
+  "function setMintFee(uint256 id, address paymentAsset, uint128 mintFee)",
 
   // Ownable
   ...OWNABLE_ABI,
@@ -635,4 +647,23 @@ export const executeForPreviousEvent = async (
     });
     currentInHistory++;
   }
+};
+
+export const loadTestUsers = (userAmount?: number): KeyringPair[] => {
+  const content = fs.readFileSync(path.resolve(__dirname, "./generated_users.txt"), "utf-8");
+  const mnemonics = content
+    .replace(/\n{2,}/g, "\n")
+    .toString()
+    .split("\n");
+  const keyring = new Keyring({ type: "ethereum" });
+  const keypairs: KeyringPair[] = [];
+
+  for (let i = 0; i < mnemonics.length; i++) {
+    const mnemonic = mnemonics[i];
+    if (mnemonic !== "" && (userAmount === undefined || i < userAmount)) {
+      keypairs.push(keyring.addFromMnemonic(mnemonic, {}));
+    }
+  }
+  console.log(`loaded ${keypairs.length} users`);
+  return keypairs;
 };

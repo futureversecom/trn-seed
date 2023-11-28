@@ -5,7 +5,7 @@
 
 Implementation of [The Root Network](https://therootnetwork.com/) node in Rust, based on the Substrate framework.
 
-This repo contains runtimes for the Root Network Mainnet and Porcini (Testnet). For more specific guides on how to build applications, see the [docs](https://docs.rootnet.live).
+This repo contains runtimes for the Root Network Mainnet and Porcini (Testnet). For more specific guides on how to build applications, see the [docs](https://docs.therootnetwork.com).
 
 If you are looking for the chain details for EVM development, checkout [chainlist.org](https://chainlist.org/?search=trn&testnets=true)
 
@@ -30,9 +30,9 @@ Docker images are published for every tagged release, you can quickly have a nod
 # Root chainspec
 docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --chain=root
 # Porcini chainspec
-docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --chain=root
+docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --chain=porcini
 # Dev chainspec
-docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --dev
+docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --dev --unsafe-rpc-external --unsafe-ws-external --rpc-cors=all
 ```
 
 ### Run using source code
@@ -63,7 +63,7 @@ After building the source code, run the following commands to start the node.
 # Porcini chainspec
 ./target/release/seed --chain=porcini
 # Dev chainspec
-./target/release/seed --dev
+./target/release/seed --dev --unsafe-rpc-external --unsafe-ws-external --rpc-cors=all
 ```
 
 ## 🚧 Development

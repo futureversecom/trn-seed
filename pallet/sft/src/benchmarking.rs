@@ -18,11 +18,11 @@
 
 use super::*;
 
+use crate::Pallet as Sft;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
-
-use crate::Pallet as Sft;
+use sp_runtime::Permill;
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -99,6 +99,30 @@ benchmarks! {
 	verify {
 		let token = TokenInfo::<T>::get((id, 0));
 		assert!(token.is_some());
+	}
+
+	toggle_public_mint {
+		let owner = account::<T>("Alice");
+		let token_id = build_token::<T>(Some(owner.clone()), 0);
+	}: _(origin::<T>(&account::<T>("Alice")), token_id, true)
+	verify {
+		let token = TokenInfo::<T>::get(token_id);
+		assert!(token.is_some());
+		let is_enabled = PublicMintInfo::<T>::get(token_id).unwrap().enabled;
+		assert_eq!(is_enabled, true);
+	}
+
+	set_mint_fee {
+		let owner = account::<T>("Alice");
+		let token_id = build_token::<T>(Some(owner.clone()), 0);
+		let pricing_details = Some((1, 100));
+	}: _(origin::<T>(&account::<T>("Alice")), token_id, pricing_details)
+	verify {
+		let token = TokenInfo::<T>::get(token_id);
+		assert!(token.is_some());
+		let pricing_details = PublicMintInfo::<T>::get(token_id).unwrap().pricing_details;
+		let expected_pricing_details = Some((1, 100));
+		assert_eq!(pricing_details, expected_pricing_details);
 	}
 
 	mint {
@@ -183,6 +207,20 @@ benchmarks! {
 		assert!(collection.is_some());
 		let collection = collection.unwrap();
 		assert_eq!(collection.collection_name, collection_name);
+	}
+
+	set_royalties_schedule {
+		let collection_owner = account::<T>("Alice");
+		let id = build_collection::<T>(Some(collection_owner.clone()));
+		let royalties_schedule = RoyaltiesSchedule {
+			entitlements: BoundedVec::truncate_from(vec![(collection_owner.clone(), Permill::one())]),
+		};
+	}: _(origin::<T>(&collection_owner), id, royalties_schedule.clone())
+	verify {
+		let collection = SftCollectionInfo::<T>::get(id);
+		assert!(collection.is_some());
+		let collection = collection.unwrap();
+		assert_eq!(collection.royalties_schedule, Some(royalties_schedule));
 	}
 }
 

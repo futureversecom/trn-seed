@@ -3,7 +3,7 @@ name = "pallet-dex"
 version = "0.0.1"
 authors = ["The Root Network Team"]
 edition = "2021"
-license = "GPL-3.0"
+license = "Apache-2.0"
 repository = "https://github.com/futureversecom/seed"
 description = "Root Network DEX module"
 

@@ -197,6 +197,7 @@ macro_rules! impl_pallet_nft_config {
 			type MintLimit = MintLimit;
 			type OnTransferSubscription = MockTransferSubscriber;
 			type OnNewAssetSubscription = ();
+			type MultiCurrency = AssetsExt;
 			type PalletId = NftPalletId;
 			type ParachainId = TestParachainId;
 			type Xls20MintRequest = MockXls20MintRequest;

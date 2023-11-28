@@ -19,6 +19,7 @@ use pallet_futurepass::ProxyProvider;
 use pallet_transaction_payment::OnChargeTransaction;
 use precompile_utils::{Address, ErcIdConversion};
 use seed_primitives::{AccountId, AssetId, Balance};
+use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, PostDispatchInfoOf};
 
 impl<T> OnChargeTransaction<T> for Pallet<T>
@@ -31,8 +32,10 @@ where
 		+ pallet_assets_ext::Config
 		+ pallet_futurepass::Config,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<crate::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
+	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
 	<T as Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
 	Balance: From<<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance>,
@@ -52,6 +55,16 @@ where
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		let mut who = who;
 
+		// if the call is pallet_futurepass::Call::proxy_extrinsic(), and the caller is a delegate
+		// of the FP(futurepass), we switch the gas payer to the FP
+		if let Some(pallet_futurepass::Call::proxy_extrinsic { futurepass, .. }) =
+			call.is_sub_type()
+		{
+			if <T as pallet_futurepass::Config>::Proxy::exists(futurepass, who, None) {
+				who = futurepass;
+			}
+		}
+
 		// Check whether this call has specified fee preferences
 		if let Some(call_with_fee_preferences { payment_asset, max_payment, call }) =
 			call.is_sub_type()
@@ -59,19 +72,53 @@ where
 			let mut total_fee: Balance = Balance::from(fee);
 			let native_asset = <T as Config>::FeeAssetId::get();
 
+			let mut add_evm_gas_cost =
+				|gas_limit: &u64,
+				 max_fee_per_gas: &U256,
+				 max_priority_fee_per_gas: &Option<U256>| {
+					if let Some(FeePreferencesData { max_fee_scaled, .. }) =
+						get_fee_preferences_data::<
+							T,
+							<T as Config>::ErcIdConversion,
+							pallet_futurepass::Pallet<T>,
+						>(
+							*gas_limit,
+							<T as Config>::EVMBaseFeeProvider::evm_base_fee_per_gas(),
+							Some(*max_fee_per_gas),
+							*max_priority_fee_per_gas,
+							*payment_asset,
+						)
+						.ok()
+					{
+						total_fee = total_fee.saturating_add(max_fee_scaled);
+					}
+				};
+
 			// if the inner call is pallet_futurepass::Call::proxy_extrinsic(), and the caller is a
 			// delegate of the FP(futurepass), we switch the gas payer to the FP
-			if let Some(pallet_futurepass::Call::proxy_extrinsic { futurepass, .. }) =
+			if let Some(pallet_futurepass::Call::proxy_extrinsic { futurepass, call }) =
 				call.is_sub_type()
 			{
 				if <T as pallet_futurepass::Config>::Proxy::exists(futurepass, who, None) {
 					who = futurepass;
 				}
+
+				// if the inner call of the proxy_extrinsic is an evm call, we need to add extra gas
+				// cost for that evm call
+				if let Some(pallet_evm::Call::call {
+					gas_limit,
+					max_fee_per_gas,
+					max_priority_fee_per_gas,
+					..
+				}) = call.is_sub_type()
+				{
+					add_evm_gas_cost(gas_limit, max_fee_per_gas, max_priority_fee_per_gas);
+				}
 			}
 
-			// Check if the inner call is an evm call. This will increase total gas to swap
-			// This is required as the fee value here does not take into account the max
-			// fee from an evm call. For all other extrinsics, the fee parameter
+			// Check if the inner call of the call_with_fee_preferences is an evm call. This will
+			// increase total gas to swap This is required as the fee value here does not take into
+			// account the max fee from an evm call. For all other extrinsics, the fee parameter
 			// should cover all required fees.
 			if let Some(pallet_evm::Call::call {
 				gas_limit,
@@ -80,21 +127,7 @@ where
 				..
 			}) = call.is_sub_type()
 			{
-				if let Some(FeePreferencesData { max_fee_scaled, .. }) = get_fee_preferences_data::<
-					T,
-					<T as Config>::ErcIdConversion,
-					pallet_futurepass::Pallet<T>,
-				>(
-					*gas_limit,
-					<T as Config>::EVMBaseFeeProvider::evm_base_fee_per_gas(),
-					Some(*max_fee_per_gas),
-					*max_priority_fee_per_gas,
-					*payment_asset,
-				)
-				.ok()
-				{
-					total_fee = total_fee.saturating_add(max_fee_scaled);
-				}
+				add_evm_gas_cost(gas_limit, max_fee_per_gas, max_priority_fee_per_gas);
 			}
 
 			let path: &[AssetId] = &[*payment_asset, native_asset];
@@ -127,6 +160,10 @@ where
 		tip: Self::Balance,
 		already_withdrawn: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError> {
+		// NOTE - ideally we should check and switch the account to FP here also, But we don't have
+		// the call information within this function. What this means, if any extra fee was charged,
+		// that fee wont return to FP but the caller. Ideally we could pass the required info via
+		// pre, But this requires a new signed extension and some research.
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::correct_and_deposit_fee(
 			who,
 			dispatch_info,
