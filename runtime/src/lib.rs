@@ -426,24 +426,25 @@ impl pallet_nft::Config for Runtime {
 }
 
 parameter_types! {
-	pub const IncentivePalletId: PalletId = PalletId(*b"incentiv");
-	pub const IncentiveUnsignedInterval: BlockNumber =  MINUTES / 2;
+	pub const LiquidityPoolsPalletId: PalletId = PalletId(*b"lqdpools");
+	pub const LiquidityPoolsUnsignedInterval: BlockNumber = MINUTES / 2;
 	/// How many users to rollover at a block time
 	pub const RolloverBatchSize: u32 = 99;
+	pub const InterestRateBasePoint: u32 = 1_000_000;
 }
-impl pallet_incentive::Config for Runtime {
+impl pallet_liquidity_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AssetId = AssetId;
-	type Balance = Balance;
 	type PoolId = u32;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type Currency = Balances;
 	type Assets = AssetsExt;
-	type PalletId = IncentivePalletId;
-	type UnsignedInterval = IncentiveUnsignedInterval;
+	type NativeAssetId = RootAssetId;
+	type PalletId = LiquidityPoolsPalletId;
+	type UnsignedInterval = LiquidityPoolsUnsignedInterval;
 	type RolloverBatchSize = RolloverBatchSize;
 	type MaxStringLength = MaxStringLength;
-	type WeightInfo = weights::pallet_incentive::WeightInfo<Runtime>;
+	type InterestRateBasePoint = InterestRateBasePoint;
+	type WeightInfo = weights::pallet_liquidity_pools::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1315,7 +1316,7 @@ construct_runtime! {
 		Marketplace: pallet_marketplace::{Pallet, Call, Storage, Event<T>} = 44,
 		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 45,
 		VortexDistribution: pallet_vortex::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 46,
-		Incentive: pallet_incentive::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 47,
+		LiquidityPools: pallet_liquidity_pools::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 47,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
@@ -2060,7 +2061,7 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_preimage, Preimage]
 		// Local
-		[pallet_incentive, Incentive]
+		[pallet_liquidity_pools, LiquidityPools]
 		[pallet_nft, Nft]
 		[pallet_sft, Sft]
 		[pallet_fee_control, FeeControl]
