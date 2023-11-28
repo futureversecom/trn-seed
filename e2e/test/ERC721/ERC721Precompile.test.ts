@@ -21,7 +21,7 @@ import {
 // NFT Collection information
 const name = "test-collection";
 const metadataPath = "https://example.com/nft/metadata/";
-const initialIssuance = 10;
+const initialIssuance = 11;
 const maxIssuance = 100;
 
 describe("ERC721 Precompile", function () {
@@ -574,6 +574,60 @@ describe("ERC721 Precompile", function () {
     // receiver address now owner of tokenId
     expect(await precompileCaller.balanceOfProxy(receiverAddress)).to.equal(1);
     expect(await precompileCaller.ownerOfProxy(tokenId)).to.equal(receiverAddress);
+  });
+
+  it("burn", async () => {
+    const tokenId = 9;
+
+    // Sanity check
+    const initial_balance = await erc721Precompile.balanceOf(bobSigner.address);
+
+    // Burn tokenId
+    const burn = await erc721Precompile.connect(bobSigner).burn(tokenId, { gasLimit: 50000 });
+
+    expect(await burn.wait())
+      .to.emit(erc721Precompile, "Transfer")
+      .withArgs(bobSigner.address, constants.AddressZero, tokenId);
+
+    // balance is now one less
+    expect(await erc721Precompile.balanceOf(bobSigner.address)).to.equal(initial_balance - 1);
+  });
+
+  it("burn not approved fails", async () => {
+    const tokenId = 10;
+
+    // Sanity check
+    const initial_balance = await erc721Precompile.balanceOf(bobSigner.address);
+
+    // Burn tokenId from alith without approval should fail
+    await erc721Precompile
+      .connect(alithSigner)
+      .burn(tokenId)
+      .catch((err: any) => expect(err.message).contains("Caller not approved"));
+
+    // balance is unchanged
+    expect(await erc721Precompile.balanceOf(bobSigner.address)).to.equal(initial_balance);
+  });
+
+  it("burn as approved", async () => {
+    const tokenId = 10;
+
+    // Sanity check
+    const initial_balance = await erc721Precompile.balanceOf(bobSigner.address);
+
+    // Approve alith
+    const approval = await erc721Precompile.connect(bobSigner).approve(alithSigner.address, tokenId);
+    await approval.wait();
+
+    // Burn tokenId from alith
+    const burn = await erc721Precompile.connect(alithSigner).burn(tokenId, { gasLimit: 50000 });
+
+    expect(await burn.wait())
+      .to.emit(erc721Precompile, "Transfer")
+      .withArgs(bobSigner.address, constants.AddressZero, tokenId);
+
+    // balance is now one less
+    expect(await erc721Precompile.balanceOf(bobSigner.address)).to.equal(initial_balance - 1);
   });
 
   it("owner, renounceOwnership, transferOwnership", async () => {
