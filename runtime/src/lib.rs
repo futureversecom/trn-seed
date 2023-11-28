@@ -478,6 +478,28 @@ impl pallet_nft::Config for Runtime {
 }
 
 parameter_types! {
+	pub const LiquidityPoolsPalletId: PalletId = PalletId(*b"lqdpools");
+	pub const LiquidityPoolsUnsignedInterval: BlockNumber = MINUTES / 2;
+	/// How many users to rollover at a block time
+	pub const RolloverBatchSize: u32 = 99;
+	pub const InterestRateBasePoint: u32 = 1_000_000;
+}
+impl pallet_liquidity_pools::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PoolId = u32;
+	type ApproveOrigin = EnsureRoot<AccountId>;
+	type Currency = Balances;
+	type Assets = AssetsExt;
+	type NativeAssetId = RootAssetId;
+	type PalletId = LiquidityPoolsPalletId;
+	type UnsignedInterval = LiquidityPoolsUnsignedInterval;
+	type RolloverBatchSize = RolloverBatchSize;
+	type MaxStringLength = MaxStringLength;
+	type InterestRateBasePoint = InterestRateBasePoint;
+	type WeightInfo = weights::pallet_liquidity_pools::WeightInfo<Runtime>;
+}
+
+parameter_types! {
 	pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
 	/// How long listings are open for by default
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
@@ -1470,6 +1492,7 @@ construct_runtime!(
 		Nfi: pallet_nfi = 50,
 		Migration: pallet_migration = 51,
 		SyloDataVerification: pallet_sylo_data_verification = 52,
+		LiquidityPools: pallet_liquidity_pools = 54,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -2373,6 +2396,7 @@ mod benches {
 		[pallet_preimage, Preimage]
 		[pallet_sudo, Sudo]
 		// Local
+		[pallet_liquidity_pools, LiquidityPools]
 		[pallet_nft, Nft]
 		[pallet_nfi, Nfi]
 		[pallet_sft, Sft]

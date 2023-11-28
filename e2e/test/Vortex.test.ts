@@ -10,8 +10,8 @@ import {
   NATIVE_TOKEN_ID,
   NodeProcess,
   finalizeTx,
+  generateTestUsers,
   getNextAssetId,
-  loadTestUsers,
   sleep,
   startNode,
   typedefs,
@@ -114,7 +114,7 @@ describe("Vortex Distribution", () => {
     );
 
     // load test users
-    const users = loadTestUsers(20);
+    const users = generateTestUsers(20);
 
     // transfer native token to users to create accounts
     txs = [];
