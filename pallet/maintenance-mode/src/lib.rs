@@ -177,6 +177,7 @@ pub mod pallet {
 		}
 
 		/// Blocks an account from transacting on the network
+		/// Can be used to block individual precompile addresses or contracts
 		#[pallet::weight(T::WeightInfo::block_evm_target())]
 		pub fn block_evm_target(
 			origin: OriginFor<T>,
@@ -196,6 +197,9 @@ pub mod pallet {
 		}
 
 		/// Blocks a call from being executed
+		/// pallet_name: The name of the pallet as per the runtime file. i.e. FeeProxy
+		/// call_name: The snake_case name for the call. i.e. set_fee
+		/// Both pallet and call names are not case sensitive
 		#[pallet::weight(T::WeightInfo::block_call())]
 		pub fn block_call(
 			origin: OriginFor<T>,
@@ -228,6 +232,8 @@ pub mod pallet {
 		}
 
 		/// Blocks an entire pallets calls from being executed
+		/// pallet_name: The name of the pallet as per the runtime file. i.e. FeeProxy
+		/// Pallet names are not case sensitive
 		#[pallet::weight(T::WeightInfo::block_pallet())]
 		pub fn block_pallet(
 			origin: OriginFor<T>,
@@ -275,7 +281,6 @@ impl<T: Config> Pallet<T> {
 		if pallet_name == T::EthyPallet::name().to_ascii_lowercase() {
 			return false
 		}
-
 		true
 	}
 }
