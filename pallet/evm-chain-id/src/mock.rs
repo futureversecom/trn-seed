@@ -15,65 +15,25 @@
 
 use crate::{self as pallet_evm_chain_id, Config};
 use frame_support::parameter_types;
-use frame_system::EnsureRoot;
-use sp_core::H256;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-};
+use seed_pallet_common::test_prelude::*;
 
-pub type AccountId = u64;
-pub const ALICE: AccountId = 10;
-
-pub type BlockNumber = u64;
-pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
-pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
-
-frame_support::construct_runtime!(
-	pub enum TestRuntime where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+construct_runtime!(
+	pub enum Test where
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		EVMChainId: pallet_evm_chain_id::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		EVMChainId: pallet_evm_chain_id,
 	}
 );
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-impl frame_system::Config for TestRuntime {
-	type BlockWeights = ();
-	type BlockLength = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = BlockNumber;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type BlockHashCount = BlockHashCount;
-	type RuntimeEvent = RuntimeEvent;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-}
+impl_frame_system_config!(Test);
 
 parameter_types! {
 	pub const DefaultChainId: u64 = 7672;
 }
-impl Config for TestRuntime {
+impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 	type DefaultChainId = DefaultChainId;
@@ -84,8 +44,7 @@ impl Config for TestRuntime {
 pub struct TestExt;
 impl TestExt {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let storage =
-			frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+		let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 		let mut ext: sp_io::TestExternalities = storage.into();
 		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
 		ext

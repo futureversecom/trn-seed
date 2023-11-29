@@ -681,9 +681,9 @@ parameter_types! {
 	// signed config
 	pub const SignedMaxSubmissions: u32 = 16;
 	pub const SignedMaxRefunds: u32 = 16 / 4;
-	// 40 DOTs fixed deposit..
+	// 40 ROOT fixed deposit..
 	pub const SignedDepositBase: Balance = ONE_ROOT * 40;
-	// 0.01 DOT per KB of solution data.
+	// 0.01 ROOT per KB of solution data.
 	pub const SignedDepositByte: Balance = ONE_ROOT / 1024;
 	// Intentionally zero reward to prevent inflation
 	// `pallet_election_provider_multi_phase::RewardHandler` could be configured to offset any rewards
@@ -834,7 +834,7 @@ impl pallet_staking::Config for Runtime {
 	// Upon slashing two situations can happen:
 	// 1) if there are no reporters, this handler is given the whole slashed imbalance
 	// 2) any indivisible slash imbalance (not sent to reporter(s)) is sent here
-	// StakingPot nullifies the imbalance to keep issuance of XRP constant (vs. burnt)
+	// StakingPot nullifies the imbalance to keep issuance of ROOT constant (vs. burnt)
 	type Slash = SlashImbalanceHandler;
 	type UnixTime = Timestamp;
 	type SessionsPerEra = SessionsPerEra;

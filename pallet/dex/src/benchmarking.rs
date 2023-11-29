@@ -105,4 +105,8 @@ benchmarks! {
 	}: _(RawOrigin::Root, Some(fee_account))
 }
 
-impl_benchmark_test_suite!(Dex, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	Dex,
+	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default().build(),
+	crate::mock::Test
+);
