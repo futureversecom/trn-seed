@@ -19,12 +19,13 @@
 use codec::{Decode, Encode};
 pub use frame_support::log as logger;
 use frame_support::{
-	dispatch::{DispatchError, DispatchResult},
+	dispatch::{DispatchError, DispatchResult, GetCallMetadata},
 	sp_runtime::{traits::AccountIdConversion, Perbill},
 	traits::{fungibles::Transfer, Get},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	PalletId,
 };
+use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_core::{H160, U256};
 use sp_std::{fmt::Debug, vec::Vec};
@@ -163,8 +164,10 @@ pub enum EventRouterError {
 	/// Message had no configured receiver (check destination address)
 	NoReceiver,
 }
+
 /// Event router result with consumed weight
 pub type EventRouterResult = Result<Weight, (Weight, EventRouterError)>;
+
 /// Routes verified Ethereum messages to handler pallets
 ///
 /// ```ignore
@@ -194,6 +197,7 @@ pub trait EthereumEventRouter {
 
 /// Result of processing an event by an `EthereumEventSubscriber`
 pub type OnEventResult = Result<Weight, (Weight, DispatchError)>;
+
 /// Handle verified Ethereum events (implemented by handler pallet)
 pub trait EthereumEventSubscriber {
 	/// The destination address of this subscriber (doubles as the source address for sent messages)
@@ -279,6 +283,7 @@ pub enum EthCallFailure {
 	/// Failure due to some internal reason
 	Internal,
 }
+
 /// Verifies correctness of state on Ethereum i.e. by issuing `eth_call`s
 pub trait EthCallOracle {
 	/// EVM address type
@@ -375,4 +380,31 @@ impl FeeConfig for () {
 // Code used for futurepass V2
 pub trait AccountProxy<AccountId> {
 	fn primary_proxy(who: &AccountId) -> Option<AccountId>;
+}
+
+pub trait MaintenanceCheck<T: frame_system::Config>
+where
+	<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
+{
+	/// Checks whether the call is paused
+	fn call_paused(call: &<T as frame_system::Config>::RuntimeCall) -> bool;
+}
+
+pub trait MaintenanceCheckEVM<T: frame_system::Config> {
+	/// Checks whether an ethereum transaction can be executed
+	/// returns true if the transaction is valid
+	fn validate_evm_call(signer: &<T as frame_system::Config>::AccountId, target: &H160) -> bool;
+	/// Checks whether an ethereum transaction can be executed
+	/// returns true if the transaction is valid
+	fn validate_evm_create(signer: &<T as frame_system::Config>::AccountId) -> bool;
+}
+
+impl<T: frame_system::Config> MaintenanceCheckEVM<T> for () {
+	fn validate_evm_call(_signer: &<T as frame_system::Config>::AccountId, _target: &H160) -> bool {
+		true
+	}
+
+	fn validate_evm_create(_signer: &<T as Config>::AccountId) -> bool {
+		true
+	}
 }
