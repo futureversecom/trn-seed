@@ -16,84 +16,46 @@
 use crate as pallet_fee_proxy;
 use crate::*;
 use frame_support::{
-	parameter_types,
 	traits::{FindAuthor, InstanceFilter},
-	weights::{ConstantMultiplier, Weight, WeightToFee},
-	PalletId,
+	weights::WeightToFee,
 };
-use frame_system::{limits, EnsureRoot};
-use pallet_evm::{
-	AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator, GasWeightMapping,
-};
+use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, GasWeightMapping};
 use precompile_utils::{Address, ErcIdConversion};
-use seed_pallet_common::*;
-use seed_primitives::{AccountId, AssetId};
-use sp_core::{H160, H256, U256};
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	ConsensusEngineId, Permill,
-};
-use std::ops::Mul;
+use seed_pallet_common::test_prelude::*;
+use sp_runtime::ConsensusEngineId;
 
-pub const XRP_ASSET_ID: AssetId = 1;
+pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Test, XrpAssetId>;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
-
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		FeeProxy: pallet_fee_proxy::{Pallet, Call, Storage, Event<T>},
-		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
-		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
-		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
-		TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		System: frame_system,
+		FeeProxy: pallet_fee_proxy,
+		Dex: pallet_dex,
+		AssetsExt: pallet_assets_ext,
+		Balances: pallet_balances,
+		Assets: pallet_assets,
+		TransactionPayment: pallet_transaction_payment,
+		EVM: pallet_evm,
+		TimestampPallet: pallet_timestamp,
 		Futurepass: pallet_futurepass,
+		FeeControl: pallet_fee_control,
 	}
 );
 
+impl_frame_system_config!(Test);
+impl_pallet_balance_config!(Test);
+impl_pallet_assets_config!(Test);
+impl_pallet_assets_ext_config!(Test);
+impl_pallet_transaction_payment_config!(Test);
+impl_pallet_dex_config!(Test);
+impl_pallet_timestamp_config!(Test);
+impl_pallet_evm_config!(Test);
 impl_pallet_futurepass_config!(Test);
-
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-	pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
-	pub const MaxReserves: u32 = 50;
-}
-
-impl frame_system::Config for Test {
-	type BlockWeights = ();
-	type BlockLength = BlockLength;
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type BlockHashCount = BlockHashCount;
-	type RuntimeEvent = RuntimeEvent;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-}
+impl_pallet_fee_control_config!(Test);
 
 // Mock ErcIdConversion for testing purposes
 impl<RuntimeId> ErcIdConversion<RuntimeId> for Test
@@ -121,12 +83,9 @@ where
 	}
 }
 
-pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Test, XrpAssetId>;
-
 parameter_types! {
-		pub const XrpAssetId: AssetId = XRP_ASSET_ID;
+	pub const XrpAssetId: AssetId = XRP_ASSET_ID;
 }
-
 impl Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
@@ -135,196 +94,8 @@ impl Config for Test {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, ()>;
 	type ErcIdConversion = Self;
 	type EVMBaseFeeProvider = ();
-}
-
-parameter_types! {
-	pub const GetExchangeFee: (u32, u32) = (3, 1000); // 0.3% fee
-	pub const TradingPathLimit: u32 = 3;
-	pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
-	pub const LPTokenDecimals: u8 = 6;
-	pub const DefaultFeeTo: Option<PalletId> = None;
-}
-impl pallet_dex::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type GetExchangeFee = GetExchangeFee;
-	type TradingPathLimit = TradingPathLimit;
-	type DEXBurnPalletId = DEXBurnPalletId;
-	type LPTokenDecimals = LPTokenDecimals;
-	type DefaultFeeTo = DefaultFeeTo;
-	type WeightInfo = ();
-	type MultiCurrency = AssetsExt;
-}
-
-parameter_types! {
-	pub const AssetDeposit: Balance = 1_000_000;
-	pub const AssetAccountDeposit: Balance = 16;
-	pub const ApprovalDeposit: Balance = 1;
-	pub const AssetsStringLimit: u32 = 50;
-	pub const MetadataDepositBase: Balance = 1 * 68;
-	pub const MetadataDepositPerByte: Balance = 1;
-}
-pub type AssetsForceOrigin = EnsureRoot<AccountId>;
-
-impl pallet_assets::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type AssetId = AssetId;
-	type Currency = Balances;
-	type ForceOrigin = AssetsForceOrigin;
-	type AssetDeposit = AssetDeposit;
-	type MetadataDepositBase = MetadataDepositBase;
-	type MetadataDepositPerByte = MetadataDepositPerByte;
-	type ApprovalDeposit = ApprovalDeposit;
-	type StringLimit = AssetsStringLimit;
-	type Freezer = ();
-	type Extra = ();
-	type WeightInfo = ();
-	type AssetAccountDeposit = AssetAccountDeposit;
-}
-
-parameter_types! {
-	pub const NativeAssetId: AssetId = 1;
-	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
-	pub const MaxHolds: u32 = 16;
-	pub const TestParachainId: u32 = 100;
-}
-
-impl pallet_assets_ext::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type ParachainId = TestParachainId;
-	type MaxHolds = MaxHolds;
-	type NativeAssetId = NativeAssetId;
-	type OnNewAssetSubscription = ();
-	type PalletId = AssetsExtPalletId;
-	type WeightInfo = ();
-}
-
-impl pallet_balances::Config for Test {
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ();
-	type AccountStore = System;
-	type MaxLocks = ();
-	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-}
-
-parameter_types! {
-	pub const TransactionByteFee: Balance = 2_500;
-	pub const OperationalFeeMultiplier: u8 = 5;
-	pub const WeightToFeeReduction: Permill = Permill::from_parts(125);
-}
-
-/// `WeightToFee` implementation converts weight to fee using a fixed % deduction
-pub struct PercentageOfWeight<M>(sp_std::marker::PhantomData<M>);
-
-impl<M> WeightToFee for PercentageOfWeight<M>
-where
-	M: Get<Permill>,
-{
-	type Balance = Balance;
-
-	fn weight_to_fee(weight: &Weight) -> Balance {
-		M::get().mul(weight.ref_time() as Balance)
-	}
-}
-
-impl pallet_transaction_payment::Config for Test {
-	type OnChargeTransaction = FeeProxy;
-	type RuntimeEvent = RuntimeEvent;
-	type WeightToFee = PercentageOfWeight<WeightToFeeReduction>;
-	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
-	type FeeMultiplierUpdate = ();
-	type OperationalFeeMultiplier = OperationalFeeMultiplier;
-}
-
-pub struct FixedGasPrice;
-impl FeeCalculator for FixedGasPrice {
-	fn min_gas_price() -> (U256, Weight) {
-		(1.into(), Weight::zero())
-	}
-}
-
-pub struct FindAuthorTruncated;
-impl FindAuthor<H160> for FindAuthorTruncated {
-	fn find_author<'a, I>(_digests: I) -> Option<H160>
-	where
-		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
-	{
-		None
-	}
-}
-
-pub struct MockAddressMapping;
-impl AddressMapping<AccountId> for MockAddressMapping {
-	fn into_account_id(address: H160) -> AccountId {
-		address.into()
-	}
-}
-
-pub struct MockBlockHashMapping<Test>(PhantomData<Test>);
-impl<Test> BlockHashMapping for MockBlockHashMapping<Test> {
-	fn block_hash(_number: u32) -> H256 {
-		H256::default()
-	}
-}
-
-pub struct FixedGasWeightMapping;
-impl GasWeightMapping for FixedGasWeightMapping {
-	fn gas_to_weight(_gas: u64, _without_base_weight: bool) -> Weight {
-		Weight::zero()
-	}
-	fn weight_to_gas(_weight: Weight) -> u64 {
-		0u64
-	}
-}
-
-impl pallet_evm::Config for Test {
-	type FeeCalculator = FixedGasPrice;
-	type GasWeightMapping = FixedGasWeightMapping;
-	type BlockHashMapping = MockBlockHashMapping<Test>;
-	type CallOrigin = EnsureAddressNever<AccountId>;
-	type WithdrawOrigin = EnsureAddressNever<AccountId>;
-	type AddressMapping = MockAddressMapping;
-	type Currency = Balances;
-	type RuntimeEvent = RuntimeEvent;
-	type Runner = pallet_evm::runner::stack::Runner<Self>;
-	type PrecompilesType = ();
-	type PrecompilesValue = ();
-	type ChainId = ();
-	type BlockGasLimit = ();
-	type OnChargeTransaction = ();
-	type FindAuthor = FindAuthorTruncated;
-	type HandleTxValidation = ();
-	type WeightPerGas = ();
-}
-
-parameter_types! {
-	pub const MinimumPeriod: u64 = 5;
-}
-
-impl pallet_timestamp::Config for Test {
-	type Moment = u64;
-	type OnTimestampSet = ();
-	type MinimumPeriod = MinimumPeriod;
-	type WeightInfo = ();
+	type MaintenanceChecker = ();
 }
 
 /// type alias for runtime configured FeePreferencesRunner
 pub type Runner = FeePreferencesRunner<Test, Test, Futurepass>;
-
-#[derive(Default)]
-pub struct TestExt;
-
-impl TestExt {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext: sp_io::TestExternalities =
-			frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into();
-		ext.execute_with(|| {
-			System::initialize(&1, &[0u8; 32].into(), &Default::default());
-		});
-		ext
-	}
-}

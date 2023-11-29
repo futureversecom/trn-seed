@@ -14,58 +14,32 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{
-	mock::{
-		test_ext, AssetId, AssetsExt, AssetsExtPalletId, Balances, MockAccountId, NativeAssetId,
-		System, Test,
-	},
-	AssetDeposit, Config, Error, Holds, NextAssetId,
+	mock::{test_ext, AssetsExt, AssetsExtPalletId, NativeAssetId, Balances, Test},
+	Config, Error, Holds, NextAssetId,
 };
-use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop,
-	traits::fungibles::{Inspect, InspectMetadata, Transfer},
-	PalletId,
-};
-use frame_system::RawOrigin;
-use seed_pallet_common::{CreateExt, Hold, TransferExt};
-use seed_primitives::Balance;
-use sp_core::H160;
+use frame_support::traits::fungibles::{Inspect, InspectMetadata, Transfer};
+use seed_pallet_common::{test_prelude::*, CreateExt, Hold, TransferExt};
 use sp_runtime::traits::{AccountIdConversion, Zero};
 
 const TEST_PALLET_ID: PalletId = PalletId(*b"pal/test");
 
 #[test]
 fn transfer() {
-	let alice = 1 as MockAccountId;
-	let bob = 2 as MockAccountId;
-	let xrp_asset_id = 2 as AssetId;
-
 	test_ext()
-		.with_balances(&[(alice, 1_000_000)])
-		.with_asset(xrp_asset_id, "XRP", &[(alice, 1_000_000)])
+		.with_balances(&[(alice(), 1_000_000)])
+		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), 1_000_000)])
 		.build()
 		.execute_with(|| {
 			// native token transfer
-			let alice_balance = AssetsExt::balance(NativeAssetId::get(), &alice);
-			assert_ok!(<AssetsExt as Transfer<MockAccountId>>::transfer(
-				NativeAssetId::get(),
-				&alice,
-				&bob,
-				100,
-				true
-			));
-			assert_eq!(alice_balance - 100, AssetsExt::balance(NativeAssetId::get(), &alice),);
-			assert_eq!(100, AssetsExt::balance(NativeAssetId::get(), &bob),);
+			let alice_balance = AssetsExt::balance(NativeAssetId::get(), &alice());
+			assert_ok!(AssetsExt::transfer(NativeAssetId::get(), &alice(), &bob(), 100, true));
+			assert_eq!(alice_balance - 100, AssetsExt::balance(NativeAssetId::get(), &alice()),);
+			assert_eq!(100, AssetsExt::balance(NativeAssetId::get(), &bob()),);
 
 			// XRP transfer
-			assert_ok!(<AssetsExt as Transfer<MockAccountId>>::transfer(
-				xrp_asset_id,
-				&alice,
-				&bob,
-				100,
-				true
-			));
-			assert_eq!(alice_balance - 100, AssetsExt::balance(xrp_asset_id, &alice),);
-			assert_eq!(100, AssetsExt::balance(xrp_asset_id, &bob),);
+			assert_ok!(AssetsExt::transfer(XRP_ASSET_ID, &alice(), &bob(), 100, true));
+			assert_eq!(alice_balance - 100, AssetsExt::balance(XRP_ASSET_ID, &alice()),);
+			assert_eq!(100, AssetsExt::balance(XRP_ASSET_ID, &bob()),);
 		});
 }
 
@@ -319,65 +293,53 @@ fn burn_extrinsic() {
 
 #[test]
 fn split_transfer() {
-	let alice = 1 as MockAccountId;
-	let bob = 2 as MockAccountId;
-	let ferdie = 3 as MockAccountId;
-	let ken = 4 as MockAccountId;
-	let xrp_asset_id = 2 as AssetId;
-
 	test_ext()
-		.with_balances(&[(alice, 1_000_000)])
-		.with_asset(xrp_asset_id, "XRP", &[(alice, 1_000_000)])
+		.with_balances(&[(alice(), 1_000_000)])
+		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), 1_000_000)])
 		.build()
 		.execute_with(|| {
-			let transfers = [(bob, 10_000), (ferdie, 15_000), (ken, 20_000)];
+			let transfers = [(bob(), 10_000), (charlie(), 15_000), (dave(), 20_000)];
 
 			// native token transfer
-			let alice_balance = AssetsExt::balance(NativeAssetId::get(), &alice);
-			assert_ok!(AssetsExt::split_transfer(&alice, NativeAssetId::get(), &transfers));
+			let alice_balance = AssetsExt::balance(NativeAssetId::get(), &alice());
+			assert_ok!(AssetsExt::split_transfer(&alice(), NativeAssetId::get(), &transfers));
 			let total = transfers.iter().map(|x| x.1).sum::<Balance>();
 
-			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), alice_balance - total);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice()), alice_balance - total);
 			for (recipient, balance) in transfers {
 				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &recipient), balance);
 			}
 
 			// XRP transfer
-			let alice_balance = AssetsExt::balance(xrp_asset_id, &alice);
-			assert_ok!(AssetsExt::split_transfer(&alice, xrp_asset_id, &transfers));
+			let alice_balance = AssetsExt::balance(XRP_ASSET_ID, &alice());
+			assert_ok!(AssetsExt::split_transfer(&alice(), XRP_ASSET_ID, &transfers));
 			let total = transfers.iter().map(|x| x.1).sum::<Balance>();
 
-			assert_eq!(AssetsExt::balance(xrp_asset_id, &alice), alice_balance - total);
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &alice()), alice_balance - total);
 			for (recipient, balance) in transfers {
-				assert_eq!(AssetsExt::balance(xrp_asset_id, &recipient), balance);
+				assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &recipient), balance);
 			}
 		});
 }
 
 #[test]
 fn split_transfer_not_enough_balance() {
-	let alice = 1 as MockAccountId;
-	let bob = 2 as MockAccountId;
-	let ferdie = 3 as MockAccountId;
-	let ken = 4 as MockAccountId;
-	let xrp_asset_id = 2 as AssetId;
-
 	test_ext()
-		.with_balances(&[(alice, 1_000_000)])
-		.with_asset(xrp_asset_id, "XRP", &[(alice, 1_000_000)])
+		.with_balances(&[(alice(), 1_000_000)])
+		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), 1_000_000)])
 		.build()
 		.execute_with(|| {
-			let transfers = [(bob, 400_000), (ferdie, 300_000), (ken, 300_001)];
+			let transfers = [(bob(), 400_000), (charlie(), 300_000), (dave(), 300_001)];
 
 			// native token transfer
 			assert_noop!(
-				AssetsExt::split_transfer(&alice, NativeAssetId::get(), &transfers),
+				AssetsExt::split_transfer(&alice(), NativeAssetId::get(), &transfers),
 				Error::<Test>::BalanceLow
 			);
 
 			// XRP transfer
 			assert_noop!(
-				AssetsExt::split_transfer(&alice, xrp_asset_id, &transfers),
+				AssetsExt::split_transfer(&alice(), XRP_ASSET_ID, &transfers),
 				Error::<Test>::BalanceLow
 			);
 		});
@@ -385,34 +347,25 @@ fn split_transfer_not_enough_balance() {
 
 #[test]
 fn transfer_insufficient_funds() {
-	let alice = 1 as MockAccountId;
-	let bob = 2 as MockAccountId;
-	let xrp_asset_id = 2 as AssetId;
 	let initial_balance = 1_000_000;
 
 	test_ext()
-		.with_balances(&[(alice, initial_balance)])
-		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
+		.with_balances(&[(alice(), initial_balance)])
+		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), initial_balance)])
 		.build()
 		.execute_with(|| {
 			assert_noop!(
-				<AssetsExt as Transfer<MockAccountId>>::transfer(
+				AssetsExt::transfer(
 					NativeAssetId::get(),
-					&alice,
-					&bob,
+					&alice(),
+					&bob(),
 					initial_balance + 1,
 					true
 				),
 				pallet_balances::Error::<Test>::InsufficientBalance
 			);
 			assert_noop!(
-				<AssetsExt as Transfer<MockAccountId>>::transfer(
-					xrp_asset_id,
-					&alice,
-					&bob,
-					initial_balance + 1,
-					true
-				),
+				AssetsExt::transfer(XRP_ASSET_ID, &alice(), &bob(), initial_balance + 1, true),
 				pallet_assets::Error::<Test>::BalanceLow
 			);
 		});
@@ -420,49 +373,34 @@ fn transfer_insufficient_funds() {
 
 #[test]
 fn transfer_held_funds() {
-	let alice = 1 as MockAccountId;
-	let bob = 2 as MockAccountId;
-	let xrp_asset_id = 2 as AssetId;
 	let initial_balance = 1_000_000;
 
 	test_ext()
-		.with_balances(&[(alice, initial_balance)])
-		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
+		.with_balances(&[(alice(), initial_balance)])
+		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), initial_balance)])
 		.build()
 		.execute_with(|| {
 			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				hold_amount
 			));
 			assert_noop!(
-				<AssetsExt as Transfer<MockAccountId>>::transfer(
-					NativeAssetId::get(),
-					&alice,
-					&bob,
-					hold_amount,
-					true
-				),
+				AssetsExt::transfer(NativeAssetId::get(), &alice(), &bob(), hold_amount, true),
 				pallet_balances::Error::<Test>::InsufficientBalance
 			);
 
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(xrp_asset_id);
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(XRP_ASSET_ID);
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
+				&alice(),
+				XRP_ASSET_ID,
 				hold_amount
 			));
 			assert_noop!(
-				<AssetsExt as Transfer<MockAccountId>>::transfer(
-					xrp_asset_id,
-					&alice,
-					&bob,
-					hold_amount,
-					true
-				),
+				AssetsExt::transfer(XRP_ASSET_ID, &alice(), &bob(), hold_amount, true),
 				pallet_assets::Error::<Test>::BalanceLow
 			);
 		});
@@ -470,45 +408,43 @@ fn transfer_held_funds() {
 
 #[test]
 fn place_hold() {
-	let alice = 1 as MockAccountId;
-	let xrp_asset_id = 2 as AssetId;
 	let initial_balance = 1_000_000;
 
 	test_ext()
-		.with_balances(&[(alice, initial_balance)])
-		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
+		.with_balances(&[(alice(), initial_balance)])
+		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), initial_balance)])
 		.build()
 		.execute_with(|| {
 			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				hold_amount
 			));
 
 			// the hold amount is recorded accurately
 			assert_eq!(
-				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice, &NativeAssetId::get()),
+				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice(), &NativeAssetId::get()),
 				hold_amount
 			);
 
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(xrp_asset_id);
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(XRP_ASSET_ID);
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
+				&alice(),
+				XRP_ASSET_ID,
 				hold_amount
 			));
 			// the hold amount is recorded accurately
 			assert_eq!(
-				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice, &xrp_asset_id),
+				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice(), &XRP_ASSET_ID),
 				hold_amount
 			);
 			// the hold amount is held by pallet-assets-ext
 			assert_eq!(
 				AssetsExt::balance(
-					xrp_asset_id,
+					XRP_ASSET_ID,
 					&AssetsExtPalletId::get().into_account_truncating()
 				),
 				hold_amount,
@@ -518,19 +454,17 @@ fn place_hold() {
 
 #[test]
 fn place_hold_insufficient_funds() {
-	let alice = 1 as MockAccountId;
-	let xrp_asset_id = 2 as AssetId;
 	let initial_balance = 1_000_000;
 
 	test_ext()
-		.with_balances(&[(alice, initial_balance)])
-		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
+		.with_balances(&[(alice(), initial_balance)])
+		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), initial_balance)])
 		.build()
 		.execute_with(|| {
 			assert_noop!(
 				<AssetsExt as Hold>::place_hold(
 					TEST_PALLET_ID,
-					&alice,
+					&alice(),
 					NativeAssetId::get(),
 					initial_balance + 1
 				),
@@ -539,8 +473,8 @@ fn place_hold_insufficient_funds() {
 			assert_noop!(
 				<AssetsExt as Hold>::place_hold(
 					TEST_PALLET_ID,
-					&alice,
-					xrp_asset_id,
+					&alice(),
+					XRP_ASSET_ID,
 					initial_balance + 1
 				),
 				pallet_assets::Error::<Test>::BalanceLow
@@ -550,108 +484,114 @@ fn place_hold_insufficient_funds() {
 
 #[test]
 fn release_hold() {
-	let alice = 1 as MockAccountId;
-	let xrp_asset_id = 2 as AssetId;
 	let initial_balance = 1_000_000;
 
 	test_ext()
-		.with_balances(&[(alice, initial_balance)])
-		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
+		.with_balances(&[(alice(), initial_balance)])
+		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), initial_balance)])
 		.build()
 		.execute_with(|| {
 			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				hold_amount
 			));
 			assert_eq!(
-				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice, &NativeAssetId::get()),
+				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice(), &NativeAssetId::get()),
 				hold_amount
 			);
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				hold_amount
 			));
-			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), initial_balance,);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice()), initial_balance,);
 			assert!(
-				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice, &NativeAssetId::get()).is_zero()
+				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice(), &NativeAssetId::get()).is_zero()
 			);
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(xrp_asset_id);
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(XRP_ASSET_ID);
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
+				&alice(),
+				XRP_ASSET_ID,
 				hold_amount
 			));
 			assert_eq!(
-				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice, &xrp_asset_id),
+				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice(), &XRP_ASSET_ID),
 				hold_amount
 			);
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
+				&alice(),
+				XRP_ASSET_ID,
 				hold_amount
 			));
-			assert_eq!(AssetsExt::balance(xrp_asset_id, &alice), initial_balance,);
-			assert!(AssetsExt::hold_balance(&TEST_PALLET_ID, &alice, &xrp_asset_id).is_zero());
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &alice()), initial_balance,);
+			assert!(AssetsExt::hold_balance(&TEST_PALLET_ID, &alice(), &XRP_ASSET_ID).is_zero());
 		});
 }
 
 #[test]
 fn release_hold_partial() {
-	let alice = 1 as MockAccountId;
-	let xrp_asset_id = 2 as AssetId;
 	let initial_balance = 1_000_000;
 
 	test_ext()
-		.with_balances(&[(alice, initial_balance)])
-		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
+		.with_balances(&[(alice(), initial_balance)])
+		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), initial_balance)])
 		.build()
 		.execute_with(|| {
 			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				hold_amount
 			));
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				5
 			));
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				5
 			));
 			assert_eq!(
-				AssetsExt::reducible_balance(NativeAssetId::get(), &alice, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &alice(), false),
 				initial_balance - hold_amount + 5 + 5,
 			);
 
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(xrp_asset_id);
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(XRP_ASSET_ID);
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
+				&alice(),
+				XRP_ASSET_ID,
 				hold_amount
 			));
-			assert_ok!(<AssetsExt as Hold>::release_hold(TEST_PALLET_ID, &alice, xrp_asset_id, 5));
-			assert_ok!(<AssetsExt as Hold>::release_hold(TEST_PALLET_ID, &alice, xrp_asset_id, 5));
+			assert_ok!(<AssetsExt as Hold>::release_hold(
+				TEST_PALLET_ID,
+				&alice(),
+				XRP_ASSET_ID,
+				5
+			));
+			assert_ok!(<AssetsExt as Hold>::release_hold(
+				TEST_PALLET_ID,
+				&alice(),
+				XRP_ASSET_ID,
+				5
+			));
 			assert_eq!(
-				AssetsExt::reducible_balance(xrp_asset_id, &alice, false),
+				AssetsExt::reducible_balance(XRP_ASSET_ID, &alice(), false),
 				initial_balance - hold_amount + 5 + 5,
 			);
 			assert_eq!(
-				AssetsExt::balance(xrp_asset_id, &alice),
+				AssetsExt::balance(XRP_ASSET_ID, &alice()),
 				initial_balance - hold_amount + 5 + 5,
 			);
 		});
@@ -659,44 +599,42 @@ fn release_hold_partial() {
 
 #[test]
 fn release_hold_insufficient_funds() {
-	let alice = 1 as MockAccountId;
-	let xrp_asset_id = 2 as AssetId;
 	let initial_balance = 1_000_000;
 
 	test_ext()
-		.with_balances(&[(alice, initial_balance)])
-		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
+		.with_balances(&[(alice(), initial_balance)])
+		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), initial_balance)])
 		.build()
 		.execute_with(|| {
 			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				hold_amount
 			));
 			assert_err!(
 				<AssetsExt as Hold>::release_hold(
 					TEST_PALLET_ID,
-					&alice,
+					&alice(),
 					NativeAssetId::get(),
 					hold_amount * 2
 				),
 				Error::<Test>::BalanceLow
 			);
 
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(xrp_asset_id);
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(XRP_ASSET_ID);
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
+				&alice(),
+				XRP_ASSET_ID,
 				hold_amount
 			));
 			assert_err!(
 				<AssetsExt as Hold>::release_hold(
 					TEST_PALLET_ID,
-					&alice,
-					xrp_asset_id,
+					&alice(),
+					XRP_ASSET_ID,
 					hold_amount * 2
 				),
 				Error::<Test>::BalanceLow
@@ -706,34 +644,33 @@ fn release_hold_insufficient_funds() {
 
 #[test]
 fn place_and_release_hold_multiple_assets_and_pallets() {
-	let alice = 1 as MockAccountId;
-	let xrp_asset_id = 2 as AssetId;
 	let doge_asset_id = 69 as AssetId;
 	let dn_asset_id = 420 as AssetId;
 	let initial_balance = 1_000_000;
 	let other_pallet_id = PalletId(*b"p4l/t3st");
+
 	test_ext()
-		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
-		.with_asset(doge_asset_id, "DOGE", &[(alice, initial_balance)])
-		.with_asset(dn_asset_id, "DN", &[(alice, initial_balance)])
+		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), initial_balance)])
+		.with_asset(doge_asset_id, "DOGE", &[(alice(), initial_balance)])
+		.with_asset(dn_asset_id, "DN", &[(alice(), initial_balance)])
 		.build()
 		.execute_with(|| {
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(xrp_asset_id);
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(XRP_ASSET_ID);
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
+				&alice(),
+				XRP_ASSET_ID,
 				hold_amount
 			));
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				other_pallet_id,
-				&alice,
+				&alice(),
 				doge_asset_id,
 				hold_amount
 			));
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				dn_asset_id,
 				hold_amount
 			));
@@ -742,8 +679,8 @@ fn place_and_release_hold_multiple_assets_and_pallets() {
 			assert_noop!(
 				<AssetsExt as Hold>::release_hold(
 					other_pallet_id,
-					&alice,
-					xrp_asset_id,
+					&alice(),
+					XRP_ASSET_ID,
 					hold_amount
 				),
 				Error::<Test>::BalanceLow
@@ -751,32 +688,32 @@ fn place_and_release_hold_multiple_assets_and_pallets() {
 
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				other_pallet_id,
-				&alice,
+				&alice(),
 				doge_asset_id,
 				hold_amount - 1,
 			));
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				dn_asset_id,
 				hold_amount,
 			));
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
+				&alice(),
+				XRP_ASSET_ID,
 				hold_amount,
 			));
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				other_pallet_id,
-				&alice,
+				&alice(),
 				doge_asset_id,
 				1,
 			));
 
 			// the hold amount is held by pallet-assets-ext
 			assert!(AssetsExt::balance(
-				xrp_asset_id,
+				XRP_ASSET_ID,
 				&AssetsExtPalletId::get().into_account_truncating()
 			)
 			.is_zero(),);
@@ -790,42 +727,38 @@ fn place_and_release_hold_multiple_assets_and_pallets() {
 				&AssetsExtPalletId::get().into_account_truncating()
 			)
 			.is_zero(),);
-			assert_eq!(AssetsExt::balance(xrp_asset_id, &alice), initial_balance);
-			assert_eq!(AssetsExt::balance(dn_asset_id, &alice), initial_balance);
-			assert_eq!(AssetsExt::balance(doge_asset_id, &alice), initial_balance);
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &alice()), initial_balance);
+			assert_eq!(AssetsExt::balance(dn_asset_id, &alice()), initial_balance);
+			assert_eq!(AssetsExt::balance(doge_asset_id, &alice()), initial_balance);
 			// storage cleared
 			assert!(
-				!Holds::<Test>::contains_key(dn_asset_id, alice) &&
-					!Holds::<Test>::contains_key(doge_asset_id, alice) &&
-					!Holds::<Test>::contains_key(xrp_asset_id, alice)
+				!Holds::<Test>::contains_key(dn_asset_id, alice()) &&
+					!Holds::<Test>::contains_key(doge_asset_id, alice()) &&
+					!Holds::<Test>::contains_key(XRP_ASSET_ID, alice())
 			);
 		});
 }
 
 #[test]
 fn spend_hold() {
-	let alice = 1 as MockAccountId;
-	let bob = 2 as MockAccountId;
-	let charlie = 3 as MockAccountId;
-	let xrp_asset_id = 2 as AssetId;
 	let initial_balance = 1_000_000;
 
 	test_ext()
-		.with_balances(&[(alice, initial_balance)])
-		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
+		.with_balances(&[(alice(), initial_balance)])
+		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), initial_balance)])
 		.build()
 		.execute_with(|| {
 			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
-			let spends = [(bob, 50_000), (charlie, 10_000)];
+			let spends = [(bob(), 50_000), (charlie(), 10_000)];
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				hold_amount
 			));
 			assert_ok!(<AssetsExt as Hold>::spend_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				&spends,
 			));
@@ -833,40 +766,41 @@ fn spend_hold() {
 				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &payee), amount);
 			}
 
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(xrp_asset_id);
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(XRP_ASSET_ID);
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
+				&alice(),
+				XRP_ASSET_ID,
 				hold_amount
 			));
 			assert_ok!(<AssetsExt as Hold>::spend_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
+				&alice(),
+				XRP_ASSET_ID,
 				&spends,
 			));
 			for (payee, amount) in spends {
-				assert_eq!(AssetsExt::balance(xrp_asset_id, &payee), amount);
+				assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &payee), amount);
 			}
 
 			// some odd cases
 			// spend to self, spend 0 and empty
 			assert_ok!(<AssetsExt as Hold>::spend_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
-				&[(alice, 1)],
+				&alice(),
+				XRP_ASSET_ID,
+				&[(alice(), 1)],
 			));
 			assert_storage_noop!({
-				let _ = <AssetsExt as Hold>::spend_hold(TEST_PALLET_ID, &alice, xrp_asset_id, &[]);
+				let _ =
+					<AssetsExt as Hold>::spend_hold(TEST_PALLET_ID, &alice(), XRP_ASSET_ID, &[]);
 			});
 			assert_storage_noop!({
 				let _ = <AssetsExt as Hold>::spend_hold(
 					TEST_PALLET_ID,
-					&alice,
-					xrp_asset_id,
-					&[(bob, 0)],
+					&alice(),
+					XRP_ASSET_ID,
+					&[(bob(), 0)],
 				);
 			});
 		});
@@ -874,62 +808,59 @@ fn spend_hold() {
 
 #[test]
 fn spend_hold_to_holder_non_native() {
-	let alice = 1 as MockAccountId;
-	let bob = 2 as MockAccountId;
 	let initial_balance_alice = 10_000;
 	let initial_balance_bob = 20_000;
-	let xrp_asset_id = 2 as AssetId;
 
 	test_ext()
 		.with_asset(
-			xrp_asset_id,
+			XRP_ASSET_ID,
 			"XRP",
-			&[(alice, initial_balance_alice), (bob, initial_balance_bob)],
+			&[(alice(), initial_balance_alice), (bob(), initial_balance_bob)],
 		)
 		.build()
 		.execute_with(|| {
 			let transfer_amount = 10_000;
 			assert_eq!(
-				AssetsExt::balance(xrp_asset_id, &TEST_PALLET_ID.into_account_truncating()),
+				AssetsExt::balance(XRP_ASSET_ID, &TEST_PALLET_ID.into_account_truncating()),
 				0
 			);
 
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
+				&alice(),
+				XRP_ASSET_ID,
 				initial_balance_alice
 			));
-			assert_eq!(AssetsExt::balance(xrp_asset_id, &alice), 0);
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &alice()), 0);
 
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&bob,
-				xrp_asset_id,
+				&bob(),
+				XRP_ASSET_ID,
 				initial_balance_bob
 			));
-			assert_eq!(AssetsExt::balance(xrp_asset_id, &bob), 0);
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &bob()), 0);
 
 			assert_ok!(<AssetsExt as Hold>::spend_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
-				&[(bob, transfer_amount)],
+				&alice(),
+				XRP_ASSET_ID,
+				&[(bob(), transfer_amount)],
 			));
 
 			// Check reducible balance, should not include holds amount
-			assert_eq!(AssetsExt::balance(xrp_asset_id, &bob), transfer_amount);
-			assert_eq!(AssetsExt::balance(xrp_asset_id, &alice), 0);
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &bob()), transfer_amount);
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &alice()), 0);
 
 			// Bob can still unreserve his hold
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				TEST_PALLET_ID,
-				&bob,
-				xrp_asset_id,
+				&bob(),
+				XRP_ASSET_ID,
 				initial_balance_bob
 			));
 			assert_eq!(
-				AssetsExt::balance(xrp_asset_id, &bob),
+				AssetsExt::balance(XRP_ASSET_ID, &bob()),
 				transfer_amount + initial_balance_bob
 			);
 
@@ -937,9 +868,9 @@ fn spend_hold_to_holder_non_native() {
 			assert_noop!(
 				<AssetsExt as Hold>::spend_hold(
 					TEST_PALLET_ID,
-					&alice,
-					xrp_asset_id,
-					&[(bob, transfer_amount)],
+					&alice(),
+					XRP_ASSET_ID,
+					&[(bob(), transfer_amount)],
 				),
 				Error::<Test>::BalanceLow
 			);
@@ -947,13 +878,11 @@ fn spend_hold_to_holder_non_native() {
 }
 #[test]
 fn spend_hold_to_holder_native() {
-	let alice = 1 as MockAccountId;
-	let bob = 2 as MockAccountId;
 	let initial_balance_alice = 10_000;
 	let initial_balance_bob = 20_000;
 
 	test_ext()
-		.with_balances(&[(alice, initial_balance_alice), (bob, initial_balance_bob)])
+		.with_balances(&[(alice(), initial_balance_alice), (bob(), initial_balance_bob)])
 		.build()
 		.execute_with(|| {
 			let transfer_amount = 10_000;
@@ -964,40 +893,40 @@ fn spend_hold_to_holder_native() {
 
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				initial_balance_alice
 			));
-			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), 0);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice()), 0);
 
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&bob,
+				&bob(),
 				NativeAssetId::get(),
 				initial_balance_bob
 			));
-			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &bob), 0);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &bob()), 0);
 
 			assert_ok!(<AssetsExt as Hold>::spend_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
-				&[(bob, transfer_amount)],
+				&[(bob(), transfer_amount)],
 			));
 
 			// Check reducible balance, should not include holds amount
-			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &bob), transfer_amount);
-			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), 0);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &bob()), transfer_amount);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice()), 0);
 
 			// Bob can still unreserve his hold
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				TEST_PALLET_ID,
-				&bob,
+				&bob(),
 				NativeAssetId::get(),
 				initial_balance_bob
 			));
 			assert_eq!(
-				AssetsExt::balance(NativeAssetId::get(), &bob),
+				AssetsExt::balance(NativeAssetId::get(), &bob()),
 				transfer_amount + initial_balance_bob
 			);
 
@@ -1005,9 +934,9 @@ fn spend_hold_to_holder_native() {
 			assert_noop!(
 				<AssetsExt as Hold>::spend_hold(
 					TEST_PALLET_ID,
-					&alice,
+					&alice(),
 					NativeAssetId::get(),
-					&[(bob, transfer_amount)],
+					&[(bob(), transfer_amount)],
 				),
 				Error::<Test>::BalanceLow
 			);
@@ -1016,32 +945,30 @@ fn spend_hold_to_holder_native() {
 
 #[test]
 fn spend_hold_to_non_holder() {
-	let alice = 1 as MockAccountId;
-	let bob = 2 as MockAccountId;
 	let initial_balance_alice = 10_000;
 	let initial_balance_bob = 20_000;
 
 	test_ext()
-		.with_balances(&[(alice, initial_balance_alice), (bob, initial_balance_bob)])
+		.with_balances(&[(alice(), initial_balance_alice), (bob(), initial_balance_bob)])
 		.build()
 		.execute_with(|| {
-			let spends = [(bob, initial_balance_alice)];
+			let spends = [(bob(), initial_balance_alice)];
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				initial_balance_alice
 			));
-			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), 0);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice()), 0);
 			assert_ok!(<AssetsExt as Hold>::spend_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				&spends,
 			));
-			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), 0);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice()), 0);
 			assert_eq!(
-				AssetsExt::balance(NativeAssetId::get(), &bob),
+				AssetsExt::balance(NativeAssetId::get(), &bob()),
 				initial_balance_alice + initial_balance_bob
 			);
 		});
@@ -1049,46 +976,42 @@ fn spend_hold_to_non_holder() {
 
 #[test]
 fn spend_hold_insufficient_funds() {
-	let alice = 1 as MockAccountId;
-	let bob = 2 as MockAccountId;
-	let charlie = 3 as MockAccountId;
-	let xrp_asset_id = 2 as AssetId;
 	let initial_balance = 1_000_000;
 
 	test_ext()
-		.with_balances(&[(alice, initial_balance)])
-		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
+		.with_balances(&[(alice(), initial_balance)])
+		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), initial_balance)])
 		.build()
 		.execute_with(|| {
 			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
-			let spends = [(bob, hold_amount - 10), (charlie, 11)];
+			let spends = [(bob(), hold_amount - 10), (charlie(), 11)];
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&alice(),
 				NativeAssetId::get(),
 				hold_amount
 			));
 			assert_err!(
 				<AssetsExt as Hold>::spend_hold(
 					TEST_PALLET_ID,
-					&alice,
+					&alice(),
 					NativeAssetId::get(),
 					&spends,
 				),
 				Error::<Test>::BalanceLow
 			);
 
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(xrp_asset_id);
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(XRP_ASSET_ID);
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
-				&alice,
-				xrp_asset_id,
+				&alice(),
+				XRP_ASSET_ID,
 				hold_amount
 			));
 			assert_err!(
 				<AssetsExt as Hold>::spend_hold(
 					TEST_PALLET_ID,
-					&alice,
+					&alice(),
 					NativeAssetId::get(),
 					&spends,
 				),
@@ -1099,11 +1022,14 @@ fn spend_hold_insufficient_funds() {
 
 #[test]
 fn place_hold_asset_does_not_exist() {
-	let alice = 1 as MockAccountId;
-
 	test_ext().build().execute_with(|| {
 		assert_noop!(
-			<AssetsExt as Hold>::place_hold(TEST_PALLET_ID, &alice, NativeAssetId::get() + 1, 100),
+			<AssetsExt as Hold>::place_hold(
+				TEST_PALLET_ID,
+				&alice(),
+				NativeAssetId::get() + 1,
+				100
+			),
 			pallet_assets::Error::<Test>::Unknown,
 		);
 	});
@@ -1111,18 +1037,9 @@ fn place_hold_asset_does_not_exist() {
 
 #[test]
 fn transfer_asset_does_not_exist() {
-	let alice = 1 as MockAccountId;
-	let bob = 2 as MockAccountId;
-
 	test_ext().build().execute_with(|| {
 		assert_noop!(
-			<AssetsExt as Transfer<MockAccountId>>::transfer(
-				NativeAssetId::get() + 1,
-				&alice,
-				&bob,
-				100,
-				true,
-			),
+			AssetsExt::transfer(NativeAssetId::get() + 1, &alice(), &bob(), 100, true,),
 			pallet_assets::Error::<Test>::Unknown,
 		);
 	});
@@ -1175,11 +1092,10 @@ fn create() {
 		let expected_result = 0b000000000000000000001_0001100100 as u32;
 		assert_eq!(AssetsExt::next_asset_uuid().unwrap(), expected_result);
 
-		pub const ALICE: MockAccountId = 1;
 		let parachain_id: u32 = <Test as Config>::ParachainId::get().into();
 
 		// create token & verify asset_uuid increment
-		let usdc = <AssetsExt as CreateExt>::create(&ALICE, None).unwrap();
+		let usdc = <AssetsExt as CreateExt>::create(&alice(), None).unwrap();
 		assert_eq!(usdc, 1 << 10 | parachain_id);
 		assert_eq!(AssetsExt::minimum_balance(usdc), 1);
 		assert_eq!(AssetsExt::total_issuance(usdc), 0);
@@ -1188,7 +1104,7 @@ fn create() {
 		));
 
 		// create token & verify asset_uuid increment
-		let weth = <AssetsExt as CreateExt>::create(&ALICE, None).unwrap();
+		let weth = <AssetsExt as CreateExt>::create(&alice(), None).unwrap();
 		assert_eq!(weth, 2 << 10 | parachain_id);
 		assert_eq!(AssetsExt::minimum_balance(weth), 1);
 		assert_eq!(AssetsExt::total_issuance(weth), 0);
@@ -1200,11 +1116,10 @@ fn create() {
 
 #[test]
 fn create_asset() {
-	pub const ALICE: MockAccountId = 1;
-	pub const BOB: MockAccountId = 2;
 	let initial_balance = 1_000_000;
+
 	test_ext()
-		.with_balances(&[(ALICE, initial_balance), (BOB, initial_balance)])
+		.with_balances(&[(alice(), initial_balance), (bob(), initial_balance)])
 		.build()
 		.execute_with(|| {
 			// create usdc token and verify metadata
@@ -1214,7 +1129,7 @@ fn create_asset() {
 			let usdc = AssetsExt::next_asset_uuid().unwrap();
 			let min_balance: Balance = 5;
 			assert_ok!(AssetsExt::create_asset(
-				Some(ALICE).into(),
+				Some(alice()).into(),
 				name.clone(),
 				symbol.clone(),
 				decimals,
@@ -1223,9 +1138,9 @@ fn create_asset() {
 			));
 			assert_eq!(AssetsExt::minimum_balance(usdc), min_balance);
 			assert_eq!(AssetsExt::total_issuance(usdc), 0);
-			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::name(&usdc), name);
-			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::symbol(&usdc), symbol);
-			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::decimals(&usdc), decimals);
+			assert_eq!(<AssetsExt as InspectMetadata<AccountId>>::name(&usdc), name);
+			assert_eq!(<AssetsExt as InspectMetadata<AccountId>>::symbol(&usdc), symbol);
+			assert_eq!(<AssetsExt as InspectMetadata<AccountId>>::decimals(&usdc), decimals);
 
 			// create Weth token and verify metadata
 			let name: Vec<u8> = b"Wrapd-Eth".to_vec();
@@ -1233,7 +1148,7 @@ fn create_asset() {
 			let decimals: u8 = 18;
 			let weth = AssetsExt::next_asset_uuid().unwrap();
 			assert_ok!(AssetsExt::create_asset(
-				Some(BOB).into(),
+				Some(bob()).into(),
 				name.clone(),
 				symbol.clone(),
 				decimals,
@@ -1242,68 +1157,67 @@ fn create_asset() {
 			));
 			assert_eq!(AssetsExt::minimum_balance(weth), 1); // Defaults to 1 if None is set
 			assert_eq!(AssetsExt::total_issuance(weth), 0);
-			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::name(&weth), name);
-			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::symbol(&weth), symbol);
-			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::decimals(&weth), decimals);
+			assert_eq!(<AssetsExt as InspectMetadata<AccountId>>::name(&weth), name);
+			assert_eq!(<AssetsExt as InspectMetadata<AccountId>>::symbol(&weth), symbol);
+			assert_eq!(<AssetsExt as InspectMetadata<AccountId>>::decimals(&weth), decimals);
 		});
 }
 
 #[test]
 fn create_asset_fails() {
-	pub const ALICE: MockAccountId = 1;
-	pub const BOB: MockAccountId = 2;
 	let initial_balance = 5_000_000;
 
-	test_ext().with_balances(&[(ALICE, initial_balance)]).build().execute_with(|| {
-		assert_ok!(AssetsExt::set_asset_deposit(RawOrigin::Root.into(), 1));
+	test_ext()
+		.with_balances(&[(alice(), initial_balance)])
+		.build()
+		.execute_with(|| {
+			// Create asset insufficient balance should fail
+			assert_noop!(
+				AssetsExt::create_asset(
+					Some(bob()).into(),
+					b"USD-Coin".to_vec(),
+					b"USDC".to_vec(),
+					6,
+					None,
+					None
+				),
+				pallet_balances::Error::<Test>::InsufficientBalance
+			);
 
-		// Create asset insufficient balance should fail
-		assert_noop!(
-			AssetsExt::create_asset(
-				Some(BOB).into(),
-				b"USD-Coin".to_vec(),
-				b"USDC".to_vec(),
-				6,
-				None,
-				None
-			),
-			pallet_balances::Error::<Test>::InsufficientBalance
-		);
+			// Create asset 19 decimals should fail
+			assert_noop!(
+				AssetsExt::create_asset(
+					Some(alice()).into(),
+					b"USD-Coin".to_vec(),
+					b"USDC".to_vec(),
+					19,
+					None,
+					None
+				),
+				pallet_assets::Error::<Test>::DecimalsTooHigh
+			);
 
-		// Create asset 19 decimals should fail
-		assert_noop!(
-			AssetsExt::create_asset(
-				Some(ALICE).into(),
-				b"USD-Coin".to_vec(),
-				b"USDC".to_vec(),
-				19,
-				None,
-				None
-			),
-			Error::<Test>::DecimalsTooHigh
-		);
+            // Create asset insufficient name should fail
+            let name: Vec<u8> = b"01234567891".to_vec();
+            assert_noop!(
+                AssetsExt::create_asset(Some(alice()).into(), name, b"USDC".to_vec(), 6, None, None),
+                pallet_assets::Error::<Test>::BadMetadata
+            );
 
-		// Create asset insufficient name should fail
-		let name: Vec<u8> = b"01234567891".to_vec();
-		assert_noop!(
-			AssetsExt::create_asset(Some(ALICE).into(), name, b"USDC".to_vec(), 6, None, None),
-			pallet_assets::Error::<Test>::BadMetadata
-		);
-
-		// Create asset insufficient symbol should fail
-		let symbol: Vec<u8> = b"01234567891".to_vec();
-		assert_noop!(
-			AssetsExt::create_asset(
-				Some(ALICE).into(),
-				b"USD-Coin".to_vec(),
-				symbol,
-				6,
-				None,
-				None
-			),
-			pallet_assets::Error::<Test>::BadMetadata
-		);
-	});
+			// Create asset insufficient symbol should fail
+			let symbol: Vec<u8> = b"012345678901234567890123456789012345678901234567891".to_vec();
+			assert_noop!(
+				AssetsExt::create_asset(
+					Some(alice()).into(),
+					b"USD-Coin".to_vec(),
+					symbol,
+					6,
+					None,
+					None
+				),
+				pallet_assets::Error::<Test>::BadMetadata
+			);
+		});
 }
 
 #[test]

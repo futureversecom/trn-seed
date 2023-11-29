@@ -48,4 +48,8 @@ benchmarks! {
 	}
 }
 
-impl_benchmark_test_suite!(AssetsExt, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	AssetsExt,
+	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default().build(),
+	crate::mock::Test
+);

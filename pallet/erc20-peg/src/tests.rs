@@ -15,28 +15,20 @@
 
 use super::*;
 use crate::{
-	mock::{
-		make_account_id, AssetsExt, Erc20Peg, ExtBuilder, MockEthereumEventRouter, PegPalletId,
-		Test, ROOT_ASSET_ID, SPENDING_ASSET_ID, XRP_ASSET_ID,
-	},
+	mock::{AssetsExt, Erc20Peg, ExtBuilder, MockEthereumEventRouter, PegPalletId, Test},
 	types::{DelayedPaymentId, Erc20DepositEvent, PendingPayment, WithdrawMessage},
 };
-use frame_support::{
-	assert_noop, assert_ok,
-	traits::{
-		fungibles::{Inspect, Mutate},
-		OnIdle, OnInitialize,
-	},
-	weights::constants::RocksDbWeight as DbWeight,
+use frame_support::traits::{
+	fungibles::{Inspect, Mutate},
+	OnIdle, OnInitialize,
 };
 use hex_literal::hex;
-use seed_pallet_common::{EthereumEventRouter, EventRouterError};
-use sp_runtime::traits::BadOrigin;
+use seed_pallet_common::test_prelude::*;
 
 #[test]
 fn set_peg_contract_address_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		let signer = make_account_id(22);
+		let signer = create_account(22);
 		let contract_address = H160::from_low_u64_be(123);
 
 		// Setting as not sudo fails
@@ -62,7 +54,7 @@ fn set_peg_contract_address_works() {
 #[test]
 fn set_root_peg_address_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		let signer = make_account_id(22);
+		let signer = create_account(22);
 		let contract_address = H160::from_low_u64_be(123);
 
 		// Setting as not sudo fails
@@ -88,7 +80,7 @@ fn set_root_peg_address_works() {
 #[test]
 fn set_erc20_asset_map_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		let signer = make_account_id(22);
+		let signer = create_account(22);
 		let contract_address = H160::from_low_u64_be(123);
 		let asset_id: AssetId = 12;
 
@@ -544,7 +536,7 @@ fn deposit_payment_with_delay() {
 #[test]
 fn withdraw() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account = make_account_id(123);
+		let account = create_account(123);
 		let asset_id: AssetId = 1;
 		let cennz_eth_address: EthAddress = H160::default();
 		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
@@ -563,7 +555,7 @@ fn withdraw() {
 #[test]
 fn withdraw_with_delay() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account: AccountId = make_account_id(123);
+		let account: AccountId = create_account(123);
 		let asset_id: AssetId = 1;
 		let cennz_eth_address: EthAddress = H160::default();
 		let amount: Balance = 100;
@@ -623,7 +615,7 @@ fn withdraw_with_delay() {
 #[test]
 fn withdraw_less_than_delay_goes_through() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account: AccountId = make_account_id(123);
+		let account: AccountId = create_account(123);
 		let asset_id: AssetId = 1;
 		let cennz_eth_address: EthAddress = H160::default();
 		let amount: Balance = 100;
@@ -661,7 +653,7 @@ fn withdraw_less_than_delay_goes_through() {
 #[test]
 fn withdraw_unsupported_asset_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account: AccountId = make_account_id(123);
+		let account: AccountId = create_account(123);
 		let asset_id: AssetId = 1;
 		let amount: Balance = 100;
 		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
@@ -678,7 +670,7 @@ fn withdraw_unsupported_asset_should_fail() {
 #[test]
 fn withdraw_not_active_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account: AccountId = make_account_id(123);
+		let account: AccountId = create_account(123);
 		let asset_id: AssetId = 1;
 		let amount: Balance = 100;
 		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
@@ -694,7 +686,7 @@ fn withdraw_not_active_should_fail() {
 fn withdraw_transfers_root_token() {
 	ExtBuilder::default().build().execute_with(|| {
 		let token_address: H160 = H160::from_low_u64_be(666);
-		let account: AccountId = make_account_id(456);
+		let account: AccountId = create_account(456);
 		let beneficiary: H160 = H160::from_low_u64_be(457);
 		let withdraw_amount: Balance = 1_000_000;
 

@@ -104,4 +104,8 @@ benchmarks! {
 	}: _(origin::<T>(&relayer), collection_id, serial_numbers)
 }
 
-impl_benchmark_test_suite!(Xls20, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	Xls20,
+	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default().build(),
+	crate::mock::Test
+);

@@ -56,7 +56,7 @@ mod impls;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
-mod test;
+mod tests;
 mod weights;
 
 pub use imbalances::*;

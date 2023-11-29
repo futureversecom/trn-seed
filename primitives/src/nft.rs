@@ -63,7 +63,7 @@ impl MetadataScheme {
 		let mut token_uri = sp_std::Writer::default();
 		write!(&mut token_uri, "{}{}", core::str::from_utf8(&self.0).unwrap_or(""), serial_number)
 			.expect("Not written");
-		token_uri.inner().clone()
+		token_uri.into_inner()
 	}
 }
 
