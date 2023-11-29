@@ -15,18 +15,13 @@
 
 use super::*;
 use crate::mock::AssetsExt;
-use frame_support::{assert_noop, assert_ok};
 use hex::encode;
 use mock::{Dex, RuntimeEvent as MockEvent, RuntimeOrigin, System, Test, TestExt};
-use seed_primitives::AccountId;
+use seed_pallet_common::test_prelude::*;
 use sp_arithmetic::helpers_128bit::sqrt;
-use sp_core::H160;
-use sp_runtime::{traits::BadOrigin, ArithmeticError, DispatchError};
+use sp_runtime::ArithmeticError;
 use std::str::FromStr;
 
-fn create_account(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
-}
 /// x * 10e18
 fn to_eth(amount: u128) -> u128 {
 	amount * 1_000_000_000_000_000_000_u128

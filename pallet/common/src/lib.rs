@@ -35,8 +35,11 @@ use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
 };
 
-pub mod mock;
+#[cfg(feature = "std")]
+pub mod test_utils;
 pub mod utils;
+#[cfg(feature = "std")]
+pub use test_utils::test_prelude;
 
 /// syntactic sugar for logging.
 /// the caller must define a variable `LOG_TARGET = "<my-target>"`

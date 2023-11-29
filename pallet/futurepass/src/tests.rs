@@ -13,19 +13,14 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-#![cfg(test)]
 use super::*;
 use crate::mock::*;
-use frame_support::{
-	assert_err, assert_noop, assert_ok,
-	traits::tokens::fungibles::{Mutate, Transfer},
-};
+use frame_support::traits::tokens::fungibles::{Mutate, Transfer};
 use hex_literal::hex;
-use seed_primitives::{AccountId, AssetId, Balance};
-use seed_runtime::{impls::ProxyType, Inspect};
-
 use pallet_nft::CrossChainCompatibility;
-use seed_primitives::{CollectionUuid, MetadataScheme};
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::MetadataScheme;
+use seed_runtime::{impls::ProxyType, Inspect};
 
 type MockCall = crate::mock::RuntimeCall;
 
@@ -58,7 +53,7 @@ fn create_futurepass_by_owner() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -107,7 +102,7 @@ fn create_futurepass_by_other() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -145,7 +140,7 @@ fn register_delegate_by_owner_works() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -210,7 +205,7 @@ fn register_delegate_by_non_delegate_fails() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -247,7 +242,7 @@ fn register_delegate_with_not_allowed_proxy_type_fails() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -283,7 +278,7 @@ fn register_delegate_fails_if_deadline_expired() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.with_block_number(201) // Note: block number is 201 - which causes deadline to be expired
@@ -321,7 +316,7 @@ fn register_delegate_fails_on_signature_mismatch() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -391,7 +386,7 @@ fn register_delegate_failures_common() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -426,7 +421,7 @@ fn register_delegate_failures_common() {
 			assert_noop!(
 				Futurepass::register_delegate_with_signature(
 					RuntimeOrigin::signed(owner),
-					create_random(),
+					random_account(),
 					delegate_1,
 					proxy_type,
 					deadline,
@@ -495,7 +490,7 @@ fn unregister_delegate_by_owner_works() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -568,7 +563,7 @@ fn unregister_delegate_by_the_delegate_works() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -641,7 +636,7 @@ fn unregister_delegate_by_not_permissioned_fails() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -735,7 +730,7 @@ fn unregister_delegate_by_owner_itself_fails() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -762,7 +757,7 @@ fn unregister_delegate_failures_common() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -813,7 +808,7 @@ fn unregister_delegate_failures_common() {
 			assert_noop!(
 				Futurepass::unregister_delegate(
 					RuntimeOrigin::signed(owner),
-					create_random(),
+					random_account(),
 					delegate_1
 				),
 				Error::<Test>::PermissionDenied
@@ -823,7 +818,7 @@ fn unregister_delegate_failures_common() {
 				Futurepass::unregister_delegate(
 					RuntimeOrigin::signed(owner),
 					futurepass,
-					create_random()
+					random_account()
 				),
 				Error::<Test>::DelegateNotRegistered
 			);
@@ -835,7 +830,7 @@ fn transfer_futurepass_to_address_works() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -927,7 +922,7 @@ fn transfer_futurepass_to_none_works() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -1011,7 +1006,7 @@ fn transfer_futurepass_failures() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -1065,9 +1060,9 @@ fn transfer_futurepass_failures() {
 			// call transfer_futurepass by other than owner should fail
 			assert_noop!(
 				Futurepass::transfer_futurepass(
-					RuntimeOrigin::signed(create_random()),
+					RuntimeOrigin::signed(random_account()),
 					owner,
-					Some(create_random())
+					Some(random_account())
 				),
 				Error::<Test>::NotFuturepassOwner
 			);
@@ -1084,7 +1079,7 @@ fn proxy_extrinsic_simple_transfer_works() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -1145,7 +1140,7 @@ fn proxy_extrinsic_simple_transfer_works() {
 			}));
 			// call proxy_extrinsic by owner
 			let owner_root_balance = AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner);
-			let owner_gas_balance = AssetsExt::balance(MOCK_PAYMENT_ASSET_ID, &owner);
+			let owner_gas_balance = AssetsExt::balance(XRP_ASSET_ID, &owner);
 			assert_ok!(Futurepass::proxy_extrinsic(
 				RuntimeOrigin::signed(owner),
 				futurepass,
@@ -1163,11 +1158,11 @@ fn proxy_extrinsic_simple_transfer_works() {
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), transfer_amount);
 			// owner's(i.e caller's) balance not changed
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), owner_root_balance);
-			assert_eq!(AssetsExt::balance(MOCK_PAYMENT_ASSET_ID, &owner), owner_gas_balance);
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &owner), owner_gas_balance);
 
 			// call proxy_extrinsic by delegate
 			let delegate_root_balance = AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate);
-			let delegate_gas_balance = AssetsExt::balance(MOCK_PAYMENT_ASSET_ID, &delegate);
+			let delegate_gas_balance = AssetsExt::balance(XRP_ASSET_ID, &delegate);
 			assert_ok!(Futurepass::proxy_extrinsic(
 				RuntimeOrigin::signed(delegate),
 				futurepass,
@@ -1181,7 +1176,7 @@ fn proxy_extrinsic_simple_transfer_works() {
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 2 * transfer_amount);
 			// delegate's(i.e caller's) balance not changed
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate), delegate_root_balance);
-			assert_eq!(AssetsExt::balance(MOCK_PAYMENT_ASSET_ID, &delegate), delegate_gas_balance);
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &delegate), delegate_gas_balance);
 		});
 }
 
@@ -1190,7 +1185,7 @@ fn proxy_extrinsic_non_transfer_call_works() {
 	let funder = create_account(1);
 	let endowed = [(funder, 2_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -1266,7 +1261,7 @@ fn proxy_extrinsic_by_non_delegate_fails() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -1349,7 +1344,7 @@ fn proxy_extrinsic_to_futurepass_non_whitelist_fails() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -1405,7 +1400,7 @@ fn proxy_extrinsic_to_futurepass_non_whitelist_fails() {
 			// pallet_futurepass calls other than the whitelist can not be called via
 			// proxy_extrinsic
 			let inner_call =
-				Box::new(MockCall::Futurepass(Call::create { account: create_random() }));
+				Box::new(MockCall::Futurepass(Call::create { account: random_account() }));
 			// call proxy_extrinsic by owner
 			System::reset_events();
 			assert_ok!(Futurepass::proxy_extrinsic(
@@ -1432,7 +1427,7 @@ fn proxy_extrinsic_to_proxy_pallet_fails() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -1487,7 +1482,7 @@ fn proxy_extrinsic_to_proxy_pallet_fails() {
 
 			// pallet_proxy calls can not be called via proxy_extrinsic
 			let inner_call = Box::new(MockCall::Proxy(pallet_proxy::Call::add_proxy {
-				delegate: create_random(),
+				delegate: random_account(),
 				proxy_type,
 				delay: 0,
 			}));
@@ -1517,7 +1512,7 @@ fn proxy_extrinsic_failures_common() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -1580,7 +1575,7 @@ fn proxy_extrinsic_failures_common() {
 			assert_err!(
 				Futurepass::proxy_extrinsic(
 					RuntimeOrigin::signed(other),
-					create_random(),
+					random_account(),
 					inner_call.clone()
 				),
 				pallet_proxy::Error::<Test>::NotProxy
@@ -1620,7 +1615,7 @@ fn whitelist_works() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -1714,7 +1709,7 @@ fn whitelist_works_for_transfer_futurepass() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -1769,7 +1764,7 @@ fn delegate_can_not_call_whitelist_via_proxy_extrinsic() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -1883,7 +1878,7 @@ fn delegate_can_not_call_whitelist_via_proxy_extrinsic() {
 fn futurepass_admin_migrator_set_by_sudo() {
 	let futurepass_admin_migrator = create_account(1337);
 
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		assert_eq!(MigrationAdmin::<Test>::get(), None);
 
 		// fails if not root
@@ -1912,7 +1907,7 @@ fn futurepass_migration_multiple_assets() {
 	let endowed = [(funder, 1_000_000)];
 	let futurepass_admin_migrator = create_account(1337);
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -1924,15 +1919,12 @@ fn futurepass_migration_multiple_assets() {
 
 			// setup assets with eoa as owner, mint assets to eoa EVM futurepass account
 			assert_ok!(AssetsExt::mint_into(MOCK_NATIVE_ASSET_ID, &evm_futurepass, 1000));
-			assert_ok!(AssetsExt::mint_into(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, 500));
+			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &evm_futurepass, 500));
 			assert_eq!(
 				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &evm_futurepass, false),
 				1000
 			);
-			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, false),
-				500
-			);
+			assert_eq!(AssetsExt::reducible_balance(XRP_ASSET_ID, &evm_futurepass, false), 500);
 
 			// fund migrator
 			assert_ok!(AssetsExt::transfer(
@@ -1948,7 +1940,7 @@ fn futurepass_migration_multiple_assets() {
 				RuntimeOrigin::signed(futurepass_admin_migrator),
 				eoa,
 				evm_futurepass,
-				vec![MOCK_NATIVE_ASSET_ID, MOCK_PAYMENT_ASSET_ID],
+				vec![MOCK_NATIVE_ASSET_ID, XRP_ASSET_ID],
 				vec![],
 			));
 			let futurepass = Holders::<Test>::get(&eoa).unwrap();
@@ -1956,7 +1948,7 @@ fn futurepass_migration_multiple_assets() {
 				Event::<Test>::FuturepassAssetsMigrated {
 					evm_futurepass,
 					futurepass,
-					assets: vec![MOCK_NATIVE_ASSET_ID, MOCK_PAYMENT_ASSET_ID],
+					assets: vec![MOCK_NATIVE_ASSET_ID, XRP_ASSET_ID],
 					collections: vec![],
 				}
 				.into(),
@@ -1967,18 +1959,12 @@ fn futurepass_migration_multiple_assets() {
 				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &evm_futurepass, false),
 				0
 			);
-			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, false),
-				0
-			);
+			assert_eq!(AssetsExt::reducible_balance(XRP_ASSET_ID, &evm_futurepass, false), 0);
 			assert_eq!(
 				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
 				1000
 			);
-			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &futurepass, false),
-				500
-			);
+			assert_eq!(AssetsExt::reducible_balance(XRP_ASSET_ID, &futurepass, false), 500);
 		});
 }
 
@@ -1988,7 +1974,7 @@ fn futurepass_migration_single_collection() {
 	let endowed = [(funder, 1_000_000)];
 	let futurepass_admin_migrator = create_account(1337);
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -2052,7 +2038,7 @@ fn futurepass_migration_multiple_collections() {
 	let endowed = [(funder, 1_000_000)];
 	let futurepass_admin_migrator = create_account(1337);
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -2108,7 +2094,7 @@ fn futurepass_migration_existing_futurepass_account() {
 	let endowed = [(funder, 1_000_000)];
 	let futurepass_admin_migrator = create_account(1337);
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
@@ -2167,7 +2153,7 @@ fn futurepass_generate_add_delegate_eth_signed_message() {
 	use sp_core::Pair;
 	use sp_runtime::traits::Verify;
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.build()
 		.execute_with(|| {
 			let futurepass: AccountId =  H160::from_slice(&hex!("FfFFFFff00000000000000000000000000000001")).into();

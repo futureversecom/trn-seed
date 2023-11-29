@@ -217,4 +217,10 @@ benchmarks! {
 	}
 }
 
-impl_benchmark_test_suite!(XrplBridge, crate::mock::new_test_ext_benchmark(), crate::mock::Test);
+impl_benchmark_test_suite!(
+	XrplBridge,
+	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default()
+		.with_asset(2, "XRP", &[])
+		.build(),
+	crate::mock::Test
+);

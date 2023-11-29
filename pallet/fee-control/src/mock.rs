@@ -15,37 +15,22 @@
 
 use crate::{self as pallet_fee_control, *};
 
-use frame_system::EnsureRoot;
-use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever};
-pub use seed_primitives::types::{AccountId, Balance};
-use seed_primitives::AssetId;
-
 use frame_support::{
-	parameter_types,
 	traits::{FindAuthor, InstanceFilter},
 	weights::WeightToFee,
-	PalletId,
 };
-use pallet_evm::GasWeightMapping;
+use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, GasWeightMapping};
 use precompile_utils::{Address, ErcIdConversion};
-use seed_pallet_common::*;
-use sp_core::{H160, H256};
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	ConsensusEngineId,
-};
-
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
+use seed_pallet_common::test_prelude::*;
+use sp_runtime::ConsensusEngineId;
 
 pub const MOCK_PAYMENT_ASSET_ID: AssetId = 100;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -117,17 +102,5 @@ pub mod mock_pallet {
 				Ok(())
 			}
 		}
-	}
-}
-
-#[derive(Default)]
-pub struct TestExt;
-
-impl TestExt {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-		let mut ext: sp_io::TestExternalities = storage.into();
-		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
-		ext
 	}
 }

@@ -13,6 +13,90 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+/// Prelude to be used in mocks and tests, for ease of use
+pub mod test_prelude {
+	pub use crate::{
+		test_utils::{account_creation::*, test_constants::*, test_types::*, *},
+		*,
+	};
+	pub use frame_support::{
+		assert_err, assert_noop, assert_ok, assert_storage_noop, construct_runtime,
+		dispatch::{DispatchError, DispatchResult},
+		parameter_types,
+		storage::{StorageMap, StorageValue},
+		traits::GenesisBuild,
+		weights::{constants::RocksDbWeight as DbWeight, Weight},
+		PalletId,
+	};
+	pub use frame_system::{EnsureRoot, RawOrigin};
+	pub use seed_primitives::{
+		test_utils::TestExt, AccountId, AssetId, Balance, CollectionUuid, MetadataScheme,
+		SerialNumber, TokenId,
+	};
+	pub use sp_core::{H160, H256, U256};
+	pub use sp_runtime::{
+		testing::Header,
+		traits::{BlakeTwo256, IdentityLookup},
+		BoundedVec,
+		DispatchError::BadOrigin,
+		Permill,
+	};
+	pub use sp_std::{vec, vec::Vec};
+}
+
+pub mod test_types {
+	pub type BlockNumber = u64;
+
+	pub type UncheckedExtrinsic<Test> = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+
+	pub type Block<Test> = frame_system::mocking::MockBlock<Test>;
+}
+
+pub mod test_constants {
+	use seed_primitives::AssetId;
+
+	pub const ROOT_ASSET_ID: AssetId = 1;
+	pub const XRP_ASSET_ID: AssetId = 2;
+	pub const VTX_ASSET_ID: AssetId = 3;
+	pub const SPENDING_ASSET_ID: AssetId = XRP_ASSET_ID;
+}
+
+/// Helper functions for creating accounts to be used in tests
+pub mod account_creation {
+	use seed_primitives::AccountId;
+	use sp_core::H160;
+
+	/// Create an AccountId from a u64 seed
+	pub fn create_account(seed: u64) -> AccountId {
+		AccountId::from(H160::from_low_u64_be(seed))
+	}
+
+	/// Creates a random AccountId
+	pub fn random_account() -> AccountId {
+		AccountId::from(H160::random())
+	}
+
+	/// Common account Alice
+	pub fn alice() -> AccountId {
+		create_account(1000)
+	}
+
+	/// Common account Bob
+	pub fn bob() -> AccountId {
+		create_account(2000)
+	}
+
+	/// Common account Charlie
+	pub fn charlie() -> AccountId {
+		create_account(3000)
+	}
+
+	/// Common account Dave
+	pub fn dave() -> AccountId {
+		create_account(4000)
+	}
+}
+
 #[macro_export]
 macro_rules! construct_test_runtime {
 	(
@@ -614,6 +698,29 @@ macro_rules! impl_pallet_proxy_config {
 			type AnnouncementDepositBase = AnnouncementDepositBase;
 			type AnnouncementDepositFactor = AnnouncementDepositFactor;
 			type WeightInfo = ();
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_pallet_scheduler_config {
+	($test:ident) => {
+		parameter_types! {
+			pub const MaxScheduledPerBlock: u32 = 50;
+		}
+
+		impl pallet_scheduler::Config for Test {
+			type RuntimeEvent = RuntimeEvent;
+			type RuntimeOrigin = RuntimeOrigin;
+			type PalletsOrigin = OriginCaller;
+			type RuntimeCall = RuntimeCall;
+			type MaximumWeight = ();
+			type ScheduleOrigin = EnsureRoot<AccountId>;
+			type MaxScheduledPerBlock = MaxScheduledPerBlock;
+			type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
+			type WeightInfo = ();
+			type PreimageProvider = ();
+			type NoPreimagePostponement = ();
 		}
 	};
 }

@@ -33,8 +33,4 @@ benchmarks! {
 
 }
 
-impl_benchmark_test_suite!(
-	EVMChainId,
-	crate::mock::TestExt::default().build(),
-	crate::mock::TestRuntime
-);
+impl_benchmark_test_suite!(EVMChainId, crate::mock::TestExt::default().build(), crate::mock::Test);

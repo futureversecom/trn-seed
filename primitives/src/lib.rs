@@ -23,6 +23,9 @@ pub use types::*;
 pub mod ethy;
 pub mod nft;
 mod signature;
+#[cfg(feature = "std")]
+pub mod test_utils;
+
 pub use nft::*;
 
 // offchain storage config key for XRP HTTP URI
