@@ -94,6 +94,7 @@ impl Config for Test {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, ()>;
 	type ErcIdConversion = Self;
 	type EVMBaseFeeProvider = ();
+	type MaintenanceChecker = ();
 }
 
 /// type alias for runtime configured FeePreferencesRunner

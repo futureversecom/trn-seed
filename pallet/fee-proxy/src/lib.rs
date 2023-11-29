@@ -28,7 +28,7 @@ use frame_support::{
 	traits::IsSubType,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::FeeConfig;
+use seed_pallet_common::{FeeConfig, MaintenanceCheckEVM};
 use seed_primitives::{AssetId, Balance};
 use sp_std::prelude::*;
 
@@ -38,6 +38,7 @@ mod mock;
 mod runner;
 #[cfg(test)]
 mod tests;
+
 pub use runner::{get_fee_preferences_data, FeePreferencesData, FeePreferencesRunner};
 
 pub(crate) const LOG_TARGET: &str = "fee-preferences";
@@ -79,10 +80,12 @@ pub mod pallet {
 		type ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>;
 		/// Base fee data provider for EVM transactions
 		type EVMBaseFeeProvider: seed_pallet_common::FeeConfig;
+		// Maintenance mode checker
+		type MaintenanceChecker: MaintenanceCheckEVM<Self>;
 	}
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A call was made with specified payment asset
 		CallWithFeePreferences { who: T::AccountId, payment_asset: AssetId, max_payment: Balance },

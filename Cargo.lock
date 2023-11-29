@@ -5481,6 +5481,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-maintenance-mode"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-ethy",
+ "pallet-im-online",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-marketplace"
 version = "1.0.0"
 dependencies = [
@@ -8433,6 +8457,7 @@ dependencies = [
  "libsecp256k1 0.6.0",
  "log",
  "pallet-dex-rpc",
+ "pallet-maintenance-mode",
  "pallet-nft-rpc",
  "pallet-sft-rpc",
  "pallet-transaction-payment",
@@ -8577,6 +8602,7 @@ dependencies = [
  "pallet-futurepass",
  "pallet-grandpa",
  "pallet-im-online",
+ "pallet-maintenance-mode",
  "pallet-marketplace",
  "pallet-multisig",
  "pallet-nft",

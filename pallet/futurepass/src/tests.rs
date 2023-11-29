@@ -28,7 +28,13 @@ const FP_CREATION_RESERVE: Balance = 148 + 126; // ProxyDepositBase + ProxyDepos
 const FP_DELEGATE_RESERVE: Balance = 126 * 1; // ProxyDepositFactor * 1(num of delegates)
 
 fn transfer_funds(asset_id: AssetId, source: &AccountId, destination: &AccountId, amount: Balance) {
-	assert_ok!(AssetsExt::transfer(asset_id, &source, &destination, amount, false));
+	assert_ok!(<AssetsExt as Transfer<AccountId>>::transfer(
+		asset_id,
+		&source,
+		&destination,
+		amount,
+		false
+	));
 }
 
 fn setup_collection(owner: &AccountId) -> CollectionUuid {
@@ -1927,7 +1933,7 @@ fn futurepass_migration_multiple_assets() {
 			assert_eq!(AssetsExt::reducible_balance(XRP_ASSET_ID, &evm_futurepass, false), 500);
 
 			// fund migrator
-			assert_ok!(AssetsExt::transfer(
+			assert_ok!(<AssetsExt as Transfer<AccountId>>::transfer(
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&futurepass_admin_migrator,
@@ -1995,7 +2001,7 @@ fn futurepass_migration_single_collection() {
 			assert_eq!(Nft::token_balance_of(&evm_futurepass, collection_id), 5);
 
 			// fund migrator
-			assert_ok!(AssetsExt::transfer(
+			assert_ok!(<AssetsExt as Transfer<AccountId>>::transfer(
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&futurepass_admin_migrator,
@@ -2055,7 +2061,7 @@ fn futurepass_migration_multiple_collections() {
 			assert_ok!(Nft::mint(Some(eoa).into(), collection_id_2, 9, Some(evm_futurepass),));
 
 			// fund migrator
-			assert_ok!(AssetsExt::transfer(
+			assert_ok!(<AssetsExt as Transfer<AccountId>>::transfer(
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&futurepass_admin_migrator,
@@ -2109,7 +2115,7 @@ fn futurepass_migration_existing_futurepass_account() {
 			assert_ok!(Nft::mint(Some(eoa).into(), collection_id, 5, Some(evm_futurepass),));
 
 			// fund migrator
-			assert_ok!(AssetsExt::transfer(
+			assert_ok!(<AssetsExt as Transfer<AccountId>>::transfer(
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&futurepass_admin_migrator,

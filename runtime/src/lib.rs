@@ -36,6 +36,7 @@ use pallet_evm::{
 };
 use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+use seed_pallet_common::MaintenanceCheck;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, ConstU16, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
@@ -219,6 +220,11 @@ pub enum CallFilter {}
 
 impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 	fn contains(call: &RuntimeCall) -> bool {
+		// Check whether this call has been paused by the maintenance_mode pallet
+		if pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(call) {
+			return false
+		}
+
 		match call {
 			// Prevent asset `create` transactions from executing
 			RuntimeCall::Assets(pallet_assets::Call::create { .. }) => false,
@@ -358,7 +364,8 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
-	pub const AssetDeposit: Balance = ONE_XRP;
+	// Note, this is unused in favor of a storage value in AssetsExt when calling AssetsExt::create_asset
+	pub const AssetDeposit: Balance = ONE_ROOT;
 	pub const AssetAccountDeposit: Balance = 16;
 	pub const ApprovalDeposit: Balance = 1;
 	pub const AssetsStringLimit: u32 = 50;
@@ -496,6 +503,7 @@ impl pallet_fee_proxy::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
 	type ErcIdConversion = Self;
 	type EVMBaseFeeProvider = FeeControl;
+	type MaintenanceChecker = pallet_maintenance_mode::MaintenanceChecker<Runtime>;
 }
 
 parameter_types! {
@@ -1227,6 +1235,7 @@ parameter_types! {
 	pub const MaxRewards: u32 = 500;
 	pub const MaxStringLength: u32 = 1_000;
 }
+
 impl pallet_vortex::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_vortex::WeightInfo<Runtime>;
@@ -1243,6 +1252,17 @@ impl pallet_vortex::Config for Runtime {
 	type MaxRewards = MaxRewards;
 	type MaxStringLength = MaxStringLength;
 	type HistoryDepth = HistoryDepth;
+}
+
+impl pallet_maintenance_mode::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type StringLimit = AssetsStringLimit;
+	type WeightInfo = weights::pallet_maintenance_mode::WeightInfo<Self>;
+	type SudoPallet = Sudo;
+	type TimestampPallet = Timestamp;
+	type ImOnlinePallet = ImOnline;
+	type EthyPallet = EthBridge;
 }
 
 /// Block header type as expected by this runtime.
@@ -1291,6 +1311,7 @@ construct_runtime! {
 		FeeProxy: pallet_fee_proxy = 31,
 		FeeControl: pallet_fee_control = 40,
 		Xls20: pallet_xls20 = 42,
+		MaintenanceMode: pallet_maintenance_mode = 47,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -1325,6 +1346,7 @@ pub type SignedExtra = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
+	pallet_maintenance_mode::MaintenanceChecker<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
@@ -2041,6 +2063,7 @@ mod benches {
 		[pallet_futurepass, Futurepass]
 		[pallet_vortex, VortexDistribution]
 		[pallet_dex, Dex]
+		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_marketplace, Marketplace]
 	);
 }
