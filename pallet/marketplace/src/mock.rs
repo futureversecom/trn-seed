@@ -14,33 +14,14 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_marketplace;
-use frame_support::{dispatch::DispatchResult, parameter_types, traits::GenesisBuild, PalletId};
-use frame_system::EnsureRoot;
-use seed_pallet_common::*;
-use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
-};
-use sp_core::{H160, H256};
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	Permill,
-};
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::MetadataScheme;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
-
-pub const XRP_ASSET_ID: AssetId = 2;
-
-pub fn create_account(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
-}
-
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -78,61 +59,4 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type MaxTokensPerListing = MaxTokensPerListing;
 	type MaxOffers = MaxOffers;
-}
-
-#[derive(Default)]
-pub struct TestExt {
-	balances: Vec<(AccountId, Balance)>,
-	xrp_balances: Vec<(AssetId, AccountId, Balance)>,
-}
-
-impl TestExt {
-	/// Configure some native token balances
-	pub fn with_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
-		self.balances = balances.to_vec();
-		self
-	}
-	/// Configure some XRP asset balances
-	pub fn with_xrp_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
-		self.xrp_balances = balances
-			.to_vec()
-			.into_iter()
-			.map(|(who, balance)| (XRP_ASSET_ID, who, balance))
-			.collect();
-		self
-	}
-	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-		if !self.balances.is_empty() {
-			pallet_balances::GenesisConfig::<Test> { balances: self.balances }
-				.assimilate_storage(&mut ext)
-				.unwrap();
-		}
-
-		if !self.xrp_balances.is_empty() {
-			let assets = vec![(XRP_ASSET_ID, create_account(10), true, 1)];
-			let metadata = vec![(XRP_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), 6_u8)];
-			let accounts = self.xrp_balances;
-			pallet_assets::GenesisConfig::<Test> { assets, metadata, accounts }
-				.assimilate_storage(&mut ext)
-				.unwrap();
-		}
-
-		let mut ext: sp_io::TestExternalities = ext.into();
-		ext.execute_with(|| {
-			System::initialize(&1, &[0u8; 32].into(), &Default::default());
-		});
-
-		ext
-	}
-}
-
-#[allow(dead_code)]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
-	ext
 }

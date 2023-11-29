@@ -29,6 +29,8 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+seed-pallet-common = { path = "../common" }
 
 [features]
 default = ["std"]

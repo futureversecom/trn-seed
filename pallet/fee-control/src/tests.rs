@@ -19,19 +19,17 @@ use crate::{
 	Data,
 };
 use frame_support::{
-	assert_ok,
 	dispatch::{DispatchClass, GetDispatchInfo},
 	traits::fungibles::Mutate,
 };
 use frame_system::{limits::BlockWeights, RawOrigin};
 use pallet_transaction_payment::ChargeTransactionPayment;
-use seed_pallet_common::CreateExt;
-use sp_core::U256;
+use seed_pallet_common::test_prelude::*;
 use sp_runtime::{traits::SignedExtension, Perbill};
 
 #[test]
 fn charges_default_extrinsic_amount() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let account = AccountId::default();
 		assert_ok!(AssetsExt::create(&account.into(), None));
 
@@ -68,7 +66,7 @@ fn charges_default_extrinsic_amount() {
 
 #[test]
 fn charges_extrinsic_fee_based_on_setting() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let account = AccountId::default();
 		assert_ok!(AssetsExt::create(&account.into(), None));
 
@@ -110,7 +108,7 @@ fn charges_extrinsic_fee_based_on_setting() {
 
 #[test]
 fn set_evm_base_fee_works() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let new_value = U256::from(12345);
 		assert_ok!(FeeControl::set_evm_base_fee(RawOrigin::Root.into(), new_value));
 
@@ -124,7 +122,7 @@ fn set_evm_base_fee_works() {
 
 #[test]
 fn set_weight_multiplier_works() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let new_value = Perbill::from_parts(12345);
 		assert_ok!(FeeControl::set_weight_multiplier(RawOrigin::Root.into(), new_value));
 
@@ -138,7 +136,7 @@ fn set_weight_multiplier_works() {
 
 #[test]
 fn set_length_multiplier_works() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let new_value: Balance = 12345;
 		assert_ok!(FeeControl::set_length_multiplier(RawOrigin::Root.into(), new_value));
 

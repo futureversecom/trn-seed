@@ -171,4 +171,8 @@ benchmarks! {
 	}: _(origin::<T>(&account::<T>("Alice")), offer_id)
 }
 
-impl_benchmark_test_suite!(Marketplace, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	Marketplace,
+	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default().build(),
+	crate::mock::Test
+);
