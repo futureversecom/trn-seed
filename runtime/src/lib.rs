@@ -1259,14 +1259,14 @@ impl pallet_vortex::Config for Runtime {
 }
 
 impl pallet_maintenance_mode::Config for Runtime {
-    type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type StringLimit = AssetsStringLimit;
-    type WeightInfo = weights::pallet_maintenance_mode::WeightInfo<Self>;
-    type SudoPallet = Sudo;
-    type TimestampPallet = Timestamp;
-    type ImOnlinePallet = ImOnline;
-    type EthyPallet = EthBridge;
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type StringLimit = AssetsStringLimit;
+	type WeightInfo = weights::pallet_maintenance_mode::WeightInfo<Self>;
+	type SudoPallet = Sudo;
+	type TimestampPallet = Timestamp;
+	type ImOnlinePallet = ImOnline;
+	type EthyPallet = EthBridge;
 }
 
 /// Block header type as expected by this runtime.
@@ -1315,7 +1315,7 @@ construct_runtime! {
 		FeeProxy: pallet_fee_proxy = 31,
 		FeeControl: pallet_fee_control = 40,
 		Xls20: pallet_xls20 = 42,
-        MaintenanceMode: pallet_maintenance_mode = 47,
+		MaintenanceMode: pallet_maintenance_mode = 47,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
