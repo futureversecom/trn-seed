@@ -175,7 +175,6 @@ where
 	C::Api: pallet_dex_rpc::DexRuntimeApi<Block, Runtime>,
 	C::Api: pallet_nft_rpc::NftRuntimeApi<Block, AccountId, Runtime>,
 	C::Api: pallet_sft_rpc::SftRuntimeApi<Block, Runtime>,
-	C::Api: pallet_assets_ext_rpc::AssetsExtRuntimeApi<Block, AccountId, Runtime>,
 	P: TransactionPool<Block = Block> + 'static,
 	SC: SelectChain<Block> + 'static,
 {
@@ -183,7 +182,6 @@ where
 		Eth, EthApiServer, EthFilter, EthFilterApiServer, EthPubSub, EthPubSubApiServer, Net,
 		NetApiServer, Web3, Web3ApiServer,
 	};
-	use pallet_assets_ext_rpc::{AssetsExt, AssetsExtApiServer};
 	use pallet_dex_rpc::{Dex, DexApiServer};
 	use pallet_nft_rpc::{Nft, NftApiServer};
 	use pallet_sft_rpc::{Sft, SftApiServer};
@@ -260,7 +258,6 @@ where
 	io.merge(Dex::new(client.clone()).into_rpc())?;
 	io.merge(Nft::new(client.clone()).into_rpc())?;
 	io.merge(Sft::new(client.clone()).into_rpc())?;
-	io.merge(AssetsExt::new(client.clone()).into_rpc())?;
 
 	// Ethereum compatible RPCs
 	io.merge(

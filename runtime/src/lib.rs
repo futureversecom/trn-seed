@@ -1580,16 +1580,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_assets_ext_rpc_runtime_api::AssetsExtApi<
-		Block,
-		AccountId,
-		Runtime,
-	> for Runtime {
-		fn asset_balance(asset_id: AssetId, who: AccountId) -> Balance {
-			AssetsExt::reducible_balance(asset_id, &who, false)
-		}
-	}
-
 	impl pallet_sft_rpc_runtime_api::SftApi<Block, Runtime> for Runtime {
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Sft::token_uri(token_id)

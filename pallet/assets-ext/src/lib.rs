@@ -1,4 +1,3 @@
-#![feature(associated_type_defaults)]
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -111,8 +110,6 @@ pub mod pallet {
 		pallet_assets::Config<AssetId = AssetId, Balance = Balance>
 		+ pallet_balances::Config<Balance = Balance, ReserveIdentifier = PalletIdValue>
 	{
-		// Id used for identifying assets.
-		type AssetId = u32;
 		/// The overarching event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The parachain_id being used by this parachain
