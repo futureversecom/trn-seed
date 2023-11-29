@@ -11,6 +11,7 @@ import {
   BOB_PRIVATE_KEY,
   ERC1155_PRECOMPILE_ABI,
   NodeProcess,
+  ROOT_PRECOMPILE_ADDRESS,
   SFT_PRECOMPILE_ABI,
   SFT_PRECOMPILE_ADDRESS,
   getSftCollectionPrecompileAddress,
@@ -583,6 +584,86 @@ describe("ERC1155 Precompile", function () {
       initialIssuance2 - transferAmount2,
     );
     expect(await erc1155Precompile.balanceOf(alithSigner.address, serialNumber2)).to.equal(transferAmount2);
+  });
+
+  it("togglePublicMint", async () => {
+    const initialIssuance = 100;
+    const serialNumber = await createToken(initialIssuance);
+    // Enable public mint
+    const tx = await erc1155Precompile.connect(bobSigner).togglePublicMint(serialNumber, true);
+    const receipt = await tx.wait();
+    expect((receipt?.events as any)[0].event).to.equal("PublicMintToggled");
+    expect((receipt?.events as any)[0].args.id).to.equal(serialNumber);
+    expect((receipt?.events as any)[0].args.enabled).to.equal(true);
+
+    // Disable again
+    const tx2 = await erc1155Precompile.connect(bobSigner).togglePublicMint(serialNumber, false);
+    const receipt2 = await tx2.wait();
+    expect((receipt2?.events as any)[0].event).to.equal("PublicMintToggled");
+    expect((receipt?.events as any)[0].args.id).to.equal(serialNumber);
+    expect((receipt2?.events as any)[0].args.enabled).to.equal(false);
+  });
+
+  it("setMintFee", async () => {
+    const paymentAsset = ROOT_PRECOMPILE_ADDRESS;
+    const mintFee = 100000;
+    const initialIssuance = 100;
+    const serialNumber = await createToken(initialIssuance);
+    // Set Mint Fee
+    const tx = await erc1155Precompile.connect(bobSigner).setMintFee(serialNumber, paymentAsset, mintFee);
+    const receipt = await tx.wait();
+    expect((receipt?.events as any)[0].event).to.equal("MintFeeUpdated");
+    expect((receipt?.events as any)[0].args.id).to.equal(serialNumber);
+    expect((receipt?.events as any)[0].args.paymentAsset).to.equal(paymentAsset);
+    expect((receipt?.events as any)[0].args.mintFee).to.equal(mintFee);
+
+    // Set mint fee again
+    const mintFee2 = 0;
+    const tx2 = await erc1155Precompile.connect(bobSigner).setMintFee(serialNumber, paymentAsset, mintFee2);
+    const receipt2 = await tx2.wait();
+    expect((receipt2?.events as any)[0].event).to.equal("MintFeeUpdated");
+    expect((receipt2?.events as any)[0].args.id).to.equal(serialNumber);
+    expect((receipt2?.events as any)[0].args.paymentAsset).to.equal(paymentAsset);
+    expect((receipt2?.events as any)[0].args.mintFee).to.equal(mintFee2);
+  });
+
+  // Tests whether enabling public mint allows any user to call mint and pay the mint fee
+  it("enabling public mint works and charges fee", async () => {
+    const tokenOwner = await Wallet.createRandom().getAddress();
+    const paymentAsset = ROOT_PRECOMPILE_ADDRESS; // Use ROOT so we don't have to calculate fees
+    const mintFee = 100000;
+    const serialNumber = await createToken(0);
+    const initialIssuance = 100;
+    const receiverAddress = await Wallet.createRandom().getAddress();
+
+    // Trying to mint before enabling public mint should fail
+    await erc1155Precompile
+      .connect(alithSigner)
+      .mint(receiverAddress, serialNumber, initialIssuance)
+      .catch((err: any) => {
+        expect(err.message).contains("PublicMintDisabled");
+      });
+
+    // Set Mint Fee
+    const mintFeeTx = await erc1155Precompile.connect(bobSigner).setMintFee(serialNumber, paymentAsset, mintFee);
+    await mintFeeTx.wait();
+
+    // Enable public mint
+    const togglePublicMintTx = await erc1155Precompile.connect(bobSigner).togglePublicMint(serialNumber, true);
+    await togglePublicMintTx.wait();
+
+    const balanceBefore: any = ((await api.query.system.account(alithSigner.address)).toJSON() as any).data.free;
+    const mintTx = await erc1155Precompile.connect(alithSigner).mint(tokenOwner, serialNumber, initialIssuance);
+    await mintTx.wait();
+    const bal = await erc1155Precompile.balanceOf(tokenOwner, serialNumber);
+    // Check tokenOwner received the tokens
+    expect(bal).to.equal(initialIssuance);
+
+    // Calculate Bob's ROOT balance after
+    const balanceAfter: any = ((await api.query.system.account(alithSigner.address)).toJSON() as any).data.free;
+    const balanceDiff = balanceBefore - balanceAfter;
+    const expectedDiff = mintFee * initialIssuance;
+    expect(balanceDiff).to.equal(expectedDiff);
   });
 
   it("Ownable - owner, renounceOwnership, transferOwnership", async () => {

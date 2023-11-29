@@ -392,6 +392,67 @@ fn create_collection_royalties_invalid() {
 }
 
 #[test]
+fn create_collection_too_many_entitlements_fails() {
+	TestExt::default().build().execute_with(|| {
+		let owner = create_account(1);
+		let name = bounded_string("test-collection");
+		let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
+
+		// Too many entitlements should fail
+		let royalties_schedule = RoyaltiesSchedule::<AccountId> {
+			entitlements: BoundedVec::truncate_from(vec![
+				(create_account(1), Permill::from_parts(1)),
+				(create_account(2), Permill::from_parts(1)),
+				(create_account(3), Permill::from_parts(1)),
+				(create_account(4), Permill::from_parts(1)),
+				(create_account(5), Permill::from_parts(1)),
+				(create_account(6), Permill::from_parts(1)),
+				(create_account(7), Permill::from_parts(1)),
+			]),
+		};
+
+		// Call with invalid royalties should fail
+		assert_noop!(
+			Nft::create_collection(
+				Some(owner).into(),
+				name.clone(),
+				1,
+				None,
+				None,
+				metadata_scheme.clone(),
+				Some(royalties_schedule),
+				CrossChainCompatibility::default(),
+			),
+			Error::<Test>::RoyaltiesInvalid
+		);
+
+		// 6 royalties should pass
+		let royalties_schedule = RoyaltiesSchedule::<AccountId> {
+			entitlements: BoundedVec::truncate_from(vec![
+				(create_account(1), Permill::from_parts(1)),
+				(create_account(2), Permill::from_parts(1)),
+				(create_account(3), Permill::from_parts(1)),
+				(create_account(4), Permill::from_parts(1)),
+				(create_account(5), Permill::from_parts(1)),
+				(create_account(6), Permill::from_parts(1)),
+			]),
+		};
+
+		// Call should pass with 6 entitlements
+		assert_ok!(Nft::create_collection(
+			Some(owner).into(),
+			name.clone(),
+			1,
+			None,
+			None,
+			metadata_scheme.clone(),
+			Some(royalties_schedule),
+			CrossChainCompatibility::default(),
+		));
+	});
+}
+
+#[test]
 fn transfer() {
 	TestExt::default().build().execute_with(|| {
 		// setup token collection + one token
@@ -2099,10 +2160,61 @@ mod set_royalties_schedule {
 			);
 		});
 	}
+
+	#[test]
+	fn set_royalties_too_many_entitlements_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+
+			// Too many entitlements should fail
+			let royalties_schedule = RoyaltiesSchedule::<AccountId> {
+				entitlements: BoundedVec::truncate_from(vec![
+					(create_account(1), Permill::from_parts(1)),
+					(create_account(2), Permill::from_parts(1)),
+					(create_account(3), Permill::from_parts(1)),
+					(create_account(4), Permill::from_parts(1)),
+					(create_account(5), Permill::from_parts(1)),
+					(create_account(6), Permill::from_parts(1)),
+					(create_account(7), Permill::from_parts(1)),
+				]),
+			};
+
+			// Calls with invalid royalties should fail
+			assert_noop!(
+				Nft::set_royalties_schedule(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					royalties_schedule.clone()
+				),
+				Error::<Test>::RoyaltiesInvalid
+			);
+
+			// 6 royalties should pass
+			let royalties_schedule = RoyaltiesSchedule::<AccountId> {
+				entitlements: BoundedVec::truncate_from(vec![
+					(create_account(1), Permill::from_parts(1)),
+					(create_account(2), Permill::from_parts(1)),
+					(create_account(3), Permill::from_parts(1)),
+					(create_account(4), Permill::from_parts(1)),
+					(create_account(5), Permill::from_parts(1)),
+					(create_account(6), Permill::from_parts(1)),
+				]),
+			};
+
+			// Call should pass with 6 entitlements
+			assert_ok!(Nft::set_royalties_schedule(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				royalties_schedule.clone()
+			),);
+		});
+	}
 }
 
 mod set_mint_fee {
 	use super::*;
+	use seed_pallet_common::utils::PublicMintInformation;
 
 	#[test]
 	fn set_mint_fee_works() {
@@ -2232,6 +2344,7 @@ mod set_mint_fee {
 
 mod toggle_public_mint {
 	use super::*;
+	use seed_pallet_common::utils::PublicMintInformation;
 
 	#[test]
 	fn toggle_public_mint_works() {

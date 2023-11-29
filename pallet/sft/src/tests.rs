@@ -18,6 +18,7 @@ use crate::{
 	SftTokenInformation, TokenInfo,
 };
 use frame_support::{assert_noop, assert_ok};
+use frame_system::RawOrigin;
 use seed_primitives::{
 	Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenId,
 };
@@ -276,32 +277,6 @@ mod create_collection {
 				Error::<Test>::RoyaltiesInvalid
 			);
 
-			// Too Large RoyaltiesSchedule vec
-			// MAX_ENTITLEMENTS is set to 8 so anything over 8 should fail
-			let large_royalties_schedule = RoyaltiesSchedule {
-				entitlements: BoundedVec::truncate_from(vec![
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-					(bob(), Permill::one()),
-				]),
-			};
-			assert_noop!(
-				Sft::create_collection(
-					Some(alice()).into(),
-					bounded_string("test-collection"),
-					None,
-					metadata_scheme.clone(),
-					Some(large_royalties_schedule),
-				),
-				Error::<Test>::RoyaltiesInvalid
-			);
-
 			// Royalties over 100%
 			// MAX_ENTITLEMENTS is set to 8 so anything over 8 should fail
 			let large_royalties_schedule = RoyaltiesSchedule {
@@ -320,6 +295,61 @@ mod create_collection {
 				),
 				Error::<Test>::RoyaltiesInvalid
 			);
+		});
+	}
+
+	#[test]
+	fn create_collection_too_many_entitlements_fails() {
+		TestExt::default().build().execute_with(|| {
+			let owner = create_account(1);
+			let name = bounded_string("test-collection");
+			let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
+
+			// Too many entitlements should fail
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![
+					(create_account(1), Permill::from_parts(1)),
+					(create_account(2), Permill::from_parts(1)),
+					(create_account(3), Permill::from_parts(1)),
+					(create_account(4), Permill::from_parts(1)),
+					(create_account(5), Permill::from_parts(1)),
+					(create_account(6), Permill::from_parts(1)),
+					(create_account(7), Permill::from_parts(1)),
+				]),
+			};
+
+			// Call with invalid royalties should fail
+			assert_noop!(
+				Sft::create_collection(
+					Some(owner).into(),
+					name.clone(),
+					None,
+					metadata_scheme.clone(),
+					Some(royalties_schedule),
+				),
+				Error::<Test>::RoyaltiesInvalid
+			);
+
+			// 6 royalties should pass
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![
+					(create_account(1), Permill::from_parts(1)),
+					(create_account(2), Permill::from_parts(1)),
+					(create_account(3), Permill::from_parts(1)),
+					(create_account(4), Permill::from_parts(1)),
+					(create_account(5), Permill::from_parts(1)),
+					(create_account(6), Permill::from_parts(1)),
+				]),
+			};
+
+			// Call should pass with 6 entitlements
+			assert_ok!(Sft::create_collection(
+				Some(owner).into(),
+				name.clone(),
+				None,
+				metadata_scheme.clone(),
+				Some(royalties_schedule),
+			));
 		});
 	}
 }
@@ -760,7 +790,7 @@ mod mint {
 	}
 
 	#[test]
-	fn mint_not_collection_owner_fails() {
+	fn mint_not_collection_owner_public_mint_disabled_fails() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 0);
@@ -774,7 +804,7 @@ mod mint {
 					bounded_combined(vec![serial_number], vec![100]),
 					None,
 				),
-				Error::<Test>::NotCollectionOwner
+				Error::<Test>::PublicMintDisabled
 			);
 		});
 	}
@@ -1710,5 +1740,860 @@ mod set_royalties_schedule {
 				Error::<Test>::RoyaltiesInvalid
 			);
 		});
+	}
+
+	#[test]
+	fn set_royalties_too_many_entitlements_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_id = create_test_token(collection_owner, collection_owner, 8100);
+
+			// Too many entitlements should fail
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![
+					(create_account(1), Permill::from_parts(1)),
+					(create_account(2), Permill::from_parts(1)),
+					(create_account(3), Permill::from_parts(1)),
+					(create_account(4), Permill::from_parts(1)),
+					(create_account(5), Permill::from_parts(1)),
+					(create_account(6), Permill::from_parts(1)),
+					(create_account(7), Permill::from_parts(1)),
+				]),
+			};
+
+			// Calls with invalid royalties should fail
+			assert_noop!(
+				Sft::set_royalties_schedule(
+					Some(collection_owner).into(),
+					token_id.0,
+					royalties_schedule.clone()
+				),
+				Error::<Test>::RoyaltiesInvalid
+			);
+
+			// 6 royalties should pass
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![
+					(create_account(1), Permill::from_parts(1)),
+					(create_account(2), Permill::from_parts(1)),
+					(create_account(3), Permill::from_parts(1)),
+					(create_account(4), Permill::from_parts(1)),
+					(create_account(5), Permill::from_parts(1)),
+					(create_account(6), Permill::from_parts(1)),
+				]),
+			};
+
+			// Call should pass with 6 entitlements
+			assert_ok!(Sft::set_royalties_schedule(
+				Some(collection_owner).into(),
+				token_id.0,
+				royalties_schedule.clone()
+			),);
+		});
+	}
+}
+
+mod set_mint_fee {
+	use super::*;
+	use crate::{Event, PublicMintInfo};
+	use seed_pallet_common::utils::PublicMintInformation;
+	use seed_primitives::AssetId;
+
+	#[test]
+	fn set_mint_fee_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let pricing_details: (AssetId, Balance) = (1, 100);
+			let initial_issuance = 1000;
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
+
+			assert_ok!(Sft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				Some(pricing_details)
+			));
+
+			let expected_mint_info =
+				PublicMintInformation { enabled: false, pricing_details: Some(pricing_details) };
+			assert_eq!(PublicMintInfo::<Test>::get(token_id).unwrap(), expected_mint_info);
+
+			// Setting to different value works
+			let pricing_details: (AssetId, Balance) = (2, 234);
+
+			assert_ok!(Sft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				Some(pricing_details)
+			));
+
+			let expected_mint_info =
+				PublicMintInformation { enabled: false, pricing_details: Some(pricing_details) };
+			assert_eq!(PublicMintInfo::<Test>::get(token_id).unwrap(), expected_mint_info);
+
+			// Setting to None removes from storage
+			assert_ok!(Sft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				None
+			));
+			assert_eq!(PublicMintInfo::<Test>::get(token_id), None);
+		});
+	}
+
+	#[test]
+	fn set_mint_fee_should_keep_enabled_flag_intact() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let initial_issuance = 1000;
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
+			let pricing_details: (AssetId, Balance) = (1, 100);
+
+			// Toggle mint should set enabled to true
+			assert_ok!(Sft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				true
+			));
+
+			// Set mint price should update pricing details but keep enabled as true
+			assert_ok!(Sft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				Some(pricing_details)
+			));
+
+			let expected_mint_info =
+				PublicMintInformation { enabled: true, pricing_details: Some(pricing_details) };
+			assert_eq!(PublicMintInfo::<Test>::get(token_id).unwrap(), expected_mint_info);
+		});
+	}
+
+	#[test]
+	fn set_mint_fee_emits_event() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let initial_issuance = 1000;
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
+			let pricing_details: (AssetId, Balance) = (1, 100);
+
+			assert_ok!(Sft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				Some(pricing_details)
+			));
+
+			assert!(has_event(Event::<Test>::MintPriceSet {
+				token_id,
+				payment_asset: Some(pricing_details.0),
+				mint_price: Some(pricing_details.1),
+			}));
+		});
+	}
+
+	#[test]
+	fn set_mint_fee_not_collection_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let initial_issuance = 1000;
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
+			let pricing_details: (AssetId, Balance) = (1, 100);
+			let bobby = create_account(11);
+
+			assert_noop!(
+				Sft::set_mint_fee(RawOrigin::Signed(bobby).into(), token_id, Some(pricing_details)),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_mint_fee_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_id = (1, 1); // No collection
+			let pricing_details: (AssetId, Balance) = (1, 100);
+
+			assert_noop!(
+				Sft::set_mint_fee(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(pricing_details)
+				),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+}
+
+mod toggle_public_mint {
+	use super::*;
+	use crate::{Event, PublicMintInfo};
+	use seed_pallet_common::utils::PublicMintInformation;
+	use seed_primitives::AssetId;
+
+	#[test]
+	fn toggle_public_mint_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let initial_issuance = 1000;
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
+			let enabled = true;
+
+			assert_ok!(Sft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				enabled
+			));
+
+			assert_eq!(PublicMintInfo::<Test>::get(token_id).unwrap().enabled, enabled);
+
+			// Disable again should work and clear storage
+			let enabled = false;
+			assert_ok!(Sft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				enabled
+			));
+
+			assert_eq!(PublicMintInfo::<Test>::get(token_id), None);
+		});
+	}
+
+	#[test]
+	fn toggle_public_mint_emits_event() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let initial_issuance = 1000;
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
+			let enabled = true;
+
+			assert_ok!(Sft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				enabled
+			));
+
+			assert!(has_event(Event::<Test>::PublicMintToggle { token_id, enabled }));
+
+			// Disable again should work and still throw event
+			let enabled = false;
+			assert_ok!(Sft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				enabled
+			));
+
+			assert!(has_event(Event::<Test>::PublicMintToggle { token_id, enabled }));
+		});
+	}
+
+	#[test]
+	fn toggle_public_mint_should_keep_pricing_details() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let initial_issuance = 1000;
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
+			let enabled = true;
+
+			// Set up pricing details
+			let pricing_details: (AssetId, Balance) = (2, 234);
+			assert_ok!(Sft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				Some(pricing_details)
+			));
+
+			// Toggle mint should set enabled to true but keep pricing_details in tact
+			assert_ok!(Sft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				enabled
+			));
+
+			let expected_mint_info =
+				PublicMintInformation { enabled: true, pricing_details: Some(pricing_details) };
+			assert_eq!(PublicMintInfo::<Test>::get(token_id).unwrap(), expected_mint_info);
+		});
+	}
+}
+
+mod public_minting {
+	use super::*;
+	use crate::{
+		mock::{AssetsExt, XRP_ASSET_ID},
+		Event,
+	};
+	use frame_support::traits::fungibles::Inspect;
+	use seed_primitives::AssetId;
+
+	#[test]
+	fn public_mint_should_let_user_mint() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let minter = create_account(11);
+			let max_issuance = 10_000;
+
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				0,
+				Some(max_issuance),
+				None,
+			));
+			let serial_number = 0;
+
+			// Minter should not be able to mint token
+			assert_noop!(
+				Sft::mint(
+					Some(minter).into(),
+					collection_id,
+					bounded_combined(vec![serial_number], vec![max_issuance]),
+					None
+				),
+				Error::<Test>::PublicMintDisabled
+			);
+
+			let serial_numbers: Vec<SerialNumber> = vec![0, 1, 2, 3, 4, 5, 6];
+			let quantities: Vec<Balance> = vec![1000, 2000, 3000, 4000, 5000, 6000, 7000];
+
+			// Create each token with initial_issuance = 0
+			for serial_number in serial_numbers.iter() {
+				let token_id = (collection_id, *serial_number);
+				assert_ok!(Sft::create_token(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_string("my-token"),
+					0,
+					None,
+					None,
+				));
+				// Enable public minting
+				assert_ok!(Sft::toggle_public_mint(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					true
+				));
+			}
+
+			// Mint the quantities to the token_owner for each serial
+			assert_ok!(Sft::mint(
+				Some(minter).into(),
+				collection_id,
+				bounded_combined(serial_numbers.clone(), quantities.clone()),
+				None,
+			));
+
+			// Should emit event
+			assert!(has_event(Event::<Test>::Mint {
+				collection_id,
+				serial_numbers: bounded_serials(serial_numbers.clone()),
+				balances: bounded_quantities(quantities.clone()),
+				owner: minter,
+			}));
+
+			// Check that minter has 100 token
+			for (serial_number, quantity) in serial_numbers.iter().zip(quantities.iter()) {
+				let token_id = (collection_id, *serial_number);
+				let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+				assert_eq!(token_info.free_balance_of(&minter), *quantity);
+				assert_eq!(token_info.token_issuance, *quantity);
+			}
+		});
+	}
+
+	#[test]
+	fn public_mint_with_price_should_charge_user() {
+		let minter = create_account(11);
+		let initial_balance = 100000;
+		TestExt::default()
+			.with_xrp_balances(&[(minter, initial_balance)])
+			.build()
+			.execute_with(|| {
+				let collection_owner = create_account(10);
+				let collection_id = create_test_collection(collection_owner);
+				let quantity = 100;
+				let mint_price = 25;
+				let payment_asset = XRP_ASSET_ID;
+				let max_issuance = 10_000;
+				assert_ok!(Sft::create_token(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_string("my-token"),
+					0,
+					Some(max_issuance),
+					None,
+				));
+				let serial_number = 0;
+				let token_id = (collection_id, serial_number);
+
+				// Set up pricing details
+				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
+				assert_ok!(Sft::set_mint_fee(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(pricing_details)
+				));
+
+				// Enable public minting
+				assert_ok!(Sft::toggle_public_mint(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					true
+				));
+
+				// Minter should be able to mint
+				// Mint the quantities to the token_owner for each serial
+				assert_ok!(Sft::mint(
+					Some(minter).into(),
+					collection_id,
+					bounded_combined(vec![serial_number], vec![quantity]),
+					None,
+				));
+
+				let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+				assert_eq!(token_info.free_balance_of(&minter), quantity);
+
+				// Should emit both mint and payment event
+				assert!(has_event(Event::<Test>::Mint {
+					collection_id,
+					serial_numbers: bounded_serials(vec![serial_number]),
+					balances: bounded_quantities(vec![quantity]),
+					owner: minter,
+				}));
+
+				let payment_amount: Balance = mint_price * quantity as u128;
+				assert!(has_event(Event::<Test>::MintFeePaid {
+					who: minter,
+					token_id,
+					payment_asset,
+					payment_amount,
+					token_count: quantity,
+				}));
+
+				// Check minter was charged the correct amount
+				let minter_balance = AssetsExt::reducible_balance(payment_asset, &minter, false);
+				assert_eq!(minter_balance, initial_balance - payment_amount);
+			});
+	}
+
+	#[test]
+	fn public_batch_mint_with_price_should_charge_user() {
+		let minter = create_account(11);
+		let initial_balance = 1000000;
+		TestExt::default()
+			.with_xrp_balances(&[(minter, initial_balance)])
+			.build()
+			.execute_with(|| {
+				let collection_owner = create_account(10);
+				let collection_id = create_test_collection(collection_owner);
+				let payment_asset = XRP_ASSET_ID;
+				let serial_numbers: Vec<SerialNumber> = vec![0, 1];
+				let quantities: Vec<Balance> = vec![1000, 2000];
+				let mint_price: Vec<Balance> = vec![25, 50];
+				for (serial_number, price) in serial_numbers.iter().zip(mint_price.iter()) {
+					let token_id = (collection_id, *serial_number);
+					assert_ok!(Sft::create_token(
+						Some(collection_owner).into(),
+						collection_id,
+						bounded_string("my-token"),
+						0,
+						None,
+						None,
+					));
+					// Enable public minting
+					assert_ok!(Sft::toggle_public_mint(
+						RawOrigin::Signed(collection_owner).into(),
+						token_id,
+						true
+					));
+					// Set up pricing details
+					let pricing_details: (AssetId, Balance) = (payment_asset, *price);
+					assert_ok!(Sft::set_mint_fee(
+						RawOrigin::Signed(collection_owner).into(),
+						token_id,
+						Some(pricing_details)
+					));
+				}
+
+				// Mint the quantities to the token_owner for each serial
+				assert_ok!(Sft::mint(
+					Some(minter).into(),
+					collection_id,
+					bounded_combined(serial_numbers.clone(), quantities.clone()),
+					None,
+				));
+
+				// Should emit both mint and payment event
+				assert!(has_event(Event::<Test>::Mint {
+					collection_id,
+					serial_numbers: bounded_serials(serial_numbers.clone()),
+					balances: bounded_quantities(quantities.clone()),
+					owner: minter,
+				}));
+
+				let mut total_fee_paid = 0;
+				for ((serial_number, quantity), price) in
+					serial_numbers.iter().zip(quantities.iter()).zip(mint_price.iter())
+				{
+					let token_id = (collection_id, *serial_number);
+
+					let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+					assert_eq!(token_info.free_balance_of(&minter), *quantity);
+
+					let payment_amount: Balance = *price * *quantity as u128;
+					total_fee_paid = total_fee_paid + payment_amount;
+					assert!(has_event(Event::<Test>::MintFeePaid {
+						who: minter,
+						token_id,
+						payment_asset,
+						payment_amount,
+						token_count: *quantity,
+					}));
+				}
+
+				// Check minter was charged the correct amount
+				let minter_balance = AssetsExt::reducible_balance(payment_asset, &minter, false);
+				assert_eq!(minter_balance, initial_balance - total_fee_paid);
+			});
+	}
+
+	#[test]
+	fn public_batch_mint_fails_when_public_minting_not_enabled_for_all_token_ids() {
+		let minter = create_account(11);
+		let initial_balance = 100000;
+		TestExt::default()
+			.with_xrp_balances(&[(minter, initial_balance)])
+			.build()
+			.execute_with(|| {
+				let collection_owner = create_account(10);
+				let collection_id = create_test_collection(collection_owner);
+				let payment_asset = XRP_ASSET_ID;
+				let serial_numbers: Vec<SerialNumber> = vec![0, 1];
+				let quantities: Vec<Balance> = vec![1000, 2000];
+				let mint_price = 100;
+
+				let token_id = (collection_id, serial_numbers[0]);
+				// Enable public minting only on first serial number
+				assert_ok!(Sft::toggle_public_mint(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					true
+				));
+				// Set up pricing details
+				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
+				assert_ok!(Sft::set_mint_fee(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(pricing_details)
+				));
+				for _ in serial_numbers.iter() {
+					assert_ok!(Sft::create_token(
+						Some(collection_owner).into(),
+						collection_id,
+						bounded_string("my-token"),
+						0,
+						None,
+						None,
+					));
+				}
+
+				// Not able to mint as not all token id are public mint enabled
+				assert_noop!(
+					Sft::mint(
+						Some(minter).into(),
+						collection_id,
+						bounded_combined(serial_numbers.clone(), quantities.clone()),
+						None,
+					),
+					Error::<Test>::PublicMintDisabled
+				);
+
+				let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+				assert_eq!(token_info.free_balance_of(&minter), 0);
+
+				// Check minter was charged the correct amount
+				let minter_balance = AssetsExt::reducible_balance(payment_asset, &minter, false);
+				assert_eq!(minter_balance, initial_balance);
+			});
+	}
+
+	#[test]
+	fn public_mint_insufficient_balance_should_fail() {
+		let minter = create_account(11);
+		let initial_balance = 99; // Not enough
+		TestExt::default()
+			.with_xrp_balances(&[(minter, initial_balance)])
+			.build()
+			.execute_with(|| {
+				let collection_owner = create_account(10);
+				let collection_id = create_test_collection(collection_owner);
+				let quantity = 1;
+				let mint_price = 100;
+				let payment_asset = XRP_ASSET_ID;
+				assert_ok!(Sft::create_token(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_string("my-token"),
+					0,
+					None,
+					None,
+				));
+				let serial_number = 0;
+				let token_id = (collection_id, serial_number);
+
+				// Set up pricing details
+				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
+				assert_ok!(Sft::set_mint_fee(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(pricing_details)
+				));
+
+				// Enable public minting
+				assert_ok!(Sft::toggle_public_mint(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					true
+				));
+
+				// Minter doesn't have enough XRP to cover mint
+				assert_noop!(
+					Sft::mint(
+						Some(minter).into(),
+						collection_id,
+						bounded_combined(vec![serial_number], vec![quantity]),
+						None,
+					),
+					pallet_assets::Error::<Test>::BalanceLow
+				);
+			});
+	}
+
+	#[test]
+	fn public_mint_collection_owner_should_not_be_charged() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let quantity = 1;
+			let mint_price = 100000000;
+			let payment_asset = XRP_ASSET_ID;
+			let owner_balance_before =
+				AssetsExt::reducible_balance(payment_asset, &collection_owner, false);
+
+			// Set up pricing details
+			let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				0,
+				None,
+				None,
+			));
+			let serial_number = 0;
+			let token_id = (collection_id, serial_number);
+
+			assert_ok!(Sft::set_mint_fee(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				Some(pricing_details)
+			));
+
+			// Enable public minting
+			assert_ok!(Sft::toggle_public_mint(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				true
+			));
+
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				0,
+				None,
+				None,
+			));
+
+			let serial_numbers = 0;
+			assert_ok!(Sft::mint(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_combined(vec![serial_numbers], vec![quantity]),
+				None,
+			));
+
+			let owner_balance_after =
+				AssetsExt::reducible_balance(payment_asset, &collection_owner, false);
+
+			// Should not have been charged
+			assert_eq!(owner_balance_before, owner_balance_after);
+		});
+	}
+
+	#[test]
+	fn public_mint_token_owner_not_charged() {
+		// Title is confusing, but basically this test checks that if a token owner is specified,
+		// the caller is charged, not the specified owner
+		let minter = create_account(11);
+		let initial_balance = 100000;
+		TestExt::default()
+			.with_xrp_balances(&[(minter, initial_balance)])
+			.build()
+			.execute_with(|| {
+				let collection_owner = create_account(10);
+				let token_owner = create_account(12);
+				let collection_id = create_test_collection(collection_owner);
+				let mint_price = 200;
+				let payment_asset = XRP_ASSET_ID;
+
+				let token_owner_balance_before =
+					AssetsExt::reducible_balance(payment_asset, &token_owner, false);
+
+				// Set up pricing details
+				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
+				assert_ok!(Sft::create_token(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_string("my-token"),
+					0,
+					None,
+					None,
+				));
+				let serial_number = 0;
+				let token_id = (collection_id, serial_number);
+				assert_ok!(Sft::set_mint_fee(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(pricing_details)
+				));
+				// Enable public minting
+				assert_ok!(Sft::toggle_public_mint(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					true
+				));
+				let max_issuance = 100;
+
+				assert_ok!(Sft::create_token(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_string("my-token"),
+					0,
+					Some(max_issuance),
+					None,
+				));
+				let serial_number = 0;
+
+				// Minter should be able to mint
+				assert_ok!(Sft::mint(
+					Some(minter).into(),
+					collection_id,
+					bounded_combined(vec![serial_number], vec![max_issuance]),
+					None,
+				));
+
+				let token_id = (collection_id, serial_number);
+				let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+				assert_eq!(token_info.free_balance_of(&minter), max_issuance);
+				assert_eq!(token_info.free_balance_of(&token_owner), 0);
+
+				// Should emit both mint and payment event
+				assert!(has_event(Event::<Test>::Mint {
+					collection_id,
+					serial_numbers: bounded_serials(vec![serial_number]),
+					balances: bounded_quantities(vec![max_issuance]),
+					owner: minter,
+				}));
+				let payment_amount: Balance = mint_price * max_issuance as u128;
+				assert!(has_event(Event::<Test>::MintFeePaid {
+					who: minter,
+					token_id,
+					payment_asset,
+					payment_amount,
+					token_count: max_issuance,
+				}));
+
+				// Check minter was charged the correct amount
+				let minter_balance = AssetsExt::reducible_balance(payment_asset, &minter, false);
+				assert_eq!(minter_balance, initial_balance - payment_amount);
+
+				// Token owner should not have been charged
+				let token_owner_balance_after =
+					AssetsExt::reducible_balance(payment_asset, &token_owner, false);
+				assert_eq!(token_owner_balance_before, token_owner_balance_after);
+			});
 	}
 }
