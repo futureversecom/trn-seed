@@ -159,8 +159,6 @@ impl pallet_timestamp::Config for Test {
 // Time is measured by number of blocks.
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
 
 parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
