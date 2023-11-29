@@ -30,16 +30,14 @@ use sp_core::H160;
 use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 use sp_std::{fmt::Debug, prelude::*};
 
-#[cfg(test)]
-mod mock;
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+#[cfg(test)]
+mod mock;
 #[cfg(test)]
 mod test;
 
 mod weights;
-
 pub use weights::WeightInfo;
 
 #[frame_support::pallet]

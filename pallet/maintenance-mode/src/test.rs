@@ -20,14 +20,11 @@
 #![cfg(test)]
 
 use crate::{
-	mock::{create_account, MaintenanceMode, RuntimeEvent, System, Test, TestExt},
+	mock::{MaintenanceMode, RuntimeEvent, System, Test},
 	BlockedAccounts, BlockedCalls, BlockedEVMAddresses, BlockedPallets, Config,
 	MaintenanceModeActive,
 };
-use frame_support::{assert_noop, assert_ok};
-use frame_system::RawOrigin;
-use sp_core::H160;
-use sp_runtime::{traits::BadOrigin, BoundedVec};
+use seed_pallet_common::test_prelude::*;
 
 pub fn bounded_string(name: &str) -> BoundedVec<u8, <Test as Config>::StringLimit> {
 	BoundedVec::truncate_from(name.as_bytes().to_vec())
@@ -38,7 +35,7 @@ mod enable_maintenance_mode {
 
 	#[test]
 	fn enable_maintenance_mode_updates_storage() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			// Enable maintenance mode
 			assert_eq!(MaintenanceModeActive::<Test>::get(), false);
 			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), true));
@@ -57,7 +54,7 @@ mod enable_maintenance_mode {
 
 	#[test]
 	fn enable_maintenance_mode_not_sudo_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let signer = create_account(1);
 
 			// Enable maintenance mode should fail as not root
@@ -74,7 +71,7 @@ mod block_account {
 
 	#[test]
 	fn block_account_updates_storage() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let blocked_account = create_account(2);
 			// Enable maintenance mode
 			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), false);
@@ -102,7 +99,7 @@ mod block_account {
 
 	#[test]
 	fn block_account_not_sudo_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let signer = create_account(1);
 			let blocked_account = create_account(2);
 
@@ -120,7 +117,7 @@ mod block_evm_target {
 
 	#[test]
 	fn block_evm_target_updates_storage() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let blocked_target = H160::from_low_u64_be(2);
 
 			// Enable maintenance mode
@@ -149,7 +146,7 @@ mod block_evm_target {
 
 	#[test]
 	fn block_evm_target_not_sudo_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let signer = create_account(1);
 			let blocked_target = H160::from_low_u64_be(2);
 
@@ -169,7 +166,7 @@ mod block_call {
 
 	#[test]
 	fn block_call_updates_storage() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let blocked_pallet = bounded_string("assets");
 			let blocked_call = bounded_string("transfer");
 
@@ -203,7 +200,7 @@ mod block_call {
 
 	#[test]
 	fn block_call_not_sudo_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let signer = create_account(1);
 			let blocked_pallet = bounded_string("assets");
 			let blocked_call = bounded_string("transfer");
@@ -223,7 +220,7 @@ mod block_call {
 
 	#[test]
 	fn block_maintenance_mode_pallet_call_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let blocked_pallet = bounded_string("MaintenanceMode");
 			let blocked_call = bounded_string("block_call");
 
@@ -256,7 +253,7 @@ mod block_call {
 
 	#[test]
 	fn block_sudo_pallet_call_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let blocked_pallet = bounded_string("Sudo");
 			let blocked_call = bounded_string("sudo");
 
@@ -289,7 +286,7 @@ mod block_call {
 
 	#[test]
 	fn block_call_invalid_pallet_name_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			// Invalid pallet name
 			let blocked_pallet = BoundedVec::truncate_from(vec![0xfe, 0xff]);
 			let blocked_call = bounded_string("block_call");
@@ -323,7 +320,7 @@ mod block_call {
 
 	#[test]
 	fn block_call_invalid_call_name_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let blocked_pallet = bounded_string("Assets");
 			let blocked_call = BoundedVec::truncate_from(vec![0xfe, 0xff]);
 
@@ -356,7 +353,7 @@ mod block_call {
 
 	#[test]
 	fn block_call_stores_lowercase_names() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let blocked_pallet = bounded_string("ASSETS");
 			let blocked_call = bounded_string("TRANSFER");
 
@@ -397,7 +394,7 @@ mod block_pallet {
 
 	#[test]
 	fn block_pallet_updates_storage() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let blocked_pallet = bounded_string("assets");
 
 			// Enable maintenance mode
@@ -427,7 +424,7 @@ mod block_pallet {
 
 	#[test]
 	fn block_pallet_not_sudo_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let signer = create_account(1);
 			let blocked_pallet = bounded_string("assets");
 
@@ -441,7 +438,7 @@ mod block_pallet {
 
 	#[test]
 	fn block_maintenance_mode_pallet_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let blocked_pallet = bounded_string("MaintenanceMode");
 
 			// Block call should fail as pallet is maintenance mode
@@ -462,7 +459,7 @@ mod block_pallet {
 
 	#[test]
 	fn block_sudo_pallet_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let blocked_pallet = bounded_string("Sudo");
 
 			// Block call should fail as pallet is sudo
@@ -483,7 +480,7 @@ mod block_pallet {
 
 	#[test]
 	fn block_pallet_invalid_pallet_name_fails() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			// Invalid pallet name
 			let blocked_pallet = BoundedVec::truncate_from(vec![0xfe, 0xff]);
 
@@ -506,7 +503,7 @@ mod block_pallet {
 
 	#[test]
 	fn block_pallet_stores_lowercase_names() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let blocked_pallet = bounded_string("ASSETS");
 
 			// Enable maintenance mode

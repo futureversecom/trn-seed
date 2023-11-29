@@ -18,7 +18,6 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-
 use crate::Pallet as MaintenanceMode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
@@ -76,4 +75,8 @@ benchmarks! {
 	}
 }
 
-impl_benchmark_test_suite!(MaintenanceMode, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	MaintenanceMode,
+	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default().build(),
+	crate::mock::Test
+);

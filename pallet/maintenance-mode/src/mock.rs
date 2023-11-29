@@ -14,22 +14,10 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_maintenance_mode;
-use frame_support::{parameter_types, PalletId};
-use frame_system::EnsureRoot;
-use seed_pallet_common::*;
-use seed_primitives::{AccountId, AssetId, Balance};
-use sp_core::{H160, H256};
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-};
+use seed_pallet_common::test_prelude::*;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
-
-pub fn create_account(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
-}
 
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -69,29 +57,4 @@ impl pallet_maintenance_mode::Config for Test {
 	type ImOnlinePallet = Sudo;
 	// Use Sudo for easy mock setup, tested in integration tests
 	type EthyPallet = Sudo;
-}
-
-#[derive(Default)]
-pub struct TestExt {}
-
-impl TestExt {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-		let mut ext: sp_io::TestExternalities = ext.into();
-		ext.execute_with(|| {
-			System::initialize(&1, &[0u8; 32].into(), &Default::default());
-		});
-
-		ext
-	}
-}
-
-#[allow(dead_code)]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
-	ext
 }
