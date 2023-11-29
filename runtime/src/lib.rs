@@ -1250,73 +1250,71 @@ impl pallet_vortex::Config for Runtime {
 	type HistoryDepth = HistoryDepth;
 }
 
+/// Block header type as expected by this runtime.
+pub type Header = generic::Header<BlockNumber, BlakeTwo256Hash>;
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
 		NodeBlock = generic::Block<Header, sp_runtime::OpaqueExtrinsic>,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Pallet, Call, Storage, Config, Event<T>} = 0,
+		System: frame_system = 0,
 		Babe: pallet_babe = 1,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent}= 2,
-		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 3,
-		Utility: pallet_utility::{Pallet, Call, Event} = 4,
-		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 33,
+		Timestamp: pallet_timestamp = 2,
+		Scheduler: pallet_scheduler = 3,
+		Utility: pallet_utility = 4,
+		Recovery: pallet_recovery = 33,
 		Multisig: pallet_multisig = 28,
 
 		// Monetary
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
-		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Config<T>, Event<T>} = 7,
-		Authorship: pallet_authorship::{Pallet, Call, Storage} = 8,
-		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
-		Offences: pallet_offences::{Pallet, Storage, Event} = 10,
+		Balances: pallet_balances = 5,
+		Assets: pallet_assets = 6,
+		AssetsExt: pallet_assets_ext = 7,
+		Authorship: pallet_authorship = 8,
+		Staking: pallet_staking = 9,
+		Offences: pallet_offences = 10,
 
 		// Validators
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 11,
-		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned} = 12,
-		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
+		Session: pallet_session = 11,
+		Grandpa: pallet_grandpa = 12,
+		ImOnline: pallet_im_online = 13,
 
 		// World
-		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 14,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 15,
-		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>} = 16,
-		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>} = 17,
-		Sft: pallet_sft::{Pallet, Call, Storage, Event<T>} = 43,
-		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Config<T>, Event<T>} = 18,
-		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage} = 19,
-		Historical: pallet_session::historical::{Pallet} = 20,
-		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
-		Marketplace: pallet_marketplace::{Pallet, Call, Storage, Event<T>} = 44,
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 45,
-		VortexDistribution: pallet_vortex::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 46,
+		Sudo: pallet_sudo = 14,
+		TransactionPayment: pallet_transaction_payment = 15,
+		Dex: pallet_dex = 16,
+		Nft: pallet_nft = 17,
+		Sft: pallet_sft = 43,
+		XRPLBridge: pallet_xrpl_bridge = 18,
+		TokenApprovals: pallet_token_approvals = 19,
+		Historical: pallet_session::historical = 20,
+		Echo: pallet_echo = 21,
+		Marketplace: pallet_marketplace = 44,
+		Preimage: pallet_preimage = 45,
+		VortexDistribution: pallet_vortex = 46,
+		FeeProxy: pallet_fee_proxy = 31,
+		FeeControl: pallet_fee_control = 40,
+		Xls20: pallet_xls20 = 42,
 
 		// Election pallet. Only works with staking
-		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
-		VoterList: pallet_bags_list::{Pallet, Call, Storage, Event<T>} = 23,
-		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage} = 24,
-
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 25,
+		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
+		VoterList: pallet_bags_list = 23,
+		TxFeePot: pallet_tx_fee_pot = 24,
 
 		// EVM
-		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 26,
-		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 27,
-		EVMChainId: pallet_evm_chain_id::{Pallet, Call, Storage, Event<T>} = 41,
+		Ethereum: pallet_ethereum = 26,
+		EVM: pallet_evm = 27,
+		EVMChainId: pallet_evm_chain_id = 41,
+		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 25,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
-		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
-
-		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
-		FeeControl: pallet_fee_control::{Pallet, Call, Storage, Event<T>} = 40,
-		Xls20: pallet_xls20::{Pallet, Call, Storage, Event<T>} = 42,
+		NftPeg: pallet_nft_peg = 30,
 
 		// FuturePass Account
-		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 32,
-		Futurepass: pallet_futurepass::{Pallet, Call, Storage, Event<T>} = 34,
+		Proxy: pallet_proxy = 32,
+		Futurepass: pallet_futurepass = 34,
 	}
 }
-
-/// Block header type as expected by this runtime.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256Hash>;
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// A Block signed with a Justification
