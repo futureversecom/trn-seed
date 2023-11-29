@@ -108,7 +108,8 @@ where
 			ExistenceRequirement::KeepAlive => true,
 			ExistenceRequirement::AllowDeath => false,
 		};
-		<Pallet<T>>::transfer(U::get(), from, to, value, keep_alive).map(|_| ())
+		<Pallet<T> as Transfer<T::AccountId>>::transfer(U::get(), from, to, value, keep_alive)
+			.map(|_| ())
 	}
 	fn ensure_can_withdraw(
 		who: &T::AccountId,

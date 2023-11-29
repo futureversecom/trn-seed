@@ -42,4 +42,9 @@ impl<T: frame_system::Config> pallet_assets_ext::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(7 as u64))
 			.saturating_add(T::DbWeight::get().writes(6 as u64))
 	}
+	// Storage: AssetsExt AssetDeposit (r:0 w:1)
+	fn set_asset_deposit() -> Weight {
+		Weight::from_ref_time(9_969_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
 }
