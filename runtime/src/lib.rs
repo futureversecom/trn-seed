@@ -2196,6 +2196,7 @@ mod benches {
 		[pallet_futurepass, Futurepass]
 		[pallet_vortex, VortexDistribution]
 		[pallet_dex, Dex]
+		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_marketplace, Marketplace]
 		[pallet_doughnut, Doughnut]
 		[pallet_maintenance_mode, MaintenanceMode]
