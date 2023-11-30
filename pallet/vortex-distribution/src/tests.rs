@@ -15,12 +15,10 @@
 
 use super::*;
 use crate::mock::{
-	create_account, run_to_block, to_eth, AssetsExt, Balances, NativeAssetId,
-	RuntimeEvent as MockEvent, RuntimeOrigin as Origin, System, Test, TestExt, Timestamp, Vortex,
-	BLOCK_TIME, XRP_ASSET_ID,
+	run_to_block, to_eth, AssetsExt, Balances, NativeAssetId, RuntimeEvent as MockEvent,
+	RuntimeOrigin as Origin, System, Test, TestExt, Timestamp, Vortex, BLOCK_TIME,
 };
-use frame_support::{assert_noop, assert_ok};
-use seed_primitives::{AccountId, Balance};
+use seed_pallet_common::test_prelude::*;
 
 #[test]
 fn create_vtx_dist_with_valid_amount_should_work() {

@@ -24,7 +24,7 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use seed_primitives::{nft::OriginChain, MetadataScheme};
 
-use crate::Pallet as TokeApprovals;
+use crate::Pallet as TokenApprovals;
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -68,7 +68,7 @@ benchmarks! {
 
 	erc721_remove_approval {
 		let ( alice, _, token_id ) = build_collection::<T>();
-		assert_ok!(TokeApprovals::<T>::erc721_approval(RawOrigin::None.into(), alice.clone(), account::<T>("Operator_Account"), token_id.clone()));
+		assert_ok!(TokenApprovals::<T>::erc721_approval(RawOrigin::None.into(), alice.clone(), account::<T>("Operator_Account"), token_id.clone()));
 	}: _(origin::<T>(&alice), token_id.clone())
 
 	erc20_approval {
@@ -80,7 +80,7 @@ benchmarks! {
 		let spender  = account::<T>("Spender");
 		let asset_id = 100;
 
-		assert_ok!(TokeApprovals::<T>::erc20_approval(RawOrigin::None.into(), alice.clone(), spender.clone(), asset_id, Balance::from(10u32)));
+		assert_ok!(TokenApprovals::<T>::erc20_approval(RawOrigin::None.into(), alice.clone(), spender.clone(), asset_id, Balance::from(10u32)));
 	}: _(RawOrigin::None, alice, spender, asset_id, Balance::from(2u32))
 
 	erc721_approval_for_all {
@@ -92,4 +92,8 @@ benchmarks! {
 	}: _(RawOrigin::None, alice, account::<T>("Operator_Account"), collection_id, true)
 }
 
-impl_benchmark_test_suite!(TokeApprovals, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	TokenApprovals,
+	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default().build(),
+	crate::mock::Test
+);

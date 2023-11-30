@@ -169,6 +169,14 @@ benchmarks! {
 		let collection_id = build_collection::<T>(None);
 		let offer_id = offer_builder::<T>(collection_id);
 	}: _(origin::<T>(&account::<T>("Alice")), offer_id)
+
+	set_fee_to {
+		let fee_account = account::<T>("Alice");
+	}: _(RawOrigin::Root, Some(fee_account))
 }
 
-impl_benchmark_test_suite!(Marketplace, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	Marketplace,
+	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default().build(),
+	crate::mock::Test
+);

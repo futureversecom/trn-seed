@@ -183,6 +183,8 @@ fn testnet_genesis(
 		grandpa: Default::default(),
 		im_online: Default::default(),
 		nft: Default::default(),
+		marketplace: Default::default(),
+		transaction_payment: Default::default(),
 		// NOTE(surangap): keeping xrpl stuff inside the eth bridge isn't elegant. Refactor this to
 		// validator-set pallet in the future.
 		eth_bridge: EthBridgeConfig { xrp_door_signers },

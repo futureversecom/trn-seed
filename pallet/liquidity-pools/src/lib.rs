@@ -22,7 +22,10 @@ use frame_support::{
 	log,
 	pallet_prelude::*,
 	sp_runtime::traits::One,
-	traits::{fungibles::Transfer, Currency},
+	traits::{
+		fungibles::{Inspect, Transfer},
+		Currency,
+	},
 	transactional, PalletId,
 };
 use frame_system::{
@@ -55,23 +58,24 @@ pub struct PoolInfo<PoolId, AssetId, Balance, BlockNumber> {
 	pub interest_rate: u32,
 	pub max_tokens: Balance,
 	pub last_updated: BlockNumber,
-	pub start_block: BlockNumber,
-	pub end_block: BlockNumber,
+	pub lock_start_block: BlockNumber,
+	pub lock_end_block: BlockNumber,
 	pub locked_amount: Balance,
 	pub pool_status: PoolStatus,
 }
 
 #[derive(Clone, Copy, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum PoolStatus {
-	Inactive,
-	Provisioning,
-	RollingOver,
-	Done,
+	Closed,
+	Open,
+	Started,
+	Renewing,
+	Matured,
 }
 
 impl Default for PoolStatus {
 	fn default() -> Self {
-		Self::Inactive
+		Self::Closed
 	}
 }
 
@@ -209,21 +213,21 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Reward pool created.
-		PoolCreated {
+		/// Reward pool created, user could join pool
+		PoolOpen {
 			pool_id: T::PoolId,
 			asset_id: AssetId,
 			interest_rate: u32,
 			max_tokens: Balance,
-			start_block: T::BlockNumber,
-			end_block: T::BlockNumber,
+			lock_start_block: T::BlockNumber,
+			lock_end_block: T::BlockNumber,
 		},
-		/// User could join pool.
-		PoolProvisioning { pool_id: T::PoolId },
+		/// Pool starts to lock.
+		PoolStarted { pool_id: T::PoolId },
 		/// Pool starts to rollover users that want to continue to next pool.
-		PoolRollingOver { pool_id: T::PoolId },
+		PoolRenewing { pool_id: T::PoolId },
 		/// Pool rollover is done and ready for users to claim rewards.
-		PoolDone { pool_id: T::PoolId },
+		PoolMatured { pool_id: T::PoolId },
 		/// Pool closed, no more users can join.
 		PoolClosed { pool_id: T::PoolId },
 		/// Set pool successor, when predecessor pool is done, users will be rolled over to
@@ -253,6 +257,8 @@ pub mod pallet {
 		PredecessorPoolDoesNotExist,
 		/// Successor pool size should be greater than predecessor
 		SuccessorPoolSizeShouldBeGreaterThanPredecessor,
+		/// Successor pool size should be locked after predecessor
+		SuccessorPoolSizeShouldBeLockedAfterPredecessor,
 		/// Cannot exit pool, no tokens staked
 		NoTokensStaked,
 		/// Reward pool is not active
@@ -287,14 +293,14 @@ pub mod pallet {
 		/// - `asset_id`: The ID of the asset for which the pool is being created.
 		/// - `interest_rate`: The interest rate for the pool, dictating the reward distribution.
 		/// - `max_tokens`: The maximum amount of tokens that can be staked in this pool.
-		/// - `start_block`: The starting block number from which the pool will begin accepting
-		///   stakes.
-		/// - `end_block`: The ending block number after which the pool will no longer accept
-		///   stakes.
+		/// - `lock_start_block`: The starting block number from which the pool will begin to lock.
+		///   After it the pool will no longer accept stakes.
+		/// - `lock_end_block`: The ending block number after which the pool will be able to claim
+		///   rewards.
 		///
 		/// Restrictions:
-		/// - The `start_block` must be in the future and less than `end_block`.
-		/// - The `end_block` must be greater than the `start_block`.
+		/// - The `lock_start_block` must be in the future and less than `lock_end_block`.
+		/// - The `lock_end_block` must be greater than the `lock_start_block`.
 		///
 		/// Emits `PoolCreated` event when successful.
 		#[pallet::weight(T::WeightInfo::create_pool())]
@@ -304,8 +310,8 @@ pub mod pallet {
 			asset_id: AssetId,
 			interest_rate: u32,
 			max_tokens: Balance,
-			start_block: T::BlockNumber,
-			end_block: T::BlockNumber,
+			lock_start_block: T::BlockNumber,
+			lock_end_block: T::BlockNumber,
 		) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
 
@@ -313,10 +319,10 @@ pub mod pallet {
 			let next_pool_id = id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailablePoolId)?;
 
 			ensure!(
-				start_block > frame_system::Pallet::<T>::block_number(),
+				lock_start_block > frame_system::Pallet::<T>::block_number(),
 				Error::<T>::InvalidBlockRange
 			);
-			ensure!(start_block < end_block, Error::<T>::InvalidBlockRange);
+			ensure!(lock_start_block < lock_end_block, Error::<T>::InvalidBlockRange);
 
 			let pool_info = PoolInfo {
 				id,
@@ -324,10 +330,10 @@ pub mod pallet {
 				interest_rate,
 				max_tokens,
 				last_updated: frame_system::Pallet::<T>::block_number(),
-				start_block,
-				end_block,
+				lock_start_block,
+				lock_end_block,
 				locked_amount: Zero::zero(),
-				pool_status: Default::default(),
+				pool_status: PoolStatus::Open,
 			};
 
 			NextPoolId::<T>::mutate(|id| {
@@ -354,13 +360,13 @@ pub mod pallet {
 				false,
 			)?;
 
-			Self::deposit_event(Event::PoolCreated {
+			Self::deposit_event(Event::PoolOpen {
 				pool_id: id,
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block,
+				lock_start_block,
+				lock_end_block,
 			});
 			Ok(())
 		}
@@ -404,6 +410,10 @@ pub mod pallet {
 				successor_pool.max_tokens >= predecessor_pool.max_tokens,
 				Error::<T>::SuccessorPoolSizeShouldBeGreaterThanPredecessor
 			);
+			ensure!(
+				successor_pool.lock_start_block > predecessor_pool.lock_end_block,
+				Error::<T>::SuccessorPoolSizeShouldBeLockedAfterPredecessor
+			);
 
 			<PoolRelationships<T>>::insert(
 				&predecessor_pool_id,
@@ -443,7 +453,7 @@ pub mod pallet {
 				Err(Error::<T>::PoolDoesNotExist)?
 			};
 
-			ensure!(pool.pool_status == PoolStatus::Provisioning, Error::<T>::PoolNotActive);
+			ensure!(pool.pool_status == PoolStatus::Open, Error::<T>::PoolNotActive);
 
 			PoolUsers::<T>::try_mutate(id, who, |pool_user| -> DispatchResult {
 				let pool_user = pool_user.as_mut().ok_or(Error::<T>::NoTokensStaked)?;
@@ -474,10 +484,20 @@ pub mod pallet {
 		///
 		/// Emits `PoolClosed` event when the pool is successfully closed.
 		#[pallet::weight(T::WeightInfo::close_pool())]
+		#[transactional]
 		pub fn close_pool(origin: OriginFor<T>, id: T::PoolId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
 
 			ensure!(Pools::<T>::contains_key(id), Error::<T>::PoolDoesNotExist);
+
+			let pool_vault_account = Self::get_vault_account(id).unwrap();
+			T::Assets::transfer(
+				T::NativeAssetId::get(),
+				&pool_vault_account,
+				&Self::account_id(),
+				T::Assets::balance(T::NativeAssetId::get(), &pool_vault_account),
+				false,
+			)?;
 
 			Pools::<T>::remove(id);
 			PoolUsers::<T>::drain_prefix(id);
@@ -514,7 +534,7 @@ pub mod pallet {
 				Err(Error::<T>::PoolDoesNotExist)?
 			};
 
-			ensure!(pool.pool_status == PoolStatus::Provisioning, Error::<T>::PoolNotActive);
+			ensure!(pool.pool_status == PoolStatus::Open, Error::<T>::PoolNotActive);
 
 			ensure!(
 				pool.locked_amount + amount <= pool.max_tokens,
@@ -561,7 +581,7 @@ pub mod pallet {
 				Err(Error::<T>::PoolDoesNotExist)?
 			};
 
-			ensure!(pool.pool_status == PoolStatus::Provisioning, Error::<T>::PoolNotActive);
+			ensure!(pool.pool_status == PoolStatus::Open, Error::<T>::PoolNotActive);
 
 			let Some(user_info) = PoolUsers::<T>::get(id, &who) else {
 				Err(Error::<T>::NoTokensStaked)?
@@ -610,7 +630,7 @@ pub mod pallet {
 				Err(Error::<T>::PoolDoesNotExist)?
 			};
 
-			ensure!(pool.pool_status == PoolStatus::Done, Error::<T>::NotReadyForClaimingReward);
+			ensure!(pool.pool_status == PoolStatus::Matured, Error::<T>::NotReadyForClaimingReward);
 
 			let reward = Self::calculate_reward(
 				user_info.amount,
@@ -625,7 +645,7 @@ pub mod pallet {
 				return Ok(())
 			}
 
-			let amount = if user_info.should_rollover == false {
+			let amount = if user_info.should_rollover == false || user_info.rolled_over == false {
 				T::Assets::transfer(pool.asset_id, &vault_account, &who, user_info.amount, false)?;
 				user_info.amount
 			} else {
@@ -673,7 +693,7 @@ pub mod pallet {
 		///
 		/// Notes:
 		/// - This function will emit various events based on the progress of the rollover, such as
-		///   `PoolDone` if the pool is completed.
+		///   `PoolMatured` if the pool is completed.
 		#[pallet::weight(T::WeightInfo::rollover_unsigned())]
 		#[transactional]
 		pub fn rollover_unsigned(
@@ -686,7 +706,7 @@ pub mod pallet {
 				return Err(Error::<T>::PoolDoesNotExist.into())
 			};
 			log::warn!("start processing the rollover");
-			if let PoolStatus::RollingOver = pool_info.pool_status {
+			if let PoolStatus::Renewing = pool_info.pool_status {
 				if let Some(vault_account) = Self::get_vault_account(id) {
 					// Check for successor
 					let successor_id =
@@ -725,12 +745,18 @@ pub mod pallet {
 									.saturating_add(user_info.amount) > successor_pool_info
 									.max_tokens
 								{
-									predecessor_pool_status = PoolStatus::Done;
+									predecessor_pool_status = PoolStatus::Matured;
 									break
 								} else {
 									rollover_amount =
 										rollover_amount.saturating_add(user_info.amount);
 								}
+
+								PoolUsers::<T>::mutate(id, who, |pool_user| {
+									if let Some(pool_user) = pool_user {
+										pool_user.rolled_over = true;
+									}
+								});
 
 								PoolUsers::<T>::mutate(successor_id, who, |pool_user| {
 									if let Some(pool_user) = pool_user {
@@ -751,7 +777,7 @@ pub mod pallet {
 							BoundedVec::try_from(map_iterator.last_raw_key().to_vec())
 								.map_err(|_| Error::<T>::PivotStringTooLong)?;
 						if current_last_raw_key == start_key.clone() {
-							predecessor_pool_status = PoolStatus::Done;
+							predecessor_pool_status = PoolStatus::Matured;
 						}
 						RolloverPivot::<T>::insert(id, current_last_raw_key);
 
@@ -771,8 +797,8 @@ pub mod pallet {
 							pool_info.pool_status = predecessor_pool_status;
 							Ok(())
 						})?;
-						if predecessor_pool_status == PoolStatus::Done {
-							Self::deposit_event(Event::PoolDone { pool_id: id });
+						if predecessor_pool_status == PoolStatus::Matured {
+							Self::deposit_event(Event::PoolMatured { pool_id: id });
 						}
 						Pools::<T>::try_mutate(successor_id, |pool_info| -> DispatchResult {
 							let pool_info =
@@ -805,8 +831,8 @@ pub mod pallet {
 
 			for (id, pool_info) in Pools::<T>::iter() {
 				match pool_info.pool_status {
-					PoolStatus::Inactive =>
-						if pool_info.start_block <= now {
+					PoolStatus::Open =>
+						if pool_info.lock_start_block <= now {
 							if remaining_weight.all_lte(
 								cost_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1)),
 							) {
@@ -817,15 +843,15 @@ pub mod pallet {
 								cost_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 							Pools::<T>::mutate(id, |pool| {
 								*pool = Some(PoolInfo {
-									pool_status: PoolStatus::Provisioning,
+									pool_status: PoolStatus::Started,
 									last_updated: now,
 									..pool_info
 								});
 							});
-							Self::deposit_event(Event::PoolProvisioning { pool_id: id });
+							Self::deposit_event(Event::PoolStarted { pool_id: id });
 						},
-					PoolStatus::Provisioning => {
-						if pool_info.end_block <= now {
+					PoolStatus::Started => {
+						if pool_info.lock_end_block <= now {
 							if remaining_weight.all_lte(
 								cost_weight.saturating_add(T::DbWeight::get().reads_writes(1, 2)),
 							) {
@@ -843,22 +869,22 @@ pub mod pallet {
 							if successor_id.is_some() {
 								Pools::<T>::mutate(id, |pool| {
 									*pool = Some(PoolInfo {
-										pool_status: PoolStatus::RollingOver,
+										pool_status: PoolStatus::Renewing,
 										last_updated: now,
 										..pool_info
 									});
 								});
-								Self::deposit_event(Event::PoolRollingOver { pool_id: id });
+								Self::deposit_event(Event::PoolRenewing { pool_id: id });
 							} else {
 								// if no successor, set pool done
 								Pools::<T>::mutate(id, |pool| {
 									*pool = Some(PoolInfo {
-										pool_status: PoolStatus::Done,
+										pool_status: PoolStatus::Matured,
 										last_updated: now,
 										..pool_info
 									});
 								});
-								Self::deposit_event(Event::PoolDone { pool_id: id });
+								Self::deposit_event(Event::PoolMatured { pool_id: id });
 							}
 						}
 					},
@@ -989,8 +1015,8 @@ pub mod pallet {
 
 			for (id, pool_info) in Pools::<T>::iter() {
 				match pool_info.pool_status {
-					PoolStatus::RollingOver => {
-						if pool_info.end_block <= now {
+					PoolStatus::Renewing => {
+						if pool_info.lock_end_block <= now {
 							log::info!("start sending unsigned rollover tx");
 							let call = Call::rollover_unsigned { id, current_block: now };
 							SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
