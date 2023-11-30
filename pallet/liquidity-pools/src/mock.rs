@@ -22,12 +22,13 @@ use seed_pallet_common::{
 	impl_frame_system_config, impl_pallet_assets_config, impl_pallet_assets_ext_config,
 	impl_pallet_balance_config,
 };
-use sp_core::{H160, H256};
+use sp_core::H256;
 use sp_runtime::{
 	testing::{Header, TestXt},
 	traits::{BlakeTwo256, IdentityLookup},
 };
 
+pub(crate) use seed_pallet_common::test_prelude::*;
 use seed_primitives::AccountId;
 pub(crate) use seed_primitives::{AssetId, Balance};
 
@@ -35,14 +36,11 @@ mod dex {
 	pub use super::super::*;
 }
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
-
 construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -93,12 +91,7 @@ pub struct TestExt {
 	assets: Vec<(AssetId, AccountId, Balance)>,
 }
 
-pub const ROOT_ASSET_ID: AssetId = 1;
 pub const TEST_ASSET_ID: AssetId = 2;
-
-pub fn create_account(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
-}
 
 impl TestExt {
 	pub fn with_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
@@ -139,13 +132,4 @@ impl TestExt {
 		ext.execute_with(|| pallet_assets_ext::GenesisConfig::<Test>::default().build());
 		ext
 	}
-}
-
-#[allow(dead_code)]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
-	ext
 }

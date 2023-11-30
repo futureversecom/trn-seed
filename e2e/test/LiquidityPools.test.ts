@@ -27,6 +27,7 @@ describe("Reward", () => {
     node = await startNode();
 
     const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    // const wsProvider = new WsProvider(`wss://archive.morel.micklelab.xyz/ws`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -98,9 +99,6 @@ describe("Reward", () => {
     );
     console.log(`pool ${pool1} created`);
 
-    await sleep(intervalBlock * blockDuration);
-    console.log(`waited for start block ${startBlock}`);
-
     // join pool
     for (let i = 0; i < testUsers.length; i++) {
       const user = testUsers[i];
@@ -120,7 +118,7 @@ describe("Reward", () => {
     // get next pool id
     const pool2 = await api.query.liquidityPools.nextPoolId();
 
-    startBlock = intervalBlock + Number((await api.rpc.chain.getHeader()).number);
+    startBlock = endBlock + 1;
     endBlock = startBlock + rewardPeriod;
     // create pool
     await finalizeTx(
@@ -133,7 +131,7 @@ describe("Reward", () => {
     await finalizeTx(alith, api.tx.sudo.sudo(api.tx.liquidityPools.setPoolSuccession(pool1, pool2)));
     console.log(`pool ${pool2} set as successor of pool ${pool1}`);
 
-    await sleep(intervalBlock * blockDuration);
+    await sleep(intervalBlock * 2 * blockDuration);
     console.log(`waited for start block ${startBlock}`);
 
     // wait for reward period

@@ -85,6 +85,8 @@ benchmarks! {
 		LiquidityPools::<T>::create_pool(RawOrigin::Root.into(), asset_id, interest_rate, max_tokens, start_block, end_block).unwrap();
 
 		let successor_id = NextPoolId::<T>::get();
+		let start_block = 6u32.into();
+		let end_block = 7u32.into();
 		LiquidityPools::<T>::create_pool(RawOrigin::Root.into(), asset_id, interest_rate, max_tokens, start_block, end_block).unwrap();
 	}: _(RawOrigin::Root, predecessor_id, successor_id)
 	verify {
@@ -113,7 +115,7 @@ benchmarks! {
 		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Root.into(), asset_id, interest_rate, max_tokens, start_block, end_block));
 		Pools::<T>::mutate(id, |pool| {
 			*pool = Some(PoolInfo {
-				pool_status: PoolStatus::Provisioning,
+				pool_status: PoolStatus::Open,
 				..pool.clone().unwrap()
 			});
 		});
@@ -146,7 +148,7 @@ benchmarks! {
 		LiquidityPools::<T>::create_pool(RawOrigin::Root.into(), asset_id, interest_rate, max_tokens, start_block, end_block).unwrap();
 		Pools::<T>::mutate(id, |pool| {
 			*pool = Some(PoolInfo {
-				pool_status: PoolStatus::Provisioning,
+				pool_status: PoolStatus::Open,
 				..pool.clone().unwrap()
 			});
 		});
@@ -177,7 +179,7 @@ benchmarks! {
 		LiquidityPools::<T>::create_pool(RawOrigin::Root.into(), asset_id, interest_rate, max_tokens, start_block, end_block).unwrap();
 		Pools::<T>::mutate(id, |pool| {
 			*pool = Some(PoolInfo {
-				pool_status: PoolStatus::Provisioning,
+				pool_status: PoolStatus::Open,
 				..pool.clone().unwrap()
 			});
 		});
@@ -210,7 +212,7 @@ benchmarks! {
 		LiquidityPools::<T>::create_pool(RawOrigin::Root.into(), asset_id, interest_rate, max_tokens, start_block, end_block).unwrap();
 		Pools::<T>::mutate(id, |pool| {
 			*pool = Some(PoolInfo {
-				pool_status: PoolStatus::Provisioning,
+				pool_status: PoolStatus::Open,
 				..pool.clone().unwrap()
 			});
 		});
@@ -219,7 +221,7 @@ benchmarks! {
 
 		Pools::<T>::mutate(id, |pool| {
 			*pool = Some(PoolInfo {
-				pool_status: PoolStatus::Done,
+				pool_status: PoolStatus::Matured,
 				..pool.clone().unwrap()
 			});
 		});
@@ -254,12 +256,14 @@ benchmarks! {
 		LiquidityPools::<T>::create_pool(RawOrigin::Root.into(), asset_id, interest_rate, max_tokens, start_block, end_block).unwrap();
 
 		let successor_id = NextPoolId::<T>::get();
+		let start_block = 51u32.into();
+		let end_block = 60u32.into();
 		LiquidityPools::<T>::create_pool(RawOrigin::Root.into(), asset_id, interest_rate, max_tokens, start_block, end_block).unwrap();
 		LiquidityPools::<T>::set_pool_succession(RawOrigin::Root.into(), id, successor_id).unwrap();
 
 		Pools::<T>::mutate(id, |pool| {
 			*pool = Some(PoolInfo {
-				pool_status: PoolStatus::Provisioning,
+				pool_status: PoolStatus::Open,
 				..pool.clone().unwrap()
 			});
 		});
@@ -268,7 +272,7 @@ benchmarks! {
 
 		Pools::<T>::mutate(id, |pool| {
 			*pool = Some(PoolInfo {
-				pool_status: PoolStatus::Done,
+				pool_status: PoolStatus::Matured,
 				..pool.clone().unwrap()
 			});
 		});

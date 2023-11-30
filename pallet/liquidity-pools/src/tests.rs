@@ -13,7 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::mock::{create_account, Assets, Balances, NativeAssetId, TEST_ASSET_ID};
+use crate::mock::{Assets, Balances, NativeAssetId, TEST_ASSET_ID};
 
 use super::*;
 use frame_support::{assert_noop, assert_ok, weights::constants::ParityDbWeight};
@@ -21,6 +21,7 @@ use mock::{
 	LiquidityPools, RuntimeEvent as MockEvent, RuntimeOrigin as Origin, System, Test, TestExt,
 };
 use pallet_balances::Error as BalancesError;
+use seed_pallet_common::test_prelude::*;
 use seed_primitives::AccountId;
 use sp_runtime::traits::{BadOrigin, Zero};
 
@@ -34,8 +35,8 @@ fn non_admin_cannot_create_pool() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 			let alice: AccountId = create_account(1);
 
 			assert_noop!(
@@ -44,8 +45,8 @@ fn non_admin_cannot_create_pool() {
 					asset_id,
 					interest_rate,
 					max_tokens,
-					start_block,
-					end_block
+					lock_start_block,
+					lock_end_block
 				),
 				BadOrigin
 			);
@@ -59,8 +60,8 @@ fn pool_creation_fails_with_next_pool_id_out_of_bounds() {
 		let interest_rate = 1_000_000;
 		let max_tokens = 100;
 		let reward_period = 100;
-		let start_block = System::block_number() + 1;
-		let end_block = start_block + reward_period;
+		let lock_start_block = System::block_number() + 1;
+		let lock_end_block = lock_start_block + reward_period;
 
 		NextPoolId::<Test>::put(u32::MAX);
 
@@ -70,8 +71,8 @@ fn pool_creation_fails_with_next_pool_id_out_of_bounds() {
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			),
 			Error::<Test>::NoAvailablePoolId
 		);
@@ -88,8 +89,8 @@ fn pool_creation_fails_with_invalid_block() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() - 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() - 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_noop!(
 				LiquidityPools::create_pool(
@@ -97,14 +98,14 @@ fn pool_creation_fails_with_invalid_block() {
 					asset_id,
 					interest_rate,
 					max_tokens,
-					start_block,
-					end_block
+					lock_start_block,
+					lock_end_block
 				),
 				Error::<Test>::InvalidBlockRange
 			);
 
-			let start_block = System::block_number() + 1;
-			let end_block = start_block - 1;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block - 1;
 
 			assert_noop!(
 				LiquidityPools::create_pool(
@@ -112,8 +113,8 @@ fn pool_creation_fails_with_invalid_block() {
 					asset_id,
 					interest_rate,
 					max_tokens,
-					start_block,
-					end_block
+					lock_start_block,
+					lock_end_block
 				),
 				Error::<Test>::InvalidBlockRange
 			);
@@ -127,8 +128,8 @@ fn pool_creation_fails_without_balance_in_vault_account() {
 		let interest_rate = 1_000_000;
 		let max_tokens = 100;
 		let reward_period = 100;
-		let start_block = System::block_number() + 1;
-		let end_block = start_block + reward_period;
+		let lock_start_block = System::block_number() + 1;
+		let lock_end_block = lock_start_block + reward_period;
 
 		assert_noop!(
 			LiquidityPools::create_pool(
@@ -136,8 +137,8 @@ fn pool_creation_fails_without_balance_in_vault_account() {
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			),
 			BalancesError::<Test>::InsufficientBalance
 		);
@@ -154,27 +155,27 @@ fn admin_can_create_pool_successfully() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block,
+				lock_start_block,
+				lock_end_block,
 			));
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 
-			System::assert_last_event(MockEvent::LiquidityPools(crate::Event::PoolCreated {
+			System::assert_last_event(MockEvent::LiquidityPools(crate::Event::PoolOpen {
 				pool_id,
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block,
+				lock_start_block,
+				lock_end_block,
 			}));
 
 			assert_eq!(
@@ -185,10 +186,10 @@ fn admin_can_create_pool_successfully() {
 					interest_rate,
 					max_tokens,
 					last_updated: 1,
-					start_block,
-					end_block,
+					lock_start_block,
+					lock_end_block,
 					locked_amount: Zero::zero(),
-					pool_status: PoolStatus::Inactive,
+					pool_status: PoolStatus::Open,
 				})
 			);
 			assert_eq!(NextPoolId::<Test>::get(), pool_id + 1);
@@ -207,8 +208,8 @@ fn admin_can_create_multiple_pools_successfully() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			let pool_id = NextPoolId::<Test>::get();
 
@@ -217,8 +218,8 @@ fn admin_can_create_multiple_pools_successfully() {
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
 
 			assert_eq!(
@@ -229,10 +230,10 @@ fn admin_can_create_multiple_pools_successfully() {
 					interest_rate,
 					max_tokens,
 					last_updated: 1,
-					start_block,
-					end_block,
+					lock_start_block,
+					lock_end_block,
 					locked_amount: Zero::zero(),
-					pool_status: PoolStatus::Inactive,
+					pool_status: PoolStatus::Open,
 				})
 			);
 			assert_eq!(NextPoolId::<Test>::get(), pool_id + 1);
@@ -243,8 +244,8 @@ fn admin_can_create_multiple_pools_successfully() {
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
 			assert_eq!(
 				Pools::<Test>::get(pool_id),
@@ -254,10 +255,10 @@ fn admin_can_create_multiple_pools_successfully() {
 					interest_rate,
 					max_tokens,
 					last_updated: 1,
-					start_block,
-					end_block,
+					lock_start_block,
+					lock_end_block,
 					locked_amount: Zero::zero(),
-					pool_status: PoolStatus::Inactive,
+					pool_status: PoolStatus::Open,
 				})
 			);
 			assert_eq!(NextPoolId::<Test>::get(), pool_id + 1);
@@ -287,16 +288,16 @@ fn cannot_set_pool_succession_with_non_existent_predecessor() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
 
 			let successor_id = NextPoolId::<Test>::get() - 1;
@@ -322,16 +323,16 @@ fn cannot_set_pool_succession_with_non_existent_successor() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
 
 			let predecessor_id = NextPoolId::<Test>::get() - 1;
@@ -357,16 +358,16 @@ fn cannot_set_pool_succession_when_successor_max_tokens_less_than_predecessor() 
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block,
+				lock_start_block,
+				lock_end_block,
 			));
 
 			let predecessor_id = NextPoolId::<Test>::get() - 1;
@@ -378,8 +379,53 @@ fn cannot_set_pool_succession_when_successor_max_tokens_less_than_predecessor() 
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block,
+				lock_start_block,
+				lock_end_block,
+			));
+
+			let successor_id = NextPoolId::<Test>::get() - 1;
+
+			assert_noop!(
+				LiquidityPools::set_pool_succession(Origin::root(), predecessor_id, successor_id),
+				Error::<Test>::SuccessorPoolSizeShouldBeGreaterThanPredecessor
+			);
+		});
+}
+
+#[test]
+fn cannot_set_pool_succession_when_successor_lock_start_block_less_than_predecessor_lock_end_block()
+{
+	TestExt::default()
+		.with_balances(&vec![(LiquidityPools::account_id(), 1000)])
+		.build()
+		.execute_with(|| {
+			let asset_id = 1;
+			let interest_rate = 1_000_000;
+			let max_tokens = 100;
+			let reward_period = 100;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
+
+			assert_ok!(LiquidityPools::create_pool(
+				Origin::root(),
+				asset_id,
+				interest_rate,
+				max_tokens,
+				lock_start_block,
+				lock_end_block,
+			));
+
+			let predecessor_id = NextPoolId::<Test>::get() - 1;
+
+			let max_tokens = max_tokens - 1;
+
+			assert_ok!(LiquidityPools::create_pool(
+				Origin::root(),
+				asset_id,
+				interest_rate,
+				max_tokens,
+				lock_start_block,
+				lock_end_block,
 			));
 
 			let successor_id = NextPoolId::<Test>::get() - 1;
@@ -401,29 +447,31 @@ fn admin_can_set_pool_succession_successfully() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block,
+				lock_start_block,
+				lock_end_block,
 			));
 
 			let predecessor_id = NextPoolId::<Test>::get() - 1;
 
 			let max_tokens = max_tokens + 1;
 
+			let lock_start_block = lock_end_block + 1;
+			let lock_end_block = lock_start_block + reward_period;
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block,
+				lock_start_block,
+				lock_end_block,
 			));
 
 			let successor_id = NextPoolId::<Test>::get() - 1;
@@ -458,23 +506,17 @@ fn set_pool_rollover_should_work() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
-
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
@@ -526,30 +568,28 @@ fn set_pool_rollover_fails_if_not_provisioning() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
-
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
 
 			assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, amount));
 
-			LiquidityPools::on_idle(end_block, remaining_weight);
+			let remaining_weight: Weight = ParityDbWeight::get()
+				.reads(100u64)
+				.saturating_add(ParityDbWeight::get().writes(100u64));
+			LiquidityPools::on_idle(lock_start_block, remaining_weight);
+			LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 
 			// Try to set rollover preference when pool is not provisioning
 			assert_noop!(
@@ -572,10 +612,10 @@ fn set_pool_rollover_fails_if_user_has_no_tokens_staked() {
 				interest_rate: 1_000_000,
 				max_tokens: 100,
 				last_updated: 1,
-				start_block: System::block_number() + 1,
-				end_block: System::block_number() + 100,
+				lock_start_block: System::block_number() + 1,
+				lock_end_block: System::block_number() + 100,
 				locked_amount: Zero::zero(),
-				pool_status: PoolStatus::Provisioning,
+				pool_status: PoolStatus::Open,
 			};
 			Pools::<Test>::insert(pool_id, pool_info);
 			NextPoolId::<Test>::put(pool_id + 1);
@@ -603,10 +643,10 @@ fn set_pool_rollover_fails_due_to_bad_origin() {
 				interest_rate: 1_000_000,
 				max_tokens: 100,
 				last_updated: 1,
-				start_block: System::block_number() + 1,
-				end_block: System::block_number() + 100,
+				lock_start_block: System::block_number() + 1,
+				lock_end_block: System::block_number() + 100,
 				locked_amount: Zero::zero(),
-				pool_status: PoolStatus::Provisioning,
+				pool_status: PoolStatus::Open,
 			};
 			Pools::<Test>::insert(pool_id, pool_info);
 			NextPoolId::<Test>::put(pool_id + 1);
@@ -657,17 +697,19 @@ fn admin_can_close_pool_successfully() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
+
+			assert_eq!(Balances::free_balance(LiquidityPools::account_id()), 0);
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 
@@ -679,10 +721,10 @@ fn admin_can_close_pool_successfully() {
 					interest_rate,
 					max_tokens,
 					last_updated: 1,
-					start_block,
-					end_block,
+					lock_start_block,
+					lock_end_block,
 					locked_amount: Zero::zero(),
-					pool_status: PoolStatus::Inactive,
+					pool_status: PoolStatus::Open,
 				})
 			);
 
@@ -695,6 +737,7 @@ fn admin_can_close_pool_successfully() {
 			assert_eq!(Pools::<Test>::get(pool_id), None);
 			assert_eq!(RolloverPivot::<Test>::get(pool_id), vec![]);
 			assert_eq!(PoolRelationships::<Test>::get(pool_id), None);
+			assert_eq!(Balances::free_balance(LiquidityPools::account_id()), 100);
 		});
 }
 
@@ -722,7 +765,7 @@ fn cannot_join_non_existent_pool() {
 }
 
 #[test]
-fn cannot_join_pool_after_end_block() {
+fn cannot_join_pool_after_lock_end_block() {
 	TestExt::default()
 		.with_balances(&vec![(LiquidityPools::account_id(), 100)])
 		.build()
@@ -731,21 +774,24 @@ fn cannot_join_pool_after_end_block() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
-			assert_ok!(LiquidityPools::create_pool(
-				Origin::root(),
-				asset_id,
-				interest_rate,
-				max_tokens,
-				start_block,
-				end_block
-			));
-
-			let pool_id = NextPoolId::<Test>::get() - 1;
-
-			System::set_block_number(reward_period + System::block_number() + 1);
+			let pool_id = NextPoolId::<Test>::get();
+			Pools::<Test>::insert(
+				pool_id,
+				PoolInfo {
+					id: pool_id,
+					asset_id,
+					interest_rate,
+					max_tokens,
+					last_updated: 1,
+					lock_start_block,
+					lock_end_block,
+					locked_amount: Zero::zero(),
+					pool_status: PoolStatus::Closed,
+				},
+			);
 
 			assert_noop!(
 				LiquidityPools::join_pool(Origin::signed(create_account(1)), pool_id, 10),
@@ -764,23 +810,17 @@ fn cannot_join_pool_if_token_limit_exceeded() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
-
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 
@@ -805,23 +845,17 @@ fn cannot_join_pool_without_sufficient_root_balance() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
-
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 
@@ -844,23 +878,17 @@ fn can_join_pool_successfully() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
-
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
@@ -882,11 +910,11 @@ fn can_join_pool_successfully() {
 					asset_id,
 					interest_rate,
 					max_tokens,
-					last_updated: 2,
-					start_block,
-					end_block,
+					last_updated: 1,
+					lock_start_block,
+					lock_end_block,
 					locked_amount: amount,
-					pool_status: PoolStatus::Provisioning,
+					pool_status: PoolStatus::Open,
 				})
 			);
 
@@ -915,16 +943,16 @@ fn can_refund_back_when_pool_is_done() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 500;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
 
 			assert_eq!(
@@ -932,17 +960,17 @@ fn can_refund_back_when_pool_is_done() {
 				vault_balance - max_tokens
 			);
 
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
 
 			assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, amount));
 
-			LiquidityPools::on_idle(end_block, remaining_weight);
+			let remaining_weight: Weight = ParityDbWeight::get()
+				.reads(100u64)
+				.saturating_add(ParityDbWeight::get().writes(100u64));
+			LiquidityPools::on_idle(lock_start_block, remaining_weight);
+
+			LiquidityPools::on_idle(lock_end_block, remaining_weight);
 
 			assert_eq!(
 				Balances::free_balance(LiquidityPools::account_id()),
@@ -984,19 +1012,24 @@ fn cannot_exit_pool_with_wrong_pool_status() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
+			let pool_id = NextPoolId::<Test>::get();
 
-			assert_ok!(LiquidityPools::create_pool(
-				Origin::root(),
-				asset_id,
-				interest_rate,
-				max_tokens,
-				start_block,
-				end_block
-			));
-
-			let pool_id = NextPoolId::<Test>::get() - 1;
+			Pools::<Test>::insert(
+				pool_id,
+				PoolInfo {
+					id: pool_id,
+					asset_id,
+					interest_rate,
+					max_tokens,
+					last_updated: 1,
+					lock_start_block,
+					lock_end_block,
+					locked_amount: Zero::zero(),
+					pool_status: PoolStatus::Closed,
+				},
+			);
 
 			assert_noop!(
 				LiquidityPools::exit_pool(Origin::signed(create_account(1)), pool_id),
@@ -1015,24 +1048,19 @@ fn cannot_exit_pool_without_previously_depositing_token() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
-
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
 
 			assert_noop!(
 				LiquidityPools::exit_pool(Origin::signed(create_account(1)), pool_id),
@@ -1060,23 +1088,17 @@ fn can_exit_pool_successfully() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
-
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
@@ -1100,11 +1122,11 @@ fn can_exit_pool_successfully() {
 					asset_id,
 					interest_rate,
 					max_tokens,
-					last_updated: 2,
-					start_block,
-					end_block,
+					last_updated: 1,
+					lock_start_block,
+					lock_end_block,
 					locked_amount: Zero::zero(),
-					pool_status: PoolStatus::Provisioning,
+					pool_status: PoolStatus::Open,
 				})
 			);
 
@@ -1132,23 +1154,17 @@ fn claim_reward_should_work() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100 * 50;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
-
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
@@ -1158,8 +1174,20 @@ fn claim_reward_should_work() {
 				assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, amount));
 			}
 
-			LiquidityPools::on_idle(end_block, remaining_weight);
-			System::set_block_number(end_block + 1);
+			let remaining_weight: Weight = ParityDbWeight::get()
+				.reads(100u64)
+				.saturating_add(ParityDbWeight::get().writes(100u64));
+			LiquidityPools::on_idle(lock_start_block, remaining_weight);
+			LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
+
+			LiquidityPools::on_idle(lock_end_block, remaining_weight);
+			System::set_block_number(lock_end_block + 1);
+
+			assert_ok!(LiquidityPools::rollover_unsigned(
+				Origin::none(),
+				pool_id,
+				System::block_number()
+			));
 
 			for account_id in 1..100 {
 				let user: AccountId = create_account(account_id);
@@ -1170,7 +1198,7 @@ fn claim_reward_should_work() {
 				));
 				assert_ok!(LiquidityPools::claim_reward(Origin::signed(user), pool_id));
 
-				assert_eq!(Assets::balance(asset_id, user), user_balance - amount);
+				assert_eq!(Assets::balance(asset_id, user), user_balance);
 				assert_eq!(Balances::free_balance(user), amount);
 			}
 		});
@@ -1196,23 +1224,17 @@ fn claim_reward_should_work_when_not_rollover() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100 * 50;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
-
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
@@ -1223,8 +1245,14 @@ fn claim_reward_should_work_when_not_rollover() {
 				assert_ok!(LiquidityPools::set_pool_rollover(Origin::signed(user), pool_id, false));
 			}
 
-			LiquidityPools::on_idle(end_block, remaining_weight);
-			System::set_block_number(end_block + 1);
+			let remaining_weight: Weight = ParityDbWeight::get()
+				.reads(100u64)
+				.saturating_add(ParityDbWeight::get().writes(100u64));
+			LiquidityPools::on_idle(lock_start_block, remaining_weight);
+			LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
+
+			LiquidityPools::on_idle(lock_end_block, remaining_weight);
+			System::set_block_number(lock_end_block + 1);
 
 			for account_id in 1..100 {
 				let user: AccountId = create_account(account_id);
@@ -1258,16 +1286,16 @@ fn claim_reward_should_fail_if_no_tokens_staked() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
@@ -1275,8 +1303,8 @@ fn claim_reward_should_fail_if_no_tokens_staked() {
 			let remaining_weight: Weight = ParityDbWeight::get()
 				.reads(100u64)
 				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
+			LiquidityPools::on_idle(lock_start_block, remaining_weight);
+			LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 
 			assert_noop!(
 				LiquidityPools::claim_reward(Origin::signed(user), pool_id),
@@ -1319,27 +1347,27 @@ fn claim_reward_should_fail_if_pool_status_is_not_done() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 
+			assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, 10));
+
 			let remaining_weight: Weight = ParityDbWeight::get()
 				.reads(100u64)
 				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
-
-			assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, 10));
+			LiquidityPools::on_idle(lock_start_block, remaining_weight);
+			LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 
 			assert_noop!(
 				LiquidityPools::claim_reward(Origin::signed(user), pool_id),
@@ -1360,23 +1388,17 @@ fn should_update_user_info() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block,
+				lock_start_block,
+				lock_end_block,
 			));
-
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
@@ -1431,19 +1453,25 @@ fn should_not_update_when_pool_closed() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
-			assert_ok!(LiquidityPools::create_pool(
-				Origin::root(),
-				asset_id,
-				interest_rate,
-				max_tokens,
-				start_block,
-				end_block,
-			));
+			Pools::<Test>::insert(
+				NextPoolId::<Test>::get(),
+				PoolInfo {
+					id: NextPoolId::<Test>::get(),
+					asset_id,
+					interest_rate,
+					max_tokens,
+					last_updated: 2,
+					lock_start_block,
+					lock_end_block,
+					locked_amount: Zero::zero(),
+					pool_status: PoolStatus::Closed,
+				},
+			);
 
-			let pool_id = NextPoolId::<Test>::get() - 1;
+			let pool_id = NextPoolId::<Test>::get();
 
 			assert_noop!(
 				LiquidityPools::set_pool_rollover(Origin::signed(user), pool_id, false),
@@ -1464,23 +1492,17 @@ fn should_not_update_for_user_without_tokens() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block,
+				lock_start_block,
+				lock_end_block,
 			));
-
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 
@@ -1513,23 +1535,17 @@ fn rollover_should_work() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100 * 50;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
-
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
 
 			let predecessor_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
@@ -1549,13 +1565,15 @@ fn rollover_should_work() {
 				));
 			}
 
+			let lock_start_block = lock_end_block + 1;
+			let lock_end_block = lock_start_block + reward_period;
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
 
 			assert_eq!(
@@ -1565,11 +1583,11 @@ fn rollover_should_work() {
 					asset_id,
 					interest_rate,
 					max_tokens,
-					last_updated: 2,
-					start_block,
-					end_block,
+					last_updated: 1,
+					lock_start_block: 2,
+					lock_end_block: 102,
 					locked_amount: amount * ((user_amount + opt_out_rollover_amount) as u128),
-					pool_status: PoolStatus::Provisioning
+					pool_status: PoolStatus::Open
 				})
 			);
 
@@ -1581,11 +1599,17 @@ fn rollover_should_work() {
 				successor_id
 			));
 
+			let remaining_weight: Weight = ParityDbWeight::get()
+				.reads(100u64)
+				.saturating_add(ParityDbWeight::get().writes(100u64));
+			LiquidityPools::on_idle(lock_start_block, remaining_weight);
+			LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
+
 			// Simulate rollover process
 			System::set_block_number(reward_period);
 
 			// Give some time for the rollover to be processed
-			for _block_bump in 1..100 {
+			for _block_bump in 1..110 {
 				LiquidityPools::on_idle(System::block_number(), remaining_weight);
 				System::set_block_number(System::block_number() + 1);
 
@@ -1603,13 +1627,26 @@ fn rollover_should_work() {
 					asset_id,
 					interest_rate,
 					max_tokens,
-					last_updated: 113,
-					start_block,
-					end_block,
+					last_updated: 111,
+					lock_start_block: 2,
+					lock_end_block: 102,
 					locked_amount: opt_out_rollover_amount as u128 * amount,
-					pool_status: PoolStatus::Done
+					pool_status: PoolStatus::Matured
 				})
 			);
+
+			// 100 user default opt-in rollover should be not be refunded joined asset amount
+			for account_id in 1..=user_amount {
+				let user: AccountId = create_account(account_id);
+				assert_ok!(LiquidityPools::claim_reward(Origin::signed(user), predecessor_id));
+				assert_eq!(Assets::balance(asset_id, user), user_balance - amount);
+			}
+			// 10 user opt-out rollover should be refunded joined asset amount
+			for account_id in user_amount + 1..=user_amount + opt_out_rollover_amount {
+				let user: AccountId = create_account(account_id);
+				assert_ok!(LiquidityPools::claim_reward(Origin::signed(user), predecessor_id));
+				assert_eq!(Assets::balance(asset_id, user), user_balance);
+			}
 		});
 }
 
@@ -1634,37 +1671,32 @@ fn rollover_should_work_when_exceeding_successor_pool_maxtokens() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100 * 50;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
 
 			let predecessor_id = NextPoolId::<Test>::get() - 1;
 
-			let end_block_2 = end_block + 100;
+			let lock_start_block = lock_end_block + 1;
+			let lock_end_block_2 = lock_end_block + 100;
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block_2
+				lock_start_block,
+				lock_end_block_2
 			));
 
 			let successor_id = NextPoolId::<Test>::get() - 1;
-
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(start_block, remaining_weight);
-			LiquidityPools::on_idle(start_block + 1, remaining_weight);
 
 			let amount = 10;
 
@@ -1687,11 +1719,11 @@ fn rollover_should_work_when_exceeding_successor_pool_maxtokens() {
 					asset_id,
 					interest_rate,
 					max_tokens,
-					last_updated: 2,
-					start_block,
-					end_block,
+					last_updated: 1,
+					lock_start_block: 2,
+					lock_end_block: 102,
 					locked_amount: amount * ((user_amount) as u128),
-					pool_status: PoolStatus::Provisioning
+					pool_status: PoolStatus::Open
 				})
 			);
 
@@ -1700,6 +1732,12 @@ fn rollover_should_work_when_exceeding_successor_pool_maxtokens() {
 				predecessor_id,
 				successor_id
 			));
+
+			let remaining_weight: Weight = ParityDbWeight::get()
+				.reads(100u64)
+				.saturating_add(ParityDbWeight::get().writes(100u64));
+			LiquidityPools::on_idle(lock_start_block, remaining_weight);
+			LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 
 			// Simulate rollover process
 			System::set_block_number(reward_period);
@@ -1723,11 +1761,11 @@ fn rollover_should_work_when_exceeding_successor_pool_maxtokens() {
 					asset_id,
 					interest_rate,
 					max_tokens,
-					last_updated: 107,
-					start_block,
-					end_block,
+					last_updated: 105,
+					lock_start_block: 2,
+					lock_end_block: 102,
 					locked_amount: user_amount as u128 / 2 * amount,
-					pool_status: PoolStatus::Done
+					pool_status: PoolStatus::Matured
 				})
 			);
 
@@ -1738,11 +1776,11 @@ fn rollover_should_work_when_exceeding_successor_pool_maxtokens() {
 					asset_id,
 					interest_rate,
 					max_tokens,
-					last_updated: 107,
-					start_block,
-					end_block: end_block_2,
+					last_updated: 105,
+					lock_start_block,
+					lock_end_block: lock_end_block_2,
 					locked_amount: max_tokens,
-					pool_status: PoolStatus::Provisioning
+					pool_status: PoolStatus::Started
 				})
 			);
 		});
@@ -1776,10 +1814,10 @@ fn rollover_should_fail_when_successor_pool_not_exist() {
 					interest_rate: 1_000_000,
 					max_tokens: 100,
 					last_updated: 0,
-					start_block: 0,
-					end_block: 0,
+					lock_start_block: 0,
+					lock_end_block: 0,
 					locked_amount: 0,
-					pool_status: PoolStatus::RollingOver,
+					pool_status: PoolStatus::Renewing,
 				},
 			);
 
@@ -1810,16 +1848,16 @@ fn cannot_join_pool_when_not_provisioning() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
@@ -1828,7 +1866,7 @@ fn cannot_join_pool_when_not_provisioning() {
 			// Simulate the pool moving to a different state
 			Pools::<Test>::mutate(pool_id, |pool| {
 				*pool = Some(PoolInfo {
-					pool_status: PoolStatus::Inactive, // Not Provisioning
+					pool_status: PoolStatus::Closed, // Not Provisioning
 					..pool.clone().unwrap()
 				});
 			});
@@ -1850,22 +1888,22 @@ fn cannot_exit_pool_when_not_joined() {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100;
 			let reward_period = 100;
-			let start_block = System::block_number() + 1;
-			let end_block = start_block + reward_period;
+			let lock_start_block = System::block_number() + 1;
+			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
 				Origin::root(),
 				asset_id,
 				interest_rate,
 				max_tokens,
-				start_block,
-				end_block
+				lock_start_block,
+				lock_end_block
 			));
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			Pools::<Test>::mutate(NextPoolId::<Test>::get() - 1, |pool| {
 				*pool = Some(PoolInfo {
-					pool_status: PoolStatus::Provisioning, // Not Provisioning
+					pool_status: PoolStatus::Open, // Not Provisioning
 					..pool.clone().unwrap()
 				});
 			});

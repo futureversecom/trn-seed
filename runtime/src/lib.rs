@@ -2415,6 +2415,7 @@ mod benches {
 		[pallet_vortex_distribution, VortexDistribution]
 		[pallet_partner_attribution, PartnerAttribution]
 		[pallet_dex, Dex]
+		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_marketplace, Marketplace]
 		[pallet_doughnut, Doughnut]
 		[pallet_maintenance_mode, MaintenanceMode]
