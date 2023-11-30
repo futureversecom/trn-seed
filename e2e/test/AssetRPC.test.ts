@@ -10,7 +10,7 @@ describe("RPC", () => {
 
   let api: ApiPromise;
   let alith: KeyringPair;
-  let mintAmount = "140282367920947470662629348422000000";
+  const mintAmount = "140282367920947470662629348422000000";
 
   before(async () => {
     node = await startNode();
@@ -19,10 +19,10 @@ describe("RPC", () => {
     const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
     alith = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
-    await new Promise<void>(async (resolve) => {
-      await api.tx.assets
+    await new Promise<void>((resolve) => {
+      api.tx.assets
         .mint(2, "0x6D1eFDE1BbF146EF88c360AF255D9d54A5D39408", mintAmount)
-        .signAndSend(alith, async ({ status }) => {
+        .signAndSend(alith, ({ status }) => {
           if (status.isInBlock) {
             resolve();
           }
@@ -31,7 +31,7 @@ describe("RPC", () => {
   });
 
   it("RPC call to fetch alith's balance", async () => {
-    let currentBalance = await (api.rpc as any)["assets-ext"].assetBalance(
+    const currentBalance = await (api.rpc as any)["assets-ext"].assetBalance(
       2,
       "0x6D1eFDE1BbF146EF88c360AF255D9d54A5D39408",
     );
