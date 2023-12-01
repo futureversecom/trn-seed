@@ -47,7 +47,7 @@ def fetch_storage_keys_task(hash, keys, prefixes, lock, url):
         try:
             rpc_result = fetch_paged_storage_keys(substrate, prefix, hash, None, None)
         except Exception as e:
-            print("An error occured: ", e)
+            print("An error occurred while fetching keys: ", e)
             exit(-1)
 
 def fetch_storage_keys(hash, url):
@@ -74,13 +74,17 @@ def fetch_storage_values_task(hash, lock, keys, key_values, url):
             return
         lock.release()
 
-        key_values_result = substrate.rpc_request(method='state_queryStorageAt', params={
-            "keys": keys_to_fetch, "at": hash})['result'][0]['changes']
+        try:
+            key_values_result = substrate.rpc_request(method='state_queryStorageAt', params={
+                "keys": keys_to_fetch, "at": hash})['result'][0]['changes']
 
-        for i, kv in enumerate(key_values_result):
-            if kv[1] is None:
-                kv[1] = substrate.rpc_request(method='state_getStorage', params={
-                    "key": kv[0], "hash": hash})['result']
+            for i, kv in enumerate(key_values_result):
+                if kv[1] is None:
+                    kv[1] = substrate.rpc_request(method='state_getStorage', params={
+                        "key": kv[0], "hash": hash})['result']
+        except Exception as e:
+            print("An error occurred while fetching values: ", e)
+            exit(-1)
 
         lock.acquire()
         key_values += key_values_result
