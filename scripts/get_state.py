@@ -68,7 +68,7 @@ def fetch_storage_values_task(hash, lock, keys, key_values, url):
 
     while True:
         lock.acquire()
-        keys_to_fetch = [keys.pop() for _ in range(min(2000, len(keys)))]
+        keys_to_fetch = [keys.pop() for _ in range(min(1000, len(keys)))]
         if not keys_to_fetch:
             lock.release()
             return
