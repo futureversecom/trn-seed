@@ -99,6 +99,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type ChallengePeriod: Get<u32>;
 
+		/// Maximum number of transactions that can be pruned in on_idle
+		#[pallet::constant]
+		type MaxPrunedTransactionsPerBlock: Get<u32>;
+
 		/// Unix time
 		type UnixTime: UnixTime;
 
@@ -235,8 +239,7 @@ pub mod pallet {
 
 	#[pallet::type_value]
 	pub fn DefaultHighestPrunedLedgerIndex() -> u32 {
-		// TODO determine appropriate value
-		8_267_856_u32
+		42_900_000_u32
 	}
 
 	#[pallet::storage]
@@ -654,6 +657,12 @@ impl<T: Config> Pallet<T> {
 		// Get range of indexes to clear
 		let highest_pruned_index = <HighestPrunedLedgerIndex<T>>::get();
 		let mut new_highest = highest_pruned_index;
+
+		// Ensure we don't clear more than the specified max per block.
+		// If this check is not in place, the settled_txs_to_clear could become very large
+		// and cause memory issues
+		let max_end = highest_pruned_index + T::MaxPrunedTransactionsPerBlock::get();
+		let current_end = current_end.min(max_end);
 		let settled_txs_to_clear = (highest_pruned_index..current_end).collect::<Vec<u32>>();
 
 		if settled_txs_to_clear.len() == 0 {
