@@ -65,10 +65,10 @@ impl<T: frame_system::Config> pallet_liquidity_pools::WeightInfo for WeightInfo<
 	// Storage: Assets Account (r:2 w:2)
 	// Storage: System Account (r:1 w:1)
 	// Storage: LiquidityPools PoolUsers (r:1 w:1)
-	fn join_pool() -> Weight {
 		Weight::from_ref_time(56_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(6 as u64))
 			.saturating_add(T::DbWeight::get().writes(6 as u64))
+	fn enter_pool() -> Weight {
 	}
 	// Storage: LiquidityPools Pools (r:1 w:1)
 	// Storage: LiquidityPools PoolUsers (r:1 w:1)

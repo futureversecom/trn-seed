@@ -102,7 +102,7 @@ describe("Reward", () => {
     // join pool
     for (let i = 0; i < testUsers.length; i++) {
       const user = testUsers[i];
-      api.tx.liquidityPools.joinPool(pool1, joinPoolAmount).signAndSend(user);
+      api.tx.liquidityPools.enterPool(pool1, joinPoolAmount).signAndSend(user);
 
       if (i % batchSize === 0 || i === testUsers.length - 1) {
         await sleep(blockDuration);

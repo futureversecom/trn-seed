@@ -2180,7 +2180,6 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_preimage, Preimage]
 		// Local
-		[pallet_liquidity_pools, LiquidityPools]
 		[pallet_nft, Nft]
 		[pallet_sft, Sft]
 		[pallet_fee_control, FeeControl]
@@ -2197,6 +2196,7 @@ mod benches {
 		[pallet_vortex, VortexDistribution]
 		[pallet_dex, Dex]
 		[pallet_maintenance_mode, MaintenanceMode]
+		[pallet_liquidity_pools, LiquidityPools]
 		[pallet_marketplace, Marketplace]
 		[pallet_doughnut, Doughnut]
 		[pallet_maintenance_mode, MaintenanceMode]
