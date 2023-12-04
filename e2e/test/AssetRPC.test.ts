@@ -3,14 +3,14 @@ import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToBn, hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 
-import { ALITH_PRIVATE_KEY, NodeProcess, rpcs, startNode, typedefs } from "../common";
+import { ALITH_PRIVATE_KEY, NodeProcess, finalizeTx, rpcs, startNode, typedefs } from "../common";
 
 describe("RPC", () => {
   let node: NodeProcess;
 
   let api: ApiPromise;
   let alith: KeyringPair;
-  const mintAmount = "140282367920947470662629348422000000";
+  const mintAmount = "140282367920947470662629348422000000"; // Using a value which is greater than js number (2 pow 53 -1) - 9007199254740991
 
   before(async () => {
     node = await startNode();
@@ -19,23 +19,14 @@ describe("RPC", () => {
     const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
     alith = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
-    await new Promise<void>((resolve) => {
-      api.tx.assets
-        .mint(2, "0x6D1eFDE1BbF146EF88c360AF255D9d54A5D39408", mintAmount)
-        .signAndSend(alith, ({ status }) => {
-          if (status.isInBlock) {
-            resolve();
-          }
-        });
-    });
+    const tx = api.tx.assets.mint(2, "0x6D1eFDE1BbF146EF88c360AF255D9d54A5D39408", mintAmount);
+    await finalizeTx(alith, tx);
   });
 
+  after(async () => await node.stop());
+
   it("RPC call to fetch alith's balance", async () => {
-    const currentBalance = await (api.rpc as any)["assets-ext"].assetBalance(
-      2,
-      "0x6D1eFDE1BbF146EF88c360AF255D9d54A5D39408",
-    );
-    console.log("currentBalance::::", hexToBn(`${currentBalance}`).toString());
+    const currentBalance = await (api.rpc as any).assetsExt.balance(2, "0x6D1eFDE1BbF146EF88c360AF255D9d54A5D39408");
     expect(hexToBn(`${currentBalance}`).toString()).to.eq(mintAmount);
   });
 });

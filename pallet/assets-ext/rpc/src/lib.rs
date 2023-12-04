@@ -35,10 +35,10 @@ use seed_primitives::AssetId;
 extern crate alloc;
 use alloc::string::String;
 /// AssetsExt RPC methods.
-#[rpc(client, server, namespace = "assets-ext")]
+#[rpc(client, server, namespace = "assetsExt")]
 pub trait AssetsExtApi<AccountId> {
-	#[method(name = "assetBalance")]
-	fn asset_balance(&self, asset_id: AssetId, who: AccountId) -> RpcResult<String>;
+	#[method(name = "balance")]
+	fn balance(&self, asset_id: AssetId, who: AccountId) -> RpcResult<String>;
 }
 
 /// An implementation of AssetsExt specific RPC methods.
@@ -62,10 +62,10 @@ where
 	C::Api: AssetsExtRuntimeApi<Block, AccountId, T>,
 	AccountId: Codec,
 {
-	fn asset_balance(&self, asset_id: AssetId, who: AccountId) -> RpcResult<String> {
+	fn balance(&self, asset_id: AssetId, who: AccountId) -> RpcResult<String> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
-		api.asset_balance(&at, asset_id, who).map_err(|e| RpcError::to_call_error(e))
+		api.balance(&at, asset_id, who).map_err(|e| RpcError::to_call_error(e))
 	}
 }

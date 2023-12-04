@@ -30,7 +30,7 @@ sp_api::decl_runtime_apis! {
 		T: Config,
 	{
 		/// Find asset balance owned by `who` for a given assetId
-		fn asset_balance(
+		fn balance(
 			asset_id: AssetId,
 			who: AccountId,
 		) -> String;

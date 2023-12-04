@@ -1600,7 +1600,7 @@ impl_runtime_apis! {
 		AccountId,
 		Runtime,
 	> for Runtime {
-		fn asset_balance(asset_id: AssetId, who: AccountId) -> String {
+		fn balance(asset_id: AssetId, who: AccountId) -> String {
 			let bal = AssetsExt::reducible_balance(asset_id, &who, false);
 			alloc::format!("{:x}", bal)
 		 }
