@@ -175,7 +175,7 @@ where
 	C::Api: pallet_dex_rpc::DexRuntimeApi<Block, Runtime>,
 	C::Api: pallet_nft_rpc::NftRuntimeApi<Block, AccountId, Runtime>,
 	C::Api: pallet_sft_rpc::SftRuntimeApi<Block, Runtime>,
-	C::Api: pallet_assets_ext_rpc::AssetsExtRuntimeApi<Block, AccountId, Runtime>,
+	C::Api: pallet_assets_ext_rpc::AssetsExtRuntimeApi<Block, AccountId>,
 	P: TransactionPool<Block = Block> + 'static,
 	SC: SelectChain<Block> + 'static,
 {

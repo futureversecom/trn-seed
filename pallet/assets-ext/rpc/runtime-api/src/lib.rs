@@ -18,16 +18,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Codec;
-use pallet_assets_ext::Config;
 use seed_primitives::AssetId;
 extern crate alloc;
 use alloc::string::String;
 
 sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with AssetExt module
-	pub trait AssetsExtApi<AccountId, T> where
+	pub trait AssetsExtApi<AccountId> where
 		AccountId: Codec,
-		T: Config,
 	{
 		/// Find asset balance owned by `who` for a given assetId
 		fn balance(

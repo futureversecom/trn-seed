@@ -10,6 +10,7 @@ codec = { version = "3.0.0", package = "parity-scale-codec", default-features = 
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
+
 pallet-assets-ext = { path = "../../../assets-ext", default-features = false }
 seed-primitives = { path = "../../../../primitives", default-features = false}
 

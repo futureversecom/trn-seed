@@ -1,4 +1,3 @@
-#![feature(associated_type_defaults)]
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
