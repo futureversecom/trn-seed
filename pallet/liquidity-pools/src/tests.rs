@@ -521,7 +521,7 @@ fn set_pool_rollover_should_work() {
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
 
-			assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, amount));
+			assert_ok!(LiquidityPools::enter_pool(Origin::signed(user), pool_id, amount));
 
 			// Set rollover preference to true
 			assert_ok!(LiquidityPools::set_pool_rollover(Origin::signed(user), pool_id, true));
@@ -583,7 +583,7 @@ fn set_pool_rollover_fails_if_not_provisioning() {
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
 
-			assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, amount));
+			assert_ok!(LiquidityPools::enter_pool(Origin::signed(user), pool_id, amount));
 
 			let remaining_weight: Weight = ParityDbWeight::get()
 				.reads(100u64)
@@ -732,6 +732,9 @@ fn admin_can_close_pool_successfully() {
 
 			System::assert_last_event(MockEvent::LiquidityPools(crate::Event::PoolClosed {
 				pool_id,
+				native_asset_amount: 100,
+				reward_asset_amount: 0,
+				reciever: LiquidityPools::account_id(),
 			}));
 
 			assert_eq!(Pools::<Test>::get(pool_id), None);
@@ -742,12 +745,12 @@ fn admin_can_close_pool_successfully() {
 }
 
 #[test]
-fn invalid_origin_cannot_join_pool() {
+fn invalid_origin_cannot_enter_pool() {
 	TestExt::default()
 		.with_balances(&vec![(LiquidityPools::account_id(), 100)])
 		.build()
 		.execute_with(|| {
-			assert_noop!(LiquidityPools::join_pool(Origin::none(), 0, 100), BadOrigin);
+			assert_noop!(LiquidityPools::enter_pool(Origin::none(), 0, 100), BadOrigin);
 		});
 }
 
@@ -758,14 +761,14 @@ fn cannot_join_non_existent_pool() {
 		.build()
 		.execute_with(|| {
 			assert_noop!(
-				LiquidityPools::join_pool(Origin::signed(create_account(1)), 0, 100),
+				LiquidityPools::enter_pool(Origin::signed(create_account(1)), 0, 100),
 				Error::<Test>::PoolDoesNotExist
 			);
 		});
 }
 
 #[test]
-fn cannot_join_pool_after_lock_end_block() {
+fn cannot_enter_pool_after_lock_end_block() {
 	TestExt::default()
 		.with_balances(&vec![(LiquidityPools::account_id(), 100)])
 		.build()
@@ -794,14 +797,14 @@ fn cannot_join_pool_after_lock_end_block() {
 			);
 
 			assert_noop!(
-				LiquidityPools::join_pool(Origin::signed(create_account(1)), pool_id, 10),
+				LiquidityPools::enter_pool(Origin::signed(create_account(1)), pool_id, 10),
 				Error::<Test>::PoolNotActive
 			);
 		});
 }
 
 #[test]
-fn cannot_join_pool_if_token_limit_exceeded() {
+fn cannot_enter_pool_if_token_limit_exceeded() {
 	TestExt::default()
 		.with_balances(&vec![(LiquidityPools::account_id(), 100)])
 		.build()
@@ -825,7 +828,7 @@ fn cannot_join_pool_if_token_limit_exceeded() {
 			let pool_id = NextPoolId::<Test>::get() - 1;
 
 			assert_noop!(
-				LiquidityPools::join_pool(
+				LiquidityPools::enter_pool(
 					Origin::signed(create_account(1)),
 					pool_id,
 					max_tokens + 1
@@ -836,7 +839,7 @@ fn cannot_join_pool_if_token_limit_exceeded() {
 }
 
 #[test]
-fn cannot_join_pool_without_sufficient_root_balance() {
+fn cannot_enter_pool_without_sufficient_root_balance() {
 	TestExt::default()
 		.with_balances(&vec![(LiquidityPools::account_id(), 100)])
 		.build()
@@ -860,14 +863,14 @@ fn cannot_join_pool_without_sufficient_root_balance() {
 			let pool_id = NextPoolId::<Test>::get() - 1;
 
 			assert_noop!(
-				LiquidityPools::join_pool(Origin::signed(create_account(1)), pool_id, 10),
+				LiquidityPools::enter_pool(Origin::signed(create_account(1)), pool_id, 10),
 				BalancesError::<Test>::InsufficientBalance
 			);
 		});
 }
 
 #[test]
-fn can_join_pool_successfully() {
+fn can_enter_pool_successfully() {
 	let user: AccountId = create_account(1);
 	let user_balance = 100;
 	TestExt::default()
@@ -893,7 +896,7 @@ fn can_join_pool_successfully() {
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
 
-			assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, amount));
+			assert_ok!(LiquidityPools::enter_pool(Origin::signed(user), pool_id, amount));
 
 			System::assert_last_event(MockEvent::LiquidityPools(crate::Event::UserJoined {
 				account_id: user,
@@ -963,7 +966,7 @@ fn can_refund_back_when_pool_is_done() {
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
 
-			assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, amount));
+			assert_ok!(LiquidityPools::enter_pool(Origin::signed(user), pool_id, amount));
 
 			let remaining_weight: Weight = ParityDbWeight::get()
 				.reads(100u64)
@@ -1103,7 +1106,7 @@ fn can_exit_pool_successfully() {
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
 
-			assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, amount));
+			assert_ok!(LiquidityPools::enter_pool(Origin::signed(user), pool_id, amount));
 
 			assert_ok!(LiquidityPools::exit_pool(Origin::signed(user), pool_id));
 
@@ -1171,7 +1174,7 @@ fn claim_reward_should_work() {
 
 			for account_id in 1..100 {
 				let user: AccountId = create_account(account_id);
-				assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, amount));
+				assert_ok!(LiquidityPools::enter_pool(Origin::signed(user), pool_id, amount));
 			}
 
 			let remaining_weight: Weight = ParityDbWeight::get()
@@ -1196,7 +1199,6 @@ fn claim_reward_should_work() {
 				System::assert_last_event(MockEvent::LiquidityPools(
 					crate::Event::RewardsClaimed { account_id: user, pool_id, amount },
 				));
-				assert_ok!(LiquidityPools::claim_reward(Origin::signed(user), pool_id));
 
 				assert_eq!(Assets::balance(asset_id, user), user_balance);
 				assert_eq!(Balances::free_balance(user), amount);
@@ -1241,7 +1243,7 @@ fn claim_reward_should_work_when_not_rollover() {
 
 			for account_id in 1..100 {
 				let user: AccountId = create_account(account_id);
-				assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, amount));
+				assert_ok!(LiquidityPools::enter_pool(Origin::signed(user), pool_id, amount));
 				assert_ok!(LiquidityPools::set_pool_rollover(Origin::signed(user), pool_id, false));
 			}
 
@@ -1324,7 +1326,7 @@ fn claim_reward_should_fail_if_pool_does_not_exist() {
 			let amount = 10;
 
 			assert_noop!(
-				LiquidityPools::join_pool(Origin::signed(user), pool_id, amount),
+				LiquidityPools::enter_pool(Origin::signed(user), pool_id, amount),
 				Error::<Test>::PoolDoesNotExist
 			);
 		});
@@ -1361,7 +1363,7 @@ fn claim_reward_should_fail_if_pool_status_is_not_done() {
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 
-			assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, 10));
+			assert_ok!(LiquidityPools::enter_pool(Origin::signed(user), pool_id, 10));
 
 			let remaining_weight: Weight = ParityDbWeight::get()
 				.reads(100u64)
@@ -1403,7 +1405,7 @@ fn should_update_user_info() {
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
 
-			assert_ok!(LiquidityPools::join_pool(Origin::signed(user), pool_id, amount));
+			assert_ok!(LiquidityPools::enter_pool(Origin::signed(user), pool_id, amount));
 
 			assert_ok!(LiquidityPools::set_pool_rollover(Origin::signed(user), pool_id, false));
 
@@ -1552,12 +1554,20 @@ fn rollover_should_work() {
 
 			for account_id in 1..=user_amount {
 				let user: AccountId = create_account(account_id);
-				assert_ok!(LiquidityPools::join_pool(Origin::signed(user), predecessor_id, amount));
+				assert_ok!(LiquidityPools::enter_pool(
+					Origin::signed(user),
+					predecessor_id,
+					amount
+				));
 			}
 			// 10 user opt-out rollover should be left over when rollover
 			for account_id in user_amount + 1..=user_amount + opt_out_rollover_amount {
 				let user: AccountId = create_account(account_id);
-				assert_ok!(LiquidityPools::join_pool(Origin::signed(user), predecessor_id, amount));
+				assert_ok!(LiquidityPools::enter_pool(
+					Origin::signed(user),
+					predecessor_id,
+					amount
+				));
 				assert_ok!(LiquidityPools::set_pool_rollover(
 					Origin::signed(user),
 					predecessor_id,
@@ -1702,11 +1712,15 @@ fn rollover_should_work_when_exceeding_successor_pool_maxtokens() {
 
 			for account_id in 1..=user_amount {
 				let user: AccountId = create_account(account_id);
-				assert_ok!(LiquidityPools::join_pool(Origin::signed(user), predecessor_id, amount));
+				assert_ok!(LiquidityPools::enter_pool(
+					Origin::signed(user),
+					predecessor_id,
+					amount
+				));
 			}
 
 			// Join the successor pool
-			assert_ok!(LiquidityPools::join_pool(
+			assert_ok!(LiquidityPools::enter_pool(
 				Origin::signed(create_account(1)),
 				successor_id,
 				max_tokens - amount * (user_amount as u128 / 2),
@@ -1839,7 +1853,7 @@ fn rollover_should_fail_when_successor_pool_not_exist() {
 }
 
 #[test]
-fn cannot_join_pool_when_not_provisioning() {
+fn cannot_enter_pool_when_not_provisioning() {
 	TestExt::default()
 		.with_balances(&vec![(LiquidityPools::account_id(), 100)])
 		.build()
@@ -1872,7 +1886,7 @@ fn cannot_join_pool_when_not_provisioning() {
 			});
 
 			assert_noop!(
-				LiquidityPools::join_pool(Origin::signed(create_account(1)), pool_id, amount),
+				LiquidityPools::enter_pool(Origin::signed(create_account(1)), pool_id, amount),
 				Error::<Test>::PoolNotActive
 			);
 		});

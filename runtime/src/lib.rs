@@ -1334,6 +1334,7 @@ construct_runtime! {
 		FeeControl: pallet_fee_control = 40,
 		Xls20: pallet_xls20 = 42,
 		MaintenanceMode: pallet_maintenance_mode = 47,
+		LiquidityPools: pallet_liquidity_pools = 35,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -1351,8 +1352,6 @@ construct_runtime! {
 		// FuturePass Account
 		Proxy: pallet_proxy = 32,
 		Futurepass: pallet_futurepass = 34,
-
-		LiquidityPools: pallet_liquidity_pools = 35,
 	}
 }
 /// Block type as expected by this runtime.
@@ -2073,7 +2072,6 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_preimage, Preimage]
 		// Local
-		[pallet_liquidity_pools, LiquidityPools]
 		[pallet_nft, Nft]
 		[pallet_sft, Sft]
 		[pallet_fee_control, FeeControl]
@@ -2089,6 +2087,7 @@ mod benches {
 		[pallet_vortex, VortexDistribution]
 		[pallet_dex, Dex]
 		[pallet_maintenance_mode, MaintenanceMode]
+		[pallet_liquidity_pools, LiquidityPools]
 		[pallet_marketplace, Marketplace]
 	);
 }
