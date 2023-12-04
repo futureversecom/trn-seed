@@ -29,7 +29,6 @@ hex={ version = "0.4.3" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-assets-ext = { path = "../assets-ext" }
 
 [features]
 default = ["std"]

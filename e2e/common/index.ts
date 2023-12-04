@@ -827,15 +827,7 @@ export const executeForPreviousEvent = async (
 
 export const generateTestUsers = (userAmount: number): KeyringPair[] => {
   const keyring = new Keyring({ type: "ethereum" });
-
-  const keypairs: KeyringPair[] = [];
-  for (let i = 0; i < userAmount; i++) {
-    const pair = keyring.addFromUri(`${Math.random().toString(36).substring(2)}`);
-    keypairs.push(pair);
-  }
-
-  console.log(`loaded ${keypairs.length} users`);
-  return keypairs;
+  return Array.from({ length: userAmount }, () => keyring.addFromUri(`${Math.random().toString(36).substring(2)}`));
 };
 
 export const getPrefixLength = (encoded: SubmittableExtrinsic<any>): number => {

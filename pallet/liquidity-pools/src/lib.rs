@@ -45,73 +45,11 @@ mod benchmarking;
 pub mod mock;
 #[cfg(test)]
 mod tests;
+mod types;
+use types::*;
 
 pub mod weights;
 pub use weights::WeightInfo;
-
-/// Stores information about a reward pool.
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(T))]
-pub struct PoolInfo<PoolId, AssetId, Balance, BlockNumber> {
-	pub id: PoolId,
-	pub asset_id: AssetId,
-	pub interest_rate: u32,
-	pub max_tokens: Balance,
-	pub last_updated: BlockNumber,
-	pub lock_start_block: BlockNumber,
-	pub lock_end_block: BlockNumber,
-	pub locked_amount: Balance,
-	pub pool_status: PoolStatus,
-}
-
-#[derive(Clone, Copy, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub enum PoolStatus {
-	Closed,
-	Open,
-	Started,
-	Renewing,
-	Matured,
-}
-
-impl Default for PoolStatus {
-	fn default() -> Self {
-		Self::Closed
-	}
-}
-
-/// Stores relationship between pools.
-#[derive(Default, Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(T))]
-pub struct PoolRelationship<PoolId> {
-	pub successor_id: Option<PoolId>,
-}
-
-/// Stores user information for a pool.
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(T))]
-pub struct UserInfo<Balance> {
-	pub amount: Balance,
-	pub reward_debt: Balance,
-	pub should_rollover: bool,
-	pub rolled_over: bool,
-}
-
-impl<Balance: Default> UserInfo<Balance> {
-	fn should_migrate(&self) -> bool {
-		self.should_rollover && !self.rolled_over
-	}
-}
-
-impl<Balance: Default> Default for UserInfo<Balance> {
-	fn default() -> Self {
-		Self {
-			amount: Balance::default(),
-			reward_debt: Balance::default(),
-			should_rollover: true,
-			rolled_over: false,
-		}
-	}
-}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -229,7 +167,12 @@ pub mod pallet {
 		/// Pool rollover is done and ready for users to claim rewards.
 		PoolMatured { pool_id: T::PoolId },
 		/// Pool closed, no more users can join.
-		PoolClosed { pool_id: T::PoolId },
+		PoolClosed {
+			pool_id: T::PoolId,
+			native_asset_amount: Balance,
+			reward_asset_amount: Balance,
+			reciever: T::AccountId,
+		},
 		/// Set pool successor, when predecessor pool is done, users will be rolled over to
 		/// successor pool.
 		SetSuccession { predecessor_pool_id: T::PoolId, successor_pool_id: T::PoolId },
@@ -324,6 +267,24 @@ pub mod pallet {
 			);
 			ensure!(lock_start_block < lock_end_block, Error::<T>::InvalidBlockRange);
 
+			let max_rewards = Self::calculate_reward(
+				max_tokens,
+				0,
+				interest_rate,
+				T::InterestRateBasePoint::get(),
+				T::Assets::decimals(&asset_id),
+				T::Assets::decimals(&T::NativeAssetId::get()),
+			);
+
+			// Transfer max rewards to pool vault account
+			T::Assets::transfer(
+				T::NativeAssetId::get(),
+				&Self::account_id(),
+				&Self::get_vault_account(id),
+				max_rewards,
+				false,
+			)?;
+
 			let pool_info = PoolInfo {
 				id,
 				asset_id,
@@ -341,24 +302,6 @@ pub mod pallet {
 			});
 
 			Pools::<T>::insert(id, pool_info);
-
-			let max_rewards = Self::calculate_reward(
-				max_tokens,
-				0,
-				interest_rate,
-				T::InterestRateBasePoint::get(),
-				T::Assets::decimals(&asset_id),
-				T::Assets::decimals(&T::NativeAssetId::get()),
-			);
-
-			// Transfer max rewards to pool vault account
-			T::Assets::transfer(
-				T::NativeAssetId::get(),
-				&Self::account_id(),
-				&Self::get_vault_account(id).unwrap(),
-				max_rewards,
-				false,
-			)?;
 
 			Self::deposit_event(Event::PoolOpen {
 				pool_id: id,
@@ -438,33 +381,31 @@ pub mod pallet {
 		///   successor pool.
 		///
 		/// Restrictions:
-		/// - The pool must be in the `Provisioning` status, not yet active or closed.
+		/// - The pool must be in the `Open` status, not yet active or closed.
 		///
 		/// Emits `UserInfoUpdated` event if the rollover preference is successfully updated.
 		#[pallet::weight(T::WeightInfo::set_pool_rollover())]
 		pub fn set_pool_rollover(
 			origin: OriginFor<T>,
 			id: T::PoolId,
-			should_roll_over: bool,
+			should_rollover: bool,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let Some(pool) = Pools::<T>::get(id) else {
-				Err(Error::<T>::PoolDoesNotExist)?
-			};
+			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
 			ensure!(pool.pool_status == PoolStatus::Open, Error::<T>::PoolNotActive);
 
 			PoolUsers::<T>::try_mutate(id, who, |pool_user| -> DispatchResult {
 				let pool_user = pool_user.as_mut().ok_or(Error::<T>::NoTokensStaked)?;
-				pool_user.should_rollover = should_roll_over;
+				pool_user.should_rollover = should_rollover;
 				Ok(())
 			})?;
 
 			Self::deposit_event(Event::UserInfoUpdated {
 				pool_id: id,
 				account_id: who,
-				should_rollover: should_roll_over,
+				should_rollover,
 			});
 
 			Ok(())
@@ -488,14 +429,25 @@ pub mod pallet {
 		pub fn close_pool(origin: OriginFor<T>, id: T::PoolId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
 
-			ensure!(Pools::<T>::contains_key(id), Error::<T>::PoolDoesNotExist);
+			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
-			let pool_vault_account = Self::get_vault_account(id).unwrap();
+			let main_vault_account = Self::account_id();
+			let pool_vault_account = Self::get_vault_account(id);
+			let native_asset_amount =
+				T::Assets::balance(T::NativeAssetId::get(), &pool_vault_account);
 			T::Assets::transfer(
 				T::NativeAssetId::get(),
 				&pool_vault_account,
-				&Self::account_id(),
-				T::Assets::balance(T::NativeAssetId::get(), &pool_vault_account),
+				&main_vault_account,
+				native_asset_amount,
+				false,
+			)?;
+
+			T::Assets::transfer(
+				pool.asset_id,
+				&pool_vault_account,
+				&main_vault_account,
+				pool.locked_amount,
 				false,
 			)?;
 
@@ -504,7 +456,12 @@ pub mod pallet {
 			PoolRelationships::<T>::remove(id);
 			RolloverPivot::<T>::remove(id);
 
-			Self::deposit_event(Event::PoolClosed { pool_id: id });
+			Self::deposit_event(Event::PoolClosed {
+				pool_id: id,
+				native_asset_amount,
+				reward_asset_amount: pool.locked_amount,
+				reciever: main_vault_account,
+			});
 			Ok(())
 		}
 
@@ -519,20 +476,22 @@ pub mod pallet {
 		/// - `amount`: The amount of tokens the user is staking in the pool.
 		///
 		/// Restrictions:
-		/// - The pool must be in the `Provisioning` status and accepting new stakes.
+		/// - The pool must be in the `Open` status and accepting new stakes.
 		/// - The total staked amount after the user's stake must not exceed the pool's
 		///   `max_tokens`.
 		///
 		/// Emits `UserJoined` event if the user successfully joins the pool.
-		#[pallet::weight(T::WeightInfo::join_pool())]
+		#[pallet::weight(T::WeightInfo::enter_pool())]
 		#[transactional]
-		pub fn join_pool(origin: OriginFor<T>, id: T::PoolId, amount: Balance) -> DispatchResult {
+		pub fn enter_pool(
+			origin: OriginFor<T>,
+			pool_id: T::PoolId,
+			amount: Balance,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let vault_account = Self::get_vault_account(id).unwrap();
+			let vault_account = Self::get_vault_account(pool_id);
 
-			let Some(pool) = Pools::<T>::get(id) else {
-				Err(Error::<T>::PoolDoesNotExist)?
-			};
+			let pool = Pools::<T>::get(pool_id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
 			ensure!(pool.pool_status == PoolStatus::Open, Error::<T>::PoolNotActive);
 
@@ -543,20 +502,21 @@ pub mod pallet {
 
 			T::Assets::transfer(pool.asset_id, &who, &vault_account, amount, false)?;
 
-			let user = PoolUsers::<T>::get(id, &who).unwrap_or_default();
-			PoolUsers::<T>::insert(
-				id,
-				&who,
-				UserInfo { amount: user.amount.saturating_add(amount), ..UserInfo::default() },
-			);
+			PoolUsers::<T>::mutate(pool_id, who, |pool_user| {
+				if let Some(pool_user) = pool_user {
+					pool_user.amount = pool_user.amount.saturating_add(amount);
+				} else {
+					*pool_user = Some(UserInfo { amount, ..UserInfo::default() });
+				}
+			});
 
-			Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
+			Pools::<T>::try_mutate(pool_id, |pool_info| -> DispatchResult {
 				let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
 				pool_info.locked_amount = pool_info.locked_amount.saturating_add(amount);
 				Ok(())
 			})?;
 
-			Self::deposit_event(Event::UserJoined { account_id: who, pool_id: id, amount });
+			Self::deposit_event(Event::UserJoined { account_id: who, pool_id, amount });
 			Ok(())
 		}
 
@@ -567,7 +527,7 @@ pub mod pallet {
 		/// - `id`: The ID of the pool from which the user is exiting.
 		///
 		/// Restrictions:
-		/// - The pool must be in the `Provisioning` status and not closed.
+		/// - The pool must be in the `Open` status and not closed.
 		/// - The user must have tokens staked in the pool.
 		///
 		/// Emits `UserExited` event if the user successfully exits the pool and claims any rewards.
@@ -575,17 +535,13 @@ pub mod pallet {
 		#[transactional]
 		pub fn exit_pool(origin: OriginFor<T>, id: T::PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let vault_account = Self::get_vault_account(id).unwrap();
+			let vault_account = Self::get_vault_account(id);
 
-			let Some(pool) = Pools::<T>::get(id) else {
-				Err(Error::<T>::PoolDoesNotExist)?
-			};
+			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
 			ensure!(pool.pool_status == PoolStatus::Open, Error::<T>::PoolNotActive);
 
-			let Some(user_info) = PoolUsers::<T>::get(id, &who) else {
-				Err(Error::<T>::NoTokensStaked)?
-			};
+			let user_info = PoolUsers::<T>::get(id, &who).ok_or(Error::<T>::NoTokensStaked)?;
 			ensure!(user_info.amount > Zero::zero(), Error::<T>::NoTokensStaked);
 
 			let amount = user_info.amount;
@@ -605,7 +561,7 @@ pub mod pallet {
 
 		/// Claims the reward for a user from a pool that has ended.
 		///
-		/// Users who have staked tokens in a pool that has reached the `Done` status
+		/// Users who have staked tokens in a pool that has reached the `Mutured` status
 		/// can call this function to claim their share of the reward.
 		///
 		/// Parameters:
@@ -613,7 +569,7 @@ pub mod pallet {
 		/// - `id`: The ID of the pool from which the reward is being claimed.
 		///
 		/// Restrictions:
-		/// - The pool must be in the `Done` status.
+		/// - The pool must be in the `Mutured` status.
 		/// - The user must have staked tokens in the pool and not already claimed their reward.
 		///
 		/// Emits `RewardsClaimed` event if the reward is successfully claimed by the user.
@@ -621,14 +577,10 @@ pub mod pallet {
 		#[transactional]
 		pub fn claim_reward(origin: OriginFor<T>, id: T::PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let vault_account = Self::get_vault_account(id).unwrap();
+			let vault_account = Self::get_vault_account(id);
 
-			let Some(user_info) = PoolUsers::<T>::get(id, &who) else {
-				Err(Error::<T>::NoTokensStaked)?
-			};
-			let Some(pool) = Pools::<T>::get(id) else {
-				Err(Error::<T>::PoolDoesNotExist)?
-			};
+			let user_info = PoolUsers::<T>::get(id, &who).ok_or(Error::<T>::NoTokensStaked)?;
+			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
 			ensure!(pool.pool_status == PoolStatus::Matured, Error::<T>::NotReadyForClaimingReward);
 
@@ -641,31 +593,32 @@ pub mod pallet {
 				T::Assets::decimals(&T::NativeAssetId::get()),
 			);
 
-			if reward == Zero::zero() {
-				return Ok(())
+			if reward > Zero::zero() {
+				let amount = if user_info.should_rollover == false || user_info.rolled_over == false
+				{
+					T::Assets::transfer(
+						pool.asset_id,
+						&vault_account,
+						&who,
+						user_info.amount,
+						false,
+					)?;
+					user_info.amount
+				} else {
+					Zero::zero()
+				};
+
+				// Transfer reward to user
+				T::Assets::transfer(T::NativeAssetId::get(), &vault_account, &who, reward, false)?;
+
+				Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
+					let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
+					pool_info.last_updated = frame_system::Pallet::<T>::block_number();
+					pool_info.locked_amount = pool_info.locked_amount.saturating_sub(amount);
+					Ok(())
+				})?;
+				PoolUsers::<T>::remove(id, &who);
 			}
-
-			let amount = if user_info.should_rollover == false || user_info.rolled_over == false {
-				T::Assets::transfer(pool.asset_id, &vault_account, &who, user_info.amount, false)?;
-				user_info.amount
-			} else {
-				Zero::zero()
-			};
-
-			// Transfer reward to user
-			T::Assets::transfer(T::NativeAssetId::get(), &vault_account, &who, reward, false)?;
-
-			Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
-				let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
-				pool_info.last_updated = frame_system::Pallet::<T>::block_number();
-				pool_info.locked_amount = pool_info.locked_amount.saturating_sub(amount);
-				Ok(())
-			})?;
-			PoolUsers::<T>::try_mutate(id, who, |pool_user| -> DispatchResult {
-				let pool_user = pool_user.as_mut().ok_or(Error::<T>::NoTokensStaked)?;
-				pool_user.reward_debt = pool_user.reward_debt.saturating_add(reward);
-				Ok(())
-			})?;
 
 			Self::deposit_event(Event::RewardsClaimed {
 				account_id: who,
@@ -702,113 +655,104 @@ pub mod pallet {
 			_current_block: BlockNumberFor<T>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
-			let Some(pool_info) = Pools::<T>::get(id) else {
-				return Err(Error::<T>::PoolDoesNotExist.into())
-			};
+			let pool_info = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 			log::warn!("start processing the rollover");
 			if let PoolStatus::Renewing = pool_info.pool_status {
-				if let Some(vault_account) = Self::get_vault_account(id) {
-					// Check for successor
-					let successor_id =
-						PoolRelationships::<T>::get(id).unwrap_or_default().successor_id;
+				let vault_account = Self::get_vault_account(id);
+				// Check for successor
+				let successor_id = PoolRelationships::<T>::get(id).unwrap_or_default().successor_id;
 
-					if let Some(successor_id) = successor_id {
-						let Some(successor_pool_info) = Pools::<T>::get(successor_id) else {
-							return Err(Error::<T>::PoolDoesNotExist.into())
-						};
-						// Migrate users to successor
-						let start_key = RolloverPivot::<T>::get(id);
-						let payout_pivot: Vec<u8> = start_key
-							.clone()
-							.try_into()
-							.map_err(|_| Error::<T>::PivotStringTooLong)?;
+				if let Some(successor_id) = successor_id {
+					let successor_pool_info =
+						Pools::<T>::get(successor_id).ok_or(Error::<T>::PoolDoesNotExist)?;
+					// Migrate users to successor
+					let start_key = RolloverPivot::<T>::get(id);
+					let payout_pivot: Vec<u8> =
+						start_key.clone().try_into().map_err(|_| Error::<T>::PivotStringTooLong)?;
 
-						let mut map_iterator = match RolloverPivot::<T>::contains_key(id) {
-							true => <PoolUsers<T>>::iter_prefix_from(id, payout_pivot),
-							false => <PoolUsers<T>>::iter_prefix(id),
-						};
+					let mut map_iterator = match RolloverPivot::<T>::contains_key(id) {
+						true => <PoolUsers<T>>::iter_prefix_from(id, payout_pivot),
+						false => <PoolUsers<T>>::iter_prefix(id),
+					};
 
-						let mut count = 0;
-						let mut rollover_amount: Balance = Zero::zero();
-						let mut predecessor_pool_status = pool_info.pool_status;
+					let mut count = 0;
+					let mut rollover_amount: Balance = Zero::zero();
+					let mut predecessor_pool_status = pool_info.pool_status;
 
-						let successor_vault_account =
-							Self::get_vault_account(successor_id).unwrap();
+					let successor_vault_account = Self::get_vault_account(successor_id);
 
-						while let Some((who, user_info)) = map_iterator.next() {
-							if user_info.should_migrate() {
-								// Check if successor pool has enough space
-								// If not, set previous pool to done to prevent further rollover
-								if successor_pool_info
-									.locked_amount
-									.saturating_add(rollover_amount)
-									.saturating_add(user_info.amount) > successor_pool_info
-									.max_tokens
-								{
-									predecessor_pool_status = PoolStatus::Matured;
-									break
-								} else {
-									rollover_amount =
-										rollover_amount.saturating_add(user_info.amount);
-								}
+					let rollover_batch_size = T::RolloverBatchSize::get();
 
-								PoolUsers::<T>::mutate(id, who, |pool_user| {
-									if let Some(pool_user) = pool_user {
-										pool_user.rolled_over = true;
-									}
-								});
-
-								PoolUsers::<T>::mutate(successor_id, who, |pool_user| {
-									if let Some(pool_user) = pool_user {
-										pool_user.amount =
-											pool_user.amount.saturating_add(user_info.amount);
-									} else {
-										*pool_user = Some(user_info.clone());
-									}
-								});
-							}
-
-							count += 1;
-							if count > T::RolloverBatchSize::get() {
+					while let Some((who, user_info)) = map_iterator.next() {
+						if user_info.should_migrate() {
+							// Check if successor pool has enough space
+							// If not, set previous pool to done to prevent further rollover
+							if successor_pool_info
+								.locked_amount
+								.saturating_add(rollover_amount)
+								.saturating_add(user_info.amount) >
+								successor_pool_info.max_tokens
+							{
+								predecessor_pool_status = PoolStatus::Matured;
 								break
+							} else {
+								rollover_amount = rollover_amount.saturating_add(user_info.amount);
 							}
-						}
-						let current_last_raw_key: BoundedVec<u8, T::MaxStringLength> =
-							BoundedVec::try_from(map_iterator.last_raw_key().to_vec())
-								.map_err(|_| Error::<T>::PivotStringTooLong)?;
-						if current_last_raw_key == start_key.clone() {
-							predecessor_pool_status = PoolStatus::Matured;
-						}
-						RolloverPivot::<T>::insert(id, current_last_raw_key);
 
-						T::Assets::transfer(
-							pool_info.asset_id,
-							&vault_account,
-							&successor_vault_account,
-							rollover_amount,
-							false,
-						)?;
-						Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
-							let pool_info =
-								pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
-							pool_info.last_updated = frame_system::Pallet::<T>::block_number();
-							pool_info.locked_amount =
-								pool_info.locked_amount.saturating_sub(rollover_amount);
-							pool_info.pool_status = predecessor_pool_status;
-							Ok(())
-						})?;
-						if predecessor_pool_status == PoolStatus::Matured {
-							Self::deposit_event(Event::PoolMatured { pool_id: id });
+							PoolUsers::<T>::mutate(id, who, |pool_user| {
+								if let Some(pool_user) = pool_user {
+									pool_user.rolled_over = true;
+								}
+							});
+
+							PoolUsers::<T>::mutate(successor_id, who, |pool_user| {
+								if let Some(pool_user) = pool_user {
+									pool_user.amount =
+										pool_user.amount.saturating_add(user_info.amount);
+								} else {
+									*pool_user = Some(user_info.clone());
+								}
+							});
 						}
-						Pools::<T>::try_mutate(successor_id, |pool_info| -> DispatchResult {
-							let pool_info =
-								pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
-							pool_info.last_updated = frame_system::Pallet::<T>::block_number();
-							pool_info.locked_amount =
-								pool_info.locked_amount.saturating_add(rollover_amount);
-							Ok(())
-						})?;
+
+						count += 1;
+						if count > rollover_batch_size {
+							break
+						}
 					}
+					let current_last_raw_key: BoundedVec<u8, T::MaxStringLength> =
+						BoundedVec::try_from(map_iterator.last_raw_key().to_vec())
+							.map_err(|_| Error::<T>::PivotStringTooLong)?;
+					if current_last_raw_key == start_key.clone() {
+						predecessor_pool_status = PoolStatus::Matured;
+					}
+					RolloverPivot::<T>::insert(id, current_last_raw_key);
+
+					T::Assets::transfer(
+						pool_info.asset_id,
+						&vault_account,
+						&successor_vault_account,
+						rollover_amount,
+						false,
+					)?;
+					Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
+						let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
+						pool_info.last_updated = frame_system::Pallet::<T>::block_number();
+						pool_info.locked_amount =
+							pool_info.locked_amount.saturating_sub(rollover_amount);
+						pool_info.pool_status = predecessor_pool_status;
+						Ok(())
+					})?;
+					if predecessor_pool_status == PoolStatus::Matured {
+						Self::deposit_event(Event::PoolMatured { pool_id: id });
+					}
+					Pools::<T>::try_mutate(successor_id, |pool_info| -> DispatchResult {
+						let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
+						pool_info.last_updated = frame_system::Pallet::<T>::block_number();
+						pool_info.locked_amount =
+							pool_info.locked_amount.saturating_add(rollover_amount);
+						Ok(())
+					})?;
 				}
 			}
 
@@ -896,19 +840,18 @@ pub mod pallet {
 		}
 
 		fn offchain_worker(now: BlockNumberFor<T>) {
-			if let Err(e) = Self::do_offchain_worker(now) {
-				log::info!(
-				  target: "liquidity_pools offchain worker",
-				  "error happened in offchain worker at {:?}: {:?}",
-				  now,
-				  e,
-				);
-			} else {
-				log::debug!(
+			match Self::do_offchain_worker(now) {
+				Ok(_) => log::debug!(
 				  target: "liquidity_pools offchain worker",
 				  "offchain worker start at block: {:?} already done!",
 				  now,
-				);
+				),
+				Err(e) => log::error!(
+					target: "liquidity_pools offchain worker",
+					"error happened in offchain worker at {:?}: {:?}",
+					now,
+					e,
+				),
 			}
 		}
 	}
@@ -922,8 +865,8 @@ pub mod pallet {
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			match call {
 				Call::rollover_unsigned { id, current_block } => {
-					let current_block_number = <frame_system::Pallet<T>>::block_number();
-					if &current_block_number < current_block {
+					let block_number = <frame_system::Pallet<T>>::block_number();
+					if &block_number < current_block {
 						return InvalidTransaction::Future.into()
 					}
 					ValidTransaction::with_tag_prefix("LiquidityPoolsChainWorker")
@@ -989,15 +932,12 @@ pub mod pallet {
 			reward
 		}
 
-		pub fn get_vault_account(pool_id: T::PoolId) -> Option<T::AccountId> {
+		pub fn get_vault_account(pool_id: T::PoolId) -> T::AccountId {
 			// use the module account id and offered asset id as entropy to generate reward
 			// vault id.
 			let entropy =
-				(b"modlpy/palletlqd", Self::account_id(), pool_id).using_encoded(blake2_256);
-			if let Ok(pool_vault_account) = T::AccountId::decode(&mut &entropy[..]) {
-				return Some(pool_vault_account)
-			}
-			None
+				(T::PalletId::get().0, Self::account_id(), pool_id).using_encoded(blake2_256);
+			T::AccountId::decode(&mut &entropy[..]).unwrap_or_default()
 		}
 
 		pub fn account_id() -> T::AccountId {
@@ -1027,8 +967,8 @@ pub mod pallet {
 								<Error<T>>::OffchainErrSubmitTransaction
 							})?;
 						} else {
-							log::warn!("confused state, should not be here");
-							continue
+							log::error!("confused state, should not be here");
+							return Err(Error::<T>::OffchainErrSubmitTransaction)?
 						};
 					},
 					_ => continue,
@@ -1049,7 +989,7 @@ pub mod pallet {
 				T::Assets::decimals(&pool_info.asset_id),
 				T::Assets::decimals(&T::NativeAssetId::get()),
 			);
-			let pool_vault_account = Self::get_vault_account(pool_id).unwrap();
+			let pool_vault_account = Self::get_vault_account(pool_id);
 			if reward > Zero::zero() {
 				T::Assets::transfer(
 					pool_info.asset_id,

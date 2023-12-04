@@ -2396,7 +2396,6 @@ mod benches {
 		[pallet_preimage, Preimage]
 		[pallet_sudo, Sudo]
 		// Local
-		[pallet_liquidity_pools, LiquidityPools]
 		[pallet_nft, Nft]
 		[pallet_nfi, Nfi]
 		[pallet_sft, Sft]
@@ -2416,6 +2415,7 @@ mod benches {
 		[pallet_partner_attribution, PartnerAttribution]
 		[pallet_dex, Dex]
 		[pallet_maintenance_mode, MaintenanceMode]
+		[pallet_liquidity_pools, LiquidityPools]
 		[pallet_marketplace, Marketplace]
 		[pallet_doughnut, Doughnut]
 		[pallet_maintenance_mode, MaintenanceMode]

@@ -119,14 +119,14 @@ benchmarks! {
 				..pool.clone().unwrap()
 			});
 		});
-		LiquidityPools::<T>::join_pool(RawOrigin::Signed(user.clone()).into(), id, 10u32.into()).unwrap();
+		LiquidityPools::<T>::enter_pool(RawOrigin::Signed(user.clone()).into(), id, 10u32.into()).unwrap();
 	}: _(RawOrigin::Signed(user), id, true)
 	verify {
 		assert_eq!(PoolUsers::<T>::get(id, user).unwrap().should_rollover, true);
 	}
 
 	// Join reward pool
-	join_pool {
+	enter_pool {
 		let remaining_weight: Weight =
 			T::DbWeight::get().reads(100u64).saturating_add(T::DbWeight::get().writes(100u64));
 		let amount = 10u32.into();
@@ -183,7 +183,7 @@ benchmarks! {
 				..pool.clone().unwrap()
 			});
 		});
-		LiquidityPools::<T>::join_pool(RawOrigin::Signed(user.clone()).into(), id, 10u32.into()).unwrap();
+		LiquidityPools::<T>::enter_pool(RawOrigin::Signed(user.clone()).into(), id, 10u32.into()).unwrap();
 	}: _(RawOrigin::Signed(user.clone()), id)
 	verify {
 		assert!(PoolUsers::<T>::get(id, user).is_none());
@@ -217,7 +217,7 @@ benchmarks! {
 			});
 		});
 
-		LiquidityPools::<T>::join_pool(RawOrigin::Signed(user.clone()).into(), id, 10u32.into()).unwrap();
+		LiquidityPools::<T>::enter_pool(RawOrigin::Signed(user.clone()).into(), id, 10u32.into()).unwrap();
 
 		Pools::<T>::mutate(id, |pool| {
 			*pool = Some(PoolInfo {
@@ -227,10 +227,7 @@ benchmarks! {
 		});
 	}: _(RawOrigin::Signed(user.clone()), id)
 	verify {
-		// User reward debt should have increased
-		let user_info = PoolUsers::<T>::get(id, user).unwrap();
-		assert_eq!(user_info.amount, 10u32.into());
-		assert_eq!(user_info.reward_debt, 10u32.into());
+		assert_eq!(PoolUsers::<T>::get(id, user), None);
 	}
 
 	// Unsigned rollover transaction
@@ -268,7 +265,7 @@ benchmarks! {
 			});
 		});
 
-		LiquidityPools::<T>::join_pool(RawOrigin::Signed(user.clone()).into(), id, 10u32.into()).unwrap();
+		LiquidityPools::<T>::enter_pool(RawOrigin::Signed(user.clone()).into(), id, 10u32.into()).unwrap();
 
 		Pools::<T>::mutate(id, |pool| {
 			*pool = Some(PoolInfo {

@@ -54,7 +54,7 @@ pub trait WeightInfo {
 	fn close_pool() -> Weight;
 	fn set_pool_succession() -> Weight;
 	fn set_pool_rollover() -> Weight;
-	fn join_pool() -> Weight;
+	fn enter_pool() -> Weight;
 	fn exit_pool() -> Weight;
 	fn claim_reward() -> Weight;
 	fn rollover_unsigned() -> Weight;
@@ -97,7 +97,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Assets Account (r:2 w:2)
 	// Storage: System Account (r:1 w:1)
 	// Storage: LiquidityPools PoolUsers (r:1 w:1)
-	fn join_pool() -> Weight {
+	fn enter_pool() -> Weight {
 		Weight::from_ref_time(35_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(6 as u64))
 			.saturating_add(T::DbWeight::get().writes(6 as u64))
@@ -171,7 +171,7 @@ impl WeightInfo for () {
 	// Storage: Assets Account (r:2 w:2)
 	// Storage: System Account (r:1 w:1)
 	// Storage: LiquidityPools PoolUsers (r:1 w:1)
-	fn join_pool() -> Weight {
+	fn enter_pool() -> Weight {
 		Weight::from_ref_time(35_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(6 as u64))
 			.saturating_add(RocksDbWeight::get().writes(6 as u64))
