@@ -5102,35 +5102,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-doughnut"
-version = "1.0.0"
-dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex-literal 0.3.4",
- "pallet-assets",
- "pallet-assets-ext",
- "pallet-balances",
- "pallet-dex",
- "pallet-evm",
- "pallet-fee-proxy",
- "pallet-futurepass",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "parity-scale-codec",
- "precompile-utils",
- "scale-info",
- "seed-pallet-common",
- "seed-primitives",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-echo"
 version = "1.0.0"
 dependencies = [
@@ -8810,7 +8781,6 @@ dependencies = [
  "pallet-base-fee",
  "pallet-dex",
  "pallet-dex-rpc-runtime-api",
- "pallet-doughnut",
  "pallet-echo",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",

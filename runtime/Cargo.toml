@@ -103,7 +103,6 @@ pallet-xls20 = { path = "../pallet/xls20", default-features = false }
 pallet-futurepass = { path = "../pallet/futurepass", default-features = false }
 pallet-marketplace = { path = "../pallet/marketplace", default-features = false }
 pallet-vortex = { path = "../pallet/vortex-distribution", default-features = false }
-pallet-doughnut = { path = "../pallet/doughnut", default-features = false }
 pallet-maintenance-mode = { path = "../pallet/maintenance-mode", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
