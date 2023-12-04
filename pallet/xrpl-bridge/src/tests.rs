@@ -15,7 +15,8 @@
 
 use super::*;
 use crate::mock::{
-	AssetsExt, RuntimeOrigin, System, Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod,
+	AssetsExt, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System, Test, XRPLBridge, XrpAssetId,
+	XrpTxChallengePeriod,
 };
 use seed_pallet_common::test_prelude::*;
 
@@ -687,6 +688,32 @@ fn clear_storages_in_on_idle_works() {
 		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_1).is_none());
 		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_2).is_none());
 		assert_eq!(<HighestPrunedLedgerIndex<Test>>::get(), 3);
+	});
+}
+
+#[test]
+fn clear_storages_in_on_idle_doesnt_exceed_max() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(2);
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+
+		// Set replay protection data where highest settled is far higher than highest pruned
+		HighestSettledLedgerIndex::<Test>::put(10_000_000);
+		HighestPrunedLedgerIndex::<Test>::put(0);
+		SubmissionWindowWidth::<Test>::put(288_000);
+
+		XRPLBridge::on_initialize(2_u64);
+		System::set_block_number(2_u64);
+
+		// Call on idle to prune the settled data with heaps of weight
+		let idle_weight = XRPLBridge::on_idle(2_u64, Weight::from_ref_time(10_000_000_000_000u64));
+		// Expected weight should be 5000 reads + 3 and 1 write for the highest pruned ledger index
+		let expected_weight =
+			DbWeight::get().reads_writes(3 + MaxPrunedTransactionsPerBlock::get() as u64, 1);
+		assert_eq!(idle_weight, expected_weight);
+
+		// HighestPrunedLedgerIndex should be set to the max
+		assert_eq!(<HighestPrunedLedgerIndex<Test>>::get(), MaxPrunedTransactionsPerBlock::get());
 	});
 }
 

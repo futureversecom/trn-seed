@@ -576,6 +576,8 @@ parameter_types! {
 	/// NOTE - XRPTransactionLimitPerLedger should be more than or equal to XRPTransactionLimit
 	pub const XRPTransactionLimit: u32 = 1_000_000;
 	pub const XRPTransactionLimitPerLedger: u32 = 1_000_000;
+	/// NOTE - This value can't be set too high. 5000 is roughly 25% of the max block weight
+	pub const MaxPrunedTransactionsPerBlock: u32 = 5000;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -586,6 +588,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type WeightInfo = weights::pallet_xrpl_bridge::WeightInfo<Runtime>;
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
+	type MaxPrunedTransactionsPerBlock = MaxPrunedTransactionsPerBlock;
 	type UnixTime = Timestamp;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
