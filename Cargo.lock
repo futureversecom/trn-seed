@@ -92,18 +92,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ahash"
-version = "0.8.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91429305e9f0a25f6205c5b8e0d2db09e0708a7a6df0f42212bb56c32c8ac97a"
-dependencies = [
- "cfg-if",
- "once_cell",
- "version_check",
- "zerocopy",
-]
-
-[[package]]
 name = "aho-corasick"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -183,12 +171,6 @@ name = "arrayvec"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
-
-[[package]]
-name = "ascii"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d92bec98840b8f03a5ff5413de5293bfcd8bf96467cf5452609f939ec6f5de16"
 
 [[package]]
 name = "asn1_der"
@@ -713,16 +695,6 @@ name = "bs58"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "771fe0050b883fcc3ea2359b1a96bcfbc090b7116eae7c3c512c7a083fdf23d3"
-
-[[package]]
-name = "bs58"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5353f36341f7451062466f0b755b96ac3a9547e4d7f6b70d603fc721a7d7896"
-dependencies = [
- "sha2 0.10.8",
- "tinyvec",
-]
 
 [[package]]
 name = "bstr"
@@ -1605,26 +1577,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "enumflags2"
-version = "0.7.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5998b4f30320c9d93aed72f63af821bfdac50465b75428fce77b48ec482c3939"
-dependencies = [
- "enumflags2_derive",
-]
-
-[[package]]
-name = "enumflags2_derive"
-version = "0.7.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f95e2801cd355d4a1a3e3953ce6ee5ae9603a5c833455343a8bfe3f44d418246"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.39",
-]
-
-[[package]]
 name = "env_logger"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2025,7 +1977,7 @@ dependencies = [
  "fc-db",
  "fc-rpc-core",
  "fp-ethereum",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "fp-rpc",
  "fp-storage",
  "futures",
@@ -2205,23 +2157,10 @@ source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30
 dependencies = [
  "ethereum",
  "ethereum-types",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-support",
  "num_enum",
  "parity-scale-codec",
- "sp-core",
- "sp-std",
-]
-
-[[package]]
-name = "fp-evm"
-version = "3.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#0c71d64a26a7fd1ede20821ad2bd9fd1dffd3a0a"
-dependencies = [
- "evm",
- "frame-support",
- "parity-scale-codec",
- "serde",
  "sp-core",
  "sp-std",
 ]
@@ -2246,7 +2185,7 @@ source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30
 dependencies = [
  "ethereum",
  "ethereum-types",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
@@ -2886,7 +2825,7 @@ version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 dependencies = [
- "ahash 0.7.7",
+ "ahash",
 ]
 
 [[package]]
@@ -2894,9 +2833,6 @@ name = "hashbrown"
 version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
-dependencies = [
- "ahash 0.8.6",
-]
 
 [[package]]
 name = "heck"
@@ -3652,7 +3588,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fbf9b94cefab7599b2d3dff2f93bee218c6621d68590b23ede4485813cbcece6"
 dependencies = [
  "asn1_der",
- "bs58 0.4.0",
+ "bs58",
  "ed25519-dalek",
  "either",
  "fnv",
@@ -4483,7 +4419,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c580bfdd8803cce319b047d239559a22f809094aaea4ac13902a1fdcfcd4261"
 dependencies = [
  "arrayref",
- "bs58 0.4.0",
+ "bs58",
  "byteorder",
  "data-encoding",
  "multihash",
@@ -5010,7 +4946,7 @@ name = "pallet-base-fee"
 version = "1.0.0"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
@@ -5077,7 +5013,7 @@ dependencies = [
 name = "pallet-doughnut"
 version = "1.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5194,7 +5130,7 @@ dependencies = [
  "evm",
  "fp-consensus",
  "fp-ethereum",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "fp-rpc",
  "fp-self-contained",
  "fp-storage",
@@ -5248,7 +5184,7 @@ source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30
 dependencies = [
  "environmental",
  "evm",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5289,7 +5225,7 @@ name = "pallet-evm-precompile-blake2"
 version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
 ]
 
 [[package]]
@@ -5297,7 +5233,7 @@ name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "num",
 ]
 
@@ -5306,7 +5242,7 @@ name = "pallet-evm-precompile-sha3fips"
 version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "tiny-keccak",
 ]
 
@@ -5315,7 +5251,7 @@ name = "pallet-evm-precompile-simple"
 version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "ripemd",
  "sp-io",
 ]
@@ -5324,7 +5260,7 @@ dependencies = [
 name = "pallet-evm-precompiles-dex"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-support",
  "frame-system",
  "num_enum",
@@ -5344,7 +5280,7 @@ name = "pallet-evm-precompiles-erc1155"
 version = "2.0.0"
 dependencies = [
  "ethereum-types",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-support",
  "frame-system",
  "num_enum",
@@ -5366,7 +5302,7 @@ dependencies = [
 name = "pallet-evm-precompiles-erc20"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-support",
  "frame-system",
  "num_enum",
@@ -5388,7 +5324,7 @@ dependencies = [
 name = "pallet-evm-precompiles-erc721"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-support",
  "frame-system",
  "num_enum",
@@ -5410,7 +5346,7 @@ dependencies = [
 name = "pallet-evm-precompiles-futurepass"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-support",
  "frame-system",
  "num_enum",
@@ -5429,7 +5365,7 @@ dependencies = [
 name = "pallet-evm-precompiles-futurepass-registrar"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-support",
  "frame-system",
  "num_enum",
@@ -5448,7 +5384,7 @@ dependencies = [
 name = "pallet-evm-precompiles-nft"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-support",
  "frame-system",
  "num_enum",
@@ -5466,7 +5402,7 @@ dependencies = [
 name = "pallet-evm-precompiles-peg"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-support",
  "frame-system",
  "num_enum",
@@ -5485,7 +5421,7 @@ dependencies = [
 name = "pallet-evm-precompiles-sft"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-support",
  "frame-system",
  "num_enum",
@@ -5503,7 +5439,7 @@ dependencies = [
 name = "pallet-fee-control"
 version = "1.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5560,7 +5496,7 @@ dependencies = [
 name = "pallet-futurepass"
 version = "1.0.0-dev"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -6217,37 +6153,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-xrpl-transaction"
-version = "1.0.0-dev"
-dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex",
- "hex-literal 0.3.4",
- "libsecp256k1 0.7.1",
- "log",
- "pallet-assets",
- "pallet-assets-ext",
- "pallet-balances",
- "parity-scale-codec",
- "precompile-utils",
- "scale-info",
- "seed-pallet-common",
- "seed-primitives",
- "serde",
- "serde_json",
- "sha2 0.10.8",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "xrpl_binary_codec",
- "xrpl_types",
-]
-
-[[package]]
 name = "parity-db"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6631,7 +6536,7 @@ version = "0.1.0"
 dependencies = [
  "affix",
  "evm",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "frame-support",
  "frame-system",
  "hex",
@@ -7852,7 +7757,7 @@ name = "sc-finality-grandpa"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "ahash 0.7.7",
+ "ahash",
  "array-bytes",
  "async-trait",
  "dyn-clone",
@@ -8039,7 +7944,7 @@ name = "sc-network-gossip"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "ahash 0.7.7",
+ "ahash",
  "futures",
  "futures-timer",
  "libp2p",
@@ -8738,7 +8643,7 @@ dependencies = [
  "ethabi",
  "ethereum",
  "evm",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-evm",
  "fp-rpc",
  "fp-self-contained",
  "frame-benchmarking",
@@ -9768,7 +9673,7 @@ name = "sp-trie"
 version = "6.0.0"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "ahash 0.7.7",
+ "ahash",
  "hash-db",
  "hashbrown 0.12.3",
  "lazy_static",
@@ -11575,32 +11480,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "xrpl_binary_codec"
-version = "0.15.0"
-dependencies = [
- "bytes",
- "hashbrown 0.14.3",
- "hex",
- "libsecp256k1 0.7.1",
- "serde_json",
- "sha2 0.10.8",
- "spin 0.9.8",
- "xrpl_types",
-]
-
-[[package]]
-name = "xrpl_types"
-version = "0.15.0"
-dependencies = [
- "ascii",
- "bs58 0.5.0",
- "enumflags2",
- "hex",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "yamux"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11612,26 +11491,6 @@ dependencies = [
  "parking_lot 0.12.1",
  "rand 0.8.5",
  "static_assertions",
-]
-
-[[package]]
-name = "zerocopy"
-version = "0.7.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d6f15f7ade05d2a4935e34a457b936c23dc70a05cc1d97133dc99e7a3fe0f0e"
-dependencies = [
- "zerocopy-derive",
-]
-
-[[package]]
-name = "zerocopy-derive"
-version = "0.7.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbbad221e3f78500350ecbd7dfa4e63ef945c05f4c61cb7f4d3f84cd0bba649b"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.39",
 ]
 
 [[package]]
