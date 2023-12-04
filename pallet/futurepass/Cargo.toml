@@ -36,7 +36,6 @@ seed-primitives = { path = "../../primitives", default-features = false }
 precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
 seed-runtime = { path = "../../runtime" }
 
