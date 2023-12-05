@@ -42,6 +42,7 @@ use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
 	transaction_validity::ValidTransactionBuilder,
 };
+use alloc::vec::Vec;
 
 pub mod weights;
 pub use weights::WeightInfo;
