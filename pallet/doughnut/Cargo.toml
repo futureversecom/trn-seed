@@ -24,7 +24,8 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", default-features
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
 frame-benchmarking = { git = 'https://github.com/paritytech/substrate', branch = "polkadot-v0.9.30", default-features = false, optional = true }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-
+#doughnut_rs = { git = "https://github.com/cennznet/doughnut-rs", branch = "0.3.1", default-features = false }
+doughnut_rs = { path = "../../../../cennznet/doughnut-rs", default-features = false }
 
 # Frontier
 fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
