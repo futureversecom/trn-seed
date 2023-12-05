@@ -555,6 +555,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution())]
+		#[transactional]
 		pub fn trigger_vtx_distribution(
 			origin: OriginFor<T>,
 			id: T::VtxDistIdentifier,
@@ -700,19 +701,6 @@ pub mod pallet {
 					&fee_vault_account,
 					&vault_account,
 					asset_balance,
-					false,
-				)?;
-			}
-			// move bootstrap incenive here
-			// move root token from fee_vault to vault_account
-			let fee_vault_root_token_balance =
-				T::MultiCurrency::balance(T::NativeAssetId::get(), &fee_vault_account);
-			if fee_vault_root_token_balance > Zero::zero() {
-				Self::safe_transfer(
-					T::NativeAssetId::get(),
-					&fee_vault_account,
-					&vault_account,
-					fee_vault_root_token_balance,
 					false,
 				)?;
 			}

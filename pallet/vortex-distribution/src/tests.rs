@@ -630,7 +630,12 @@ fn trigger_vtx_distribution_should_work() {
 			//set asset price
 			assert_ok!(Vortex::set_asset_prices(
 				Origin::root(),
-				BoundedVec::try_from(vec![(usdc, 100), (weth, 200)]).unwrap(),
+				BoundedVec::try_from(vec![
+					(usdc, 100),
+					(weth, 200),
+					(<Test as crate::Config>::NativeAssetId::get(), 100)
+				])
+				.unwrap(),
 				vortex_dist_id,
 			));
 
