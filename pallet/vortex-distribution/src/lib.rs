@@ -601,13 +601,6 @@ pub mod pallet {
 				Self::safe_transfer(asset_id, &vault_account, &who, redeem_amount, false)?;
 			}
 
-			// Add root token in the redeem token
-			let root_token_id = T::NativeAssetId::get();
-			let root_token_balance = T::MultiCurrency::balance(root_token_id, &vault_account);
-			let redeem_amount = vortex_balance.saturating_mul(root_token_balance) / total_vortex;
-
-			// Transfer native token from Vault to user
-			Self::safe_transfer(root_token_id, &vault_account, &who, redeem_amount, false)?;
 			// Burn the vortex token
 			T::MultiCurrency::burn_from(T::VtxAssetId::get(), &who, vortex_token_amount)?;
 			Ok(())
