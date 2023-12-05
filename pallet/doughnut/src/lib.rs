@@ -36,6 +36,7 @@ use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
 	transaction_validity::ValidTransactionBuilder,
 };
+use alloc::vec::Vec;
 
 // #[cfg(test)]
 // mod mock;
@@ -216,7 +217,7 @@ pub mod pallet {
 		pub fn transact(
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
-			doughnut: u32,
+			doughnut: Vec<u8>,
 			nonce: u32,
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
