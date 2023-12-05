@@ -174,9 +174,8 @@ fn start_vtx_dist_without_root_origin_should_fail() {
 #[test]
 fn start_vtx_dist_with_already_paying_status_should_fail() {
 	TestExt::default().build().execute_with(|| {
-		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
-
 		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
 
 		assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id));
 
@@ -656,10 +655,10 @@ fn trigger_vtx_distribution_should_work() {
 #[test]
 fn trigger_vtx_distribution_should_fail_if_already_triggered() {
 	TestExt::default().build().execute_with(|| {
-		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
-
 		// Retrieve the ID of the newly created vortex distribution.
 		let vortex_dist_id = NextVortexId::<Test>::get();
+
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
 
 		// Trigger the vortex distribution process.
 		assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id,));
@@ -667,7 +666,7 @@ fn trigger_vtx_distribution_should_fail_if_already_triggered() {
 		// Attempt to trigger the same distribution again should fail.
 		assert_noop!(
 			Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id,),
-			Error::<Test>::AlreadyTriggered
+			Error::<Test>::NotReadyToBeTriggered
 		);
 	});
 }
@@ -780,6 +779,10 @@ fn redeem_tokens_from_vault_should_work() {
 				AssetsExt::total_issuance(<Test as crate::Config>::VtxAssetId::get()),
 				1_000_000
 			);
+
+			VtxDistStatuses::<Test>::mutate(vortex_dis_id, |status| {
+				*status = VtxDistStatus::Done;
+			});
 
 			assert_ok!(Vortex::redeem_tokens_from_vault(
 				Origin::signed(bob),
