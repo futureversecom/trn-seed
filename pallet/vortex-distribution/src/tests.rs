@@ -468,7 +468,7 @@ fn set_asset_prices_with_invalid_asset_id_should_fail() {
 		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
 
 		// Define an invalid asset price (e.g., using the VTX asset ID which should not be allowed).
-		let invalid_asset_prices: Vec<(AssetId, Balance)> = vec![(2, 500)];
+		let invalid_asset_prices: Vec<(AssetId, Balance)> = vec![(VTX_ASSET_ID, 500)];
 		let bounded_invalid_asset_prices: BoundedVec<_, _> =
 			BoundedVec::try_from(invalid_asset_prices).expect("Should not exceed limit");
 
@@ -791,15 +791,29 @@ fn redeem_tokens_from_vault_should_work() {
 				1_000_000
 			);
 
+			// Redeem Bob's tokens
 			assert_ok!(Vortex::redeem_tokens_from_vault(
 				Origin::signed(bob),
 				vortex_dis_id,
 				500_000
 			));
-
-			//check withdraw result
+			//check Bob's balances
+			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &bob), 0);
 			assert_eq!(AssetsExt::balance(usdc, &bob), 500_000);
+			assert_eq!(AssetsExt::balance(weth, &bob), 500_000);
 			assert_eq!(Balances::free_balance(&bob), 1_000_000);
+
+			// Redeem Charlie's tokens
+			assert_ok!(Vortex::redeem_tokens_from_vault(
+				Origin::signed(charlie),
+				vortex_dis_id,
+				500_000
+			));
+			//check Charlie's balances
+			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &charlie), 0);
+			assert_eq!(AssetsExt::balance(usdc, &charlie), 500_000);
+			assert_eq!(AssetsExt::balance(weth, &charlie), 500_000);
+			assert_eq!(Balances::free_balance(&charlie), 1_000_000);
 		});
 }
 

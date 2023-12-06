@@ -121,7 +121,7 @@ parameter_types! {
 	pub const UnsignedInterval: BlockNumber =  MINUTES / 2;
 	pub const PayoutBatchSize: u32 =  799;
 	pub const HistoryDepth: u32 = 84;
-	pub const VortexAssetId: AssetId = 2;
+	pub const VortexAssetId: AssetId = 3;
 	pub const RootAssetId: AssetId = 1;
 	pub const XrpAssetId: seed_primitives::AssetId = XRP_ASSET_ID;
 }
