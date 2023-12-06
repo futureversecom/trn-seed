@@ -60,8 +60,8 @@ pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority:
 	Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, PartialOrd, Eq, TypeInfo, MaxEncodedLen,
 )]
 pub enum VtxDistStatus {
-	Enabled,
 	Disabled,
+	Enabled,
 	Triggered,
 	Paying,
 	Done,
@@ -334,8 +334,11 @@ pub mod pallet {
 		/// Assets should not include vortex asset
 		AssetsShouldNotIncludeVtxAsset,
 
-		/// Vortex distribution already triggered
-		AlreadyTriggered,
+		/// Vortex distribution is not ready to be triggered
+		CannotTrigger,
+
+		/// Vortex distribution is not ready to be redeemed
+		CannotRedeem,
 
 		/// Vortex distribution not triggered
 		NotTriggered,
@@ -412,7 +415,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `current_block` - Current block number
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::pay_unsigned() * 99)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::pay_unsigned().saturating_mul(T::PayoutBatchSize::get().into()))]
 		#[transactional]
 		pub fn pay_unsigned(
 			origin: OriginFor<T>,
@@ -538,7 +541,7 @@ pub mod pallet {
 					for (who, amount) in rewards.iter() {
 						total_rewards += *amount;
 						VtxDistOrderbook::<T>::mutate(id, who.clone(), |entry| {
-							*entry = (entry.0.saturating_add(*amount), entry.1);
+							*entry = (*amount, false);
 						});
 					}
 					TotalVortex::<T>::mutate(id, |total_vortex| {
@@ -563,8 +566,8 @@ pub mod pallet {
 			Self::ensure_root_or_admin(origin)?;
 
 			ensure!(
-				VtxDistStatuses::<T>::get(id.clone()) < VtxDistStatus::Triggered,
-				Error::<T>::AlreadyTriggered
+				VtxDistStatuses::<T>::get(id.clone()) == VtxDistStatus::Enabled,
+				Error::<T>::CannotTrigger
 			);
 
 			Self::do_vtx_distribution_trigger(id)
@@ -590,6 +593,10 @@ pub mod pallet {
 				vortex_balance > Zero::zero() &&
 					vortex_balance <= T::MultiCurrency::balance(T::VtxAssetId::get(), &who),
 				Error::<T>::InvalidAmount
+			);
+			ensure!(
+				VtxDistStatuses::<T>::get(id.clone()) == VtxDistStatus::Done,
+				Error::<T>::CannotRedeem
 			);
 
 			for (asset_id, _) in AssetPrices::<T>::iter_prefix(id) {
