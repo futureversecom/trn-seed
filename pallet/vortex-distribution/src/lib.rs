@@ -334,11 +334,11 @@ pub mod pallet {
 		/// Assets should not include vortex asset
 		AssetsShouldNotIncludeVtxAsset,
 
-		/// Vortex distribution is not already to be triggered
-		NotReadyToBeTriggered,
+		/// Vortex distribution is not ready to be triggered
+		CannotTrigger,
 
-		/// Vortex distribution is not already to redeem
-		NotReadyToRedeem,
+		/// Vortex distribution is not ready to be redeemed
+		CannotRedeem,
 
 		/// Vortex distribution not triggered
 		NotTriggered,
@@ -566,7 +566,7 @@ pub mod pallet {
 
 			ensure!(
 				VtxDistStatuses::<T>::get(id.clone()) == VtxDistStatus::Enabled,
-				Error::<T>::NotReadyToBeTriggered
+				Error::<T>::CannotTrigger
 			);
 
 			Self::do_vtx_distribution_trigger(id)
@@ -595,7 +595,7 @@ pub mod pallet {
 			);
 			ensure!(
 				VtxDistStatuses::<T>::get(id.clone()) == VtxDistStatus::Done,
-				Error::<T>::NotReadyToRedeem
+				Error::<T>::CannotRedeem
 			);
 
 			for (asset_id, _) in AssetPrices::<T>::iter_prefix(id) {

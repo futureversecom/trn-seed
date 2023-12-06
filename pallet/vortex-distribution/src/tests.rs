@@ -666,7 +666,7 @@ fn trigger_vtx_distribution_should_fail_if_already_triggered() {
 		// Attempt to trigger the same distribution again should fail.
 		assert_noop!(
 			Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id,),
-			Error::<Test>::NotReadyToBeTriggered
+			Error::<Test>::CannotTrigger
 		);
 	});
 }
