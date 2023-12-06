@@ -158,6 +158,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
+		/// A delay was added (min_balance, delay)
+		PaymentDelaySet(Balance, BlockNumber),
 		/// Processing an event succeeded
 		ProcessingOk(LedgerIndex, XrplTxHash),
 		/// Processing an event failed
@@ -257,6 +259,10 @@ pub mod pallet {
 	/// XRPL transactions submission window width in ledger indexes
 	pub type SubmissionWindowWidth<T: Config> =
 		StorageValue<_, u32, ValueQuery, DefaultSubmissionWindowWidth>;
+
+	#[pallet::storage]
+	/// Payment delay for any withdraw over the specified Balance
+	pub type PaymentDelay<T: Config> = StorageValue<_, (Balance, T::BlockNumber), OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
@@ -373,6 +379,16 @@ pub mod pallet {
 			let challenger = ensure_signed(origin)?;
 			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
 			Ok(())
+		}
+
+		#[weight = T::WeightInfo::set_payment_delay()]
+		/// Sets the payment delay
+		/// payment_delay is a tuple of minimum Balance and delay in blocks
+		pub fn set_payment_delay(origin: OriginFor<T>, payment_delay: Option<(Balance, T::BlockNumber)>) {
+			ensure_root(origin)?;
+			PaymentDelay::<T>::put(delay);
+			let (min_balance, delay) = payment_delay.unwrap_or_default();
+			Self::deposit_event(<Event<T>>::PaymentDelaySet(min_balance, delay));
 		}
 
 		/// Withdraw xrp transaction
@@ -753,7 +769,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	///
 	/// `who` the account requesting the withdraw
 	/// `amount` the amount of XRP drops to withdraw (- the tx fee)
 	///  `destination` the receiver classic `AccountID` on XRPL
@@ -773,6 +788,8 @@ impl<T: Config> Pallet<T> {
 		// tx fee to maintain an accurate door balance
 		let _ =
 			T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount + tx_fee as Balance)?;
+
+		// TODO Process PaymentDelay here??
 
 		let ticket_sequence = Self::get_door_ticket_sequence()?;
 		let tx_data = XrpWithdrawTransaction {
