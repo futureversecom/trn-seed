@@ -46,7 +46,7 @@ curl -X POST \
 ```json
 {
   "jsonrpc": "2.0",
-  "result": "e8d4a51000",
+  "result": "1000000000000",
   "id": 1
 }
 ```
@@ -65,7 +65,7 @@ curl -X POST \
 ```json
 {
   "jsonrpc": "2.0",
-  "result": "1b047469733d102e738d7b3de91d80",
+  "result": "140282367920947470662629348422000000",
   "id": 1
 }
 ```

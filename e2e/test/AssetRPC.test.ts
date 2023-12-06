@@ -27,6 +27,6 @@ describe("RPC", () => {
 
   it("RPC call to fetch alith's balance", async () => {
     const currentBalance = await (api.rpc as any).assetsExt.balance(2, "0x6D1eFDE1BbF146EF88c360AF255D9d54A5D39408");
-    expect(hexToBn(`${currentBalance}`).toString()).to.eq(mintAmount);
+    expect(currentBalance.toString()).to.eq(mintAmount);
   });
 });
