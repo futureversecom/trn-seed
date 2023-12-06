@@ -910,15 +910,34 @@ fn redeem_tokens_from_vault_should_work_without_root_token_in_asset_prices() {
 				1_000_000
 			);
 
+			// Set status to done, simulating the end of the pay_unsigned step
+			VtxDistStatuses::<Test>::mutate(vortex_dis_id, |status| {
+				*status = VtxDistStatus::Done;
+			});
+
+			// Redeem Bob's tokens
 			assert_ok!(Vortex::redeem_tokens_from_vault(
 				Origin::signed(bob),
 				vortex_dis_id,
 				500_000
 			));
-
-			//check withdraw result
+			//check Bob's balances
+			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &bob), 0);
 			assert_eq!(AssetsExt::balance(usdc, &bob), 500_000);
+			assert_eq!(AssetsExt::balance(weth, &bob), 500_000);
 			assert_eq!(Balances::free_balance(&bob), 0);
+
+			// Redeem Charlie's tokens
+			assert_ok!(Vortex::redeem_tokens_from_vault(
+				Origin::signed(charlie),
+				vortex_dis_id,
+				500_000
+			));
+			//check Charlie's balances
+			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &charlie), 0);
+			assert_eq!(AssetsExt::balance(usdc, &charlie), 500_000);
+			assert_eq!(AssetsExt::balance(weth, &charlie), 500_000);
+			assert_eq!(Balances::free_balance(&charlie), 0);
 		});
 }
 
