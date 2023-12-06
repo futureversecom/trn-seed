@@ -38,10 +38,10 @@ use sp_runtime::{
 };
 use alloc::vec::Vec;
 
-// #[cfg(test)]
-// mod mock;
-// #[cfg(test)]
-// mod test;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod test;
 //
 // mod weights;
 //
