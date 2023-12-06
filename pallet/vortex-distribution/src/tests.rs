@@ -877,7 +877,6 @@ fn redeem_tokens_from_vault_should_work_without_root_token_in_asset_prices() {
 			assert_ok!(Vortex::pay_unsigned(Origin::none(), vortex_dis_id, end_block));
 			assert!(
 				!System::events().iter().all(|record| {
-					println!("{:?}", record.event);
 					match record.event {
 						MockEvent::Vortex(crate::Event::VtxDistPaidOut { .. }) => false,
 						_ => true,
