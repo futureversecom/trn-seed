@@ -1,6 +1,6 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
-import { hexToBn, hexToU8a } from "@polkadot/util";
+import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 
 import { ALITH_PRIVATE_KEY, NodeProcess, finalizeTx, rpcs, startNode, typedefs } from "../common";
