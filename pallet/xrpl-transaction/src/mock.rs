@@ -34,7 +34,7 @@ frame_support::construct_runtime!(
 	Balances: pallet_balances,
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
-	XRPLTransaction: pallet_xrpl_transaction,
+		XrplTransaction: pallet_xrpl_transaction,
 	}
 );
 

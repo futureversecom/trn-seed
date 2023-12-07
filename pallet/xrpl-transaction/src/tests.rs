@@ -40,7 +40,7 @@ mod get_runtime_call_from_xumm_extrinsic {
 			let hex_encoded_extrinsic = hex::encode(&scale_encoded_extrinsic);
 
 			assert_eq!("50040001404d69736368696566204d616e61676564", hex_encoded_extrinsic);
-			assert_ok!(XRPLTransaction::get_runtime_call_from_xumm_extrinsic(
+			assert_ok!(XrplTransaction::get_runtime_call_from_xumm_extrinsic(
 				&scale_encoded_extrinsic
 			));
 		});
@@ -67,7 +67,7 @@ mod get_runtime_call_from_xumm_extrinsic {
 				"6404010000000000000000000000000000000000000000009101",
 				hex_encoded_extrinsic
 			);
-			assert_ok!(XRPLTransaction::get_runtime_call_from_xumm_extrinsic(
+			assert_ok!(XrplTransaction::get_runtime_call_from_xumm_extrinsic(
 				&scale_encoded_extrinsic
 			));
 		});
@@ -87,7 +87,7 @@ mod get_runtime_call_from_xumm_extrinsic {
 			let hex_encoded_extrinsic = hex::encode(&scale_encoded_extrinsic);
 
 			assert_eq!("1004000300", hex_encoded_extrinsic);
-			assert_ok!(XRPLTransaction::get_runtime_call_from_xumm_extrinsic(
+			assert_ok!(XrplTransaction::get_runtime_call_from_xumm_extrinsic(
 				&scale_encoded_extrinsic
 			));
 		});
@@ -103,31 +103,31 @@ mod submit_encoded_xumm_transaction {
       // nonce = 1 (too high)
       let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C258073210339C5E8A028ECCF4977B951EC31993160CFBE3E5F231798237FC3C6385C626C588114C32E15B4D5A3C107EB37FCD5703B9CFA66D62107F9EA7C0965787472696E7369637D2E313A303A353030343030303134303464363937333633363836393635363632303464363136653631363736353634E1F1").unwrap();
       assert_noop!(
-        XRPLTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default()),
+        XrplTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default()),
         Error::<Test>::NonceMismatch,
       );
 
       // short extrinsic (2 bytes - FF)
       let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A811424A53BB5CAAD40A961836FEF648E8424846EC75AF9EA7C0965787472696E7369637D06303A313A4646E1F1").unwrap();
       assert_noop!(
-        XRPLTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default()),
+        XrplTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default()),
         Error::<Test>::XUMMTransactionExtrinsicLengthInvalid,
       );
 
       // unknown extrinsic
       let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A811424A53BB5CAAD40A961836FEF648E8424846EC75AF9EA7C0965787472696E7369637D08303A313A46464646E1F1").unwrap();
       assert_noop!(
-        XRPLTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default()),
+        XrplTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default()),
         Error::<Test>::XUMMTransactionExtrinsicLengthInvalid,
       );
 
       // known extrinsic (system remark), nonce = 0, max_block_number = 1
       let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A811424A53BB5CAAD40A961836FEF648E8424846EC75AF9EA7C0965787472696E7369637D2E303A313A353030343030303134303464363937333633363836393635363632303464363136653631363736353634E1F1").unwrap();
-      assert_ok!(XRPLTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes.clone()), BoundedVec::default()));
+      assert_ok!(XrplTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes.clone()), BoundedVec::default()));
 
       // test the same tx fails due to re-used nonce (replay prevention)
       assert_noop!(
-        XRPLTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes.clone()), BoundedVec::default()),
+        XrplTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes.clone()), BoundedVec::default()),
         Error::<Test>::NonceMismatch,
       );
 
@@ -135,7 +135,7 @@ mod submit_encoded_xumm_transaction {
       System::set_block_number(2);
       let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A811424A53BB5CAAD40A961836FEF648E8424846EC75AF9EA7C0965787472696E7369637D2E313A313A353030343030303134303464363937333633363836393635363632303464363136653631363736353634E1F1").unwrap();
       assert_noop!(
-        XRPLTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes.clone()), BoundedVec::default()),
+        XrplTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes.clone()), BoundedVec::default()),
         Error::<Test>::MaxBlockNumberExceeded,
       );
     });
@@ -149,7 +149,7 @@ mod submit_encoded_xumm_transaction {
       let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A811424A53BB5CAAD40A961836FEF648E8424846EC75AF9EA7C0965787472696E7369637D2E303A313A353030343030303134303464363937333633363836393635363632303464363136653631363736353634E1F1").unwrap();
       let tx = XUMMTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
       let call_data = tx.get_extrinsic_data().unwrap().call;
-      let remark_call = XRPLTransaction::get_runtime_call_from_xumm_extrinsic(&call_data).unwrap();
+      let remark_call = XrplTransaction::get_runtime_call_from_xumm_extrinsic(&call_data).unwrap();
 
       // execute xumm encoded transaction
       assert_ok!(XRPLTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default()));
@@ -175,10 +175,10 @@ mod submit_encoded_xumm_transaction {
         let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A811424A53BB5CAAD40A961836FEF648E8424846EC75AF9EA7C0965787472696E7369637D38303A313A36343034303130303030303030303030303030303030303030303030303030303030303030303030303030303030303039313031E1F1").unwrap();
         let tx = XUMMTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
         let call_data = tx.get_extrinsic_data().unwrap().call;
-        let balance_transfer_call = XRPLTransaction::get_runtime_call_from_xumm_extrinsic(&call_data).unwrap();
+        let balance_transfer_call = XrplTransaction::get_runtime_call_from_xumm_extrinsic(&call_data).unwrap();
 
         // execute xumm encoded transaction
-        assert_ok!(XRPLTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default()));
+        assert_ok!(XrplTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default()));
 
         // extracted balance transfer call from xumm encoded transaction successfully executed
         System::assert_has_event(
@@ -191,8 +191,8 @@ mod submit_encoded_xumm_transaction {
         );
 
         // xumm transaction/extrinsic successfully executed
-        System::assert_last_event(mock::RuntimeEvent::XRPLTransaction(
-          Event::XUMMExtrinsicExecuted { caller, nonce: 0, call: balance_transfer_call }
+        System::assert_last_event(mock::RuntimeEvent::XrplTransaction(
+          Event::XUMMExtrinsicExecuted { caller, call: balance_transfer_call }
         ));
 
         // validate account nonce is incremented
@@ -214,7 +214,7 @@ mod submit_encoded_xumm_transaction {
 
         // executing xumm encoded transaction fails with since caller is not root/sudo account
         assert_noop!(
-          XRPLTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default()),
+          XrplTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default()),
           BadOrigin,
         );
       });
