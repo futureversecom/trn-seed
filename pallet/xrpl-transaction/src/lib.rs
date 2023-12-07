@@ -124,28 +124,39 @@ impl<T> Call<T>
 			let tx = XUMMTransaction::try_from(encoded_msg.as_bytes_ref())
 				.map_err(|e| {
 					log::error!("⛔️ failed to convert encoded_msg to XUMMTransaction: {:?}", e);
-					InvalidTransaction::Call
+					e
 				})
 				.ok()?;
-			let ExtrinsicMemoData { nonce, call, .. } = tx.get_extrinsic_data()
+			let ExtrinsicMemoData { nonce, call, max_block_number } = tx.get_extrinsic_data()
 				.map_err(|e| {
 					log::error!("⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}", tx.memos, e);
-					InvalidTransaction::Call
+					e
 				})
 				.ok()?;
 			let call = Pallet::<T>::get_runtime_call_from_xumm_extrinsic(&call)
 				.map_err(|e| {
 					log::error!("⛔️ failed to get runtime call from xumm extrinsic: {:?}", e);
-					InvalidTransaction::Call
+					e
 				})
 				.ok()?;
 
+			// TODO: ensure inner nested call is not the same call
+			// if matches!(self, call) {
+			// 	log::error!("⛔️ cannot nest submit_encoded_xumm_transaction call");
+			// 	return None;
+			// }
+			if <frame_system::Pallet<T>>::block_number() > max_block_number.into() {
+				log::error!("⛔️ max block number too low");
+				return None;
+			}
+
 			let success = tx.verify_transaction(&signature).map_err(|e| {
-					log::warn!("⛔️ failed to verify transaction: {:?}", e);
-					InvalidTransaction::Call
+					log::error!("⛔️ failed to verify transaction: {:?}", e);
+					e
 				})
 				.ok()?;
 			if !success {
+				log::error!("⛔️ transaction verification unsuccessful");
 				return None;
 			}
 			
@@ -156,11 +167,7 @@ impl<T> Call<T>
 				ChargeTransactionPayment::<T>::from(0.into()),
 			);
 
-			log::warn!("⛔️⛔️⛔️ VALIDATING!!");
-
 			SignedExtension::validate(&validations, &T::AccountId::from(*origin), &call.into(), dispatch_info, len).ok()?;
-
-			log::warn!("⛔️⛔️⛔️ VALIDATED!! ⛔️⛔️⛔️");
 
 			let priority = 0; // TODO: determine priority by debugging signed extrinsics
 			let who: T::AccountId = (*origin).into();
@@ -189,8 +196,6 @@ impl<T> Call<T>
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<<T as Config>::RuntimeCall>>> {
 		if let Some(Call::submit_encoded_xumm_transaction { encoded_msg, signature }) = call.is_sub_type() {
-			// NOTE: do we need to do validations again - if they are already done in `validate_self_contained`?
-			
 			// Pre Dispatch
 			let tx = XUMMTransaction::try_from(encoded_msg.as_bytes_ref())
 				.map_err(|e| {
@@ -214,12 +219,8 @@ impl<T> Call<T>
 			let pre = SignedExtension::pre_dispatch(validations, &T::AccountId::from(*info), &call.clone().into(), dispatch_info, len).ok()?;
 
 			// Dispatch
-			let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(T::AccountId::from(*info)).into();
-			let res = call.dispatch(origin);
-			let post_info = match res {
-				Ok(info) => info,
-				Err(err) => err.post_info,
-			};
+			let res = call.dispatch(frame_system::RawOrigin::None.into());
+			let post_info = res.map_or_else(|err| err.post_info, |info| info);
 
 			// Post Dispatch
 			<XUMMValidations<T> as SignedExtension>::post_dispatch(
@@ -308,7 +309,6 @@ pub mod pallet {
 		/// XUMM transaction with encoded extrinsic executed
 		XUMMExtrinsicExecuted {
 			caller: T::AccountId,
-			nonce: T::Index,
 			call: <T as pallet::Config>::RuntimeCall,
 		},
 	}
@@ -318,56 +318,6 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<H160>
 	{
 	}
-
-	// #[pallet::validate_unsigned]
-	// impl<T: Config> ValidateUnsigned for Pallet<T>
-	// where
-	// 	<T as frame_system::Config>::AccountId: From<H160>,
-	// {
-	// 	type Call = Call<T>;
-
-	// 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity
-	// 	where
-	// 		<T as frame_system::Config>::AccountId: From<H160>,
-	// 	{
-	// 		match call {
-	// 			Call::submit_encoded_xumm_transaction { ref encoded_msg, ref signature } => {
-	// 				log::info!("🚧 validating submit_encoded_xumm_transaction 🚧");
-	// 				let tx: XUMMTransaction = XUMMTransaction::try_from(encoded_msg.as_bytes_ref())
-	// 					.map_err(|e| {
-	// 						log::warn!(
-	// 							"⛔️ failed to convert encoded_msg to XUMMTransaction: {:?}",
-	// 							e
-	// 						);
-	// 						InvalidTransaction::Call
-	// 					})?;
-
-	// 				let success = tx.verify_transaction(&signature).map_err(|e| {
-	// 					log::warn!("⛔️ failed to verify transaction: {:?}", e);
-	// 					InvalidTransaction::Call
-	// 				})?;
-	// 				ensure!(success, InvalidTransaction::BadProof);
-
-	// 				ValidTransaction::with_tag_prefix("XUMMTransaction")
-	// 					.priority(XUMM_UNSIGNED_TX_PRIORITY)
-	// 					.and_provides([
-	// 						b"xumm-transaction",
-	// 						tx.account.as_bytes(),
-	// 						tx.account_txn_id.as_bytes(),
-	// 						tx.signing_pub_key.as_bytes(),
-	// 						signature,
-	// 					])
-	// 					.longevity(64_u64)
-	// 					.propagate(true)
-	// 					.build()
-	// 			},
-	// 			_ => {
-	// 				log::error!("🛑 failed to validate unknown call 🛑");
-	// 				InvalidTransaction::Call.into()
-	// 			},
-	// 		}
-	// 	}
-	// }
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
@@ -394,15 +344,14 @@ pub mod pallet {
 			encoded_msg: BoundedVec<u8, T::MaxMessageLength>,
 			_signature: BoundedVec<u8, T::MaxSignatureLength>,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			ensure_none(origin)?;
 
-			log::info!("submitting encoded unsigned xrpl transaction: {:?}", encoded_msg);
 			let tx: XUMMTransaction = XUMMTransaction::try_from(encoded_msg.as_bytes_ref())
 				.map_err(|e| {
 					log::error!("⛔️ failed to convert encoded_msg to XUMMTransaction: {:?}", e);
 					Error::<T>::DecodeXUMMTransaction
 				})?;
-
+			
 			let who: T::AccountId = tx
 				.get_account()
 				.map_err(|e| {
@@ -415,7 +364,7 @@ pub mod pallet {
 				})?
 				.into();
 
-			let ExtrinsicMemoData { nonce, max_block_number, call } =
+			let ExtrinsicMemoData { call, .. } =
 				tx.get_extrinsic_data().map_err(|e| {
 					log::error!(
 						"⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}",
@@ -425,34 +374,11 @@ pub mod pallet {
 					Error::<T>::DecodeXUMMTransactionExtrinsicData
 				})?;
 
-			// // ensure current nonce from signer matches nonce in XUMM transaction
-			// let nonce: T::Index = nonce.into();
-			// ensure!(
-			// 	frame_system::Pallet::<T>::account_nonce(&who) == nonce,
-			// 	Error::<T>::NonceMismatch,
-			// );
-
-			// ensure the block number is not exceeded
-			ensure!(
-				<frame_system::Pallet<T>>::block_number() <= max_block_number.into(),
-				Error::<T>::MaxBlockNumberExceeded,
-			);
-
+				let dispatch_origin = T::RuntimeOrigin::from(RawOrigin::Signed(who.clone()));
 			let call = Self::get_runtime_call_from_xumm_extrinsic(&call)?;
-			// ensure it's not the same call
-			// ensure!(
-			// 	!matches!(call.is_sub_type(), Some(Call::call_with_fee_preferences { .. })),
-			// 	Error::<T>::NestedFeePreferenceCall
-			// );
-
-			let dispatch_origin = T::RuntimeOrigin::from(RawOrigin::Signed(who.clone()));
 			call.clone().dispatch(dispatch_origin).map_err(|e| e.error)?;
 
-			// increment nonce
-			// frame_system::Pallet::<T>::inc_account_nonce(&who);
-
-			log::info!("🚀 executed call: {:?}", call);
-			Self::deposit_event(Event::XUMMExtrinsicExecuted { caller: who, nonce: nonce.into(), call });
+			Self::deposit_event(Event::XUMMExtrinsicExecuted { caller: who, call });
 			Ok(().into())
 		}
 	}
