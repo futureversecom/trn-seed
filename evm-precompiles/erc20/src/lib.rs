@@ -20,7 +20,7 @@ use fp_evm::{PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::{
-		fungibles::{Inspect, InspectMetadata, Transfer},
+		fungibles::{Inspect, InspectMetadata},
 		OriginTrait,
 	},
 };
@@ -75,6 +75,7 @@ where
 		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>
 		+ pallet_token_approvals::Config,
 	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_assets_ext::Call<Runtime>>,
 	Runtime::RuntimeCall: From<pallet_token_approvals::Call<Runtime>>,
 	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<AssetId, EvmId = Address>,
@@ -277,14 +278,21 @@ where
 		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
 			<Runtime as pallet_assets::Config>::WeightInfo::transfer(),
 		))?;
-		let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
-			asset_id,
-			&origin,
-			&to.clone().into(),
-			amount,
-			false,
-		)
-		.map_err(|e| revert(alloc::format!("ERC20: Dispatched call failed with error: {:?}", e)))?;
+
+		let destination = to.clone().into();
+		let keep_alive = false;
+
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin).into(),
+			pallet_assets_ext::Call::<Runtime>::transfer {
+				asset_id,
+				destination,
+				amount,
+				keep_alive,
+			},
+		)?;
+		let caller = handle.context().caller;
 
 		log3(
 			handle.code_address(),
@@ -339,16 +347,19 @@ where
 			handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
 				<Runtime as pallet_assets::Config>::WeightInfo::transfer(),
 			))?;
-			let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
-				asset_id,
-				&from,
-				&to.clone(),
-				amount,
-				false,
-			)
-			.map_err(|e| {
-				revert(alloc::format!("ERC20: Dispatched call failed with error: {:?}", e))
-			})?;
+
+			let destination = to.clone().into();
+			let keep_alive = false;
+			RuntimeHelper::<Runtime>::try_dispatch(
+				handle,
+				Some(caller.clone()).into(),
+				pallet_assets_ext::Call::<Runtime>::transfer {
+					asset_id,
+					destination,
+					amount,
+					keep_alive,
+				},
+			)?;
 		}
 		log3(
 			handle.code_address(),
