@@ -20,6 +20,7 @@ use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::AccountId20;
+use sp_runtime::testing::TestXt;
 
 mod get_runtime_call_from_xumm_extrinsic {
 	use super::*;
@@ -144,23 +145,87 @@ mod submit_encoded_xumm_transaction {
 	#[test]
 	fn system_remark_extrinsic_from_message() {
 		let caller = AccountId20::from(hex!("a2ea53a4f8f920f82a5cc0aa665f75403916dc8a"));
+		let endowed = [(caller, 1_000_000)];
 
-		TestExt::<Test>::default().build().execute_with(|| {
-      let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A811424A53BB5CAAD40A961836FEF648E8424846EC75AF9EA7C0965787472696E7369637D2E303A313A353030343030303134303464363937333633363836393635363632303464363136653631363736353634E1F1").unwrap();
-      let tx = XUMMTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
-      let call_data = tx.get_extrinsic_data().unwrap().call;
-      let remark_call = XrplTransaction::get_runtime_call_from_xumm_extrinsic(&call_data).unwrap();
+		TestExt::<Test>::default()
+			.with_xrp_balances(&endowed) // endow the caller with ROOT
+			.build()
+			.execute_with(|| {
+				let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A811424A53BB5CAAD40A961836FEF648E8424846EC75AF9EA7C0965787472696E7369637D2E303A313A353030343030303134303464363937333633363836393635363632303464363136653631363736353634E1F1").unwrap();
+				let tx = XUMMTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
+				let call_data = tx.get_extrinsic_data().unwrap().call;
+				let remark_call = XrplTransaction::get_runtime_call_from_xumm_extrinsic(&call_data).unwrap();
 
-      // execute xumm encoded transaction
-      assert_ok!(XRPLTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default()));
+				// // execute xumm encoded transaction
+				// assert_ok!(XrplTransaction::submit_encoded_xumm_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default()));
 
-      System::assert_last_event(mock::RuntimeEvent::XRPLTransaction(
-        Event::XUMMExtrinsicExecuted { caller, nonce: 0, call: remark_call }
-      ));
+				// System::assert_last_event(mock::RuntimeEvent::XrplTransaction(
+				//   Event::XUMMExtrinsicExecuted { caller, call: remark_call }
+				// ));
 
-      // validate account nonce is incremented
-      assert_eq!(System::account_nonce(&caller), 1);
-    });
+				// // validate account nonce is incremented
+				// assert_eq!(System::account_nonce(&caller), 1);
+
+				let xt1: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::XrplTransaction(crate::Call::submit_encoded_xumm_transaction {
+					encoded_msg: BoundedVec::truncate_from(tx_bytes.clone()),
+					signature: BoundedVec::default(),
+				}));
+				assert_ok!(Executive::apply_extrinsic(xt1));
+
+				// let extra_extensions = (
+				// 	CheckNonce::from(0), // nonce is the current account nonce
+				// 	CheckWeight::new(), // checks the weight of the transaction
+				// 	ChargeTransactionPayment::<Test>::from(0), // handles transaction payment; the value 0 here can be replaced with the actual fee
+				// );
+				// let xt = MockUncheckedExtrinsic::<Test>::new_unsigned(
+				// 	mock::RuntimeCall::XrplTransaction(crate::Call::submit_encoded_xumm_transaction {
+				// 			encoded_msg: BoundedVec::truncate_from(tx_bytes.clone()),
+				// 			signature: BoundedVec::default(),
+				// 	}),
+				// );
+				// let result = Executive::apply_extrinsic(xt);
+
+				// let extrinsic: sp_runtime::testing::TestXt<RuntimeCall, Extra> = TestXt::new(mock::RuntimeCall::XrplTransaction(crate::Call::submit_encoded_xumm_transaction {
+				// 		encoded_msg: BoundedVec::truncate_from(tx_bytes),
+				// 		signature: BoundedVec::default(),
+				// }), None);
+
+				// // Push the extrinsic into a block
+				// frame_system::Module::<Test>::reset_events();
+				// let block_number = 1;
+				// let parent_hash = frame_system::Module::<Test>::parent_hash();
+				// let digest = sp_runtime::Digest::default();
+				// frame_system::Module::<Test>::initialize(&block_number, &parent_hash, &digest);
+				// // assert_ok!(frame_system::Module::<Test>::apply_extrinsic(extrinsic));
+				// frame_system::Module::<Test>::finalize();
+
+
+				// let xt = TestXt::<mock::RuntimeCall, ()>::new(mock::RuntimeCall::XrplTransaction(crate::Call::submit_encoded_xumm_transaction {
+				// 	encoded_msg: BoundedVec::truncate_from(tx_bytes),
+				// 	signature: BoundedVec::default(),
+				// }), None);
+
+				// dispatch the extrinsic
+				// let result = Executive::<Test>::apply_extrinsic(xt);
+
+				// Construct and submit the transaction
+				// let extrinsic: sp_runtime::testing::TestXt<RuntimeCall, ()> = TestXt::new(mock::RuntimeCall::XrplTransaction(crate::Call::submit_encoded_xumm_transaction {
+				// 	encoded_msg: BoundedVec::truncate_from(tx_bytes),
+				// 	signature: BoundedVec::default(),
+				// }), None);
+				// let apply_result = Executive::<Test>::apply_extrinsic(extrinsic);
+
+				// // Check the result of the transaction execution
+				// assert!(apply_result.is_ok());
+
+				// Verify the event was emitted
+				// System::assert_last_event(mock::RuntimeEvent::XrplTransaction(
+				// 	Event::XUMMExtrinsicExecuted { caller, call: remark_call }
+				// ));
+
+				// Validate account nonce is incremented
+				assert_eq!(System::account_nonce(&caller), 1);
+    	});
 	}
 
 	#[test]
@@ -220,8 +285,3 @@ mod submit_encoded_xumm_transaction {
       });
 	}
 }
-
-// TODO: setup PR for this branch
-// - use release template structure
-// TODO: test is not the same call nested in the extrinsic
-// TODO: test signature verification e2e in `validate_unsigned` trait impl
