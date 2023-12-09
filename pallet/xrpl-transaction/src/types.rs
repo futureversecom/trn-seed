@@ -198,35 +198,6 @@ impl TryInto<TransactionCommon> for &XUMMTransaction {
 	}
 }
 
-// TODO: remove this
-fn verify_transaction(
-	tx: &XUMMTransaction,
-	message: &[u8],
-	signature: &[u8],
-) -> Result<bool, &'static str> {
-	let msg: Message = libsecp256k1::Message::parse(&sha512_first_half(message));
-	let pub_key_bytes: [u8; 33] = hex::decode(&tx.signing_pub_key)
-		.map_err(|e| {
-			log::warn!("⛔️ failed to decode signing_pub_key as hex: {:?}", e);
-			"failed to decode signing_pub_key as hex"
-		})?
-		.try_into()
-		.map_err(|e| {
-			log::warn!("⛔️ failed to convert signing_pub_key to bytes: {:?}", e);
-			"failed to convert signing_pub_key to bytes"
-		})?;
-	let pub_key = libsecp256k1::PublicKey::parse_compressed(&pub_key_bytes).map_err(|e| {
-		log::warn!("⛔️ failed to parse public key: {:?}", e);
-		"failed to parse public key"
-	})?;
-	let signature = libsecp256k1::Signature::parse_der(&signature).map_err(|e| {
-		log::warn!("⛔️ failed to parse signature: {:?}", e);
-		"failed to parse signature"
-	})?;
-	let success = libsecp256k1::verify(&msg, &signature, &pub_key);
-	Ok(success)
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
