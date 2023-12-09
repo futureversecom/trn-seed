@@ -26,19 +26,13 @@ use sp_runtime::{
 };
 
 pub type SignedExtra = XUMMValidations<Test>;
-
-// pub type UncheckedExtrinsicT = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-// pub type BlockT = generic::Block<Header, UncheckedExtrinsicT>;
-
 pub type UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
-pub type NodeBlockT = generic::Block<Header, sp_runtime::OpaqueExtrinsic>;
 pub type BlockT = generic::Block<Header, UncheckedExtrinsicT>;
 
 frame_support::construct_runtime!(
 	pub enum Test where
 		Block = BlockT,
-		NodeBlock = NodeBlockT,
-		// NodeBlock = BlockT,
+		NodeBlock = BlockT,
 		UncheckedExtrinsic = UncheckedExtrinsicT,
 	{
 		System: frame_system,
@@ -47,10 +41,6 @@ frame_support::construct_runtime!(
 		AssetsExt: pallet_assets_ext,
 		TransactionPayment: pallet_transaction_payment,
 		FeeControl: pallet_fee_control,
-		// FeeProxy: pallet_fee_proxy,
-		// Dex: pallet_dex,
-		// Evm: pallet_evm,
-		// Futurepass: pallet_futurepass,
 		XrplTransaction: pallet_xrpl_transaction,
 	}
 );
@@ -60,8 +50,6 @@ impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 impl_pallet_fee_control_config!(Test);
-
-
 
 pub struct FeeControlWeightToFee;
 impl WeightToFee for FeeControlWeightToFee {
@@ -77,13 +65,11 @@ impl WeightToFee for FeeControlLengthToFee {
 		FeeControl::length_to_fee(weight)
 	}
 }
-
 parameter_types! {
 	pub const OperationalFeeMultiplier: u8 = 1;
-	pub const XrpAssetId: AssetId = 2;
+	pub const XrpAssetId: AssetId = XRP_ASSET_ID;
 }
 pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Test, XrpAssetId>;
-
 impl pallet_transaction_payment::Config for Test {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, ()>;
 	type RuntimeEvent = RuntimeEvent;
@@ -97,7 +83,6 @@ parameter_types! {
 	pub const MaxMessageLength: u32 = 2048;
 	pub const MaxSignatureLength: u32 = 80;
 }
-
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
