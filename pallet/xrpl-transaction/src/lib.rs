@@ -209,7 +209,7 @@ impl<T> Call<T>
 					InvalidTransaction::Call
 				})
 				.ok()?;
-			// create the validation instances for this extrinsic
+			// validation instances for this extrinsic; these are responsible for potential state changes
 			let validations: XUMMValidations<T> = (
 				CheckNonZeroSender::new(),
 				CheckNonce::from(nonce.into()),
