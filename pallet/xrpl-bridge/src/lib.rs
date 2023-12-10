@@ -15,6 +15,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use crate::types::{
+	DelayedPaymentId, XrpTransaction, XrpWithdrawTransaction, XrplTicketSequenceParams, XrplTxData,
+};
 use frame_support::{
 	fail,
 	pallet_prelude::*,
@@ -26,9 +29,15 @@ use frame_support::{
 	weights::constants::RocksDbWeight as DbWeight,
 };
 use frame_system::pallet_prelude::*;
+use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, XrplBridgeToEthyAdapter};
+use seed_primitives::{
+	ethy::{crypto::AuthorityId, EventProofId},
+	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
+	AssetId, Balance, Timestamp,
+};
 use sp_runtime::{
 	traits::{One, Zero},
-	ArithmeticError, Percent, SaturatedConversion,
+	ArithmeticError, Percent, SaturatedConversion, Saturating,
 };
 use sp_std::{prelude::*, vec};
 use xrpl_codec::{
@@ -36,21 +45,9 @@ use xrpl_codec::{
 	transaction::{Payment, SignerListSet},
 };
 
-use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, XrplBridgeToEthyAdapter};
-use seed_primitives::{
-	ethy::crypto::AuthorityId,
-	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash},
-	AssetId, Balance, Timestamp,
-};
-
-use crate::helpers::{
-	XrpTransaction, XrpWithdrawTransaction, XrplTicketSequenceParams, XrplTxData,
-};
-
 pub use pallet::*;
-use seed_primitives::{ethy::EventProofId, xrpl::XrplTxTicketSequence};
 
-mod helpers;
+mod types;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -70,7 +67,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use seed_primitives::xrpl::XrplTxTicketSequence;
+	use std::intrinsics::saturating_sub;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
@@ -103,6 +100,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxPrunedTransactionsPerBlock: Get<u32>;
 
+		/// Maximum number of delayed transactions that can be processed in a single block
+		#[pallet::constant]
+		type MaxDelayedPaymentsPerBlock: Get<u32>;
+
 		/// Unix time
 		type UnixTime: UnixTime;
 
@@ -121,6 +122,10 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		NotPermitted,
+		/// The paymentIds have been exhausted
+		NoAvailablePaymentIds,
+		/// The scheduled block cannot hold any more delayed payments
+		DelayScheduleAtCapacity,
 		/// There is no settledXRPTransactionDetails for this ledger index
 		NoTransactionDetails,
 		RelayerDoesNotExists,
@@ -158,8 +163,13 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
-		/// A delay was added (min_balance, delay)
-		PaymentDelaySet(Balance, BlockNumber),
+		/// The payment delay was set
+		PaymentDelaySet {
+			min_balance: Balance,
+			delay: T::BlockNumber,
+		},
+		/// The payment delay was removed
+		PaymentDelayRemoved,
 		/// Processing an event succeeded
 		ProcessingOk(LedgerIndex, XrplTxHash),
 		/// Processing an event failed
@@ -172,6 +182,14 @@ pub mod pallet {
 			sender: T::AccountId,
 			amount: Balance,
 			destination: XrplAccountId,
+		},
+		/// A withdrawal was delayed as it was above the min_payment threshold
+		WithdrawDelayed {
+			proof_id: u64,
+			sender: T::AccountId,
+			amount: Balance,
+			destination: XrplAccountId,
+			delayed_payment_id: DelayedPaymentId,
 		},
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
@@ -202,7 +220,9 @@ pub mod pallet {
 		}
 
 		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
-			Self::clear_storages(remaining_weight)
+			let delay_weight = Self::process_delayed_payments(remaining_weight);
+			let prune_weight = Self::clear_storages(remaining_weight.saturating_sub(delay_weight));
+			delay_weight.saturating_add(prune_weight)
 		}
 	}
 
@@ -263,6 +283,28 @@ pub mod pallet {
 	#[pallet::storage]
 	/// Payment delay for any withdraw over the specified Balance
 	pub type PaymentDelay<T: Config> = StorageValue<_, (Balance, T::BlockNumber), OptionQuery>;
+
+	#[pallet::storage]
+	/// Map from DelayedPaymentId to (sender, WithdrawTx)
+	pub type DelayedPayments<T: Config> =
+		StorageMap<_, Identity, DelayedPaymentId, Option<(T::AccountId, XrpWithdrawTransaction)>>;
+
+	#[pallet::storage]
+	/// Map from block number to DelayedPatmentIds scheduled for that block
+	pub type DelayedPaymentSchedule<T: Config> = StorageMap<
+		_,
+		Identity,
+		T::BlockNumber,
+		BoundedVec<DelayedPaymentId, T::MaxDelayedPaymentsPerBlock>,
+	>;
+
+	#[pallet::storage]
+	/// The highest block number that has had all delayed payments processed
+	pub type HighestProcessedDelayedBlock<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+
+	#[pallet::storage]
+	/// The next available delayedPaymentId
+	pub type NextDelayedPaymentId<T: Config> = StorageValue<_, DelayedPaymentId, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
@@ -381,14 +423,24 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[weight = T::WeightInfo::set_payment_delay()]
 		/// Sets the payment delay
 		/// payment_delay is a tuple of minimum Balance and delay in blocks
-		pub fn set_payment_delay(origin: OriginFor<T>, payment_delay: Option<(Balance, T::BlockNumber)>) {
+		#[pallet::weight(0)]
+		pub fn set_payment_delay(
+			origin: OriginFor<T>,
+			payment_delay: Option<(Balance, T::BlockNumber)>,
+		) -> DispatchResult {
 			ensure_root(origin)?;
-			PaymentDelay::<T>::put(delay);
-			let (min_balance, delay) = payment_delay.unwrap_or_default();
-			Self::deposit_event(<Event<T>>::PaymentDelaySet(min_balance, delay));
+			match payment_delay {
+				Some((min_balance, delay)) => {
+					PaymentDelay::<T>::put((min_balance, delay));
+					Self::deposit_event(Event::<T>::PaymentDelaySet { min_balance, delay });
+				},
+				None => {
+					Self::deposit_event(Event::<T>::PaymentDelayRemoved);
+				},
+			}
+			Ok(())
 		}
 
 		/// Withdraw xrp transaction
@@ -649,6 +701,15 @@ impl<T: Config> Pallet<T> {
 		DbWeight::get().reads_writes(reads, writes)
 	}
 
+	pub fn process_delayed_payments(remaining_weight: Weight) -> Weight {
+		let mut used_weight = Weight::zero();
+
+		// Check if we have any delayed payments to process
+		// From the lastProcessedBlockNumber to the current block number
+
+		used_weight
+	}
+
 	/// Prune settled transaction data from storage
 	pub fn clear_storages(remaining_weight: Weight) -> Weight {
 		// Initial reads for the following:
@@ -772,6 +833,7 @@ impl<T: Config> Pallet<T> {
 	/// `who` the account requesting the withdraw
 	/// `amount` the amount of XRP drops to withdraw (- the tx fee)
 	///  `destination` the receiver classic `AccountID` on XRPL
+	#[transactional]
 	pub fn add_to_withdraw(
 		who: AccountOf<T>,
 		amount: Balance,
@@ -789,8 +851,6 @@ impl<T: Config> Pallet<T> {
 		let _ =
 			T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount + tx_fee as Balance)?;
 
-		// TODO Process PaymentDelay here??
-
 		let ticket_sequence = Self::get_door_ticket_sequence()?;
 		let tx_data = XrpWithdrawTransaction {
 			tx_nonce: 0_u32, // Sequence = 0 when using TicketSequence
@@ -800,19 +860,48 @@ impl<T: Config> Pallet<T> {
 			tx_ticket_sequence: ticket_sequence,
 		};
 
-		let proof_id = Self::submit_withdraw_request(door_address.into(), tx_data)?;
+		// Check if there is a payment delay and delay the payment if necessary
+		if let Some((min_balance, delay)) = PaymentDelay::<T>::get() {
+			if amount >= min_balance {
+				Self::delay_payment(delay, who.clone(), tx_data)?;
+				return Ok(())
+			}
+		}
 
-		Self::deposit_event(Event::WithdrawRequest { proof_id, sender: who, amount, destination });
+		Self::submit_withdraw_request(who, door_address.into(), tx_data)?;
 
 		Ok(())
+	}
+
+	/// Delay a withdrawal until a later block. Called if the withdrawal amount is over the
+	/// PaymentDelay threshold
+	fn delay_payment(
+		delay: T::BlockNumber,
+		sender: T::AccountId,
+		withdrawal: XrpWithdrawTransaction,
+	) -> DispatchResult {
+		// Get the next payment ID
+		let delayed_payment_id = NextDelayedPaymentId::<T>::get();
+		ensure!(
+			delayed_payment_id.checked_add(One::one()).is_some(),
+			Error::<T>::NoAvailablePaymentIds
+		);
+
+		let payment_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
+		DelayedPaymentSchedule::<T>::try_append(payment_block, delayed_payment_id)
+			.map_err(|_| Error::<T>::DelayScheduleAtCapacity)?;
+		DelayedPayments::<T>::insert(delayed_payment_id, Some((sender, withdrawal)));
+		NextDelayedPaymentId::<T>::put(delayed_payment_id + 1);
+		return Ok(())
 	}
 
 	/// Construct an XRPL payment transaction and submit for signing
 	/// Returns a (proof_id, tx_blob)
 	fn submit_withdraw_request(
+		sender: T::AccountId,
 		door_address: [u8; 20],
 		tx_data: XrpWithdrawTransaction,
-	) -> Result<u64, DispatchError> {
+	) -> DispatchResult {
 		let XrpWithdrawTransaction { tx_fee, tx_nonce, tx_ticket_sequence, amount, destination } =
 			tx_data;
 
@@ -828,7 +917,10 @@ impl<T: Config> Pallet<T> {
 		);
 		let tx_blob = payment.binary_serialize(true);
 
-		T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
+		let proof_id = T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())?;
+		Self::deposit_event(Event::WithdrawRequest { proof_id, sender, amount, destination });
+
+		Ok(())
 	}
 
 	// Return the current door ticket sequence and increment it in storage
