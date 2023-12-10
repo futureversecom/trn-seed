@@ -53,6 +53,7 @@ pub const XUMM_UNSIGNED_TX_PRIORITY: TransactionPriority = TransactionPriority::
 /// Checks performed on a XUMM transaction
 pub type XUMMValidations<T> = (
 	frame_system::CheckNonZeroSender<T>,
+	// TODO: validate how much of the below signed extensions we can use
 	// frame_system::CheckSpecVersion<Runtime>,
 	// frame_system::CheckTxVersion<Runtime>,
 	// frame_system::CheckGenesis<Runtime>,
@@ -374,7 +375,7 @@ pub mod pallet {
 					Error::<T>::DecodeXUMMTransactionExtrinsicData
 				})?;
 
-				let dispatch_origin = T::RuntimeOrigin::from(RawOrigin::Signed(who.clone()));
+			let dispatch_origin = T::RuntimeOrigin::from(RawOrigin::Signed(who.clone()));
 			let call = Self::get_runtime_call_from_xumm_extrinsic(&call)?;
 			call.clone().dispatch(dispatch_origin).map_err(|e| e.error)?;
 
