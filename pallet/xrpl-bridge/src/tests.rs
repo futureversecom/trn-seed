@@ -227,7 +227,7 @@ fn set_door_tx_fee_works() {
 #[test]
 fn set_xrp_source_tag_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let new_source_tag = 723456_u64;
+		let new_source_tag = 723456_u32;
 		assert_ok!(XRPLBridge::set_xrp_source_tag(
 			frame_system::RawOrigin::Root.into(),
 			new_source_tag
