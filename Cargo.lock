@@ -11616,6 +11616,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "xrpl_binary_codec"
+version = "0.15.0"
+source = "git+https://github.com/futureversecom/xrpl-sdk-rust?branch=nostd-support#42b38d44c2c98fc35aded8b476f21ad7eaebed83"
+dependencies = [
+ "bytes",
+ "hashbrown 0.14.3",
+ "hex",
+ "libsecp256k1 0.7.1",
+ "serde_json",
+ "sha2 0.10.8",
+ "spin 0.9.8",
+ "xrpl_types",
+]
+
+[[package]]
+name = "xrpl_types"
+version = "0.15.0"
+source = "git+https://github.com/futureversecom/xrpl-sdk-rust?branch=nostd-support#42b38d44c2c98fc35aded8b476f21ad7eaebed83"
+dependencies = [
+ "ascii",
+ "bs58 0.5.0",
+ "enumflags2",
+ "hex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "yamux"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
