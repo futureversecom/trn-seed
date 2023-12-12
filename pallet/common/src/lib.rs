@@ -408,3 +408,8 @@ impl<T: frame_system::Config> MaintenanceCheckEVM<T> for () {
 		true
 	}
 }
+
+pub trait ExtrinsicChecker {
+	type Call;
+	fn check_extrinsic(call: &Self::Call) -> bool;
+}
