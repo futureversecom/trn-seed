@@ -20,7 +20,7 @@ pub use pallet::*;
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
-use sp_core::H160;
+use sp_core::{ecdsa, H160};
 use sp_runtime::FixedPointOperand;
 
 use alloc::boxed::Box;
@@ -37,6 +37,9 @@ use sp_runtime::{
 	transaction_validity::ValidTransactionBuilder,
 };
 use alloc::vec::Vec;
+use doughnut_rs::traits::DoughnutVerify;
+use doughnut_rs::Doughnut;
+use seed_primitives::AccountId20;
 
 #[cfg(test)]
 mod mock;
@@ -74,8 +77,18 @@ impl<T> Call<T>
 				// 2. decode the doughnut, check success against the sender above?
 				// 3. return the sender address if all good
 
+				// //
+				//
+				// // Doughnut work
+				// // run doughnut common validations
+				// let Ok(Doughnut::V0(doughnut_v0)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone())?;
+				// // No need to do the doughnut verification again since already did in check_self_contained()
+				// let Ok(issuer_address) = crate::Pallet::<T>::get_address(doughnut_v0.issuer)?;
+
+
+
 				// for now resolve to alith
-				let origin: H160 = H160::from(hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac"));
+				let origin: H160 = H160::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"));
 				Ok(origin)
 			};
 
@@ -191,8 +204,9 @@ impl<T> Call<T>
 
 #[frame_support::pallet]
 pub mod pallet {
+	use doughnut_rs::traits::DoughnutApi;
+	use sp_core::ecdsa;
 	use super::*;
-	use frame_support::traits::IsSubType;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
@@ -202,7 +216,9 @@ pub mod pallet {
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config
+	where <Self as frame_system::Config>::AccountId: From<H160>,
+	{
 		/// The overarching event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		// /// Weight Info
@@ -217,12 +233,34 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
-	pub enum Event<T> {
+	pub enum Event<T: Config>
+	where <T as frame_system::Config>::AccountId: From<H160>,
+	{
 		DoughnutCallExecuted { result: DispatchResult },
 	}
 
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Doguhnut decode failed.
+		DoughnutDecodeFailed,
+		/// Unsupported doughnut version
+		UnsupportedDoughnutVersion,
+		/// Doughnut verify failed
+		DoughnutVerifyFailed,
+		/// Sender is not authorized to use the doughnut
+		UnauthorizedSender
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> where
+		<T as frame_system::Config>::AccountId: From<H160>
+	{
+	}
+
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where <T as frame_system::Config>::AccountId: From<H160>,
+	{
 		#[pallet::weight(0 as u64)]
 		pub fn transact(
 			origin: OriginFor<T>,
@@ -230,18 +268,62 @@ pub mod pallet {
 			doughnut: Vec<u8>,
 			nonce: u32,
 		) -> DispatchResult {
-			let who = ensure_signed(origin.clone())?;
-			info!("doughnut transact");
-			let e = call.dispatch(origin);
+			let sender = ensure_signed(origin.clone())?;
+
+			// run doughnut common validations
+			let Doughnut::V0(doughnut_v0) = Self::run_doughnut_common_validations(doughnut)?;
+
+			// verify the doughnut
+			doughnut_v0.verify()
+				.map_err(|_| {
+					Error::<T>::DoughnutVerifyFailed
+				})?;
+
+			// TODO: Validate the doughnut, for now we just check sender == bearer
+			// doughnut_v0.validate(sender., <frame_system::Pallet<T>>::block_number())?;
+			let holder_address = Self::get_address(doughnut_v0.holder)?;
+			ensure!(holder_address == sender, Error::<T>::UnauthorizedSender);
+
+			// dispatch the inner call
+			let issuer_address = Self::get_address(doughnut_v0.issuer)?;
+			let issuer_origin = frame_system::RawOrigin::Signed(issuer_address).into();
+			let e = call.dispatch(issuer_origin);
 			Self::deposit_event(Event::<T>::DoughnutCallExecuted {
 				result: e.map(|_| ()).map_err(|e| e.error),
 			});
+
 			Ok(())
 		}
 	}
 }
 
-impl<T: Config> Pallet<T> {}
+impl<T: Config> Pallet<T>
+where <T as frame_system::Config>::AccountId: From<H160>,
+{
+	fn get_address(raw_pub_key: [u8;32]) -> Result<T::AccountId, Error<T>>
+	{
+		let mut public_key = [0x04; 33];
+		public_key[1..].clone_from_slice(&raw_pub_key[..]);
+		let account_id_20 = AccountId20::try_from(ecdsa::Public::from_raw(public_key)).map_err(|_| Error::<T>::UnauthorizedSender)?;
+		Ok(T::AccountId::from(H160::from_slice(&account_id_20.0)))
+	}
+
+	fn run_doughnut_common_validations(doughnut_payload: Vec<u8>,) -> Result<Doughnut, Error<T>> {
+		// decode the doughnut
+		let doughnut_decoded =  Doughnut::decode(&mut &doughnut_payload[..])
+			.map_err(|_| {
+				Error::<T>::DoughnutDecodeFailed
+			})?;
+
+		// only supports v0 for now
+		let Doughnut::V0(doughnut_v0) = doughnut_decoded.clone() else {
+			return Err(Error::<T>::UnsupportedDoughnutVersion)?;
+		};
+
+		Ok(doughnut_decoded)
+	}
+
+}
 
 /// Checks performed on a Doughnut transaction
 pub type DoughnutValidations<T> = (
