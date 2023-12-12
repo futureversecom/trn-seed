@@ -29,7 +29,7 @@ use core::ops::Mul;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
-mod test;
+mod tests;
 
 mod weights;
 

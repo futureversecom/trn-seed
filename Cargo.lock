@@ -4793,6 +4793,7 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-evm",
+ "pallet-fee-control",
  "pallet-timestamp",
  "parity-scale-codec",
  "precompile-utils",
@@ -4955,6 +4956,8 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-assets",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
@@ -5116,8 +5119,10 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
+ "seed-pallet-common",
  "serde",
  "sp-core",
  "sp-io",
@@ -5382,6 +5387,7 @@ dependencies = [
  "pallet-balances",
  "pallet-dex",
  "pallet-evm",
+ "pallet-fee-control",
  "pallet-futurepass",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -5475,6 +5481,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-maintenance-mode"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-ethy",
+ "pallet-im-online",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-marketplace"
 version = "1.0.0"
 dependencies = [
@@ -5529,6 +5559,7 @@ dependencies = [
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-evm",
+ "pallet-fee-control",
  "pallet-timestamp",
  "parity-scale-codec",
  "precompile-utils",
@@ -8426,6 +8457,7 @@ dependencies = [
  "libsecp256k1 0.6.0",
  "log",
  "pallet-dex-rpc",
+ "pallet-maintenance-mode",
  "pallet-nft-rpc",
  "pallet-sft-rpc",
  "pallet-transaction-payment",
@@ -8476,6 +8508,7 @@ name = "seed-pallet-common"
 version = "1.0.0"
 dependencies = [
  "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
@@ -8489,11 +8522,15 @@ dependencies = [
 name = "seed-primitives"
 version = "1.0.0"
 dependencies = [
+ "frame-support",
+ "frame-system",
  "hex",
  "hex-literal 0.3.4",
  "impl-serde 0.4.0",
  "libsecp256k1 0.7.1",
  "log",
+ "pallet-assets",
+ "pallet-balances",
  "parity-scale-codec",
  "ripemd",
  "scale-info",
@@ -8565,6 +8602,7 @@ dependencies = [
  "pallet-futurepass",
  "pallet-grandpa",
  "pallet-im-online",
+ "pallet-maintenance-mode",
  "pallet-marketplace",
  "pallet-multisig",
  "pallet-nft",

@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
+#![allow(deprecated)]
 
 use super::*;
 use crate::{
-	mock::{FeeProxy, Futurepass, Runner, RuntimeOrigin, System, Test, TestExt, XRP_ASSET_ID},
+	mock::{FeeProxy, Futurepass, Runner, RuntimeOrigin, System, Test},
 	runner::*,
 };
 use ethabi::Token;
-use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
 use precompile_utils::{
 	constants::{
@@ -27,12 +27,7 @@ use precompile_utils::{
 	},
 	ErcIdConversion,
 };
-use seed_primitives::{AccountId, AssetId, Balance};
-use sp_core::{H160, U256};
-
-fn create_account(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
-}
+use seed_pallet_common::test_prelude::*;
 
 /// Tests for the extrinsic call_with_fee_preferences
 mod call_with_fee_preferences {
@@ -40,7 +35,7 @@ mod call_with_fee_preferences {
 
 	#[test]
 	fn call_works() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
@@ -63,7 +58,7 @@ mod call_with_fee_preferences {
 
 	#[test]
 	fn call_works_for_futurepass_proxy_extrinsic() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let owner: AccountId = create_account(1);
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
@@ -102,7 +97,7 @@ mod call_with_fee_preferences {
 
 	#[test]
 	fn payment_asset_must_differ_from_fee_asset() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = XRP_ASSET_ID;
 			let max_payment: Balance = 100;
@@ -125,7 +120,7 @@ mod call_with_fee_preferences {
 
 	#[test]
 	fn inner_call_results_need_to_be_propagated() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
@@ -150,7 +145,7 @@ mod call_with_fee_preferences {
 
 	#[test]
 	fn inner_call_must_differ_from_outer_call() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
@@ -185,7 +180,7 @@ mod decode_input {
 
 	#[test]
 	fn decode_input_works() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			// Abi generated from below parameters using the following function name:
 			// callWithFeePreferences
 			// abi can be easily generated here https://abi.hashex.org/
@@ -224,7 +219,7 @@ mod decode_input {
 
 	#[test]
 	fn invalid_function_selector_should_fail() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let bad_selector_input = vec![0x01, 0x02, 0x03, 0x04];
 			assert_noop!(
 				Runner::decode_input(bad_selector_input),
@@ -235,7 +230,7 @@ mod decode_input {
 
 	#[test]
 	fn empty_input_should_fail() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			assert_noop!(
 				Runner::decode_input(Default::default()),
 				FeePreferencesError::InvalidInputArguments
@@ -245,7 +240,7 @@ mod decode_input {
 
 	#[test]
 	fn invalid_input_args_should_fail() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let mut input = FEE_FUNCTION_SELECTOR_DEPRECATED.to_vec();
 			input.append(&mut ethabi::encode(&[
 				Token::Bytes(vec![1_u8, 2, 3, 4, 5]),
@@ -276,7 +271,7 @@ mod decode_input {
 
 	#[test]
 	fn zero_payment_asset_should_fail() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let mut input = FEE_FUNCTION_SELECTOR_DEPRECATED.to_vec();
 			input.append(&mut ethabi::encode(&[
 				Token::Address(H160::zero()),
@@ -310,7 +305,7 @@ mod get_fee_preferences_data {
 
 	#[test]
 	fn get_fee_preferences_data_works() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let gas_limit: u64 = 100;
 			let base_fee_per_gas: U256 = 200.into();
 			let max_fee_per_gas: U256 = 300.into();
@@ -353,7 +348,7 @@ mod calculate_total_gas {
 
 	#[test]
 	fn base_fee_only() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let gas_limit: u64 = 100;
 			let base_fee_per_gas: U256 = 200.into();
 
@@ -367,7 +362,7 @@ mod calculate_total_gas {
 
 	#[test]
 	fn max_fee_per_gas() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let gas_limit: u64 = 100;
 			let base_fee_per_gas: U256 = 200.into();
 			let max_fee_per_gas: U256 = 300.into();
@@ -387,7 +382,7 @@ mod calculate_total_gas {
 
 	#[test]
 	fn max_priority_fee_per_gas() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let gas_limit: u64 = 100;
 			let base_fee_per_gas: U256 = 200.into();
 			let max_priority_fee_per_gas: U256 = 50.into();
@@ -407,7 +402,7 @@ mod calculate_total_gas {
 
 	#[test]
 	fn max_fee_per_gas_with_max_priority_fee_per_gas() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let gas_limit: u64 = 100;
 			let base_fee_per_gas: U256 = 200.into();
 			let max_fee_per_gas: U256 = 300.into();
@@ -428,7 +423,7 @@ mod calculate_total_gas {
 
 	#[test]
 	fn max_fee_per_gas_too_large_should_fail() {
-		TestExt::default().build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let gas_limit: u64 = 100;
 			let base_fee_per_gas: U256 = 200.into();
 			let max_fee_per_gas = U256::MAX;

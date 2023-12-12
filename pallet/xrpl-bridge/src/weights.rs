@@ -59,6 +59,7 @@ pub trait WeightInfo {
 	fn set_ticket_sequence_current_allocation() -> Weight;
 	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight;
 	fn set_xrp_source_tag() -> Weight;
+	fn prune_settled_ledger_index(i: u32, ) -> Weight;
 }
 
 /// Weights for pallet_xrpl_bridge using the Substrate node and recommended hardware.
@@ -141,17 +142,31 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
 	// Storage: XRPLBridge SubmissionWindowWidth (r:0 w:1)
+	// Storage: XRPLBridge HighestPrunedLedgerIndex (r:0 w:1)
 	// Storage: XRPLBridge HighestSettledLedgerIndex (r:0 w:1)
 	// Storage: XRPLBridge SettledXRPTransactionDetails (r:5 w:5)
 	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:5)
 	/// The range of component `i` is `[0, 256]`.
 	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight {
-		Weight::from_ref_time(6_000_000 as u64)
-			// Standard Error: 5_702
-			.saturating_add(Weight::from_ref_time(4_347_223 as u64).saturating_mul(i as u64))
+		Weight::from_ref_time(10_841_000 as u64)
+			// Standard Error: 4_892
+			.saturating_add(Weight::from_ref_time(6_292_671 as u64).saturating_mul(i as u64))
 			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(i as u64)))
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
+			.saturating_add(T::DbWeight::get().writes(3 as u64))
 			.saturating_add(T::DbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
+	}
+	// Storage: XRPLBridge HighestSettledLedgerIndex (r:1 w:0)
+	// Storage: XRPLBridge SubmissionWindowWidth (r:1 w:0)
+	// Storage: XRPLBridge SettledXRPTransactionDetails (r:1 w:1)
+	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:1)
+	/// The range of component `i` is `[0, 10]`.
+	fn prune_settled_ledger_index(i: u32, ) -> Weight {
+		Weight::from_ref_time(16_281_000 as u64)
+			// Standard Error: 4_806
+			.saturating_add(Weight::from_ref_time(916_903 as u64).saturating_mul(i as u64))
+			.saturating_add(T::DbWeight::get().reads(3 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(i as u64)))
 	}
 }
 
@@ -232,17 +247,31 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}
 	// Storage: XRPLBridge SubmissionWindowWidth (r:0 w:1)
+	// Storage: XRPLBridge HighestPrunedLedgerIndex (r:0 w:1)
 	// Storage: XRPLBridge HighestSettledLedgerIndex (r:0 w:1)
 	// Storage: XRPLBridge SettledXRPTransactionDetails (r:5 w:5)
 	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:5)
 	/// The range of component `i` is `[0, 256]`.
 	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight {
-		Weight::from_ref_time(6_000_000 as u64)
-			// Standard Error: 5_702
-			.saturating_add(Weight::from_ref_time(4_347_223 as u64).saturating_mul(i as u64))
+		Weight::from_ref_time(10_841_000 as u64)
+			// Standard Error: 4_892
+			.saturating_add(Weight::from_ref_time(6_292_671 as u64).saturating_mul(i as u64))
 			.saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(i as u64)))
-			.saturating_add(RocksDbWeight::get().writes(2 as u64))
+			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
+	}
+	// Storage: XRPLBridge HighestSettledLedgerIndex (r:1 w:0)
+	// Storage: XRPLBridge SubmissionWindowWidth (r:1 w:0)
+	// Storage: XRPLBridge SettledXRPTransactionDetails (r:1 w:1)
+	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:1)
+	/// The range of component `i` is `[0, 10]`.
+	fn prune_settled_ledger_index(i: u32, ) -> Weight {
+		Weight::from_ref_time(16_281_000 as u64)
+			// Standard Error: 4_806
+			.saturating_add(Weight::from_ref_time(916_903 as u64).saturating_mul(i as u64))
+			.saturating_add(RocksDbWeight::get().reads(3 as u64))
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+			.saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(i as u64)))
 	}
 }
 

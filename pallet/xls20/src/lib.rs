@@ -45,7 +45,7 @@ pub use pallet::*;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
-mod test;
+mod tests;
 
 /// TokenId type for XLS-20 Token Ids
 /// See: https://github.com/XRPLF/XRPL-Standards/discussions/46
