@@ -105,10 +105,6 @@ pub mod pallet {
 		/// Threshold to emit event TicketSequenceThresholdReached
 		type TicketSequenceThreshold: Get<Percent>;
 
-		/// Source tag to be used to indicate the transaction is happening from futureverse
-		#[pallet::constant]
-		type SourceTag: Get<u32>;
-
 		/// Represents the maximum number of XRPL transactions that can be stored and processed in a
 		/// single block in the temporary storage and the maximum number of XRPL transactions that
 		/// can be stored in the settled transaction details storage for each block.
@@ -224,6 +220,11 @@ pub mod pallet {
 	#[pallet::storage]
 	/// Highest settled XRPL ledger index
 	pub type HighestSettledLedgerIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn xrp_source_tag)]
+	/// Source tag to be used to indicate the transaction is happening from futureverse
+	pub type SourceTag<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::type_value]
 	/// XRPL ledger rate is between 3-5 seconds. let's take min 3 seconds and keep data for 10 days
@@ -394,6 +395,14 @@ pub mod pallet {
 		pub fn set_door_tx_fee(origin: OriginFor<T>, fee: u64) -> DispatchResult {
 			ensure_root(origin)?;
 			DoorTxFee::<T>::set(fee);
+			Ok(())
+		}
+
+		/// Set the xrp source tag
+		#[pallet::weight((<T as Config>::WeightInfo::set_xrp_source_tag(), DispatchClass::Operational))]
+		pub fn set_xrp_source_tag(origin: OriginFor<T>, source_tag: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			SourceTag::<T>::put(source_tag);
 			Ok(())
 		}
 
@@ -676,7 +685,7 @@ impl<T: Config> Pallet<T> {
 			tx_nonce,
 			tx_ticket_sequence,
 			tx_fee,
-			T::SourceTag::get().into(),
+			Self::xrp_source_tag(),
 			// omit signer key since this is a 'MultiSigner' tx
 			None,
 		);
@@ -755,7 +764,7 @@ impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
 			ticket_sequence,
 			signer_quorum,
 			signer_entries,
-			T::SourceTag::get().into(),
+			Self::xrp_source_tag(),
 			// omit signer key since this is a 'MultiSigner' tx
 			None,
 		);

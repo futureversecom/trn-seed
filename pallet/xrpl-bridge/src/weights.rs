@@ -58,6 +58,7 @@ pub trait WeightInfo {
 	fn set_ticket_sequence_next_allocation() -> Weight;
 	fn set_ticket_sequence_current_allocation() -> Weight;
 	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight;
+	fn set_xrp_source_tag() -> Weight;
 }
 
 /// Weights for pallet_xrpl_bridge using the Substrate node and recommended hardware.
@@ -110,6 +111,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_ref_time(4_000_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
+
+	// Storage: XRPLBridge XRPSourceTag (r:0 w:1)
+	fn set_xrp_source_tag() -> Weight {
+		Weight::from_ref_time(4_000_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+
 	// Storage: XRPLBridge DoorAddress (r:0 w:1)
 	fn set_door_address() -> Weight {
 		Weight::from_ref_time(14_000_000 as u64)
@@ -193,6 +201,11 @@ impl WeightInfo for () {
 	}
 	// Storage: XRPLBridge DoorTxFee (r:0 w:1)
 	fn set_door_tx_fee() -> Weight {
+		Weight::from_ref_time(4_000_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+	// Storage: XRPLBridge XRPSourceTag (r:0 w:1)
+	fn set_xrp_source_tag() -> Weight {
 		Weight::from_ref_time(4_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}

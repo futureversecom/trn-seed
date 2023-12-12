@@ -113,4 +113,9 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 			.saturating_add(T::DbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
 	}
+	// Storage: XRPLBridge SourceTag (r:0 w:1)
+	fn set_xrp_source_tag() -> Weight {
+		Weight::from_ref_time(15_240_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
 }

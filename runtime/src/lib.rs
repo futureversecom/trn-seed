@@ -568,7 +568,6 @@ parameter_types! {
 	/// NOTE - XRPTransactionLimitPerLedger should be more than or equal to XRPTransactionLimit
 	pub const XRPTransactionLimit: u32 = 1_000_000;
 	pub const XRPTransactionLimitPerLedger: u32 = 1_000_000;
-	pub const XRPSourceTag: u32 = 38_887_387;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -583,7 +582,6 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPTransactionLimitPerLedger;
-	type SourceTag = XRPSourceTag;
 }
 
 parameter_types! {
