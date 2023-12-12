@@ -11618,7 +11618,7 @@ dependencies = [
 [[package]]
 name = "xrpl_binary_codec"
 version = "0.15.0"
-source = "git+https://github.com/futureversecom/xrpl-sdk-rust?branch=nostd-support#42b38d44c2c98fc35aded8b476f21ad7eaebed83"
+source = "git+https://github.com/futureversecom/xrpl-sdk-rust?branch=nostd-support-legacy#5df18c6756fb213325d010a5c4b2f6f86128f3a5"
 dependencies = [
  "bytes",
  "hashbrown 0.14.3",
@@ -11633,7 +11633,7 @@ dependencies = [
 [[package]]
 name = "xrpl_types"
 version = "0.15.0"
-source = "git+https://github.com/futureversecom/xrpl-sdk-rust?branch=nostd-support#42b38d44c2c98fc35aded8b476f21ad7eaebed83"
+source = "git+https://github.com/futureversecom/xrpl-sdk-rust?branch=nostd-support-legacy#5df18c6756fb213325d010a5c4b2f6f86128f3a5"
 dependencies = [
  "ascii",
  "bs58 0.5.0",
