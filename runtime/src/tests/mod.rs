@@ -245,7 +245,7 @@ pub fn sign_xt(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
 			let pair = get_pair_from_signer(&signed);
 			let raw_payload =
 				sp_runtime::generic::SignedPayload::new(xt.function, extra.clone()).unwrap();
-			let signature = raw_payload.using_encoded(|b| {
+			let signature: ecdsa::Signature = raw_payload.using_encoded(|b| {
 				// b is SCALE encoded payload or blake2(encoded_payload)
 				// Ethereum signature scheme equivalence requires keccak256 hashing all transaction
 				// data for signing
