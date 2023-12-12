@@ -59,7 +59,10 @@ jobs:
 
       - name: Display changes
         run: |
-          rm -f benchmarking_errors.txt
+          if [ -f benchmarking_errors.txt ]; then
+            cat benchmarking_errors.txt
+            rm -f benchmarking_errors.txt
+          fi
           git status
 
       - name: Setup Git and Commit to branch
