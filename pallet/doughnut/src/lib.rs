@@ -145,7 +145,17 @@ impl<T> Call<T>
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<<T as Config>::RuntimeCall>>> {
 
-		if let Some(Call::transact { call: inner_call, doughnut, nonce }) = call.is_sub_type() {
+		if let Some(Call::transact { call: _inner_call, doughnut, nonce }) = call.is_sub_type() {
+			// Doughnut work
+			// run doughnut common validations
+			let Ok(Doughnut::V0(doughnut_v0)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
+				return None
+			};
+			// No need to do the doughnut verification again since already did in check_self_contained()
+			let Ok(issuer_address) = crate::Pallet::<T>::get_address(doughnut_v0.issuer) else {
+				return None
+			};
+
 			// Pre dispatch
 			// Create the validation instances for this extrinsic
 			let validations: DoughnutValidations<T> = (
@@ -154,7 +164,7 @@ impl<T> Call<T>
 				CheckWeight::new(),
 				ChargeTransactionPayment::<T>::from(0.into()),
 			);
-			let pre = SignedExtension::pre_dispatch(validations, &T::AccountId::from(*info), &call.clone().into(), dispatch_info, len).ok()?;
+			let pre = SignedExtension::pre_dispatch(validations, &issuer_address, &call.clone().into(), dispatch_info, len).ok()?;
 
 			// Dispatch
 			let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(T::AccountId::from(*info)).into();
