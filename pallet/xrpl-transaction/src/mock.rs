@@ -14,19 +14,16 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{self as pallet_xrpl_transaction, *};
-use frame_support::{parameter_types, PalletId, weights::WeightToFee};
+use frame_support::{parameter_types, weights::WeightToFee, PalletId};
 use frame_system::EnsureRoot;
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{AccountId, Address, AssetId, Balance, Signature};
 use sp_core::H256;
-use sp_runtime::{
-	generic,
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-};
+use sp_runtime::{generic, testing::Header, traits::LookupError};
 
 pub type SignedExtra = XUMMValidations<Test>;
-pub type UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+pub type UncheckedExtrinsicT =
+	fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 pub type BlockT = generic::Block<Header, UncheckedExtrinsicT>;
 
 frame_support::construct_runtime!(
@@ -79,6 +76,24 @@ impl pallet_transaction_payment::Config for Test {
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
 
+pub struct FuturepassIdentityLookup;
+impl StaticLookup for FuturepassIdentityLookup {
+	type Source = H160;
+	type Target = H160;
+	fn lookup(s: Self::Source) -> Result<Self::Target, LookupError> {
+		Ok(s)
+	}
+	fn unlookup(t: Self::Target) -> Self::Source {
+		t
+	}
+}
+impl seed_pallet_common::ExtrinsicChecker for FuturepassIdentityLookup {
+	type Call = RuntimeCall;
+	fn check_extrinsic(_call: &Self::Call) -> bool {
+		false
+	}
+}
+
 parameter_types! {
 	pub const MaxMessageLength: u32 = 2048;
 	pub const MaxSignatureLength: u32 = 80;
@@ -86,6 +101,7 @@ parameter_types! {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type FuturepassLookup = FuturepassIdentityLookup;
 	type PalletsOrigin = OriginCaller;
 	type MaxMessageLength = MaxMessageLength;
 	type MaxSignatureLength = MaxSignatureLength;
@@ -115,7 +131,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<TransactionValidity> {
 		match self {
-			RuntimeCall::XrplTransaction(ref call) => call.validate_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::XrplTransaction(ref call) =>
+				call.validate_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
 	}
@@ -127,7 +144,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
 		match self {
-			RuntimeCall::XrplTransaction(ref call) => call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::XrplTransaction(ref call) =>
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
 	}
@@ -139,12 +157,13 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
 		match self {
-			RuntimeCall::XrplTransaction(call) => pallet_xrpl_transaction::Call::<Test>::apply_self_contained(
-				call.into(),
-				&info,
-				&dispatch_info,
-				len,
-			),
+			RuntimeCall::XrplTransaction(call) =>
+				pallet_xrpl_transaction::Call::<Test>::apply_self_contained(
+					call.into(),
+					&info,
+					&dispatch_info,
+					len,
+				),
 			_ => None,
 		}
 	}

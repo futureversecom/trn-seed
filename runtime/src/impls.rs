@@ -34,7 +34,10 @@ use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnCharg
 use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
-	traits::{AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero, LookupError, StaticLookup},
+	traits::{
+		AccountIdConversion, Extrinsic, LookupError, SaturatedConversion, StaticLookup, Verify,
+		Zero,
+	},
 	ConsensusEngineId, Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
@@ -472,7 +475,11 @@ impl StaticLookup for FuturepassLookup {
 	/// Lookup holder for a given futurepass using ProxyPalletProvider.
 	/// Returns 0 address (default) if no holder is found.
 	fn unlookup(futurepass: Self::Target) -> Self::Source {
-		<ProxyPalletProvider as pallet_futurepass::ProxyProvider<Runtime>>::owner(&futurepass.into()).unwrap_or_default().into()
+		<ProxyPalletProvider as pallet_futurepass::ProxyProvider<Runtime>>::owner(
+			&futurepass.into(),
+		)
+		.unwrap_or_default()
+		.into()
 	}
 }
 impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {

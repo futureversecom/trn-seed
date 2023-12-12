@@ -1967,7 +1967,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		match self {
 			RuntimeCall::Ethereum(ref call) =>
 				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len)),
-			RuntimeCall::XrplTransaction(ref call) => call.validate_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::XrplTransaction(ref call) =>
+				call.validate_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
 	}
@@ -1981,7 +1982,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		match self {
 			RuntimeCall::Ethereum(call) =>
 				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
-			RuntimeCall::XrplTransaction(ref call) => call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::XrplTransaction(ref call) =>
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
 	}
@@ -1997,7 +1999,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 				Some(call.dispatch(RuntimeOrigin::from(
 					pallet_ethereum::RawOrigin::EthereumTransaction(info),
 				))),
-				RuntimeCall::XrplTransaction(call) => pallet_xrpl_transaction::Call::<Runtime>::apply_self_contained(
+			RuntimeCall::XrplTransaction(call) =>
+				pallet_xrpl_transaction::Call::<Runtime>::apply_self_contained(
 					call.into(),
 					&info,
 					&dispatch_info,

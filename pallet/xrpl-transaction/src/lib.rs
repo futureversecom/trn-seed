@@ -34,13 +34,24 @@ mod tests;
 // pub use weights::WeightInfo;
 
 use codec::Decode;
-use frame_support::{dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo}, pallet_prelude::*, traits::{IsType, IsSubType}, transactional};
-use frame_system::{CheckEra, CheckGenesis, CheckWeight, CheckNonce, CheckNonZeroSender, CheckSpecVersion, CheckTxVersion, pallet_prelude::*, RawOrigin};
+use frame_support::{
+	dispatch::{DispatchInfo, PostDispatchInfo},
+	pallet_prelude::*,
+	traits::{IsSubType, IsType},
+	transactional,
+};
+use frame_system::{
+	pallet_prelude::*, CheckGenesis, CheckNonZeroSender, CheckNonce, CheckSpecVersion,
+	CheckTxVersion, CheckWeight, RawOrigin,
+};
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
-use sp_core::{hexdisplay::AsBytesRef, H160};
-use sp_runtime::{FixedPointOperand, traits::{Dispatchable, DispatchInfoOf, Lookup, PostDispatchInfoOf, SignedExtension, StaticLookup}, transaction_validity::{TransactionPriority, ValidTransactionBuilder}};
-use sp_std::vec::Vec;
 use seed_pallet_common::ExtrinsicChecker;
+use sp_core::{hexdisplay::AsBytesRef, H160};
+use sp_runtime::{
+	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, StaticLookup},
+	transaction_validity::ValidTransactionBuilder,
+	FixedPointOperand,
+};
 
 use crate::types::{ExtrinsicMemoData, XUMMTransaction};
 
@@ -81,7 +92,7 @@ impl<T> Call<T>
 	/// An error returned here will not be reported to the caller,
 	/// implying that the caller will be waiting indefinitely for a transaction.
 	pub fn check_self_contained(&self) -> Option<Result<H160, TransactionValidityError>> {
-		if let Call::submit_encoded_xumm_transaction { encoded_msg, signature } = self {
+		if let Call::submit_encoded_xumm_transaction { encoded_msg, .. } = self {
 			let check = || {
 				let tx: XUMMTransaction = XUMMTransaction::try_from(encoded_msg.as_bytes_ref())
 					.map_err(|e| {
@@ -182,7 +193,7 @@ impl<T> Call<T>
 				log::error!("⛔️ transaction verification unsuccessful");
 				return None;
 			}
-			
+
 			let validations: XUMMValidations<T> = (
 				CheckNonZeroSender::new(),
 				CheckSpecVersion::<T>::new(),
@@ -221,7 +232,7 @@ impl<T> Call<T>
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<<T as Config>::RuntimeCall>>> {
-		if let Some(Call::submit_encoded_xumm_transaction { encoded_msg, signature }) = call.is_sub_type() {
+		if let Some(Call::submit_encoded_xumm_transaction { encoded_msg, .. }) = call.is_sub_type() {
 			// Pre Dispatch
 			let tx = XUMMTransaction::try_from(encoded_msg.as_bytes_ref())
 				.map_err(|e| {
@@ -289,7 +300,8 @@ pub mod pallet {
 
 		/// A lookup to get futurepass account id for a futurepass holder.
 		/// Additionally validates if a call is a futurepass extrinsic.
-		type FuturepassLookup: StaticLookup<Source = H160, Target = H160> + ExtrinsicChecker<Call = <Self as pallet::Config>::RuntimeCall>;
+		type FuturepassLookup: StaticLookup<Source = H160, Target = H160>
+			+ ExtrinsicChecker<Call = <Self as pallet::Config>::RuntimeCall>;
 
 		/// The aggregated and decodable `RuntimeCall` type.
 		type RuntimeCall: Parameter
@@ -340,10 +352,7 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
 		/// XUMM transaction with encoded extrinsic executed
-		XUMMExtrinsicExecuted {
-			caller: T::AccountId,
-			call: <T as pallet::Config>::RuntimeCall,
-		},
+		XUMMExtrinsicExecuted { caller: T::AccountId, call: <T as pallet::Config>::RuntimeCall },
 	}
 
 	#[pallet::hooks]
@@ -363,7 +372,8 @@ pub mod pallet {
 		/// Parameters:
 		/// - `origin`: The origin of the call; must be `None` - as this is an unsigned extrinsic.
 		/// - `encoded_msg`: The encoded, verified XUMM transaction.
-		#[pallet::weight(0)] // TODO
+		#[pallet::weight(0)]
+		// TODO
 		// #[pallet::weight({
 		// 	let without_base_extrinsic_weight = true;
 		// 	<T as pallet_evm::Config>::GasWeightMapping::gas_to_weight({
@@ -384,7 +394,7 @@ pub mod pallet {
 					log::error!("⛔️ failed to convert encoded_msg to XUMMTransaction: {:?}", e);
 					Error::<T>::DecodeXUMMTransaction
 				})?;
-			
+
 			let who: T::AccountId = tx
 				.get_account()
 				.map_err(|e| {
@@ -397,15 +407,14 @@ pub mod pallet {
 				})?
 				.into();
 
-			let ExtrinsicMemoData { call, .. } =
-				tx.get_extrinsic_data().map_err(|e| {
-					log::error!(
-						"⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}",
-						tx.memos,
-						e
-					);
-					Error::<T>::DecodeXUMMTransactionExtrinsicData
-				})?;
+			let ExtrinsicMemoData { call, .. } = tx.get_extrinsic_data().map_err(|e| {
+				log::error!(
+					"⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}",
+					tx.memos,
+					e
+				);
+				Error::<T>::DecodeXUMMTransactionExtrinsicData
+			})?;
 
 			let dispatch_origin = T::RuntimeOrigin::from(RawOrigin::Signed(who.clone()));
 			let call = Self::get_runtime_call_from_xumm_extrinsic(&call)?;

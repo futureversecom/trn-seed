@@ -201,10 +201,8 @@ impl TryInto<TransactionCommon> for &XUMMTransaction {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::RuntimeCall;
-	use frame_support::{assert_err, assert_noop, assert_ok};
-	use seed_pallet_common::test_prelude::UncheckedExtrinsic;
-	use sp_core::{hexdisplay::AsBytesRef, Encode};
+	use frame_support::assert_ok;
+	use sp_core::hexdisplay::AsBytesRef;
 
 	#[test]
 	fn decode_xumm_transaction_blob() {
@@ -415,25 +413,6 @@ mod tests {
 		assert_ok!(tx.get_extrinsic_data());
 		assert_eq!(tx.get_extrinsic_data().unwrap().max_block_number, u32::MAX);
 	}
-
-	// #[test]
-	// fn get_extrinsic_from_extrinsic_data() {
-	//   let system_remark_call = RuntimeCall::System(frame_system::Call::remark { remark:
-	// b"Mischief Managed".to_vec() });   let unsigned_extrinsic =
-	// UncheckedExtrinsic::new_unsigned(system_remark_call.into());   let scale_encoded_extrinsic =
-	// unsigned_extrinsic.encode();
-
-	//   let tx = XUMMTransaction {
-	//     memos: vec![MemoElmRaw {
-	//       memo: Memo {
-	//         memo_type: hex::encode("extrinsic"),
-	//         memo_data: hex::encode(format!("0:0:{}", hex::encode(scale_encoded_extrinsic))),
-	//       },
-	//     }],
-	//     ..Default::default()
-	//   };
-	//   assert_ok!(tx.get_extrinsic_data());
-	// }
 
 	#[test]
 	fn try_into_transaction_common() {
