@@ -52,6 +52,7 @@ parameter_types! {
 	pub const XRPTransactionLimit: u32 = 10;
 	pub const XRPLTransactionLimitPerLedger: u32 = 10;
 	pub const MaxPrunedTransactionsPerBlock: u32 = 5000;
+	pub const MaxDelayedPaymentsPerBlock: u32 = 1000;
 	pub const XrpAssetId: u32 = XRP_ASSET_ID;
 }
 
@@ -64,6 +65,7 @@ impl pallet_xrpl_bridge::Config for Test {
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type MaxPrunedTransactionsPerBlock = MaxPrunedTransactionsPerBlock;
+	type MaxDelayedPaymentsPerBlock = MaxDelayedPaymentsPerBlock;
 	type UnixTime = TimestampPallet;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;

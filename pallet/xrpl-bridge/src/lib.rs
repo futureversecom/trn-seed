@@ -67,7 +67,6 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use std::intrinsics::saturating_sub;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
@@ -185,7 +184,6 @@ pub mod pallet {
 		},
 		/// A withdrawal was delayed as it was above the min_payment threshold
 		WithdrawDelayed {
-			proof_id: u64,
 			sender: T::AccountId,
 			amount: Balance,
 			destination: XrplAccountId,
@@ -219,8 +217,8 @@ pub mod pallet {
 			Self::process_xrp_tx(n)
 		}
 
-		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
-			let delay_weight = Self::process_delayed_payments(remaining_weight);
+		fn on_idle(now: T::BlockNumber, remaining_weight: Weight) -> Weight {
+			let delay_weight = Self::process_delayed_payments(now, remaining_weight);
 			let prune_weight = Self::clear_storages(remaining_weight.saturating_sub(delay_weight));
 			delay_weight.saturating_add(prune_weight)
 		}
@@ -287,7 +285,7 @@ pub mod pallet {
 	#[pallet::storage]
 	/// Map from DelayedPaymentId to (sender, WithdrawTx)
 	pub type DelayedPayments<T: Config> =
-		StorageMap<_, Identity, DelayedPaymentId, Option<(T::AccountId, XrpWithdrawTransaction)>>;
+		StorageMap<_, Identity, DelayedPaymentId, (T::AccountId, XrpWithdrawTransaction)>;
 
 	#[pallet::storage]
 	/// Map from block number to DelayedPatmentIds scheduled for that block
@@ -300,7 +298,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// The highest block number that has had all delayed payments processed
-	pub type HighestProcessedDelayedBlock<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+	pub type NextDelayProcessBlock<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
 	#[pallet::storage]
 	/// The next available delayedPaymentId
@@ -437,6 +435,7 @@ pub mod pallet {
 					Self::deposit_event(Event::<T>::PaymentDelaySet { min_balance, delay });
 				},
 				None => {
+					PaymentDelay::<T>::kill();
 					Self::deposit_event(Event::<T>::PaymentDelayRemoved);
 				},
 			}
@@ -701,11 +700,104 @@ impl<T: Config> Pallet<T> {
 		DbWeight::get().reads_writes(reads, writes)
 	}
 
-	pub fn process_delayed_payments(remaining_weight: Weight) -> Weight {
-		let mut used_weight = Weight::zero();
+	/// Process any transactions that have been delayed due to the min_payment threshold
+	pub fn process_delayed_payments(
+		block_number: T::BlockNumber,
+		remaining_weight: Weight,
+	) -> Weight {
+		// Initial reads for the following:
+		// Read: NextDelayProcessBlock, DoorAddress
+		// Write: NextDelayProcessBlock
+		let base_process_weight = DbWeight::get().reads_writes(2u64, 1u64);
+		// Weight to process one withdraw tx
+		// 1 read for DelayedPayments
+		// 2 reads and 2 writes within submit_withdraw_request
+		let weight_per_tx = DbWeight::get().reads_writes(3u64, 2u64);
+		// The minimum weight required to clear at least one transaction.
+		// This includes the weight_per_tx (To submit one withdrawal)
+		// And the weight to update DelayedPaymentSchedule
+		let min_weight_per_tx =
+			weight_per_tx.saturating_add(DbWeight::get().reads_writes(2u64, 2u64));
 
-		// Check if we have any delayed payments to process
-		// From the lastProcessedBlockNumber to the current block number
+		// Ensure we have enough weight to perform the initial reads + process at least one tx
+		if remaining_weight.all_lte(base_process_weight + min_weight_per_tx) {
+			return Weight::zero()
+		}
+
+		let mut used_weight = base_process_weight;
+		let highest_processed_delay_block = <NextDelayProcessBlock<T>>::get();
+		let mut new_highest = highest_processed_delay_block;
+		// Limit the number of blocks to process to either the current block_number or the
+		// MaxDelayedPaymentsPerBlock + highest_processed_delay_block
+		let block_limit = block_number.min(
+			highest_processed_delay_block
+				.saturating_add(T::MaxDelayedPaymentsPerBlock::get().into()),
+		);
+
+		// Get the current door address
+		let Some(door_address) = DoorAddress::<T>::get() else {
+			return used_weight;
+		};
+
+		// Loop through as many blocks as we can, checking each block to see if there are any
+		// delayed payments to process
+		while new_highest <= block_limit {
+			// Check if we have enough remaining to mutate storage this block
+			if remaining_weight.all_lte(
+				used_weight
+					.saturating_add(DbWeight::get().reads_writes(1, 2))
+					.saturating_add(weight_per_tx),
+			) {
+				break
+			}
+
+			// Add weight for reading DelayedPaymentSchedule
+			used_weight = used_weight.saturating_add(DbWeight::get().reads(1));
+			let Some(delayed_payment_ids) = <DelayedPaymentSchedule<T>>::get(new_highest) else {
+				// No delayed payments to process for this block
+				new_highest = new_highest.saturating_add(T::BlockNumber::one());
+				continue;
+			};
+			// Add weight for writing DelayedPaymentSchedule
+			used_weight = used_weight.saturating_add(DbWeight::get().writes(1));
+
+			// Check how many delayed payments we are able to process
+
+			let max_to_clear =
+				remaining_weight.saturating_sub(used_weight).div(weight_per_tx.ref_time());
+			let max_to_clear =
+				max_to_clear.ref_time().min(delayed_payment_ids.len() as u64) as usize;
+
+			for i in 0..max_to_clear {
+				let payment_id = delayed_payment_ids[i];
+				if let Some((sender, withdraw_tx)) = <DelayedPayments<T>>::take(payment_id) {
+					let _ = Self::submit_withdraw_request(sender, door_address.into(), withdraw_tx);
+				};
+			}
+			// Add weight for the tx's we processed
+			used_weight =
+				used_weight.saturating_add(weight_per_tx.saturating_mul(max_to_clear as u64));
+
+			// If we have cleared all txs in this block, remove them.
+			// Otherwise, reinsert the remaining txs
+			if max_to_clear < delayed_payment_ids.len() {
+				let remaining_payment_ids = delayed_payment_ids[max_to_clear..].to_vec();
+				let remaining_payment_ids = BoundedVec::truncate_from(remaining_payment_ids);
+				<DelayedPaymentSchedule<T>>::insert(new_highest, remaining_payment_ids);
+				break
+			} else {
+				<DelayedPaymentSchedule<T>>::remove(new_highest);
+				new_highest = new_highest.saturating_add(T::BlockNumber::one());
+			}
+		}
+
+		// Update NextDelayProcessBlock with the last block we cleared
+		if new_highest > highest_processed_delay_block {
+			<NextDelayProcessBlock<T>>::put(new_highest);
+		} else {
+			// We didn't update the highest block, so remove the recorded weight
+			used_weight = used_weight.saturating_sub(DbWeight::get().writes(1u64));
+		}
 
 		used_weight
 	}
@@ -890,8 +982,15 @@ impl<T: Config> Pallet<T> {
 		let payment_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
 		DelayedPaymentSchedule::<T>::try_append(payment_block, delayed_payment_id)
 			.map_err(|_| Error::<T>::DelayScheduleAtCapacity)?;
-		DelayedPayments::<T>::insert(delayed_payment_id, Some((sender, withdrawal)));
+		DelayedPayments::<T>::insert(delayed_payment_id, (sender.clone(), withdrawal));
 		NextDelayedPaymentId::<T>::put(delayed_payment_id + 1);
+
+		Self::deposit_event(Event::WithdrawDelayed {
+			sender,
+			amount: withdrawal.amount,
+			destination: withdrawal.destination,
+			delayed_payment_id,
+		});
 		return Ok(())
 	}
 

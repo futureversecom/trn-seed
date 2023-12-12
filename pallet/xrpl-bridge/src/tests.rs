@@ -15,8 +15,8 @@
 
 use super::*;
 use crate::mock::{
-	AssetsExt, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System, Test, XRPLBridge, XrpAssetId,
-	XrpTxChallengePeriod,
+	AssetsExt, MaxDelayedPaymentsPerBlock, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System,
+	Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod,
 };
 use seed_pallet_common::test_prelude::*;
 
@@ -1048,6 +1048,441 @@ fn prune_settled_ledger_index_only_root() {
 			XRPLBridge::prune_settled_ledger_index(RuntimeOrigin::signed(account), 9,),
 			DispatchError::BadOrigin
 		);
+	})
+}
+
+#[test]
+fn set_payment_delay_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let payment_delay = Some((100, 1000));
+		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
+		assert_eq!(PaymentDelay::<Test>::get(), payment_delay);
+
+		let payment_delay_2 = None;
+		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay_2));
+		assert_eq!(PaymentDelay::<Test>::get(), payment_delay_2);
+
+		let payment_delay_3 = Some((1234, 123456789));
+		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay_3));
+		assert_eq!(PaymentDelay::<Test>::get(), payment_delay_3);
+	})
+}
+
+#[test]
+fn set_payment_delay_not_sudo_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let payment_delay = Some((100, 1000));
+		let account: AccountId = [1_u8; 20].into();
+		assert_noop!(
+			XRPLBridge::set_payment_delay(RuntimeOrigin::signed(account), payment_delay),
+			BadOrigin
+		);
+	})
+}
+
+#[test]
+fn withdraw_with_payment_delay_works() {
+	let account = create_account(1);
+	let initial_balance = 10000;
+	TestExt::<Test>::default()
+		.with_asset(XRP_ASSET_ID, "XRP", &[(account, initial_balance)])
+		.build()
+		.execute_with(|| {
+			let amount = 100;
+			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+			let payment_delay = Some((100, 1000)); // (min_balance, delay)
+
+			// Set initial parameters
+			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
+			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+				RuntimeOrigin::root(),
+				1_u32,
+				1_u32,
+				200_u32
+			));
+
+			// Get door ticket sequence before
+			let next_ticket_sequence = XRPLBridge::get_door_ticket_sequence().unwrap() + 1;
+			// Check NextPaymentId before
+			let delayed_payment_id = NextDelayedPaymentId::<Test>::get();
+
+			// Withdraw amount which should add to pending withdrawals
+			assert_ok!(XRPLBridge::withdraw_xrp(
+				RuntimeOrigin::signed(account),
+				amount,
+				destination
+			));
+
+			// Ensure event is thrown
+			System::assert_has_event(
+				Event::<Test>::WithdrawDelayed {
+					sender: account,
+					amount,
+					destination: destination.clone(),
+					delayed_payment_id,
+				}
+				.into(),
+			);
+
+			// Expected tx data
+			let tx_data = XrpWithdrawTransaction {
+				tx_nonce: 0_u32,
+				tx_fee: 0,
+				amount,
+				destination,
+				tx_ticket_sequence: next_ticket_sequence,
+			};
+
+			// Check balance is reduced
+			let xrp_balance = AssetsExt::balance(XrpAssetId::get(), &account);
+			assert_eq!(xrp_balance, initial_balance - amount);
+
+			// Check storage is correctly mutated
+			assert_eq!(NextDelayedPaymentId::<Test>::get(), delayed_payment_id + 1);
+			assert_eq!(DelayedPayments::<Test>::get(delayed_payment_id), Some((account, tx_data)));
+			assert_eq!(
+				DelayedPaymentSchedule::<Test>::get(1001).unwrap().into_inner(),
+				vec![delayed_payment_id]
+			);
+		})
+}
+
+#[test]
+fn withdraw_below_payment_delay_does_not_delay_payment() {
+	let account = create_account(1);
+	let initial_balance = 10000;
+	TestExt::<Test>::default()
+		.with_asset(XRP_ASSET_ID, "XRP", &[(account, initial_balance)])
+		.build()
+		.execute_with(|| {
+			let amount = 99; // 1 below payment_delay amount
+			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+			let payment_delay = Some((100, 1000));
+
+			// Set initial parameters
+			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
+			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+				RuntimeOrigin::root(),
+				1_u32,
+				1_u32,
+				200_u32
+			));
+
+			// Check NextPaymentId before
+			let delayed_payment_id = NextDelayedPaymentId::<Test>::get();
+
+			// Withdraw amount which should add to pending withdrawals
+			assert_ok!(XRPLBridge::withdraw_xrp(
+				RuntimeOrigin::signed(account),
+				amount,
+				destination
+			));
+
+			// Ensure event is thrown
+			System::assert_last_event(
+				Event::<Test>::WithdrawRequest {
+					proof_id: 1,
+					sender: account,
+					amount,
+					destination: destination.clone(),
+				}
+				.into(),
+			);
+
+			// Check balance is reduced
+			let xrp_balance = AssetsExt::balance(XrpAssetId::get(), &account);
+			assert_eq!(xrp_balance, initial_balance - amount);
+
+			// Check delay storage is unchanged
+			assert_eq!(NextDelayedPaymentId::<Test>::get(), delayed_payment_id);
+			assert_eq!(DelayedPayments::<Test>::get(delayed_payment_id), None);
+			assert_eq!(DelayedPaymentSchedule::<Test>::get(1001), None);
+		})
+}
+
+#[test]
+fn process_delayed_payments_works() {
+	let account = create_account(1);
+	let initial_balance = 10000;
+	TestExt::<Test>::default()
+		.with_asset(XRP_ASSET_ID, "XRP", &[(account, initial_balance)])
+		.build()
+		.execute_with(|| {
+			let amount = 100;
+			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+			let payment_delay = Some((100, 1000)); // (min_balance, delay)
+
+			// Set initial parameters
+			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
+			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+				RuntimeOrigin::root(),
+				1_u32,
+				1_u32,
+				200_u32
+			));
+
+			// Check NextPaymentId before
+			let delayed_payment_id = NextDelayedPaymentId::<Test>::get();
+
+			// Withdraw amount which should add to pending withdrawals
+			assert_ok!(XRPLBridge::withdraw_xrp(
+				RuntimeOrigin::signed(account),
+				amount,
+				destination
+			));
+
+			// Check balance is reduced
+			let xrp_balance = AssetsExt::balance(XrpAssetId::get(), &account);
+			assert_eq!(xrp_balance, initial_balance - amount);
+
+			// Set next process block to this block
+			NextDelayProcessBlock::<Test>::put(1001);
+			// Call process delayed payments with enough weight to process the delayed payment
+			let weight_used = XRPLBridge::process_delayed_payments(
+				1001,
+				Weight::from_ref_time(1_000_000_000_000),
+			);
+			// Assert weight used is as expected
+			assert_eq!(weight_used, DbWeight::get().reads_writes(6, 4));
+
+			// Ensure event is thrown
+			System::assert_last_event(
+				Event::<Test>::WithdrawRequest {
+					proof_id: 1,
+					sender: account,
+					amount,
+					destination: destination.clone(),
+				}
+				.into(),
+			);
+
+			// Storage should now be updated
+			assert_eq!(NextDelayedPaymentId::<Test>::get(), delayed_payment_id + 1);
+			assert_eq!(DelayedPayments::<Test>::get(delayed_payment_id), None);
+			assert_eq!(DelayedPaymentSchedule::<Test>::get(1001), None);
+			assert_eq!(NextDelayProcessBlock::<Test>::get(), 1002);
+		})
+}
+
+#[test]
+fn process_delayed_payments_multiple_withdrawals() {
+	let account = create_account(1);
+	let initial_balance: u128 = 10000;
+	TestExt::<Test>::default()
+		.with_asset(XRP_ASSET_ID, "XRP", &[(account, initial_balance)])
+		.build()
+		.execute_with(|| {
+			let amount: u128 = 10;
+			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+			let payment_delay = Some((10, 1000)); // (min_balance, delay)
+
+			// Set initial parameters
+			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
+			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+				RuntimeOrigin::root(),
+				1_u32,
+				1_u32,
+				200_u32
+			));
+
+			// Check NextPaymentId before
+			let delayed_payment_id = NextDelayedPaymentId::<Test>::get();
+			let withdrawal_count: u128 = 100;
+
+			for _ in 0..withdrawal_count {
+				// Withdraw amount which should add to pending withdrawals
+				assert_ok!(XRPLBridge::withdraw_xrp(
+					RuntimeOrigin::signed(account),
+					amount,
+					destination
+				));
+			}
+			// Check storage updated for all withdrawals
+			assert_eq!(
+				NextDelayedPaymentId::<Test>::get(),
+				delayed_payment_id + withdrawal_count as u64
+			);
+			assert_eq!(
+				DelayedPaymentSchedule::<Test>::get(1001).unwrap().len(),
+				withdrawal_count as usize
+			);
+
+			// Check balance is reduced
+			let xrp_balance = AssetsExt::balance(XrpAssetId::get(), &account);
+			assert_eq!(xrp_balance, initial_balance - (amount * withdrawal_count));
+
+			// Set next process block to this block
+			NextDelayProcessBlock::<Test>::put(1001);
+			// Call process delayed payments with enough weight to process all delayed payments
+			let weight_used = XRPLBridge::process_delayed_payments(
+				1001,
+				Weight::from_ref_time(1_000_000_000_000),
+			);
+			// Assert weight used is as expected
+			let weight_per_tx = DbWeight::get().reads_writes(3u64, 2u64);
+			let base_weight = DbWeight::get().reads_writes(7u64, 1u64);
+			let total_weight = base_weight +
+				Weight::from_ref_time(weight_per_tx.ref_time() * withdrawal_count as u64);
+			assert_eq!(weight_used, total_weight);
+
+			// Storage should now be updated
+			assert_eq!(DelayedPayments::<Test>::get(delayed_payment_id), None);
+			assert_eq!(DelayedPaymentSchedule::<Test>::get(1001), None);
+			assert_eq!(NextDelayProcessBlock::<Test>::get(), 1002);
+		})
+}
+
+#[test]
+fn process_delayed_payments_multiple_withdrawals_across_multiple_blocks() {
+	let account = create_account(1);
+	let initial_balance: u128 = 10000;
+	TestExt::<Test>::default()
+		.with_asset(XRP_ASSET_ID, "XRP", &[(account, initial_balance)])
+		.build()
+		.execute_with(|| {
+			let amount: u128 = 10;
+			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+			let payment_delay = Some((10, 1000)); // (min_balance, delay)
+
+			// Set initial parameters
+			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
+			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+				RuntimeOrigin::root(),
+				1_u32,
+				1_u32,
+				200_u32
+			));
+
+			// Check NextPaymentId before
+			let delayed_payment_id = NextDelayedPaymentId::<Test>::get();
+			let withdrawal_count: u128 = 100;
+
+			for i in 0..withdrawal_count {
+				System::set_block_number(i as u64 + 1u64);
+				// Withdraw amount which should add to pending withdrawals
+				assert_ok!(XRPLBridge::withdraw_xrp(
+					RuntimeOrigin::signed(account),
+					amount,
+					destination
+				));
+				assert_eq!(
+					DelayedPaymentSchedule::<Test>::get(1000 + 1).unwrap().into_inner(),
+					vec![delayed_payment_id as u64]
+				);
+			}
+			// Check storage updated for all withdrawals
+			assert_eq!(
+				NextDelayedPaymentId::<Test>::get(),
+				delayed_payment_id + withdrawal_count as u64
+			);
+
+			// Check balance is reduced
+			let xrp_balance = AssetsExt::balance(XrpAssetId::get(), &account);
+			assert_eq!(xrp_balance, initial_balance - (amount * withdrawal_count));
+
+			// Set next process block to this block to be the first block we need to process
+			NextDelayProcessBlock::<Test>::put(1001);
+			// Call process delayed payments with enough weight to process all delayed payments
+			// Set block number to the last block we need to process
+			let weight_used = XRPLBridge::process_delayed_payments(
+				1101,
+				Weight::from_ref_time(1_000_000_000_000),
+			);
+			// Assert weight used is as expected
+			let weight_per_tx = DbWeight::get().reads_writes(4u64, 3u64);
+			let base_weight = DbWeight::get().reads_writes(3u64, 1u64);
+			let total_weight = base_weight +
+				Weight::from_ref_time(weight_per_tx.ref_time() * withdrawal_count as u64);
+			assert_eq!(weight_used, total_weight);
+
+			// Storage should now be updated
+			assert_eq!(DelayedPayments::<Test>::get(delayed_payment_id), None);
+			assert_eq!(DelayedPaymentSchedule::<Test>::get(1001), None);
+			assert_eq!(NextDelayProcessBlock::<Test>::get(), 1102);
+		})
+}
+
+#[test]
+fn process_delayed_payments_nothing_to_process_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+		assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+		let max_payments_per_block = MaxDelayedPaymentsPerBlock::get() as u64; // 1000
+																	   // Set next process block to 0
+		NextDelayProcessBlock::<Test>::put(0);
+		// Call process delayed payments with enough weight to process 1000 blocks
+		let weight_used = XRPLBridge::process_delayed_payments(
+			max_payments_per_block,
+			Weight::from_ref_time(1_000_000_000_000_000),
+		);
+		// Assert weight used is as expected
+		assert_eq!(weight_used, DbWeight::get().reads_writes(3 + max_payments_per_block, 1));
+
+		// NextDelayProcessBlock should now be updated to 1001
+		assert_eq!(NextDelayProcessBlock::<Test>::get(), max_payments_per_block + 1);
+
+		// Call process delayed payments for the next block, should only process one block
+		let weight_used = XRPLBridge::process_delayed_payments(
+			max_payments_per_block + 1,
+			Weight::from_ref_time(1_000_000_000_000_000),
+		);
+		// Assert weight used is as expected
+		assert_eq!(weight_used, DbWeight::get().reads_writes(3, 1));
+
+		// NextDelayProcessBlock should now be updated to 1001
+		assert_eq!(NextDelayProcessBlock::<Test>::get(), max_payments_per_block + 2);
+	})
+}
+
+#[test]
+fn process_delayed_payments_does_not_exceed_max_delayed_payments() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+		assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+		let max_payments_per_block = MaxDelayedPaymentsPerBlock::get() as u64; // 1000
+																	   // Set next process block to 0
+		NextDelayProcessBlock::<Test>::put(0);
+		// Call process delayed payments with more than max_payments_per_block
+		let weight_used = XRPLBridge::process_delayed_payments(
+			max_payments_per_block + 10000,
+			Weight::from_ref_time(1_000_000_000_000_000),
+		);
+		// Assert weight used is as expected
+		assert_eq!(weight_used, DbWeight::get().reads_writes(3 + max_payments_per_block, 1));
+
+		// NextDelayProcessBlock should now be updated to 1001
+		assert_eq!(NextDelayProcessBlock::<Test>::get(), max_payments_per_block + 1);
+	})
+}
+
+#[test]
+fn process_delayed_payments_not_enough_weight_returns_zero() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		NextDelayProcessBlock::<Test>::put(1);
+
+		// Call process delayed payments with not enough weight to process one payment
+		let weight = DbWeight::get().reads_writes(7u64, 5u64);
+		let weight_used = XRPLBridge::process_delayed_payments(1000, weight);
+		// Assert weight used is as expected
+		assert_eq!(weight_used, Weight::zero());
+
+		// NextDelayProcessBlock should not have changed
+		assert_eq!(NextDelayProcessBlock::<Test>::get(), 1);
 	})
 }
 
