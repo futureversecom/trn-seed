@@ -182,7 +182,6 @@ impl pallet_xrpl_bridge::Config for Test {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPLTransactionLimitPerLedger;
-	type SourceTag = XRPLSourceTag;
 }
 
 pub struct MockEthyAdapter;
