@@ -601,10 +601,11 @@ parameter_types! {
 impl pallet_xrpl_transaction::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type FuturepassLookup = impls::FuturepassLookup;
 	type PalletsOrigin = OriginCaller;
 	type MaxMessageLength = MaxMessageLength;
 	type MaxSignatureLength = MaxSignatureLength;
-	// type WeightInfo = weights::pallet_xrpl_transaction::WeightInfo<Runtime>;
+	// type WeightInfo = weights::pallet_xrpl_transaction::WeightInfo<Runtime>; // TODO
 }
 
 parameter_types! {

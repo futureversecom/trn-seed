@@ -38,171 +38,15 @@ use frame_support::{dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 use frame_system::{CheckWeight, CheckNonce, CheckNonZeroSender, pallet_prelude::*, RawOrigin};
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use sp_core::{hexdisplay::AsBytesRef, H160};
-use sp_runtime::{FixedPointOperand, traits::{Dispatchable, DispatchInfoOf, Lookup, PostDispatchInfoOf, SignedExtension, TryMorph}, transaction_validity::{TransactionPriority, ValidTransactionBuilder}};
+use sp_runtime::{FixedPointOperand, traits::{Dispatchable, DispatchInfoOf, Lookup, PostDispatchInfoOf, SignedExtension, StaticLookup}, transaction_validity::{TransactionPriority, ValidTransactionBuilder}};
 use sp_std::vec::Vec;
+use seed_pallet_common::ExtrinsicChecker;
 
 use crate::types::{ExtrinsicMemoData, XUMMTransaction};
 
 /// The logging target for this pallet
 #[allow(dead_code)]
 pub(crate) const LOG_TARGET: &str = "xrpl-transaction";
-
-/// Private type alias in `transaction-payment` for the balance type - redeclared
-type BalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
-
-// TODO: explain
-/// ChargeTransactionPaymentXUMM is based on the ChargeTransactionPayment struct in `transaction-payment`
-/// pallet
-/// It is a signed extension that charges the transaction fee to the signer of the transaction.
-/// It calls out to the pallet's `OnChargeTransaction` implementation to determine the fee.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct ChargeTransactionPaymentXUMM<T: Config>(#[codec(compact)] BalanceOf<T>)
-	where <T as frame_system::Config>::AccountId: From<H160>;
-
-impl<T: Config> ChargeTransactionPaymentXUMM<T>
-	where
-		<T as frame_system::Config>::AccountId: From<H160>,
-		<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-		BalanceOf<T>: Send + Sync + FixedPointOperand + From<u64>,
-{
-	pub fn from(fee: BalanceOf<T>) -> Self {
-		Self(fee)
-	}
-
-	fn withdraw_fee(
-		&self,
-		who: &T::AccountId,
-		call: &<T as frame_system::Config>::RuntimeCall,
-		info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
-		len: usize,
-	) -> Result<
-		(
-			BalanceOf<T>,
-			<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
-		),
-		TransactionValidityError,
-	> {
-		let tip = self.0;
-		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, tip);
-		let result = <T as pallet_transaction_payment::Config>::OnChargeTransaction::withdraw_fee(who, call, info, fee, tip).map(|i| (fee, i))?;
-		Ok(result)
-	}
-
-}
-
-impl<T: Config> sp_std::fmt::Debug for ChargeTransactionPaymentXUMM<T>
-	where
-		<T as frame_system::Config>::AccountId: From<H160>
-{
-	#[cfg(feature = "std")]
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		write!(f, "ChargeTransactionPaymentXUMM<{:?}>", self.0)
-	}
-	#[cfg(not(feature = "std"))]
-	fn fmt(&self, _: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-		Ok(())
-	}
-}
-
-impl<T: Config> SignedExtension for ChargeTransactionPaymentXUMM<T>
-	where
-		<T as frame_system::Config>::AccountId: From<H160>,
-		<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-		BalanceOf<T>: Send + Sync + FixedPointOperand + From<u64>,
-		<T as pallet::Config>::OnChargeTransaction: OnChargeTransaction<T>,
-{
-	const IDENTIFIER: &'static str = "ChargeTransactionPaymentXUMM";
-	type AccountId = <T as frame_system::Config>::AccountId;
-	type Call = <T as frame_system::Config>::RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = (
-		// tip
-		BalanceOf<T>,
-		// who paid the fee - this is an option to allow for a Default impl.
-		Self::AccountId,
-		// imbalance resulting from withdrawing the fee
-		<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo,
-	);
-	fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-		Ok(())
-	}
-
-	fn validate(
-		&self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> TransactionValidity {
-		let (final_fee, _) = self.withdraw_fee(who, call, info, len)?;
-		let tip = self.0;
-		Ok(ValidTransaction {
-			priority: ChargeTransactionPayment::<T>::get_priority(info, len, tip, final_fee),
-			..Default::default()
-		})
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		let (_fee, imbalance) = self.withdraw_fee(who, call, info, len)?;
-		Ok((self.0, who.clone(), imbalance))
-	}
-
-	fn post_dispatch(
-		maybe_pre: Option<Self::Pre>,
-		info: &DispatchInfoOf<Self::Call>,
-		post_info: &PostDispatchInfoOf<Self::Call>,
-		len: usize,
-		_result: &DispatchResult,
-	) -> Result<(), TransactionValidityError> {
-		if let Some((tip, who, imbalance)) = maybe_pre {
-			let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(len as u32, info, post_info, tip);
-			<T as pallet_transaction_payment::Config>::OnChargeTransaction::correct_and_deposit_fee(
-				&who, info, post_info, actual_fee, tip, imbalance,
-			)?;
-			Pallet::<T>::deposit_event(Event::<T>::XUMMTransactionFeePaid { who, actual_fee, tip });
-		}
-		Ok(())
-	}
-}
-
-impl <T: Config> OnChargeTransaction<T> for ChargeTransactionPaymentXUMM<T> 
-	where
-		<T as frame_system::Config>::AccountId: From<H160>,
-		<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-		BalanceOf<T>: Send + Sync + FixedPointOperand + From<u64>,
-		<T as pallet::Config>::OnChargeTransaction: OnChargeTransaction<T>,
-{
-	type Balance = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
-	type LiquidityInfo = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo;
-
-	fn withdraw_fee(
-		who: &T::AccountId,
-		call: &<T as frame_system::Config>::RuntimeCall,
-		info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
-		fee: Self::Balance,
-		tip: Self::Balance,
-	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
-		<T as pallet_transaction_payment::Config>::OnChargeTransaction::withdraw_fee(who, call, info, fee, tip)
-	}
-
-	fn correct_and_deposit_fee(
-		who: &T::AccountId,
-		info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
-		post_info: &PostDispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
-		actual_fee: Self::Balance,
-		tip: Self::Balance,
-		imbalance: Self::LiquidityInfo,
-	) -> Result<(), TransactionValidityError> {
-		<T as pallet_transaction_payment::Config>::OnChargeTransaction::correct_and_deposit_fee(who, info, post_info, actual_fee, tip, imbalance)
-	}
-}
 
 /// Checks performed on a XUMM transaction
 pub type XUMMValidations<T> = (
@@ -215,8 +59,7 @@ pub type XUMMValidations<T> = (
 
 	frame_system::CheckNonce<T>,
 	frame_system::CheckWeight<T>,
-	// pallet_transaction_payment::ChargeTransactionPayment<T>,
-	ChargeTransactionPaymentXUMM<T>,
+	ChargeTransactionPayment<T>,
 );
 
 impl<T> Call<T>
@@ -226,17 +69,19 @@ impl<T> Call<T>
 		<T as frame_system::Config>::Index : Into<u32>,
 		T::AccountId: From<H160>,
 		T: pallet_transaction_payment::Config,
-		BalanceOf<T>: Send + Sync + FixedPointOperand + From<u64>,
+		<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance: Send + Sync + FixedPointOperand + From<u64>,
 		<T as frame_system::Config>::RuntimeCall: From<<T as Config>::RuntimeCall>,
 		PostDispatchInfo: From<<<T as Config>::RuntimeCall as Dispatchable>::PostInfo>,
 		<T as frame_system::Config>::Index: From<u32>,
-		// H160: From<<T as frame_system::Config>::AccountId>,
 {
 
 	pub fn is_self_contained(&self) -> bool {
 		matches!(self, Call::submit_encoded_xumm_transaction { .. })
 	}
 
+	/// Checks if the extrinsic is self-contained.
+	/// An error returned here will not be reported to the caller,
+	/// implying that the caller will be waiting indefinitely for a transaction.
 	pub fn check_self_contained(&self) -> Option<Result<H160, TransactionValidityError>> {
 		if let Call::submit_encoded_xumm_transaction { encoded_msg, signature } = self {
 			let check = || {
@@ -249,8 +94,24 @@ impl<T> Call<T>
 					log::error!("⛔️ failed to extract account from memo data: {:?}, err: {:?}", tx.account, e);
 					InvalidTransaction::Call
 				})?;
-				if let Ok(futurepass) = <T as pallet::Config>::FuturepassLookup::try_morph(origin) {
-					return Ok(futurepass);
+
+				/// Check if the origin is a futurepass holder, to switch the caller to the futurepass
+				let ExtrinsicMemoData { nonce, call, max_block_number } = tx.get_extrinsic_data()
+					.map_err(|e| {
+						log::error!("⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}", tx.memos, e);
+						InvalidTransaction::Call
+					})?;
+				let call = Pallet::<T>::get_runtime_call_from_xumm_extrinsic(&call)
+					.map_err(|e| {
+						log::error!("⛔️ failed to get runtime call from xumm extrinsic: {:?}", e);
+						InvalidTransaction::Call
+					})?;
+				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call) {
+					if let Ok(futurepass) = <T as pallet::Config>::FuturepassLookup::lookup(origin) {
+						return Ok(futurepass);
+					}
+					log::error!("⛔️ caller is not a futurepass holder");
+					return Err(InvalidTransaction::Call.into());
 				}
 				Ok(origin)
 			};
@@ -324,8 +185,7 @@ impl<T> Call<T>
 				CheckNonZeroSender::new(),
 				CheckNonce::from(nonce.into()),
 				CheckWeight::new(),
-				// ChargeTransactionPayment::<T>::from(0.into()),
-				ChargeTransactionPaymentXUMM::<T>::from(0.into()),
+				ChargeTransactionPayment::<T>::from(0.into()),
 			);
 
 			SignedExtension::validate(&validations, &T::AccountId::from(*origin), &call.into(), dispatch_info, len).ok()?;
@@ -375,8 +235,7 @@ impl<T> Call<T>
 				CheckNonZeroSender::new(),
 				CheckNonce::from(nonce.into()),
 				CheckWeight::new(),
-				// ChargeTransactionPayment::<T>::from(0.into()),
-				ChargeTransactionPaymentXUMM::<T>::from(0.into()),
+				ChargeTransactionPayment::<T>::from(0.into()),
 			);
 			let pre = SignedExtension::pre_dispatch(validations, &T::AccountId::from(*info), &call.clone().into(), dispatch_info, len).ok()?;
 
@@ -420,12 +279,9 @@ pub mod pallet {
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// The type that implements the handling of transaction charges.
-		type OnChargeTransaction: OnChargeTransaction<Self>;
-
-		/// A lookup mechanism to get futurepass account id for an account id.
-		/// Resolves to the account id if the account does not have a futurepass account id.
-		type FuturepassLookup: TryMorph<H160, Outcome = H160>;
+		/// A lookup to get futurepass account id for a futurepass holder.
+		/// Additionally validates if a call is a futurepass extrinsic.
+		type FuturepassLookup: StaticLookup<Source = H160, Target = H160> + ExtrinsicChecker<Call = <Self as pallet::Config>::RuntimeCall>;
 
 		/// The aggregated and decodable `RuntimeCall` type.
 		type RuntimeCall: Parameter
@@ -475,9 +331,6 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
-		/// A transaction fee `actual_fee`, of which `tip` was added to the minimum inclusion fee,
-		/// has been paid by `who`.
-		XUMMTransactionFeePaid { who: T::AccountId, actual_fee: BalanceOf<T>, tip: BalanceOf<T> },
 		/// XUMM transaction with encoded extrinsic executed
 		XUMMExtrinsicExecuted {
 			caller: T::AccountId,

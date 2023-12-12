@@ -34,7 +34,7 @@ use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnCharg
 use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
-	traits::{AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero},
+	traits::{AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero, LookupError, StaticLookup},
 	ConsensusEngineId, Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
@@ -454,6 +454,31 @@ where
 			RawOrigin::Signed(who) if &who.into() == address => Ok(who),
 			r => Err(OuterOrigin::from(r)),
 		})
+	}
+}
+
+pub struct FuturepassLookup;
+impl StaticLookup for FuturepassLookup {
+	type Source = H160;
+	type Target = H160;
+
+	/// Lookup a futurepass for a given address
+	fn lookup(holder: Self::Source) -> Result<Self::Target, LookupError> {
+		pallet_futurepass::Holders::<Runtime>::get::<AccountId>(holder.into())
+			.map(|futurepass| futurepass.into())
+			.ok_or(LookupError)
+	}
+
+	/// Lookup holder for a given futurepass using ProxyPalletProvider.
+	/// Returns 0 address (default) if no holder is found.
+	fn unlookup(futurepass: Self::Target) -> Self::Source {
+		<ProxyPalletProvider as pallet_futurepass::ProxyProvider<Runtime>>::owner(&futurepass.into()).unwrap_or_default().into()
+	}
+}
+impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {
+	type Call = <Runtime as pallet_xrpl_transaction::Config>::RuntimeCall;
+	fn check_extrinsic(call: &Self::Call) -> bool {
+		matches!(call, RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. }))
 	}
 }
 
