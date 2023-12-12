@@ -58,7 +58,9 @@ jobs:
           fi
 
       - name: Display changes
-        run: git status
+        run: |
+          rm -f benchmarking_errors.txt
+          git status
 
       - name: Setup Git and Commit to branch
         run: |
