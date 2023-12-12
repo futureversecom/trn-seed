@@ -2086,7 +2086,7 @@ mod benches {
 		[pallet_fee_control, FeeControl]
 		[pallet_nft_peg, NftPeg]
 		[pallet_xrpl_bridge, XRPLBridge]
-		[pallet_xrpl_transaction, XRPLTransaction]
+		[pallet_xrpl_transaction, XrplTransaction]
 		[pallet_erc20_peg, Erc20Peg]
 		[pallet_echo, Echo]
 		[pallet_assets_ext, AssetsExt]
