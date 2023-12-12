@@ -225,6 +225,22 @@ fn set_door_tx_fee_works() {
 }
 
 #[test]
+fn set_xrp_source_tag_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let new_source_tag = 723456_u64;
+		assert_ok!(XRPLBridge::set_xrp_source_tag(
+			frame_system::RawOrigin::Root.into(),
+			new_source_tag
+		));
+		assert_eq!(XRPLBridge::xrp_source_tag(), new_source_tag);
+
+		// Only root can sign this tx, this should fail
+		let account = AccountId::from(H160::from_slice(b"6490B68F1116BFE87DDC"));
+		assert_noop!(XRPLBridge::set_xrp_source_tag(RuntimeOrigin::signed(account), 0), BadOrigin);
+	});
+}
+
+#[test]
 fn withdraw_request_works() {
 	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
 		// For this test we will set the door_tx_fee to 0
