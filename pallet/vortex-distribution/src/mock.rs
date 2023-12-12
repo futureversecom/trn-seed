@@ -14,32 +14,13 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_vortex;
-use frame_support::{
-	parameter_types,
-	traits::{ConstU32, GenesisBuild, Hooks},
-	PalletId,
-};
-use frame_system::EnsureRoot;
-// use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever};
-use seed_pallet_common::*;
-use seed_primitives::{AccountId, AssetId, Balance};
-use sp_core::{H160, H256};
-use sp_runtime::{
-	testing::{Header, TestXt},
-	traits::{BlakeTwo256, IdentityLookup},
-};
+use frame_support::traits::{ConstU32, Hooks};
+use seed_pallet_common::test_prelude::*;
+use sp_runtime::testing::{Header, TestXt};
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
-
-pub const XRP_ASSET_ID: AssetId = 2;
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-
-pub fn create_account(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
-}
 
 pub fn to_eth(amount: u128) -> u128 {
 	amount * 1_000_000_000_000_000_000_u128
@@ -54,11 +35,11 @@ pub fn run_to_block(n: u64) {
 	}
 }
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -140,7 +121,7 @@ parameter_types! {
 	pub const UnsignedInterval: BlockNumber =  MINUTES / 2;
 	pub const PayoutBatchSize: u32 =  799;
 	pub const HistoryDepth: u32 = 84;
-	pub const VortexAssetId: AssetId = 2;
+	pub const VortexAssetId: AssetId = 3;
 	pub const RootAssetId: AssetId = 1;
 	pub const XrpAssetId: seed_primitives::AssetId = XRP_ASSET_ID;
 }
@@ -199,6 +180,7 @@ impl TestExt {
 		self
 	}
 
+	#[allow(dead_code)]
 	pub fn benchmark() -> Self {
 		let alice: AccountId = create_account(1);
 		Self::default()

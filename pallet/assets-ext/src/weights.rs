@@ -49,6 +49,7 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for pallet_assets_ext.
 pub trait WeightInfo {
 	fn create_asset() -> Weight;
+	fn set_asset_deposit() -> Weight;
 }
 
 /// Weights for pallet_assets_ext using the Substrate node and recommended hardware.
@@ -65,6 +66,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(7 as u64))
 			.saturating_add(T::DbWeight::get().writes(6 as u64))
 	}
+	// Storage: AssetsExt AssetDeposit (r:0 w:1)
+	fn set_asset_deposit() -> Weight {
+		Weight::from_ref_time(9_969_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
 }
 
 // For backwards compatibility and tests
@@ -79,6 +85,11 @@ impl WeightInfo for () {
 		Weight::from_ref_time(175_374_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(7 as u64))
 			.saturating_add(RocksDbWeight::get().writes(6 as u64))
+	}
+	// Storage: AssetsExt AssetDeposit (r:0 w:1)
+	fn set_asset_deposit() -> Weight {
+		Weight::from_ref_time(9_969_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }
 

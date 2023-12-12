@@ -14,15 +14,12 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use frame_support::{assert_noop, assert_ok};
 use mock::*;
-use seed_primitives::AccountId;
-use sp_core::H160;
-use sp_runtime::traits::BadOrigin;
+use seed_pallet_common::test_prelude::*;
 
 #[test]
 fn test_approved_origin_enforced() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let relayer_address = b"6490B68F1116BFE87DDD";
 		let relayer = AccountId::from(H160::from_slice(relayer_address));
 		let account_address = b"6490B68F1116BFE87DDD";
@@ -36,7 +33,7 @@ fn test_approved_origin_enforced() {
 
 #[test]
 fn test_add_relayer_works() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let relayer_address = b"6490B68F1116BFE87DDD";
 		let relayer = AccountId::from(H160::from_slice(relayer_address));
 		let _ = XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer);
@@ -52,7 +49,7 @@ fn test_add_relayer_works() {
 
 #[test]
 fn test_remove_relayer_works() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let relayer_address = b"6490B68F1116BFE87DDD";
 		let relayer = AccountId::from(H160::from_slice(relayer_address));
 		let relayer_address2 = b"6490B68F1116BFE87DDE";
@@ -75,7 +72,7 @@ fn test_remove_relayer_works() {
 
 #[test]
 fn test_is_relayer_works() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let relayer_address = b"6490B68F1116BFE87DDD";
 		let relayer = AccountId::from(H160::from_slice(relayer_address));
 		let relayer_address2 = b"6490B68F1116BFE87DDE";
