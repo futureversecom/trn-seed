@@ -57,13 +57,15 @@ jobs:
             ./scripts/run_benchmarks.sh $PALLET_ARGS
           fi
 
-      - name: Display changes
+      - name: Check for Benchmarking Errors
         run: |
           if [ -f benchmarking_errors.txt ]; then
             cat benchmarking_errors.txt
-            rm -f benchmarking_errors.txt
+            exit 1
           fi
-          git status
+
+      - name: Display changes
+        run: git status
 
       - name: Setup Git and Commit to branch
         run: |
