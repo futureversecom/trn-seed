@@ -60,7 +60,7 @@ jobs:
       - name: Check for Benchmarking Errors
         run: |
           if [ -f benchmarking_errors.txt ]; then
-            cat benchmarking_errors.txt >&2
+            cat benchmarking_errors.txt
             exit 1
           fi
 
