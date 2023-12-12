@@ -62,6 +62,24 @@ pub type XUMMValidations<T> = (
 	ChargeTransactionPayment<T>,
 );
 
+fn get_futurepass_account<T: pallet::Config>(origin: &H160, call_data: &[u8]) -> Result<Option<H160>, TransactionValidityError>
+	where <T as frame_system::Config>::AccountId: From<sp_core::H160>
+{
+	let call = Pallet::<T>::get_runtime_call_from_xumm_extrinsic(&call_data)
+		.map_err(|e| {
+			log::error!("⛔️ failed to get runtime call from xumm extrinsic: {:?}", e);
+			InvalidTransaction::Call
+		})?;
+	if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call) {
+		if let Ok(futurepass) = <T as pallet::Config>::FuturepassLookup::lookup(*origin) {
+			return Ok(Some(futurepass));
+		}
+		log::error!("⛔️ caller is not a futurepass holder");
+		return Err(InvalidTransaction::Call.into());
+	}
+	Ok(None)
+}
+
 impl<T> Call<T>
 	where
 		T: Send + Sync + Config,
@@ -94,25 +112,6 @@ impl<T> Call<T>
 					log::error!("⛔️ failed to extract account from memo data: {:?}, err: {:?}", tx.account, e);
 					InvalidTransaction::Call
 				})?;
-
-				/// Check if the origin is a futurepass holder, to switch the caller to the futurepass
-				let ExtrinsicMemoData { nonce, call, max_block_number } = tx.get_extrinsic_data()
-					.map_err(|e| {
-						log::error!("⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}", tx.memos, e);
-						InvalidTransaction::Call
-					})?;
-				let call = Pallet::<T>::get_runtime_call_from_xumm_extrinsic(&call)
-					.map_err(|e| {
-						log::error!("⛔️ failed to get runtime call from xumm extrinsic: {:?}", e);
-						InvalidTransaction::Call
-					})?;
-				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call) {
-					if let Ok(futurepass) = <T as pallet::Config>::FuturepassLookup::lookup(origin) {
-						return Ok(futurepass);
-					}
-					log::error!("⛔️ caller is not a futurepass holder");
-					return Err(InvalidTransaction::Call.into());
-				}
 				Ok(origin)
 			};
 			Some(check())
@@ -154,6 +153,13 @@ impl<T> Call<T>
 					e
 				})
 				.ok()?;
+
+			// switch origin to futurepass if the call is a futurepass extrinsic and origin has futurepass.
+			let mut origin = *origin;
+			if let Some(futurepass) = get_futurepass_account::<T>(&origin, &call).ok()? {
+				origin = futurepass;
+			}
+
 			let call = Pallet::<T>::get_runtime_call_from_xumm_extrinsic(&call)
 				.map_err(|e| {
 					log::error!("⛔️ failed to get runtime call from xumm extrinsic: {:?}", e);
@@ -188,10 +194,10 @@ impl<T> Call<T>
 				ChargeTransactionPayment::<T>::from(0.into()),
 			);
 
-			SignedExtension::validate(&validations, &T::AccountId::from(*origin), &call.into(), dispatch_info, len).ok()?;
+			SignedExtension::validate(&validations, &T::AccountId::from(origin), &call.into(), dispatch_info, len).ok()?;
 
 			let priority = 0; // TODO: determine priority by debugging signed extrinsics
-			let who: T::AccountId = (*origin).into();
+			let who: T::AccountId = (origin).into();
 			let account = frame_system::Account::<T>::get(who.clone());
 			let mut builder = ValidTransactionBuilder::default()
 				.and_provides((origin, nonce))
@@ -224,12 +230,19 @@ impl<T> Call<T>
 					InvalidTransaction::Call
 				})
 				.ok()?;
-			let ExtrinsicMemoData { nonce, .. } = tx.get_extrinsic_data()
+			let ExtrinsicMemoData { nonce, call: call_data, .. } = tx.get_extrinsic_data()
 				.map_err(|e| {
 					log::error!("⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}", tx.memos, e);
 					InvalidTransaction::Call
 				})
 				.ok()?;
+
+			// switch origin to futurepass if the call is a futurepass extrinsic and origin has futurepass.
+			let mut origin = *info;
+			if let Some(futurepass) = get_futurepass_account::<T>(&origin, &call_data).ok()? {
+				origin = futurepass;
+			}
+
 			// validation instances for this extrinsic; these are responsible for potential state changes
 			let validations: XUMMValidations<T> = (
 				CheckNonZeroSender::new(),
@@ -237,7 +250,7 @@ impl<T> Call<T>
 				CheckWeight::new(),
 				ChargeTransactionPayment::<T>::from(0.into()),
 			);
-			let pre = SignedExtension::pre_dispatch(validations, &T::AccountId::from(*info), &call.clone().into(), dispatch_info, len).ok()?;
+			let pre = SignedExtension::pre_dispatch(validations, &T::AccountId::from(origin), &call.clone().into(), dispatch_info, len).ok()?;
 
 			// Dispatch
 			let res = call.dispatch(frame_system::RawOrigin::None.into());
