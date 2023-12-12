@@ -339,4 +339,46 @@ describe("XRPL transaction pallet", () => {
     });
     expect(errorFound).to.be.true;
   });
+
+  it("fails if encoded call is nested submitEncodedXummTransaction extrinsic", async () => {
+    const user = Wallet.createRandom();
+
+    const extrinsic = api.tx.xrplTransaction.submitEncodedXummTransaction(`0x00000000`, `0x00000000`);
+    const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
+
+    const xummJsonTx = {
+      AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
+      SigningPubKey: user.publicKey.slice(2),
+      Account: deriveAddress(user.publicKey.slice(2)),
+      Memos: [
+        {
+          Memo: {
+            MemoType: stringToHex("extrinsic"),
+            // remove `0x` from extrinsic hex string
+            MemoData: stringToHex(`0:${maxBlockNumber}:${extrinsic.toHex().slice(2)}`),
+          }
+        }
+      ]
+    };
+
+    // sign xumm tx
+    const message = encode(xummJsonTx);
+    const encodedSigningMessage = encodeForSigning(xummJsonTx);
+    const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
+
+    let errorFound = false;
+    await Promise.race([
+      new Promise<any[]>(async (resolve) => {
+        await api.tx.xrplTransaction.submitEncodedXummTransaction(`0x${message}`, `0x${signature}`).send(({ events = [], status }) => {
+          if (status.isInBlock) resolve(events);
+        });
+      }),
+      new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error('timeout error')), 4000))
+    ])
+    .catch((err: any) => {
+      errorFound = true;
+      expect(err.message).eq("timeout error");
+    });
+    expect(errorFound).to.be.true;
+  });
 });
