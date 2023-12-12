@@ -35,7 +35,7 @@ mod tests;
 
 use codec::Decode;
 use frame_support::{dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo}, pallet_prelude::*, traits::{IsType, IsSubType}, transactional};
-use frame_system::{CheckWeight, CheckNonce, CheckNonZeroSender, pallet_prelude::*, RawOrigin};
+use frame_system::{CheckEra, CheckGenesis, CheckWeight, CheckNonce, CheckNonZeroSender, CheckSpecVersion, CheckTxVersion, pallet_prelude::*, RawOrigin};
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use sp_core::{hexdisplay::AsBytesRef, H160};
 use sp_runtime::{FixedPointOperand, traits::{Dispatchable, DispatchInfoOf, Lookup, PostDispatchInfoOf, SignedExtension, StaticLookup}, transaction_validity::{TransactionPriority, ValidTransactionBuilder}};
@@ -51,34 +51,14 @@ pub(crate) const LOG_TARGET: &str = "xrpl-transaction";
 /// Checks performed on a XUMM transaction
 pub type XUMMValidations<T> = (
 	frame_system::CheckNonZeroSender<T>,
-	// TODO: validate how much of the below signed extensions we can use
-	// frame_system::CheckSpecVersion<Runtime>,
-	// frame_system::CheckTxVersion<Runtime>,
-	// frame_system::CheckGenesis<Runtime>,
-	// frame_system::CheckEra<Runtime>,
-
+	frame_system::CheckSpecVersion<T>,
+	frame_system::CheckTxVersion<T>,
+	frame_system::CheckGenesis<T>,
+	// frame_system::CheckEra<T>,
 	frame_system::CheckNonce<T>,
 	frame_system::CheckWeight<T>,
 	ChargeTransactionPayment<T>,
 );
-
-fn get_futurepass_account<T: pallet::Config>(origin: &H160, call_data: &[u8]) -> Result<Option<H160>, TransactionValidityError>
-	where <T as frame_system::Config>::AccountId: From<sp_core::H160>
-{
-	let call = Pallet::<T>::get_runtime_call_from_xumm_extrinsic(&call_data)
-		.map_err(|e| {
-			log::error!("⛔️ failed to get runtime call from xumm extrinsic: {:?}", e);
-			InvalidTransaction::Call
-		})?;
-	if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call) {
-		if let Ok(futurepass) = <T as pallet::Config>::FuturepassLookup::lookup(*origin) {
-			return Ok(Some(futurepass));
-		}
-		log::error!("⛔️ caller is not a futurepass holder");
-		return Err(InvalidTransaction::Call.into());
-	}
-	Ok(None)
-}
 
 impl<T> Call<T>
 	where
@@ -112,6 +92,27 @@ impl<T> Call<T>
 					log::error!("⛔️ failed to extract account from memo data: {:?}, err: {:?}", tx.account, e);
 					InvalidTransaction::Call
 				})?;
+
+				// check if the origin is a futurepass holder, to switch the caller to the futurepass
+				let call_data = tx.get_extrinsic_data()
+					.map_err(|e| {
+						log::error!("⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}", tx.memos, e);
+						InvalidTransaction::Call
+					})?
+					.call;
+				let call = Pallet::<T>::get_runtime_call_from_xumm_extrinsic(&call_data)
+					.map_err(|e| {
+						log::error!("⛔️ failed to get runtime call from xumm extrinsic: {:?}", e);
+						InvalidTransaction::Call
+					})?;
+				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call) {
+					if let Ok(futurepass) = <T as pallet::Config>::FuturepassLookup::lookup(origin) {
+						return Ok(futurepass);
+					}
+					log::error!("⛔️ caller is not a futurepass holder");
+					return Err(InvalidTransaction::Call.into());
+				}
+
 				Ok(origin)
 			};
 			Some(check())
@@ -154,12 +155,7 @@ impl<T> Call<T>
 				})
 				.ok()?;
 
-			// switch origin to futurepass if the call is a futurepass extrinsic and origin has futurepass.
-			let mut origin = *origin;
-			if let Some(futurepass) = get_futurepass_account::<T>(&origin, &call).ok()? {
-				origin = futurepass;
-			}
-
+			// ensure inner nested call is not the same call
 			let call = Pallet::<T>::get_runtime_call_from_xumm_extrinsic(&call)
 				.map_err(|e| {
 					log::error!("⛔️ failed to get runtime call from xumm extrinsic: {:?}", e);
@@ -167,11 +163,11 @@ impl<T> Call<T>
 				})
 				.ok()?;
 
-			// TODO: ensure inner nested call is not the same call
-			// if matches!(self, call) {
-			// 	log::error!("⛔️ cannot nest submit_encoded_xumm_transaction call");
-			// 	return None;
-			// }
+			if let Some(Call::submit_encoded_xumm_transaction { .. }) = call.is_sub_type() {
+        log::error!("⛔️ cannot nest submit_encoded_xumm_transaction call");
+        return None;
+    	}
+
 			if <frame_system::Pallet<T>>::block_number() > max_block_number.into() {
 				log::error!("⛔️ max block number too low");
 				return None;
@@ -189,15 +185,18 @@ impl<T> Call<T>
 			
 			let validations: XUMMValidations<T> = (
 				CheckNonZeroSender::new(),
+				CheckSpecVersion::<T>::new(),
+				CheckTxVersion::<T>::new(),
+				CheckGenesis::<T>::new(),
 				CheckNonce::from(nonce.into()),
 				CheckWeight::new(),
 				ChargeTransactionPayment::<T>::from(0.into()),
 			);
 
-			SignedExtension::validate(&validations, &T::AccountId::from(origin), &call.into(), dispatch_info, len).ok()?;
+			SignedExtension::validate(&validations, &T::AccountId::from(*origin), &call.into(), dispatch_info, len).ok()?;
 
 			let priority = 0; // TODO: determine priority by debugging signed extrinsics
-			let who: T::AccountId = (origin).into();
+			let who: T::AccountId = (*origin).into();
 			let account = frame_system::Account::<T>::get(who.clone());
 			let mut builder = ValidTransactionBuilder::default()
 				.and_provides((origin, nonce))
@@ -230,27 +229,23 @@ impl<T> Call<T>
 					InvalidTransaction::Call
 				})
 				.ok()?;
-			let ExtrinsicMemoData { nonce, call: call_data, .. } = tx.get_extrinsic_data()
+			let ExtrinsicMemoData { nonce, .. } = tx.get_extrinsic_data()
 				.map_err(|e| {
 					log::error!("⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}", tx.memos, e);
 					InvalidTransaction::Call
 				})
 				.ok()?;
-
-			// switch origin to futurepass if the call is a futurepass extrinsic and origin has futurepass.
-			let mut origin = *info;
-			if let Some(futurepass) = get_futurepass_account::<T>(&origin, &call_data).ok()? {
-				origin = futurepass;
-			}
-
 			// validation instances for this extrinsic; these are responsible for potential state changes
 			let validations: XUMMValidations<T> = (
 				CheckNonZeroSender::new(),
+				CheckSpecVersion::<T>::new(),
+				CheckTxVersion::<T>::new(),
+				CheckGenesis::<T>::new(),
 				CheckNonce::from(nonce.into()),
 				CheckWeight::new(),
 				ChargeTransactionPayment::<T>::from(0.into()),
 			);
-			let pre = SignedExtension::pre_dispatch(validations, &T::AccountId::from(origin), &call.clone().into(), dispatch_info, len).ok()?;
+			let pre = SignedExtension::pre_dispatch(validations, &T::AccountId::from(*info), &call.clone().into(), dispatch_info, len).ok()?;
 
 			// Dispatch
 			let res = call.dispatch(frame_system::RawOrigin::None.into());
