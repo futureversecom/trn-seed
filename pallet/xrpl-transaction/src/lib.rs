@@ -377,15 +377,11 @@ pub mod pallet {
 		/// Parameters:
 		/// - `origin`: The origin of the call; must be `None` - as this is an unsigned extrinsic.
 		/// - `encoded_msg`: The encoded, verified XUMM transaction.
-		// TODO
-		// #[pallet::weight({
-		// 	let without_base_extrinsic_weight = true;
-		// 	<T as pallet_evm::Config>::GasWeightMapping::gas_to_weight({
-		// 		let transaction_data: TransactionData = transaction.into();
-		// 		transaction_data.gas_limit.unique_saturated_into()
-		// 	}, without_base_extrinsic_weight)
-		// })]
-		#[pallet::weight(T::WeightInfo::submit_encoded_xumm_transaction())]
+		/// # <weight>
+		/// Weight is multipled by 2 to roughly reflect the amount of work done
+		/// in the pre-dispatch and signed extensions.
+		/// # </weight>
+		#[pallet::weight(T::WeightInfo::submit_encoded_xumm_transaction().saturating_mul(2))]
 		#[transactional]
 		pub fn submit_encoded_xumm_transaction(
 			origin: OriginFor<T>,

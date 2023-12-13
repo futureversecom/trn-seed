@@ -253,7 +253,7 @@ mod self_contained_call {
 				System::assert_last_event(mock::RuntimeEvent::System(
 					frame_system::Event::ExtrinsicSuccess {
 						dispatch_info: DispatchInfo {
-							weight: Weight::from_ref_time(228298000),
+							weight: Weight::from_ref_time(535_622_000),
 							class: DispatchClass::Normal,
 							pays_fee: Pays::Yes,
 						},
