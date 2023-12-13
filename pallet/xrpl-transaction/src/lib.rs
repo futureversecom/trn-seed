@@ -13,10 +13,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-//! # XRPL transaction pallet
-//!
-//! TODO: Add description of the pallet.
-
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
