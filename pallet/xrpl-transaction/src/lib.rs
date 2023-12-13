@@ -22,13 +22,13 @@ extern crate alloc;
 
 pub use pallet::*;
 
-pub mod types;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod types;
 mod weights;
 
 pub use weights::WeightInfo;
