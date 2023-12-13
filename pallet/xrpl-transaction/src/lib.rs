@@ -29,9 +29,9 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
-// mod weights;
+mod weights;
 
-// pub use weights::WeightInfo;
+pub use weights::WeightInfo;
 
 use codec::Decode;
 use frame_support::{
@@ -316,11 +316,16 @@ pub mod pallet {
 			+ Into<<Self as frame_system::Config>::RuntimeOrigin>
 			+ IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
 
+		/// The maximum bounded length for the XUMM signed message/transaction.
 		#[pallet::constant]
 		type MaxMessageLength: Get<u32>;
 
+		/// The maximum bounded length for the XUMM signature.
 		#[pallet::constant]
 		type MaxSignatureLength: Get<u32>;
+
+		/// Interface to generate weights
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::error]
@@ -372,7 +377,6 @@ pub mod pallet {
 		/// Parameters:
 		/// - `origin`: The origin of the call; must be `None` - as this is an unsigned extrinsic.
 		/// - `encoded_msg`: The encoded, verified XUMM transaction.
-		#[pallet::weight(0)]
 		// TODO
 		// #[pallet::weight({
 		// 	let without_base_extrinsic_weight = true;
@@ -381,6 +385,7 @@ pub mod pallet {
 		// 		transaction_data.gas_limit.unique_saturated_into()
 		// 	}, without_base_extrinsic_weight)
 		// })]
+		#[pallet::weight(T::WeightInfo::submit_encoded_xumm_transaction())]
 		#[transactional]
 		pub fn submit_encoded_xumm_transaction(
 			origin: OriginFor<T>,

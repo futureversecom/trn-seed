@@ -105,6 +105,7 @@ impl Config for Test {
 	type PalletsOrigin = OriginCaller;
 	type MaxMessageLength = MaxMessageLength;
 	type MaxSignatureLength = MaxSignatureLength;
+	type WeightInfo = ();
 }
 
 impl fp_self_contained::SelfContainedCall for RuntimeCall {
