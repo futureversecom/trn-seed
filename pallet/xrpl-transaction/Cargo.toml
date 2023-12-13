@@ -29,40 +29,25 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 
 # Custom
 log = "0.4"
+hex = { version = "0.4.3", default-features = false }
 sha2 = { version = "0.10", default-features = false }
 libsecp256k1 = { version = "0.7", default-features = false, features = [ "hmac" ] }
 serde = { version = "1.0.145", default-features= false, features = ["derive"] }
 serde_json = { version = "1.0.87", default-features = false, features = ["alloc"] }
-# xrpl_types = { path = "../../../playground/xrpl-sdk-rust/xrpl_types", default-features = false }
-# xrpl_binary_codec = { path = "../../../playground/xrpl-sdk-rust/xrpl_binary_codec", default-features = false, features = ["json"] }
 xrpl_types = { git = "https://github.com/futureversecom/xrpl-sdk-rust", branch = "nostd-support-legacy", default-features = false }
 xrpl_binary_codec = { git = "https://github.com/futureversecom/xrpl-sdk-rust", branch = "nostd-support-legacy", default-features = false, features = ["json"] }
-hex = { version = "0.4.3", default-features = false }
-hex-literal = { version = "0.3.4", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
 precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
 
 [dev-dependencies]
-fp-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
-fp-self-contained = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
-
-seed-pallet-common= { path = "../common" }
 frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-# pallet-proxy = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+fp-self-contained = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
+seed-pallet-common= { path = "../common" }
 pallet-assets-ext = { path = "../assets-ext" }
-# pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-fee-control = { path = "../fee-control" }
-# pallet-fee-proxy = { path = "../fee-proxy" }
-# pallet-dex = { path = "../dex" }
-# pallet-nft = { path = "../nft" }
-# pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-# pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
-# pallet-futurepass = { path = "../futurepass" }
-hex-literal = { version = "0.3.4" }
-
 
 [features]
 default = ["std"]
@@ -78,17 +63,13 @@ std = [
 	"sp-runtime/std",
 	"pallet-transaction-payment/std",
 	# Custom
+	"hex/std",
 	"libsecp256k1/std",
 	"serde/std",
 	"serde_json/std",
-	"hex/std",
 	"seed-pallet-common/std",
 	"seed-primitives/std",
-	"pallet-assets/std",
-	"pallet-balances/std",
 	"precompile-utils/std",
-	"fp-evm/std",
-	"xrpl_binary_codec/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
 runtime-benchmarks = ["frame-benchmarking"]
