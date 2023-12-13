@@ -605,7 +605,7 @@ impl pallet_xrpl_transaction::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
 	type MaxMessageLength = MaxMessageLength;
 	type MaxSignatureLength = MaxSignatureLength;
-	// type WeightInfo = weights::pallet_xrpl_transaction::WeightInfo<Runtime>; // TODO
+	type WeightInfo = weights::pallet_xrpl_transaction::WeightInfo<Runtime>;
 }
 
 parameter_types! {
