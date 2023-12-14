@@ -373,11 +373,18 @@ pub mod pallet {
 		/// Parameters:
 		/// - `origin`: The origin of the call; must be `None` - as this is an unsigned extrinsic.
 		/// - `encoded_msg`: The encoded, verified XUMM transaction.
+		///
 		/// # <weight>
 		/// Weight is multipled by 2 to roughly reflect the amount of work done
 		/// in the pre-dispatch and signed extensions.
+		/// The final calculation of the weight is also based on the length of the encoded message.
 		/// # </weight>
-		#[pallet::weight(T::WeightInfo::submit_encoded_xumm_transaction().saturating_mul(2))]
+		#[pallet::weight({
+			let encoded_msg_len = encoded_msg.len() as u64;
+			T::WeightInfo::submit_encoded_xumm_transaction()
+				.saturating_mul(2)
+				.saturating_add(Weight::from_ref_time(encoded_msg_len * 1_000_000u64))
+		})]
 		#[transactional]
 		pub fn submit_encoded_xumm_transaction(
 			origin: OriginFor<T>,
