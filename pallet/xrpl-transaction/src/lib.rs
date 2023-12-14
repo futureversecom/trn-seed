@@ -202,12 +202,13 @@ impl<T> Call<T>
 
 			SignedExtension::validate(&validations, &T::AccountId::from(*origin), &call.into(), dispatch_info, len).ok()?;
 
-			let priority = 0; // TODO: determine priority by debugging signed extrinsics
+			// priority is based on the length of the encoded message length (smaller message = higher priority)
+			let priority = (T::MaxMessageLength::get() as u32).saturating_sub(encoded_msg.len() as u32);
 			let who: T::AccountId = (*origin).into();
 			let account = frame_system::Account::<T>::get(who.clone());
 			let mut builder = ValidTransactionBuilder::default()
 				.and_provides((origin, nonce))
-				.priority(priority);
+				.priority(priority as u64);
 
 			// in the context of the pool, a transaction with too high a nonce is still considered valid
 			if nonce > account.nonce.into() {
