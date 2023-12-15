@@ -244,6 +244,7 @@ mod self_contained_call {
 				// verify the event was emitted for successful extrinsic with nested system remark call
 				System::assert_has_event(
 					Event::XUMMExtrinsicExecuted {
+						public_key: [2, 195, 231, 51, 199, 74, 118, 138, 86, 111, 107, 49, 123, 12, 61, 135, 120, 205, 133, 36, 74, 41, 22, 215, 89, 187, 184, 112, 189, 218, 205, 168, 43],
 						caller,
 						call: mock::RuntimeCall::System(frame_system::Call::remark { remark: b"Mischief Managed".to_vec() }),
 					}.into(),

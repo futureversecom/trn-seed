@@ -74,12 +74,18 @@ pub struct XUMMTransaction {
 	pub signing_pub_key: String,
 }
 impl XUMMTransaction {
-	/// Derives the account (H160) from the `signing_pub_key` in the XUMM transaction.
-	pub fn get_account(&self) -> Result<H160, &'static str> {
-		let account_bytes: [u8; 33] = hex::decode(&self.signing_pub_key)
+	/// Retrieves the public key from the `signing_pub_key` in the XUMM transaction.
+	pub fn get_public_key(&self) -> Result<[u8; 33], &'static str> {
+		let pub_key: [u8; 33] = hex::decode(&self.signing_pub_key)
 			.map_err(|_| "Error decoding hex string")?
 			.try_into()
 			.map_err(|_| "Invalid length of decoded bytes")?;
+		Ok(pub_key)
+	}
+
+	/// Derives the account (H160) from the `signing_pub_key` in the XUMM transaction.
+	pub fn get_account(&self) -> Result<H160, &'static str> {
+		let account_bytes = self.get_public_key()?;
 		let public = Public::from_raw(account_bytes);
 		let account: AccountId20 = public.try_into()?;
 		Ok(account.into())
@@ -246,6 +252,27 @@ mod tests {
 		let result = tx.verify_transaction(&hex::decode(signature).unwrap());
 		assert_ok!(result);
 		assert!(result.unwrap());
+	}
+
+	#[test]
+	fn xumm_public_key() {
+		let tx = XUMMTransaction {
+			signing_pub_key: "02A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A"
+				.into(),
+			..Default::default()
+		};
+		let pub_key: [u8; 33] = tx.get_public_key().unwrap();
+		assert_eq!(
+			[
+				2, 166, 147, 78, 135, 152, 132, 102, 185, 139, 81, 242, 235, 9, 229, 188, 76, 9,
+				228, 110, 181, 241, 254, 8, 114, 61, 248, 173, 35, 213, 187, 156, 106
+			],
+			pub_key,
+		);
+		assert_eq!(
+			"02A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A".to_string(),
+			hex::encode(pub_key).to_uppercase(),
+		);
 	}
 
 	#[test]

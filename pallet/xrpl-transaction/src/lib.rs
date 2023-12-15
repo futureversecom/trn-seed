@@ -354,7 +354,11 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
 		/// XUMM transaction with encoded extrinsic executed
-		XUMMExtrinsicExecuted { caller: T::AccountId, call: <T as pallet::Config>::RuntimeCall },
+		XUMMExtrinsicExecuted {
+			public_key: [u8; 33],
+			caller: T::AccountId,
+			call: <T as pallet::Config>::RuntimeCall,
+		},
 	}
 
 	#[pallet::hooks]
@@ -400,6 +404,14 @@ pub mod pallet {
 					Error::<T>::DecodeXUMMTransaction
 				})?;
 
+			let public_key = tx.get_public_key().map_err(|e| {
+				log::error!(
+					"⛔️ failed to extract public key from memo data: {:?}, err: {:?}",
+					tx.memos,
+					e
+				);
+				Error::<T>::DecodeXUMMTransactionAccount
+			})?;
 			let who: T::AccountId = tx
 				.get_account()
 				.map_err(|e| {
@@ -425,7 +437,7 @@ pub mod pallet {
 			let call = Self::get_runtime_call_from_xumm_extrinsic(&call)?;
 			call.clone().dispatch(dispatch_origin).map_err(|e| e.error)?;
 
-			Self::deposit_event(Event::XUMMExtrinsicExecuted { caller: who, call });
+			Self::deposit_event(Event::XUMMExtrinsicExecuted { public_key, caller: who, call });
 			Ok(().into())
 		}
 	}

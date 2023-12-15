@@ -35,9 +35,10 @@ benchmarks! {
   }: _(RawOrigin::None, encoded_msg, signature)
   verify {
 	let tx = XUMMTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
+	let public_key = tx.get_public_key().unwrap();
 	let caller: T::AccountId = tx.get_account().unwrap().into();
 	let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: b"Mischief Managed".to_vec() }.into();
-	assert_last_event::<T>(Event::XUMMExtrinsicExecuted {  caller, call }.into())
+	assert_last_event::<T>(Event::XUMMExtrinsicExecuted { public_key, caller, call }.into())
   }
 }
 
