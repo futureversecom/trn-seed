@@ -77,11 +77,12 @@ describe("XRPL transaction pallet", () => {
     expect(events[index].event.data[0]).to.equal(GAS_TOKEN_ID);
     expect(events[index].event.data[1].toString()).to.equal(user.address);
 
-    // xrplTransaction XUMMExtrinsicExecuted ["0x27Fd5891543A45aB8a0B7A387285bdd4A6562B51",0,{"callIndex":"0x0001","args":{"remark":"0x68656c6c6f20776f726c64"}}]
+    // xrplTransaction XUMMExtrinsicExecuted ["0x023b7f0df4d92da1ebe88be92fd59b2becfa4a60875b97c295c7a2524b03c487fc", "0x27Fd5891543A45aB8a0B7A387285bdd4A6562B51",0,{"callIndex":"0x0001","args":{"remark":"0x68656c6c6f20776f726c64"}}]
     index += 1;
     expect(events[index].event.section).to.equal("xrplTransaction");
     expect(events[index].event.method).to.equal("XUMMExtrinsicExecuted");
-    expect(events[index].event.data[0].toString()).to.equal(user.address);
+    expect(events[index].event.data[0].toString()).to.equal(user.publicKey);
+    expect(events[index].event.data[1].toString()).to.equal(user.address);
 
     // assetsExt InternalDeposit [2,"0x6D6F646c7478666565706F740000000000000000",557511]
     index += 1;
@@ -165,11 +166,12 @@ describe("XRPL transaction pallet", () => {
     expect(events[index].event.data[1].toString()).to.equal(user.address);
     expect(events[index].event.data[2].toString()).to.equal(alith.address);
 
-    // xrplTransaction XUMMExtrinsicExecuted ["0x582F0E877a678ab8Ddb13a9ebBECf86614f3916E",0,{"callIndex":"0x0605","args":{"id":2,"target":"0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac","amount":1000}}]
+    // xrplTransaction XUMMExtrinsicExecuted ["0x023b7f0df4d92da1ebe88be92fd59b2becfa4a60875b97c295c7a2524b03c487fc", "0x582F0E877a678ab8Ddb13a9ebBECf86614f3916E",0,{"callIndex":"0x0605","args":{"id":2,"target":"0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac","amount":1000}}]
     index += 1;
     expect(events[index].event.section).to.equal("xrplTransaction");
     expect(events[index].event.method).to.equal("XUMMExtrinsicExecuted");
-    expect(events[index].event.data[0].toString()).to.equal(user.address);
+    expect(events[index].event.data[0].toString()).to.equal(user.publicKey);
+    expect(events[index].event.data[1].toString()).to.equal(user.address);
 
     // assetsExt InternalDeposit [2,"0x6D6F646c7478666565706F740000000000000000",615011]
     index += 1;
@@ -270,11 +272,12 @@ describe("XRPL transaction pallet", () => {
     expect(events[index].event.method).to.equal("ProxyExecuted");
     expect(events[index].event.data[0].toString()).to.equal(user.address);
 
-    // xrplTransaction XUMMExtrinsicExecuted ["0x557fce5210eaaE26893404Bf14A1423F8f22EAD9",0,{"callIndex":"0x2204","args":{"futurepass":"0xfFFFFfff00000000000000000000000000000008","call":{"callIndex":"0x0605","args":{"id":2,"target":"0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac","amount":1000}}}}]
+    // xrplTransaction XUMMExtrinsicExecuted ["0x023b7f0df4d92da1ebe88be92fd59b2becfa4a60875b97c295c7a2524b03c487fc", "0x557fce5210eaaE26893404Bf14A1423F8f22EAD9",0,{"callIndex":"0x2204","args":{"futurepass":"0xfFFFFfff00000000000000000000000000000008","call":{"callIndex":"0x0605","args":{"id":2,"target":"0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac","amount":1000}}}}]
     index += 1;
     expect(events[index].event.section).to.equal("xrplTransaction");
     expect(events[index].event.method).to.equal("XUMMExtrinsicExecuted");
-    expect(events[index].event.data[0].toString()).to.equal(user.address);
+    expect(events[index].event.data[0].toString()).to.equal(user.publicKey);
+    expect(events[index].event.data[1].toString()).to.equal(user.address);
 
     // assetsExt InternalDeposit [2,"0x6D6F646c7478666565706F740000000000000000",730011]
     index += 1;
