@@ -7,7 +7,7 @@ use xrpl_binary_codec::{
 	deserializer::Deserializer,
 	serializer::{field_id::TypeCode, field_info::field_info_lookup, Serializer},
 };
-use xrpl_types::{serialize::Serialize, types::transaction::common::TransactionCommon};
+use xrpl_types::{serialize::Serialize, types::TransactionCommon};
 
 /// The memo type data to be hex encoded in XUMM transaction for extrinsic calls.
 pub const MEMO_TYPE_EXTRINSIC: &str = "extrinsic";
