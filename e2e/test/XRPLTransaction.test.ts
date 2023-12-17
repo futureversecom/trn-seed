@@ -58,6 +58,11 @@ describe("XRPL transaction pallet", () => {
     const encodedSigningMessage = encodeForSigning(xummJsonTx);
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
+    const cost = await api.tx.xrplTransaction
+      .submitEncodedXummTransaction(`0x${message}`, `0x${signature}`)
+      .paymentInfo(user.address);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(780_000).and.lessThan(790_000);
+
     // execute xumm tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
       await api.tx.xrplTransaction.submitEncodedXummTransaction(`0x${message}`, `0x${signature}`).send(({ events = [], status }) => {
@@ -102,6 +107,7 @@ describe("XRPL transaction pallet", () => {
     // assert balance after < balance before (tx fee must be paid)
     const xrpBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
+    expect(xrpBalanceBefore - xrpBalanceAfter).to.eq(560_084);
 
     // assert user nonce is updated (1 tx)
     const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
@@ -138,6 +144,11 @@ describe("XRPL transaction pallet", () => {
     const message = encode(xummJsonTx);
     const encodedSigningMessage = encodeForSigning(xummJsonTx);
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
+
+    const cost = await api.tx.xrplTransaction
+      .submitEncodedXummTransaction(`0x${message}`, `0x${signature}`)
+      .paymentInfo(user.address);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(820_000).and.lessThan(884_000);
 
     // execute xumm tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
@@ -193,6 +204,7 @@ describe("XRPL transaction pallet", () => {
     // assert balance after < balance before (tx fee must be paid)
     const xrpBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
+    expect(xrpBalanceBefore - xrpBalanceAfter).to.be.greaterThan(615_000).and.lessThan(620_000);
   });
 
   it("can proxy futurepass extrinsic", async () => {
@@ -212,6 +224,7 @@ describe("XRPL transaction pallet", () => {
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
     const xrpUserBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const xrpFPBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
 
     const xummJsonTx = {
       AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
@@ -232,6 +245,11 @@ describe("XRPL transaction pallet", () => {
     const message = encode(xummJsonTx);
     const encodedSigningMessage = encodeForSigning(xummJsonTx);
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
+
+    const cost = await api.tx.xrplTransaction
+      .submitEncodedXummTransaction(`0x${message}`, `0x${signature}`)
+      .paymentInfo(user.address);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(940_000).and.lessThan(960_000);
 
     // execute xumm tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
@@ -298,6 +316,12 @@ describe("XRPL transaction pallet", () => {
     // user xrp balance should be the same before and after since futurepass must be paying tx fees
     const xrpUserBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpUserBalanceAfter).to.be.eq(xrpUserBalanceBefore);
+
+    // assert futurepass balance after < balance before (tx fee must be paid)
+    const xrpFPBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+    expect(xrpFPBalanceAfter).to.be.lessThan(xrpFPBalanceBefore);
+    expect(xrpFPBalanceBefore - xrpFPBalanceAfter).to.be.greaterThan(725_000).and.lessThan(730_000);
+
   });
 
   it("fails proxy futurepass extrinsic if user does not have futurepass", async () => {
