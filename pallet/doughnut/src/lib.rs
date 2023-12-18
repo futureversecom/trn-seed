@@ -88,7 +88,7 @@ impl<T> Call<T>
 
 
 				// for now resolve to alith
-				let origin: H160 = H160::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"));
+				let origin: H160 = H160::from(hex!("25451A4de12dcCc2D166922fA938E900fCc4ED24"));
 				Ok(origin)
 			};
 
@@ -119,14 +119,28 @@ impl<T> Call<T>
 		len: usize,
 	) -> Option<TransactionValidity> {
 		if let Call::transact { call, doughnut, nonce } = self {
+			// Doughnut work
+			// run doughnut common validations
+			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
+				return None
+			};
+			let Ok(issuer_address) = crate::Pallet::<T>::get_address(doughnut_v1.issuer) else {
+				return None
+			};
+			let sender_address = T::AccountId::from(*origin);
+
 			// construct the validation instances
-			let validations: DoughnutValidations<T> = (
-				CheckNonZeroSender::new(),
-				CheckNonce::from(nonce.clone().into()),
+			let validations_issuer: DoughnutIssuerValidations<T> = (
 				CheckWeight::new(),
 				ChargeTransactionPayment::<T>::from(0.into()),
 			);
-			SignedExtension::validate(&validations, &T::AccountId::from(*origin), &(**call).clone().into(), dispatch_info, len).ok()?;
+			let validations_sender: DoughnutSenderValidations<T> = (
+				CheckNonZeroSender::new(),
+				CheckNonce::from(nonce.clone().into()),
+			);
+
+			SignedExtension::validate(&validations_sender, &sender_address, &(**call).clone().into(), dispatch_info, len).ok()?;
+			SignedExtension::validate(&validations_issuer, &issuer_address, &(**call).clone().into(), dispatch_info, len).ok()?;
 
 			// TODO: do we need any validation on inner call?
 			let priority = 0;
@@ -161,26 +175,32 @@ impl<T> Call<T>
 		if let Some(Call::transact { call: _inner_call, doughnut, nonce }) = call.is_sub_type() {
 			// Doughnut work
 			// run doughnut common validations
-			let Ok(Doughnut::V0(doughnut_v0)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
+			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
 				return None
 			};
 			// No need to do the doughnut verification again since already did in check_self_contained()
-			let Ok(issuer_address) = crate::Pallet::<T>::get_address(doughnut_v0.issuer) else {
+			let Ok(issuer_address) = crate::Pallet::<T>::get_address(doughnut_v1.issuer) else {
 				return None
 			};
 
+			let sender_address = T::AccountId::from(*info);
+
+
 			// Pre dispatch
 			// Create the validation instances for this extrinsic
-			let validations: DoughnutValidations<T> = (
-				CheckNonZeroSender::new(),
-				CheckNonce::from(nonce.clone().into()),
+			let validations_issuer: DoughnutIssuerValidations<T> = (
 				CheckWeight::new(),
 				ChargeTransactionPayment::<T>::from(0.into()),
 			);
-			let pre = SignedExtension::pre_dispatch(validations, &issuer_address, &call.clone().into(), dispatch_info, len).ok()?;
+			let validations_sender: DoughnutSenderValidations<T> = (
+				CheckNonZeroSender::new(),
+				CheckNonce::from(nonce.clone().into()),
+			);
+			let pre_sender = SignedExtension::pre_dispatch(validations_sender, &sender_address, &call.clone().into(), dispatch_info, len).ok()?;
+			let pre_issuer = SignedExtension::pre_dispatch(validations_issuer, &issuer_address, &call.clone().into(), dispatch_info, len).ok()?;
 
 			// Dispatch
-			let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(T::AccountId::from(*info)).into();
+			let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(sender_address).into();
 			let res = call.dispatch(origin);
 			let post_info = match res {
 				Ok(info) => info,
@@ -188,8 +208,8 @@ impl<T> Call<T>
 			};
 
 			// post dispatch
-			<DoughnutValidations<T> as SignedExtension>::post_dispatch(
-				Some(pre),
+			<DoughnutIssuerValidations<T> as SignedExtension>::post_dispatch(
+				Some(pre_issuer),
 				dispatch_info,
 				&post_info.into(),
 				len,
@@ -271,21 +291,23 @@ pub mod pallet {
 			let sender = ensure_signed(origin.clone())?;
 
 			// run doughnut common validations
-			let Doughnut::V0(doughnut_v0) = Self::run_doughnut_common_validations(doughnut)?;
+			let Ok(Doughnut::V1(doughnut_v1)) = Self::run_doughnut_common_validations(doughnut) else {
+				return Err(Error::<T>::UnsupportedDoughnutVersion)?;
+			};
 
 			// verify the doughnut
-			doughnut_v0.verify()
+			doughnut_v1.verify()
 				.map_err(|_| {
 					Error::<T>::DoughnutVerifyFailed
 				})?;
 
 			// TODO: Validate the doughnut, for now we just check sender == bearer
 			// doughnut_v0.validate(sender., <frame_system::Pallet<T>>::block_number())?;
-			let holder_address = Self::get_address(doughnut_v0.holder)?;
+			let holder_address = Self::get_address(doughnut_v1.holder)?;
 			ensure!(holder_address == sender, Error::<T>::UnauthorizedSender);
 
 			// dispatch the inner call
-			let issuer_address = Self::get_address(doughnut_v0.issuer)?;
+			let issuer_address = Self::get_address(doughnut_v1.issuer)?;
 			let issuer_origin = frame_system::RawOrigin::Signed(issuer_address).into();
 			let e = call.dispatch(issuer_origin);
 			Self::deposit_event(Event::<T>::DoughnutCallExecuted {
@@ -300,11 +322,11 @@ pub mod pallet {
 impl<T: Config> Pallet<T>
 where <T as frame_system::Config>::AccountId: From<H160>,
 {
-	fn get_address(raw_pub_key: [u8;32]) -> Result<T::AccountId, Error<T>>
+	fn get_address(raw_pub_key: [u8;33]) -> Result<T::AccountId, Error<T>>
 	{
-		let mut public_key = [0x04; 33];
-		public_key[1..].clone_from_slice(&raw_pub_key[..]);
-		let account_id_20 = AccountId20::try_from(ecdsa::Public::from_raw(public_key)).map_err(|_| Error::<T>::UnauthorizedSender)?;
+		// let mut public_key = [0x02; 33];
+		// public_key[1..].clone_from_slice(&raw_pub_key[..]);
+		let account_id_20 = AccountId20::try_from(ecdsa::Public::from_raw(raw_pub_key)).map_err(|_| Error::<T>::UnauthorizedSender)?;
 		Ok(T::AccountId::from(H160::from_slice(&account_id_20.0)))
 	}
 
@@ -315,8 +337,8 @@ where <T as frame_system::Config>::AccountId: From<H160>,
 				Error::<T>::DoughnutDecodeFailed
 			})?;
 
-		// only supports v0 for now
-		let Doughnut::V0(doughnut_v0) = doughnut_decoded.clone() else {
+		// only supports v1 for now
+		let Doughnut::V1(doughnut_v1) = doughnut_decoded.clone() else {
 			return Err(Error::<T>::UnsupportedDoughnutVersion)?;
 		};
 
@@ -325,14 +347,26 @@ where <T as frame_system::Config>::AccountId: From<H160>,
 
 }
 
-/// Checks performed on a Doughnut transaction
-pub type DoughnutValidations<T> = (
+/// Checks performed on a issuer of a Doughnut transaction
+pub type DoughnutIssuerValidations<T> = (
+	// frame_system::CheckNonZeroSender<T>,
+	// frame_system::CheckSpecVersion<Runtime>,
+	// frame_system::CheckTxVersion<Runtime>,
+	// frame_system::CheckGenesis<Runtime>,
+	// frame_system::CheckEra<Runtime>,
+	// frame_system::CheckNonce<T>,
+	frame_system::CheckWeight<T>,
+	pallet_transaction_payment::ChargeTransactionPayment<T>,
+);
+
+/// Checks performed on a sender of a Doughnut transaction
+pub type DoughnutSenderValidations<T> = (
 	frame_system::CheckNonZeroSender<T>,
 	// frame_system::CheckSpecVersion<Runtime>,
 	// frame_system::CheckTxVersion<Runtime>,
 	// frame_system::CheckGenesis<Runtime>,
 	// frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<T>,
-	frame_system::CheckWeight<T>,
-	pallet_transaction_payment::ChargeTransactionPayment<T>,
+	// frame_system::CheckWeight<T>,
+	// pallet_transaction_payment::ChargeTransactionPayment<T>,
 );
