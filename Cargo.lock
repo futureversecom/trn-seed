@@ -5049,6 +5049,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal 0.3.4",
+ "libsecp256k1 0.7.1",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
