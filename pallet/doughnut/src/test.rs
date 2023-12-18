@@ -32,21 +32,27 @@ use sp_core::ecdsa::Public;
 use sp_runtime::{traits::SignedExtension, Perbill, print};
 use seed_pallet_common::test_prelude::*;
 use codec::{Decode, Encode};
+use hex_literal::hex;
 use sp_core::bytes::to_hex;
+use doughnut_rs::traits::Signing;
+use doughnut_rs::v1::DoughnutV1;
 
-fn make_doughnut(holder: Public, issuer: Public, domain: &str, domain_payload: Vec<u8>) -> Doughnut {
-	let doughnut_v0 = DoughnutV0 {
-		holder: holder.as_slice()[1..].try_into().expect("should not fail"),
-		issuer: issuer.as_slice()[1..].try_into().expect("should not fail"),
+fn make_doughnut(holder: Public, issuer: Public, issuer_secret_key: &[u8], domain: &str, domain_payload: Vec<u8>) -> Doughnut {
+	let mut doughnut_v1 = DoughnutV1 {
+		holder: holder.as_slice().try_into().expect("should not fail"),
+		issuer: issuer.as_slice().try_into().expect("should not fail"),
 		domains: vec![(domain.to_string(), domain_payload)],
 		expiry: 0,
 		not_before: 0,
 		payload_version: 0,
 		signature_version: 0,
-		signature: Default::default(),
+		signature: [0_u8;65],
 	};
+	let signature  = doughnut_v1.sign_ecdsa(issuer_secret_key).unwrap();
+	println!("sig {:?}", signature);
+	// doughnut_v0.signature_version = 2;
 
-	Doughnut::V0(doughnut_v0)
+	Doughnut::V1(doughnut_v1)
 }
 
 #[test]
@@ -54,7 +60,7 @@ fn doughnut_transact_call_successful() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ecdsa::Pair::generate().0;
 		let holder = ecdsa::Pair::generate().0;
-		let doughnut = make_doughnut(holder.public(), issuer.public(), "", vec![]);
+		let doughnut = make_doughnut(holder.public(), issuer.public(), &hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854"), "", vec![]);
 
 		println!("{:?}", doughnut.encode());
 
@@ -65,12 +71,25 @@ fn doughnut_transact_call_successful() {
 #[test]
 fn alice_to_bob_doughnut() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let issuer: ecdsa::Pair = Pair::from_string("//Alith", None).unwrap();
-		let holder: ecdsa::Pair = Pair::from_string("//Baltathar", None).unwrap();
-		let doughnut = make_doughnut(holder.public(), issuer.public(), "", vec![]);
+		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
+		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
+		let mut doughnut = make_doughnut(holder.public(), issuer.public(), &hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854"), "", vec![]);
+		// doughnut.sign_ecdsa(&hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854"));
+		// if let Doughnut::V0(doughnut_v0) = doughnut {
+		// 	doughnut_v0.signature = doughnut_rs::signature::sign_ecdsa(&hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854"), &doughnut.encode()).unwrap();
+		//
+		// }
+
+
 
 		println!("issuer: {:?}", issuer.public());
 		println!("holder: {:?}", holder.public());
+
+		let issuer_address: AccountId = crate::pallet::Pallet::<Test>::get_address(issuer.public().0.try_into().unwrap()).unwrap();
+		let holder_address: AccountId = crate::pallet::Pallet::<Test>::get_address(holder.public().0.try_into().unwrap()).unwrap();
+
+		println!("issuer address: {:?}", to_hex(issuer_address.0.as_slice(), false));
+		println!("holder address: {:?}", to_hex(holder_address.0.as_slice(), false));
 
 
 		let doughnut_encoded = doughnut.encode();
