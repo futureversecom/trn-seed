@@ -1971,8 +1971,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	fn apply_self_contained(
 		self,
 		info: Self::SignedInfo,
-		dispatch_info: &DispatchInfoOf<Self>,
-		len: usize,
+		_dispatch_info: &DispatchInfoOf<Self>,
+		_len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
 		match self {
 			call @ RuntimeCall::Ethereum(pallet_ethereum::Call::transact { .. }) =>
