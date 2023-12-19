@@ -25,9 +25,9 @@ use sp_runtime::FixedPointOperand;
 
 use alloc::{boxed::Box, vec::Vec};
 use doughnut_rs::{
-	signature::verify_ecdsa_signature,
+	signature::{SignatureVersion, verify_signature},
 	traits::{DoughnutApi, DoughnutVerify},
-	Doughnut,
+	doughnut::Doughnut,
 };
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
@@ -88,7 +88,7 @@ impl<T> Call<T>
 
 				// Verify outer signature against holder address
 				// TODO Sign the call + doughnut + nonce, not just the doughnut
-				verify_ecdsa_signature(&signature, &doughnut_v1.holder(), &doughnut.as_slice())
+				verify_signature(SignatureVersion::ECDSA as u8, &signature, &doughnut_v1.holder(), &doughnut.as_slice())
 					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::BadProof))?;
 
 				// Resolve to holder address

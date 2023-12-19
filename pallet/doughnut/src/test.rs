@@ -17,11 +17,9 @@ use super::Event;
 use crate::mock::{RuntimeEvent as MockEvent, *};
 use codec::{Decode, Encode};
 use doughnut_rs::{
-	signature::{sign_ecdsa, verify_ecdsa_signature},
+	signature::{SignatureVersion, sign_ecdsa, verify_signature},
 	traits::{DoughnutApi, DoughnutVerify, Signing},
-	v0::DoughnutV0,
-	v1::DoughnutV1,
-	Doughnut,
+	doughnut::{Doughnut, DoughnutV0, DoughnutV1},
 };
 use frame_support::{
 	assert_ok,
@@ -38,7 +36,7 @@ use sp_runtime::{print, traits::SignedExtension, Perbill};
 fn make_doughnut(
 	holder: Public,
 	issuer: Public,
-	issuer_secret_key: &[u8],
+	issuer_secret_key: &[u8; 32],
 	domain: &str,
 	domain_payload: Vec<u8>,
 ) -> Doughnut {
@@ -49,12 +47,11 @@ fn make_doughnut(
 		expiry: 0,
 		not_before: 0,
 		payload_version: 0,
-		signature_version: 0,
+		signature_version: SignatureVersion::ECDSA as u8,
 		signature: [0_u8; 64],
 	};
 	let signature = doughnut_v1.sign_ecdsa(issuer_secret_key).unwrap();
 	println!("sig {:?}", signature);
-	// doughnut_v0.signature_version = 2;
 
 	Doughnut::V1(doughnut_v1)
 }
@@ -132,7 +129,8 @@ fn bob_to_alice_doughnut() {
 		println!("Holder signature: {:?}", to_hex(bob_signature.as_slice(), false));
 
 		// Verify Bob's signature
-		assert_ok!(verify_ecdsa_signature(
+		assert_ok!(verify_signature(
+			SignatureVersion::ECDSA as u8,
 			&bob_signature,
 			&doughnut_v1.holder(),
 			&doughnut_encoded.clone()
