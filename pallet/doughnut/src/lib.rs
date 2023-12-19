@@ -20,10 +20,15 @@ pub use pallet::*;
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
-use sp_core::{ecdsa, H160};
+use sp_core::{ecdsa, H160, H512};
 use sp_runtime::FixedPointOperand;
 
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec::Vec};
+use doughnut_rs::{
+	signature::verify_ecdsa_signature,
+	traits::{DoughnutApi, DoughnutVerify},
+	Doughnut,
+};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	traits::IsSubType,
@@ -32,14 +37,11 @@ use frame_system::{CheckNonZeroSender, CheckNonce, CheckWeight};
 use hex_literal::hex;
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use seed_pallet_common::logger::info;
+use seed_primitives::AccountId20;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
 	transaction_validity::ValidTransactionBuilder,
 };
-use alloc::vec::Vec;
-use doughnut_rs::traits::DoughnutVerify;
-use doughnut_rs::Doughnut;
-use seed_primitives::AccountId20;
 
 #[cfg(test)]
 mod mock;
@@ -58,7 +60,7 @@ impl<T> Call<T>
 		T: Send + Sync + Config,
 		<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 		<T as frame_system::Config>::Index : Into<u32>,
-		T::AccountId: From<H160>,
+		T::AccountId: From<H160> + Into<H160>,
 		T: pallet_transaction_payment::Config,
 		<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance: Send + Sync + FixedPointOperand + From<u64>,
 		<T as frame_system::Config>::RuntimeCall: From<<T as Config>::RuntimeCall>,
@@ -66,30 +68,31 @@ impl<T> Call<T>
 		<T as frame_system::Config>::Index: From<u32>,
 {
 	pub fn is_self_contained(&self) -> bool {
-		matches!(self, Call::transact { call, doughnut, nonce })
+		matches!(self, Call::transact { call, doughnut, nonce, signature })
 	}
 
 	pub fn check_self_contained(&self) -> Option<Result<H160, TransactionValidityError>> {
-		if let Call::transact { call, doughnut, nonce } = self {
+		if let Call::transact { call, doughnut, nonce, signature } = self {
 			let check = || {
-				// TODO: implement the following for doughnuts
-				// 1. recover the outer signer/sender, verify the signer
-				// 2. decode the doughnut, check success against the sender above?
-				// 3. return the sender address if all good
+				// run doughnut common validations
+				let Ok(Doughnut::V1(doughnut_v1)) = Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
+					return Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof))
+				};
+				// Verify doughnut signature
+				doughnut_v1.verify().map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::BadProof))?;
 
-				// //
-				//
-				// // Doughnut work
-				// // run doughnut common validations
-				// let Ok(Doughnut::V0(doughnut_v0)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone())?;
-				// // No need to do the doughnut verification again since already did in check_self_contained()
-				// let Ok(issuer_address) = crate::Pallet::<T>::get_address(doughnut_v0.issuer)?;
+				// Retrieve holder address
+				let Ok(holder_address) = crate::Pallet::<T>::get_address(doughnut_v1.holder) else {
+					return Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
+				};
 
+				// Verify outer signature against holder address
+				// TODO Sign the call + doughnut + nonce, not just the doughnut
+				verify_ecdsa_signature(&signature, &doughnut_v1.holder(), &doughnut.as_slice())
+					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::BadProof))?;
 
-
-				// for now resolve to alith
-				let origin: H160 = H160::from(hex!("25451A4de12dcCc2D166922fA938E900fCc4ED24"));
-				Ok(origin)
+				// Resolve to holder address
+				Ok(holder_address.into())
 			};
 
 			Some(check())
@@ -118,7 +121,7 @@ impl<T> Call<T>
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<TransactionValidity> {
-		if let Call::transact { call, doughnut, nonce } = self {
+		if let Call::transact { call, doughnut, nonce, signature } = self {
 			// Doughnut work
 			// run doughnut common validations
 			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -172,7 +175,7 @@ impl<T> Call<T>
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<<T as Config>::RuntimeCall>>> {
 
-		if let Some(Call::transact { call: _inner_call, doughnut, nonce }) = call.is_sub_type() {
+		if let Some(Call::transact { call: _inner_call, doughnut, nonce, signature }) = call.is_sub_type() {
 			// Doughnut work
 			// run doughnut common validations
 			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -224,9 +227,9 @@ impl<T> Call<T>
 
 #[frame_support::pallet]
 pub mod pallet {
+	use super::*;
 	use doughnut_rs::traits::DoughnutApi;
 	use sp_core::ecdsa;
-	use super::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
@@ -237,7 +240,8 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config
-	where <Self as frame_system::Config>::AccountId: From<H160>,
+	where
+		<Self as frame_system::Config>::AccountId: From<H160>,
 	{
 		/// The overarching event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -254,7 +258,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config>
-	where <T as frame_system::Config>::AccountId: From<H160>,
+	where
+		<T as frame_system::Config>::AccountId: From<H160>,
 	{
 		DoughnutCallExecuted { result: DispatchResult },
 	}
@@ -268,7 +273,7 @@ pub mod pallet {
 		/// Doughnut verify failed
 		DoughnutVerifyFailed,
 		/// Sender is not authorized to use the doughnut
-		UnauthorizedSender
+		UnauthorizedSender,
 	}
 
 	#[pallet::hooks]
@@ -279,7 +284,8 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
-	where <T as frame_system::Config>::AccountId: From<H160>,
+	where
+		<T as frame_system::Config>::AccountId: From<H160>,
 	{
 		#[pallet::weight(0 as u64)]
 		pub fn transact(
@@ -287,6 +293,7 @@ pub mod pallet {
 			call: Box<<T as Config>::RuntimeCall>,
 			doughnut: Vec<u8>,
 			nonce: u32,
+			signature: Vec<u8>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin.clone())?;
 
@@ -296,10 +303,7 @@ pub mod pallet {
 			};
 
 			// verify the doughnut
-			doughnut_v1.verify()
-				.map_err(|_| {
-					Error::<T>::DoughnutVerifyFailed
-				})?;
+			doughnut_v1.verify().map_err(|_| Error::<T>::DoughnutVerifyFailed)?;
 
 			// TODO: Validate the doughnut, for now we just check sender == bearer
 			// doughnut_v0.validate(sender., <frame_system::Pallet<T>>::block_number())?;
@@ -320,22 +324,21 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T>
-where <T as frame_system::Config>::AccountId: From<H160>,
+where
+	<T as frame_system::Config>::AccountId: From<H160>,
 {
-	fn get_address(raw_pub_key: [u8;33]) -> Result<T::AccountId, Error<T>>
-	{
+	fn get_address(raw_pub_key: [u8; 33]) -> Result<T::AccountId, Error<T>> {
 		// let mut public_key = [0x02; 33];
 		// public_key[1..].clone_from_slice(&raw_pub_key[..]);
-		let account_id_20 = AccountId20::try_from(ecdsa::Public::from_raw(raw_pub_key)).map_err(|_| Error::<T>::UnauthorizedSender)?;
+		let account_id_20 = AccountId20::try_from(ecdsa::Public::from_raw(raw_pub_key))
+			.map_err(|_| Error::<T>::UnauthorizedSender)?;
 		Ok(T::AccountId::from(H160::from_slice(&account_id_20.0)))
 	}
 
-	fn run_doughnut_common_validations(doughnut_payload: Vec<u8>,) -> Result<Doughnut, Error<T>> {
+	fn run_doughnut_common_validations(doughnut_payload: Vec<u8>) -> Result<Doughnut, Error<T>> {
 		// decode the doughnut
-		let doughnut_decoded =  Doughnut::decode(&mut &doughnut_payload[..])
-			.map_err(|_| {
-				Error::<T>::DoughnutDecodeFailed
-			})?;
+		let doughnut_decoded = Doughnut::decode(&mut &doughnut_payload[..])
+			.map_err(|_| Error::<T>::DoughnutDecodeFailed)?;
 
 		// only supports v1 for now
 		let Doughnut::V1(doughnut_v1) = doughnut_decoded.clone() else {
@@ -344,7 +347,6 @@ where <T as frame_system::Config>::AccountId: From<H160>,
 
 		Ok(doughnut_decoded)
 	}
-
 }
 
 /// Checks performed on a issuer of a Doughnut transaction

@@ -1461,10 +1461,10 @@ version = "0.5.1"
 dependencies = [
  "clear_on_drop",
  "ed25519-dalek",
+ "libsecp256k1 0.7.1",
  "parity-scale-codec",
  "primitive-types 0.7.3",
  "schnorrkel",
- "sp-core",
  "sp-io",
 ]
 
