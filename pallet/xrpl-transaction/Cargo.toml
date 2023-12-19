@@ -44,7 +44,7 @@ precompile-utils = { path = "../../evm-precompiles/utils", default-features = fa
 frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-fp-self-contained = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
+fp-self-contained = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
 seed-pallet-common= { path = "../common" }
 pallet-assets-ext = { path = "../assets-ext" }
 pallet-fee-control = { path = "../fee-control" }
