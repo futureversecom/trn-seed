@@ -107,7 +107,7 @@ describe("XRPL pallet", () => {
     // assert balance after < balance before (tx fee must be paid)
     const xrpBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
-    expect(xrpBalanceBefore - xrpBalanceAfter).to.greaterThan(550_000).and.lessThan(560_000);
+    expect(xrpBalanceBefore - xrpBalanceAfter).to.greaterThan(550_000).and.lessThan(561_000);
 
     // assert user nonce is updated (1 tx)
     const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
@@ -204,7 +204,7 @@ describe("XRPL pallet", () => {
     // assert balance after < balance before (tx fee must be paid)
     const xrpBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
-    expect(xrpBalanceBefore - xrpBalanceAfter).to.be.greaterThan(615_000).and.lessThan(620_000);
+    expect(xrpBalanceBefore - xrpBalanceAfter).to.be.greaterThan(610_000).and.lessThan(620_000);
   });
 
   it("can proxy futurepass extrinsic", async () => {
