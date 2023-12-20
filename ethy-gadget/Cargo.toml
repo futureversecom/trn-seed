@@ -33,7 +33,7 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkad
 sc-network-common = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 
 seed-primitives = { path = "../primitives" }
-xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", version = "0.1.1" }
+xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", branch = "support/destinationTag", default-features = false }
 
 [dev-dependencies]
 hex-literal = "*"

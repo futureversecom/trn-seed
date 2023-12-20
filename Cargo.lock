@@ -11278,8 +11278,8 @@ dependencies = [
 
 [[package]]
 name = "xrpl-codec"
-version = "0.1.1"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec#3986c2bdb82e14cd66747cdaf69d10472eecfa41"
+version = "0.1.0"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec?branch=support/destinationTag#f3598bb5085998c7ab717d33ead518af0af7f10c"
 dependencies = [
  "ripemd",
  "sha2 0.10.8",
@@ -11289,7 +11289,7 @@ dependencies = [
 [[package]]
 name = "xrpl-codec-utils"
 version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec#3986c2bdb82e14cd66747cdaf69d10472eecfa41"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec?branch=support/destinationTag#f3598bb5085998c7ab717d33ead518af0af7f10c"
 dependencies = [
  "hashbrown 0.12.3",
  "lazy_static",
