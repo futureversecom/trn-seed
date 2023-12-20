@@ -158,13 +158,12 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
 		match self {
-			RuntimeCall::Xrpl(call) =>
-				pallet_xrpl::Call::<Test>::apply_self_contained(
-					call.into(),
-					&info,
-					&dispatch_info,
-					len,
-				),
+			RuntimeCall::Xrpl(call) => pallet_xrpl::Call::<Test>::apply_self_contained(
+				call.into(),
+				&info,
+				&dispatch_info,
+				len,
+			),
 			_ => None,
 		}
 	}

@@ -1999,13 +1999,12 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 				Some(call.dispatch(RuntimeOrigin::from(
 					pallet_ethereum::RawOrigin::EthereumTransaction(info),
 				))),
-			RuntimeCall::Xrpl(call) =>
-				pallet_xrpl::Call::<Runtime>::apply_self_contained(
-					call.into(),
-					&info,
-					&dispatch_info,
-					len,
-				),
+			RuntimeCall::Xrpl(call) => pallet_xrpl::Call::<Runtime>::apply_self_contained(
+				call.into(),
+				&info,
+				&dispatch_info,
+				len,
+			),
 			_ => None,
 		}
 	}

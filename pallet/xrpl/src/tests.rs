@@ -41,8 +41,7 @@ mod get_runtime_call_from_xrpl_extrinsic {
 			assert_eq!("50040001404d69736368696566204d616e61676564", hex_encoded_extrinsic);
 
 			let decoded_call =
-				Xrpl::get_runtime_call_from_xrpl_extrinsic(&scale_encoded_extrinsic)
-					.unwrap();
+				Xrpl::get_runtime_call_from_xrpl_extrinsic(&scale_encoded_extrinsic).unwrap();
 			assert_eq!(decoded_call, system_remark_call);
 		});
 	}
@@ -70,8 +69,7 @@ mod get_runtime_call_from_xrpl_extrinsic {
 			);
 
 			let decoded_call =
-				Xrpl::get_runtime_call_from_xrpl_extrinsic(&scale_encoded_extrinsic)
-					.unwrap();
+				Xrpl::get_runtime_call_from_xrpl_extrinsic(&scale_encoded_extrinsic).unwrap();
 			assert_eq!(decoded_call, balance_transfer_call);
 		});
 	}
@@ -93,8 +91,7 @@ mod get_runtime_call_from_xrpl_extrinsic {
 			assert_eq!("1004000300", hex_encoded_extrinsic);
 
 			let decoded_call =
-				Xrpl::get_runtime_call_from_xrpl_extrinsic(&scale_encoded_extrinsic)
-					.unwrap();
+				Xrpl::get_runtime_call_from_xrpl_extrinsic(&scale_encoded_extrinsic).unwrap();
 			assert_eq!(decoded_call, sudo_call);
 		});
 	}
