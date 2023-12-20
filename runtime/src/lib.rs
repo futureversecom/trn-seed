@@ -92,7 +92,6 @@ pub use sp_runtime::BuildStorage;
 // Export for chain_specs
 #[cfg(feature = "std")]
 pub use pallet_staking::{Forcing, StakerStatus};
-use sp_runtime::traits::SignedExtension;
 
 pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
@@ -139,7 +138,7 @@ use crate::impls::{
 };
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
-use seed_primitives::{AccountId20, BlakeTwo256Hash};
+use seed_primitives::BlakeTwo256Hash;
 
 #[cfg(test)]
 mod tests;
