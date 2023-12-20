@@ -33,7 +33,7 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xrpl_transaction::WeightInfo for WeightInfo<T> {
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
-	fn submit_encoded_xumm_transaction() -> Weight {
+	fn submit_encoded_xrpl_transaction() -> Weight {
 		Weight::from_ref_time(174_662_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 	}

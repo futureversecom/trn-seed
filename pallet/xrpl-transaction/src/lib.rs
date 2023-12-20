@@ -49,14 +49,14 @@ use sp_runtime::{
 	FixedPointOperand,
 };
 
-use crate::types::{ExtrinsicMemoData, XUMMTransaction};
+use crate::types::{ExtrinsicMemoData, XRPLTransaction};
 
 /// The logging target for this pallet
 #[allow(dead_code)]
 pub(crate) const LOG_TARGET: &str = "xrpl-transaction";
 
-/// Checks performed on a XUMM transaction
-pub type XUMMValidations<T> = (
+/// Checks performed on a XRPL transaction
+pub type XRPLValidations<T> = (
 	frame_system::CheckNonZeroSender<T>,
 	frame_system::CheckSpecVersion<T>,
 	frame_system::CheckTxVersion<T>,
@@ -81,18 +81,18 @@ impl<T> Call<T>
 {
 
 	pub fn is_self_contained(&self) -> bool {
-		matches!(self, Call::submit_encoded_xumm_transaction { .. })
+		matches!(self, Call::submit_encoded_xrpl_transaction { .. })
 	}
 
 	/// Checks if the extrinsic is self-contained.
 	/// An error returned here will not be reported to the caller,
 	/// implying that the caller will be waiting indefinitely for a transaction.
 	pub fn check_self_contained(&self) -> Option<Result<H160, TransactionValidityError>> {
-		if let Call::submit_encoded_xumm_transaction { encoded_msg, .. } = self {
+		if let Call::submit_encoded_xrpl_transaction { encoded_msg, .. } = self {
 			let check = || {
-				let tx: XUMMTransaction = XUMMTransaction::try_from(encoded_msg.as_bytes_ref())
+				let tx: XRPLTransaction = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
 					.map_err(|e| {
-						log::error!("⛔️ failed to convert encoded_msg to XUMMTransaction: {:?}", e);
+						log::error!("⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
 						InvalidTransaction::Call
 					})?;
 				let origin = tx.get_account().map_err(|e| {
@@ -107,9 +107,9 @@ impl<T> Call<T>
 						InvalidTransaction::Call
 					})?
 					.call;
-				let call = Pallet::<T>::get_runtime_call_from_xumm_extrinsic(&call_data)
+				let call = Pallet::<T>::get_runtime_call_from_xrpl_extrinsic(&call_data)
 					.map_err(|e| {
-						log::error!("⛔️ failed to get runtime call from xumm extrinsic: {:?}", e);
+						log::error!("⛔️ failed to get runtime call from xrpl extrinsic: {:?}", e);
 						InvalidTransaction::Call
 					})?;
 				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call) {
@@ -134,7 +134,7 @@ impl<T> Call<T>
 		_dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		_len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
-		if let Call::submit_encoded_xumm_transaction { .. } = self {
+		if let Call::submit_encoded_xrpl_transaction { .. } = self {
 			// pre dispatch will be done within the `apply_self_contained`` below.
 			Ok(()).into()
 		} else {
@@ -148,10 +148,10 @@ impl<T> Call<T>
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<TransactionValidity> {
-		if let Call::submit_encoded_xumm_transaction { encoded_msg, signature } = self {
-			let tx = XUMMTransaction::try_from(encoded_msg.as_bytes_ref())
+		if let Call::submit_encoded_xrpl_transaction { encoded_msg, signature } = self {
+			let tx = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
 				.map_err(|e| {
-					log::error!("⛔️ failed to convert encoded_msg to XUMMTransaction: {:?}", e);
+					log::error!("⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
 					e
 				})
 				.ok()?;
@@ -163,15 +163,15 @@ impl<T> Call<T>
 				.ok()?;
 
 			// ensure inner nested call is not the same call
-			let call = Pallet::<T>::get_runtime_call_from_xumm_extrinsic(&call)
+			let call = Pallet::<T>::get_runtime_call_from_xrpl_extrinsic(&call)
 				.map_err(|e| {
-					log::error!("⛔️ failed to get runtime call from xumm extrinsic: {:?}", e);
+					log::error!("⛔️ failed to get runtime call from xrpl extrinsic: {:?}", e);
 					e
 				})
 				.ok()?;
 
-			if let Some(Call::submit_encoded_xumm_transaction { .. }) = call.is_sub_type() {
-        log::error!("⛔️ cannot nest submit_encoded_xumm_transaction call");
+			if let Some(Call::submit_encoded_xrpl_transaction { .. }) = call.is_sub_type() {
+        log::error!("⛔️ cannot nest submit_encoded_xrpl_transaction call");
         return None;
     	}
 
@@ -190,7 +190,7 @@ impl<T> Call<T>
 				return None;
 			}
 
-			let validations: XUMMValidations<T> = (
+			let validations: XRPLValidations<T> = (
 				CheckNonZeroSender::new(),
 				CheckSpecVersion::<T>::new(),
 				CheckTxVersion::<T>::new(),
@@ -229,11 +229,11 @@ impl<T> Call<T>
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<<T as Config>::RuntimeCall>>> {
-		if let Some(Call::submit_encoded_xumm_transaction { encoded_msg, .. }) = call.is_sub_type() {
+		if let Some(Call::submit_encoded_xrpl_transaction { encoded_msg, .. }) = call.is_sub_type() {
 			// Pre Dispatch
-			let tx = XUMMTransaction::try_from(encoded_msg.as_bytes_ref())
+			let tx = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
 				.map_err(|e| {
-					log::error!("⛔️ failed to convert encoded_msg to XUMMTransaction: {:?}", e);
+					log::error!("⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
 					InvalidTransaction::Call
 				})
 				.ok()?;
@@ -244,7 +244,7 @@ impl<T> Call<T>
 				})
 				.ok()?;
 			// validation instances for this extrinsic; these are responsible for potential state changes
-			let validations: XUMMValidations<T> = (
+			let validations: XRPLValidations<T> = (
 				CheckNonZeroSender::new(),
 				CheckSpecVersion::<T>::new(),
 				CheckTxVersion::<T>::new(),
@@ -260,7 +260,7 @@ impl<T> Call<T>
 			let post_info = res.map_or_else(|err| err.post_info, |info| info);
 
 			// Post Dispatch
-			<XUMMValidations<T> as SignedExtension>::post_dispatch(
+			<XRPLValidations<T> as SignedExtension>::post_dispatch(
 				Some(pre),
 				dispatch_info,
 				&post_info.into(),
@@ -313,11 +313,11 @@ pub mod pallet {
 			+ Into<<Self as frame_system::Config>::RuntimeOrigin>
 			+ IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
 
-		/// The maximum bounded length for the XUMM signed message/transaction.
+		/// The maximum bounded length for the XRPL signed message/transaction.
 		#[pallet::constant]
 		type MaxMessageLength: Get<u32>;
 
-		/// The maximum bounded length for the XUMM signature.
+		/// The maximum bounded length for the XRPL signature.
 		#[pallet::constant]
 		type MaxSignatureLength: Get<u32>;
 
@@ -327,20 +327,20 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Failed to decode XUMM transaction
-		DecodeXUMMTransaction,
-		/// Failed to get account from XUMM transaction
-		DecodeXUMMTransactionAccount,
-		/// Failed to decode XUMM transaction extrinsic data
-		DecodeXUMMTransactionExtrinsicData,
-		/// Failed to decode XUMM transaction memo data
-		DecodeXUMMTransactionMemoData,
-		/// XUMM transaction extrinsic not found
-		XUMMTransactionExtrinsicNotFound,
-		/// XUMM tranaction extrinsic length is invalid
-		XUMMTransactionExtrinsicLengthInvalid,
-		/// Cannot decode XUMM extrinsic call
-		CannotDecodeXUMMExtrinsicCall,
+		/// Failed to decode XRPL transaction
+		XRPLTransaction,
+		/// Failed to get account from XRPL transaction
+		XRPLTransactionAccount,
+		/// Failed to decode XRPL transaction extrinsic data
+		XRPLTransactionExtrinsicData,
+		/// Failed to decode XRPL transaction memo data
+		XRPLTransactionMemoData,
+		/// XRPL transaction extrinsic not found
+		XRPLTransactionExtrinsicNotFound,
+		/// XRPL tranaction extrinsic length is invalid
+		XRPLTransactionExtrinsicLengthInvalid,
+		/// Cannot decode XRPL extrinsic call
+		CannotDecodeXRPLExtrinsicCall,
 		/// Account nonce mismatch
 		NonceMismatch,
 		/// Max block number exceeded
@@ -353,8 +353,8 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
-		/// XUMM transaction with encoded extrinsic executed
-		XUMMExtrinsicExecuted {
+		/// XRPL transaction with encoded extrinsic executed
+		XRPLExtrinsicExecuted {
 			public_key: [u8; 33],
 			caller: T::AccountId,
 			call: <T as pallet::Config>::RuntimeCall,
@@ -377,7 +377,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `origin`: The origin of the call; must be `None` - as this is an unsigned extrinsic.
-		/// - `encoded_msg`: The encoded, verified XUMM transaction.
+		/// - `encoded_msg`: The encoded, verified XRPL transaction.
 		///
 		/// # <weight>
 		/// Weight is multipled by 2 to roughly reflect the amount of work done
@@ -386,22 +386,22 @@ pub mod pallet {
 		/// # </weight>
 		#[pallet::weight({
 			let encoded_msg_len = encoded_msg.len() as u64;
-			T::WeightInfo::submit_encoded_xumm_transaction()
+			T::WeightInfo::submit_encoded_xrpl_transaction()
 				.saturating_mul(2)
 				.saturating_add(Weight::from_ref_time(encoded_msg_len * 1_000_000u64))
 		})]
 		#[transactional]
-		pub fn submit_encoded_xumm_transaction(
+		pub fn submit_encoded_xrpl_transaction(
 			origin: OriginFor<T>,
 			encoded_msg: BoundedVec<u8, T::MaxMessageLength>,
 			_signature: BoundedVec<u8, T::MaxSignatureLength>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 
-			let tx: XUMMTransaction = XUMMTransaction::try_from(encoded_msg.as_bytes_ref())
+			let tx: XRPLTransaction = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
 				.map_err(|e| {
-					log::error!("⛔️ failed to convert encoded_msg to XUMMTransaction: {:?}", e);
-					Error::<T>::DecodeXUMMTransaction
+					log::error!("⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
+					Error::<T>::XRPLTransaction
 				})?;
 
 			let public_key = tx.get_public_key().map_err(|e| {
@@ -410,7 +410,7 @@ pub mod pallet {
 					tx.memos,
 					e
 				);
-				Error::<T>::DecodeXUMMTransactionAccount
+				Error::<T>::XRPLTransactionAccount
 			})?;
 			let who: T::AccountId = tx
 				.get_account()
@@ -420,7 +420,7 @@ pub mod pallet {
 						tx.account,
 						e
 					);
-					Error::<T>::DecodeXUMMTransactionAccount
+					Error::<T>::XRPLTransactionAccount
 				})?
 				.into();
 
@@ -430,14 +430,14 @@ pub mod pallet {
 					tx.memos,
 					e
 				);
-				Error::<T>::DecodeXUMMTransactionExtrinsicData
+				Error::<T>::XRPLTransactionExtrinsicData
 			})?;
 
 			let dispatch_origin = T::RuntimeOrigin::from(RawOrigin::Signed(who.clone()));
-			let call = Self::get_runtime_call_from_xumm_extrinsic(&call)?;
+			let call = Self::get_runtime_call_from_xrpl_extrinsic(&call)?;
 			call.clone().dispatch(dispatch_origin).map_err(|e| e.error)?;
 
-			Self::deposit_event(Event::XUMMExtrinsicExecuted { public_key, caller: who, call });
+			Self::deposit_event(Event::XRPLExtrinsicExecuted { public_key, caller: who, call });
 			Ok(().into())
 		}
 	}
@@ -453,19 +453,19 @@ pub mod pallet {
 		///
 		/// # Returns
 		/// The `RuntimeCall` that is encoded in the memo data.
-		pub fn get_runtime_call_from_xumm_extrinsic(
+		pub fn get_runtime_call_from_xrpl_extrinsic(
 			scale_encoded_extrinsic: &[u8],
 		) -> Result<<T as pallet::Config>::RuntimeCall, DispatchError> {
 			ensure!(
 				scale_encoded_extrinsic.len() >= 4,
-				Error::<T>::XUMMTransactionExtrinsicLengthInvalid
+				Error::<T>::XRPLTransactionExtrinsicLengthInvalid
 			);
 
 			let call =
 				<T as pallet::Config>::RuntimeCall::decode(&mut &scale_encoded_extrinsic[2..])
 					.map_err(|e| {
 						log::warn!("⛔️ Failed to decode the call: {:?}", e);
-						Error::<T>::CannotDecodeXUMMExtrinsicCall
+						Error::<T>::CannotDecodeXRPLExtrinsicCall
 					})?;
 			Ok(call)
 		}

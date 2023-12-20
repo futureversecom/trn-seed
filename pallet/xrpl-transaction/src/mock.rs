@@ -21,7 +21,7 @@ use seed_primitives::{AccountId, Address, AssetId, Balance, Signature};
 use sp_core::H256;
 use sp_runtime::{generic, testing::Header, traits::LookupError};
 
-pub type SignedExtra = XUMMValidations<Test>;
+pub type SignedExtra = XRPLValidations<Test>;
 pub type UncheckedExtrinsicT =
 	fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 pub type BlockT = generic::Block<Header, UncheckedExtrinsicT>;

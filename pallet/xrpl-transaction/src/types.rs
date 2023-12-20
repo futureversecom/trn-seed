@@ -9,13 +9,13 @@ use xrpl_binary_codec::{
 };
 use xrpl_types::{serialize::Serialize, types::TransactionCommon};
 
-/// The memo type data to be hex encoded in XUMM transaction for extrinsic calls.
+/// The memo type data to be hex encoded in XRPL transaction for extrinsic calls.
 pub const MEMO_TYPE_EXTRINSIC: &str = "extrinsic";
 
 /// Length of half a sha512 hash.
 pub const SHA512_HASH_LENGTH: usize = 32;
 
-/// The extracted extrinsic data from the XUMM transaction memos list.
+/// The extracted extrinsic data from the XRPL transaction memos list.
 #[derive(Debug)]
 pub struct ExtrinsicMemoData {
 	pub nonce: u32,
@@ -65,7 +65,7 @@ pub struct MemoElmRaw {
 }
 #[derive(Debug, Default, PartialEq, serde::Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct XUMMTransaction {
+pub struct XRPLTransaction {
 	pub account: String,
 	#[serde(rename = "AccountTxnID")]
 	pub account_txn_id: String,
@@ -73,8 +73,8 @@ pub struct XUMMTransaction {
 	#[serde(rename = "SigningPubKey")]
 	pub signing_pub_key: String,
 }
-impl XUMMTransaction {
-	/// Retrieves the public key from the `signing_pub_key` in the XUMM transaction.
+impl XRPLTransaction {
+	/// Retrieves the public key from the `signing_pub_key` in the XRPL transaction.
 	pub fn get_public_key(&self) -> Result<[u8; 33], &'static str> {
 		let pub_key: [u8; 33] = hex::decode(&self.signing_pub_key)
 			.map_err(|_| "Error decoding hex string")?
@@ -83,7 +83,7 @@ impl XUMMTransaction {
 		Ok(pub_key)
 	}
 
-	/// Derives the account (H160) from the `signing_pub_key` in the XUMM transaction.
+	/// Derives the account (H160) from the `signing_pub_key` in the XRPL transaction.
 	pub fn get_account(&self) -> Result<H160, &'static str> {
 		let account_bytes = self.get_public_key()?;
 		let public = Public::from_raw(account_bytes);
@@ -91,7 +91,7 @@ impl XUMMTransaction {
 		Ok(account.into())
 	}
 
-	/// Extracts the extrinsic data from the memos in the XUMM transaction.
+	/// Extracts the extrinsic data from the memos in the XRPL transaction.
 	/// Finds the memos in the list where the memo type is `extrinsic`; and
 	/// extracts the `nonce`, `max_block_number` and call from the memo data.
 	/// The memo data is hex encoded with the following format (string):
@@ -125,7 +125,7 @@ impl XUMMTransaction {
 		Err("no extrinsic call found in memos")
 	}
 
-	/// Converts the `XUMMTransaction` (self) to `TransactionCommon` (from SDK), re-serializes and
+	/// Converts the `XRPLTransaction` (self) to `TransactionCommon` (from SDK), re-serializes and
 	/// encodes the transaction with hex prefix to be verified by `libsecp256k1`, given the
 	/// signature.
 	pub fn verify_transaction(&self, signature: &[u8]) -> Result<bool, &'static str> {
@@ -156,7 +156,7 @@ impl XUMMTransaction {
 		Ok(success)
 	}
 }
-impl TryFrom<&[u8]> for XUMMTransaction {
+impl TryFrom<&[u8]> for XRPLTransaction {
 	type Error = &'static str;
 
 	fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
@@ -164,12 +164,12 @@ impl TryFrom<&[u8]> for XUMMTransaction {
 		let tx_json = deserializer
 			.to_json(&TypeCode::Object, &value)
 			.map_err(|_e| "failed to convert encoded_msg to json value")?;
-		let tx: XUMMTransaction = serde_json::from_value(tx_json)
+		let tx: XRPLTransaction = serde_json::from_value(tx_json)
 			.map_err(|_e| "failed to deserialize json value of encoded_msg")?;
 		Ok(tx)
 	}
 }
-impl TryInto<TransactionCommon> for &XUMMTransaction {
+impl TryInto<TransactionCommon> for &XRPLTransaction {
 	type Error = &'static str;
 
 	fn try_into(self) -> Result<TransactionCommon, Self::Error> {
@@ -211,10 +211,10 @@ mod tests {
 	use sp_core::hexdisplay::AsBytesRef;
 
 	#[test]
-	fn decode_xumm_transaction_blob() {
+	fn decode_xrpl_transaction_blob() {
 		let tx_blob = "5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A74473045022100FB7583772B8F348F4789620C5571146B6517887AC231B38E29D7688D73F9D2510220615DC87698A2BA64DF2CA83BD9A214002F74C2D615CA20E328AC4AB5E4CDE8BC811424A53BB5CAAD40A961836FEF648E8424846EC75AF9EA7C1F687474703A2F2F6578616D706C652E636F6D2F6D656D6F2F67656E657269637D0472656E74E1F1";
 		let tx_blob_bytes = hex::decode(tx_blob).unwrap();
-		let tx_want = XUMMTransaction {
+		let tx_want = XRPLTransaction {
 			account_txn_id: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580"
 				.into(),
 			signing_pub_key: "02A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A"
@@ -228,14 +228,14 @@ mod tests {
 				},
 			}],
 		};
-		let tx_got = XUMMTransaction::try_from(tx_blob_bytes.as_bytes_ref()).unwrap();
+		let tx_got = XRPLTransaction::try_from(tx_blob_bytes.as_bytes_ref()).unwrap();
 		assert_eq!(tx_want, tx_got);
 	}
 
 	#[test]
 	fn verification() {
 		let signature = "3045022100FB7583772B8F348F4789620C5571146B6517887AC231B38E29D7688D73F9D2510220615DC87698A2BA64DF2CA83BD9A214002F74C2D615CA20E328AC4AB5E4CDE8BC";
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			account_txn_id: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580"
 				.into(),
 			signing_pub_key: "02A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A"
@@ -255,8 +255,8 @@ mod tests {
 	}
 
 	#[test]
-	fn xumm_public_key() {
-		let tx = XUMMTransaction {
+	fn xrpl_public_key() {
+		let tx = XRPLTransaction {
 			signing_pub_key: "02A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A"
 				.into(),
 			..Default::default()
@@ -276,8 +276,8 @@ mod tests {
 	}
 
 	#[test]
-	fn xumm_public_key_to_ethereum_account() {
-		let tx = XUMMTransaction {
+	fn xrpl_public_key_to_ethereum_account() {
+		let tx = XRPLTransaction {
 			signing_pub_key: "02A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A"
 				.into(),
 			..Default::default()
@@ -288,7 +288,7 @@ mod tests {
 
 	#[test]
 	fn get_extrinsic_data_failure_cases() {
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: "some unsupported type".into(),
@@ -300,7 +300,7 @@ mod tests {
 		assert!(tx.get_extrinsic_data().is_err());
 		assert_eq!("failed to decode memo_type as hex", tx.get_extrinsic_data().unwrap_err());
 
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: "extrinsic".into(),
@@ -312,7 +312,7 @@ mod tests {
 		assert!(tx.get_extrinsic_data().is_err());
 		assert_eq!("failed to decode memo_type as hex", tx.get_extrinsic_data().unwrap_err());
 
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
@@ -324,7 +324,7 @@ mod tests {
 		assert!(tx.get_extrinsic_data().is_err());
 		assert_eq!("failed to decode memo_data as hex", tx.get_extrinsic_data().unwrap_err());
 
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
@@ -336,7 +336,7 @@ mod tests {
 		assert!(tx.get_extrinsic_data().is_err());
 		assert_eq!("failed to parse string as u32", tx.get_extrinsic_data().unwrap_err());
 
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo { memo_type: hex::encode("extrinsic"), memo_data: hex::encode("0:") },
 			}],
@@ -345,7 +345,7 @@ mod tests {
 		assert!(tx.get_extrinsic_data().is_err());
 		assert_eq!("failed to parse string as u32", tx.get_extrinsic_data().unwrap_err());
 
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo { memo_type: hex::encode("extrinsic"), memo_data: hex::encode("0:0") },
 			}],
@@ -354,7 +354,7 @@ mod tests {
 		assert!(tx.get_extrinsic_data().is_err());
 		assert_eq!("failed to get call from memo_data", tx.get_extrinsic_data().unwrap_err());
 
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo { memo_type: hex::encode("extrinsic"), memo_data: hex::encode("0:0:") },
 			}],
@@ -365,7 +365,7 @@ mod tests {
 
 	#[test]
 	fn get_account_nonce_from_extrinsic_data() {
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
@@ -377,7 +377,7 @@ mod tests {
 		assert!(tx.get_extrinsic_data().is_err());
 		assert_eq!("failed to parse string as u32", tx.get_extrinsic_data().unwrap_err());
 
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
@@ -389,7 +389,7 @@ mod tests {
 		assert!(tx.get_extrinsic_data().is_err());
 		assert_eq!("failed to parse string as u32", tx.get_extrinsic_data().unwrap_err());
 
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
@@ -404,7 +404,7 @@ mod tests {
 
 	#[test]
 	fn get_max_block_number_from_extrinsic_data() {
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
@@ -416,7 +416,7 @@ mod tests {
 		assert!(tx.get_extrinsic_data().is_err());
 		assert_eq!("failed to parse string as u32", tx.get_extrinsic_data().unwrap_err());
 
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
@@ -428,7 +428,7 @@ mod tests {
 		assert!(tx.get_extrinsic_data().is_err());
 		assert_eq!("failed to parse string as u32", tx.get_extrinsic_data().unwrap_err());
 
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
@@ -443,7 +443,7 @@ mod tests {
 
 	#[test]
 	fn try_into_transaction_common() {
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo { memo_type: hex::encode("extrinsic"), memo_data: hex::encode("0:0:") },
 			}],
@@ -452,7 +452,7 @@ mod tests {
 		let tx_common_result: Result<TransactionCommon, &'static str> = (&tx).try_into();
 		assert!(tx_common_result.is_err());
 
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			account_txn_id: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580"
 				.into(),
 			memos: vec![MemoElmRaw {
@@ -463,7 +463,7 @@ mod tests {
 		let tx_common_result: Result<TransactionCommon, &'static str> = (&tx).try_into();
 		assert!(tx_common_result.is_err());
 
-		let tx = XUMMTransaction {
+		let tx = XRPLTransaction {
 			account_txn_id: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580"
 				.into(),
 			account: "rhLmGWkHr59h9ffYgPEAqZnqiQZMGb71yo".into(),
