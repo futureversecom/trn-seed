@@ -27,4 +27,4 @@ pub mod pallet_utility;
 pub mod pallet_vortex;
 pub mod pallet_xls20;
 pub mod pallet_xrpl_bridge;
-pub mod pallet_xrpl_transaction;
+pub mod pallet_xrpl;

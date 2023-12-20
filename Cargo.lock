@@ -6198,33 +6198,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-xrpl-bridge"
-version = "0.0.1"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex-literal 0.3.4",
- "log",
- "pallet-assets",
- "pallet-assets-ext",
- "pallet-balances",
- "pallet-timestamp",
- "parity-scale-codec",
- "scale-info",
- "seed-pallet-common",
- "seed-primitives",
- "serde",
- "sp-core",
- "sp-io",
- "sp-keystore",
- "sp-runtime",
- "sp-std",
- "xrpl-codec",
-]
-
-[[package]]
-name = "pallet-xrpl-transaction"
+name = "pallet-xrpl"
 version = "1.0.0-dev"
 dependencies = [
  "fp-self-contained",
@@ -6254,6 +6228,32 @@ dependencies = [
  "sp-std",
  "xrpl_binary_codec",
  "xrpl_types",
+]
+
+[[package]]
+name = "pallet-xrpl-bridge"
+version = "0.0.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal 0.3.4",
+ "log",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std",
+ "xrpl-codec 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9)",
 ]
 
 [[package]]
@@ -8826,8 +8826,8 @@ dependencies = [
  "pallet-utility",
  "pallet-vortex",
  "pallet-xls20",
+ "pallet-xrpl",
  "pallet-xrpl-bridge",
- "pallet-xrpl-transaction",
  "parity-scale-codec",
  "precompile-utils",
  "primitive-types",

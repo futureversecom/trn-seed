@@ -1,4 +1,4 @@
-# XRPL Transaction pallet
+# XRPL pallet
 
 This pallet allows for the submission of signed XRPL transactions of the [`SignIn`](https://docs.xumm.dev/concepts/special-transaction-types) type by the Xaman mobile wallet to be submitted to the chain.
 

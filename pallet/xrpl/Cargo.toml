@@ -1,10 +1,10 @@
 [package]
-name = "pallet-xrpl-transaction"
+name = "pallet-xrpl"
 version = "1.0.0-dev"
 authors = ["The Root Network Team"]
 edition = "2021"
 license = "GPL-3.0"
-description = "XRPL Transaction Pallet"
+description = "XRPL Pallet"
 repository = "https://github.com/futureversecom/trn-seed"
 
 [package.metadata.docs.rs]

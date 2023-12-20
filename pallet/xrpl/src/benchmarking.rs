@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use crate::Pallet as XrplTransaction;
+use crate::Pallet as Xrpl;
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 
@@ -43,7 +43,7 @@ benchmarks! {
 }
 
 impl_benchmark_test_suite!(
-	XrplTransaction,
+	Xrpl,
 	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default().build(),
 	crate::mock::Test
 );

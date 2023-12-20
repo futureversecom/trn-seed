@@ -483,7 +483,7 @@ impl StaticLookup for FuturepassLookup {
 	}
 }
 impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {
-	type Call = <Runtime as pallet_xrpl_transaction::Config>::RuntimeCall;
+	type Call = <Runtime as pallet_xrpl::Config>::RuntimeCall;
 	fn check_extrinsic(call: &Self::Call) -> bool {
 		matches!(call, RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. }))
 	}

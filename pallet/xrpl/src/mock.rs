@@ -13,7 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{self as pallet_xrpl_transaction, *};
+use crate::{self as pallet_xrpl, *};
 use frame_support::{parameter_types, weights::WeightToFee, PalletId};
 use frame_system::EnsureRoot;
 use seed_pallet_common::test_prelude::*;
@@ -38,7 +38,7 @@ frame_support::construct_runtime!(
 		AssetsExt: pallet_assets_ext,
 		TransactionPayment: pallet_transaction_payment,
 		FeeControl: pallet_fee_control,
-		XrplTransaction: pallet_xrpl_transaction,
+		Xrpl: pallet_xrpl,
 	}
 );
 
@@ -113,14 +113,14 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 
 	fn is_self_contained(&self) -> bool {
 		match self {
-			RuntimeCall::XrplTransaction(call) => call.is_self_contained(),
+			RuntimeCall::Xrpl(call) => call.is_self_contained(),
 			_ => false,
 		}
 	}
 
 	fn check_self_contained(&self) -> Option<Result<Self::SignedInfo, TransactionValidityError>> {
 		match self {
-			RuntimeCall::XrplTransaction(call) => call.check_self_contained(),
+			RuntimeCall::Xrpl(call) => call.check_self_contained(),
 			_ => None,
 		}
 	}
@@ -132,7 +132,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<TransactionValidity> {
 		match self {
-			RuntimeCall::XrplTransaction(ref call) =>
+			RuntimeCall::Xrpl(ref call) =>
 				call.validate_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
@@ -145,7 +145,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
 		match self {
-			RuntimeCall::XrplTransaction(ref call) =>
+			RuntimeCall::Xrpl(ref call) =>
 				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
@@ -158,8 +158,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
 		match self {
-			RuntimeCall::XrplTransaction(call) =>
-				pallet_xrpl_transaction::Call::<Test>::apply_self_contained(
+			RuntimeCall::Xrpl(call) =>
+				pallet_xrpl::Call::<Test>::apply_self_contained(
 					call.into(),
 					&info,
 					&dispatch_info,

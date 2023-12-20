@@ -53,7 +53,7 @@ use crate::types::{ExtrinsicMemoData, XRPLTransaction};
 
 /// The logging target for this pallet
 #[allow(dead_code)]
-pub(crate) const LOG_TARGET: &str = "xrpl-transaction";
+pub(crate) const LOG_TARGET: &str = "xrpl";
 
 /// Checks performed on a XRPL transaction
 pub type XRPLValidations<T> = (

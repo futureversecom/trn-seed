@@ -96,7 +96,7 @@ pallet-sft-rpc-runtime-api = { path = "../pallet/sft/rpc/runtime-api", default-f
 pallet-token-approvals = { path = "../pallet/token-approvals", default-features = false }
 pallet-tx-fee-pot = { path = "../pallet/tx-fee-pot", default-features = false }
 pallet-xrpl-bridge = { path = "../pallet/xrpl-bridge", default-features = false }
-pallet-xrpl-transaction = { path = "../pallet/xrpl-transaction", default-features = false }
+pallet-xrpl = { path = "../pallet/xrpl", default-features = false }
 pallet-erc20-peg = { path = "../pallet/erc20-peg", default-features = false }
 pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
 pallet-fee-control = { path = "../pallet/fee-control", default-features = false }
@@ -193,7 +193,7 @@ std = [
 	"pallet-sft/std",
 	"pallet-sft-rpc-runtime-api/std",
 	"pallet-xrpl-bridge/std",
-	"pallet-xrpl-transaction/std",
+	"pallet-xrpl/std",
 	"pallet-tx-fee-pot/std",
 	"pallet-token-approvals/std",
 	"pallet-xls20/std",
@@ -270,7 +270,7 @@ try-runtime = [
 	"pallet-nft/try-runtime",
 	"pallet-sft/try-runtime",
 	"pallet-xrpl-bridge/try-runtime",
-	"pallet-xrpl-transaction/try-runtime",
+	"pallet-xrpl/try-runtime",
 	"pallet-token-approvals/try-runtime",
 	"pallet-echo/try-runtime",
 	"pallet-tx-fee-pot/try-runtime",
@@ -317,7 +317,7 @@ runtime-benchmarks = [
 	"pallet-nft/runtime-benchmarks",
 	"pallet-sft/runtime-benchmarks",
 	"pallet-xrpl-bridge/runtime-benchmarks",
-	"pallet-xrpl-transaction/runtime-benchmarks",
+	"pallet-xrpl/runtime-benchmarks",
 	"pallet-dex/runtime-benchmarks",
 	"pallet-fee-control/runtime-benchmarks",
 	"pallet-nft-peg/runtime-benchmarks",
