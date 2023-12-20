@@ -20,23 +20,22 @@ pub use pallet::*;
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
-use sp_core::{ecdsa, H160, H512};
+use sp_core::{ecdsa, H160};
+use sp_io::hashing::keccak_256;
 use sp_runtime::FixedPointOperand;
 
 use alloc::{boxed::Box, vec::Vec};
 use doughnut_rs::{
-	signature::{SignatureVersion, verify_signature},
-	traits::{DoughnutApi, DoughnutVerify},
 	doughnut::Doughnut,
+	signature::{verify_signature, SignatureVersion},
+	traits::{DoughnutApi, DoughnutVerify},
 };
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	traits::IsSubType,
 };
 use frame_system::{CheckNonZeroSender, CheckNonce, CheckWeight};
-use hex_literal::hex;
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
-use seed_pallet_common::logger::info;
 use seed_primitives::AccountId20;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
@@ -68,11 +67,11 @@ impl<T> Call<T>
 		<T as frame_system::Config>::Index: From<u32>,
 {
 	pub fn is_self_contained(&self) -> bool {
-		matches!(self, Call::transact { call, doughnut, nonce, signature })
+		matches!(self, Call::transact { .. })
 	}
 
 	pub fn check_self_contained(&self) -> Option<Result<H160, TransactionValidityError>> {
-		if let Call::transact { call, doughnut, nonce, signature } = self {
+		if let Call::transact { doughnut, signature, .. } = self {
 			let check = || {
 				// run doughnut common validations
 				let Ok(Doughnut::V1(doughnut_v1)) = Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -121,7 +120,7 @@ impl<T> Call<T>
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<TransactionValidity> {
-		if let Call::transact { call, doughnut, nonce, signature } = self {
+		if let Call::transact { call, doughnut, nonce, .. } = self {
 			// Doughnut work
 			// run doughnut common validations
 			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -175,7 +174,7 @@ impl<T> Call<T>
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<<T as Config>::RuntimeCall>>> {
 
-		if let Some(Call::transact { call: _inner_call, doughnut, nonce, signature }) = call.is_sub_type() {
+		if let Some(Call::transact { doughnut, nonce, .. }) = call.is_sub_type() {
 			// Doughnut work
 			// run doughnut common validations
 			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -199,7 +198,7 @@ impl<T> Call<T>
 				CheckNonZeroSender::new(),
 				CheckNonce::from(nonce.clone().into()),
 			);
-			let pre_sender = SignedExtension::pre_dispatch(validations_sender, &sender_address, &call.clone().into(), dispatch_info, len).ok()?;
+			let _pre_sender = SignedExtension::pre_dispatch(validations_sender, &sender_address, &call.clone().into(), dispatch_info, len).ok()?;
 			let pre_issuer = SignedExtension::pre_dispatch(validations_issuer, &issuer_address, &call.clone().into(), dispatch_info, len).ok()?;
 
 			// Dispatch
@@ -228,8 +227,6 @@ impl<T> Call<T>
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use doughnut_rs::traits::DoughnutApi;
-	use sp_core::ecdsa;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
@@ -255,6 +252,22 @@ pub mod pallet {
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
 	}
 
+	/// Map from collection to its public minting information
+	#[pallet::storage]
+	pub type BlockedDoughnuts<T: Config> = StorageMap<_, Twox64Concat, [u8; 32], bool, ValueQuery>;
+
+	// Double map from issuer to blocked holder
+	#[pallet::storage]
+	pub type BlockedHolders<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		Twox64Concat,
+		T::AccountId,
+		bool,
+		ValueQuery,
+	>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config>
@@ -274,6 +287,12 @@ pub mod pallet {
 		DoughnutVerifyFailed,
 		/// Sender is not authorized to use the doughnut
 		UnauthorizedSender,
+		/// Cannot revoke doughnut that does was issued by another account
+		CallerNotIssuer,
+		/// The doughnut has been revoked by the issuer
+		DoughnutRevoked,
+		/// The holder address has been revoked by the issuer
+		HolderRevoked,
 	}
 
 	#[pallet::hooks]
@@ -292,32 +311,79 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
 			doughnut: Vec<u8>,
-			nonce: u32,
-			signature: Vec<u8>,
+			_nonce: u32,
+			_signature: Vec<u8>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin.clone())?;
 
 			// run doughnut common validations
-			let Ok(Doughnut::V1(doughnut_v1)) = Self::run_doughnut_common_validations(doughnut) else {
+			let Ok(Doughnut::V1(doughnut_v1)) = Self::run_doughnut_common_validations(doughnut.clone()) else {
 				return Err(Error::<T>::UnsupportedDoughnutVersion)?;
 			};
 
 			// verify the doughnut
 			doughnut_v1.verify().map_err(|_| Error::<T>::DoughnutVerifyFailed)?;
 
-			// TODO: Validate the doughnut, for now we just check sender == bearer
-			// doughnut_v0.validate(sender., <frame_system::Pallet<T>>::block_number())?;
+			// Check holder == sender
+			let issuer_address = Self::get_address(doughnut_v1.issuer)?;
 			let holder_address = Self::get_address(doughnut_v1.holder)?;
 			ensure!(holder_address == sender, Error::<T>::UnauthorizedSender);
 
+			// Ensure doughnut is not revoked
+			let doughnut_hash = keccak_256(&doughnut);
+			ensure!(!BlockedDoughnuts::<T>::get(doughnut_hash), Error::<T>::DoughnutRevoked);
+
+			// Ensure holder is not revoked
+			ensure!(
+				!BlockedHolders::<T>::get(issuer_address.clone(), holder_address.clone()),
+				Error::<T>::HolderRevoked
+			);
+
 			// dispatch the inner call
-			let issuer_address = Self::get_address(doughnut_v1.issuer)?;
 			let issuer_origin = frame_system::RawOrigin::Signed(issuer_address).into();
 			let e = call.dispatch(issuer_origin);
 			Self::deposit_event(Event::<T>::DoughnutCallExecuted {
 				result: e.map(|_| ()).map_err(|e| e.error),
 			});
 
+			Ok(())
+		}
+
+		/// Block a specific doughnut to be used
+		#[pallet::weight(0 as u64)]
+		pub fn revoke_doughnut(
+			origin: OriginFor<T>,
+			doughnut: Vec<u8>,
+			revoke: bool,
+		) -> DispatchResult {
+			let who = ensure_signed(origin.clone())?;
+			// run doughnut common validations
+			let Ok(Doughnut::V1(doughnut_v1)) = Self::run_doughnut_common_validations(doughnut.clone()) else {
+				return Err(Error::<T>::UnsupportedDoughnutVersion)?;
+			};
+			// Only the issuer of the doughnut can revoke the doughnut
+			ensure!(who == Self::get_address(doughnut_v1.issuer)?, Error::<T>::CallerNotIssuer);
+			let doughnut_hash = keccak_256(&doughnut);
+			match revoke {
+				true => BlockedDoughnuts::<T>::insert(doughnut_hash, true),
+				false => BlockedDoughnuts::<T>::remove(doughnut_hash),
+			}
+
+			Ok(())
+		}
+
+		/// Block a holder from executing any doughnuts from a specific issuer
+		#[pallet::weight(0 as u64)]
+		pub fn revoke_holder(
+			origin: OriginFor<T>,
+			holder: T::AccountId,
+			revoke: bool,
+		) -> DispatchResult {
+			let who = ensure_signed(origin.clone())?;
+			match revoke {
+				true => BlockedHolders::<T>::insert(who, holder, true),
+				false => BlockedHolders::<T>::remove(who, holder),
+			}
 			Ok(())
 		}
 	}
@@ -341,7 +407,7 @@ where
 			.map_err(|_| Error::<T>::DoughnutDecodeFailed)?;
 
 		// only supports v1 for now
-		let Doughnut::V1(doughnut_v1) = doughnut_decoded.clone() else {
+		let Doughnut::V1(_) = doughnut_decoded.clone() else {
 			return Err(Error::<T>::UnsupportedDoughnutVersion)?;
 		};
 
