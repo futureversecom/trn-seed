@@ -3,18 +3,18 @@ import type { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { Wallet } from "ethers";
+import { computePublicKey } from "ethers/lib/utils";
 import { encode, encodeForSigning } from "ripple-binary-codec";
 import { deriveAddress, sign } from "ripple-keypairs";
 
-import { ALITH_PRIVATE_KEY, GAS_TOKEN_ID, NodeProcess, finalizeTx, startNode, typedefs } from "../common";
-
-const stringToHex = (str: string) => str.split("").map(c => c.charCodeAt(0).toString(16)).join("");
+import { ALITH_PRIVATE_KEY, GAS_TOKEN_ID, NodeProcess, finalizeTx, startNode, stringToHex, typedefs } from "../common";
 
 describe("XRPL pallet", () => {
   let node: NodeProcess;
 
   let api: ApiPromise;
   let alith: KeyringPair;
+  let chainId: number;
 
   before(async () => {
     node = await startNode();
@@ -23,12 +23,14 @@ describe("XRPL pallet", () => {
     const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     alith = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
+    chainId = +(await api.query.evmChainId.chainId());
   });
 
   after(async () => await node.stop());
 
   it("can submit system remark extrinsic", async () => {
     const user = Wallet.createRandom();
+    const publicKey = computePublicKey(user.publicKey, true);
 
     // fund the user account to pay for tx fees
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 1_000_000));
@@ -36,21 +38,22 @@ describe("XRPL pallet", () => {
     const extrinsic = api.tx.system.remark("hello world");
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
-    const xrpBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const xrpBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
 
     const xamanJsonTx = {
       AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
-      SigningPubKey: user.publicKey.slice(2),
-      Account: deriveAddress(user.publicKey.slice(2)),
+      SigningPubKey: publicKey.slice(2),
+      Account: deriveAddress(publicKey.slice(2)),
       Memos: [
         {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`0:${maxBlockNumber}:${extrinsic.toHex().slice(2)}`),
-          }
-        }
-      ]
+            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:${extrinsic.toHex().slice(2)}`),
+          },
+        },
+      ],
     };
 
     // sign xaman tx
@@ -61,13 +64,15 @@ describe("XRPL pallet", () => {
     const cost = await api.tx.xrpl
       .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`)
       .paymentInfo(user.address);
-    expect(cost.partialFee.toNumber()).to.be.greaterThan(780_000).and.lessThan(790_000);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(790_000).and.lessThan(800_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
-      await api.tx.xrpl.submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`).send(({ events = [], status }) => {
-        if (status.isInBlock) resolve(events);
-      });
+      await api.tx.xrpl
+        .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`)
+        .send(({ events = [], status }) => {
+          if (status.isInBlock) resolve(events);
+        });
     });
 
     // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
@@ -86,7 +91,7 @@ describe("XRPL pallet", () => {
     index += 1;
     expect(events[index].event.section).to.equal("xrpl");
     expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
-    expect(events[index].event.data[0].toString()).to.equal(user.publicKey);
+    expect(events[index].event.data[0].toString()).to.equal(publicKey);
     expect(events[index].event.data[1].toString()).to.equal(user.address);
 
     // assetsExt InternalDeposit [2,"0x6D6F646c7478666565706F740000000000000000",557511]
@@ -105,9 +110,12 @@ describe("XRPL pallet", () => {
     expect(events[index].event.method).to.equal("ExtrinsicSuccess");
 
     // assert balance after < balance before (tx fee must be paid)
-    const xrpBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const xrpBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
-    expect(xrpBalanceBefore - xrpBalanceAfter).to.greaterThan(550_000).and.lessThan(561_000);
+    expect(xrpBalanceBefore - xrpBalanceAfter)
+      .to.greaterThan(565_000)
+      .and.lessThan(580_000);
 
     // assert user nonce is updated (1 tx)
     const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
@@ -116,6 +124,7 @@ describe("XRPL pallet", () => {
 
   it("can submit assets transfer extrinsic", async () => {
     const user = Wallet.createRandom();
+    const publicKey = computePublicKey(user.publicKey, true);
 
     // fund the user account first (so it can transfer back to alice)
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 10_000_000));
@@ -123,21 +132,22 @@ describe("XRPL pallet", () => {
     const extrinsic = api.tx.assets.transfer(GAS_TOKEN_ID, alith.address, 1000);
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
-    const xrpBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const xrpBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
 
     const xamanJsonTx = {
       AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
-      SigningPubKey: user.publicKey.slice(2),
-      Account: deriveAddress(user.publicKey.slice(2)),
+      SigningPubKey: publicKey.slice(2),
+      Account: deriveAddress(publicKey.slice(2)),
       Memos: [
         {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`0:${maxBlockNumber}:${extrinsic.toHex().slice(2)}`),
-          }
-        }
-      ]
+            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:${extrinsic.toHex().slice(2)}`),
+          },
+        },
+      ],
     };
 
     // sign xaman tx
@@ -152,9 +162,11 @@ describe("XRPL pallet", () => {
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
-      await api.tx.xrpl.submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`).send(({ events = [], status }) => {
-        if (status.isInBlock) resolve(events);
-      });
+      await api.tx.xrpl
+        .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`)
+        .send(({ events = [], status }) => {
+          if (status.isInBlock) resolve(events);
+        });
     });
 
     // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
@@ -181,7 +193,7 @@ describe("XRPL pallet", () => {
     index += 1;
     expect(events[index].event.section).to.equal("xrpl");
     expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
-    expect(events[index].event.data[0].toString()).to.equal(user.publicKey);
+    expect(events[index].event.data[0].toString()).to.equal(publicKey);
     expect(events[index].event.data[1].toString()).to.equal(user.address);
 
     // assetsExt InternalDeposit [2,"0x6D6F646c7478666565706F740000000000000000",615011]
@@ -202,14 +214,18 @@ describe("XRPL pallet", () => {
     expect(events[index].event.method).to.equal("ExtrinsicSuccess");
 
     // assert balance after < balance before (tx fee must be paid)
-    const xrpBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const xrpBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
-    expect(xrpBalanceBefore - xrpBalanceAfter).to.be.greaterThan(610_000).and.lessThan(620_000);
+    expect(xrpBalanceBefore - xrpBalanceAfter)
+      .to.be.greaterThan(625_000)
+      .and.lessThan(635_000);
   });
 
   it("can proxy futurepass extrinsic", async () => {
     // create futurepass for random user
     const user = Wallet.createRandom();
+    const publicKey = computePublicKey(user.publicKey, true);
 
     // create a futurepass for user
     await finalizeTx(alith, api.tx.futurepass.create(user.address));
@@ -219,26 +235,28 @@ describe("XRPL pallet", () => {
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, futurepassAddress, 10_000_000));
 
     // futurepass balance transfer back to alice - in xaman encoded extrinsic
-    const innerCall = api.tx.assets.transfer(GAS_TOKEN_ID, alith.address, 1000)
+    const innerCall = api.tx.assets.transfer(GAS_TOKEN_ID, alith.address, 1000);
     const extrinsic = api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall);
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
-    const xrpUserBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
-    const xrpFPBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+    const xrpUserBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const xrpFPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
 
     const xamanJsonTx = {
       AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
-      SigningPubKey: user.publicKey.slice(2),
-      Account: deriveAddress(user.publicKey.slice(2)),
+      SigningPubKey: publicKey.slice(2),
+      Account: deriveAddress(publicKey.slice(2)),
       Memos: [
         {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`0:${maxBlockNumber}:${extrinsic.toHex().slice(2)}`),
-          }
-        }
-      ]
+            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:${extrinsic.toHex().slice(2)}`),
+          },
+        },
+      ],
     };
 
     // sign xaman tx
@@ -249,13 +267,15 @@ describe("XRPL pallet", () => {
     const cost = await api.tx.xrpl
       .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`)
       .paymentInfo(user.address);
-    expect(cost.partialFee.toNumber()).to.be.greaterThan(940_000).and.lessThan(960_000);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(955_000).and.lessThan(975_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
-      await api.tx.xrpl.submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`).send(({ events = [], status }) => {
-        if (status.isInBlock) resolve(events);
-      });
+      await api.tx.xrpl
+        .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`)
+        .send(({ events = [], status }) => {
+          if (status.isInBlock) resolve(events);
+        });
     });
 
     // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
@@ -294,7 +314,7 @@ describe("XRPL pallet", () => {
     index += 1;
     expect(events[index].event.section).to.equal("xrpl");
     expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
-    expect(events[index].event.data[0].toString()).to.equal(user.publicKey);
+    expect(events[index].event.data[0].toString()).to.equal(publicKey);
     expect(events[index].event.data[1].toString()).to.equal(user.address);
 
     // assetsExt InternalDeposit [2,"0x6D6F646c7478666565706F740000000000000000",730011]
@@ -314,18 +334,22 @@ describe("XRPL pallet", () => {
     expect(events[index].event.method).to.equal("ExtrinsicSuccess");
 
     // user xrp balance should be the same before and after since futurepass must be paying tx fees
-    const xrpUserBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const xrpUserBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpUserBalanceAfter).to.be.eq(xrpUserBalanceBefore);
 
     // assert futurepass balance after < balance before (tx fee must be paid)
-    const xrpFPBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+    const xrpFPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
     expect(xrpFPBalanceAfter).to.be.lessThan(xrpFPBalanceBefore);
-    expect(xrpFPBalanceBefore - xrpFPBalanceAfter).to.be.greaterThan(720_000).and.lessThan(730_000);
-
+    expect(xrpFPBalanceBefore - xrpFPBalanceAfter)
+      .to.be.greaterThan(735_000)
+      .and.lessThan(745_000);
   });
 
   it("fails proxy futurepass extrinsic if user does not have futurepass", async () => {
     const user = Wallet.createRandom();
+    const publicKey = computePublicKey(user.publicKey, true);
 
     const innerCall = api.tx.system.remark("hello world");
     const extrinsic = api.tx.futurepass.proxyExtrinsic(user.address, innerCall);
@@ -333,17 +357,17 @@ describe("XRPL pallet", () => {
 
     const xamanJsonTx = {
       AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
-      SigningPubKey: user.publicKey.slice(2),
-      Account: deriveAddress(user.publicKey.slice(2)),
+      SigningPubKey: publicKey.slice(2),
+      Account: deriveAddress(publicKey.slice(2)),
       Memos: [
         {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`0:${maxBlockNumber}:${extrinsic.toHex().slice(2)}`),
-          }
-        }
-      ]
+            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:${extrinsic.toHex().slice(2)}`),
+          },
+        },
+      ],
     };
 
     // sign xaman tx
@@ -354,13 +378,14 @@ describe("XRPL pallet", () => {
     let errorFound = false;
     await Promise.race([
       new Promise<any[]>(async (resolve) => {
-        await api.tx.xrpl.submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`).send(({ events = [], status }) => {
-          if (status.isInBlock) resolve(events);
-        });
+        await api.tx.xrpl
+          .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`)
+          .send(({ events = [], status }) => {
+            if (status.isInBlock) resolve(events);
+          });
       }),
-      new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error('timeout error')), 4000))
-    ])
-    .catch((err: any) => {
+      new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error("timeout error")), 4000)),
+    ]).catch((err: any) => {
       errorFound = true;
       expect(err.message).eq("timeout error");
     });
@@ -369,23 +394,24 @@ describe("XRPL pallet", () => {
 
   it("fails if encoded call is nested submitEncodedXrplTransaction extrinsic", async () => {
     const user = Wallet.createRandom();
+    const publicKey = computePublicKey(user.publicKey, true);
 
     const extrinsic = api.tx.xrpl.submitEncodedXrplTransaction(`0x00000000`, `0x00000000`);
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
     const xamanJsonTx = {
       AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
-      SigningPubKey: user.publicKey.slice(2),
-      Account: deriveAddress(user.publicKey.slice(2)),
+      SigningPubKey: publicKey.slice(2),
+      Account: deriveAddress(publicKey.slice(2)),
       Memos: [
         {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`0:${maxBlockNumber}:${extrinsic.toHex().slice(2)}`),
-          }
-        }
-      ]
+            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:${extrinsic.toHex().slice(2)}`),
+          },
+        },
+      ],
     };
 
     // sign xaman tx
@@ -396,13 +422,14 @@ describe("XRPL pallet", () => {
     let errorFound = false;
     await Promise.race([
       new Promise<any[]>(async (resolve) => {
-        await api.tx.xrpl.submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`).send(({ events = [], status }) => {
-          if (status.isInBlock) resolve(events);
-        });
+        await api.tx.xrpl
+          .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`)
+          .send(({ events = [], status }) => {
+            if (status.isInBlock) resolve(events);
+          });
       }),
-      new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error('timeout error')), 4000))
-    ])
-    .catch((err: any) => {
+      new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error("timeout error")), 4000)),
+    ]).catch((err: any) => {
       errorFound = true;
       expect(err.message).eq("timeout error");
     });
