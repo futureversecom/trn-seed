@@ -155,12 +155,16 @@ impl<T> Call<T>
 					e
 				})
 				.ok()?;
-			let ExtrinsicMemoData { nonce, call, max_block_number } = tx.get_extrinsic_data()
+			let ExtrinsicMemoData { chain_id, nonce, call, max_block_number } = tx.get_extrinsic_data()
 				.map_err(|e| {
 					log::error!("⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}", tx.memos, e);
 					e
 				})
 				.ok()?;
+			if chain_id != T::ChainId::get() {
+				log::error!("⛔️ chain id mismatch");
+				return None;
+			}
 
 			// ensure inner nested call is not the same call
 			let call = Pallet::<T>::get_runtime_call_from_xrpl_extrinsic(&call)
@@ -312,6 +316,9 @@ pub mod pallet {
 		type PalletsOrigin: Parameter
 			+ Into<<Self as frame_system::Config>::RuntimeOrigin>
 			+ IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
+
+		/// Chain ID of EVM.
+		type ChainId: Get<u64>;
 
 		/// The maximum bounded length for the XRPL signed message/transaction.
 		#[pallet::constant]

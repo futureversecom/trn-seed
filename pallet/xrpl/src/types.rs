@@ -18,6 +18,7 @@ pub const SHA512_HASH_LENGTH: usize = 32;
 /// The extracted extrinsic data from the XRPL transaction memos list.
 #[derive(Debug)]
 pub struct ExtrinsicMemoData {
+	pub chain_id: u64,
 	pub nonce: u32,
 	pub max_block_number: u32,
 	pub call: Vec<u8>,
@@ -111,6 +112,9 @@ impl XRPLTransaction {
 				// split string by `:`, parse each string to extract nonce, max_block_number and
 				// call data
 				let mut split = hex_decoded_data_str.split(":");
+				let chain_id = split.next().ok_or("failed to get chain_id from memo_data")?;
+				let chain_id =
+					chain_id.parse::<u64>().map_err(|_| "failed to parse string as u64")?;
 				let nonce = split.next().ok_or("failed to get nonce from memo_data")?;
 				let nonce = nonce.parse::<u32>().map_err(|_| "failed to parse string as u32")?;
 				let max_block_number =
@@ -119,7 +123,7 @@ impl XRPLTransaction {
 					max_block_number.parse::<u32>().map_err(|_| "failed to parse string as u32")?;
 				let call = split.next().ok_or("failed to get call from memo_data")?;
 				let call = hex::decode(call).map_err(|_| "failed to decode call as hex")?;
-				return Ok(ExtrinsicMemoData { nonce, max_block_number, call })
+				return Ok(ExtrinsicMemoData { chain_id, nonce, max_block_number, call })
 			}
 		}
 		Err("no extrinsic call found in memos")
