@@ -194,12 +194,18 @@ impl<T> Call<T>
 				CheckWeight::new(),
 				ChargeTransactionPayment::<T>::from(0.into()),
 			);
+			// let validations_fee_payment: GasPaymentValidation<T> = (
+			// 	ChargeTransactionPayment::<T>::from(0.into()),
+			// );
 			let validations_sender: DoughnutSenderValidations<T> = (
 				CheckNonZeroSender::new(),
 				CheckNonce::from(nonce.clone().into()),
 			);
+
+
 			let _pre_sender = SignedExtension::pre_dispatch(validations_sender, &sender_address, &call.clone().into(), dispatch_info, len).ok()?;
 			let pre_issuer = SignedExtension::pre_dispatch(validations_issuer, &issuer_address, &call.clone().into(), dispatch_info, len).ok()?;
+			// let _pre_payment = SignedExtension::pre_dispatch(validations_fee_payment, &payment_address, &call.clone().into(), dispatch_info, len).ok()?;
 
 			// Dispatch
 			let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(sender_address).into();
@@ -317,7 +323,7 @@ pub mod pallet {
 			let sender = ensure_signed(origin.clone())?;
 
 			// run doughnut common validations
-			let Ok(Doughnut::V1(doughnut_v1)) = Self::run_doughnut_common_validations(doughnut.clone()) else {
+			let Doughnut::V1(doughnut_v1) = Self::run_doughnut_common_validations(doughnut.clone())? else {
 				return Err(Error::<T>::UnsupportedDoughnutVersion)?;
 			};
 
@@ -426,6 +432,11 @@ pub type DoughnutIssuerValidations<T> = (
 	frame_system::CheckWeight<T>,
 	pallet_transaction_payment::ChargeTransactionPayment<T>,
 );
+
+// /// Checks performed on a issuer of a Doughnut transaction
+// pub type GasPaymentValidation<T> = (
+// 	pallet_transaction_payment::ChargeTransactionPayment<T>,
+// );
 
 /// Checks performed on a sender of a Doughnut transaction
 pub type DoughnutSenderValidations<T> = (
