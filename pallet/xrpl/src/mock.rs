@@ -103,6 +103,7 @@ impl Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type FuturepassLookup = FuturepassIdentityLookup;
 	type PalletsOrigin = OriginCaller;
+	type ChainId = ();
 	type MaxMessageLength = MaxMessageLength;
 	type MaxSignatureLength = MaxSignatureLength;
 	type WeightInfo = ();
