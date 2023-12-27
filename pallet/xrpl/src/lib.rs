@@ -359,6 +359,9 @@ pub mod pallet {
 		/// Parameters:
 		/// - `origin`: The origin of the call; must be `None` - as this is an unsigned extrinsic.
 		/// - `encoded_msg`: The encoded, verified XRPL transaction.
+		/// - `signature`: The signature of the XRPL transaction; ignored since it's verified in
+		///   self-contained call trait impl.
+		/// - `call`: The call to dispatch by the XRPL transaction signer (pubkey).
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			T::WeightInfo::submit_encoded_xrpl_transaction().saturating_add(dispatch_info.weight)
