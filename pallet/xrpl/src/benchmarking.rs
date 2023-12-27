@@ -29,16 +29,19 @@ benchmarks! {
 	where_clause { where <T as frame_system::Config>::AccountId: From<sp_core::H160> }
 
   submit_encoded_xrpl_transaction {
-	let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C25807321026577EEF1DDBC8B7B883BF19457A5FA4CCBD1EEAF29A51AD2D8370CB3E2DC9F2B81149308E2A8716F3F4BCBE49EFA6FA9DAF75AA31D0DF9EA7C0965787472696E7369637D30303A303A353A353030343030303134303464363937333633363836393635363632303464363136653631363736353634E1F1").unwrap();
-	let encoded_msg = BoundedVec::truncate_from(tx_bytes.clone());
-	let signature = BoundedVec::truncate_from(hex::decode("3045022100E3021242142C82E9B0E0EA46A4BDAFFA08E928F1E1DA74434908BA36512C0E9202206D3A4FFD571A09A8A3C8945DB372D496E8FD1B93E122F4FF41129D3CDF793D66").unwrap());
-  }: _(RawOrigin::None, encoded_msg, signature)
+		// encoded call for: chainIid = 0, nonce = 0, max_block_number = 5, extrinsic = System::remark
+		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: b"Mischief Managed".to_vec() }.into();
+		let boxed_call = Box::new(call.clone());
+		let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C25807321029259980381C9BD1E3C174436F99C179504ED18A34A81FE39A5458E9D836285258114EE0B375F1B10624DDDCF6F200B531C8674324D15F9EA7C0965787472696E7369637D46303A303A353A33623832663037383031653632636437383966316233636333353936383236313436613163353136666165613766633633333263643362323563646666316331E1F1").unwrap();
+		let signature_bytes = hex::decode("304402202E02877C195085F54FA1D8EA2440FFDD15F871AE0C2386DD5F486C3B86C4CA2C02207D1071BFF1A51178E9262C07B72FB74CE8B35DBCFE8E556EEC28B20D7C6AF24E").unwrap();
+		let encoded_msg = BoundedVec::truncate_from(tx_bytes.clone());
+		let signature = BoundedVec::truncate_from(signature_bytes);
+  }: _(RawOrigin::None, encoded_msg, signature, boxed_call)
   verify {
-	let tx = XRPLTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
-	let public_key = tx.get_public_key().unwrap();
-	let caller: T::AccountId = tx.get_account().unwrap().into();
-	let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: b"Mischief Managed".to_vec() }.into();
-	assert_last_event::<T>(Event::XRPLExtrinsicExecuted { public_key, caller, call }.into())
+		let tx = XRPLTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
+		let public_key = tx.get_public_key().unwrap();
+		let caller: T::AccountId = tx.get_account().unwrap().into();
+		assert_last_event::<T>(Event::XRPLExtrinsicExecuted { public_key, caller, call }.into())
   }
 }
 
