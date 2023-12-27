@@ -375,7 +375,10 @@ mod tests {
 			..Default::default()
 		};
 		assert!(tx.get_extrinsic_data().is_err());
-		assert_eq!("failed to get call from memo_data", tx.get_extrinsic_data().unwrap_err());
+		assert_eq!(
+			"failed to get hashed_call from memo_data",
+			tx.get_extrinsic_data().unwrap_err()
+		);
 
 		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
@@ -386,16 +389,32 @@ mod tests {
 			}],
 			..Default::default()
 		};
+		assert!(tx.get_extrinsic_data().is_err());
+		assert_eq!(
+			"failed to convert hashed_call to 32 bytes",
+			tx.get_extrinsic_data().unwrap_err()
+		);
+
+		let tx = XRPLTransaction {
+			memos: vec![MemoElmRaw {
+				memo: Memo {
+					memo_type: hex::encode("extrinsic"),
+					memo_data: hex::encode(format!("0:0:0:{}", hex::encode([0u8; 32]))),
+				},
+			}],
+			..Default::default()
+		};
 		assert_ok!(tx.get_extrinsic_data());
 	}
 
 	#[test]
 	fn get_chain_id_from_extrinsic_data() {
+		let hashed_extrinsic_data = hex::encode([0u8; 32]);
 		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode("-1:0:0:"), // negative chain_id
+					memo_data: hex::encode(format!("-1:0:0:{}", hashed_extrinsic_data)), /* negative chain_id */
 				},
 			}],
 			..Default::default()
@@ -407,7 +426,11 @@ mod tests {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode("18446744073709551616:0:0:"), // u64::MAX + 1
+					memo_data: hex::encode(format!(
+						"{}:{}",
+						Into::<u128>::into(u64::MAX) + 1,
+						hashed_extrinsic_data
+					)), // u64::MAX + 1
 				},
 			}],
 			..Default::default()
@@ -419,7 +442,7 @@ mod tests {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode("18446744073709551615:0:0:"), // u64::MAX
+					memo_data: hex::encode(format!("{}:0:0:{}", u64::MAX, hashed_extrinsic_data)), /* u64::MAX */
 				},
 			}],
 			..Default::default()
@@ -430,11 +453,12 @@ mod tests {
 
 	#[test]
 	fn get_account_nonce_from_extrinsic_data() {
+		let hashed_extrinsic_data = hex::encode([0u8; 32]);
 		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode("0:-1:0:"), // negative nonce
+					memo_data: hex::encode(format!("0:-1:0:{}", hashed_extrinsic_data)), /* negative nonce */
 				},
 			}],
 			..Default::default()
@@ -446,7 +470,11 @@ mod tests {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode("0:4294967296:0:"), // u32::MAX + 1
+					memo_data: hex::encode(format!(
+						"0:{}:0:{}",
+						Into::<u64>::into(u32::MAX) + 1,
+						hashed_extrinsic_data
+					)), // u32::MAX + 1
 				},
 			}],
 			..Default::default()
@@ -458,7 +486,7 @@ mod tests {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode("0:4294967295:0:"), // u32::MAX
+					memo_data: hex::encode(format!("0:{}:0:{}", u32::MAX, hashed_extrinsic_data)), /* u32::MAX */
 				},
 			}],
 			..Default::default()
@@ -469,11 +497,12 @@ mod tests {
 
 	#[test]
 	fn get_max_block_number_from_extrinsic_data() {
+		let hashed_extrinsic_data = hex::encode([0u8; 32]);
 		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode("0:0:-1:"), // negative nonce
+					memo_data: hex::encode(format!("0:0:-1:{}", hashed_extrinsic_data)), /* negative max_block_number */
 				},
 			}],
 			..Default::default()
@@ -485,7 +514,11 @@ mod tests {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode("0:0:4294967296:"), // u32::MAX + 1
+					memo_data: hex::encode(format!(
+						"0:0:{}:{}",
+						Into::<u64>::into(u32::MAX) + 1,
+						hashed_extrinsic_data
+					)), // u32::MAX + 1
 				},
 			}],
 			..Default::default()
@@ -497,7 +530,7 @@ mod tests {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode("0:0:4294967295:"), // u32::MAX
+					memo_data: hex::encode(format!("0:0:{}:{}", u32::MAX, hashed_extrinsic_data)), /* u32::MAX */
 				},
 			}],
 			..Default::default()
