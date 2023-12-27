@@ -31,7 +31,7 @@ pub use weights::WeightInfo;
 
 use alloc::boxed::Box;
 use frame_support::{
-	dispatch::{DispatchInfo, PostDispatchInfo},
+	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
 	traits::{IsSubType, IsType},
 	transactional,
@@ -295,7 +295,7 @@ pub mod pallet {
 		/// The aggregated and decodable `RuntimeCall` type.
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
-			// + frame_support::dispatch::GetDispatchInfo
+			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			// + IsType<<Self as frame_system::Config>::RuntimeCall>
 			+ IsSubType<Call<Self>>;
@@ -359,17 +359,9 @@ pub mod pallet {
 		/// Parameters:
 		/// - `origin`: The origin of the call; must be `None` - as this is an unsigned extrinsic.
 		/// - `encoded_msg`: The encoded, verified XRPL transaction.
-		///
-		/// # <weight>
-		/// Weight is multipled by 2 to roughly reflect the amount of work done
-		/// in the pre-dispatch and signed extensions.
-		/// The final calculation of the weight is also based on the length of the encoded message.
-		/// # </weight>
 		#[pallet::weight({
-			let encoded_msg_len = encoded_msg.len() as u64;
-			T::WeightInfo::submit_encoded_xrpl_transaction()
-				.saturating_mul(2)
-				.saturating_add(Weight::from_ref_time(encoded_msg_len * 1_000_000u64))
+			let dispatch_info = call.get_dispatch_info();
+			T::WeightInfo::submit_encoded_xrpl_transaction().saturating_add(dispatch_info.weight)
 		})]
 		#[transactional]
 		pub fn submit_encoded_xrpl_transaction(
