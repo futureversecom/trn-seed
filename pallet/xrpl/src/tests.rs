@@ -25,7 +25,7 @@ mod self_contained_call {
 	#[test]
 	fn submit_encoded_xrpl_transaction_validations() {
 		TestExt::<Test>::default().build().execute_with(|| {
-      // known extrinsic; chainIid = 0, nonce = 0, max_block_number = 5, extrinsic = System::remark
+      // encoded call for: chainIid = 0, nonce = 0, max_block_number = 5, extrinsic = System::remark
 			let call = mock::RuntimeCall::System(frame_system::Call::remark { remark: Default::default() });
       let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C25807321026577EEF1DDBC8B7B883BF19457A5FA4CCBD1EEAF29A51AD2D8370CB3E2DC9F2B81149308E2A8716F3F4BCBE49EFA6FA9DAF75AA31D0DF9EA7C0965787472696E7369637D30303A303A353A353030343030303134303464363937333633363836393635363632303464363136653631363736353634E1F1").unwrap();
       assert_ok!(Xrpl::submit_encoded_xrpl_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes.clone()), BoundedVec::default(), Box::new(call)));
@@ -36,8 +36,7 @@ mod self_contained_call {
 	fn extrinsic_cannot_perform_privileged_operations() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let call = mock::RuntimeCall::System(frame_system::Call::set_code { code: Default::default() });
-
-			// encoded call for: extrinsic = System::set_code, nonce = 0, max_block_number = 5
+      // encoded call for: chainIid = 0, nonce = 0, max_block_number = 5, extrinsic = System::set_code
 			let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732103C7F5304313F8C3CE00E36D0F09A8E08F7EABCD7144E3384FC4E66E75E5522F9D81148AB02D60F912ED0AD339A883C60DB9639311F329F9EA7C0965787472696E7369637D14303A303A353A3138303430303033303831323334E1F1").unwrap();
 
 			// executing xrpl encoded transaction fails since caller is not root/sudo account
@@ -152,7 +151,7 @@ mod self_contained_call {
 			.execute_with(|| {
 				let call = mock::RuntimeCall::System(frame_system::Call::remark { remark: b"Mischief Managed".to_vec() });
 
-				// encoded call for: extrinsic = System::remark, nonce = 0, max_block_number = 5
+      	// encoded call for: chainIid = 0, nonce = 0, max_block_number = 5, extrinsic = System::remark
 				let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C25807321029259980381C9BD1E3C174436F99C179504ED18A34A81FE39A5458E9D836285258114EE0B375F1B10624DDDCF6F200B531C8674324D15F9EA7C0965787472696E7369637D46303A303A353A33623832663037383031653632636437383966316233636333353936383236313436613163353136666165613766633633333263643362323563646666316331E1F1").unwrap();
 				let signature = hex::decode("304402202E02877C195085F54FA1D8EA2440FFDD15F871AE0C2386DD5F486C3B86C4CA2C02207D1071BFF1A51178E9262C07B72FB74CE8B35DBCFE8E556EEC28B20D7C6AF24E").unwrap();
 
