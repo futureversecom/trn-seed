@@ -21,7 +21,7 @@ pub struct ExtrinsicMemoData {
 	pub chain_id: u64,
 	pub nonce: u32,
 	pub max_block_number: u32,
-	pub call: Vec<u8>,
+	pub hashed_call: [u8; 32],
 }
 
 /// First half of sha512 hash of a message
@@ -121,9 +121,12 @@ impl XRPLTransaction {
 					split.next().ok_or("failed to get max_block_number from memo_data")?;
 				let max_block_number =
 					max_block_number.parse::<u32>().map_err(|_| "failed to parse string as u32")?;
-				let call = split.next().ok_or("failed to get call from memo_data")?;
-				let call = hex::decode(call).map_err(|_| "failed to decode call as hex")?;
-				return Ok(ExtrinsicMemoData { chain_id, nonce, max_block_number, call })
+				let hashed_call = split.next().ok_or("failed to get hashed_call from memo_data")?;
+				let hashed_call: [u8; 32] = hex::decode(hashed_call)
+					.map_err(|_| "failed to decode hashed_call as hex")?
+					.try_into()
+					.map_err(|_| "failed to convert hashed_call to 32 bytes")?;
+				return Ok(ExtrinsicMemoData { chain_id, nonce, max_block_number, hashed_call })
 			}
 		}
 		Err("no extrinsic call found in memos")
@@ -292,6 +295,10 @@ mod tests {
 
 	#[test]
 	fn get_extrinsic_data_failure_cases() {
+		let tx = XRPLTransaction::default();
+		assert!(tx.get_extrinsic_data().is_err());
+		assert_eq!("no extrinsic call found in memos", tx.get_extrinsic_data().unwrap_err());
+
 		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {

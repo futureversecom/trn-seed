@@ -29,7 +29,7 @@ mod weights;
 
 pub use weights::WeightInfo;
 
-use codec::Decode;
+use alloc::boxed::Box;
 use frame_support::{
 	dispatch::{DispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
@@ -88,7 +88,7 @@ impl<T> Call<T>
 	/// An error returned here will not be reported to the caller,
 	/// implying that the caller will be waiting indefinitely for a transaction.
 	pub fn check_self_contained(&self) -> Option<Result<H160, TransactionValidityError>> {
-		if let Call::submit_encoded_xrpl_transaction { encoded_msg, .. } = self {
+		if let Call::submit_encoded_xrpl_transaction { encoded_msg, call, .. } = self {
 			let check = || {
 				let tx: XRPLTransaction = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
 					.map_err(|e| {
@@ -101,17 +101,6 @@ impl<T> Call<T>
 				})?;
 
 				// check if the origin is a futurepass holder, to switch the caller to the futurepass
-				let call_data = tx.get_extrinsic_data()
-					.map_err(|e| {
-						log::error!("⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}", tx.memos, e);
-						InvalidTransaction::Call
-					})?
-					.call;
-				let call = Pallet::<T>::get_runtime_call_from_xrpl_extrinsic(&call_data)
-					.map_err(|e| {
-						log::error!("⛔️ failed to get runtime call from xrpl extrinsic: {:?}", e);
-						InvalidTransaction::Call
-					})?;
 				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call) {
 					if let Ok(futurepass) = <T as pallet::Config>::FuturepassLookup::lookup(origin) {
 						return Ok(futurepass);
@@ -148,14 +137,14 @@ impl<T> Call<T>
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<TransactionValidity> {
-		if let Call::submit_encoded_xrpl_transaction { encoded_msg, signature } = self {
+		if let Call::submit_encoded_xrpl_transaction { encoded_msg, signature, call } = self {
 			let tx = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
 				.map_err(|e| {
 					log::error!("⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
 					e
 				})
 				.ok()?;
-			let ExtrinsicMemoData { chain_id, nonce, call, max_block_number } = tx.get_extrinsic_data()
+			let ExtrinsicMemoData { chain_id, nonce, max_block_number, hashed_call } = tx.get_extrinsic_data()
 				.map_err(|e| {
 					log::error!("⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}", tx.memos, e);
 					e
@@ -166,14 +155,13 @@ impl<T> Call<T>
 				return None;
 			}
 
-			// ensure inner nested call is not the same call
-			let call = Pallet::<T>::get_runtime_call_from_xrpl_extrinsic(&call)
-				.map_err(|e| {
-					log::error!("⛔️ failed to get runtime call from xrpl extrinsic: {:?}", e);
-					e
-				})
-				.ok()?;
+			// check the call against hex encoded hashed (blake256) call
+			if sp_io::hashing::blake2_256(&call.encode()) != hashed_call {
+				log::error!("⛔️ hashed call mismatch");
+				return None;
+			}
 
+			// ensure inner nested call is not the same call
 			if let Some(Call::submit_encoded_xrpl_transaction { .. }) = call.is_sub_type() {
         log::error!("⛔️ cannot nest submit_encoded_xrpl_transaction call");
         return None;
@@ -204,7 +192,7 @@ impl<T> Call<T>
 				ChargeTransactionPayment::<T>::from(0.into()),
 			);
 
-			SignedExtension::validate(&validations, &T::AccountId::from(*origin), &call.into(), dispatch_info, len).ok()?;
+			SignedExtension::validate(&validations, &T::AccountId::from(*origin), &(*call.clone()).into(), dispatch_info, len).ok()?;
 
 			// priority is based on the length of the encoded message length (smaller message = higher priority)
 			let priority = (T::MaxMessageLength::get() as u32).saturating_sub(encoded_msg.len() as u32);
@@ -307,7 +295,7 @@ pub mod pallet {
 		/// The aggregated and decodable `RuntimeCall` type.
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
-			// + GetDispatchInfo
+			// + frame_support::dispatch::GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			// + IsType<<Self as frame_system::Config>::RuntimeCall>
 			+ IsSubType<Call<Self>>;
@@ -338,20 +326,6 @@ pub mod pallet {
 		XRPLTransaction,
 		/// Failed to get account from XRPL transaction
 		XRPLTransactionAccount,
-		/// Failed to decode XRPL transaction extrinsic data
-		XRPLTransactionExtrinsicData,
-		/// Failed to decode XRPL transaction memo data
-		XRPLTransactionMemoData,
-		/// XRPL transaction extrinsic not found
-		XRPLTransactionExtrinsicNotFound,
-		/// XRPL tranaction extrinsic length is invalid
-		XRPLTransactionExtrinsicLengthInvalid,
-		/// Cannot decode XRPL extrinsic call
-		CannotDecodeXRPLExtrinsicCall,
-		/// Account nonce mismatch
-		NonceMismatch,
-		/// Max block number exceeded
-		MaxBlockNumberExceeded,
 	}
 
 	#[pallet::event]
@@ -402,6 +376,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			encoded_msg: BoundedVec<u8, T::MaxMessageLength>,
 			_signature: BoundedVec<u8, T::MaxSignatureLength>,
+			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 
@@ -431,50 +406,15 @@ pub mod pallet {
 				})?
 				.into();
 
-			let ExtrinsicMemoData { call, .. } = tx.get_extrinsic_data().map_err(|e| {
-				log::error!(
-					"⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}",
-					tx.memos,
-					e
-				);
-				Error::<T>::XRPLTransactionExtrinsicData
-			})?;
-
 			let dispatch_origin = T::RuntimeOrigin::from(RawOrigin::Signed(who.clone()));
-			let call = Self::get_runtime_call_from_xrpl_extrinsic(&call)?;
 			call.clone().dispatch(dispatch_origin).map_err(|e| e.error)?;
 
-			Self::deposit_event(Event::XRPLExtrinsicExecuted { public_key, caller: who, call });
+			Self::deposit_event(Event::XRPLExtrinsicExecuted {
+				public_key,
+				caller: who,
+				call: *call,
+			});
 			Ok(().into())
-		}
-	}
-
-	impl<T: Config> Pallet<T>
-	where
-		<T as frame_system::Config>::AccountId: From<H160>,
-	{
-		/// Given a full SCALE encoded extrinsic, strips the first 4 byte prefix,
-		/// decodes call data to a Runtime call and returns it.
-		/// This can also be a call that nests other calls and can target any pallet in the
-		/// runtime.
-		///
-		/// # Returns
-		/// The `RuntimeCall` that is encoded in the memo data.
-		pub fn get_runtime_call_from_xrpl_extrinsic(
-			scale_encoded_extrinsic: &[u8],
-		) -> Result<<T as pallet::Config>::RuntimeCall, DispatchError> {
-			ensure!(
-				scale_encoded_extrinsic.len() >= 4,
-				Error::<T>::XRPLTransactionExtrinsicLengthInvalid
-			);
-
-			let call =
-				<T as pallet::Config>::RuntimeCall::decode(&mut &scale_encoded_extrinsic[2..])
-					.map_err(|e| {
-						log::warn!("⛔️ Failed to decode the call: {:?}", e);
-						Error::<T>::CannotDecodeXRPLExtrinsicCall
-					})?;
-			Ok(call)
 		}
 	}
 }
