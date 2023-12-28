@@ -66,7 +66,7 @@ describe("XRPL pallet", () => {
     const cost = await api.tx.xrpl
       .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`, extrinsic)
       .paymentInfo(user.address);
-    // expect(cost.partialFee.toNumber()).to.be.greaterThan(790_000).and.lessThan(800_000);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(905_000).and.lessThan(920_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
@@ -115,9 +115,9 @@ describe("XRPL pallet", () => {
     const xrpBalanceAfter =
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
-    // expect(xrpBalanceBefore - xrpBalanceAfter)
-    //   .to.greaterThan(565_000)
-    //   .and.lessThan(580_000);
+    expect(xrpBalanceBefore - xrpBalanceAfter)
+      .to.greaterThan(685_000)
+      .and.lessThan(700_000);
 
     // assert user nonce is updated (1 tx)
     const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
@@ -161,7 +161,7 @@ describe("XRPL pallet", () => {
     const cost = await api.tx.xrpl
       .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`, extrinsic)
       .paymentInfo(user.address);
-    // expect(cost.partialFee.toNumber()).to.be.greaterThan(820_000).and.lessThan(884_000);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(935_000).and.lessThan(950_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
@@ -220,9 +220,9 @@ describe("XRPL pallet", () => {
     const xrpBalanceAfter =
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
-    // expect(xrpBalanceBefore - xrpBalanceAfter)
-    //   .to.be.greaterThan(625_000)
-    //   .and.lessThan(635_000);
+    expect(xrpBalanceBefore - xrpBalanceAfter)
+      .to.be.greaterThan(710_000)
+      .and.lessThan(725_000);
   });
 
   it("can proxy futurepass extrinsic", async () => {
@@ -271,7 +271,7 @@ describe("XRPL pallet", () => {
     const cost = await api.tx.xrpl
       .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`, extrinsic)
       .paymentInfo(user.address);
-    // expect(cost.partialFee.toNumber()).to.be.greaterThan(955_000).and.lessThan(975_000);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(990_000).and.lessThan(1_005_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
@@ -346,9 +346,9 @@ describe("XRPL pallet", () => {
     const xrpFPBalanceAfter =
       ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
     expect(xrpFPBalanceAfter).to.be.lessThan(xrpFPBalanceBefore);
-    // expect(xrpFPBalanceBefore - xrpFPBalanceAfter)
-    //   .to.be.greaterThan(735_000)
-    //   .and.lessThan(745_000);
+    expect(xrpFPBalanceBefore - xrpFPBalanceAfter)
+      .to.be.greaterThan(770_000)
+      .and.lessThan(785_000);
   });
 
   it("fails proxy futurepass extrinsic if user does not have futurepass", async () => {
