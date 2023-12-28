@@ -155,7 +155,8 @@ where
 		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>
 		+ pallet_token_approvals::Config,
 	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::RuntimeCall: From<pallet_token_approvals::Call<Runtime>>,
+	Runtime::RuntimeCall:
+		From<pallet_token_approvals::Call<Runtime>> + From<pallet_assets_ext::Call<Runtime>>,
 	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<AssetId, EvmId = Address>,
 	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: OriginTrait,
@@ -297,7 +298,7 @@ where
 		log3(
 			handle.code_address(),
 			SELECTOR_LOG_TRANSFER,
-			handle.context().caller,
+			caller,
 			to,
 			EvmDataWriter::new().write(amount).build(),
 		)
@@ -348,11 +349,11 @@ where
 				<Runtime as pallet_assets::Config>::WeightInfo::transfer(),
 			))?;
 
-			let destination = to.clone().into();
+			let destination = to.clone();
 			let keep_alive = false;
 			RuntimeHelper::<Runtime>::try_dispatch(
 				handle,
-				Some(caller.clone()).into(),
+				Some(handle.context().caller.into()).into(),
 				pallet_assets_ext::Call::<Runtime>::transfer {
 					asset_id,
 					destination,
