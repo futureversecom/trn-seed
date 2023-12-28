@@ -22,7 +22,7 @@ use codec::Encode;
 use doughnut_rs::{
 	doughnut::{Doughnut, DoughnutV1},
 	signature::{sign_ecdsa, verify_signature, SignatureVersion},
-	traits::{DoughnutVerify, Signing},
+	traits::{DoughnutVerify, FeeMode, Signing},
 };
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
@@ -31,6 +31,7 @@ use sp_core::{bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair};
 fn make_doughnut(
 	holder: Public,
 	issuer: Public,
+	fee_mode: FeeMode,
 	issuer_secret_key: &[u8; 32],
 	domain: &str,
 	domain_payload: Vec<u8>,
@@ -38,6 +39,7 @@ fn make_doughnut(
 	let mut doughnut_v1 = DoughnutV1 {
 		holder: holder.as_slice().try_into().expect("should not fail"),
 		issuer: issuer.as_slice().try_into().expect("should not fail"),
+		fee_mode: fee_mode as u8,
 		domains: vec![(domain.to_string(), domain_payload)],
 		expiry: 0,
 		not_before: 0,
@@ -58,7 +60,14 @@ fn make_doughnut_works() {
 			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
 		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
 		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		make_doughnut(holder.public(), issuer.public(), &alice_private, "", vec![]);
+		make_doughnut(
+			holder.public(),
+			issuer.public(),
+			FeeMode::ISSUER,
+			&alice_private,
+			"",
+			vec![],
+		);
 	});
 }
 
@@ -70,7 +79,14 @@ fn bob_to_alice_doughnut() {
 			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
 		let issuer: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
 		let holder: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-		let doughnut = make_doughnut(holder.public(), issuer.public(), &bob_private, "", vec![]);
+		let doughnut = make_doughnut(
+			holder.public(),
+			issuer.public(),
+			FeeMode::ISSUER,
+			&bob_private,
+			"",
+			vec![],
+		);
 
 		let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
 		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
@@ -104,7 +120,14 @@ fn alice_to_bob_doughnut() {
 			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
 		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
 		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let doughnut = make_doughnut(holder.public(), issuer.public(), &alice_private, "1", vec![]);
+		let doughnut = make_doughnut(
+			holder.public(),
+			issuer.public(),
+			FeeMode::ISSUER,
+			&alice_private,
+			"1",
+			vec![],
+		);
 
 		let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
 		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
@@ -143,8 +166,14 @@ fn transact_works() {
 				hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
 			let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
 			let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
-			let doughnut =
-				make_doughnut(holder.public(), issuer.public(), &alice_private, "1", vec![]);
+			let doughnut = make_doughnut(
+				holder.public(),
+				issuer.public(),
+				FeeMode::ISSUER,
+				&alice_private,
+				"1",
+				vec![],
+			);
 			let doughnut_encoded = doughnut.encode();
 
 			// Create balances transfer call
@@ -203,7 +232,14 @@ fn transact_holder_not_sender_fails() {
 			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
 		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
 		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-		let doughnut = make_doughnut(holder.public(), issuer.public(), &alice_private, "1", vec![]);
+		let doughnut = make_doughnut(
+			holder.public(),
+			issuer.public(),
+			FeeMode::ISSUER,
+			&alice_private,
+			"1",
+			vec![],
+		);
 		let doughnut_encoded = doughnut.encode();
 
 		let call: <Test as frame_system::Config>::RuntimeCall =
@@ -233,6 +269,7 @@ fn transact_holder_not_signed_doughnut_should_fail() {
 		let mut doughnut_v1 = DoughnutV1 {
 			holder: holder.public().as_slice().try_into().expect("should not fail"),
 			issuer: issuer.public().as_slice().try_into().expect("should not fail"),
+			fee_mode: 0,
 			domains: vec![(String::from(""), vec![])],
 			expiry: 0,
 			not_before: 0,
@@ -271,7 +308,14 @@ fn revoke_doughnut_works() {
 			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
 		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
 		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let doughnut = make_doughnut(holder.public(), issuer.public(), &alice_private, "1", vec![]);
+		let doughnut = make_doughnut(
+			holder.public(),
+			issuer.public(),
+			FeeMode::ISSUER,
+			&alice_private,
+			"1",
+			vec![],
+		);
 
 		let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
 		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
@@ -328,7 +372,14 @@ fn revoke_doughnut_not_issuer_fails() {
 			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
 		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
 		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let doughnut = make_doughnut(holder.public(), issuer.public(), &alice_private, "1", vec![]);
+		let doughnut = make_doughnut(
+			holder.public(),
+			issuer.public(),
+			FeeMode::ISSUER,
+			&alice_private,
+			"1",
+			vec![],
+		);
 		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
 
 		let doughnut_encoded = doughnut.encode();
@@ -361,7 +412,14 @@ fn revoke_holder_works() {
 			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
 		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
 		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let doughnut = make_doughnut(holder.public(), issuer.public(), &alice_private, "1", vec![]);
+		let doughnut = make_doughnut(
+			holder.public(),
+			issuer.public(),
+			FeeMode::ISSUER,
+			&alice_private,
+			"1",
+			vec![],
+		);
 
 		let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
 		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();

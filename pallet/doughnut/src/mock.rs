@@ -47,7 +47,7 @@ parameter_types! {
 	pub const DefaultFeeTo: Option<PalletId> = Some(TxFeePotId::get());
 }
 impl Config for Test {
-    type RuntimeEvent = RuntimeEvent;
+	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 }
 
