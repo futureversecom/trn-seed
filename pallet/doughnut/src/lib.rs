@@ -126,23 +126,23 @@ impl<T> Call<T>
 			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
 				return None
 			};
-			let Ok(issuer_address) = crate::Pallet::<T>::get_address(doughnut_v1.issuer) else {
+			let Ok(fee_payer_address) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
 				return None
 			};
 			let sender_address = T::AccountId::from(*origin);
 
 			// construct the validation instances
-			let validations_issuer: DoughnutIssuerValidations<T> = (
-				CheckWeight::new(),
+			let validations_fee_payer: DoughnutFeePayerValidations<T> = (
 				ChargeTransactionPayment::<T>::from(0.into()),
 			);
 			let validations_sender: DoughnutSenderValidations<T> = (
 				CheckNonZeroSender::new(),
 				CheckNonce::from(nonce.clone().into()),
+				CheckWeight::new(),
 			);
 
 			SignedExtension::validate(&validations_sender, &sender_address, &(**call).clone().into(), dispatch_info, len).ok()?;
-			SignedExtension::validate(&validations_issuer, &issuer_address, &(**call).clone().into(), dispatch_info, len).ok()?;
+			SignedExtension::validate(&validations_fee_payer, &fee_payer_address, &(**call).clone().into(), dispatch_info, len).ok()?;
 
 			// TODO: do we need any validation on inner call?
 			let priority = 0;
@@ -181,33 +181,27 @@ impl<T> Call<T>
 				return None
 			};
 			// No need to do the doughnut verification again since already did in check_self_contained()
-			let Ok(issuer_address) = crate::Pallet::<T>::get_address(doughnut_v1.issuer) else {
+			let Ok(fee_payer_address) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
 				return None
 			};
 
 			let sender_address = T::AccountId::from(*info);
 
-
 			// Pre dispatch
 			// Create the validation instances for this extrinsic
-			let validations_issuer: DoughnutIssuerValidations<T> = (
-				CheckWeight::new(),
+			let validations_fee_payer: DoughnutFeePayerValidations<T> = (
 				ChargeTransactionPayment::<T>::from(0.into()),
 			);
-			// let validations_fee_payment: GasPaymentValidation<T> = (
-			// 	ChargeTransactionPayment::<T>::from(0.into()),
-			// );
 			let validations_sender: DoughnutSenderValidations<T> = (
 				CheckNonZeroSender::new(),
 				CheckNonce::from(nonce.clone().into()),
+				CheckWeight::new(),
 			);
 
-
 			let _pre_sender = SignedExtension::pre_dispatch(validations_sender, &sender_address, &call.clone().into(), dispatch_info, len).ok()?;
-			let pre_issuer = SignedExtension::pre_dispatch(validations_issuer, &issuer_address, &call.clone().into(), dispatch_info, len).ok()?;
-			// let _pre_payment = SignedExtension::pre_dispatch(validations_fee_payment, &payment_address, &call.clone().into(), dispatch_info, len).ok()?;
+			let pre_issuer = SignedExtension::pre_dispatch(validations_fee_payer, &fee_payer_address, &call.clone().into(), dispatch_info, len).ok()?;
 
-			// Dispatch
+			// Dispatch the outer call. i.e Doughnut::transact()
 			let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(sender_address).into();
 			let res = call.dispatch(origin);
 			let post_info = match res {
@@ -216,7 +210,7 @@ impl<T> Call<T>
 			};
 
 			// post dispatch
-			<DoughnutIssuerValidations<T> as SignedExtension>::post_dispatch(
+			<DoughnutFeePayerValidations<T> as SignedExtension>::post_dispatch(
 				Some(pre_issuer),
 				dispatch_info,
 				&post_info.into(),
@@ -421,15 +415,14 @@ where
 	}
 }
 
-/// Checks performed on a issuer of a Doughnut transaction
-pub type DoughnutIssuerValidations<T> = (
+/// Checks performed on a fee payer of a Doughnut transaction
+pub type DoughnutFeePayerValidations<T> = (
 	// frame_system::CheckNonZeroSender<T>,
 	// frame_system::CheckSpecVersion<Runtime>,
 	// frame_system::CheckTxVersion<Runtime>,
 	// frame_system::CheckGenesis<Runtime>,
 	// frame_system::CheckEra<Runtime>,
 	// frame_system::CheckNonce<T>,
-	frame_system::CheckWeight<T>,
 	pallet_transaction_payment::ChargeTransactionPayment<T>,
 );
 
@@ -446,6 +439,6 @@ pub type DoughnutSenderValidations<T> = (
 	// frame_system::CheckGenesis<Runtime>,
 	// frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<T>,
-	// frame_system::CheckWeight<T>,
+	frame_system::CheckWeight<T>,
 	// pallet_transaction_payment::ChargeTransactionPayment<T>,
 );
