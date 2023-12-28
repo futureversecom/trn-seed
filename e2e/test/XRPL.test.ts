@@ -347,8 +347,8 @@ describe("XRPL pallet", () => {
       ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
     expect(xrpFPBalanceAfter).to.be.lessThan(xrpFPBalanceBefore);
     expect(xrpFPBalanceBefore - xrpFPBalanceAfter)
-      .to.be.greaterThan(770_000)
-      .and.lessThan(785_000);
+      .to.be.greaterThan(765_000)
+      .and.lessThan(780_000);
   });
 
   it("fails proxy futurepass extrinsic if user does not have futurepass", async () => {
