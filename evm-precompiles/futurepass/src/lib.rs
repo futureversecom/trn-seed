@@ -446,7 +446,7 @@ where
 					false,
 					<Runtime as pallet_evm::Config>::config(),
 				)
-				.map_err(|_| RevertReason::custom("create failed"))?;
+				.map_err(|_| RevertReason::custom("Futurepass: create failed"))?;
 
 				// emit ContractCreated(CREATE, contractAddress, value, bytes32(0));
 				log4(
@@ -490,7 +490,7 @@ where
 					false,
 					<Runtime as pallet_evm::Config>::config(),
 				)
-				.map_err(|_| RevertReason::custom("create2 failed"))?;
+				.map_err(|_| RevertReason::custom("Futurepass: create2 failed"))?;
 
 				// emit ContractCreated(CREATE2, contractAddress, value, salt);
 				log4(
@@ -505,7 +505,7 @@ where
 
 				(execution_info.exit_reason, execution_info.value.to_fixed_bytes().to_vec())
 			},
-			CallType::DelegateCall => Err(RevertReason::custom("call type not supported"))?,
+			CallType::DelegateCall => Err(RevertReason::custom("Futurepass: call type not supported"))?,
 		};
 
 		// Return subcall result
