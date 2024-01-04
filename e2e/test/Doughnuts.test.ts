@@ -31,13 +31,13 @@ describe("Doughnuts", () => {
 
     // after(async () => node.stop());
 
-    it("doughnuts test", async () => {
-        const receiverAddress = await Wallet.createRandom().getAddress();
+    it("doughnut works", async () => {
+        const receiverAddress = "0x000000000000000000000000000000000000000c";
 
         // Doughnut from Alice to Bob
-        const doughnut = "0x001000020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a10390084fdbf27d2b79d26a4f13f0ccd982cb755a661969143c37cbc49ef5b91f2700000000310000000000000000000000000000000000dda0d39981584d153eb79568a9296673efbf8149cc985d3e10ac083827134f0e181c553e40ed265df82587d1de00d619cbc2a93e03bf0df753f780b6e7e0fbbc";
-        // Bob's signature of the outer doughnut
-        const signature = "0x21cf55e24342d613ed506f24fc7dba4644c03414bbd7b4bfa802ba5c9db2b308739f6ce9d19933a400c4bc7376e380a4bc37fd285bb3e744f91bee360ba45db0";
+        const doughnut = "0x011000020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a10390084fdbf27d2b79d26a4f13f0ccd982cb755a661969143c37cbc49ef5b91f270000000000310000000000000000000000000000000000d35aef05a023e2e75f038abba9d1357671c3044e2664c6cc099115adceb492a2677fe2233735f31442d5c33921e9d49fd305af28b8ffa6bd4ec86076ad026b8d";
+        // Bob's signature of the outer call
+        const signature = "0xbb7f00599d3b7fe0177d4478949c57151510a48bc80ac5b9868d22743cb413dd7ca06351fede444df13f4db83265eae627b54910476edb112dd8c4a5460a8309";
         const transferAmount = 1234;
         const nonce = ((await api.query.system.account(bob.address)).toJSON() as any)?.nonce;
         const call = api.tx.balances.transfer(receiverAddress, transferAmount);

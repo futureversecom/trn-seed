@@ -16,13 +16,13 @@
 use super::*;
 use crate::{
 	mock::{Doughnut as DoughnutPallet, *},
-	BlockedDoughnuts, BlockedHolders, Error,
+	BlockedDoughnuts, BlockedHolders, Call, Error,
 };
 use codec::Encode;
 use doughnut_rs::{
 	doughnut::{Doughnut, DoughnutV1},
 	signature::{sign_ecdsa, verify_signature, SignatureVersion},
-	traits::{DoughnutVerify, FeeMode, Signing},
+	traits::{DoughnutVerify, FeeMode, PayloadVersion, Signing},
 };
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
@@ -43,7 +43,7 @@ fn make_doughnut(
 		domains: vec![(domain.to_string(), domain_payload)],
 		expiry: 0,
 		not_before: 0,
-		payload_version: 0,
+		payload_version: PayloadVersion::V1 as u16,
 		signature_version: SignatureVersion::ECDSA as u8,
 		signature: [0_u8; 64],
 	};
@@ -131,6 +131,8 @@ fn alice_to_bob_doughnut() {
 
 		let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
 		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
+
+		println!("doughnut: {:?}", doughnut);
 
 		println!("issuer address (Alice): {:?}", to_hex(issuer_address.0.as_slice(), false));
 		println!("holder address (Bob): {:?}", to_hex(holder_address.0.as_slice(), false));
@@ -466,4 +468,58 @@ fn revoke_holder_works() {
 			vec![]
 		));
 	});
+}
+
+#[test]
+fn generate_alice_to_bob_outer_signature() {
+	let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
+	let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
+	let initial_balance = 10_000;
+	TestExt::<Test>::default()
+		.with_balances(&[(issuer_address, initial_balance)])
+		.build()
+		.execute_with(|| {
+			let alice_private =
+				hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
+			let bob_private =
+				hex!("79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf");
+			let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
+			let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
+			let doughnut = make_doughnut(
+				holder.public(),
+				issuer.public(),
+				FeeMode::ISSUER,
+				&alice_private,
+				"1",
+				vec![],
+			);
+			let doughnut_encoded = doughnut.encode();
+
+			// Create balances transfer call
+			let transfer_amount = 1234;
+			let destination = create_account(12);
+			let call: <Test as frame_system::Config>::RuntimeCall =
+				pallet_balances::Call::<Test>::transfer {
+					dest: destination,
+					value: transfer_amount,
+				}
+				.into();
+
+			// Attempting to transact the doughnut should succeed
+			let outer_call = Call::<Test>::transact {
+				call: Box::new(call),
+				doughnut: doughnut_encoded.clone(),
+				nonce: 0,
+				signature: vec![],
+			};
+
+			let mut outer_call_payload: Vec<u8> = outer_call.encode();
+			outer_call_payload.as_mut_slice()[1] = 0x05; // TODO - for some reason, actual runtime encoded call has this byte as 0x05. check
+											 // this.
+			let outer_signature = sign_ecdsa(&bob_private, outer_call_payload.as_slice()).unwrap();
+			println!("doughnut: {:?}", to_hex(doughnut_encoded.as_slice(), false));
+			println!("outer call: {:?}", outer_call);
+			println!("outer call payload: {:?}", to_hex(outer_call_payload.as_slice(), false));
+			println!("outer call signature: {:?}", to_hex(&outer_signature, false));
+		});
 }
