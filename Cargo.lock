@@ -1459,7 +1459,6 @@ dependencies = [
 [[package]]
 name = "doughnut-rs"
 version = "0.1.0"
-source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/trn-doughnut#020e03da09390c1dfd06794008fd7884470c2f00"
 dependencies = [
  "clear_on_drop",
  "ed25519-dalek",

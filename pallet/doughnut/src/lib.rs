@@ -71,7 +71,7 @@ impl<T> Call<T>
 	}
 
 	pub fn check_self_contained(&self) -> Option<Result<H160, TransactionValidityError>> {
-		if let Call::transact { doughnut, signature, .. } = self {
+		if let Call::transact { call, doughnut, nonce, signature } = self {
 			let check = || {
 				// run doughnut common validations
 				let Ok(Doughnut::V1(doughnut_v1)) = Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -86,8 +86,14 @@ impl<T> Call<T>
 				};
 
 				// Verify outer signature against holder address
-				// TODO Sign the call + doughnut + nonce, not just the doughnut
-				verify_signature(SignatureVersion::ECDSA as u8, &signature, &doughnut_v1.holder(), &doughnut.as_slice())
+				let outer_call: Call<T> = Call::transact {
+					call: call.clone(),
+					doughnut: doughnut.clone(),
+					nonce: *nonce,
+					signature: Vec::<u8>::new(),
+				};
+
+				verify_signature(SignatureVersion::ECDSA as u8, &signature, &doughnut_v1.holder(), &outer_call.encode().as_slice())
 					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::BadProof))?;
 
 				// Resolve to holder address
