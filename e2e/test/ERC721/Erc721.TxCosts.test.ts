@@ -256,26 +256,41 @@ describe("ERC721 Gas Estimates", function () {
   });
 
   it("burn gas estimates", async () => {
-    // Estimate contract call to mint token with tokenId 0 to alith
-    const contractGasEstimate = await erc721Contract.connect(alithSigner).estimateGas.burn(alithSigner.address, 1);
-    // Estimate precompile call to mint 100 tokens
-    const precompileGasEstimate = await erc721Precompile.connect(alithSigner).estimateGas.mint(alithSigner.address, 10);
+    const contractTokenId = 9;
+    const precompileTokenId = 8;
+    const extrinsicTokenId = 7;
+    // Mint token 9 to contract
+    const mintGasEstimate = await erc721Contract
+      .connect(alithSigner)
+      .estimateGas.safeMint(alithSigner.address, contractTokenId);
+    let tx = await erc721Contract
+      .connect(alithSigner)
+      .safeMint(alithSigner.address, contractTokenId, { gasLimit: mintGasEstimate });
+    await tx.wait();
+
+    // Estimate contract call to burn
+    const contractGasEstimate = await erc721Contract.connect(alithSigner).estimateGas.burn(contractTokenId);
+    // Estimate precompile call to burn
+    const precompileGasEstimate = await erc721Precompile.connect(alithSigner).estimateGas.burn(precompileTokenId);
+
     // precompile fee cost
     let balanceBefore = await alithSigner.getBalance();
-    let tx = await erc721Precompile.connect(alithSigner).mint(alithSigner.address, 10);
+    tx = await erc721Precompile.connect(alithSigner).burn(precompileTokenId, { gasLimit: precompileGasEstimate });
     await tx.wait();
     let balanceAfter = await alithSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
+
     // Contract call cost
     balanceBefore = await alithSigner.getBalance();
-    tx = await erc721Contract.connect(alithSigner).safeMint(alithSigner.address, 1, { gasLimit: contractGasEstimate });
+    tx = await erc721Contract.connect(alithSigner).burn(contractTokenId, { gasLimit: contractGasEstimate });
     await tx.wait();
     balanceAfter = await alithSigner.getBalance();
     const constractFeeCost = balanceBefore.sub(balanceAfter);
+
     // Extrinsic cost
     balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
-      api.tx.nft.mint(collectionId, 10, null).signAndSend(alith, ({ status }) => {
+      api.tx.nft.burn([collectionId, extrinsicTokenId]).signAndSend(alith, ({ status }) => {
         if (status.isInBlock) resolve();
       });
     });
@@ -288,12 +303,12 @@ describe("ERC721 Gas Estimates", function () {
     expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
     // Update all costs
-    allCosts["mint"] = {
+    allCosts["burn"] = {
       Contract: contractGasEstimate,
       Precompile: precompileGasEstimate,
       Extrinsic: extrinsicGasScaled,
     };
-    allTxFeeCosts["mint"] = {
+    allTxFeeCosts["burn"] = {
       Contract: constractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
