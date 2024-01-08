@@ -255,6 +255,51 @@ describe("ERC721 Gas Estimates", function () {
     };
   });
 
+  it("burn gas estimates", async () => {
+    // Estimate contract call to mint token with tokenId 0 to alith
+    const contractGasEstimate = await erc721Contract.connect(alithSigner).estimateGas.burn(alithSigner.address, 1);
+    // Estimate precompile call to mint 100 tokens
+    const precompileGasEstimate = await erc721Precompile.connect(alithSigner).estimateGas.mint(alithSigner.address, 10);
+    // precompile fee cost
+    let balanceBefore = await alithSigner.getBalance();
+    let tx = await erc721Precompile.connect(alithSigner).mint(alithSigner.address, 10);
+    await tx.wait();
+    let balanceAfter = await alithSigner.getBalance();
+    const precompileFeeCost = balanceBefore.sub(balanceAfter);
+    // Contract call cost
+    balanceBefore = await alithSigner.getBalance();
+    tx = await erc721Contract.connect(alithSigner).safeMint(alithSigner.address, 1, { gasLimit: contractGasEstimate });
+    await tx.wait();
+    balanceAfter = await alithSigner.getBalance();
+    const constractFeeCost = balanceBefore.sub(balanceAfter);
+    // Extrinsic cost
+    balanceBefore = await alithSigner.getBalance();
+    await new Promise<void>((resolve) => {
+      api.tx.nft.mint(collectionId, 10, null).signAndSend(alith, ({ status }) => {
+        if (status.isInBlock) resolve();
+      });
+    });
+    balanceAfter = await alithSigner.getBalance();
+    const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+    const extrinsicGasScaled = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
+
+    expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
+    expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
+
+    // Update all costs
+    allCosts["mint"] = {
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicGasScaled,
+    };
+    allTxFeeCosts["mint"] = {
+      Contract: constractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+    };
+  });
+
   it("setApproval gas estimates", async () => {
     const serialNumber = 0;
     // Estimate contract call

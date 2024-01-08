@@ -21,7 +21,7 @@ import {
 // NFT Collection information
 const name = "test-collection";
 const metadataPath = "https://example.com/nft/metadata/";
-const initialIssuance = 11;
+const initialIssuance = 12;
 const maxIssuance = 100;
 
 describe("ERC721 Precompile", function () {
@@ -114,7 +114,7 @@ describe("ERC721 Precompile", function () {
     cursor = 5;
     limit = 5;
     [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
-    expect(new_cursor).to.equal(0);
+    expect(new_cursor).to.equal(10);
     expect(total_owned).to.equal(initialIssuance);
     expect(tokens).to.eql([5, 6, 7, 8, 9]);
 
@@ -124,7 +124,7 @@ describe("ERC721 Precompile", function () {
     [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
     expect(total_owned).to.equal(initialIssuance);
-    expect(tokens).to.eql([]);
+    expect(tokens).to.eql([10, 11]);
 
     // high limit should return ALL tokens owned by bob
     cursor = 0;
@@ -132,7 +132,7 @@ describe("ERC721 Precompile", function () {
     [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
     expect(total_owned).to.equal(initialIssuance);
-    expect(tokens).to.eql([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(tokens).to.eql([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   });
 
   it("mint - succeeds as owner", async () => {
@@ -596,6 +596,10 @@ describe("ERC721 Precompile", function () {
   it("burn not approved fails", async () => {
     const tokenId = 10;
 
+    // Set approval for all to false
+    const approval = await erc721Precompile.setApprovalForAll(alithSigner.address, false);
+    await approval.wait();
+
     // Sanity check
     const initial_balance = await erc721Precompile.balanceOf(bobSigner.address);
 
@@ -610,7 +614,7 @@ describe("ERC721 Precompile", function () {
   });
 
   it("burn as approved", async () => {
-    const tokenId = 10;
+    const tokenId = 11;
 
     // Sanity check
     const initial_balance = await erc721Precompile.balanceOf(bobSigner.address);
@@ -627,7 +631,8 @@ describe("ERC721 Precompile", function () {
       .withArgs(bobSigner.address, constants.AddressZero, tokenId);
 
     // balance is now one less
-    expect(await erc721Precompile.balanceOf(bobSigner.address)).to.equal(initial_balance - 1);
+    const balance_after = await erc721Precompile.balanceOf(bobSigner.address);
+    expect(balance_after).to.equal(initial_balance - 1);
   });
 
   it("owner, renounceOwnership, transferOwnership", async () => {
