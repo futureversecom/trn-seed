@@ -36,7 +36,7 @@ use frame_support::{
 use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest};
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId, TokenLockReason,
+	SerialNumber, TokenCount, TokenId, TokenLockReason, MAX_COLLECTION_ENTITLEMENTS,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
@@ -614,6 +614,13 @@ pub mod pallet {
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
 
+			// Check that the entitlements are less than MAX_ENTITLEMENTS - 2
+			// This is because when the token is listed, two more entitlements will be added
+			// for the network fee and marketplace fee
+			ensure!(
+				royalties_schedule.entitlements.len() <= MAX_COLLECTION_ENTITLEMENTS as usize,
+				Error::<T>::RoyaltiesInvalid
+			);
 			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
 
 			collection_info.royalties_schedule = Some(royalties_schedule.clone());

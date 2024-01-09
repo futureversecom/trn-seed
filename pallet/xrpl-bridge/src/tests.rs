@@ -15,36 +15,27 @@
 
 use super::*;
 use crate::mock::{
-	new_test_ext, AssetsExt, RuntimeOrigin, System, Test, XRPLBridge, XrpAssetId,
+	AssetsExt, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System, Test, XRPLBridge, XrpAssetId,
 	XrpTxChallengePeriod,
 };
-use frame_support::{assert_err, assert_noop, assert_ok};
-use seed_primitives::{AccountId, Balance};
-use sp_core::{H160, H256};
-use sp_runtime::traits::BadOrigin;
+use seed_pallet_common::test_prelude::*;
 
-/// Helper function to create an AccountId from  a slice
-fn create_account(address: &[u8]) -> AccountId {
-	AccountId::from(H160::from_slice(address))
+/// Helper function to get the xrp balance of an address
+fn xrp_balance_of(who: AccountId) -> u64 {
+	AssetsExt::balance(XrpAssetId::get(), &who) as u64
 }
 
-/// Helper function to get the xrp balance of an address slice
-fn xrp_balance_of(address: &[u8]) -> u64 {
-	AssetsExt::balance(XrpAssetId::get(), &H160::from_slice(address).into()) as u64
-}
-
-fn process_transaction(account_address: &[u8; 20]) {
+fn process_transaction(relayer: AccountId) {
 	let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
 	let transaction_hash_1 = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317C";
-	let relayer = create_account(b"6490B68F1116BFE87DDD");
 	XRPLBridge::initialize_relayer(&vec![relayer]);
-	submit_transaction(relayer, 1_000_000, transaction_hash, account_address, 1);
-	submit_transaction(relayer, 1_000_000, transaction_hash_1, account_address, 1);
+	submit_transaction(relayer, 1_000_000, transaction_hash, relayer.into(), 1);
+	submit_transaction(relayer, 1_000_001, transaction_hash_1, relayer.into(), 1);
 
-	XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
-	System::set_block_number(XrpTxChallengePeriod::get() as u64);
+	XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64 + 1);
+	System::set_block_number(XrpTxChallengePeriod::get() as u64 + 1);
 
-	let xrp_balance = xrp_balance_of(account_address);
+	let xrp_balance = xrp_balance_of(relayer);
 	assert_eq!(xrp_balance, 2000);
 }
 
@@ -52,13 +43,11 @@ fn submit_transaction(
 	relayer: AccountId,
 	ledger_index: u64,
 	transaction_hash: &[u8; 64],
-	account_address: &[u8; 20],
+	account_address: H160,
 	i: u64,
 ) {
-	let transaction = XrplTxData::Payment {
-		amount: (i * 1000u64) as Balance,
-		address: H160::from_slice(account_address),
-	};
+	let transaction =
+		XrplTxData::Payment { amount: (i * 1000u64) as Balance, address: account_address };
 	assert_ok!(XRPLBridge::submit_transaction(
 		RuntimeOrigin::signed(relayer),
 		ledger_index,
@@ -70,8 +59,8 @@ fn submit_transaction(
 
 #[test]
 fn submit_transaction_replay_within_submission_window() {
-	new_test_ext().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(1);
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
 		let transaction =
 			XrplTxData::Payment { amount: 1000 as Balance, address: H160::from_low_u64_be(555) };
@@ -104,8 +93,8 @@ fn submit_transaction_replay_within_submission_window() {
 
 #[test]
 fn submit_transaction_outside_submission_window() {
-	new_test_ext().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(1);
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
 		let transaction =
 			XrplTxData::Payment { amount: 1000 as Balance, address: H160::from_low_u64_be(555) };
@@ -131,8 +120,8 @@ fn submit_transaction_outside_submission_window() {
 
 #[test]
 fn submit_transaction_with_default_replay_protection_values_works() {
-	new_test_ext().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(1);
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
 		let ledger_index = 1;
 		let transaction =
@@ -153,37 +142,35 @@ fn submit_transaction_with_default_replay_protection_values_works() {
 
 #[test]
 fn add_transaction_works() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
-		let tx_address = b"6490B68F1116BFE87DDD";
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let tx_address = create_account(12);
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 		for i in 0..9u64 {
 			let mut transaction_hash = transaction_hash.clone();
 			transaction_hash[0] = i as u8;
-			submit_transaction(relayer, i * 1_000_000, &transaction_hash, tx_address, i);
+			submit_transaction(relayer, i * 1_000_000, &transaction_hash, tx_address.into(), i);
 		}
 	})
 }
 
 #[test]
 fn adding_more_transactions_than_the_limit_returns_error() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
-		let tx_address = b"6490B68F1116BFE87DDD";
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let tx_address = create_account(12);
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 		for i in 0..<Test as crate::Config>::XRPTransactionLimit::get() {
 			let i = i as u64;
 			let mut transaction_hash = transaction_hash.clone();
 			transaction_hash[0] = i as u8;
-			submit_transaction(relayer, i * 1_000_000, &transaction_hash, tx_address, i);
+			submit_transaction(relayer, i * 1_000_000, &transaction_hash, tx_address.into(), i);
 		}
 
-		let transaction = XrplTxData::Payment {
-			amount: (1 * 1000u64) as Balance,
-			address: H160::from_slice(tx_address),
-		};
+		let transaction =
+			XrplTxData::Payment { amount: (1 * 1000u64) as Balance, address: tx_address.into() };
 
 		let err = XRPLBridge::submit_transaction(
 			RuntimeOrigin::signed(relayer),
@@ -198,21 +185,20 @@ fn adding_more_transactions_than_the_limit_returns_error() {
 
 #[test]
 fn process_transaction_works() {
-	new_test_ext().execute_with(|| {
-		let account_address = b"6490B68F1116BFE87DDC";
-		process_transaction(account_address);
+	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
+		process_transaction(create_account(1));
 	})
 }
 
 #[test]
 fn process_transaction_challenge_works() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
-		let tx_address = b"6490B68F1116BFE87DDC";
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
-		let challenger = create_account(b"6490B68F1116BFE87DDE");
+		let tx_address = create_account(12);
+		let relayer = create_account(1);
+		let challenger = create_account(2);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
-		submit_transaction(relayer, 1_000_000, transaction_hash, tx_address, 1);
+		submit_transaction(relayer, 1_000_000, transaction_hash, tx_address.into(), 1);
 		assert_ok!(XRPLBridge::submit_challenge(
 			RuntimeOrigin::signed(challenger),
 			XrplTxHash::from_slice(transaction_hash),
@@ -227,31 +213,27 @@ fn process_transaction_challenge_works() {
 
 #[test]
 fn set_door_tx_fee_works() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let new_fee = 123456_u64;
 		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), new_fee));
 		assert_eq!(XRPLBridge::door_tx_fee(), new_fee);
 
 		// Only root can sign this tx, this should fail
 		let account = AccountId::from(H160::from_slice(b"6490B68F1116BFE87DDC"));
-		assert_noop!(
-			XRPLBridge::set_door_tx_fee(RuntimeOrigin::signed(account), 0),
-			DispatchError::BadOrigin
-		);
+		assert_noop!(XRPLBridge::set_door_tx_fee(RuntimeOrigin::signed(account), 0), BadOrigin);
 	});
 }
 
 #[test]
 fn withdraw_request_works() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
 		// For this test we will set the door_tx_fee to 0
 		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
 
 		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-		let account_address = b"6490B68F1116BFE87DDC";
-		let account = create_account(account_address);
-		process_transaction(account_address); // 2000 XRP deposited
+		let account = create_account(1);
+		process_transaction(account); // 2000 XRP deposited
 
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
@@ -270,33 +252,38 @@ fn withdraw_request_works() {
 
 		// Withdraw half of available xrp
 		assert_ok!(XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1000, destination));
-		let xrp_balance = xrp_balance_of(account_address);
+		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, 1000);
+
+		// Withdraw more than available XRP should throw BalanceLow error
+		assert_noop!(
+			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1001, destination),
+			pallet_assets::Error::<Test>::BalanceLow
+		);
 
 		// Withdraw second half
 		assert_ok!(XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1000, destination));
-		let xrp_balance = xrp_balance_of(account_address);
+		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, 0);
 
-		// No xrp left to withdraw, should fail
+		// No xrp left to withdraw, should fail as account is reaped
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1, destination),
-			ArithmeticError::Underflow
+			pallet_assets::Error::<Test>::NoAccount
 		);
 	})
 }
 
 #[test]
 fn withdraw_request_works_with_door_fee() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
 		// For this test we will set the door_tx_fee to 100
 		let door_tx_fee = 100_u64;
 		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), door_tx_fee));
-		let account_address = b"6490B68F1116BFE87DDC";
-		let account = create_account(account_address);
-		process_transaction(account_address); // 2000 XRP deposited
+		let account = create_account(1);
+		process_transaction(account); // 2000 XRP deposited
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-		let initial_xrp_balance = xrp_balance_of(account_address);
+		let initial_xrp_balance = xrp_balance_of(account);
 		let withdraw_amount: u64 = 1_000;
 
 		// set initial ticket sequence params
@@ -319,11 +306,11 @@ fn withdraw_request_works_with_door_fee() {
 		));
 
 		// Balance should be less withdraw amount and door fee
-		let xrp_balance = xrp_balance_of(account_address);
+		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, initial_xrp_balance - withdraw_amount - door_tx_fee);
 
 		// Try again for remainding
-		let initial_xrp_balance = xrp_balance_of(account_address);
+		let initial_xrp_balance = xrp_balance_of(account);
 		let withdraw_amount: u64 = 800;
 		assert_ok!(XRPLBridge::withdraw_xrp(
 			RuntimeOrigin::signed(account),
@@ -332,21 +319,21 @@ fn withdraw_request_works_with_door_fee() {
 		));
 
 		// Balance should be less withdraw amount and door fee
-		let xrp_balance = xrp_balance_of(account_address);
+		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, initial_xrp_balance - withdraw_amount - door_tx_fee);
 
 		// No funds left to withdraw
 		assert_eq!(xrp_balance, 0);
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1, destination),
-			ArithmeticError::Underflow
+			pallet_assets::Error::<Test>::NoAccount
 		);
 	})
 }
 
 #[test]
 fn withdraw_request_burn_fails() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
 		// For this test we will set the door_tx_fee to 0 so we can ensure the Underflow is due to
 		// the withdraw logic, not the door_tx_fee
 		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
@@ -355,18 +342,18 @@ fn withdraw_request_burn_fails() {
 			b"6490B68F1116BFE87DDC".into()
 		));
 
-		let account = create_account(b"6490B68F1116BFE87DDC");
+		let account = create_account(2);
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1000, destination),
-			ArithmeticError::Underflow
+			pallet_assets::Error::<Test>::NoAccount
 		);
 	})
 }
 
 #[test]
 fn set_door_address_success() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let xprl_door_address = b"6490B68F1116BFE87DDD";
 		assert_ok!(XRPLBridge::set_door_address(
 			RuntimeOrigin::root(),
@@ -378,7 +365,7 @@ fn set_door_address_success() {
 
 #[test]
 fn set_door_address_fail() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let xprl_door_address = b"6490B68F1116BFE87DDD";
 		let caller = XrplAccountId::from_low_u64_be(1);
 		assert_noop!(
@@ -394,8 +381,8 @@ fn set_door_address_fail() {
 
 #[test]
 fn settle_new_higher_ledger_index_brings_submission_window_forward() {
-	new_test_ext().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(1);
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
 
 		let tx_hash_1 = XrplTxHash::from_low_u64_be(123);
@@ -405,6 +392,7 @@ fn settle_new_higher_ledger_index_brings_submission_window_forward() {
 		// Set replay protection data
 		let current_highest_settled_ledger_index = 8;
 		HighestSettledLedgerIndex::<Test>::put(current_highest_settled_ledger_index);
+		HighestPrunedLedgerIndex::<Test>::put(0);
 		SubmissionWindowWidth::<Test>::put(5);
 
 		let current_submission_window_end = 8 - 5;
@@ -435,13 +423,14 @@ fn settle_new_higher_ledger_index_brings_submission_window_forward() {
 			1234
 		));
 
-		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
-		System::set_block_number(XrpTxChallengePeriod::get() as u64);
+		let block_number = System::block_number() + XrpTxChallengePeriod::get() as u64;
+		XRPLBridge::on_initialize(block_number);
+		System::set_block_number(block_number);
+		XRPLBridge::on_idle(block_number, Weight::from_ref_time(1_000_000_000u64));
 
-		// data outside the previous submission window end will not be cleaned in this iteration.
-		// Ideally it should have been cleaned by now.
-		assert!(<SettledXRPTransactionDetails<Test>>::get(2).is_some());
-		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_1).is_some());
+		// data outside the previous submission window end should be cleaned now
+		assert!(<SettledXRPTransactionDetails<Test>>::get(2).is_none());
+		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_1).is_none());
 
 		// data from current_submission_window_end to new submission window end shuld be cleaned
 		assert!(<SettledXRPTransactionDetails<Test>>::get(current_submission_window_end).is_none());
@@ -489,8 +478,8 @@ fn settle_new_higher_ledger_index_brings_submission_window_forward() {
 
 #[test]
 fn reset_settled_xrpl_tx_data_success() {
-	new_test_ext().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(1);
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
 
 		let tx_hash_1 = XrplTxHash::from_low_u64_be(123);
@@ -500,6 +489,7 @@ fn reset_settled_xrpl_tx_data_success() {
 		// Set replay protection data
 		let current_highest_settled_ledger_index = 8;
 		HighestSettledLedgerIndex::<Test>::put(current_highest_settled_ledger_index);
+		HighestPrunedLedgerIndex::<Test>::put(0);
 		SubmissionWindowWidth::<Test>::put(5);
 
 		let current_submission_window_end = 8 - 5;
@@ -538,8 +528,11 @@ fn reset_settled_xrpl_tx_data_success() {
 			1234
 		));
 
-		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
-		System::set_block_number(XrpTxChallengePeriod::get() as u64);
+		let block_number = System::block_number() + XrpTxChallengePeriod::get() as u64;
+		XRPLBridge::on_initialize(block_number);
+		System::set_block_number(block_number);
+		// Call on idle to prune the settled data
+		XRPLBridge::on_idle(block_number, Weight::from_ref_time(1_000_000_000u64));
 
 		// all previous settled data should be pruned by now
 		assert!(<SettledXRPTransactionDetails<Test>>::get(current_submission_window_end).is_none());
@@ -566,6 +559,7 @@ fn reset_settled_xrpl_tx_data_success() {
 			RuntimeOrigin::root(),
 			9,
 			6,
+			None,
 			Some(settled_xrpl_tx_data)
 		));
 
@@ -616,21 +610,469 @@ fn reset_settled_xrpl_tx_data_success() {
 }
 
 #[test]
-fn reset_settled_xrpl_tx_data_can_only_be_called_by_root() {
-	new_test_ext().execute_with(|| {
-		let account: AccountId = [1_u8; 20].into();
+fn reset_settled_xrpl_tx_data_invalid_highest_pruned_ledger_index() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let highest_settled_ledger_index = 9;
+		let submission_window_width = 6;
+		let highest_pruned_ledger_index =
+			highest_settled_ledger_index - submission_window_width + 1;
+
+		// Should fail as highest pruned is within the submission window
 		assert_noop!(
-			XRPLBridge::reset_settled_xrpl_tx_data(RuntimeOrigin::signed(account), 9, 6, None),
-			DispatchError::BadOrigin
+			XRPLBridge::reset_settled_xrpl_tx_data(
+				RuntimeOrigin::root(),
+				highest_settled_ledger_index,
+				submission_window_width,
+				Some(highest_pruned_ledger_index),
+				None
+			),
+			Error::<Test>::InvalidHighestPrunedIndex
 		);
 
-		assert_ok!(XRPLBridge::reset_settled_xrpl_tx_data(RuntimeOrigin::root(), 9, 6, None));
+		// This should pass
+		let highest_pruned_ledger_index = highest_settled_ledger_index - submission_window_width;
+		assert_ok!(XRPLBridge::reset_settled_xrpl_tx_data(
+			RuntimeOrigin::root(),
+			highest_settled_ledger_index,
+			submission_window_width,
+			Some(highest_pruned_ledger_index),
+			None
+		));
+
+		assert_eq!(HighestPrunedLedgerIndex::<Test>::get(), highest_pruned_ledger_index);
+	})
+}
+
+#[test]
+fn clear_storages_in_on_idle_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(2);
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+
+		let tx_hash_1 = XrplTxHash::from_low_u64_be(123);
+		let tx_hash_2 = XrplTxHash::from_low_u64_be(124);
+
+		// Set replay protection data
+		let current_highest_settled_ledger_index = 8;
+		HighestSettledLedgerIndex::<Test>::put(current_highest_settled_ledger_index);
+		HighestPrunedLedgerIndex::<Test>::put(2);
+		SubmissionWindowWidth::<Test>::put(5);
+
+		let ledger_index = 2;
+
+		// Add settled tx data outside the window
+		<SettledXRPTransactionDetails<Test>>::try_append(ledger_index, tx_hash_1).unwrap();
+		<SettledXRPTransactionDetails<Test>>::try_append(ledger_index, tx_hash_2).unwrap();
+		let account: AccountId = [1_u8; 20].into();
+		<ProcessXRPTransactionDetails<Test>>::insert(
+			tx_hash_1,
+			(ledger_index as LedgerIndex, XrpTransaction::default(), account),
+		);
+		<ProcessXRPTransactionDetails<Test>>::insert(
+			tx_hash_2,
+			(ledger_index as LedgerIndex, XrpTransaction::default(), account),
+		);
+
+		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
+		System::set_block_number(XrpTxChallengePeriod::get() as u64);
+		// Call on idle to prune the settled data with enough weight to settle both
+		let idle_weight = XRPLBridge::on_idle(
+			XrpTxChallengePeriod::get() as u64,
+			Weight::from_ref_time(10_000_000_000u64),
+		);
+		let expected_weight = DbWeight::get().reads_writes(4, 4);
+		assert_eq!(idle_weight, expected_weight);
+
+		// all previous settled data should be pruned by now
+		assert!(<SettledXRPTransactionDetails<Test>>::get(ledger_index).is_none());
+		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_1).is_none());
+		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_2).is_none());
+		assert_eq!(<HighestPrunedLedgerIndex<Test>>::get(), 3);
+	});
+}
+
+#[test]
+fn clear_storages_in_on_idle_doesnt_exceed_max() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(2);
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+
+		// Set replay protection data where highest settled is far higher than highest pruned
+		HighestSettledLedgerIndex::<Test>::put(10_000_000);
+		HighestPrunedLedgerIndex::<Test>::put(0);
+		SubmissionWindowWidth::<Test>::put(288_000);
+
+		XRPLBridge::on_initialize(2_u64);
+		System::set_block_number(2_u64);
+
+		// Call on idle to prune the settled data with heaps of weight
+		let idle_weight = XRPLBridge::on_idle(2_u64, Weight::from_ref_time(10_000_000_000_000u64));
+		// Expected weight should be 5000 reads + 3 and 1 write for the highest pruned ledger index
+		let expected_weight =
+			DbWeight::get().reads_writes(3 + MaxPrunedTransactionsPerBlock::get() as u64, 1);
+		assert_eq!(idle_weight, expected_weight);
+
+		// HighestPrunedLedgerIndex should be set to the max
+		assert_eq!(<HighestPrunedLedgerIndex<Test>>::get(), MaxPrunedTransactionsPerBlock::get());
+	});
+}
+
+#[test]
+fn clear_storages_in_on_idle_returns_zero_if_not_enough_weight() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(2);
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+
+		// Set replay protection data
+		let current_highest_settled_ledger_index = 8;
+		HighestSettledLedgerIndex::<Test>::put(current_highest_settled_ledger_index);
+		HighestPrunedLedgerIndex::<Test>::put(2);
+		SubmissionWindowWidth::<Test>::put(5);
+
+		// Add settled tx data within the window
+		let ledger_index = 2;
+		let tx_hash = XrplTxHash::from_low_u64_be(123);
+		<SettledXRPTransactionDetails<Test>>::try_append(ledger_index, tx_hash).unwrap();
+		let account: AccountId = [1_u8; 20].into();
+		<ProcessXRPTransactionDetails<Test>>::insert(
+			tx_hash,
+			(ledger_index as LedgerIndex, XrpTransaction::default(), account),
+		);
+
+		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
+		System::set_block_number(XrpTxChallengePeriod::get() as u64);
+
+		// Call on idle to prune the settled data with not enough weight to settle one tx
+		let remaining_weight = DbWeight::get().reads_writes(4, 3);
+		let idle_weight = XRPLBridge::on_idle(XrpTxChallengePeriod::get() as u64, remaining_weight);
+		assert_eq!(idle_weight, Weight::from_ref_time(0));
+		// Data remains in place
+		assert!(<SettledXRPTransactionDetails<Test>>::get(ledger_index).is_some());
+		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash).is_some());
+		assert_eq!(<HighestPrunedLedgerIndex<Test>>::get(), 2);
+
+		// Call on idle to prune the settled data with JUST enough weight to settle one tx
+		let remaining_weight = DbWeight::get().reads_writes(4, 3);
+		let idle_weight = XRPLBridge::on_idle(
+			XrpTxChallengePeriod::get() as u64 + 1,
+			remaining_weight + Weight::from_ref_time(1u64),
+		);
+		assert_eq!(idle_weight, remaining_weight);
+		// Data updated
+		assert!(<SettledXRPTransactionDetails<Test>>::get(ledger_index).is_none());
+		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash).is_none());
+		assert_eq!(<HighestPrunedLedgerIndex<Test>>::get(), 3);
+	});
+}
+
+#[test]
+fn clear_storages_doesnt_exceed_on_idle_weight() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(2);
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+
+		// Set replay protection data
+		let current_highest_settled_ledger_index = 8;
+		HighestSettledLedgerIndex::<Test>::put(current_highest_settled_ledger_index);
+		SubmissionWindowWidth::<Test>::put(5);
+		HighestPrunedLedgerIndex::<Test>::put(2); // 8 - 5 - 1
+
+		// Create data
+		let tx_count = 10;
+		let ledger_index = 2;
+		let account: AccountId = [1_u8; 20].into();
+		for i in 0..tx_count {
+			let tx_hash = XrplTxHash::from_low_u64_be(i);
+			<SettledXRPTransactionDetails<Test>>::try_append(ledger_index, tx_hash).unwrap();
+			<ProcessXRPTransactionDetails<Test>>::insert(
+				tx_hash,
+				(ledger_index as LedgerIndex, XrpTransaction::default(), account),
+			);
+		}
+
+		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
+		System::set_block_number(XrpTxChallengePeriod::get() as u64);
+
+		// Call on idle with enough weight to clear only 1 tx
+		let remaining_weight = DbWeight::get().reads_writes(4, 2 + 1);
+		let idle_weight = XRPLBridge::on_idle(
+			XrpTxChallengePeriod::get() as u64,
+			remaining_weight + Weight::from_ref_time(1u64),
+		);
+		// We subtract 1 from as we did not end up updating HighestPrunedLedgerIndex
+		assert_eq!(idle_weight, remaining_weight - DbWeight::get().writes(1));
+		// One settledXRPTransaction should have been removed
+		assert_eq!(<SettledXRPTransactionDetails<Test>>::get(ledger_index).unwrap().len(), 9);
+		// Highest remains at 2 because we have not cleared all the settled TX details for that
+		// index
+		assert_eq!(<HighestPrunedLedgerIndex<Test>>::get(), 2);
+		// One ProcessXRPTransactionDetails should have been removed
+		for i in 0..tx_count {
+			let tx_hash = XrplTxHash::from_low_u64_be(i);
+			if i < 1 {
+				assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash).is_none());
+			} else {
+				assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash).is_some());
+			}
+		}
+
+		// Call on idle with enough weight to clear 4 more txs
+		let remaining_weight = DbWeight::get().reads_writes(4, 2 + 4);
+		let idle_weight = XRPLBridge::on_idle(
+			XrpTxChallengePeriod::get() as u64 + 1,
+			remaining_weight + Weight::from_ref_time(1u64),
+		);
+		// We subtract 1 from as we did not end up updating HighestPrunedLedgerIndex
+		assert_eq!(idle_weight, remaining_weight - DbWeight::get().writes(1));
+		// 5 settledXRPTransaction should have been removed total
+		assert_eq!(<SettledXRPTransactionDetails<Test>>::get(ledger_index).unwrap().len(), 5);
+		// Highest remains at 2 because we have not cleared all the settled TX details for that
+		// index
+		assert_eq!(<HighestPrunedLedgerIndex<Test>>::get(), 2);
+		// 5 ProcessXRPTransactionDetails should have been removed
+		for i in 0..tx_count {
+			let tx_hash = XrplTxHash::from_low_u64_be(i);
+			if i < 5 {
+				assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash).is_none());
+			} else {
+				assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash).is_some());
+			}
+		}
+
+		// Call on idle with enough weight to clear the last 5 txs
+		let remaining_weight = DbWeight::get().reads_writes(4, 2 + 5);
+		let idle_weight = XRPLBridge::on_idle(0u64, remaining_weight + Weight::from_ref_time(1u64));
+		assert_eq!(idle_weight, remaining_weight);
+		// SettledXRPTransactionDetails should now be cleared
+		assert!(<SettledXRPTransactionDetails<Test>>::get(ledger_index).is_none());
+		// Highest is now 3 because we have cleared all the settled TX details for that index
+		assert_eq!(<HighestPrunedLedgerIndex<Test>>::get(), 3);
+		// All ProcessXRPTransactionDetails should have been removed
+		for i in 0..tx_count {
+			let tx_hash = XrplTxHash::from_low_u64_be(i);
+			assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash).is_none());
+		}
+	});
+}
+
+#[test]
+fn clear_storages_across_multiple_ledger_indices() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(2);
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+
+		// Set replay protection data
+		let current_highest_settled_ledger_index = 9;
+		HighestSettledLedgerIndex::<Test>::put(current_highest_settled_ledger_index);
+		SubmissionWindowWidth::<Test>::put(5);
+		HighestPrunedLedgerIndex::<Test>::put(2); // 8 - 5 - 2
+
+		// Create data across 2 ledger indices
+		let tx_count = 5;
+		let ledger_index_1 = 2;
+		let ledger_index_2 = 3;
+		let account: AccountId = [1_u8; 20].into();
+		for i in 0..tx_count {
+			let tx_hash_1 = XrplTxHash::from_low_u64_be(i);
+			let tx_hash_2 = XrplTxHash::from_low_u64_be(i + 10);
+			<SettledXRPTransactionDetails<Test>>::try_append(ledger_index_1, tx_hash_1).unwrap();
+			<SettledXRPTransactionDetails<Test>>::try_append(ledger_index_2, tx_hash_2).unwrap();
+			<ProcessXRPTransactionDetails<Test>>::insert(
+				tx_hash_1,
+				(ledger_index_1 as LedgerIndex, XrpTransaction::default(), account),
+			);
+			<ProcessXRPTransactionDetails<Test>>::insert(
+				tx_hash_2,
+				(ledger_index_2 as LedgerIndex, XrpTransaction::default(), account),
+			);
+		}
+
+		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
+		System::set_block_number(XrpTxChallengePeriod::get() as u64);
+
+		// Call on idle with enough weight to clear both ledger indices
+		let base_weight = DbWeight::get().reads_writes(3, 1);
+		let weight_per_index = DbWeight::get().reads_writes(1, 1);
+		let weight_per_hash = DbWeight::get().writes(1);
+		let remaining_weight = base_weight + (weight_per_index * 2) + (weight_per_hash * 10);
+		let idle_weight = XRPLBridge::on_idle(
+			XrpTxChallengePeriod::get() as u64,
+			remaining_weight + Weight::from_ref_time(1u64),
+		);
+		assert_eq!(idle_weight, remaining_weight);
+
+		// SettledXRPTransactionDetails should now be cleared
+		assert!(<SettledXRPTransactionDetails<Test>>::get(ledger_index_1).is_none());
+		assert!(<SettledXRPTransactionDetails<Test>>::get(ledger_index_2).is_none());
+		// Highest is now 4 because we have cleared all the settled TX details for both indices
+		assert_eq!(<HighestPrunedLedgerIndex<Test>>::get(), 4);
+		// All ProcessXRPTransactionDetails should have been removed
+		for i in 0..tx_count {
+			let tx_hash_1 = XrplTxHash::from_low_u64_be(i);
+			let tx_hash_2 = XrplTxHash::from_low_u64_be(i + 10);
+			assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_1).is_none());
+			assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_2).is_none());
+		}
+	});
+}
+
+#[test]
+fn clear_storages_nothing_to_prune() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		// Set replay protection data
+		HighestSettledLedgerIndex::<Test>::put(8);
+		SubmissionWindowWidth::<Test>::put(5);
+		HighestPrunedLedgerIndex::<Test>::put(3); // 8 - 5
+
+		// Call on idle and only use enough weight to read the 3 storage values
+		let idle_weight = XRPLBridge::on_idle(0u64, Weight::from_ref_time(10_000_000_000u64));
+		// 3 reads for the base storage values
+		let expected_weight = DbWeight::get().reads(3);
+		assert_eq!(idle_weight, expected_weight);
+		assert_eq!(HighestPrunedLedgerIndex::<Test>::get(), 3);
+
+		// Set replay protection data with one empty ledger index
+		HighestSettledLedgerIndex::<Test>::put(9);
+		SubmissionWindowWidth::<Test>::put(5);
+		HighestPrunedLedgerIndex::<Test>::put(3);
+
+		// Call on idle and only use enough weight to read the 3 storage values
+		// We have one additional write to update the HighestPrunedLedgerIndex
+		let idle_weight = XRPLBridge::on_idle(1u64, Weight::from_ref_time(10_000_000_000u64));
+		// Extra read and write:
+		// read: SettledXRPTransactionDetails
+		// write: HighestPrunedLedgerIndex
+		let expected_weight = DbWeight::get().reads_writes(4, 1);
+		assert_eq!(idle_weight, expected_weight);
+		assert_eq!(HighestPrunedLedgerIndex::<Test>::get(), 4);
+	});
+}
+
+#[test]
+fn clear_storages_nothing_to_prune_increases_ledger_index() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		// Set replay protection data
+		HighestSettledLedgerIndex::<Test>::put(10500);
+		SubmissionWindowWidth::<Test>::put(500);
+		HighestPrunedLedgerIndex::<Test>::put(0); // 10000 to clear
+
+		// Call on idle and only use enough weight to read 5000 ledger indices
+		// Note there are 3 reads instead of 1, this is because it will stop when it doesn't have
+		// enough weight to write the data in the case that there is data to write
+		// So we need to give it enough weight to theoretically write if it can
+		let remaining_weight = DbWeight::get().reads_writes(3 + 5000, 3);
+		let idle_weight = XRPLBridge::on_idle(0u64, remaining_weight + Weight::from_ref_time(1));
+		// It uses only enough weight to read all 5000
+		let expected_weight = DbWeight::get().reads_writes(3 + 5000, 1);
+		assert_eq!(idle_weight, expected_weight);
+		assert_eq!(HighestPrunedLedgerIndex::<Test>::get(), 5000);
+
+		// Call on idle with plenty of weight to cover the last 5000 ledger indices
+		// It should only use as much as it needs and no more
+		let idle_weight = XRPLBridge::on_idle(1u64, Weight::from_ref_time(u64::MAX));
+		// It uses only enough weight to read all 5000
+		let expected_weight = DbWeight::get().reads_writes(3 + 5000, 1);
+		assert_eq!(idle_weight, expected_weight);
+		assert_eq!(HighestPrunedLedgerIndex::<Test>::get(), 10_000);
+	});
+}
+
+#[test]
+fn prune_settled_ledger_index_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		System::reset_events();
+		HighestSettledLedgerIndex::<Test>::put(8);
+		SubmissionWindowWidth::<Test>::put(5);
+		HighestPrunedLedgerIndex::<Test>::put(3);
+
+		// Create data
+		let tx_count = 10;
+		let ledger_index: u32 = 2;
+		let account: AccountId = [1_u8; 20].into();
+		for i in 0..tx_count {
+			let tx_hash = XrplTxHash::from_low_u64_be(i);
+			<SettledXRPTransactionDetails<Test>>::try_append(ledger_index, tx_hash).unwrap();
+			<ProcessXRPTransactionDetails<Test>>::insert(
+				tx_hash,
+				(ledger_index as LedgerIndex, XrpTransaction::default(), account),
+			);
+		}
+
+		assert_ok!(XRPLBridge::prune_settled_ledger_index(RuntimeOrigin::root(), ledger_index));
+
+		// SettledXRPTransactionDetails should now be cleared
+		assert!(<SettledXRPTransactionDetails<Test>>::get(ledger_index).is_none());
+		// Doesn't affect HighestPrunedLedgerIndex
+		assert_eq!(<HighestPrunedLedgerIndex<Test>>::get(), 3);
+		// All ProcessXRPTransactionDetails should have been removed
+		for i in 0..tx_count {
+			let tx_hash = XrplTxHash::from_low_u64_be(i);
+			assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash).is_none());
+		}
+	})
+}
+
+#[test]
+fn prune_settled_ledger_index_inside_submission_window_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		HighestSettledLedgerIndex::<Test>::put(8);
+		SubmissionWindowWidth::<Test>::put(5);
+
+		let ledger_index = 3; // Still within submission window
+		assert_noop!(
+			XRPLBridge::prune_settled_ledger_index(RuntimeOrigin::root(), ledger_index),
+			Error::<Test>::CannotPruneActiveLedgerIndex
+		);
+	})
+}
+
+#[test]
+fn prune_settled_ledger_index_no_transaction_details_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		HighestSettledLedgerIndex::<Test>::put(8);
+		SubmissionWindowWidth::<Test>::put(5);
+
+		let ledger_index = 2;
+		assert_noop!(
+			XRPLBridge::prune_settled_ledger_index(RuntimeOrigin::root(), ledger_index),
+			Error::<Test>::NoTransactionDetails
+		);
+	})
+}
+
+#[test]
+fn prune_settled_ledger_index_only_root() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let account: AccountId = [1_u8; 20].into();
+		assert_noop!(
+			XRPLBridge::prune_settled_ledger_index(RuntimeOrigin::signed(account), 9,),
+			DispatchError::BadOrigin
+		);
+	})
+}
+
+#[test]
+fn reset_settled_xrpl_tx_data_can_only_be_called_by_root() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let account: AccountId = [1_u8; 20].into();
+		assert_noop!(
+			XRPLBridge::reset_settled_xrpl_tx_data(
+				RuntimeOrigin::signed(account),
+				9,
+				6,
+				None,
+				None
+			),
+			BadOrigin
+		);
+
+		assert_ok!(XRPLBridge::reset_settled_xrpl_tx_data(RuntimeOrigin::root(), 9, 6, None, None));
 	})
 }
 
 #[test]
 fn get_door_ticket_sequence_success_at_start() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
@@ -646,9 +1088,9 @@ fn get_door_ticket_sequence_success_at_start() {
 
 #[test]
 fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		assert_noop!(
@@ -683,8 +1125,8 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 
 #[test]
 fn get_door_ticket_sequence_success_over_next_round() {
-	new_test_ext().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// set initial ticket sequence params
@@ -717,8 +1159,8 @@ fn get_door_ticket_sequence_success_over_next_round() {
 
 #[test]
 fn get_door_ticket_sequence_success_force_set_current_round() {
-	new_test_ext().execute_with(|| {
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// set initial ticket sequence params
@@ -755,9 +1197,9 @@ fn get_door_ticket_sequence_success_force_set_current_round() {
 #[test]
 #[allow(non_snake_case)]
 fn get_door_ticket_sequence_check_events_emitted() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		assert_noop!(
@@ -809,9 +1251,9 @@ fn get_door_ticket_sequence_check_events_emitted() {
 
 #[test]
 fn set_ticket_sequence_current_allocation_success() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// set initial ticket sequence params
@@ -855,9 +1297,9 @@ fn set_ticket_sequence_current_allocation_success() {
 
 #[test]
 fn set_ticket_sequence_current_allocation_failure() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// set initial ticket sequence params - success
@@ -950,9 +1392,9 @@ fn set_ticket_sequence_current_allocation_failure() {
 
 #[test]
 fn set_ticket_sequence_next_allocation_success() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// no initial ticket sequence params, start setting the params for next allocation
@@ -1022,9 +1464,9 @@ fn set_ticket_sequence_next_allocation_success() {
 
 #[test]
 fn set_ticket_sequence_next_allocation_failure() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// set initial ticket sequence params - success
@@ -1089,7 +1531,7 @@ fn set_ticket_sequence_next_allocation_failure() {
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_next_allocation(
-				RuntimeOrigin::signed(create_account(b"6490B68F1116BFE87DDE")),
+				RuntimeOrigin::signed(create_account(2)),
 				10_u32,
 				200_u32
 			),
@@ -1122,18 +1564,16 @@ fn set_ticket_sequence_next_allocation_failure() {
 
 #[test]
 fn process_xrp_tx_success() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
 		System::set_block_number(1);
-		let account_address = b"6490B68F1116BFE87DDC";
+		let account = create_account(12);
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// submit payment tx
-		let payment_tx = XrplTxData::Payment {
-			amount: (1 * 1000u64) as Balance,
-			address: H160::from_slice(account_address),
-		};
+		let payment_tx =
+			XrplTxData::Payment { amount: (1 * 1000u64) as Balance, address: account.into() };
 		assert_ok!(XRPLBridge::submit_transaction(
 			RuntimeOrigin::signed(relayer),
 			1_000_000,
@@ -1150,24 +1590,24 @@ fn process_xrp_tx_success() {
 				.into(),
 		);
 
-		let xrp_balance = xrp_balance_of(account_address);
+		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, 1000);
 	})
 }
 
 #[test]
 fn process_xrp_tx_not_supported_transaction() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let account_address = b"6490B68F1116BFE87DDC";
+		let account = create_account(2);
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// submit currency payment tx
 		let currency_payment_tx = XrplTxData::CurrencyPayment {
 			amount: (1 * 1000u64) as Balance,
-			address: H160::from_slice(account_address),
+			address: account.into(),
 			currency_id: H256::random(),
 		};
 		assert_ok!(XRPLBridge::submit_transaction(
@@ -1183,19 +1623,19 @@ fn process_xrp_tx_not_supported_transaction() {
 		System::set_block_number(XrpTxChallengePeriod::get() as u64 + 1);
 		System::assert_has_event(Event::<Test>::NotSupportedTransaction.into());
 
-		let xrp_balance = xrp_balance_of(account_address);
+		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, 0);
 	})
 }
 
 #[test]
 fn process_xrp_tx_processing_failed() {
-	new_test_ext().execute_with(|| {
+	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
 		System::set_block_number(1);
 		let account_address = b"6490B68F1116BFE87DDC";
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317C";
 		let transaction_hash2 = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317D";
-		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 		{
 			// submit payment tx - this will mint the max Balance for the asset ID

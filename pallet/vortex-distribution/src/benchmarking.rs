@@ -148,6 +148,9 @@ benchmarks! {
 		assert_ok!(VortexDistribution::<T>::start_vtx_dist(RawOrigin::Root.into(), vortex_dist_id));
 		System::<T>::set_block_number(end_block.into());
 		assert_ok!(VortexDistribution::<T>::pay_unsigned(RawOrigin::None.into(), vortex_dist_id, end_block.into()));
+		VtxDistStatuses::<T>::mutate(vortex_dist_id, |status| {
+			*status = VtxDistStatus::Done;
+		});
 	}: _(RawOrigin::Signed(account::<T>("test")), vortex_dist_id, balance)
 	verify {
 		assert_eq!(T::MultiCurrency::balance(T::VtxAssetId::get(), &account::<T>("test")), balance);

@@ -13,72 +13,34 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{self as pallet_echo, Config, PING};
+use crate::{self as pallet_echo, Config, Weight, PING};
 use ethabi::{ParamType, Token};
-use frame_support::{parameter_types, storage::StorageValue, PalletId};
-use seed_pallet_common::{
-	EthereumBridge, EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber,
-	EventRouterError, EventRouterResult,
-};
+use frame_support::storage::StorageValue;
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::ethy::EventProofId;
+use sp_runtime::SaturatedConversion;
 
-use crate::Weight;
-use seed_primitives::{ethy::EventProofId, AccountId};
-use sp_core::{H160, H256};
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	DispatchError, SaturatedConversion,
-};
-
-pub type BlockNumber = u64;
-pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
-pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
-
-frame_support::construct_runtime!(
-	pub enum TestRuntime where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+construct_runtime!(
+	pub enum Test where
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Echo: pallet_echo::{Pallet, Call, Storage, Event},
+		System: frame_system,
+		Assets: pallet_assets,
+		Balances: pallet_balances,
+		Echo: pallet_echo,
 	}
 );
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-impl frame_system::Config for TestRuntime {
-	type BlockWeights = ();
-	type BlockLength = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = BlockNumber;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type BlockHashCount = BlockHashCount;
-	type RuntimeEvent = RuntimeEvent;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-}
+impl_frame_system_config!(Test);
+impl_pallet_assets_config!(Test);
+impl_pallet_balance_config!(Test);
 
 parameter_types! {
 	pub const MockEchoPalletId: PalletId = PalletId(*b"pingpong");
 }
-impl Config for TestRuntime {
+impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type EthereumBridge = MockBridge;
 	type PalletId = MockEchoPalletId;
@@ -131,56 +93,18 @@ impl EthereumBridge for MockBridge {
 /// Handles routing verified bridge messages to other pallets
 pub struct MockEthereumEventRouter;
 
-impl EthereumEventRouterT for MockEthereumEventRouter {
+impl EthereumEventRouter for MockEthereumEventRouter {
 	/// Route an event to a handler at `destination`
 	/// - `source` the sender address on Ethereum
 	/// - `destination` the intended handler (pseudo) address
 	/// - `data` the Ethereum ABI encoded event data
 	fn route(source: &H160, destination: &H160, data: &[u8]) -> EventRouterResult {
 		// Route event to specific subscriber pallet
-		if destination == &<pallet_echo::Pallet<TestRuntime> as EthereumEventSubscriber>::address()
-		{
-			<pallet_echo::Pallet<TestRuntime> as EthereumEventSubscriber>::process_event(
-				source, data,
-			)
-			.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
+		if destination == &<pallet_echo::Pallet<Test> as EthereumEventSubscriber>::address() {
+			<pallet_echo::Pallet<Test> as EthereumEventSubscriber>::process_event(source, data)
+				.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
 		} else {
 			Err((Weight::zero(), EventRouterError::NoReceiver))
 		}
 	}
-}
-
-#[derive(Clone, Copy, Default)]
-pub struct ExtBuilder;
-
-impl ExtBuilder {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext: sp_io::TestExternalities = frame_system::GenesisConfig::default()
-			.build_storage::<TestRuntime>()
-			.unwrap()
-			.into();
-
-		ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1));
-
-		ext
-	}
-}
-
-/// Check the system event record contains `event`
-pub(crate) fn has_event(event: crate::Event) -> bool {
-	System::events()
-		.into_iter()
-		.map(|r| r.event)
-		// .filter_map(|e| if let Event::Nft(inner) = e { Some(inner) } else { None })
-		.find(|e| *e == RuntimeEvent::Echo(event.clone()))
-		.is_some()
-}
-
-#[allow(dead_code)]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
-
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
-	ext
 }

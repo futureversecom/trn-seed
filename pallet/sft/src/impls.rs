@@ -17,7 +17,7 @@ use crate::*;
 use frame_support::ensure;
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::utils::PublicMintInformation;
-use seed_primitives::CollectionUuid;
+use seed_primitives::{CollectionUuid, MAX_COLLECTION_ENTITLEMENTS};
 use sp_runtime::{traits::Zero, DispatchError};
 
 impl<T: Config> Pallet<T> {
@@ -37,6 +37,13 @@ impl<T: Config> Pallet<T> {
 
 		// Validate RoyaltiesSchedule
 		if let Some(royalties_schedule) = royalties_schedule.clone() {
+			// Check that the entitlements are less than MAX_ENTITLEMENTS - 2
+			// This is because when the token is listed, two more entitlements will be added
+			// for the network fee and marketplace fee
+			ensure!(
+				royalties_schedule.entitlements.len() <= MAX_COLLECTION_ENTITLEMENTS as usize,
+				Error::<T>::RoyaltiesInvalid
+			);
 			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
 		}
 
@@ -396,6 +403,13 @@ impl<T: Config> Pallet<T> {
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
 
+		// Check that the entitlements are less than MAX_ENTITLEMENTS - 2
+		// This is because when the token is listed, two more entitlements will be added
+		// for the network fee and marketplace fee
+		ensure!(
+			royalties_schedule.entitlements.len() <= MAX_COLLECTION_ENTITLEMENTS as usize,
+			Error::<T>::RoyaltiesInvalid
+		);
 		ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
 
 		collection_info.royalties_schedule = Some(royalties_schedule.clone());

@@ -601,6 +601,7 @@ mod remote_tests {
 	use std::env::var;
 
 	#[tokio::test]
+	#[ignore]
 	async fn run_migrations() {
 		//std::env::set_var("SNAP", "/full/path/to/snap.top");
 		let Some(state_snapshot) = var("SNAP").map(|s| s.into()).ok() else {

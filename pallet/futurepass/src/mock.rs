@@ -14,40 +14,24 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{self as pallet_futurepass, *};
-use frame_support::{
-	parameter_types,
-	traits::{
-		fungibles::{Inspect, Transfer},
-		Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency,
-	},
-	PalletId,
+use frame_support::traits::{
+	fungibles::{Inspect, Transfer},
+	Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency,
 };
-use frame_system::EnsureRoot;
-use seed_pallet_common::*;
-use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
-};
+use seed_pallet_common::test_prelude::*;
 use seed_runtime::{
 	impls::{ProxyPalletProvider, ProxyType},
 	AnnouncementDepositBase, AnnouncementDepositFactor, ProxyDepositBase, ProxyDepositFactor,
 };
-use sp_core::{ecdsa, Pair, H160, H256};
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-};
+use sp_core::{ecdsa, Pair};
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
+pub const MOCK_NATIVE_ASSET_ID: AssetId = ROOT_ASSET_ID;
 
-pub const MOCK_PAYMENT_ASSET_ID: AssetId = 100;
-pub const MOCK_NATIVE_ASSET_ID: AssetId = 1;
-
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -55,10 +39,7 @@ frame_support::construct_runtime!(
 		AssetsExt: pallet_assets_ext,
 		Nft: pallet_nft,
 		FeeControl: pallet_fee_control,
-		// TransactionPayment: pallet_transaction_payment,
-		// FeeProxy: pallet_fee_proxy,
 		Dex: pallet_dex,
-		// Evm: pallet_evm,
 		Proxy: pallet_proxy,
 		Futurepass: pallet_futurepass,
 	}
@@ -118,7 +99,7 @@ impl pallet_proxy::Config for Test {
 	type WeightInfo = ();
 }
 
-impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
+impl ProxyProvider<Test> for ProxyPalletProvider {
 	fn exists(futurepass: &AccountId, delegate: &AccountId, proxy_type: Option<ProxyType>) -> bool {
 		pallet_proxy::Pallet::<Test>::find_proxy(futurepass, delegate, proxy_type).is_ok()
 	}
@@ -237,7 +218,7 @@ parameter_types! {
 	pub const FuturepassPrefix: [u8; 4] = [0xFF; 4];
 }
 
-impl crate::Config for Test {
+impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Proxy = ProxyPalletProvider;
 	type RuntimeCall = RuntimeCall;
@@ -255,7 +236,7 @@ pub struct MockMigrationProvider;
 impl<T: pallet_nft::Config + pallet_assets_ext::Config> crate::FuturepassMigrator<T>
 	for MockMigrationProvider
 where
-	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+	<T as frame_system::Config>::AccountId: From<H160>,
 {
 	fn transfer_asset(
 		asset_id: AssetId,
@@ -302,69 +283,8 @@ where
 	}
 }
 
-pub fn create_account(seed: u64) -> AccountId {
-	AccountId::from(H160::from_low_u64_be(seed))
-}
-pub fn create_random() -> AccountId {
-	AccountId::from(H160::random())
-}
 pub fn create_random_pair() -> (ecdsa::Pair, AccountId) {
 	let (pair, _) = ecdsa::Pair::generate();
 	let account: AccountId = pair.public().try_into().unwrap();
 	(pair, account)
-}
-
-#[derive(Default)]
-pub struct TestExt {
-	balances: Vec<(AccountId, Balance)>,
-	xrp_balances: Vec<(AssetId, AccountId, Balance)>,
-	block_number: BlockNumber,
-}
-
-impl TestExt {
-	/// Configure some native token balances
-	pub fn with_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
-		self.balances = balances.to_vec();
-		self
-	}
-	/// Configure some XRP asset balances
-	pub fn with_xrp_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
-		self.xrp_balances = balances
-			.to_vec()
-			.into_iter()
-			.map(|(who, balance)| (MOCK_PAYMENT_ASSET_ID, who, balance))
-			.collect();
-		self
-	}
-	/// Configure block number
-	pub fn with_block_number(mut self, block_number: BlockNumber) -> Self {
-		self.block_number = block_number;
-		self
-	}
-
-	pub fn build(self) -> sp_io::TestExternalities {
-		let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-		if !self.balances.is_empty() {
-			pallet_balances::GenesisConfig::<Test> { balances: self.balances }
-				.assimilate_storage(&mut storage)
-				.unwrap();
-		}
-		if !self.xrp_balances.is_empty() {
-			let assets = vec![(MOCK_PAYMENT_ASSET_ID, create_account(10), true, 1)];
-			let metadata = vec![(MOCK_PAYMENT_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), 6_u8)];
-			let accounts = self.xrp_balances;
-			pallet_assets::GenesisConfig::<Test> { assets, metadata, accounts }
-				.assimilate_storage(&mut storage)
-				.unwrap();
-		}
-
-		let block_number = std::cmp::max(self.block_number, 1);
-
-		let mut ext: sp_io::TestExternalities = storage.into();
-		ext.execute_with(|| {
-			System::initialize(&block_number, &[0u8; 32].into(), &Default::default())
-		});
-		ext
-	}
 }
