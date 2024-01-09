@@ -644,7 +644,7 @@ fn reset_settled_xrpl_tx_data_invalid_highest_pruned_ledger_index() {
 }
 
 #[test]
-fn clear_storages_in_on_idle_works() {
+fn clear_storages_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let relayer = create_account(2);
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
@@ -676,10 +676,7 @@ fn clear_storages_in_on_idle_works() {
 		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
 		System::set_block_number(XrpTxChallengePeriod::get() as u64);
 		// Call on idle to prune the settled data with enough weight to settle both
-		let idle_weight = XRPLBridge::on_idle(
-			XrpTxChallengePeriod::get() as u64,
-			Weight::from_ref_time(10_000_000_000u64),
-		);
+		let idle_weight = XRPLBridge::clear_storages(Weight::from_ref_time(10_000_000_000u64));
 		let expected_weight = DbWeight::get().reads_writes(4, 4);
 		assert_eq!(idle_weight, expected_weight);
 
@@ -692,7 +689,7 @@ fn clear_storages_in_on_idle_works() {
 }
 
 #[test]
-fn clear_storages_in_on_idle_doesnt_exceed_max() {
+fn clear_storages_doesnt_exceed_max() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let relayer = create_account(2);
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
@@ -702,11 +699,8 @@ fn clear_storages_in_on_idle_doesnt_exceed_max() {
 		HighestPrunedLedgerIndex::<Test>::put(0);
 		SubmissionWindowWidth::<Test>::put(288_000);
 
-		XRPLBridge::on_initialize(2_u64);
-		System::set_block_number(2_u64);
-
-		// Call on idle to prune the settled data with heaps of weight
-		let idle_weight = XRPLBridge::on_idle(2_u64, Weight::from_ref_time(10_000_000_000_000u64));
+		// Call clear storages to prune the settled data with plenty of weight
+		let idle_weight = XRPLBridge::clear_storages(Weight::from_ref_time(10_000_000_000_000u64));
 		// Expected weight should be 5000 reads + 3 and 1 write for the highest pruned ledger index
 		let expected_weight =
 			DbWeight::get().reads_writes(3 + MaxPrunedTransactionsPerBlock::get() as u64, 1);
@@ -718,7 +712,7 @@ fn clear_storages_in_on_idle_doesnt_exceed_max() {
 }
 
 #[test]
-fn clear_storages_in_on_idle_returns_zero_if_not_enough_weight() {
+fn clear_storages_returns_zero_if_not_enough_weight() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let relayer = create_account(2);
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
@@ -740,11 +734,10 @@ fn clear_storages_in_on_idle_returns_zero_if_not_enough_weight() {
 		);
 
 		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
-		System::set_block_number(XrpTxChallengePeriod::get() as u64);
 
 		// Call on idle to prune the settled data with not enough weight to settle one tx
 		let remaining_weight = DbWeight::get().reads_writes(4, 3);
-		let idle_weight = XRPLBridge::on_idle(XrpTxChallengePeriod::get() as u64, remaining_weight);
+		let idle_weight = XRPLBridge::clear_storages(remaining_weight);
 		assert_eq!(idle_weight, Weight::from_ref_time(0));
 		// Data remains in place
 		assert!(<SettledXRPTransactionDetails<Test>>::get(ledger_index).is_some());
@@ -753,10 +746,8 @@ fn clear_storages_in_on_idle_returns_zero_if_not_enough_weight() {
 
 		// Call on idle to prune the settled data with JUST enough weight to settle one tx
 		let remaining_weight = DbWeight::get().reads_writes(4, 3);
-		let idle_weight = XRPLBridge::on_idle(
-			XrpTxChallengePeriod::get() as u64 + 1,
-			remaining_weight + Weight::from_ref_time(1u64),
-		);
+		let idle_weight =
+			XRPLBridge::clear_storages(remaining_weight + Weight::from_ref_time(1u64));
 		assert_eq!(idle_weight, remaining_weight);
 		// Data updated
 		assert!(<SettledXRPTransactionDetails<Test>>::get(ledger_index).is_none());
@@ -795,10 +786,8 @@ fn clear_storages_doesnt_exceed_on_idle_weight() {
 
 		// Call on idle with enough weight to clear only 1 tx
 		let remaining_weight = DbWeight::get().reads_writes(4, 2 + 1);
-		let idle_weight = XRPLBridge::on_idle(
-			XrpTxChallengePeriod::get() as u64,
-			remaining_weight + Weight::from_ref_time(1u64),
-		);
+		let idle_weight =
+			XRPLBridge::clear_storages(remaining_weight + Weight::from_ref_time(1u64));
 		// We subtract 1 from as we did not end up updating HighestPrunedLedgerIndex
 		assert_eq!(idle_weight, remaining_weight - DbWeight::get().writes(1));
 		// One settledXRPTransaction should have been removed
@@ -818,10 +807,8 @@ fn clear_storages_doesnt_exceed_on_idle_weight() {
 
 		// Call on idle with enough weight to clear 4 more txs
 		let remaining_weight = DbWeight::get().reads_writes(4, 2 + 4);
-		let idle_weight = XRPLBridge::on_idle(
-			XrpTxChallengePeriod::get() as u64 + 1,
-			remaining_weight + Weight::from_ref_time(1u64),
-		);
+		let idle_weight =
+			XRPLBridge::clear_storages(remaining_weight + Weight::from_ref_time(1u64));
 		// We subtract 1 from as we did not end up updating HighestPrunedLedgerIndex
 		assert_eq!(idle_weight, remaining_weight - DbWeight::get().writes(1));
 		// 5 settledXRPTransaction should have been removed total
@@ -841,7 +828,8 @@ fn clear_storages_doesnt_exceed_on_idle_weight() {
 
 		// Call on idle with enough weight to clear the last 5 txs
 		let remaining_weight = DbWeight::get().reads_writes(4, 2 + 5);
-		let idle_weight = XRPLBridge::on_idle(0u64, remaining_weight + Weight::from_ref_time(1u64));
+		let idle_weight =
+			XRPLBridge::clear_storages(remaining_weight + Weight::from_ref_time(1u64));
 		assert_eq!(idle_weight, remaining_weight);
 		// SettledXRPTransactionDetails should now be cleared
 		assert!(<SettledXRPTransactionDetails<Test>>::get(ledger_index).is_none());
@@ -895,10 +883,8 @@ fn clear_storages_across_multiple_ledger_indices() {
 		let weight_per_index = DbWeight::get().reads_writes(1, 1);
 		let weight_per_hash = DbWeight::get().writes(1);
 		let remaining_weight = base_weight + (weight_per_index * 2) + (weight_per_hash * 10);
-		let idle_weight = XRPLBridge::on_idle(
-			XrpTxChallengePeriod::get() as u64,
-			remaining_weight + Weight::from_ref_time(1u64),
-		);
+		let idle_weight =
+			XRPLBridge::clear_storages(remaining_weight + Weight::from_ref_time(1u64));
 		assert_eq!(idle_weight, remaining_weight);
 
 		// SettledXRPTransactionDetails should now be cleared
@@ -925,7 +911,7 @@ fn clear_storages_nothing_to_prune() {
 		HighestPrunedLedgerIndex::<Test>::put(3); // 8 - 5
 
 		// Call on idle and only use enough weight to read the 3 storage values
-		let idle_weight = XRPLBridge::on_idle(0u64, Weight::from_ref_time(10_000_000_000u64));
+		let idle_weight = XRPLBridge::clear_storages(Weight::from_ref_time(10_000_000_000u64));
 		// 3 reads for the base storage values
 		let expected_weight = DbWeight::get().reads(3);
 		assert_eq!(idle_weight, expected_weight);
@@ -938,7 +924,7 @@ fn clear_storages_nothing_to_prune() {
 
 		// Call on idle and only use enough weight to read the 3 storage values
 		// We have one additional write to update the HighestPrunedLedgerIndex
-		let idle_weight = XRPLBridge::on_idle(1u64, Weight::from_ref_time(10_000_000_000u64));
+		let idle_weight = XRPLBridge::clear_storages(Weight::from_ref_time(10_000_000_000u64));
 		// Extra read and write:
 		// read: SettledXRPTransactionDetails
 		// write: HighestPrunedLedgerIndex
@@ -961,7 +947,7 @@ fn clear_storages_nothing_to_prune_increases_ledger_index() {
 		// enough weight to write the data in the case that there is data to write
 		// So we need to give it enough weight to theoretically write if it can
 		let remaining_weight = DbWeight::get().reads_writes(3 + 5000, 3);
-		let idle_weight = XRPLBridge::on_idle(0u64, remaining_weight + Weight::from_ref_time(1));
+		let idle_weight = XRPLBridge::clear_storages(remaining_weight + Weight::from_ref_time(1));
 		// It uses only enough weight to read all 5000
 		let expected_weight = DbWeight::get().reads_writes(3 + 5000, 1);
 		assert_eq!(idle_weight, expected_weight);
@@ -969,7 +955,7 @@ fn clear_storages_nothing_to_prune_increases_ledger_index() {
 
 		// Call on idle with plenty of weight to cover the last 5000 ledger indices
 		// It should only use as much as it needs and no more
-		let idle_weight = XRPLBridge::on_idle(1u64, Weight::from_ref_time(u64::MAX));
+		let idle_weight = XRPLBridge::clear_storages(Weight::from_ref_time(u64::MAX));
 		// It uses only enough weight to read all 5000
 		let expected_weight = DbWeight::get().reads_writes(3 + 5000, 1);
 		assert_eq!(idle_weight, expected_weight);
