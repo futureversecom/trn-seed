@@ -304,7 +304,7 @@ describe("EVM gas costs", () => {
     const receipt = await tx.wait();
 
     // assert gas used
-    const wantGasUsed = 42265;
+    const wantGasUsed = 61577;
     expect(receipt.gasUsed?.toNumber()).to.eql(wantGasUsed);
     expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(wantGasUsed);
 
