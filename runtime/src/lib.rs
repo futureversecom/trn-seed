@@ -31,9 +31,7 @@ use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
 	TransactionAction,
 };
-use pallet_evm::{
-	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
-};
+use pallet_evm::{Account as EVMAccount, EnsureAddressNever, FeeCalculator, Runner as RunnerT};
 use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use seed_pallet_common::MaintenanceCheck;
@@ -1055,15 +1053,6 @@ parameter_types! {
 	pub WeightPerGas: Weight = Weight::from_ref_time(WEIGHT_PER_GAS);
 }
 
-/// Modified london config with higher contract create fee
-const fn seed_london() -> EvmConfig {
-	let mut c = EvmConfig::london();
-	c.gas_transaction_create = 2_000_000;
-	c
-}
-
-pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
-
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = FeeControl;
 	type GasWeightMapping = FutureverseGasWeightMapping;
@@ -1080,10 +1069,6 @@ impl pallet_evm::Config for Runtime {
 	type BlockGasLimit = BlockGasLimit;
 	type OnChargeTransaction = FutureverseEVMCurrencyAdapter<Self::Currency, TxFeePot>;
 	type FindAuthor = EthereumFindAuthor<Babe>;
-	// internal EVM config
-	fn config() -> &'static EvmConfig {
-		&SEED_EVM_CONFIG
-	}
 	type HandleTxValidation = HandleTxValidation<pallet_evm::Error<Runtime>>;
 	type WeightPerGas = WeightPerGas;
 }
