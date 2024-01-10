@@ -14,7 +14,7 @@ export * from "./node";
 /** TYPEDEFS */
 export const rpcs = {
   assetsExt: {
-    balance: {
+    freeBalance: {
       description: "Given asset id and address, returns free balance",
       params: [
         {

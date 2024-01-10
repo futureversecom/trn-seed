@@ -28,9 +28,10 @@ sp_api::decl_runtime_apis! {
 		AccountId: Codec,
 	{
 		/// Find asset balance owned by `who` for a given assetId
-		fn balance(
+		fn free_balance(
 			asset_id: AssetId,
 			who: AccountId,
+			keep_alive: bool
 		) -> String;
 
 	}

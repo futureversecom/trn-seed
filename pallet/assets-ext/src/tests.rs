@@ -1304,9 +1304,6 @@ fn rpc_asset_balance() {
 		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), initial_balance)])
 		.build()
 		.execute_with(|| {
-			assert_eq!(
-				AssetsExt::reducible_balance(XRP_ASSET_ID, &alice(), false),
-				initial_balance
-			);
+			assert_eq!(AssetsExt::free_balance(&alice(), &XRP_ASSET_ID, false), initial_balance);
 		});
 }
