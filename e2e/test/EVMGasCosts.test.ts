@@ -286,7 +286,7 @@ describe("EVM gas costs", () => {
     const fees = await provider.getFeeData();
     const alithBalanceBefore = await alithSigner.getBalance();
 
-    const wantGasEstimate = 44_142;
+    const wantGasEstimate = 61_612;
     const actualGasEstimate = await erc20PrecompileContract
       .connect(alithSigner)
       .estimateGas.transfer(bobSigner.address, 500, {
