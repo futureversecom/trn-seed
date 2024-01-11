@@ -278,8 +278,29 @@ describe("Marketplace Precompile", function () {
   });
 
   it("make bid", async () => {
-    const listingId = 2;
     const amount = 10000000;
+
+    let auctionNFTSeries = [27, 28];
+    const paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
+    const reservePrice = 1000000;
+    const duration = 10000; //blocks
+    const marketplaceId = 1;
+
+    // precompile
+    let auctionTx = await marketPlacePrecompile
+      .connect(bobSigner)
+      .auctionNftWithMarketplaceId(
+        erc721Precompile.address,
+        auctionNFTSeries,
+        paymentAsset,
+        reservePrice,
+        duration,
+        marketplaceId,
+      );
+    let auctionReceipt = await auctionTx.wait();
+    let [, listingIdForAuction, , ,] = (auctionReceipt?.events as any)[0].args;
+
+    let listingId = listingIdForAuction.toNumber();
 
     const bidNftTx = await marketPlacePrecompile.connect(alithSigner).bid(listingId, amount);
     const receipt = await bidNftTx.wait();
