@@ -238,7 +238,6 @@ pub mod pallet {
 	pub type HighestSettledLedgerIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn xrp_source_tag)]
 	/// Source tag to be used to indicate the transaction is happening from futureverse
 	pub type SourceTag<T: Config> = StorageValue<_, u32, ValueQuery>;
 
@@ -836,7 +835,7 @@ impl<T: Config> Pallet<T> {
 				tx_nonce,
 				tx_ticket_sequence,
 				tx_fee,
-				Self::xrp_source_tag(),
+				SourceTag::<T>::get(),
 				destination_tag.unwrap(),
 				// omit signer key since this is a 'MultiSigner' tx
 				None,
@@ -850,7 +849,7 @@ impl<T: Config> Pallet<T> {
 				tx_nonce,
 				tx_ticket_sequence,
 				tx_fee,
-				Self::xrp_source_tag(),
+				SourceTag::<T>::get(),
 				// omit signer key since this is a 'MultiSigner' tx
 				None,
 			);
@@ -930,7 +929,7 @@ impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
 			ticket_sequence,
 			signer_quorum,
 			signer_entries,
-			Self::xrp_source_tag(),
+			SourceTag::<T>::get(),
 			// omit signer key since this is a 'MultiSigner' tx
 			None,
 		);
