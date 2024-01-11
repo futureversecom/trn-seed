@@ -16,14 +16,13 @@
 #![cfg(test)]
 use super::*;
 use crate::mock::{
-	create_account, has_event, AssetsExt, MaxTokensPerXls20Mint, Nft, RuntimeEvent as MockEvent,
-	System, Test, TestExt, Xls20, Xls20PaymentAsset,
+	AssetsExt, MaxTokensPerXls20Mint, Nft, RuntimeEvent as MockEvent, System, Test, Xls20,
+	Xls20PaymentAsset,
 };
-use frame_support::{assert_noop, assert_ok, traits::fungibles::Inspect};
-use frame_system::RawOrigin;
+use frame_support::traits::fungibles::Inspect;
 use pallet_nft::{CollectionInfo, CrossChainCompatibility};
-use seed_primitives::{AccountId, MetadataScheme};
-use sp_runtime::{BoundedVec, DispatchError::BadOrigin};
+use seed_pallet_common::test_prelude::*;
+use seed_primitives::MetadataScheme;
 
 // Create an NFT collection with xls20 compatibility
 // Returns the created `collection_id`
@@ -60,7 +59,7 @@ fn setup_token_mappings(
 
 #[test]
 fn set_relayer_works() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let alice = create_account(10);
 		let bob = create_account(11);
 
@@ -83,7 +82,7 @@ fn set_relayer_works() {
 
 #[test]
 fn set_xls20_fee_works() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let alice = create_account(10);
 		let new_fee: Balance = 100;
 
@@ -112,7 +111,7 @@ fn set_xls20_fee_works() {
 
 #[test]
 fn xls20_mint_throws_event() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let quantity: TokenCount = 5;
@@ -135,11 +134,9 @@ fn xls20_mint_throws_event() {
 			b"https://example.com/3".to_vec(),
 			b"https://example.com/4".to_vec(),
 		];
-		assert!(has_event(Event::<Test>::Xls20MintRequest {
-			collection_id,
-			serial_numbers,
-			token_uris,
-		}));
+		System::assert_has_event(
+			Event::<Test>::Xls20MintRequest { collection_id, serial_numbers, token_uris }.into(),
+		);
 
 		// Mint 2 more tokens for sanity
 		let quantity: TokenCount = 2;
@@ -154,11 +151,9 @@ fn xls20_mint_throws_event() {
 		let serial_numbers: Vec<SerialNumber> = vec![5, 6];
 		let token_uris: Vec<Vec<u8>> =
 			vec![b"https://example.com/5".to_vec(), b"https://example.com/6".to_vec()];
-		assert!(has_event(Event::<Test>::Xls20MintRequest {
-			collection_id,
-			serial_numbers,
-			token_uris,
-		}));
+		System::assert_has_event(
+			Event::<Test>::Xls20MintRequest { collection_id, serial_numbers, token_uris }.into(),
+		);
 	});
 }
 
@@ -167,7 +162,7 @@ fn xls20_mint_with_fee() {
 	let collection_owner = create_account(10);
 	let initial_balance = 10000;
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_xrp_balances(&[(collection_owner, initial_balance)])
 		.build()
 		.execute_with(|| {
@@ -204,7 +199,7 @@ fn xls20_mint_with_fee_no_balance_fails() {
 	let collection_owner = create_account(10);
 	let initial_balance = 499; // Balance too low
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_xrp_balances(&[(collection_owner, initial_balance)])
 		.build()
 		.execute_with(|| {
@@ -234,7 +229,7 @@ fn re_request_xls20_mint_works() {
 	let collection_owner = create_account(10);
 	let initial_balance = 10000;
 
-	TestExt::default()
+	TestExt::<Test>::default()
 		.with_xrp_balances(&[(collection_owner, initial_balance)])
 		.build()
 		.execute_with(|| {
@@ -281,17 +276,16 @@ fn re_request_xls20_mint_works() {
 				b"https://example.com/2".to_vec(),
 				b"https://example.com/3".to_vec(),
 			];
-			assert!(has_event(Event::<Test>::Xls20MintRequest {
-				collection_id,
-				serial_numbers,
-				token_uris,
-			}));
+			System::assert_last_event(
+				Event::<Test>::Xls20MintRequest { collection_id, serial_numbers, token_uris }
+					.into(),
+			);
 		});
 }
 
 #[test]
 fn re_request_xls20_mint_not_collection_owner_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let bob = create_account(11);
 		let collection_id = setup_xls20_collection(collection_owner, true);
@@ -306,21 +300,12 @@ fn re_request_xls20_mint_not_collection_owner_fails() {
 			),
 			Error::<Test>::NotCollectionOwner
 		);
-
-		// Check event is NOT thrown
-		let serial_numbers: Vec<SerialNumber> = vec![0];
-		let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0".to_vec()];
-		assert!(!has_event(Event::<Test>::Xls20MintRequest {
-			collection_id,
-			serial_numbers,
-			token_uris,
-		}));
 	});
 }
 
 #[test]
 fn re_request_xls20_mint_not_xls20_compatible_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, false);
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerXls20Mint> =
@@ -334,21 +319,12 @@ fn re_request_xls20_mint_not_xls20_compatible_fails() {
 			),
 			Error::<Test>::NotXLS20Compatible
 		);
-
-		// Check event is NOT thrown
-		let serial_numbers: Vec<SerialNumber> = vec![0];
-		let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0".to_vec()];
-		assert!(!has_event(Event::<Test>::Xls20MintRequest {
-			collection_id,
-			serial_numbers,
-			token_uris,
-		}));
 	});
 }
 
 #[test]
 fn re_request_xls20_mint_no_collection_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let who = create_account(10);
 		let collection_id = 1;
 
@@ -364,21 +340,12 @@ fn re_request_xls20_mint_no_collection_fails() {
 			),
 			pallet_nft::Error::<Test>::NoCollectionFound
 		);
-
-		// Check event is NOT thrown
-		let serial_numbers: Vec<SerialNumber> = vec![0];
-		let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0".to_vec()];
-		assert!(!has_event(Event::<Test>::Xls20MintRequest {
-			collection_id,
-			serial_numbers,
-			token_uris,
-		}));
 	});
 }
 
 #[test]
 fn re_request_xls20_mint_empty_serial_numbers_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let who = create_account(10);
 		let collection_id = 1;
 
@@ -391,21 +358,12 @@ fn re_request_xls20_mint_empty_serial_numbers_fails() {
 			),
 			Error::<Test>::NoToken
 		);
-
-		// Check event is NOT thrown
-		let serial_numbers: Vec<SerialNumber> = vec![];
-		let token_uris: Vec<Vec<u8>> = vec![];
-		assert!(!has_event(Event::<Test>::Xls20MintRequest {
-			collection_id,
-			serial_numbers,
-			token_uris,
-		}));
 	});
 }
 
 #[test]
 fn re_request_xls20_mint_no_token_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerXls20Mint> =
@@ -420,21 +378,12 @@ fn re_request_xls20_mint_no_token_fails() {
 			),
 			Error::<Test>::NoToken
 		);
-
-		// Check event is NOT thrown
-		let serial_numbers: Vec<SerialNumber> = vec![];
-		let token_uris: Vec<Vec<u8>> = vec![];
-		assert!(!has_event(Event::<Test>::Xls20MintRequest {
-			collection_id,
-			serial_numbers,
-			token_uris,
-		}));
 	});
 }
 
 #[test]
 fn re_request_xls20_mint_duplicate_mapping_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let relayer = create_account(11);
 		let collection_id = setup_xls20_collection(collection_owner, true);
@@ -475,21 +424,12 @@ fn re_request_xls20_mint_duplicate_mapping_fails() {
 			),
 			Error::<Test>::MappingAlreadyExists
 		);
-
-		// Check event is NOT thrown
-		let serial_numbers: Vec<SerialNumber> = vec![];
-		let token_uris: Vec<Vec<u8>> = vec![];
-		assert!(!has_event(Event::<Test>::Xls20MintRequest {
-			collection_id,
-			serial_numbers,
-			token_uris,
-		}));
 	});
 }
 
 #[test]
 fn fulfill_xls20_mint_works() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
@@ -528,16 +468,16 @@ fn fulfill_xls20_mint_works() {
 		}
 
 		// Check event is thrown with new mappings
-		assert!(has_event(Event::<Test>::Xls20MappingSet {
-			collection_id,
-			mappings: token_mappings.into_inner(),
-		}));
+		System::assert_last_event(
+			Event::<Test>::Xls20MappingSet { collection_id, mappings: token_mappings.into_inner() }
+				.into(),
+		);
 	});
 }
 
 #[test]
 fn fulfill_xls20_empty_token_map_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
@@ -562,7 +502,7 @@ fn fulfill_xls20_empty_token_map_fails() {
 
 #[test]
 fn fulfill_xls20_mint_not_relayer_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
@@ -589,7 +529,7 @@ fn fulfill_xls20_mint_not_relayer_fails() {
 
 #[test]
 fn fulfill_xls20_mint_no_collection_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_id = 1;
 		let relayer = create_account(11);
 		let token_mappings = setup_token_mappings(vec![(
@@ -615,7 +555,7 @@ fn fulfill_xls20_mint_no_collection_fails() {
 
 #[test]
 fn fulfill_xls20_mint_no_token_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
@@ -651,7 +591,7 @@ fn fulfill_xls20_mint_no_token_fails() {
 
 #[test]
 fn fulfill_xls20_mint_duplicate_mapping_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
@@ -736,7 +676,7 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 
 #[test]
 fn enable_xls20_compatibility_works() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, false);
 
@@ -767,7 +707,7 @@ fn enable_xls20_compatibility_works() {
 
 #[test]
 fn enable_xls20_compatibility_no_collection_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let collection_id = 1;
 
@@ -784,7 +724,7 @@ fn enable_xls20_compatibility_no_collection_fails() {
 
 #[test]
 fn enable_xls20_compatibility_not_collection_owner_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let bob = create_account(11);
 		let collection_id = setup_xls20_collection(collection_owner, false);
@@ -799,7 +739,7 @@ fn enable_xls20_compatibility_not_collection_owner_fails() {
 
 #[test]
 fn enable_xls20_compatibility_non_zero_issuance_fails() {
-	TestExt::default().build().execute_with(|| {
+	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, false);
 

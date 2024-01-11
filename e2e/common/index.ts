@@ -1,12 +1,12 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
-import { ApiPromise } from "@polkadot/api";
+import { ApiPromise, Keyring } from "@polkadot/api";
 import { SubmittableExtrinsic } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
 import { BigNumber } from "ethers";
-import { writeFileSync } from "fs";
+import fs, { writeFileSync } from "fs";
 import { CliPrettify } from "markdown-table-prettify";
-import { join } from "path";
+import path, { join } from "path";
 import web3 from "web3";
 
 export * from "./node";
@@ -341,12 +341,16 @@ export const ERC1155_PRECOMPILE_ABI = [
   "event TokenCreated(uint32 indexed serialNumber)",
   "event MaxSupplyUpdated(uint128 indexed maxSupply)",
   "event BaseURIUpdated(string baseURI)",
+  "event PublicMintToggled(uint32 indexed id, bool enabled)",
+  "event MintFeeUpdated(uint32 indexed id, address indexed paymentAsset, uint128 indexed mintFee)",
 
   "function createToken(bytes name, uint128 initialIssuance, uint128 maxIssuance, address tokenOwner) external returns (uint32)",
   "function mint(address owner, uint256 id, uint256 amount) external",
   "function mintBatch(address owner, uint256[] ids, uint256[] amounts) external",
   "function setMaxSupply(uint256 id, uint32 maxSupply) external",
   "function setBaseURI(bytes baseURI) external",
+  "function togglePublicMint(uint256 id, bool enabled)",
+  "function setMintFee(uint256 id, address paymentAsset, uint128 mintFee)",
 
   // Ownable
   ...OWNABLE_ABI,
@@ -679,4 +683,23 @@ export const executeForPreviousEvent = async (
     });
     currentInHistory++;
   }
+};
+
+export const loadTestUsers = (userAmount?: number): KeyringPair[] => {
+  const content = fs.readFileSync(path.resolve(__dirname, "./generated_users.txt"), "utf-8");
+  const mnemonics = content
+    .replace(/\n{2,}/g, "\n")
+    .toString()
+    .split("\n");
+  const keyring = new Keyring({ type: "ethereum" });
+  const keypairs: KeyringPair[] = [];
+
+  for (let i = 0; i < mnemonics.length; i++) {
+    const mnemonic = mnemonics[i];
+    if (mnemonic !== "" && (userAmount === undefined || i < userAmount)) {
+      keypairs.push(keyring.addFromMnemonic(mnemonic, {}));
+    }
+  }
+  console.log(`loaded ${keypairs.length} users`);
+  return keypairs;
 };

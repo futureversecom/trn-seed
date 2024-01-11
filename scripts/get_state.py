@@ -7,6 +7,7 @@ import xxhash
 import os
 import argparse
 import yaml
+import sys
 
 FORK_SPEC, RAW_STORAGE = "./output/fork.json", "./output/raw_storage.json"
 
@@ -43,7 +44,11 @@ def fetch_storage_keys_task(hash, keys, prefixes, lock, url):
         prefix = prefixes.pop()
         lock.release()
 
-        rpc_result = fetch_paged_storage_keys(substrate, prefix, hash, None, None)
+        try:
+            rpc_result = fetch_paged_storage_keys(substrate, prefix, hash, None, None)
+        except Exception as e:
+            print("An error occurred while fetching keys: ", e)
+            exit(-1)
 
 def fetch_storage_keys(hash, url):
     keys = []
@@ -63,19 +68,23 @@ def fetch_storage_values_task(hash, lock, keys, key_values, url):
 
     while True:
         lock.acquire()
-        keys_to_fetch = [keys.pop() for _ in range(min(2000, len(keys)))]
+        keys_to_fetch = [keys.pop() for _ in range(min(1000, len(keys)))]
         if not keys_to_fetch:
             lock.release()
             return
         lock.release()
 
-        key_values_result = substrate.rpc_request(method='state_queryStorageAt', params={
-            "keys": keys_to_fetch, "at": hash})['result'][0]['changes']
+        try:
+            key_values_result = substrate.rpc_request(method='state_queryStorageAt', params={
+                "keys": keys_to_fetch, "at": hash})['result'][0]['changes']
 
-        for i, kv in enumerate(key_values_result):
-            if kv[1] is None:
-                kv[1] = substrate.rpc_request(method='state_getStorage', params={
-                    "key": kv[0], "hash": hash})['result']
+            for i, kv in enumerate(key_values_result):
+                if kv[1] is None:
+                    kv[1] = substrate.rpc_request(method='state_getStorage', params={
+                        "key": kv[0], "hash": hash})['result']
+        except Exception as e:
+            print("An error occurred while fetching values: ", e)
+            exit(-1)
 
         lock.acquire()
         key_values += key_values_result
@@ -235,6 +244,10 @@ def maybe_do_tag_switch(tag_switch, node_version):
 
 
 def main():
+    # set python recursion limit to 3000, this is required when we query large keyed prefixes for the state keys.
+    # it should give upto 3_000_000 entries per single prefix.
+    sys.setrecursionlimit(3000)
+
     configuration = read_configuration_file()
     url, tag_switch = configuration['endpoint'], configuration['tag_switch']
 

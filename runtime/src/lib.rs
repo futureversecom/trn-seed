@@ -31,13 +31,12 @@ use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
 	TransactionAction,
 };
-use pallet_evm::{
-	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
-};
+use pallet_evm::{Account as EVMAccount, EnsureAddressNever, FeeCalculator, Runner as RunnerT};
 use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+use seed_pallet_common::MaintenanceCheck;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
+use sp_core::{crypto::KeyTypeId, ConstU16, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
 	create_runtime_str, generic,
 	traits::{
@@ -108,7 +107,7 @@ pub mod constants;
 
 use constants::{
 	deposit, RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES,
-	ONE_ROOT, ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
+	ONE_ROOT, ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION, VTX_ASSET_ID,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
@@ -150,10 +149,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 43,
+	spec_version: 47,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 4,
+	transaction_version: 6,
 	state_version: 0,
 };
 
@@ -219,6 +218,11 @@ pub enum CallFilter {}
 
 impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 	fn contains(call: &RuntimeCall) -> bool {
+		// Check whether this call has been paused by the maintenance_mode pallet
+		if pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(call) {
+			return false
+		}
+
 		match call {
 			// Prevent asset `create` transactions from executing
 			RuntimeCall::Assets(pallet_assets::Call::create { .. }) => false,
@@ -358,7 +362,8 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
-	pub const AssetDeposit: Balance = ONE_XRP;
+	// Note, this is unused in favor of a storage value in AssetsExt when calling AssetsExt::create_asset
+	pub const AssetDeposit: Balance = ONE_ROOT;
 	pub const AssetAccountDeposit: Balance = 16;
 	pub const ApprovalDeposit: Balance = 1;
 	pub const AssetsStringLimit: u32 = 50;
@@ -496,6 +501,7 @@ impl pallet_fee_proxy::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
 	type ErcIdConversion = Self;
 	type EVMBaseFeeProvider = FeeControl;
+	type MaintenanceChecker = pallet_maintenance_mode::MaintenanceChecker<Runtime>;
 }
 
 parameter_types! {
@@ -542,12 +548,31 @@ impl pallet_utility::Config for Runtime {
 }
 
 parameter_types! {
+	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
+	pub const DepositBase: Balance = deposit(1, 88);
+	// Additional storage item size of 32 bytes.
+	pub const DepositFactor: Balance = deposit(0, 32);
+}
+
+impl pallet_multisig::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type DepositBase = DepositBase;
+	type DepositFactor = DepositFactor;
+	type MaxSignatories = ConstU16<100>;
+	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
+}
+
+parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 	/// % threshold to emit event TicketSequenceThresholdReached
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
 	/// NOTE - XRPTransactionLimitPerLedger should be more than or equal to XRPTransactionLimit
 	pub const XRPTransactionLimit: u32 = 1_000_000;
 	pub const XRPTransactionLimitPerLedger: u32 = 1_000_000;
+	/// NOTE - This value can't be set too high. 5000 is roughly 25% of the max block weight
+	pub const MaxPrunedTransactionsPerBlock: u32 = 5000;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -558,6 +583,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type WeightInfo = weights::pallet_xrpl_bridge::WeightInfo<Runtime>;
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
+	type MaxPrunedTransactionsPerBlock = MaxPrunedTransactionsPerBlock;
 	type UnixTime = Timestamp;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
@@ -661,9 +687,9 @@ parameter_types! {
 	// signed config
 	pub const SignedMaxSubmissions: u32 = 16;
 	pub const SignedMaxRefunds: u32 = 16 / 4;
-	// 40 DOTs fixed deposit..
+	// 40 ROOT fixed deposit..
 	pub const SignedDepositBase: Balance = ONE_ROOT * 40;
-	// 0.01 DOT per KB of solution data.
+	// 0.01 ROOT per KB of solution data.
 	pub const SignedDepositByte: Balance = ONE_ROOT / 1024;
 	// Intentionally zero reward to prevent inflation
 	// `pallet_election_provider_multi_phase::RewardHandler` could be configured to offset any rewards
@@ -811,7 +837,7 @@ impl pallet_staking::Config for Runtime {
 	// Upon slashing two situations can happen:
 	// 1) if there are no reporters, this handler is given the whole slashed imbalance
 	// 2) any indivisible slash imbalance (not sent to reporter(s)) is sent here
-	// StakingPot nullifies the imbalance to keep issuance of XRP constant (vs. burnt)
+	// StakingPot nullifies the imbalance to keep issuance of ROOT constant (vs. burnt)
 	type Slash = SlashImbalanceHandler;
 	type UnixTime = Timestamp;
 	type SessionsPerEra = SessionsPerEra;
@@ -1027,15 +1053,6 @@ parameter_types! {
 	pub WeightPerGas: Weight = Weight::from_ref_time(WEIGHT_PER_GAS);
 }
 
-/// Modified london config with higher contract create fee
-const fn seed_london() -> EvmConfig {
-	let mut c = EvmConfig::london();
-	c.gas_transaction_create = 2_000_000;
-	c
-}
-
-pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
-
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = FeeControl;
 	type GasWeightMapping = FutureverseGasWeightMapping;
@@ -1052,10 +1069,6 @@ impl pallet_evm::Config for Runtime {
 	type BlockGasLimit = BlockGasLimit;
 	type OnChargeTransaction = FutureverseEVMCurrencyAdapter<Self::Currency, TxFeePot>;
 	type FindAuthor = EthereumFindAuthor<Babe>;
-	// internal EVM config
-	fn config() -> &'static EvmConfig {
-		&SEED_EVM_CONFIG
-	}
 	type HandleTxValidation = HandleTxValidation<pallet_evm::Error<Runtime>>;
 	type WeightPerGas = WeightPerGas;
 }
@@ -1106,6 +1119,7 @@ impl pallet_erc20_peg::Config for Runtime {
 	/// The overarching event type.
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_erc20_peg::WeightInfo<Runtime>;
+	type NativeAssetId = RootAssetId;
 }
 
 parameter_types! {
@@ -1197,71 +1211,114 @@ impl pallet_futurepass::Config for Runtime {
 	type MultiCurrency = AssetsExt;
 }
 
+parameter_types! {
+	pub const VtxVortexPotId: PalletId = PalletId(*b"vtx/vpot");
+	pub const VtxRootPotId: PalletId = PalletId(*b"vtx/rpot");
+	pub const VtxTxFeePotId: PalletId = PalletId(*b"vtx/fpot");
+	pub const UnsignedInterval: BlockNumber =  MINUTES / 2;
+	pub const PayoutBatchSize: u32 =  99;
+	pub const HistoryDepth: u32 = 84;
+	pub const VortexAssetId: AssetId = VTX_ASSET_ID;
+	pub const MaxAssetPrices: u32 = 500;
+	pub const MaxRewards: u32 = 500;
+	pub const MaxStringLength: u32 = 1_000;
+}
+
+impl pallet_vortex::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = weights::pallet_vortex::WeightInfo<Runtime>;
+	type NativeAssetId = RootAssetId;
+	type VtxAssetId = VortexAssetId;
+	type VtxDistPotId = VtxVortexPotId;
+	type RootPotId = VtxRootPotId;
+	type TxFeePotId = VtxTxFeePotId;
+	type UnsignedInterval = UnsignedInterval;
+	type PayoutBatchSize = PayoutBatchSize;
+	type VtxDistIdentifier = u32;
+	type MultiCurrency = AssetsExt;
+	type MaxAssetPrices = MaxAssetPrices;
+	type MaxRewards = MaxRewards;
+	type MaxStringLength = MaxStringLength;
+	type HistoryDepth = HistoryDepth;
+}
+
+impl pallet_maintenance_mode::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type StringLimit = AssetsStringLimit;
+	type WeightInfo = weights::pallet_maintenance_mode::WeightInfo<Self>;
+	type SudoPallet = Sudo;
+	type TimestampPallet = Timestamp;
+	type ImOnlinePallet = ImOnline;
+	type EthyPallet = EthBridge;
+}
+
+/// Block header type as expected by this runtime.
+pub type Header = generic::Header<BlockNumber, BlakeTwo256Hash>;
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
 		NodeBlock = generic::Block<Header, sp_runtime::OpaqueExtrinsic>,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Pallet, Call, Storage, Config, Event<T>} = 0,
+		System: frame_system = 0,
 		Babe: pallet_babe = 1,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent}= 2,
-		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 3,
-		Utility: pallet_utility::{Pallet, Call, Event} = 4,
-		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 33,
-		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 45,
+		Timestamp: pallet_timestamp = 2,
+		Scheduler: pallet_scheduler = 3,
+		Utility: pallet_utility = 4,
+		Recovery: pallet_recovery = 33,
+		Multisig: pallet_multisig = 28,
 
 		// Monetary
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
-		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Config<T>, Event<T>} = 7,
-		Authorship: pallet_authorship::{Pallet, Call, Storage} = 8,
-		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
-		Offences: pallet_offences::{Pallet, Storage, Event} = 10,
+		Balances: pallet_balances = 5,
+		Assets: pallet_assets = 6,
+		AssetsExt: pallet_assets_ext = 7,
+		Authorship: pallet_authorship = 8,
+		Staking: pallet_staking = 9,
+		Offences: pallet_offences = 10,
 
 		// Validators
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 11,
-		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned} = 12,
-		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
+		Session: pallet_session = 11,
+		Grandpa: pallet_grandpa = 12,
+		ImOnline: pallet_im_online = 13,
 
 		// World
-		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 14,
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 15,
-		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>} = 16,
-		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>} = 17,
-		Sft: pallet_sft::{Pallet, Call, Storage, Event<T>} = 43,
-		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Config<T>, Event<T>} = 18,
-		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage} = 19,
-		Historical: pallet_session::historical::{Pallet} = 20,
-		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
-		Marketplace: pallet_marketplace::{Pallet, Call, Storage, Event<T>} = 44,
+		Sudo: pallet_sudo = 14,
+		TransactionPayment: pallet_transaction_payment = 15,
+		Dex: pallet_dex = 16,
+		Nft: pallet_nft = 17,
+		Sft: pallet_sft = 43,
+		XRPLBridge: pallet_xrpl_bridge = 18,
+		TokenApprovals: pallet_token_approvals = 19,
+		Historical: pallet_session::historical = 20,
+		Echo: pallet_echo = 21,
+		Marketplace: pallet_marketplace = 44,
+		Preimage: pallet_preimage = 45,
+		VortexDistribution: pallet_vortex = 46,
+		FeeProxy: pallet_fee_proxy = 31,
+		FeeControl: pallet_fee_control = 40,
+		Xls20: pallet_xls20 = 42,
+		MaintenanceMode: pallet_maintenance_mode = 47,
 
 		// Election pallet. Only works with staking
-		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
-		VoterList: pallet_bags_list::{Pallet, Call, Storage, Event<T>} = 23,
-		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage} = 24,
-
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 25,
+		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
+		VoterList: pallet_bags_list = 23,
+		TxFeePot: pallet_tx_fee_pot = 24,
 
 		// EVM
-		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 26,
-		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 27,
-		EVMChainId: pallet_evm_chain_id::{Pallet, Call, Storage, Event<T>} = 41,
+		Ethereum: pallet_ethereum = 26,
+		EVM: pallet_evm = 27,
+		EVMChainId: pallet_evm_chain_id = 41,
+		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 25,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
-		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
-
-		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
-		FeeControl: pallet_fee_control::{Pallet, Call, Storage, Event<T>} = 40,
-		Xls20: pallet_xls20::{Pallet, Call, Storage, Event<T>} = 42,
+		NftPeg: pallet_nft_peg = 30,
 
 		// FuturePass Account
-		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 32,
-		Futurepass: pallet_futurepass::{Pallet, Call, Storage, Event<T>} = 34,
+		Proxy: pallet_proxy = 32,
+		Futurepass: pallet_futurepass = 34,
 	}
 }
-
-/// Block header type as expected by this runtime.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256Hash>;
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// A Block signed with a Justification
@@ -1277,6 +1334,7 @@ pub type SignedExtra = (
 	frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
+	pallet_maintenance_mode::MaintenanceChecker<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
@@ -1898,6 +1956,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	fn apply_self_contained(
 		self,
 		info: Self::SignedInfo,
+		_dispatch_info: &DispatchInfoOf<Self>,
+		_len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
 		match self {
 			call @ RuntimeCall::Ethereum(pallet_ethereum::Call::transact { .. }) =>
@@ -1970,6 +2030,7 @@ mod benches {
 		[pallet_staking, Staking]
 		[pallet_grandpa, Grandpa]
 		[pallet_im_online, ImOnline]
+		[pallet_multisig, Multisig]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_bags_list, VoterList]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
@@ -1990,7 +2051,9 @@ mod benches {
 		[pallet_token_approvals, TokenApprovals]
 		[pallet_xls20, Xls20]
 		[pallet_futurepass, Futurepass]
+		[pallet_vortex, VortexDistribution]
 		[pallet_dex, Dex]
+		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_marketplace, Marketplace]
 	);
 }

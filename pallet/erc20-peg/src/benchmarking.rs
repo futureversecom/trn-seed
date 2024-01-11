@@ -79,7 +79,7 @@ benchmarks! {
 		assert_eq!(actual_balance, expected_balance);
 	}
 
-	set_contract_address {
+	set_erc20_peg_address {
 		let alice: EthAddress = account::<T>("Alice").into();
 		// Sanity check
 		assert_ne!(Erc20Peg::<T>::contract_address(), alice);
@@ -87,6 +87,27 @@ benchmarks! {
 	}: _(RawOrigin::Root, alice)
 	verify {
 		assert_eq!(Erc20Peg::<T>::contract_address(), alice);
+	}
+
+	set_root_peg_address {
+		let alice: EthAddress = account::<T>("Alice").into();
+		// Sanity check
+		assert_ne!(Erc20Peg::<T>::root_peg_contract_address(), alice);
+	}: _(RawOrigin::Root, alice)
+	verify {
+		assert_eq!(Erc20Peg::<T>::root_peg_contract_address(), alice);
+	}
+
+	set_erc20_asset_map {
+		let asset_id: AssetId = 12;
+		let token_address: H160 = H160::from_low_u64_be(13);
+		// Sanity check
+		assert!(Erc20Peg::<T>::erc20_to_asset(token_address).is_none());
+		assert!(Erc20Peg::<T>::asset_to_erc20(asset_id).is_none());
+	}: _(RawOrigin::Root, asset_id, token_address)
+	verify {
+		assert_eq!(Erc20Peg::<T>::erc20_to_asset(token_address).unwrap(), asset_id);
+		assert_eq!(Erc20Peg::<T>::asset_to_erc20(asset_id).unwrap(), token_address);
 	}
 
 	set_erc20_meta {
@@ -113,4 +134,8 @@ benchmarks! {
 	}
 }
 
-impl_benchmark_test_suite!(Erc20Peg, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	Erc20Peg,
+	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default().build(),
+	crate::mock::Test
+);

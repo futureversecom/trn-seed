@@ -4,7 +4,7 @@ version = "1.0.1"
 edition = "2021"
 authors = ["The Root Network Team"]
 description = "Pallet for bridging Ethereum events"
-license = "GPL-3.0"
+license = "Apache-2.0"
 
 [dependencies]
 codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }

@@ -101,6 +101,30 @@ benchmarks! {
 		assert!(token.is_some());
 	}
 
+	toggle_public_mint {
+		let owner = account::<T>("Alice");
+		let token_id = build_token::<T>(Some(owner.clone()), 0);
+	}: _(origin::<T>(&account::<T>("Alice")), token_id, true)
+	verify {
+		let token = TokenInfo::<T>::get(token_id);
+		assert!(token.is_some());
+		let is_enabled = PublicMintInfo::<T>::get(token_id).unwrap().enabled;
+		assert_eq!(is_enabled, true);
+	}
+
+	set_mint_fee {
+		let owner = account::<T>("Alice");
+		let token_id = build_token::<T>(Some(owner.clone()), 0);
+		let pricing_details = Some((1, 100));
+	}: _(origin::<T>(&account::<T>("Alice")), token_id, pricing_details)
+	verify {
+		let token = TokenInfo::<T>::get(token_id);
+		assert!(token.is_some());
+		let pricing_details = PublicMintInfo::<T>::get(token_id).unwrap().pricing_details;
+		let expected_pricing_details = Some((1, 100));
+		assert_eq!(pricing_details, expected_pricing_details);
+	}
+
 	mint {
 		let owner = account::<T>("Alice");
 		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), 0);
@@ -200,4 +224,8 @@ benchmarks! {
 	}
 }
 
-impl_benchmark_test_suite!(Sft, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	Sft,
+	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default().build(),
+	crate::mock::Test
+);

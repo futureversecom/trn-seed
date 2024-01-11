@@ -43,4 +43,8 @@ benchmarks! {
 	}
 }
 
-impl_benchmark_test_suite!(Echo, crate::mock::new_test_ext(), crate::mock::TestRuntime,);
+impl_benchmark_test_suite!(
+	Echo,
+	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default().build(),
+	crate::mock::Test
+);

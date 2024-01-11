@@ -105,7 +105,8 @@ where
 			ExistenceRequirement::KeepAlive => true,
 			ExistenceRequirement::AllowDeath => false,
 		};
-		<Pallet<T>>::transfer(U::get(), from, to, value, keep_alive).map(|_| ())
+		<Pallet<T> as Transfer<T::AccountId>>::transfer(U::get(), from, to, value, keep_alive)
+			.map(|_| ())
 	}
 	fn ensure_can_withdraw(
 		who: &T::AccountId,
@@ -218,10 +219,9 @@ where
 
 #[cfg(test)]
 mod tests {
-	use crate::mock::{test_ext, AssetId, AssetsExt, MockAccountId, Test};
-	use frame_support::{assert_noop, assert_storage_noop, parameter_types};
-
 	use super::*;
+	use crate::mock::{test_ext, AssetsExt, Test};
+	use seed_pallet_common::test_prelude::*;
 
 	const TEST_ASSET_ID: AssetId = 5;
 	parameter_types! {
@@ -231,19 +231,17 @@ mod tests {
 
 	#[test]
 	fn deposit_creating() {
-		let alice = 1 as MockAccountId;
-		let bob = 2 as MockAccountId;
 		test_ext()
-			.with_asset(TEST_ASSET_ID, "TST", &[(alice, 1_000_000)])
+			.with_asset(TEST_ASSET_ID, "TST", &[(alice(), 1_000_000)])
 			.build()
 			.execute_with(|| {
 				// new account
-				let _ = TestAssetCurrency::deposit_creating(&bob, 500);
-				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &bob), 500,);
+				let _ = TestAssetCurrency::deposit_creating(&bob(), 500);
+				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &bob()), 500,);
 
 				// existing account
-				let _ = TestAssetCurrency::deposit_creating(&bob, 500);
-				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &bob), 500 + 500);
+				let _ = TestAssetCurrency::deposit_creating(&bob(), 500);
+				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &bob()), 500 + 500);
 
 				assert_eq!(AssetsExt::total_issuance(TEST_ASSET_ID), 1_000_000 + 500 + 500);
 			});
@@ -251,23 +249,22 @@ mod tests {
 
 	#[test]
 	fn withdraw() {
-		let alice = 1 as MockAccountId;
 		test_ext()
-			.with_asset(TEST_ASSET_ID, "TST", &[(alice, 1_000_000)])
+			.with_asset(TEST_ASSET_ID, "TST", &[(alice(), 1_000_000)])
 			.build()
 			.execute_with(|| {
 				let _ = TestAssetCurrency::withdraw(
-					&alice,
+					&alice(),
 					500,
 					WithdrawReasons::all(),
 					ExistenceRequirement::AllowDeath,
 				);
-				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &alice), 1_000_000 - 500,);
+				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &alice()), 1_000_000 - 500,);
 				assert_eq!(AssetsExt::total_issuance(TEST_ASSET_ID), 1_000_000 - 500);
 
 				assert_noop!(
 					TestAssetCurrency::withdraw(
-						&alice,
+						&alice(),
 						1_000_000,
 						WithdrawReasons::all(),
 						ExistenceRequirement::AllowDeath,
@@ -280,20 +277,19 @@ mod tests {
 
 	#[test]
 	fn make_free_balance_be() {
-		let alice = 1 as MockAccountId;
 		test_ext()
-			.with_asset(TEST_ASSET_ID, "TST", &[(alice, 1_000_000)])
+			.with_asset(TEST_ASSET_ID, "TST", &[(alice(), 1_000_000)])
 			.build()
 			.execute_with(|| {
-				let _ = TestAssetCurrency::make_free_balance_be(&alice, 999_500);
-				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &alice), 999_500);
+				let _ = TestAssetCurrency::make_free_balance_be(&alice(), 999_500);
+				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &alice()), 999_500);
 				assert_eq!(AssetsExt::total_issuance(TEST_ASSET_ID), 999_500);
 
-				let _ = TestAssetCurrency::make_free_balance_be(&alice, 1_000_000);
-				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &alice), 1_000_000);
+				let _ = TestAssetCurrency::make_free_balance_be(&alice(), 1_000_000);
+				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &alice()), 1_000_000);
 				assert_eq!(AssetsExt::total_issuance(TEST_ASSET_ID), 1_000_000);
 
-				assert_storage_noop!(TestAssetCurrency::make_free_balance_be(&alice, 1_000_000));
+				assert_storage_noop!(TestAssetCurrency::make_free_balance_be(&alice(), 1_000_000));
 			});
 	}
 }

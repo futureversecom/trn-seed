@@ -3,7 +3,7 @@ name = "pallet-fee-proxy"
 version = "0.1.0"
 authors = ["The Root Network Team"]
 edition = "2021"
-license = "GPL-3.0"
+license = "Apache-2.0"
 repository = "https://github.com/futureversecom/seed"
 description = "Root Network Fee Proxy Pallet"
 
@@ -35,6 +35,7 @@ hex-literal = { version = "0.3.4" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+pallet-fee-control = { path = "../fee-control" }
 
 [features]
 default = ["std"]

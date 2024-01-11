@@ -43,6 +43,7 @@ pub mod mock;
 #[cfg(test)]
 mod tests;
 pub mod types;
+
 use types::*;
 pub mod weights;
 pub use weights::WeightInfo;
@@ -183,7 +184,7 @@ pub mod pallet {
 	pub type FeeTo<T: Config> = StorageValue<_, Option<T::AccountId>, ValueQuery, DefaultFeeTo<T>>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A fixed price sale has been listed
 		FixedPriceSaleList {
@@ -358,7 +359,7 @@ pub mod pallet {
 		/// `fixed_price` ask price
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
-		#[pallet::weight(T::WeightInfo::sell())]
+		#[pallet::weight(T::WeightInfo::sell_nft())]
 		pub fn sell_nft(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -415,7 +416,7 @@ pub mod pallet {
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
-		#[pallet::weight(T::WeightInfo::auction())]
+		#[pallet::weight(T::WeightInfo::auction_nft())]
 		pub fn auction_nft(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,

@@ -40,6 +40,16 @@ benchmarks! {
 		let min_balance = None;
 		let owner = Some(alice.clone());
 	}: _(origin::<T>(&alice), name, symbol, decimals, min_balance, owner)
+
+	set_asset_deposit {
+	}: _(RawOrigin::Root, One::one())
+	verify {
+		assert_eq!(AssetDeposit::<T>::get(), One::one());
+	}
 }
 
-impl_benchmark_test_suite!(AssetsExt, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(
+	AssetsExt,
+	seed_primitives::test_utils::TestExt::<crate::mock::Test>::default().build(),
+	crate::mock::Test
+);

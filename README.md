@@ -5,7 +5,7 @@
 
 Implementation of [The Root Network](https://therootnetwork.com/) node in Rust, based on the Substrate framework.
 
-This repo contains runtimes for the Root Network Mainnet and Porcini (Testnet). For more specific guides on how to build applications, see the [docs](https://docs.rootnet.live).
+This repo contains runtimes for the Root Network Mainnet and Porcini (Testnet). For more specific guides on how to build applications, see the [docs](https://docs.therootnetwork.com).
 
 If you are looking for the chain details for EVM development, checkout [chainlist.org](https://chainlist.org/?search=trn&testnets=true)
 

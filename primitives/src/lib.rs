@@ -23,6 +23,9 @@ pub use types::*;
 pub mod ethy;
 pub mod nft;
 mod signature;
+#[cfg(feature = "std")]
+pub mod test_utils;
+
 pub use nft::*;
 
 // offchain storage config key for XRP HTTP URI
@@ -133,4 +136,25 @@ pub mod xrpl {
 
 	/// The type for identifying the XRPL Tx TicketSequence
 	pub type XrplTxTicketSequence = u32;
+}
+
+#[derive(PartialEq)]
+pub enum OffchainErr {
+	OffchainStore,
+	SubmitTransaction,
+	NotAValidator,
+	OffchainLock,
+	TooEarly,
+}
+
+impl sp_std::fmt::Debug for OffchainErr {
+	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		match *self {
+			OffchainErr::OffchainStore => write!(fmt, "Failed to manipulate offchain store"),
+			OffchainErr::SubmitTransaction => write!(fmt, "Failed to submit transaction"),
+			OffchainErr::NotAValidator => write!(fmt, "Is not validator"),
+			OffchainErr::OffchainLock => write!(fmt, "Failed to manipulate offchain lock"),
+			OffchainErr::TooEarly => write!(fmt, "Too early to send unsigned transaction"),
+		}
+	}
 }

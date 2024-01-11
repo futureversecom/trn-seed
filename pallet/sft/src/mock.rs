@@ -15,28 +15,13 @@
 
 use crate as pallet_sft;
 use crate::Config;
-use frame_support::{dispatch::DispatchResult, parameter_types, PalletId};
-use frame_system::EnsureRoot;
-use seed_pallet_common::*;
-use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
-};
-use sp_core::H256;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-};
+use seed_pallet_common::test_prelude::*;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
-
-pub const XRP_ASSET_ID: AssetId = 2;
-
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -82,29 +67,4 @@ impl Config for Test {
 	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 	type MaxSerialsPerMint = MaxSerialsPerMint;
 	type MaxOwnersPerSftToken = MaxOwnersPerSftToken;
-}
-
-#[derive(Default)]
-pub struct TestExt {}
-
-impl TestExt {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-		let mut ext: sp_io::TestExternalities = ext.into();
-		ext.execute_with(|| {
-			System::initialize(&1, &[0u8; 32].into(), &Default::default());
-		});
-
-		ext
-	}
-}
-
-#[allow(dead_code)]
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
-	ext
 }
