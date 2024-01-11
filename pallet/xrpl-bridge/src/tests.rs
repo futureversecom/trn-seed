@@ -232,7 +232,7 @@ fn set_xrp_source_tag_works() {
 			frame_system::RawOrigin::Root.into(),
 			new_source_tag
 		));
-		assert_eq!(XRPLBridge::xrp_source_tag(), new_source_tag);
+		assert_eq!(mock::SourceTag::get(), new_source_tag);
 
 		// Only root can sign this tx, this should fail
 		let account = AccountId::from(H160::from_slice(b"6490B68F1116BFE87DDC"));
