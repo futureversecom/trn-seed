@@ -93,6 +93,12 @@ describe("Marketplace Precompile Gas Estimates", function () {
     expect(await erc721Precompile.totalSupply()).to.equal(quantity);
     // Deploy marketplace contract
     marketPlacePrecompile = new Contract(MARKETPLACE_PRECOMPILE_ADDRESS, MARKET_PLACE_ABI, bobSigner);
+    // Register 0th marketplace id which would be used for other tests
+    const entitlements = 1000;
+    const marketplaceRegisterTx = await marketPlacePrecompile
+      .connect(bobSigner)
+      .registerMarketplace(bobSigner.address, entitlements);
+    await marketplaceRegisterTx.wait();
   });
 
   after(async () => {
