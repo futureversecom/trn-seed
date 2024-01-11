@@ -102,7 +102,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
   });
 
   after(async () => {
-    // await node.stop();
+    await node.stop();
     saveTxGas(allTxGasCosts, "MarketPlace/TxCosts.md", "Marketplace Precompiles");
     saveTxFees(allTxFeeCosts, "MarketPlace/TxCosts.md", "Marketplace Precompiles");
   });
@@ -151,7 +151,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     let paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 1000000;
     const duration = 1000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     // precompile
     const precompileGasCost = await marketPlacePrecompile.estimateGas.sellNftWithMarketplaceId(
@@ -213,7 +213,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     let paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const reservePrice = 1000000;
     const duration = 10000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     // precompile
     const precompileGasCost = await marketPlacePrecompile.estimateGas.auctionNftWithMarketplaceId(
@@ -272,7 +272,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     let offerSeries = 105;
     let paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const amount = 100000;
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     // precompile
     const precompileGasCost = await marketPlacePrecompile
@@ -326,7 +326,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     const paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 1000000;
     const duration = 10000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     let sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
@@ -399,7 +399,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     const paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const reservePrice = 1000000;
     const duration = 10000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     // precompile
     let auctionTx = await marketPlacePrecompile
@@ -473,7 +473,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 1000000;
     const duration = 1000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     let sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
@@ -546,7 +546,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 8000;
     const duration = 1000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
@@ -603,7 +603,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     const offerSeries = 160;
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const amount = 100;
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     let offerNftTx = await marketPlacePrecompile
       .connect(alithSigner)
@@ -655,7 +655,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     const offerSeries = 398;
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const amount = 100;
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     let offerNftTx = await marketPlacePrecompile
       .connect(alithSigner)
