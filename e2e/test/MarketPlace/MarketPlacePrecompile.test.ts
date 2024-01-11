@@ -108,7 +108,7 @@ describe("Marketplace Precompile", function () {
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 1000000;
     const duration = 1000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
@@ -164,7 +164,7 @@ describe("Marketplace Precompile", function () {
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const reservePrice = 1000000;
     const duration = 10000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const auctionNftTx = await marketPlacePrecompile
       .connect(bobSigner)
@@ -211,7 +211,7 @@ describe("Marketplace Precompile", function () {
     const offerSeries = 10;
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const amount = 1000000;
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const offerNftTx = await marketPlacePrecompile
       .connect(alithSigner)
@@ -247,7 +247,7 @@ describe("Marketplace Precompile", function () {
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 1000000;
     const duration = 10000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
@@ -296,7 +296,7 @@ describe("Marketplace Precompile", function () {
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 1000000;
     const duration = 1000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
@@ -359,7 +359,7 @@ describe("Marketplace Precompile", function () {
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 8000;
     const duration = 1000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
@@ -392,7 +392,7 @@ describe("Marketplace Precompile", function () {
     const offerSeries = 100;
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const amount = 100;
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const offerNftTx = await marketPlacePrecompile
       .connect(alithSigner)
@@ -417,7 +417,7 @@ describe("Marketplace Precompile", function () {
     const offerSeries = 101;
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const amount = 100;
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const offerNftTx = await marketPlacePrecompile
       .connect(alithSigner)
@@ -442,7 +442,7 @@ describe("Marketplace Precompile", function () {
     const offerSeries = 101;
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const amount = 100;
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const offerNftTx = await marketPlacePrecompile
       .connect(alithSigner)
@@ -466,7 +466,7 @@ describe("Marketplace Precompile", function () {
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 800;
     const duration = 1000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
@@ -497,7 +497,7 @@ describe("Marketplace Precompile", function () {
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 1000000;
     const duration = 1000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     await marketPlacePrecompile
       .connect(bobSigner)
@@ -530,7 +530,7 @@ describe("Marketplace Precompile", function () {
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 800;
     const duration = 1000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
@@ -561,7 +561,7 @@ describe("Marketplace Precompile", function () {
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const fixedPrice = 800;
     const duration = 1000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
@@ -591,7 +591,7 @@ describe("Marketplace Precompile", function () {
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const reservePrice = 1000000;
     const duration = 10000; //blocks
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     const auctionNftTx = await marketPlacePrecompile
       .connect(bobSigner)
@@ -619,7 +619,7 @@ describe("Marketplace Precompile", function () {
     const offerSeries = 87;
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const amount = 0;
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     await marketPlacePrecompile
       .connect(alithSigner)
@@ -633,7 +633,7 @@ describe("Marketplace Precompile", function () {
     const offerSeries = 77;
     const paymentAsset = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const amount = 100;
-    const marketplaceId = 0;
+    const marketplaceId = 1;
 
     await marketPlacePrecompile
       .connect(bobSigner)
