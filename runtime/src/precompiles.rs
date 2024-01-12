@@ -24,6 +24,7 @@ use pallet_evm_precompiles_erc20::Erc20PrecompileSet;
 use pallet_evm_precompiles_erc721::Erc721PrecompileSet;
 use pallet_evm_precompiles_futurepass::FuturePassPrecompileSet;
 use pallet_evm_precompiles_futurepass_registrar::FuturePassRegistrarPrecompile;
+use pallet_evm_precompiles_marketplace::MarketplacePrecompile;
 use pallet_evm_precompiles_nft::NftPrecompile;
 use pallet_evm_precompiles_peg::PegPrecompile;
 use pallet_evm_precompiles_sft::SftPrecompile;
@@ -31,7 +32,8 @@ use precompile_utils::{
 	constants::{
 		DEX_PRECOMPILE, ERC1155_PRECOMPILE_ADDRESS_PREFIX, ERC20_PRECOMPILE_ADDRESS_PREFIX,
 		ERC721_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX,
-		FUTUREPASS_REGISTRAR_PRECOMPILE, NFT_PRECOMPILE, PEG_PRECOMPILE, SFT_PRECOMPILE,
+		FUTUREPASS_REGISTRAR_PRECOMPILE, MARKETPLACE_PRECOMPILE, NFT_PRECOMPILE, PEG_PRECOMPILE,
+		SFT_PRECOMPILE,
 	},
 	precompile_set::*,
 };
@@ -76,6 +78,7 @@ pub type FutureversePrecompiles<R> = PrecompileSetBuilder<
 					AddressU64<FUTUREPASS_REGISTRAR_PRECOMPILE>,
 					FuturePassRegistrarPrecompile<R>,
 				>,
+				PrecompileAt<AddressU64<MARKETPLACE_PRECOMPILE>, MarketplacePrecompile<R>>,
 			),
 		>,
 		// Prefixed precompile sets (XC20)

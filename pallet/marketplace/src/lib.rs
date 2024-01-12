@@ -45,9 +45,7 @@ mod tests;
 pub mod types;
 
 use types::*;
-
-mod weights;
-
+pub mod weights;
 pub use weights::WeightInfo;
 
 #[frame_support::pallet]
@@ -348,7 +346,8 @@ pub mod pallet {
 			entitlement: Permill,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_register_marketplace(who, marketplace_account, entitlement)
+			Self::do_register_marketplace(who, marketplace_account, entitlement)?;
+			Ok(().into())
 		}
 
 		/// Sell a bundle of tokens at a fixed price
@@ -381,7 +380,8 @@ pub mod pallet {
 				fixed_price,
 				duration,
 				marketplace_id,
-			)
+			)?;
+			Ok(().into())
 		}
 
 		/// Update fixed price for a single token sale
@@ -404,7 +404,8 @@ pub mod pallet {
 		#[transactional]
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_buy(who, listing_id)
+			Self::do_buy(who, listing_id)?;
+			Ok(().into())
 		}
 
 		/// Auction a bundle of tokens on the open market to the highest bidder
@@ -434,7 +435,8 @@ pub mod pallet {
 				reserve_price,
 				duration,
 				marketplace_id,
-			)
+			)?;
+			Ok(().into())
 		}
 
 		/// Place a bid on an open auction
@@ -471,7 +473,8 @@ pub mod pallet {
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id)
+			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id)?;
+			Ok(().into())
 		}
 
 		/// Cancels an offer on a token
