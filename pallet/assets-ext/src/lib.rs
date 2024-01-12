@@ -325,18 +325,6 @@ impl<T: Config> Pallet<T> {
 			.unwrap_or_default()
 	}
 
-	/// Returns the free balance of an account over an asset and pallet
-	pub fn free_balance(who: &T::AccountId, asset_id: &AssetId, keep_alive: bool) -> Balance {
-		if *asset_id == T::NativeAssetId::get() {
-			<pallet_balances::Pallet<T, _> as fungible::Inspect<_>>::reducible_balance(
-				who, keep_alive,
-			)
-		} else {
-			<pallet_assets::Pallet<T> as fungibles::Inspect<_>>::reducible_balance(
-				*asset_id, who, keep_alive,
-			)
-		}
-	}
 }
 
 impl<T: Config> Inspect<T::AccountId> for Pallet<T> {

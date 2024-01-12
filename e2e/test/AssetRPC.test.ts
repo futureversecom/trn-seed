@@ -11,7 +11,7 @@ describe("RPC", () => {
   let api: ApiPromise;
   let alith: KeyringPair;
   const mintAmount = "140282367920947470662629348422000000"; // Using a value which is greater than js number (2 pow 53 -1) - 9007199254740991
-
+  const mintSmallerAmount = "121";
   before(async () => {
     node = await startNode();
 
@@ -19,8 +19,10 @@ describe("RPC", () => {
     const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
     alith = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
-    const tx = api.tx.assets.mint(2, "0x6D1eFDE1BbF146EF88c360AF255D9d54A5D39408", mintAmount);
-    await finalizeTx(alith, tx);
+    const tx1 = api.tx.assets.mint(2, "0x6D1eFDE1BbF146EF88c360AF255D9d54A5D39408", mintAmount);
+    await finalizeTx(alith, tx1);
+    const tx2 = api.tx.assets.mint(2, "0x1Fb0E85b7Ba55F0384d0E06D81DF915aeb3baca3", mintSmallerAmount);
+    await finalizeTx(alith, tx2);
   });
 
   after(async () => await node.stop());
@@ -38,6 +40,6 @@ describe("RPC", () => {
       2,
       "0x1Fb0E85b7Ba55F0384d0E06D81DF915aeb3baca3",
     );
-    expect(currentBalance.toString()).to.eq("121");
+    expect(currentBalance.toString()).to.eq(mintSmallerAmount);
   });
 });

@@ -1605,7 +1605,7 @@ impl_runtime_apis! {
 		AccountId,
 	> for Runtime {
 		fn free_balance(asset_id: AssetId, who: AccountId, keep_alive: bool) -> String {
-			let bal = AssetsExt::free_balance(&who, &asset_id, keep_alive);
+			let bal = AssetsExt::reducible_balance(asset_id, &who, keep_alive);
 			alloc::format!("{}", bal)
 		 }
 	}
