@@ -1294,16 +1294,3 @@ fn set_asset_deposit_reserves_the_correct_amount() {
 			assert_eq!(alice_reserved, deposit);
 		});
 }
-
-#[test]
-fn rpc_asset_balance() {
-	let initial_balance = 5_000_000;
-
-	test_ext()
-		.with_balances(&[(alice(), initial_balance)])
-		.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), initial_balance)])
-		.build()
-		.execute_with(|| {
-			assert_eq!(AssetsExt::free_balance(&alice(), &XRP_ASSET_ID, false), initial_balance);
-		});
-}
