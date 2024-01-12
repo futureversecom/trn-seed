@@ -286,7 +286,7 @@ describe("EVM gas costs", () => {
     const fees = await provider.getFeeData();
     const alithBalanceBefore = await alithSigner.getBalance();
 
-    const wantGasEstimate = 61_612;
+    const wantGasEstimate = 44_142;
     const actualGasEstimate = await erc20PrecompileContract
       .connect(alithSigner)
       .estimateGas.transfer(bobSigner.address, 500, {
@@ -304,7 +304,7 @@ describe("EVM gas costs", () => {
     const receipt = await tx.wait();
 
     // assert gas used
-    const wantGasUsed = 61577;
+    const wantGasUsed = 42265;
     expect(receipt.gasUsed?.toNumber()).to.eql(wantGasUsed);
     expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(wantGasUsed);
 

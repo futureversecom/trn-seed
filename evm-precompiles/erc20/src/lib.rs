@@ -276,10 +276,6 @@ where
 		let amount: Balance = amount.saturated_into();
 		let origin: Runtime::AccountId = handle.context().caller.into();
 
-		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-			<Runtime as pallet_assets::Config>::WeightInfo::transfer(),
-		))?;
-
 		let destination = to.clone().into();
 		let keep_alive = false;
 
@@ -343,11 +339,6 @@ where
 					amount,
 				},
 			)?;
-
-			// Transfer
-			handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-				<Runtime as pallet_assets::Config>::WeightInfo::transfer(),
-			))?;
 
 			let destination = to.clone();
 			let keep_alive = false;
