@@ -324,7 +324,6 @@ impl<T: Config> Pallet<T> {
 			.map(|(_, balance)| *balance)
 			.unwrap_or_default()
 	}
-
 }
 
 impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
