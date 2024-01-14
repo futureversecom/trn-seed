@@ -505,7 +505,8 @@ where
 
 				(execution_info.exit_reason, execution_info.value.to_fixed_bytes().to_vec())
 			},
-			CallType::DelegateCall => Err(RevertReason::custom("Futurepass: call type not supported"))?,
+			CallType::DelegateCall =>
+				Err(RevertReason::custom("Futurepass: call type not supported"))?,
 		};
 
 		// Return subcall result
