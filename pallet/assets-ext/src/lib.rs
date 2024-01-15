@@ -33,7 +33,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{self, Inspect as _, Mutate as _},
-		fungibles::{self, Inspect, Mutate, Transfer},
+		fungibles::{self, roles::Inspect as RoleInspect, Inspect, Mutate, Transfer},
 		tokens::{DepositConsequence, WithdrawConsequence},
 		Currency, ReservableCurrency,
 	},
@@ -323,6 +323,16 @@ impl<T: Config> Pallet<T> {
 			.find(|(pallet, _)| pallet == &pallet_id.0)
 			.map(|(_, balance)| *balance)
 			.unwrap_or_default()
+	}
+
+	/// Called by the ERC20 precompile to verify whether an assetId exists or not
+	/// Checked against whether the asset contains an owner
+	pub fn asset_exists(asset_id: AssetId) -> bool {
+		if asset_id == T::NativeAssetId::get() {
+			true
+		} else {
+			<pallet_assets::Pallet<T>>::owner(asset_id).is_some()
+		}
 	}
 }
 
