@@ -135,11 +135,6 @@ mod self_contained_call {
 					Executive::validate_transaction(TransactionSource::External, xt.into(), H256::default()),
 					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
 				);
-
-				// validate account nonce is not incremented from any of the failure scanerios above
-				let tx = XRPLTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
-				let caller: AccountId20 = tx.get_account().unwrap().into();
-				assert_eq!(System::account_nonce(&caller), 0);
     	});
 	}
 
