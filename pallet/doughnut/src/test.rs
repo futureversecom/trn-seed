@@ -29,17 +29,59 @@ use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
 use sp_core::{bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair};
 
+// Helper struct for a test account which provides common methods over that account
+struct TestAccount {
+	pub seed: &'static str,
+}
+
+impl TestAccount {
+	// Create a new test account
+	pub fn new(seed: &'static str) -> Self {
+		Self { seed }
+	}
+
+	// Return the ECDSA pair for this account
+	pub fn pair(&self) -> ecdsa::Pair {
+		Pair::from_string(self.seed, None).unwrap()
+	}
+
+	// Return the public key for this account
+	pub fn public(&self) -> Public {
+		self.pair().public()
+	}
+
+	// Return the private key for this account
+	pub fn private(&self) -> [u8; 32] {
+		self.pair().seed().into()
+	}
+
+	// Return the AccountId type for this account
+	pub fn address(&self) -> AccountId {
+		DoughnutPallet::get_address(self.public().0.into()).unwrap()
+	}
+
+	// Sign a message using ECDSA
+	pub fn sign_ecdsa(&self, message: &[u8]) -> [u8; 64] {
+		sign_ecdsa(&self.private(), message).unwrap()
+	}
+}
+
+// BOB TestAccount
+const BOB: TestAccount = TestAccount { seed: "//Bob" };
+
+// ALICE TestAccount
+const ALICE: TestAccount = TestAccount { seed: "//Alice" };
+
 fn make_doughnut(
-	holder: Public,
-	issuer: Public,
+	holder: &TestAccount,
+	issuer: &TestAccount,
 	fee_mode: FeeMode,
-	issuer_secret_key: &[u8; 32],
 	domain: &str,
 	domain_payload: Vec<u8>,
 ) -> Doughnut {
 	let mut doughnut_v1 = DoughnutV1 {
-		holder: holder.as_slice().try_into().expect("should not fail"),
-		issuer: issuer.as_slice().try_into().expect("should not fail"),
+		holder: holder.public().as_slice().try_into().expect("should not fail"),
+		issuer: issuer.public().as_slice().try_into().expect("should not fail"),
 		fee_mode: fee_mode as u8,
 		domains: vec![(domain.to_string(), domain_payload)],
 		expiry: 0,
@@ -49,7 +91,7 @@ fn make_doughnut(
 		signature: [0_u8; 64],
 	};
 	// Sign and verify doughnut
-	assert_ok!(doughnut_v1.sign_ecdsa(issuer_secret_key));
+	assert_ok!(doughnut_v1.sign_ecdsa(&issuer.private()));
 	assert_ok!(doughnut_v1.verify());
 	Doughnut::V1(doughnut_v1)
 }
@@ -57,50 +99,26 @@ fn make_doughnut(
 #[test]
 fn make_doughnut_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let alice_private =
-			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		make_doughnut(
-			holder.public(),
-			issuer.public(),
-			FeeMode::ISSUER,
-			&alice_private,
-			"",
-			vec![],
-		);
+		make_doughnut(&ALICE, &BOB, FeeMode::ISSUER, "", vec![]);
 	});
 }
 
 #[test]
 fn bob_to_alice_doughnut() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let bob_private = hex!("79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf");
-		let alice_private =
-			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-		let issuer: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let holder: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-		let doughnut = make_doughnut(
-			holder.public(),
-			issuer.public(),
-			FeeMode::ISSUER,
-			&bob_private,
-			"",
-			vec![],
-		);
+		let issuer: TestAccount = BOB;
+		let holder: TestAccount = ALICE;
+		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "", vec![]);
 
-		let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
-		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
-
-		println!("issuer address (Bob): {:?}", to_hex(issuer_address.0.as_slice(), false));
-		println!("holder address (Alice): {:?}", to_hex(holder_address.0.as_slice(), false));
+		println!("issuer address (Bob): {:?}", to_hex(issuer.address().0.as_slice(), false));
+		println!("holder address (Alice): {:?}", to_hex(holder.address().0.as_slice(), false));
 
 		let doughnut_encoded = doughnut.encode();
 		println!("Encoded doughnut");
 		println!("{:?}", to_hex(doughnut_encoded.clone().as_slice(), false));
 
 		// Print Alice's signature over the doughnut
-		let alice_signature = sign_ecdsa(&alice_private, &doughnut_encoded.as_slice()).unwrap();
+		let alice_signature = holder.sign_ecdsa(&doughnut_encoded.as_slice());
 		println!("Holder signature: {:?}", to_hex(alice_signature.as_slice(), false));
 
 		// Verify Alice's signature
@@ -116,35 +134,21 @@ fn bob_to_alice_doughnut() {
 #[test]
 fn alice_to_bob_doughnut() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let bob_private = hex!("79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf");
-		let alice_private =
-			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let doughnut = make_doughnut(
-			holder.public(),
-			issuer.public(),
-			FeeMode::ISSUER,
-			&alice_private,
-			"1",
-			vec![],
-		);
-
-		let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
-		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
+		let issuer = ALICE;
+		let holder = BOB;
+		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
 
 		println!("doughnut: {:?}", doughnut);
-
-		println!("issuer address (Alice): {:?}", to_hex(issuer_address.0.as_slice(), false));
-		println!("holder address (Bob): {:?}", to_hex(holder_address.0.as_slice(), false));
+		println!("issuer address (Alice): {:?}", to_hex(issuer.address().0.as_slice(), false));
+		println!("holder address (Bob): {:?}", to_hex(holder.address().0.as_slice(), false));
 
 		let doughnut_encoded = doughnut.encode();
 		println!("Encoded doughnut");
 		println!("{:?}", to_hex(doughnut_encoded.clone().as_slice(), false));
 
 		// Print Bob's signature over the doughnut
-		let bob_signature = sign_ecdsa(&bob_private, &doughnut_encoded.as_slice()).unwrap();
-		println!("Holder signature: {:?}", to_hex(bob_signature.as_slice(), false));
+		let bob_signature = sign_ecdsa(&holder.private(), &doughnut_encoded.as_slice()).unwrap();
+		println!("Holder signature: {:?}", to_hex(holder.private().as_slice(), false));
 
 		// Verify Bob's signature
 		assert_ok!(verify_signature(
@@ -158,25 +162,14 @@ fn alice_to_bob_doughnut() {
 
 #[test]
 fn transact_works() {
-	let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-	let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
+	let issuer = ALICE;
 	let initial_balance = 10_000;
 	TestExt::<Test>::default()
-		.with_balances(&[(issuer_address, initial_balance)])
+		.with_balances(&[(issuer.address(), initial_balance)])
 		.build()
 		.execute_with(|| {
-			let alice_private =
-				hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-			let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-			let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
-			let doughnut = make_doughnut(
-				holder.public(),
-				issuer.public(),
-				FeeMode::ISSUER,
-				&alice_private,
-				"1",
-				vec![],
-			);
+			let holder = BOB;
+			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
 			let doughnut_encoded = doughnut.encode();
 
 			// Create balances transfer call
@@ -191,7 +184,7 @@ fn transact_works() {
 
 			// Attempting to transact the doughnut should succeed
 			assert_ok!(DoughnutPallet::transact(
-				Some(holder_address).into(),
+				Some(holder.address()).into(),
 				Box::new(call),
 				doughnut_encoded,
 				0,
@@ -204,7 +197,10 @@ fn transact_works() {
 			);
 			// Check balance of destination and issuer is correct
 			assert_eq!(Balances::free_balance(&destination), transfer_amount);
-			assert_eq!(Balances::free_balance(&issuer_address), initial_balance - transfer_amount);
+			assert_eq!(
+				Balances::free_balance(&issuer.address()),
+				initial_balance - transfer_amount
+			);
 		});
 }
 
@@ -231,18 +227,9 @@ fn transact_invalid_doughnut_fails() {
 #[test]
 fn transact_holder_not_sender_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let alice_private =
-			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-		let doughnut = make_doughnut(
-			holder.public(),
-			issuer.public(),
-			FeeMode::ISSUER,
-			&alice_private,
-			"1",
-			vec![],
-		);
+		let issuer = ALICE;
+		let holder = BOB;
+		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
 		let doughnut_encoded = doughnut.encode();
 
 		let call: <Test as frame_system::Config>::RuntimeCall =
@@ -265,10 +252,8 @@ fn transact_holder_not_sender_fails() {
 #[test]
 fn transact_holder_not_signed_doughnut_should_fail() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let bob_private = hex!("79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf");
-		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
-		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
+		let issuer = ALICE;
+		let holder = BOB;
 		let mut doughnut_v1 = DoughnutV1 {
 			holder: holder.public().as_slice().try_into().expect("should not fail"),
 			issuer: issuer.public().as_slice().try_into().expect("should not fail"),
@@ -282,7 +267,7 @@ fn transact_holder_not_signed_doughnut_should_fail() {
 		};
 
 		// Sign the doughnut with Bobs private key (The holder, not the issuer)
-		assert_ok!(doughnut_v1.sign_ecdsa(&bob_private));
+		assert_ok!(doughnut_v1.sign_ecdsa(&holder.private()));
 		let doughnut = Doughnut::V1(doughnut_v1);
 		let doughnut_encoded = doughnut.encode();
 
@@ -293,7 +278,7 @@ fn transact_holder_not_signed_doughnut_should_fail() {
 		// signed by Alice
 		assert_noop!(
 			DoughnutPallet::transact(
-				Some(holder_address).into(),
+				Some(holder.address()).into(),
 				Box::new(call),
 				doughnut_encoded,
 				0,
@@ -307,26 +292,13 @@ fn transact_holder_not_signed_doughnut_should_fail() {
 #[test]
 fn revoke_doughnut_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let alice_private =
-			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let doughnut = make_doughnut(
-			holder.public(),
-			issuer.public(),
-			FeeMode::ISSUER,
-			&alice_private,
-			"1",
-			vec![],
-		);
-
-		let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
-		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
-
+		let issuer = ALICE;
+		let holder = BOB;
+		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
 		let doughnut_encoded = doughnut.encode();
 
 		assert_ok!(DoughnutPallet::revoke_doughnut(
-			Some(issuer_address).into(),
+			Some(issuer.address()).into(),
 			doughnut_encoded.clone(),
 			true
 		));
@@ -340,7 +312,7 @@ fn revoke_doughnut_works() {
 			frame_system::Call::<Test>::remark { remark: b"Mischief Managed".to_vec() }.into();
 		assert_noop!(
 			DoughnutPallet::transact(
-				Some(holder_address).into(),
+				Some(holder.address()).into(),
 				Box::new(call.clone()),
 				doughnut_encoded.clone(),
 				0,
@@ -351,7 +323,7 @@ fn revoke_doughnut_works() {
 
 		// Remove revoke
 		assert_ok!(DoughnutPallet::revoke_doughnut(
-			Some(issuer_address).into(),
+			Some(issuer.address()).into(),
 			doughnut_encoded.clone(),
 			false
 		));
@@ -359,7 +331,7 @@ fn revoke_doughnut_works() {
 
 		// Attempting to transact the doughnut should now succeed
 		assert_ok!(DoughnutPallet::transact(
-			Some(holder_address).into(),
+			Some(holder.address()).into(),
 			Box::new(call),
 			doughnut_encoded,
 			0,
@@ -371,25 +343,14 @@ fn revoke_doughnut_works() {
 #[test]
 fn revoke_doughnut_not_issuer_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let alice_private =
-			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let doughnut = make_doughnut(
-			holder.public(),
-			issuer.public(),
-			FeeMode::ISSUER,
-			&alice_private,
-			"1",
-			vec![],
-		);
-		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
-
+		let issuer = ALICE;
+		let holder = BOB;
+		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
 		let doughnut_encoded = doughnut.encode();
 
 		assert_noop!(
 			DoughnutPallet::revoke_doughnut(
-				Some(holder_address).into(),
+				Some(holder.address()).into(),
 				doughnut_encoded.clone(),
 				true
 			),
@@ -411,39 +372,26 @@ fn revoke_doughnut_invalid_doughnut_fails() {
 #[test]
 fn revoke_holder_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let alice_private =
-			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let doughnut = make_doughnut(
-			holder.public(),
-			issuer.public(),
-			FeeMode::ISSUER,
-			&alice_private,
-			"1",
-			vec![],
-		);
-
-		let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
-		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
-
+		let issuer = ALICE;
+		let holder = BOB;
+		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
 		let doughnut_encoded = doughnut.encode();
 
 		assert_ok!(DoughnutPallet::revoke_holder(
-			Some(issuer_address).into(),
-			holder_address.clone(),
+			Some(issuer.address()).into(),
+			holder.address().clone(),
 			true
 		));
 
 		// Check storage updated
-		assert_eq!(BlockedHolders::<Test>::get(issuer_address, holder_address), true);
+		assert_eq!(BlockedHolders::<Test>::get(issuer.address(), holder.address()), true);
 
 		// Attempting to transact the doughnut should fail as the holder is revoked
 		let call: <Test as frame_system::Config>::RuntimeCall =
 			frame_system::Call::<Test>::remark { remark: b"Mischief Managed".to_vec() }.into();
 		assert_noop!(
 			DoughnutPallet::transact(
-				Some(holder_address).into(),
+				Some(holder.address()).into(),
 				Box::new(call.clone()),
 				doughnut_encoded.clone(),
 				0,
@@ -454,15 +402,15 @@ fn revoke_holder_works() {
 
 		// Remove revoke
 		assert_ok!(DoughnutPallet::revoke_holder(
-			Some(issuer_address).into(),
-			holder_address.clone(),
+			Some(issuer.address()).into(),
+			holder.address().clone(),
 			false
 		));
-		assert_eq!(BlockedHolders::<Test>::get(issuer_address, holder_address), false);
+		assert_eq!(BlockedHolders::<Test>::get(issuer.address(), holder.address()), false);
 
 		// Attempting to transact the doughnut should now succeed
 		assert_ok!(DoughnutPallet::transact(
-			Some(holder_address).into(),
+			Some(holder.address()).into(),
 			Box::new(call),
 			doughnut_encoded,
 			0,
@@ -473,27 +421,14 @@ fn revoke_holder_works() {
 
 #[test]
 fn generate_alice_to_bob_outer_signature() {
-	let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-	let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
+	let issuer = ALICE;
 	let initial_balance = 10_000;
 	TestExt::<Test>::default()
-		.with_balances(&[(issuer_address, initial_balance)])
+		.with_balances(&[(issuer.address(), initial_balance)])
 		.build()
 		.execute_with(|| {
-			let alice_private =
-				hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-			let bob_private =
-				hex!("79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf");
-			let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-			let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
-			let doughnut = make_doughnut(
-				holder.public(),
-				issuer.public(),
-				FeeMode::ISSUER,
-				&alice_private,
-				"1",
-				vec![],
-			);
+			let holder = BOB;
+			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
 			let doughnut_encoded = doughnut.encode();
 
 			// Create balances transfer call
@@ -515,9 +450,9 @@ fn generate_alice_to_bob_outer_signature() {
 			};
 
 			let mut outer_call_payload: Vec<u8> = outer_call.encode();
-			outer_call_payload.as_mut_slice()[1] = 0x05; // TODO - for some reason, actual runtime encoded call has this byte as 0x05. check
-											 // this.
-			let outer_signature = sign_ecdsa(&bob_private, outer_call_payload.as_slice()).unwrap();
+			outer_call_payload.as_mut_slice()[1] = 0x05; // TODO - for some reason, actual runtime encoded
+											 // call has this byte as 0x05. check this.
+			let outer_signature = holder.sign_ecdsa(&outer_call_payload.as_slice());
 			println!("doughnut: {:?}", to_hex(doughnut_encoded.as_slice(), false));
 			println!("outer call: {:?}", outer_call);
 			println!("outer call payload: {:?}", to_hex(outer_call_payload.as_slice(), false));
@@ -531,26 +466,13 @@ fn signed_extension_validations_succeed() {
 		.with_asset(XRP_ASSET_ID, "XRP", &[]) // create XRP asset
 		.build()
 		.execute_with(|| {
-			let bob_private =
-				hex!("79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf");
-			let alice_private =
-				hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-			let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-			let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-			let doughnut = make_doughnut(
-				holder.public(),
-				issuer.public(),
-				FeeMode::ISSUER,
-				&alice_private,
-				"1",
-				vec![],
-			);
-
-			let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
-			let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
+			let issuer = ALICE;
+			let holder = BOB;
+			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+			let doughnut_encoded = doughnut.encode();
 
 			// Fund the issuer so they can pass the validations for paying gas
-			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &issuer_address, 5000000));
+			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &issuer.address(), 5000000));
 			let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
 				remark: b"Mischief Managed".to_vec(),
 			});
@@ -564,8 +486,7 @@ fn signed_extension_validations_succeed() {
 				nonce,
 				signature: vec![],
 			};
-			let mut outer_call_payload: Vec<u8> = outer_call.encode();
-			let outer_signature = sign_ecdsa(&bob_private, outer_call_payload.as_slice()).unwrap();
+			let outer_signature = holder.sign_ecdsa(&outer_call.encode().as_slice());
 
 			// validate self contained extrinsic is invalid (invalid signature)
 			let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(
@@ -588,7 +509,7 @@ fn signed_extension_validations_succeed() {
 			assert_ok!(Executive::apply_extrinsic(xt.clone()));
 
 			// validate account nonce is incremented
-			assert_eq!(System::account_nonce(&holder_address), 1);
+			assert_eq!(System::account_nonce(&holder.address()), 1);
 
 			// Check event is thrown as the doughnut was successfully executed
 			System::assert_has_event(
@@ -600,22 +521,10 @@ fn signed_extension_validations_succeed() {
 #[test]
 fn signed_extension_validations_low_balance_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let bob_private = hex!("79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf");
-		let alice_private =
-			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let doughnut = make_doughnut(
-			holder.public(),
-			issuer.public(),
-			FeeMode::ISSUER,
-			&alice_private,
-			"1",
-			vec![],
-		);
-
-		let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
-		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
+		let issuer = ALICE;
+		let holder = BOB;
+		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+		let doughnut_encoded = doughnut.encode();
 
 		let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
 			remark: b"Mischief Managed".to_vec(),
@@ -630,8 +539,7 @@ fn signed_extension_validations_low_balance_fails() {
 			nonce,
 			signature: vec![],
 		};
-		let mut outer_call_payload: Vec<u8> = outer_call.encode();
-		let outer_signature = sign_ecdsa(&bob_private, outer_call_payload.as_slice()).unwrap();
+		let outer_signature = holder.sign_ecdsa(&outer_call.encode().as_slice());
 
 		// validate self contained extrinsic is invalid (invalid signature)
 		let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(
@@ -662,26 +570,13 @@ fn apply_extrinsic_invalid_nonce_fails() {
 		.with_asset(XRP_ASSET_ID, "XRP", &[]) // create XRP asset
 		.build()
 		.execute_with(|| {
-			let bob_private =
-				hex!("79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf");
-			let alice_private =
-				hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-			let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-			let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-			let doughnut = make_doughnut(
-				holder.public(),
-				issuer.public(),
-				FeeMode::ISSUER,
-				&alice_private,
-				"1",
-				vec![],
-			);
-
-			let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
-			let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
+			let issuer = ALICE;
+			let holder = BOB;
+			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+			let doughnut_encoded = doughnut.encode();
 
 			// Fund the issuer so they can pass the validations for paying gas
-			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &issuer_address, 5000000));
+			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &issuer.address(), 5000000));
 			let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
 				remark: b"Mischief Managed".to_vec(),
 			});
@@ -695,8 +590,7 @@ fn apply_extrinsic_invalid_nonce_fails() {
 				nonce,
 				signature: vec![],
 			};
-			let mut outer_call_payload: Vec<u8> = outer_call.encode();
-			let outer_signature = sign_ecdsa(&bob_private, outer_call_payload.as_slice()).unwrap();
+			let outer_signature = holder.sign_ecdsa(&outer_call.encode().as_slice());
 
 			// validate self contained extrinsic is invalid (invalid signature)
 			let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(
@@ -717,6 +611,50 @@ fn apply_extrinsic_invalid_nonce_fails() {
 			// Validate transaction should fail as the nonce is too high
 			assert_err!(
 				Executive::apply_extrinsic(xt.clone()),
+				TransactionValidityError::Invalid(InvalidTransaction::BadProof)
+			);
+		});
+}
+
+#[test]
+fn signed_extension_validations_invalid_signature_fails() {
+	TestExt::<Test>::default()
+		.with_asset(XRP_ASSET_ID, "XRP", &[]) // create XRP asset
+		.build()
+		.execute_with(|| {
+			let issuer = ALICE;
+			let holder = BOB;
+			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+			let doughnut_encoded = doughnut.encode();
+
+			// Fund the issuer so they can pass the validations for paying gas
+			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &issuer.address(), 5000000));
+			let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
+				remark: b"Mischief Managed".to_vec(),
+			});
+			let doughnut_encoded = doughnut.encode();
+			let nonce = 0;
+
+			// Sign the signature with just the doughnut which is invalid
+			let outer_signature = holder.sign_ecdsa(&doughnut_encoded.as_slice());
+
+			// validate self contained extrinsic is invalid (invalid signature)
+			let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(
+				mock::RuntimeCall::Doughnut(crate::Call::transact {
+					call: Box::new(call.clone()),
+					doughnut: doughnut_encoded,
+					nonce,
+					signature: outer_signature.into(),
+				}),
+			);
+
+			// Validate transaction should fail as the outer signature is incorrect
+			assert_err!(
+				Executive::validate_transaction(
+					TransactionSource::External,
+					xt.clone().into(),
+					H256::default()
+				),
 				TransactionValidityError::Invalid(InvalidTransaction::BadProof)
 			);
 		});
