@@ -24,6 +24,7 @@ use doughnut_rs::{
 	signature::{sign_ecdsa, verify_signature, SignatureVersion},
 	traits::{DoughnutVerify, FeeMode, PayloadVersion, Signing},
 };
+use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
 use sp_core::{bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair};
@@ -521,5 +522,202 @@ fn generate_alice_to_bob_outer_signature() {
 			println!("outer call: {:?}", outer_call);
 			println!("outer call payload: {:?}", to_hex(outer_call_payload.as_slice(), false));
 			println!("outer call signature: {:?}", to_hex(&outer_signature, false));
+		});
+}
+
+#[test]
+fn signed_extension_validations_succeed() {
+	TestExt::<Test>::default()
+		.with_asset(XRP_ASSET_ID, "XRP", &[]) // create XRP asset
+		.build()
+		.execute_with(|| {
+			let bob_private =
+				hex!("79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf");
+			let alice_private =
+				hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
+			let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
+			let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
+			let doughnut = make_doughnut(
+				holder.public(),
+				issuer.public(),
+				FeeMode::ISSUER,
+				&alice_private,
+				"1",
+				vec![],
+			);
+
+			let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
+			let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
+
+			// Fund the issuer so they can pass the validations for paying gas
+			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &issuer_address, 5000000));
+			let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
+				remark: b"Mischief Managed".to_vec(),
+			});
+			let doughnut_encoded = doughnut.encode();
+			let nonce = 0;
+
+			// Print Bob's signature over the doughnut
+			let outer_call = Call::<Test>::transact {
+				call: Box::new(call.clone()),
+				doughnut: doughnut_encoded.clone(),
+				nonce,
+				signature: vec![],
+			};
+			let mut outer_call_payload: Vec<u8> = outer_call.encode();
+			let outer_signature = sign_ecdsa(&bob_private, outer_call_payload.as_slice()).unwrap();
+
+			// validate self contained extrinsic is invalid (invalid signature)
+			let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(
+				mock::RuntimeCall::Doughnut(crate::Call::transact {
+					call: Box::new(call.clone()),
+					doughnut: doughnut_encoded,
+					nonce,
+					signature: outer_signature.into(),
+				}),
+			);
+
+			// Validate transaction should succeed
+			assert_ok!(Executive::validate_transaction(
+				TransactionSource::External,
+				xt.clone().into(),
+				H256::default()
+			),);
+
+			// execute the extrinsic with the provided signed extras
+			assert_ok!(Executive::apply_extrinsic(xt.clone()));
+
+			// validate account nonce is incremented
+			assert_eq!(System::account_nonce(&holder_address), 1);
+
+			// Check event is thrown as the doughnut was successfully executed
+			System::assert_has_event(
+				Event::DoughnutCallExecuted { result: DispatchResult::Ok(()) }.into(),
+			);
+		});
+}
+
+#[test]
+fn signed_extension_validations_low_balance_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let bob_private = hex!("79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf");
+		let alice_private =
+			hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
+		let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
+		let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
+		let doughnut = make_doughnut(
+			holder.public(),
+			issuer.public(),
+			FeeMode::ISSUER,
+			&alice_private,
+			"1",
+			vec![],
+		);
+
+		let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
+		let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
+
+		let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
+			remark: b"Mischief Managed".to_vec(),
+		});
+		let doughnut_encoded = doughnut.encode();
+		let nonce = 0;
+
+		// Print Bob's signature over the doughnut
+		let outer_call = Call::<Test>::transact {
+			call: Box::new(call.clone()),
+			doughnut: doughnut_encoded.clone(),
+			nonce,
+			signature: vec![],
+		};
+		let mut outer_call_payload: Vec<u8> = outer_call.encode();
+		let outer_signature = sign_ecdsa(&bob_private, outer_call_payload.as_slice()).unwrap();
+
+		// validate self contained extrinsic is invalid (invalid signature)
+		let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(
+			mock::RuntimeCall::Doughnut(crate::Call::transact {
+				call: Box::new(call.clone()),
+				doughnut: doughnut_encoded,
+				nonce,
+				signature: outer_signature.into(),
+			}),
+		);
+
+		// Validate transaction should fail as the holder does not have enough XRP to cover
+		// the fee payment
+		assert_err!(
+			Executive::validate_transaction(
+				TransactionSource::External,
+				xt.clone().into(),
+				H256::default()
+			),
+			TransactionValidityError::Invalid(InvalidTransaction::BadProof)
+		);
+	});
+}
+
+#[test]
+fn apply_extrinsic_invalid_nonce_fails() {
+	TestExt::<Test>::default()
+		.with_asset(XRP_ASSET_ID, "XRP", &[]) // create XRP asset
+		.build()
+		.execute_with(|| {
+			let bob_private =
+				hex!("79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf");
+			let alice_private =
+				hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
+			let issuer: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
+			let holder: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
+			let doughnut = make_doughnut(
+				holder.public(),
+				issuer.public(),
+				FeeMode::ISSUER,
+				&alice_private,
+				"1",
+				vec![],
+			);
+
+			let issuer_address = DoughnutPallet::get_address(issuer.public().0.into()).unwrap();
+			let holder_address = DoughnutPallet::get_address(holder.public().0.into()).unwrap();
+
+			// Fund the issuer so they can pass the validations for paying gas
+			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &issuer_address, 5000000));
+			let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
+				remark: b"Mischief Managed".to_vec(),
+			});
+			let doughnut_encoded = doughnut.encode();
+			let nonce = 1;
+
+			// Print Bob's signature over the doughnut
+			let outer_call = Call::<Test>::transact {
+				call: Box::new(call.clone()),
+				doughnut: doughnut_encoded.clone(),
+				nonce,
+				signature: vec![],
+			};
+			let mut outer_call_payload: Vec<u8> = outer_call.encode();
+			let outer_signature = sign_ecdsa(&bob_private, outer_call_payload.as_slice()).unwrap();
+
+			// validate self contained extrinsic is invalid (invalid signature)
+			let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(
+				mock::RuntimeCall::Doughnut(crate::Call::transact {
+					call: Box::new(call.clone()),
+					doughnut: doughnut_encoded,
+					nonce,
+					signature: outer_signature.into(),
+				}),
+			);
+
+			// Validate transaction should succeed
+			assert_ok!(Executive::validate_transaction(
+				TransactionSource::External,
+				xt.clone().into(),
+				H256::default()
+			),);
+			// Validate transaction should fail as the nonce is too high
+			assert_err!(
+				Executive::apply_extrinsic(xt.clone()),
+				TransactionValidityError::Invalid(InvalidTransaction::BadProof)
+			);
 		});
 }
