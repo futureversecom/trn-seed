@@ -29,7 +29,7 @@ use pallet_evm::{GasWeightMapping, PrecompileSet};
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{AssetId, Balance};
 use sp_core::{H160, U256};
-use sp_runtime::traits::{SaturatedConversion, Zero};
+use sp_runtime::traits::SaturatedConversion;
 use sp_std::marker::PhantomData;
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature
@@ -86,40 +86,38 @@ where
 		if let Some(asset_id) =
 			Runtime::evm_id_to_runtime_id(context.address.into(), ERC20_PRECOMPILE_ADDRESS_PREFIX)
 		{
-			if !<pallet_assets_ext::Pallet<Runtime> as Inspect<Runtime::AccountId>>::total_issuance(
-				asset_id,
-			)
-			.is_zero()
-			{
-				let result = {
-					let selector = match handle.read_selector() {
-						Ok(selector) => selector,
-						Err(e) => return Some(Err(e.into())),
-					};
+			if !<pallet_assets_ext::Pallet<Runtime>>::asset_exists(asset_id) {
+				return None
+			}
 
-					if let Err(err) = handle.check_function_modifier(match selector {
-						Action::Approve | Action::Transfer | Action::TransferFrom =>
-							FunctionModifier::NonPayable,
-						_ => FunctionModifier::View,
-					}) {
-						return Some(Err(err.into()))
-					}
-
-					match selector {
-						Action::TotalSupply => Self::total_supply(asset_id, handle),
-						Action::BalanceOf => Self::balance_of(asset_id, handle),
-						Action::Transfer => Self::transfer(asset_id, handle),
-						Action::Name => Self::name(asset_id, handle),
-						Action::Symbol => Self::symbol(asset_id, handle),
-						Action::Decimals => Self::decimals(asset_id, handle),
-						Action::Allowance => Self::allowance(asset_id, handle),
-						Action::Approve => Self::approve(asset_id, handle),
-						Action::TransferFrom => Self::transfer_from(asset_id, handle),
-					}
+			let result = {
+				let selector = match handle.read_selector() {
+					Ok(selector) => selector,
+					Err(e) => return Some(Err(e.into())),
 				};
 
-				return Some(result)
-			}
+				if let Err(err) = handle.check_function_modifier(match selector {
+					Action::Approve | Action::Transfer | Action::TransferFrom =>
+						FunctionModifier::NonPayable,
+					_ => FunctionModifier::View,
+				}) {
+					return Some(Err(err.into()))
+				}
+
+				match selector {
+					Action::TotalSupply => Self::total_supply(asset_id, handle),
+					Action::BalanceOf => Self::balance_of(asset_id, handle),
+					Action::Transfer => Self::transfer(asset_id, handle),
+					Action::Name => Self::name(asset_id, handle),
+					Action::Symbol => Self::symbol(asset_id, handle),
+					Action::Decimals => Self::decimals(asset_id, handle),
+					Action::Allowance => Self::allowance(asset_id, handle),
+					Action::Approve => Self::approve(asset_id, handle),
+					Action::TransferFrom => Self::transfer_from(asset_id, handle),
+				}
+			};
+
+			return Some(result)
 		}
 		None
 	}
@@ -128,11 +126,8 @@ where
 		if let Some(asset_id) =
 			Runtime::evm_id_to_runtime_id(Address(address), ERC20_PRECOMPILE_ADDRESS_PREFIX)
 		{
-			// totaly supply `0` is a good enough check for asset existence
-			!<pallet_assets_ext::Pallet<Runtime> as Inspect<Runtime::AccountId>>::total_issuance(
-				asset_id,
-			)
-			.is_zero()
+			// Check if the asset exists
+			<pallet_assets_ext::Pallet<Runtime>>::asset_exists(asset_id)
 		} else {
 			false
 		}
