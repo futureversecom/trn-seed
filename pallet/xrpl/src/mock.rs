@@ -14,12 +14,10 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{self as pallet_xrpl, *};
-use frame_support::{parameter_types, weights::WeightToFee, PalletId};
-use frame_system::EnsureRoot;
+use frame_support::weights::WeightToFee;
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::{AccountId, Address, AssetId, Balance, Signature};
-use sp_core::H256;
-use sp_runtime::{generic, testing::Header, traits::LookupError};
+use seed_primitives::{Address, Signature};
+use sp_runtime::{generic, traits::LookupError};
 
 pub type SignedExtra = XRPLValidations<Test>;
 pub type UncheckedExtrinsicT =
