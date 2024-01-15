@@ -24,8 +24,7 @@ use frame_support::{
 		OriginTrait,
 	},
 };
-use pallet_assets::WeightInfo;
-use pallet_evm::{GasWeightMapping, PrecompileSet};
+use pallet_evm::PrecompileSet;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{AssetId, Balance};
 use sp_core::{H160, U256};
@@ -276,17 +275,14 @@ where
 		let amount: Balance = amount.saturated_into();
 		let origin: Runtime::AccountId = handle.context().caller.into();
 
-		let destination = to.clone().into();
-		let keep_alive = false;
-
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin).into(),
 			pallet_assets_ext::Call::<Runtime>::transfer {
 				asset_id,
-				destination,
+				destination: to.clone().into(),
 				amount,
-				keep_alive,
+				keep_alive: false,
 			},
 		)?;
 		let caller = handle.context().caller;
@@ -340,16 +336,14 @@ where
 				},
 			)?;
 
-			let destination = to.clone();
-			let keep_alive = false;
 			RuntimeHelper::<Runtime>::try_dispatch(
 				handle,
-				Some(handle.context().caller.into()).into(),
+				Some(from).into(),
 				pallet_assets_ext::Call::<Runtime>::transfer {
 					asset_id,
-					destination,
+					destination: to.clone(),
 					amount,
-					keep_alive,
+					keep_alive: false,
 				},
 			)?;
 		}
