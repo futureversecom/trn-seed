@@ -66,8 +66,9 @@ mod self_contained_call {
 			.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), 0)]) // create XRP asset
 			.build()
 			.execute_with(|| {
-				// encoded call for: chain_id = 1; nonce = 0, max_block_number = 5, extrinsic = System::remark; validates invalid chain id
 				let call = mock::RuntimeCall::System(frame_system::Call::remark { remark: Default::default() });
+
+				// encoded call for: chain_id = 1; nonce = 0, max_block_number = 5, extrinsic = System::remark; validates invalid chain id
 				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
 					encoded_msg: BoundedVec::truncate_from(hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C25807321033A0663EEAAD786F132CDBC25C7D2A6F8C14D55DB7B9AB52AFFB0D8A1C9A1010D81145B3DE9CEA3A77D69DD12F99C12E542907EE49E44F9EA7C0965787472696E7369637D30313A303A353A353030343030303134303464363937333633363836393635363632303464363136653631363736353634E1F1").unwrap()),
 					signature: BoundedVec::truncate_from(hex::decode("3045022100B877466D021B990299F5177E33AF2B2D4B40D2D01CF0889C26247BAEF7995C6F02207EEAD77A28D990F94C6F425EC134EAAD456282FD74CB09005656CA208E8A1476").unwrap()),
@@ -78,14 +79,22 @@ mod self_contained_call {
 					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
 				);
 
-				// encoded call for: chain_id = 0, nonce = 1, max_block_number = 5, extrinsic = System::remark; validates nonce too high
+				// encoded call for: chain_id = 0, nonce = 5, max_block_number = 5, extrinsic = System::remark; validates nonce too high
+				let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102509540919FAACF9AB52146C9AA40DB68172D83777250B28E4679176E49CCDD9F81148E6106F6E98E7B21BFDFBFC3DEBA0EDED28A047AF9EA7C0965787472696E7369637D46303A353A353A35633933633236383339613137636235616366323765383961616330306639646433663531643161316161346234383266363930663634333633396665383732E1F1").unwrap();
 				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
-					encoded_msg: BoundedVec::truncate_from(hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732103559940F18727930969416A900738B4525FE104C5812C5305365E7B30316BDAA68114DD5493DF89C562B62E277B496FB2DF1043302932F9EA7C0965787472696E7369637D30303A313A353A353030343030303134303464363937333633363836393635363632303464363136653631363736353634E1F1").unwrap()),
-					signature: BoundedVec::truncate_from(hex::decode("304402200802EBDB16E1568788BD111BD39DA826D19386F0E3F26CB79D95A0ED4E08052102205784BB0EC6005F59423A886496083AA3626A66224B372FE3977598195E74C73D").unwrap()),
+					encoded_msg: BoundedVec::truncate_from(tx_bytes.clone()),
+					signature: BoundedVec::truncate_from(hex::decode("3045022100C7DF345085823CF8BA71E3AFB6091879667744B61E46CA659D3BB4718E509DF702207A6FBBC71A151A85EE8D453A2E74A0ACCB8AA11973F6763D54605F3CB8313B2F").unwrap()),
 					call: Box::new(call.clone()),
 				}));
+				// fund the user with XRP (to pay for tx fees)
+				let tx = XRPLTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
+				let caller: AccountId20 = tx.get_account().unwrap().into();
+				assert_ok!(AssetsExt::mint_into(2, &caller, 2_000_000));
+				// validate transaction is successful
+				assert_ok!(Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()));
+				// validate that applying extrinsic fails; the pre-dispatch validates nonce mismatch
 				assert_err!(
-					Executive::validate_transaction(TransactionSource::External, xt.into(), H256::default()),
+					Executive::apply_extrinsic(xt),
 					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
 				);
 

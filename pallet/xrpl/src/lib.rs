@@ -124,7 +124,7 @@ impl<T> Call<T>
 		_len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
 		if let Call::submit_encoded_xrpl_transaction { .. } = self {
-			// pre dispatch will be done within the `apply_self_contained`` below.
+			// pre dispatch will be done within the `apply_self_contained` below.
 			Ok(()).into()
 		} else {
 			None
