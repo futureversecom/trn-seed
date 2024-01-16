@@ -25,12 +25,12 @@ use doughnut_rs::{
 	traits::{DoughnutVerify, FeeMode, PayloadVersion, Signing},
 };
 use frame_support::traits::fungibles::Mutate;
-use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
-use sp_core::{bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair, H512};
+use sp_core::{bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair};
 use sp_std::default::Default;
 
-// Helper struct for a test account which provides common methods over that account
+// Helper struct for a test account where a seed is supplied and provides common methods to
+// receive parts of that account
 struct TestAccount {
 	pub seed: &'static str,
 }
@@ -152,7 +152,7 @@ fn run_doughnut_common_validations_invalid_doughnut_version_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
-		let mut doughnut_v0 = DoughnutV0 {
+		let doughnut_v0 = DoughnutV0 {
 			holder: holder.public().as_slice()[0..32].try_into().expect("should not fail"),
 			issuer: issuer.public().as_slice()[0..32].try_into().expect("should not fail"),
 			domains: vec![(String::default(), vec![])],
@@ -163,7 +163,7 @@ fn run_doughnut_common_validations_invalid_doughnut_version_fails() {
 			signature: Default::default(),
 		};
 		let doughnut = Doughnut::V0(doughnut_v0);
-		let mut doughnut_encoded = doughnut.encode();
+		let doughnut_encoded = doughnut.encode();
 
 		// Running common validations should fail as the doughnut is V0
 		assert_noop!(
@@ -546,7 +546,6 @@ fn signed_extension_validations_succeed() {
 			let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
 				remark: b"Mischief Managed".to_vec(),
 			});
-			let doughnut_encoded = doughnut.encode();
 			let nonce = 0;
 
 			// Print Bob's signature over the doughnut
@@ -599,7 +598,6 @@ fn signed_extension_validations_low_balance_fails() {
 		let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
 			remark: b"Mischief Managed".to_vec(),
 		});
-		let doughnut_encoded = doughnut.encode();
 		let nonce = 0;
 
 		// Print Bob's signature over the doughnut
@@ -650,7 +648,6 @@ fn apply_extrinsic_invalid_nonce_fails() {
 			let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
 				remark: b"Mischief Managed".to_vec(),
 			});
-			let doughnut_encoded = doughnut.encode();
 			let nonce = 1;
 
 			// Print Bob's signature over the doughnut
@@ -687,7 +684,70 @@ fn apply_extrinsic_invalid_nonce_fails() {
 }
 
 #[test]
-fn signed_extension_validations_invalid_signature_fails() {
+fn signed_extension_validations_invalid_inner_signature_fails() {
+	TestExt::<Test>::default()
+		.with_asset(XRP_ASSET_ID, "XRP", &[]) // create XRP asset
+		.build()
+		.execute_with(|| {
+			let issuer = ALICE;
+			let holder = BOB;
+			let doughnut_v1 = DoughnutV1 {
+				holder: holder.public().as_slice().try_into().expect("should not fail"),
+				issuer: issuer.public().as_slice().try_into().expect("should not fail"),
+				fee_mode: 0,
+				domains: vec![(String::from(""), vec![])],
+				expiry: 0,
+				not_before: 0,
+				payload_version: 0,
+				signature_version: SignatureVersion::ECDSA as u8,
+				signature: [0_u8; 64],
+			};
+
+			// don't sign doughnut and check that verify fails
+			assert_err!(doughnut_v1.verify(), doughnut_rs::error::VerifyError::Invalid);
+			let doughnut = Doughnut::V1(doughnut_v1);
+			let doughnut_encoded = doughnut.encode();
+
+			// Fund the issuer so they can pass the validations for paying gas
+			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &issuer.address(), 5000000));
+			let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
+				remark: b"Mischief Managed".to_vec(),
+			});
+			let nonce = 0;
+
+			// Print Bob's signature over the doughnut
+			let outer_call = Call::<Test>::transact {
+				call: Box::new(call.clone()),
+				doughnut: doughnut_encoded.clone(),
+				nonce,
+				signature: vec![],
+			};
+			let outer_signature = holder.sign_ecdsa(&outer_call.encode().as_slice());
+
+			// validate self contained extrinsic is invalid (invalid signature)
+			let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(
+				mock::RuntimeCall::Doughnut(crate::Call::transact {
+					call: Box::new(call.clone()),
+					doughnut: doughnut_encoded,
+					nonce,
+					signature: outer_signature.into(),
+				}),
+			);
+
+			// Validate transaction should fail as the inner signature is incorrect
+			assert_err!(
+				Executive::validate_transaction(
+					TransactionSource::External,
+					xt.clone().into(),
+					H256::default()
+				),
+				TransactionValidityError::Invalid(InvalidTransaction::BadProof)
+			);
+		});
+}
+
+#[test]
+fn signed_extension_validations_invalid_outer_signature_fails() {
 	TestExt::<Test>::default()
 		.with_asset(XRP_ASSET_ID, "XRP", &[]) // create XRP asset
 		.build()
@@ -702,7 +762,6 @@ fn signed_extension_validations_invalid_signature_fails() {
 			let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
 				remark: b"Mischief Managed".to_vec(),
 			});
-			let doughnut_encoded = doughnut.encode();
 			let nonce = 0;
 
 			// Sign the signature with just the doughnut which is invalid
