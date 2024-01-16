@@ -13,6 +13,22 @@ export * from "./node";
 
 /** TYPEDEFS */
 export const rpcs = {
+  assetsExt: {
+    freeBalance: {
+      description: "Given asset id and address, returns free balance",
+      params: [
+        {
+          name: "asset",
+          type: "AssetId",
+        },
+        {
+          name: "who",
+          type: "AccountId",
+        },
+      ],
+      type: "Text",
+    },
+  },
   dex: {
     quote: {
       description: "Given some amount of an asset and pair reserves, returns an equivalent amount of the other asset",
