@@ -22,6 +22,9 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+extern crate alloc;
+
+use alloc::string::String;
 use codec::{Decode, Encode};
 use core::ops::Mul;
 use fp_rpc::TransactionStatus;
@@ -1580,6 +1583,16 @@ impl_runtime_apis! {
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Nft::token_uri(token_id)
 		}
+	}
+
+	impl pallet_assets_ext_rpc_runtime_api::AssetsExtApi<
+		Block,
+		AccountId,
+	> for Runtime {
+		fn free_balance(asset_id: AssetId, who: AccountId, keep_alive: bool) -> String {
+			let bal = AssetsExt::reducible_balance(asset_id, &who, keep_alive);
+			alloc::format!("{}", bal)
+		 }
 	}
 
 	impl pallet_sft_rpc_runtime_api::SftApi<Block, Runtime> for Runtime {
