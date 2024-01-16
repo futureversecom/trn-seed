@@ -20,14 +20,15 @@ use crate::{
 };
 use codec::Encode;
 use doughnut_rs::{
-	doughnut::{Doughnut, DoughnutV1},
+	doughnut::{Doughnut, DoughnutV0, DoughnutV1},
 	signature::{sign_ecdsa, verify_signature, SignatureVersion},
 	traits::{DoughnutVerify, FeeMode, PayloadVersion, Signing},
 };
 use frame_support::traits::fungibles::Mutate;
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
-use sp_core::{bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair};
+use sp_core::{bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair, H512};
+use sp_std::default::Default;
 
 // Helper struct for a test account which provides common methods over that account
 struct TestAccount {
@@ -35,11 +36,6 @@ struct TestAccount {
 }
 
 impl TestAccount {
-	// Create a new test account
-	pub fn new(seed: &'static str) -> Self {
-		Self { seed }
-	}
-
 	// Return the ECDSA pair for this account
 	pub fn pair(&self) -> ecdsa::Pair {
 		Pair::from_string(self.seed, None).unwrap()
@@ -100,6 +96,80 @@ fn make_doughnut(
 fn make_doughnut_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		make_doughnut(&ALICE, &BOB, FeeMode::ISSUER, "", vec![]);
+	});
+}
+
+#[test]
+fn get_address_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let account = ALICE;
+		assert_ok!(DoughnutPallet::get_address(account.public().0.into()));
+	});
+}
+
+#[test]
+fn get_address_invalid_public_key_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		// invalid public key should fail
+		let pub_key: [u8; 33] = [0_u8; 33];
+		assert_noop!(DoughnutPallet::get_address(pub_key), Error::<Test>::UnauthorizedSender);
+	});
+}
+
+#[test]
+fn run_doughnut_common_validations_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let issuer = ALICE;
+		let holder = BOB;
+		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "", vec![]);
+		let doughnut_encoded = doughnut.encode();
+
+		// Running common validations should work
+		assert_ok!(DoughnutPallet::run_doughnut_common_validations(doughnut_encoded));
+	});
+}
+
+#[test]
+fn run_doughnut_common_validations_bad_doughnut_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let issuer = ALICE;
+		let holder = BOB;
+		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "", vec![]);
+		let mut doughnut_encoded = doughnut.encode();
+		// Corrupt the doughnut by removing the last byte
+		doughnut_encoded = doughnut_encoded[0..doughnut_encoded.len() - 1].to_vec();
+
+		// Running common validations should fail as the doughnut is corrupt
+		assert_noop!(
+			DoughnutPallet::run_doughnut_common_validations(doughnut_encoded),
+			Error::<Test>::DoughnutDecodeFailed
+		);
+	});
+}
+
+#[test]
+fn run_doughnut_common_validations_invalid_doughnut_version_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let issuer = ALICE;
+		let holder = BOB;
+		let mut doughnut_v0 = DoughnutV0 {
+			holder: holder.public().as_slice()[0..32].try_into().expect("should not fail"),
+			issuer: issuer.public().as_slice()[0..32].try_into().expect("should not fail"),
+			domains: vec![(String::default(), vec![])],
+			expiry: 0,
+			not_before: 0,
+			payload_version: PayloadVersion::V0 as u16,
+			signature_version: SignatureVersion::ECDSA as u8,
+			signature: Default::default(),
+		};
+		let doughnut = Doughnut::V0(doughnut_v0);
+		let mut doughnut_encoded = doughnut.encode();
+
+		// Running common validations should fail as the doughnut is V0
+		assert_noop!(
+			DoughnutPallet::run_doughnut_common_validations(doughnut_encoded),
+			Error::<Test>::UnsupportedDoughnutVersion
+		);
 	});
 }
 
