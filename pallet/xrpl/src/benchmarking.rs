@@ -41,7 +41,7 @@ benchmarks! {
 		let tx = XRPLTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
 		let public_key = tx.get_public_key().unwrap();
 		let caller: T::AccountId = tx.get_account().unwrap().into();
-		assert_last_event::<T>(Event::XRPLExtrinsicExecuted { public_key, caller, call }.into())
+		assert_last_event::<T>(Event::XRPLExtrinsicExecuted { public_key, caller, r_address: "r9kSdPu1GRr75qfy636iraAm7CbMRmDC3o".into(), call }.into())
   }
 }
 

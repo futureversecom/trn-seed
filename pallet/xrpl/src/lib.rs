@@ -29,7 +29,7 @@ mod weights;
 
 pub use weights::WeightInfo;
 
-use alloc::boxed::Box;
+use alloc::{boxed::Box, string::String};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
@@ -340,6 +340,7 @@ pub mod pallet {
 		XRPLExtrinsicExecuted {
 			public_key: [u8; 33],
 			caller: T::AccountId,
+			r_address: String,
 			call: <T as pallet::Config>::RuntimeCall,
 		},
 	}
@@ -409,6 +410,7 @@ pub mod pallet {
 			Self::deposit_event(Event::XRPLExtrinsicExecuted {
 				public_key,
 				caller: who,
+				r_address: tx.account,
 				call: *call,
 			});
 			Ok(().into())

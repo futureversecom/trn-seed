@@ -215,6 +215,7 @@ mod self_contained_call {
 					Event::XRPLExtrinsicExecuted {
 						public_key: [2,80,149,64,145,159,170,207,154,181,33,70,201,170,64,219,104,23,45,131,119,114,80,178,142,70,121,23,110,73,204,221,159],
 						caller,
+						r_address: "rDyqBotBNJeXv8PBHY18ABjyw6FQuWXQnu".to_string(),
 						call: mock::RuntimeCall::System(frame_system::Call::remark { remark: b"Mischief Managed".to_vec() }),
 					}.into(),
 				);
