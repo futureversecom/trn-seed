@@ -29,6 +29,42 @@ describe("XRPL pallet", () => {
 
   after(async () => await node.stop());
 
+  // NOTE: use this test to generate a valid xaman tx (msg + signature) for integration tests
+  it.skip("debug tx message and signature", async () => {
+    // const user = Wallet.createRandom();
+    const publicKey = computePublicKey(alith.publicKey, true);
+    // console.log(hexToU8a(publicKey));
+
+    // fund the user account to pay for tx fees
+    // await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 1_000_000));
+
+    const extrinsic = api.tx.system.remark("Mischief Managed");
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+
+    const xamanJsonTx = {
+      AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
+      SigningPubKey: publicKey.slice(2),
+      Account: deriveAddress(publicKey.slice(2)),
+      Memos: [
+        {
+          Memo: {
+            MemoType: stringToHex("extrinsic"),
+            // remove `0x` from extrinsic hex string
+            MemoData: stringToHex(`0:0:5:0:${hashedExtrinsicWithoutPrefix}`),
+          },
+        },
+      ],
+    };
+
+    // sign xaman tx
+    const message = encode(xamanJsonTx);
+    const encodedSigningMessage = encodeForSigning(xamanJsonTx);
+    const signature = sign(encodedSigningMessage, ALITH_PRIVATE_KEY.slice(2));
+
+    console.log("message", message);
+    console.log("signature", signature);
+  });
+
   it("can submit system remark extrinsic", async () => {
     const user = Wallet.createRandom();
     const publicKey = computePublicKey(user.publicKey, true);
@@ -52,7 +88,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
@@ -95,6 +131,7 @@ describe("XRPL pallet", () => {
     expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
     expect(events[index].event.data[0].toString()).to.equal(publicKey);
     expect(events[index].event.data[1].toString()).to.equal(user.address);
+    expect(events[index].event.data[2].toString()).to.equal(xamanJsonTx.Account);
 
     // assetsExt InternalDeposit [2,"0x6D6F646c7478666565706F740000000000000000",557511]
     index += 1;
@@ -124,6 +161,102 @@ describe("XRPL pallet", () => {
     expect(nonce).to.equal(1);
   });
 
+  it("can submit system remark extrinsic with tip", async () => {
+    const user = Wallet.createRandom();
+    const publicKey = computePublicKey(user.publicKey, true);
+
+    // fund the user account to pay for tx fees
+    await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 2_000_000));
+
+    const extrinsic = api.tx.system.remark("hello world");
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
+
+    const xrpBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+
+    const xamanJsonTx = {
+      AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
+      SigningPubKey: publicKey.slice(2),
+      Account: deriveAddress(publicKey.slice(2)),
+      Memos: [
+        {
+          Memo: {
+            MemoType: stringToHex("extrinsic"),
+            // remove `0x` from extrinsic hex string
+            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:1000000:${hashedExtrinsicWithoutPrefix}`),
+          },
+        },
+      ],
+    };
+
+    // sign xaman tx
+    const message = encode(xamanJsonTx);
+    const encodedSigningMessage = encodeForSigning(xamanJsonTx);
+    const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
+
+    const cost = await api.tx.xrpl
+      .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`, extrinsic)
+      .paymentInfo(user.address);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(920_000).and.lessThan(935_000);
+
+    // execute xaman tx extrinsic
+    const events = await new Promise<any[]>(async (resolve) => {
+      await api.tx.xrpl
+        .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`, extrinsic)
+        .send(({ events = [], status }) => {
+          if (status.isInBlock) resolve(events);
+        });
+    });
+
+    // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+
+    // assert events
+    expect(events.length).to.equal(5);
+    let index = 0;
+
+    // assetsExt InternalWithdraw [2,"0x8800043D76AFd08b019F3db2016b9573041C1B59",560011]
+    expect(events[index].event.section).to.equal("assetsExt");
+    expect(events[index].event.method).to.equal("InternalWithdraw");
+    expect(events[index].event.data[0]).to.equal(GAS_TOKEN_ID);
+    expect(events[index].event.data[1].toString()).to.equal(user.address);
+
+    // xrpl XRPLExtrinsicExecuted ["0x023b7f0df4d92da1ebe88be92fd59b2becfa4a60875b97c295c7a2524b03c487fc", "0x27Fd5891543A45aB8a0B7A387285bdd4A6562B51",0,{"callIndex":"0x0001","args":{"remark":"0x68656c6c6f20776f726c64"}}]
+    index += 1;
+    expect(events[index].event.section).to.equal("xrpl");
+    expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
+    expect(events[index].event.data[0].toString()).to.equal(publicKey);
+    expect(events[index].event.data[1].toString()).to.equal(user.address);
+    expect(events[index].event.data[2].toString()).to.equal(xamanJsonTx.Account);
+
+    // assetsExt InternalDeposit [2,"0x6D6F646c7478666565706F740000000000000000",557511]
+    index += 1;
+    expect(events[index].event.section).to.equal("assetsExt");
+    expect(events[index].event.method).to.equal("InternalDeposit");
+
+    // transactionPayment TransactionFeePaid ["0xe8d9B65B4D1daA328b4980405393a9563FecC592",557511,0]
+    index += 1;
+    expect(events[index].event.section).to.equal("transactionPayment");
+    expect(events[index].event.method).to.equal("TransactionFeePaid");
+
+    // system ExtrinsicSuccess [{"weight":86298000,"class":"Normal","paysFee":"Yes"}]
+    index += 1;
+    expect(events[index].event.section).to.equal("system");
+    expect(events[index].event.method).to.equal("ExtrinsicSuccess");
+
+    // assert balance after < balance before (tx fee must be paid)
+    const xrpBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
+    expect(xrpBalanceBefore - xrpBalanceAfter)
+      .to.greaterThan(1_700_000)
+      .and.lessThan(1_715_000);
+
+    // assert user nonce is updated (1 tx)
+    const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
+    expect(nonce).to.equal(1);
+  });
+
   it("can submit assets transfer extrinsic", async () => {
     const user = Wallet.createRandom();
     const publicKey = computePublicKey(user.publicKey, true);
@@ -147,7 +280,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
@@ -198,6 +331,7 @@ describe("XRPL pallet", () => {
     expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
     expect(events[index].event.data[0].toString()).to.equal(publicKey);
     expect(events[index].event.data[1].toString()).to.equal(user.address);
+    expect(events[index].event.data[2].toString()).to.equal(xamanJsonTx.Account);
 
     // assetsExt InternalDeposit [2,"0x6D6F646c7478666565706F740000000000000000",615011]
     index += 1;
@@ -257,7 +391,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
@@ -320,6 +454,7 @@ describe("XRPL pallet", () => {
     expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
     expect(events[index].event.data[0].toString()).to.equal(publicKey);
     expect(events[index].event.data[1].toString()).to.equal(user.address);
+    expect(events[index].event.data[2].toString()).to.equal(xamanJsonTx.Account);
 
     // assetsExt InternalDeposit [2,"0x6D6F646c7478666565706F740000000000000000",730011]
     index += 1;
@@ -369,7 +504,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
@@ -415,7 +550,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
