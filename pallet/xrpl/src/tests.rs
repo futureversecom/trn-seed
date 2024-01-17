@@ -25,9 +25,9 @@ mod self_contained_call {
 	#[test]
 	fn submit_encoded_xrpl_transaction_validations() {
 		TestExt::<Test>::default().build().execute_with(|| {
-      // encoded call for: chainIid = 0, nonce = 0, max_block_number = 5, extrinsic = System::remark
+      // encoded call for: chain_id = 0, nonce = 0, max_block_number = 5, tip = 0, extrinsic = System::remark
 			let call = mock::RuntimeCall::System(frame_system::Call::remark { remark: Default::default() });
-      let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C25807321026577EEF1DDBC8B7B883BF19457A5FA4CCBD1EEAF29A51AD2D8370CB3E2DC9F2B81149308E2A8716F3F4BCBE49EFA6FA9DAF75AA31D0DF9EA7C0965787472696E7369637D30303A303A353A353030343030303134303464363937333633363836393635363632303464363136653631363736353634E1F1").unwrap();
+      let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102509540919FAACF9AB52146C9AA40DB68172D83777250B28E4679176E49CCDD9F81148E6106F6E98E7B21BFDFBFC3DEBA0EDED28A047AF9EA7C0965787472696E7369637D48303A303A353A303A35633933633236383339613137636235616366323765383961616330306639646433663531643161316161346234383266363930663634333633396665383732E1F1").unwrap();
       assert_ok!(Xrpl::submit_encoded_xrpl_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes.clone()), BoundedVec::default(), Box::new(call)));
     });
 	}
@@ -36,8 +36,8 @@ mod self_contained_call {
 	fn extrinsic_cannot_perform_privileged_operations() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let call = mock::RuntimeCall::System(frame_system::Call::set_code { code: Default::default() });
-      // encoded call for: chainIid = 0, nonce = 0, max_block_number = 5, extrinsic = System::set_code
-			let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732103C7F5304313F8C3CE00E36D0F09A8E08F7EABCD7144E3384FC4E66E75E5522F9D81148AB02D60F912ED0AD339A883C60DB9639311F329F9EA7C0965787472696E7369637D14303A303A353A3138303430303033303831323334E1F1").unwrap();
+      // encoded call for: chain_id = 0, nonce = 0, max_block_number = 5, tip = 0, extrinsic = System::set_code
+			let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102509540919FAACF9AB52146C9AA40DB68172D83777250B28E4679176E49CCDD9F81148E6106F6E98E7B21BFDFBFC3DEBA0EDED28A047AF9EA7C0965787472696E7369637D48303A303A353A303A66633730373832313235333862623238393633373338393034303237373630313464393765303033656136393430303533303538386134383434393662333337E1F1").unwrap();
 
 			// executing xrpl encoded transaction fails since caller is not root/sudo account
 			assert_noop!(
@@ -47,45 +47,43 @@ mod self_contained_call {
 		});
 	}
 
-	// TODO: remove
-	// #[test]
-	// fn custom() {
-	// 	let encoded_call: &[u8] = &[ 0, 1, 0 ];
-	// 	println!("encoded_call: {:?}", encoded_call); // 00 01 00
-	// 	println!("hex encoded_call: {:?}", hex::encode(&[ 0, 1, 0 ])); // 00 01 00
-	// 	let hashed_call = sp_io::hashing::blake2_256(&encoded_call);
-	// 	println!("hashed_call: {:?}", hashed_call);
-	// 	let encoded_call = hex::encode(hashed_call);
-	// 	println!("encoded_call: {:?}", encoded_call);
-	// 	assert!(false);
-	// }
-
 	#[test]
-	fn signed_extension_validations() {
+	fn validate_invalid_chain_id() {
 		TestExt::<Test>::default()
 			.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), 0)]) // create XRP asset
 			.build()
 			.execute_with(|| {
 				let call = mock::RuntimeCall::System(frame_system::Call::remark { remark: Default::default() });
 
-				// encoded call for: chain_id = 1; nonce = 0, max_block_number = 5, extrinsic = System::remark; validates invalid chain id
+				// encoded call for: chain_id = 1; nonce = 0, max_block_number = 5, tip = 0, extrinsic = System::remark; validates invalid chain id
 				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
-					encoded_msg: BoundedVec::truncate_from(hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C25807321033A0663EEAAD786F132CDBC25C7D2A6F8C14D55DB7B9AB52AFFB0D8A1C9A1010D81145B3DE9CEA3A77D69DD12F99C12E542907EE49E44F9EA7C0965787472696E7369637D30313A303A353A353030343030303134303464363937333633363836393635363632303464363136653631363736353634E1F1").unwrap()),
-					signature: BoundedVec::truncate_from(hex::decode("3045022100B877466D021B990299F5177E33AF2B2D4B40D2D01CF0889C26247BAEF7995C6F02207EEAD77A28D990F94C6F425EC134EAAD456282FD74CB09005656CA208E8A1476").unwrap()),
+					encoded_msg: BoundedVec::truncate_from(hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102509540919FAACF9AB52146C9AA40DB68172D83777250B28E4679176E49CCDD9F81148E6106F6E98E7B21BFDFBFC3DEBA0EDED28A047AF9EA7C0965787472696E7369637D48303A303A353A303A66633730373832313235333862623238393633373338393034303237373630313464393765303033656136393430303533303538386134383434393662333337E1F1").unwrap()),
+					signature: BoundedVec::truncate_from(hex::decode("304402203D76BEF2D67A3B6FAB7972B7B382A654A5E78E74E16197E548F5494D69498256022017DB22937214C595ED2FFEDD9E99F9D830DF81E5B36A57AFFA021F05A497B9D1").unwrap()),
 					call: Box::new(call.clone()),
 				}));
 				assert_err!(
 					Executive::validate_transaction(TransactionSource::External, xt.into(), H256::default()),
 					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
 				);
+			});
+	}
 
-				// encoded call for: chain_id = 0, nonce = 5, max_block_number = 5, extrinsic = System::remark; validates nonce too high
-				let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102509540919FAACF9AB52146C9AA40DB68172D83777250B28E4679176E49CCDD9F81148E6106F6E98E7B21BFDFBFC3DEBA0EDED28A047AF9EA7C0965787472696E7369637D46303A353A353A35633933633236383339613137636235616366323765383961616330306639646433663531643161316161346234383266363930663634333633396665383732E1F1").unwrap();
+	#[test]
+	fn validate_nonce_too_high() {
+		TestExt::<Test>::default()
+			.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), 0)]) // create XRP asset
+			.build()
+			.execute_with(|| {
+				let call = mock::RuntimeCall::System(frame_system::Call::remark { remark: Default::default() });
+
+				// encoded call for: chain_id = 0, nonce = 5, max_block_number = 5, tip = 0, extrinsic = System::remark; validates nonce too high
+				let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102509540919FAACF9AB52146C9AA40DB68172D83777250B28E4679176E49CCDD9F81148E6106F6E98E7B21BFDFBFC3DEBA0EDED28A047AF9EA7C0965787472696E7369637D48303A353A353A303A35633933633236383339613137636235616366323765383961616330306639646433663531643161316161346234383266363930663634333633396665383732E1F1").unwrap();
 				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
 					encoded_msg: BoundedVec::truncate_from(tx_bytes.clone()),
-					signature: BoundedVec::truncate_from(hex::decode("3045022100C7DF345085823CF8BA71E3AFB6091879667744B61E46CA659D3BB4718E509DF702207A6FBBC71A151A85EE8D453A2E74A0ACCB8AA11973F6763D54605F3CB8313B2F").unwrap()),
+					signature: BoundedVec::truncate_from(hex::decode("3044022038D2943A83270CFED21127AA72990F5B9D752AA7293743C872E0F65AAB5BEB8F02200634DD843C0276C36815648D133FE2B1854D55783207CFBC96F9C67E4775E0E3").unwrap()),
 					call: Box::new(call.clone()),
 				}));
+
 				// fund the user with XRP (to pay for tx fees)
 				let tx = XRPLTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
 				let caller: AccountId20 = tx.get_account().unwrap().into();
@@ -97,9 +95,40 @@ mod self_contained_call {
 					Executive::apply_extrinsic(xt),
 					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
 				);
+			});
+	}
 
-				// encoded call for: chain_id = 0, nonce = 0, max_block_number = 5, extrinsic = System::remark
-				let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732103480D32221603422F1B1EB9B9446288DBE3ABDA4194E735457B28793E6B411690811438F9D2B0136BC20A6C3428EC77B0D4CCFDE9F01BF9EA7C0965787472696E7369637D30303A303A353A353030343030303134303464363937333633363836393635363632303464363136653631363736353634E1F1").unwrap();
+	#[test]
+	fn validate_hashed_extrinsic() {
+		TestExt::<Test>::default()
+			.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), 0)]) // create XRP asset
+			.build()
+			.execute_with(|| {
+				let call = mock::RuntimeCall::System(frame_system::Call::remark { remark: Default::default() });
+
+				// validate self contained extrinsic fails, call provided is not signed hashed extrinsic in memo data
+				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
+					encoded_msg: BoundedVec::truncate_from(hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102509540919FAACF9AB52146C9AA40DB68172D83777250B28E4679176E49CCDD9F81148E6106F6E98E7B21BFDFBFC3DEBA0EDED28A047AF9EA7C0965787472696E7369637D0A303A303A353A303A3030E1F1").unwrap()),
+					signature: BoundedVec::truncate_from(hex::decode("304502210081C0EFD0B5C85AC8C20765B95B44DCD0891619E83529A63A2350907B341EE168022006365C3AB530A1D529606D6EDDE18C76ECF42334FF0DC2140AD392C20305F898").unwrap()),
+					call: Box::new(call.clone()),
+				}));
+				assert_err!(
+					Executive::validate_transaction(TransactionSource::External, xt.into(), H256::default()),
+					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
+				);
+			});
+	}
+
+	#[test]
+	fn validate_transaction_signature() {
+		TestExt::<Test>::default()
+			.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), 0)]) // create XRP asset
+			.build()
+			.execute_with(|| {
+				let call = mock::RuntimeCall::System(frame_system::Call::remark { remark: Default::default() });
+
+				// encoded call for: chain_id = 0, nonce = 0, max_block_number = 5, tip = 0, extrinsic = System::remark
+				let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C25807321021A765BED04797D2DD723C9FDC1ED9D20FEC478F7E8E7D16236F8504C5740C10781145FF8490F22ABFA576788227DB2E80D3F5F104654F9EA7C0965787472696E7369637D48303A303A353A303A35633933633236383339613137636235616366323765383961616330306639646433663531643161316161346234383266363930663634333633396665383732E1F1").unwrap();
 
 				// validate self contained extrinsic is invalid (no signature)
 				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
@@ -126,24 +155,19 @@ mod self_contained_call {
 				// validate self contained extrinsic fails, user does not have funds to pay for transaction
 				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
 					encoded_msg: BoundedVec::truncate_from(tx_bytes.clone()),
-					signature: BoundedVec::truncate_from(hex::decode("3045022100BD734A38F9C5C210CC7E1D57AEA6DA45039D0068E3ABBA348189A5EBC6A0757D022077B4212F023C66B6C99FB68DC7AEF7921A1BAFF2A85AC6C5E70000C50009231C").unwrap()),
+					signature: BoundedVec::truncate_from(hex::decode("3045022100A6E6546A845ED811FF833789ABE96A5D196737D6FAE0612F40639344DB3ABC2202205D4E3A3753EBC50CB5EBC1A0E861BE0DABA1EE062C08BB40DA9F65F20DEF0CF8").unwrap()),
 					call: Box::new(call.clone()),
 				}));
 				assert_err!(
 					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
 					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
 				);
-
-				// validate self contained extrinsic fails, call provided is not signed hashed extrinsic in memo data
-				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
-					encoded_msg: BoundedVec::truncate_from(hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C258073210355C6CA1FB82188356AE57E3874EFB7EC5EDC361251876DE065427F063AAD4438811481717D1D4D3B764AA57641C9726345BB2B9F43F7F9EA7C0965787472696E7369637D48303A303A3334353A38303830373738633330633230666132656263306564313864326362636131663330623032373632356337643964393766356435383937323163393161656236E1F1").unwrap()),
-					signature: BoundedVec::truncate_from(hex::decode("304402203E09C8C178F4523863DAD10B7A0908699CFE36C6349A2C3931B7EEBA04844BEF0220506F5CC85C4B254DAB2E73BE94236809C0D974B47A465AD8A087975F6EF27628").unwrap()),
-					call: Box::new(call.clone()),
-				}));
-				assert_err!(
-					Executive::validate_transaction(TransactionSource::External, xt.into(), H256::default()),
-					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
-				);
+				// validate same transaction is successful after funding caller
+				let tx = XRPLTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
+				let caller: AccountId20 = tx.get_account().unwrap().into();
+				assert_ok!(AssetsExt::mint_into(2, &caller, 2_000_000));
+				assert_ok!(Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()));
+				assert_ok!(Executive::apply_extrinsic(xt));
     	});
 	}
 
@@ -155,9 +179,9 @@ mod self_contained_call {
 			.execute_with(|| {
 				let call = mock::RuntimeCall::System(frame_system::Call::remark { remark: b"Mischief Managed".to_vec() });
 
-      	// encoded call for: chainIid = 0, nonce = 0, max_block_number = 5, extrinsic = System::remark
-				let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C25807321029259980381C9BD1E3C174436F99C179504ED18A34A81FE39A5458E9D836285258114EE0B375F1B10624DDDCF6F200B531C8674324D15F9EA7C0965787472696E7369637D46303A303A353A33623832663037383031653632636437383966316233636333353936383236313436613163353136666165613766633633333263643362323563646666316331E1F1").unwrap();
-				let signature = hex::decode("304402202E02877C195085F54FA1D8EA2440FFDD15F871AE0C2386DD5F486C3B86C4CA2C02207D1071BFF1A51178E9262C07B72FB74CE8B35DBCFE8E556EEC28B20D7C6AF24E").unwrap();
+      	// encoded call for: chain_id = 0, nonce = 0, max_block_number = 5, tip = 0, extrinsic = System::remark
+				let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102509540919FAACF9AB52146C9AA40DB68172D83777250B28E4679176E49CCDD9F81148E6106F6E98E7B21BFDFBFC3DEBA0EDED28A047AF9EA7C0965787472696E7369637D48303A303A353A303A33623832663037383031653632636437383966316233636333353936383236313436613163353136666165613766633633333263643362323563646666316331E1F1").unwrap();
+				let signature = hex::decode("3045022100CD796AA2993088249A5076CDD6518BFA31306FDBD5A422594AA0F03854A356F302202DE986F8C9DC08AA95E079241C4BBECC527FAFA4A1B9F7B297C208220C9208AA").unwrap();
 
 				// fund the user with XRP (to pay for tx fees)
 				let tx = XRPLTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
@@ -189,7 +213,7 @@ mod self_contained_call {
 				// verify the event was emitted for successful extrinsic with nested system remark call
 				System::assert_has_event(
 					Event::XRPLExtrinsicExecuted {
-						public_key: [2,146,89,152,3,129,201,189,30,60,23,68,54,249,156,23,149,4,237,24,163,74,129,254,57,165,69,142,157,131,98,133,37],
+						public_key: [2,80,149,64,145,159,170,207,154,181,33,70,201,170,64,219,104,23,45,131,119,114,80,178,142,70,121,23,110,73,204,221,159],
 						caller,
 						call: mock::RuntimeCall::System(frame_system::Call::remark { remark: b"Mischief Managed".to_vec() }),
 					}.into(),
