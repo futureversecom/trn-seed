@@ -53,6 +53,7 @@ parameter_types! {
 	pub const XRPLTransactionLimitPerLedger: u32 = 10;
 	pub const MaxPrunedTransactionsPerBlock: u32 = 5000;
 	pub const XrpAssetId: u32 = XRP_ASSET_ID;
+	pub const SourceTag: u32 = 723456_u32;
 }
 
 impl pallet_xrpl_bridge::Config for Test {

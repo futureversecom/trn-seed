@@ -1755,7 +1755,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "xrpl-codec 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8)",
+ "xrpl-codec",
 ]
 
 [[package]]
@@ -4868,6 +4868,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-assets-ext-rpc"
+version = "2.2.0"
+dependencies = [
+ "jsonrpsee",
+ "pallet-assets-ext",
+ "pallet-assets-ext-rpc-runtime-api",
+ "parity-scale-codec",
+ "seed-primitives",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-blockchain",
+ "sp-core",
+ "sp-io",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-assets-ext-rpc-runtime-api"
+version = "2.2.0"
+dependencies = [
+ "pallet-assets-ext",
+ "parity-scale-codec",
+ "seed-primitives",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-authorship"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
@@ -6139,7 +6170,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std",
- "xrpl-codec 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9)",
+ "xrpl-codec",
 ]
 
 [[package]]
@@ -8536,6 +8567,7 @@ dependencies = [
  "jsonrpsee",
  "libsecp256k1 0.6.0",
  "log",
+ "pallet-assets-ext-rpc",
  "pallet-dex-rpc",
  "pallet-maintenance-mode",
  "pallet-nft-rpc",
@@ -8649,6 +8681,7 @@ dependencies = [
  "log",
  "pallet-assets",
  "pallet-assets-ext",
+ "pallet-assets-ext-rpc-runtime-api",
  "pallet-authorship",
  "pallet-babe",
  "pallet-bags-list",
@@ -11425,48 +11458,25 @@ dependencies = [
 
 [[package]]
 name = "xrpl-codec"
-version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
+version = "0.1.2"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec#3771d18e620e1b4878412c53170825774d9d8d6c"
 dependencies = [
  "ripemd",
  "sha2 0.10.8",
- "xrpl-codec-utils 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8)",
-]
-
-[[package]]
-name = "xrpl-codec"
-version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9#1d67a2a63b47ecb0322dbce0a50ecb5198547623"
-dependencies = [
- "ripemd",
- "sha2 0.10.8",
- "xrpl-codec-utils 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9)",
+ "xrpl-codec-utils",
 ]
 
 [[package]]
 name = "xrpl-codec-utils"
 version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec#3771d18e620e1b4878412c53170825774d9d8d6c"
 dependencies = [
  "hashbrown 0.12.3",
  "lazy_static",
  "proc-macro2",
  "quote",
  "serde_json",
- "syn 2.0.39",
-]
-
-[[package]]
-name = "xrpl-codec-utils"
-version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9#1d67a2a63b47ecb0322dbce0a50ecb5198547623"
-dependencies = [
- "hashbrown 0.12.3",
- "lazy_static",
- "proc-macro2",
- "quote",
- "serde_json",
- "syn 2.0.39",
+ "syn 1.0.109",
 ]
 
 [[package]]
