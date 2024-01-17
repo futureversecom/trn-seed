@@ -6253,7 +6253,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std",
- "xrpl-codec 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9)",
+ "xrpl-codec",
 ]
 
 [[package]]
@@ -11581,19 +11581,6 @@ dependencies = [
 name = "xrpl-codec-utils"
 version = "0.1.0"
 source = "git+https://github.com/futureversecom/xrpl-tx-codec#3771d18e620e1b4878412c53170825774d9d8d6c"
-dependencies = [
- "hashbrown 0.12.3",
- "lazy_static",
- "proc-macro2",
- "quote",
- "serde_json",
- "syn 2.0.41",
-]
-
-[[package]]
-name = "xrpl-codec-utils"
-version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9#1d67a2a63b47ecb0322dbce0a50ecb5198547623"
 dependencies = [
  "hashbrown 0.12.3",
  "lazy_static",
