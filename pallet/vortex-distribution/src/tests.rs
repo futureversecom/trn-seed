@@ -174,9 +174,8 @@ fn start_vtx_dist_without_root_origin_should_fail() {
 #[test]
 fn start_vtx_dist_with_already_paying_status_should_fail() {
 	TestExt::default().build().execute_with(|| {
-		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
-
 		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
 
 		assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id));
 
@@ -468,7 +467,7 @@ fn set_asset_prices_with_invalid_asset_id_should_fail() {
 		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
 
 		// Define an invalid asset price (e.g., using the VTX asset ID which should not be allowed).
-		let invalid_asset_prices: Vec<(AssetId, Balance)> = vec![(2, 500)];
+		let invalid_asset_prices: Vec<(AssetId, Balance)> = vec![(VTX_ASSET_ID, 500)];
 		let bounded_invalid_asset_prices: BoundedVec<_, _> =
 			BoundedVec::try_from(invalid_asset_prices).expect("Should not exceed limit");
 
@@ -630,7 +629,12 @@ fn trigger_vtx_distribution_should_work() {
 			//set asset price
 			assert_ok!(Vortex::set_asset_prices(
 				Origin::root(),
-				BoundedVec::try_from(vec![(usdc, 100), (weth, 200)]).unwrap(),
+				BoundedVec::try_from(vec![
+					(usdc, 100),
+					(weth, 200),
+					(<Test as crate::Config>::NativeAssetId::get(), 100)
+				])
+				.unwrap(),
 				vortex_dist_id,
 			));
 
@@ -656,10 +660,10 @@ fn trigger_vtx_distribution_should_work() {
 #[test]
 fn trigger_vtx_distribution_should_fail_if_already_triggered() {
 	TestExt::default().build().execute_with(|| {
-		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
-
 		// Retrieve the ID of the newly created vortex distribution.
 		let vortex_dist_id = NextVortexId::<Test>::get();
+
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
 
 		// Trigger the vortex distribution process.
 		assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id,));
@@ -667,7 +671,7 @@ fn trigger_vtx_distribution_should_fail_if_already_triggered() {
 		// Attempt to trigger the same distribution again should fail.
 		assert_noop!(
 			Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id,),
-			Error::<Test>::AlreadyTriggered
+			Error::<Test>::CannotTrigger
 		);
 	});
 }
@@ -735,7 +739,12 @@ fn redeem_tokens_from_vault_should_work() {
 			//set asset price
 			assert_ok!(Vortex::set_asset_prices(
 				Origin::root(),
-				BoundedVec::try_from(vec![(usdc, 100), (weth, 200)]).unwrap(),
+				BoundedVec::try_from(vec![
+					(usdc, 100),
+					(weth, 200),
+					(<Test as crate::Config>::NativeAssetId::get(), 100)
+				])
+				.unwrap(),
 				vortex_dis_id,
 			));
 
@@ -781,15 +790,154 @@ fn redeem_tokens_from_vault_should_work() {
 				1_000_000
 			);
 
+			VtxDistStatuses::<Test>::mutate(vortex_dis_id, |status| {
+				*status = VtxDistStatus::Done;
+			});
+
+			// Redeem Bob's tokens
 			assert_ok!(Vortex::redeem_tokens_from_vault(
 				Origin::signed(bob),
 				vortex_dis_id,
 				500_000
 			));
-
-			//check withdraw result
+			//check Bob's balances
+			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &bob), 0);
 			assert_eq!(AssetsExt::balance(usdc, &bob), 500_000);
+			assert_eq!(AssetsExt::balance(weth, &bob), 500_000);
 			assert_eq!(Balances::free_balance(&bob), 1_000_000);
+
+			// Redeem Charlie's tokens
+			assert_ok!(Vortex::redeem_tokens_from_vault(
+				Origin::signed(charlie),
+				vortex_dis_id,
+				500_000
+			));
+			//check Charlie's balances
+			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &charlie), 0);
+			assert_eq!(AssetsExt::balance(usdc, &charlie), 500_000);
+			assert_eq!(AssetsExt::balance(weth, &charlie), 500_000);
+			assert_eq!(Balances::free_balance(&charlie), 1_000_000);
+		});
+}
+
+#[test]
+fn redeem_tokens_from_vault_should_work_without_root_token_in_asset_prices() {
+	let alice: AccountId = create_account(1);
+	let bob: AccountId = create_account(2);
+	let charlie: AccountId = create_account(3);
+
+	let end_block = 10;
+
+	TestExt::default()
+		.with_balances(&[(alice, 2_000_000)])
+		.with_asset(<Test as crate::Config>::NativeAssetId::get(), "ROOT", &[(alice, 1_000_000)])
+		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(alice, 0)])
+		.build()
+		.execute_with(|| {
+			// create 3 tokens
+			let usdc = AssetsExt::create(&alice, None).unwrap();
+			let weth = AssetsExt::create(&alice, None).unwrap();
+
+			let vortex_dis_id = NextVortexId::<Test>::get();
+
+			// mint tokens to user - fee vault
+			let root_vault = Vortex::get_root_vault_account();
+			assert_ok!(Vortex::safe_transfer(
+				NativeAssetId::get(),
+				&alice,
+				&root_vault,
+				1_000_000,
+				false
+			));
+			let fee_vault = Vortex::get_fee_vault_account();
+			assert_ok!(Vortex::safe_transfer(
+				NativeAssetId::get(),
+				&alice,
+				&fee_vault,
+				1_000_000,
+				false
+			));
+			assert_ok!(AssetsExt::mint_into(usdc, &fee_vault, 1_000_000)); //fee vault
+			assert_ok!(AssetsExt::mint_into(weth, &fee_vault, 1_000_000)); //fee vault
+
+			// list vortex distribution
+			assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+			//set asset price
+			assert_ok!(Vortex::set_asset_prices(
+				Origin::root(),
+				BoundedVec::try_from(vec![(usdc, 100), (weth, 200),]).unwrap(),
+				vortex_dis_id,
+			));
+
+			//register vortex token rewards for everyone
+			assert_ok!(Vortex::register_rewards(
+				Origin::root(),
+				vortex_dis_id,
+				BoundedVec::try_from(vec![(bob, 500_000), (charlie, 500_000)]).unwrap()
+			));
+
+			//trigger vortext reward calcuation and assets/root transfer to vault
+			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dis_id,));
+
+			//start the vortex distribution
+			assert_ok!(Vortex::start_vtx_dist(Origin::root(), vortex_dis_id,));
+			assert_eq!(
+				AssetsExt::balance(
+					<Test as crate::Config>::VtxAssetId::get(),
+					&Vortex::get_vtx_vault_account()
+				),
+				1_000_000
+			);
+
+			run_to_block(end_block);
+
+			assert_ok!(Vortex::pay_unsigned(Origin::none(), vortex_dis_id, end_block));
+			assert!(
+				!System::events().iter().all(|record| {
+					match record.event {
+						MockEvent::Vortex(crate::Event::VtxDistPaidOut { .. }) => false,
+						_ => true,
+					}
+				}),
+				"No payouts should occur as the distribution status is not 'Paying'."
+			);
+			assert_eq!(
+				AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &bob),
+				500_000
+			);
+			assert_eq!(
+				AssetsExt::total_issuance(<Test as crate::Config>::VtxAssetId::get()),
+				1_000_000
+			);
+
+			// Set status to done, simulating the end of the pay_unsigned step
+			VtxDistStatuses::<Test>::mutate(vortex_dis_id, |status| {
+				*status = VtxDistStatus::Done;
+			});
+
+			// Redeem Bob's tokens
+			assert_ok!(Vortex::redeem_tokens_from_vault(
+				Origin::signed(bob),
+				vortex_dis_id,
+				500_000
+			));
+			//check Bob's balances
+			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &bob), 0);
+			assert_eq!(AssetsExt::balance(usdc, &bob), 500_000);
+			assert_eq!(AssetsExt::balance(weth, &bob), 500_000);
+			assert_eq!(Balances::free_balance(&bob), 0);
+
+			// Redeem Charlie's tokens
+			assert_ok!(Vortex::redeem_tokens_from_vault(
+				Origin::signed(charlie),
+				vortex_dis_id,
+				500_000
+			));
+			//check Charlie's balances
+			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &charlie), 0);
+			assert_eq!(AssetsExt::balance(usdc, &charlie), 500_000);
+			assert_eq!(AssetsExt::balance(weth, &charlie), 500_000);
+			assert_eq!(Balances::free_balance(&charlie), 0);
 		});
 }
 

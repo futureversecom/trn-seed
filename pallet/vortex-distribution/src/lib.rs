@@ -60,8 +60,8 @@ pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority:
 	Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, PartialOrd, Eq, TypeInfo, MaxEncodedLen,
 )]
 pub enum VtxDistStatus {
-	Enabled,
 	Disabled,
+	Enabled,
 	Triggered,
 	Paying,
 	Done,
@@ -334,8 +334,11 @@ pub mod pallet {
 		/// Assets should not include vortex asset
 		AssetsShouldNotIncludeVtxAsset,
 
-		/// Vortex distribution already triggered
-		AlreadyTriggered,
+		/// Vortex distribution is not ready to be triggered
+		CannotTrigger,
+
+		/// Vortex distribution is not ready to be redeemed
+		CannotRedeem,
 
 		/// Vortex distribution not triggered
 		NotTriggered,
@@ -412,7 +415,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `current_block` - Current block number
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::pay_unsigned() * 99)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::pay_unsigned().saturating_mul(T::PayoutBatchSize::get().into()))]
 		#[transactional]
 		pub fn pay_unsigned(
 			origin: OriginFor<T>,
@@ -538,7 +541,7 @@ pub mod pallet {
 					for (who, amount) in rewards.iter() {
 						total_rewards += *amount;
 						VtxDistOrderbook::<T>::mutate(id, who.clone(), |entry| {
-							*entry = (entry.0.saturating_add(*amount), entry.1);
+							*entry = (*amount, false);
 						});
 					}
 					TotalVortex::<T>::mutate(id, |total_vortex| {
@@ -555,6 +558,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution())]
+		#[transactional]
 		pub fn trigger_vtx_distribution(
 			origin: OriginFor<T>,
 			id: T::VtxDistIdentifier,
@@ -562,8 +566,8 @@ pub mod pallet {
 			Self::ensure_root_or_admin(origin)?;
 
 			ensure!(
-				VtxDistStatuses::<T>::get(id.clone()) < VtxDistStatus::Triggered,
-				Error::<T>::AlreadyTriggered
+				VtxDistStatuses::<T>::get(id.clone()) == VtxDistStatus::Enabled,
+				Error::<T>::CannotTrigger
 			);
 
 			Self::do_vtx_distribution_trigger(id)
@@ -590,6 +594,10 @@ pub mod pallet {
 					vortex_balance <= T::MultiCurrency::balance(T::VtxAssetId::get(), &who),
 				Error::<T>::InvalidAmount
 			);
+			ensure!(
+				VtxDistStatuses::<T>::get(id.clone()) == VtxDistStatus::Done,
+				Error::<T>::CannotRedeem
+			);
 
 			for (asset_id, _) in AssetPrices::<T>::iter_prefix(id) {
 				// First we calculate the ratio between the asset balance and the total vortex
@@ -601,13 +609,6 @@ pub mod pallet {
 				Self::safe_transfer(asset_id, &vault_account, &who, redeem_amount, false)?;
 			}
 
-			// Add root token in the redeem token
-			let root_token_id = T::NativeAssetId::get();
-			let root_token_balance = T::MultiCurrency::balance(root_token_id, &vault_account);
-			let redeem_amount = vortex_balance.saturating_mul(root_token_balance) / total_vortex;
-
-			// Transfer native token from Vault to user
-			Self::safe_transfer(root_token_id, &vault_account, &who, redeem_amount, false)?;
 			// Burn the vortex token
 			T::MultiCurrency::burn_from(T::VtxAssetId::get(), &who, vortex_token_amount)?;
 			Ok(())
@@ -707,19 +708,6 @@ pub mod pallet {
 					&fee_vault_account,
 					&vault_account,
 					asset_balance,
-					false,
-				)?;
-			}
-			// move bootstrap incenive here
-			// move root token from fee_vault to vault_account
-			let fee_vault_root_token_balance =
-				T::MultiCurrency::balance(T::NativeAssetId::get(), &fee_vault_account);
-			if fee_vault_root_token_balance > Zero::zero() {
-				Self::safe_transfer(
-					T::NativeAssetId::get(),
-					&fee_vault_account,
-					&vault_account,
-					fee_vault_root_token_balance,
 					false,
 				)?;
 			}

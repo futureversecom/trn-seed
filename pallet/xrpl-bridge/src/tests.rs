@@ -225,6 +225,22 @@ fn set_door_tx_fee_works() {
 }
 
 #[test]
+fn set_xrp_source_tag_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let new_source_tag = 723456_u32;
+		assert_ok!(XRPLBridge::set_xrp_source_tag(
+			frame_system::RawOrigin::Root.into(),
+			new_source_tag
+		));
+		assert_eq!(mock::SourceTag::get(), new_source_tag);
+
+		// Only root can sign this tx, this should fail
+		let account = AccountId::from(H160::from_slice(b"6490B68F1116BFE87DDC"));
+		assert_noop!(XRPLBridge::set_xrp_source_tag(RuntimeOrigin::signed(account), 0), BadOrigin);
+	});
+}
+
+#[test]
 fn withdraw_request_works() {
 	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
 		// For this test we will set the door_tx_fee to 0
@@ -269,6 +285,148 @@ fn withdraw_request_works() {
 		// No xrp left to withdraw, should fail as account is reaped
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1, destination),
+			pallet_assets::Error::<Test>::NoAccount
+		);
+	})
+}
+
+#[test]
+fn withdraw_request_with_destination_tag_works() {
+	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
+		// For this test we will set the door_tx_fee to 0
+		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+
+		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		let account = create_account(1);
+		process_transaction(account); // 2000 XRP deposited
+
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			RuntimeOrigin::root(),
+			1_u32,
+			1_u32,
+			200_u32
+		));
+
+		let destination_tag = 14321_u32;
+
+		// door address unset
+		assert_noop!(
+			XRPLBridge::withdraw_xrp_with_destination_tag(
+				RuntimeOrigin::signed(account),
+				1000,
+				destination,
+				destination_tag
+			),
+			Error::<Test>::DoorAddressNotSet
+		);
+		assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+
+		// Withdraw half of available xrp
+		assert_ok!(XRPLBridge::withdraw_xrp_with_destination_tag(
+			RuntimeOrigin::signed(account),
+			1000,
+			destination,
+			destination_tag
+		));
+		let xrp_balance = xrp_balance_of(account);
+		assert_eq!(xrp_balance, 1000);
+
+		// Withdraw more than available XRP should throw BalanceLow error
+		assert_noop!(
+			XRPLBridge::withdraw_xrp_with_destination_tag(
+				RuntimeOrigin::signed(account),
+				1001,
+				destination,
+				destination_tag
+			),
+			pallet_assets::Error::<Test>::BalanceLow
+		);
+
+		// Withdraw second half
+		assert_ok!(XRPLBridge::withdraw_xrp_with_destination_tag(
+			RuntimeOrigin::signed(account),
+			1000,
+			destination,
+			destination_tag
+		));
+		let xrp_balance = xrp_balance_of(account);
+		assert_eq!(xrp_balance, 0);
+
+		// No xrp left to withdraw, should fail as account is reaped
+		assert_noop!(
+			XRPLBridge::withdraw_xrp_with_destination_tag(
+				RuntimeOrigin::signed(account),
+				1,
+				destination,
+				destination_tag
+			),
+			pallet_assets::Error::<Test>::NoAccount
+		);
+	})
+}
+
+#[test]
+fn withdraw_request_with_destination_tag_works_with_door_fee() {
+	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
+		// For this test we will set the door_tx_fee to 100
+		let door_tx_fee = 100_u64;
+		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), door_tx_fee));
+		let account = create_account(1);
+		process_transaction(account); // 2000 XRP deposited
+		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		let initial_xrp_balance = xrp_balance_of(account);
+		let withdraw_amount: u64 = 1_000;
+		let destination_tag = 39321_u32;
+
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			RuntimeOrigin::root(),
+			1_u32,
+			1_u32,
+			200_u32
+		));
+		// set door address
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			b"6490B68F1116BFE87DDC".into()
+		));
+
+		assert_ok!(XRPLBridge::withdraw_xrp_with_destination_tag(
+			RuntimeOrigin::signed(account),
+			withdraw_amount.into(),
+			destination,
+			destination_tag
+		));
+
+		// Balance should be less withdraw amount and door fee
+		let xrp_balance = xrp_balance_of(account);
+		assert_eq!(xrp_balance, initial_xrp_balance - withdraw_amount - door_tx_fee);
+
+		// Try again for remainding
+		let initial_xrp_balance = xrp_balance_of(account);
+		let withdraw_amount: u64 = 800;
+		assert_ok!(XRPLBridge::withdraw_xrp_with_destination_tag(
+			RuntimeOrigin::signed(account),
+			withdraw_amount.into(),
+			destination,
+			destination_tag
+		));
+
+		// Balance should be less withdraw amount and door fee
+		let xrp_balance = xrp_balance_of(account);
+		assert_eq!(xrp_balance, initial_xrp_balance - withdraw_amount - door_tx_fee);
+
+		// No funds left to withdraw
+		assert_eq!(xrp_balance, 0);
+		assert_noop!(
+			XRPLBridge::withdraw_xrp_with_destination_tag(
+				RuntimeOrigin::signed(account),
+				1,
+				destination,
+				destination_tag
+			),
 			pallet_assets::Error::<Test>::NoAccount
 		);
 	})

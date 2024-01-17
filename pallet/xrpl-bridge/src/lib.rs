@@ -42,7 +42,7 @@ use sp_runtime::{
 use sp_std::{prelude::*, vec};
 use xrpl_codec::{
 	traits::BinarySerialize,
-	transaction::{Payment, SignerListSet},
+	transaction::{Payment, PaymentWithDestinationTag, SignerListSet},
 };
 
 pub use pallet::*;
@@ -257,6 +257,10 @@ pub mod pallet {
 	/// Highest settled XRPL ledger index
 	pub type HighestSettledLedgerIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
+	#[pallet::storage]
+	/// Source tag to be used to indicate the transaction is happening from futureverse
+	pub type SourceTag<T: Config> = StorageValue<_, u32, ValueQuery>;
+
 	#[pallet::type_value]
 	pub fn DefaultHighestPrunedLedgerIndex() -> u32 {
 		42_900_000_u32
@@ -451,7 +455,20 @@ pub mod pallet {
 			destination: XrplAccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::add_to_withdraw(who, amount, destination)
+			Self::add_to_withdraw(who, amount, destination, None)
+		}
+
+		/// Withdraw xrp transaction
+		#[pallet::weight((T::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
+		#[transactional]
+		pub fn withdraw_xrp_with_destination_tag(
+			origin: OriginFor<T>,
+			amount: Balance,
+			destination: XrplAccountId,
+			destination_tag: u32,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::add_to_withdraw(who, amount, destination, Some(destination_tag))
 		}
 
 		/// add a relayer
@@ -483,6 +500,14 @@ pub mod pallet {
 		pub fn set_door_tx_fee(origin: OriginFor<T>, fee: u64) -> DispatchResult {
 			ensure_root(origin)?;
 			DoorTxFee::<T>::set(fee);
+			Ok(())
+		}
+
+		/// Set the xrp source tag
+		#[pallet::weight((<T as Config>::WeightInfo::set_xrp_source_tag(), DispatchClass::Operational))]
+		pub fn set_xrp_source_tag(origin: OriginFor<T>, source_tag: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			SourceTag::<T>::put(source_tag);
 			Ok(())
 		}
 
@@ -930,6 +955,7 @@ impl<T: Config> Pallet<T> {
 		who: AccountOf<T>,
 		amount: Balance,
 		destination: XrplAccountId,
+		destination_tag: Option<u32>,
 	) -> DispatchResult {
 		// TODO: need a fee oracle, this is over estimating the fee
 		// https://github.com/futureversecom/seed/issues/107
@@ -955,7 +981,7 @@ impl<T: Config> Pallet<T> {
 		// Check if there is a payment delay and delay the payment if necessary
 		if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get() {
 			if amount >= payment_threshold {
-				Self::delay_payment(delay, who.clone(), tx_data)?;
+				Self::delay_payment(delay, who.clone(), tx_data, destination_tag)?;
 				return Ok(())
 			}
 		}
@@ -1000,21 +1026,39 @@ impl<T: Config> Pallet<T> {
 		sender: T::AccountId,
 		door_address: [u8; 20],
 		tx_data: XrpWithdrawTransaction,
+		destination_tag: Option<u32>,
 	) -> DispatchResult {
 		let XrpWithdrawTransaction { tx_fee, tx_nonce, tx_ticket_sequence, amount, destination } =
 			tx_data;
 
-		let payment = Payment::new(
-			door_address,
-			destination.into(),
-			amount.saturated_into(),
-			tx_nonce,
-			tx_ticket_sequence,
-			tx_fee,
-			// omit signer key since this is a 'MultiSigner' tx
-			None,
-		);
-		let tx_blob = payment.binary_serialize(true);
+		let tx_blob = if destination_tag.is_some() {
+			let payment = PaymentWithDestinationTag::new(
+				door_address,
+				destination.into(),
+				amount.saturated_into(),
+				tx_nonce,
+				tx_ticket_sequence,
+				tx_fee,
+				SourceTag::<T>::get(),
+				destination_tag.unwrap(),
+				// omit signer key since this is a 'MultiSigner' tx
+				None,
+			);
+			payment.binary_serialize(true)
+		} else {
+			let payment = Payment::new(
+				door_address,
+				destination.into(),
+				amount.saturated_into(),
+				tx_nonce,
+				tx_ticket_sequence,
+				tx_fee,
+				SourceTag::<T>::get(),
+				// omit signer key since this is a 'MultiSigner' tx
+				None,
+			);
+			payment.binary_serialize(true)
+		};
 
 		let proof_id = T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())?;
 		Self::deposit_event(Event::WithdrawRequest { proof_id, sender, amount, destination });
@@ -1092,6 +1136,7 @@ impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
 			ticket_sequence,
 			signer_quorum,
 			signer_entries,
+			SourceTag::<T>::get(),
 			// omit signer key since this is a 'MultiSigner' tx
 			None,
 		);

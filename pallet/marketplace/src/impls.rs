@@ -26,7 +26,7 @@ impl<T: Config> Pallet<T> {
 		who: T::AccountId,
 		marketplace_account: Option<T::AccountId>,
 		entitlement: Permill,
-	) -> DispatchResult {
+	) -> Result<MarketplaceId, DispatchError> {
 		ensure!(
 			entitlement.deconstruct() as u32 <= Permill::ACCURACY,
 			Error::<T>::RoyaltiesInvalid
@@ -45,7 +45,7 @@ impl<T: Config> Pallet<T> {
 			entitlement,
 			marketplace_id,
 		});
-		Ok(())
+		Ok(marketplace_id)
 	}
 
 	pub fn do_sell_nft(
@@ -57,7 +57,7 @@ impl<T: Config> Pallet<T> {
 		fixed_price: Balance,
 		duration: Option<T::BlockNumber>,
 		marketplace_id: Option<MarketplaceId>,
-	) -> DispatchResult {
+	) -> Result<ListingId, DispatchError> {
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 		let royalties_schedule = Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
 		let listing_id = Self::next_listing_id();
@@ -93,7 +93,7 @@ impl<T: Config> Pallet<T> {
 			payment_asset,
 			seller: who,
 		});
-		Ok(())
+		Ok(listing_id)
 	}
 
 	pub fn do_update_fixed_price(
@@ -118,7 +118,26 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub fn do_buy(who: T::AccountId, listing_id: ListingId) -> DispatchResult {
+	/// Returns the listing detail of a specified listing_id
+	pub fn get_listing_detail(listing_id: ListingId) -> Result<Listing<T>, DispatchError> {
+		let Some(listing) = Listings::<T>::get(listing_id) else {
+			return Err(Error::<T>::TokenNotListed.into());
+		};
+		Ok(listing)
+	}
+
+	// /// Returns the offer detail of a specified offer_id
+	pub fn get_offer_detail(offer_id: OfferId) -> Result<SimpleOffer<T::AccountId>, DispatchError> {
+		let Some(OfferType::Simple(offer)) = Self::offers(offer_id) else {
+			return Err(Error::<T>::InvalidOffer.into());
+		};
+		Ok(offer)
+	}
+
+	pub fn do_buy(
+		who: T::AccountId,
+		listing_id: ListingId,
+	) -> Result<FixedPriceListing<T>, DispatchError> {
 		let Some(Listing::FixedPrice(listing)) = Listings::<T>::get(listing_id) else {
 			return Err(Error::<T>::NotForFixedPriceSale.into());
 		};
@@ -132,7 +151,7 @@ impl<T: Config> Pallet<T> {
 
 		let payouts = Self::calculate_royalty_payouts(
 			listing.seller.clone(),
-			listing.royalties_schedule,
+			listing.royalties_schedule.clone(),
 			listing.fixed_price,
 		);
 		// Make split transfer
@@ -148,14 +167,14 @@ impl<T: Config> Pallet<T> {
 
 		Self::deposit_event(Event::<T>::FixedPriceSaleComplete {
 			collection_id: listing.collection_id,
-			serial_numbers: listing.serial_numbers.into_inner(),
+			serial_numbers: listing.serial_numbers.clone().into_inner(),
 			listing_id,
 			price: listing.fixed_price,
 			payment_asset: listing.payment_asset,
 			buyer: who,
 			seller: listing.seller,
 		});
-		Ok(())
+		Ok(listing)
 	}
 
 	pub fn do_auction_nft(
@@ -166,7 +185,7 @@ impl<T: Config> Pallet<T> {
 		reserve_price: Balance,
 		duration: Option<T::BlockNumber>,
 		marketplace_id: Option<MarketplaceId>,
-	) -> DispatchResult {
+	) -> Result<ListingId, DispatchError> {
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 
 		let royalties_schedule = Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
@@ -203,7 +222,7 @@ impl<T: Config> Pallet<T> {
 			marketplace_id,
 			seller: who,
 		});
-		Ok(())
+		Ok(listing_id)
 	}
 
 	pub fn do_bid(who: T::AccountId, listing_id: ListingId, amount: Balance) -> DispatchResult {
@@ -305,7 +324,7 @@ impl<T: Config> Pallet<T> {
 		amount: Balance,
 		asset_id: AssetId,
 		marketplace_id: Option<MarketplaceId>,
-	) -> DispatchResult {
+	) -> Result<OfferId, DispatchError> {
 		ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
 		let collection_info = T::NFTExt::get_collection_info(token_id.0)?;
 		ensure!(!collection_info.is_token_owner(&who, token_id.1), Error::<T>::IsTokenOwner);
@@ -341,7 +360,7 @@ impl<T: Config> Pallet<T> {
 			marketplace_id,
 			buyer: who,
 		});
-		Ok(())
+		Ok(offer_id)
 	}
 
 	pub fn do_cancel_offer(who: T::AccountId, offer_id: OfferId) -> DispatchResult {

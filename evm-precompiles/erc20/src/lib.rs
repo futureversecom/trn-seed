@@ -20,12 +20,11 @@ use fp_evm::{PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::{
-		fungibles::{Inspect, InspectMetadata, Transfer},
+		fungibles::{Inspect, InspectMetadata},
 		OriginTrait,
 	},
 };
-use pallet_assets::WeightInfo;
-use pallet_evm::{GasWeightMapping, PrecompileSet};
+use pallet_evm::PrecompileSet;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{AssetId, Balance};
 use sp_core::{H160, U256};
@@ -75,6 +74,7 @@ where
 		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>
 		+ pallet_token_approvals::Config,
 	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_assets_ext::Call<Runtime>>,
 	Runtime::RuntimeCall: From<pallet_token_approvals::Call<Runtime>>,
 	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<AssetId, EvmId = Address>,
@@ -154,7 +154,8 @@ where
 		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>
 		+ pallet_token_approvals::Config,
 	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::RuntimeCall: From<pallet_token_approvals::Call<Runtime>>,
+	Runtime::RuntimeCall:
+		From<pallet_token_approvals::Call<Runtime>> + From<pallet_assets_ext::Call<Runtime>>,
 	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<AssetId, EvmId = Address>,
 	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: OriginTrait,
@@ -274,22 +275,22 @@ where
 		let amount: Balance = amount.saturated_into();
 		let origin: Runtime::AccountId = handle.context().caller.into();
 
-		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-			<Runtime as pallet_assets::Config>::WeightInfo::transfer(),
-		))?;
-		let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
-			asset_id,
-			&origin,
-			&to.clone().into(),
-			amount,
-			false,
-		)
-		.map_err(|e| revert(alloc::format!("ERC20: Dispatched call failed with error: {:?}", e)))?;
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin).into(),
+			pallet_assets_ext::Call::<Runtime>::transfer {
+				asset_id,
+				destination: to.clone().into(),
+				amount,
+				keep_alive: false,
+			},
+		)?;
+		let caller = handle.context().caller;
 
 		log3(
 			handle.code_address(),
 			SELECTOR_LOG_TRANSFER,
-			handle.context().caller,
+			caller,
 			to,
 			EvmDataWriter::new().write(amount).build(),
 		)
@@ -335,20 +336,16 @@ where
 				},
 			)?;
 
-			// Transfer
-			handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-				<Runtime as pallet_assets::Config>::WeightInfo::transfer(),
-			))?;
-			let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
-				asset_id,
-				&from,
-				&to.clone(),
-				amount,
-				false,
-			)
-			.map_err(|e| {
-				revert(alloc::format!("ERC20: Dispatched call failed with error: {:?}", e))
-			})?;
+			RuntimeHelper::<Runtime>::try_dispatch(
+				handle,
+				Some(from).into(),
+				pallet_assets_ext::Call::<Runtime>::transfer {
+					asset_id,
+					destination: to.clone(),
+					amount,
+					keep_alive: false,
+				},
+			)?;
 		}
 		log3(
 			handle.code_address(),
