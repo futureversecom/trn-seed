@@ -164,7 +164,7 @@ pub mod pallet {
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		/// The payment delay was set
 		PaymentDelaySet {
-			min_balance: Balance,
+			payment_threshold: Balance,
 			delay: T::BlockNumber,
 		},
 		/// The payment delay was removed
@@ -279,7 +279,7 @@ pub mod pallet {
 		StorageValue<_, u32, ValueQuery, DefaultSubmissionWindowWidth>;
 
 	#[pallet::storage]
-	/// Payment delay for any withdraw over the specified Balance
+	/// Payment delay for any withdraw over the specified Balance threshold
 	pub type PaymentDelay<T: Config> = StorageValue<_, (Balance, T::BlockNumber), OptionQuery>;
 
 	#[pallet::storage]
@@ -422,7 +422,7 @@ pub mod pallet {
 		}
 
 		/// Sets the payment delay
-		/// payment_delay is a tuple of minimum Balance and delay in blocks
+		/// payment_delay is a tuple of payment_threshold and delay in blocks
 		#[pallet::weight(0)]
 		pub fn set_payment_delay(
 			origin: OriginFor<T>,
@@ -430,9 +430,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			match payment_delay {
-				Some((min_balance, delay)) => {
-					PaymentDelay::<T>::put((min_balance, delay));
-					Self::deposit_event(Event::<T>::PaymentDelaySet { min_balance, delay });
+				Some((payment_threshold, delay)) => {
+					PaymentDelay::<T>::put((payment_threshold, delay));
+					Self::deposit_event(Event::<T>::PaymentDelaySet { payment_threshold, delay });
 				},
 				None => {
 					PaymentDelay::<T>::kill();
@@ -953,8 +953,8 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Check if there is a payment delay and delay the payment if necessary
-		if let Some((min_balance, delay)) = PaymentDelay::<T>::get() {
-			if amount >= min_balance {
+		if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get() {
+			if amount >= payment_threshold {
 				Self::delay_payment(delay, who.clone(), tx_data)?;
 				return Ok(())
 			}
