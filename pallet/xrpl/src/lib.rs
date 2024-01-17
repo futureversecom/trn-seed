@@ -144,7 +144,7 @@ impl<T> Call<T>
 					e
 				})
 				.ok()?;
-			let ExtrinsicMemoData { chain_id, nonce, max_block_number, hashed_call } = tx.get_extrinsic_data()
+			let ExtrinsicMemoData { chain_id, nonce, max_block_number, tip, hashed_call } = tx.get_extrinsic_data()
 				.map_err(|e| {
 					log::error!("⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}", tx.memos, e);
 					e
@@ -189,18 +189,18 @@ impl<T> Call<T>
 				CheckGenesis::<T>::new(),
 				CheckNonce::from(nonce.into()),
 				CheckWeight::new(),
-				ChargeTransactionPayment::<T>::from(0.into()),
+				ChargeTransactionPayment::<T>::from(tip.into()),
 			);
 
 			SignedExtension::validate(&validations, &T::AccountId::from(*origin), &(*call.clone()).into(), dispatch_info, len).ok()?;
 
-			// priority is based on the length of the encoded message length (smaller message = higher priority)
-			let priority = (T::MaxMessageLength::get() as u32).saturating_sub(encoded_msg.len() as u32);
+			// priority is based on the provided tip in the xrpl transaction data
+			let priority = ChargeTransactionPayment::<T>::get_priority(&dispatch_info, len, tip.into(), 0.into());
 			let who: T::AccountId = (*origin).into();
 			let account = frame_system::Account::<T>::get(who.clone());
 			let mut builder = ValidTransactionBuilder::default()
 				.and_provides((origin, nonce))
-				.priority(priority as u64);
+				.priority(priority);
 
 			// in the context of the pool, a transaction with too high a nonce is still considered valid
 			if nonce > account.nonce.into() {
@@ -229,7 +229,7 @@ impl<T> Call<T>
 					InvalidTransaction::Call
 				})
 				.ok()?;
-			let ExtrinsicMemoData { nonce, .. } = tx.get_extrinsic_data()
+			let ExtrinsicMemoData { nonce, tip, .. } = tx.get_extrinsic_data()
 				.map_err(|e| {
 					log::error!("⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}", tx.memos, e);
 					InvalidTransaction::Call
@@ -243,8 +243,10 @@ impl<T> Call<T>
 				CheckGenesis::<T>::new(),
 				CheckNonce::from(nonce.into()),
 				CheckWeight::new(),
-				ChargeTransactionPayment::<T>::from(0.into()),
+				ChargeTransactionPayment::<T>::from(tip.into()),
 			);
+
+			// Pre Dispatch
 			let pre = SignedExtension::pre_dispatch(validations, &T::AccountId::from(*info), &call.clone().into(), dispatch_info, len).ok()?;
 
 			// Dispatch
