@@ -50,6 +50,7 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn submit_transaction() -> Weight;
 	fn submit_challenge() -> Weight;
+	fn set_payment_delay() -> Weight;
 	fn withdraw_xrp() -> Weight;
 	fn add_relayer() -> Weight;
 	fn remove_relayer() -> Weight;
@@ -78,6 +79,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: XRPLBridge ChallengeXRPTransactionList (r:0 w:1)
 	fn submit_challenge() -> Weight {
 		Weight::from_ref_time(6_000_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+	// Storage: XRPLBridge PaymentDelay (r:0 w:1)
+	fn set_payment_delay() -> Weight {
+		Weight::from_ref_time(10_560_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge DoorTxFee (r:1 w:0)
@@ -185,6 +191,11 @@ impl WeightInfo for () {
 	// Storage: XRPLBridge ChallengeXRPTransactionList (r:0 w:1)
 	fn submit_challenge() -> Weight {
 		Weight::from_ref_time(6_000_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+	// Storage: XRPLBridge PaymentDelay (r:0 w:1)
+	fn set_payment_delay() -> Weight {
+		Weight::from_ref_time(10_560_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge DoorTxFee (r:1 w:0)

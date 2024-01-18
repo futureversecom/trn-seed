@@ -33,6 +33,13 @@ pub struct XrpTransaction {
 	pub timestamp: u64,
 }
 
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct DelayedWithdrawal<AccountId> {
+	pub sender: AccountId,
+	pub destination_tag: Option<u32>,
+	pub withdraw_tx: XrpWithdrawTransaction,
+}
+
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
 pub struct XrpWithdrawTransaction {
 	pub tx_fee: u64,

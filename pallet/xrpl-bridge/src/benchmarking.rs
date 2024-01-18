@@ -59,6 +59,13 @@ benchmarks! {
 		assert_eq!(transaction_list, Some(challenger))
 	}
 
+	set_payment_delay {
+		let payment_delay: (u128, T::BlockNumber) = (100, T::BlockNumber::from(1000u32));
+	}: _(RawOrigin::Root, Some(payment_delay))
+	verify {
+		assert_eq!(PaymentDelay::<T>::get(), Some(payment_delay));
+	}
+
 	withdraw_xrp {
 		let alice = account::<T>("Alice");
 		let amount: Balance = 100u32.into();

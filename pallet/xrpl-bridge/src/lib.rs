@@ -16,7 +16,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::types::{
-	DelayedPaymentId, XrpTransaction, XrpWithdrawTransaction, XrplTicketSequenceParams, XrplTxData,
+	DelayedPaymentId, DelayedWithdrawal, XrpTransaction, XrpWithdrawTransaction,
+	XrplTicketSequenceParams, XrplTxData,
 };
 use frame_support::{
 	fail,
@@ -67,6 +68,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use crate::types::DelayedWithdrawal;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
@@ -102,6 +104,10 @@ pub mod pallet {
 		/// Maximum number of delayed transactions that can be processed in a single block
 		#[pallet::constant]
 		type MaxDelayedPaymentsPerBlock: Get<u32>;
+
+		/// Upper limit to the number of blocks we can check per block for delayed payments
+		#[pallet::constant]
+		type DelayedPaymentBlockLimit: Get<Self::BlockNumber>;
 
 		/// Unix time
 		type UnixTime: UnixTime;
@@ -289,7 +295,7 @@ pub mod pallet {
 	#[pallet::storage]
 	/// Map from DelayedPaymentId to (sender, WithdrawTx)
 	pub type DelayedPayments<T: Config> =
-		StorageMap<_, Identity, DelayedPaymentId, (T::AccountId, XrpWithdrawTransaction)>;
+		StorageMap<_, Identity, DelayedPaymentId, DelayedWithdrawal<T::AccountId>>;
 
 	#[pallet::storage]
 	/// Map from block number to DelayedPatmentIds scheduled for that block
@@ -427,7 +433,7 @@ pub mod pallet {
 
 		/// Sets the payment delay
 		/// payment_delay is a tuple of payment_threshold and delay in blocks
-		#[pallet::weight(0)]
+		#[pallet::weight((T::WeightInfo::set_payment_delay(), DispatchClass::Operational))]
 		pub fn set_payment_delay(
 			origin: OriginFor<T>,
 			payment_delay: Option<(Balance, T::BlockNumber)>,
@@ -753,11 +759,9 @@ impl<T: Config> Pallet<T> {
 		let highest_processed_delay_block = <NextDelayProcessBlock<T>>::get();
 		let mut new_highest = highest_processed_delay_block;
 		// Limit the number of blocks to process to either the current block_number or the
-		// MaxDelayedPaymentsPerBlock + highest_processed_delay_block
-		let block_limit = block_number.min(
-			highest_processed_delay_block
-				.saturating_add(T::MaxDelayedPaymentsPerBlock::get().into()),
-		);
+		// DelayedPaymentBlockLimit + highest_processed_delay_block
+		let block_limit = block_number
+			.min(highest_processed_delay_block.saturating_add(T::DelayedPaymentBlockLimit::get()));
 
 		// Get the current door address
 		let Some(door_address) = DoorAddress::<T>::get() else {
@@ -795,8 +799,13 @@ impl<T: Config> Pallet<T> {
 
 			for i in 0..max_to_clear {
 				let payment_id = delayed_payment_ids[i];
-				if let Some((sender, withdraw_tx)) = <DelayedPayments<T>>::take(payment_id) {
-					let _ = Self::submit_withdraw_request(sender, door_address.into(), withdraw_tx);
+				if let Some(delayed_withdrawal) = <DelayedPayments<T>>::take(payment_id) {
+					let _ = Self::submit_withdraw_request(
+						delayed_withdrawal.sender,
+						door_address.into(),
+						delayed_withdrawal.withdraw_tx,
+						delayed_withdrawal.destination_tag,
+					);
 				};
 			}
 			// Add weight for the tx's we processed
@@ -986,7 +995,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		Self::submit_withdraw_request(who, door_address.into(), tx_data)?;
+		Self::submit_withdraw_request(who, door_address.into(), tx_data, destination_tag)?;
 
 		Ok(())
 	}
@@ -997,6 +1006,7 @@ impl<T: Config> Pallet<T> {
 		delay: T::BlockNumber,
 		sender: T::AccountId,
 		withdrawal: XrpWithdrawTransaction,
+		destination_tag: Option<u32>,
 	) -> DispatchResult {
 		// Get the next payment ID
 		let delayed_payment_id = NextDelayedPaymentId::<T>::get();
@@ -1008,7 +1018,10 @@ impl<T: Config> Pallet<T> {
 		let payment_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
 		DelayedPaymentSchedule::<T>::try_append(payment_block, delayed_payment_id)
 			.map_err(|_| Error::<T>::DelayScheduleAtCapacity)?;
-		DelayedPayments::<T>::insert(delayed_payment_id, (sender.clone(), withdrawal));
+		DelayedPayments::<T>::insert(
+			delayed_payment_id,
+			DelayedWithdrawal { sender: sender.clone(), destination_tag, withdraw_tx: withdrawal },
+		);
 		NextDelayedPaymentId::<T>::put(delayed_payment_id + 1);
 
 		Self::deposit_event(Event::WithdrawDelayed {
