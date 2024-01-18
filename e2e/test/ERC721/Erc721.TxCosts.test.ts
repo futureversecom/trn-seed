@@ -285,7 +285,7 @@ describe("ERC721 Gas Estimates", function () {
     tx = await erc721Contract.connect(alithSigner).burn(contractTokenId, { gasLimit: contractGasEstimate });
     await tx.wait();
     balanceAfter = await alithSigner.getBalance();
-    const constractFeeCost = balanceBefore.sub(balanceAfter);
+    const contractFeeCost = balanceBefore.sub(balanceAfter);
 
     // Extrinsic cost
     balanceBefore = await alithSigner.getBalance();
