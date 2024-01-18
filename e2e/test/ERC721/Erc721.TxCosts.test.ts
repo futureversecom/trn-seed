@@ -309,7 +309,7 @@ describe("ERC721 Gas Estimates", function () {
       Extrinsic: extrinsicGasScaled,
     };
     allTxFeeCosts["burn"] = {
-      Contract: constractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
