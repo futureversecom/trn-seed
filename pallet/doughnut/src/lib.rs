@@ -26,21 +26,26 @@ use sp_runtime::FixedPointOperand;
 
 use alloc::{boxed::Box, vec::Vec};
 use doughnut_rs::{
-	doughnut::Doughnut,
+	doughnut::{Doughnut, DoughnutV1},
 	signature::{verify_signature, SignatureVersion},
 	traits::{DoughnutApi, DoughnutVerify},
 };
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
-	traits::IsSubType,
+	traits::{CallMetadata, GetCallMetadata, IsSubType},
 };
 use frame_system::{CheckNonZeroSender, CheckNonce, CheckWeight};
+use pact::types::{Numeric, PactType, StringLike};
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use seed_primitives::AccountId20;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
+	traits::{
+		CheckedConversion, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension,
+		StaticLookup,
+	},
 	transaction_validity::ValidTransactionBuilder,
 };
+use trnnut_rs::TRNNut;
 
 pub mod weights;
 pub use weights::WeightInfo;
@@ -57,6 +62,8 @@ mod test;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+const TRN_PERMISSION_DOMAIN: &str = "trn";
+
 impl<T> Call<T>
 	where
 		T: Send + Sync + Config,
@@ -68,6 +75,9 @@ impl<T> Call<T>
 		<T as frame_system::Config>::RuntimeCall: From<<T as Config>::RuntimeCall>,
 		PostDispatchInfo: From<<<T as Config>::RuntimeCall as Dispatchable>::PostInfo>,
 		<T as frame_system::Config>::Index: From<u32>,
+		<T as Config>::RuntimeCall: GetCallMetadata,
+		<T as frame_system::Config>::AccountId : Into<[u8; 20]>,
+		<T as pallet_balances::Config>::Balance: Into<u128>,
 {
 	pub fn is_self_contained(&self) -> bool {
 		matches!(self, Call::transact { .. })
@@ -245,9 +255,11 @@ pub mod pallet {
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config
+	pub trait Config: frame_system::Config + pallet_balances::Config
 	where
 		<Self as frame_system::Config>::AccountId: From<H160>,
+		<Self as frame_system::Config>::AccountId: Into<[u8; 20]>,
+		<Self as pallet_balances::Config>::Balance: Into<u128>,
 	{
 		/// The overarching event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -258,7 +270,9 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>
-			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
+			+ IsSubType<pallet_balances::Call<Self>>
+			+ IsType<<Self as frame_system::Config>::RuntimeCall>
+			+ GetCallMetadata;
 
 		/// Weight information for the extrinsic call in this module.
 		type WeightInfo: WeightInfo;
@@ -285,6 +299,8 @@ pub mod pallet {
 	pub enum Event<T: Config>
 	where
 		<T as frame_system::Config>::AccountId: From<H160>,
+		<T as frame_system::Config>::AccountId: Into<[u8; 20]>,
+		<T as pallet_balances::Config>::Balance: Into<u128>,
 	{
 		DoughnutCallExecuted { result: DispatchResult },
 	}
@@ -305,11 +321,20 @@ pub mod pallet {
 		DoughnutRevoked,
 		/// The holder address has been revoked by the issuer
 		HolderRevoked,
+		/// TRNNut decode failed.
+		TRNNutDecodeFailed,
+		/// TRNNut permissions denied.
+		TRNNutPermissionDenied,
+		/// Inner call is not whitelisted
+		UnsupportedInnerCall,
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> where
-		<T as frame_system::Config>::AccountId: From<H160>
+	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T>
+	where
+		<T as frame_system::Config>::AccountId: From<H160>,
+		<T as frame_system::Config>::AccountId: Into<[u8; 20]>,
+		<T as pallet_balances::Config>::Balance: Into<u128>,
 	{
 	}
 
@@ -317,6 +342,9 @@ pub mod pallet {
 	impl<T: Config> Pallet<T>
 	where
 		<T as frame_system::Config>::AccountId: From<H160>,
+		<T as Config>::RuntimeCall: GetCallMetadata,
+		<T as frame_system::Config>::AccountId: Into<[u8; 20]>,
+		<T as pallet_balances::Config>::Balance: Into<u128>,
 	{
 		#[pallet::weight({
 			let call_weight = call.get_dispatch_info().weight;
@@ -407,10 +435,12 @@ pub mod pallet {
 impl<T: Config> Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<H160>,
+	T: Config + pallet_balances::Config,
+	<T as Config>::RuntimeCall: IsSubType<pallet_balances::Call<T>>,
+	<T as frame_system::Config>::AccountId: Into<[u8; 20]>,
+	<T as pallet_balances::Config>::Balance: Into<u128>,
 {
 	fn get_address(raw_pub_key: [u8; 33]) -> Result<T::AccountId, DispatchError> {
-		// let mut public_key = [0x02; 33];
-		// public_key[1..].clone_from_slice(&raw_pub_key[..]);
 		let account_id_20 = AccountId20::try_from(ecdsa::Public::from_raw(raw_pub_key))
 			.map_err(|_| Error::<T>::UnauthorizedSender)?;
 		Ok(T::AccountId::from(H160::from_slice(&account_id_20.0)))
@@ -429,6 +459,40 @@ where
 		};
 
 		Ok(doughnut_decoded)
+	}
+
+	fn check_permissions(
+		call: <T as Config>::RuntimeCall,
+		doughnut: DoughnutV1,
+	) -> Result<(), Error<T>> {
+		let CallMetadata { function_name, pallet_name } = call.get_call_metadata();
+		let Some(trnnut_payload) = doughnut.get_domain(TRN_PERMISSION_DOMAIN) else {
+			return Err(Error::<T>::TRNNutDecodeFailed)
+		};
+
+		let trnnut = TRNNut::decode(&mut trnnut_payload.clone())
+			.map_err(|_| Error::<T>::TRNNutDecodeFailed)?;
+
+		match call.is_sub_type() {
+			Some(pallet_balances::Call::transfer { dest, value }) => {
+				let who: T::AccountId = T::Lookup::lookup(dest.clone())
+					.map_err(|_| Error::<T>::TRNNutPermissionDenied)?;
+				let destination: [u8; 20] = who.into();
+				let value_u128: u128 = (*value).into();
+				return trnnut
+					.validate_runtime_call(
+						pallet_name,
+						function_name,
+						// TODO: change the u64 conversion once pact Numeric support u128
+						&[
+							PactType::StringLike(StringLike(destination.as_slice())),
+							PactType::Numeric(Numeric(value_u128 as u64)),
+						],
+					)
+					.map_err(|_| Error::<T>::TRNNutPermissionDenied)
+			},
+			_ => return Err(Error::<T>::UnsupportedInnerCall)?,
+		}
 	}
 }
 
