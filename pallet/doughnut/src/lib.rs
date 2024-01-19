@@ -372,6 +372,9 @@ pub mod pallet {
 			let holder_address = Self::get_address(doughnut_v1.holder)?;
 			ensure!(holder_address == sender, Error::<T>::UnauthorizedSender);
 
+			// permission domain - trnnut validations
+			Self::check_permissions(*call.clone(), doughnut_v1)?;
+
 			// Ensure doughnut is not revoked
 			let doughnut_hash = keccak_256(&doughnut);
 			ensure!(!BlockedDoughnuts::<T>::get(doughnut_hash), Error::<T>::DoughnutRevoked);
