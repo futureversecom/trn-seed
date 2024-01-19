@@ -24,9 +24,12 @@ sp-std = { git = "https://github.com/paritytech/substrate", default-features = f
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
+frame-benchmarking = { git = 'https://github.com/paritytech/substrate', branch = "polkadot-v0.9.30", default-features = false, optional = true }
 #doughnut-rs = { git = "https://github.com/futureversecom/trn-doughnut-rs", branch = "feat/trn-doughnut", default-features = false, features = ["crypto"] }
 doughnut-rs = { path = "../../../trn-doughnut-rs", default-features = false, features = ["crypto"] }
-frame-benchmarking = { git = 'https://github.com/paritytech/substrate', branch = "polkadot-v0.9.30", default-features = false, optional = true }
+trnnut-rs = { path = "../../../../trn-trnnut-rs", default-features = false }
+#pact = { path = "../../../../pact", default-features = false }
+pact = { git = "https://github.com/futureversecom/pact", branch = "0.1.0", default-features = false }
 
 # Frontier
 fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
@@ -68,6 +71,8 @@ std = [
 	"seed-primitives/std",
 	"precompile-utils/std",
 	"doughnut-rs/std",
+	"trnnut-rs/std",
+	"pact/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
 runtime-benchmarks = ["frame-benchmarking"]
