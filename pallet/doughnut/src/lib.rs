@@ -399,7 +399,7 @@ impl<T: Config> Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<H160>,
 {
-	fn get_address(raw_pub_key: [u8; 33]) -> Result<T::AccountId, Error<T>> {
+	fn get_address(raw_pub_key: [u8; 33]) -> Result<T::AccountId, DispatchError> {
 		// let mut public_key = [0x02; 33];
 		// public_key[1..].clone_from_slice(&raw_pub_key[..]);
 		let account_id_20 = AccountId20::try_from(ecdsa::Public::from_raw(raw_pub_key))
@@ -407,7 +407,9 @@ where
 		Ok(T::AccountId::from(H160::from_slice(&account_id_20.0)))
 	}
 
-	fn run_doughnut_common_validations(doughnut_payload: Vec<u8>) -> Result<Doughnut, Error<T>> {
+	fn run_doughnut_common_validations(
+		doughnut_payload: Vec<u8>,
+	) -> Result<Doughnut, DispatchError> {
 		// decode the doughnut
 		let doughnut_decoded = Doughnut::decode(&mut &doughnut_payload[..])
 			.map_err(|_| Error::<T>::DoughnutDecodeFailed)?;

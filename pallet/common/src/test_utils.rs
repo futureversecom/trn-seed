@@ -131,7 +131,7 @@ macro_rules! impl_frame_system_config {
 			type BlockLength = ();
 			type BaseCallFilter = frame_support::traits::Everything;
 			type RuntimeOrigin = RuntimeOrigin;
-			type Index = u64;
+			type Index = u32;
 			type BlockNumber = BlockNumber;
 			type RuntimeCall = RuntimeCall;
 			type Hash = H256;
