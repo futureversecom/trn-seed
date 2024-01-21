@@ -1460,13 +1460,14 @@ dependencies = [
 name = "doughnut-rs"
 version = "0.1.0"
 dependencies = [
+ "blake2",
  "clear_on_drop",
+ "digest 0.10.7",
  "ed25519-dalek",
  "libsecp256k1 0.7.1",
  "parity-scale-codec",
  "primitive-types 0.12.2",
  "schnorrkel 0.11.4",
- "sp-io",
 ]
 
 [[package]]
@@ -2225,6 +2226,20 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "fp-self-contained"
+version = "1.0.0-dev"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
+dependencies = [
+ "ethereum",
+ "frame-support",
+ "parity-scale-codec",
+ "parity-util-mem",
+ "scale-info",
+ "serde",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5099,7 +5114,9 @@ version = "1.0.0"
 dependencies = [
  "doughnut-rs",
  "fp-evm",
+ "fp-self-contained 1.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
  "frame-benchmarking",
+ "frame-executive",
  "frame-support",
  "frame-system",
  "hex-literal 0.3.4",
@@ -5108,6 +5125,7 @@ dependencies = [
  "pallet-balances",
  "pallet-dex",
  "pallet-evm",
+ "pallet-fee-control",
  "pallet-fee-proxy",
  "pallet-futurepass",
  "pallet-timestamp",
@@ -5217,7 +5235,7 @@ dependencies = [
  "fp-ethereum",
  "fp-evm",
  "fp-rpc",
- "fp-self-contained",
+ "fp-self-contained 1.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
  "fp-storage",
  "frame-support",
  "frame-system",
@@ -8788,7 +8806,7 @@ dependencies = [
  "evm",
  "fp-evm",
  "fp-rpc",
- "fp-self-contained",
+ "fp-self-contained 1.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-executive",
@@ -8941,9 +8959,9 @@ dependencies = [
 
 [[package]]
 name = "serde_bytes"
-version = "0.11.12"
+version = "0.11.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab33ec92f677585af6d88c65593ae2375adde54efdbf16d597f2cbc7a6d368ff"
+checksum = "8b8497c313fd43ab992087548117643f6fcd935cbf36f176ffda0aacf9591734"
 dependencies = [
  "serde",
 ]

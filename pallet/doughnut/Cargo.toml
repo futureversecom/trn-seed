@@ -25,23 +25,25 @@ sp-core = { git = "https://github.com/paritytech/substrate", default-features = 
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 #doughnut-rs = { git = "https://github.com/futureversecom/trn-doughnut-rs", branch = "feat/trn-doughnut", default-features = false, features = ["crypto"] }
-doughnut-rs = { path = "../../../../trn-doughnut-rs", default-features = false, features = ["crypto"] }
+doughnut-rs = { path = "../../../trn-doughnut-rs", default-features = false, features = ["crypto"] }
 frame-benchmarking = { git = 'https://github.com/paritytech/substrate', branch = "polkadot-v0.9.30", default-features = false, optional = true }
 
 # Frontier
 fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
-
 seed-pallet-common = { path = "../common", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
 precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
+frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+fp-self-contained = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
+pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
+pallet-fee-control = { path = "../fee-control" }
 pallet-fee-proxy = { path = "../fee-proxy" }
 pallet-dex = { path = "../dex" }
 pallet-assets-ext = { path = "../assets-ext" }
@@ -60,7 +62,6 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-core/std",
-	"sp-io/std",
 	"frame-benchmarking/std",
 	"fp-evm/std",
 	"seed-pallet-common/std",
