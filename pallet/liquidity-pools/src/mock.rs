@@ -16,7 +16,7 @@
 #![cfg(test)]
 
 use super::*;
-use frame_support::{construct_runtime, parameter_types, PalletId};
+use frame_support::{construct_runtime, ord_parameter_types, parameter_types, PalletId};
 use frame_system::EnsureRoot;
 use seed_pallet_common::{
 	impl_frame_system_config, impl_pallet_assets_config, impl_pallet_assets_ext_config,
@@ -55,6 +55,10 @@ impl_pallet_assets_config!(Test);
 impl_pallet_balance_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 
+ord_parameter_types! {
+	pub const ApproveAdmin: AccountId = AccountId::from(hex_literal::hex!("E5B42cb91a16C8f8a0F4e04E8017d0be6EC5e3DA"));
+}
+
 parameter_types! {
 	pub const LiquidityPoolsPalletId: PalletId = PalletId(*b"lqdpools");
 	pub const UnsignedInterval: u32 =  5;
@@ -67,6 +71,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type PoolId = u32;
 	type ApproveOrigin = EnsureRoot<AccountId>;
+	type ApproveAdmin = ApproveAdmin;
 	type InterestRateBasePoint = InterestRateBasePoint;
 	type Currency = Balances;
 	type Assets = AssetsExt;

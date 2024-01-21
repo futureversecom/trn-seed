@@ -76,6 +76,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type NativeAssetId: Get<AssetId>;
 
+		#[pallet::constant]
+		type ApproveAdmin: Get<Self::AccountId>;
+
 		/// Admin origin
 		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -182,6 +185,13 @@ pub mod pallet {
 		UserJoined { account_id: T::AccountId, pool_id: T::PoolId, amount: Balance },
 		/// User exited pool.
 		UserExited { account_id: T::AccountId, pool_id: T::PoolId, amount: Balance },
+		/// User rolled over to its successor pool.
+		UserRolledOver {
+			account_id: T::AccountId,
+			pool_id: T::PoolId,
+			rolled_to_pool_id: T::PoolId,
+			amount: Balance,
+		},
 		/// Rewards claimed.
 		RewardsClaimed { account_id: T::AccountId, pool_id: T::PoolId, amount: Balance },
 	}
@@ -705,6 +715,13 @@ pub mod pallet {
 								}
 							});
 
+							Self::deposit_event(Event::UserRolledOver {
+								account_id: who,
+								pool_id: id,
+								rolled_to_pool_id: successor_id,
+								amount: user_info.amount,
+							});
+
 							PoolUsers::<T>::mutate(successor_id, who, |pool_user| {
 								if let Some(pool_user) = pool_user {
 									pool_user.amount =
@@ -992,7 +1009,7 @@ pub mod pallet {
 			let pool_vault_account = Self::get_vault_account(pool_id);
 			if reward > Zero::zero() {
 				T::Assets::transfer(
-					pool_info.asset_id,
+					T::NativeAssetId::get(),
 					&pool_vault_account,
 					&Self::account_id(),
 					reward,

@@ -26,6 +26,7 @@ seed-pallet-common = { path = "../common", default-features = false }
 
 [dev-dependencies]
 hex={ version = "0.4.3" }
+hex-literal = { version = "0.3.4" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
