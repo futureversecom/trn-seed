@@ -29,6 +29,7 @@ use codec::{Decode, Encode};
 use fp_evm::weight_per_gas;
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
+use frame_support::{ord_parameter_types, traits::EitherOfDiverse};
 use pallet_dex::TradingPairStatus;
 use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, PostLogContent, Transaction as EthereumTransaction,
@@ -88,7 +89,7 @@ pub use frame_support::{
 
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureSigned,
+	EnsureRoot, EnsureSigned, EnsureSignedBy,
 };
 pub use pallet_grandpa::AuthorityId as GrandpaId;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
@@ -477,6 +478,9 @@ impl pallet_nft::Config for Runtime {
 	type MaxPendingIssuances = MaxPendingIssuances;
 }
 
+ord_parameter_types! {
+	pub const ApproveAdmin: AccountId = AccountId::from(hex_literal::hex!("E5B42cb91a16C8f8a0F4e04E8017d0be6EC5e3DA"));
+}
 parameter_types! {
 	pub const LiquidityPoolsPalletId: PalletId = PalletId(*b"lqdpools");
 	pub const LiquidityPoolsUnsignedInterval: BlockNumber = MINUTES / 2;
@@ -487,9 +491,11 @@ parameter_types! {
 impl pallet_liquidity_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PoolId = u32;
-	type ApproveOrigin = EnsureRoot<AccountId>;
+	type ApproveOrigin =
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<ApproveAdmin, AccountId>>;
 	type Currency = Balances;
 	type Assets = AssetsExt;
+	type ApproveAdmin = ApproveAdmin;
 	type NativeAssetId = RootAssetId;
 	type PalletId = LiquidityPoolsPalletId;
 	type UnsignedInterval = LiquidityPoolsUnsignedInterval;
