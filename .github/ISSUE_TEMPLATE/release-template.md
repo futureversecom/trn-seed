@@ -15,6 +15,12 @@ assignees: ''
 
 **Client Version:** `<client-version>.0.0`
 
+## Key Changes:
+
+This release introduces the following changes:
+
+- (list of changes)
+
 ## PRs included:
 - (list of merged PRs (get from [here](https://github.com/futureversecom/trn-seed/pulls?q=is%3Aclosed))
 
