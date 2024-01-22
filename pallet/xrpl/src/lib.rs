@@ -37,13 +37,14 @@ use frame_support::{
 	transactional,
 };
 use frame_system::{
-	pallet_prelude::*, CheckGenesis, CheckNonZeroSender, CheckNonce, CheckSpecVersion,
+	pallet_prelude::*, CheckEra, CheckGenesis, CheckNonZeroSender, CheckNonce, CheckSpecVersion,
 	CheckTxVersion, CheckWeight, RawOrigin,
 };
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use seed_pallet_common::ExtrinsicChecker;
 use sp_core::{hexdisplay::AsBytesRef, H160};
 use sp_runtime::{
+	generic::Era,
 	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, StaticLookup},
 	transaction_validity::ValidTransactionBuilder,
 	FixedPointOperand,
@@ -57,13 +58,13 @@ pub(crate) const LOG_TARGET: &str = "xrpl";
 
 /// Checks performed on a XRPL transaction
 pub type XRPLValidations<T> = (
-	frame_system::CheckNonZeroSender<T>,
-	frame_system::CheckSpecVersion<T>,
-	frame_system::CheckTxVersion<T>,
-	frame_system::CheckGenesis<T>,
-	// frame_system::CheckEra<T>,
-	frame_system::CheckNonce<T>,
-	frame_system::CheckWeight<T>,
+	CheckNonZeroSender<T>,
+	CheckSpecVersion<T>,
+	CheckTxVersion<T>,
+	CheckGenesis<T>,
+	CheckEra<T>,
+	CheckNonce<T>,
+	CheckWeight<T>,
 	ChargeTransactionPayment<T>,
 );
 
@@ -71,7 +72,7 @@ impl<T> Call<T>
 	where
 		T: Send + Sync + Config,
 		<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-		<T as frame_system::Config>::Index : Into<u32>,
+		<T as frame_system::Config>::Index: Into<u32>,
 		T::AccountId: From<H160>,
 		T: pallet_transaction_payment::Config,
 		<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance: Send + Sync + FixedPointOperand + From<u64>,
@@ -187,6 +188,7 @@ impl<T> Call<T>
 				CheckSpecVersion::<T>::new(),
 				CheckTxVersion::<T>::new(),
 				CheckGenesis::<T>::new(),
+				CheckEra::<T>::from(Era::immortal()),
 				CheckNonce::from(nonce.into()),
 				CheckWeight::new(),
 				ChargeTransactionPayment::<T>::from(tip.into()),
@@ -241,6 +243,7 @@ impl<T> Call<T>
 				CheckSpecVersion::<T>::new(),
 				CheckTxVersion::<T>::new(),
 				CheckGenesis::<T>::new(),
+				CheckEra::<T>::from(Era::immortal()),
 				CheckNonce::from(nonce.into()),
 				CheckWeight::new(),
 				ChargeTransactionPayment::<T>::from(tip.into()),
