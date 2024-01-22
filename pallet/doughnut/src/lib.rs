@@ -51,8 +51,8 @@ mod test;
 //
 // pub use weights::WeightInfo;
 
-// #[cfg(feature = "runtime-benchmarks")]
-// mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 
 impl<T> Call<T>
 	where

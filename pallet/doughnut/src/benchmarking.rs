@@ -14,7 +14,6 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg(feature = "runtime-benchmarks")]
-#![cfg(feature = "std")]
 
 use super::*;
 
@@ -22,18 +21,21 @@ use super::*;
 use crate::Pallet as DoughnutPallet;
 use seed_primitives::AccountId;
 
+use alloc::string::String;
 use doughnut_rs::{
 	doughnut::{Doughnut, DoughnutV0, DoughnutV1},
 	signature::{sign_ecdsa, verify_signature, SignatureVersion},
-	traits::{DoughnutApi, DoughnutVerify, Signing},
+	traits::{DoughnutApi, DoughnutVerify, FeeMode, PayloadVersion, Signing},
 };
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use seed_primitives::Balance;
 use sp_core::{
 	bytes::to_hex, crypto::ByteArray, ecdsa, ecdsa::Public, keccak_256, Pair, H512, U256,
 };
 use sp_runtime::traits::One;
+use sp_std::{vec, vec::Vec};
 
 pub fn account<T: Config>(name: &'static str) -> T::AccountId
 where
@@ -55,26 +57,69 @@ where
 {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
+// Helper struct for a test account where a seed is supplied and provides common methods to
+// receive parts of that account
+pub struct TestAccount<T: Config>
+where
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+{
+	pub seed: &'static str,
+	_phantom: PhantomData<T>,
+}
 
-fn make_doughnut(
-	holder: Public,
-	issuer: Public,
-	issuer_secret_key: &[u8; 32],
+impl<T: Config> TestAccount<T>
+where
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+{
+	pub fn new(seed: &'static str) -> Self {
+		Self { seed, _phantom: PhantomData }
+	}
+	// Return the ECDSA pair for this account
+	pub fn pair(&self) -> ecdsa::Pair {
+		Pair::from_string(self.seed, None).unwrap()
+	}
+
+	// Return the public key for this account
+	pub fn public(&self) -> Public {
+		self.pair().public()
+	}
+
+	// Return the private key for this account
+	pub fn private(&self) -> [u8; 32] {
+		self.pair().seed().into()
+	}
+
+	// Return the AccountId type for this account
+	pub fn address(&self) -> T::AccountId {
+		DoughnutPallet::<T>::get_address(self.public().0.into()).unwrap()
+	}
+}
+
+pub fn make_doughnut<T>(
+	holder: &TestAccount<T>,
+	issuer: &TestAccount<T>,
+	fee_mode: FeeMode,
 	domain: &str,
 	domain_payload: Vec<u8>,
-) -> Doughnut {
+) -> Doughnut
+where
+	T: Config,
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+{
 	let mut doughnut_v1 = DoughnutV1 {
-		holder: holder.as_slice().try_into().expect("should not fail"),
-		issuer: issuer.as_slice().try_into().expect("should not fail"),
-		domains: vec![(domain.to_string(), domain_payload)],
+		holder: holder.public().as_slice().try_into().expect("should not fail"),
+		issuer: issuer.public().as_slice().try_into().expect("should not fail"),
+		fee_mode: fee_mode as u8,
+		domains: vec![(String::from(domain), domain_payload)],
 		expiry: 0,
 		not_before: 0,
-		payload_version: 0,
+		payload_version: PayloadVersion::V1 as u16,
 		signature_version: SignatureVersion::ECDSA as u8,
 		signature: [0_u8; 64],
 	};
-	let signature = doughnut_v1.sign_ecdsa(issuer_secret_key).unwrap();
-	println!("Verified?: {:?}", doughnut_v1.verify());
+	// Sign and verify doughnut
+	assert_ok!(doughnut_v1.sign_ecdsa(&issuer.private()));
+	assert_ok!(doughnut_v1.verify());
 	Doughnut::V1(doughnut_v1)
 }
 
@@ -82,30 +127,49 @@ benchmarks! {
 	where_clause { where <T as frame_system::Config>::AccountId: From<sp_core::H160> + From<AccountId20> }
 
 	transact {
-		let issuer: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let holder: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-		let mut doughnut = make_doughnut(
-			holder.public(),
-			issuer.public(),
-			&hex!("79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf"),
+		let alice: TestAccount<T> = TestAccount::new("//Alice"); // holder
+		let bob: TestAccount<T> = TestAccount::new("//Bob"); // issuer
+		let doughnut = make_doughnut(
+			&alice,
+			&bob,
+			FeeMode::ISSUER,
 			"",
 			vec![],
 		);
 
 		let doughnut_encoded = doughnut.encode();
-		let alice_private = hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-		let signature: Vec<u8> = sign_ecdsa(&alice_private, &doughnut_encoded.as_slice()).unwrap().to_vec();
-
+		let signature: Vec<u8> = sign_ecdsa(&alice.private(), &doughnut_encoded.as_slice()).unwrap().to_vec();
 		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: b"Mischief Managed".to_vec() }.into();
 		let nonce: u32 = 0;
-
-		let holder_address: T::AccountId =
-		DoughnutPallet::<T>::get_address(holder.public().0.try_into().unwrap())
-			.unwrap().into();
-	}: _(origin::<T>(&holder_address), Box::new(call), doughnut_encoded, nonce, signature)
+	}: _(origin::<T>(&alice.address()), Box::new(call), doughnut_encoded, nonce, signature)
 	verify {
 		// Verify success event was thrown
-		assert_last_event::<T>(Event::DoughnutCallExecuted { result: DispatchResult::Ok(()) }.into())
+		assert_last_event::<T>(Event::DoughnutCallExecuted { result: DispatchResult::Ok(()) }.into());
+	}
+
+	revoke_doughnut {
+		let alice: TestAccount<T> = TestAccount::new("//Alice");
+		let bob: TestAccount<T> = TestAccount::new("//Bob");
+		let doughnut = make_doughnut(
+			&alice,
+			&bob,
+			FeeMode::ISSUER,
+			"",
+			vec![],
+		);
+		let doughnut_encoded = doughnut.encode();
+	}: _(origin::<T>(&bob.address()), doughnut_encoded.clone(), true)
+	verify {
+		let doughnut_hash = keccak_256(&doughnut_encoded);
+		assert!(BlockedDoughnuts::<T>::get(doughnut_hash));
+	}
+
+	revoke_holder {
+		let alice: TestAccount<T> = TestAccount::new("//Alice");
+		let bob: TestAccount<T> = TestAccount::new("//Bob");
+	}: _(origin::<T>(&alice.address()), bob.address(), true)
+	verify {
+		assert!(BlockedHolders::<T>::get(alice.address(), bob.address()));
 	}
 }
 

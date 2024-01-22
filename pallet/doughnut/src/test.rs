@@ -31,7 +31,7 @@ use sp_std::default::Default;
 
 // Helper struct for a test account where a seed is supplied and provides common methods to
 // receive parts of that account
-struct TestAccount {
+pub struct TestAccount {
 	pub seed: &'static str,
 }
 
@@ -63,12 +63,12 @@ impl TestAccount {
 }
 
 // BOB TestAccount
-const BOB: TestAccount = TestAccount { seed: "//Bob" };
+pub const BOB: TestAccount = TestAccount { seed: "//Bob" };
 
 // ALICE TestAccount
-const ALICE: TestAccount = TestAccount { seed: "//Alice" };
+pub const ALICE: TestAccount = TestAccount { seed: "//Alice" };
 
-fn make_doughnut(
+pub fn make_doughnut(
 	holder: &TestAccount,
 	issuer: &TestAccount,
 	fee_mode: FeeMode,

@@ -2131,5 +2131,6 @@ mod benches {
 		[pallet_dex, Dex]
 		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_marketplace, Marketplace]
+		[pallet_doughnut, Doughnut]
 	);
 }
