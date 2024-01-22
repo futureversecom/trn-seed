@@ -36,6 +36,7 @@ fp-evm = { default-features = false, git = "https://github.com/futureversecom/fr
 seed-pallet-common = { path = "../common", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
 precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
+pallet-futurepass = { path = "../futurepass", default-features = false }
 
 [dev-dependencies]
 frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }

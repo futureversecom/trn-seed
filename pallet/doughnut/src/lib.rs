@@ -255,7 +255,8 @@ pub mod pallet {
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_balances::Config
+	pub trait Config:
+		frame_system::Config + pallet_balances::Config + pallet_futurepass::Config
 	where
 		<Self as frame_system::Config>::AccountId: From<H160>,
 		<Self as frame_system::Config>::AccountId: Into<[u8; 20]>,
@@ -270,6 +271,7 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>
+			+ IsSubType<pallet_futurepass::Call<Self>>
 			+ IsSubType<pallet_balances::Call<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>
 			+ GetCallMetadata;
@@ -438,7 +440,8 @@ pub mod pallet {
 impl<T: Config> Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<H160>,
-	T: Config + pallet_balances::Config,
+	T: Config + pallet_balances::Config + pallet_futurepass::Config,
+	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_balances::Call<T>>,
 	<T as frame_system::Config>::AccountId: Into<[u8; 20]>,
 	<T as pallet_balances::Config>::Balance: Into<u128>,
@@ -469,10 +472,21 @@ where
 		doughnut: DoughnutV1,
 	) -> Result<(), Error<T>> {
 		let CallMetadata { function_name, pallet_name } = call.get_call_metadata();
+		match pallet_name {
+			"Balances" => Self::check_permissions_for_pallet_balances_calls(call, doughnut),
+			"Futurepass" => Self::check_permissions_for_pallet_futurepass_calls(call, doughnut),
+			_ => return Err(Error::<T>::UnsupportedInnerCall)?,
+		}
+	}
+
+	fn check_permissions_for_pallet_balances_calls(
+		call: <T as Config>::RuntimeCall,
+		doughnut: DoughnutV1,
+	) -> Result<(), Error<T>> {
+		let CallMetadata { function_name, pallet_name } = call.get_call_metadata();
 		let Some(trnnut_payload) = doughnut.get_domain(TRN_PERMISSION_DOMAIN) else {
 			return Err(Error::<T>::TRNNutDecodeFailed)
 		};
-
 		let trnnut = TRNNut::decode(&mut trnnut_payload.clone())
 			.map_err(|_| Error::<T>::TRNNutDecodeFailed)?;
 
@@ -482,6 +496,7 @@ where
 					.map_err(|_| Error::<T>::TRNNutPermissionDenied)?;
 				let destination: [u8; 20] = who.into();
 				let value_u128: u128 = (*value).into();
+
 				return trnnut
 					.validate_runtime_call(
 						pallet_name,
@@ -494,7 +509,33 @@ where
 					)
 					.map_err(|_| Error::<T>::TRNNutPermissionDenied)
 			},
-			_ => return Err(Error::<T>::UnsupportedInnerCall)?,
+			_ => Err(Error::<T>::TRNNutPermissionDenied),
+		}
+	}
+
+	fn check_permissions_for_pallet_futurepass_calls(
+		call: <T as Config>::RuntimeCall,
+		doughnut: DoughnutV1,
+	) -> Result<(), Error<T>> {
+		let CallMetadata { function_name, pallet_name } = call.get_call_metadata();
+		let Some(trnnut_payload) = doughnut.get_domain(TRN_PERMISSION_DOMAIN) else {
+			return Err(Error::<T>::TRNNutDecodeFailed)
+		};
+		let trnnut = TRNNut::decode(&mut trnnut_payload.clone())
+			.map_err(|_| Error::<T>::TRNNutDecodeFailed)?;
+
+		match call.is_sub_type() {
+			Some(pallet_futurepass::Call::create { account }) => {
+				let owner_account: [u8; 20] = (*account).clone().into();
+				return trnnut
+					.validate_runtime_call(
+						pallet_name,
+						function_name,
+						&[PactType::StringLike(StringLike(owner_account.as_slice()))],
+					)
+					.map_err(|_| Error::<T>::TRNNutPermissionDenied)
+			},
+			_ => Err(Error::<T>::TRNNutPermissionDenied),
 		}
 	}
 }
