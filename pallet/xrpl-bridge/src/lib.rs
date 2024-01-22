@@ -68,7 +68,6 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::types::DelayedWithdrawal;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
