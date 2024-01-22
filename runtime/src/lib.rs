@@ -576,6 +576,8 @@ parameter_types! {
 	pub const XRPTransactionLimitPerLedger: u32 = 1_000_000;
 	/// NOTE - This value can't be set too high. 5000 is roughly 25% of the max block weight
 	pub const MaxPrunedTransactionsPerBlock: u32 = 5000;
+	pub const MaxDelayedPaymentsPerBlock: u32 = 1000;
+	pub const DelayedPaymentBlockLimit: BlockNumber = 1000;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -587,6 +589,8 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type MaxPrunedTransactionsPerBlock = MaxPrunedTransactionsPerBlock;
+	type MaxDelayedPaymentsPerBlock = MaxDelayedPaymentsPerBlock;
+	type DelayedPaymentBlockLimit = DelayedPaymentBlockLimit;
 	type UnixTime = Timestamp;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;

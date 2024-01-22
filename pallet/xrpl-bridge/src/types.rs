@@ -23,16 +23,24 @@ use seed_primitives::{
 	Balance,
 };
 
+/// Payment id used for distinguishing pending withdrawals/ deposit events
+pub type DelayedPaymentId = u64;
+
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(T))]
 pub struct XrpTransaction {
 	pub transaction_hash: XrplTxHash,
 	pub transaction: XrplTxData,
 	pub timestamp: u64,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[scale_info(skip_type_params(T))]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct DelayedWithdrawal<AccountId> {
+	pub sender: AccountId,
+	pub destination_tag: Option<u32>,
+	pub withdraw_tx: XrpWithdrawTransaction,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
 pub struct XrpWithdrawTransaction {
 	pub tx_fee: u64,
 	pub tx_nonce: XrplTxNonce,
@@ -42,7 +50,6 @@ pub struct XrpWithdrawTransaction {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(T))]
 pub enum XrplTxData {
 	Payment { amount: Balance, address: H160 },
 	CurrencyPayment { amount: Balance, address: H160, currency_id: H256 },
@@ -78,7 +85,6 @@ impl Default for XrplTxData {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(T))]
 pub struct XrplTicketSequenceParams {
 	pub start_sequence: u32,
 	pub bucket_size: u32,
