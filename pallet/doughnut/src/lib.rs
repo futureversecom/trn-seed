@@ -42,6 +42,9 @@ use sp_runtime::{
 	transaction_validity::ValidTransactionBuilder,
 };
 
+pub mod weights;
+pub use weights::WeightInfo;
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -256,6 +259,9 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
+
+		/// Weight information for the extrinsic call in this module.
+		type WeightInfo: WeightInfo;
 	}
 
 	/// Map from collection to its public minting information
@@ -312,7 +318,10 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
-		#[pallet::weight(0 as u64)]
+		#[pallet::weight({
+			let call_weight = call.get_dispatch_info().weight;
+			T::WeightInfo::transact().saturating_add(call_weight)
+		})]
 		pub fn transact(
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
@@ -356,7 +365,7 @@ pub mod pallet {
 		}
 
 		/// Block a specific doughnut to be used
-		#[pallet::weight(0 as u64)]
+		#[pallet::weight(T::WeightInfo::revoke_doughnut())]
 		pub fn revoke_doughnut(
 			origin: OriginFor<T>,
 			doughnut: Vec<u8>,
@@ -379,7 +388,7 @@ pub mod pallet {
 		}
 
 		/// Block a holder from executing any doughnuts from a specific issuer
-		#[pallet::weight(0 as u64)]
+		#[pallet::weight(T::WeightInfo::revoke_holder())]
 		pub fn revoke_holder(
 			origin: OriginFor<T>,
 			holder: T::AccountId,
