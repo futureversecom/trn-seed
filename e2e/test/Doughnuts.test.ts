@@ -98,4 +98,58 @@ describe("Doughnuts", () => {
         expect(freeBalance).to.be.equal(transferAmount);
     });
 
+    it("permissioned doughnut works", async () => {
+        const receiverAddress = "0x000000000000000000000000000000000000000c";
+
+        // Doughnut from Alice to Bob
+        const doughnut = "0x011000020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a10390084fdbf27d2b79d26a4f13f0ccd982cb755a661969143c37cbc49ef5b91f27000000000074726e0000000000000000000000000046000000000042616c616e636573000000000000000000000000000000000000000000000000007472616e73666572000000000000000000000000000000000000000000000000005f305526a01810151e53cf8d40565770606b08b2de9304165033a9a09c6c81af6d0905b02a5768f758821d47a024123612e0be83ea69ba43114dff4eaa10ea31";
+        // Bob's signature of the outer call
+        const signature = "0x89428293041e0f6e747fe3775f8770a133ea24e54a8b9bcd1528c515b35b9965354a5074a93d2e191065d69fa6438bfc3d32147deb16a357e99bbf644243c3fe";
+        const transferAmount = 1234;
+        const nonce = ((await api.query.system.account(bob.address)).toJSON() as any)?.nonce;
+        const call = api.tx.balances.transfer(receiverAddress, transferAmount);
+
+        // Execute the transact call with.send
+        const events = await new Promise<any[]>(async (resolve) => {
+            await api.tx.doughnut.transact(call, doughnut, nonce, signature).send(({ events = [], status }) => {
+                if (status.isInBlock) {
+                    resolve(events);
+                }
+            });
+        });
+
+        // console.log(events);
+        const balance = await api.query.system.account(receiverAddress);
+        const freeBalance = balance.toJSON()?.data.free;
+        console.log(`Free balance after doughnut transsact: ${freeBalance}`);
+        expect(freeBalance).to.be.equal(transferAmount);
+    });
+
+    it("permissioned doughnut does not allow other extrinsics to pass through", async () => {
+        const receiverAddress = "0x000000000000000000000000000000000000000c";
+
+        // Doughnut from Alice to Bob
+        const doughnut = "0x011000020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a10390084fdbf27d2b79d26a4f13f0ccd982cb755a661969143c37cbc49ef5b91f27000000000074726e0000000000000000000000000046000000000042616c616e636573000000000000000000000000000000000000000000000000007472616e73666572000000000000000000000000000000000000000000000000005f305526a01810151e53cf8d40565770606b08b2de9304165033a9a09c6c81af6d0905b02a5768f758821d47a024123612e0be83ea69ba43114dff4eaa10ea31";
+        // Bob's signature of the outer call
+        const signature = "0xafbd9cdf96458caf2c3817fd749e0d3f901d84a38e2e32265e8f6251f16a15c8577fbe297c4349658af31945a4508609a214eb426f4bb8b8647a398e62c953c4";
+        const transferAmount = 1234;
+        const nonce = ((await api.query.system.account(bob.address)).toJSON() as any)?.nonce;
+        const call = api.tx.balances.transferKeepAlive(receiverAddress, transferAmount);
+
+        // Execute the transact call with.send
+        const events = await new Promise<any[]>(async (resolve) => {
+            await api.tx.doughnut.transact(call, doughnut, nonce, signature).send(({ events = [], status }) => {
+                if (status.isInBlock) {
+                    resolve(events);
+                }
+            });
+        });
+
+        console.log(events);
+        const balance = await api.query.system.account(receiverAddress);
+        const freeBalance = balance.toJSON()?.data.free;
+        console.log(`Free balance after doughnut transsact: ${freeBalance}`);
+        expect(freeBalance).to.be.equal(0);
+    });
+
 });

@@ -28,6 +28,7 @@ use frame_support::traits::fungibles::Mutate;
 use seed_pallet_common::test_prelude::*;
 use sp_core::{bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair};
 use sp_std::default::Default;
+use trnnut_rs::TRNNutV0;
 
 // Helper struct for a test account where a seed is supplied and provides common methods to
 // receive parts of that account
@@ -90,6 +91,23 @@ pub fn make_doughnut(
 	assert_ok!(doughnut_v1.sign_ecdsa(&issuer.private()));
 	assert_ok!(doughnut_v1.verify());
 	Doughnut::V1(doughnut_v1)
+}
+
+fn make_trnnut(module: &str, method: &str) -> TRNNut {
+	let method_obj = trnnut_rs::v0::method::Method {
+		name: method.to_string(),
+		block_cooldown: None,
+		constraints: None,
+	};
+	let module_obj = trnnut_rs::v0::module::Module {
+		name: module.to_string(),
+		block_cooldown: None,
+		methods: vec![(method.to_string(), method_obj)],
+	};
+	TRNNut::V0(TRNNutV0 {
+		modules: vec![(module.to_string(), module_obj)],
+		contracts: Default::default(),
+	})
 }
 
 #[test]
@@ -207,6 +225,36 @@ fn alice_to_bob_doughnut() {
 		let issuer = ALICE;
 		let holder = BOB;
 		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+
+		println!("doughnut: {:?}", doughnut);
+		println!("issuer address (Alice): {:?}", to_hex(issuer.address().0.as_slice(), false));
+		println!("holder address (Bob): {:?}", to_hex(holder.address().0.as_slice(), false));
+
+		let doughnut_encoded = doughnut.encode();
+		println!("Encoded doughnut");
+		println!("{:?}", to_hex(doughnut_encoded.clone().as_slice(), false));
+
+		// Print Bob's signature over the doughnut
+		let bob_signature = sign_ecdsa(&holder.private(), &doughnut_encoded.as_slice()).unwrap();
+		println!("Holder signature: {:?}", to_hex(holder.private().as_slice(), false));
+
+		// Verify Bob's signature
+		assert_ok!(verify_signature(
+			SignatureVersion::ECDSA as u8,
+			&bob_signature,
+			&holder.public().as_slice(),
+			&doughnut_encoded.clone()
+		));
+	});
+}
+
+#[test]
+fn alice_to_bob_doughnut_for_balance_trnasfer() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let issuer = ALICE;
+		let holder = BOB;
+		let trnnut = make_trnnut("Balances", "transfer");
+		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
 
 		println!("doughnut: {:?}", doughnut);
 		println!("issuer address (Alice): {:?}", to_hex(issuer.address().0.as_slice(), false));
@@ -506,6 +554,90 @@ fn generate_alice_to_bob_outer_signature() {
 			let destination = create_account(12);
 			let call: <Test as frame_system::Config>::RuntimeCall =
 				pallet_balances::Call::<Test>::transfer {
+					dest: destination,
+					value: transfer_amount,
+				}
+				.into();
+
+			// Attempting to transact the doughnut should succeed
+			let outer_call = Call::<Test>::transact {
+				call: Box::new(call),
+				doughnut: doughnut_encoded.clone(),
+				nonce: 0,
+				signature: vec![],
+			};
+
+			let mut outer_call_payload: Vec<u8> = outer_call.encode();
+			outer_call_payload.as_mut_slice()[1] = 0x05; // TODO - for some reason, actual runtime encoded
+											 // call has this byte as 0x05. check this.
+			let outer_signature = holder.sign_ecdsa(&outer_call_payload.as_slice());
+			println!("doughnut: {:?}", to_hex(doughnut_encoded.as_slice(), false));
+			println!("outer call: {:?}", outer_call);
+			println!("outer call payload: {:?}", to_hex(outer_call_payload.as_slice(), false));
+			println!("outer call signature: {:?}", to_hex(&outer_signature, false));
+		});
+}
+
+#[test]
+fn generate_alice_to_bob_outer_signature_for_Balances_transfer() {
+	let issuer = ALICE;
+	let initial_balance = 10_000;
+	TestExt::<Test>::default()
+		.with_balances(&[(issuer.address(), initial_balance)])
+		.build()
+		.execute_with(|| {
+			let holder = BOB;
+			let trnnut = make_trnnut("Balances", "transfer");
+			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
+			let doughnut_encoded = doughnut.encode();
+
+			// Create balances transfer call
+			let transfer_amount = 1234;
+			let destination = create_account(12);
+			let call: <Test as frame_system::Config>::RuntimeCall =
+				pallet_balances::Call::<Test>::transfer {
+					dest: destination,
+					value: transfer_amount,
+				}
+				.into();
+
+			// Attempting to transact the doughnut should succeed
+			let outer_call = Call::<Test>::transact {
+				call: Box::new(call),
+				doughnut: doughnut_encoded.clone(),
+				nonce: 0,
+				signature: vec![],
+			};
+
+			let mut outer_call_payload: Vec<u8> = outer_call.encode();
+			outer_call_payload.as_mut_slice()[1] = 0x05; // TODO - for some reason, actual runtime encoded
+											 // call has this byte as 0x05. check this.
+			let outer_signature = holder.sign_ecdsa(&outer_call_payload.as_slice());
+			println!("doughnut: {:?}", to_hex(doughnut_encoded.as_slice(), false));
+			println!("outer call: {:?}", outer_call);
+			println!("outer call payload: {:?}", to_hex(outer_call_payload.as_slice(), false));
+			println!("outer call signature: {:?}", to_hex(&outer_signature, false));
+		});
+}
+
+#[test]
+fn generate_alice_to_bob_outer_signature_for_Balances_transfer_keep_alive() {
+	let issuer = ALICE;
+	let initial_balance = 10_000;
+	TestExt::<Test>::default()
+		.with_balances(&[(issuer.address(), initial_balance)])
+		.build()
+		.execute_with(|| {
+			let holder = BOB;
+			let trnnut = make_trnnut("Balances", "transfer");
+			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
+			let doughnut_encoded = doughnut.encode();
+
+			// Create balances transfer call
+			let transfer_amount = 1234;
+			let destination = create_account(12);
+			let call: <Test as frame_system::Config>::RuntimeCall =
+				pallet_balances::Call::<Test>::transfer_keep_alive {
 					dest: destination,
 					value: transfer_amount,
 				}
