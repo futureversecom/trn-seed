@@ -136,6 +136,9 @@ describe("Doughnuts", () => {
         const nonce = ((await api.query.system.account(bob.address)).toJSON() as any)?.nonce;
         const call = api.tx.balances.transferKeepAlive(receiverAddress, transferAmount);
 
+        const aliceBalanceBefore = await api.query.system.account("0xe04cc55ebee1cbce552f250e85c57b70b2e2625b");
+        const aliceBalanceBeforeFree = aliceBalanceBefore.toJSON()?.data.free;
+
         // Execute the transact call with.send
         const events = await new Promise<any[]>(async (resolve) => {
             await api.tx.doughnut.transact(call, doughnut, nonce, signature).send(({ events = [], status }) => {
@@ -145,11 +148,15 @@ describe("Doughnuts", () => {
             });
         });
 
-        console.log(events);
+        // console.log(events);
         const balance = await api.query.system.account(receiverAddress);
         const freeBalance = balance.toJSON()?.data.free;
         console.log(`Free balance after doughnut transsact: ${freeBalance}`);
-        expect(freeBalance).to.be.equal(0);
+        expect(freeBalance).to.be.equal(0); // inner call did not get executed.
+
+        const aliceBalanceAfter = await api.query.system.account("0xe04cc55ebee1cbce552f250e85c57b70b2e2625b");
+        const aliceBalanceAfterFree = aliceBalanceAfter.toJSON()?.data.free;
+        expect(aliceBalanceBeforeFree - aliceBalanceAfterFree).to.be.lessThan(transferAmount); // Alice only pays for the fee.
     });
 
 });

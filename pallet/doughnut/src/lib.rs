@@ -509,6 +509,24 @@ where
 					)
 					.map_err(|_| Error::<T>::TRNNutPermissionDenied)
 			},
+			Some(pallet_balances::Call::transfer_keep_alive { dest, value }) => {
+				let who: T::AccountId = T::Lookup::lookup(dest.clone())
+					.map_err(|_| Error::<T>::TRNNutPermissionDenied)?;
+				let destination: [u8; 20] = who.into();
+				let value_u128: u128 = (*value).into();
+
+				return trnnut
+					.validate_runtime_call(
+						pallet_name,
+						function_name,
+						// TODO: change the u64 conversion once pact Numeric support u128
+						&[
+							PactType::StringLike(StringLike(destination.as_slice())),
+							PactType::Numeric(Numeric(value_u128 as u64)),
+						],
+					)
+					.map_err(|_| Error::<T>::TRNNutPermissionDenied)
+			},
 			_ => Err(Error::<T>::TRNNutPermissionDenied),
 		}
 	}
