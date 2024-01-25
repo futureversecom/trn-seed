@@ -9,25 +9,24 @@ import {
     ALICE_PRIVATE_KEY,
     BOB_PRIVATE_KEY,
     GAS_TOKEN_ID,
-    // NodeProcess,
-    // startNode,
+    NodeProcess,
+    startNode,
     typedefs,
 } from "../common";
 import {Wallet} from "ethers";
-// import {Wallet} from "ethers";
 
 
 describe("Doughnuts", () => {
-    // let node: NodeProcess;
+    let node: NodeProcess;
     let api: ApiPromise;
     let bob: KeyringPair;
     let bob_ecdsa: KeyringPair;
     let alice: KeyringPair;
 
     before(async () => {
-        // node = await startNode();
+        node = await startNode();
 
-        const wsProvider = new WsProvider(`ws://localhost:9944`);
+        const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
         api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
 
         const keyring = new Keyring({ type: "ethereum" });
@@ -37,7 +36,7 @@ describe("Doughnuts", () => {
         alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
     });
 
-    // after(async () => node.stop());
+    after(async () => node.stop());
 
     it("doughnut works", async () => {
         const receiverAddress = await Wallet.createRandom().getAddress();
@@ -78,13 +77,19 @@ describe("Doughnuts", () => {
         const sig_hex = u8aToHex(signature);
 
         // Execute the transact call with.send
-        const events = await new Promise<any[]>(async (resolve) => {
-            await api.tx.doughnut.transact(call, doughnut_hex, nonce, sig_hex).send(({ events = [], status }) => {
+        const eventData = await new Promise<any[]>((resolve, reject) => {
+            api.tx.doughnut.transact(call, doughnut_hex, nonce, sig_hex).send(({ events, status }) => {
                 if (status.isInBlock) {
-                    resolve(events);
+                    for (const { event } of events) {
+                        if (event.section === "doughnut" && event.method === "DoughnutCallExecuted") {
+                            resolve(event.data);
+                        }
+                    }
+                    reject(null);
                 }
             });
         });
+        expect(eventData).to.exist;
 
         // console.log(events);
         const balance = await api.query.system.account(receiverAddress);
