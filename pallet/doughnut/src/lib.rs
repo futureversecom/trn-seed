@@ -503,7 +503,7 @@ where
 						function_name,
 						// TODO: change the u64 conversion once pact Numeric support u128
 						&[
-							PactType::StringLike(StringLike(destination.as_slice())),
+							PactType::StringLike(StringLike(destination.to_vec())),
 							PactType::Numeric(Numeric(value_u128 as u64)),
 						],
 					)
@@ -521,7 +521,7 @@ where
 						function_name,
 						// TODO: change the u64 conversion once pact Numeric support u128
 						&[
-							PactType::StringLike(StringLike(destination.as_slice())),
+							PactType::StringLike(StringLike(destination.to_vec())),
 							PactType::Numeric(Numeric(value_u128 as u64)),
 						],
 					)
@@ -549,7 +549,7 @@ where
 					.validate_runtime_call(
 						pallet_name,
 						function_name,
-						&[PactType::StringLike(StringLike(owner_account.as_slice()))],
+						&[PactType::StringLike(StringLike(owner_account.to_vec()))],
 					)
 					.map_err(|_| Error::<T>::TRNNutPermissionDenied)
 			},

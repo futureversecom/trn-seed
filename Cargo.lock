@@ -4954,13 +4954,10 @@ dependencies = [
 
 [[package]]
 name = "pact"
-version = "0.1.0"
-source = "git+https://github.com/futureversecom/pact?branch=0.1.0#8a711951b7684af1d3631e52789a2ee6f7dc6816"
+version = "0.2.0"
 dependencies = [
  "bit_reverse",
  "hashbrown 0.6.3",
- "pest",
- "pest_derive",
 ]
 
 [[package]]
