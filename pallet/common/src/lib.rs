@@ -409,6 +409,7 @@ impl<T: frame_system::Config> MaintenanceCheckEVM<T> for () {
 	}
 }
 
+/// Generic trait to validate extrinsics satisfy some condition
 pub trait ExtrinsicChecker {
 	type Call;
 	fn check_extrinsic(call: &Self::Call) -> bool;

@@ -1225,6 +1225,7 @@ impl pallet_futurepass::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Proxy = impls::ProxyPalletProvider;
 	type RuntimeCall = RuntimeCall;
+	type BlacklistedCallValidator = impls::FuturepassCallValidator;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
 	type FuturepassMigrator = impls::FuturepassMigrationProvider;

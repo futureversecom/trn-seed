@@ -218,10 +218,19 @@ parameter_types! {
 	pub const FuturepassPrefix: [u8; 4] = [0xFF; 4];
 }
 
+pub struct MockFuturepassCallValidator;
+impl seed_pallet_common::ExtrinsicChecker for MockFuturepassCallValidator {
+	type Call = RuntimeCall;
+	fn check_extrinsic(_call: &Self::Call) -> bool {
+		false
+	}
+}
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Proxy = ProxyPalletProvider;
 	type RuntimeCall = RuntimeCall;
+	type BlacklistedCallValidator = MockFuturepassCallValidator;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = ProxyType;
 	type WeightInfo = ();

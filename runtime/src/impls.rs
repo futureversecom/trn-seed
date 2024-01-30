@@ -483,9 +483,30 @@ impl StaticLookup for FuturepassLookup {
 	}
 }
 impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {
-	type Call = <Runtime as pallet_xrpl::Config>::RuntimeCall;
+	type Call = <Runtime as frame_system::Config>::RuntimeCall;
 	fn check_extrinsic(call: &Self::Call) -> bool {
-		matches!(call, RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. }))
+		match call {
+			// Check for direct Futurepass proxy_extrinsic call
+			RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. }) => true,
+			// Check for FeeProxy call containing Futurepass proxy_extrinsic call
+			RuntimeCall::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
+				call: inner_call,
+				..
+			}) => matches!(
+				inner_call.as_ref(),
+				RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. })
+			),
+			// All other cases
+			_ => false,
+		}
+	}
+}
+
+pub struct FuturepassCallValidator;
+impl seed_pallet_common::ExtrinsicChecker for FuturepassCallValidator {
+	type Call = <Runtime as frame_system::Config>::RuntimeCall;
+	fn check_extrinsic(call: &Self::Call) -> bool {
+		matches!(call, RuntimeCall::Xrpl(pallet_xrpl::Call::submit_encoded_xrpl_transaction { .. }))
 	}
 }
 
