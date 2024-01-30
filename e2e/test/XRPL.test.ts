@@ -3,7 +3,7 @@ import type { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { blake256 } from "codechain-primitives";
-import { Wallet } from "ethers";
+import { BigNumber, Wallet } from "ethers";
 import { computePublicKey } from "ethers/lib/utils";
 import { encode, encodeForSigning } from "ripple-binary-codec";
 import { deriveAddress, sign } from "ripple-keypairs";
@@ -153,8 +153,8 @@ describe("XRPL pallet", () => {
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
     expect(xrpBalanceBefore - xrpBalanceAfter)
-      .to.greaterThan(680_000)
-      .and.lessThan(695_000);
+      .to.greaterThan(685_000)
+      .and.lessThan(700_000);
 
     // assert user nonce is updated (1 tx)
     const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
@@ -294,7 +294,7 @@ describe("XRPL pallet", () => {
     const cost = await api.tx.xrpl
       .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`, extrinsic)
       .paymentInfo(user.address);
-    expect(cost.partialFee.toNumber()).to.be.greaterThan(930_000).and.lessThan(945_000);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(935_000).and.lessThan(950_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
