@@ -218,12 +218,12 @@ impl<T> Call<T>
 	}
 
 	pub fn apply_self_contained(
-		call: <T as Config>::RuntimeCall,
+		outer_call: <T as Config>::RuntimeCall,
 		info: &H160,
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<<T as Config>::RuntimeCall>>> {
-		if let Some(Call::submit_encoded_xrpl_transaction { encoded_msg, .. }) = call.is_sub_type() {
+		if let Some(Call::submit_encoded_xrpl_transaction { encoded_msg, call, .. }) = outer_call.is_sub_type() {
 			// Pre Dispatch
 			let tx = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
 				.map_err(|e| {
@@ -249,11 +249,11 @@ impl<T> Call<T>
 				ChargeTransactionPayment::<T>::from(tip.into()),
 			);
 
-			// Pre Dispatch
-			let pre = SignedExtension::pre_dispatch(validations, &T::AccountId::from(*info), &call.clone().into(), dispatch_info, len).ok()?;
+			// Pre Dispatch - execute signed extensions with inner call
+			let pre = SignedExtension::pre_dispatch(validations, &T::AccountId::from(*info), &(*call.clone()).into(), dispatch_info, len).ok()?;
 
-			// Dispatch
-			let res = call.dispatch(frame_system::RawOrigin::None.into());
+			// Dispatch - execute outer call (submit_encoded_xrpl_transaction)
+			let res = outer_call.dispatch(frame_system::RawOrigin::None.into());
 			let post_info = res.map_or_else(|err| err.post_info, |info| info);
 
 			// Post Dispatch
