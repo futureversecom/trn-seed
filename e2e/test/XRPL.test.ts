@@ -801,7 +801,7 @@ describe("XRPL pallet", () => {
     index += 1;
     expect(events[index].event.section).to.equal("transactionPayment");
     expect(events[index].event.method).to.equal("TransactionFeePaid");
-    expect(events[index].event.data[0].toString()).to.equal(futurepassAddress);
+    expect(events[index].event.data[0].toString()).to.equal(user.address);
 
     // system ExtrinsicSuccess [{"weight":86298000,"class":"Normal","paysFee":"Yes"}]
     index += 1;
