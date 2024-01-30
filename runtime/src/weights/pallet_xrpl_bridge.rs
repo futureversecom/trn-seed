@@ -46,6 +46,11 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 		Weight::from_ref_time(19_668_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
+	// Storage: XRPLBridge PaymentDelay (r:0 w:1)
+	fn set_payment_delay() -> Weight {
+		Weight::from_ref_time(10_560_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
 	// Storage: XRPLBridge DoorTxFee (r:1 w:0)
 	// Storage: XRPLBridge DoorAddress (r:1 w:0)
 	// Storage: Assets Asset (r:1 w:1)

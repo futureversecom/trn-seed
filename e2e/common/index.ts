@@ -311,6 +311,9 @@ export const ERC721_PRECOMPILE_ABI = [
   "function symbol() public view returns (string memory)",
   "function tokenURI(uint256 tokenId) public view returns (string memory)",
 
+  // ERC721 Burnable
+  "function burn(uint256 tokenId)",
+
   // Root specific precompiles
   "event MaxSupplyUpdated(uint32 maxSupply)",
   "event BaseURIUpdated(string baseURI)",
