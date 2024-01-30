@@ -99,18 +99,14 @@ describe("XRPL pallet", () => {
     const encodedSigningMessage = encodeForSigning(xamanJsonTx);
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
-    const cost = await api.tx.xrpl
-      .transact(`0x${message}`, `0x${signature}`, extrinsic)
-      .paymentInfo(user.address);
+    const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(user.address);
     expect(cost.partialFee.toNumber()).to.be.greaterThan(905_000).and.lessThan(920_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
-      await api.tx.xrpl
-        .transact(`0x${message}`, `0x${signature}`, extrinsic)
-        .send(({ events = [], status }) => {
-          if (status.isInBlock) resolve(events);
-        });
+      await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).send(({ events = [], status }) => {
+        if (status.isInBlock) resolve(events);
+      });
     });
 
     // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
@@ -195,18 +191,14 @@ describe("XRPL pallet", () => {
     const encodedSigningMessage = encodeForSigning(xamanJsonTx);
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
-    const cost = await api.tx.xrpl
-      .transact(`0x${message}`, `0x${signature}`, extrinsic)
-      .paymentInfo(user.address);
+    const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(user.address);
     expect(cost.partialFee.toNumber()).to.be.greaterThan(920_000).and.lessThan(935_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
-      await api.tx.xrpl
-        .transact(`0x${message}`, `0x${signature}`, extrinsic)
-        .send(({ events = [], status }) => {
-          if (status.isInBlock) resolve(events);
-        });
+      await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).send(({ events = [], status }) => {
+        if (status.isInBlock) resolve(events);
+      });
     });
 
     // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
@@ -291,18 +283,14 @@ describe("XRPL pallet", () => {
     const encodedSigningMessage = encodeForSigning(xamanJsonTx);
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
-    const cost = await api.tx.xrpl
-      .transact(`0x${message}`, `0x${signature}`, extrinsic)
-      .paymentInfo(user.address);
+    const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(user.address);
     expect(cost.partialFee.toNumber()).to.be.greaterThan(935_000).and.lessThan(950_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
-      await api.tx.xrpl
-        .transact(`0x${message}`, `0x${signature}`, extrinsic)
-        .send(({ events = [], status }) => {
-          if (status.isInBlock) resolve(events);
-        });
+      await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).send(({ events = [], status }) => {
+        if (status.isInBlock) resolve(events);
+      });
     });
 
     // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
@@ -416,18 +404,14 @@ describe("XRPL pallet", () => {
     const encodedSigningMessage = encodeForSigning(xamanJsonTx);
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
-    const cost = await api.tx.xrpl
-      .transact(`0x${message}`, `0x${signature}`, extrinsic)
-      .paymentInfo(user.address);
+    const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(user.address);
     expect(cost.partialFee.toNumber()).to.be.greaterThan(945_000).and.lessThan(965_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
-      await api.tx.xrpl
-        .transact(`0x${message}`, `0x${signature}`, extrinsic)
-        .send(({ events = [], status }) => {
-          if (status.isInBlock) resolve(events);
-        });
+      await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).send(({ events = [], status }) => {
+        if (status.isInBlock) resolve(events);
+      });
     });
 
     // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
@@ -558,18 +542,14 @@ describe("XRPL pallet", () => {
     const encodedSigningMessage = encodeForSigning(xamanJsonTx);
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
-    const cost = await api.tx.xrpl
-      .transact(`0x${message}`, `0x${signature}`, extrinsic)
-      .paymentInfo(user.address);
+    const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(user.address);
     expect(cost.partialFee.toNumber()).to.be.greaterThan(990_000).and.lessThan(1_005_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
-      await api.tx.xrpl
-        .transact(`0x${message}`, `0x${signature}`, extrinsic)
-        .send(({ events = [], status }) => {
-          if (status.isInBlock) resolve(events);
-        });
+      await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).send(({ events = [], status }) => {
+        if (status.isInBlock) resolve(events);
+      });
     });
 
     // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
@@ -710,18 +690,14 @@ describe("XRPL pallet", () => {
     const encodedSigningMessage = encodeForSigning(xamanJsonTx);
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
-    const cost = await api.tx.xrpl
-      .transact(`0x${message}`, `0x${signature}`, extrinsic)
-      .paymentInfo(futurepassAddress);
+    const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(futurepassAddress);
     expect(cost.partialFee.toNumber()).to.be.greaterThan(1_000_000).and.lessThan(1_015_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
-      await api.tx.xrpl
-        .transact(`0x${message}`, `0x${signature}`, extrinsic)
-        .send(({ events = [], status }) => {
-          if (status.isInBlock) resolve(events);
-        });
+      await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).send(({ events = [], status }) => {
+        if (status.isInBlock) resolve(events);
+      });
     });
 
     // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
@@ -863,11 +839,9 @@ describe("XRPL pallet", () => {
     let errorFound = false;
     await Promise.race([
       new Promise<any[]>(async (resolve) => {
-        await api.tx.xrpl
-          .transact(`0x${message}`, `0x${signature}`, extrinsic)
-          .send(({ events = [], status }) => {
-            if (status.isInBlock) resolve(events);
-          });
+        await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).send(({ events = [], status }) => {
+          if (status.isInBlock) resolve(events);
+        });
       }),
       new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error("timeout error")), 4000)),
     ]).catch((err: any) => {
@@ -909,11 +883,9 @@ describe("XRPL pallet", () => {
     let errorFound = false;
     await Promise.race([
       new Promise<any[]>(async (resolve) => {
-        await api.tx.xrpl
-          .transact(`0x${message}`, `0x${signature}`, extrinsic)
-          .send(({ events = [], status }) => {
-            if (status.isInBlock) resolve(events);
-          });
+        await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).send(({ events = [], status }) => {
+          if (status.isInBlock) resolve(events);
+        });
       }),
       new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error("timeout error")), 4000)),
     ]).catch((err: any) => {
