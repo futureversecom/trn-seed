@@ -82,14 +82,14 @@ impl<T> Call<T>
 {
 
 	pub fn is_self_contained(&self) -> bool {
-		matches!(self, Call::submit_encoded_xrpl_transaction { .. })
+		matches!(self, Call::transact { .. })
 	}
 
 	/// Checks if the extrinsic is self-contained.
 	/// An error returned here will not be reported to the caller,
 	/// implying that the caller will be waiting indefinitely for a transaction.
 	pub fn check_self_contained(&self) -> Option<Result<H160, TransactionValidityError>> {
-		if let Call::submit_encoded_xrpl_transaction { encoded_msg, call, .. } = self {
+		if let Call::transact { encoded_msg, call, .. } = self {
 			let check = || {
 				let tx: XRPLTransaction = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
 					.map_err(|e| {
@@ -124,7 +124,7 @@ impl<T> Call<T>
 		_dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		_len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
-		if let Call::submit_encoded_xrpl_transaction { .. } = self {
+		if let Call::transact { .. } = self {
 			// pre dispatch will be done within the `apply_self_contained` below.
 			Ok(()).into()
 		} else {
@@ -138,7 +138,7 @@ impl<T> Call<T>
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<TransactionValidity> {
-		if let Call::submit_encoded_xrpl_transaction { encoded_msg, signature, call } = self {
+		if let Call::transact { encoded_msg, signature, call } = self {
 			let tx = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
 				.map_err(|e| {
 					log::error!("⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
@@ -163,8 +163,8 @@ impl<T> Call<T>
 			}
 
 			// ensure inner nested call is not the same call
-			if let Some(Call::submit_encoded_xrpl_transaction { .. }) = call.is_sub_type() {
-        log::error!("⛔️ cannot nest submit_encoded_xrpl_transaction call");
+			if let Some(Call::transact { .. }) = call.is_sub_type() {
+        log::error!("⛔️ cannot nest transact call");
         return None;
     	}
 
@@ -223,7 +223,7 @@ impl<T> Call<T>
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<<T as Config>::RuntimeCall>>> {
-		if let Some(Call::submit_encoded_xrpl_transaction { encoded_msg, call, .. }) = outer_call.is_sub_type() {
+		if let Some(Call::transact { encoded_msg, call, .. }) = outer_call.is_sub_type() {
 			// Pre Dispatch
 			let tx = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
 				.map_err(|e| {
@@ -252,7 +252,7 @@ impl<T> Call<T>
 			// Pre Dispatch - execute signed extensions with inner call
 			let pre = SignedExtension::pre_dispatch(validations, &T::AccountId::from(*info), &(*call.clone()).into(), dispatch_info, len).ok()?;
 
-			// Dispatch - execute outer call (submit_encoded_xrpl_transaction)
+			// Dispatch - execute outer call (transact)
 			let res = outer_call.dispatch(frame_system::RawOrigin::None.into());
 			let post_info = res.map_or_else(|err| err.post_info, |info| info);
 
@@ -370,10 +370,10 @@ pub mod pallet {
 		/// - `call`: The call to dispatch by the XRPL transaction signer (pubkey).
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
-			T::WeightInfo::submit_encoded_xrpl_transaction().saturating_add(dispatch_info.weight)
+			T::WeightInfo::transact().saturating_add(dispatch_info.weight)
 		})]
 		#[transactional]
-		pub fn submit_encoded_xrpl_transaction(
+		pub fn transact(
 			origin: OriginFor<T>,
 			encoded_msg: BoundedVec<u8, T::MaxMessageLength>,
 			_signature: BoundedVec<u8, T::MaxSignatureLength>,

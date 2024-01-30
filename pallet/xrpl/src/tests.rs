@@ -23,12 +23,12 @@ mod self_contained_call {
 	use super::*;
 
 	#[test]
-	fn submit_encoded_xrpl_transaction_validations() {
+	fn transact_validations() {
 		TestExt::<Test>::default().build().execute_with(|| {
       // encoded call for: chain_id = 0, nonce = 0, max_block_number = 5, tip = 0, extrinsic = System::remark
 			let call = mock::RuntimeCall::System(frame_system::Call::remark { remark: Default::default() });
       let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102509540919FAACF9AB52146C9AA40DB68172D83777250B28E4679176E49CCDD9F81148E6106F6E98E7B21BFDFBFC3DEBA0EDED28A047AF9EA7C0965787472696E7369637D48303A303A353A303A35633933633236383339613137636235616366323765383961616330306639646433663531643161316161346234383266363930663634333633396665383732E1F1").unwrap();
-      assert_ok!(Xrpl::submit_encoded_xrpl_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes.clone()), BoundedVec::default(), Box::new(call)));
+      assert_ok!(Xrpl::transact(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes.clone()), BoundedVec::default(), Box::new(call)));
     });
 	}
 
@@ -41,7 +41,7 @@ mod self_contained_call {
 
 			// executing xrpl encoded transaction fails since caller is not root/sudo account
 			assert_noop!(
-				Xrpl::submit_encoded_xrpl_transaction(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default(), Box::new(call)),
+				Xrpl::transact(frame_system::RawOrigin::None.into(), BoundedVec::truncate_from(tx_bytes), BoundedVec::default(), Box::new(call)),
 				BadOrigin,
 			);
 		});
@@ -56,7 +56,7 @@ mod self_contained_call {
 				let call = mock::RuntimeCall::System(frame_system::Call::remark { remark: Default::default() });
 
 				// encoded call for: chain_id = 1; nonce = 0, max_block_number = 5, tip = 0, extrinsic = System::remark; validates invalid chain id
-				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
+				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::transact {
 					encoded_msg: BoundedVec::truncate_from(hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102509540919FAACF9AB52146C9AA40DB68172D83777250B28E4679176E49CCDD9F81148E6106F6E98E7B21BFDFBFC3DEBA0EDED28A047AF9EA7C0965787472696E7369637D48303A303A353A303A66633730373832313235333862623238393633373338393034303237373630313464393765303033656136393430303533303538386134383434393662333337E1F1").unwrap()),
 					signature: BoundedVec::truncate_from(hex::decode("304402203D76BEF2D67A3B6FAB7972B7B382A654A5E78E74E16197E548F5494D69498256022017DB22937214C595ED2FFEDD9E99F9D830DF81E5B36A57AFFA021F05A497B9D1").unwrap()),
 					call: Box::new(call.clone()),
@@ -78,7 +78,7 @@ mod self_contained_call {
 
 				// encoded call for: chain_id = 0, nonce = 5, max_block_number = 5, tip = 0, extrinsic = System::remark; validates nonce too high
 				let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102509540919FAACF9AB52146C9AA40DB68172D83777250B28E4679176E49CCDD9F81148E6106F6E98E7B21BFDFBFC3DEBA0EDED28A047AF9EA7C0965787472696E7369637D48303A353A353A303A35633933633236383339613137636235616366323765383961616330306639646433663531643161316161346234383266363930663634333633396665383732E1F1").unwrap();
-				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
+				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::transact {
 					encoded_msg: BoundedVec::truncate_from(tx_bytes.clone()),
 					signature: BoundedVec::truncate_from(hex::decode("3044022038D2943A83270CFED21127AA72990F5B9D752AA7293743C872E0F65AAB5BEB8F02200634DD843C0276C36815648D133FE2B1854D55783207CFBC96F9C67E4775E0E3").unwrap()),
 					call: Box::new(call.clone()),
@@ -107,7 +107,7 @@ mod self_contained_call {
 				let call = mock::RuntimeCall::System(frame_system::Call::remark { remark: Default::default() });
 
 				// validate self contained extrinsic fails, call provided is not signed hashed extrinsic in memo data
-				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
+				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::transact {
 					encoded_msg: BoundedVec::truncate_from(hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580732102509540919FAACF9AB52146C9AA40DB68172D83777250B28E4679176E49CCDD9F81148E6106F6E98E7B21BFDFBFC3DEBA0EDED28A047AF9EA7C0965787472696E7369637D0A303A303A353A303A3030E1F1").unwrap()),
 					signature: BoundedVec::truncate_from(hex::decode("304502210081C0EFD0B5C85AC8C20765B95B44DCD0891619E83529A63A2350907B341EE168022006365C3AB530A1D529606D6EDDE18C76ECF42334FF0DC2140AD392C20305F898").unwrap()),
 					call: Box::new(call.clone()),
@@ -131,7 +131,7 @@ mod self_contained_call {
 				let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C25807321021A765BED04797D2DD723C9FDC1ED9D20FEC478F7E8E7D16236F8504C5740C10781145FF8490F22ABFA576788227DB2E80D3F5F104654F9EA7C0965787472696E7369637D48303A303A353A303A35633933633236383339613137636235616366323765383961616330306639646433663531643161316161346234383266363930663634333633396665383732E1F1").unwrap();
 
 				// validate self contained extrinsic is invalid (no signature)
-				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
+				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::transact {
 					encoded_msg: BoundedVec::truncate_from(tx_bytes.clone()),
 					signature: BoundedVec::default(),
 					call: Box::new(call.clone()),
@@ -142,7 +142,7 @@ mod self_contained_call {
 				);
 
 				// validate self contained extrinsic is invalid (invalid signature)
-				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
+				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::transact {
 					encoded_msg: BoundedVec::truncate_from(tx_bytes.clone()),
 					signature: BoundedVec::truncate_from(hex::decode("304402205CD628B33CD2A89D735EBC139F21A3F2F138F7D687BBAF3E2CDFBBF8951919DC02204B65FC7FF3C2C1B1EEF10186CF6BDAA1C96E8F0814099EE5811C12F65E26A81E").unwrap()),
 					call: Box::new(call.clone()),
@@ -153,7 +153,7 @@ mod self_contained_call {
 				);
 
 				// validate self contained extrinsic fails, user does not have funds to pay for transaction
-				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
+				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::transact {
 					encoded_msg: BoundedVec::truncate_from(tx_bytes.clone()),
 					signature: BoundedVec::truncate_from(hex::decode("3045022100A6E6546A845ED811FF833789ABE96A5D196737D6FAE0612F40639344DB3ABC2202205D4E3A3753EBC50CB5EBC1A0E861BE0DABA1EE062C08BB40DA9F65F20DEF0CF8").unwrap()),
 					call: Box::new(call.clone()),
@@ -190,7 +190,7 @@ mod self_contained_call {
 
 				let balance_before = Assets::balance(XRP_ASSET_ID, &caller);
 
-				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::submit_encoded_xrpl_transaction {
+				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::transact {
 					encoded_msg: BoundedVec::truncate_from(tx_bytes.clone()),
 					signature: BoundedVec::truncate_from(signature.clone()),
 					call: Box::new(call.clone()),
