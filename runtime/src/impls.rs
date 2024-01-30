@@ -506,7 +506,7 @@ pub struct FuturepassCallValidator;
 impl seed_pallet_common::ExtrinsicChecker for FuturepassCallValidator {
 	type Call = <Runtime as frame_system::Config>::RuntimeCall;
 	fn check_extrinsic(call: &Self::Call) -> bool {
-		matches!(call, RuntimeCall::Xrpl(pallet_xrpl::Call::submit_encoded_xrpl_transaction { .. }))
+		matches!(call, RuntimeCall::Xrpl(pallet_xrpl::Call::transact { .. }))
 	}
 }
 
