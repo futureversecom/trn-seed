@@ -48,7 +48,7 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_xrpl_transaction.
 pub trait WeightInfo {
-	fn submit_encoded_xrpl_transaction() -> Weight;
+	fn transact() -> Weight;
 }
 
 /// Weights for pallet_xrpl_transaction using the Substrate node and recommended hardware.
@@ -56,7 +56,7 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
-	fn submit_encoded_xrpl_transaction() -> Weight {
+	fn transact() -> Weight {
 		Weight::from_ref_time(174_662_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 	}
@@ -66,7 +66,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
-	fn submit_encoded_xrpl_transaction() -> Weight {
+	fn transact() -> Weight {
 		Weight::from_ref_time(174_662_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 	}

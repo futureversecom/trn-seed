@@ -28,7 +28,7 @@ where
 benchmarks! {
 	where_clause { where <T as frame_system::Config>::AccountId: From<sp_core::H160> }
 
-  submit_encoded_xrpl_transaction {
+  transact {
 		// encoded call for: chainIid = 0, nonce = 0, max_block_number = 5, tip = 0, extrinsic = System::remark
 		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: Default::default() }.into();
 		let boxed_call = Box::new(call.clone());
