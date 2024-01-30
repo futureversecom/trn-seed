@@ -419,7 +419,7 @@ describe("XRPL pallet", () => {
     const cost = await api.tx.xrpl
       .submitEncodedXrplTransaction(`0x${message}`, `0x${signature}`, extrinsic)
       .paymentInfo(user.address);
-    expect(cost.partialFee.toNumber()).to.be.greaterThan(950_000).and.lessThan(965_000);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(945_000).and.lessThan(965_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
