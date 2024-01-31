@@ -14,26 +14,16 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg(feature = "runtime-benchmarks")]
-#![cfg(feature = "std")]
 
 use super::*;
 
 #[allow(unused_imports)]
 use crate::Pallet as DoughnutPallet;
-use seed_primitives::AccountId;
-
-use doughnut_rs::{
-	doughnut::{Doughnut, DoughnutV0, DoughnutV1},
-	signature::{sign_ecdsa, verify_signature, SignatureVersion},
-	traits::{DoughnutApi, DoughnutVerify, Signing},
-};
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
-use seed_primitives::Balance;
-use sp_core::{
-	bytes::to_hex, crypto::ByteArray, ecdsa, ecdsa::Public, keccak_256, Pair, H512, U256,
-};
-use sp_runtime::traits::One;
+use hex_literal::hex;
+use sp_io::hashing::keccak_256;
+use sp_std::{vec, vec::Vec};
 
 pub fn account<T: Config>(name: &'static str) -> T::AccountId
 where
@@ -56,56 +46,43 @@ where
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
-fn make_doughnut(
-	holder: Public,
-	issuer: Public,
-	issuer_secret_key: &[u8; 32],
-	domain: &str,
-	domain_payload: Vec<u8>,
-) -> Doughnut {
-	let mut doughnut_v1 = DoughnutV1 {
-		holder: holder.as_slice().try_into().expect("should not fail"),
-		issuer: issuer.as_slice().try_into().expect("should not fail"),
-		domains: vec![(domain.to_string(), domain_payload)],
-		expiry: 0,
-		not_before: 0,
-		payload_version: 0,
-		signature_version: SignatureVersion::ECDSA as u8,
-		signature: [0_u8; 64],
-	};
-	let signature = doughnut_v1.sign_ecdsa(issuer_secret_key).unwrap();
-	println!("Verified?: {:?}", doughnut_v1.verify());
-	Doughnut::V1(doughnut_v1)
-}
-
 benchmarks! {
 	where_clause { where <T as frame_system::Config>::AccountId: From<sp_core::H160> + From<AccountId20> }
 
 	transact {
-		let issuer: ecdsa::Pair = Pair::from_string("//Bob", None).unwrap();
-		let holder: ecdsa::Pair = Pair::from_string("//Alice", None).unwrap();
-		let mut doughnut = make_doughnut(
-			holder.public(),
-			issuer.public(),
-			&hex!("79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf"),
-			"",
-			vec![],
-		);
+		let bob = H160::from(hex!("25451a4de12dccc2d166922fa938e900fcc4ed24"));
+		let bob: T::AccountId = bob.into();
 
-		let doughnut_encoded = doughnut.encode();
-		let alice_private = hex!("cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854");
-		let signature: Vec<u8> = sign_ecdsa(&alice_private, &doughnut_encoded.as_slice()).unwrap().to_vec();
-
+		// Doughnut from Alice to Bob
+		let doughnut_encoded = hex!("011000020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a10390084fdbf27d2b79d26a4f13f0ccd982cb755a661969143c37cbc49ef5b91f270000000000310000000000000000000000000000000000d35aef05a023e2e75f038abba9d1357671c3044e2664c6cc099115adceb492a2677fe2233735f31442d5c33921e9d49fd305af28b8ffa6bd4ec86076ad026b8d");
+		let doughnut_encoded: Vec<u8> = doughnut_encoded.to_vec();
+		// Signature not required for transact part
+		let signature = vec![];
 		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: b"Mischief Managed".to_vec() }.into();
 		let nonce: u32 = 0;
-
-		let holder_address: T::AccountId =
-		DoughnutPallet::<T>::get_address(holder.public().0.try_into().unwrap())
-			.unwrap().into();
-	}: _(origin::<T>(&holder_address), Box::new(call), doughnut_encoded, nonce, signature)
+	}: _(origin::<T>(&bob), Box::new(call), doughnut_encoded, nonce, signature)
 	verify {
 		// Verify success event was thrown
-		assert_last_event::<T>(Event::DoughnutCallExecuted { result: DispatchResult::Ok(()) }.into())
+		assert_last_event::<T>(Event::DoughnutCallExecuted { result: DispatchResult::Ok(()) }.into());
+	}
+
+	revoke_doughnut {
+		let alice = H160::from(hex!("e04cc55ebee1cbce552f250e85c57b70b2e2625b"));
+		let alice: T::AccountId = alice.into();
+		let doughnut_encoded = hex!("011000020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a10390084fdbf27d2b79d26a4f13f0ccd982cb755a661969143c37cbc49ef5b91f270000000000310000000000000000000000000000000000d35aef05a023e2e75f038abba9d1357671c3044e2664c6cc099115adceb492a2677fe2233735f31442d5c33921e9d49fd305af28b8ffa6bd4ec86076ad026b8d");
+		let doughnut_encoded: Vec<u8> = doughnut_encoded.to_vec();
+	}: _(origin::<T>(&alice), doughnut_encoded.clone(), true)
+	verify {
+		let doughnut_hash = keccak_256(&doughnut_encoded);
+		assert!(BlockedDoughnuts::<T>::get(doughnut_hash));
+	}
+
+	revoke_holder {
+		let alice = account::<T>("//Alice");
+		let bob = account::<T>("//Bob");
+	}: _(origin::<T>(&alice), bob.clone(), true)
+	verify {
+		assert!(BlockedHolders::<T>::get(alice, bob));
 	}
 }
 

@@ -1161,6 +1161,7 @@ impl pallet_fee_control::Config for Runtime {
 impl pallet_doughnut::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type WeightInfo = weights::pallet_doughnut::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -2133,5 +2134,6 @@ mod benches {
 		[pallet_dex, Dex]
 		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_marketplace, Marketplace]
+		[pallet_doughnut, Doughnut]
 	);
 }
