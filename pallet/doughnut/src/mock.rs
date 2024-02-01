@@ -90,6 +90,7 @@ parameter_types! {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type CallValidator = MockDoughnutCallValidator;
 	type WeightInfo = ();
 }
 
@@ -161,3 +162,13 @@ pub type Executive = frame_executive::Executive<
 	Test,
 	AllPalletsWithSystem,
 >;
+
+pub struct MockDoughnutCallValidator;
+
+impl ExtrinsicChecker for MockDoughnutCallValidator {
+	type Call = RuntimeCall;
+	type PermissionObject = TRNNut;
+	fn check_extrinsic(_call: &Self::Call, _trnnut: &Self::PermissionObject) -> DispatchResult {
+		Ok(())
+	}
+}

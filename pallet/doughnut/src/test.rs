@@ -287,7 +287,8 @@ fn transact_works() {
 		.build()
 		.execute_with(|| {
 			let holder = BOB;
-			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+			let trnnut = make_trnnut("Balances", "transfer");
+			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
 			let doughnut_encoded = doughnut.encode();
 
 			// Create balances transfer call
@@ -372,14 +373,15 @@ fn transact_holder_not_signed_doughnut_should_fail() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
+		let trnnut = make_trnnut("System", "remark");
 		let mut doughnut_v1 = DoughnutV1 {
 			holder: holder.public().as_slice().try_into().expect("should not fail"),
 			issuer: issuer.public().as_slice().try_into().expect("should not fail"),
 			fee_mode: 0,
-			domains: vec![(String::from(""), vec![])],
+			domains: vec![(String::from("trn"), trnnut.encode())],
 			expiry: 0,
 			not_before: 0,
-			payload_version: 0,
+			payload_version: PayloadVersion::V1 as u16,
 			signature_version: SignatureVersion::ECDSA as u8,
 			signature: [0_u8; 64],
 		};
@@ -412,7 +414,8 @@ fn revoke_doughnut_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
-		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+		let trnnut = make_trnnut("System", "remark");
+		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
 		let doughnut_encoded = doughnut.encode();
 
 		assert_ok!(DoughnutPallet::revoke_doughnut(
@@ -492,7 +495,8 @@ fn revoke_holder_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
-		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+		let trnnut = make_trnnut("System", "remark");
+		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
 		let doughnut_encoded = doughnut.encode();
 
 		assert_ok!(DoughnutPallet::revoke_holder(
@@ -579,7 +583,7 @@ fn generate_alice_to_bob_outer_signature() {
 }
 
 #[test]
-fn generate_alice_to_bob_outer_signature_for_Balances_transfer() {
+fn generate_alice_to_bob_outer_signature_for_balances_transfer() {
 	let issuer = ALICE;
 	let initial_balance = 10_000;
 	TestExt::<Test>::default()
@@ -621,7 +625,7 @@ fn generate_alice_to_bob_outer_signature_for_Balances_transfer() {
 }
 
 #[test]
-fn generate_alice_to_bob_outer_signature_for_Balances_transfer_keep_alive() {
+fn generate_alice_to_bob_outer_signature_for_balances_transfer_keep_alive() {
 	let issuer = ALICE;
 	let initial_balance = 10_000;
 	TestExt::<Test>::default()
@@ -670,7 +674,8 @@ fn signed_extension_validations_succeed() {
 		.execute_with(|| {
 			let issuer = ALICE;
 			let holder = BOB;
-			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+			let trnnut = make_trnnut("System", "remark_with_event");
+			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
 			let doughnut_encoded = doughnut.encode();
 
 			// Fund the issuer so they can pass the validations for paying gas
