@@ -26,21 +26,26 @@ use sp_runtime::FixedPointOperand;
 
 use alloc::{boxed::Box, vec::Vec};
 use doughnut_rs::{
-	doughnut::Doughnut,
+	doughnut::{Doughnut, DoughnutV1},
 	signature::{verify_signature, SignatureVersion},
 	traits::{DoughnutApi, DoughnutVerify},
 };
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
-	traits::IsSubType,
+	traits::{CallMetadata, GetCallMetadata, IsSubType},
 };
 use frame_system::{CheckNonZeroSender, CheckNonce, CheckWeight};
+use pact::types::{Numeric, PactType, StringLike};
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use seed_primitives::AccountId20;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
+	traits::{
+		CheckedConversion, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension,
+		StaticLookup,
+	},
 	transaction_validity::ValidTransactionBuilder,
 };
+use trnnut_rs::TRNNut;
 
 pub mod weights;
 pub use weights::WeightInfo;
@@ -57,6 +62,8 @@ mod test;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+const TRN_PERMISSION_DOMAIN: &str = "trn";
+
 impl<T> Call<T>
 	where
 		T: Send + Sync + Config,
@@ -68,6 +75,7 @@ impl<T> Call<T>
 		<T as frame_system::Config>::RuntimeCall: From<<T as Config>::RuntimeCall>,
 		PostDispatchInfo: From<<<T as Config>::RuntimeCall as Dispatchable>::PostInfo>,
 		<T as frame_system::Config>::Index: From<u32>,
+		<T as Config>::RuntimeCall: GetCallMetadata,
 {
 	pub fn is_self_contained(&self) -> bool {
 		matches!(self, Call::transact { .. })
@@ -236,6 +244,7 @@ impl<T> Call<T>
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use seed_pallet_common::ExtrinsicChecker;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
@@ -258,8 +267,12 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>
-			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
-
+			+ GetCallMetadata;
+		/// Inner call validator
+		type CallValidator: ExtrinsicChecker<
+			Call = <Self as Config>::RuntimeCall,
+			PermissionObject = TRNNut,
+		>;
 		/// Weight information for the extrinsic call in this module.
 		type WeightInfo: WeightInfo;
 	}
@@ -305,6 +318,12 @@ pub mod pallet {
 		DoughnutRevoked,
 		/// The holder address has been revoked by the issuer
 		HolderRevoked,
+		/// TRNNut decode failed.
+		TRNNutDecodeFailed,
+		/// TRNNut permissions denied.
+		TRNNutPermissionDenied,
+		/// Inner call is not whitelisted
+		UnsupportedInnerCall,
 	}
 
 	#[pallet::hooks]
@@ -317,6 +336,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T>
 	where
 		<T as frame_system::Config>::AccountId: From<H160>,
+		<T as Config>::RuntimeCall: GetCallMetadata,
 	{
 		#[pallet::weight({
 			let call_weight = call.get_dispatch_info().weight;
@@ -353,6 +373,17 @@ pub mod pallet {
 				!BlockedHolders::<T>::get(issuer_address.clone(), holder_address.clone()),
 				Error::<T>::HolderRevoked
 			);
+
+			// permission domain - trnnut validations
+			// Self::check_permissions(*call.clone(), doughnut_v1)?;
+			let Some(trnnut_payload) = doughnut_v1.get_domain(TRN_PERMISSION_DOMAIN) else {
+				return Err(Error::<T>::TRNNutDecodeFailed)?
+			};
+			let trnnut = TRNNut::decode(&mut trnnut_payload.clone())
+				.map_err(|_| Error::<T>::TRNNutDecodeFailed)?;
+
+			// check trnnut permissions
+			T::CallValidator::check_extrinsic(&(*call), &trnnut)?;
 
 			// dispatch the inner call
 			let issuer_origin = frame_system::RawOrigin::Signed(issuer_address).into();
@@ -409,8 +440,6 @@ where
 	<T as frame_system::Config>::AccountId: From<H160>,
 {
 	fn get_address(raw_pub_key: [u8; 33]) -> Result<T::AccountId, DispatchError> {
-		// let mut public_key = [0x02; 33];
-		// public_key[1..].clone_from_slice(&raw_pub_key[..]);
 		let account_id_20 = AccountId20::try_from(ecdsa::Public::from_raw(raw_pub_key))
 			.map_err(|_| Error::<T>::UnauthorizedSender)?;
 		Ok(T::AccountId::from(H160::from_slice(&account_id_20.0)))
