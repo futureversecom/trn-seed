@@ -25,11 +25,12 @@ use frame_support::{
 		fungible::Inspect,
 		fungibles,
 		tokens::{DepositConsequence, WithdrawConsequence},
-		Currency, ExistenceRequirement, FindAuthor, Imbalance, InstanceFilter, OnUnbalanced,
-		ReservableCurrency, SignedImbalance, WithdrawReasons,
+		CallMetadata, Currency, ExistenceRequirement, FindAuthor, GetCallMetadata, Imbalance,
+		InstanceFilter, OnUnbalanced, ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
 	weights::WeightToFee,
 };
+use pact::types::{Numeric, PactType, StringLike};
 use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnChargeEVMTransaction};
 use sp_core::{H160, U256};
 use sp_runtime::{
@@ -56,7 +57,8 @@ use crate::{
 	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
 	UncheckedExtrinsic, EVM,
 };
-use sp_runtime::traits::{Dispatchable, Saturating, UniqueSaturatedInto};
+use sp_runtime::traits::{Dispatchable, Saturating, StaticLookup, UniqueSaturatedInto};
+use trnnut_rs::TRNNut;
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -863,6 +865,71 @@ where
 			// 18DP to 6DP conversion happening there.
 			let tip_18dp: C::Balance = scale_6dp_to_wei(tip.peek().into()).into();
 			let _ = C::deposit_into_existing(&account_id, tip_18dp);
+		}
+	}
+}
+
+pub struct DoughnutCallValidator;
+impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
+	type Call = RuntimeCall;
+	type PermissionObject = TRNNut;
+	fn check_extrinsic(call: &Self::Call, trnnut: &Self::PermissionObject) -> DispatchResult {
+		let CallMetadata { function_name, pallet_name } = call.get_call_metadata();
+
+		match call {
+			// Balances
+			RuntimeCall::Balances(pallet_balances::Call::transfer { dest, value }) => {
+				let who = <Runtime as frame_system::Config>::Lookup::lookup(dest.clone())
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
+				let destination: [u8; 20] = who.into();
+				let value_u128: u128 = (*value).into();
+
+				trnnut
+					.validate_runtime_call(
+						pallet_name,
+						function_name,
+						// TODO: change the u64 conversion once pact Numeric support u128
+						&[
+							PactType::StringLike(StringLike(destination.to_vec())),
+							PactType::Numeric(Numeric(value_u128 as u64)),
+						],
+					)
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
+				Ok(())
+			},
+			RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { dest, value }) => {
+				let who = <Runtime as frame_system::Config>::Lookup::lookup(dest.clone())
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
+				let destination: [u8; 20] = who.into();
+				let value_u128: u128 = (*value).into();
+
+				trnnut
+					.validate_runtime_call(
+						pallet_name,
+						function_name,
+						// TODO: change the u64 conversion once pact Numeric support u128
+						&[
+							PactType::StringLike(StringLike(destination.to_vec())),
+							PactType::Numeric(Numeric(value_u128 as u64)),
+						],
+					)
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
+				Ok(())
+			},
+			// Futurepass
+			RuntimeCall::Futurepass(pallet_futurepass::Call::create { account }) => {
+				let owner_account: [u8; 20] = (*account).clone().into();
+				trnnut
+					.validate_runtime_call(
+						pallet_name,
+						function_name,
+						&[PactType::StringLike(StringLike(owner_account.to_vec()))],
+					)
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
+				Ok(())
+			},
+
+			_ => return Err(pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied.into()),
 		}
 	}
 }
