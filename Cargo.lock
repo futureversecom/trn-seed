@@ -8831,6 +8831,7 @@ dependencies = [
  "hex",
  "hex-literal 0.3.4",
  "log",
+ "pact",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-authorship",
@@ -8923,6 +8924,7 @@ dependencies = [
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
  "tokio",
+ "trnnut-rs",
  "try-runtime-cli",
 ]
 
