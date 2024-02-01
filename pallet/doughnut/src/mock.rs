@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::{self as pallet_doughnut};
-use frame_support::weights::WeightToFee;
+use frame_support::{traits::InstanceFilter, weights::WeightToFee};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{Address, Signature};
 use sp_runtime::generic;
@@ -40,6 +40,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		FeeControl: pallet_fee_control,
 		Doughnut: pallet_doughnut,
+		Futurepass: pallet_futurepass,
 	}
 );
 
@@ -48,6 +49,7 @@ impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 impl_pallet_fee_control_config!(Test);
+impl_pallet_futurepass_config!(Test);
 
 pub struct FeeControlWeightToFee;
 impl WeightToFee for FeeControlWeightToFee {
@@ -88,6 +90,7 @@ parameter_types! {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type CallValidator = MockDoughnutCallValidator;
 	type WeightInfo = ();
 }
 
@@ -159,3 +162,13 @@ pub type Executive = frame_executive::Executive<
 	Test,
 	AllPalletsWithSystem,
 >;
+
+pub struct MockDoughnutCallValidator;
+
+impl ExtrinsicChecker for MockDoughnutCallValidator {
+	type Call = RuntimeCall;
+	type PermissionObject = TRNNut;
+	fn check_extrinsic(_call: &Self::Call, _trnnut: &Self::PermissionObject) -> DispatchResult {
+		Ok(())
+	}
+}
