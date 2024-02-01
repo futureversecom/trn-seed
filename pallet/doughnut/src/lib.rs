@@ -26,7 +26,7 @@ use sp_runtime::FixedPointOperand;
 
 use alloc::{boxed::Box, vec::Vec};
 use doughnut_rs::{
-	doughnut::Doughnut,
+	doughnut::{Doughnut, DoughnutV1},
 	signature::{crypto::verify_signature, SignatureVersion},
 	traits::{DoughnutApi, DoughnutVerify},
 	TRNNutV0,
@@ -36,13 +36,18 @@ use frame_support::{
 	traits::{GetCallMetadata, IsSubType},
 };
 use frame_system::{CheckNonZeroSender, CheckNonce, CheckWeight};
+use pact::types::{Numeric, PactType, StringLike};
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use seed_primitives::AccountId20;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
+	traits::{
+		CheckedConversion, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension,
+		StaticLookup,
+	},
 	transaction_validity::ValidTransactionBuilder,
 };
 use alloc::vec::Vec;
+use trnnut_rs::TRNNut;
 
 pub mod weights;
 pub use weights::WeightInfo;
@@ -53,6 +58,8 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod test;
+
+const TRN_PERMISSION_DOMAIN: &str = "trn";
 
 const TRN_PERMISSION_DOMAIN: &str = "trn";
 
