@@ -80,6 +80,8 @@ pallet-evm-precompiles-dex = { path = "../evm-precompiles/dex", default-features
 pallet-evm-precompiles-futurepass = { path = "../evm-precompiles/futurepass", default-features = false }
 pallet-evm-precompiles-futurepass-registrar = { path = "../evm-precompiles/futurepass_registrar", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
+pact = { path = "../../../pact", default-features = false }
+trnnut-rs = { path = "../../../trn-trnnut-rs", default-features = false }
 
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
@@ -231,6 +233,8 @@ std = [
 	"pallet-election-provider-support-benchmarking?/std",
 	"pallet-preimage/std",
 	"pallet-doughnut/std",
+	"pact/std",
+	"trnnut-rs/std",
 ]
 
 try-runtime = [
