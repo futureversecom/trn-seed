@@ -364,6 +364,16 @@ pub mod pallet {
 			let holder_address = Self::get_address(doughnut_v1.holder)?;
 			ensure!(holder_address == sender, Error::<T>::UnauthorizedSender);
 
+			// Ensure doughnut is not revoked
+			let doughnut_hash = keccak_256(&doughnut);
+			ensure!(!BlockedDoughnuts::<T>::get(doughnut_hash), Error::<T>::DoughnutRevoked);
+
+			// Ensure holder is not revoked
+			ensure!(
+				!BlockedHolders::<T>::get(issuer_address.clone(), holder_address.clone()),
+				Error::<T>::HolderRevoked
+			);
+
 			// permission domain - trnnut validations
 			// Self::check_permissions(*call.clone(), doughnut_v1)?;
 			let Some(trnnut_payload) = doughnut_v1.get_domain(TRN_PERMISSION_DOMAIN) else {
@@ -374,16 +384,6 @@ pub mod pallet {
 
 			// check trnnut permissions
 			T::CallValidator::check_extrinsic(&(*call), &trnnut)?;
-
-			// Ensure doughnut is not revoked
-			let doughnut_hash = keccak_256(&doughnut);
-			ensure!(!BlockedDoughnuts::<T>::get(doughnut_hash), Error::<T>::DoughnutRevoked);
-
-			// Ensure holder is not revoked
-			ensure!(
-				!BlockedHolders::<T>::get(issuer_address.clone(), holder_address.clone()),
-				Error::<T>::HolderRevoked
-			);
 
 			// dispatch the inner call
 			let issuer_origin = frame_system::RawOrigin::Signed(issuer_address).into();
