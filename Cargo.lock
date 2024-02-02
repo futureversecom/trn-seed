@@ -1503,6 +1503,7 @@ dependencies = [
 [[package]]
 name = "doughnut-rs"
 version = "0.1.0"
+source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/trn-doughnut#82d4312e2f1c055d0d60f4bb1ef257c638f3078c"
 dependencies = [
  "blake2",
  "clear_on_drop",
@@ -4955,6 +4956,7 @@ dependencies = [
 [[package]]
 name = "pact"
 version = "0.2.0"
+source = "git+https://github.com/futureversecom/trn-pact?branch=feat/wasm-pack#1c7c0c774b785554ba8b5e63ea14e89f821c4175"
 dependencies = [
  "bit_reverse",
  "hashbrown 0.6.3",
@@ -5182,7 +5184,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal 0.3.4",
- "pact",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -10685,6 +10686,7 @@ dependencies = [
 [[package]]
 name = "trnnut-rs"
 version = "0.1.1"
+source = "git+https://github.com/futureversecom/trn-trnnut-rs?branch=feat/pact-update#a871b44095c540e63348745b65a4df87f3bd384e"
 dependencies = [
  "pact",
  "parity-scale-codec",
