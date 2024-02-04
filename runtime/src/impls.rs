@@ -51,7 +51,7 @@ use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
-use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
+use seed_primitives::{AccountId, AccountId20, AssetId, Balance, Index, Signature};
 
 use crate::{
 	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
@@ -874,9 +874,15 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 	type Call = RuntimeCall;
 	type PermissionObject = TRNNutV0;
 	fn check_extrinsic(call: &Self::Call, trnnut: &Self::PermissionObject) -> DispatchResult {
-		let CallMetadata { function_name, pallet_name } = call.get_call_metadata();
+		// Check if the inner call is proxy extrinsic. If it is, we want to validate the call within
+		// Proxy extrinsic
+		let mut actual_call: Self::Call = call.clone();
+		if let RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { call, .. }) = call {
+			actual_call = *call.clone();
+		};
+		let CallMetadata { function_name, pallet_name } = actual_call.get_call_metadata();
 
-		match call {
+		match &actual_call {
 			// Balances
 			RuntimeCall::Balances(pallet_balances::Call::transfer { dest, value }) => {
 				let who = <Runtime as frame_system::Config>::Lookup::lookup(dest.clone())
