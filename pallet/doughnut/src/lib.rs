@@ -209,9 +209,8 @@ impl<T> Call<T>
 			let _pre_sender = SignedExtension::pre_dispatch(validations_sender, &sender_address, &call.clone().into(), dispatch_info, len).ok()?;
 			let pre_issuer = SignedExtension::pre_dispatch(validations_fee_payer, &fee_payer_address, &call.clone().into(), dispatch_info, len).ok()?;
 
-			// Dispatch the outer call. i.e Doughnut::transact()
-			let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(sender_address).into();
-			let res = call.dispatch(origin);
+			// Dispatch the outer call. i.e Doughnut::transact() with None as the origin
+			let res = call.dispatch(frame_system::RawOrigin::None.into());
 			let post_info = match res {
 				Ok(info) => info,
 				Err(err) => err.post_info,
@@ -339,7 +338,7 @@ pub mod pallet {
 			_nonce: u32,
 			_signature: Vec<u8>,
 		) -> DispatchResult {
-			let sender = ensure_signed(origin.clone())?;
+			ensure_none(origin)?;
 
 			// run doughnut common validations
 			let Doughnut::V1(doughnut_v1) = Self::run_doughnut_common_validations(doughnut.clone())? else {
@@ -352,7 +351,6 @@ pub mod pallet {
 			// Check holder == sender
 			let issuer_address = Self::get_address(doughnut_v1.issuer)?;
 			let holder_address = Self::get_address(doughnut_v1.holder)?;
-			ensure!(holder_address == sender, Error::<T>::UnauthorizedSender);
 
 			// Ensure doughnut is not revoked
 			let doughnut_hash = keccak_256(&doughnut);
