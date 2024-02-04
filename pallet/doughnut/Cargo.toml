@@ -31,7 +31,7 @@ trnnut-rs = { branch = "feat/pact-update", git = "https://github.com/futureverse
 #trnnut-rs = { path = "../../../../trn-trnnut-rs", default-features = false }
 
 # Frontier
-fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
+fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
 seed-pallet-common = { path = "../common", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
 precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
@@ -45,7 +45,7 @@ pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "pol
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
+pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
 pallet-fee-control = { path = "../fee-control" }
 pallet-fee-proxy = { path = "../fee-proxy" }
 pallet-dex = { path = "../dex" }

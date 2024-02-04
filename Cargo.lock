@@ -1984,7 +1984,7 @@ checksum = "25cbce373ec4653f1a01a31e8a5e5ec0c622dc27ff9c4e6606eefef5cbbed4a5"
 [[package]]
 name = "fc-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "async-trait",
  "fc-db",
@@ -2003,7 +2003,7 @@ dependencies = [
 [[package]]
 name = "fc-db"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fp-storage",
  "kvdb-rocksdb",
@@ -2021,7 +2021,7 @@ dependencies = [
 [[package]]
 name = "fc-mapping-sync"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fc-db",
  "fp-consensus",
@@ -2038,7 +2038,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2081,7 +2081,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc-core"
 version = "1.1.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2219,7 +2219,7 @@ dependencies = [
 [[package]]
 name = "fp-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "ethereum",
  "parity-scale-codec",
@@ -2231,7 +2231,7 @@ dependencies = [
 [[package]]
 name = "fp-ethereum"
 version = "1.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2246,7 +2246,7 @@ dependencies = [
 [[package]]
 name = "fp-evm"
 version = "3.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "evm",
  "frame-support",
@@ -2259,7 +2259,7 @@ dependencies = [
 [[package]]
 name = "fp-rpc"
 version = "3.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2288,23 +2288,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "fp-self-contained"
-version = "1.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
-dependencies = [
- "ethereum",
- "frame-support",
- "parity-scale-codec",
- "parity-util-mem",
- "scale-info",
- "serde",
- "sp-runtime",
-]
-
-[[package]]
 name = "fp-storage"
 version = "2.0.0"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -5107,7 +5093,7 @@ dependencies = [
 [[package]]
 name = "pallet-base-fee"
 version = "1.0.0"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fp-evm",
  "frame-support",
@@ -5178,7 +5164,7 @@ version = "1.0.0"
 dependencies = [
  "doughnut-rs",
  "fp-evm",
- "fp-self-contained 1.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "fp-self-contained",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -5291,7 +5277,7 @@ dependencies = [
 [[package]]
 name = "pallet-ethereum"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -5300,7 +5286,7 @@ dependencies = [
  "fp-ethereum",
  "fp-evm",
  "fp-rpc",
- "fp-self-contained 1.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-self-contained",
  "fp-storage",
  "frame-support",
  "frame-system",
@@ -5348,7 +5334,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm"
 version = "6.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "environmental",
  "evm",
@@ -5391,7 +5377,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-blake2"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fp-evm",
 ]
@@ -5399,7 +5385,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fp-evm",
  "num",
@@ -5408,7 +5394,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-sha3fips"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fp-evm",
  "tiny-keccak",
@@ -5417,7 +5403,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-simple"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fp-evm",
  "ripemd",
@@ -8871,7 +8857,7 @@ dependencies = [
  "evm",
  "fp-evm",
  "fp-rpc",
- "fp-self-contained 1.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-self-contained",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-executive",

@@ -56,14 +56,14 @@ frame-system = { git = "https://github.com/paritytech/substrate", branch = "polk
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate" , branch = "polkadot-v0.9.30" }
 
 # Frontier
-fc-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
-fc-db = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
-fc-mapping-sync = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
-fc-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp", features = [ "rpc_binary_search_estimate" ] }
-fc-rpc-core = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
-fp-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
-fp-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
-fp-storage = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
+fc-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
+fc-db = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
+fc-mapping-sync = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
+fc-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN", features = [ "rpc_binary_search_estimate" ] }
+fc-rpc-core = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
+fp-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
+fp-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
+fp-storage = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
 
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
