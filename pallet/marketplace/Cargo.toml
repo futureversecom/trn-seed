@@ -30,7 +30,7 @@ pallet-assets-ext = { path = "../assets-ext" }
 pallet-fee-control = { path = "../fee-control" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-trn-sp" }
+pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 
 [features]
