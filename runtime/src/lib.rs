@@ -22,6 +22,9 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+extern crate alloc;
+
+use alloc::string::String;
 use codec::{Decode, Encode};
 use core::ops::Mul;
 use fp_rpc::TransactionStatus;
@@ -31,9 +34,7 @@ use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
 	TransactionAction,
 };
-use pallet_evm::{
-	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
-};
+use pallet_evm::{Account as EVMAccount, EnsureAddressNever, FeeCalculator, Runner as RunnerT};
 use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use seed_pallet_common::MaintenanceCheck;
@@ -152,7 +153,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 47,
+	spec_version: 48,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -576,6 +577,8 @@ parameter_types! {
 	pub const XRPTransactionLimitPerLedger: u32 = 1_000_000;
 	/// NOTE - This value can't be set too high. 5000 is roughly 25% of the max block weight
 	pub const MaxPrunedTransactionsPerBlock: u32 = 5000;
+	pub const MaxDelayedPaymentsPerBlock: u32 = 1000;
+	pub const DelayedPaymentBlockLimit: BlockNumber = 1000;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -587,6 +590,8 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type MaxPrunedTransactionsPerBlock = MaxPrunedTransactionsPerBlock;
+	type MaxDelayedPaymentsPerBlock = MaxDelayedPaymentsPerBlock;
+	type DelayedPaymentBlockLimit = DelayedPaymentBlockLimit;
 	type UnixTime = Timestamp;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
@@ -1056,15 +1061,6 @@ parameter_types! {
 	pub WeightPerGas: Weight = Weight::from_ref_time(WEIGHT_PER_GAS);
 }
 
-/// Modified london config with higher contract create fee
-const fn seed_london() -> EvmConfig {
-	let mut c = EvmConfig::london();
-	c.gas_transaction_create = 2_000_000;
-	c
-}
-
-pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
-
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = FeeControl;
 	type GasWeightMapping = FutureverseGasWeightMapping;
@@ -1081,10 +1077,6 @@ impl pallet_evm::Config for Runtime {
 	type BlockGasLimit = BlockGasLimit;
 	type OnChargeTransaction = FutureverseEVMCurrencyAdapter<Self::Currency, TxFeePot>;
 	type FindAuthor = EthereumFindAuthor<Babe>;
-	// internal EVM config
-	fn config() -> &'static EvmConfig {
-		&SEED_EVM_CONFIG
-	}
 	type HandleTxValidation = HandleTxValidation<pallet_evm::Error<Runtime>>;
 	type WeightPerGas = WeightPerGas;
 }
@@ -1604,6 +1596,16 @@ impl_runtime_apis! {
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Nft::token_uri(token_id)
 		}
+	}
+
+	impl pallet_assets_ext_rpc_runtime_api::AssetsExtApi<
+		Block,
+		AccountId,
+	> for Runtime {
+		fn free_balance(asset_id: AssetId, who: AccountId, keep_alive: bool) -> String {
+			let bal = AssetsExt::reducible_balance(asset_id, &who, keep_alive);
+			alloc::format!("{}", bal)
+		 }
 	}
 
 	impl pallet_sft_rpc_runtime_api::SftApi<Block, Runtime> for Runtime {

@@ -46,6 +46,11 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 		Weight::from_ref_time(19_668_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
+	// Storage: XRPLBridge PaymentDelay (r:0 w:1)
+	fn set_payment_delay() -> Weight {
+		Weight::from_ref_time(10_560_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
 	// Storage: XRPLBridge DoorTxFee (r:1 w:0)
 	// Storage: XRPLBridge DoorAddress (r:1 w:0)
 	// Storage: Assets Asset (r:1 w:1)
@@ -114,6 +119,11 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 			.saturating_add(T::DbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
 	}
+	// Storage: XRPLBridge SourceTag (r:0 w:1)
+	fn set_xrp_source_tag() -> Weight {
+		Weight::from_ref_time(15_240_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+  }
 	// Storage: XRPLBridge HighestSettledLedgerIndex (r:1 w:0)
 	// Storage: XRPLBridge SubmissionWindowWidth (r:1 w:0)
 	// Storage: XRPLBridge SettledXRPTransactionDetails (r:1 w:1)

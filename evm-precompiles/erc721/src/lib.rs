@@ -89,6 +89,8 @@ pub enum Action {
 	Owner = "owner()",
 	RenounceOwnership = "renounceOwnership()",
 	TransferOwnership = "transferOwnership(address)",
+	// ERC721Burnable - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC721/extensions/ERC721Burnable.sol
+	Burn = "burn(uint256)",
 	// The Root Network extensions
 	TotalSupply = "totalSupply()",
 	Mint = "mint(address,uint32)",
@@ -198,6 +200,8 @@ where
 							Self::renounce_ownership(collection_id, handle),
 						Action::TransferOwnership =>
 							Self::transfer_ownership(collection_id, handle),
+						// Burnable
+						Action::Burn => Self::burn(collection_id, handle),
 						// The Root Network extensions
 						Action::TotalSupply => Self::total_supply(collection_id, handle),
 						Action::Mint => Self::mint(collection_id, handle),
@@ -1012,6 +1016,63 @@ where
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))
+	}
+
+	fn burn(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(4, 32)?;
+
+		// Parse input.
+		read_args!(handle, { serial_number: U256 });
+
+		// For now we only support Ids < u32 max
+		// since `u32` is the native `SerialNumber` type used by the NFT module.
+		// it's not possible for the module to issue Ids larger than this
+		if serial_number > u32::MAX.into() {
+			return Err(revert("ERC721: Expected token id <= 2^32").into())
+		}
+		let serial_number: SerialNumber = serial_number.saturated_into();
+		let token_id: TokenId = (collection_id, serial_number);
+		let origin = handle.context().caller;
+
+		// Check if caller is approved
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3))?;
+		if !pallet_token_approvals::Pallet::<Runtime>::is_approved_or_owner(
+			token_id,
+			Runtime::AccountId::from(origin),
+		) {
+			return Err(revert("ERC721: Caller not approved").into())
+		}
+
+		// Get token owner and call burn from the owner address
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let owner = match pallet_nft::Pallet::<Runtime>::get_token_owner(&token_id) {
+			Some(owner) => owner,
+			None => return Err(revert("ERC721: Token does not exist").into()),
+		};
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(owner.clone()).into(),
+			pallet_nft::Call::<Runtime>::burn { token_id: (collection_id, serial_number) },
+		)?;
+
+		// Record transfer log to zero address
+		let serial_number = H256::from_low_u64_be(serial_number as u64);
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER,
+			owner.into(),
+			H160::default(),
+			serial_number,
+			vec![],
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed([]))
 	}
 
 	fn enable_xls20_compatibility(

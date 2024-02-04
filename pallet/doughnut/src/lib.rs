@@ -26,23 +26,19 @@ use sp_runtime::FixedPointOperand;
 
 use alloc::{boxed::Box, vec::Vec};
 use doughnut_rs::{
-	doughnut::{Doughnut, DoughnutV1},
+	doughnut::Doughnut,
 	signature::{verify_signature, SignatureVersion},
 	traits::{DoughnutApi, DoughnutVerify},
 };
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
-	traits::{CallMetadata, GetCallMetadata, IsSubType},
+	traits::{GetCallMetadata, IsSubType},
 };
 use frame_system::{CheckNonZeroSender, CheckNonce, CheckWeight};
-use pact::types::{Numeric, PactType, StringLike};
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use seed_primitives::AccountId20;
 use sp_runtime::{
-	traits::{
-		CheckedConversion, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension,
-		StaticLookup,
-	},
+	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
 	transaction_validity::ValidTransactionBuilder,
 };
 use trnnut_rs::TRNNut;
@@ -50,17 +46,12 @@ use trnnut_rs::TRNNut;
 pub mod weights;
 pub use weights::WeightInfo;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod test;
-//
-// mod weights;
-//
-// pub use weights::WeightInfo;
-
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
 
 const TRN_PERMISSION_DOMAIN: &str = "trn";
 
@@ -259,8 +250,7 @@ pub mod pallet {
 	{
 		/// The overarching event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		// /// Weight Info
-		// type WeightInfo: WeightInfo;
+		/// The overarching call type.
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ GetDispatchInfo
@@ -373,7 +363,6 @@ pub mod pallet {
 			);
 
 			// permission domain - trnnut validations
-			// Self::check_permissions(*call.clone(), doughnut_v1)?;
 			let Some(trnnut_payload) = doughnut_v1.get_domain(TRN_PERMISSION_DOMAIN) else {
 				return Err(Error::<T>::TRNNutDecodeFailed)?
 			};
@@ -469,11 +458,6 @@ pub type DoughnutFeePayerValidations<T> = (
 	// frame_system::CheckNonce<T>,
 	pallet_transaction_payment::ChargeTransactionPayment<T>,
 );
-
-// /// Checks performed on a issuer of a Doughnut transaction
-// pub type GasPaymentValidation<T> = (
-// 	pallet_transaction_payment::ChargeTransactionPayment<T>,
-// );
 
 /// Checks performed on a sender of a Doughnut transaction
 pub type DoughnutSenderValidations<T> = (

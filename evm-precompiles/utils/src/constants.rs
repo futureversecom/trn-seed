@@ -48,4 +48,6 @@ mod precompile_addresses {
 	pub const FEE_FUNCTION_SELECTOR: [u8; 4] = [0xf6, 0x09, 0x82, 0x86];
 	/// Precompile address for futurepass registar
 	pub const FUTUREPASS_REGISTRAR_PRECOMPILE: u64 = 65_535; // 0xFFFF
+	/// Precompile address for marketplace
+	pub const MARKETPLACE_PRECOMPILE: u64 = 1741; // 0x06C3
 }

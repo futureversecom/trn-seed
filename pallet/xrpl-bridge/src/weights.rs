@@ -50,6 +50,7 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn submit_transaction() -> Weight;
 	fn submit_challenge() -> Weight;
+	fn set_payment_delay() -> Weight;
 	fn withdraw_xrp() -> Weight;
 	fn add_relayer() -> Weight;
 	fn remove_relayer() -> Weight;
@@ -58,6 +59,7 @@ pub trait WeightInfo {
 	fn set_ticket_sequence_next_allocation() -> Weight;
 	fn set_ticket_sequence_current_allocation() -> Weight;
 	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight;
+	fn set_xrp_source_tag() -> Weight;
 	fn prune_settled_ledger_index(i: u32, ) -> Weight;
 }
 
@@ -77,6 +79,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: XRPLBridge ChallengeXRPTransactionList (r:0 w:1)
 	fn submit_challenge() -> Weight {
 		Weight::from_ref_time(6_000_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+	// Storage: XRPLBridge PaymentDelay (r:0 w:1)
+	fn set_payment_delay() -> Weight {
+		Weight::from_ref_time(10_560_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge DoorTxFee (r:1 w:0)
@@ -111,6 +118,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_ref_time(4_000_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
+
+	// Storage: XRPLBridge XRPSourceTag (r:0 w:1)
+	fn set_xrp_source_tag() -> Weight {
+		Weight::from_ref_time(4_000_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+
 	// Storage: XRPLBridge DoorAddress (r:0 w:1)
 	fn set_door_address() -> Weight {
 		Weight::from_ref_time(14_000_000 as u64)
@@ -179,6 +193,11 @@ impl WeightInfo for () {
 		Weight::from_ref_time(6_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
+	// Storage: XRPLBridge PaymentDelay (r:0 w:1)
+	fn set_payment_delay() -> Weight {
+		Weight::from_ref_time(10_560_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
 	// Storage: XRPLBridge DoorTxFee (r:1 w:0)
 	// Storage: XRPLBridge DoorAddress (r:1 w:0)
 	// Storage: Assets Asset (r:1 w:1)
@@ -208,6 +227,11 @@ impl WeightInfo for () {
 	}
 	// Storage: XRPLBridge DoorTxFee (r:0 w:1)
 	fn set_door_tx_fee() -> Weight {
+		Weight::from_ref_time(4_000_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+	// Storage: XRPLBridge XRPSourceTag (r:0 w:1)
+	fn set_xrp_source_tag() -> Weight {
 		Weight::from_ref_time(4_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}

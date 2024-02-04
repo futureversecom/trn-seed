@@ -1503,6 +1503,7 @@ dependencies = [
 [[package]]
 name = "doughnut-rs"
 version = "0.1.0"
+source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/trn-doughnut#82d4312e2f1c055d0d60f4bb1ef257c638f3078c"
 dependencies = [
  "blake2",
  "clear_on_drop",
@@ -1823,7 +1824,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "xrpl-codec 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8)",
+ "xrpl-codec",
 ]
 
 [[package]]
@@ -1983,7 +1984,7 @@ checksum = "25cbce373ec4653f1a01a31e8a5e5ec0c622dc27ff9c4e6606eefef5cbbed4a5"
 [[package]]
 name = "fc-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "async-trait",
  "fc-db",
@@ -2002,7 +2003,7 @@ dependencies = [
 [[package]]
 name = "fc-db"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fp-storage",
  "kvdb-rocksdb",
@@ -2020,7 +2021,7 @@ dependencies = [
 [[package]]
 name = "fc-mapping-sync"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fc-db",
  "fp-consensus",
@@ -2037,7 +2038,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2080,7 +2081,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc-core"
 version = "1.1.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2218,7 +2219,7 @@ dependencies = [
 [[package]]
 name = "fp-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "ethereum",
  "parity-scale-codec",
@@ -2230,7 +2231,7 @@ dependencies = [
 [[package]]
 name = "fp-ethereum"
 version = "1.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2245,7 +2246,7 @@ dependencies = [
 [[package]]
 name = "fp-evm"
 version = "3.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "evm",
  "frame-support",
@@ -2258,7 +2259,7 @@ dependencies = [
 [[package]]
 name = "fp-rpc"
 version = "3.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2287,23 +2288,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "fp-self-contained"
-version = "1.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
-dependencies = [
- "ethereum",
- "frame-support",
- "parity-scale-codec",
- "parity-util-mem",
- "scale-info",
- "serde",
- "sp-runtime",
-]
-
-[[package]]
 name = "fp-storage"
 version = "2.0.0"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -4955,6 +4942,7 @@ dependencies = [
 [[package]]
 name = "pact"
 version = "0.2.0"
+source = "git+https://github.com/futureversecom/trn-pact?branch=feat/wasm-pack#1c7c0c774b785554ba8b5e63ea14e89f821c4175"
 dependencies = [
  "bit_reverse",
  "hashbrown 0.6.3",
@@ -4993,6 +4981,37 @@ dependencies = [
  "seed-primitives",
  "sp-core",
  "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-assets-ext-rpc"
+version = "2.2.0"
+dependencies = [
+ "jsonrpsee",
+ "pallet-assets-ext",
+ "pallet-assets-ext-rpc-runtime-api",
+ "parity-scale-codec",
+ "seed-primitives",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-blockchain",
+ "sp-core",
+ "sp-io",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-assets-ext-rpc-runtime-api"
+version = "2.2.0"
+dependencies = [
+ "pallet-assets-ext",
+ "parity-scale-codec",
+ "seed-primitives",
+ "sp-api",
  "sp-runtime",
  "sp-std",
 ]
@@ -5074,7 +5093,7 @@ dependencies = [
 [[package]]
 name = "pallet-base-fee"
 version = "1.0.0"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fp-evm",
  "frame-support",
@@ -5145,13 +5164,12 @@ version = "1.0.0"
 dependencies = [
  "doughnut-rs",
  "fp-evm",
- "fp-self-contained 1.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "fp-self-contained",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
  "frame-system",
  "hex-literal 0.3.4",
- "pact",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -5259,7 +5277,7 @@ dependencies = [
 [[package]]
 name = "pallet-ethereum"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -5268,7 +5286,7 @@ dependencies = [
  "fp-ethereum",
  "fp-evm",
  "fp-rpc",
- "fp-self-contained 1.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-self-contained",
  "fp-storage",
  "frame-support",
  "frame-system",
@@ -5316,7 +5334,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm"
 version = "6.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "environmental",
  "evm",
@@ -5359,7 +5377,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-blake2"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fp-evm",
 ]
@@ -5367,7 +5385,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fp-evm",
  "num",
@@ -5376,7 +5394,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-sha3fips"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fp-evm",
  "tiny-keccak",
@@ -5385,7 +5403,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-simple"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp#8e309b304b9b5e4f123b8810facdc480b7cfda6d"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
 dependencies = [
  "fp-evm",
  "ripemd",
@@ -5508,6 +5526,25 @@ dependencies = [
  "pallet-evm",
  "pallet-futurepass",
  "pallet-proxy",
+ "precompile-utils",
+ "scale-info",
+ "seed-primitives",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-evm-precompiles-marketplace"
+version = "2.0.0"
+dependencies = [
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-assets",
+ "pallet-evm",
+ "pallet-marketplace",
  "precompile-utils",
  "scale-info",
  "seed-primitives",
@@ -6285,7 +6322,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std",
- "xrpl-codec 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9)",
+ "xrpl-codec",
 ]
 
 [[package]]
@@ -8697,7 +8734,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "4.0.0"
+version = "5.0.0"
 dependencies = [
  "clap",
  "ethy-gadget",
@@ -8720,6 +8757,7 @@ dependencies = [
  "jsonrpsee",
  "libsecp256k1 0.6.0",
  "log",
+ "pallet-assets-ext-rpc",
  "pallet-dex-rpc",
  "pallet-maintenance-mode",
  "pallet-nft-rpc",
@@ -8819,7 +8857,7 @@ dependencies = [
  "evm",
  "fp-evm",
  "fp-rpc",
- "fp-self-contained 1.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-trn-sp)",
+ "fp-self-contained",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-executive",
@@ -8834,6 +8872,7 @@ dependencies = [
  "pact",
  "pallet-assets",
  "pallet-assets-ext",
+ "pallet-assets-ext-rpc-runtime-api",
  "pallet-authorship",
  "pallet-babe",
  "pallet-bags-list",
@@ -8860,6 +8899,7 @@ dependencies = [
  "pallet-evm-precompiles-erc721",
  "pallet-evm-precompiles-futurepass",
  "pallet-evm-precompiles-futurepass-registrar",
+ "pallet-evm-precompiles-marketplace",
  "pallet-evm-precompiles-nft",
  "pallet-evm-precompiles-peg",
  "pallet-evm-precompiles-sft",
@@ -10632,6 +10672,7 @@ dependencies = [
 [[package]]
 name = "trnnut-rs"
 version = "0.1.1"
+source = "git+https://github.com/futureversecom/trn-trnnut-rs?branch=feat/pact-update#a871b44095c540e63348745b65a4df87f3bd384e"
 dependencies = [
  "pact",
  "parity-scale-codec",
@@ -11656,48 +11697,25 @@ dependencies = [
 
 [[package]]
 name = "xrpl-codec"
-version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
+version = "0.1.2"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec#3771d18e620e1b4878412c53170825774d9d8d6c"
 dependencies = [
  "ripemd",
  "sha2 0.10.8",
- "xrpl-codec-utils 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8)",
-]
-
-[[package]]
-name = "xrpl-codec"
-version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9#1d67a2a63b47ecb0322dbce0a50ecb5198547623"
-dependencies = [
- "ripemd",
- "sha2 0.10.8",
- "xrpl-codec-utils 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9)",
+ "xrpl-codec-utils",
 ]
 
 [[package]]
 name = "xrpl-codec-utils"
 version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec#3771d18e620e1b4878412c53170825774d9d8d6c"
 dependencies = [
  "hashbrown 0.12.3",
  "lazy_static",
  "proc-macro2",
  "quote",
  "serde_json",
- "syn 2.0.39",
-]
-
-[[package]]
-name = "xrpl-codec-utils"
-version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9#1d67a2a63b47ecb0322dbce0a50ecb5198547623"
-dependencies = [
- "hashbrown 0.12.3",
- "lazy_static",
- "proc-macro2",
- "quote",
- "serde_json",
- "syn 2.0.39",
+ "syn 1.0.109",
 ]
 
 [[package]]
