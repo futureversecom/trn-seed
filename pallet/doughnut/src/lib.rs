@@ -434,8 +434,8 @@ pub mod pallet {
 		}
 
 		/// Update whitelisted holders list
-		// this is for temporary purpose. Might change in the future
-		#[pallet::weight(T::WeightInfo::revoke_holder())]
+		// Note: this is for temporary purpose. Might change in the future
+		#[pallet::weight(T::WeightInfo::update_whitelisted_holders())]
 		pub fn update_whitelisted_holders(
 			origin: OriginFor<T>,
 			holder: T::AccountId,
