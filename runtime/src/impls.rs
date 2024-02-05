@@ -928,6 +928,13 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
 				Ok(())
 			},
+			// System
+			RuntimeCall::System(frame_system::Call::remark { .. }) => {
+				trnnut
+					.validate_runtime_call(pallet_name, function_name, &[])
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
+				Ok(())
+			},
 
 			_ => return Err(pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied.into()),
 		}
