@@ -282,6 +282,11 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Storage map for whitelisted holder information
+	#[pallet::storage]
+	pub type WhitelistedHolders<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, bool, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config>
