@@ -318,6 +318,8 @@ pub mod pallet {
 		TRNNutPermissionDenied,
 		/// Inner call is not whitelisted
 		UnsupportedInnerCall,
+		/// Not a whitelisted holder
+		NotAWhitelistedHolder,
 	}
 
 	#[pallet::hooks]
@@ -356,6 +358,12 @@ pub mod pallet {
 			// Check holder == sender
 			let issuer_address = Self::get_address(doughnut_v1.issuer)?;
 			let holder_address = Self::get_address(doughnut_v1.holder)?;
+
+			// check whitelisted holder
+			ensure!(
+				WhitelistedHolders::<T>::get(holder_address.clone()),
+				Error::<T>::NotAWhitelistedHolder
+			);
 
 			// Ensure doughnut is not revoked
 			let doughnut_hash = keccak_256(&doughnut);
