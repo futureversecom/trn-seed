@@ -3,11 +3,11 @@ import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a, u8aToHex } from "@polkadot/util";
 import { expect } from "chai";
 import { Wallet } from "ethers";
-
-import { OpCodeComparator, OpComp, OpLoad, Pact } from "../../../../pact/js";
+import { blake2AsHex } from "@polkadot/util-crypto";
+import { OpCodeComparator, OpComp, OpLoad, Pact } from "../../../trn-pact/js";
 // const Doughnut = require('@trn/doughnut-wasm').default;
-import { Doughnut } from "../../../../trn-doughnut-rs/js";
-import { TRNNut } from "../../../../trn-trnnut-rs/js";
+import { Doughnut } from "../../../trn-doughnut-rs/js";
+import { TRNNut } from "../../../trn-trnnut-rs/js";
 import {
   ALICE_PRIVATE_KEY,
   ALITH_PRIVATE_KEY,
@@ -112,8 +112,14 @@ describe("Doughnuts", () => {
     doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
     console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
 
-    // Sign the doughnut with the issuers private key
-    doughnut.signECDSA(hexToU8a(ALICE_PRIVATE_KEY)); // TODO: check this against metamask signing
+    // Sign the doughnut
+    const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
+    const ethHash = blake2AsHex(doughnut.payload());
+    const ethSlice = Buffer.from(ethHash.slice(2), "hex");
+    const issuer_sig = await aliceWallet.signMessage(ethSlice);
+    const sig_uint8 = Buffer.from(issuer_sig.slice(2), "hex");
+    doughnut.addSignature(sig_uint8);
+
     console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
@@ -130,9 +136,6 @@ describe("Doughnuts", () => {
     const tx_u8a = tx.toU8a(true).slice(2);
     const tx_hex = u8aToHex(tx_u8a);
     const signature = holder_ecdsa.sign(tx_hex);
-    // console.log(signature);
-    // console.log(holder.sign(tx_hex))
-
     const sig_hex = u8aToHex(signature);
 
     // alice balance before
@@ -234,8 +237,13 @@ describe("Doughnuts", () => {
     doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
     console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
 
-    // Sign the doughnut with the issuers private key
-    doughnut.signECDSA(hexToU8a(ALICE_PRIVATE_KEY)); // TODO: check this against metamask signing
+    // Sign the doughnut
+    const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
+    const ethHash = blake2AsHex(doughnut.payload());
+    const ethSlice = Buffer.from(ethHash.slice(2), "hex");
+    const issuer_sig = await aliceWallet.signMessage(ethSlice);
+    const sig_uint8 = Buffer.from(issuer_sig.slice(2), "hex");
+    doughnut.addSignature(sig_uint8);
     console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
@@ -302,8 +310,14 @@ describe("Doughnuts", () => {
     doughnut.addDomain("Test", new Uint8Array(12));
     console.log(`Domain    : ${doughnut.domain("Test")}`);
 
-    // Sign the doughnut with the issuers private key
-    doughnut.signECDSA(hexToU8a(ALICE_PRIVATE_KEY));
+
+    // Sign the doughnut
+    const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
+    const ethHash = blake2AsHex(doughnut.payload());
+    const ethSlice = Buffer.from(ethHash.slice(2), "hex");
+    const issuer_sig = await aliceWallet.signMessage(ethSlice);
+    const sig_uint8 = Buffer.from(issuer_sig.slice(2), "hex");
+    doughnut.addSignature(sig_uint8);
     console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
