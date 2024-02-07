@@ -285,7 +285,7 @@ pub mod pallet {
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_transaction_payment::Config
+	pub trait Config: frame_system::Config
 	where
 		<Self as frame_system::Config>::AccountId: From<H160>,
 	{
