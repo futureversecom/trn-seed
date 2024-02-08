@@ -27,8 +27,9 @@ use sp_runtime::FixedPointOperand;
 use alloc::{boxed::Box, vec::Vec};
 use doughnut_rs::{
 	doughnut::Doughnut,
-	signature::{verify_signature, SignatureVersion},
+	signature::{crypto::verify_signature, SignatureVersion},
 	traits::{DoughnutApi, DoughnutVerify},
+	TRNNutV0,
 };
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
@@ -41,7 +42,6 @@ use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
 	transaction_validity::ValidTransactionBuilder,
 };
-use trnnut_rs::TRNNut;
 
 pub mod weights;
 pub use weights::WeightInfo;
@@ -260,7 +260,7 @@ pub mod pallet {
 		/// Inner call validator
 		type CallValidator: ExtrinsicChecker<
 			Call = <Self as Config>::RuntimeCall,
-			PermissionObject = TRNNut,
+			PermissionObject = TRNNutV0,
 		>;
 		/// Weight information for the extrinsic call in this module.
 		type WeightInfo: WeightInfo;
@@ -380,7 +380,7 @@ pub mod pallet {
 			let Some(trnnut_payload) = doughnut_v1.get_domain(TRN_PERMISSION_DOMAIN) else {
 				return Err(Error::<T>::TRNNutDecodeFailed)?
 			};
-			let trnnut = TRNNut::decode(&mut trnnut_payload.clone())
+			let trnnut = TRNNutV0::decode(&mut trnnut_payload.clone())
 				.map_err(|_| Error::<T>::TRNNutDecodeFailed)?;
 
 			// check trnnut permissions

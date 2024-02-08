@@ -1495,16 +1495,18 @@ dependencies = [
 [[package]]
 name = "doughnut-rs"
 version = "0.1.0"
-source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/trn-doughnut#f142c7681e46b496e5c6a4ba0b8864988ab15629"
+source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/trn-doughnut-trnnut-merge#21dcbdcdd0d1f1486e1d8138d114255fa1ced080"
 dependencies = [
  "blake2",
  "clear_on_drop",
  "digest 0.10.7",
  "ed25519-dalek",
  "libsecp256k1 0.7.1",
+ "pact",
  "parity-scale-codec",
  "primitive-types 0.12.2",
  "schnorrkel 0.11.4",
+ "serde",
  "sha3 0.10.8",
 ]
 
@@ -5173,7 +5175,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "trnnut-rs",
 ]
 
 [[package]]

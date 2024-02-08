@@ -20,15 +20,21 @@ use crate::{
 };
 use codec::Encode;
 use doughnut_rs::{
-	doughnut::{Doughnut, DoughnutV0, DoughnutV1},
-	signature::{sign_ecdsa, sign_eip191, verify_signature, SignatureVersion},
+	doughnut::{
+		trnnut::{method, module},
+		Doughnut, DoughnutV0, DoughnutV1,
+	},
+	signature::{
+		crypto::{sign_ecdsa, verify_signature},
+		SignatureVersion,
+	},
 	traits::{DoughnutVerify, FeeMode, PayloadVersion, Signing},
+	TRNNutV0,
 };
 use frame_support::traits::fungibles::Mutate;
 use seed_pallet_common::test_prelude::*;
 use sp_core::{blake2_256, bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair};
 use sp_std::default::Default;
-use trnnut_rs::TRNNutV0;
 
 // Helper struct for a test account where a seed is supplied and provides common methods to
 // receive parts of that account
@@ -107,21 +113,15 @@ pub fn make_doughnut(
 	Doughnut::V1(doughnut_v1)
 }
 
-fn make_trnnut(module: &str, method: &str) -> TRNNut {
-	let method_obj = trnnut_rs::v0::method::Method {
-		name: method.to_string(),
-		block_cooldown: None,
-		constraints: None,
-	};
-	let module_obj = trnnut_rs::v0::module::Module {
+fn make_trnnut(module: &str, method: &str) -> TRNNutV0 {
+	let method_obj =
+		method::Method { name: method.to_string(), block_cooldown: None, constraints: None };
+	let module_obj = module::Module {
 		name: module.to_string(),
 		block_cooldown: None,
-		methods: vec![(method.to_string(), method_obj)],
+		methods: vec![method_obj],
 	};
-	TRNNut::V0(TRNNutV0 {
-		modules: vec![(module.to_string(), module_obj)],
-		contracts: Default::default(),
-	})
+	TRNNutV0 { modules: vec![module_obj] }
 }
 
 #[test]
