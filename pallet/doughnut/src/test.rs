@@ -291,6 +291,9 @@ fn transact_works() {
 			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
 			let doughnut_encoded = doughnut.encode();
 
+			// add BOB to whitelisted holders
+			WhitelistedHolders::<Test>::insert(BOB.address(), true);
+
 			// Create balances transfer call
 			let transfer_amount = 1234;
 			let destination = create_account(12);
@@ -419,6 +422,9 @@ fn revoke_doughnut_works() {
 		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
 		let doughnut_encoded = doughnut.encode();
 
+		// add BOB to whitelisted holders
+		WhitelistedHolders::<Test>::insert(BOB.address(), true);
+
 		assert_ok!(DoughnutPallet::revoke_doughnut(
 			Some(issuer.address()).into(),
 			doughnut_encoded.clone(),
@@ -499,6 +505,9 @@ fn revoke_holder_works() {
 		let trnnut = make_trnnut("System", "remark");
 		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
 		let doughnut_encoded = doughnut.encode();
+
+		// add BOB to whitelisted holders
+		WhitelistedHolders::<Test>::insert(BOB.address(), true);
 
 		assert_ok!(DoughnutPallet::revoke_holder(
 			Some(issuer.address()).into(),
@@ -678,6 +687,9 @@ fn signed_extension_validations_succeed() {
 			let trnnut = make_trnnut("System", "remark_with_event");
 			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
 			let doughnut_encoded = doughnut.encode();
+
+			// add BOB to whitelisted holders
+			WhitelistedHolders::<Test>::insert(BOB.address(), true);
 
 			// Fund the issuer so they can pass the validations for paying gas
 			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &issuer.address(), 5000000));
@@ -925,4 +937,98 @@ fn signed_extension_validations_invalid_outer_signature_fails() {
 				TransactionValidityError::Invalid(InvalidTransaction::BadProof)
 			);
 		});
+}
+
+#[test]
+fn update_whitelisted_holders_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let whitelisted_holder = ALICE;
+
+		assert_ok!(DoughnutPallet::update_whitelisted_holders(
+			RawOrigin::Root.into(),
+			whitelisted_holder.address(),
+			true
+		));
+
+		// Check storage updated
+		assert_eq!(WhitelistedHolders::<Test>::get(whitelisted_holder.address()), true);
+		// Check event is thrown
+		System::assert_has_event(
+			Event::WhitelistedHoldersUpdated {
+				holder: whitelisted_holder.address(),
+				enabled: true,
+			}
+			.into(),
+		);
+
+		// only root can update the whitelisted holders list. try to remove alice from the list
+		assert_noop!(
+			DoughnutPallet::update_whitelisted_holders(
+				Some(BOB.address()).into(),
+				whitelisted_holder.address(),
+				false
+			),
+			DispatchError::BadOrigin
+		);
+		assert_eq!(WhitelistedHolders::<Test>::get(whitelisted_holder.address()), true);
+
+		// remove alice from the list by root
+		assert_ok!(DoughnutPallet::update_whitelisted_holders(
+			RawOrigin::Root.into(),
+			whitelisted_holder.address(),
+			false
+		));
+
+		assert_eq!(WhitelistedHolders::<Test>::get(whitelisted_holder.address()), false);
+		// Check event is thrown
+		System::assert_has_event(
+			Event::WhitelistedHoldersUpdated {
+				holder: whitelisted_holder.address(),
+				enabled: false,
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn holder_whitelisting_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let issuer = ALICE;
+		let holder = BOB;
+		let trnnut = make_trnnut("System", "remark");
+		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
+		let doughnut_encoded = doughnut.encode();
+
+		// Attempting to transact the doughnut should fail as the holder is not whitelisted
+		let call: <Test as frame_system::Config>::RuntimeCall =
+			frame_system::Call::<Test>::remark { remark: b"Mischief Managed".to_vec() }.into();
+		assert_noop!(
+			DoughnutPallet::transact(
+				RawOrigin::None.into(),
+				Box::new(call.clone()),
+				doughnut_encoded.clone(),
+				0,
+				vec![]
+			),
+			Error::<Test>::HolderNotWhitelisted
+		);
+
+		// Add BOB to whitelisted holders list
+		assert_ok!(DoughnutPallet::update_whitelisted_holders(
+			RawOrigin::Root.into(),
+			BOB.address(),
+			true
+		));
+		assert_eq!(WhitelistedHolders::<Test>::get(BOB.address()), true);
+
+		// Attempting to transact the doughnut should now succeed
+		assert_ok!(DoughnutPallet::transact(
+			RawOrigin::None.into(),
+			Box::new(call),
+			doughnut_encoded,
+			0,
+			vec![]
+		));
+	});
 }

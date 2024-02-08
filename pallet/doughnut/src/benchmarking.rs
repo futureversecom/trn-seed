@@ -56,6 +56,8 @@ benchmarks! {
 		// Doughnut from Alice to Bob
 		let doughnut_encoded = hex!("011000020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a10390084fdbf27d2b79d26a4f13f0ccd982cb755a661969143c37cbc49ef5b91f27000000000074726e0000000000000000000000000046000000000053797374656d00000000000000000000000000000000000000000000000000000072656d61726b00000000000000000000000000000000000000000000000000000014f9e18bdbec922d545b5fe31f0293aab618ed37c000dc78471caabfee8f30a166d4dc44874e856a210d47a104af0a3742fbbbfdfa0cfc87527ed19ad403fd89");
 		let doughnut_encoded: Vec<u8> = doughnut_encoded.to_vec();
+		// add bob to whitelisted holders
+		WhitelistedHolders::<T>::insert(bob, true);
 		// Signature not required for transact part
 		let signature = vec![];
 		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: b"Mischief Managed".to_vec() }.into();
@@ -83,6 +85,13 @@ benchmarks! {
 	}: _(origin::<T>(&alice), bob.clone(), true)
 	verify {
 		assert!(BlockedHolders::<T>::get(alice, bob));
+	}
+
+	update_whitelisted_holders {
+		let bob = account::<T>("//Bob");
+	}: _(RawOrigin::Root, bob.clone(), true)
+	verify {
+		assert!(WhitelistedHolders::<T>::get(bob));
 	}
 }
 

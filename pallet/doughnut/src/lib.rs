@@ -282,6 +282,11 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Storage map for whitelisted holder information
+	#[pallet::storage]
+	pub type WhitelistedHolders<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, bool, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config>
@@ -289,6 +294,7 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
 		DoughnutCallExecuted { result: DispatchResult },
+		WhitelistedHoldersUpdated { holder: T::AccountId, enabled: bool },
 	}
 
 	#[pallet::error]
@@ -313,6 +319,8 @@ pub mod pallet {
 		TRNNutPermissionDenied,
 		/// Inner call is not whitelisted
 		UnsupportedInnerCall,
+		/// Holder not whitelisted
+		HolderNotWhitelisted,
 	}
 
 	#[pallet::hooks]
@@ -351,6 +359,12 @@ pub mod pallet {
 			// Check holder == sender
 			let issuer_address = Self::get_address(doughnut_v1.issuer)?;
 			let holder_address = Self::get_address(doughnut_v1.holder)?;
+
+			// check whitelisted holder
+			ensure!(
+				WhitelistedHolders::<T>::get(holder_address.clone()),
+				Error::<T>::HolderNotWhitelisted
+			);
 
 			// Ensure doughnut is not revoked
 			let doughnut_hash = keccak_256(&doughnut);
@@ -417,6 +431,20 @@ pub mod pallet {
 				true => BlockedHolders::<T>::insert(who, holder, true),
 				false => BlockedHolders::<T>::remove(who, holder),
 			}
+			Ok(())
+		}
+
+		/// Update whitelisted holders list
+		// Note: this is for temporary purpose. Might change in the future
+		#[pallet::weight(T::WeightInfo::update_whitelisted_holders())]
+		pub fn update_whitelisted_holders(
+			origin: OriginFor<T>,
+			holder: T::AccountId,
+			add: bool,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			WhitelistedHolders::<T>::set(holder.clone(), add);
+			Self::deposit_event(Event::<T>::WhitelistedHoldersUpdated { holder, enabled: add });
 			Ok(())
 		}
 	}
