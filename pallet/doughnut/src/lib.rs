@@ -294,6 +294,7 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
 		DoughnutCallExecuted { result: DispatchResult },
+		WhitelistedHoldersUpdated { holder: T::AccountId, enabled: bool },
 	}
 
 	#[pallet::error]
@@ -442,7 +443,8 @@ pub mod pallet {
 			add: bool,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			WhitelistedHolders::<T>::set(holder, add);
+			WhitelistedHolders::<T>::set(holder.clone(), add);
+			Self::deposit_event(Event::<T>::WhitelistedHoldersUpdated { holder, enabled: add });
 			Ok(())
 		}
 	}
@@ -480,7 +482,7 @@ pub type DoughnutFeePayerValidations<T> = (
 	// frame_system::CheckSpecVersion<Runtime>,
 	// frame_system::CheckTxVersion<Runtime>,
 	// frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckEra<Runtime>,
+	// frame_system::CheckEra<Runtime>,
 	// frame_system::CheckNonce<T>,
 	pallet_transaction_payment::ChargeTransactionPayment<T>,
 );

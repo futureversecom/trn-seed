@@ -952,6 +952,14 @@ fn update_whitelisted_holders_works() {
 
 		// Check storage updated
 		assert_eq!(WhitelistedHolders::<Test>::get(whitelisted_holder.address()), true);
+		// Check event is thrown
+		System::assert_has_event(
+			Event::WhitelistedHoldersUpdated {
+				holder: whitelisted_holder.address(),
+				enabled: true,
+			}
+			.into(),
+		);
 
 		// only root can update the whitelisted holders list. try to remove alice from the list
 		assert_noop!(
@@ -972,6 +980,14 @@ fn update_whitelisted_holders_works() {
 		));
 
 		assert_eq!(WhitelistedHolders::<Test>::get(whitelisted_holder.address()), false);
+		// Check event is thrown
+		System::assert_has_event(
+			Event::WhitelistedHoldersUpdated {
+				holder: whitelisted_holder.address(),
+				enabled: false,
+			}
+			.into(),
+		);
 	});
 }
 
@@ -995,7 +1011,7 @@ fn holder_whitelisting_works() {
 				0,
 				vec![]
 			),
-			Error::<Test>::NotAWhitelistedHolder
+			Error::<Test>::HolderNotWhitelisted
 		);
 
 		// Add BOB to whitelisted holders list
