@@ -318,8 +318,8 @@ pub mod pallet {
 		TRNNutPermissionDenied,
 		/// Inner call is not whitelisted
 		UnsupportedInnerCall,
-		/// Not a whitelisted holder
-		NotAWhitelistedHolder,
+		/// Holder not whitelisted
+		HolderNotWhitelisted,
 	}
 
 	#[pallet::hooks]
@@ -362,7 +362,7 @@ pub mod pallet {
 			// check whitelisted holder
 			ensure!(
 				WhitelistedHolders::<T>::get(holder_address.clone()),
-				Error::<T>::NotAWhitelistedHolder
+				Error::<T>::HolderNotWhitelisted
 			);
 
 			// Ensure doughnut is not revoked
@@ -480,7 +480,7 @@ pub type DoughnutFeePayerValidations<T> = (
 	// frame_system::CheckSpecVersion<Runtime>,
 	// frame_system::CheckTxVersion<Runtime>,
 	// frame_system::CheckGenesis<Runtime>,
-	// frame_system::CheckEra<Runtime>,
+	frame_system::CheckEra<Runtime>,
 	// frame_system::CheckNonce<T>,
 	pallet_transaction_payment::ChargeTransactionPayment<T>,
 );
