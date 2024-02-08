@@ -8,7 +8,16 @@ import { OpCodeComparator, OpComp, OpLoad, Pact } from "../../../../pact/js";
 // const Doughnut = require('@trn/doughnut-wasm').default;
 import { Doughnut } from "../../../../trn-doughnut-rs/js";
 import { TRNNut } from "../../../../trn-trnnut-rs/js";
-import { ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, GAS_TOKEN_ID, NodeProcess, startNode, typedefs } from "../common";
+import {
+  ALICE_PRIVATE_KEY,
+  ALITH_PRIVATE_KEY,
+  BOB_PRIVATE_KEY,
+  GAS_TOKEN_ID,
+  NodeProcess,
+  finalizeTx,
+  startNode,
+  typedefs,
+} from "../common";
 
 const TRN_PERMISSION_DOMAIN: string = "trn";
 
@@ -20,6 +29,7 @@ describe("Doughnuts", () => {
   let alice: KeyringPair;
   let keyring: Keyring;
   let keyring_ecdsa: Keyring;
+  let alith: KeyringPair;
 
   before(async () => {
     node = await startNode();
@@ -32,6 +42,7 @@ describe("Doughnuts", () => {
     bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
     bob_ecdsa = keyring_ecdsa.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
     alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
+    alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
   });
 
   after(async () => node.stop());
@@ -126,6 +137,9 @@ describe("Doughnuts", () => {
 
     // alice balance before
     const alice_balance_before = await api.query.system.account(alice.address);
+
+    // whitelist the holder. i.e bob
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
 
     // Execute the transact call with.send
     const eventData = await new Promise<any[]>((resolve, reject) => {
@@ -246,6 +260,9 @@ describe("Doughnuts", () => {
     // alice balance before
     const alice_balance_before = await api.query.system.account(alice.address);
 
+    // whitelist the holder. i.e bob
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
+
     // Execute the transact call with.send
     await api.tx.doughnut
       .transact(call, doughnut_hex, nonce, sig_hex)
@@ -307,6 +324,9 @@ describe("Doughnuts", () => {
 
     // alice balance before
     const alice_balance_before = await api.query.system.account(alice.address);
+
+    // whitelist the holder. i.e bob
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(bob.address, true)));
 
     // Execute the transact call with.send
     await api.tx.doughnut
