@@ -25,10 +25,8 @@ describe("Doughnuts", () => {
   let node: NodeProcess;
   let api: ApiPromise;
   let bob: KeyringPair;
-  let bob_ecdsa: KeyringPair;
   let alice: KeyringPair;
   let keyring: Keyring;
-  let keyring_ecdsa: Keyring;
   let alith: KeyringPair;
 
   before(async () => {
@@ -38,9 +36,7 @@ describe("Doughnuts", () => {
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
 
     keyring = new Keyring({ type: "ethereum" });
-    keyring_ecdsa = new Keyring({ type: "ecdsa" });
     bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
-    bob_ecdsa = keyring_ecdsa.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
     alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
   });
@@ -51,24 +47,23 @@ describe("Doughnuts", () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
     const holderPrivateKey = Wallet.createRandom().privateKey;
     const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
-    const holder_ecdsa: KeyringPair = keyring_ecdsa.addFromSeed(hexToU8a(holderPrivateKey));
     const transferAmount = 10;
     const nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
     const call = api.tx.balances.transfer(receiverAddress, transferAmount);
     const version = 1;
     const issuerPubkey = alice.publicKey;
     const holderPubkey = holder.publicKey;
-    const fee_mode = 0;
+    const feeMode = 0;
     const expiry = 100000;
     const notBefore = 0;
 
     console.log("\n====  Creating Doughnut");
-    const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, fee_mode, expiry, notBefore);
+    const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
     // Create the permission domain object. Balances::transfer with a constraint for amount = 10
-    const data_table = ["10"];
+    const dataTable = ["10"];
     const comp = new OpCodeComparator(OpLoad.INPUT_VS_USER, OpComp.EQ, 1, 0, false); // RHS is data table
     const bytecode = new Uint8Array([...comp.encode()]);
-    const pactContract = new Pact(data_table, bytecode);
+    const pactContract = new Pact(dataTable, bytecode);
     const pactEncoded = pactContract.encode();
     // console.log(pactEncoded);
 
@@ -116,9 +111,9 @@ describe("Doughnuts", () => {
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
     const ethHash = blake2AsHex(doughnut.payload());
     const ethSlice = Buffer.from(ethHash.slice(2), "hex");
-    const issuer_sig = await aliceWallet.signMessage(ethSlice);
-    const sig_uint8 = Buffer.from(issuer_sig.slice(2), "hex");
-    doughnut.addSignature(sig_uint8);
+    const issuerSig = await aliceWallet.signMessage(ethSlice);
+    const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
+    doughnut.addSignature(sigUint8);
 
     console.log(`Signature : ${doughnut.signature()}`);
 
@@ -127,16 +122,18 @@ describe("Doughnuts", () => {
     expect(verified).to.be.equal(true);
 
     // Encode the doughnut
-    const encoded_doughnut = doughnut.encode();
-    const doughnut_hex = u8aToHex(encoded_doughnut);
+    const encodedDoughnut = doughnut.encode();
+    const doughnutHex = u8aToHex(encodedDoughnut);
 
     // Create a call with empty signature to be signed by the holder (Bob)
-    const tx = await api.tx.doughnut.transact(call, doughnut_hex, nonce, "");
+    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, "");
     // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
-    const tx_u8a = tx.toU8a(true).slice(2);
-    const tx_hex = u8aToHex(tx_u8a);
-    const signature = holder_ecdsa.sign(tx_hex);
-    const sig_hex = u8aToHex(signature);
+    const txU8a = tx.toU8a(true).slice(2);
+    const txHex = u8aToHex(txU8a);
+    const holderWallet = await new Wallet(holderPrivateKey);
+    const txHash = blake2AsHex(txHex);
+    const txSlice = Buffer.from(txHash.slice(2), "hex");
+    const holderSig = await holderWallet.signMessage(txSlice);
 
     // alice balance before
     const alice_balance_before = await api.query.system.account(alice.address);
@@ -146,7 +143,7 @@ describe("Doughnuts", () => {
 
     // Execute the transact call with.send
     const eventData = await new Promise<any[]>((resolve, reject) => {
-      api.tx.doughnut.transact(call, doughnut_hex, nonce, sig_hex).send(({ events, status }) => {
+      api.tx.doughnut.transact(call, doughnutHex, nonce, holderSig).send(({ events, status }) => {
         if (status.isInBlock) {
           for (const { event } of events) {
             if (event.section === "doughnut" && event.method === "DoughnutCallExecuted") {
@@ -165,9 +162,9 @@ describe("Doughnuts", () => {
     console.log(`Free balance after doughnut transact: ${freeBalance}`);
     expect(freeBalance).to.be.equal(transferAmount);
 
-    const alice_balance_after = await api.query.system.account(alice.address);
+    const aliceBalanceAfter = await api.query.system.account(alice.address);
     // alice should bear transferAmount in Root + fees in XRP
-    expect(alice_balance_before.toJSON()?.data.free - alice_balance_after.toJSON()?.data.free).equal(transferAmount);
+    expect(alice_balance_before.toJSON()?.data.free - aliceBalanceAfter.toJSON()?.data.free).equal(transferAmount);
 
     // check the events
   });
@@ -176,24 +173,23 @@ describe("Doughnuts", () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
     const holderPrivateKey = Wallet.createRandom().privateKey;
     const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
-    const holder_ecdsa: KeyringPair = keyring_ecdsa.addFromSeed(hexToU8a(holderPrivateKey));
     const transferAmount = 10;
     const nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
     const call = api.tx.balances.transfer(receiverAddress, transferAmount - 1);
     const version = 1;
     const issuerPubkey = alice.publicKey;
     const holderPubkey = holder.publicKey;
-    const fee_mode = 0;
+    const feeMode = 0;
     const expiry = 100000;
     const notBefore = 0;
 
     console.log("\n====  Creating Doughnut");
-    const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, fee_mode, expiry, notBefore);
+    const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
     // Create the permission domain object. Balances::transfer with a constraint for amount = 10
-    const data_table = ["10"];
+    const dataTable = ["10"];
     const comp = new OpCodeComparator(OpLoad.INPUT_VS_USER, OpComp.EQ, 1, 0, false); // RHS is data table
     const bytecode = new Uint8Array([...comp.encode()]);
-    const pactContract = new Pact(data_table, bytecode);
+    const pactContract = new Pact(dataTable, bytecode);
     const pactEncoded = pactContract.encode();
     // console.log(pactEncoded);
 
@@ -241,9 +237,9 @@ describe("Doughnuts", () => {
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
     const ethHash = blake2AsHex(doughnut.payload());
     const ethSlice = Buffer.from(ethHash.slice(2), "hex");
-    const issuer_sig = await aliceWallet.signMessage(ethSlice);
-    const sig_uint8 = Buffer.from(issuer_sig.slice(2), "hex");
-    doughnut.addSignature(sig_uint8);
+    const issuerSig = await aliceWallet.signMessage(ethSlice);
+    const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
+    doughnut.addSignature(sigUint8);
     console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
@@ -251,19 +247,18 @@ describe("Doughnuts", () => {
     expect(verified).to.be.equal(true);
 
     // Encode the doughnut
-    const encoded_doughnut = doughnut.encode();
-    const doughnut_hex = u8aToHex(encoded_doughnut);
+    const encodedDoughnut = doughnut.encode();
+    const doughnutHex = u8aToHex(encodedDoughnut);
 
     // Create a call with empty signature to be signed by the holder (Bob)
-    const tx = await api.tx.doughnut.transact(call, doughnut_hex, nonce, "");
+    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, "");
     // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
-    const tx_u8a = tx.toU8a(true).slice(2);
-    const tx_hex = u8aToHex(tx_u8a);
-    const signature = holder_ecdsa.sign(tx_hex);
-    // console.log(signature);
-    // console.log(holder.sign(tx_hex))
-
-    const sig_hex = u8aToHex(signature);
+    const txU8a = tx.toU8a(true).slice(2);
+    const txHex = u8aToHex(txU8a);
+    const holderWallet = await new Wallet(holderPrivateKey);
+    const txHash = blake2AsHex(txHex);
+    const txSlice = Buffer.from(txHash.slice(2), "hex");
+    const holderSig = await holderWallet.signMessage(txSlice);
 
     // alice balance before
     const alice_balance_before = await api.query.system.account(alice.address);
@@ -273,7 +268,7 @@ describe("Doughnuts", () => {
 
     // Execute the transact call with.send
     await api.tx.doughnut
-      .transact(call, doughnut_hex, nonce, sig_hex)
+      .transact(call, doughnutHex, nonce, holderSig)
       .send()
       .catch((err: any) => {
         console.log(err);
@@ -285,11 +280,9 @@ describe("Doughnuts", () => {
     console.log(`Free balance after doughnut transact: ${freeBalance}`);
     expect(freeBalance).to.be.equal(0);
 
-    const alice_balance_after = await api.query.system.account(alice.address);
+    const aliceBalanceAfter = await api.query.system.account(alice.address);
     // alice should bear transferAmount in Root + fees in XRP
-    expect(alice_balance_before.toJSON()?.data.free - alice_balance_after.toJSON()?.data.free).equal(0);
-
-    // check the events
+    expect(alice_balance_before.toJSON()?.data.free - aliceBalanceAfter.toJSON()?.data.free).equal(0);
   });
 
   it("doughnut without trn permission object fails", async () => {
@@ -300,12 +293,12 @@ describe("Doughnuts", () => {
     const version = 1;
     const issuer = alice.publicKey;
     const holder = bob.publicKey;
-    const fee_mode = 0;
+    const feeMode = 0;
     const expiry = 100000;
     const notBefore = 0;
 
     console.log("\n====  Creating Doughnut");
-    const doughnut = new Doughnut(version, issuer, holder, fee_mode, expiry, notBefore);
+    const doughnut = new Doughnut(version, issuer, holder, feeMode, expiry, notBefore);
     // Add a random domain to allow the doughnut to be encoded
     doughnut.addDomain("Test", new Uint8Array(12));
     console.log(`Domain    : ${doughnut.domain("Test")}`);
@@ -315,9 +308,9 @@ describe("Doughnuts", () => {
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
     const ethHash = blake2AsHex(doughnut.payload());
     const ethSlice = Buffer.from(ethHash.slice(2), "hex");
-    const issuer_sig = await aliceWallet.signMessage(ethSlice);
-    const sig_uint8 = Buffer.from(issuer_sig.slice(2), "hex");
-    doughnut.addSignature(sig_uint8);
+    const issuerSig = await aliceWallet.signMessage(ethSlice);
+    const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
+    doughnut.addSignature(sigUint8);
     console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
@@ -325,16 +318,18 @@ describe("Doughnuts", () => {
     expect(verified).to.be.equal(true);
 
     // Encode the doughnut
-    const encoded_doughnut = doughnut.encode();
-    const doughnut_hex = u8aToHex(encoded_doughnut);
+    const encodedDoughnut = doughnut.encode();
+    const doughnutHex = u8aToHex(encodedDoughnut);
 
     // Create a call with empty signature to be signed by the holder (Bob)
-    const tx = await api.tx.doughnut.transact(call, doughnut_hex, nonce, "");
+    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, "");
     // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
-    const tx_u8a = tx.toU8a(true).slice(2);
-    const tx_hex = u8aToHex(tx_u8a);
-    const signature = bob_ecdsa.sign(tx_hex);
-    const sig_hex = u8aToHex(signature);
+    const txU8a = tx.toU8a(true).slice(2);
+    const txHex = u8aToHex(txU8a);
+    const holderWallet = await new Wallet(BOB_PRIVATE_KEY);
+    const txHash = blake2AsHex(txHex);
+    const txSlice = Buffer.from(txHash.slice(2), "hex");
+    const holderSig = await holderWallet.signMessage(txSlice);
 
     // alice balance before
     const alice_balance_before = await api.query.system.account(alice.address);
@@ -344,7 +339,7 @@ describe("Doughnuts", () => {
 
     // Execute the transact call with.send
     await api.tx.doughnut
-      .transact(call, doughnut_hex, nonce, sig_hex)
+      .transact(call, doughnutHex, nonce, holderSig)
       .send()
       .catch((err: any) => {
         console.log(err);
@@ -356,8 +351,8 @@ describe("Doughnuts", () => {
     console.log(`Free balance after doughnut transact: ${freeBalance}`);
     expect(freeBalance).to.be.equal(0);
 
-    const alice_balance_after = await api.query.system.account(alice.address);
+    const aliceBalanceAfter = await api.query.system.account(alice.address);
     // alice should bear transferAmount in Root + fees in XRP
-    expect(alice_balance_before.toJSON()?.data.free - alice_balance_after.toJSON()?.data.free).equal(0);
+    expect(alice_balance_before.toJSON()?.data.free - aliceBalanceAfter.toJSON()?.data.free).equal(0);
   });
 });

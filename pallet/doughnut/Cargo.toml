@@ -25,7 +25,7 @@ sp-core = { git = "https://github.com/paritytech/substrate", default-features = 
 sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 frame-benchmarking = { git = 'https://github.com/paritytech/substrate', branch = "polkadot-v0.9.30", default-features = false, optional = true }
-doughnut-rs = { git = "https://github.com/futureversecom/trn-doughnut-rs", branch = "feat/trn-doughnut", default-features = false, features = ["crypto"] }
+doughnut-rs = { git = "https://github.com/futureversecom/trn-doughnut-rs", branch = "feat/metamask-signing", default-features = false, features = ["crypto"] }
 #doughnut-rs = { path = "../../../../trn-doughnut-rs", default-features = false, features = ["crypto"] }
 trnnut-rs = { branch = "feat/pact-update", git = "https://github.com/futureversecom/trn-trnnut-rs", default-features = false }
 #trnnut-rs = { path = "../../../../trn-trnnut-rs", default-features = false }
