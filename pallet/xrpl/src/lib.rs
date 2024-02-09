@@ -143,49 +143,12 @@ impl<T> Call<T>
 		len: usize,
 	) -> Option<TransactionValidity> {
 		if let Call::transact { encoded_msg, signature, call } = self {
-			let tx = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
+			let (nonce, tip) = validate_params::<T>(encoded_msg.as_bytes_ref(), signature.as_bytes_ref(), call)
 				.map_err(|e| {
-					log::error!("⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
-					e
+					log::error!("⛔️ validate_self_contained: failed to validate params: {:?}", e);
+					InvalidTransaction::Call
 				})
 				.ok()?;
-			let ExtrinsicMemoData { chain_id, nonce, max_block_number, tip, hashed_call } = tx.get_extrinsic_data()
-				.map_err(|e| {
-					log::error!("⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}", tx.memos, e);
-					e
-				})
-				.ok()?;
-			if chain_id != T::ChainId::get() {
-				log::error!("⛔️ chain id mismatch");
-				return None;
-			}
-
-			// check the call against hex encoded hashed (blake256) call
-			if sp_io::hashing::blake2_256(&call.encode()) != hashed_call {
-				log::error!("⛔️ hashed call mismatch");
-				return None;
-			}
-
-			// ensure inner nested call is not the same call
-			if let Some(Call::transact { .. }) = call.is_sub_type() {
-        log::error!("⛔️ cannot nest transact call");
-        return None;
-    	}
-
-			if <frame_system::Pallet<T>>::block_number() > max_block_number.into() {
-				log::error!("⛔️ max block number too low");
-				return None;
-			}
-
-			let success = tx.verify_transaction(&signature).map_err(|e| {
-					log::error!("⛔️ failed to verify transaction: {:?}", e);
-					e
-				})
-				.ok()?;
-			if !success {
-				log::error!("⛔️ transaction verification unsuccessful");
-				return None;
-			}
 
 			let validations: XRPLValidations<T> = (
 				CheckNonZeroSender::new(),
@@ -244,20 +207,15 @@ impl<T> Call<T>
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<<T as Config>::RuntimeCall>>> {
-		if let Some(Call::transact { encoded_msg, call, .. }) = outer_call.is_sub_type() {
+		if let Some(Call::transact { encoded_msg, call, signature }) = outer_call.is_sub_type() {
 			// Pre Dispatch
-			let tx = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
+			let (nonce, tip) = validate_params::<T>(encoded_msg.as_bytes_ref(), signature.as_bytes_ref(), call)
 				.map_err(|e| {
-					log::error!("⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
+					log::error!("⛔️ apply_self_contained: failed to validate params: {:?}", e);
 					InvalidTransaction::Call
 				})
 				.ok()?;
-			let ExtrinsicMemoData { nonce, tip, .. } = tx.get_extrinsic_data()
-				.map_err(|e| {
-					log::error!("⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}", tx.memos, e);
-					InvalidTransaction::Call
-				})
-				.ok()?;
+
 			// validation instances for this extrinsic; these are responsible for potential state changes
 			let validations: XRPLValidations<T> = (
 				CheckNonZeroSender::new(),
@@ -306,6 +264,54 @@ impl<T> Call<T>
 		}
 		None
 	}
+}
+
+fn validate_params<T: Config>(
+	encoded_msg: &[u8],
+	signature: &[u8],
+	call: &<T as Config>::RuntimeCall,
+) -> Result<(u32, u64), String>
+where
+	<T as frame_system::Config>::AccountId: From<H160>,
+{
+	let tx = XRPLTransaction::try_from(encoded_msg.as_bytes_ref()).map_err(|e| {
+		alloc::format!("⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e)
+	})?;
+
+	let ExtrinsicMemoData { chain_id, nonce, max_block_number, tip, hashed_call } =
+		tx.get_extrinsic_data().map_err(|e| {
+			alloc::format!(
+				"⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}",
+				tx.memos,
+				e
+			)
+		})?;
+
+	if chain_id != T::ChainId::get() {
+		return Err("⛔️ chain id mismatch".into())
+	}
+
+	// check the call against hex encoded hashed (blake256) call
+	if sp_io::hashing::blake2_256(&call.encode()) != hashed_call {
+		return Err("⛔️ hashed call mismatch".into())
+	}
+
+	// ensure inner nested call is not the same call
+	if let Some(Call::transact { .. }) = call.is_sub_type() {
+		return Err("⛔️ cannot nest transact call".into())
+	}
+
+	if <frame_system::Pallet<T>>::block_number() > max_block_number.into() {
+		return Err("⛔️ max block number too low".into())
+	}
+
+	let success = tx
+		.verify_transaction(&signature)
+		.map_err(|e| alloc::format!("⛔️ failed to verify transaction: {:?}", e))?;
+	if !success {
+		return Err("⛔️ transaction verification unsuccessful".into())
+	}
+	Ok((nonce, tip))
 }
 
 #[frame_support::pallet]
