@@ -656,7 +656,7 @@ describe("XRPL pallet", () => {
     const maxTokenPayment = 5_000_000;
     const extrinsic = api.tx.feeProxy.callWithFeePreferences(FEE_TOKEN_ASSET_ID, maxTokenPayment, futurepassCall);
     const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
-    const nonce = ((await api.query.system.account(futurepassAddress)).toJSON() as any)?.nonce;
+    const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
     const xrpUserBalanceBefore =

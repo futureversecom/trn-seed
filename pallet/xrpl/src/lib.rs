@@ -56,16 +56,22 @@ use crate::types::{ExtrinsicMemoData, XRPLTransaction};
 #[allow(dead_code)]
 pub(crate) const LOG_TARGET: &str = "xrpl";
 
-/// Checks performed on a XRPL transaction
+/// Checks performed on a XRPL against origin
 pub type XRPLValidations<T> = (
 	CheckNonZeroSender<T>,
 	CheckSpecVersion<T>,
 	CheckTxVersion<T>,
 	CheckGenesis<T>,
 	CheckEra<T>,
-	CheckNonce<T>,
 	CheckWeight<T>,
 	ChargeTransactionPayment<T>,
+);
+
+/// Checks performed on a XRPL against EOA (tx.origin)
+/// The origin changes for Futurepass based transactions; this is required as a separate
+/// set of validations which must be performed on the EOA (futurepass holder).
+pub type EOANonceValidation<T> = (
+	CheckNonce<T>,
 );
 
 impl<T> Call<T>
@@ -189,19 +195,36 @@ impl<T> Call<T>
 				CheckTxVersion::<T>::new(),
 				CheckGenesis::<T>::new(),
 				CheckEra::<T>::from(Era::immortal()),
-				CheckNonce::from(nonce.into()),
 				CheckWeight::new(),
 				ChargeTransactionPayment::<T>::from(tip.into()),
 			);
 
-			SignedExtension::validate(&validations, &T::AccountId::from(*origin), &(*call.clone()).into(), dispatch_info, len).ok()?;
+			let mut tx_origin = T::AccountId::from(*origin);
+
+			// validate signed extensions using origin
+			SignedExtension::validate(&validations, &tx_origin, &(*call.clone()).into(), dispatch_info, len).ok()?;
+
+			// validate signed extensions using EOA - for futurepass based transactions
+			if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call) {
+				// this implies that the origin is futurepass address; we need to get the EOA associated with it
+				let eoa = <T as pallet::Config>::FuturepassLookup::unlookup(*origin);
+				if eoa == H160::zero() {
+					log::error!("⛔️ failed to get EOA from futurepass address");
+					return None;
+				}
+				tx_origin = T::AccountId::from(eoa);
+			}
+
+			// validate nonce signed extension using EOA
+			let validations: EOANonceValidation<T> = (CheckNonce::from(nonce.into()),);
+			SignedExtension::validate(&validations, &tx_origin, &(*call.clone()).into(), dispatch_info, len).ok()?;
 
 			// priority is based on the provided tip in the xrpl transaction data
 			let priority = ChargeTransactionPayment::<T>::get_priority(&dispatch_info, len, tip.into(), 0.into());
-			let who: T::AccountId = (*origin).into();
-			let account = frame_system::Account::<T>::get(who.clone());
+			let who: T::AccountId = (tx_origin).clone().into();
+			let account = frame_system::Account::<T>::get(who);
 			let mut builder = ValidTransactionBuilder::default()
-				.and_provides((origin, nonce))
+				.and_provides((tx_origin, nonce))
 				.priority(priority);
 
 			// in the context of the pool, a transaction with too high a nonce is still considered valid
@@ -244,13 +267,29 @@ impl<T> Call<T>
 				CheckTxVersion::<T>::new(),
 				CheckGenesis::<T>::new(),
 				CheckEra::<T>::from(Era::immortal()),
-				CheckNonce::from(nonce.into()),
 				CheckWeight::new(),
 				ChargeTransactionPayment::<T>::from(tip.into()),
 			);
 
+			let mut tx_origin = T::AccountId::from(*info);
+
 			// Pre Dispatch - execute signed extensions with inner call
-			let pre = SignedExtension::pre_dispatch(validations, &T::AccountId::from(*info), &(*call.clone()).into(), dispatch_info, len).ok()?;
+			let pre = SignedExtension::pre_dispatch(validations, &tx_origin, &(*call.clone()).into(), dispatch_info, len).ok()?;
+
+			// Pre Dispatch - execute signed extensions with EOA - for futurepass based transactions
+			if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call) {
+				// this implies that the origin is futurepass address; we need to get the EOA associated with it
+				let eoa = <T as pallet::Config>::FuturepassLookup::unlookup(*info);
+				if eoa == H160::zero() {
+					log::error!("⛔️ failed to get EOA from futurepass address");
+					return None;
+				}
+				tx_origin = T::AccountId::from(eoa);
+			}
+
+			// validate nonce signed extension using EOA
+			let validations: EOANonceValidation<T> = (CheckNonce::from(nonce.into()),);
+			SignedExtension::pre_dispatch(validations, &tx_origin, &(*call.clone()).into(), dispatch_info, len).ok()?;
 
 			// Dispatch - execute outer call (transact)
 			let res = outer_call.dispatch(frame_system::RawOrigin::None.into());
