@@ -1,13 +1,14 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a, u8aToHex } from "@polkadot/util";
+import { blake2AsHex } from "@polkadot/util-crypto";
 import { expect } from "chai";
 import { Wallet } from "ethers";
-import { blake2AsHex } from "@polkadot/util-crypto";
-import { OpCodeComparator, OpComp, OpLoad, Pact } from "../../../trn-pact/js";
+
+import { OpCodeComparator, OpComp, OpLoad, Pact } from "../../../../pact/js";
 // const Doughnut = require('@trn/doughnut-wasm').default;
-import { Doughnut } from "../../../trn-doughnut-rs/js";
-import { TRNNut } from "../../../trn-trnnut-rs/js";
+import { Doughnut, SignatureVersion } from "../../../../trn-doughnut-rs/js";
+import { TRNNut } from "../../../../trn-trnnut-rs/js";
 import {
   ALICE_PRIVATE_KEY,
   ALITH_PRIVATE_KEY,
@@ -113,7 +114,7 @@ describe("Doughnuts", () => {
     const ethSlice = Buffer.from(ethHash.slice(2), "hex");
     const issuerSig = await aliceWallet.signMessage(ethSlice);
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
-    doughnut.addSignature(sigUint8);
+    doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
 
     console.log(`Signature : ${doughnut.signature()}`);
 
@@ -239,7 +240,7 @@ describe("Doughnuts", () => {
     const ethSlice = Buffer.from(ethHash.slice(2), "hex");
     const issuerSig = await aliceWallet.signMessage(ethSlice);
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
-    doughnut.addSignature(sigUint8);
+    doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
     console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
@@ -303,14 +304,13 @@ describe("Doughnuts", () => {
     doughnut.addDomain("Test", new Uint8Array(12));
     console.log(`Domain    : ${doughnut.domain("Test")}`);
 
-
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
     const ethHash = blake2AsHex(doughnut.payload());
     const ethSlice = Buffer.from(ethHash.slice(2), "hex");
     const issuerSig = await aliceWallet.signMessage(ethSlice);
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
-    doughnut.addSignature(sigUint8);
+    doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
     console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
