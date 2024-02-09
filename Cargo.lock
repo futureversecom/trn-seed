@@ -1495,7 +1495,7 @@ dependencies = [
 [[package]]
 name = "doughnut-rs"
 version = "0.1.0"
-source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/metamask-signing#6b45f6915db58b9f5c6d3884b64e2d2e5977c2ed"
+source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/trn-doughnut#f142c7681e46b496e5c6a4ba0b8864988ab15629"
 dependencies = [
  "blake2",
  "clear_on_drop",
