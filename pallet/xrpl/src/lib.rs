@@ -70,9 +70,7 @@ pub type XRPLValidations<T> = (
 /// Checks performed on a XRPL against EOA (tx.origin)
 /// The origin changes for Futurepass based transactions; this is required as a separate
 /// set of validations which must be performed on the EOA (futurepass holder).
-pub type EOANonceValidation<T> = (
-	CheckNonce<T>,
-);
+pub type EOANonceValidation<T> = (CheckNonce<T>,);
 
 impl<T> Call<T>
 	where
