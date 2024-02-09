@@ -25,7 +25,7 @@ use doughnut_rs::{
 		Doughnut, DoughnutV0, DoughnutV1,
 	},
 	signature::{
-		crypto::{sign_ecdsa, verify_signature},
+		crypto::{sign_ecdsa, sign_eip191, verify_signature},
 		SignatureVersion,
 	},
 	traits::{DoughnutVerify, FeeMode, PayloadVersion, Signing},
@@ -33,7 +33,7 @@ use doughnut_rs::{
 };
 use frame_support::traits::fungibles::Mutate;
 use seed_pallet_common::test_prelude::*;
-use sp_core::{blake2_256, bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair};
+use sp_core::{bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair};
 use sp_std::default::Default;
 
 // Helper struct for a test account where a seed is supplied and provides common methods to
