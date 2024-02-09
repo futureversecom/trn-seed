@@ -21,12 +21,12 @@ use crate::{
 use codec::Encode;
 use doughnut_rs::{
 	doughnut::{Doughnut, DoughnutV0, DoughnutV1},
-	signature::{sign_ecdsa, verify_signature, SignatureVersion},
+	signature::{sign_ecdsa, sign_eip191, verify_signature, SignatureVersion},
 	traits::{DoughnutVerify, FeeMode, PayloadVersion, Signing},
 };
 use frame_support::traits::fungibles::Mutate;
 use seed_pallet_common::test_prelude::*;
-use sp_core::{bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair};
+use sp_core::{blake2_256, bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair};
 use sp_std::default::Default;
 use trnnut_rs::TRNNutV0;
 
@@ -58,8 +58,12 @@ impl TestAccount {
 	}
 
 	// Sign a message using ECDSA
-	pub fn sign_ecdsa(&self, message: &[u8]) -> [u8; 64] {
+	pub fn sign_ecdsa(&self, message: &[u8]) -> [u8; 65] {
 		sign_ecdsa(&self.private(), message).unwrap()
+	}
+	// Sign a message using eip191
+	pub fn sign_eip191(&self, message: &[u8]) -> [u8; 65] {
+		sign_eip191(&self.private(), message).unwrap()
 	}
 }
 
@@ -75,6 +79,7 @@ pub fn make_doughnut(
 	fee_mode: FeeMode,
 	domain: &str,
 	domain_payload: Vec<u8>,
+	signature_version: SignatureVersion,
 ) -> Doughnut {
 	let mut doughnut_v1 = DoughnutV1 {
 		holder: holder.public().as_slice().try_into().expect("should not fail"),
@@ -84,11 +89,20 @@ pub fn make_doughnut(
 		expiry: 0,
 		not_before: 0,
 		payload_version: PayloadVersion::V1 as u16,
-		signature_version: SignatureVersion::ECDSA as u8,
-		signature: [0_u8; 64],
+		signature_version: signature_version as u8,
+		signature: [0_u8; 65],
 	};
 	// Sign and verify doughnut
-	assert_ok!(doughnut_v1.sign_ecdsa(&issuer.private()));
+	match signature_version {
+		SignatureVersion::ECDSA => {
+			assert_ok!(doughnut_v1.sign_ecdsa(&issuer.private()));
+		},
+		SignatureVersion::EIP191 => {
+			assert_ok!(doughnut_v1.sign_eip191(&issuer.private()));
+		},
+		_ => panic!("unsupported signature version"),
+	}
+
 	assert_ok!(doughnut_v1.verify());
 	Doughnut::V1(doughnut_v1)
 }
@@ -113,7 +127,7 @@ fn make_trnnut(module: &str, method: &str) -> TRNNut {
 #[test]
 fn make_doughnut_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		make_doughnut(&ALICE, &BOB, FeeMode::ISSUER, "", vec![]);
+		make_doughnut(&ALICE, &BOB, FeeMode::ISSUER, "", vec![], SignatureVersion::ECDSA);
 	});
 }
 
@@ -139,7 +153,8 @@ fn run_doughnut_common_validations_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
-		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "", vec![]);
+		let doughnut =
+			make_doughnut(&holder, &issuer, FeeMode::ISSUER, "", vec![], SignatureVersion::ECDSA);
 		let doughnut_encoded = doughnut.encode();
 
 		// Running common validations should work
@@ -152,7 +167,8 @@ fn run_doughnut_common_validations_bad_doughnut_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
-		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "", vec![]);
+		let doughnut =
+			make_doughnut(&holder, &issuer, FeeMode::ISSUER, "", vec![], SignatureVersion::ECDSA);
 		let mut doughnut_encoded = doughnut.encode();
 		// Corrupt the doughnut by removing the last byte
 		doughnut_encoded = doughnut_encoded[0..doughnut_encoded.len() - 1].to_vec();
@@ -196,7 +212,8 @@ fn bob_to_alice_doughnut() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer: TestAccount = BOB;
 		let holder: TestAccount = ALICE;
-		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "", vec![]);
+		let doughnut =
+			make_doughnut(&holder, &issuer, FeeMode::ISSUER, "", vec![], SignatureVersion::ECDSA);
 
 		println!("issuer address (Bob): {:?}", to_hex(issuer.address().0.as_slice(), false));
 		println!("holder address (Alice): {:?}", to_hex(holder.address().0.as_slice(), false));
@@ -224,7 +241,8 @@ fn alice_to_bob_doughnut() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
-		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+		let doughnut =
+			make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![], SignatureVersion::ECDSA);
 
 		println!("doughnut: {:?}", doughnut);
 		println!("issuer address (Alice): {:?}", to_hex(issuer.address().0.as_slice(), false));
@@ -249,12 +267,49 @@ fn alice_to_bob_doughnut() {
 }
 
 #[test]
+fn alice_to_bob_doughnut_eip191() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let issuer = ALICE;
+		let holder = BOB;
+		let doughnut =
+			make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![], SignatureVersion::EIP191);
+
+		println!("doughnut: {:?}", doughnut);
+		println!("issuer address (Alice): {:?}", to_hex(issuer.address().0.as_slice(), false));
+		println!("holder address (Bob): {:?}", to_hex(holder.address().0.as_slice(), false));
+
+		let doughnut_encoded = doughnut.encode();
+		println!("Encoded doughnut");
+		println!("{:?}", to_hex(doughnut_encoded.clone().as_slice(), false));
+
+		// Print Bob's signature over the doughnut
+		let bob_signature = sign_eip191(&holder.private(), &doughnut_encoded.as_slice()).unwrap();
+		println!("Holder signature: {:?}", to_hex(holder.private().as_slice(), false));
+
+		// Verify Bob's signature
+		assert_ok!(verify_signature(
+			SignatureVersion::EIP191 as u8,
+			&bob_signature,
+			&holder.public().as_slice(),
+			&doughnut_encoded.clone()
+		));
+	});
+}
+
+#[test]
 fn alice_to_bob_doughnut_for_balance_trnasfer() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
 		let trnnut = make_trnnut("Balances", "transfer");
-		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
+		let doughnut = make_doughnut(
+			&holder,
+			&issuer,
+			FeeMode::ISSUER,
+			"trn",
+			trnnut.encode(),
+			SignatureVersion::ECDSA,
+		);
 
 		println!("doughnut: {:?}", doughnut);
 		println!("issuer address (Alice): {:?}", to_hex(issuer.address().0.as_slice(), false));
@@ -288,7 +343,69 @@ fn transact_works() {
 		.execute_with(|| {
 			let holder = BOB;
 			let trnnut = make_trnnut("Balances", "transfer");
-			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
+			let doughnut = make_doughnut(
+				&holder,
+				&issuer,
+				FeeMode::ISSUER,
+				"trn",
+				trnnut.encode(),
+				SignatureVersion::ECDSA,
+			);
+			let doughnut_encoded = doughnut.encode();
+
+			// add BOB to whitelisted holders
+			WhitelistedHolders::<Test>::insert(BOB.address(), true);
+
+			// Create balances transfer call
+			let transfer_amount = 1234;
+			let destination = create_account(12);
+			let call: <Test as frame_system::Config>::RuntimeCall =
+				pallet_balances::Call::<Test>::transfer {
+					dest: destination,
+					value: transfer_amount,
+				}
+				.into();
+
+			// Attempting to transact the doughnut should succeed
+			assert_ok!(DoughnutPallet::transact(
+				RawOrigin::None.into(),
+				Box::new(call),
+				doughnut_encoded,
+				0,
+				vec![]
+			));
+
+			// Check event is thrown
+			System::assert_has_event(
+				Event::DoughnutCallExecuted { result: DispatchResult::Ok(()) }.into(),
+			);
+			// Check balance of destination and issuer is correct
+			assert_eq!(Balances::free_balance(&destination), transfer_amount);
+			assert_eq!(
+				Balances::free_balance(&issuer.address()),
+				initial_balance - transfer_amount
+			);
+		});
+}
+
+#[test]
+fn transact_works_eip191() {
+	let issuer = ALICE;
+	let initial_balance = 10_000;
+	TestExt::<Test>::default()
+		.with_balances(&[(issuer.address(), initial_balance)])
+		.build()
+		.execute_with(|| {
+			let holder = BOB;
+			let trnnut = make_trnnut("Balances", "transfer");
+			let doughnut = make_doughnut(
+				&holder,
+				&issuer,
+				FeeMode::ISSUER,
+				"trn",
+				trnnut.encode(),
+				SignatureVersion::EIP191,
+			);
 			let doughnut_encoded = doughnut.encode();
 
 			// add BOB to whitelisted holders
@@ -387,7 +504,7 @@ fn transact_holder_not_signed_doughnut_should_fail() {
 			not_before: 0,
 			payload_version: PayloadVersion::V1 as u16,
 			signature_version: SignatureVersion::ECDSA as u8,
-			signature: [0_u8; 64],
+			signature: [0_u8; 65],
 		};
 
 		// Sign the doughnut with Bobs private key (The holder, not the issuer)
@@ -419,7 +536,14 @@ fn revoke_doughnut_works() {
 		let issuer = ALICE;
 		let holder = BOB;
 		let trnnut = make_trnnut("System", "remark");
-		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
+		let doughnut = make_doughnut(
+			&holder,
+			&issuer,
+			FeeMode::ISSUER,
+			"trn",
+			trnnut.encode(),
+			SignatureVersion::ECDSA,
+		);
 		let doughnut_encoded = doughnut.encode();
 
 		// add BOB to whitelisted holders
@@ -473,7 +597,8 @@ fn revoke_doughnut_not_issuer_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
-		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+		let doughnut =
+			make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![], SignatureVersion::ECDSA);
 		let doughnut_encoded = doughnut.encode();
 
 		assert_noop!(
@@ -503,7 +628,14 @@ fn revoke_holder_works() {
 		let issuer = ALICE;
 		let holder = BOB;
 		let trnnut = make_trnnut("System", "remark");
-		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
+		let doughnut = make_doughnut(
+			&holder,
+			&issuer,
+			FeeMode::ISSUER,
+			"trn",
+			trnnut.encode(),
+			SignatureVersion::ECDSA,
+		);
 		let doughnut_encoded = doughnut.encode();
 
 		// add BOB to whitelisted holders
@@ -560,7 +692,14 @@ fn generate_alice_to_bob_outer_signature() {
 		.build()
 		.execute_with(|| {
 			let holder = BOB;
-			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+			let doughnut = make_doughnut(
+				&holder,
+				&issuer,
+				FeeMode::ISSUER,
+				"1",
+				vec![],
+				SignatureVersion::ECDSA,
+			);
 			let doughnut_encoded = doughnut.encode();
 
 			// Create balances transfer call
@@ -602,7 +741,14 @@ fn generate_alice_to_bob_outer_signature_for_balances_transfer() {
 		.execute_with(|| {
 			let holder = BOB;
 			let trnnut = make_trnnut("Balances", "transfer");
-			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
+			let doughnut = make_doughnut(
+				&holder,
+				&issuer,
+				FeeMode::ISSUER,
+				"trn",
+				trnnut.encode(),
+				SignatureVersion::ECDSA,
+			);
 			let doughnut_encoded = doughnut.encode();
 
 			// Create balances transfer call
@@ -644,7 +790,14 @@ fn generate_alice_to_bob_outer_signature_for_balances_transfer_keep_alive() {
 		.execute_with(|| {
 			let holder = BOB;
 			let trnnut = make_trnnut("Balances", "transfer");
-			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
+			let doughnut = make_doughnut(
+				&holder,
+				&issuer,
+				FeeMode::ISSUER,
+				"trn",
+				trnnut.encode(),
+				SignatureVersion::ECDSA,
+			);
 			let doughnut_encoded = doughnut.encode();
 
 			// Create balances transfer call
@@ -685,7 +838,14 @@ fn signed_extension_validations_succeed() {
 			let issuer = ALICE;
 			let holder = BOB;
 			let trnnut = make_trnnut("System", "remark_with_event");
-			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
+			let doughnut = make_doughnut(
+				&holder,
+				&issuer,
+				FeeMode::ISSUER,
+				"trn",
+				trnnut.encode(),
+				SignatureVersion::ECDSA,
+			);
 			let doughnut_encoded = doughnut.encode();
 
 			// add BOB to whitelisted holders
@@ -705,7 +865,7 @@ fn signed_extension_validations_succeed() {
 				nonce,
 				signature: vec![],
 			};
-			let outer_signature = holder.sign_ecdsa(&outer_call.encode().as_slice());
+			let outer_signature = holder.sign_eip191(&outer_call.encode().as_slice());
 
 			// validate self contained extrinsic is invalid (invalid signature)
 			let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(
@@ -742,7 +902,8 @@ fn signed_extension_validations_low_balance_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
-		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+		let doughnut =
+			make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![], SignatureVersion::ECDSA);
 		let doughnut_encoded = doughnut.encode();
 
 		let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
@@ -790,7 +951,14 @@ fn apply_extrinsic_invalid_nonce_fails() {
 		.execute_with(|| {
 			let issuer = ALICE;
 			let holder = BOB;
-			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+			let doughnut = make_doughnut(
+				&holder,
+				&issuer,
+				FeeMode::ISSUER,
+				"1",
+				vec![],
+				SignatureVersion::ECDSA,
+			);
 			let doughnut_encoded = doughnut.encode();
 
 			// Fund the issuer so they can pass the validations for paying gas
@@ -807,7 +975,7 @@ fn apply_extrinsic_invalid_nonce_fails() {
 				nonce,
 				signature: vec![],
 			};
-			let outer_signature = holder.sign_ecdsa(&outer_call.encode().as_slice());
+			let outer_signature = holder.sign_eip191(&outer_call.encode().as_slice());
 
 			// validate self contained extrinsic is invalid (invalid signature)
 			let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(
@@ -850,7 +1018,7 @@ fn signed_extension_validations_invalid_inner_signature_fails() {
 				not_before: 0,
 				payload_version: 0,
 				signature_version: SignatureVersion::ECDSA as u8,
-				signature: [0_u8; 64],
+				signature: [0_u8; 65],
 			};
 
 			// don't sign doughnut and check that verify fails
@@ -904,7 +1072,14 @@ fn signed_extension_validations_invalid_outer_signature_fails() {
 		.execute_with(|| {
 			let issuer = ALICE;
 			let holder = BOB;
-			let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![]);
+			let doughnut = make_doughnut(
+				&holder,
+				&issuer,
+				FeeMode::ISSUER,
+				"1",
+				vec![],
+				SignatureVersion::ECDSA,
+			);
 			let doughnut_encoded = doughnut.encode();
 
 			// Fund the issuer so they can pass the validations for paying gas
@@ -997,7 +1172,14 @@ fn holder_whitelisting_works() {
 		let issuer = ALICE;
 		let holder = BOB;
 		let trnnut = make_trnnut("System", "remark");
-		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
+		let doughnut = make_doughnut(
+			&holder,
+			&issuer,
+			FeeMode::ISSUER,
+			"trn",
+			trnnut.encode(),
+			SignatureVersion::ECDSA,
+		);
 		let doughnut_encoded = doughnut.encode();
 
 		// Attempting to transact the doughnut should fail as the holder is not whitelisted

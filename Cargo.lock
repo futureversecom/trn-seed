@@ -1495,7 +1495,7 @@ dependencies = [
 [[package]]
 name = "doughnut-rs"
 version = "0.1.0"
-source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/trn-doughnut#82d4312e2f1c055d0d60f4bb1ef257c638f3078c"
+source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/trn-doughnut#f142c7681e46b496e5c6a4ba0b8864988ab15629"
 dependencies = [
  "blake2",
  "clear_on_drop",
@@ -1505,6 +1505,7 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types 0.12.2",
  "schnorrkel 0.11.4",
+ "sha3 0.10.8",
 ]
 
 [[package]]
