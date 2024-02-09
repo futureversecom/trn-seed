@@ -75,6 +75,7 @@ pub fn make_doughnut(
 	fee_mode: FeeMode,
 	domain: &str,
 	domain_payload: Vec<u8>,
+	signature_version: SignatureVersion,
 ) -> Doughnut {
 	let mut doughnut_v1 = DoughnutV1 {
 		holder: holder.public().as_slice().try_into().expect("should not fail"),
@@ -84,11 +85,20 @@ pub fn make_doughnut(
 		expiry: 0,
 		not_before: 0,
 		payload_version: PayloadVersion::V1 as u16,
-		signature_version: SignatureVersion::ECDSA as u8,
-		signature: [0_u8; 64],
+		signature_version: signature_version as u8,
+		signature: [0_u8; 65],
 	};
 	// Sign and verify doughnut
-	assert_ok!(doughnut_v1.sign_ecdsa(&issuer.private()));
+	match signature_version {
+		SignatureVersion::ECDSA => {
+			assert_ok!(doughnut_v1.sign_ecdsa(&issuer.private()));
+		},
+		SignatureVersion::EIP191 => {
+			assert_ok!(doughnut_v1.sign_eip191(&issuer.private()));
+		},
+		_ => panic!("unsupported signature version"),
+	}
+
 	assert_ok!(doughnut_v1.verify());
 	Doughnut::V1(doughnut_v1)
 }
