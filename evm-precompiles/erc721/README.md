@@ -29,6 +29,12 @@ interface IERC721Metadata is IERC721 {
 ```
 
 ```solidity
+interface IERC721Burnable is IERC721 {
+    function burn(uint256 tokenId) external;
+}
+```
+
+```solidity
 interface TRN721 is IERC165 {
     event MaxSupplyUpdated(uint32 maxSupply);
     event BaseURIUpdated(string baseURI);

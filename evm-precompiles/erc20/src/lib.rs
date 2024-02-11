@@ -20,16 +20,15 @@ use fp_evm::{PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::{
-		fungibles::{Inspect, InspectMetadata, Transfer},
+		fungibles::{Inspect, InspectMetadata},
 		OriginTrait,
 	},
 };
-use pallet_assets::WeightInfo;
-use pallet_evm::{GasWeightMapping, PrecompileSet};
+use pallet_evm::PrecompileSet;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{AssetId, Balance};
 use sp_core::{H160, U256};
-use sp_runtime::traits::{SaturatedConversion, Zero};
+use sp_runtime::traits::SaturatedConversion;
 use sp_std::marker::PhantomData;
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature
@@ -75,6 +74,7 @@ where
 		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>
 		+ pallet_token_approvals::Config,
 	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_assets_ext::Call<Runtime>>,
 	Runtime::RuntimeCall: From<pallet_token_approvals::Call<Runtime>>,
 	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<AssetId, EvmId = Address>,
@@ -86,40 +86,38 @@ where
 		if let Some(asset_id) =
 			Runtime::evm_id_to_runtime_id(context.address.into(), ERC20_PRECOMPILE_ADDRESS_PREFIX)
 		{
-			if !<pallet_assets_ext::Pallet<Runtime> as Inspect<Runtime::AccountId>>::total_issuance(
-				asset_id,
-			)
-			.is_zero()
-			{
-				let result = {
-					let selector = match handle.read_selector() {
-						Ok(selector) => selector,
-						Err(e) => return Some(Err(e.into())),
-					};
+			if !<pallet_assets_ext::Pallet<Runtime>>::asset_exists(asset_id) {
+				return None
+			}
 
-					if let Err(err) = handle.check_function_modifier(match selector {
-						Action::Approve | Action::Transfer | Action::TransferFrom =>
-							FunctionModifier::NonPayable,
-						_ => FunctionModifier::View,
-					}) {
-						return Some(Err(err.into()))
-					}
-
-					match selector {
-						Action::TotalSupply => Self::total_supply(asset_id, handle),
-						Action::BalanceOf => Self::balance_of(asset_id, handle),
-						Action::Transfer => Self::transfer(asset_id, handle),
-						Action::Name => Self::name(asset_id, handle),
-						Action::Symbol => Self::symbol(asset_id, handle),
-						Action::Decimals => Self::decimals(asset_id, handle),
-						Action::Allowance => Self::allowance(asset_id, handle),
-						Action::Approve => Self::approve(asset_id, handle),
-						Action::TransferFrom => Self::transfer_from(asset_id, handle),
-					}
+			let result = {
+				let selector = match handle.read_selector() {
+					Ok(selector) => selector,
+					Err(e) => return Some(Err(e.into())),
 				};
 
-				return Some(result)
-			}
+				if let Err(err) = handle.check_function_modifier(match selector {
+					Action::Approve | Action::Transfer | Action::TransferFrom =>
+						FunctionModifier::NonPayable,
+					_ => FunctionModifier::View,
+				}) {
+					return Some(Err(err.into()))
+				}
+
+				match selector {
+					Action::TotalSupply => Self::total_supply(asset_id, handle),
+					Action::BalanceOf => Self::balance_of(asset_id, handle),
+					Action::Transfer => Self::transfer(asset_id, handle),
+					Action::Name => Self::name(asset_id, handle),
+					Action::Symbol => Self::symbol(asset_id, handle),
+					Action::Decimals => Self::decimals(asset_id, handle),
+					Action::Allowance => Self::allowance(asset_id, handle),
+					Action::Approve => Self::approve(asset_id, handle),
+					Action::TransferFrom => Self::transfer_from(asset_id, handle),
+				}
+			};
+
+			return Some(result)
 		}
 		None
 	}
@@ -128,11 +126,8 @@ where
 		if let Some(asset_id) =
 			Runtime::evm_id_to_runtime_id(Address(address), ERC20_PRECOMPILE_ADDRESS_PREFIX)
 		{
-			// totaly supply `0` is a good enough check for asset existence
-			!<pallet_assets_ext::Pallet<Runtime> as Inspect<Runtime::AccountId>>::total_issuance(
-				asset_id,
-			)
-			.is_zero()
+			// Check if the asset exists
+			<pallet_assets_ext::Pallet<Runtime>>::asset_exists(asset_id)
 		} else {
 			false
 		}
@@ -154,7 +149,8 @@ where
 		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>
 		+ pallet_token_approvals::Config,
 	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::RuntimeCall: From<pallet_token_approvals::Call<Runtime>>,
+	Runtime::RuntimeCall:
+		From<pallet_token_approvals::Call<Runtime>> + From<pallet_assets_ext::Call<Runtime>>,
 	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<AssetId, EvmId = Address>,
 	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: OriginTrait,
@@ -274,22 +270,22 @@ where
 		let amount: Balance = amount.saturated_into();
 		let origin: Runtime::AccountId = handle.context().caller.into();
 
-		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-			<Runtime as pallet_assets::Config>::WeightInfo::transfer(),
-		))?;
-		let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
-			asset_id,
-			&origin,
-			&to.clone().into(),
-			amount,
-			false,
-		)
-		.map_err(|e| revert(alloc::format!("ERC20: Dispatched call failed with error: {:?}", e)))?;
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin).into(),
+			pallet_assets_ext::Call::<Runtime>::transfer {
+				asset_id,
+				destination: to.clone().into(),
+				amount,
+				keep_alive: false,
+			},
+		)?;
+		let caller = handle.context().caller;
 
 		log3(
 			handle.code_address(),
 			SELECTOR_LOG_TRANSFER,
-			handle.context().caller,
+			caller,
 			to,
 			EvmDataWriter::new().write(amount).build(),
 		)
@@ -335,20 +331,16 @@ where
 				},
 			)?;
 
-			// Transfer
-			handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-				<Runtime as pallet_assets::Config>::WeightInfo::transfer(),
-			))?;
-			let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
-				asset_id,
-				&from,
-				&to.clone(),
-				amount,
-				false,
-			)
-			.map_err(|e| {
-				revert(alloc::format!("ERC20: Dispatched call failed with error: {:?}", e))
-			})?;
+			RuntimeHelper::<Runtime>::try_dispatch(
+				handle,
+				Some(from).into(),
+				pallet_assets_ext::Call::<Runtime>::transfer {
+					asset_id,
+					destination: to.clone(),
+					amount,
+					keep_alive: false,
+				},
+			)?;
 		}
 		log3(
 			handle.code_address(),

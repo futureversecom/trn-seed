@@ -20,7 +20,7 @@ interface Marketplace {
     
     function registerMarketplace(address marketplaceAccount, uint256 entitlement) external returns (uint marketplaceId);
     function sellNftWithMarketplaceId(address collectionAddress, uint256[] calldata serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration, uint32 marketplaceId) external returns (uint listingId);
-    function SellNftWithoutMarketplace(address collectionAddress, uint256[] calldata serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration) external returns (uint listingId);
+    function sellNftWithoutMarketplace(address collectionAddress, uint256[] calldata serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration) external returns (uint listingId);
     function updateFixedPrice(uint128 listingId, uint256 newPrice) external;
     function buy(uint128 listingId) external payable;
     function auctionNftWithMarketplaceId(address collectionAddress, uint256[] calldata serialNumberIds, address paymentAsset, uint256 reservePrice, uint256 duration, uint256 marketplaceId) external payable;
