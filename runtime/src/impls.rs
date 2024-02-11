@@ -57,8 +57,8 @@ use crate::{
 	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
 	UncheckedExtrinsic, EVM,
 };
+use doughnut_rs::TRNNutV0;
 use sp_runtime::traits::{Dispatchable, Saturating, StaticLookup, UniqueSaturatedInto};
-use trnnut_rs::TRNNut;
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -872,7 +872,7 @@ where
 pub struct DoughnutCallValidator;
 impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 	type Call = RuntimeCall;
-	type PermissionObject = TRNNut;
+	type PermissionObject = TRNNutV0;
 	fn check_extrinsic(call: &Self::Call, trnnut: &Self::PermissionObject) -> DispatchResult {
 		let CallMetadata { function_name, pallet_name } = call.get_call_metadata();
 
@@ -885,7 +885,7 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 				let value_u128: u128 = (*value).into();
 
 				trnnut
-					.validate_runtime_call(
+					.validate_module(
 						pallet_name,
 						function_name,
 						// TODO: change the u64 conversion once pact Numeric support u128
@@ -904,7 +904,7 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 				let value_u128: u128 = (*value).into();
 
 				trnnut
-					.validate_runtime_call(
+					.validate_module(
 						pallet_name,
 						function_name,
 						// TODO: change the u64 conversion once pact Numeric support u128
@@ -920,7 +920,7 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 			RuntimeCall::Futurepass(pallet_futurepass::Call::create { account }) => {
 				let owner_account: [u8; 20] = (*account).clone().into();
 				trnnut
-					.validate_runtime_call(
+					.validate_module(
 						pallet_name,
 						function_name,
 						&[PactType::StringLike(StringLike(owner_account.to_vec()))],
@@ -931,7 +931,7 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 			// System
 			RuntimeCall::System(frame_system::Call::remark { .. }) => {
 				trnnut
-					.validate_runtime_call(pallet_name, function_name, &[])
+					.validate_module(pallet_name, function_name, &[])
 					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
 				Ok(())
 			},
