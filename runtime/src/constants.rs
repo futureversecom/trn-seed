@@ -69,8 +69,6 @@ pub mod currency {
 		// TODO: figure out a better way to calculate this
 		items as Balance * 100 * XRP_MINIMUM_BALANCE + (bytes as Balance) * 6 * XRP_MINIMUM_BALANCE
 	}
-
-	const TRN_PERMISSION_DOMAIN: &str = "trn";
 }
 
 /// Common constants of parachains.
