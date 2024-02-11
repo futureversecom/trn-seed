@@ -877,7 +877,8 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 		// Check if the inner call is proxy extrinsic. If it is, we want to validate the call within
 		// Proxy extrinsic
 		let mut actual_call: Self::Call = call.clone();
-		if let RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { call, .. }) = call {
+		if let RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { call, .. }) = call
+		{
 			actual_call = *call.clone();
 		};
 		let CallMetadata { function_name, pallet_name } = actual_call.get_call_metadata();

@@ -36,7 +36,6 @@ use frame_support::{
 	traits::{GetCallMetadata, IsSubType},
 };
 use frame_system::{CheckNonZeroSender, CheckNonce, CheckWeight};
-use pact::types::{Numeric, PactType, StringLike};
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use seed_primitives::AccountId20;
 use sp_runtime::{
@@ -46,8 +45,6 @@ use sp_runtime::{
 	},
 	transaction_validity::ValidTransactionBuilder,
 };
-use alloc::vec::Vec;
-use trnnut_rs::TRNNut;
 
 pub mod weights;
 pub use weights::WeightInfo;
@@ -58,8 +55,6 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod test;
-
-const TRN_PERMISSION_DOMAIN: &str = "trn";
 
 const TRN_PERMISSION_DOMAIN: &str = "trn";
 
