@@ -1495,7 +1495,7 @@ dependencies = [
 [[package]]
 name = "doughnut-rs"
 version = "0.1.0"
-source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/trn-doughnut-trnnut-merge#214dd9857601a056e88300804cc20ddcc1c79b69"
+source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/trn-doughnut#7681620783927cc9431a29c65e945a26fed6719e"
 dependencies = [
  "blake2",
  "clear_on_drop",
