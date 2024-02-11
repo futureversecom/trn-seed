@@ -802,9 +802,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-platform"
-version = "0.1.6"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ceed8ef69d8518a5dda55c07425450b58a4e1946f4951eab6d7191ee86c2443d"
+checksum = "e34637b3140142bdf929fb439e8aa4ebad7651ebf7b1080b3930aa16ac1459ff"
 dependencies = [
  "serde",
 ]
@@ -1495,16 +1495,18 @@ dependencies = [
 [[package]]
 name = "doughnut-rs"
 version = "0.1.0"
-source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/trn-doughnut#f142c7681e46b496e5c6a4ba0b8864988ab15629"
+source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/trn-doughnut-trnnut-merge#214dd9857601a056e88300804cc20ddcc1c79b69"
 dependencies = [
  "blake2",
  "clear_on_drop",
  "digest 0.10.7",
  "ed25519-dalek",
  "libsecp256k1 0.7.1",
+ "pact",
  "parity-scale-codec",
  "primitive-types 0.12.2",
  "schnorrkel 0.11.4",
+ "serde",
  "sha3 0.10.8",
 ]
 
@@ -3002,11 +3004,11 @@ dependencies = [
 
 [[package]]
 name = "home"
-version = "0.5.9"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3d1354bf6b7235cb4a0576c2619fd4ed18183f689b12b006a0ee7329eeff9a5"
+checksum = "5444c27eef6923071f7ebcc33e3444508466a76f7a2b93da00ed6e19f30c1ddb"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -5147,7 +5149,6 @@ name = "pallet-doughnut"
 version = "1.0.0"
 dependencies = [
  "doughnut-rs",
- "fp-evm",
  "fp-self-contained",
  "frame-benchmarking",
  "frame-executive",
@@ -5165,7 +5166,6 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
- "precompile-utils",
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
@@ -5173,7 +5173,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "trnnut-rs",
 ]
 
 [[package]]
@@ -8828,6 +8827,7 @@ dependencies = [
 name = "seed-runtime"
 version = "0.1.0"
 dependencies = [
+ "doughnut-rs",
  "ethabi",
  "ethereum",
  "evm",
@@ -8940,7 +8940,6 @@ dependencies = [
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
  "tokio",
- "trnnut-rs",
  "try-runtime-cli",
 ]
 
@@ -10643,17 +10642,6 @@ checksum = "a1631b201eb031b563d2e85ca18ec8092508e262a3196ce9bd10a67ec87b9f5c"
 dependencies = [
  "hash-db",
  "rlp",
-]
-
-[[package]]
-name = "trnnut-rs"
-version = "0.1.1"
-source = "git+https://github.com/futureversecom/trn-trnnut-rs?branch=feat/pact-update#a871b44095c540e63348745b65a4df87f3bd384e"
-dependencies = [
- "pact",
- "parity-scale-codec",
- "serde",
- "serde_json",
 ]
 
 [[package]]

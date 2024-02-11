@@ -167,7 +167,7 @@ pub struct MockDoughnutCallValidator;
 
 impl ExtrinsicChecker for MockDoughnutCallValidator {
 	type Call = RuntimeCall;
-	type PermissionObject = TRNNut;
+	type PermissionObject = TRNNutV0;
 	fn check_extrinsic(_call: &Self::Call, _trnnut: &Self::PermissionObject) -> DispatchResult {
 		Ok(())
 	}
