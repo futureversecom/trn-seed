@@ -28,6 +28,7 @@ construct_runtime!(
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
 		Nft: pallet_nft,
+		Sft: pallet_sft,
 		Marketplace: pallet_marketplace,
 	}
 );
@@ -37,6 +38,7 @@ impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 impl_pallet_nft_config!(Test);
+impl_pallet_sft_config!(Test);
 
 parameter_types! {
 	pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
@@ -54,6 +56,7 @@ impl crate::Config for Test {
 	type DefaultFeeTo = DefaultFeeTo;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
+	type SFTExt = Sft;
 	type PalletId = MarketplacePalletId;
 	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type WeightInfo = ();

@@ -262,7 +262,7 @@ fn sell_multiple_fails() {
 				None,
 				None
 			),
-			Error::<Test>::NoToken
+			Error::<Test>::EmptyTokens
 		);
 	})
 }
@@ -286,9 +286,9 @@ fn sell_multiple() {
 			None,
 			None,
 		));
+		let tokens = ListingTokens::Nft(BoundedVec::truncate_from(vec![token_id]));
 		System::assert_last_event(MockEvent::Marketplace(Event::<Test>::FixedPriceSaleList {
-			collection_id,
-			serial_numbers: vec![token_id.1],
+			tokens: tokens.clone(),
 			listing_id,
 			marketplace_id: None,
 			price: 1_000,
@@ -311,8 +311,7 @@ fn sell_multiple() {
 			fixed_price: 1_000,
 			close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			buyer: Some(buyer),
-			collection_id,
-			serial_numbers: BoundedVec::try_from(vec![token_id.1]).unwrap(),
+			tokens,
 			seller: token_owner,
 			royalties_schedule,
 			marketplace_id: None,
@@ -363,7 +362,7 @@ fn sell_fails() {
 				None,
 				None
 			),
-			Error::<Test>::NotTokenOwner
+			pallet_nft::Error::<Test>::NotTokenOwner
 		);
 
 		// token listed already
@@ -390,7 +389,7 @@ fn sell_fails() {
 				None,
 				None
 			),
-			Error::<Test>::TokenLocked
+			pallet_nft::Error::<Test>::TokenLocked
 		);
 
 		// can't auction, listed for fixed price sale
@@ -404,7 +403,7 @@ fn sell_fails() {
 				None,
 				None
 			),
-			Error::<Test>::TokenLocked
+			pallet_nft::Error::<Test>::TokenLocked
 		);
 	});
 }
@@ -428,10 +427,11 @@ fn cancel_sell() {
 			None
 		));
 		assert_ok!(Marketplace::cancel_sale(Some(token_owner).into(), listing_id));
+		let tokens = ListingTokens::Nft(BoundedVec::truncate_from(vec![token_id]));
 		System::assert_last_event(MockEvent::Marketplace(Event::<Test>::FixedPriceSaleClose {
-			collection_id,
-			serial_numbers: vec![token_id.1],
+			tokens,
 			listing_id,
+			marketplace_id: None,
 			reason: FixedPriceClosureReason::VendorCancelled,
 		}));
 
@@ -711,11 +711,12 @@ fn update_fixed_price() {
 			None
 		));
 		assert_ok!(Marketplace::update_fixed_price(Some(token_owner).into(), listing_id, 1_500));
+		let tokens = ListingTokens::Nft(BoundedVec::truncate_from(vec![token_id]));
 		System::assert_last_event(MockEvent::Marketplace(
 			Event::<Test>::FixedPriceSalePriceUpdate {
-				collection_id,
-				serial_numbers: vec![token_id.1],
+				tokens: tokens.clone(),
 				listing_id,
+				marketplace_id: None,
 				new_price: 1_500,
 			},
 		));
@@ -733,8 +734,7 @@ fn update_fixed_price() {
 			close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			buyer: Some(buyer),
 			seller: token_owner,
-			collection_id,
-			serial_numbers: BoundedVec::try_from(vec![token_id.1]).unwrap(),
+			tokens,
 			royalties_schedule,
 			marketplace_id: None,
 		});
@@ -1282,9 +1282,11 @@ fn cancel_auction() {
 
 		assert_ok!(Marketplace::cancel_sale(Some(token_owner).into(), listing_id,));
 
+		let tokens = ListingTokens::Nft(BoundedVec::truncate_from(vec![token_id]));
 		System::assert_last_event(MockEvent::Marketplace(Event::<Test>::AuctionClose {
-			collection_id,
+			tokens,
 			listing_id,
+			marketplace_id: None,
 			reason: AuctionClosureReason::VendorCancelled,
 		}));
 
@@ -1386,7 +1388,7 @@ fn auction_bundle_fails() {
 				None,
 				None
 			),
-			Error::<Test>::NoToken
+			Error::<Test>::EmptyTokens
 		);
 	})
 }
@@ -1484,9 +1486,11 @@ fn auction() {
 			assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
 
 			// event logged
+			let tokens = ListingTokens::Nft(BoundedVec::truncate_from(vec![token_id]));
 			System::assert_last_event(MockEvent::Marketplace(Event::<Test>::AuctionSold {
-				collection_id,
+				tokens,
 				listing_id,
+				marketplace_id: None,
 				payment_asset: NativeAssetId::get(),
 				hammer_price: winning_bid,
 				winner: bidder_2,
@@ -1632,6 +1636,7 @@ fn close_listings_at_removes_listing_data() {
 		let price = 123_456;
 		let token_1 = (collection_id, 0);
 		let seller = create_account(1);
+		let tokens = ListingTokens::Nft(BoundedVec::truncate_from(vec![token_1]));
 		let listings = vec![
 			// an open sale which won't be bought before closing
 			Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
@@ -1640,8 +1645,7 @@ fn close_listings_at_removes_listing_data() {
 				buyer: None,
 				close: System::block_number() + 1,
 				seller: seller.clone(),
-				collection_id,
-				serial_numbers: BoundedVec::try_from(vec![token_1.1]).unwrap(),
+				tokens: tokens.clone(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
 			}),
@@ -1651,8 +1655,7 @@ fn close_listings_at_removes_listing_data() {
 				reserve_price: price,
 				close: System::block_number() + 1,
 				seller: seller.clone(),
-				collection_id,
-				serial_numbers: BoundedVec::try_from(vec![token_1.1]).unwrap(),
+				tokens: tokens.clone(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
 			}),
@@ -1662,8 +1665,7 @@ fn close_listings_at_removes_listing_data() {
 				reserve_price: price,
 				close: System::block_number() + 1,
 				seller: seller.clone(),
-				collection_id,
-				serial_numbers: BoundedVec::try_from(vec![token_1.1]).unwrap(),
+				tokens: tokens.clone(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
 			}),
@@ -1715,7 +1717,7 @@ fn auction_fails_prechecks() {
 				Some(1),
 				None,
 			),
-			Error::<Test>::NotTokenOwner
+			pallet_nft::Error::<Test>::NotTokenOwner
 		);
 
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
@@ -1732,7 +1734,7 @@ fn auction_fails_prechecks() {
 				Some(1),
 				None,
 			),
-			Error::<Test>::NotTokenOwner
+			pallet_nft::Error::<Test>::NotTokenOwner
 		);
 
 		// setup listed token, and try list it again
@@ -1756,7 +1758,7 @@ fn auction_fails_prechecks() {
 				Some(1),
 				None,
 			),
-			Error::<Test>::TokenLocked
+			pallet_nft::Error::<Test>::TokenLocked
 		);
 
 		// listed for auction
@@ -1771,7 +1773,7 @@ fn auction_fails_prechecks() {
 				None,
 				None,
 			),
-			Error::<Test>::TokenLocked
+			pallet_nft::Error::<Test>::TokenLocked
 		);
 	});
 }
@@ -2080,6 +2082,7 @@ fn cancel_offer() {
 
 			System::assert_last_event(MockEvent::Marketplace(Event::<Test>::OfferCancel {
 				offer_id,
+				marketplace_id: None,
 				token_id,
 			}));
 
@@ -2129,6 +2132,7 @@ fn cancel_offer_multiple_offers() {
 			assert_ok!(Marketplace::cancel_offer(Some(buyer_1).into(), offer_id_1));
 			System::assert_last_event(MockEvent::Marketplace(Event::<Test>::OfferCancel {
 				offer_id: offer_id_1,
+				marketplace_id: None,
 				token_id,
 			}));
 
@@ -2200,6 +2204,7 @@ fn accept_offer() {
 			assert_ok!(Marketplace::accept_offer(Some(token_owner).into(), offer_id));
 			System::assert_last_event(MockEvent::Marketplace(Event::<Test>::OfferAccept {
 				offer_id,
+				marketplace_id: None,
 				token_id,
 				amount: offer_amount,
 				asset_id: NativeAssetId::get(),
@@ -2250,6 +2255,7 @@ fn accept_offer_multiple_offers() {
 			assert_ok!(Marketplace::accept_offer(Some(token_owner).into(), offer_id_2));
 			System::assert_last_event(MockEvent::Marketplace(Event::<Test>::OfferAccept {
 				offer_id: offer_id_2,
+				marketplace_id: None,
 				token_id,
 				amount: offer_amount_2,
 				asset_id: NativeAssetId::get(),

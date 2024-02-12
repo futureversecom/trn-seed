@@ -292,6 +292,41 @@ macro_rules! impl_pallet_nft_config {
 }
 
 #[macro_export]
+macro_rules! impl_pallet_sft_config {
+	($test:ident) => {
+		pub struct MockSftNewAssetSubscription;
+		impl<RuntimeId> OnNewAssetSubscriber<RuntimeId> for MockSftNewAssetSubscription
+		where
+			RuntimeId: From<u32> + Into<u32>,
+		{
+			fn on_asset_create(_runtime_id: RuntimeId, _precompile_address_prefix: &[u8; 4]) {}
+		}
+
+		parameter_types! {
+			pub const SftPalletId: PalletId = PalletId(*b"sftokens");
+			pub const MaxTokensPerSftCollection: u32 = 10_000;
+			pub const MaxSerialsPerSftMint: u32 = 10;
+			pub const MaxOwnersPerSftToken: u32 = 100;
+		}
+
+		impl pallet_sft::Config for Test {
+			type RuntimeEvent = RuntimeEvent;
+			type MultiCurrency = AssetsExt;
+			type NFTExt = Nft;
+			type OnTransferSubscription = MockTransferSubscriber;
+			type OnNewAssetSubscription = MockSftNewAssetSubscription;
+			type PalletId = SftPalletId;
+			type ParachainId = TestParachainId;
+			type StringLimit = StringLimit;
+			type WeightInfo = ();
+			type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
+			type MaxSerialsPerMint = MaxSerialsPerSftMint;
+			type MaxOwnersPerSftToken = MaxOwnersPerSftToken;
+		}
+	};
+}
+
+#[macro_export]
 macro_rules! impl_pallet_marketplace_config {
 	($test:ident) => {
 		parameter_types! {
