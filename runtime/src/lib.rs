@@ -445,6 +445,7 @@ impl pallet_marketplace::Config for Runtime {
 	type DefaultFeeTo = DefaultFeeTo;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
+	type SFTExt = Sft;
 	type PalletId = MarketplacePalletId;
 	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type WeightInfo = weights::pallet_marketplace::WeightInfo<Runtime>;

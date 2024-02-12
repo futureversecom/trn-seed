@@ -73,5 +73,11 @@ pub trait NFTExt {
 
 	fn get_token_lock(token_id: TokenId) -> Option<TokenLockReason>;
 
-	fn set_token_lock(token_id: TokenId, lock_reason: Option<TokenLockReason>) -> DispatchResult;
+	fn set_token_lock(
+		token_id: TokenId,
+		lock_reason: TokenLockReason,
+		who: Self::AccountId,
+	) -> DispatchResult;
+
+	fn remove_token_lock(token_id: TokenId);
 }

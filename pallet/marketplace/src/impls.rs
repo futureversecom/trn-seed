@@ -48,22 +48,23 @@ impl<T: Config> Pallet<T> {
 		Ok(marketplace_id)
 	}
 
-	pub fn do_sell_nft(
+	pub fn do_sell(
 		who: T::AccountId,
-		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing>,
+		tokens: ListingTokens<T>,
 		buyer: Option<T::AccountId>,
 		payment_asset: AssetId,
 		fixed_price: Balance,
 		duration: Option<T::BlockNumber>,
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<ListingId, DispatchError> {
-		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
+		// Validate tokens and get collection_id
+		let collection_id = tokens.validate()?;
+
 		let royalties_schedule = Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
 		let listing_id = Self::next_listing_id();
 
 		// use the first token's collection as representative of the bundle
-		Self::lock_tokens_for_listing(collection_id, &serial_numbers, &who, listing_id)?;
+		Self::lock_tokens_for_listing(tokens.clone(), &who, listing_id)?;
 
 		let listing_end_block = <frame_system::Pallet<T>>::block_number()
 			.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
@@ -71,8 +72,7 @@ impl<T: Config> Pallet<T> {
 			payment_asset,
 			fixed_price,
 			close: listing_end_block,
-			collection_id,
-			serial_numbers: serial_numbers.clone(),
+			tokens: tokens.clone(),
 			buyer: buyer.clone(),
 			seller: who.clone(),
 			royalties_schedule,
@@ -85,8 +85,7 @@ impl<T: Config> Pallet<T> {
 		<NextListingId<T>>::mutate(|i| *i += 1);
 
 		Self::deposit_event(Event::<T>::FixedPriceSaleList {
-			collection_id,
-			serial_numbers: serial_numbers.into_inner(),
+			tokens,
 			listing_id,
 			marketplace_id,
 			price: fixed_price,
@@ -110,9 +109,9 @@ impl<T: Config> Pallet<T> {
 
 		<Listings<T>>::insert(listing_id, Listing::<T>::FixedPrice(listing.clone()));
 		Self::deposit_event(Event::<T>::FixedPriceSalePriceUpdate {
-			collection_id: listing.collection_id,
-			serial_numbers: listing.serial_numbers.into_inner(),
+			tokens: listing.tokens,
 			listing_id,
+			marketplace_id: listing.marketplace_id,
 			new_price,
 		});
 		Ok(())
@@ -158,17 +157,12 @@ impl<T: Config> Pallet<T> {
 		T::MultiCurrency::split_transfer(&who, listing.payment_asset, payouts.as_slice())?;
 
 		// Transfer the tokens
-		let _ = T::NFTExt::do_transfer(
-			listing.seller.clone(),
-			listing.collection_id,
-			listing.serial_numbers.clone().into_inner(),
-			who.clone(),
-		)?;
+		listing.tokens.unlock_and_transfer(&listing.seller, &who)?;
 
 		Self::deposit_event(Event::<T>::FixedPriceSaleComplete {
-			collection_id: listing.collection_id,
-			serial_numbers: listing.serial_numbers.clone().into_inner(),
+			tokens: listing.tokens.clone(),
 			listing_id,
+			marketplace_id: listing.marketplace_id,
 			price: listing.fixed_price,
 			payment_asset: listing.payment_asset,
 			buyer: who,
@@ -177,23 +171,22 @@ impl<T: Config> Pallet<T> {
 		Ok(listing)
 	}
 
-	pub fn do_auction_nft(
+	pub fn do_auction(
 		who: T::AccountId,
-		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing>,
+		tokens: ListingTokens<T>,
 		payment_asset: AssetId,
 		reserve_price: Balance,
 		duration: Option<T::BlockNumber>,
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<ListingId, DispatchError> {
-		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
+		// Validate tokens and get collection_id
+		let collection_id = tokens.validate()?;
 
 		let royalties_schedule = Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
-
 		let listing_id = Self::next_listing_id();
 		ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
-		Self::lock_tokens_for_listing(collection_id, &serial_numbers, &who, listing_id)?;
+		Self::lock_tokens_for_listing(tokens.clone(), &who, listing_id)?;
 
 		let listing_end_block = <frame_system::Pallet<T>>::block_number()
 			.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
@@ -201,8 +194,7 @@ impl<T: Config> Pallet<T> {
 			payment_asset,
 			reserve_price,
 			close: listing_end_block,
-			collection_id,
-			serial_numbers: serial_numbers.clone(),
+			tokens: tokens.clone(),
 			seller: who.clone(),
 			royalties_schedule,
 			marketplace_id,
@@ -214,8 +206,7 @@ impl<T: Config> Pallet<T> {
 		<NextListingId<T>>::mutate(|i| *i += 1);
 
 		Self::deposit_event(Event::<T>::AuctionOpen {
-			collection_id,
-			serial_numbers: serial_numbers.into_inner(),
+			tokens,
 			payment_asset,
 			reserve_price,
 			listing_id,
@@ -269,9 +260,9 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Self::deposit_event(Event::<T>::Bid {
-			collection_id: listing.collection_id,
-			serial_numbers: listing.serial_numbers.into_inner(),
+			tokens: listing.tokens,
 			listing_id,
+			marketplace_id: listing.marketplace_id,
 			amount,
 			bidder: who,
 		});
@@ -280,41 +271,34 @@ impl<T: Config> Pallet<T> {
 
 	pub fn do_cancel_sale(who: T::AccountId, listing_id: ListingId) -> DispatchResult {
 		let listing = Listings::<T>::get(listing_id).ok_or(Error::<T>::TokenNotListed)?;
-
-		match listing {
+		match listing.clone() {
 			Listing::<T>::FixedPrice(sale) => {
 				ensure!(sale.seller == who, Error::<T>::NotSeller);
-				Listings::<T>::remove(listing_id);
-				ListingEndSchedule::<T>::remove(sale.close, listing_id);
-				for serial_number in sale.serial_numbers.iter() {
-					T::NFTExt::set_token_lock((sale.collection_id, *serial_number), None)?;
-				}
-				<OpenCollectionListings<T>>::remove(sale.collection_id, listing_id);
+				Self::unlock_listing_tokens(sale.tokens.clone(), &who)?;
 
 				Self::deposit_event(Event::<T>::FixedPriceSaleClose {
-					collection_id: sale.collection_id,
-					serial_numbers: sale.serial_numbers.into_inner(),
+					tokens: sale.tokens,
 					listing_id,
+					marketplace_id: sale.marketplace_id,
 					reason: FixedPriceClosureReason::VendorCancelled,
 				});
 			},
 			Listing::<T>::Auction(auction) => {
 				ensure!(auction.seller == who, Error::<T>::NotSeller);
 				ensure!(Self::listing_winning_bid(listing_id).is_none(), Error::<T>::TokenLocked);
-				Listings::<T>::remove(listing_id);
-				ListingEndSchedule::<T>::remove(auction.close, listing_id);
-				for serial_number in auction.serial_numbers.iter() {
-					T::NFTExt::set_token_lock((auction.collection_id, *serial_number), None)?;
-				}
-				<OpenCollectionListings<T>>::remove(auction.collection_id, listing_id);
+				Self::unlock_listing_tokens(auction.tokens.clone(), &who)?;
 
 				Self::deposit_event(Event::<T>::AuctionClose {
-					collection_id: auction.collection_id,
+					tokens: auction.tokens,
 					listing_id,
+					marketplace_id: auction.marketplace_id,
 					reason: AuctionClosureReason::VendorCancelled,
 				});
 			},
 		}
+
+		// Remove the listing from storage
+		Self::remove_listing(listing, listing_id);
 		Ok(())
 	}
 
@@ -370,7 +354,11 @@ impl<T: Config> Pallet<T> {
 		ensure!(offer.buyer == who, Error::<T>::NotBuyer);
 		T::MultiCurrency::release_hold(T::PalletId::get(), &who, offer.asset_id, offer.amount)?;
 		let _ = Self::remove_offer(offer_id, offer.token_id)?;
-		Self::deposit_event(Event::<T>::OfferCancel { offer_id, token_id: offer.token_id });
+		Self::deposit_event(Event::<T>::OfferCancel {
+			offer_id,
+			marketplace_id: offer.marketplace_id,
+			token_id: offer.token_id,
+		});
 		Ok(())
 	}
 
@@ -379,7 +367,7 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::InvalidOffer.into());
 		};
 
-		let (collection_id, serial_number) = offer.token_id;
+		let (collection_id, _) = offer.token_id;
 		ensure!(
 			T::NFTExt::get_token_owner(&(offer.token_id)) == Some(who),
 			Error::<T>::NotTokenOwner
@@ -395,15 +383,15 @@ impl<T: Config> Pallet<T> {
 
 		let royalties_schedule =
 			Self::calculate_bundle_royalties(collection_id, offer.marketplace_id)?;
-		let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing> =
-			BoundedVec::truncate_from(vec![serial_number]);
+		let token_ids: BoundedVec<TokenId, T::MaxTokensPerListing> =
+			BoundedVec::truncate_from(vec![offer.token_id]);
+		let listing_tokens = ListingTokens::Nft(token_ids);
 
 		Self::process_payment_and_transfer(
 			&offer.buyer,
 			&who,
 			offer.asset_id,
-			collection_id,
-			serial_numbers,
+			listing_tokens,
 			offer.amount,
 			royalties_schedule,
 		)?;
@@ -411,6 +399,7 @@ impl<T: Config> Pallet<T> {
 		let _ = Self::remove_offer(offer_id, offer.token_id)?;
 		Self::deposit_event(Event::<T>::OfferAccept {
 			offer_id,
+			marketplace_id: offer.marketplace_id,
 			token_id: offer.token_id,
 			amount: offer.amount,
 			asset_id: offer.asset_id,
@@ -447,10 +436,11 @@ impl<T: Config> Pallet<T> {
 			match listing_outer.clone() {
 				Listing::FixedPrice(listing) => {
 					Self::remove_listing(listing_outer, listing_id);
+					let _ = Self::unlock_listing_tokens(listing.tokens.clone(), &listing.seller);
 					Self::deposit_event(Event::<T>::FixedPriceSaleClose {
-						collection_id: listing.collection_id,
-						serial_numbers: listing.serial_numbers.into_inner(),
+						tokens: listing.tokens,
 						listing_id,
+						marketplace_id: listing.marketplace_id,
 						reason: FixedPriceClosureReason::Expired,
 					});
 					removed += 1;
@@ -465,22 +455,22 @@ impl<T: Config> Pallet<T> {
 		removed
 	}
 
-	/// Removes a listing and its metadata from storage and releases locks on tokens
+	/// Removes a listing and its metadata from storage
 	pub(crate) fn remove_listing(listing: Listing<T>, listing_id: ListingId) {
-		let (serial_numbers, collection_id) = match listing {
+		let maybe_collection_id = match listing {
 			Listing::FixedPrice(listing) => {
 				ListingEndSchedule::<T>::remove(listing.close, listing_id);
-				(listing.serial_numbers, listing.collection_id)
+				listing.tokens.get_collection_id()
 			},
 			Listing::Auction(listing) => {
 				ListingEndSchedule::<T>::remove(listing.close, listing_id);
-				(listing.serial_numbers, listing.collection_id)
+				listing.tokens.get_collection_id()
 			},
 		};
 
-		OpenCollectionListings::<T>::remove(collection_id, listing_id);
-		for serial_number in serial_numbers.iter() {
-			let _ = T::NFTExt::set_token_lock((collection_id, *serial_number), None);
+		// Should always be Ok
+		if let Ok(collection_id) = maybe_collection_id {
+			<OpenCollectionListings<T>>::remove(collection_id, listing_id);
 		}
 		<Listings<T>>::remove(listing_id);
 	}
@@ -493,8 +483,9 @@ impl<T: Config> Pallet<T> {
 			// normal closure, no acceptable bids
 			// listing metadata is removed by now.
 			Self::deposit_event(Event::<T>::AuctionClose {
-				collection_id: listing.collection_id,
+				tokens: listing.tokens,
 				listing_id,
+				marketplace_id: listing.marketplace_id,
 				reason: AuctionClosureReason::ExpiredNoBids,
 			});
 			return
@@ -505,8 +496,7 @@ impl<T: Config> Pallet<T> {
 			&winner,
 			&listing.seller,
 			listing.payment_asset,
-			listing.collection_id,
-			listing.serial_numbers,
+			listing.tokens.clone(),
 			hammer_price,
 			listing.royalties_schedule,
 		) {
@@ -526,15 +516,17 @@ impl<T: Config> Pallet<T> {
 
 			// listing metadata is removed by now.
 			Self::deposit_event(Event::<T>::AuctionClose {
-				collection_id: listing.collection_id,
+				tokens: listing.tokens,
 				listing_id,
+				marketplace_id: listing.marketplace_id,
 				reason: AuctionClosureReason::SettlementFailed,
 			});
 		} else {
 			// auction settlement success
 			Self::deposit_event(Event::<T>::AuctionSold {
-				collection_id: listing.collection_id,
+				tokens: listing.tokens,
 				listing_id,
+				marketplace_id: listing.marketplace_id,
 				payment_asset: listing.payment_asset,
 				hammer_price,
 				winner,
@@ -551,8 +543,7 @@ impl<T: Config> Pallet<T> {
 		buyer: &T::AccountId,
 		seller: &T::AccountId,
 		asset_id: AssetId,
-		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing>,
+		tokens: ListingTokens<T>,
 		amount: Balance,
 		royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	) -> DispatchResult {
@@ -560,39 +551,50 @@ impl<T: Config> Pallet<T> {
 		// spend hold and split to royalty accounts
 		T::MultiCurrency::spend_hold(T::PalletId::get(), &buyer, asset_id, &payouts)?;
 
-		// Transfer each token
-		T::NFTExt::do_transfer(*seller, collection_id, serial_numbers.into_inner(), *buyer)
+		// Transfer the tokens to the buyer
+		tokens.unlock_and_transfer(seller, buyer)
 	}
 
 	/// Locks a group of tokens before listing for sale
 	/// Throws an error if owner does not own all tokens
 	#[transactional]
 	pub(crate) fn lock_tokens_for_listing(
-		collection_id: CollectionUuid,
-		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerListing>,
+		tokens: ListingTokens<T>,
 		owner: &T::AccountId,
 		listing_id: ListingId,
 	) -> DispatchResult {
-		let collection_info = T::NFTExt::get_collection_info(collection_id)?;
-
-		// Check whether token is locked and that owner owns each token
-		for serial_number in serial_numbers.iter() {
-			ensure!(
-				T::NFTExt::get_token_lock((collection_id, *serial_number)).is_none(),
-				Error::<T>::TokenLocked
-			);
-			ensure!(
-				collection_info.is_token_owner(owner, *serial_number),
-				Error::<T>::NotTokenOwner
-			);
+		match tokens {
+			ListingTokens::Nft(nfts) =>
+				for token_id in nfts.iter() {
+					T::NFTExt::set_token_lock(
+						*token_id,
+						TokenLockReason::Listed(listing_id),
+						*owner,
+					)?;
+				},
+			ListingTokens::Sft(sfts) =>
+				for (token_id, balance) in sfts.iter() {
+					T::SFTExt::reserve_balance(*token_id, *balance, owner)?;
+				},
 		}
+		Ok(())
+	}
 
-		// Insert locks for tokens
-		for serial_number in serial_numbers.iter() {
-			T::NFTExt::set_token_lock(
-				(collection_id, *serial_number),
-				Some(TokenLockReason::Listed(listing_id)),
-			)?;
+	/// Removes all token locks and reservations for tokens included in a listing
+	#[transactional]
+	pub(crate) fn unlock_listing_tokens(
+		tokens: ListingTokens<T>,
+		owner: &T::AccountId,
+	) -> DispatchResult {
+		match tokens {
+			ListingTokens::Nft(nfts) =>
+				for token_id in nfts.iter() {
+					T::NFTExt::remove_token_lock(*token_id);
+				},
+			ListingTokens::Sft(sfts) =>
+				for (token_id, balance) in sfts.iter() {
+					T::SFTExt::free_reserved_balance(*token_id, *balance, owner)?;
+				},
 		}
 		Ok(())
 	}

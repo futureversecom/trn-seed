@@ -11,14 +11,17 @@
 
 //! Marketplace pallet types
 
-use crate::Config;
+use crate::{Config, Error};
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::{dispatch::DispatchResult, RuntimeDebugNoBound};
+use pallet_nft::traits::NFTExt;
+use pallet_sft::traits::SFTExt;
 use scale_info::TypeInfo;
 use seed_primitives::{
 	AssetId, Balance, BlockNumber, CollectionUuid, RoyaltiesSchedule, SerialNumber, TokenId,
 };
-use sp_runtime::{BoundedVec, Permill};
+use sp_runtime::{BoundedVec, DispatchError, Permill};
 use sp_std::prelude::*;
 
 /// The logging target for this module
@@ -33,6 +36,74 @@ pub type OfferId = u64;
 /// Auto-incrementing Uint
 /// Uniquely identifies a registered marketplace
 pub type MarketplaceId = u32;
+
+/// The type of tokens included in a marketplace listing, used to specify the type of listing
+#[derive(Decode, Encode, RuntimeDebugNoBound, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(T))]
+pub enum ListingTokens<T: Config> {
+	Nft(BoundedVec<TokenId, <T as Config>::MaxTokensPerListing>),
+	Sft(BoundedVec<(TokenId, Balance), <T as Config>::MaxTokensPerListing>),
+}
+
+impl<T: Config> ListingTokens<T> {
+	/// Returns the number of tokens in the listing
+	// pub fn len(&self) -> usize {
+	// 	match self {
+	// 		ListingTokens::Nft(tokens) => tokens.len(),
+	// 		ListingTokens::Sft(tokens) => tokens.len(),
+	// 	}
+	// }
+
+	/// Validates the listing tokens by checking the following:
+	/// - Ensures the list of tokens is not empty
+	/// - Ensures all tokens within the listing are from the same collection
+	/// Returns the unique collection_id if valid
+	pub fn validate(&self) -> Result<CollectionUuid, DispatchError> {
+		match self {
+			ListingTokens::Nft(tokens) => {
+				let first_token = tokens.first().ok_or(Error::<T>::EmptyTokens)?;
+				for token in tokens.iter() {
+					if token.0 != first_token.0 {
+						return Err(Error::<T>::MixedCollection.into())
+					}
+				}
+				Ok(first_token.0)
+			},
+			ListingTokens::Sft(tokens) => {
+				let (first_token, _) = tokens.first().ok_or(Error::<T>::EmptyTokens)?;
+				for (token, _) in tokens.iter() {
+					if token.0 != first_token.0 {
+						return Err(Error::<T>::MixedCollection.into())
+					}
+				}
+				Ok(first_token.0)
+			},
+		}
+	}
+
+	// Returns the collection id of the first token in the listing
+	pub fn get_collection_id(&self) -> Result<CollectionUuid, DispatchError> {
+		match self {
+			ListingTokens::Nft(tokens) => Ok(tokens.first().ok_or(Error::<T>::EmptyTokens)?.0),
+			ListingTokens::Sft(tokens) => Ok(tokens.first().ok_or(Error::<T>::EmptyTokens)?.0 .0),
+		}
+	}
+
+	pub fn unlock_and_transfer(&self, from: &T::AccountId, to: &T::AccountId) -> DispatchResult {
+		match self {
+			ListingTokens::Nft(nfts) =>
+				for token_id in nfts.iter() {
+					T::NFTExt::remove_token_lock(*token_id);
+					T::NFTExt::do_transfer(*from, token_id.0, vec![token_id.1], *to)?;
+				},
+			ListingTokens::Sft(sfts) =>
+				for (token_id, balance) in sfts.iter() {
+					T::SFTExt::transfer_reserved_balance(*token_id, *balance, from, to)?;
+				},
+		}
+		Ok(())
+	}
+}
 
 /// Holds information relating to NFT offers
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
@@ -99,10 +170,8 @@ pub struct AuctionListing<T: Config> {
 	pub close: T::BlockNumber,
 	/// The seller of the tokens
 	pub seller: T::AccountId,
-	/// The listing collection id
-	pub collection_id: CollectionUuid,
-	/// The serial numbers for sale in this listing
-	pub serial_numbers: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerListing>,
+	/// The tokens contained within the listing
+	pub tokens: ListingTokens<T>,
 	/// The royalties applicable to this auction
 	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	/// The marketplace this is being sold on
@@ -123,10 +192,8 @@ pub struct FixedPriceListing<T: Config> {
 	pub buyer: Option<T::AccountId>,
 	/// The seller of the tokens
 	pub seller: T::AccountId,
-	/// The listing collection id
-	pub collection_id: CollectionUuid,
-	/// The serial numbers for sale in this listing
-	pub serial_numbers: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerListing>,
+	/// The tokens contained within the listing
+	pub tokens: ListingTokens<T>,
 	/// The royalties applicable to this sale
 	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	/// The marketplace this is being sold on
