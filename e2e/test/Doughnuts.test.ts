@@ -7,7 +7,7 @@ import { Wallet } from "ethers";
 
 import { OpCodeComparator, OpComp, OpLoad, Pact } from "../../../../pact/js";
 // const Doughnut = require('@trn/doughnut-wasm').default;
-import { Doughnut, SignatureVersion } from "../../../../trn-doughnut-rs/js";
+import { Doughnut, PayloadVersion, SignatureVersion } from "../../../../trn-doughnut-rs/js";
 import { TRNNut } from "../../../../trn-trnnut-rs/js";
 import {
   ALICE_PRIVATE_KEY,
@@ -354,5 +354,243 @@ describe("Doughnuts", () => {
     const aliceBalanceAfter = await api.query.system.account(alice.address);
     // alice should bear transferAmount in Root + fees in XRP
     expect(alice_balance_before.toJSON()?.data.free - aliceBalanceAfter.toJSON()?.data.free).equal(0);
+  });
+
+  it("can submit futurepass proxy-extrinsic", async () => {
+    // create a random user A
+    const userAPrivateKey = Wallet.createRandom().privateKey;
+    const userA: KeyringPair = keyring.addFromSeed(hexToU8a(userAPrivateKey));
+
+    // create a futurepass for userA
+    await finalizeTx(alice, api.tx.futurepass.create(userA.address));
+
+    // fund the futurepass account
+    const futurepassAddress = (await api.query.futurepass.holders(userA.address)).toString();
+    const initialTfrAmount = 10_000_000; // 10 Root
+    const initialGasAmount = 10_000_000; // 10 XRP
+    await finalizeTx(alice, api.tx.balances.transfer(futurepassAddress, initialTfrAmount)); // Root
+    await finalizeTx(alice, api.tx.assets.transfer(GAS_TOKEN_ID, futurepassAddress, initialGasAmount)); // gas
+
+    // transfer balance from futurepass to another user receiverAddress
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const holderPrivateKey = Wallet.createRandom().privateKey;
+    const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
+    const transferAmount = initialTfrAmount / 2; // transfer half to receiverAddress
+    const nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const innerCall = api.tx.balances.transfer(receiverAddress, transferAmount);
+    const call = api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall);
+    const issuerPubkey = userA.publicKey;
+    const holderPubkey = holder.publicKey;
+    const feeMode = 0;
+    const expiry = 100000;
+    const notBefore = 0;
+
+    // create a doughnut
+    const doughnut = new Doughnut(PayloadVersion.V1, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
+    // Create the permission domain object. Balances::transfer with a constraint for amount < initialTfrAmount
+    // const dataTable = [initialTfrAmount.toString()];
+    // const comp = new OpCodeComparator(OpLoad.INPUT_VS_USER, OpComp.EQ, 1, 0, false); // RHS is data table
+    // const bytecode = new Uint8Array([...comp.encode()]);
+    // const pactContract = new Pact(dataTable, bytecode);
+    // const pactEncoded = pactContract.encode();
+    // console.log(pactEncoded);
+
+    const module = [
+      [
+        "Balances",
+        {
+          name: "Balances",
+          block_cooldown: 0,
+          methods: [
+            [
+              "transfer",
+              {
+                name: "transfer",
+                block_cooldown: 0,
+                // constraints: [...pactEncoded],
+                constraints: null,
+              },
+            ],
+          ],
+        },
+      ],
+    ];
+    const contract = [
+      [
+        [
+          27, 137, 65, 29, 182, 25, 157, 61, 226, 13, 230, 14, 111, 6, 25, 186, 227, 117, 177, 244, 172, 147, 40, 119,
+          209, 78, 13, 109, 236, 119, 205, 202,
+        ],
+        {
+          address: [
+            27, 137, 65, 29, 182, 25, 157, 61, 226, 13, 230, 14, 111, 6, 25, 186, 227, 117, 177, 244, 172, 147, 40, 119,
+            209, 78, 13, 109, 236, 119, 205, 202,
+          ],
+          block_cooldown: 270549120,
+        },
+      ],
+    ];
+    const trnnut = new TRNNut(module, contract);
+
+    // Add to trn domain
+    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
+    // console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
+
+    // Sign the doughnut
+    const userAWallet = await new Wallet(userAPrivateKey);
+    const ethHash = blake2AsHex(doughnut.payload());
+    const ethSlice = Buffer.from(ethHash.slice(2), "hex");
+    const issuerSig = await userAWallet.signMessage(ethSlice);
+    const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
+    doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
+
+    // console.log(`Signature : ${doughnut.signature()}`);
+
+    // Verify that the doughnut is valid
+    const verified = doughnut.verify(holderPubkey, 5);
+    expect(verified).to.be.equal(true);
+
+    // Encode the doughnut
+    const encodedDoughnut = doughnut.encode();
+    const doughnutHex = u8aToHex(encodedDoughnut);
+
+    // Create a call with empty signature to be signed by the holder (Bob)
+    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, "");
+    // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
+    const txU8a = tx.toU8a(true).slice(2);
+    const txHex = u8aToHex(txU8a);
+    const holderWallet = await new Wallet(holderPrivateKey);
+    const txHash = blake2AsHex(txHex);
+    const txSlice = Buffer.from(txHash.slice(2), "hex");
+    const holderSig = await holderWallet.signMessage(txSlice);
+
+    // balances before
+    const userARootBalanceBefore = ((await api.query.system.account(userA.address)).toJSON() as any)?.data.free ?? 0;
+    const futurepassRootBalanceBefore =
+      ((await api.query.system.account(futurepassAddress)).toJSON() as any)?.data.free ?? 0;
+    const holderRootBalanceBefore = ((await api.query.system.account(holder.address)).toJSON() as any)?.data.free ?? 0;
+    const receiverRootBalanceBefore =
+      ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+    const userAXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, userA.address)).toJSON() as any)?.balance ?? 0;
+    const futurepassXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+    const holderXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, holder.address)).toJSON() as any)?.balance ?? 0;
+    const receiverXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, receiverAddress)).toJSON() as any)?.balance ?? 0;
+
+    // whitelist the holder.
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
+
+    // Execute the transact call with.send
+    const eventData = await new Promise<any[]>((resolve, _reject) => {
+      api.tx.doughnut.transact(call, doughnutHex, nonce, holderSig).send(({ events, status }) => {
+        if (status.isInBlock) {
+          resolve(events);
+        }
+      });
+    });
+    expect(eventData).to.exist;
+    // eventData.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+
+    // assert events
+    expect(eventData.length).to.equal(10);
+    let index = 0;
+
+    // assetsExt	InternalWithdraw	[2,"0xFfFFFFff00000000000000000000000000000001",995158]
+    expect(eventData[index].event.section).to.equal("assetsExt");
+    expect(eventData[index].event.method).to.equal("InternalWithdraw");
+    expect(eventData[index].event.data[0]).to.equal(GAS_TOKEN_ID);
+    expect(eventData[index].event.data[1].toString()).to.equal(futurepassAddress);
+
+    // system	NewAccount	["0x07486b456ca1A0fb92344061278dF1D3504C7FB0"]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("system");
+    expect(eventData[index].event.method).to.equal("NewAccount");
+    expect(eventData[index].event.data[0].toString()).to.equal(receiverAddress);
+
+    // balances	Endowed	["0x07486b456ca1A0fb92344061278dF1D3504C7FB0",5000000]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("balances");
+    expect(eventData[index].event.method).to.equal("Endowed");
+    expect(eventData[index].event.data[0].toString()).to.equal(receiverAddress);
+    expect(eventData[index].event.data[1]).to.equal(transferAmount);
+
+    // balances	Transfer	["0xFfFFFFff00000000000000000000000000000001","0x07486b456ca1A0fb92344061278dF1D3504C7FB0",5000000]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("balances");
+    expect(eventData[index].event.method).to.equal("Transfer");
+    expect(eventData[index].event.data[0].toString()).to.equal(futurepassAddress);
+    expect(eventData[index].event.data[1].toString()).to.equal(receiverAddress);
+    expect(eventData[index].event.data[2]).to.equal(transferAmount);
+
+    // proxy	ProxyExecuted	[{"ok":null}]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("proxy");
+    expect(eventData[index].event.method).to.equal("ProxyExecuted");
+
+    // futurepass	ProxyExecuted	["0xb5571159C644DB649E698d4D66e1F32A59D8aC52",{"ok":null}]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("futurepass");
+    expect(eventData[index].event.method).to.equal("ProxyExecuted");
+    expect(eventData[index].event.data[0].toString()).to.equal(userA.address); // issuer
+
+    // doughnut	DoughnutCallExecuted	[{"ok":null}]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("doughnut");
+    expect(eventData[index].event.method).to.equal("DoughnutCallExecuted");
+
+    // assetsExt	InternalDeposit	[2,"0x6D6F646c7478666565706F740000000000000000",995158]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("assetsExt");
+    expect(eventData[index].event.method).to.equal("InternalDeposit");
+    expect(eventData[index].event.data[0]).to.equal(GAS_TOKEN_ID);
+
+    // transactionPayment	TransactionFeePaid	["0xFfFFFFff00000000000000000000000000000001",995158,0]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("transactionPayment");
+    expect(eventData[index].event.method).to.equal("TransactionFeePaid");
+    expect(eventData[index].event.data[0].toString()).to.equal(futurepassAddress);
+
+    // system	ExtrinsicSuccess	[{"weight":1268268098,"class":"Normal","paysFee":"Yes"}]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("system");
+    expect(eventData[index].event.method).to.equal("ExtrinsicSuccess");
+
+    // balances after
+    const userARootBalanceAfter = ((await api.query.system.account(userA.address)).toJSON() as any)?.data.free ?? 0;
+    const futurepassRootBalanceAfter =
+      ((await api.query.system.account(futurepassAddress)).toJSON() as any)?.data.free ?? 0;
+    const holderRootBalanceAfter = ((await api.query.system.account(holder.address)).toJSON() as any)?.data.free ?? 0;
+    const receiverRootBalanceAfter =
+      ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+    const userAXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, userA.address)).toJSON() as any)?.balance ?? 0;
+    const futurepassXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+    const holderXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, holder.address)).toJSON() as any)?.balance ?? 0;
+    const receiverXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, receiverAddress)).toJSON() as any)?.balance ?? 0;
+
+    // userA root balance should be unchanged
+    expect(userARootBalanceAfter).to.be.eq(userARootBalanceBefore);
+    // userA xrp balance should be unchanged
+    expect(userAXRPBalanceAfter).to.be.eq(userAXRPBalanceBefore);
+
+    // futurepass root balance should be lesser by transferAmount
+    expect(futurepassRootBalanceBefore - transferAmount).to.be.eq(futurepassRootBalanceAfter);
+    // futurepass xrp balance should be lesser than before since gas was paid
+    expect(futurepassXRPBalanceAfter).to.be.lessThan(futurepassXRPBalanceBefore);
+
+    // doughnut holder should not get affected at all
+    expect(holderRootBalanceAfter).to.be.eq(holderRootBalanceBefore);
+    expect(holderXRPBalanceAfter).to.be.eq(holderXRPBalanceBefore);
+
+    // receiver root balance should be increased by transferAmount
+    expect(Math.abs(receiverRootBalanceBefore - transferAmount)).to.be.eq(receiverRootBalanceAfter);
+    // receiver XRP balance unchanged
+    expect(receiverXRPBalanceAfter).to.be.eq(receiverXRPBalanceBefore);
   });
 });
