@@ -183,7 +183,7 @@ impl<T> Call<T>
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<<T as Config>::RuntimeCall>>> {
 
-		if let Some(Call::transact { doughnut, nonce, .. }) = call.is_sub_type() {
+		if let Some(Call::transact { call: inner_call, doughnut, nonce, .. }) = call.is_sub_type() {
 			// Doughnut work
 			// run doughnut common validations
 			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -195,7 +195,7 @@ impl<T> Call<T>
 			};
 			let mut fee_payer_address = fee_payer_doughnut;
 			// Futurepass check
-			if <T as Config>::FuturepassLookup::check_extrinsic(&call, &()).is_ok() {
+			if <T as Config>::FuturepassLookup::check_extrinsic(inner_call, &()).is_ok() {
 				let Ok(futurepass) = <T as Config>::FuturepassLookup::lookup(fee_payer_address.into()) else {
 					return None
 				};
@@ -215,8 +215,8 @@ impl<T> Call<T>
 				CheckWeight::new(),
 			);
 
-			let _pre_sender = SignedExtension::pre_dispatch(validations_sender, &sender_address, &call.clone().into(), dispatch_info, len).ok()?;
-			let pre_issuer = SignedExtension::pre_dispatch(validations_fee_payer, &fee_payer_address, &call.clone().into(), dispatch_info, len).ok()?;
+			let _pre_sender = SignedExtension::pre_dispatch(validations_sender, &sender_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
+			let pre_issuer = SignedExtension::pre_dispatch(validations_fee_payer, &fee_payer_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
 
 			// Dispatch the outer call. i.e Doughnut::transact() with None as the origin
 			let res = call.dispatch(frame_system::RawOrigin::None.into());

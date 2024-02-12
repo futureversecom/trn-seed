@@ -876,13 +876,28 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 	type Call = RuntimeCall;
 	type PermissionObject = TRNNutV0;
 	fn check_extrinsic(call: &Self::Call, trnnut: &Self::PermissionObject) -> DispatchResult {
-		// Check if the inner call is proxy extrinsic. If it is, we want to validate the call within
-		// Proxy extrinsic
+		// matcher to select the actual call to validate
 		let mut actual_call: Self::Call = call.clone();
-		if let RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { call, .. }) = call
-		{
-			actual_call = *call.clone();
-		};
+		match &call {
+			RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic {
+				call: inner_call,
+				..
+			}) => actual_call = *inner_call.clone(),
+			RuntimeCall::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
+				call: inner_call_1,
+				..
+			}) => {
+				if let RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic {
+					call: inner_call_2,
+					..
+				}) = *inner_call_1.clone()
+				{
+					actual_call = *inner_call_2.clone();
+				}
+			},
+			_ => actual_call = call.clone(),
+		}
+
 		let CallMetadata { function_name, pallet_name } = actual_call.get_call_metadata();
 
 		match &actual_call {
