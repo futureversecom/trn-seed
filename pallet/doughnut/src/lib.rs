@@ -265,6 +265,9 @@ pub mod pallet {
 			Call = <Self as Config>::RuntimeCall,
 			PermissionObject = TRNNutV0,
 		>;
+		/// A lookup to get futurepass account id for a futurepass holder.
+		type FuturepassLookup: StaticLookup<Source = H160, Target = H160>
+			+ ExtrinsicChecker<Call = <Self as Config>::RuntimeCall, PermissionObject = ()>;
 		/// Weight information for the extrinsic call in this module.
 		type WeightInfo: WeightInfo;
 	}
