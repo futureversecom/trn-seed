@@ -51,14 +51,16 @@ use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
-use seed_primitives::{AccountId, AccountId20, AssetId, Balance, Index, Signature};
+use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
 use crate::{
 	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
 	UncheckedExtrinsic, EVM,
 };
 use doughnut_rs::TRNNutV0;
-use sp_runtime::traits::{Dispatchable, Saturating, StaticLookup, UniqueSaturatedInto};
+use sp_runtime::traits::{
+	Dispatchable, LookupError, Saturating, StaticLookup, UniqueSaturatedInto,
+};
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -944,6 +946,54 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 			},
 
 			_ => return Err(pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied.into()),
+		}
+	}
+}
+
+pub struct FuturepassLookup;
+impl StaticLookup for FuturepassLookup {
+	type Source = H160;
+	type Target = H160;
+
+	/// Lookup a futurepass for a given address
+	fn lookup(holder: Self::Source) -> Result<Self::Target, LookupError> {
+		pallet_futurepass::Holders::<Runtime>::get::<AccountId>(holder.into())
+			.map(|futurepass| futurepass.into())
+			.ok_or(LookupError)
+	}
+
+	/// Lookup holder for a given futurepass using ProxyPalletProvider.
+	/// Returns 0 address (default) if no holder is found.
+	fn unlookup(futurepass: Self::Target) -> Self::Source {
+		<ProxyPalletProvider as pallet_futurepass::ProxyProvider<Runtime>>::owner(
+			&futurepass.into(),
+		)
+		.unwrap_or_default()
+		.into()
+	}
+}
+impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {
+	type Call = <Runtime as frame_system::Config>::RuntimeCall;
+	type PermissionObject = ();
+
+	fn check_extrinsic(
+		call: &Self::Call,
+		_permission_object: &Self::PermissionObject,
+	) -> DispatchResult {
+		match call {
+			// Check for direct Futurepass proxy_extrinsic call
+			RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. }) => Ok(()),
+			// Check for FeeProxy call containing Futurepass proxy_extrinsic call
+			RuntimeCall::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
+				call: inner_call,
+				..
+			}) if matches!(
+				inner_call.as_ref(),
+				RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. })
+			) =>
+				Ok(()),
+			// All other cases
+			_ => Err(pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied.into()),
 		}
 	}
 }

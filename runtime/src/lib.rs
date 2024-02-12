@@ -134,8 +134,8 @@ mod migrations;
 mod weights;
 
 use crate::impls::{
-	DoughnutCallValidator, FutureverseEVMCurrencyAdapter, FutureverseEnsureAddressSame,
-	OnNewAssetSubscription,
+	DoughnutCallValidator, FuturepassLookup, FutureverseEVMCurrencyAdapter,
+	FutureverseEnsureAddressSame, OnNewAssetSubscription,
 };
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
@@ -1163,6 +1163,7 @@ impl pallet_doughnut::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type CallValidator = DoughnutCallValidator;
+	type FuturepassLookup = FuturepassLookup;
 	type WeightInfo = weights::pallet_doughnut::WeightInfo<Runtime>;
 }
 

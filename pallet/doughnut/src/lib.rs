@@ -37,12 +37,10 @@ use frame_support::{
 };
 use frame_system::{CheckNonZeroSender, CheckNonce, CheckWeight};
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
+use seed_pallet_common::ExtrinsicChecker;
 use seed_primitives::AccountId20;
 use sp_runtime::{
-	traits::{
-		CheckedConversion, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension,
-		StaticLookup,
-	},
+	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, StaticLookup},
 	transaction_validity::ValidTransactionBuilder,
 };
 
@@ -192,9 +190,17 @@ impl<T> Call<T>
 				return None
 			};
 			// No need to do the doughnut verification again since already did in check_self_contained()
-			let Ok(fee_payer_address) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
+			let Ok(fee_payer_doughnut) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
 				return None
 			};
+			let mut fee_payer_address = fee_payer_doughnut;
+			// Futurepass check
+			if <T as Config>::FuturepassLookup::check_extrinsic(&call, &()).is_ok() {
+				let Ok(futurepass) = <T as Config>::FuturepassLookup::lookup(fee_payer_address.into()) else {
+					return None
+				};
+				fee_payer_address = futurepass.into();
+			}
 
 			let sender_address = T::AccountId::from(*info);
 
