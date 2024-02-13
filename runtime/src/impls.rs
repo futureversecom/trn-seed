@@ -893,6 +893,8 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 				}) = *inner_call_1.clone()
 				{
 					actual_call = *inner_call_2.clone();
+				} else {
+					actual_call = *inner_call_1.clone();
 				}
 			},
 			_ => actual_call = call.clone(),

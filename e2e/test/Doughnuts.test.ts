@@ -798,4 +798,205 @@ describe("Doughnuts", () => {
     expect(holderXRPBalanceAfter).to.be.eq(holderXRPBalanceBefore);
     expect(holderAssetBalanceAfter).to.be.eq(holderAssetBalanceBefore);
   });
+
+  it("can submit with fee-proxy", async () => {
+    // create a random user A
+    const userAPrivateKey = Wallet.createRandom().privateKey;
+    const userA: KeyringPair = keyring.addFromSeed(hexToU8a(userAPrivateKey));
+
+    // add liquidity for XRP<->token; fund the userA account with tokens
+    const FEE_TOKEN_ASSET_ID = 1124;
+    const txs = [
+      api.tx.assetsExt.createAsset("test", "TEST", 18, 1, alith.address),
+      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, alith.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, userA.address, 2_000_000_000_000_000),
+      api.tx.dex.addLiquidity(
+        FEE_TOKEN_ASSET_ID,
+        GAS_TOKEN_ID,
+        100_000_000_000,
+        100_000_000_000,
+        100_000_000_000,
+        100_000_000_000,
+        null,
+        null,
+      ),
+    ];
+    await finalizeTx(alith, api.tx.utility.batch(txs));
+    console.log("liquidity setup complete...");
+
+    // call setup
+    const holderPrivateKey = Wallet.createRandom().privateKey;
+    const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
+    const innerCall = api.tx.system.remark("sup");
+    const maxTokenPayment = 5_000_000;
+    const call = api.tx.feeProxy.callWithFeePreferences(FEE_TOKEN_ASSET_ID, maxTokenPayment, innerCall);
+    const nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const issuerPubkey = userA.publicKey;
+    const holderPubkey = holder.publicKey;
+    const feeMode = 0;
+    const expiry = 100000;
+    const notBefore = 0;
+
+    // create a doughnut
+    const doughnut = new Doughnut(PayloadVersion.V1, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
+
+    const module = [
+      {
+        name: "System",
+        block_cooldown: 0,
+        methods: [
+          {
+            name: "remark",
+            block_cooldown: 0,
+            constraints: null,
+          },
+        ],
+      },
+    ];
+
+    const trnnut = new TRNNut(module);
+
+    // Add to trn domain
+    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
+    // console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
+
+    // Sign the doughnut
+    const userAWallet = await new Wallet(userAPrivateKey);
+    const ethHash = blake2AsHex(doughnut.payload());
+    const ethSlice = Buffer.from(ethHash.slice(2), "hex");
+    const issuerSig = await userAWallet.signMessage(ethSlice);
+    const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
+    doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
+    // console.log(`Signature : ${doughnut.signature()}`);
+
+    // Verify that the doughnut is valid
+    const verified = doughnut.verify(holderPubkey, 5);
+    expect(verified).to.be.equal(true);
+
+    // Encode the doughnut
+    const encodedDoughnut = doughnut.encode();
+    const doughnutHex = u8aToHex(encodedDoughnut);
+
+    // Create a call with empty signature to be signed by the holder
+    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, "");
+    // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
+    const txU8a = tx.toU8a(true).slice(2);
+    const txHex = u8aToHex(txU8a);
+    const holderWallet = await new Wallet(holderPrivateKey);
+    const txHash = blake2AsHex(txHex);
+    const txSlice = Buffer.from(txHash.slice(2), "hex");
+    const holderSig = await holderWallet.signMessage(txSlice);
+
+    // balances before
+    const userAAssetBalanceBefore =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, userA.address)).toJSON() as any)?.balance ?? 0;
+    const holderAssetBalanceBefore =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, holder.address)).toJSON() as any)?.balance ?? 0;
+    const userAXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, userA.address)).toJSON() as any)?.balance ?? 0;
+    const holderXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, holder.address)).toJSON() as any)?.balance ?? 0;
+
+    // whitelist the holder.
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
+
+    // Execute the transact call with.send
+    const eventData = await new Promise<any[]>((resolve, _reject) => {
+      api.tx.doughnut.transact(call, doughnutHex, nonce, holderSig).send(({ events, status }) => {
+        if (status.isInBlock) {
+          resolve(events);
+        }
+      });
+    });
+    expect(eventData).to.exist;
+    // eventData.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+
+    // assert events
+    expect(eventData.length).to.equal(10);
+    let index = 0;
+
+    // assets	Transferred	[1124,"0x3fAc4E88185Add21c375653b3204c1EF7fff9dE9","0xDDDDDDdD00000002000004640000000000000000",852669]
+    expect(eventData[index].event.section).to.equal("assets");
+    expect(eventData[index].event.method).to.equal("Transferred");
+    expect(eventData[index].event.data[0]).to.equal(FEE_TOKEN_ASSET_ID);
+    expect(eventData[index].event.data[1].toString()).to.equal(userA.address);
+    expect(eventData[index].event.data[2].toString()).to.equal("0xDDDDDDdD00000002000004640000000000000000");
+
+    // assets	Transferred	[2,"0xDDDDDDdD00000002000004640000000000000000","0x3fAc4E88185Add21c375653b3204c1EF7fff9dE9",850089]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("assets");
+    expect(eventData[index].event.method).to.equal("Transferred");
+    expect(eventData[index].event.data[0]).to.equal(GAS_TOKEN_ID);
+    expect(eventData[index].event.data[1].toString()).to.equal("0xDDDDDDdD00000002000004640000000000000000");
+    expect(eventData[index].event.data[2].toString()).to.equal(userA.address);
+
+    // assets	Issued	[2148,"0x6D6F646c7478666565706F740000000000000000",213]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("assets");
+    expect(eventData[index].event.method).to.equal("Issued");
+    expect(eventData[index].event.data[0]).to.equal(2148);
+
+    // dex	Swap	["0x3fAc4E88185Add21c375653b3204c1EF7fff9dE9",[1124,2],852669,850089,"0x3fAc4E88185Add21c375653b3204c1EF7fff9dE9"]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("dex");
+    expect(eventData[index].event.method).to.equal("Swap");
+    expect(eventData[index].event.data[0].toString()).to.equal(userA.address);
+    expect(eventData[index].event.data[1].toString()).to.equal(`[${FEE_TOKEN_ASSET_ID}, ${GAS_TOKEN_ID}]`);
+
+    // assetsExt	InternalWithdraw	[2,"0x3fAc4E88185Add21c375653b3204c1EF7fff9dE9",850089]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("assetsExt");
+    expect(eventData[index].event.method).to.equal("InternalWithdraw");
+    expect(eventData[index].event.data[0]).to.equal(GAS_TOKEN_ID);
+    expect(eventData[index].event.data[1].toString()).to.equal(userA.address);
+
+    // feeProxy	CallWithFeePreferences	["0x3fAc4E88185Add21c375653b3204c1EF7fff9dE9",1124,5000000]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("feeProxy");
+    expect(eventData[index].event.method).to.equal("CallWithFeePreferences");
+    expect(eventData[index].event.data[0].toString()).to.equal(userA.address);
+    expect(eventData[index].event.data[1]).to.equal(FEE_TOKEN_ASSET_ID);
+    expect(eventData[index].event.data[2]).to.equal(maxTokenPayment);
+
+    // doughnut	DoughnutCallExecuted	[{"ok":null}]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("doughnut");
+    expect(eventData[index].event.method).to.equal("DoughnutCallExecuted");
+
+    // assetsExt	InternalDeposit	[2,"0x6D6F646c7478666565706F740000000000000000",905132]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("assetsExt");
+    expect(eventData[index].event.method).to.equal("InternalDeposit");
+    expect(eventData[index].event.data[0]).to.equal(GAS_TOKEN_ID);
+
+    // transactionPayment	TransactionFeePaid	["0x3fAc4E88185Add21c375653b3204c1EF7fff9dE9",850089,0]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("transactionPayment");
+    expect(eventData[index].event.method).to.equal("TransactionFeePaid");
+    expect(eventData[index].event.data[0].toString()).to.equal(userA.address);
+
+    // system	ExtrinsicSuccess	[{"weight":717381872,"class":"Normal","paysFee":"Yes"}]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("system");
+    expect(eventData[index].event.method).to.equal("ExtrinsicSuccess");
+
+    // balances after
+    const userAAssetBalanceAfter =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, userA.address)).toJSON() as any)?.balance ?? 0;
+    const holderAssetBalanceAfter =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, holder.address)).toJSON() as any)?.balance ?? 0;
+    const userAXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, userA.address)).toJSON() as any)?.balance ?? 0;
+    const holderXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, holder.address)).toJSON() as any)?.balance ?? 0;
+
+    // userA xrp balance should be unchanged since the gas was paid using a different asset
+    expect(userAXRPBalanceAfter).to.be.eq(userAXRPBalanceBefore);
+    // userA asset balance should be lesser since gas is paid
+    expect(userAAssetBalanceAfter).to.be.lessThan(userAAssetBalanceBefore);
+
+    // doughnut holder should not get affected at all
+    expect(holderXRPBalanceAfter).to.be.eq(holderXRPBalanceBefore);
+    expect(holderAssetBalanceAfter).to.be.eq(holderAssetBalanceBefore);
+  });
 });
