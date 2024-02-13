@@ -135,10 +135,10 @@ where
 				.record(handle)?;
 
 				// Build output.
-				Ok(succeed([]))
+				Ok(succeed(EvmDataWriter::new().write(Address::from(futurepass_id)).build()))
 			},
 			Err(err) => Err(revert(
-				alloc::format!("Futurepass: Futurepass creation failed {:?}", err)
+				alloc::format!("Futurepass Registrar: Futurepass creation failed {:?}", err)
 					.as_bytes()
 					.to_vec(),
 			)),
