@@ -6,9 +6,7 @@ import { expect } from "chai";
 import { Wallet } from "ethers";
 
 import { OpCodeComparator, OpComp, OpLoad, Pact } from "../../../../pact/js";
-// const Doughnut = require('@trn/doughnut-wasm').default;
-import { Doughnut, PayloadVersion, SignatureVersion } from "../../../../trn-doughnut-rs/js";
-import { TRNNut } from "../../../../trn-trnnut-rs/js";
+import { Doughnut, PayloadVersion, SignatureVersion, TRNNut } from "../../../../trn-doughnut-rs/js";
 import {
   ALICE_PRIVATE_KEY,
   ALITH_PRIVATE_KEY,
@@ -69,40 +67,20 @@ describe("Doughnuts", () => {
     // console.log(pactEncoded);
 
     const module = [
-      [
-        "Balances",
         {
           name: "Balances",
           block_cooldown: 0,
           methods: [
-            [
-              "transfer",
               {
                 name: "transfer",
                 block_cooldown: 0,
                 constraints: [...pactEncoded],
               },
-            ],
           ],
         },
-      ],
     ];
-    const contract = [
-      [
-        [
-          27, 137, 65, 29, 182, 25, 157, 61, 226, 13, 230, 14, 111, 6, 25, 186, 227, 117, 177, 244, 172, 147, 40, 119,
-          209, 78, 13, 109, 236, 119, 205, 202,
-        ],
-        {
-          address: [
-            27, 137, 65, 29, 182, 25, 157, 61, 226, 13, 230, 14, 111, 6, 25, 186, 227, 117, 177, 244, 172, 147, 40, 119,
-            209, 78, 13, 109, 236, 119, 205, 202,
-          ],
-          block_cooldown: 270549120,
-        },
-      ],
-    ];
-    const trnnut = new TRNNut(module, contract);
+
+    const trnnut = new TRNNut(module);
 
     // Add to trn domain
     doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
@@ -195,40 +173,20 @@ describe("Doughnuts", () => {
     // console.log(pactEncoded);
 
     const module = [
-      [
-        "Balances",
         {
           name: "Balances",
           block_cooldown: 0,
           methods: [
-            [
-              "transfer",
               {
                 name: "transfer",
                 block_cooldown: 0,
                 constraints: [...pactEncoded],
               },
-            ],
           ],
         },
-      ],
     ];
-    const contract = [
-      [
-        [
-          27, 137, 65, 29, 182, 25, 157, 61, 226, 13, 230, 14, 111, 6, 25, 186, 227, 117, 177, 244, 172, 147, 40, 119,
-          209, 78, 13, 109, 236, 119, 205, 202,
-        ],
-        {
-          address: [
-            27, 137, 65, 29, 182, 25, 157, 61, 226, 13, 230, 14, 111, 6, 25, 186, 227, 117, 177, 244, 172, 147, 40, 119,
-            209, 78, 13, 109, 236, 119, 205, 202,
-          ],
-          block_cooldown: 270549120,
-        },
-      ],
-    ];
-    const trnnut = new TRNNut(module, contract);
+
+    const trnnut = new TRNNut(module);
 
     // Add to trn domain
     doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
@@ -387,50 +345,22 @@ describe("Doughnuts", () => {
 
     // create a doughnut
     const doughnut = new Doughnut(PayloadVersion.V1, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
-    // Create the permission domain object. Balances::transfer with a constraint for amount < initialTfrAmount
-    // const dataTable = [initialTfrAmount.toString()];
-    // const comp = new OpCodeComparator(OpLoad.INPUT_VS_USER, OpComp.EQ, 1, 0, false); // RHS is data table
-    // const bytecode = new Uint8Array([...comp.encode()]);
-    // const pactContract = new Pact(dataTable, bytecode);
-    // const pactEncoded = pactContract.encode();
-    // console.log(pactEncoded);
 
     const module = [
-      [
-        "Balances",
         {
           name: "Balances",
           block_cooldown: 0,
           methods: [
-            [
-              "transfer",
               {
                 name: "transfer",
                 block_cooldown: 0,
-                // constraints: [...pactEncoded],
                 constraints: null,
               },
-            ],
           ],
         },
-      ],
     ];
-    const contract = [
-      [
-        [
-          27, 137, 65, 29, 182, 25, 157, 61, 226, 13, 230, 14, 111, 6, 25, 186, 227, 117, 177, 244, 172, 147, 40, 119,
-          209, 78, 13, 109, 236, 119, 205, 202,
-        ],
-        {
-          address: [
-            27, 137, 65, 29, 182, 25, 157, 61, 226, 13, 230, 14, 111, 6, 25, 186, 227, 117, 177, 244, 172, 147, 40, 119,
-            209, 78, 13, 109, 236, 119, 205, 202,
-          ],
-          block_cooldown: 270549120,
-        },
-      ],
-    ];
-    const trnnut = new TRNNut(module, contract);
+
+    const trnnut = new TRNNut(module);
 
     // Add to trn domain
     doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
