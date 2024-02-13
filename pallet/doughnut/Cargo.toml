@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = ["The Root Network Team"]
 edition = "2021"
 repository = "https://github.com/futureversecom/seed"
-description = "Static and dynamic fee setting through a pallet" # TODO: update description
+description = "Root Network Doughnut pallet"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

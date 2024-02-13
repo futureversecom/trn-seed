@@ -901,7 +901,7 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 		}
 
 		let CallMetadata { function_name, pallet_name } = actual_call.get_call_metadata();
-
+		// selective matching the inner call for permission validations
 		match &actual_call {
 			// Balances
 			RuntimeCall::Balances(pallet_balances::Call::transfer { dest, value }) => {
