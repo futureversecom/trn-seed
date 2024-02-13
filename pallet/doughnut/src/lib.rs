@@ -135,9 +135,18 @@ impl<T> Call<T>
 			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
 				return None
 			};
-			let Ok(fee_payer_address) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
+			let Ok(fee_payer_doughnut) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
 				return None
 			};
+			let mut fee_payer_address = fee_payer_doughnut;
+			// Futurepass check
+			if <T as Config>::FuturepassLookup::check_extrinsic(inner_call, &()).is_ok() {
+				let Ok(futurepass) = <T as Config>::FuturepassLookup::lookup(fee_payer_address.into()) else {
+					return None
+				};
+				fee_payer_address = futurepass.into();
+			}
+
 			let sender_address = T::AccountId::from(*origin);
 
 			// construct the validation instances
