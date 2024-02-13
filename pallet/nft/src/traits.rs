@@ -62,6 +62,10 @@ pub trait NFTExt {
 		DispatchError,
 	>;
 
+	fn get_royalties_schedule(
+		collection_id: CollectionUuid,
+	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError>;
+
 	fn enable_xls20_compatibility(
 		who: Self::AccountId,
 		collection_id: CollectionUuid,

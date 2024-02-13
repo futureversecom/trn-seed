@@ -578,6 +578,14 @@ impl<T: Config> NFTExt for Pallet<T> {
 		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
 	}
 
+	fn get_royalties_schedule(
+		collection_id: CollectionUuid,
+	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError> {
+		let collection_info =
+			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		Ok(collection_info.royalties_schedule)
+	}
+
 	fn enable_xls20_compatibility(
 		who: Self::AccountId,
 		collection_id: CollectionUuid,

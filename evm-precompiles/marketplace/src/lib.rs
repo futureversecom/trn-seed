@@ -23,7 +23,7 @@ use frame_support::{
 };
 use pallet_evm::{GasWeightMapping, Precompile};
 use pallet_marketplace::{
-	types::{Listing, ListingTokens, MarketplaceId, OfferId},
+	types::{Listing, ListingTokens, MarketplaceId, NftListing, OfferId},
 	weights::WeightInfo,
 };
 use precompile_utils::{
@@ -347,7 +347,7 @@ where
 			)
 			.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
 
-		let tokens_unbounded = serial_number_ids
+		let serials_unbounded = serial_number_ids
 			.clone()
 			.into_iter()
 			.map(|serial_number| {
@@ -355,14 +355,14 @@ where
 					return Err(revert("Marketplace: Expected serial_number <= 2^32").into())
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
-				Ok((collection_id, serial_number))
+				Ok(serial_number)
 			})
-			.collect::<Result<Vec<TokenId>, PrecompileFailure>>()?;
+			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
 
-		let tokens: BoundedVec<TokenId, Runtime::MaxTokensPerListing> =
-			BoundedVec::try_from(tokens_unbounded)
+		let serial_numbers: BoundedVec<SerialNumber, Runtime::MaxTokensPerListing> =
+			BoundedVec::try_from(serials_unbounded)
 				.or_else(|_| Err(revert("Marketplace: Too many serial numbers")))?;
-		let tokens = ListingTokens::Nft(tokens);
+		let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 		let buyer: H160 = buyer.into();
 		let buyer: Option<Runtime::AccountId> =
 			if buyer == H160::default() { None } else { Some(buyer.into()) };
@@ -583,7 +583,7 @@ where
 				ERC721_PRECOMPILE_ADDRESS_PREFIX,
 			)
 			.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
-		let tokens_unbounded = serial_number_ids
+		let serials_unbounded = serial_number_ids
 			.clone()
 			.into_iter()
 			.map(|serial_number| {
@@ -591,14 +591,14 @@ where
 					return Err(revert("Marketplace: Expected serial_number <= 2^32").into())
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
-				Ok((collection_id, serial_number))
+				Ok(serial_number)
 			})
-			.collect::<Result<Vec<TokenId>, PrecompileFailure>>()?;
+			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
 
-		let tokens: BoundedVec<TokenId, Runtime::MaxTokensPerListing> =
-			BoundedVec::try_from(tokens_unbounded)
+		let serial_numbers: BoundedVec<SerialNumber, Runtime::MaxTokensPerListing> =
+			BoundedVec::try_from(serials_unbounded)
 				.or_else(|_| Err(revert("Marketplace: Too many serial numbers")))?;
-		let tokens = ListingTokens::Nft(tokens);
+		let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
@@ -1005,9 +1005,8 @@ where
 	) -> Result<(CollectionUuid, Vec<SerialNumber>), PrecompileFailure> {
 		match tokens {
 			ListingTokens::Nft(tokens) => {
-				let collection_id = tokens[0].0;
-				let serial_numbers =
-					tokens.into_iter().map(|(_, serial_number)| serial_number).collect();
+				let collection_id = tokens.collection_id;
+				let serial_numbers = tokens.serial_numbers.into_inner();
 				Ok((collection_id, serial_numbers))
 			},
 			_ => Err(revert("Marketplace: Expected NFT tokens")),

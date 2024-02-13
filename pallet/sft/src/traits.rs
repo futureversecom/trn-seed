@@ -13,9 +13,10 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+use crate::SftCollectionInfo;
 use frame_support::traits::Get;
 use seed_primitives::{
-	Balance, CollectionUuid, SerialNumber, TokenCount, TokenId, TokenLockReason,
+	Balance, CollectionUuid, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
 };
 use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
 use sp_std::{fmt::Debug, vec::Vec};
@@ -46,4 +47,8 @@ pub trait SFTExt {
 		from: &Self::AccountId,
 		to: &Self::AccountId,
 	) -> DispatchResult;
+
+	fn get_royalties_schedule(
+		collection_id: CollectionUuid,
+	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError>;
 }

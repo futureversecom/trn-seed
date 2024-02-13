@@ -279,14 +279,14 @@ fn sell_multiple() {
 		assert_ok!(Marketplace::sell_nft(
 			Some(token_owner).into(),
 			collection_id,
-			serial_numbers,
+			serial_numbers.clone(),
 			Some(buyer),
 			NativeAssetId::get(),
 			1_000,
 			None,
 			None,
 		));
-		let tokens = ListingTokens::Nft(BoundedVec::truncate_from(vec![token_id]));
+		let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 		System::assert_last_event(MockEvent::Marketplace(Event::<Test>::FixedPriceSaleList {
 			tokens: tokens.clone(),
 			listing_id,
@@ -419,7 +419,7 @@ fn cancel_sell() {
 		assert_ok!(Marketplace::sell_nft(
 			Some(token_owner).into(),
 			collection_id,
-			serial_numbers,
+			serial_numbers.clone(),
 			Some(buyer),
 			NativeAssetId::get(),
 			1_000,
@@ -427,7 +427,7 @@ fn cancel_sell() {
 			None
 		));
 		assert_ok!(Marketplace::cancel_sale(Some(token_owner).into(), listing_id));
-		let tokens = ListingTokens::Nft(BoundedVec::truncate_from(vec![token_id]));
+		let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 		System::assert_last_event(MockEvent::Marketplace(Event::<Test>::FixedPriceSaleClose {
 			tokens,
 			listing_id,
@@ -703,7 +703,7 @@ fn update_fixed_price() {
 		assert_ok!(Marketplace::sell_nft(
 			Some(token_owner).into(),
 			collection_id,
-			serial_numbers,
+			serial_numbers.clone(),
 			Some(buyer),
 			NativeAssetId::get(),
 			1_000,
@@ -711,7 +711,7 @@ fn update_fixed_price() {
 			None
 		));
 		assert_ok!(Marketplace::update_fixed_price(Some(token_owner).into(), listing_id, 1_500));
-		let tokens = ListingTokens::Nft(BoundedVec::truncate_from(vec![token_id]));
+		let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 		System::assert_last_event(MockEvent::Marketplace(
 			Event::<Test>::FixedPriceSalePriceUpdate {
 				tokens: tokens.clone(),
@@ -1267,7 +1267,7 @@ fn cancel_auction() {
 		assert_ok!(Marketplace::auction_nft(
 			Some(token_owner).into(),
 			collection_id,
-			serial_numbers,
+			serial_numbers.clone(),
 			NativeAssetId::get(),
 			reserve_price,
 			Some(System::block_number() + 1),
@@ -1282,7 +1282,7 @@ fn cancel_auction() {
 
 		assert_ok!(Marketplace::cancel_sale(Some(token_owner).into(), listing_id,));
 
-		let tokens = ListingTokens::Nft(BoundedVec::truncate_from(vec![token_id]));
+		let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 		System::assert_last_event(MockEvent::Marketplace(Event::<Test>::AuctionClose {
 			tokens,
 			listing_id,
@@ -1412,7 +1412,7 @@ fn auction() {
 			assert_ok!(Marketplace::auction_nft(
 				Some(token_owner).into(),
 				collection_id,
-				serial_numbers,
+				serial_numbers.clone(),
 				NativeAssetId::get(),
 				reserve_price,
 				Some(1),
@@ -1486,7 +1486,7 @@ fn auction() {
 			assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
 
 			// event logged
-			let tokens = ListingTokens::Nft(BoundedVec::truncate_from(vec![token_id]));
+			let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 			System::assert_last_event(MockEvent::Marketplace(Event::<Test>::AuctionSold {
 				tokens,
 				listing_id,
@@ -1636,7 +1636,8 @@ fn close_listings_at_removes_listing_data() {
 		let price = 123_456;
 		let token_1 = (collection_id, 0);
 		let seller = create_account(1);
-		let tokens = ListingTokens::Nft(BoundedVec::truncate_from(vec![token_1]));
+		let serial_numbers = BoundedVec::truncate_from(vec![token_1.1]);
+		let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 		let listings = vec![
 			// an open sale which won't be bought before closing
 			Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {

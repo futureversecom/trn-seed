@@ -383,12 +383,7 @@ pub mod pallet {
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let nfts: Vec<TokenId> = serial_numbers
-				.into_inner()
-				.into_iter()
-				.map(|serial_number| (collection_id, serial_number))
-				.collect();
-			let tokens = ListingTokens::Nft(BoundedVec::truncate_from(nfts));
+			let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 			Self::do_sell(
 				who,
 				tokens,
@@ -490,12 +485,7 @@ pub mod pallet {
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let nfts: Vec<TokenId> = serial_numbers
-				.into_inner()
-				.into_iter()
-				.map(|serial_number| (collection_id, serial_number))
-				.collect();
-			let tokens = ListingTokens::Nft(BoundedVec::truncate_from(nfts));
+			let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 			Self::do_auction(who, tokens, payment_asset, reserve_price, duration, marketplace_id)?;
 			Ok(().into())
 		}

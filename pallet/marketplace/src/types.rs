@@ -14,12 +14,13 @@
 use crate::{Config, Error};
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{dispatch::DispatchResult, RuntimeDebugNoBound};
+use frame_support::{dispatch::DispatchResult, ensure, RuntimeDebugNoBound};
 use pallet_nft::traits::NFTExt;
 use pallet_sft::traits::SFTExt;
 use scale_info::TypeInfo;
 use seed_primitives::{
-	AssetId, Balance, BlockNumber, CollectionUuid, RoyaltiesSchedule, SerialNumber, TokenId,
+	AssetId, Balance, BlockNumber, CollectionUuid, ListingId, RoyaltiesSchedule, SerialNumber,
+	TokenId, TokenLockReason,
 };
 use sp_runtime::{BoundedVec, DispatchError, Permill};
 use sp_std::prelude::*;
@@ -41,67 +42,125 @@ pub type MarketplaceId = u32;
 #[derive(Decode, Encode, RuntimeDebugNoBound, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub enum ListingTokens<T: Config> {
-	Nft(BoundedVec<TokenId, <T as Config>::MaxTokensPerListing>),
-	Sft(BoundedVec<(TokenId, Balance), <T as Config>::MaxTokensPerListing>),
+	Nft(NftListing<T>),
+	Sft(SftListing<T>),
+}
+
+// A group of NFT serial numbers from the same collection
+#[derive(Decode, Encode, RuntimeDebugNoBound, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(T))]
+pub struct NftListing<T: Config> {
+	pub collection_id: CollectionUuid,
+	pub serial_numbers: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerListing>,
+}
+
+// A group of SFT serial numbers and balances from the same collection
+#[derive(Decode, Encode, RuntimeDebugNoBound, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(T))]
+pub struct SftListing<T: Config> {
+	pub collection_id: CollectionUuid,
+	pub serial_numbers: BoundedVec<(SerialNumber, Balance), <T as Config>::MaxTokensPerListing>,
 }
 
 impl<T: Config> ListingTokens<T> {
-	/// Returns the number of tokens in the listing
-	// pub fn len(&self) -> usize {
-	// 	match self {
-	// 		ListingTokens::Nft(tokens) => tokens.len(),
-	// 		ListingTokens::Sft(tokens) => tokens.len(),
-	// 	}
-	// }
-
 	/// Validates the listing tokens by checking the following:
 	/// - Ensures the list of tokens is not empty
 	/// - Ensures all tokens within the listing are from the same collection
 	/// Returns the unique collection_id if valid
-	pub fn validate(&self) -> Result<CollectionUuid, DispatchError> {
+	pub fn validate(&self) -> DispatchResult {
 		match self {
 			ListingTokens::Nft(tokens) => {
-				let first_token = tokens.first().ok_or(Error::<T>::EmptyTokens)?;
-				for token in tokens.iter() {
-					if token.0 != first_token.0 {
-						return Err(Error::<T>::MixedCollection.into())
-					}
-				}
-				Ok(first_token.0)
+				ensure!(!tokens.serial_numbers.is_empty(), Error::<T>::EmptyTokens);
 			},
 			ListingTokens::Sft(tokens) => {
-				let (first_token, _) = tokens.first().ok_or(Error::<T>::EmptyTokens)?;
-				for (token, _) in tokens.iter() {
-					if token.0 != first_token.0 {
-						return Err(Error::<T>::MixedCollection.into())
-					}
-				}
-				Ok(first_token.0)
+				ensure!(!tokens.serial_numbers.is_empty(), Error::<T>::EmptyTokens);
 			},
 		}
+		Ok(())
 	}
 
-	// Returns the collection id of the first token in the listing
-	pub fn get_collection_id(&self) -> Result<CollectionUuid, DispatchError> {
+	/// Returns the collection id of the first token in the listing
+	pub fn get_collection_id(&self) -> CollectionUuid {
 		match self {
-			ListingTokens::Nft(tokens) => Ok(tokens.first().ok_or(Error::<T>::EmptyTokens)?.0),
-			ListingTokens::Sft(tokens) => Ok(tokens.first().ok_or(Error::<T>::EmptyTokens)?.0 .0),
+			ListingTokens::Nft(tokens) => tokens.collection_id,
+			ListingTokens::Sft(tokens) => tokens.collection_id,
 		}
 	}
 
-	pub fn unlock_and_transfer(&self, from: &T::AccountId, to: &T::AccountId) -> DispatchResult {
+	/// Locks a group of tokens before listing for sale
+	/// Throws an error if owner does not own all tokens
+	pub fn lock_tokens(&self, owner: &T::AccountId, listing_id: ListingId) -> DispatchResult {
 		match self {
 			ListingTokens::Nft(nfts) =>
-				for token_id in nfts.iter() {
-					T::NFTExt::remove_token_lock(*token_id);
-					T::NFTExt::do_transfer(*from, token_id.0, vec![token_id.1], *to)?;
+				for serial_number in nfts.serial_numbers.iter() {
+					let token_id = (nfts.collection_id, *serial_number);
+					T::NFTExt::set_token_lock(
+						token_id,
+						TokenLockReason::Listed(listing_id),
+						*owner,
+					)?;
 				},
 			ListingTokens::Sft(sfts) =>
-				for (token_id, balance) in sfts.iter() {
-					T::SFTExt::transfer_reserved_balance(*token_id, *balance, from, to)?;
+				for (serial_number, balance) in sfts.serial_numbers.iter() {
+					let token_id = (sfts.collection_id, *serial_number);
+					T::SFTExt::reserve_balance(token_id, *balance, owner)?;
 				},
 		}
 		Ok(())
+	}
+
+	/// Removes all token locks and reservations for tokens included in a listing
+	pub fn unlock_tokens(&self, owner: &T::AccountId) -> DispatchResult {
+		match self {
+			ListingTokens::Nft(nfts) =>
+				for serial_number in nfts.serial_numbers.iter() {
+					let token_id = (nfts.collection_id, *serial_number);
+					T::NFTExt::remove_token_lock(token_id);
+				},
+			ListingTokens::Sft(sfts) =>
+				for (serial_number, balance) in sfts.serial_numbers.iter() {
+					let token_id = (sfts.collection_id, *serial_number);
+					T::SFTExt::free_reserved_balance(token_id, *balance, owner)?;
+				},
+		}
+		Ok(())
+	}
+
+	/// Unlock the locked tokens and transfer them immediately to the destination address
+	/// Called at sale completion
+	pub fn unlock_and_transfer(&self, from: &T::AccountId, to: &T::AccountId) -> DispatchResult {
+		match self {
+			ListingTokens::Nft(nfts) => {
+				ensure!(!nfts.serial_numbers.is_empty(), Error::<T>::EmptyTokens);
+				for serial_number in nfts.serial_numbers.iter() {
+					T::NFTExt::remove_token_lock((nfts.collection_id, *serial_number));
+				}
+				T::NFTExt::do_transfer(
+					from.clone(),
+					nfts.collection_id,
+					nfts.serial_numbers.clone().into_inner(),
+					to.clone(),
+				)?;
+			},
+			ListingTokens::Sft(sfts) =>
+				for (serial_number, balance) in sfts.serial_numbers.iter() {
+					let token_id = (sfts.collection_id, *serial_number);
+					T::SFTExt::transfer_reserved_balance(token_id, *balance, from, to)?;
+				},
+		}
+		Ok(())
+	}
+
+	/// Get the royalties schedule for the collection if it exists
+	/// Returns None if the collection has no royalties schedule
+	/// Returns an error if the collection does not exist
+	pub fn get_royalties_schedule(
+		&self,
+	) -> Result<Option<RoyaltiesSchedule<T::AccountId>>, DispatchError> {
+		match self {
+			ListingTokens::Nft(tokens) => T::NFTExt::get_royalties_schedule(tokens.collection_id),
+			ListingTokens::Sft(tokens) => T::SFTExt::get_royalties_schedule(tokens.collection_id),
+		}
 	}
 }
 

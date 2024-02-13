@@ -519,4 +519,12 @@ impl<T: Config> SFTExt for Pallet<T> {
 		TokenInfo::<T>::insert(token_id, token_info);
 		Ok(())
 	}
+
+	fn get_royalties_schedule(
+		collection_id: CollectionUuid,
+	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError> {
+		let collection_info =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		Ok(collection_info.royalties_schedule)
+	}
 }

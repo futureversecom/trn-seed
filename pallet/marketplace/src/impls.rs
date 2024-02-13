@@ -48,6 +48,7 @@ impl<T: Config> Pallet<T> {
 		Ok(marketplace_id)
 	}
 
+	#[transactional]
 	pub fn do_sell(
 		who: T::AccountId,
 		tokens: ListingTokens<T>,
@@ -57,14 +58,12 @@ impl<T: Config> Pallet<T> {
 		duration: Option<T::BlockNumber>,
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<ListingId, DispatchError> {
-		// Validate tokens and get collection_id
-		let collection_id = tokens.validate()?;
-
-		let royalties_schedule = Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
+		// Validate tokens
+		tokens.validate()?;
+		let royalties_schedule = Self::calculate_bundle_royalties(tokens.clone(), marketplace_id)?;
 		let listing_id = Self::next_listing_id();
 
-		// use the first token's collection as representative of the bundle
-		Self::lock_tokens_for_listing(tokens.clone(), &who, listing_id)?;
+		tokens.lock_tokens(&who, listing_id)?;
 
 		let listing_end_block = <frame_system::Pallet<T>>::block_number()
 			.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
@@ -80,7 +79,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		<ListingEndSchedule<T>>::insert(listing_end_block, listing_id, true);
-		<OpenCollectionListings<T>>::insert(collection_id, listing_id, true);
+		<OpenCollectionListings<T>>::insert(tokens.get_collection_id(), listing_id, true);
 		<Listings<T>>::insert(listing_id, listing);
 		<NextListingId<T>>::mutate(|i| *i += 1);
 
@@ -171,6 +170,7 @@ impl<T: Config> Pallet<T> {
 		Ok(listing)
 	}
 
+	#[transactional]
 	pub fn do_auction(
 		who: T::AccountId,
 		tokens: ListingTokens<T>,
@@ -180,13 +180,12 @@ impl<T: Config> Pallet<T> {
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<ListingId, DispatchError> {
 		// Validate tokens and get collection_id
-		let collection_id = tokens.validate()?;
-
-		let royalties_schedule = Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
+		tokens.validate()?;
+		let royalties_schedule = Self::calculate_bundle_royalties(tokens.clone(), marketplace_id)?;
 		let listing_id = Self::next_listing_id();
 		ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
-		Self::lock_tokens_for_listing(tokens.clone(), &who, listing_id)?;
+		tokens.lock_tokens(&who, listing_id)?;
 
 		let listing_end_block = <frame_system::Pallet<T>>::block_number()
 			.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
@@ -201,7 +200,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		<ListingEndSchedule<T>>::insert(listing_end_block, listing_id, true);
-		<OpenCollectionListings<T>>::insert(collection_id, listing_id, true);
+		<OpenCollectionListings<T>>::insert(tokens.get_collection_id(), listing_id, true);
 		<Listings<T>>::insert(listing_id, listing);
 		<NextListingId<T>>::mutate(|i| *i += 1);
 
@@ -274,7 +273,7 @@ impl<T: Config> Pallet<T> {
 		match listing.clone() {
 			Listing::<T>::FixedPrice(sale) => {
 				ensure!(sale.seller == who, Error::<T>::NotSeller);
-				Self::unlock_listing_tokens(sale.tokens.clone(), &who)?;
+				sale.tokens.unlock_tokens(&who)?;
 
 				Self::deposit_event(Event::<T>::FixedPriceSaleClose {
 					tokens: sale.tokens,
@@ -286,7 +285,7 @@ impl<T: Config> Pallet<T> {
 			Listing::<T>::Auction(auction) => {
 				ensure!(auction.seller == who, Error::<T>::NotSeller);
 				ensure!(Self::listing_winning_bid(listing_id).is_none(), Error::<T>::TokenLocked);
-				Self::unlock_listing_tokens(auction.tokens.clone(), &who)?;
+				auction.tokens.unlock_tokens(&who)?;
 
 				Self::deposit_event(Event::<T>::AuctionClose {
 					tokens: auction.tokens,
@@ -367,7 +366,7 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::InvalidOffer.into());
 		};
 
-		let (collection_id, _) = offer.token_id;
+		let (collection_id, serial_number) = offer.token_id;
 		ensure!(
 			T::NFTExt::get_token_owner(&(offer.token_id)) == Some(who),
 			Error::<T>::NotTokenOwner
@@ -381,11 +380,11 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
+		let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing> =
+			BoundedVec::truncate_from(vec![serial_number]);
+		let listing_tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 		let royalties_schedule =
-			Self::calculate_bundle_royalties(collection_id, offer.marketplace_id)?;
-		let token_ids: BoundedVec<TokenId, T::MaxTokensPerListing> =
-			BoundedVec::truncate_from(vec![offer.token_id]);
-		let listing_tokens = ListingTokens::Nft(token_ids);
+			Self::calculate_bundle_royalties(listing_tokens.clone(), offer.marketplace_id)?;
 
 		Self::process_payment_and_transfer(
 			&offer.buyer,
@@ -436,7 +435,7 @@ impl<T: Config> Pallet<T> {
 			match listing_outer.clone() {
 				Listing::FixedPrice(listing) => {
 					Self::remove_listing(listing_outer, listing_id);
-					let _ = Self::unlock_listing_tokens(listing.tokens.clone(), &listing.seller);
+					let _ = listing.tokens.unlock_tokens(&listing.seller);
 					Self::deposit_event(Event::<T>::FixedPriceSaleClose {
 						tokens: listing.tokens,
 						listing_id,
@@ -457,7 +456,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Removes a listing and its metadata from storage
 	pub(crate) fn remove_listing(listing: Listing<T>, listing_id: ListingId) {
-		let maybe_collection_id = match listing {
+		let collection_id = match listing {
 			Listing::FixedPrice(listing) => {
 				ListingEndSchedule::<T>::remove(listing.close, listing_id);
 				listing.tokens.get_collection_id()
@@ -468,10 +467,7 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
-		// Should always be Ok
-		if let Ok(collection_id) = maybe_collection_id {
-			<OpenCollectionListings<T>>::remove(collection_id, listing_id);
-		}
+		<OpenCollectionListings<T>>::remove(collection_id, listing_id);
 		<Listings<T>>::remove(listing_id);
 	}
 
@@ -555,50 +551,6 @@ impl<T: Config> Pallet<T> {
 		tokens.unlock_and_transfer(seller, buyer)
 	}
 
-	/// Locks a group of tokens before listing for sale
-	/// Throws an error if owner does not own all tokens
-	#[transactional]
-	pub(crate) fn lock_tokens_for_listing(
-		tokens: ListingTokens<T>,
-		owner: &T::AccountId,
-		listing_id: ListingId,
-	) -> DispatchResult {
-		match tokens {
-			ListingTokens::Nft(nfts) =>
-				for token_id in nfts.iter() {
-					T::NFTExt::set_token_lock(
-						*token_id,
-						TokenLockReason::Listed(listing_id),
-						*owner,
-					)?;
-				},
-			ListingTokens::Sft(sfts) =>
-				for (token_id, balance) in sfts.iter() {
-					T::SFTExt::reserve_balance(*token_id, *balance, owner)?;
-				},
-		}
-		Ok(())
-	}
-
-	/// Removes all token locks and reservations for tokens included in a listing
-	#[transactional]
-	pub(crate) fn unlock_listing_tokens(
-		tokens: ListingTokens<T>,
-		owner: &T::AccountId,
-	) -> DispatchResult {
-		match tokens {
-			ListingTokens::Nft(nfts) =>
-				for token_id in nfts.iter() {
-					T::NFTExt::remove_token_lock(*token_id);
-				},
-			ListingTokens::Sft(sfts) =>
-				for (token_id, balance) in sfts.iter() {
-					T::SFTExt::free_reserved_balance(*token_id, *balance, owner)?;
-				},
-		}
-		Ok(())
-	}
-
 	/// Calculates payout splits for an amount over seller and royalty schedule
 	pub(crate) fn calculate_royalty_payouts(
 		seller: T::AccountId,
@@ -627,14 +579,12 @@ impl<T: Config> Pallet<T> {
 	/// Although possible, we do not support:
 	/// 3) different collection, no royalties allowed
 	pub(crate) fn calculate_bundle_royalties(
-		collection_id: CollectionUuid,
+		tokens: ListingTokens<T>,
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<RoyaltiesSchedule<T::AccountId>, DispatchError> {
 		// Get collection royalties portion
 		let mut royalties: RoyaltiesSchedule<T::AccountId> =
-			T::NFTExt::get_collection_info(collection_id)?
-				.royalties_schedule
-				.unwrap_or_default();
+			tokens.get_royalties_schedule()?.unwrap_or_default();
 
 		// Get network fee portion
 		if let Some(tx_fee_pot_id) = FeeTo::<T>::get() {
