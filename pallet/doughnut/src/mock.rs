@@ -20,7 +20,7 @@ use crate::{self as pallet_doughnut};
 use frame_support::{traits::InstanceFilter, weights::WeightToFee};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{Address, Signature};
-use sp_runtime::generic;
+use sp_runtime::{generic, traits::LookupError};
 
 pub type SignedExtra = DoughnutSenderValidations<Test>;
 pub type UncheckedExtrinsicT =
@@ -91,6 +91,7 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type CallValidator = MockDoughnutCallValidator;
+	type FuturepassLookup = FuturepassIdentityLookup;
 	type WeightInfo = ();
 }
 
@@ -169,6 +170,28 @@ impl ExtrinsicChecker for MockDoughnutCallValidator {
 	type Call = RuntimeCall;
 	type PermissionObject = TRNNutV0;
 	fn check_extrinsic(_call: &Self::Call, _trnnut: &Self::PermissionObject) -> DispatchResult {
+		Ok(())
+	}
+}
+
+pub struct FuturepassIdentityLookup;
+impl StaticLookup for FuturepassIdentityLookup {
+	type Source = H160;
+	type Target = H160;
+	fn lookup(s: Self::Source) -> Result<Self::Target, LookupError> {
+		Ok(s)
+	}
+	fn unlookup(t: Self::Target) -> Self::Source {
+		t
+	}
+}
+impl ExtrinsicChecker for FuturepassIdentityLookup {
+	type Call = RuntimeCall;
+	type PermissionObject = ();
+	fn check_extrinsic(
+		_call: &Self::Call,
+		_permissioned_object: &Self::PermissionObject,
+	) -> DispatchResult {
 		Ok(())
 	}
 }
