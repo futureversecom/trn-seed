@@ -67,17 +67,17 @@ describe("Doughnuts", () => {
     // console.log(pactEncoded);
 
     const module = [
-        {
-          name: "Balances",
-          block_cooldown: 0,
-          methods: [
-              {
-                name: "transfer",
-                block_cooldown: 0,
-                constraints: [...pactEncoded],
-              },
-          ],
-        },
+      {
+        name: "Balances",
+        block_cooldown: 0,
+        methods: [
+          {
+            name: "transfer",
+            block_cooldown: 0,
+            constraints: [...pactEncoded],
+          },
+        ],
+      },
     ];
 
     const trnnut = new TRNNut(module);
@@ -121,21 +121,16 @@ describe("Doughnuts", () => {
     await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
 
     // Execute the transact call with.send
-    const eventData = await new Promise<any[]>((resolve, reject) => {
+    const eventData = await new Promise<any[]>((resolve, _reject) => {
       api.tx.doughnut.transact(call, doughnutHex, nonce, holderSig).send(({ events, status }) => {
         if (status.isInBlock) {
-          for (const { event } of events) {
-            if (event.section === "doughnut" && event.method === "DoughnutCallExecuted") {
-              resolve(event.data);
-            }
-          }
-          reject(null);
+          resolve(events);
         }
       });
     });
     expect(eventData).to.exist;
+    // eventData.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
 
-    // console.log(events);
     const balance = await api.query.system.account(receiverAddress);
     const freeBalance = balance.toJSON()?.data.free;
     console.log(`Free balance after doughnut transact: ${freeBalance}`);
@@ -146,6 +141,57 @@ describe("Doughnuts", () => {
     expect(alice_balance_before.toJSON()?.data.free - aliceBalanceAfter.toJSON()?.data.free).equal(transferAmount);
 
     // check the events
+    expect(eventData.length).to.equal(8);
+    let index = 0;
+
+    // assetsExt	InternalWithdraw	[2,"0xE04CC55ebEE1cBCE552f250e85c57B70B2E2625b",875115]
+    expect(eventData[index].event.section).to.equal("assetsExt");
+    expect(eventData[index].event.method).to.equal("InternalWithdraw");
+    expect(eventData[index].event.data[0]).to.equal(GAS_TOKEN_ID);
+    expect(eventData[index].event.data[1].toString()).to.equal(alice.address); // issuer
+
+    // system	NewAccount	["0x07486b456ca1A0fb92344061278dF1D3504C7FB0"]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("system");
+    expect(eventData[index].event.method).to.equal("NewAccount");
+    expect(eventData[index].event.data[0].toString()).to.equal(receiverAddress);
+
+    // balances	Endowed	["0xE0DE516A460Ad64105f5dF4010E58ECA9d23DFFD",10]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("balances");
+    expect(eventData[index].event.method).to.equal("Endowed");
+    expect(eventData[index].event.data[0].toString()).to.equal(receiverAddress);
+    expect(eventData[index].event.data[1]).to.equal(transferAmount);
+
+    // balances	Transfer	["0xE04CC55ebEE1cBCE552f250e85c57B70B2E2625b","0xE0DE516A460Ad64105f5dF4010E58ECA9d23DFFD",10]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("balances");
+    expect(eventData[index].event.method).to.equal("Transfer");
+    expect(eventData[index].event.data[0].toString()).to.equal(alice.address);
+    expect(eventData[index].event.data[1].toString()).to.equal(receiverAddress);
+    expect(eventData[index].event.data[2]).to.equal(transferAmount);
+
+    // doughnut	DoughnutCallExecuted	[{"ok":null}]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("doughnut");
+    expect(eventData[index].event.method).to.equal("DoughnutCallExecuted");
+
+    // assetsExt	InternalDeposit	[2,"0x6D6F646c7478666565706F740000000000000000",875115]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("assetsExt");
+    expect(eventData[index].event.method).to.equal("InternalDeposit");
+    expect(eventData[index].event.data[0]).to.equal(GAS_TOKEN_ID);
+
+    // transactionPayment	TransactionFeePaid	["0xE04CC55ebEE1cBCE552f250e85c57B70B2E2625b",875115,0]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("transactionPayment");
+    expect(eventData[index].event.method).to.equal("TransactionFeePaid");
+    expect(eventData[index].event.data[0].toString()).to.equal(alice.address);
+
+    // system	ExtrinsicSuccess	[{"weight":925414000,"class":"Normal","paysFee":"Yes"}]
+    index += 1;
+    expect(eventData[index].event.section).to.equal("system");
+    expect(eventData[index].event.method).to.equal("ExtrinsicSuccess");
   });
 
   it("doughnut fails - alice issued doughnut for Balances::transfer with constraints amount = 10 can not be used to transfer amount != 10", async () => {
@@ -173,17 +219,17 @@ describe("Doughnuts", () => {
     // console.log(pactEncoded);
 
     const module = [
-        {
-          name: "Balances",
-          block_cooldown: 0,
-          methods: [
-              {
-                name: "transfer",
-                block_cooldown: 0,
-                constraints: [...pactEncoded],
-              },
-          ],
-        },
+      {
+        name: "Balances",
+        block_cooldown: 0,
+        methods: [
+          {
+            name: "transfer",
+            block_cooldown: 0,
+            constraints: [...pactEncoded],
+          },
+        ],
+      },
     ];
 
     const trnnut = new TRNNut(module);
@@ -233,7 +279,6 @@ describe("Doughnuts", () => {
         console.log(err);
       });
 
-    // console.log(events);
     const balance = await api.query.system.account(receiverAddress);
     const freeBalance = balance.toJSON()?.data.free;
     console.log(`Free balance after doughnut transact: ${freeBalance}`);
@@ -347,17 +392,17 @@ describe("Doughnuts", () => {
     const doughnut = new Doughnut(PayloadVersion.V1, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
 
     const module = [
-        {
-          name: "Balances",
-          block_cooldown: 0,
-          methods: [
-              {
-                name: "transfer",
-                block_cooldown: 0,
-                constraints: null,
-              },
-          ],
-        },
+      {
+        name: "Balances",
+        block_cooldown: 0,
+        methods: [
+          {
+            name: "transfer",
+            block_cooldown: 0,
+            constraints: null,
+          },
+        ],
+      },
     ];
 
     const trnnut = new TRNNut(module);
