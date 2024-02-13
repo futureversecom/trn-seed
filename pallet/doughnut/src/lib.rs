@@ -129,7 +129,7 @@ impl<T> Call<T>
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<TransactionValidity> {
-		if let Call::transact { call, doughnut, nonce, .. } = self {
+		if let Call::transact { call: inner_call, doughnut, nonce, .. } = self {
 			// Doughnut work
 			// run doughnut common validations
 			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -159,8 +159,8 @@ impl<T> Call<T>
 				CheckWeight::new(),
 			);
 
-			SignedExtension::validate(&validations_sender, &sender_address, &(**call).clone().into(), dispatch_info, len).ok()?;
-			SignedExtension::validate(&validations_fee_payer, &fee_payer_address, &(**call).clone().into(), dispatch_info, len).ok()?;
+			SignedExtension::validate(&validations_sender, &sender_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
+			SignedExtension::validate(&validations_fee_payer, &fee_payer_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
 
 			// TODO: do we need any validation on inner call?
 			let priority = 0;
