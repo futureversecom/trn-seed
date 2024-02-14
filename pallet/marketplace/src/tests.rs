@@ -1252,6 +1252,246 @@ fn buy_fails_prechecks() {
 		});
 }
 
+mod buy_sft {
+	use super::*;
+
+	#[test]
+	fn buy_sft() {
+		let buyer = create_account(5);
+		let price = 1_000;
+		let starting_balance = price * 2;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(buyer, starting_balance)])
+			.build()
+			.execute_with(|| {
+				let initial_issuance = 100;
+				let (collection_id, token_id, token_owner) = setup_sft_token(initial_issuance);
+				let buyer = create_account(5);
+
+				let listing_id = Marketplace::next_listing_id();
+				let sell_quantity = 60;
+				let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
+					BoundedVec::truncate_from(vec![(token_id.1, sell_quantity)]);
+				let sft_token = ListingTokens::Sft(SftListing {
+					collection_id,
+					serial_numbers: serial_numbers.clone(),
+				});
+				assert_ok!(Marketplace::sell(
+					Some(token_owner).into(),
+					sft_token.clone(),
+					None,
+					NativeAssetId::get(),
+					price,
+					None,
+					None,
+				));
+
+				assert_ok!(Marketplace::buy(Some(buyer).into(), listing_id));
+				// no royalties, all proceeds to token owner minus network fee
+				assert_eq!(
+					AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
+					price - MarketplaceNetworkFeePercentage::get().mul(price)
+				);
+				// Buyer balance should be starting minus price (1000)
+				assert_eq!(
+					AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
+					starting_balance - price
+				);
+
+				// listing removed
+				assert!(Listings::<Test>::get(listing_id).is_none());
+				assert!(Marketplace::listing_end_schedule(
+					System::block_number() + <Test as Config>::DefaultListingDuration::get(),
+					listing_id
+				)
+				.is_none());
+				assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
+
+				// Check SFT balances of both seller and buyer
+				let seller_balance = sft_balance_of(token_id, &token_owner);
+				assert_eq!(seller_balance.free_balance, initial_issuance - sell_quantity);
+				assert_eq!(seller_balance.reserved_balance, 0);
+
+				let buyer_balance = sft_balance_of(token_id, &buyer);
+				assert_eq!(buyer_balance.free_balance, sell_quantity);
+				assert_eq!(buyer_balance.reserved_balance, 0);
+
+				// assert network fees accumulated
+				let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+				assert_eq!(
+					AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
+					5, // 0.5% of 1000
+				);
+			});
+	}
+
+	#[test]
+	fn buy_sft_with_royalties() {
+		let buyer = create_account(5);
+		let sale_price = 1_000_008;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(buyer, sale_price * 2)])
+			.build()
+			.execute_with(|| {
+				let collection_owner = create_account(1);
+				let beneficiary_1 = create_account(11);
+				let beneficiary_2 = create_account(12);
+				let royalties_schedule = RoyaltiesSchedule {
+					entitlements: BoundedVec::truncate_from(vec![
+						(collection_owner, Permill::from_float(0.111)),
+						(beneficiary_1, Permill::from_float(0.1111)),
+						(beneficiary_2, Permill::from_float(0.3333)),
+					]),
+				};
+				let initial_issuance = 1000;
+				let (collection_id, token_id, token_owner) =
+					setup_sft_token_with_royalties(initial_issuance, royalties_schedule.clone());
+
+				let listing_id = Marketplace::next_listing_id();
+				let sell_quantity = 100;
+				let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
+					BoundedVec::truncate_from(vec![(token_id.1, sell_quantity)]);
+				let sft_token = ListingTokens::Sft(SftListing {
+					collection_id,
+					serial_numbers: serial_numbers.clone(),
+				});
+
+				// Setup marketplace
+				let marketplace_account = create_account(4);
+				let marketplace_entitlements: Permill = Permill::from_float(0.1);
+				let marketplace_id = Marketplace::next_marketplace_id();
+				assert_ok!(Marketplace::register_marketplace(
+					Some(marketplace_account).into(),
+					None,
+					marketplace_entitlements
+				));
+
+				// Sell
+				assert_ok!(Marketplace::sell(
+					Some(token_owner).into(),
+					sft_token.clone(),
+					None,
+					NativeAssetId::get(),
+					sale_price,
+					None,
+					Some(marketplace_id),
+				));
+
+				let initial_balance_owner =
+					AssetsExt::reducible_balance(NativeAssetId::get(), &collection_owner, false);
+				let initial_balance_b1 =
+					AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false);
+				let initial_balance_b2 =
+					AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_2, false);
+				let initial_balance_seller =
+					AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false);
+				let initial_balance_marketplace =
+					AssetsExt::reducible_balance(NativeAssetId::get(), &marketplace_account, false);
+
+				assert_ok!(Marketplace::buy(Some(buyer).into(), listing_id));
+				let presale_issuance = AssetsExt::total_issuance(NativeAssetId::get());
+
+				// royalties distributed according to `entitlements` map
+				assert_eq!(
+					AssetsExt::reducible_balance(NativeAssetId::get(), &collection_owner, false),
+					initial_balance_owner +
+						royalties_schedule.clone().entitlements[0].1 * sale_price
+				);
+				assert_eq!(
+					AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false),
+					initial_balance_b1 + royalties_schedule.clone().entitlements[1].1 * sale_price
+				);
+				assert_eq!(
+					AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_2, false),
+					initial_balance_b2 + royalties_schedule.clone().entitlements[2].1 * sale_price
+				);
+				let marketplace_royalties = marketplace_entitlements.mul(sale_price);
+				assert_eq!(
+					AssetsExt::reducible_balance(NativeAssetId::get(), &marketplace_account, false),
+					initial_balance_marketplace + marketplace_royalties
+				);
+
+				// token owner gets sale price - royalties - network fee - marketplace
+				let network_fee = MarketplaceNetworkFeePercentage::get().mul(sale_price);
+				let royalties = royalties_schedule
+					.clone()
+					.entitlements
+					.into_iter()
+					.map(|(_, e)| e * sale_price)
+					.sum::<Balance>();
+				assert_eq!(
+					AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
+					initial_balance_seller + sale_price -
+						royalties - network_fee - marketplace_royalties
+				);
+				assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
+
+				// listing removed
+				assert!(Listings::<Test>::get(listing_id).is_none());
+				assert!(Marketplace::listing_end_schedule(
+					System::block_number() + <Test as Config>::DefaultListingDuration::get(),
+					listing_id
+				)
+				.is_none());
+
+				// ownership changed
+				let seller_balance = sft_balance_of(token_id, &token_owner);
+				assert_eq!(seller_balance.free_balance, initial_issuance - sell_quantity);
+				assert_eq!(seller_balance.reserved_balance, 0);
+
+				let buyer_balance = sft_balance_of(token_id, &buyer);
+				assert_eq!(buyer_balance.free_balance, sell_quantity);
+				assert_eq!(buyer_balance.reserved_balance, 0);
+			});
+	}
+
+	#[test]
+	fn buy_sft_fails_prechecks() {
+		let buyer = create_account(5);
+		let price = 1_000;
+		TestExt::<Test>::default()
+			.with_balances(&[(buyer, price - 1)])
+			.build()
+			.execute_with(|| {
+				let initial_issuance = 1000;
+				let (collection_id, token_id, token_owner) = setup_sft_token(initial_issuance);
+				let buyer = create_account(5);
+				let price = 1_000;
+				let listing_id = Marketplace::next_listing_id();
+				let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
+					BoundedVec::truncate_from(vec![(token_id.1, 100)]);
+				let sft_token = ListingTokens::Sft(SftListing {
+					collection_id,
+					serial_numbers: serial_numbers.clone(),
+				});
+
+				assert_ok!(Marketplace::sell(
+					Some(token_owner).into(),
+					sft_token.clone(),
+					Some(buyer),
+					NativeAssetId::get(),
+					price,
+					None,
+					None,
+				));
+
+				// no permission
+				let not_buyer = create_account(6);
+				assert_noop!(
+					Marketplace::buy(Some(not_buyer).into(), listing_id),
+					Error::<Test>::NotBuyer,
+				);
+
+				assert_noop!(
+					Marketplace::buy(Some(buyer).into(), listing_id),
+					pallet_assets_ext::Error::<Test>::BalanceLow,
+				);
+			});
+	}
+}
+
 #[test]
 fn sell_to_anybody() {
 	let buyer = create_account(5);
@@ -2568,10 +2808,37 @@ mod sell_sft {
 	}
 
 	#[test]
+	fn sell_sft_with_nft_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let (collection_id, token_id, token_owner) = setup_nft_token();
+			let reserve_price = 100_000;
+			let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
+				BoundedVec::truncate_from(vec![(token_id.1, 1)]);
+			let sft_token = ListingTokens::Sft(SftListing {
+				collection_id,
+				serial_numbers: serial_numbers.clone(),
+			});
+
+			assert_noop!(
+				Marketplace::sell(
+					Some(token_owner).into(),
+					sft_token,
+					None,
+					NativeAssetId::get(),
+					reserve_price,
+					None,
+					None,
+				),
+				pallet_sft::Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
 	fn sell_sft_with_empty_tokens_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let initial_balance = 1000;
-			let (collection_id, token_id, token_owner) = setup_sft_token(initial_balance);
+			let (collection_id, _, token_owner) = setup_sft_token(initial_balance);
 
 			// Empty tokens
 			let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
@@ -2688,6 +2955,74 @@ mod sell_sft {
 			);
 		});
 	}
+
+	#[test]
+	fn sell_sft_duplicate_serial_numbers() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let balance = 100;
+			let (collection_id, token_id, token_owner) = setup_sft_token(balance);
+			let price = 100_000;
+			// Serial numbers are duplicate with total of 90
+			let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
+				BoundedVec::truncate_from(vec![
+					(token_id.1, 50),
+					(token_id.1, 30),
+					(token_id.1, 10),
+				]);
+			let sft_token = ListingTokens::Sft(SftListing {
+				collection_id,
+				serial_numbers: serial_numbers.clone(),
+			});
+
+			assert_ok!(Marketplace::sell(
+				Some(token_owner).into(),
+				sft_token.clone(),
+				None,
+				NativeAssetId::get(),
+				price,
+				None,
+				None,
+			));
+
+			// Check the SFT reserved and free balance
+			let token_balance = sft_balance_of(token_id, &token_owner);
+			assert_eq!(token_balance.free_balance, 10);
+			assert_eq!(token_balance.reserved_balance, 90); // 50 + 30 + 10
+		});
+	}
+
+	#[test]
+	fn sell_sft_duplicate_serial_numbers_above_free_balance_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let balance = 100;
+			let (collection_id, token_id, token_owner) = setup_sft_token(balance);
+			let price = 100_000;
+			// Serial numbers are duplicate with total of 101 (Above initial_issuance)
+			let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
+				BoundedVec::truncate_from(vec![
+					(token_id.1, 50),
+					(token_id.1, 30),
+					(token_id.1, 21),
+				]);
+			let sft_token = ListingTokens::Sft(SftListing {
+				collection_id,
+				serial_numbers: serial_numbers.clone(),
+			});
+
+			assert_noop!(
+				Marketplace::sell(
+					Some(token_owner).into(),
+					sft_token.clone(),
+					None,
+					NativeAssetId::get(),
+					price,
+					None,
+					None,
+				),
+				pallet_sft::Error::<Test>::InsufficientBalance
+			);
+		});
+	}
 }
 
 mod auction_sft {
@@ -2758,10 +3093,36 @@ mod auction_sft {
 	}
 
 	#[test]
-	fn sell_sft_with_empty_tokens_fails() {
+	fn auction_sft_with_nft_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let (collection_id, token_id, token_owner) = setup_nft_token();
+			let reserve_price = 100_000;
+			let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
+				BoundedVec::truncate_from(vec![(token_id.1, 1)]);
+			let sft_token = ListingTokens::Sft(SftListing {
+				collection_id,
+				serial_numbers: serial_numbers.clone(),
+			});
+
+			assert_noop!(
+				Marketplace::auction(
+					Some(token_owner).into(),
+					sft_token.clone(),
+					NativeAssetId::get(),
+					reserve_price,
+					None,
+					None,
+				),
+				pallet_sft::Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn auction_sft_with_empty_tokens_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let initial_balance = 1000;
-			let (collection_id, token_id, token_owner) = setup_sft_token(initial_balance);
+			let (collection_id, _, token_owner) = setup_sft_token(initial_balance);
 
 			// Empty tokens
 			let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
@@ -2871,6 +3232,72 @@ mod auction_sft {
 					None,
 				),
 				Error::<Test>::RoyaltiesInvalid
+			);
+		});
+	}
+
+	#[test]
+	fn auction_sft_duplicate_serial_numbers() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let balance = 100;
+			let (collection_id, token_id, token_owner) = setup_sft_token(balance);
+			let price = 100_000;
+			// Serial numbers are duplicate with total of 90
+			let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
+				BoundedVec::truncate_from(vec![
+					(token_id.1, 50),
+					(token_id.1, 30),
+					(token_id.1, 10),
+				]);
+			let sft_token = ListingTokens::Sft(SftListing {
+				collection_id,
+				serial_numbers: serial_numbers.clone(),
+			});
+
+			assert_ok!(Marketplace::auction(
+				Some(token_owner).into(),
+				sft_token.clone(),
+				NativeAssetId::get(),
+				price,
+				None,
+				None,
+			));
+
+			// Check the SFT reserved and free balance
+			let token_balance = sft_balance_of(token_id, &token_owner);
+			assert_eq!(token_balance.free_balance, 10);
+			assert_eq!(token_balance.reserved_balance, 90); // 50 + 30 + 10
+		});
+	}
+
+	#[test]
+	fn auction_sft_duplicate_serial_numbers_above_free_balance_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let balance = 100;
+			let (collection_id, token_id, token_owner) = setup_sft_token(balance);
+			let price = 100_000;
+			// Serial numbers are duplicate with total of 101 (Above initial_issuance)
+			let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
+				BoundedVec::truncate_from(vec![
+					(token_id.1, 50),
+					(token_id.1, 30),
+					(token_id.1, 21),
+				]);
+			let sft_token = ListingTokens::Sft(SftListing {
+				collection_id,
+				serial_numbers: serial_numbers.clone(),
+			});
+
+			assert_noop!(
+				Marketplace::auction(
+					Some(token_owner).into(),
+					sft_token.clone(),
+					NativeAssetId::get(),
+					price,
+					None,
+					None,
+				),
+				pallet_sft::Error::<Test>::InsufficientBalance
 			);
 		});
 	}

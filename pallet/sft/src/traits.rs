@@ -13,13 +13,10 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::SftCollectionInfo;
 use frame_support::traits::Get;
-use seed_primitives::{
-	Balance, CollectionUuid, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
-};
+use seed_primitives::{Balance, CollectionUuid, RoyaltiesSchedule, SerialNumber, TokenId};
 use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
-use sp_std::{fmt::Debug, vec::Vec};
+use sp_std::fmt::Debug;
 
 pub trait SFTExt {
 	type AccountId: Debug + PartialEq + Clone;

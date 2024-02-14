@@ -13,7 +13,7 @@ use crate::*;
 use frame_support::{ensure, traits::Get, transactional};
 use pallet_nft::traits::NFTExt;
 use seed_pallet_common::{log, Hold, TransferExt};
-use seed_primitives::{AssetId, Balance, CollectionUuid, RoyaltiesSchedule, SerialNumber, TokenId};
+use seed_primitives::{AssetId, Balance, RoyaltiesSchedule, SerialNumber, TokenId};
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
 	BoundedVec, DispatchError, DispatchResult, PerThing, Permill,

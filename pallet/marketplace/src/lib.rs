@@ -313,8 +313,6 @@ pub mod pallet {
 		MixedBundleSale,
 		/// The account_id hasn't been registered as a marketplace
 		MarketplaceNotRegistered,
-		/// The collection does not exist
-		NoCollectionFound,
 		/// The metadata path is invalid (non-utf8 or empty)
 		InvalidMetadataPath,
 		/// No offer exists for the given OfferId
