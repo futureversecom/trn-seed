@@ -74,7 +74,7 @@ impl<T> Call<T>
 	}
 
 	pub fn check_self_contained(&self) -> Option<Result<H160, TransactionValidityError>> {
-		if let Call::transact { call, doughnut, nonce, signature } = self {
+		if let Call::transact { call, doughnut, nonce, tip, signature } = self {
 			let check = || {
 				// run doughnut common validations
 				let Ok(Doughnut::V1(doughnut_v1)) = Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -92,6 +92,7 @@ impl<T> Call<T>
 				let outer_call: Call<T> = Call::transact {
 					call: call.clone(),
 					doughnut: doughnut.clone(),
+					tip: *tip,
 					nonce: *nonce,
 					signature: Vec::<u8>::new(),
 				};
@@ -129,7 +130,7 @@ impl<T> Call<T>
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<TransactionValidity> {
-		if let Call::transact { call: inner_call, doughnut, nonce, .. } = self {
+		if let Call::transact { call: inner_call, doughnut, nonce, tip, .. } = self {
 			// Doughnut work
 			// run doughnut common validations
 			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -151,7 +152,7 @@ impl<T> Call<T>
 
 			// construct the validation instances
 			let validations_fee_payer: DoughnutFeePayerValidations<T> = (
-				ChargeTransactionPayment::<T>::from(0.into()),
+				ChargeTransactionPayment::<T>::from((*tip).into()),
 			);
 			let validations_sender: DoughnutSenderValidations<T> = (
 				CheckNonZeroSender::new(),
@@ -162,8 +163,8 @@ impl<T> Call<T>
 			SignedExtension::validate(&validations_sender, &sender_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
 			SignedExtension::validate(&validations_fee_payer, &fee_payer_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
 
-			// TODO: do we need any validation on inner call?
-			let priority = 0;
+			// priority is based on the provided tip in the xrpl transaction data
+			let priority = ChargeTransactionPayment::<T>::get_priority(&dispatch_info, len, (*tip).into(), 0.into());
 			let who: T::AccountId = (*origin).into();
 			let account = frame_system::Account::<T>::get(who.clone());
 			let transaction_nonce = *nonce as u32;
@@ -192,7 +193,7 @@ impl<T> Call<T>
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<<T as Config>::RuntimeCall>>> {
 
-		if let Some(Call::transact { call: inner_call, doughnut, nonce, .. }) = call.is_sub_type() {
+		if let Some(Call::transact { call: inner_call, doughnut, nonce, tip, .. }) = call.is_sub_type() {
 			// Doughnut work
 			// run doughnut common validations
 			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -216,7 +217,7 @@ impl<T> Call<T>
 			// Pre dispatch
 			// Create the validation instances for this extrinsic
 			let validations_fee_payer: DoughnutFeePayerValidations<T> = (
-				ChargeTransactionPayment::<T>::from(0.into()),
+				ChargeTransactionPayment::<T>::from((*tip).into()),
 			);
 			let validations_sender: DoughnutSenderValidations<T> = (
 				CheckNonZeroSender::new(),
