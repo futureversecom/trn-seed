@@ -118,6 +118,8 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		/// Max tokens that can be sold in one listing
 		type MaxTokensPerListing: Get<u32>;
+		/// Max listings per single multi_buy call
+		type MaxListingsPerMultiBuy: Get<u32>;
 		/// The maximum number of offers allowed on a collection
 		type MaxOffers: Get<u32>;
 	}
@@ -197,6 +199,7 @@ pub mod pallet {
 			price: Balance,
 			payment_asset: AssetId,
 			seller: T::AccountId,
+			close: T::BlockNumber,
 		},
 		/// A fixed price sale has completed
 		FixedPriceSaleComplete {
@@ -230,6 +233,7 @@ pub mod pallet {
 			payment_asset: AssetId,
 			reserve_price: Balance,
 			seller: T::AccountId,
+			close: T::BlockNumber,
 		},
 		/// An auction has sold
 		AuctionSold {
@@ -323,6 +327,8 @@ pub mod pallet {
 		IsTokenOwner,
 		/// Offer amount needs to be greater than 0
 		ZeroOffer,
+		/// The balance of tokens within the listing must be greater than zero
+		ZeroBalance,
 		/// Cannot make an offer on a token up for auction
 		TokenOnAuction,
 		/// No tokens were specified in the listing
@@ -452,18 +458,22 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Buy a token listing for its specified price
-		/// TODO
-		// #[pallet::weight(T::WeightInfo::buy())]
-		// #[transactional]
-		// pub fn buy_multi(origin: OriginFor<T>, listing_ids: Vec<ListingId>) -> DispatchResult {
-		// 	let who = ensure_signed(origin)?;
-		// 	listing_ids.iter().for_each(|listing_id: ListingId| -> DispatchResult {
-		// 		Self::do_buy(who, *listing_id)?;
-		// 		Ok(())
-		// 	});
-		// 	Ok(().into())
-		// }
+		/// Buy multiple listings within one transaction
+		#[pallet::weight({
+			let len = listing_ids.len();
+			T::WeightInfo::buy().saturating_mul(len as u64)
+		})]
+		#[transactional]
+		pub fn buy_multi(
+			origin: OriginFor<T>,
+			listing_ids: BoundedVec<ListingId, T::MaxListingsPerMultiBuy>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			for listing_id in listing_ids.iter() {
+				Self::do_buy(who, *listing_id)?;
+			}
+			Ok(())
+		}
 
 		/// Deprecated, use `auction` instead
 		/// Auction a bundle of tokens on the open market to the highest bidder

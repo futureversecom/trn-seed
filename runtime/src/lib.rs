@@ -434,6 +434,7 @@ parameter_types! {
 	/// How long listings are open for by default
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
 	pub const MaxTokensPerListing: u32 = 1000;
+	pub const MaxListingsPerMultiBuy: u32 = 50;
 	pub const MaxOffers: u32 = 100;
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 	pub const DefaultTxFeePotId: Option<PalletId> = Some(TxFeePotId::get());
@@ -450,6 +451,7 @@ impl pallet_marketplace::Config for Runtime {
 	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type WeightInfo = weights::pallet_marketplace::WeightInfo<Runtime>;
 	type MaxTokensPerListing = MaxTokensPerListing;
+	type MaxListingsPerMultiBuy = MaxListingsPerMultiBuy;
 	type MaxOffers = MaxOffers;
 }
 

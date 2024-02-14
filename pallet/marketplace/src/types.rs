@@ -74,6 +74,11 @@ impl<T: Config> ListingTokens<T> {
 			},
 			ListingTokens::Sft(tokens) => {
 				ensure!(!tokens.serial_numbers.is_empty(), Error::<T>::EmptyTokens);
+				// Ensure the balance is not zero for any token in the listing
+				ensure!(
+					tokens.serial_numbers.iter().find(|(_, balance)| *balance == 0).is_none(),
+					Error::<T>::ZeroBalance
+				);
 			},
 		}
 		Ok(())

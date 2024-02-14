@@ -42,7 +42,7 @@ mod benchmarking;
 
 mod impls;
 pub mod traits;
-mod types;
+pub mod types;
 mod weights;
 
 pub use weights::WeightInfo;

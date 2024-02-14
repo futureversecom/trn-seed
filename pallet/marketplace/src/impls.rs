@@ -90,6 +90,7 @@ impl<T: Config> Pallet<T> {
 			price: fixed_price,
 			payment_asset,
 			seller: who,
+			close: listing_end_block,
 		});
 		Ok(listing_id)
 	}
@@ -211,6 +212,7 @@ impl<T: Config> Pallet<T> {
 			listing_id,
 			marketplace_id,
 			seller: who,
+			close: listing_end_block,
 		});
 		Ok(listing_id)
 	}
