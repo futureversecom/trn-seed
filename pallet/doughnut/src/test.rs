@@ -372,6 +372,7 @@ fn transact_works() {
 				Box::new(call),
 				doughnut_encoded,
 				0,
+				0,
 				vec![]
 			));
 
@@ -427,6 +428,7 @@ fn transact_works_eip191() {
 				Box::new(call),
 				doughnut_encoded,
 				0,
+				0,
 				vec![]
 			));
 
@@ -455,6 +457,7 @@ fn transact_invalid_doughnut_fails() {
 				Box::new(call),
 				vec![], // Invalid doughnut
 				0,
+				0,
 				vec![]
 			),
 			Error::<Test>::DoughnutDecodeFailed
@@ -481,6 +484,7 @@ fn transact_invalid_doughnut_fails() {
 // 				RawOrigin::None.into(),
 // 				Box::new(call),
 // 				doughnut_encoded,
+// 				0,
 // 				0,
 // 				vec![]
 // 			),
@@ -522,6 +526,7 @@ fn transact_holder_not_signed_doughnut_should_fail() {
 				RawOrigin::None.into(),
 				Box::new(call),
 				doughnut_encoded,
+				0,
 				0,
 				vec![]
 			),
@@ -568,6 +573,7 @@ fn revoke_doughnut_works() {
 				Box::new(call.clone()),
 				doughnut_encoded.clone(),
 				0,
+				0,
 				vec![]
 			),
 			Error::<Test>::DoughnutRevoked
@@ -586,6 +592,7 @@ fn revoke_doughnut_works() {
 			RawOrigin::None.into(),
 			Box::new(call),
 			doughnut_encoded,
+			0,
 			0,
 			vec![]
 		));
@@ -659,6 +666,7 @@ fn revoke_holder_works() {
 				Box::new(call.clone()),
 				doughnut_encoded.clone(),
 				0,
+				0,
 				vec![]
 			),
 			Error::<Test>::HolderRevoked
@@ -677,6 +685,7 @@ fn revoke_holder_works() {
 			RawOrigin::None.into(),
 			Box::new(call),
 			doughnut_encoded,
+			0,
 			0,
 			vec![]
 		));
@@ -717,6 +726,7 @@ fn generate_alice_to_bob_outer_signature() {
 				call: Box::new(call),
 				doughnut: doughnut_encoded.clone(),
 				nonce: 0,
+				tip: 0,
 				signature: vec![],
 			};
 
@@ -732,7 +742,7 @@ fn generate_alice_to_bob_outer_signature() {
 }
 
 #[test]
-fn generate_alice_to_bob_outer_signature_for_balances_transfer() {
+fn generate_alice_to_bob_outer_signature_for_system_remark_for_benchmark() {
 	let issuer = ALICE;
 	let initial_balance = 10_000;
 	TestExt::<Test>::default()
@@ -740,40 +750,33 @@ fn generate_alice_to_bob_outer_signature_for_balances_transfer() {
 		.build()
 		.execute_with(|| {
 			let holder = BOB;
-			let trnnut = make_trnnut("Balances", "transfer");
+			let trnnut = make_trnnut("System", "remark");
 			let doughnut = make_doughnut(
 				&holder,
 				&issuer,
 				FeeMode::ISSUER,
 				"trn",
 				trnnut.encode(),
-				SignatureVersion::ECDSA,
+				SignatureVersion::EIP191,
 			);
 			let doughnut_encoded = doughnut.encode();
 
-			// Create balances transfer call
-			let transfer_amount = 1234;
-			let destination = create_account(12);
+			// Create system remark call
 			let call: <Test as frame_system::Config>::RuntimeCall =
-				pallet_balances::Call::<Test>::transfer {
-					dest: destination,
-					value: transfer_amount,
-				}
-				.into();
+				frame_system::Call::<Test>::remark { remark: b"Mischief Managed".to_vec() }.into();
 
 			// Attempting to transact the doughnut should succeed
 			let outer_call = Call::<Test>::transact {
 				call: Box::new(call),
 				doughnut: doughnut_encoded.clone(),
 				nonce: 0,
+				tip: 0,
 				signature: vec![],
 			};
 
 			let mut outer_call_payload: Vec<u8> = outer_call.encode();
-			outer_call_payload.as_mut_slice()[1] = 0x05; // TODO - for some reason, actual runtime encoded
-											 // call has this byte as 0x05. check this.
-			let outer_signature = holder.sign_ecdsa(&outer_call_payload.as_slice());
-			println!("doughnut: {:?}", to_hex(doughnut_encoded.as_slice(), false));
+			let outer_signature = holder.sign_eip191(&outer_call_payload.as_slice());
+			println!("doughnut encoded: {:?}", to_hex(doughnut_encoded.as_slice(), false));
 			println!("outer call: {:?}", outer_call);
 			println!("outer call payload: {:?}", to_hex(outer_call_payload.as_slice(), false));
 			println!("outer call signature: {:?}", to_hex(&outer_signature, false));
@@ -815,6 +818,7 @@ fn generate_alice_to_bob_outer_signature_for_balances_transfer_keep_alive() {
 				call: Box::new(call),
 				doughnut: doughnut_encoded.clone(),
 				nonce: 0,
+				tip: 0,
 				signature: vec![],
 			};
 
@@ -863,6 +867,7 @@ fn signed_extension_validations_succeed() {
 				call: Box::new(call.clone()),
 				doughnut: doughnut_encoded.clone(),
 				nonce,
+				tip: 0,
 				signature: vec![],
 			};
 			let outer_signature = holder.sign_eip191(&outer_call.encode().as_slice());
@@ -873,6 +878,7 @@ fn signed_extension_validations_succeed() {
 					call: Box::new(call.clone()),
 					doughnut: doughnut_encoded,
 					nonce,
+					tip: 0,
 					signature: outer_signature.into(),
 				}),
 			);
@@ -916,6 +922,7 @@ fn signed_extension_validations_low_balance_fails() {
 			call: Box::new(call.clone()),
 			doughnut: doughnut_encoded.clone(),
 			nonce,
+			tip: 0,
 			signature: vec![],
 		};
 		let outer_signature = holder.sign_ecdsa(&outer_call.encode().as_slice());
@@ -926,6 +933,7 @@ fn signed_extension_validations_low_balance_fails() {
 				call: Box::new(call.clone()),
 				doughnut: doughnut_encoded,
 				nonce,
+				tip: 0,
 				signature: outer_signature.into(),
 			}),
 		);
@@ -973,6 +981,7 @@ fn apply_extrinsic_invalid_nonce_fails() {
 				call: Box::new(call.clone()),
 				doughnut: doughnut_encoded.clone(),
 				nonce,
+				tip: 0,
 				signature: vec![],
 			};
 			let outer_signature = holder.sign_eip191(&outer_call.encode().as_slice());
@@ -983,6 +992,7 @@ fn apply_extrinsic_invalid_nonce_fails() {
 					call: Box::new(call.clone()),
 					doughnut: doughnut_encoded,
 					nonce,
+					tip: 0,
 					signature: outer_signature.into(),
 				}),
 			);
@@ -1038,6 +1048,7 @@ fn signed_extension_validations_invalid_inner_signature_fails() {
 				call: Box::new(call.clone()),
 				doughnut: doughnut_encoded.clone(),
 				nonce,
+				tip: 0,
 				signature: vec![],
 			};
 			let outer_signature = holder.sign_ecdsa(&outer_call.encode().as_slice());
@@ -1048,6 +1059,7 @@ fn signed_extension_validations_invalid_inner_signature_fails() {
 					call: Box::new(call.clone()),
 					doughnut: doughnut_encoded,
 					nonce,
+					tip: 0,
 					signature: outer_signature.into(),
 				}),
 			);
@@ -1098,6 +1110,7 @@ fn signed_extension_validations_invalid_outer_signature_fails() {
 					call: Box::new(call.clone()),
 					doughnut: doughnut_encoded,
 					nonce,
+					tip: 0,
 					signature: outer_signature.into(),
 				}),
 			);
@@ -1191,6 +1204,7 @@ fn holder_whitelisting_works() {
 				Box::new(call.clone()),
 				doughnut_encoded.clone(),
 				0,
+				0,
 				vec![]
 			),
 			Error::<Test>::HolderNotWhitelisted
@@ -1210,7 +1224,154 @@ fn holder_whitelisting_works() {
 			Box::new(call),
 			doughnut_encoded,
 			0,
+			0,
 			vec![]
 		));
 	});
+}
+
+#[test]
+fn tip_increase_priority() {
+	TestExt::<Test>::default()
+		.with_asset(XRP_ASSET_ID, "XRP", &[]) // create XRP asset
+		.build()
+		.execute_with(|| {
+			let issuer = ALICE;
+			let holder = BOB;
+			let trnnut = make_trnnut("System", "remark_with_event");
+			let doughnut = make_doughnut(
+				&holder,
+				&issuer,
+				FeeMode::ISSUER,
+				"trn",
+				trnnut.encode(),
+				SignatureVersion::ECDSA,
+			);
+			let doughnut_encoded = doughnut.encode();
+
+			// add BOB to whitelisted holders
+			WhitelistedHolders::<Test>::insert(BOB.address(), true);
+
+			// Fund the issuer so they can pass the validations for paying gas
+			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &issuer.address(), 5000000));
+			let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
+				remark: b"Mischief Managed".to_vec(),
+			});
+			let nonce = 0;
+
+			let transaction_validity_1: TransactionValidity;
+			let transaction_validity_2: TransactionValidity;
+			let transaction_validity_3: TransactionValidity;
+
+			// with 0 tip
+			{
+				// Print Bob's signature over the doughnut
+				let outer_call = Call::<Test>::transact {
+					call: Box::new(call.clone()),
+					doughnut: doughnut_encoded.clone(),
+					nonce,
+					tip: 0,
+					signature: vec![],
+				};
+				let outer_signature = holder.sign_eip191(&outer_call.encode().as_slice());
+
+				// validate self contained extrinsic is invalid (invalid signature)
+				let xt: mock::UncheckedExtrinsicT =
+					fp_self_contained::UncheckedExtrinsic::new_unsigned(
+						mock::RuntimeCall::Doughnut(crate::Call::transact {
+							call: Box::new(call.clone()),
+							doughnut: doughnut_encoded.clone(),
+							nonce,
+							tip: 0,
+							signature: outer_signature.into(),
+						}),
+					);
+
+				// Validate transaction should succeed
+				transaction_validity_1 = Executive::validate_transaction(
+					TransactionSource::External,
+					xt.clone().into(),
+					H256::default(),
+				);
+				// execute the extrinsic with the provided signed extras
+				assert_ok!(Executive::apply_extrinsic(xt.clone()));
+			}
+
+			// with 1 tip
+			{
+				// Print Bob's signature over the doughnut
+				let outer_call = Call::<Test>::transact {
+					call: Box::new(call.clone()),
+					doughnut: doughnut_encoded.clone(),
+					nonce: nonce + 1,
+					tip: 1,
+					signature: vec![],
+				};
+				let outer_signature = holder.sign_eip191(&outer_call.encode().as_slice());
+
+				// validate self contained extrinsic is invalid (invalid signature)
+				let xt: mock::UncheckedExtrinsicT =
+					fp_self_contained::UncheckedExtrinsic::new_unsigned(
+						mock::RuntimeCall::Doughnut(crate::Call::transact {
+							call: Box::new(call.clone()),
+							doughnut: doughnut_encoded.clone(),
+							nonce: nonce + 1,
+							tip: 1,
+							signature: outer_signature.into(),
+						}),
+					);
+
+				// Validate transaction should succeed
+				transaction_validity_2 = Executive::validate_transaction(
+					TransactionSource::External,
+					xt.clone().into(),
+					H256::default(),
+				);
+				// execute the extrinsic with the provided signed extras
+				assert_ok!(Executive::apply_extrinsic(xt.clone()));
+			}
+
+			// with 2 tip
+			{
+				// Print Bob's signature over the doughnut
+				let outer_call = Call::<Test>::transact {
+					call: Box::new(call.clone()),
+					doughnut: doughnut_encoded.clone(),
+					nonce: nonce + 2,
+					tip: 2,
+					signature: vec![],
+				};
+				let outer_signature = holder.sign_eip191(&outer_call.encode().as_slice());
+
+				// validate self contained extrinsic is invalid (invalid signature)
+				let xt: mock::UncheckedExtrinsicT =
+					fp_self_contained::UncheckedExtrinsic::new_unsigned(
+						mock::RuntimeCall::Doughnut(crate::Call::transact {
+							call: Box::new(call.clone()),
+							doughnut: doughnut_encoded,
+							nonce: nonce + 2,
+							tip: 2,
+							signature: outer_signature.into(),
+						}),
+					);
+
+				// Validate transaction should succeed
+				transaction_validity_3 = Executive::validate_transaction(
+					TransactionSource::External,
+					xt.clone().into(),
+					H256::default(),
+				);
+				// execute the extrinsic with the provided signed extras
+				assert_ok!(Executive::apply_extrinsic(xt.clone()));
+			}
+
+			// check the priority now.
+			assert!(
+				transaction_validity_1.unwrap().priority <
+					transaction_validity_2.clone().unwrap().priority
+			);
+			assert!(
+				transaction_validity_2.unwrap().priority < transaction_validity_3.unwrap().priority
+			);
+		});
 }
