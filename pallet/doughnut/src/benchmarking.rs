@@ -62,7 +62,8 @@ benchmarks! {
 		let signature = vec![];
 		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: b"Mischief Managed".to_vec() }.into();
 		let nonce: u32 = 0;
-	}: _(RawOrigin::None, Box::new(call), doughnut_encoded, nonce, signature)
+		let tip: u64 = 0;
+	}: _(RawOrigin::None, Box::new(call), doughnut_encoded, nonce, tip, signature)
 	verify {
 		// Verify success event was thrown
 		assert_last_event::<T>(Event::DoughnutCallExecuted { result: DispatchResult::Ok(()) }.into());
