@@ -365,6 +365,7 @@ pub mod pallet {
 			call: Box<<T as Config>::RuntimeCall>,
 			doughnut: Vec<u8>,
 			_nonce: u32,
+			_tip: u64,
 			_signature: Vec<u8>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
