@@ -955,9 +955,13 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 				Ok(())
 			},
 			// System
-			RuntimeCall::System(frame_system::Call::remark { .. }) => {
+			RuntimeCall::System(frame_system::Call::remark { remark }) => {
 				trnnut
-					.validate_module(pallet_name, function_name, &[])
+					.validate_module(
+						pallet_name,
+						function_name,
+						&[PactType::StringLike(StringLike(remark.to_vec()))],
+					)
 					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
 				Ok(())
 			},

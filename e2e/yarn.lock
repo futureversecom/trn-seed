@@ -1446,6 +1446,16 @@
   dependencies:
     defer-to-connect "^2.0.1"
 
+"@therootnetwork/doughnut-js@^0.1.1":
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/@therootnetwork/doughnut-js/-/doughnut-js-0.1.1.tgz#27159e7024e3286340e450485a72de4db7270ad8"
+  integrity sha512-ha0b9T0HHzj61Qyltnve1mYSPEaWqi8quqc2QENjgNEcOJcKEfwW9F/XH6XtyVCFhptAQE+5rhnwtV1e+3W5gA==
+
+"@therootnetwork/pact-js@^0.0.1":
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/@therootnetwork/pact-js/-/pact-js-0.0.1.tgz#b4c880a51154c86760e16f03e18cad9c7092d46d"
+  integrity sha512-v5nEFjQFIdZhJggDKAqCtpHuAEqSBor1yuirDCZRPLQr03sH6Nz7S/a4r9pS/UCb5WUxAhDXXkgn+E0G0Ik3ig==
+
 "@trivago/prettier-plugin-sort-imports@^4.0.0":
   version "4.3.0"
   resolved "https://registry.yarnpkg.com/@trivago/prettier-plugin-sort-imports/-/prettier-plugin-sort-imports-4.3.0.tgz#725f411646b3942193a37041c84e0b2116339789"
