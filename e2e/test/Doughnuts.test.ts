@@ -14,8 +14,9 @@ import {
   GAS_TOKEN_ID,
   NodeProcess,
   finalizeTx,
+  sleep,
   startNode,
-  typedefs, sleep,
+  typedefs,
 } from "../common";
 
 const TRN_PERMISSION_DOMAIN: string = "trn";
@@ -1076,14 +1077,15 @@ describe("Doughnuts", () => {
 
       // balances before
       const alice_balance_before = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_before = ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+      const receiver_balance_before =
+        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
 
       // whitelist the holder. i.e bob
       await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
 
       // Execute the transact call with.send
       const eventData = await new Promise<any[]>((resolve, _reject) => {
-        api.tx.doughnut.transact(call, doughnutHex, nonce, holderSig).send(({events, status}) => {
+        api.tx.doughnut.transact(call, doughnutHex, nonce, holderSig).send(({ events, status }) => {
           if (status.isInBlock) {
             resolve(events);
           }
@@ -1094,13 +1096,12 @@ describe("Doughnuts", () => {
 
       // balances after
       const alice_balance_after = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_after = ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+      const receiver_balance_after =
+        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
 
       expect(Math.abs(receiver_balance_before - receiver_balance_after)).to.be.equal(transferAmountLimit - 1);
       expect(alice_balance_before - alice_balance_after).equal(transferAmountLimit - 1);
     }
-
-
 
     // try to transfer = transferAmountLimit, should fail
     {
@@ -1118,19 +1119,21 @@ describe("Doughnuts", () => {
 
       // balance before
       const alice_balance_before = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_before = ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+      const receiver_balance_before =
+        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
 
       // Execute the transact call with.send
       await api.tx.doughnut
-          .transact(call, doughnutHex, nonce, holderSig)
-          .send()
-          .catch((err: any) => {
-            console.log(err);
-          });
+        .transact(call, doughnutHex, nonce, holderSig)
+        .send()
+        .catch((err: any) => {
+          console.log(err);
+        });
 
       // balances after
       const alice_balance_after = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_after = ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+      const receiver_balance_after =
+        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
 
       expect(Math.abs(receiver_balance_before - receiver_balance_after)).to.be.equal(0);
       expect(alice_balance_before - alice_balance_after).equal(0);
@@ -1153,19 +1156,21 @@ describe("Doughnuts", () => {
 
       // balance before
       const alice_balance_before = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_before = ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+      const receiver_balance_before =
+        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
 
       // Execute the transact call with.send
       await api.tx.doughnut
-          .transact(call, doughnutHex, nonce, holderSig)
-          .send()
-          .catch((err: any) => {
-            console.log(err);
-          });
+        .transact(call, doughnutHex, nonce, holderSig)
+        .send()
+        .catch((err: any) => {
+          console.log(err);
+        });
 
       // balances after
       const alice_balance_after = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_after = ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+      const receiver_balance_after =
+        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
 
       expect(Math.abs(receiver_balance_before - receiver_balance_after)).to.be.equal(0);
       expect(alice_balance_before - alice_balance_after).equal(0);
@@ -1248,14 +1253,15 @@ describe("Doughnuts", () => {
 
       // balances before
       const alice_balance_before = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_before = ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+      const receiver_balance_before =
+        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
 
       // whitelist the holder. i.e bob
       await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
 
       // Execute the transact call with.send
       const eventData = await new Promise<any[]>((resolve, _reject) => {
-        api.tx.doughnut.transact(call, doughnutHex, nonce, holderSig).send(({events, status}) => {
+        api.tx.doughnut.transact(call, doughnutHex, nonce, holderSig).send(({ events, status }) => {
           if (status.isInBlock) {
             resolve(events);
           }
@@ -1266,13 +1272,12 @@ describe("Doughnuts", () => {
 
       // balances after
       const alice_balance_after = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_after = ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+      const receiver_balance_after =
+        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
 
       expect(Math.abs(receiver_balance_before - receiver_balance_after)).to.be.equal(transferAmountLimit - 1);
       expect(alice_balance_before - alice_balance_after).equal(transferAmountLimit - 1);
     }
-
-
 
     // try to transfer = transferAmountLimit, should pass
     {
@@ -1290,11 +1295,12 @@ describe("Doughnuts", () => {
 
       // balance before
       const alice_balance_before = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_before = ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+      const receiver_balance_before =
+        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
 
       // Execute the transact call with.send
       const eventData = await new Promise<any[]>((resolve, _reject) => {
-        api.tx.doughnut.transact(call, doughnutHex, nonce, holderSig).send(({events, status}) => {
+        api.tx.doughnut.transact(call, doughnutHex, nonce, holderSig).send(({ events, status }) => {
           if (status.isInBlock) {
             resolve(events);
           }
@@ -1305,7 +1311,8 @@ describe("Doughnuts", () => {
 
       // balances after
       const alice_balance_after = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_after = ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+      const receiver_balance_after =
+        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
 
       expect(Math.abs(receiver_balance_before - receiver_balance_after)).to.be.equal(transferAmountLimit);
       expect(alice_balance_before - alice_balance_after).equal(transferAmountLimit);
@@ -1328,22 +1335,160 @@ describe("Doughnuts", () => {
 
       // balance before
       const alice_balance_before = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_before = ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+      const receiver_balance_before =
+        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
 
       // Execute the transact call with.send
       await api.tx.doughnut
-          .transact(call, doughnutHex, nonce, holderSig)
-          .send()
-          .catch((err: any) => {
-            console.log(err);
-          });
+        .transact(call, doughnutHex, nonce, holderSig)
+        .send()
+        .catch((err: any) => {
+          console.log(err);
+        });
 
       // balances after
       const alice_balance_after = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_after = ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
+      const receiver_balance_after =
+        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
 
       expect(Math.abs(receiver_balance_before - receiver_balance_after)).to.be.equal(0);
       expect(alice_balance_before - alice_balance_after).equal(0);
+    }
+  });
+
+  it("doughnut - System::remark with constraint string comparison == boo", async () => {
+    const holderPrivateKey = Wallet.createRandom().privateKey;
+    const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
+    const stringConstraint = "boo";
+    let nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const version = 1;
+    const issuerPubkey = alice.publicKey;
+    const holderPubkey = holder.publicKey;
+    const feeMode = 0;
+    const expiry = 100000;
+    const notBefore = 0;
+
+    console.log("\n====  Creating Doughnut");
+    const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
+    // Create the permission domain object. Balances::transfer with a constraint for amount = 10
+    const dataTable = [stringConstraint];
+    const comp = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 0, 0, true); // RHS is the data table
+    const bytecode = new Uint8Array([...comp.encode()]);
+    const pactContract = new Pact(dataTable, bytecode);
+    const pactEncoded = pactContract.encode();
+    // console.log(pactEncoded);
+
+    const module = [
+      {
+        name: "System",
+        block_cooldown: 0,
+        methods: [
+          {
+            name: "remark",
+            block_cooldown: 0,
+            constraints: [...pactEncoded],
+          },
+        ],
+      },
+    ];
+
+    const trnnut = new TRNNut(module);
+
+    // Add to trn domain
+    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
+    console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
+
+    // Sign the doughnut
+    const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
+    const ethHash = blake2AsHex(doughnut.payload());
+    const ethSlice = Buffer.from(ethHash.slice(2), "hex");
+    const issuerSig = await aliceWallet.signMessage(ethSlice);
+    const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
+    doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
+
+    console.log(`Signature : ${doughnut.signature()}`);
+
+    // Verify that the doughnut is valid
+    const verified = doughnut.verify(holderPubkey, 5);
+    expect(verified).to.be.equal(true);
+
+    // Encode the doughnut
+    const encodedDoughnut = doughnut.encode();
+    const doughnutHex = u8aToHex(encodedDoughnut);
+
+    // try remark with stringConstraint
+    {
+      const call = api.tx.system.remark(stringConstraint);
+      // Create a call with empty signature to be signed by the holder
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, "");
+      // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
+      const txU8a = tx.toU8a(true).slice(2);
+      const txHex = u8aToHex(txU8a);
+      const holderWallet = await new Wallet(holderPrivateKey);
+      const txHash = blake2AsHex(txHex);
+      const txSlice = Buffer.from(txHash.slice(2), "hex");
+      const holderSig = await holderWallet.signMessage(txSlice);
+
+      // whitelist the holder. i.e bob
+      await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
+
+      // Execute the transact call with.send
+      const eventData = await new Promise<any[]>((resolve, _reject) => {
+        api.tx.doughnut.transact(call, doughnutHex, nonce, holderSig).send(({ events, status }) => {
+          if (status.isInBlock) {
+            resolve(events);
+          }
+        });
+      });
+      expect(eventData).to.exist;
+      eventData.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+    }
+
+    // try remark with "baa"
+    {
+      const call = api.tx.system.remark("baa");
+      // Create a call with empty signature to be signed by the holder
+      nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, "");
+      // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
+      const txU8a = tx.toU8a(true).slice(2);
+      const txHex = u8aToHex(txU8a);
+      const holderWallet = await new Wallet(holderPrivateKey);
+      const txHash = blake2AsHex(txHex);
+      const txSlice = Buffer.from(txHash.slice(2), "hex");
+      const holderSig = await holderWallet.signMessage(txSlice);
+
+      // Execute the transact call with.send
+      await api.tx.doughnut
+        .transact(call, doughnutHex, nonce, holderSig)
+        .send()
+        .catch((err: any) => {
+          console.log(err);
+        });
+    }
+
+    await sleep(4000); // TODO: remove this
+    // try remark with "boobaa"
+    {
+      const call = api.tx.system.remark("boobaa");
+      // Create a call with empty signature to be signed by the holder
+      nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, "");
+      // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
+      const txU8a = tx.toU8a(true).slice(2);
+      const txHex = u8aToHex(txU8a);
+      const holderWallet = await new Wallet(holderPrivateKey);
+      const txHash = blake2AsHex(txHex);
+      const txSlice = Buffer.from(txHash.slice(2), "hex");
+      const holderSig = await holderWallet.signMessage(txSlice);
+
+      // Execute the transact call with.send
+      await api.tx.doughnut
+        .transact(call, doughnutHex, nonce, holderSig)
+        .send()
+        .catch((err: any) => {
+          console.log(err);
+        });
     }
   });
 });
