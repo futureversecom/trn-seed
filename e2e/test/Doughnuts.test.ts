@@ -6,7 +6,7 @@ import { expect } from "chai";
 import { Wallet } from "ethers";
 
 import { OpCodeComparator, OpComp, OpLoad, Pact } from "../../../../pact/js/pkg-node";
-import { Doughnut, PayloadVersion, SignatureVersion, TRNNut } from "../../../../trn-doughnut-rs/js";
+import { Doughnut, PayloadVersion, SignatureVersion, TRNNut } from "../../../../trn-doughnut-rs/js/pkg-node";
 import {
   ALICE_PRIVATE_KEY,
   ALITH_PRIVATE_KEY,
@@ -1372,7 +1372,7 @@ describe("Doughnuts", () => {
     const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
     // Create the permission domain object. Balances::transfer with a constraint for amount = 10
     const dataTable = [stringConstraint];
-    const comp = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 0, 0, true); // RHS is the data table
+    const comp = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 0, 0, false); // RHS is the data table
     const bytecode = new Uint8Array([...comp.encode()]);
     const pactContract = new Pact(dataTable, bytecode);
     const pactEncoded = pactContract.encode();
@@ -1441,7 +1441,18 @@ describe("Doughnuts", () => {
         });
       });
       expect(eventData).to.exist;
-      eventData.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+      // eventData.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+
+      // assert events
+      expect(eventData.length).to.equal(5);
+
+      // doughnut	DoughnutCallExecuted	[{"ok":null}]
+      expect(eventData[1].event.section).to.equal("doughnut");
+      expect(eventData[1].event.method).to.equal("DoughnutCallExecuted");
+
+      // system	ExtrinsicSuccess	[{"weight":434518872,"class":"Normal","paysFee":"Yes"}]
+      expect(eventData[4].event.section).to.equal("system");
+      expect(eventData[4].event.method).to.equal("ExtrinsicSuccess");
     }
 
     // try remark with "baa"
