@@ -5,8 +5,8 @@ import { blake2AsHex } from "@polkadot/util-crypto";
 import { expect } from "chai";
 import { Wallet } from "ethers";
 
-import { OpCodeComparator, OpComp, OpLoad, Pact } from "../../../../pact/js/pkg-node";
-import { Doughnut, PayloadVersion, SignatureVersion, TRNNut } from "../../../../trn-doughnut-rs/js/pkg-node";
+import { OpCodeComparator, OpComp, OpLoad, Pact } from "@therootnetwork/pact-nodejs";
+import { Doughnut, PayloadVersion, SignatureVersion, TRNNut } from "@therootnetwork/doughnut-nodejs";
 import {
   ALICE_PRIVATE_KEY,
   ALITH_PRIVATE_KEY,

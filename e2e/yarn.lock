@@ -1446,15 +1446,15 @@
   dependencies:
     defer-to-connect "^2.0.1"
 
-"@therootnetwork/doughnut-js@^0.1.1":
-  version "0.1.1"
-  resolved "https://registry.yarnpkg.com/@therootnetwork/doughnut-js/-/doughnut-js-0.1.1.tgz#27159e7024e3286340e450485a72de4db7270ad8"
-  integrity sha512-ha0b9T0HHzj61Qyltnve1mYSPEaWqi8quqc2QENjgNEcOJcKEfwW9F/XH6XtyVCFhptAQE+5rhnwtV1e+3W5gA==
+"@therootnetwork/doughnut-nodejs@^0.1.0":
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/@therootnetwork/doughnut-nodejs/-/doughnut-nodejs-0.1.0.tgz#2db6aeb095fcbb362968255002ea3e90fc387605"
+  integrity sha512-tywiMUpXakaQmbZWVwwxY3VomT9gJJUmXSF+MEKJ4MeWw9hoBc5N/q32xF2Tg9QzuXT7Zs89HvA+f7ZkrorGpg==
 
-"@therootnetwork/pact-js@^0.0.1":
+"@therootnetwork/pact-nodejs@^0.0.1":
   version "0.0.1"
-  resolved "https://registry.yarnpkg.com/@therootnetwork/pact-js/-/pact-js-0.0.1.tgz#b4c880a51154c86760e16f03e18cad9c7092d46d"
-  integrity sha512-v5nEFjQFIdZhJggDKAqCtpHuAEqSBor1yuirDCZRPLQr03sH6Nz7S/a4r9pS/UCb5WUxAhDXXkgn+E0G0Ik3ig==
+  resolved "https://registry.yarnpkg.com/@therootnetwork/pact-nodejs/-/pact-nodejs-0.0.1.tgz#88f63363d77ffb2af7668405a56f41053ccfb199"
+  integrity sha512-RbwcMfHNxu+IHp8rSPhYGO/Z9QJ6xMT2RmHnHCJJ7NrFJEz7CbgZE2fdLty8dZbmce6IPvjCGSp9wwFyshjWig==
 
 "@trivago/prettier-plugin-sort-imports@^4.0.0":
   version "4.3.0"
