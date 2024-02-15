@@ -35,7 +35,6 @@ use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, ListingId, SerialNumber, TokenId, TokenLockReason,
 };
 use sp_runtime::{DispatchResult, Permill};
-use sp_std::vec::Vec;
 
 mod benchmarking;
 mod impls;
