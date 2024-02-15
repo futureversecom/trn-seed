@@ -37,7 +37,7 @@ use frame_support::{
 };
 use frame_system::{CheckNonZeroSender, CheckNonce, CheckWeight};
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
-use seed_pallet_common::ExtrinsicChecker;
+use seed_pallet_common::{log, ExtrinsicChecker};
 use seed_primitives::AccountId20;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, StaticLookup},
@@ -55,6 +55,9 @@ mod mock;
 mod test;
 
 const TRN_PERMISSION_DOMAIN: &str = "trn";
+/// The logging target for this pallet
+#[allow(dead_code)]
+pub(crate) const LOG_TARGET: &str = "doughnut";
 
 impl<T> Call<T>
 	where
@@ -81,10 +84,14 @@ impl<T> Call<T>
 					return Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof))
 				};
 				// Verify doughnut signature
-				doughnut_v1.verify().map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::BadProof))?;
+				doughnut_v1.verify().map_err(|e| {
+					log!(error,"⛔️ failed to verify doughnut signature: {:?}", e);
+					TransactionValidityError::Invalid(InvalidTransaction::BadProof)
+				})?;
 
 				// Retrieve holder address
 				let Ok(holder_address) = crate::Pallet::<T>::get_address(doughnut_v1.holder) else {
+					log!(error,"⛔️ failed to get holder address: {:?}", doughnut_v1.holder);
 					return Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
 				};
 
@@ -98,7 +105,10 @@ impl<T> Call<T>
 				};
 
 				verify_signature(SignatureVersion::EIP191 as u8, &signature, &doughnut_v1.holder(), &outer_call.encode().as_slice())
-					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::BadProof))?;
+					.map_err(|e| {
+						log!(error,"⛔️ failed to verify outer signature: {:?}", e);
+						TransactionValidityError::Invalid(InvalidTransaction::BadProof)
+					})?;
 
 				// Resolve to holder address
 				Ok(holder_address.into())
@@ -137,12 +147,15 @@ impl<T> Call<T>
 				return None
 			};
 			let Ok(fee_payer_doughnut) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
+				log!(error,"⛔️ failed to get fee payer address: {:?}", doughnut_v1.fee_payer());
 				return None
 			};
 			let mut fee_payer_address = fee_payer_doughnut;
+
 			// Futurepass check
 			if <T as Config>::FuturepassLookup::check_extrinsic(inner_call, &()).is_ok() {
-				let Ok(futurepass) = <T as Config>::FuturepassLookup::lookup(fee_payer_address.into()) else {
+				let Ok(futurepass) = <T as Config>::FuturepassLookup::lookup(fee_payer_address.clone().into()) else {
+					log!(error,"⛔️ failed to retrieve futurepass address for the address: {:?}", fee_payer_address);
 					return None
 				};
 				fee_payer_address = futurepass.into();
@@ -201,12 +214,14 @@ impl<T> Call<T>
 			};
 			// No need to do the doughnut verification again since already did in check_self_contained()
 			let Ok(fee_payer_doughnut) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
+				log!(error,"⛔️ failed to get fee payer address: {:?}", doughnut_v1.fee_payer());
 				return None
 			};
 			let mut fee_payer_address = fee_payer_doughnut;
 			// Futurepass check
 			if <T as Config>::FuturepassLookup::check_extrinsic(inner_call, &()).is_ok() {
-				let Ok(futurepass) = <T as Config>::FuturepassLookup::lookup(fee_payer_address.into()) else {
+				let Ok(futurepass) = <T as Config>::FuturepassLookup::lookup(fee_payer_address.clone().into()) else {
+					log!(error,"⛔️ failed to retrieve futurepass address for the address: {:?}", fee_payer_address);
 					return None
 				};
 				fee_payer_address = futurepass.into();
@@ -337,6 +352,8 @@ pub mod pallet {
 		HolderRevoked,
 		/// TRNNut decode failed.
 		TRNNutDecodeFailed,
+		/// Unable to find TRN domain.
+		TRNDomainNotfound,
 		/// TRNNut permissions denied.
 		TRNNutPermissionDenied,
 		/// Inner call is not whitelisted
@@ -401,7 +418,7 @@ pub mod pallet {
 
 			// permission domain - trnnut validations
 			let Some(trnnut_payload) = doughnut_v1.get_domain(TRN_PERMISSION_DOMAIN) else {
-				return Err(Error::<T>::TRNNutDecodeFailed)?
+				return Err(Error::<T>::TRNDomainNotfound)?
 			};
 			let trnnut = TRNNutV0::decode(&mut trnnut_payload.clone())
 				.map_err(|_| Error::<T>::TRNNutDecodeFailed)?;
@@ -478,8 +495,11 @@ where
 	<T as frame_system::Config>::AccountId: From<H160>,
 {
 	fn get_address(raw_pub_key: [u8; 33]) -> Result<T::AccountId, DispatchError> {
-		let account_id_20 = AccountId20::try_from(ecdsa::Public::from_raw(raw_pub_key))
-			.map_err(|_| Error::<T>::UnauthorizedSender)?;
+		let account_id_20 =
+			AccountId20::try_from(ecdsa::Public::from_raw(raw_pub_key)).map_err(|e| {
+				log!(error, "⛔️ failed to convert pubkey to account id: {:?}", e);
+				Error::<T>::UnauthorizedSender
+			})?;
 		Ok(T::AccountId::from(H160::from_slice(&account_id_20.0)))
 	}
 
@@ -487,11 +507,14 @@ where
 		doughnut_payload: Vec<u8>,
 	) -> Result<Doughnut, DispatchError> {
 		// decode the doughnut
-		let doughnut_decoded = Doughnut::decode(&mut &doughnut_payload[..])
-			.map_err(|_| Error::<T>::DoughnutDecodeFailed)?;
+		let doughnut_decoded = Doughnut::decode(&mut &doughnut_payload[..]).map_err(|e| {
+			log!(error, "⛔️ failed to decode doughnut: {:?}", e);
+			Error::<T>::DoughnutDecodeFailed
+		})?;
 
 		// only supports v1 for now
 		let Doughnut::V1(_) = doughnut_decoded.clone() else {
+			log!(error,"⛔️ unsupported doughnut version");
 			return Err(Error::<T>::UnsupportedDoughnutVersion)?;
 		};
 
