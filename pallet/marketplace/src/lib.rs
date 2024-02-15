@@ -539,7 +539,7 @@ pub mod pallet {
 			Self::do_cancel_sale(who, listing_id)
 		}
 
-		/// Create an offer on a token
+		/// Create an offer on a single NFT
 		/// Locks funds until offer is accepted, rejected or cancelled
 		/// An offer can't be made on a token currently in an auction
 		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an

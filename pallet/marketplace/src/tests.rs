@@ -3445,3 +3445,202 @@ mod listing_tokens {
 		});
 	}
 }
+
+mod buy_multi {
+	use super::*;
+	use crate::mock::MaxListingsPerMultiBuy;
+
+	#[test]
+	fn buy_multi_works() {
+		let buyer = create_account(5);
+		let starting_balance = 1_000_000;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(buyer, starting_balance)])
+			.with_asset(XRP_ASSET_ID, "XRP", &[(buyer, starting_balance)])
+			.build()
+			.execute_with(|| {
+				// Remove fee to
+				assert_ok!(Marketplace::set_fee_to(RawOrigin::Root.into(), None));
+
+				// Setup first token which is an NFT sale
+				let (collection_id1, token_id1, token_owner1) = setup_nft_token();
+				let serial_numbers1: BoundedVec<SerialNumber, MaxTokensPerListing> =
+					BoundedVec::truncate_from(vec![token_id1.1]);
+				let nft_token = ListingTokens::Nft(NftListing {
+					collection_id: collection_id1,
+					serial_numbers: serial_numbers1.clone(),
+				});
+				let price1 = 1_000;
+				let asset_id1 = NativeAssetId::get();
+				let listing_id1 = Marketplace::next_listing_id();
+				assert_ok!(Marketplace::sell(
+					Some(token_owner1).into(),
+					nft_token.clone(),
+					None,
+					asset_id1,
+					price1,
+					None,
+					None,
+				));
+
+				// Setup second token which is an SFT
+				let (collection_id2, token_id2, token_owner2) = setup_sft_token(1000);
+				let serial_numbers2: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
+					BoundedVec::truncate_from(vec![(token_id2.1, 1000)]);
+				let sft_token = ListingTokens::Sft(SftListing {
+					collection_id: collection_id2,
+					serial_numbers: serial_numbers2.clone(),
+				});
+				let price2 = 2_000;
+				let asset_id2 = XRP_ASSET_ID;
+				let listing_id2 = Marketplace::next_listing_id();
+				assert_ok!(Marketplace::sell(
+					Some(token_owner2).into(),
+					sft_token.clone(),
+					None,
+					asset_id2,
+					price2,
+					None,
+					None,
+				));
+
+				// Buy multi with both listing ids
+				assert_ok!(Marketplace::buy_multi(
+					Some(buyer).into(),
+					BoundedVec::truncate_from(vec![listing_id1, listing_id2])
+				));
+
+				// Events thrown for both buys
+				System::assert_has_event(MockEvent::Marketplace(
+					Event::<Test>::FixedPriceSaleComplete {
+						tokens: nft_token.clone(),
+						listing_id: listing_id1,
+						marketplace_id: None,
+						price: price1,
+						payment_asset: asset_id1,
+						seller: token_owner1,
+						buyer,
+					},
+				));
+				System::assert_has_event(MockEvent::Marketplace(
+					Event::<Test>::FixedPriceSaleComplete {
+						tokens: sft_token.clone(),
+						listing_id: listing_id2,
+						marketplace_id: None,
+						price: price2,
+						payment_asset: asset_id2,
+						seller: token_owner2,
+						buyer,
+					},
+				));
+
+				// Check the SFT free balance of owner and buyer
+				let sft_balance_owner = sft_balance_of(token_id2, &token_owner2);
+				assert_eq!(sft_balance_owner.free_balance, 0);
+				assert_eq!(sft_balance_owner.reserved_balance, 0);
+				let sft_balance_buyer = sft_balance_of(token_id2, &buyer);
+				assert_eq!(sft_balance_buyer.free_balance, 1000);
+
+				// Check NFT ownership
+				assert_eq!(Nft::token_balance_of(&buyer, collection_id1), 1);
+				assert_eq!(Nft::token_balance_of(&token_owner1, collection_id1), 0);
+
+				// Check balance of buyer and token owner for NFT part of the sale
+				assert_eq!(
+					AssetsExt::reducible_balance(asset_id1, &buyer, false),
+					starting_balance - price1
+				);
+				assert_eq!(AssetsExt::reducible_balance(asset_id1, &token_owner1, false), price1);
+				// Check balance of buyer and token owner for SFT part of the sale
+				assert_eq!(
+					AssetsExt::reducible_balance(asset_id2, &buyer, false),
+					starting_balance - price2
+				);
+				assert_eq!(AssetsExt::reducible_balance(asset_id2, &token_owner2, false), price2);
+			});
+	}
+
+	#[test]
+	fn buy_multi_up_to_limit_works() {
+		let buyer = create_account(5);
+		let starting_balance = 1_000_000_000;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(buyer, starting_balance)])
+			.build()
+			.execute_with(|| {
+				// Remove fee to
+				assert_ok!(Marketplace::set_fee_to(RawOrigin::Root.into(), None));
+
+				let listing_price = 1_000;
+				let mut listing_ids: Vec<ListingId> = vec![];
+				let mut tokens: Vec<TokenId> = vec![];
+				let token_owner = create_account(2);
+
+				for _ in 0..MaxListingsPerMultiBuy::get() {
+					let (collection_id, token_id, token_owner) = setup_nft_token();
+					let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+						BoundedVec::truncate_from(vec![token_id.1]);
+					let nft_token = ListingTokens::Nft(NftListing {
+						collection_id,
+						serial_numbers: serial_numbers.clone(),
+					});
+					let listing_id = Marketplace::next_listing_id();
+					assert_ok!(Marketplace::sell(
+						Some(token_owner).into(),
+						nft_token.clone(),
+						None,
+						NativeAssetId::get(),
+						listing_price,
+						None,
+						None,
+					));
+
+					listing_ids.push(listing_id);
+					tokens.push(token_id);
+				}
+
+				// Buy multi with all listing ids
+				assert_ok!(Marketplace::buy_multi(
+					Some(buyer).into(),
+					BoundedVec::try_from(listing_ids.clone()).unwrap()
+				));
+
+				// Verify data for each listing
+				for (i, listing_id) in listing_ids.iter().enumerate() {
+					let token_id = tokens[i];
+					let nft_token = ListingTokens::Nft(NftListing {
+						collection_id: token_id.0,
+						serial_numbers: BoundedVec::truncate_from(vec![token_id.1]),
+					});
+					System::assert_has_event(MockEvent::Marketplace(
+						Event::<Test>::FixedPriceSaleComplete {
+							tokens: nft_token.clone(),
+							listing_id: *listing_id,
+							marketplace_id: None,
+							price: listing_price,
+							payment_asset: NativeAssetId::get(),
+							seller: token_owner,
+							buyer,
+						},
+					));
+
+					// Check the NFT ownership
+					assert_eq!(Nft::token_balance_of(&token_owner, token_id.0), 0);
+					assert_eq!(Nft::token_balance_of(&buyer, token_id.0), 1);
+					assert!(!Listings::<Test>::contains_key(*listing_id));
+				}
+
+				// Check balance of buyer and token owner for NFT part of the sale
+				assert_eq!(
+					AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
+					starting_balance - (listing_price * MaxListingsPerMultiBuy::get() as u128)
+				);
+				assert_eq!(
+					AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
+					(listing_price * MaxListingsPerMultiBuy::get() as u128)
+				);
+			});
+	}
+}

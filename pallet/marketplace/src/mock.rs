@@ -45,7 +45,7 @@ parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxOffers: u32 = 10;
 	pub const MaxTokensPerListing: u32 = 100;
-	pub const MaxListingsPerMultiBuy: u32 = 10;
+	pub const MaxListingsPerMultiBuy: u32 = 100;
 	pub const DefaultFeeTo: Option<PalletId> = Some(FeePotId::get());
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 }
