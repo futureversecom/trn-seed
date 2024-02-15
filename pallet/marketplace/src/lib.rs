@@ -462,7 +462,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Buy multiple listings within one transaction
+		/// Buy multiple listings, each for their respective price
 		#[pallet::weight({
 			T::WeightInfo::buy_multi(listing_ids.len() as u32)
 		})]
