@@ -269,7 +269,7 @@ macro_rules! impl_pallet_nft_config {
 		parameter_types! {
 			pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 			pub const MaxTokensPerCollection: u32 = 10_000;
-			pub const MintLimit: u32 = 100;
+			pub const MintLimit: u32 = 1000;
 			pub const Xls20PaymentAsset: AssetId = 2;
 			pub const StringLimit: u32 = 50;
 			pub const FeePotId: PalletId = PalletId(*b"txfeepot");

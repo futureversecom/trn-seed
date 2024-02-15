@@ -34,7 +34,7 @@ impl<T: frame_system::Config> pallet_marketplace::WeightInfo for WeightInfo<T> {
     // Storage: Marketplace NextMarketplaceId (r:1 w:1)
     // Storage: Marketplace RegisteredMarketplaces (r:0 w:1)
     fn register_marketplace() -> Weight {
-        Weight::from_ref_time(50_784_000 as u64)
+        Weight::from_ref_time(17_443_000 as u64)
             .saturating_add(T::DbWeight::get().reads(1 as u64))
             .saturating_add(T::DbWeight::get().writes(2 as u64))
     }
@@ -45,10 +45,32 @@ impl<T: frame_system::Config> pallet_marketplace::WeightInfo for WeightInfo<T> {
     // Storage: Marketplace Listings (r:0 w:1)
     // Storage: Marketplace ListingEndSchedule (r:0 w:1)
     // Storage: Marketplace OpenCollectionListings (r:0 w:1)
-    fn sell_nft() -> Weight {
-        Weight::from_ref_time(103_880_000 as u64)
+    /// The range of component `p` is `[1, 50]`.
+    fn sell_nft(p: u32, ) -> Weight {
+        Weight::from_ref_time(35_287_000 as u64)
+            // Standard Error: 5_772
+            .saturating_add(Weight::from_ref_time(4_321_028 as u64).saturating_mul(p as u64))
             .saturating_add(T::DbWeight::get().reads(4 as u64))
+            .saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
             .saturating_add(T::DbWeight::get().writes(5 as u64))
+            .saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:0)
+    // Storage: Marketplace FeeTo (r:1 w:0)
+    // Storage: Marketplace NextListingId (r:1 w:1)
+    // Storage: Sft TokenInfo (r:1 w:1)
+    // Storage: Marketplace Listings (r:0 w:1)
+    // Storage: Marketplace ListingEndSchedule (r:0 w:1)
+    // Storage: Marketplace OpenCollectionListings (r:0 w:1)
+    /// The range of component `p` is `[1, 50]`.
+    fn sell_sft(p: u32, ) -> Weight {
+        Weight::from_ref_time(30_478_000 as u64)
+            // Standard Error: 10_308
+            .saturating_add(Weight::from_ref_time(3_429_769 as u64).saturating_mul(p as u64))
+            .saturating_add(T::DbWeight::get().reads(4 as u64))
+            .saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
+            .saturating_add(T::DbWeight::get().writes(5 as u64))
+            .saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
     }
     // Storage: Marketplace Listings (r:1 w:1)
     // Storage: Assets Asset (r:1 w:1)
@@ -59,9 +81,27 @@ impl<T: frame_system::Config> pallet_marketplace::WeightInfo for WeightInfo<T> {
     // Storage: Marketplace OpenCollectionListings (r:0 w:1)
     // Storage: Nft TokenLocks (r:0 w:1)
     fn buy() -> Weight {
-        Weight::from_ref_time(199_407_000 as u64)
+        Weight::from_ref_time(67_648_000 as u64)
             .saturating_add(T::DbWeight::get().reads(5 as u64))
             .saturating_add(T::DbWeight::get().writes(9 as u64))
+    }
+    // Storage: Marketplace Listings (r:1 w:1)
+    // Storage: Assets Asset (r:1 w:1)
+    // Storage: Assets Account (r:2 w:2)
+    // Storage: Nft CollectionInfo (r:1 w:1)
+    // Storage: TokenApprovals ERC721Approvals (r:0 w:1)
+    // Storage: Marketplace ListingEndSchedule (r:0 w:1)
+    // Storage: Marketplace OpenCollectionListings (r:0 w:1)
+    // Storage: Nft TokenLocks (r:0 w:1)
+    /// The range of component `p` is `[1, 50]`.
+    fn buy_multi(p: u32, ) -> Weight {
+        Weight::from_ref_time(68_079_000 as u64)
+            // Standard Error: 35_746
+            .saturating_add(Weight::from_ref_time(49_491_228 as u64).saturating_mul(p as u64))
+            .saturating_add(T::DbWeight::get().reads(5 as u64))
+            .saturating_add(T::DbWeight::get().reads((5 as u64).saturating_mul(p as u64)))
+            .saturating_add(T::DbWeight::get().writes(9 as u64))
+            .saturating_add(T::DbWeight::get().writes((9 as u64).saturating_mul(p as u64)))
     }
     // Storage: Nft CollectionInfo (r:1 w:0)
     // Storage: Marketplace FeeTo (r:1 w:0)
@@ -70,10 +110,32 @@ impl<T: frame_system::Config> pallet_marketplace::WeightInfo for WeightInfo<T> {
     // Storage: Marketplace Listings (r:0 w:1)
     // Storage: Marketplace ListingEndSchedule (r:0 w:1)
     // Storage: Marketplace OpenCollectionListings (r:0 w:1)
-    fn auction_nft() -> Weight {
-        Weight::from_ref_time(103_451_000 as u64)
+    /// The range of component `p` is `[1, 50]`.
+    fn auction_nft(p: u32, ) -> Weight {
+        Weight::from_ref_time(32_782_000 as u64)
+            // Standard Error: 5_794
+            .saturating_add(Weight::from_ref_time(4_306_919 as u64).saturating_mul(p as u64))
             .saturating_add(T::DbWeight::get().reads(4 as u64))
+            .saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
             .saturating_add(T::DbWeight::get().writes(5 as u64))
+            .saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+    }
+    // Storage: Sft SftCollectionInfo (r:1 w:0)
+    // Storage: Marketplace FeeTo (r:1 w:0)
+    // Storage: Marketplace NextListingId (r:1 w:1)
+    // Storage: Sft TokenInfo (r:1 w:1)
+    // Storage: Marketplace Listings (r:0 w:1)
+    // Storage: Marketplace ListingEndSchedule (r:0 w:1)
+    // Storage: Marketplace OpenCollectionListings (r:0 w:1)
+    /// The range of component `p` is `[1, 50]`.
+    fn auction_sft(p: u32, ) -> Weight {
+        Weight::from_ref_time(29_696_000 as u64)
+            // Standard Error: 2_973
+            .saturating_add(Weight::from_ref_time(3_287_061 as u64).saturating_mul(p as u64))
+            .saturating_add(T::DbWeight::get().reads(4 as u64))
+            .saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
+            .saturating_add(T::DbWeight::get().writes(5 as u64))
+            .saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
     }
     // Storage: Marketplace Listings (r:1 w:1)
     // Storage: Marketplace ListingWinningBid (r:1 w:1)
@@ -83,7 +145,7 @@ impl<T: frame_system::Config> pallet_marketplace::WeightInfo for WeightInfo<T> {
     // Storage: System Account (r:2 w:2)
     // Storage: Marketplace ListingEndSchedule (r:0 w:2)
     fn bid() -> Weight {
-        Weight::from_ref_time(197_394_000 as u64)
+        Weight::from_ref_time(63_710_000 as u64)
             .saturating_add(T::DbWeight::get().reads(8 as u64))
             .saturating_add(T::DbWeight::get().writes(10 as u64))
     }
@@ -92,13 +154,13 @@ impl<T: frame_system::Config> pallet_marketplace::WeightInfo for WeightInfo<T> {
     // Storage: Marketplace OpenCollectionListings (r:0 w:1)
     // Storage: Nft TokenLocks (r:0 w:1)
     fn cancel_sale() -> Weight {
-        Weight::from_ref_time(74_571_000 as u64)
+        Weight::from_ref_time(20_930_000 as u64)
             .saturating_add(T::DbWeight::get().reads(1 as u64))
             .saturating_add(T::DbWeight::get().writes(4 as u64))
     }
     // Storage: Marketplace Listings (r:1 w:1)
     fn update_fixed_price() -> Weight {
-        Weight::from_ref_time(62_047_000 as u64)
+        Weight::from_ref_time(16_702_000 as u64)
             .saturating_add(T::DbWeight::get().reads(1 as u64))
             .saturating_add(T::DbWeight::get().writes(1 as u64))
     }
@@ -112,7 +174,7 @@ impl<T: frame_system::Config> pallet_marketplace::WeightInfo for WeightInfo<T> {
     // Storage: Marketplace TokenOffers (r:1 w:1)
     // Storage: Marketplace Offers (r:0 w:1)
     fn make_simple_offer() -> Weight {
-        Weight::from_ref_time(189_342_000 as u64)
+        Weight::from_ref_time(60_865_000 as u64)
             .saturating_add(T::DbWeight::get().reads(9 as u64))
             .saturating_add(T::DbWeight::get().writes(8 as u64))
     }
@@ -123,13 +185,13 @@ impl<T: frame_system::Config> pallet_marketplace::WeightInfo for WeightInfo<T> {
     // Storage: System Account (r:1 w:1)
     // Storage: Marketplace TokenOffers (r:1 w:1)
     fn cancel_offer() -> Weight {
-        Weight::from_ref_time(175_782_000 as u64)
+        Weight::from_ref_time(55_595_000 as u64)
             .saturating_add(T::DbWeight::get().reads(7 as u64))
             .saturating_add(T::DbWeight::get().writes(7 as u64))
     }
     // Storage: Marketplace Offers (r:1 w:1)
     // Storage: Nft CollectionInfo (r:1 w:1)
-    // Storage: Nft TokenLocks (r:1 w:0)
+    // Storage: Nft TokenLocks (r:1 w:1)
     // Storage: Marketplace FeeTo (r:1 w:0)
     // Storage: AssetsExt Holds (r:1 w:1)
     // Storage: Assets Asset (r:1 w:1)
@@ -138,13 +200,13 @@ impl<T: frame_system::Config> pallet_marketplace::WeightInfo for WeightInfo<T> {
     // Storage: Marketplace TokenOffers (r:1 w:1)
     // Storage: TokenApprovals ERC721Approvals (r:0 w:1)
     fn accept_offer() -> Weight {
-        Weight::from_ref_time(265_113_000 as u64)
+        Weight::from_ref_time(91_674_000 as u64)
             .saturating_add(T::DbWeight::get().reads(10 as u64))
-            .saturating_add(T::DbWeight::get().writes(9 as u64))
+            .saturating_add(T::DbWeight::get().writes(10 as u64))
     }
     // Storage: Marketplace FeeTo (r:0 w:1)
     fn set_fee_to() -> Weight {
-        Weight::from_ref_time(32_000_000 as u64)
+        Weight::from_ref_time(10_069_000 as u64)
             .saturating_add(T::DbWeight::get().writes(1 as u64))
     }
 }

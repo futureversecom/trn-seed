@@ -374,7 +374,9 @@ pub mod pallet {
 		/// `fixed_price` ask price
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
-		#[pallet::weight(T::WeightInfo::sell_nft())]
+		#[pallet::weight({
+			T::WeightInfo::sell_nft(serial_numbers.len() as u32)
+		})]
 		pub fn sell_nft(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -408,7 +410,12 @@ pub mod pallet {
 		/// `fixed_price` ask price
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
-		#[pallet::weight(T::WeightInfo::sell_nft())]
+		#[pallet::weight({
+			match &tokens {
+				ListingTokens::Nft(nft) => T::WeightInfo::sell_nft(nft.serial_numbers.len() as u32),
+				ListingTokens::Sft(sft) => T::WeightInfo::sell_sft(sft.serial_numbers.len() as u32),
+			}
+		})]
 		pub fn sell(
 			origin: OriginFor<T>,
 			tokens: ListingTokens<T>,
@@ -457,8 +464,7 @@ pub mod pallet {
 
 		/// Buy multiple listings within one transaction
 		#[pallet::weight({
-			let len = listing_ids.len();
-			T::WeightInfo::buy().saturating_mul(len as u64)
+			T::WeightInfo::buy_multi(listing_ids.len() as u32)
 		})]
 		#[transactional]
 		pub fn buy_multi(
@@ -481,7 +487,9 @@ pub mod pallet {
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
-		#[pallet::weight(T::WeightInfo::auction_nft())]
+		#[pallet::weight({
+			T::WeightInfo::auction_nft(serial_numbers.len() as u32)
+		})]
 		pub fn auction_nft(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -505,7 +513,12 @@ pub mod pallet {
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
-		#[pallet::weight(T::WeightInfo::auction_nft())]
+		#[pallet::weight({
+			match &tokens {
+				ListingTokens::Nft(nft) => T::WeightInfo::auction_nft(nft.serial_numbers.len() as u32),
+				ListingTokens::Sft(sft) => T::WeightInfo::auction_sft(sft.serial_numbers.len() as u32),
+			}
+		})]
 		pub fn auction(
 			origin: OriginFor<T>,
 			tokens: ListingTokens<T>,

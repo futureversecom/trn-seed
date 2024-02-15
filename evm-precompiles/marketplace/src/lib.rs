@@ -370,7 +370,9 @@ where
 		let caller: Runtime::AccountId = handle.context().caller.into();
 		// Manually record gas
 		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-			<Runtime as pallet_marketplace::Config>::WeightInfo::sell_nft(),
+			<Runtime as pallet_marketplace::Config>::WeightInfo::sell_nft(
+				serial_number_ids.len() as u32
+			),
 		))?;
 		let listing_id = pallet_marketplace::Pallet::<Runtime>::do_sell(
 			caller,
@@ -610,7 +612,9 @@ where
 		.ok_or_else(|| revert("Marketplace: Invalid payment asset address"))?;
 
 		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-			<Runtime as pallet_marketplace::Config>::WeightInfo::auction_nft(),
+			<Runtime as pallet_marketplace::Config>::WeightInfo::auction_nft(
+				serial_number_ids.len() as u32,
+			),
 		))?;
 
 		let caller: Runtime::AccountId = handle.context().caller.into();
