@@ -33,12 +33,11 @@ use doughnut_rs::{
 };
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
-	log,
 	traits::{GetCallMetadata, IsSubType},
 };
 use frame_system::{CheckNonZeroSender, CheckNonce, CheckWeight};
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
-use seed_pallet_common::ExtrinsicChecker;
+use seed_pallet_common::{log, ExtrinsicChecker};
 use seed_primitives::AccountId20;
 use sp_runtime::{
 	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, StaticLookup},
@@ -86,13 +85,13 @@ impl<T> Call<T>
 				};
 				// Verify doughnut signature
 				doughnut_v1.verify().map_err(|e| {
-					log::error!("⛔️ failed to verify doughnut signature: {:?}", e);
+					log!(error,"⛔️ failed to verify doughnut signature: {:?}", e);
 					TransactionValidityError::Invalid(InvalidTransaction::BadProof)
 				})?;
 
 				// Retrieve holder address
 				let Ok(holder_address) = crate::Pallet::<T>::get_address(doughnut_v1.holder) else {
-					log::error!("⛔️ failed to get holder address: {:?}", doughnut_v1.holder);
+					log!(error,"⛔️ failed to get holder address: {:?}", doughnut_v1.holder);
 					return Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
 				};
 
@@ -107,7 +106,7 @@ impl<T> Call<T>
 
 				verify_signature(SignatureVersion::EIP191 as u8, &signature, &doughnut_v1.holder(), &outer_call.encode().as_slice())
 					.map_err(|e| {
-						log::error!("⛔️ failed to verify outer signature: {:?}", e);
+						log!(error,"⛔️ failed to verify outer signature: {:?}", e);
 						TransactionValidityError::Invalid(InvalidTransaction::BadProof)
 					})?;
 
@@ -148,7 +147,7 @@ impl<T> Call<T>
 				return None
 			};
 			let Ok(fee_payer_doughnut) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
-				log::error!("⛔️ failed to get fee payer address: {:?}", doughnut_v1.fee_payer());
+				log!(error,"⛔️ failed to get fee payer address: {:?}", doughnut_v1.fee_payer());
 				return None
 			};
 			let mut fee_payer_address = fee_payer_doughnut;
@@ -156,7 +155,7 @@ impl<T> Call<T>
 			// Futurepass check
 			if <T as Config>::FuturepassLookup::check_extrinsic(inner_call, &()).is_ok() {
 				let Ok(futurepass) = <T as Config>::FuturepassLookup::lookup(fee_payer_address.clone().into()) else {
-					log::error!("⛔️ failed to retrieve futurepass address for the address: {:?}", fee_payer_address);
+					log!(error,"⛔️ failed to retrieve futurepass address for the address: {:?}", fee_payer_address);
 					return None
 				};
 				fee_payer_address = futurepass.into();
@@ -215,14 +214,14 @@ impl<T> Call<T>
 			};
 			// No need to do the doughnut verification again since already did in check_self_contained()
 			let Ok(fee_payer_doughnut) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
-				log::error!("⛔️ failed to get fee payer address: {:?}", doughnut_v1.fee_payer());
+				log!(error,"⛔️ failed to get fee payer address: {:?}", doughnut_v1.fee_payer());
 				return None
 			};
 			let mut fee_payer_address = fee_payer_doughnut;
 			// Futurepass check
 			if <T as Config>::FuturepassLookup::check_extrinsic(inner_call, &()).is_ok() {
 				let Ok(futurepass) = <T as Config>::FuturepassLookup::lookup(fee_payer_address.clone().into()) else {
-					log::error!("⛔️ failed to retrieve futurepass address for the address: {:?}", fee_payer_address);
+					log!(error,"⛔️ failed to retrieve futurepass address for the address: {:?}", fee_payer_address);
 					return None
 				};
 				fee_payer_address = futurepass.into();
@@ -498,7 +497,7 @@ where
 	fn get_address(raw_pub_key: [u8; 33]) -> Result<T::AccountId, DispatchError> {
 		let account_id_20 =
 			AccountId20::try_from(ecdsa::Public::from_raw(raw_pub_key)).map_err(|e| {
-				log::error!("⛔️ failed to convert pubkey to account id: {:?}", e);
+				log!(error, "⛔️ failed to convert pubkey to account id: {:?}", e);
 				Error::<T>::UnauthorizedSender
 			})?;
 		Ok(T::AccountId::from(H160::from_slice(&account_id_20.0)))
@@ -509,13 +508,13 @@ where
 	) -> Result<Doughnut, DispatchError> {
 		// decode the doughnut
 		let doughnut_decoded = Doughnut::decode(&mut &doughnut_payload[..]).map_err(|e| {
-			log::error!("⛔️ failed to decode doughnut: {:?}", e);
+			log!(error, "⛔️ failed to decode doughnut: {:?}", e);
 			Error::<T>::DoughnutDecodeFailed
 		})?;
 
 		// only supports v1 for now
 		let Doughnut::V1(_) = doughnut_decoded.clone() else {
-			log::error!("⛔️ unsupported doughnut version");
+			log!(error,"⛔️ unsupported doughnut version");
 			return Err(Error::<T>::UnsupportedDoughnutVersion)?;
 		};
 
