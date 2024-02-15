@@ -163,7 +163,7 @@ impl<T> Call<T>
 			SignedExtension::validate(&validations_sender, &sender_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
 			SignedExtension::validate(&validations_fee_payer, &fee_payer_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
 
-			// priority is based on the provided tip in the xrpl transaction data
+			// priority is based on the provided tip in the doughnut transaction data
 			let priority = ChargeTransactionPayment::<T>::get_priority(&dispatch_info, len, (*tip).into(), 0.into());
 			let who: T::AccountId = (*origin).into();
 			let account = frame_system::Account::<T>::get(who.clone());
