@@ -193,6 +193,7 @@ pub mod pallet {
 			amount: Balance,
 			destination: XrplAccountId,
 			delayed_payment_id: DelayedPaymentId,
+			payment_block: T::BlockNumber,
 		},
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
@@ -1028,6 +1029,7 @@ impl<T: Config> Pallet<T> {
 			amount: withdrawal.amount,
 			destination: withdrawal.destination,
 			delayed_payment_id,
+			payment_block,
 		});
 		return Ok(())
 	}
