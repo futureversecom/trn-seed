@@ -2,11 +2,11 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a, u8aToHex } from "@polkadot/util";
 import { blake2AsHex } from "@polkadot/util-crypto";
+import { Doughnut, PayloadVersion, SignatureVersion, TRNNut } from "@therootnetwork/doughnut-nodejs";
+import { OpCodeComparator, OpComp, OpLoad, Pact } from "@therootnetwork/pact-nodejs";
 import { expect } from "chai";
 import { Wallet } from "ethers";
 
-import { OpCodeComparator, OpComp, OpLoad, Pact } from "@therootnetwork/pact-nodejs";
-import { Doughnut, PayloadVersion, SignatureVersion, TRNNut } from "@therootnetwork/doughnut-nodejs";
 import {
   ALICE_PRIVATE_KEY,
   ALITH_PRIVATE_KEY,
