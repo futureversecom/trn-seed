@@ -53,6 +53,8 @@ pub fn encode_for_signing(tx_common: &TransactionCommon) -> Result<Vec<u8>, &'st
 	Ok(message_with_prefix)
 }
 
+/// XRPL transaction memo field
+/// Derived from: https://xrpl.org/transaction-common-fields.html#memos-field
 #[derive(Debug, PartialEq, serde::Deserialize)]
 pub struct Memo {
 	#[serde(rename = "MemoData")]
@@ -60,11 +62,16 @@ pub struct Memo {
 	#[serde(rename = "MemoType")]
 	pub memo_type: String,
 }
+
+/// XRPL transaction memo field wrapper
 #[derive(Debug, PartialEq, serde::Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MemoElmRaw {
 	pub memo: Memo,
 }
+
+/// XRPL transaction minimal fields required for verifying extrinsic and embedding memo data
+/// Derived from: https://xrpl.org/transaction-common-fields.html#transaction-common-fields
 #[derive(Debug, Default, PartialEq, serde::Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct XRPLTransaction {
