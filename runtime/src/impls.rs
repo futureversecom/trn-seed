@@ -30,7 +30,6 @@ use frame_support::{
 	},
 	weights::WeightToFee,
 };
-use pact::types::{Numeric, PactType, StringLike};
 use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnChargeEVMTransaction};
 use sp_core::{H160, U256};
 use sp_runtime::{
@@ -39,6 +38,7 @@ use sp_runtime::{
 	ConsensusEngineId, Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
+use trn_pact::types::{Numeric, PactType, StringLike};
 
 use precompile_utils::{
 	constants::{
