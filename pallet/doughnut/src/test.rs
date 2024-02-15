@@ -774,7 +774,7 @@ fn generate_alice_to_bob_outer_signature_for_system_remark_for_benchmark() {
 				signature: vec![],
 			};
 
-			let mut outer_call_payload: Vec<u8> = outer_call.encode();
+			let outer_call_payload: Vec<u8> = outer_call.encode();
 			let outer_signature = holder.sign_eip191(&outer_call_payload.as_slice());
 			println!("doughnut encoded: {:?}", to_hex(doughnut_encoded.as_slice(), false));
 			println!("outer call: {:?}", outer_call);

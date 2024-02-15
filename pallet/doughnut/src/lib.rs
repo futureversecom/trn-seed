@@ -26,7 +26,7 @@ use sp_runtime::FixedPointOperand;
 
 use alloc::{boxed::Box, vec::Vec};
 use doughnut_rs::{
-	doughnut::{Doughnut, DoughnutV1},
+	doughnut::Doughnut,
 	signature::{crypto::verify_signature, SignatureVersion},
 	traits::{DoughnutApi, DoughnutVerify},
 	TRNNutV0,
