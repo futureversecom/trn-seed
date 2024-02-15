@@ -39,6 +39,10 @@ describe("Doughnuts", () => {
     bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
     alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
+
+    // get rid of fee pot account creation event, i.e
+    // system	NewAccount	["0x6D6F646c7478666565706F740000000000000000"]
+    await finalizeTx(alith, api.tx.balances.transfer("0x6D6F646c7478666565706F740000000000000000", 10));
   });
 
   after(async () => node.stop());
