@@ -1261,6 +1261,7 @@ fn withdraw_with_payment_delay_works() {
 			let next_ticket_sequence = XRPLBridge::get_door_ticket_sequence().unwrap() + 1;
 			// Check NextPaymentId before
 			let delayed_payment_id = NextDelayedPaymentId::<Test>::get();
+			let payment_block = block_number + delay_blocks;
 
 			// Withdraw amount which should add to pending withdrawals
 			assert_ok!(XRPLBridge::withdraw_xrp(
@@ -1276,6 +1277,7 @@ fn withdraw_with_payment_delay_works() {
 					amount,
 					destination: destination.clone(),
 					delayed_payment_id,
+					payment_block,
 				}
 				.into(),
 			);
@@ -1322,6 +1324,9 @@ fn withdraw_with_destination_tag_payment_delay_works() {
 			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 			let payment_delay = Some((100, 1000)); // (min_balance, delay)
 			let destination_tag = 12;
+			let delay_blocks = 1000;
+			let block_number = System::block_number();
+			let payment_block = block_number + delay_blocks;
 
 			// Set initial parameters
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
@@ -1354,6 +1359,7 @@ fn withdraw_with_destination_tag_payment_delay_works() {
 					amount,
 					destination: destination.clone(),
 					delayed_payment_id,
+					payment_block,
 				}
 				.into(),
 			);
