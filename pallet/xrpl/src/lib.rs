@@ -41,7 +41,7 @@ use frame_system::{
 	CheckTxVersion, CheckWeight, RawOrigin,
 };
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
-use seed_pallet_common::ExtrinsicChecker;
+use seed_pallet_common::{log, ExtrinsicChecker};
 use sp_core::{hexdisplay::AsBytesRef, H160};
 use sp_runtime::{
 	generic::Era,
@@ -97,11 +97,11 @@ impl<T> Call<T>
 			let check = || {
 				let tx: XRPLTransaction = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
 					.map_err(|e| {
-						log::error!("⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
+						log!(error, "⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
 						InvalidTransaction::Call
 					})?;
 				let origin = tx.get_account().map_err(|e| {
-					log::error!("⛔️ failed to extract account from memo data: {:?}, err: {:?}", tx.account, e);
+					log!(error, "⛔️ failed to extract account from memo data: {:?}, err: {:?}", tx.account, e);
 					InvalidTransaction::Call
 				})?;
 
@@ -110,7 +110,7 @@ impl<T> Call<T>
 					if let Ok(futurepass) = <T as pallet::Config>::FuturepassLookup::lookup(origin) {
 						return Ok(futurepass);
 					}
-					log::error!("⛔️ caller is not a futurepass holder");
+					log!(error, "⛔️ caller is not a futurepass holder");
 					return Err(InvalidTransaction::Call.into());
 				}
 
@@ -145,7 +145,7 @@ impl<T> Call<T>
 		if let Call::transact { encoded_msg, signature, call } = self {
 			let (nonce, tip) = validate_params::<T>(encoded_msg.as_bytes_ref(), signature.as_bytes_ref(), call)
 				.map_err(|e| {
-					log::error!("⛔️ validate_self_contained: failed to validate params: {:?}", e);
+					log!(error, "⛔️ validate_self_contained: failed to validate params: {:?}", e);
 					InvalidTransaction::Call
 				})
 				.ok()?;
@@ -170,7 +170,7 @@ impl<T> Call<T>
 				// this implies that the origin is futurepass address; we need to get the EOA associated with it
 				let eoa = <T as pallet::Config>::FuturepassLookup::unlookup(*origin);
 				if eoa == H160::zero() {
-					log::error!("⛔️ failed to get EOA from futurepass address");
+					log!(error, "⛔️ failed to get EOA from futurepass address");
 					return None;
 				}
 				tx_origin = T::AccountId::from(eoa);
@@ -211,7 +211,7 @@ impl<T> Call<T>
 			// Pre Dispatch
 			let (nonce, tip) = validate_params::<T>(encoded_msg.as_bytes_ref(), signature.as_bytes_ref(), call)
 				.map_err(|e| {
-					log::error!("⛔️ apply_self_contained: failed to validate params: {:?}", e);
+					log!(error, "⛔️ apply_self_contained: failed to validate params: {:?}", e);
 					InvalidTransaction::Call
 				})
 				.ok()?;
@@ -237,7 +237,7 @@ impl<T> Call<T>
 				// this implies that the origin is futurepass address; we need to get the EOA associated with it
 				let eoa = <T as pallet::Config>::FuturepassLookup::unlookup(*info);
 				if eoa == H160::zero() {
-					log::error!("⛔️ failed to get EOA from futurepass address");
+					log!(error, "⛔️ failed to get EOA from futurepass address");
 					return None;
 				}
 				tx_origin = T::AccountId::from(eoa);
@@ -426,12 +426,13 @@ pub mod pallet {
 
 			let tx: XRPLTransaction = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
 				.map_err(|e| {
-					log::error!("⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
+					log!(error, "⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
 					Error::<T>::XRPLTransaction
 				})?;
 
 			let public_key = tx.get_public_key().map_err(|e| {
-				log::error!(
+				log!(
+					error,
 					"⛔️ failed to extract public key from memo data: {:?}, err: {:?}",
 					tx.memos,
 					e
@@ -441,7 +442,8 @@ pub mod pallet {
 			let who: T::AccountId = tx
 				.get_account()
 				.map_err(|e| {
-					log::error!(
+					log!(
+						error,
 						"⛔️ failed to extract account from memo data: {:?}, err: {:?}",
 						tx.account,
 						e
