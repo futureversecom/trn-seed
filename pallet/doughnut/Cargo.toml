@@ -28,8 +28,8 @@ frame-benchmarking = { git = 'https://github.com/paritytech/substrate', branch =
 
 seed-pallet-common = { path = "../common", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
-doughnut-rs = { git = "https://github.com/futureversecom/trn-doughnut-rs", branch = "feat/trn-doughnut", default-features = false, features = ["crypto"] }
-# doughnut-rs = { path = "../../../trn-doughnut-rs", default-features = false, features = ["crypto"] }
+doughnut-rs = { git = "https://github.com/futureversecom/trn-doughnut-rs", branch = "chore/toppings", default-features = false, features = ["crypto"] }
+#doughnut-rs = { path = "../../../../trn-doughnut-rs", default-features = false, features = ["crypto"] }
 
 [dev-dependencies]
 frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }

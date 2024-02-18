@@ -21,7 +21,7 @@ use crate::{
 use codec::Encode;
 use doughnut_rs::{
 	doughnut::{
-		trnnut::{method, module},
+		topping::{method, module},
 		Doughnut, DoughnutV0, DoughnutV1,
 	},
 	signature::{
@@ -29,7 +29,7 @@ use doughnut_rs::{
 		SignatureVersion,
 	},
 	traits::{DoughnutVerify, FeeMode, PayloadVersion, Signing},
-	TRNNutV0,
+	Topping,
 };
 use frame_support::traits::fungibles::Mutate;
 use seed_pallet_common::test_prelude::*;
@@ -83,15 +83,15 @@ pub fn make_doughnut(
 	holder: &TestAccount,
 	issuer: &TestAccount,
 	fee_mode: FeeMode,
-	domain: &str,
-	domain_payload: Vec<u8>,
+	topping: &str,
+	topping_payload: Vec<u8>,
 	signature_version: SignatureVersion,
 ) -> Doughnut {
 	let mut doughnut_v1 = DoughnutV1 {
 		holder: holder.public().as_slice().try_into().expect("should not fail"),
 		issuer: issuer.public().as_slice().try_into().expect("should not fail"),
 		fee_mode: fee_mode as u8,
-		domains: vec![(domain.to_string(), domain_payload)],
+		toppings: vec![(topping.to_string(), topping_payload)],
 		expiry: 0,
 		not_before: 0,
 		payload_version: PayloadVersion::V1 as u16,
@@ -113,7 +113,7 @@ pub fn make_doughnut(
 	Doughnut::V1(doughnut_v1)
 }
 
-fn make_trnnut(module: &str, method: &str) -> TRNNutV0 {
+fn make_topping(module: &str, method: &str) -> Topping {
 	let method_obj =
 		method::Method { name: method.to_string(), block_cooldown: None, constraints: None };
 	let module_obj = module::Module {
@@ -121,7 +121,7 @@ fn make_trnnut(module: &str, method: &str) -> TRNNutV0 {
 		block_cooldown: None,
 		methods: vec![method_obj],
 	};
-	TRNNutV0 { modules: vec![module_obj] }
+	Topping { modules: vec![module_obj] }
 }
 
 #[test]
@@ -189,7 +189,7 @@ fn run_doughnut_common_validations_invalid_doughnut_version_fails() {
 		let doughnut_v0 = DoughnutV0 {
 			holder: holder.public().as_slice()[0..32].try_into().expect("should not fail"),
 			issuer: issuer.public().as_slice()[0..32].try_into().expect("should not fail"),
-			domains: vec![(String::default(), vec![])],
+			toppings: vec![(String::default(), vec![])],
 			expiry: 0,
 			not_before: 0,
 			payload_version: PayloadVersion::V0 as u16,
@@ -301,13 +301,13 @@ fn alice_to_bob_doughnut_for_balance_trnasfer() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
-		let trnnut = make_trnnut("Balances", "transfer");
+		let topping = make_topping("Balances", "transfer");
 		let doughnut = make_doughnut(
 			&holder,
 			&issuer,
 			FeeMode::ISSUER,
 			"trn",
-			trnnut.encode(),
+			topping.encode(),
 			SignatureVersion::ECDSA,
 		);
 
@@ -342,13 +342,13 @@ fn transact_works() {
 		.build()
 		.execute_with(|| {
 			let holder = BOB;
-			let trnnut = make_trnnut("Balances", "transfer");
+			let topping = make_topping("Balances", "transfer");
 			let doughnut = make_doughnut(
 				&holder,
 				&issuer,
 				FeeMode::ISSUER,
 				"trn",
-				trnnut.encode(),
+				topping.encode(),
 				SignatureVersion::ECDSA,
 			);
 			let doughnut_encoded = doughnut.encode();
@@ -398,13 +398,13 @@ fn transact_works_eip191() {
 		.build()
 		.execute_with(|| {
 			let holder = BOB;
-			let trnnut = make_trnnut("Balances", "transfer");
+			let topping = make_topping("Balances", "transfer");
 			let doughnut = make_doughnut(
 				&holder,
 				&issuer,
 				FeeMode::ISSUER,
 				"trn",
-				trnnut.encode(),
+				topping.encode(),
 				SignatureVersion::EIP191,
 			);
 			let doughnut_encoded = doughnut.encode();
@@ -471,8 +471,8 @@ fn transact_invalid_doughnut_fails() {
 // 	TestExt::<Test>::default().build().execute_with(|| {
 // 		let issuer = ALICE;
 // 		let holder = BOB;
-// 		let trnnut = make_trnnut("System", "remark");
-// 		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", trnnut.encode());
+// 		let topping = make_topping("System", "remark");
+// 		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", topping.encode());
 // 		let doughnut_encoded = doughnut.encode();
 //
 // 		let call: <Test as frame_system::Config>::RuntimeCall =
@@ -498,12 +498,12 @@ fn transact_holder_not_signed_doughnut_should_fail() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
-		let trnnut = make_trnnut("System", "remark");
+		let topping = make_topping("System", "remark");
 		let mut doughnut_v1 = DoughnutV1 {
 			holder: holder.public().as_slice().try_into().expect("should not fail"),
 			issuer: issuer.public().as_slice().try_into().expect("should not fail"),
 			fee_mode: 0,
-			domains: vec![(String::from("trn"), trnnut.encode())],
+			toppings: vec![(String::from("trn"), topping.encode())],
 			expiry: 0,
 			not_before: 0,
 			payload_version: PayloadVersion::V1 as u16,
@@ -540,13 +540,13 @@ fn revoke_doughnut_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
-		let trnnut = make_trnnut("System", "remark");
+		let topping = make_topping("System", "remark");
 		let doughnut = make_doughnut(
 			&holder,
 			&issuer,
 			FeeMode::ISSUER,
 			"trn",
-			trnnut.encode(),
+			topping.encode(),
 			SignatureVersion::ECDSA,
 		);
 		let doughnut_encoded = doughnut.encode();
@@ -634,13 +634,13 @@ fn revoke_holder_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
-		let trnnut = make_trnnut("System", "remark");
+		let topping = make_topping("System", "remark");
 		let doughnut = make_doughnut(
 			&holder,
 			&issuer,
 			FeeMode::ISSUER,
 			"trn",
-			trnnut.encode(),
+			topping.encode(),
 			SignatureVersion::ECDSA,
 		);
 		let doughnut_encoded = doughnut.encode();
@@ -750,13 +750,13 @@ fn generate_alice_to_bob_outer_signature_for_system_remark_for_benchmark() {
 		.build()
 		.execute_with(|| {
 			let holder = BOB;
-			let trnnut = make_trnnut("System", "remark");
+			let topping = make_topping("System", "remark");
 			let doughnut = make_doughnut(
 				&holder,
 				&issuer,
 				FeeMode::ISSUER,
 				"trn",
-				trnnut.encode(),
+				topping.encode(),
 				SignatureVersion::EIP191,
 			);
 			let doughnut_encoded = doughnut.encode();
@@ -792,13 +792,13 @@ fn generate_alice_to_bob_outer_signature_for_balances_transfer_keep_alive() {
 		.build()
 		.execute_with(|| {
 			let holder = BOB;
-			let trnnut = make_trnnut("Balances", "transfer");
+			let topping = make_topping("Balances", "transfer");
 			let doughnut = make_doughnut(
 				&holder,
 				&issuer,
 				FeeMode::ISSUER,
 				"trn",
-				trnnut.encode(),
+				topping.encode(),
 				SignatureVersion::ECDSA,
 			);
 			let doughnut_encoded = doughnut.encode();
@@ -841,13 +841,13 @@ fn signed_extension_validations_succeed() {
 		.execute_with(|| {
 			let issuer = ALICE;
 			let holder = BOB;
-			let trnnut = make_trnnut("System", "remark_with_event");
+			let topping = make_topping("System", "remark_with_event");
 			let doughnut = make_doughnut(
 				&holder,
 				&issuer,
 				FeeMode::ISSUER,
 				"trn",
-				trnnut.encode(),
+				topping.encode(),
 				SignatureVersion::ECDSA,
 			);
 			let doughnut_encoded = doughnut.encode();
@@ -1023,7 +1023,7 @@ fn signed_extension_validations_invalid_inner_signature_fails() {
 				holder: holder.public().as_slice().try_into().expect("should not fail"),
 				issuer: issuer.public().as_slice().try_into().expect("should not fail"),
 				fee_mode: 0,
-				domains: vec![(String::from(""), vec![])],
+				toppings: vec![(String::from(""), vec![])],
 				expiry: 0,
 				not_before: 0,
 				payload_version: 0,
@@ -1184,13 +1184,13 @@ fn holder_whitelisting_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let issuer = ALICE;
 		let holder = BOB;
-		let trnnut = make_trnnut("System", "remark");
+		let topping = make_topping("System", "remark");
 		let doughnut = make_doughnut(
 			&holder,
 			&issuer,
 			FeeMode::ISSUER,
 			"trn",
-			trnnut.encode(),
+			topping.encode(),
 			SignatureVersion::ECDSA,
 		);
 		let doughnut_encoded = doughnut.encode();
@@ -1238,13 +1238,13 @@ fn tip_increase_priority() {
 		.execute_with(|| {
 			let issuer = ALICE;
 			let holder = BOB;
-			let trnnut = make_trnnut("System", "remark_with_event");
+			let topping = make_topping("System", "remark_with_event");
 			let doughnut = make_doughnut(
 				&holder,
 				&issuer,
 				FeeMode::ISSUER,
 				"trn",
-				trnnut.encode(),
+				topping.encode(),
 				SignatureVersion::ECDSA,
 			);
 			let doughnut_encoded = doughnut.encode();
