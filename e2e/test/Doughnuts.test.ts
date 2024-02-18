@@ -1279,8 +1279,8 @@ describe("Doughnuts", () => {
           dispatchError.asModule
       );
 
-      expect(section).to.equal("maintenanceMode");
-      expect(name).to.equal("CallPaused");
+      expect(section).to.equal("system");
+      expect(name).to.equal("CallFiltered");
     }
 
     // try remark with maintenance mode call blocked
@@ -1316,8 +1316,8 @@ describe("Doughnuts", () => {
           dispatchError.asModule
       );
 
-      expect(section).to.equal("maintenanceMode");
-      expect(name).to.equal("CallPaused");
+      expect(section).to.equal("system");
+      expect(name).to.equal("CallFiltered");
     }
 
     // Disable maintenance mode

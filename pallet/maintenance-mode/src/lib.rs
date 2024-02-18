@@ -140,8 +140,6 @@ pub mod pallet {
 		InvalidCallName,
 		/// This pallet or call cannot be blocked
 		CannotBlock,
-		/// The call is blocked and cannot be executed
-		CallPaused,
 	}
 
 	#[pallet::call]

@@ -901,7 +901,7 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 		}
 
 		if pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(&actual_call) {
-			return Err(pallet_maintenance_mode::Error::<Runtime>::CallPaused.into())
+			return Err(frame_system::Error::<Runtime>::CallFiltered.into())
 		}
 
 		let CallMetadata { function_name, pallet_name } = actual_call.get_call_metadata();
