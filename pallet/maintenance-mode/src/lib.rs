@@ -118,13 +118,13 @@ pub mod pallet {
 		AccountBlocked { account: T::AccountId, blocked: bool },
 		/// An account was blocked
 		EVMTargetBlocked { target_address: H160, blocked: bool },
-		/// An account was blocked
+		/// A Runtime Call was blocked
 		CallBlocked {
 			pallet_name: BoundedVec<u8, T::StringLimit>,
 			call_name: BoundedVec<u8, T::StringLimit>,
 			blocked: bool,
 		},
-		/// An account was blocked
+		/// A Pallet was blocked
 		PalletBlocked { pallet_name: BoundedVec<u8, T::StringLimit>, blocked: bool },
 	}
 
@@ -140,6 +140,8 @@ pub mod pallet {
 		InvalidCallName,
 		/// This pallet or call cannot be blocked
 		CannotBlock,
+		/// The call is blocked and cannot be executed
+		CallPaused,
 	}
 
 	#[pallet::call]

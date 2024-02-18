@@ -1,4 +1,5 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
+import { SubmittableResultValue } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a, u8aToHex } from "@polkadot/util";
 import { blake2AsHex } from "@polkadot/util-crypto";
@@ -18,6 +19,7 @@ import {
   startNode,
   typedefs,
 } from "../common";
+import {DispatchError} from "@polkadot/types/interfaces";
 
 const TRN_PERMISSION_DOMAIN: string = "trn";
 
@@ -1184,187 +1186,7 @@ describe("Doughnuts", () => {
     }
   });
 
-  it("doughnut - Balances::transfer with constraints amount <= 10", async () => {
-    const receiverAddress = await Wallet.createRandom().getAddress();
-    const holderPrivateKey = Wallet.createRandom().privateKey;
-    const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
-    const transferAmountLimit = 10;
-    let nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
-    const tip = 0;
-    const version = 1;
-    const issuerPubkey = alice.publicKey;
-    const holderPubkey = holder.publicKey;
-    const feeMode = 0;
-    const expiry = 100000;
-    const notBefore = 0;
-
-    console.log("\n====  Creating Doughnut");
-    const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
-    // Create the permission domain object. Balances::transfer with a constraint for amount = 10
-    const dataTable = [transferAmountLimit.toString()];
-    const comp = new OpCodeComparator(OpLoad.InputVsUser, OpComp.GT, 1, 0, true); // RHS is the data table
-    const bytecode = new Uint8Array([...comp.encode()]);
-    const pactContract = new Pact(dataTable, bytecode);
-    const pactEncoded = pactContract.encode();
-    // console.log(pactEncoded);
-
-    const module = [
-      {
-        name: "Balances",
-        block_cooldown: 0,
-        methods: [
-          {
-            name: "transfer",
-            block_cooldown: 0,
-            constraints: [...pactEncoded],
-          },
-        ],
-      },
-    ];
-
-    const trnnut = new TRNNut(module);
-
-    // Add to trn domain
-    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
-    console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
-
-    // Sign the doughnut
-    const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
-    const ethHash = blake2AsHex(doughnut.payload());
-    const ethSlice = Buffer.from(ethHash.slice(2), "hex");
-    const issuerSig = await aliceWallet.signMessage(ethSlice);
-    const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
-    doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
-
-    console.log(`Signature : ${doughnut.signature()}`);
-
-    // Verify that the doughnut is valid
-    const verified = doughnut.verify(holderPubkey, 5);
-    expect(verified).to.be.equal(true);
-
-    // Encode the doughnut
-    const encodedDoughnut = doughnut.encode();
-    const doughnutHex = u8aToHex(encodedDoughnut);
-
-    // try to transfer < transferAmountLimit
-    {
-      const call = api.tx.balances.transfer(receiverAddress, transferAmountLimit - 1);
-      // Create a call with empty signature to be signed by the holder (Bob)
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
-      // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
-      const txU8a = tx.toU8a(true).slice(2);
-      const txHex = u8aToHex(txU8a);
-      const holderWallet = await new Wallet(holderPrivateKey);
-      const txHash = blake2AsHex(txHex);
-      const txSlice = Buffer.from(txHash.slice(2), "hex");
-      const holderSig = await holderWallet.signMessage(txSlice);
-
-      // balances before
-      const alice_balance_before = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_before =
-        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
-
-      // whitelist the holder. i.e bob
-      await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
-
-      // Execute the transact call with.send
-      const eventData = await new Promise<any[]>((resolve, _reject) => {
-        api.tx.doughnut.transact(call, doughnutHex, nonce, tip, holderSig).send(({ events, status }) => {
-          if (status.isInBlock) {
-            resolve(events);
-          }
-        });
-      });
-      expect(eventData).to.exist;
-      // eventData.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
-
-      // balances after
-      const alice_balance_after = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_after =
-        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
-
-      expect(Math.abs(receiver_balance_before - receiver_balance_after)).to.be.equal(transferAmountLimit - 1);
-      expect(alice_balance_before - alice_balance_after).equal(transferAmountLimit - 1);
-    }
-
-    // try to transfer = transferAmountLimit, should pass
-    {
-      const call = api.tx.balances.transfer(receiverAddress, transferAmountLimit);
-      // Create a call with empty signature to be signed by the holder (Bob)
-      nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
-      // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
-      const txU8a = tx.toU8a(true).slice(2);
-      const txHex = u8aToHex(txU8a);
-      const holderWallet = await new Wallet(holderPrivateKey);
-      const txHash = blake2AsHex(txHex);
-      const txSlice = Buffer.from(txHash.slice(2), "hex");
-      const holderSig = await holderWallet.signMessage(txSlice);
-
-      // balance before
-      const alice_balance_before = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_before =
-        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
-
-      // Execute the transact call with.send
-      const eventData = await new Promise<any[]>((resolve, _reject) => {
-        api.tx.doughnut.transact(call, doughnutHex, nonce, tip, holderSig).send(({ events, status }) => {
-          if (status.isInBlock) {
-            resolve(events);
-          }
-        });
-      });
-      expect(eventData).to.exist;
-      // eventData.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
-
-      // balances after
-      const alice_balance_after = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_after =
-        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
-
-      expect(Math.abs(receiver_balance_before - receiver_balance_after)).to.be.equal(transferAmountLimit);
-      expect(alice_balance_before - alice_balance_after).equal(transferAmountLimit);
-    }
-
-    await sleep(4000); // TODO: remove this
-    // try to transfer > transferAmountLimit, should fail
-    {
-      const call = api.tx.balances.transfer(receiverAddress, transferAmountLimit + 1);
-      // Create a call with empty signature to be signed by the holder (Bob)
-      nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
-      // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
-      const txU8a = tx.toU8a(true).slice(2);
-      const txHex = u8aToHex(txU8a);
-      const holderWallet = await new Wallet(holderPrivateKey);
-      const txHash = blake2AsHex(txHex);
-      const txSlice = Buffer.from(txHash.slice(2), "hex");
-      const holderSig = await holderWallet.signMessage(txSlice);
-
-      // balance before
-      const alice_balance_before = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_before =
-        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
-
-      // Execute the transact call with.send
-      await api.tx.doughnut
-        .transact(call, doughnutHex, nonce, tip, holderSig)
-        .send()
-        .catch((err: any) => {
-          console.log(err);
-        });
-
-      // balances after
-      const alice_balance_after = ((await api.query.system.account(alice.address)).toJSON() as any)?.data.free ?? 0;
-      const receiver_balance_after =
-        ((await api.query.system.account(receiverAddress)).toJSON() as any)?.data.free ?? 0;
-
-      expect(Math.abs(receiver_balance_before - receiver_balance_after)).to.be.equal(0);
-      expect(alice_balance_before - alice_balance_after).equal(0);
-    }
-  });
-
-  it("doughnut - System::remark with constraint string comparison == boo", async () => {
+  it("doughnut - System::remark with maintenance mode call filter", async () => {
     const holderPrivateKey = Wallet.createRandom().privateKey;
     const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
     const stringConstraint = "boo";
@@ -1377,7 +1199,10 @@ describe("Doughnuts", () => {
     const expiry = 100000;
     const notBefore = 0;
 
-    console.log("\n====  Creating Doughnut");
+    // Whitelist holder
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
+
+    // Create doughnut
     const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
     // Create the permission domain object. Balances::transfer with a constraint for amount = 10
     const dataTable = [stringConstraint];
@@ -1405,7 +1230,6 @@ describe("Doughnuts", () => {
 
     // Add to trn domain
     doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
-    console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -1415,8 +1239,6 @@ describe("Doughnuts", () => {
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
     doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
 
-    console.log(`Signature : ${doughnut.signature()}`);
-
     // Verify that the doughnut is valid
     const verified = doughnut.verify(holderPubkey, 5);
     expect(verified).to.be.equal(true);
@@ -1425,10 +1247,13 @@ describe("Doughnuts", () => {
     const encodedDoughnut = doughnut.encode();
     const doughnutHex = u8aToHex(encodedDoughnut);
 
-    // try remark with stringConstraint
+    // try remark with maintenance mode pallet blocked
     {
+      await finalizeTx(alith, api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", true)));
+
       const call = api.tx.system.remark(stringConstraint);
       // Create a call with empty signature to be signed by the holder
+      nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
       const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
       // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
       const txU8a = tx.toU8a(true).slice(2);
@@ -1438,35 +1263,32 @@ describe("Doughnuts", () => {
       const txSlice = Buffer.from(txHash.slice(2), "hex");
       const holderSig = await holderWallet.signMessage(txSlice);
 
-      // whitelist the holder. i.e bob
-      await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
-
       // Execute the transact call with.send
-      const eventData = await new Promise<any[]>((resolve, _reject) => {
-        api.tx.doughnut.transact(call, doughnutHex, nonce, tip, holderSig).send(({ events, status }) => {
-          if (status.isInBlock) {
-            resolve(events);
-          }
-        });
+      const dispatchError = await new Promise<DispatchError>((resolve, _reject) => {
+        api.tx.doughnut
+            .transact(call, doughnutHex, nonce, tip, holderSig)
+            .send((result) => {
+              const { status, dispatchError } =
+                  result as SubmittableResultValue;
+              if (!status.isFinalized) return;
+              if (dispatchError === undefined) return;
+              resolve(dispatchError);
+            })
       });
-      expect(eventData).to.exist;
-      // eventData.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+      const { section, name } = dispatchError.registry.findMetaError(
+          dispatchError.asModule
+      );
 
-      // assert events
-      expect(eventData.length).to.equal(5);
-
-      // doughnut	DoughnutCallExecuted	[{"ok":null}]
-      expect(eventData[1].event.section).to.equal("doughnut");
-      expect(eventData[1].event.method).to.equal("DoughnutCallExecuted");
-
-      // system	ExtrinsicSuccess	[{"weight":434518872,"class":"Normal","paysFee":"Yes"}]
-      expect(eventData[4].event.section).to.equal("system");
-      expect(eventData[4].event.method).to.equal("ExtrinsicSuccess");
+      expect(section).to.equal("maintenanceMode");
+      expect(name).to.equal("CallPaused");
     }
 
-    // try remark with "baa"
+    // try remark with maintenance mode call blocked
     {
-      const call = api.tx.system.remark("baa");
+      await finalizeTx(alith, api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)));
+      await finalizeTx(alith, api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", true)));
+
+      const call = api.tx.system.remark(stringConstraint);
       // Create a call with empty signature to be signed by the holder
       nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
       const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
@@ -1479,36 +1301,27 @@ describe("Doughnuts", () => {
       const holderSig = await holderWallet.signMessage(txSlice);
 
       // Execute the transact call with.send
-      await api.tx.doughnut
-        .transact(call, doughnutHex, nonce, tip, holderSig)
-        .send()
-        .catch((err: any) => {
-          console.log(err);
-        });
+      const dispatchError = await new Promise<DispatchError>((resolve, _reject) => {
+        api.tx.doughnut
+            .transact(call, doughnutHex, nonce, tip, holderSig)
+            .send((result) => {
+              const { status, dispatchError } =
+                  result as SubmittableResultValue;
+              if (!status.isFinalized) return;
+              if (dispatchError === undefined) return;
+              resolve(dispatchError);
+            })
+      });
+      const { section, name } = dispatchError.registry.findMetaError(
+          dispatchError.asModule
+      );
+
+      expect(section).to.equal("maintenanceMode");
+      expect(name).to.equal("CallPaused");
     }
 
-    await sleep(4000); // TODO: remove this
-    // try remark with "boobaa"
-    {
-      const call = api.tx.system.remark("boobaa");
-      // Create a call with empty signature to be signed by the holder
-      nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
-      // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
-      const txU8a = tx.toU8a(true).slice(2);
-      const txHex = u8aToHex(txU8a);
-      const holderWallet = await new Wallet(holderPrivateKey);
-      const txHash = blake2AsHex(txHex);
-      const txSlice = Buffer.from(txHash.slice(2), "hex");
-      const holderSig = await holderWallet.signMessage(txSlice);
-
-      // Execute the transact call with.send
-      await api.tx.doughnut
-        .transact(call, doughnutHex, nonce, tip, holderSig)
-        .send()
-        .catch((err: any) => {
-          console.log(err);
-        });
-    }
+    // Disable maintenance mode
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)));
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", false)));
   });
 });
