@@ -2,7 +2,8 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a, u8aToHex } from "@polkadot/util";
 import { blake2AsHex } from "@polkadot/util-crypto";
-import { Doughnut, PayloadVersion, SignatureVersion, TRNNut } from "@therootnetwork/doughnut-nodejs";
+// import { Doughnut, PayloadVersion, SignatureVersion, Topping } from "@therootnetwork/doughnut-nodejs";
+import { Doughnut, PayloadVersion, SignatureVersion, Topping } from "../../../../trn-doughnut-rs/js/doughnut-nodejs";
 import { OpCodeComparator, OpComp, OpLoad, Pact } from "@therootnetwork/pact-nodejs";
 import { expect } from "chai";
 import { Wallet } from "ethers";
@@ -64,7 +65,7 @@ describe("Doughnuts", () => {
 
     console.log("\n====  Creating Doughnut");
     const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
-    // Create the permission domain object. Balances::transfer with a constraint for amount = 10
+    // Create the permission topping object. Balances::transfer with a constraint for amount = 10
     const dataTable = ["10"];
     const comp = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 1, 0, false); // RHS is the data table
     const bytecode = new Uint8Array([...comp.encode()]);
@@ -86,11 +87,11 @@ describe("Doughnuts", () => {
       },
     ];
 
-    const trnnut = new TRNNut(module);
+    const topping = new Topping(module);
 
-    // Add to trn domain
-    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
-    console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
+    // Add to trn topping
+    doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
+    console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -217,7 +218,7 @@ describe("Doughnuts", () => {
 
     console.log("\n====  Creating Doughnut");
     const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
-    // Create the permission domain object. Balances::transfer with a constraint for amount = 10
+    // Create the permission topping object. Balances::transfer with a constraint for amount = 10
     const dataTable = ["10"];
     const comp = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 1, 0, false); // RHS is the data table
     const bytecode = new Uint8Array([...comp.encode()]);
@@ -239,11 +240,11 @@ describe("Doughnuts", () => {
       },
     ];
 
-    const trnnut = new TRNNut(module);
+    const topping = new Topping(module);
 
-    // Add to trn domain
-    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
-    console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
+    // Add to trn topping
+    doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
+    console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -311,9 +312,9 @@ describe("Doughnuts", () => {
 
     console.log("\n====  Creating Doughnut");
     const doughnut = new Doughnut(version, issuer, holder, feeMode, expiry, notBefore);
-    // Add a random domain to allow the doughnut to be encoded
-    doughnut.addDomain("Test", new Uint8Array(12));
-    console.log(`Domain    : ${doughnut.domain("Test")}`);
+    // Add a random topping to allow the doughnut to be encoded
+    doughnut.addTopping("Test", new Uint8Array(12));
+    console.log(`Topping    : ${doughnut.topping("Test")}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -414,11 +415,11 @@ describe("Doughnuts", () => {
       },
     ];
 
-    const trnnut = new TRNNut(module);
+    const topping = new Topping(module);
 
-    // Add to trn domain
-    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
-    // console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
+    // Add to trn topping
+    doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
+    // console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const userAWallet = await new Wallet(userAPrivateKey);
@@ -639,11 +640,11 @@ describe("Doughnuts", () => {
       },
     ];
 
-    const trnnut = new TRNNut(module);
+    const topping = new Topping(module);
 
-    // Add to trn domain
-    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
-    // console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
+    // Add to trn topping
+    doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
+    // console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const userAWallet = await new Wallet(userAPrivateKey);
@@ -865,11 +866,11 @@ describe("Doughnuts", () => {
       },
     ];
 
-    const trnnut = new TRNNut(module);
+    const topping = new Topping(module);
 
-    // Add to trn domain
-    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
-    // console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
+    // Add to trn topping
+    doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
+    // console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const userAWallet = await new Wallet(userAPrivateKey);
@@ -1027,7 +1028,7 @@ describe("Doughnuts", () => {
 
     console.log("\n====  Creating Doughnut");
     const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
-    // Create the permission domain object. Balances::transfer with a constraint for amount = 10
+    // Create the permission topping object. Balances::transfer with a constraint for amount = 10
     const dataTable = [transferAmountLimit.toString()];
     const comp = new OpCodeComparator(OpLoad.InputVsUser, OpComp.GTE, 1, 0, true); // RHS is the data table
     const bytecode = new Uint8Array([...comp.encode()]);
@@ -1049,11 +1050,11 @@ describe("Doughnuts", () => {
       },
     ];
 
-    const trnnut = new TRNNut(module);
+    const topping = new Topping(module);
 
-    // Add to trn domain
-    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
-    console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
+    // Add to trn topping
+    doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
+    console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -1204,7 +1205,7 @@ describe("Doughnuts", () => {
 
     console.log("\n====  Creating Doughnut");
     const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
-    // Create the permission domain object. Balances::transfer with a constraint for amount = 10
+    // Create the permission topping object. Balances::transfer with a constraint for amount = 10
     const dataTable = [transferAmountLimit.toString()];
     const comp = new OpCodeComparator(OpLoad.InputVsUser, OpComp.GT, 1, 0, true); // RHS is the data table
     const bytecode = new Uint8Array([...comp.encode()]);
@@ -1226,11 +1227,11 @@ describe("Doughnuts", () => {
       },
     ];
 
-    const trnnut = new TRNNut(module);
+    const topping = new Topping(module);
 
-    // Add to trn domain
-    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
-    console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
+    // Add to trn topping
+    doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
+    console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -1383,7 +1384,7 @@ describe("Doughnuts", () => {
 
     console.log("\n====  Creating Doughnut");
     const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
-    // Create the permission domain object. Balances::transfer with a constraint for amount = 10
+    // Create the permission topping object. Balances::transfer with a constraint for amount = 10
     const dataTable = [stringConstraint];
     const comp = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 0, 0, false); // RHS is the data table
     const bytecode = new Uint8Array([...comp.encode()]);
@@ -1405,11 +1406,11 @@ describe("Doughnuts", () => {
       },
     ];
 
-    const trnnut = new TRNNut(module);
+    const topping = new Topping(module);
 
-    // Add to trn domain
-    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
-    console.log(`Domain    : ${doughnut.domain(TRN_PERMISSION_DOMAIN)}`);
+    // Add to trn topping
+    doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
+    console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);

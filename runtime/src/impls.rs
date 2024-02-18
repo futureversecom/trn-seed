@@ -57,7 +57,7 @@ use crate::{
 	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
 	UncheckedExtrinsic, EVM,
 };
-use doughnut_rs::TRNNutV0;
+use doughnut_rs::Topping;
 use sp_runtime::traits::{
 	Dispatchable, LookupError, Saturating, StaticLookup, UniqueSaturatedInto,
 };
@@ -874,8 +874,8 @@ where
 pub struct DoughnutCallValidator;
 impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 	type Call = RuntimeCall;
-	type PermissionObject = TRNNutV0;
-	fn check_extrinsic(call: &Self::Call, trnnut: &Self::PermissionObject) -> DispatchResult {
+	type PermissionObject = Topping;
+	fn check_extrinsic(call: &Self::Call, topping: &Self::PermissionObject) -> DispatchResult {
 		// matcher to select the actual call to validate
 		let mut actual_call: Self::Call = call.clone();
 		match &call {
@@ -906,11 +906,11 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 			// Balances
 			RuntimeCall::Balances(pallet_balances::Call::transfer { dest, value }) => {
 				let who = <Runtime as frame_system::Config>::Lookup::lookup(dest.clone())
-					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
 				let destination: [u8; 20] = who.into();
 				let value_u128: u128 = (*value).into();
 
-				trnnut
+				topping
 					.validate_module(
 						pallet_name,
 						function_name,
@@ -920,16 +920,16 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 							PactType::Numeric(Numeric(value_u128 as u64)),
 						],
 					)
-					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
 				Ok(())
 			},
 			RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { dest, value }) => {
 				let who = <Runtime as frame_system::Config>::Lookup::lookup(dest.clone())
-					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
 				let destination: [u8; 20] = who.into();
 				let value_u128: u128 = (*value).into();
 
-				trnnut
+				topping
 					.validate_module(
 						pallet_name,
 						function_name,
@@ -939,34 +939,34 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 							PactType::Numeric(Numeric(value_u128 as u64)),
 						],
 					)
-					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
 				Ok(())
 			},
 			// Futurepass
 			RuntimeCall::Futurepass(pallet_futurepass::Call::create { account }) => {
 				let owner_account: [u8; 20] = (*account).clone().into();
-				trnnut
+				topping
 					.validate_module(
 						pallet_name,
 						function_name,
 						&[PactType::StringLike(StringLike(owner_account.to_vec()))],
 					)
-					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
 				Ok(())
 			},
 			// System
 			RuntimeCall::System(frame_system::Call::remark { remark }) => {
-				trnnut
+				topping
 					.validate_module(
 						pallet_name,
 						function_name,
 						&[PactType::StringLike(StringLike(remark.to_vec()))],
 					)
-					.map_err(|_| pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied)?;
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
 				Ok(())
 			},
 
-			_ => return Err(pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied.into()),
+			_ => return Err(pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied.into()),
 		}
 	}
 }
@@ -1014,7 +1014,7 @@ impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {
 			) =>
 				Ok(()),
 			// All other cases
-			_ => Err(pallet_doughnut::Error::<Runtime>::TRNNutPermissionDenied.into()),
+			_ => Err(pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied.into()),
 		}
 	}
 }

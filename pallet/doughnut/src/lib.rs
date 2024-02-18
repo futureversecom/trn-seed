@@ -29,7 +29,7 @@ use doughnut_rs::{
 	doughnut::Doughnut,
 	signature::{crypto::verify_signature, SignatureVersion},
 	traits::{DoughnutApi, DoughnutVerify},
-	TRNNutV0,
+	Topping,
 };
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
@@ -294,7 +294,7 @@ pub mod pallet {
 		/// Inner call validator
 		type CallValidator: ExtrinsicChecker<
 			Call = <Self as Config>::RuntimeCall,
-			PermissionObject = TRNNutV0,
+			PermissionObject = Topping,
 		>;
 		/// A lookup to get futurepass account id for a futurepass holder.
 		type FuturepassLookup: StaticLookup<Source = H160, Target = H160>
@@ -350,12 +350,12 @@ pub mod pallet {
 		DoughnutRevoked,
 		/// The holder address has been revoked by the issuer
 		HolderRevoked,
-		/// TRNNut decode failed.
-		TRNNutDecodeFailed,
+		/// Topping decode failed.
+		ToppingDecodeFailed,
 		/// Unable to find TRN domain.
 		TRNDomainNotfound,
-		/// TRNNut permissions denied.
-		TRNNutPermissionDenied,
+		/// Topping permissions denied.
+		ToppingPermissionDenied,
 		/// Inner call is not whitelisted
 		UnsupportedInnerCall,
 		/// Holder not whitelisted
@@ -416,15 +416,15 @@ pub mod pallet {
 				Error::<T>::HolderRevoked
 			);
 
-			// permission domain - trnnut validations
-			let Some(trnnut_payload) = doughnut_v1.get_domain(TRN_PERMISSION_DOMAIN) else {
+			// permission domain - topping validations
+			let Some(topping_payload) = doughnut_v1.get_topping(TRN_PERMISSION_DOMAIN) else {
 				return Err(Error::<T>::TRNDomainNotfound)?
 			};
-			let trnnut = TRNNutV0::decode(&mut trnnut_payload.clone())
-				.map_err(|_| Error::<T>::TRNNutDecodeFailed)?;
+			let topping = Topping::decode(&mut topping_payload.clone())
+				.map_err(|_| Error::<T>::ToppingDecodeFailed)?;
 
-			// check trnnut permissions
-			T::CallValidator::check_extrinsic(&(*call), &trnnut)?;
+			// check topping permissions
+			T::CallValidator::check_extrinsic(&(*call), &topping)?;
 
 			// dispatch the inner call
 			let issuer_origin = frame_system::RawOrigin::Signed(issuer_address).into();
