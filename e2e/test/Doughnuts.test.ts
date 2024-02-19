@@ -1618,8 +1618,10 @@ describe("Doughnuts", () => {
 
     // try remark with maintenance mode call blocked
     {
-      await finalizeTx(alith, api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)));
-      await finalizeTx(alith, api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", true)));
+      await finalizeTx(alith, api.tx.utility.batch([
+        api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)),
+        api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", true))
+      ]));
 
       const call = api.tx.system.remark(stringConstraint);
       // Create a call with empty signature to be signed by the holder
