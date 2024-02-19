@@ -2050,49 +2050,6 @@ fn validate_self_contained_inner(
 	}
 }
 
-// fn validate_self_contained_doughnut(
-// 	call: &RuntimeCall,
-// 	doughnut_call: &pallet_doughnut::Call<Runtime>,
-// 	signed_info: &<RuntimeCall as fp_self_contained::SelfContainedCall>::SignedInfo,
-// 	dispatch_info: &DispatchInfoOf<RuntimeCall>,
-// 	len: usize,
-// ) -> TransactionValidity {
-// 	// pass the control to the call. validations
-// 	Ok(doughnut_call.validate_self_contained(signed_info, dispatch_info, len)
-// 		.ok_or(TransactionValidityError::Invalid(InvalidTransaction::BadProof))??)
-// }
-
-// fn handle_doughnut_call(
-// 	call: RuntimeCall,
-// 	info: &<RuntimeCall as fp_self_contained::SelfContainedCall>::SignedInfo,
-// 	dispatch_info: &DispatchInfoOf<RuntimeCall>,
-// 	len: usize,
-// ) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<RuntimeCall>>> {
-//
-// 	// Pre dispatch
-// 	let payemt_mod = pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0_u128);
-// 	let pre = payemt_mod.pre_dispatch(&AccountId20::from(*info), &call, &dispatch_info,
-// len).unwrap(); // TODO - fix it
-//
-// 	// Dispatch
-// 	let origin: RuntimeOrigin = frame_system::RawOrigin::Signed(AccountId::from(*info)).into();
-// 	let res = call.dispatch(origin);
-// 	let post_info = match res {
-// 		Ok(info) => info,
-// 		Err(err) => err.post_info,
-// 	};
-//
-// 	// post dispatch
-// 	pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::post_dispatch(
-// 		Some(pre),
-// 		dispatch_info,
-// 		&post_info,
-// 		len,
-// 		&res.map(|_| ()).map_err(|e| e.error),
-// 	).ok();
-// 	return Some(res)
-// }
-
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
 extern crate frame_benchmarking;

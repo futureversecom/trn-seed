@@ -1,4 +1,4 @@
-// Copyright 2022-2023 Futureverse Corporation Limited
+// Copyright 2023-2024 Futureverse Corporation Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -467,35 +467,6 @@ fn transact_invalid_doughnut_fails() {
 		);
 	});
 }
-
-// TODO: enable this test
-// #[test]
-// fn transact_holder_not_sender_fails() {
-// 	TestExt::<Test>::default().build().execute_with(|| {
-// 		let issuer = ALICE;
-// 		let holder = BOB;
-// 		let topping = make_topping("System", "remark");
-// 		let doughnut = make_doughnut(&holder, &issuer, FeeMode::ISSUER, "trn", topping.encode());
-// 		let doughnut_encoded = doughnut.encode();
-//
-// 		let call: <Test as frame_system::Config>::RuntimeCall =
-// 			frame_system::Call::<Test>::remark { remark: b"Mischief Managed".to_vec() }.into();
-//
-// 		// Attempting to transact the doughnut as a random account should fail
-// 		assert_noop!(
-// 			DoughnutPallet::transact(
-// 				RawOrigin::None.into(),
-// 				Box::new(call),
-// 				doughnut_encoded,
-// 				0,
-// H256::default(),
-// 				0,
-// 				vec![]
-// 			),
-// 			Error::<Test>::UnauthorizedSender
-// 		);
-// 	});
-// }
 
 #[test]
 fn transact_holder_not_signed_doughnut_should_fail() {

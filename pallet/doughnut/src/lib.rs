@@ -1,4 +1,4 @@
-// Copyright 2022-2023 Futureverse Corporation Limited
+// Copyright 2023-2024 Futureverse Corporation Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -541,24 +541,12 @@ where
 }
 
 /// Checks performed on a fee payer of a Doughnut transaction
-pub type DoughnutFeePayerValidations<T> = (
-	// frame_system::CheckNonZeroSender<T>,
-	// frame_system::CheckSpecVersion<Runtime>,
-	// frame_system::CheckTxVersion<Runtime>,
-	// frame_system::CheckGenesis<Runtime>,
-	// frame_system::CheckEra<Runtime>,
-	// frame_system::CheckNonce<T>,
-	pallet_transaction_payment::ChargeTransactionPayment<T>,
-);
+pub type DoughnutFeePayerValidations<T> =
+	(pallet_transaction_payment::ChargeTransactionPayment<T>,);
 
 /// Checks performed on a sender of a Doughnut transaction
 pub type DoughnutSenderValidations<T> = (
 	frame_system::CheckNonZeroSender<T>,
-	// frame_system::CheckSpecVersion<Runtime>,
-	// frame_system::CheckTxVersion<Runtime>,
-	// frame_system::CheckGenesis<Runtime>,
-	// frame_system::CheckEra<Runtime>,
 	frame_system::CheckNonce<T>,
 	frame_system::CheckWeight<T>,
-	// pallet_transaction_payment::ChargeTransactionPayment<T>,
 );
