@@ -1,5 +1,6 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
+import { DispatchError } from "@polkadot/types/interfaces";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { blake256 } from "codechain-primitives";
@@ -30,7 +31,7 @@ describe("XRPL pallet", () => {
   after(async () => await node.stop());
 
   // NOTE: use this test to generate a valid xaman tx (msg + signature) for mock runtime tests
-  it.only("debug tx message and signature", async () => {
+  it.skip("debug tx message and signature", async () => {
     // const user = Wallet.createRandom();
     const publicKey = computePublicKey(alith.publicKey, true);
     // console.log(hexToU8a(publicKey));
@@ -807,6 +808,115 @@ describe("XRPL pallet", () => {
       ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0,
     );
     expect(assetFPBalanceAfter).to.be.lessThan(assetFPBalanceBefore);
+  });
+
+  it("complies with maintenance mode call filter", async () => {
+    const user = Wallet.createRandom();
+    const publicKey = computePublicKey(user.publicKey, true);
+
+    await finalizeTx(
+      alith,
+      api.tx.utility.batch([
+        // fund the user account to pay for tx fees
+        api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 2_000_000),
+        // block system pallet using maintenance mode
+        api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", true)),
+      ]),
+    );
+
+    const extrinsic = api.tx.system.remark("hello world");
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+
+    // try remark with maintenance mode pallet blocked
+    {
+      const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
+      const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
+
+      const xamanJsonTx = {
+        AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
+        SigningPubKey: publicKey.slice(2),
+        Account: deriveAddress(publicKey.slice(2)),
+        Memos: [
+          {
+            Memo: {
+              MemoType: stringToHex("extrinsic"),
+              MemoData: stringToHex(`${genesisHash}:${nonce}:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
+            },
+          },
+        ],
+      };
+
+      // sign xaman tx
+      const message = encode(xamanJsonTx);
+      const encodedSigningMessage = encodeForSigning(xamanJsonTx);
+      const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
+
+      // execute xaman tx extrinsic
+      const dispatchError = await new Promise<DispatchError>(async (resolve) => {
+        await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).send(({ status, dispatchError }) => {
+          if (!status.isFinalized) return;
+          if (dispatchError === undefined) return;
+          resolve(dispatchError);
+        });
+      });
+      const { section, name } = dispatchError.registry.findMetaError(dispatchError.asModule);
+      expect(section).to.equal("xrpl");
+      expect(name).to.equal("CallFiltered");
+    }
+
+    // try remark with maintenance mode call blocked
+    {
+      await finalizeTx(
+        alith,
+        api.tx.utility.batch([
+          api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)),
+          api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", true)),
+        ]),
+      );
+
+      const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
+      const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
+
+      const xamanJsonTx = {
+        AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
+        SigningPubKey: publicKey.slice(2),
+        Account: deriveAddress(publicKey.slice(2)),
+        Memos: [
+          {
+            Memo: {
+              MemoType: stringToHex("extrinsic"),
+              MemoData: stringToHex(`${genesisHash}:${nonce}:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
+            },
+          },
+        ],
+      };
+
+      // sign xaman tx
+      const message = encode(xamanJsonTx);
+      const encodedSigningMessage = encodeForSigning(xamanJsonTx);
+      const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
+
+      // execute xaman tx extrinsic
+      const dispatchError = await new Promise<DispatchError>(async (resolve) => {
+        await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).send(({ status, dispatchError }) => {
+          if (!status.isFinalized) return;
+          if (dispatchError === undefined) return;
+          resolve(dispatchError);
+        });
+      });
+      const { section, name } = dispatchError.registry.findMetaError(dispatchError.asModule);
+      expect(section).to.equal("xrpl");
+      expect(name).to.equal("CallFiltered");
+    }
+
+    // disable maintenance mode
+    await finalizeTx(
+      alith,
+      api.tx.utility.batch([
+        api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)),
+        api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", false)),
+      ]),
+    );
   });
 
   it("fails futurepass proxy-extrinsic if user does not have futurepass", async () => {

@@ -126,6 +126,8 @@ pub mod pallet {
 		/// Futurepass proxy extrinsic inner call blacklist validator
 		type BlacklistedCallValidator: ExtrinsicChecker<
 			Call = <Self as pallet::Config>::RuntimeCall,
+			Extra = (),
+			Result = bool,
 		>;
 
 		/// Allowed origins to ease transition to council governance
@@ -522,7 +524,7 @@ pub mod pallet {
 
 			// disallow blacklisted extrinsics
 			ensure!(
-				!<T as pallet::Config>::BlacklistedCallValidator::check_extrinsic(&call),
+				!<T as pallet::Config>::BlacklistedCallValidator::check_extrinsic(&call, &()),
 				Error::<T>::BlacklistedExtrinsic,
 			);
 

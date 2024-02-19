@@ -87,8 +87,16 @@ impl StaticLookup for FuturepassIdentityLookup {
 }
 impl seed_pallet_common::ExtrinsicChecker for FuturepassIdentityLookup {
 	type Call = RuntimeCall;
-	fn check_extrinsic(_call: &Self::Call) -> bool {
+	fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
 		false
+	}
+}
+
+pub struct ValidatedCall;
+impl seed_pallet_common::ExtrinsicChecker for ValidatedCall {
+	type Call = RuntimeCall;
+	fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+		true
 	}
 }
 
@@ -99,6 +107,7 @@ parameter_types! {
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type CallValidator = ValidatedCall;
 	type FuturepassLookup = FuturepassIdentityLookup;
 	type PalletsOrigin = OriginCaller;
 	type ChainId = ();

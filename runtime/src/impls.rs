@@ -51,7 +51,7 @@ use precompile_utils::{
 use seed_pallet_common::{
 	utils::{scale_decimals_to_wei, scale_wei_to_correct_decimals},
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
-	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
+	EventRouterResult, FinalSessionTracker, MaintenanceCheck, OnNewAssetSubscriber,
 };
 use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
@@ -460,6 +460,14 @@ where
 	}
 }
 
+pub struct MaintenanceModeCallValidator;
+impl seed_pallet_common::ExtrinsicChecker for MaintenanceModeCallValidator {
+	type Call = RuntimeCall;
+	fn check_extrinsic(call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+		!pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(&call)
+	}
+}
+
 pub struct FuturepassLookup;
 impl StaticLookup for FuturepassLookup {
 	type Source = H160;
@@ -484,7 +492,7 @@ impl StaticLookup for FuturepassLookup {
 }
 impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {
 	type Call = <Runtime as frame_system::Config>::RuntimeCall;
-	fn check_extrinsic(call: &Self::Call) -> bool {
+	fn check_extrinsic(call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
 		match call {
 			// Check for direct Futurepass proxy_extrinsic call
 			RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. }) => true,
@@ -505,7 +513,7 @@ impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {
 pub struct FuturepassCallValidator;
 impl seed_pallet_common::ExtrinsicChecker for FuturepassCallValidator {
 	type Call = <Runtime as frame_system::Config>::RuntimeCall;
-	fn check_extrinsic(call: &Self::Call) -> bool {
+	fn check_extrinsic(call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
 		matches!(call, RuntimeCall::Xrpl(pallet_xrpl::Call::transact { .. }))
 	}
 }

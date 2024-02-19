@@ -221,7 +221,7 @@ parameter_types! {
 pub struct MockFuturepassCallValidator;
 impl seed_pallet_common::ExtrinsicChecker for MockFuturepassCallValidator {
 	type Call = RuntimeCall;
-	fn check_extrinsic(_call: &Self::Call) -> bool {
+	fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
 		false
 	}
 }

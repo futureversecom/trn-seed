@@ -605,6 +605,7 @@ parameter_types! {
 impl pallet_xrpl::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type CallValidator = impls::MaintenanceModeCallValidator;
 	type FuturepassLookup = impls::FuturepassLookup;
 	type PalletsOrigin = OriginCaller;
 	type ChainId = EVMChainId;

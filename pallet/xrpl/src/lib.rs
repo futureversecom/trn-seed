@@ -107,7 +107,7 @@ impl<T> Call<T>
 				})?;
 
 				// check if the origin is a futurepass holder, to switch the caller to the futurepass
-				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call) {
+				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call, &()) {
 					if let Ok(futurepass) = <T as pallet::Config>::FuturepassLookup::lookup(origin) {
 						return Ok(futurepass);
 					}
@@ -166,7 +166,7 @@ impl<T> Call<T>
 			SignedExtension::validate(&validations, &tx_origin, &(*call.clone()).into(), dispatch_info, len).ok()?;
 
 			// validate signed extensions using EOA - for futurepass based transactions
-			if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call) {
+			if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call, &()) {
 				// this implies that the origin is futurepass address; we need to get the EOA associated with it
 				let eoa = <T as pallet::Config>::FuturepassLookup::unlookup(*origin);
 				if eoa == H160::zero() {
@@ -232,7 +232,7 @@ impl<T> Call<T>
 			let pre = SignedExtension::pre_dispatch(validations, &tx_origin, &(*call.clone()).into(), dispatch_info, len).ok()?;
 
 			// Pre Dispatch - execute signed extensions with EOA - for futurepass based transactions
-			if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call) {
+			if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call, &()) {
 				// this implies that the origin is futurepass address; we need to get the EOA associated with it
 				let eoa = <T as pallet::Config>::FuturepassLookup::unlookup(*info);
 				if eoa == H160::zero() {
@@ -340,7 +340,11 @@ pub mod pallet {
 		/// A lookup to get futurepass account id for a futurepass holder.
 		/// Additionally validates if a call is a futurepass extrinsic.
 		type FuturepassLookup: StaticLookup<Source = H160, Target = H160>
-			+ ExtrinsicChecker<Call = <Self as pallet::Config>::RuntimeCall>;
+			+ ExtrinsicChecker<
+				Call = <Self as pallet::Config>::RuntimeCall,
+				Extra = (),
+				Result = bool,
+			>;
 
 		/// The aggregated and decodable `RuntimeCall` type.
 		type RuntimeCall: Parameter
@@ -349,6 +353,13 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>
 			// + IsType<<Self as frame_system::Config>::RuntimeCall>
 			+ IsSubType<Call<Self>>;
+
+		/// Inner call validator
+		type CallValidator: ExtrinsicChecker<
+			Call = <Self as Config>::RuntimeCall,
+			Extra = (),
+			Result = bool,
+		>;
 
 		/// The caller origin, overarching type of all pallets origins.
 		type PalletsOrigin: Parameter
@@ -376,6 +387,8 @@ pub mod pallet {
 		XRPLTransaction,
 		/// Failed to get account from XRPL transaction
 		XRPLTransactionAccount,
+		/// Call filtered
+		CallFiltered,
 	}
 
 	#[pallet::event]
@@ -425,6 +438,11 @@ pub mod pallet {
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
+
+			// validate the inner call
+			if !T::CallValidator::check_extrinsic(&call, &()) {
+				return Err(Error::<T>::CallFiltered.into())
+			}
 
 			let tx: XRPLTransaction = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
 				.map_err(|e| {
