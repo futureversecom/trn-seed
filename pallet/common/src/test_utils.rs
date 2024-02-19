@@ -131,7 +131,7 @@ macro_rules! impl_frame_system_config {
 			type BlockLength = ();
 			type BaseCallFilter = frame_support::traits::Everything;
 			type RuntimeOrigin = RuntimeOrigin;
-			type Index = u64;
+			type Index = u32;
 			type BlockNumber = BlockNumber;
 			type RuntimeCall = RuntimeCall;
 			type Hash = H256;
@@ -648,10 +648,19 @@ macro_rules! impl_pallet_futurepass_config {
 			}
 		}
 
+		pub struct MockFuturepassCallValidator;
+		impl seed_pallet_common::ExtrinsicChecker for MockFuturepassCallValidator {
+			type Call = RuntimeCall;
+			fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+				false
+			}
+		}
+
 		impl pallet_futurepass::Config for $test {
 			type RuntimeEvent = RuntimeEvent;
 			type Proxy = MockProxyProvider;
 			type RuntimeCall = RuntimeCall;
+			type BlacklistedCallValidator = MockFuturepassCallValidator;
 			type ApproveOrigin = EnsureRoot<AccountId>;
 			type ProxyType = ProxyType;
 			type WeightInfo = ();

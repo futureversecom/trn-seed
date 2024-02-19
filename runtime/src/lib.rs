@@ -598,6 +598,23 @@ impl pallet_xrpl_bridge::Config for Runtime {
 }
 
 parameter_types! {
+	pub const MaxMessageLength: u32 = 2048;
+	pub const MaxSignatureLength: u32 = 80;
+}
+
+impl pallet_xrpl::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type CallValidator = impls::MaintenanceModeCallValidator;
+	type FuturepassLookup = impls::FuturepassLookup;
+	type PalletsOrigin = OriginCaller;
+	type ChainId = EVMChainId;
+	type MaxMessageLength = MaxMessageLength;
+	type MaxSignatureLength = MaxSignatureLength;
+	type WeightInfo = weights::pallet_xrpl::WeightInfo<Runtime>;
+}
+
+parameter_types! {
 	pub const GetExchangeFee: (u32, u32) = (3, 1000);	// 0.3%
 	pub const TradingPathLimit: u32 = 3;
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burn/dex");
@@ -1209,6 +1226,7 @@ impl pallet_futurepass::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Proxy = impls::ProxyPalletProvider;
 	type RuntimeCall = RuntimeCall;
+	type BlacklistedCallValidator = impls::FuturepassCallValidator;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
 	type FuturepassMigrator = impls::FuturepassMigrationProvider;
@@ -1297,6 +1315,7 @@ construct_runtime! {
 		Nft: pallet_nft = 17,
 		Sft: pallet_sft = 43,
 		XRPLBridge: pallet_xrpl_bridge = 18,
+		Xrpl: pallet_xrpl = 35,
 		TokenApprovals: pallet_token_approvals = 19,
 		Historical: pallet_session::historical = 20,
 		Echo: pallet_echo = 21,
@@ -1933,6 +1952,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	fn is_self_contained(&self) -> bool {
 		match self {
 			RuntimeCall::Ethereum(call) => call.is_self_contained(),
+			RuntimeCall::Xrpl(call) => call.is_self_contained(),
 			_ => false,
 		}
 	}
@@ -1940,6 +1960,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	fn check_self_contained(&self) -> Option<Result<Self::SignedInfo, TransactionValidityError>> {
 		match self {
 			RuntimeCall::Ethereum(call) => call.check_self_contained(),
+			RuntimeCall::Xrpl(call) => call.check_self_contained(),
 			_ => None,
 		}
 	}
@@ -1953,6 +1974,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		match self {
 			RuntimeCall::Ethereum(ref call) =>
 				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len)),
+			RuntimeCall::Xrpl(ref call) =>
+				call.validate_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
 	}
@@ -1966,6 +1989,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		match self {
 			RuntimeCall::Ethereum(call) =>
 				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::Xrpl(ref call) =>
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
 	}
@@ -1973,14 +1998,20 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	fn apply_self_contained(
 		self,
 		info: Self::SignedInfo,
-		_dispatch_info: &DispatchInfoOf<Self>,
-		_len: usize,
+		dispatch_info: &DispatchInfoOf<Self>,
+		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
 		match self {
 			call @ RuntimeCall::Ethereum(pallet_ethereum::Call::transact { .. }) =>
 				Some(call.dispatch(RuntimeOrigin::from(
 					pallet_ethereum::RawOrigin::EthereumTransaction(info),
 				))),
+			RuntimeCall::Xrpl(call) => pallet_xrpl::Call::<Runtime>::apply_self_contained(
+				call.into(),
+				&info,
+				&dispatch_info,
+				len,
+			),
 			_ => None,
 		}
 	}
@@ -2061,6 +2092,7 @@ mod benches {
 		[pallet_fee_control, FeeControl]
 		[pallet_nft_peg, NftPeg]
 		[pallet_xrpl_bridge, XRPLBridge]
+		[pallet_xrpl, Xrpl]
 		[pallet_erc20_peg, Erc20Peg]
 		[pallet_echo, Echo]
 		[pallet_assets_ext, AssetsExt]

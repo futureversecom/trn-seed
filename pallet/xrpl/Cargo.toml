@@ -1,10 +1,10 @@
 [package]
-name = "pallet-futurepass"
+name = "pallet-xrpl"
 version = "1.0.0-dev"
 authors = ["The Root Network Team"]
 edition = "2021"
-license = "Apache-2.0"
-description = "FuturePass"
+license = "GPL-3.0"
+description = "XRPL Pallet"
 repository = "https://github.com/futureversecom/trn-seed"
 
 [package.metadata.docs.rs]
@@ -22,42 +22,36 @@ sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
+pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 
 # Benchmarking
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", optional = true, default-features = false }
 
 # Custom
 log = "0.4"
-serde = { version = "1.0.145", features = ["derive"], optional = true }
 hex = { version = "0.4.3", default-features = false }
-hex-literal = { version = "0.3.4", default-features = false }
+sha2 = { version = "0.10", default-features = false }
+libsecp256k1 = { version = "0.7", default-features = false, features = [ "hmac" ] }
+serde = { version = "1.0.145", default-features= false, features = ["derive"] }
+serde_json = { version = "1.0.87", default-features = false, features = ["alloc"] }
+xrpl_types = { git = "https://github.com/futureversecom/xrpl-sdk-rust", branch = "once-cell-support", default-features = false }
+xrpl_binary_codec = { git = "https://github.com/futureversecom/xrpl-sdk-rust", branch = "once-cell-support", default-features = false, features = ["json"] }
 seed-pallet-common = { path = "../common", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
 precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
 
 [dev-dependencies]
-fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
-seed-runtime = { path = "../../runtime" }
-
-seed-pallet-common= { path = "../common" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-proxy = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+fp-self-contained = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
+seed-pallet-common= { path = "../common" }
 pallet-assets-ext = { path = "../assets-ext" }
 pallet-fee-control = { path = "../fee-control" }
-pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-fee-proxy = { path = "../fee-proxy" }
-pallet-dex = { path = "../dex" }
-pallet-nft = { path = "../nft" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
-hex-literal = { version = "0.3.4" }
-
 
 [features]
 default = ["std"]
 std = [
-	"serde",
 	# Parity
 	"codec/std",
 	"scale-info/std",
@@ -67,14 +61,15 @@ std = [
 	"sp-core/std",
 	"sp-std/std",
 	"sp-runtime/std",
+	"pallet-transaction-payment/std",
 	# Custom
 	"hex/std",
+	"libsecp256k1/std",
+	"serde/std",
+	"serde_json/std",
 	"seed-pallet-common/std",
 	"seed-primitives/std",
-	"pallet-assets/std",
-	"pallet-balances/std",
 	"precompile-utils/std",
-	"fp-evm/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
 runtime-benchmarks = ["frame-benchmarking"]
