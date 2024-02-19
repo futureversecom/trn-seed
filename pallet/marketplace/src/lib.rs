@@ -480,13 +480,13 @@ pub mod pallet {
 
 		/// Deprecated, use `auction` instead
 		/// Auction a bundle of tokens on the open market to the highest bidder
+		///
 		/// - Tokens must be from the same collection
 		/// - Tokens with individual royalties schedules cannot be sold in bundles
-		///
-		/// Caller must be the token owner
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
+		/// Caller must be the token owner
 		#[pallet::weight({
 			T::WeightInfo::auction_nft(serial_numbers.len() as u32)
 		})]
