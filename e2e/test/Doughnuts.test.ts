@@ -4,12 +4,11 @@ import { KeyringPair } from "@polkadot/keyring/types";
 import { DispatchError } from "@polkadot/types/interfaces";
 import { hexToU8a, u8aToHex } from "@polkadot/util";
 import { blake2AsHex } from "@polkadot/util-crypto";
+import { Doughnut, PayloadVersion, SignatureVersion, Topping } from "@therootnetwork/doughnut-nodejs";
 import { OpCodeComparator, OpComp, OpLoad, Pact } from "@therootnetwork/pact-nodejs";
 import { expect } from "chai";
 import { Wallet } from "ethers";
 
-// import { Doughnut, PayloadVersion, SignatureVersion, Topping } from "@therootnetwork/doughnut-nodejs";
-import { Doughnut, PayloadVersion, SignatureVersion, Topping } from "../../../../trn-doughnut-rs/js/doughnut-nodejs";
 import {
   ALICE_PRIVATE_KEY,
   ALITH_PRIVATE_KEY,
@@ -1632,6 +1631,7 @@ describe("Doughnuts", () => {
     const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
     const stringConstraint = "boo";
     let nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const genesis_hash = await api.rpc.chain.getBlockHash(0);
     const tip = 0;
     const version = 1;
     const issuerPubkey = alice.publicKey;
@@ -1667,10 +1667,10 @@ describe("Doughnuts", () => {
       },
     ];
 
-    const trnnut = new TRNNut(module);
+    const topping = new Topping(module);
 
     // Add to trn domain
-    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
+    doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -1695,7 +1695,7 @@ describe("Doughnuts", () => {
       const call = api.tx.system.remark(stringConstraint);
       // Create a call with empty signature to be signed by the holder
       nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
       // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
       const txU8a = tx.toU8a(true).slice(2);
       const txHex = u8aToHex(txU8a);
@@ -1706,19 +1706,14 @@ describe("Doughnuts", () => {
 
       // Execute the transact call with.send
       const dispatchError = await new Promise<DispatchError>((resolve, _reject) => {
-        api.tx.doughnut
-            .transact(call, doughnutHex, nonce, tip, holderSig)
-            .send((result) => {
-              const { status, dispatchError } =
-                  result as SubmittableResultValue;
-              if (!status.isFinalized) return;
-              if (dispatchError === undefined) return;
-              resolve(dispatchError);
-            })
+        api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig).send((result) => {
+          const { status, dispatchError } = result as SubmittableResultValue;
+          if (!status.isFinalized) return;
+          if (dispatchError === undefined) return;
+          resolve(dispatchError);
+        });
       });
-      const { section, name } = dispatchError.registry.findMetaError(
-          dispatchError.asModule
-      );
+      const { section, name } = dispatchError.registry.findMetaError(dispatchError.asModule);
 
       expect(section).to.equal("system");
       expect(name).to.equal("CallFiltered");
@@ -1726,15 +1721,18 @@ describe("Doughnuts", () => {
 
     // try remark with maintenance mode call blocked
     {
-      await finalizeTx(alith, api.tx.utility.batch([
-        api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)),
-        api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", true))
-      ]));
+      await finalizeTx(
+        alith,
+        api.tx.utility.batch([
+          api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)),
+          api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", true)),
+        ]),
+      );
 
       const call = api.tx.system.remark(stringConstraint);
       // Create a call with empty signature to be signed by the holder
       nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
       // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
       const txU8a = tx.toU8a(true).slice(2);
       const txHex = u8aToHex(txU8a);
@@ -1745,28 +1743,26 @@ describe("Doughnuts", () => {
 
       // Execute the transact call with.send
       const dispatchError = await new Promise<DispatchError>((resolve, _reject) => {
-        api.tx.doughnut
-            .transact(call, doughnutHex, nonce, tip, holderSig)
-            .send((result) => {
-              const { status, dispatchError } =
-                  result as SubmittableResultValue;
-              if (!status.isFinalized) return;
-              if (dispatchError === undefined) return;
-              resolve(dispatchError);
-            })
+        api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig).send((result) => {
+          const { status, dispatchError } = result as SubmittableResultValue;
+          if (!status.isFinalized) return;
+          if (dispatchError === undefined) return;
+          resolve(dispatchError);
+        });
       });
-      const { section, name } = dispatchError.registry.findMetaError(
-          dispatchError.asModule
-      );
+      const { section, name } = dispatchError.registry.findMetaError(dispatchError.asModule);
 
       expect(section).to.equal("system");
       expect(name).to.equal("CallFiltered");
     }
 
     // Disable maintenance mode
-    await finalizeTx(alith, api.tx.utility.batch([
-      api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)),
-      api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", false))
-    ]));
+    await finalizeTx(
+      alith,
+      api.tx.utility.batch([
+        api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)),
+        api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", false)),
+      ]),
+    );
   });
 });

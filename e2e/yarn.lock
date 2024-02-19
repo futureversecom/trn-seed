@@ -1446,10 +1446,10 @@
   dependencies:
     defer-to-connect "^2.0.1"
 
-"@therootnetwork/doughnut-nodejs@^0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@therootnetwork/doughnut-nodejs/-/doughnut-nodejs-0.1.0.tgz#2db6aeb095fcbb362968255002ea3e90fc387605"
-  integrity sha512-tywiMUpXakaQmbZWVwwxY3VomT9gJJUmXSF+MEKJ4MeWw9hoBc5N/q32xF2Tg9QzuXT7Zs89HvA+f7ZkrorGpg==
+"@therootnetwork/doughnut-nodejs@^0.1.1":
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/@therootnetwork/doughnut-nodejs/-/doughnut-nodejs-0.1.1.tgz#a22c9ded2a09bd097c69507f417467131086606b"
+  integrity sha512-F89BvmcIyFXk+x6RPGx6x8qQ43gksuMwwnkT6gIVvEn7bTPFaEmHiSE4KQts+9N05ofgm2lNakdXUNvyD4pp+A==
 
 "@therootnetwork/pact-nodejs@^0.0.1":
   version "0.0.1"
