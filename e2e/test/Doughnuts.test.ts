@@ -1,5 +1,7 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
+import { SubmittableResultValue } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
+import { DispatchError } from "@polkadot/types/interfaces";
 import { hexToU8a, u8aToHex } from "@polkadot/util";
 import { blake2AsHex } from "@polkadot/util-crypto";
 import { OpCodeComparator, OpComp, OpLoad, Pact } from "@therootnetwork/pact-nodejs";
@@ -1623,5 +1625,148 @@ describe("Doughnuts", () => {
           console.log(err);
         });
     }
+  });
+
+  it("doughnut - System::remark with maintenance mode call filter", async () => {
+    const holderPrivateKey = Wallet.createRandom().privateKey;
+    const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
+    const stringConstraint = "boo";
+    let nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const tip = 0;
+    const version = 1;
+    const issuerPubkey = alice.publicKey;
+    const holderPubkey = holder.publicKey;
+    const feeMode = 0;
+    const expiry = 100000;
+    const notBefore = 0;
+
+    // Whitelist holder
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
+
+    // Create doughnut
+    const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
+    // Create the permission domain object. Balances::transfer with a constraint for amount = 10
+    const dataTable = [stringConstraint];
+    const comp = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 0, 0, false); // RHS is the data table
+    const bytecode = new Uint8Array([...comp.encode()]);
+    const pactContract = new Pact(dataTable, bytecode);
+    const pactEncoded = pactContract.encode();
+    // console.log(pactEncoded);
+
+    const module = [
+      {
+        name: "System",
+        block_cooldown: 0,
+        methods: [
+          {
+            name: "remark",
+            block_cooldown: 0,
+            constraints: [...pactEncoded],
+          },
+        ],
+      },
+    ];
+
+    const trnnut = new TRNNut(module);
+
+    // Add to trn domain
+    doughnut.addDomain(TRN_PERMISSION_DOMAIN, trnnut.encode());
+
+    // Sign the doughnut
+    const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
+    const ethHash = blake2AsHex(doughnut.payload());
+    const ethSlice = Buffer.from(ethHash.slice(2), "hex");
+    const issuerSig = await aliceWallet.signMessage(ethSlice);
+    const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
+    doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
+
+    // Verify that the doughnut is valid
+    const verified = doughnut.verify(holderPubkey, 5);
+    expect(verified).to.be.equal(true);
+
+    // Encode the doughnut
+    const encodedDoughnut = doughnut.encode();
+    const doughnutHex = u8aToHex(encodedDoughnut);
+
+    // try remark with maintenance mode pallet blocked
+    {
+      await finalizeTx(alith, api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", true)));
+
+      const call = api.tx.system.remark(stringConstraint);
+      // Create a call with empty signature to be signed by the holder
+      nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+      // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
+      const txU8a = tx.toU8a(true).slice(2);
+      const txHex = u8aToHex(txU8a);
+      const holderWallet = await new Wallet(holderPrivateKey);
+      const txHash = blake2AsHex(txHex);
+      const txSlice = Buffer.from(txHash.slice(2), "hex");
+      const holderSig = await holderWallet.signMessage(txSlice);
+
+      // Execute the transact call with.send
+      const dispatchError = await new Promise<DispatchError>((resolve, _reject) => {
+        api.tx.doughnut
+            .transact(call, doughnutHex, nonce, tip, holderSig)
+            .send((result) => {
+              const { status, dispatchError } =
+                  result as SubmittableResultValue;
+              if (!status.isFinalized) return;
+              if (dispatchError === undefined) return;
+              resolve(dispatchError);
+            })
+      });
+      const { section, name } = dispatchError.registry.findMetaError(
+          dispatchError.asModule
+      );
+
+      expect(section).to.equal("system");
+      expect(name).to.equal("CallFiltered");
+    }
+
+    // try remark with maintenance mode call blocked
+    {
+      await finalizeTx(alith, api.tx.utility.batch([
+        api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)),
+        api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", true))
+      ]));
+
+      const call = api.tx.system.remark(stringConstraint);
+      // Create a call with empty signature to be signed by the holder
+      nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+      // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
+      const txU8a = tx.toU8a(true).slice(2);
+      const txHex = u8aToHex(txU8a);
+      const holderWallet = await new Wallet(holderPrivateKey);
+      const txHash = blake2AsHex(txHex);
+      const txSlice = Buffer.from(txHash.slice(2), "hex");
+      const holderSig = await holderWallet.signMessage(txSlice);
+
+      // Execute the transact call with.send
+      const dispatchError = await new Promise<DispatchError>((resolve, _reject) => {
+        api.tx.doughnut
+            .transact(call, doughnutHex, nonce, tip, holderSig)
+            .send((result) => {
+              const { status, dispatchError } =
+                  result as SubmittableResultValue;
+              if (!status.isFinalized) return;
+              if (dispatchError === undefined) return;
+              resolve(dispatchError);
+            })
+      });
+      const { section, name } = dispatchError.registry.findMetaError(
+          dispatchError.asModule
+      );
+
+      expect(section).to.equal("system");
+      expect(name).to.equal("CallFiltered");
+    }
+
+    // Disable maintenance mode
+    await finalizeTx(alith, api.tx.utility.batch([
+      api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)),
+      api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", false))
+    ]));
   });
 });

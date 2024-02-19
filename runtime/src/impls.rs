@@ -49,7 +49,7 @@ use precompile_utils::{
 use seed_pallet_common::{
 	utils::{scale_decimals_to_wei, scale_wei_to_correct_decimals},
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
-	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
+	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber, MaintenanceCheck,
 };
 use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
@@ -898,6 +898,10 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 				}
 			},
 			_ => actual_call = call.clone(),
+		}
+
+		if pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(&actual_call) {
+			return Err(frame_system::Error::<Runtime>::CallFiltered.into())
 		}
 
 		let CallMetadata { function_name, pallet_name } = actual_call.get_call_metadata();
