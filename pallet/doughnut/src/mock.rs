@@ -168,8 +168,9 @@ pub struct MockDoughnutCallValidator;
 
 impl ExtrinsicChecker for MockDoughnutCallValidator {
 	type Call = RuntimeCall;
-	type PermissionObject = Topping;
-	fn check_extrinsic(_call: &Self::Call, _topping: &Self::PermissionObject) -> DispatchResult {
+	type Extra = Topping;
+	type Result = DispatchResult;
+	fn check_extrinsic(_call: &Self::Call, _topping: &Self::Extra) -> DispatchResult {
 		Ok(())
 	}
 }
@@ -187,11 +188,9 @@ impl StaticLookup for FuturepassIdentityLookup {
 }
 impl ExtrinsicChecker for FuturepassIdentityLookup {
 	type Call = RuntimeCall;
-	type PermissionObject = ();
-	fn check_extrinsic(
-		_call: &Self::Call,
-		_permissioned_object: &Self::PermissionObject,
-	) -> DispatchResult {
+	type Extra = ();
+	type Result = DispatchResult;
+	fn check_extrinsic(_call: &Self::Call, _permissioned_object: &Self::Extra) -> DispatchResult {
 		Ok(())
 	}
 }

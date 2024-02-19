@@ -311,11 +311,16 @@ pub mod pallet {
 		/// Inner call validator
 		type CallValidator: ExtrinsicChecker<
 			Call = <Self as Config>::RuntimeCall,
-			PermissionObject = Topping,
+			Extra = Topping,
+			Result = DispatchResult,
 		>;
 		/// A lookup to get futurepass account id for a futurepass holder.
 		type FuturepassLookup: StaticLookup<Source = H160, Target = H160>
-			+ ExtrinsicChecker<Call = <Self as Config>::RuntimeCall, PermissionObject = ()>;
+			+ ExtrinsicChecker<
+				Call = <Self as Config>::RuntimeCall,
+				Extra = (),
+				Result = DispatchResult,
+			>;
 		/// Weight information for the extrinsic call in this module.
 		type WeightInfo: WeightInfo;
 	}

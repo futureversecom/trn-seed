@@ -874,8 +874,9 @@ where
 pub struct DoughnutCallValidator;
 impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 	type Call = RuntimeCall;
-	type PermissionObject = Topping;
-	fn check_extrinsic(call: &Self::Call, topping: &Self::PermissionObject) -> DispatchResult {
+	type Extra = Topping;
+	type Result = DispatchResult;
+	fn check_extrinsic(call: &Self::Call, topping: &Self::Extra) -> DispatchResult {
 		// matcher to select the actual call to validate
 		let mut actual_call: Self::Call = call.clone();
 		match &call {
@@ -999,12 +1000,10 @@ impl StaticLookup for FuturepassLookup {
 }
 impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {
 	type Call = <Runtime as frame_system::Config>::RuntimeCall;
-	type PermissionObject = ();
+	type Extra = ();
+	type Result = DispatchResult;
 
-	fn check_extrinsic(
-		call: &Self::Call,
-		_permission_object: &Self::PermissionObject,
-	) -> DispatchResult {
+	fn check_extrinsic(call: &Self::Call, _permission_object: &Self::Extra) -> DispatchResult {
 		match call {
 			// Check for direct Futurepass proxy_extrinsic call
 			RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. }) => Ok(()),
