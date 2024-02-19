@@ -25,7 +25,7 @@ describe("XRPL pallet", () => {
     const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     alith = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
-    genesisHash = (await api.rpc.chain.getBlockHash(0)).toHex().slice(2);
+    genesisHash = api.genesisHash.toHex().slice(2);
   });
 
   after(async () => await node.stop());
