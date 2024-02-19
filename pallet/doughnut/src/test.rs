@@ -372,6 +372,7 @@ fn transact_works() {
 				Box::new(call),
 				doughnut_encoded,
 				0,
+				H256::default(),
 				0,
 				vec![]
 			));
@@ -428,6 +429,7 @@ fn transact_works_eip191() {
 				Box::new(call),
 				doughnut_encoded,
 				0,
+				H256::default(),
 				0,
 				vec![]
 			));
@@ -457,6 +459,7 @@ fn transact_invalid_doughnut_fails() {
 				Box::new(call),
 				vec![], // Invalid doughnut
 				0,
+				H256::default(),
 				0,
 				vec![]
 			),
@@ -485,6 +488,7 @@ fn transact_invalid_doughnut_fails() {
 // 				Box::new(call),
 // 				doughnut_encoded,
 // 				0,
+// H256::default(),
 // 				0,
 // 				vec![]
 // 			),
@@ -527,6 +531,7 @@ fn transact_holder_not_signed_doughnut_should_fail() {
 				Box::new(call),
 				doughnut_encoded,
 				0,
+				H256::default(),
 				0,
 				vec![]
 			),
@@ -573,6 +578,7 @@ fn revoke_doughnut_works() {
 				Box::new(call.clone()),
 				doughnut_encoded.clone(),
 				0,
+				H256::default(),
 				0,
 				vec![]
 			),
@@ -593,6 +599,7 @@ fn revoke_doughnut_works() {
 			Box::new(call),
 			doughnut_encoded,
 			0,
+			H256::default(),
 			0,
 			vec![]
 		));
@@ -666,6 +673,7 @@ fn revoke_holder_works() {
 				Box::new(call.clone()),
 				doughnut_encoded.clone(),
 				0,
+				H256::default(),
 				0,
 				vec![]
 			),
@@ -686,6 +694,7 @@ fn revoke_holder_works() {
 			Box::new(call),
 			doughnut_encoded,
 			0,
+			H256::default(),
 			0,
 			vec![]
 		));
@@ -726,6 +735,7 @@ fn generate_alice_to_bob_outer_signature() {
 				call: Box::new(call),
 				doughnut: doughnut_encoded.clone(),
 				nonce: 0,
+				genesis_hash: H256::default(),
 				tip: 0,
 				signature: vec![],
 			};
@@ -770,6 +780,7 @@ fn generate_alice_to_bob_outer_signature_for_system_remark_for_benchmark() {
 				call: Box::new(call),
 				doughnut: doughnut_encoded.clone(),
 				nonce: 0,
+				genesis_hash: H256::default(),
 				tip: 0,
 				signature: vec![],
 			};
@@ -818,6 +829,7 @@ fn generate_alice_to_bob_outer_signature_for_balances_transfer_keep_alive() {
 				call: Box::new(call),
 				doughnut: doughnut_encoded.clone(),
 				nonce: 0,
+				genesis_hash: H256::default(),
 				tip: 0,
 				signature: vec![],
 			};
@@ -867,6 +879,7 @@ fn signed_extension_validations_succeed() {
 				call: Box::new(call.clone()),
 				doughnut: doughnut_encoded.clone(),
 				nonce,
+				genesis_hash: H256::default(),
 				tip: 0,
 				signature: vec![],
 			};
@@ -878,6 +891,7 @@ fn signed_extension_validations_succeed() {
 					call: Box::new(call.clone()),
 					doughnut: doughnut_encoded,
 					nonce,
+					genesis_hash: H256::default(),
 					tip: 0,
 					signature: outer_signature.into(),
 				}),
@@ -922,6 +936,7 @@ fn signed_extension_validations_low_balance_fails() {
 			call: Box::new(call.clone()),
 			doughnut: doughnut_encoded.clone(),
 			nonce,
+			genesis_hash: H256::default(),
 			tip: 0,
 			signature: vec![],
 		};
@@ -933,6 +948,7 @@ fn signed_extension_validations_low_balance_fails() {
 				call: Box::new(call.clone()),
 				doughnut: doughnut_encoded,
 				nonce,
+				genesis_hash: H256::default(),
 				tip: 0,
 				signature: outer_signature.into(),
 			}),
@@ -981,6 +997,7 @@ fn apply_extrinsic_invalid_nonce_fails() {
 				call: Box::new(call.clone()),
 				doughnut: doughnut_encoded.clone(),
 				nonce,
+				genesis_hash: H256::default(),
 				tip: 0,
 				signature: vec![],
 			};
@@ -992,6 +1009,7 @@ fn apply_extrinsic_invalid_nonce_fails() {
 					call: Box::new(call.clone()),
 					doughnut: doughnut_encoded,
 					nonce,
+					genesis_hash: H256::default(),
 					tip: 0,
 					signature: outer_signature.into(),
 				}),
@@ -1048,6 +1066,7 @@ fn signed_extension_validations_invalid_inner_signature_fails() {
 				call: Box::new(call.clone()),
 				doughnut: doughnut_encoded.clone(),
 				nonce,
+				genesis_hash: H256::default(),
 				tip: 0,
 				signature: vec![],
 			};
@@ -1059,6 +1078,7 @@ fn signed_extension_validations_invalid_inner_signature_fails() {
 					call: Box::new(call.clone()),
 					doughnut: doughnut_encoded,
 					nonce,
+					genesis_hash: H256::default(),
 					tip: 0,
 					signature: outer_signature.into(),
 				}),
@@ -1110,6 +1130,7 @@ fn signed_extension_validations_invalid_outer_signature_fails() {
 					call: Box::new(call.clone()),
 					doughnut: doughnut_encoded,
 					nonce,
+					genesis_hash: H256::default(),
 					tip: 0,
 					signature: outer_signature.into(),
 				}),
@@ -1204,6 +1225,7 @@ fn holder_whitelisting_works() {
 				Box::new(call.clone()),
 				doughnut_encoded.clone(),
 				0,
+				H256::default(),
 				0,
 				vec![]
 			),
@@ -1224,6 +1246,7 @@ fn holder_whitelisting_works() {
 			Box::new(call),
 			doughnut_encoded,
 			0,
+			H256::default(),
 			0,
 			vec![]
 		));
@@ -1253,7 +1276,7 @@ fn tip_increase_priority() {
 			WhitelistedHolders::<Test>::insert(BOB.address(), true);
 
 			// Fund the issuer so they can pass the validations for paying gas
-			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &issuer.address(), 5000000));
+			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &issuer.address(), 10000000));
 			let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
 				remark: b"Mischief Managed".to_vec(),
 			});
@@ -1270,6 +1293,7 @@ fn tip_increase_priority() {
 					call: Box::new(call.clone()),
 					doughnut: doughnut_encoded.clone(),
 					nonce,
+					genesis_hash: H256::default(),
 					tip: 0,
 					signature: vec![],
 				};
@@ -1282,6 +1306,7 @@ fn tip_increase_priority() {
 							call: Box::new(call.clone()),
 							doughnut: doughnut_encoded.clone(),
 							nonce,
+							genesis_hash: H256::default(),
 							tip: 0,
 							signature: outer_signature.into(),
 						}),
@@ -1304,6 +1329,7 @@ fn tip_increase_priority() {
 					call: Box::new(call.clone()),
 					doughnut: doughnut_encoded.clone(),
 					nonce: nonce + 1,
+					genesis_hash: H256::default(),
 					tip: 1,
 					signature: vec![],
 				};
@@ -1316,6 +1342,7 @@ fn tip_increase_priority() {
 							call: Box::new(call.clone()),
 							doughnut: doughnut_encoded.clone(),
 							nonce: nonce + 1,
+							genesis_hash: H256::default(),
 							tip: 1,
 							signature: outer_signature.into(),
 						}),
@@ -1338,6 +1365,7 @@ fn tip_increase_priority() {
 					call: Box::new(call.clone()),
 					doughnut: doughnut_encoded.clone(),
 					nonce: nonce + 2,
+					genesis_hash: H256::default(),
 					tip: 2,
 					signature: vec![],
 				};
@@ -1350,6 +1378,7 @@ fn tip_increase_priority() {
 							call: Box::new(call.clone()),
 							doughnut: doughnut_encoded,
 							nonce: nonce + 2,
+							genesis_hash: H256::default(),
 							tip: 2,
 							signature: outer_signature.into(),
 						}),

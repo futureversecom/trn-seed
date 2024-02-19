@@ -40,7 +40,9 @@ use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use seed_pallet_common::{log, ExtrinsicChecker};
 use seed_primitives::AccountId20;
 use sp_runtime::{
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, StaticLookup},
+	traits::{
+		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, StaticLookup, Zero,
+	},
 	transaction_validity::ValidTransactionBuilder,
 };
 
@@ -77,7 +79,7 @@ impl<T> Call<T>
 	}
 
 	pub fn check_self_contained(&self) -> Option<Result<H160, TransactionValidityError>> {
-		if let Call::transact { call, doughnut, nonce, tip, signature } = self {
+		if let Call::transact { call, doughnut, nonce, genesis_hash, tip, signature } = self {
 			let check = || {
 				// run doughnut common validations
 				let Ok(Doughnut::V1(doughnut_v1)) = Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -99,8 +101,9 @@ impl<T> Call<T>
 				let outer_call: Call<T> = Call::transact {
 					call: call.clone(),
 					doughnut: doughnut.clone(),
-					tip: *tip,
 					nonce: *nonce,
+					genesis_hash: *genesis_hash,
+					tip: *tip,
 					signature: Vec::<u8>::new(),
 				};
 
@@ -140,7 +143,14 @@ impl<T> Call<T>
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<TransactionValidity> {
-		if let Call::transact { call: inner_call, doughnut, nonce, tip, .. } = self {
+		if let Call::transact { call: inner_call, doughnut, genesis_hash, nonce, tip, .. } = self {
+			// Genesis hash check
+			let genesis_hash_onchain: T::Hash = frame_system::Pallet::<T>::block_hash(T::BlockNumber::zero());
+			if *genesis_hash != genesis_hash_onchain {
+				log!(error,"⛔️ genesis hash mismatch: {:?}", genesis_hash);
+				return None
+			}
+
 			// Doughnut work
 			// run doughnut common validations
 			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -206,7 +216,14 @@ impl<T> Call<T>
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<<T as Config>::RuntimeCall>>> {
 
-		if let Some(Call::transact { call: inner_call, doughnut, nonce, tip, .. }) = call.is_sub_type() {
+		if let Some(Call::transact { call: inner_call, doughnut, genesis_hash, nonce, tip, .. }) = call.is_sub_type() {
+			// Genesis hash check
+			let genesis_hash_onchain: T::Hash = frame_system::Pallet::<T>::block_hash(T::BlockNumber::zero());
+			if *genesis_hash != genesis_hash_onchain {
+				log!(error,"⛔️ genesis hash mismatch: {:?}", genesis_hash);
+				return None
+			}
+
 			// Doughnut work
 			// run doughnut common validations
 			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
@@ -383,6 +400,7 @@ pub mod pallet {
 			call: Box<<T as Config>::RuntimeCall>,
 			doughnut: Vec<u8>,
 			_nonce: u32,
+			_genesis_hash: T::Hash,
 			_tip: u64,
 			_signature: Vec<u8>,
 		) -> DispatchResult {

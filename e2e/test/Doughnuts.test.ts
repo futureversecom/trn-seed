@@ -4,12 +4,12 @@ import { KeyringPair } from "@polkadot/keyring/types";
 import { DispatchError } from "@polkadot/types/interfaces";
 import { hexToU8a, u8aToHex } from "@polkadot/util";
 import { blake2AsHex } from "@polkadot/util-crypto";
-// import { Doughnut, PayloadVersion, SignatureVersion, Topping } from "@therootnetwork/doughnut-nodejs";
-import { Doughnut, PayloadVersion, SignatureVersion, Topping } from "../../../../trn-doughnut-rs/js/doughnut-nodejs";
 import { OpCodeComparator, OpComp, OpLoad, Pact } from "@therootnetwork/pact-nodejs";
 import { expect } from "chai";
 import { Wallet } from "ethers";
 
+// import { Doughnut, PayloadVersion, SignatureVersion, Topping } from "@therootnetwork/doughnut-nodejs";
+import { Doughnut, PayloadVersion, SignatureVersion, Topping } from "../../../../trn-doughnut-rs/js/doughnut-nodejs";
 import {
   ALICE_PRIVATE_KEY,
   ALITH_PRIVATE_KEY,
@@ -56,6 +56,7 @@ describe("Doughnuts", () => {
     const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
     const transferAmount = 10;
     const nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const genesis_hash = await api.rpc.chain.getBlockHash(0);
     const tip = 0;
     const call = api.tx.balances.transfer(receiverAddress, transferAmount);
     const version = 1;
@@ -114,7 +115,7 @@ describe("Doughnuts", () => {
     const doughnutHex = u8aToHex(encodedDoughnut);
 
     // Create a call with empty signature to be signed by the holder (Bob)
-    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
     // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
     const txU8a = tx.toU8a(true).slice(2);
     const txHex = u8aToHex(txU8a);
@@ -131,7 +132,7 @@ describe("Doughnuts", () => {
 
     // Execute the transact call with.send
     const eventData = await new Promise<any[]>((resolve, _reject) => {
-      api.tx.doughnut.transact(call, doughnutHex, nonce, tip, holderSig).send(({ events, status }) => {
+      api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig).send(({ events, status }) => {
         if (status.isInBlock) {
           resolve(events);
         }
@@ -209,6 +210,7 @@ describe("Doughnuts", () => {
     const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
     const transferAmount = 10;
     const nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const genesis_hash = await api.rpc.chain.getBlockHash(0);
     const tip = 0;
     const call = api.tx.balances.transfer(receiverAddress, transferAmount - 1);
     const version = 1;
@@ -266,7 +268,7 @@ describe("Doughnuts", () => {
     const doughnutHex = u8aToHex(encodedDoughnut);
 
     // Create a call with empty signature to be signed by the holder (Bob)
-    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
     // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
     const txU8a = tx.toU8a(true).slice(2);
     const txHex = u8aToHex(txU8a);
@@ -283,7 +285,7 @@ describe("Doughnuts", () => {
 
     // Execute the transact call with.send
     await api.tx.doughnut
-      .transact(call, doughnutHex, nonce, tip, holderSig)
+      .transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig)
       .send()
       .catch((err: any) => {
         console.log(err);
@@ -303,6 +305,7 @@ describe("Doughnuts", () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
     const transferAmount = 1234;
     const nonce = ((await api.query.system.account(bob.address)).toJSON() as any)?.nonce;
+    const genesis_hash = await api.rpc.chain.getBlockHash(0);
     const tip = 0;
     const call = api.tx.balances.transfer(receiverAddress, transferAmount);
     const version = 1;
@@ -336,7 +339,7 @@ describe("Doughnuts", () => {
     const doughnutHex = u8aToHex(encodedDoughnut);
 
     // Create a call with empty signature to be signed by the holder (Bob)
-    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
     // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
     const txU8a = tx.toU8a(true).slice(2);
     const txHex = u8aToHex(txU8a);
@@ -353,10 +356,109 @@ describe("Doughnuts", () => {
 
     // Execute the transact call with.send
     await api.tx.doughnut
-      .transact(call, doughnutHex, nonce, tip, holderSig)
+      .transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig)
       .send()
       .catch((err: any) => {
         console.log(err);
+      });
+
+    // console.log(events);
+    const balance = await api.query.system.account(receiverAddress);
+    const freeBalance = balance.toJSON()?.data.free;
+    console.log(`Free balance after doughnut transact: ${freeBalance}`);
+    expect(freeBalance).to.be.equal(0);
+
+    const aliceBalanceAfter = await api.query.system.account(alice.address);
+    // alice should bear transferAmount in Root + fees in XRP
+    expect(alice_balance_before.toJSON()?.data.free - aliceBalanceAfter.toJSON()?.data.free).equal(0);
+  });
+
+  it("doughnut works - incorrect genesis hash fails", async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const holderPrivateKey = Wallet.createRandom().privateKey;
+    const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
+    const transferAmount = 10;
+    const nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const genesis_hash = await api.rpc.chain.getBlockHash(1);
+    const tip = 0;
+    const call = api.tx.balances.transfer(receiverAddress, transferAmount);
+    const version = 1;
+    const issuerPubkey = alice.publicKey;
+    const holderPubkey = holder.publicKey;
+    const feeMode = 0;
+    const expiry = 100000;
+    const notBefore = 0;
+
+    console.log("\n====  Creating Doughnut");
+    const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
+    // Create the permission topping object. Balances::transfer with a constraint for amount = 10
+    const dataTable = ["10"];
+    const comp = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 1, 0, false); // RHS is the data table
+    const bytecode = new Uint8Array([...comp.encode()]);
+    const pactContract = new Pact(dataTable, bytecode);
+    const pactEncoded = pactContract.encode();
+    // console.log(pactEncoded);
+
+    const module = [
+      {
+        name: "Balances",
+        block_cooldown: 0,
+        methods: [
+          {
+            name: "transfer",
+            block_cooldown: 0,
+            constraints: [...pactEncoded],
+          },
+        ],
+      },
+    ];
+
+    const topping = new Topping(module);
+
+    // Add to trn topping
+    doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
+    console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
+
+    // Sign the doughnut
+    const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
+    const ethHash = blake2AsHex(doughnut.payload());
+    const ethSlice = Buffer.from(ethHash.slice(2), "hex");
+    const issuerSig = await aliceWallet.signMessage(ethSlice);
+    const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
+    doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
+
+    console.log(`Signature : ${doughnut.signature()}`);
+
+    // Verify that the doughnut is valid
+    const verified = doughnut.verify(holderPubkey, 5);
+    expect(verified).to.be.equal(true);
+
+    // Encode the doughnut
+    const encodedDoughnut = doughnut.encode();
+    const doughnutHex = u8aToHex(encodedDoughnut);
+
+    // Create a call with empty signature to be signed by the holder (Bob)
+    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
+    // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
+    const txU8a = tx.toU8a(true).slice(2);
+    const txHex = u8aToHex(txU8a);
+    const holderWallet = await new Wallet(holderPrivateKey);
+    const txHash = blake2AsHex(txHex);
+    const txSlice = Buffer.from(txHash.slice(2), "hex");
+    const holderSig = await holderWallet.signMessage(txSlice);
+
+    // alice balance before
+    const alice_balance_before = await api.query.system.account(alice.address);
+
+    // whitelist the holder. i.e bob
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
+
+    // Execute the transact call with.send
+    await api.tx.doughnut
+      .transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig)
+      .send()
+      .catch((_err: any) => {
+        // console.log(err);
       });
 
     // console.log(events);
@@ -391,6 +493,7 @@ describe("Doughnuts", () => {
     const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
     const transferAmount = initialTfrAmount / 2; // transfer half to receiverAddress
     const nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const genesis_hash = await api.rpc.chain.getBlockHash(0);
     const tip = 0;
     const innerCall = api.tx.balances.transfer(receiverAddress, transferAmount);
     const call = api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall);
@@ -442,7 +545,7 @@ describe("Doughnuts", () => {
     const doughnutHex = u8aToHex(encodedDoughnut);
 
     // Create a call with empty signature to be signed by the holder
-    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
     // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
     const txU8a = tx.toU8a(true).slice(2);
     const txHex = u8aToHex(txU8a);
@@ -472,7 +575,7 @@ describe("Doughnuts", () => {
 
     // Execute the transact call with.send
     const eventData = await new Promise<any[]>((resolve, _reject) => {
-      api.tx.doughnut.transact(call, doughnutHex, nonce, tip, holderSig).send(({ events, status }) => {
+      api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig).send(({ events, status }) => {
         if (status.isInBlock) {
           resolve(events);
         }
@@ -618,6 +721,7 @@ describe("Doughnuts", () => {
     const maxTokenPayment = 5_000_000;
     const call = api.tx.feeProxy.callWithFeePreferences(FEE_TOKEN_ASSET_ID, maxTokenPayment, futurepassCall);
     const nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const genesis_hash = await api.rpc.chain.getBlockHash(0);
     const tip = 0;
     const issuerPubkey = userA.publicKey;
     const holderPubkey = holder.publicKey;
@@ -666,7 +770,7 @@ describe("Doughnuts", () => {
     const doughnutHex = u8aToHex(encodedDoughnut);
 
     // Create a call with empty signature to be signed by the holder
-    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
     // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
     const txU8a = tx.toU8a(true).slice(2);
     const txHex = u8aToHex(txU8a);
@@ -694,7 +798,7 @@ describe("Doughnuts", () => {
 
     // Execute the transact call with.send
     const eventData = await new Promise<any[]>((resolve, _reject) => {
-      api.tx.doughnut.transact(call, doughnutHex, nonce, tip, holderSig).send(({ events, status }) => {
+      api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig).send(({ events, status }) => {
         if (status.isInBlock) {
           resolve(events);
         }
@@ -844,6 +948,7 @@ describe("Doughnuts", () => {
     const maxTokenPayment = 5_000_000;
     const call = api.tx.feeProxy.callWithFeePreferences(FEE_TOKEN_ASSET_ID, maxTokenPayment, innerCall);
     const nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const genesis_hash = await api.rpc.chain.getBlockHash(0);
     const tip = 0;
     const issuerPubkey = userA.publicKey;
     const holderPubkey = holder.publicKey;
@@ -892,7 +997,7 @@ describe("Doughnuts", () => {
     const doughnutHex = u8aToHex(encodedDoughnut);
 
     // Create a call with empty signature to be signed by the holder
-    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
     // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
     const txU8a = tx.toU8a(true).slice(2);
     const txHex = u8aToHex(txU8a);
@@ -916,7 +1021,7 @@ describe("Doughnuts", () => {
 
     // Execute the transact call with.send
     const eventData = await new Promise<any[]>((resolve, _reject) => {
-      api.tx.doughnut.transact(call, doughnutHex, nonce, tip, holderSig).send(({ events, status }) => {
+      api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig).send(({ events, status }) => {
         if (status.isInBlock) {
           resolve(events);
         }
@@ -1020,6 +1125,7 @@ describe("Doughnuts", () => {
     const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
     const transferAmountLimit = 10;
     let nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const genesis_hash = await api.rpc.chain.getBlockHash(0);
     const tip = 0;
     const version = 1;
     const issuerPubkey = alice.publicKey;
@@ -1080,7 +1186,7 @@ describe("Doughnuts", () => {
     {
       const call = api.tx.balances.transfer(receiverAddress, transferAmountLimit - 1);
       // Create a call with empty signature to be signed by the holder (Bob)
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
       // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
       const txU8a = tx.toU8a(true).slice(2);
       const txHex = u8aToHex(txU8a);
@@ -1099,7 +1205,7 @@ describe("Doughnuts", () => {
 
       // Execute the transact call with.send
       const eventData = await new Promise<any[]>((resolve, _reject) => {
-        api.tx.doughnut.transact(call, doughnutHex, nonce, tip, holderSig).send(({ events, status }) => {
+        api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig).send(({ events, status }) => {
           if (status.isInBlock) {
             resolve(events);
           }
@@ -1122,7 +1228,7 @@ describe("Doughnuts", () => {
       const call = api.tx.balances.transfer(receiverAddress, transferAmountLimit);
       // Create a call with empty signature to be signed by the holder (Bob)
       nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
       // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
       const txU8a = tx.toU8a(true).slice(2);
       const txHex = u8aToHex(txU8a);
@@ -1138,7 +1244,7 @@ describe("Doughnuts", () => {
 
       // Execute the transact call with.send
       await api.tx.doughnut
-        .transact(call, doughnutHex, nonce, tip, holderSig)
+        .transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig)
         .send()
         .catch((err: any) => {
           console.log(err);
@@ -1159,7 +1265,7 @@ describe("Doughnuts", () => {
       const call = api.tx.balances.transfer(receiverAddress, transferAmountLimit + 1);
       // Create a call with empty signature to be signed by the holder (Bob)
       nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
       // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
       const txU8a = tx.toU8a(true).slice(2);
       const txHex = u8aToHex(txU8a);
@@ -1175,7 +1281,7 @@ describe("Doughnuts", () => {
 
       // Execute the transact call with.send
       await api.tx.doughnut
-        .transact(call, doughnutHex, nonce, tip, holderSig)
+        .transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig)
         .send()
         .catch((err: any) => {
           console.log(err);
@@ -1197,6 +1303,7 @@ describe("Doughnuts", () => {
     const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
     const transferAmountLimit = 10;
     let nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const genesis_hash = await api.rpc.chain.getBlockHash(0);
     const tip = 0;
     const version = 1;
     const issuerPubkey = alice.publicKey;
@@ -1257,7 +1364,7 @@ describe("Doughnuts", () => {
     {
       const call = api.tx.balances.transfer(receiverAddress, transferAmountLimit - 1);
       // Create a call with empty signature to be signed by the holder (Bob)
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
       // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
       const txU8a = tx.toU8a(true).slice(2);
       const txHex = u8aToHex(txU8a);
@@ -1276,7 +1383,7 @@ describe("Doughnuts", () => {
 
       // Execute the transact call with.send
       const eventData = await new Promise<any[]>((resolve, _reject) => {
-        api.tx.doughnut.transact(call, doughnutHex, nonce, tip, holderSig).send(({ events, status }) => {
+        api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig).send(({ events, status }) => {
           if (status.isInBlock) {
             resolve(events);
           }
@@ -1299,7 +1406,7 @@ describe("Doughnuts", () => {
       const call = api.tx.balances.transfer(receiverAddress, transferAmountLimit);
       // Create a call with empty signature to be signed by the holder (Bob)
       nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
       // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
       const txU8a = tx.toU8a(true).slice(2);
       const txHex = u8aToHex(txU8a);
@@ -1315,7 +1422,7 @@ describe("Doughnuts", () => {
 
       // Execute the transact call with.send
       const eventData = await new Promise<any[]>((resolve, _reject) => {
-        api.tx.doughnut.transact(call, doughnutHex, nonce, tip, holderSig).send(({ events, status }) => {
+        api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig).send(({ events, status }) => {
           if (status.isInBlock) {
             resolve(events);
           }
@@ -1339,7 +1446,7 @@ describe("Doughnuts", () => {
       const call = api.tx.balances.transfer(receiverAddress, transferAmountLimit + 1);
       // Create a call with empty signature to be signed by the holder (Bob)
       nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
       // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
       const txU8a = tx.toU8a(true).slice(2);
       const txHex = u8aToHex(txU8a);
@@ -1355,7 +1462,7 @@ describe("Doughnuts", () => {
 
       // Execute the transact call with.send
       await api.tx.doughnut
-        .transact(call, doughnutHex, nonce, tip, holderSig)
+        .transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig)
         .send()
         .catch((err: any) => {
           console.log(err);
@@ -1376,6 +1483,7 @@ describe("Doughnuts", () => {
     const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
     const stringConstraint = "boo";
     let nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const genesis_hash = await api.rpc.chain.getBlockHash(0);
     const tip = 0;
     const version = 1;
     const issuerPubkey = alice.publicKey;
@@ -1436,7 +1544,7 @@ describe("Doughnuts", () => {
     {
       const call = api.tx.system.remark(stringConstraint);
       // Create a call with empty signature to be signed by the holder
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
       // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
       const txU8a = tx.toU8a(true).slice(2);
       const txHex = u8aToHex(txU8a);
@@ -1450,7 +1558,7 @@ describe("Doughnuts", () => {
 
       // Execute the transact call with.send
       const eventData = await new Promise<any[]>((resolve, _reject) => {
-        api.tx.doughnut.transact(call, doughnutHex, nonce, tip, holderSig).send(({ events, status }) => {
+        api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig).send(({ events, status }) => {
           if (status.isInBlock) {
             resolve(events);
           }
@@ -1476,7 +1584,7 @@ describe("Doughnuts", () => {
       const call = api.tx.system.remark("baa");
       // Create a call with empty signature to be signed by the holder
       nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
       // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
       const txU8a = tx.toU8a(true).slice(2);
       const txHex = u8aToHex(txU8a);
@@ -1487,7 +1595,7 @@ describe("Doughnuts", () => {
 
       // Execute the transact call with.send
       await api.tx.doughnut
-        .transact(call, doughnutHex, nonce, tip, holderSig)
+        .transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig)
         .send()
         .catch((err: any) => {
           console.log(err);
@@ -1500,7 +1608,7 @@ describe("Doughnuts", () => {
       const call = api.tx.system.remark("boobaa");
       // Create a call with empty signature to be signed by the holder
       nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
-      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, tip, "");
+      const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
       // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
       const txU8a = tx.toU8a(true).slice(2);
       const txHex = u8aToHex(txU8a);
@@ -1511,7 +1619,7 @@ describe("Doughnuts", () => {
 
       // Execute the transact call with.send
       await api.tx.doughnut
-        .transact(call, doughnutHex, nonce, tip, holderSig)
+        .transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig)
         .send()
         .catch((err: any) => {
           console.log(err);
