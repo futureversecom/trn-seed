@@ -15,7 +15,7 @@ describe("XRPL pallet", () => {
 
   let api: ApiPromise;
   let alith: KeyringPair;
-  let chainId: number;
+  let genesisHash: string;
 
   before(async () => {
     node = await startNode();
@@ -24,13 +24,13 @@ describe("XRPL pallet", () => {
     const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     alith = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
-    chainId = +(await api.query.evmChainId.chainId());
+    genesisHash = (await api.rpc.chain.getBlockHash(0)).toHex().slice(2);
   });
 
   after(async () => await node.stop());
 
-  // NOTE: use this test to generate a valid xaman tx (msg + signature) for integration tests
-  it.skip("debug tx message and signature", async () => {
+  // NOTE: use this test to generate a valid xaman tx (msg + signature) for mock runtime tests
+  it.only("debug tx message and signature", async () => {
     // const user = Wallet.createRandom();
     const publicKey = computePublicKey(alith.publicKey, true);
     // console.log(hexToU8a(publicKey));
@@ -38,6 +38,8 @@ describe("XRPL pallet", () => {
     // fund the user account to pay for tx fees
     // await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 1_000_000));
 
+    // genesis hash for mock runtime tests
+    genesisHash = "0000000000000000000000000000000000000000000000000000000000000000";
     const extrinsic = api.tx.system.remark("Mischief Managed");
     const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
 
@@ -49,8 +51,8 @@ describe("XRPL pallet", () => {
         {
           Memo: {
             MemoType: stringToHex("extrinsic"),
-            // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`0:0:5:0:${hashedExtrinsicWithoutPrefix}`),
+            // genesis_hash:nonce:max_block_number:tip:hashed_extrinsic
+            MemoData: stringToHex(`${genesisHash}:0:5:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
@@ -88,7 +90,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${genesisHash}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
@@ -100,7 +102,7 @@ describe("XRPL pallet", () => {
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
     const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(user.address);
-    expect(cost.partialFee.toNumber()).to.be.greaterThan(905_000).and.lessThan(920_000);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(1_060_000).and.lessThan(1_075_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
@@ -149,8 +151,8 @@ describe("XRPL pallet", () => {
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
     expect(xrpBalanceBefore - xrpBalanceAfter)
-      .to.greaterThan(685_000)
-      .and.lessThan(700_000);
+      .to.greaterThan(840_000)
+      .and.lessThan(855_000);
 
     // assert user nonce is updated (1 tx)
     const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
@@ -180,7 +182,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:1000000:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${genesisHash}:0:${maxBlockNumber}:1000000:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
@@ -192,7 +194,7 @@ describe("XRPL pallet", () => {
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
     const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(user.address);
-    expect(cost.partialFee.toNumber()).to.be.greaterThan(920_000).and.lessThan(935_000);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(1_070_000).and.lessThan(1_085_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
@@ -241,8 +243,8 @@ describe("XRPL pallet", () => {
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
     expect(xrpBalanceBefore - xrpBalanceAfter)
-      .to.greaterThan(1_700_000)
-      .and.lessThan(1_715_000);
+      .to.greaterThan(1_850_000)
+      .and.lessThan(1_865_000);
 
     // assert user nonce is updated (1 tx)
     const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
@@ -272,7 +274,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${genesisHash}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
@@ -284,7 +286,7 @@ describe("XRPL pallet", () => {
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
     const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(user.address);
-    expect(cost.partialFee.toNumber()).to.be.greaterThan(935_000).and.lessThan(950_000);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(1_090_000).and.lessThan(1_105_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
@@ -343,8 +345,8 @@ describe("XRPL pallet", () => {
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
     expect(xrpBalanceBefore - xrpBalanceAfter)
-      .to.be.greaterThan(710_000)
-      .and.lessThan(725_000);
+      .to.be.greaterThan(865_000)
+      .and.lessThan(880_000);
   });
 
   it("can submit fee-proxy extrinsic", async () => {
@@ -369,7 +371,7 @@ describe("XRPL pallet", () => {
       ),
     ];
     await finalizeTx(alith, api.tx.utility.batch(txs));
-    console.log("liquidity setup complete...");
+    // console.log("liquidity setup complete...");
 
     const innerCall = api.tx.system.remark("sup");
     const maxTokenPayment = 2_000_000;
@@ -393,7 +395,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${chainId}:${nonce}:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${genesisHash}:${nonce}:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
@@ -405,7 +407,7 @@ describe("XRPL pallet", () => {
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
     const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(user.address);
-    expect(cost.partialFee.toNumber()).to.be.greaterThan(945_000).and.lessThan(965_000);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(1_095_000).and.lessThan(1_110_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
@@ -531,7 +533,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${genesisHash}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
@@ -543,7 +545,7 @@ describe("XRPL pallet", () => {
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
     const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(user.address);
-    expect(cost.partialFee.toNumber()).to.be.greaterThan(990_000).and.lessThan(1_005_000);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(1_145_000).and.lessThan(1_160_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
@@ -618,8 +620,8 @@ describe("XRPL pallet", () => {
       ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
     expect(xrpFPBalanceAfter).to.be.lessThan(xrpFPBalanceBefore);
     expect(xrpFPBalanceBefore - xrpFPBalanceAfter)
-      .to.be.greaterThan(765_000)
-      .and.lessThan(780_000);
+      .to.be.greaterThan(920_000)
+      .and.lessThan(935_000);
   });
 
   it("can submit futurepass fee-proxy proxy-extrinsic", async () => {
@@ -649,7 +651,7 @@ describe("XRPL pallet", () => {
       ),
     ];
     await finalizeTx(alith, api.tx.utility.batch(txs));
-    console.log("liquidity setup complete...");
+    // console.log("liquidity setup complete...");
 
     const innerCall = api.tx.system.remark("sup");
     const futurepassCall = api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall);
@@ -679,7 +681,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${chainId}:${nonce}:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${genesisHash}:${nonce}:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
@@ -691,7 +693,7 @@ describe("XRPL pallet", () => {
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
     const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(futurepassAddress);
-    expect(cost.partialFee.toNumber()).to.be.greaterThan(1_000_000).and.lessThan(1_015_000);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(1_150_000).and.lessThan(1_165_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
@@ -825,7 +827,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${genesisHash}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
@@ -869,7 +871,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${chainId}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${genesisHash}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],

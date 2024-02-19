@@ -18,7 +18,7 @@ pub const SHA512_HASH_LENGTH: usize = 32;
 /// The extracted extrinsic data from the XRPL transaction memos list.
 #[derive(Debug)]
 pub struct ExtrinsicMemoData {
-	pub chain_id: u64,
+	pub genesis_hash: [u8; 32],
 	pub nonce: u32,
 	pub max_block_number: u32,
 	pub tip: u64,
@@ -104,7 +104,7 @@ impl XRPLTransaction {
 	/// Finds the memos in the list where the memo type is `extrinsic`; and
 	/// extracts the `nonce`, `max_block_number` and call from the memo data.
 	/// The memo data is hex encoded with the following format (string):
-	/// `nonce<u32>:max_block_number<u32>:call<Vec<u8>>`
+	/// `genesis_hash<[u8;32]>:nonce<u32>:max_block_number<u32>:tip<u64>:hashed_call<[u8;32]>`
 	pub fn get_extrinsic_data(&self) -> Result<ExtrinsicMemoData, &'static str> {
 		for memo_elm in &self.memos {
 			// convert `memo_elm.memo.memo_type` hex string to utf8 string for comparison
@@ -120,11 +120,11 @@ impl XRPLTransaction {
 				// split string by `:`, parse each string to extract chainId, nonce,
 				// max_block_number, tip and call data
 				let mut split = hex_decoded_data_str.split(":");
-				let chain_id = split
-					.next()
-					.ok_or("failed to get chain_id from memo_data")?
-					.parse::<u64>()
-					.map_err(|_| "failed to parse string as u64")?;
+				let genesis_hash = split.next().ok_or("failed to get chain_id from memo_data")?;
+				let genesis_hash = hex::decode(genesis_hash)
+					.map_err(|_| "failed to decode genesis_hash as hex")?
+					.try_into()
+					.map_err(|_| "failed to convert genesis_hash to 32 bytes")?;
 				let nonce = split
 					.next()
 					.ok_or("failed to get nonce from memo_data")?
@@ -145,7 +145,13 @@ impl XRPLTransaction {
 					.map_err(|_| "failed to decode hashed_call as hex")?
 					.try_into()
 					.map_err(|_| "failed to convert hashed_call to 32 bytes")?;
-				return Ok(ExtrinsicMemoData { chain_id, nonce, max_block_number, tip, hashed_call })
+				return Ok(ExtrinsicMemoData {
+					genesis_hash,
+					nonce,
+					max_block_number,
+					tip,
+					hashed_call,
+				})
 			}
 		}
 		Err("no extrinsic call found in memos")
@@ -364,11 +370,15 @@ mod tests {
 			..Default::default()
 		};
 		assert!(tx.get_extrinsic_data().is_err());
-		assert_eq!("failed to parse string as u64", tx.get_extrinsic_data().unwrap_err());
+		assert_eq!("failed to decode genesis_hash as hex", tx.get_extrinsic_data().unwrap_err());
 
+		let empty_buf = hex::encode([0u8; 32]);
 		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
-				memo: Memo { memo_type: hex::encode("extrinsic"), memo_data: hex::encode("0:") },
+				memo: Memo {
+					memo_type: hex::encode("extrinsic"),
+					memo_data: hex::encode(format!("{empty_buf}:")),
+				},
 			}],
 			..Default::default()
 		};
@@ -377,7 +387,10 @@ mod tests {
 
 		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
-				memo: Memo { memo_type: hex::encode("extrinsic"), memo_data: hex::encode("0:0") },
+				memo: Memo {
+					memo_type: hex::encode("extrinsic"),
+					memo_data: hex::encode(format!("{empty_buf}:0")),
+				},
 			}],
 			..Default::default()
 		};
@@ -389,7 +402,10 @@ mod tests {
 
 		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
-				memo: Memo { memo_type: hex::encode("extrinsic"), memo_data: hex::encode("0:0:0") },
+				memo: Memo {
+					memo_type: hex::encode("extrinsic"),
+					memo_data: hex::encode(format!("{empty_buf}:0:0")),
+				},
 			}],
 			..Default::default()
 		};
@@ -400,7 +416,7 @@ mod tests {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode("0:0:0:0"),
+					memo_data: hex::encode(format!("{empty_buf}:0:0:0")),
 				},
 			}],
 			..Default::default()
@@ -415,7 +431,7 @@ mod tests {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode("0:0:0:0:"),
+					memo_data: hex::encode(format!("{empty_buf}:0:0:0:")),
 				},
 			}],
 			..Default::default()
@@ -430,66 +446,22 @@ mod tests {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode(format!("0:0:0:0:{}", hex::encode([0u8; 32]))),
+					memo_data: hex::encode(format!("{empty_buf}:0:0:0:{empty_buf}")),
 				},
 			}],
 			..Default::default()
 		};
 		assert_ok!(tx.get_extrinsic_data());
-	}
-
-	#[test]
-	fn get_chain_id_from_extrinsic_data() {
-		let hashed_extrinsic_data = hex::encode([0u8; 32]);
-		let tx = XRPLTransaction {
-			memos: vec![MemoElmRaw {
-				memo: Memo {
-					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode(format!("-1:0:0:0:{}", hashed_extrinsic_data)), /* negative chain_id */
-				},
-			}],
-			..Default::default()
-		};
-		assert!(tx.get_extrinsic_data().is_err());
-		assert_eq!("failed to parse string as u64", tx.get_extrinsic_data().unwrap_err());
-
-		let tx = XRPLTransaction {
-			memos: vec![MemoElmRaw {
-				memo: Memo {
-					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode(format!(
-						"{}:{}",
-						Into::<u128>::into(u64::MAX) + 1,
-						hashed_extrinsic_data
-					)), // u64::MAX + 1
-				},
-			}],
-			..Default::default()
-		};
-		assert!(tx.get_extrinsic_data().is_err());
-		assert_eq!("failed to parse string as u64", tx.get_extrinsic_data().unwrap_err());
-
-		let tx = XRPLTransaction {
-			memos: vec![MemoElmRaw {
-				memo: Memo {
-					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode(format!("{}:0:0:0:{}", u64::MAX, hashed_extrinsic_data)), /* u64::MAX */
-				},
-			}],
-			..Default::default()
-		};
-		assert_ok!(tx.get_extrinsic_data());
-		assert_eq!(tx.get_extrinsic_data().unwrap().chain_id, u64::MAX);
 	}
 
 	#[test]
 	fn get_account_nonce_from_extrinsic_data() {
-		let hashed_extrinsic_data = hex::encode([0u8; 32]);
+		let empty_buf = hex::encode([0u8; 32]);
 		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode(format!("0:-1:0:0:{}", hashed_extrinsic_data)), /* negative nonce */
+					memo_data: hex::encode(format!("{empty_buf}:-1:0:0:{empty_buf}")), /* negative nonce */
 				},
 			}],
 			..Default::default()
@@ -502,10 +474,9 @@ mod tests {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
 					memo_data: hex::encode(format!(
-						"0:{}:0:{}",
-						Into::<u64>::into(u32::MAX) + 1,
-						hashed_extrinsic_data
-					)), // u32::MAX + 1
+						"{empty_buf}:{}:0:{empty_buf}",
+						Into::<u64>::into(u32::MAX) + 1, // u32::MAX + 1
+					)),
 				},
 			}],
 			..Default::default()
@@ -517,7 +488,7 @@ mod tests {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode(format!("0:{}:0:0:{}", u32::MAX, hashed_extrinsic_data)), /* u32::MAX */
+					memo_data: hex::encode(format!("{empty_buf}:{}:0:0:{empty_buf}", u32::MAX)), /* u32::MAX */
 				},
 			}],
 			..Default::default()
@@ -528,12 +499,12 @@ mod tests {
 
 	#[test]
 	fn get_max_block_number_from_extrinsic_data() {
-		let hashed_extrinsic_data = hex::encode([0u8; 32]);
+		let empty_buf = hex::encode([0u8; 32]);
 		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode(format!("0:0:-1:0:{}", hashed_extrinsic_data)), /* negative max_block_number */
+					memo_data: hex::encode(format!("{empty_buf}:0:-1:0:{empty_buf}")), /* negative max_block_number */
 				},
 			}],
 			..Default::default()
@@ -546,9 +517,8 @@ mod tests {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
 					memo_data: hex::encode(format!(
-						"0:0:{}:0:{}",
+						"{empty_buf}:0:{}:0:{empty_buf}",
 						Into::<u64>::into(u32::MAX) + 1,
-						hashed_extrinsic_data
 					)), // u32::MAX + 1
 				},
 			}],
@@ -561,7 +531,7 @@ mod tests {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode(format!("0:0:{}:0:{}", u32::MAX, hashed_extrinsic_data)), /* u32::MAX */
+					memo_data: hex::encode(format!("{empty_buf}:0:{}:0:{empty_buf}", u32::MAX)), /* u32::MAX */
 				},
 			}],
 			..Default::default()
@@ -572,12 +542,12 @@ mod tests {
 
 	#[test]
 	fn get_tip_from_extrinsic_data() {
-		let hashed_extrinsic_data = hex::encode([0u8; 32]);
+		let empty_buf = hex::encode([0u8; 32]);
 		let tx = XRPLTransaction {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode(format!("0:0:0:-1:{}", hashed_extrinsic_data)), /* negative tip */
+					memo_data: hex::encode(format!("{empty_buf}:0:0:-1:{empty_buf}")), /* negative tip */
 				},
 			}],
 			..Default::default()
@@ -590,9 +560,8 @@ mod tests {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
 					memo_data: hex::encode(format!(
-						"0:0:0:{}:{}",
+						"{empty_buf}:0:0:{}:{empty_buf}",
 						Into::<u128>::into(u64::MAX) + 1,
-						hashed_extrinsic_data
 					)), // u32::MAX + 1
 				},
 			}],
@@ -605,7 +574,7 @@ mod tests {
 			memos: vec![MemoElmRaw {
 				memo: Memo {
 					memo_type: hex::encode("extrinsic"),
-					memo_data: hex::encode(format!("0:0:0:{}:{}", u64::MAX, hashed_extrinsic_data)), /* u64::MAX */
+					memo_data: hex::encode(format!("{empty_buf}:0:0:{}:{empty_buf}", u64::MAX)), /* u64::MAX */
 				},
 			}],
 			..Default::default()

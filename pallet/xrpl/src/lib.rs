@@ -45,7 +45,9 @@ use seed_pallet_common::{log, ExtrinsicChecker};
 use sp_core::{hexdisplay::AsBytesRef, H160};
 use sp_runtime::{
 	generic::Era,
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, StaticLookup},
+	traits::{
+		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension, StaticLookup, Zero,
+	},
 	transaction_validity::ValidTransactionBuilder,
 	FixedPointOperand,
 };
@@ -275,7 +277,7 @@ where
 		alloc::format!("⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e)
 	})?;
 
-	let ExtrinsicMemoData { chain_id, nonce, max_block_number, tip, hashed_call } =
+	let ExtrinsicMemoData { genesis_hash, nonce, max_block_number, tip, hashed_call } =
 		tx.get_extrinsic_data().map_err(|e| {
 			alloc::format!(
 				"⛔️ failed to extract extrinsic data from memo data: {:?}, err: {:?}",
@@ -284,8 +286,11 @@ where
 			)
 		})?;
 
-	if chain_id != T::ChainId::get() {
-		return Err("⛔️ chain id mismatch".into())
+	// check if genesis hash matches chain genesis hash
+	if <frame_system::Pallet<T>>::block_hash(T::BlockNumber::zero()).as_ref() !=
+		genesis_hash.as_ref()
+	{
+		return Err("⛔️ genesis hash mismatch".into())
 	}
 
 	// check the call against hex encoded hashed (blake256) call
