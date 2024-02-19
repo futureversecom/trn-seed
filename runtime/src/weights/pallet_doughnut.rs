@@ -3,7 +3,7 @@
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2024-02-19, STEPS: `50`, REPEAT: 20, LOW RANGE: `[]`, HIGH RANGE: `[]`
-//! HOSTNAME: `Surangas-MacBook-Pro.local`, CPU: `<UNKNOWN>`
+//! HOSTNAME: `ip-172-31-102-147`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
@@ -37,22 +37,22 @@ impl<T: frame_system::Config> pallet_doughnut::WeightInfo for WeightInfo<T> {
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
 	fn transact() -> Weight {
-		Weight::from_ref_time(211_000_000 as u64)
+		Weight::from_ref_time(505_217_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 	}
 	// Storage: Doughnut BlockedDoughnuts (r:0 w:1)
 	fn revoke_doughnut() -> Weight {
-		Weight::from_ref_time(14_000_000 as u64)
+		Weight::from_ref_time(42_173_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Doughnut BlockedHolders (r:0 w:1)
 	fn revoke_holder() -> Weight {
-		Weight::from_ref_time(5_000_000 as u64)
+		Weight::from_ref_time(16_989_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Doughnut WhitelistedHolders (r:0 w:1)
 	fn update_whitelisted_holders() -> Weight {
-		Weight::from_ref_time(11_000_000 as u64)
+		Weight::from_ref_time(39_253_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
