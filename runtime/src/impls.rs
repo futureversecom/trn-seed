@@ -49,7 +49,7 @@ use precompile_utils::{
 use seed_pallet_common::{
 	utils::{scale_decimals_to_wei, scale_wei_to_correct_decimals},
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
-	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber, MaintenanceCheck,
+	EventRouterResult, FinalSessionTracker, MaintenanceCheck, OnNewAssetSubscriber,
 };
 use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
