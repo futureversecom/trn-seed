@@ -21,7 +21,7 @@ use seed_primitives::{
 use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
 use sp_std::{fmt::Debug, vec::Vec};
 
-use crate::CollectionInformation;
+use crate::{CollectionInformation, TokenOwnership};
 
 pub trait NFTExt {
 	type AccountId: Debug + PartialEq + Clone;
@@ -55,12 +55,15 @@ pub trait NFTExt {
 
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId>;
 
+	fn token_exists(token_id: &TokenId) -> bool;
+
 	fn get_collection_info(
 		collection_id: CollectionUuid,
-	) -> Result<
-		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
-		DispatchError,
-	>;
+	) -> Result<CollectionInformation<Self::AccountId, Self::StringLimit>, DispatchError>;
+
+	fn get_ownership_info(
+		collection_id: CollectionUuid,
+	) -> Result<TokenOwnership<Self::AccountId, Self::MaxTokensPerCollection>, DispatchError>;
 
 	fn enable_xls20_compatibility(
 		who: Self::AccountId,
