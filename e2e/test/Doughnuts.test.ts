@@ -1656,7 +1656,9 @@ describe("Doughnuts", () => {
     }
 
     // Disable maintenance mode
-    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)));
-    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", false)));
+    await finalizeTx(alith, api.tx.utility.batch([
+      api.tx.sudo.sudo(api.tx.maintenanceMode.blockPallet("System", false)),
+      api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", false))
+    ]));
   });
 });
