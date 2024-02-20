@@ -53,7 +53,7 @@ benchmarks! {
 		let bob = H160::from(hex!("25451a4de12dccc2d166922fa938e900fcc4ed24"));
 		let bob: T::AccountId = bob.into();
 
-		// Doughnut from Alice to Bob
+		// Doughnut from Alice to Bob - the payload was generated using rust test "generate_alice_to_bob_outer_signature_for_system_remark_for_benchmark"
 		let doughnut_encoded = hex!("011800020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a10390084fdbf27d2b79d26a4f13f0ccd982cb755a661969143c37cbc49ef5b91f27000000000074726e0000000000000000000000000045000000000053797374656d00000000000000000000000000000000000000000000000000000072656d61726b000000000000000000000000000000000000000000000000000061cb11f74c449c9371e92b7e9d01c99488e106a152c5a4ff772d80d33b08418d23b000675bfad1641b58a6924382269329d115dc14c0ae5c03efd3eb36953cef00");
 		let doughnut_encoded: Vec<u8> = doughnut_encoded.to_vec();
 		// add bob to whitelisted holders
@@ -73,6 +73,7 @@ benchmarks! {
 	revoke_doughnut {
 		let alice = H160::from(hex!("e04cc55ebee1cbce552f250e85c57b70b2e2625b"));
 		let alice: T::AccountId = alice.into();
+		// the payload was generated using rust test "generate_alice_to_bob_outer_signature_for_system_remark_for_benchmark"
 		let doughnut_encoded = hex!("011800020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a10390084fdbf27d2b79d26a4f13f0ccd982cb755a661969143c37cbc49ef5b91f27000000000074726e0000000000000000000000000045000000000053797374656d00000000000000000000000000000000000000000000000000000072656d61726b000000000000000000000000000000000000000000000000000061cb11f74c449c9371e92b7e9d01c99488e106a152c5a4ff772d80d33b08418d23b000675bfad1641b58a6924382269329d115dc14c0ae5c03efd3eb36953cef00");
 		let doughnut_encoded: Vec<u8> = doughnut_encoded.to_vec();
 	}: _(origin::<T>(&alice), doughnut_encoded.clone(), true)

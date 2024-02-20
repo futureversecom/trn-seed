@@ -33,7 +33,7 @@ use doughnut_rs::{
 };
 use frame_support::traits::fungibles::Mutate;
 use seed_pallet_common::test_prelude::*;
-use sp_core::{bytes::to_hex, ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair};
+use sp_core::{ecdsa, ecdsa::Public, keccak_256, ByteArray, Pair};
 use sp_std::default::Default;
 
 // Helper struct for a test account where a seed is supplied and provides common methods to
