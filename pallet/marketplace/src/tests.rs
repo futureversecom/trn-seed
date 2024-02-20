@@ -2734,6 +2734,7 @@ mod sell_sft {
 				serial_numbers: serial_numbers.clone(),
 			});
 
+			let listing_id = Marketplace::next_listing_id();
 			assert_ok!(Marketplace::sell(
 				Some(token_owner).into(),
 				sft_token.clone(),
@@ -2743,6 +2744,17 @@ mod sell_sft {
 				None,
 				None,
 			));
+
+			// Event thrown
+			System::assert_last_event(MockEvent::Marketplace(Event::<Test>::FixedPriceSaleList {
+				tokens: sft_token.clone(),
+				listing_id,
+				marketplace_id: None,
+				price,
+				payment_asset: NativeAssetId::get(),
+				seller: token_owner,
+				close: System::block_number() + DefaultListingDuration::get(),
+			}));
 
 			// Check the SFT reserved and free balance
 			let token_balance = sft_balance_of(token_id, &token_owner);
