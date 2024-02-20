@@ -64,10 +64,13 @@ benchmarks! {
 		let nonce: u32 = 0;
 		let tip: u64 = 0;
 		let genesis_hash = T::Hash::default();
-	}: _(RawOrigin::None, Box::new(call), doughnut_encoded, nonce, genesis_hash, tip, signature)
+	}: _(RawOrigin::None, Box::new(call.clone()), doughnut_encoded.clone(), nonce, genesis_hash, tip, signature)
 	verify {
 		// Verify success event was thrown
-		assert_last_event::<T>(Event::DoughnutCallExecuted { result: DispatchResult::Ok(()) }.into());
+		assert_last_event::<T>(
+			Event::DoughnutCallExecuted { doughnut: doughnut_encoded, call, result: Ok(()) }
+			.into(),
+		);
 	}
 
 	revoke_doughnut {
