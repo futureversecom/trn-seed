@@ -285,7 +285,6 @@ impl<T> Call<T>
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use seed_pallet_common::ExtrinsicChecker;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
@@ -353,9 +352,17 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
 		/// Doughnut transaction executed
-		DoughnutCallExecuted { result: DispatchResult },
+		DoughnutCallExecuted {
+			doughnut: Vec<u8>,
+			call: <T as Config>::RuntimeCall,
+			result: DispatchResult,
+		},
 		/// Whitelisted holders updated
 		WhitelistedHoldersUpdated { holder: T::AccountId, enabled: bool },
+		/// Doughnut revoke state updated
+		DoughnutRevokeStateUpdated { doughnut_hash: [u8; 32], revoked: bool },
+		/// Holder revocation updated
+		HolderRevokeStateUpdated { issuer: T::AccountId, holder: T::AccountId, revoked: bool },
 	}
 
 	#[pallet::error]
@@ -453,8 +460,10 @@ pub mod pallet {
 
 			// dispatch the inner call
 			let issuer_origin = frame_system::RawOrigin::Signed(issuer_address).into();
-			let e = call.dispatch(issuer_origin);
+			let e = call.clone().dispatch(issuer_origin);
 			Self::deposit_event(Event::<T>::DoughnutCallExecuted {
+				doughnut,
+				call: *call,
 				result: e.map(|_| ()).map_err(|e| e.error),
 			});
 
@@ -480,7 +489,10 @@ pub mod pallet {
 				true => BlockedDoughnuts::<T>::insert(doughnut_hash, true),
 				false => BlockedDoughnuts::<T>::remove(doughnut_hash),
 			}
-
+			Self::deposit_event(Event::<T>::DoughnutRevokeStateUpdated {
+				doughnut_hash,
+				revoked: revoke,
+			});
 			Ok(())
 		}
 
@@ -493,9 +505,14 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 			match revoke {
-				true => BlockedHolders::<T>::insert(who, holder, true),
-				false => BlockedHolders::<T>::remove(who, holder),
+				true => BlockedHolders::<T>::insert(who.clone(), holder.clone(), true),
+				false => BlockedHolders::<T>::remove(who.clone(), holder.clone()),
 			}
+			Self::deposit_event(Event::<T>::HolderRevokeStateUpdated {
+				issuer: who,
+				holder,
+				revoked: revoke,
+			});
 			Ok(())
 		}
 

@@ -342,8 +342,8 @@ fn transact_works() {
 			// Attempting to transact the doughnut should succeed
 			assert_ok!(DoughnutPallet::transact(
 				RawOrigin::None.into(),
-				Box::new(call),
-				doughnut_encoded,
+				Box::new(call.clone()),
+				doughnut_encoded.clone(),
 				0,
 				H256::default(),
 				0,
@@ -352,7 +352,8 @@ fn transact_works() {
 
 			// Check event is thrown
 			System::assert_has_event(
-				Event::DoughnutCallExecuted { result: DispatchResult::Ok(()) }.into(),
+				Event::DoughnutCallExecuted { doughnut: doughnut_encoded, call, result: Ok(()) }
+					.into(),
 			);
 			// Check balance of destination and issuer is correct
 			assert_eq!(Balances::free_balance(&destination), transfer_amount);
@@ -399,8 +400,8 @@ fn transact_works_eip191() {
 			// Attempting to transact the doughnut should succeed
 			assert_ok!(DoughnutPallet::transact(
 				RawOrigin::None.into(),
-				Box::new(call),
-				doughnut_encoded,
+				Box::new(call.clone()),
+				doughnut_encoded.clone(),
 				0,
 				H256::default(),
 				0,
@@ -409,7 +410,8 @@ fn transact_works_eip191() {
 
 			// Check event is thrown
 			System::assert_has_event(
-				Event::DoughnutCallExecuted { result: DispatchResult::Ok(()) }.into(),
+				Event::DoughnutCallExecuted { doughnut: doughnut_encoded, call, result: Ok(()) }
+					.into(),
 			);
 			// Check balance of destination and issuer is correct
 			assert_eq!(Balances::free_balance(&destination), transfer_amount);
@@ -509,8 +511,13 @@ fn revoke_doughnut_works() {
 			true
 		));
 
-		// Check storage updated
 		let doughnut_hash = keccak_256(&doughnut_encoded);
+		// check events
+		System::assert_has_event(
+			Event::DoughnutRevokeStateUpdated { doughnut_hash, revoked: true }.into(),
+		);
+
+		// Check storage updated
 		assert_eq!(BlockedDoughnuts::<Test>::get(doughnut_hash), true);
 
 		// Attempting to transact the doughnut should fail as the doughnut is revoked
@@ -535,6 +542,11 @@ fn revoke_doughnut_works() {
 			doughnut_encoded.clone(),
 			false
 		));
+		// check events
+		System::assert_has_event(
+			Event::DoughnutRevokeStateUpdated { doughnut_hash, revoked: false }.into(),
+		);
+		// check storage
 		assert_eq!(BlockedDoughnuts::<Test>::get(doughnut_hash), false);
 
 		// Attempting to transact the doughnut should now succeed
@@ -605,6 +617,15 @@ fn revoke_holder_works() {
 			true
 		));
 
+		// check events
+		System::assert_has_event(
+			Event::HolderRevokeStateUpdated {
+				issuer: issuer.address(),
+				holder: holder.address(),
+				revoked: true,
+			}
+			.into(),
+		);
 		// Check storage updated
 		assert_eq!(BlockedHolders::<Test>::get(issuer.address(), holder.address()), true);
 
@@ -630,6 +651,15 @@ fn revoke_holder_works() {
 			holder.address().clone(),
 			false
 		));
+		// check events
+		System::assert_has_event(
+			Event::HolderRevokeStateUpdated {
+				issuer: issuer.address(),
+				holder: holder.address(),
+				revoked: false,
+			}
+			.into(),
+		);
 		assert_eq!(BlockedHolders::<Test>::get(issuer.address(), holder.address()), false);
 
 		// Attempting to transact the doughnut should now succeed
@@ -824,7 +854,7 @@ fn signed_extension_validations_succeed() {
 			let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(
 				mock::RuntimeCall::Doughnut(crate::Call::transact {
 					call: Box::new(call.clone()),
-					doughnut: doughnut_encoded,
+					doughnut: doughnut_encoded.clone(),
 					nonce,
 					genesis_hash: H256::default(),
 					tip: 0,
@@ -847,7 +877,8 @@ fn signed_extension_validations_succeed() {
 
 			// Check event is thrown as the doughnut was successfully executed
 			System::assert_has_event(
-				Event::DoughnutCallExecuted { result: DispatchResult::Ok(()) }.into(),
+				Event::DoughnutCallExecuted { doughnut: doughnut_encoded, call, result: Ok(()) }
+					.into(),
 			);
 		});
 }
