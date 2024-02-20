@@ -215,16 +215,10 @@ fn bob_to_alice_doughnut() {
 		let doughnut =
 			make_doughnut(&holder, &issuer, FeeMode::ISSUER, "", vec![], SignatureVersion::ECDSA);
 
-		println!("issuer address (Bob): {:?}", to_hex(issuer.address().0.as_slice(), false));
-		println!("holder address (Alice): {:?}", to_hex(holder.address().0.as_slice(), false));
-
 		let doughnut_encoded = doughnut.encode();
-		println!("Encoded doughnut");
-		println!("{:?}", to_hex(doughnut_encoded.clone().as_slice(), false));
 
 		// Print Alice's signature over the doughnut
 		let alice_signature = holder.sign_ecdsa(&doughnut_encoded.as_slice());
-		println!("Holder signature: {:?}", to_hex(alice_signature.as_slice(), false));
 
 		// Verify Alice's signature
 		assert_ok!(verify_signature(
@@ -244,17 +238,10 @@ fn alice_to_bob_doughnut() {
 		let doughnut =
 			make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![], SignatureVersion::ECDSA);
 
-		println!("doughnut: {:?}", doughnut);
-		println!("issuer address (Alice): {:?}", to_hex(issuer.address().0.as_slice(), false));
-		println!("holder address (Bob): {:?}", to_hex(holder.address().0.as_slice(), false));
-
 		let doughnut_encoded = doughnut.encode();
-		println!("Encoded doughnut");
-		println!("{:?}", to_hex(doughnut_encoded.clone().as_slice(), false));
 
 		// Print Bob's signature over the doughnut
 		let bob_signature = sign_ecdsa(&holder.private(), &doughnut_encoded.as_slice()).unwrap();
-		println!("Holder signature: {:?}", to_hex(holder.private().as_slice(), false));
 
 		// Verify Bob's signature
 		assert_ok!(verify_signature(
@@ -274,17 +261,10 @@ fn alice_to_bob_doughnut_eip191() {
 		let doughnut =
 			make_doughnut(&holder, &issuer, FeeMode::ISSUER, "1", vec![], SignatureVersion::EIP191);
 
-		println!("doughnut: {:?}", doughnut);
-		println!("issuer address (Alice): {:?}", to_hex(issuer.address().0.as_slice(), false));
-		println!("holder address (Bob): {:?}", to_hex(holder.address().0.as_slice(), false));
-
 		let doughnut_encoded = doughnut.encode();
-		println!("Encoded doughnut");
-		println!("{:?}", to_hex(doughnut_encoded.clone().as_slice(), false));
 
 		// Print Bob's signature over the doughnut
 		let bob_signature = sign_eip191(&holder.private(), &doughnut_encoded.as_slice()).unwrap();
-		println!("Holder signature: {:?}", to_hex(holder.private().as_slice(), false));
 
 		// Verify Bob's signature
 		assert_ok!(verify_signature(
@@ -311,17 +291,10 @@ fn alice_to_bob_doughnut_for_balance_trnasfer() {
 			SignatureVersion::ECDSA,
 		);
 
-		println!("doughnut: {:?}", doughnut);
-		println!("issuer address (Alice): {:?}", to_hex(issuer.address().0.as_slice(), false));
-		println!("holder address (Bob): {:?}", to_hex(holder.address().0.as_slice(), false));
-
 		let doughnut_encoded = doughnut.encode();
-		println!("Encoded doughnut");
-		println!("{:?}", to_hex(doughnut_encoded.clone().as_slice(), false));
 
 		// Print Bob's signature over the doughnut
 		let bob_signature = sign_ecdsa(&holder.private(), &doughnut_encoded.as_slice()).unwrap();
-		println!("Holder signature: {:?}", to_hex(holder.private().as_slice(), false));
 
 		// Verify Bob's signature
 		assert_ok!(verify_signature(
@@ -714,10 +687,10 @@ fn generate_alice_to_bob_outer_signature() {
 			let mut outer_call_payload: Vec<u8> = outer_call.encode();
 			outer_call_payload.as_mut_slice()[1] = 0x05; // due to real runtime pallet versioning
 			let outer_signature = holder.sign_ecdsa(&outer_call_payload.as_slice());
-			println!("doughnut: {:?}", to_hex(doughnut_encoded.as_slice(), false));
-			println!("outer call: {:?}", outer_call);
-			println!("outer call payload: {:?}", to_hex(outer_call_payload.as_slice(), false));
-			println!("outer call signature: {:?}", to_hex(&outer_signature, false));
+			// println!("doughnut: {:?}", to_hex(doughnut_encoded.as_slice(), false));
+			// println!("outer call: {:?}", outer_call);
+			// println!("outer call payload: {:?}", to_hex(outer_call_payload.as_slice(), false));
+			// println!("outer call signature: {:?}", to_hex(&outer_signature, false));
 		});
 }
 
@@ -757,10 +730,7 @@ fn generate_alice_to_bob_outer_signature_for_system_remark_for_benchmark() {
 
 			let outer_call_payload: Vec<u8> = outer_call.encode();
 			let outer_signature = holder.sign_eip191(&outer_call_payload.as_slice());
-			println!("doughnut encoded: {:?}", to_hex(doughnut_encoded.as_slice(), false));
-			println!("outer call: {:?}", outer_call);
-			println!("outer call payload: {:?}", to_hex(outer_call_payload.as_slice(), false));
-			println!("outer call signature: {:?}", to_hex(&outer_signature, false));
+			// println!("doughnut encoded: {:?}", to_hex(doughnut_encoded.as_slice(), false));
 		});
 }
 
@@ -807,10 +777,6 @@ fn generate_alice_to_bob_outer_signature_for_balances_transfer_keep_alive() {
 			let mut outer_call_payload: Vec<u8> = outer_call.encode();
 			outer_call_payload.as_mut_slice()[1] = 0x05; // due to real runtime pallet versioning
 			let outer_signature = holder.sign_ecdsa(&outer_call_payload.as_slice());
-			println!("doughnut: {:?}", to_hex(doughnut_encoded.as_slice(), false));
-			println!("outer call: {:?}", outer_call);
-			println!("outer call payload: {:?}", to_hex(outer_call_payload.as_slice(), false));
-			println!("outer call signature: {:?}", to_hex(&outer_signature, false));
 		});
 }
 

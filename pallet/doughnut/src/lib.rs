@@ -61,6 +61,17 @@ const TRN_PERMISSION_DOMAIN: &str = "trn";
 #[allow(dead_code)]
 pub(crate) const LOG_TARGET: &str = "doughnut";
 
+/// Checks performed on a fee payer of a Doughnut transaction
+pub type DoughnutFeePayerValidations<T> =
+	(pallet_transaction_payment::ChargeTransactionPayment<T>,);
+
+/// Checks performed on a sender of a Doughnut transaction
+pub type DoughnutSenderValidations<T> = (
+	frame_system::CheckNonZeroSender<T>,
+	frame_system::CheckNonce<T>,
+	frame_system::CheckWeight<T>,
+);
+
 impl<T> Call<T>
 	where
 		T: Send + Sync + Config,
@@ -257,7 +268,7 @@ impl<T> Call<T>
 				CheckWeight::new(),
 			);
 
-			let _pre_sender = SignedExtension::pre_dispatch(validations_sender, &sender_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
+			let pre_sender = SignedExtension::pre_dispatch(validations_sender, &sender_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
 			let pre_issuer = SignedExtension::pre_dispatch(validations_fee_payer, &fee_payer_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
 
 			// Dispatch the outer call. i.e Doughnut::transact() with None as the origin
@@ -270,6 +281,13 @@ impl<T> Call<T>
 			// post dispatch
 			<DoughnutFeePayerValidations<T> as SignedExtension>::post_dispatch(
 				Some(pre_issuer),
+				dispatch_info,
+				&post_info.into(),
+				len,
+				&res.map(|_| ()).map_err(|e| e.error),
+			).ok()?;
+			<DoughnutSenderValidations<T> as SignedExtension>::post_dispatch(
+				Some(pre_sender),
 				dispatch_info,
 				&post_info.into(),
 				len,
@@ -325,11 +343,11 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
-	/// Map from collection to its public minting information
+	/// Storage map for revoked doughnut information
 	#[pallet::storage]
 	pub type BlockedDoughnuts<T: Config> = StorageMap<_, Twox64Concat, [u8; 32], bool, ValueQuery>;
 
-	// Double map from issuer to blocked holder
+	/// Double map from issuer to blocked holder
 	#[pallet::storage]
 	pub type BlockedHolders<T: Config> = StorageDoubleMap<
 		_,
@@ -352,7 +370,9 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
+		/// Doughnut transaction executed
 		DoughnutCallExecuted { result: DispatchResult },
+		/// Whitelisted holders updated
 		WhitelistedHoldersUpdated { holder: T::AccountId, enabled: bool },
 	}
 
@@ -544,14 +564,3 @@ where
 		Ok(doughnut_decoded)
 	}
 }
-
-/// Checks performed on a fee payer of a Doughnut transaction
-pub type DoughnutFeePayerValidations<T> =
-	(pallet_transaction_payment::ChargeTransactionPayment<T>,);
-
-/// Checks performed on a sender of a Doughnut transaction
-pub type DoughnutSenderValidations<T> = (
-	frame_system::CheckNonZeroSender<T>,
-	frame_system::CheckNonce<T>,
-	frame_system::CheckWeight<T>,
-);

@@ -82,7 +82,6 @@ pallet-evm-precompiles-futurepass-registrar = { path = "../evm-precompiles/futur
 pallet-evm-precompiles-marketplace = { path = "../evm-precompiles/marketplace", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 doughnut-rs = { git = "https://github.com/futureversecom/trn-doughnut-rs", branch = "feat/trn-doughnut", default-features = false }
-#doughnut-rs = { path = "../../../trn-doughnut-rs", default-features = false, features = ["crypto"] }
 trn-pact = { version = "0.1.0", default-features = false }
 
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }

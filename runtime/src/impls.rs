@@ -937,12 +937,11 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 	type Result = DispatchResult;
 	fn check_extrinsic(call: &Self::Call, topping: &Self::Extra) -> DispatchResult {
 		// matcher to select the actual call to validate
-		let mut actual_call: Self::Call = call.clone();
-		match &call {
+		let actual_call: Self::Call = match &call {
 			RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic {
 				call: inner_call,
 				..
-			}) => actual_call = *inner_call.clone(),
+			}) => *inner_call.clone(),
 			RuntimeCall::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
 				call: inner_call_1,
 				..
@@ -952,13 +951,13 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 					..
 				}) = *inner_call_1.clone()
 				{
-					actual_call = *inner_call_2.clone();
+					*inner_call_2.clone()
 				} else {
-					actual_call = *inner_call_1.clone();
+					*inner_call_1.clone()
 				}
 			},
-			_ => actual_call = call.clone(),
-		}
+			_ => call.clone(),
+		};
 
 		if pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(&actual_call) {
 			return Err(frame_system::Error::<Runtime>::CallFiltered.into())
