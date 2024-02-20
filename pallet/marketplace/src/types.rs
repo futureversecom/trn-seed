@@ -65,8 +65,7 @@ pub struct SftListing<T: Config> {
 impl<T: Config> ListingTokens<T> {
 	/// Validates the listing tokens by checking the following:
 	/// - Ensures the list of tokens is not empty
-	/// - Ensures all tokens within the listing are from the same collection
-	/// Returns the unique collection_id if valid
+	/// - SFT tokens all have balance greater than 0
 	pub fn validate(&self) -> DispatchResult {
 		match self {
 			ListingTokens::Nft(tokens) => {
