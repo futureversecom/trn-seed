@@ -24,7 +24,7 @@ use sp_core::{ecdsa, H160};
 use sp_io::hashing::keccak_256;
 use sp_runtime::FixedPointOperand;
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use doughnut_rs::{
 	doughnut::Doughnut,
 	signature::{crypto::verify_signature, SignatureVersion},
@@ -155,33 +155,7 @@ impl<T> Call<T>
 		len: usize,
 	) -> Option<TransactionValidity> {
 		if let Call::transact { call: inner_call, doughnut, genesis_hash, nonce, tip, .. } = self {
-			// Genesis hash check
-			let genesis_hash_onchain: T::Hash = frame_system::Pallet::<T>::block_hash(T::BlockNumber::zero());
-			if *genesis_hash != genesis_hash_onchain {
-				log!(error,"⛔️ genesis hash mismatch: {:?}", genesis_hash);
-				return None
-			}
-
-			// Doughnut work
-			// run doughnut common validations
-			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
-				return None
-			};
-			let Ok(fee_payer_doughnut) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
-				log!(error,"⛔️ failed to get fee payer address: {:?}", doughnut_v1.fee_payer());
-				return None
-			};
-			let mut fee_payer_address = fee_payer_doughnut;
-
-			// Futurepass check
-			if <T as Config>::FuturepassLookup::check_extrinsic(inner_call, &()).is_ok() {
-				let Ok(futurepass) = <T as Config>::FuturepassLookup::lookup(fee_payer_address.clone().into()) else {
-					log!(error,"⛔️ failed to retrieve futurepass address for the address: {:?}", fee_payer_address);
-					return None
-				};
-				fee_payer_address = futurepass.into();
-			}
-
+			let fee_payer_address = Self::validate_params(doughnut, genesis_hash, inner_call).ok()?;
 			let sender_address = T::AccountId::from(*origin);
 
 			// construct the validation instances
@@ -226,35 +200,8 @@ impl<T> Call<T>
 		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<<T as Config>::RuntimeCall>>> {
-
 		if let Some(Call::transact { call: inner_call, doughnut, genesis_hash, nonce, tip, .. }) = call.is_sub_type() {
-			// Genesis hash check
-			let genesis_hash_onchain: T::Hash = frame_system::Pallet::<T>::block_hash(T::BlockNumber::zero());
-			if *genesis_hash != genesis_hash_onchain {
-				log!(error,"⛔️ genesis hash mismatch: {:?}", genesis_hash);
-				return None
-			}
-
-			// Doughnut work
-			// run doughnut common validations
-			let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
-				return None
-			};
-			// No need to do the doughnut verification again since already did in check_self_contained()
-			let Ok(fee_payer_doughnut) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
-				log!(error,"⛔️ failed to get fee payer address: {:?}", doughnut_v1.fee_payer());
-				return None
-			};
-			let mut fee_payer_address = fee_payer_doughnut;
-			// Futurepass check
-			if <T as Config>::FuturepassLookup::check_extrinsic(inner_call, &()).is_ok() {
-				let Ok(futurepass) = <T as Config>::FuturepassLookup::lookup(fee_payer_address.clone().into()) else {
-					log!(error,"⛔️ failed to retrieve futurepass address for the address: {:?}", fee_payer_address);
-					return None
-				};
-				fee_payer_address = futurepass.into();
-			}
-
+			let fee_payer_address = Self::validate_params(doughnut, genesis_hash, inner_call).ok()?;
 			let sender_address = T::AccountId::from(*info);
 
 			// Pre dispatch
@@ -297,6 +244,41 @@ impl<T> Call<T>
 			return Some(res)
 		}
 		None
+	}
+
+	fn validate_params(
+		doughnut: &Vec<u8>,
+		genesis_hash: &T::Hash,
+		call: &<T as Config>::RuntimeCall,
+	) -> Result<T::AccountId, String> {
+		// Genesis hash check
+		let genesis_hash_onchain: T::Hash = frame_system::Pallet::<T>::block_hash(T::BlockNumber::zero());
+		if *genesis_hash != genesis_hash_onchain {
+			log!(error,"⛔️ genesis hash mismatch: {:?}", genesis_hash);
+			return Err("⛔️ genesis hash mismatch".into())
+		}
+
+		// Doughnut work
+		// run doughnut common validations
+		let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
+			return Err("⛔️ Doughnut validation failed.".into())
+		};
+		// No need to do the doughnut verification again since already did in check_self_contained()
+		let Ok(fee_payer_doughnut) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
+			log!(error,"⛔️ failed to get fee payer address: {:?}", doughnut_v1.fee_payer());
+			return Err("⛔️ failed to get fee payer address".into())
+		};
+		let mut fee_payer_address = fee_payer_doughnut;
+		// Futurepass check
+		if <T as Config>::FuturepassLookup::check_extrinsic(call, &()).is_ok() {
+			let Ok(futurepass) = <T as Config>::FuturepassLookup::lookup(fee_payer_address.clone().into()) else {
+				log!(error,"⛔️ failed to retrieve futurepass address for the address: {:?}", fee_payer_address);
+				return Err("⛔️ failed to retrieve futurepass address for the address".into())
+			};
+			fee_payer_address = futurepass.into();
+		}
+
+		return Ok(fee_payer_address);
 	}
 }
 
