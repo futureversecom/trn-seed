@@ -366,9 +366,6 @@ pub mod pallet {
 			+ Into<<Self as frame_system::Config>::RuntimeOrigin>
 			+ IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
 
-		/// Chain ID of EVM.
-		type ChainId: Get<u64>;
-
 		/// The maximum bounded length for the XRPL signed message/transaction.
 		#[pallet::constant]
 		type MaxMessageLength: Get<u32>;

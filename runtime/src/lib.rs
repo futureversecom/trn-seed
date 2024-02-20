@@ -609,7 +609,6 @@ impl pallet_xrpl::Config for Runtime {
 	type CallValidator = impls::MaintenanceModeCallValidator;
 	type FuturepassLookup = impls::FuturepassLookup;
 	type PalletsOrigin = OriginCaller;
-	type ChainId = EVMChainId;
 	type MaxMessageLength = MaxMessageLength;
 	type MaxSignatureLength = MaxSignatureLength;
 	type WeightInfo = weights::pallet_xrpl::WeightInfo<Runtime>;
