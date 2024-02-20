@@ -41,7 +41,6 @@ mod tests;
 mod benchmarking;
 
 mod impls;
-pub mod traits;
 pub mod types;
 mod weights;
 

@@ -29,8 +29,7 @@ use frame_support::{
 };
 pub use pallet::*;
 use pallet_nft::traits::NFTExt;
-use pallet_sft::traits::SFTExt;
-use seed_pallet_common::{CreateExt, Hold, TransferExt};
+use seed_pallet_common::{CreateExt, Hold, SFTExt, TransferExt};
 use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, ListingId, SerialNumber, TokenId, TokenLockReason,
 };
@@ -330,8 +329,6 @@ pub mod pallet {
 		TokenOnAuction,
 		/// No tokens were specified in the listing
 		EmptyTokens,
-		/// All listing tokens must be from the same collection
-		MixedCollection,
 	}
 
 	#[pallet::hooks]

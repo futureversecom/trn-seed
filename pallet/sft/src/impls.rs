@@ -13,10 +13,10 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{traits::SFTExt, *};
+use crate::*;
 use frame_support::ensure;
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
-use seed_pallet_common::utils::PublicMintInformation;
+use seed_pallet_common::{utils::PublicMintInformation, SFTExt};
 use seed_primitives::{CollectionUuid, MAX_COLLECTION_ENTITLEMENTS};
 use sp_runtime::{traits::Zero, DispatchError};
 

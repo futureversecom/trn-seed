@@ -16,8 +16,8 @@ use crate::{Config, Error};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::DispatchResult, ensure, RuntimeDebugNoBound};
 use pallet_nft::traits::NFTExt;
-use pallet_sft::traits::SFTExt;
 use scale_info::TypeInfo;
+use seed_pallet_common::SFTExt;
 use seed_primitives::{
 	AssetId, Balance, BlockNumber, CollectionUuid, ListingId, RoyaltiesSchedule, SerialNumber,
 	TokenId, TokenLockReason,

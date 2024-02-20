@@ -28,12 +28,12 @@ use frame_support::{
 };
 use frame_system::Config;
 use scale_info::TypeInfo;
-use sp_core::{H160, U256};
+use sp_core::{bounded::BoundedVec, H160, U256};
 use sp_std::{fmt::Debug, vec::Vec};
 
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
-	AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
+	AssetId, Balance, CollectionUuid, MetadataScheme, RoyaltiesSchedule, SerialNumber, TokenId,
 };
 
 #[cfg(feature = "std")]
@@ -416,4 +416,36 @@ pub trait ExtrinsicChecker {
 	type Extra = ();
 	type Result = bool;
 	fn check_extrinsic(call: &Self::Call, extra: &Self::Extra) -> Self::Result;
+}
+
+pub trait SFTExt {
+	type AccountId: Debug + PartialEq + Clone;
+	type MaxSerialsPerMint: Get<u32>;
+
+	fn do_transfer(
+		origin: Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: BoundedVec<(SerialNumber, Balance), Self::MaxSerialsPerMint>,
+		new_owner: Self::AccountId,
+	) -> DispatchResult;
+
+	fn reserve_balance(token_id: TokenId, amount: Balance, who: &Self::AccountId)
+		-> DispatchResult;
+
+	fn free_reserved_balance(
+		token_id: TokenId,
+		amount: Balance,
+		who: &Self::AccountId,
+	) -> DispatchResult;
+
+	fn transfer_reserved_balance(
+		token_id: TokenId,
+		amount: Balance,
+		from: &Self::AccountId,
+		to: &Self::AccountId,
+	) -> DispatchResult;
+
+	fn get_royalties_schedule(
+		collection_id: CollectionUuid,
+	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError>;
 }
