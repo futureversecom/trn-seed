@@ -22,7 +22,7 @@ scale-info = { version = "2.3.0", default-features = false, features = ["derive"
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
 pallet-nft = { path = "../nft", default-features = false }
-pallet-sft = { path = "../sft", features = ["runtime-benchmarks"] }
+pallet-sft = { path = "../sft", default-features = false }
 log = { default-features = false, version = "0.4.14"}
 
 [dev-dependencies]
@@ -41,6 +41,7 @@ std = [
 	"seed-primitives/std",
 	"seed-pallet-common/std",
 	"pallet-nft/std",
+	"pallet-sft/std",
 	"codec/std",
 	"serde",
 	"sp-core/std",
