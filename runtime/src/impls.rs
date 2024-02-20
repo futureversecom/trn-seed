@@ -34,7 +34,10 @@ use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnCharg
 use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
-	traits::{AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero},
+	traits::{
+		AccountIdConversion, Extrinsic, LookupError, SaturatedConversion, StaticLookup, Verify,
+		Zero,
+	},
 	ConsensusEngineId, Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
@@ -58,9 +61,7 @@ use crate::{
 	UncheckedExtrinsic, EVM,
 };
 use doughnut_rs::Topping;
-use sp_runtime::traits::{
-	Dispatchable, LookupError, Saturating, StaticLookup, UniqueSaturatedInto,
-};
+use sp_runtime::traits::{Dispatchable, Saturating, UniqueSaturatedInto};
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -458,6 +459,64 @@ where
 			RawOrigin::Signed(who) if &who.into() == address => Ok(who),
 			r => Err(OuterOrigin::from(r)),
 		})
+	}
+}
+
+pub struct MaintenanceModeCallValidator;
+impl seed_pallet_common::ExtrinsicChecker for MaintenanceModeCallValidator {
+	type Call = RuntimeCall;
+	fn check_extrinsic(call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+		!pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(&call)
+	}
+}
+
+pub struct FuturepassLookup;
+impl StaticLookup for FuturepassLookup {
+	type Source = H160;
+	type Target = H160;
+
+	/// Lookup a futurepass for a given address
+	fn lookup(holder: Self::Source) -> Result<Self::Target, LookupError> {
+		pallet_futurepass::Holders::<Runtime>::get::<AccountId>(holder.into())
+			.map(|futurepass| futurepass.into())
+			.ok_or(LookupError)
+	}
+
+	/// Lookup holder for a given futurepass using ProxyPalletProvider.
+	/// Returns 0 address (default) if no holder is found.
+	fn unlookup(futurepass: Self::Target) -> Self::Source {
+		<ProxyPalletProvider as pallet_futurepass::ProxyProvider<Runtime>>::owner(
+			&futurepass.into(),
+		)
+		.unwrap_or_default()
+		.into()
+	}
+}
+impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {
+	type Call = <Runtime as frame_system::Config>::RuntimeCall;
+	fn check_extrinsic(call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+		match call {
+			// Check for direct Futurepass proxy_extrinsic call
+			RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. }) => true,
+			// Check for FeeProxy call containing Futurepass proxy_extrinsic call
+			RuntimeCall::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
+				call: inner_call,
+				..
+			}) => matches!(
+				inner_call.as_ref(),
+				RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. })
+			),
+			// All other cases
+			_ => false,
+		}
+	}
+}
+
+pub struct FuturepassCallValidator;
+impl seed_pallet_common::ExtrinsicChecker for FuturepassCallValidator {
+	type Call = <Runtime as frame_system::Config>::RuntimeCall;
+	fn check_extrinsic(call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+		matches!(call, RuntimeCall::Xrpl(pallet_xrpl::Call::transact { .. }))
 	}
 }
 
@@ -976,8 +1035,8 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 	}
 }
 
-pub struct FuturepassLookup;
-impl StaticLookup for FuturepassLookup {
+pub struct DoughnutFuturepassLookup;
+impl StaticLookup for DoughnutFuturepassLookup {
 	type Source = H160;
 	type Target = H160;
 
@@ -998,7 +1057,7 @@ impl StaticLookup for FuturepassLookup {
 		.into()
 	}
 }
-impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {
+impl seed_pallet_common::ExtrinsicChecker for DoughnutFuturepassLookup {
 	type Call = <Runtime as frame_system::Config>::RuntimeCall;
 	type Extra = ();
 	type Result = DispatchResult;
