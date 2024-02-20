@@ -65,7 +65,6 @@ describe("Doughnuts", () => {
     const expiry = 100000;
     const notBefore = 0;
 
-    console.log("\n====  Creating Doughnut");
     const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
     // Create the permission topping object. Balances::transfer with a constraint for amount = 10
     const dataTable = ["10"];
@@ -93,7 +92,6 @@ describe("Doughnuts", () => {
 
     // Add to trn topping
     doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
-    console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -102,8 +100,6 @@ describe("Doughnuts", () => {
     const issuerSig = await aliceWallet.signMessage(ethSlice);
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
     doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
-
-    console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
     const verified = doughnut.verify(holderPubkey, 5);
@@ -142,7 +138,6 @@ describe("Doughnuts", () => {
 
     const balance = await api.query.system.account(receiverAddress);
     const freeBalance = balance.toJSON()?.data.free;
-    console.log(`Free balance after doughnut transact: ${freeBalance}`);
     expect(freeBalance).to.be.equal(transferAmount);
 
     const aliceBalanceAfter = await api.query.system.account(alice.address);
@@ -219,7 +214,6 @@ describe("Doughnuts", () => {
     const expiry = 100000;
     const notBefore = 0;
 
-    console.log("\n====  Creating Doughnut");
     const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
     // Create the permission topping object. Balances::transfer with a constraint for amount = 10
     const dataTable = ["10"];
@@ -227,7 +221,6 @@ describe("Doughnuts", () => {
     const bytecode = new Uint8Array([...comp.encode()]);
     const pactContract = new Pact(dataTable, bytecode);
     const pactEncoded = pactContract.encode();
-    // console.log(pactEncoded);
 
     const module = [
       {
@@ -247,7 +240,6 @@ describe("Doughnuts", () => {
 
     // Add to trn topping
     doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
-    console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -256,7 +248,6 @@ describe("Doughnuts", () => {
     const issuerSig = await aliceWallet.signMessage(ethSlice);
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
     doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
-    console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
     const verified = doughnut.verify(holderPubkey, 5);
@@ -292,7 +283,6 @@ describe("Doughnuts", () => {
 
     const balance = await api.query.system.account(receiverAddress);
     const freeBalance = balance.toJSON()?.data.free;
-    console.log(`Free balance after doughnut transact: ${freeBalance}`);
     expect(freeBalance).to.be.equal(0);
 
     const aliceBalanceAfter = await api.query.system.account(alice.address);
@@ -314,11 +304,9 @@ describe("Doughnuts", () => {
     const expiry = 100000;
     const notBefore = 0;
 
-    console.log("\n====  Creating Doughnut");
     const doughnut = new Doughnut(version, issuer, holder, feeMode, expiry, notBefore);
     // Add a random topping to allow the doughnut to be encoded
     doughnut.addTopping("Test", new Uint8Array(12));
-    console.log(`Topping    : ${doughnut.topping("Test")}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -327,7 +315,6 @@ describe("Doughnuts", () => {
     const issuerSig = await aliceWallet.signMessage(ethSlice);
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
     doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
-    console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
     const verified = doughnut.verify(holder, 5);
@@ -364,7 +351,6 @@ describe("Doughnuts", () => {
     // console.log(events);
     const balance = await api.query.system.account(receiverAddress);
     const freeBalance = balance.toJSON()?.data.free;
-    console.log(`Free balance after doughnut transact: ${freeBalance}`);
     expect(freeBalance).to.be.equal(0);
 
     const aliceBalanceAfter = await api.query.system.account(alice.address);
@@ -388,7 +374,6 @@ describe("Doughnuts", () => {
     const expiry = 100000;
     const notBefore = 0;
 
-    console.log("\n====  Creating Doughnut");
     const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
     // Create the permission topping object. Balances::transfer with a constraint for amount = 10
     const dataTable = ["10"];
@@ -396,7 +381,6 @@ describe("Doughnuts", () => {
     const bytecode = new Uint8Array([...comp.encode()]);
     const pactContract = new Pact(dataTable, bytecode);
     const pactEncoded = pactContract.encode();
-    // console.log(pactEncoded);
 
     const module = [
       {
@@ -416,7 +400,6 @@ describe("Doughnuts", () => {
 
     // Add to trn topping
     doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
-    console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -425,8 +408,6 @@ describe("Doughnuts", () => {
     const issuerSig = await aliceWallet.signMessage(ethSlice);
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
     doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
-
-    console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
     const verified = doughnut.verify(holderPubkey, 5);
@@ -463,7 +444,6 @@ describe("Doughnuts", () => {
     // console.log(events);
     const balance = await api.query.system.account(receiverAddress);
     const freeBalance = balance.toJSON()?.data.free;
-    console.log(`Free balance after doughnut transact: ${freeBalance}`);
     expect(freeBalance).to.be.equal(0);
 
     const aliceBalanceAfter = await api.query.system.account(alice.address);
@@ -523,7 +503,6 @@ describe("Doughnuts", () => {
 
     // Add to trn topping
     doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
-    // console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const userAWallet = await new Wallet(userAPrivateKey);
@@ -532,8 +511,6 @@ describe("Doughnuts", () => {
     const issuerSig = await userAWallet.signMessage(ethSlice);
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
     doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
-
-    // console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
     const verified = doughnut.verify(holderPubkey, 5);
@@ -749,7 +726,6 @@ describe("Doughnuts", () => {
 
     // Add to trn topping
     doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
-    // console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const userAWallet = await new Wallet(userAPrivateKey);
@@ -758,7 +734,6 @@ describe("Doughnuts", () => {
     const issuerSig = await userAWallet.signMessage(ethSlice);
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
     doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
-    // console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
     const verified = doughnut.verify(holderPubkey, 5);
@@ -976,7 +951,6 @@ describe("Doughnuts", () => {
 
     // Add to trn topping
     doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
-    // console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const userAWallet = await new Wallet(userAPrivateKey);
@@ -985,7 +959,6 @@ describe("Doughnuts", () => {
     const issuerSig = await userAWallet.signMessage(ethSlice);
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
     doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
-    // console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
     const verified = doughnut.verify(holderPubkey, 5);
@@ -1133,7 +1106,6 @@ describe("Doughnuts", () => {
     const expiry = 100000;
     const notBefore = 0;
 
-    console.log("\n====  Creating Doughnut");
     const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
     // Create the permission topping object. Balances::transfer with a constraint for amount = 10
     const dataTable = [transferAmountLimit.toString()];
@@ -1141,7 +1113,6 @@ describe("Doughnuts", () => {
     const bytecode = new Uint8Array([...comp.encode()]);
     const pactContract = new Pact(dataTable, bytecode);
     const pactEncoded = pactContract.encode();
-    // console.log(pactEncoded);
 
     const module = [
       {
@@ -1161,7 +1132,6 @@ describe("Doughnuts", () => {
 
     // Add to trn topping
     doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
-    console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -1170,8 +1140,6 @@ describe("Doughnuts", () => {
     const issuerSig = await aliceWallet.signMessage(ethSlice);
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
     doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
-
-    console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
     const verified = doughnut.verify(holderPubkey, 5);
@@ -1311,7 +1279,6 @@ describe("Doughnuts", () => {
     const expiry = 100000;
     const notBefore = 0;
 
-    console.log("\n====  Creating Doughnut");
     const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
     // Create the permission topping object. Balances::transfer with a constraint for amount = 10
     const dataTable = [transferAmountLimit.toString()];
@@ -1319,7 +1286,6 @@ describe("Doughnuts", () => {
     const bytecode = new Uint8Array([...comp.encode()]);
     const pactContract = new Pact(dataTable, bytecode);
     const pactEncoded = pactContract.encode();
-    // console.log(pactEncoded);
 
     const module = [
       {
@@ -1339,7 +1305,6 @@ describe("Doughnuts", () => {
 
     // Add to trn topping
     doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
-    console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -1348,8 +1313,6 @@ describe("Doughnuts", () => {
     const issuerSig = await aliceWallet.signMessage(ethSlice);
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
     doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
-
-    console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
     const verified = doughnut.verify(holderPubkey, 5);
@@ -1491,7 +1454,6 @@ describe("Doughnuts", () => {
     const expiry = 100000;
     const notBefore = 0;
 
-    console.log("\n====  Creating Doughnut");
     const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
     // Create the permission topping object. Balances::transfer with a constraint for amount = 10
     const dataTable = [stringConstraint];
@@ -1499,7 +1461,6 @@ describe("Doughnuts", () => {
     const bytecode = new Uint8Array([...comp.encode()]);
     const pactContract = new Pact(dataTable, bytecode);
     const pactEncoded = pactContract.encode();
-    // console.log(pactEncoded);
 
     const module = [
       {
@@ -1519,7 +1480,6 @@ describe("Doughnuts", () => {
 
     // Add to trn topping
     doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
-    console.log(`Topping    : ${doughnut.topping(TRN_PERMISSION_DOMAIN)}`);
 
     // Sign the doughnut
     const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
@@ -1528,8 +1488,6 @@ describe("Doughnuts", () => {
     const issuerSig = await aliceWallet.signMessage(ethSlice);
     const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
     doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
-
-    console.log(`Signature : ${doughnut.signature()}`);
 
     // Verify that the doughnut is valid
     const verified = doughnut.verify(holderPubkey, 5);
@@ -1651,7 +1609,6 @@ describe("Doughnuts", () => {
     const bytecode = new Uint8Array([...comp.encode()]);
     const pactContract = new Pact(dataTable, bytecode);
     const pactEncoded = pactContract.encode();
-    // console.log(pactEncoded);
 
     const module = [
       {
