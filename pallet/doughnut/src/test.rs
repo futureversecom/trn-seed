@@ -92,7 +92,7 @@ pub fn make_doughnut(
 		issuer: issuer.public().as_slice().try_into().expect("should not fail"),
 		fee_mode: fee_mode as u8,
 		toppings: vec![(topping.to_string(), topping_payload)],
-		expiry: 0,
+		expiry: 100,
 		not_before: 0,
 		payload_version: PayloadVersion::V1 as u16,
 		signature_version: signature_version as u8,
@@ -1367,6 +1367,77 @@ fn tip_increase_priority() {
 			);
 			assert!(
 				transaction_validity_2.unwrap().priority < transaction_validity_3.unwrap().priority
+			);
+		});
+}
+
+#[test]
+fn apply_extrinsic_expired_doughnut_fails() {
+	TestExt::<Test>::default()
+		.with_asset(XRP_ASSET_ID, "XRP", &[]) // create XRP asset
+		.with_block_number(100 + 1) // set to higher block number than doughnut expiry
+		.build()
+		.execute_with(|| {
+			let issuer = ALICE;
+			let holder = BOB;
+			let doughnut = make_doughnut(
+				&holder,
+				&issuer,
+				FeeMode::ISSUER,
+				"1",
+				vec![],
+				SignatureVersion::ECDSA,
+			);
+			let doughnut_encoded = doughnut.encode();
+
+			// Fund the issuer so they can pass the validations for paying gas
+			assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &issuer.address(), 5000000));
+			let call = mock::RuntimeCall::System(frame_system::Call::remark_with_event {
+				remark: b"Mischief Managed".to_vec(),
+			});
+			let nonce = 0;
+
+			// Print Bob's signature over the doughnut
+			let outer_call = Call::<Test>::transact {
+				call: Box::new(call.clone()),
+				doughnut: doughnut_encoded.clone(),
+				nonce,
+				genesis_hash: H256::default(),
+				tip: 0,
+				signature: vec![],
+			};
+			let outer_signature = holder.sign_eip191(&outer_call.encode().as_slice());
+
+			// validate self contained extrinsic is invalid (invalid signature)
+			let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(
+				mock::RuntimeCall::Doughnut(crate::Call::transact {
+					call: Box::new(call.clone()),
+					doughnut: doughnut_encoded,
+					nonce,
+					genesis_hash: H256::default(),
+					tip: 0,
+					signature: outer_signature.into(),
+				}),
+			);
+
+			// current block number should be higher than doughnut expiry which is 100
+			assert!(frame_system::Pallet::<Test>::block_number() > 100);
+
+			// validate transaction should fail as the current block number is higher than doughnut
+			// expiry
+			assert_err!(
+				Executive::validate_transaction(
+					TransactionSource::External,
+					xt.clone().into(),
+					H256::default()
+				),
+				TransactionValidityError::Invalid(InvalidTransaction::BadProof)
+			);
+			// apply transaction should fail as the current block number is higher than doughnut
+			// expiry
+			assert_err!(
+				Executive::apply_extrinsic(xt.clone()),
+				TransactionValidityError::Invalid(InvalidTransaction::BadProof)
 			);
 		});
 }

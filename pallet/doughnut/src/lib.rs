@@ -96,6 +96,13 @@ impl<T> Call<T>
 				let Ok(Doughnut::V1(doughnut_v1)) = Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
 					return Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof))
 				};
+
+				// Validate doughnut - expiry
+				doughnut_v1.validate(doughnut_v1.holder, frame_system::Pallet::<T>::block_number()).map_err(|e| {
+					log!(info,"🍩 failed to validate doughnut expiry: {:?}", e);
+					TransactionValidityError::Invalid(InvalidTransaction::BadProof)
+				})?;
+
 				// Verify doughnut signature
 				doughnut_v1.verify().map_err(|e| {
 					log!(info,"🍩 failed to verify doughnut signature: {:?}", e);
