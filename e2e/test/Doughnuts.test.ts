@@ -179,9 +179,6 @@ describe("Doughnuts", () => {
     index += 1;
     expect(eventData[index].event.section).to.equal("doughnut");
     expect(eventData[index].event.method).to.equal("DoughnutCallExecuted");
-    console.log(eventData[index]);
-    // expect(eventData[index].event.data[0].toString()).to.equal(encodedDoughnut);
-    // expect(eventData[index].event.data[0].toString()).to.equal(encodedDoughnut);
 
     // assetsExt	InternalDeposit	[2,"0x6D6F646c7478666565706F740000000000000000",875115]
     index += 1;
@@ -1749,7 +1746,7 @@ describe("Doughnuts", () => {
     const comp1 = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 0, 0, false); // RHS is the data table
     const comp2 = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 2, 1, false); // RHS is the data table
     const comp3 = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 3, 2, false); // RHS is the data table
-    const bytecode = new Uint8Array([...comp1.encode(),...comp2.encode(),...comp3.encode()]);
+    const bytecode = new Uint8Array([...comp1.encode(), ...comp2.encode(), ...comp3.encode()]);
     const pactContract = new Pact(dataTable, bytecode);
     const pactEncoded = pactContract.encode();
     // console.log(pactEncoded);
@@ -1800,8 +1797,10 @@ describe("Doughnuts", () => {
     const holderSig = await holderWallet.signMessage(txSlice);
 
     // balances before
-    const aliceXRPBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, alice.address)).toJSON() as any)?.balance ?? 0;
-    const receiverXRPBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, receiverAddress)).toJSON() as any)?.balance ?? 0;
+    const aliceXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, alice.address)).toJSON() as any)?.balance ?? 0;
+    const receiverXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, receiverAddress)).toJSON() as any)?.balance ?? 0;
 
     // whitelist the holder. i.e bob
     await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
@@ -1818,8 +1817,10 @@ describe("Doughnuts", () => {
     // eventData.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
 
     // balances after
-    const aliceXRPBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, alice.address)).toJSON() as any)?.balance ?? 0;
-    const receiverXRPBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, receiverAddress)).toJSON() as any)?.balance ?? 0;
+    const aliceXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, alice.address)).toJSON() as any)?.balance ?? 0;
+    const receiverXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, receiverAddress)).toJSON() as any)?.balance ?? 0;
     // alice should bear transferAmount + fees in XRP
     expect(aliceXRPBalanceBefore - aliceXRPBalanceAfter).to.be.greaterThan(transferAmount);
     // receiverAddress should have transferAmount
