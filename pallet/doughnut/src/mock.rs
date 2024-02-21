@@ -1,4 +1,4 @@
-// Copyright 2022-2023 Futureverse Corporation Limited
+// Copyright 2023-2024 Futureverse Corporation Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,18 +13,21 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{self as pallet_xrpl, *};
-use frame_support::weights::WeightToFee;
+#![cfg(test)]
+
+use super::*;
+use crate::{self as pallet_doughnut};
+use frame_support::{traits::InstanceFilter, weights::WeightToFee};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{Address, Signature};
 use sp_runtime::{generic, traits::LookupError};
 
-pub type SignedExtra = XRPLValidations<Test>;
+pub type SignedExtra = DoughnutSenderValidations<Test>;
 pub type UncheckedExtrinsicT =
 	fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 pub type BlockT = generic::Block<Header, UncheckedExtrinsicT>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test where
 		Block = BlockT,
 		NodeBlock = BlockT,
@@ -36,7 +39,8 @@ frame_support::construct_runtime!(
 		AssetsExt: pallet_assets_ext,
 		TransactionPayment: pallet_transaction_payment,
 		FeeControl: pallet_fee_control,
-		Xrpl: pallet_xrpl,
+		Doughnut: pallet_doughnut,
+		Futurepass: pallet_futurepass,
 	}
 );
 
@@ -45,6 +49,7 @@ impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 impl_pallet_fee_control_config!(Test);
+impl_pallet_futurepass_config!(Test);
 
 pub struct FeeControlWeightToFee;
 impl WeightToFee for FeeControlWeightToFee {
@@ -74,44 +79,19 @@ impl pallet_transaction_payment::Config for Test {
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
 
-pub struct FuturepassIdentityLookup;
-impl StaticLookup for FuturepassIdentityLookup {
-	type Source = H160;
-	type Target = H160;
-	fn lookup(s: Self::Source) -> Result<Self::Target, LookupError> {
-		Ok(s)
-	}
-	fn unlookup(t: Self::Target) -> Self::Source {
-		t
-	}
-}
-impl seed_pallet_common::ExtrinsicChecker for FuturepassIdentityLookup {
-	type Call = RuntimeCall;
-	fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
-		false
-	}
-}
-
-pub struct ValidatedCall;
-impl seed_pallet_common::ExtrinsicChecker for ValidatedCall {
-	type Call = RuntimeCall;
-	fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
-		true
-	}
-}
-
 parameter_types! {
-	pub const MaxMessageLength: u32 = 2048;
-	pub const MaxSignatureLength: u32 = 80;
+	pub const GetExchangeFee: (u32, u32) = (3, 1000); // 0.3% fee
+	pub const TradingPathLimit: u32 = 3;
+	pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
+	pub const LPTokenDecimals: u8 = 6;
+	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
+	pub const DefaultFeeTo: Option<PalletId> = Some(TxFeePotId::get());
 }
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type CallValidator = ValidatedCall;
+	type CallValidator = MockDoughnutCallValidator;
 	type FuturepassLookup = FuturepassIdentityLookup;
-	type PalletsOrigin = OriginCaller;
-	type MaxMessageLength = MaxMessageLength;
-	type MaxSignatureLength = MaxSignatureLength;
 	type WeightInfo = ();
 }
 
@@ -120,14 +100,14 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 
 	fn is_self_contained(&self) -> bool {
 		match self {
-			RuntimeCall::Xrpl(call) => call.is_self_contained(),
+			RuntimeCall::Doughnut(call) => call.is_self_contained(),
 			_ => false,
 		}
 	}
 
 	fn check_self_contained(&self) -> Option<Result<Self::SignedInfo, TransactionValidityError>> {
 		match self {
-			RuntimeCall::Xrpl(call) => call.check_self_contained(),
+			RuntimeCall::Doughnut(ref call) => call.check_self_contained(),
 			_ => None,
 		}
 	}
@@ -139,7 +119,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<TransactionValidity> {
 		match self {
-			RuntimeCall::Xrpl(ref call) =>
+			RuntimeCall::Doughnut(ref call) =>
 				call.validate_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
@@ -152,7 +132,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
 		match self {
-			RuntimeCall::Xrpl(ref call) =>
+			RuntimeCall::Doughnut(ref call) =>
 				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
@@ -165,7 +145,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
 		match self {
-			RuntimeCall::Xrpl(call) => pallet_xrpl::Call::<Test>::apply_self_contained(
+			RuntimeCall::Doughnut(call) => pallet_doughnut::Call::<Test>::apply_self_contained(
 				call.into(),
 				&info,
 				&dispatch_info,
@@ -183,3 +163,34 @@ pub type Executive = frame_executive::Executive<
 	Test,
 	AllPalletsWithSystem,
 >;
+
+pub struct MockDoughnutCallValidator;
+
+impl ExtrinsicChecker for MockDoughnutCallValidator {
+	type Call = RuntimeCall;
+	type Extra = Topping;
+	type Result = DispatchResult;
+	fn check_extrinsic(_call: &Self::Call, _topping: &Self::Extra) -> DispatchResult {
+		Ok(())
+	}
+}
+
+pub struct FuturepassIdentityLookup;
+impl StaticLookup for FuturepassIdentityLookup {
+	type Source = H160;
+	type Target = H160;
+	fn lookup(s: Self::Source) -> Result<Self::Target, LookupError> {
+		Ok(s)
+	}
+	fn unlookup(t: Self::Target) -> Self::Source {
+		t
+	}
+}
+impl ExtrinsicChecker for FuturepassIdentityLookup {
+	type Call = RuntimeCall;
+	type Extra = ();
+	type Result = DispatchResult;
+	fn check_extrinsic(_call: &Self::Call, _permissioned_object: &Self::Extra) -> DispatchResult {
+		Ok(())
+	}
+}

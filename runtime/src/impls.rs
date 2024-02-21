@@ -25,8 +25,8 @@ use frame_support::{
 		fungible::Inspect,
 		fungibles,
 		tokens::{DepositConsequence, WithdrawConsequence},
-		Currency, ExistenceRequirement, FindAuthor, Imbalance, InstanceFilter, OnUnbalanced,
-		ReservableCurrency, SignedImbalance, WithdrawReasons,
+		CallMetadata, Currency, ExistenceRequirement, FindAuthor, GetCallMetadata, Imbalance,
+		InstanceFilter, OnUnbalanced, ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
 	weights::WeightToFee,
 };
@@ -41,6 +41,7 @@ use sp_runtime::{
 	ConsensusEngineId, Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
+use trn_pact::types::{Numeric, PactType, StringLike};
 
 use precompile_utils::{
 	constants::{
@@ -59,6 +60,7 @@ use crate::{
 	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
 	UncheckedExtrinsic, EVM,
 };
+use doughnut_rs::Topping;
 use sp_runtime::traits::{Dispatchable, Saturating, UniqueSaturatedInto};
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
@@ -924,6 +926,185 @@ where
 			// 18DP to 6DP conversion happening there.
 			let tip_18dp: C::Balance = scale_6dp_to_wei(tip.peek().into()).into();
 			let _ = C::deposit_into_existing(&account_id, tip_18dp);
+		}
+	}
+}
+
+pub struct DoughnutCallValidator;
+impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
+	type Call = RuntimeCall;
+	type Extra = Topping;
+	type Result = DispatchResult;
+	fn check_extrinsic(call: &Self::Call, topping: &Self::Extra) -> DispatchResult {
+		// matcher to select the actual call to validate
+		let actual_call: Self::Call = match &call {
+			RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic {
+				call: inner_call,
+				..
+			}) => *inner_call.clone(),
+			RuntimeCall::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
+				call: inner_call_1,
+				..
+			}) => {
+				if let RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic {
+					call: inner_call_2,
+					..
+				}) = *inner_call_1.clone()
+				{
+					*inner_call_2.clone()
+				} else {
+					*inner_call_1.clone()
+				}
+			},
+			_ => call.clone(),
+		};
+
+		if pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(&actual_call) {
+			return Err(frame_system::Error::<Runtime>::CallFiltered.into())
+		}
+
+		let CallMetadata { function_name, pallet_name } = actual_call.get_call_metadata();
+		// selective matching the inner call for permission validations
+		match &actual_call {
+			// Balances
+			RuntimeCall::Balances(pallet_balances::Call::transfer { dest, value }) => {
+				let who = <Runtime as frame_system::Config>::Lookup::lookup(dest.clone())
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
+				let destination: [u8; 20] = who.into();
+				let value_u128: u128 = (*value).into();
+
+				topping
+					.validate_module(
+						pallet_name,
+						function_name,
+						// TODO: change the u64 conversion once pact Numeric support u128
+						&[
+							PactType::StringLike(StringLike(destination.to_vec())),
+							PactType::Numeric(Numeric(value_u128 as u64)),
+						],
+					)
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
+				Ok(())
+			},
+			RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { dest, value }) => {
+				let who = <Runtime as frame_system::Config>::Lookup::lookup(dest.clone())
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
+				let destination: [u8; 20] = who.into();
+				let value_u128: u128 = (*value).into();
+
+				topping
+					.validate_module(
+						pallet_name,
+						function_name,
+						// TODO: change the u64 conversion once pact Numeric support u128
+						&[
+							PactType::StringLike(StringLike(destination.to_vec())),
+							PactType::Numeric(Numeric(value_u128 as u64)),
+						],
+					)
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
+				Ok(())
+			},
+			// Futurepass
+			RuntimeCall::Futurepass(pallet_futurepass::Call::create { account }) => {
+				let owner_account: [u8; 20] = (*account).clone().into();
+				topping
+					.validate_module(
+						pallet_name,
+						function_name,
+						&[PactType::StringLike(StringLike(owner_account.to_vec()))],
+					)
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
+				Ok(())
+			},
+			// System
+			RuntimeCall::System(frame_system::Call::remark { remark }) => {
+				topping
+					.validate_module(
+						pallet_name,
+						function_name,
+						&[PactType::StringLike(StringLike(remark.to_vec()))],
+					)
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
+				Ok(())
+			},
+			// AssetsExt
+			RuntimeCall::AssetsExt(pallet_assets_ext::Call::transfer {
+				asset_id,
+				destination,
+				amount,
+				keep_alive,
+			}) => {
+				let asset_id_u64: u64 = (*asset_id).into();
+				let who = <Runtime as frame_system::Config>::Lookup::lookup(destination.clone())
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
+				let destination: [u8; 20] = who.into();
+				let amount_u128: u128 = (*amount).into();
+				let keep_alive_u64: u64 = (*keep_alive).into();
+
+				topping
+					.validate_module(
+						pallet_name,
+						function_name,
+						// TODO: change the u64 conversion once pact Numeric support u128
+						&[
+							PactType::Numeric(Numeric(asset_id_u64)),
+							PactType::StringLike(StringLike(destination.to_vec())),
+							PactType::Numeric(Numeric(amount_u128 as u64)),
+							PactType::Numeric(Numeric(keep_alive_u64)),
+						],
+					)
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
+				Ok(())
+			},
+
+			_ => return Err(pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied.into()),
+		}
+	}
+}
+
+pub struct DoughnutFuturepassLookup;
+impl StaticLookup for DoughnutFuturepassLookup {
+	type Source = H160;
+	type Target = H160;
+
+	/// Lookup a futurepass for a given address
+	fn lookup(holder: Self::Source) -> Result<Self::Target, LookupError> {
+		pallet_futurepass::Holders::<Runtime>::get::<AccountId>(holder.into())
+			.map(|futurepass| futurepass.into())
+			.ok_or(LookupError)
+	}
+
+	/// Lookup holder for a given futurepass using ProxyPalletProvider.
+	/// Returns 0 address (default) if no holder is found.
+	fn unlookup(futurepass: Self::Target) -> Self::Source {
+		<ProxyPalletProvider as pallet_futurepass::ProxyProvider<Runtime>>::owner(
+			&futurepass.into(),
+		)
+		.unwrap_or_default()
+		.into()
+	}
+}
+impl seed_pallet_common::ExtrinsicChecker for DoughnutFuturepassLookup {
+	type Call = <Runtime as frame_system::Config>::RuntimeCall;
+	type Extra = ();
+	type Result = DispatchResult;
+
+	fn check_extrinsic(call: &Self::Call, _permission_object: &Self::Extra) -> DispatchResult {
+		match call {
+			// Check for direct Futurepass proxy_extrinsic call
+			RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. }) => Ok(()),
+			// Check for FeeProxy call containing Futurepass proxy_extrinsic call
+			RuntimeCall::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
+				call: inner_call,
+				..
+			}) if matches!(
+				inner_call.as_ref(),
+				RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. })
+			) =>
+				Ok(()),
+			// All other cases
+			_ => Err(pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied.into()),
 		}
 	}
 }
