@@ -84,5 +84,6 @@ impl crate::Config for Test {
 	type MultiCurrency = AssetsExt;
 	type WeightInfo = ();
 	type NFTExt = Nft;
+	type NFTCollectionInfo = Nft;
 	type Xls20PaymentAsset = Xls20PaymentAsset;
 }

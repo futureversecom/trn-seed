@@ -13,7 +13,10 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{traits::NFTExt, *};
+use crate::{
+	traits::{NFTCollectionInfo, NFTExt},
+	*,
+};
 use frame_support::{ensure, traits::Get, weights::Weight};
 use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
@@ -569,15 +572,6 @@ impl<T: Config> NFTExt for Pallet<T> {
 		collection.get_token_owner(token_id.1)
 	}
 
-	fn get_collection_info(
-		collection_id: CollectionUuid,
-	) -> Result<
-		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
-		DispatchError,
-	> {
-		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
-	}
-
 	fn get_royalties_schedule(
 		collection_id: CollectionUuid,
 	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError> {
@@ -620,5 +614,20 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn remove_token_lock(token_id: TokenId) {
 		<TokenLocks<T>>::remove(token_id);
+	}
+}
+
+impl<T: Config> NFTCollectionInfo for Pallet<T> {
+	type AccountId = T::AccountId;
+	type MaxTokensPerCollection = T::MaxTokensPerCollection;
+	type StringLimit = T::StringLimit;
+
+	fn get_collection_info(
+		collection_id: CollectionUuid,
+	) -> Result<
+		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
+		DispatchError,
+	> {
+		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
 	}
 }

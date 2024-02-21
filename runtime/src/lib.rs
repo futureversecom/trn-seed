@@ -485,6 +485,7 @@ impl pallet_xls20::Config for Runtime {
 	type MaxTokensPerXls20Mint = MaxTokensPerXls20Mint;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
+	type NFTCollectionInfo = Nft;
 	type WeightInfo = weights::pallet_xls20::WeightInfo<Runtime>;
 	type Xls20PaymentAsset = XrpAssetId;
 }

@@ -55,13 +55,6 @@ pub trait NFTExt {
 
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId>;
 
-	fn get_collection_info(
-		collection_id: CollectionUuid,
-	) -> Result<
-		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
-		DispatchError,
-	>;
-
 	fn get_royalties_schedule(
 		collection_id: CollectionUuid,
 	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError>;
@@ -84,4 +77,17 @@ pub trait NFTExt {
 	) -> DispatchResult;
 
 	fn remove_token_lock(token_id: TokenId);
+}
+
+pub trait NFTCollectionInfo {
+	type AccountId: Debug + PartialEq + Clone;
+	type MaxTokensPerCollection: Get<u32>;
+	type StringLimit: Get<u32>;
+
+	fn get_collection_info(
+		collection_id: CollectionUuid,
+	) -> Result<
+		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
+		DispatchError,
+	>;
 }

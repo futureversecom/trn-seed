@@ -28,7 +28,7 @@ use frame_support::{
 	transactional,
 };
 use frame_system::pallet_prelude::*;
-use pallet_nft::traits::NFTExt;
+use pallet_nft::traits::{NFTCollectionInfo, NFTExt};
 use seed_pallet_common::Xls20MintRequest;
 use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount};
 use sp_runtime::{traits::Zero, DispatchResult, SaturatedConversion};
@@ -53,7 +53,6 @@ pub type Xls20TokenId = [u8; 64];
 
 #[frame_support::pallet]
 pub mod pallet {
-
 	use super::*;
 
 	/// The current storage version.
@@ -76,6 +75,8 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		/// NFT ownership interface
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
+		/// NFT CollectionInfo trait
+		type NFTCollectionInfo: NFTCollectionInfo<AccountId = Self::AccountId>;
 		/// AssetId used to pay Xls20 Mint Fees
 		type Xls20PaymentAsset: Get<AssetId>;
 	}
@@ -183,7 +184,7 @@ pub mod pallet {
 			// serial_numbers can't be empty
 			ensure!(!serial_numbers.len().is_zero(), Error::<T>::NoToken);
 
-			let collection_info = T::NFTExt::get_collection_info(collection_id)?;
+			let collection_info = T::NFTCollectionInfo::get_collection_info(collection_id)?;
 
 			// Caller must be collection owner
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
@@ -227,7 +228,7 @@ pub mod pallet {
 			// Ensure only relayer can call extrinsic
 			ensure!(Some(who) == Relayer::<T>::get(), Error::<T>::NotRelayer);
 
-			let collection_info = T::NFTExt::get_collection_info(collection_id)?;
+			let collection_info = T::NFTCollectionInfo::get_collection_info(collection_id)?;
 
 			for (serial_number, xls20_token_id) in token_mappings.iter() {
 				// Ensure token exists on TRN
