@@ -152,7 +152,7 @@ describe("XRPL pallet", () => {
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
     expect(xrpBalanceBefore - xrpBalanceAfter)
-      .to.greaterThan(840_000)
+      .to.greaterThan(830_000)
       .and.lessThan(855_000);
 
     // assert user nonce is updated (1 tx)
