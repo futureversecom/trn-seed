@@ -28,13 +28,13 @@ use frame_support::{
 };
 use frame_system::Config;
 use scale_info::TypeInfo;
-use sp_core::{bounded::BoundedVec, H160, U256};
-use sp_std::{fmt::Debug, vec::Vec};
-
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
-	AssetId, Balance, CollectionUuid, MetadataScheme, RoyaltiesSchedule, SerialNumber, TokenId,
+	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
+	TokenCount, TokenId, TokenLockReason,
 };
+use sp_core::{bounded::BoundedVec, H160, U256};
+use sp_std::{fmt::Debug, vec::Vec};
 
 #[cfg(feature = "std")]
 pub mod test_utils;
@@ -416,6 +416,75 @@ pub trait ExtrinsicChecker {
 	type Extra = ();
 	type Result = bool;
 	fn check_extrinsic(call: &Self::Call, extra: &Self::Extra) -> Self::Result;
+}
+
+pub trait NFTExt {
+	type AccountId: Debug + PartialEq + Clone;
+	type StringLimit: Get<u32>;
+
+	/// Mint a token in a specified collection
+	fn do_mint(
+		origin: Self::AccountId,
+		collection_id: CollectionUuid,
+		quantity: TokenCount,
+		token_owner: Option<Self::AccountId>,
+	) -> DispatchResult;
+
+	/// Transfer a token from origin to new_owner
+	fn do_transfer(
+		origin: Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: Vec<SerialNumber>,
+		new_owner: Self::AccountId,
+	) -> DispatchResult;
+
+	/// Create a new collection
+	fn do_create_collection(
+		owner: Self::AccountId,
+		name: BoundedVec<u8, Self::StringLimit>,
+		initial_issuance: TokenCount,
+		max_issuance: Option<TokenCount>,
+		token_owner: Option<Self::AccountId>,
+		metadata_scheme: MetadataScheme,
+		royalties_schedule: Option<RoyaltiesSchedule<Self::AccountId>>,
+		origin_chain: OriginChain,
+	) -> Result<CollectionUuid, DispatchError>;
+
+	/// Returns Some(token_owner) for a token if the owner exists
+	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId>;
+
+	/// Return the RoyaltiesSchedule if it exists for a collection
+	/// Returns an error if the collection does not exist
+	fn get_royalties_schedule(
+		collection_id: CollectionUuid,
+	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError>;
+
+	/// Enable XLS20 compatibility for a collection
+	/// who must be collection owner
+	fn enable_xls20_compatibility(
+		who: Self::AccountId,
+		collection_id: CollectionUuid,
+	) -> DispatchResult;
+
+	/// Returns the next collection_uuid
+	fn next_collection_uuid() -> Result<CollectionUuid, DispatchError>;
+
+	/// Increments the collection_uuid
+	fn increment_collection_uuid() -> DispatchResult;
+
+	/// Returns the token lock status of a token
+	fn get_token_lock(token_id: TokenId) -> Option<TokenLockReason>;
+
+	/// Sets the token lock status of a token
+	/// who must own the token
+	fn set_token_lock(
+		token_id: TokenId,
+		lock_reason: TokenLockReason,
+		who: Self::AccountId,
+	) -> DispatchResult;
+
+	/// Remove a token lock without performing checks
+	fn remove_token_lock(token_id: TokenId);
 }
 
 pub trait SFTExt {

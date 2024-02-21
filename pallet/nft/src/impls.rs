@@ -13,17 +13,14 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{
-	traits::{NFTCollectionInfo, NFTExt},
-	*,
-};
+use crate::{traits::NFTCollectionInfo, *};
 use frame_support::{ensure, traits::Get, weights::Weight};
 use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	log,
 	utils::{next_asset_uuid, PublicMintInformation},
-	OnNewAssetSubscriber, OnTransferSubscriber,
+	NFTExt, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
@@ -519,7 +516,6 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> NFTExt for Pallet<T> {
 	type AccountId = T::AccountId;
-	type MaxTokensPerCollection = T::MaxTokensPerCollection;
 	type StringLimit = T::StringLimit;
 
 	fn do_mint(
@@ -591,7 +587,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 		Self::next_collection_uuid()
 	}
 
-	fn increment_collection_id() -> DispatchResult {
+	fn increment_collection_uuid() -> DispatchResult {
 		ensure!(<NextCollectionId<T>>::get().checked_add(1).is_some(), Error::<T>::NoAvailableIds);
 		<NextCollectionId<T>>::mutate(|i| *i += u32::one());
 		Ok(())

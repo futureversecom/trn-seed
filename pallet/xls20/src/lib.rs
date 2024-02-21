@@ -28,8 +28,8 @@ use frame_support::{
 	transactional,
 };
 use frame_system::pallet_prelude::*;
-use pallet_nft::traits::{NFTCollectionInfo, NFTExt};
-use seed_pallet_common::Xls20MintRequest;
+use pallet_nft::traits::NFTCollectionInfo;
+use seed_pallet_common::{NFTExt, Xls20MintRequest};
 use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount};
 use sp_runtime::{traits::Zero, DispatchResult, SaturatedConversion};
 use sp_std::prelude::*;

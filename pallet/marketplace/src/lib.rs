@@ -28,8 +28,7 @@ use frame_support::{
 	transactional, PalletId,
 };
 pub use pallet::*;
-use pallet_nft::traits::NFTExt;
-use seed_pallet_common::{CreateExt, Hold, SFTExt, TransferExt};
+use seed_pallet_common::{CreateExt, Hold, NFTExt, SFTExt, TransferExt};
 use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, ListingId, SerialNumber, TokenId, TokenLockReason,
 };

@@ -11,8 +11,7 @@
 
 use crate::*;
 use frame_support::{ensure, traits::Get, transactional};
-use pallet_nft::traits::NFTExt;
-use seed_pallet_common::{log, Hold, TransferExt};
+use seed_pallet_common::{log, Hold, NFTExt, TransferExt};
 use seed_primitives::{AssetId, Balance, RoyaltiesSchedule, SerialNumber, TokenId};
 use sp_runtime::{
 	traits::{One, Saturating, Zero},

@@ -59,7 +59,7 @@ impl<T: Config> Pallet<T> {
 		<SftCollectionInfo<T>>::insert(collection_uuid, sft_collection_info);
 
 		// Increment NextCollectionId in NFT pallet
-		<T as Config>::NFTExt::increment_collection_id()?;
+		<T as Config>::NFTExt::increment_collection_uuid()?;
 
 		// Add some code to the EVM
 		T::OnNewAssetSubscription::on_asset_create(
