@@ -1484,8 +1484,9 @@ dependencies = [
 
 [[package]]
 name = "doughnut-rs"
-version = "0.2.1"
-source = "git+https://github.com/futureversecom/trn-doughnut-rs?branch=feat/trn-doughnut#4be5a6cb4ae9674fd126cbc9ac65d99cdf448611"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6edcc0c41ea564f8b9b78a35cb121cd756ee7cbe1bbc7bdce27279b22a4f5a8b"
 dependencies = [
  "blake2",
  "clear_on_drop",
@@ -10674,9 +10675,9 @@ dependencies = [
 
 [[package]]
 name = "trn-pact"
-version = "0.1.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c9e8b39cbee577a1b769eb099238660ae60386fdf53521b3b81ded249460e51"
+checksum = "bf7908b82eaa1b6f6c88002a0aa970b13b222297b7ed18f6c9a197e5d977e096"
 dependencies = [
  "bit_reverse",
 ]
@@ -11692,7 +11693,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde_json",
- "syn 1.0.109",
+ "syn 2.0.48",
 ]
 
 [[package]]
