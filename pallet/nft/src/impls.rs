@@ -578,6 +578,14 @@ impl<T: Config> NFTExt for Pallet<T> {
 		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
 	}
 
+	fn get_royalties_schedule(
+		collection_id: CollectionUuid,
+	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError> {
+		let collection_info =
+			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		Ok(collection_info.royalties_schedule)
+	}
+
 	fn enable_xls20_compatibility(
 		who: Self::AccountId,
 		collection_id: CollectionUuid,
@@ -599,16 +607,18 @@ impl<T: Config> NFTExt for Pallet<T> {
 		<TokenLocks<T>>::get(token_id)
 	}
 
-	fn set_token_lock(token_id: TokenId, lock_reason: Option<TokenLockReason>) -> DispatchResult {
-		match lock_reason {
-			Some(reason) => {
-				ensure!(!<TokenLocks<T>>::contains_key(token_id), Error::<T>::TokenLocked);
-				<TokenLocks<T>>::insert(token_id, reason);
-			},
-			None => {
-				<TokenLocks<T>>::remove(token_id);
-			},
-		}
+	fn set_token_lock(
+		token_id: TokenId,
+		lock_reason: TokenLockReason,
+		who: Self::AccountId,
+	) -> DispatchResult {
+		ensure!(!<TokenLocks<T>>::contains_key(token_id), Error::<T>::TokenLocked);
+		ensure!(Self::get_token_owner(&token_id) == Some(who), Error::<T>::NotTokenOwner);
+		<TokenLocks<T>>::insert(token_id, lock_reason);
 		Ok(())
+	}
+
+	fn remove_token_lock(token_id: TokenId) {
+		<TokenLocks<T>>::remove(token_id);
 	}
 }

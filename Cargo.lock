@@ -5759,6 +5759,7 @@ dependencies = [
  "pallet-evm",
  "pallet-fee-control",
  "pallet-nft",
+ "pallet-sft",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
