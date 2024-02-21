@@ -179,6 +179,9 @@ describe("Doughnuts", () => {
     index += 1;
     expect(eventData[index].event.section).to.equal("doughnut");
     expect(eventData[index].event.method).to.equal("DoughnutCallExecuted");
+    console.log(eventData[index]);
+    // expect(eventData[index].event.data[0].toString()).to.equal(encodedDoughnut);
+    // expect(eventData[index].event.data[0].toString()).to.equal(encodedDoughnut);
 
     // assetsExt	InternalDeposit	[2,"0x6D6F646c7478666565706F740000000000000000",875115]
     index += 1;
@@ -1721,5 +1724,105 @@ describe("Doughnuts", () => {
         api.tx.sudo.sudo(api.tx.maintenanceMode.blockCall("System", "remark", false)),
       ]),
     );
+  });
+
+  it("doughnut works - alice issued doughnut for AssetsExt::transfer with constraints assetId = 2, amount = 10, keepAlive = true", async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const holderPrivateKey = Wallet.createRandom().privateKey;
+    const holder: KeyringPair = keyring.addFromSeed(hexToU8a(holderPrivateKey));
+    const transferAmount = 10;
+    const keepAlive = true;
+    const nonce = ((await api.query.system.account(holder.address)).toJSON() as any)?.nonce;
+    const genesis_hash = await api.rpc.chain.getBlockHash(0);
+    const tip = 0;
+    const call = api.tx.assetsExt.transfer(GAS_TOKEN_ID, receiverAddress, transferAmount, keepAlive);
+    const version = 1;
+    const issuerPubkey = alice.publicKey;
+    const holderPubkey = holder.publicKey;
+    const feeMode = 0;
+    const expiry = 100000;
+    const notBefore = 0;
+
+    const doughnut = new Doughnut(version, issuerPubkey, holderPubkey, feeMode, expiry, notBefore);
+    // Create the permission topping object. assetsExt::transfer with a constraint for amount = 10, keepAlive = true(1)
+    const dataTable = ["2", "10", "1"]; // assetID, amount, keepAlive
+    const comp1 = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 0, 0, false); // RHS is the data table
+    const comp2 = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 2, 1, false); // RHS is the data table
+    const comp3 = new OpCodeComparator(OpLoad.InputVsUser, OpComp.EQ, 3, 2, false); // RHS is the data table
+    const bytecode = new Uint8Array([...comp1.encode(),...comp2.encode(),...comp3.encode()]);
+    const pactContract = new Pact(dataTable, bytecode);
+    const pactEncoded = pactContract.encode();
+    // console.log(pactEncoded);
+
+    const module = [
+      {
+        name: "AssetsExt",
+        block_cooldown: 0,
+        methods: [
+          {
+            name: "transfer",
+            block_cooldown: 0,
+            constraints: [...pactEncoded],
+          },
+        ],
+      },
+    ];
+
+    const topping = new Topping(module);
+
+    // Add to trn topping
+    doughnut.addTopping(TRN_PERMISSION_DOMAIN, topping.encode());
+
+    // Sign the doughnut
+    const aliceWallet = await new Wallet(ALICE_PRIVATE_KEY);
+    const ethHash = blake2AsHex(doughnut.payload());
+    const ethSlice = Buffer.from(ethHash.slice(2), "hex");
+    const issuerSig = await aliceWallet.signMessage(ethSlice);
+    const sigUint8 = Buffer.from(issuerSig.slice(2), "hex");
+    doughnut.addSignature(sigUint8, SignatureVersion.EIP191);
+
+    // Verify that the doughnut is valid
+    const verified = doughnut.verify(holderPubkey, 5);
+    expect(verified).to.be.equal(true);
+
+    // Encode the doughnut
+    const encodedDoughnut = doughnut.encode();
+    const doughnutHex = u8aToHex(encodedDoughnut);
+
+    // Create a call with empty signature to be signed by the holder (Bob)
+    const tx = await api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, "");
+    // Convert tx to u8Array and remove the first 2 bytes (Not sure why. It's to do with length)
+    const txU8a = tx.toU8a(true).slice(2);
+    const txHex = u8aToHex(txU8a);
+    const holderWallet = await new Wallet(holderPrivateKey);
+    const txHash = blake2AsHex(txHex);
+    const txSlice = Buffer.from(txHash.slice(2), "hex");
+    const holderSig = await holderWallet.signMessage(txSlice);
+
+    // balances before
+    const aliceXRPBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, alice.address)).toJSON() as any)?.balance ?? 0;
+    const receiverXRPBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, receiverAddress)).toJSON() as any)?.balance ?? 0;
+
+    // whitelist the holder. i.e bob
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.doughnut.updateWhitelistedHolders(holder.address, true)));
+
+    // Execute the transact call with.send
+    const eventData = await new Promise<any[]>((resolve, _reject) => {
+      api.tx.doughnut.transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig).send(({ events, status }) => {
+        if (status.isInBlock) {
+          resolve(events);
+        }
+      });
+    });
+    expect(eventData).to.exist;
+    // eventData.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+
+    // balances after
+    const aliceXRPBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, alice.address)).toJSON() as any)?.balance ?? 0;
+    const receiverXRPBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, receiverAddress)).toJSON() as any)?.balance ?? 0;
+    // alice should bear transferAmount + fees in XRP
+    expect(aliceXRPBalanceBefore - aliceXRPBalanceAfter).to.be.greaterThan(transferAmount);
+    // receiverAddress should have transferAmount
+    expect(Math.abs(receiverXRPBalanceBefore - receiverXRPBalanceAfter)).to.equal(transferAmount);
   });
 });

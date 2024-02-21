@@ -1028,6 +1028,35 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
 				Ok(())
 			},
+			// AssetsExt
+			RuntimeCall::AssetsExt(pallet_assets_ext::Call::transfer {
+				asset_id,
+				destination,
+				amount,
+				keep_alive,
+			}) => {
+				let asset_id_u64: u64 = (*asset_id).into();
+				let who = <Runtime as frame_system::Config>::Lookup::lookup(destination.clone())
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
+				let destination: [u8; 20] = who.into();
+				let amount_u128: u128 = (*amount).into();
+				let keep_alive_u64: u64 = (*keep_alive).into();
+
+				topping
+					.validate_module(
+						pallet_name,
+						function_name,
+						// TODO: change the u64 conversion once pact Numeric support u128
+						&[
+							PactType::Numeric(Numeric(asset_id_u64)),
+							PactType::StringLike(StringLike(destination.to_vec())),
+							PactType::Numeric(Numeric(amount_u128 as u64)),
+							PactType::Numeric(Numeric(keep_alive_u64)),
+						],
+					)
+					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
+				Ok(())
+			},
 
 			_ => return Err(pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied.into()),
 		}
