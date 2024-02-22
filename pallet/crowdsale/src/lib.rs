@@ -24,13 +24,11 @@
 
 pub use pallet::*;
 
-pub mod types;
-
 use frame_support::{
 	pallet_prelude::*,
 	sp_runtime::{
-		traits::{AccountIdConversion, One},
-		SaturatedConversion,
+		traits::{AccountIdConversion, One, Zero},
+		SaturatedConversion, Saturating,
 	},
 	traits::fungibles::{self, Inspect, InspectMetadata, Mutate, Transfer},
 	transactional, PalletId,
@@ -40,11 +38,14 @@ use pallet_nft::traits::NFTExt;
 use seed_pallet_common::{CreateExt, InspectExt};
 use seed_primitives::{AccountId, AssetId, Balance, BlockNumber, CollectionUuid, TokenCount};
 use sp_core::U256;
+use sp_std::vec;
 
-use types::{SaleInformation, SaleStatus};
+pub mod types;
+use types::*;
 
 // #[cfg(feature = "runtime-benchmarks")]
 // mod benchmarking;
+mod impls;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -83,6 +84,8 @@ pub mod pallet {
 
 		// / Interface to access weight values
 		// type WeightInfo: WeightInfo;
+
+		type MaxSalesPerBlock: Get<u32>;
 	}
 
 	/// The next available sale id
@@ -99,13 +102,26 @@ pub mod pallet {
 	pub type SaleParticipation<T: Config> =
 		StorageMap<_, Twox64Concat, (SaleId, T::AccountId), Balance, ValueQuery>;
 
+	#[pallet::storage]
+	pub type SaleEndBlocks<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::BlockNumber,
+		BoundedVec<SaleId, T::MaxSalesPerBlock>,
+		OptionQuery,
+	>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Crowdsale created
 		CrowdsaleCreated { id: SaleId, info: SaleInformation<T::AccountId, T::BlockNumber> },
 		/// Crowdsale enabled
-		CrowdsaleEnabled { id: SaleId, info: SaleInformation<T::AccountId, T::BlockNumber> },
+		CrowdsaleEnabled {
+			id: SaleId,
+			info: SaleInformation<T::AccountId, T::BlockNumber>,
+			end_block: T::BlockNumber,
+		},
 		/// Crowdsale participated
 		CrowdsaleParticipated { id: SaleId, who: T::AccountId, asset: AssetId, amount: Balance },
 		/// Crowdsale NFT redeemed
@@ -155,6 +171,23 @@ pub mod pallet {
 		CollectionIssuanceNotZero,
 		/// Cannot manually start the sale as an automatic start block is set
 		ManualStartDisabled,
+		/// There are too many sales queued for this block, try again on a different block
+		TooManySales,
+		/// Can't close the sale as the sale is not enabled
+		SaleNotEnabled,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// Check and close all expired listings
+		fn on_initialize(now: T::BlockNumber) -> Weight {
+			let _total_closed = Self::close_sales_at(now);
+			// TODO Benchmark this
+			// <T as Config>::WeightInfo::close().mul(total_closed as u64)
+			// total_closed == 1 read + 1 write per close
+			// + 1 read + write for SaleEndBlocks
+			Weight::zero()
+		}
 	}
 
 	#[pallet::call]
@@ -171,8 +204,7 @@ pub mod pallet {
 		///   decimals
 		/// - `vouchers_per_nft`: Number of vouchers required to redeem for a single NFT; Note: this
 		///   does not take into account voucher decimals
-		/// - `start_block`: Block number at which the sale will start
-		/// - `end_block`: Block number at which the sale will end
+		/// - `sale_duration`: How many blocks will the sale last once enabled
 		///
 		/// Emits `CrowdsaleCreated` event when successful.
 		#[pallet::weight(0)]
@@ -183,8 +215,7 @@ pub mod pallet {
 			payment_asset: AssetId,
 			collection_id: CollectionUuid,
 			soft_cap_price: Balance,
-			start_block: T::BlockNumber, // TODO: maybe make this a manual action/extrinsic
-			end_block: T::BlockNumber,
+			sale_duration: T::BlockNumber,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -195,13 +226,6 @@ pub mod pallet {
 				Ok(current_id)
 			})?;
 
-			// ensure start block is less than end block; start block is more than current block
-			ensure!(start_block < end_block, Error::<T>::InvalidBlockRange);
-			ensure!(
-				<frame_system::Pallet<T>>::block_number() < start_block.into(),
-				Error::<T>::SaleStartBlockInPast
-			);
-
 			// ensure the asset exists
 			if !T::MultiCurrency::exists(payment_asset) {
 				return Err(Error::<T>::InvalidAsset.into())
@@ -211,24 +235,20 @@ pub mod pallet {
 			// Might be bad user experience to create a collection and fail due to one of these 2
 			// Potentially a better approach would be to create the collection here.
 			// Discuss with Zee
+			// What happens if we set the max issuance after the sale? If the vouchers
+			// are reliant on the max issuance, the sale will end up corrupt
+
+			// TODO Maybe pass ownership of NFT collection to the crowdsale pallet until the
+			// vouchers are redeemed?
 			let collection_info = T::NFTExt::get_collection_info(collection_id)?;
-			ensure!(collection_info.max_issuance.is_none(), Error::<T>::MaxIssuanceNotSet);
+			ensure!(collection_info.max_issuance.is_some(), Error::<T>::MaxIssuanceNotSet);
 			ensure!(
 				collection_info.collection_issuance.is_zero(),
 				Error::<T>::CollectionIssuanceNotZero
 			);
 
 			// create voucher asset
-			// TODO: move this to a separate function which only requires owner
-			let voucher_owner = T::PalletId::get().into_account_truncating();
-			let voucher_asset_id = T::MultiCurrency::create_with_metadata(
-				&voucher_owner,
-				format!("Crowd Sale Voucher-{}", sale_id).as_bytes().to_vec(),
-				format!("CSV-{}", sale_id).as_bytes().to_vec(),
-				6,
-				None,
-			)
-			.map_err(|_| Error::<T>::CreateAssetFailed)?;
+			let voucher_asset_id = Self::create_voucher_asset(sale_id)?;
 
 			// store the sale information
 			let sale_info = SaleInformation::<T::AccountId, T::BlockNumber> {
@@ -236,12 +256,10 @@ pub mod pallet {
 				admin: who.clone(),
 				payment_asset,
 				reward_collection_id: collection_id,
-				tokens_per_voucher,
 				soft_cap_price,
 				funds_raised: 0,
 				voucher: voucher_asset_id,
-				start_block,
-				end_block,
+				sale_duration,
 			};
 			SaleInfo::<T>::insert(sale_id, sale_info.clone());
 
@@ -261,12 +279,12 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		#[transactional]
 		pub fn enable(origin: OriginFor<T>, id: SaleId) -> DispatchResult {
-			let _ = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 
 			// update the sale status if the start block is met
-			SaleInfo::<T>::try_mutate(id, |sale_info| {
+			SaleInfo::<T>::try_mutate(id, |sale_info| -> DispatchResult {
 				let Some(sale_info) = sale_info else {
-					return Err(Error::<T>::CrowdsaleNotFound);
+					return Err(Error::<T>::CrowdsaleNotFound.into());
         		};
 
 				// ensure the sale is not already enabled
@@ -274,16 +292,30 @@ pub mod pallet {
 					sale_info.status == SaleStatus::Disabled,
 					Error::<T>::InvalidCrowdsaleStatus
 				);
+				ensure!(sale_info.admin == who, Error::<T>::AccessDenied);
 
 				// ensure start block is met and end block is not met
 				let current_block = <frame_system::Pallet<T>>::block_number();
-				ensure!(current_block >= sale_info.start_block, Error::<T>::SaleStartBlockInFuture);
-				ensure!(current_block < sale_info.end_block, Error::<T>::SaleEndBlockInPast);
+				let end_block = sale_info.sale_duration.saturating_add(current_block);
 
+				// Append end block to SaleEndBlocks
+				SaleEndBlocks::<T>::try_mutate(end_block, |sales| -> DispatchResult {
+					if let Some(sales) = sales {
+						sales.try_push(id).map_err(|_| Error::<T>::TooManySales)?;
+					} else {
+						let new_sales = BoundedVec::truncate_from(vec![id]);
+						*sales = Some(new_sales);
+					}
+					Ok(())
+				})?;
 				// update the sale status
 				sale_info.status = SaleStatus::Enabled;
 
-				Self::deposit_event(Event::CrowdsaleEnabled { id, info: sale_info.clone() });
+				Self::deposit_event(Event::CrowdsaleEnabled {
+					id,
+					info: sale_info.clone(),
+					end_block,
+				});
 
 				Ok(())
 			})?;
@@ -367,16 +399,14 @@ pub mod pallet {
 				// ensure the sale has concluded
 				ensure!(sale_info.status == SaleStatus::Closed, Error::<T>::InvalidCrowdsaleStatus);
 
-				let voucher_amount = quantity as Balance * sale_info.vouchers_per_nft;
-
-				// burn vouchers from the user
-				T::MultiCurrency::burn_from(sale_info.voucher, &who, voucher_amount)
+				// burn vouchers from the user, will fail if the user does not have enough vouchers
+				T::MultiCurrency::burn_from(sale_info.voucher, &who, quantity.into())
 					.map_err(|_| Error::<T>::AssetTransferFailed)?;
 
 				// mint the NFT(s) to the user
 				T::NFTExt::do_mint(
 					T::PalletId::get().into_account_truncating(),
-					sale_info.collection_id,
+					sale_info.reward_collection_id,
 					quantity,
 					Some(who.clone()),
 				)
@@ -385,7 +415,7 @@ pub mod pallet {
 				Self::deposit_event(Event::CrowdsaleNFTRedeemed {
 					id,
 					who,
-					collection_id: sale_info.collection_id,
+					collection_id: sale_info.reward_collection_id,
 					quantity,
 				});
 

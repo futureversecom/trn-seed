@@ -4,7 +4,11 @@ use scale_info::TypeInfo;
 use seed_primitives::{AccountId, AssetId, Balance, BlockNumber, CollectionUuid};
 use sp_core::U256;
 
+/// The unique identifier for a sale
 pub type SaleId = u64;
+
+/// How many decimals the voucher assets will have
+pub const VOUCHER_DECIMALS: u8 = 6;
 
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct SaleInformation<AccountId, BlockNumber> {
@@ -22,10 +26,8 @@ pub struct SaleInformation<AccountId, BlockNumber> {
 	pub funds_raised: Balance,
 	/// The voucher asset id to be paid out
 	pub voucher: AssetId,
-	/// The block number at which the sale will start
-	pub start_block: BlockNumber,
-	/// The block number at which the sale will end
-	pub end_block: BlockNumber,
+	/// How long the sale will last in blocks
+	pub sale_duration: BlockNumber,
 }
 
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]

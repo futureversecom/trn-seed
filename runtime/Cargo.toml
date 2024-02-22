@@ -108,6 +108,7 @@ pallet-marketplace = { path = "../pallet/marketplace", default-features = false 
 pallet-vortex = { path = "../pallet/vortex-distribution", default-features = false }
 pallet-doughnut = { path = "../pallet/doughnut", default-features = false }
 pallet-maintenance-mode = { path = "../pallet/maintenance-mode", default-features = false }
+pallet-crowdsale = { path = "../pallet/crowdsale", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
@@ -204,6 +205,7 @@ std = [
 	"pallet-marketplace/std",
 	"pallet-vortex/std",
 	"pallet-maintenance-mode/std",
+	"pallet-crowdsale/std",
 	"seed-primitives/std",
 	"primitive-types/std",
 	"fp-rpc/std",

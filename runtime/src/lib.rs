@@ -1289,6 +1289,20 @@ impl pallet_maintenance_mode::Config for Runtime {
 	type EthyPallet = EthBridge;
 }
 
+parameter_types! {
+	pub const CrowdSalePalletId: PalletId = PalletId(*b"crowdsal");
+	// Some low limit to prevent overworking on_initialize
+	pub const MaxSalesPerBlock: u32 = 5;
+}
+
+impl pallet_crowdsale::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = CrowdSalePalletId;
+	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
+	type MaxSalesPerBlock = MaxSalesPerBlock;
+}
+
 /// Block header type as expected by this runtime.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256Hash>;
 
@@ -1355,6 +1369,7 @@ construct_runtime! {
 		// FuturePass Account
 		Proxy: pallet_proxy = 32,
 		Futurepass: pallet_futurepass = 34,
+		Crowdsale: pallet_crowdsale = 49
 	}
 }
 /// Block type as expected by this runtime.

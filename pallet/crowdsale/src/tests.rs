@@ -15,7 +15,10 @@
 
 #![cfg(test)]
 use super::*;
-use crate::mock::{Crowdsale, Nft, System, Test};
+use crate::{
+	mock::{AssetsExt, Crowdsale, Nft, System, Test},
+	Pallet,
+};
 use pallet_nft::CrossChainCompatibility;
 use seed_pallet_common::test_prelude::{BlockNumber, *};
 use seed_primitives::TokenCount;
@@ -44,6 +47,92 @@ pub fn bounded_string(name: &str) -> BoundedVec<u8, <Test as pallet_nft::Config>
 	BoundedVec::truncate_from(name.as_bytes().to_vec())
 }
 
+mod calculate_voucher_rewards {
+	use super::*;
+
+	#[test]
+	fn calculate_voucher_rewards_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let soft_cap_price = 50;
+			let funds_raised = 5000;
+			let contribution = 100;
+			let voucher_total_supply = 100;
+
+			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
+				soft_cap_price,
+				funds_raised,
+				contribution,
+				voucher_total_supply,
+			);
+
+			let expected_vouchers = 2_000_000;
+			assert_eq!(user_vouchers, expected_vouchers);
+		});
+	}
+
+	#[test]
+	fn calculate_voucher_rewards_over_committed_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let soft_cap_price = 50;
+			let funds_raised = 10000; // twice as much as the soft cap
+			let voucher_total_supply = 100;
+			let contribution = 100;
+
+			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
+				soft_cap_price,
+				funds_raised,
+				contribution,
+				voucher_total_supply,
+			);
+
+			let expected_vouchers = 1_000_000;
+			assert_eq!(user_vouchers, expected_vouchers);
+		});
+	}
+
+	#[test]
+	fn calculate_voucher_rewards_under_committed_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let soft_cap_price = 50;
+			let funds_raised = 100; // Not nearly enough was raised :(
+			let voucher_total_supply = 100;
+			let contribution = 100;
+
+			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
+				soft_cap_price,
+				funds_raised,
+				contribution,
+				voucher_total_supply,
+			);
+
+			// We still get 2 vouchers because we are paying out the soft cap price
+			let expected_vouchers = 2_000_000;
+			assert_eq!(user_vouchers, expected_vouchers);
+		});
+	}
+
+	#[test]
+	fn calculate_voucher_rewards_different_decimals_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let soft_cap_price = 50_000_000_000_000_000_000; // Simulate 18 Decimal Places
+			let funds_raised = 5_000_000_000_000_000_000_000; // Just enoughw as raised for 1<>1
+			let voucher_total_supply = 100_000_000; // 6 DP Voucher issuance
+			let contribution = 100_000_000_000_000_000_000; // Contribution in 18 DP asset
+
+			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
+				soft_cap_price,
+				funds_raised,
+				contribution,
+				voucher_total_supply,
+			);
+
+			// We should get 2_000_000 vouchers (at 6DP)
+			let expected_vouchers = 2_000_000;
+			assert_eq!(user_vouchers, expected_vouchers);
+		});
+	}
+}
+
 mod initialize {
 	use super::*;
 
@@ -53,11 +142,12 @@ mod initialize {
 			let reward_collection_id = create_nft_collection(alice(), 10);
 			let payment_asset = 1;
 			let soft_cap_price = 10;
-			let start_block = 2;
-			let end_block = 100;
+			let duration = 100;
 
 			// Get sale_id
 			let sale_id = NextSaleId::<Test>::get();
+			// Get next asset id
+			let next_asset_id = AssetsExt::next_asset_uuid().unwrap();
 
 			// Initialize the crowdsale
 			assert_ok!(Crowdsale::initialize(
@@ -65,8 +155,7 @@ mod initialize {
 				payment_asset,
 				reward_collection_id,
 				soft_cap_price,
-				start_block,
-				end_block
+				duration
 			));
 
 			let sale_info = SaleInformation::<AccountId, BlockNumber> {
@@ -76,8 +165,8 @@ mod initialize {
 				reward_collection_id,
 				soft_cap_price,
 				funds_raised: 0,
-				start_block,
-				end_block,
+				voucher: next_asset_id,
+				sale_duration: duration,
 			};
 			// Check storage
 			assert_eq!(SaleInfo::<Test>::get(sale_id).unwrap(), sale_info);
@@ -96,8 +185,7 @@ mod initialize {
 			let collection_id = create_nft_collection(alice(), 10);
 			let payment_asset = 1;
 			let soft_cap_price = 10;
-			let start_block = 2;
-			let end_block = 100;
+			let duration = 100;
 
 			// Put max sale_id
 			NextSaleId::<Test>::put(SaleId::MAX);
@@ -109,61 +197,57 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					start_block,
-					end_block
+					duration
 				),
 				Error::<Test>::NoAvailableIds
 			);
 		});
 	}
-
-	#[test]
-	fn initialize_invalid_block_range_fails() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let collection_id = create_nft_collection(alice(), 10);
-			let payment_asset = 1;
-			let soft_cap_price = 10;
-			let start_block = 2;
-			let end_block = 2;
-
-			// Initialize the crowdsale
-			assert_noop!(
-				Crowdsale::initialize(
-					Some(alice()).into(),
-					payment_asset,
-					collection_id,
-					soft_cap_price,
-					start_block,
-					end_block
-				),
-				Error::<Test>::InvalidBlockRange
-			);
-		});
-	}
-
-	#[test]
-	fn initialize_invalid_start_block_fails() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let collection_id = create_nft_collection(alice(), 10);
-			let payment_asset = 1;
-			let soft_cap_price = 10;
-			let start_block = System::block_number(); // Start block as current block is invalid
-			let end_block = 100;
-
-			// Initialize the crowdsale
-			assert_noop!(
-				Crowdsale::initialize(
-					Some(alice()).into(),
-					payment_asset,
-					collection_id,
-					soft_cap_price,
-					start_block,
-					end_block
-				),
-				Error::<Test>::SaleStartBlockInPast
-			);
-		});
-	}
+	//
+	// #[test]
+	// fn initialize_invalid_block_range_fails() {
+	// 	TestExt::<Test>::default().build().execute_with(|| {
+	// 		let collection_id = create_nft_collection(alice(), 10);
+	// 		let payment_asset = 1;
+	// 		let soft_cap_price = 10;
+	// 		let duration = 100;
+	//
+	// 		// Initialize the crowdsale
+	// 		assert_noop!(
+	// 			Crowdsale::initialize(
+	// 				Some(alice()).into(),
+	// 				payment_asset,
+	// 				collection_id,
+	// 				soft_cap_price,
+	// 				duration
+	// 			),
+	// 			Error::<Test>::InvalidBlockRange
+	// 		);
+	// 	});
+	// }
+	//
+	// #[test]
+	// fn initialize_invalid_start_block_fails() {
+	// 	TestExt::<Test>::default().build().execute_with(|| {
+	// 		let collection_id = create_nft_collection(alice(), 10);
+	// 		let payment_asset = 1;
+	// 		let soft_cap_price = 10;
+	// 		let start_block = System::block_number(); // Start block as current block is invalid
+	// 		let end_block = 100;
+	//
+	// 		// Initialize the crowdsale
+	// 		assert_noop!(
+	// 			Crowdsale::initialize(
+	// 				Some(alice()).into(),
+	// 				payment_asset,
+	// 				collection_id,
+	// 				soft_cap_price,
+	// 				duration
+	// 			),
+	// 			Error::<Test>::SaleStartBlockInPast
+	// 		);
+	// 	});
+	// }
 
 	#[test]
 	fn initialize_invalid_asset_fails() {
@@ -171,8 +255,7 @@ mod initialize {
 			let collection_id = create_nft_collection(alice(), 10);
 			let payment_asset = 100; // Payment asset doesn't exist
 			let soft_cap_price = 10;
-			let start_block = 10;
-			let end_block = 100;
+			let duration = 100;
 
 			// Initialize the crowdsale
 			assert_noop!(
@@ -181,8 +264,7 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					start_block,
-					end_block
+					duration
 				),
 				Error::<Test>::InvalidAsset
 			);

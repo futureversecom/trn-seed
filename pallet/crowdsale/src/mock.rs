@@ -39,6 +39,7 @@ impl_pallet_nft_config!(Test);
 
 parameter_types! {
 	pub const CrowdSalePalletId: PalletId = PalletId(*b"crowdsal");
+	pub const MaxSalesPerBlock: u32 = 5;
 }
 
 impl crate::Config for Test {
@@ -46,4 +47,5 @@ impl crate::Config for Test {
 	type PalletId = CrowdSalePalletId;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
+	type MaxSalesPerBlock = MaxSalesPerBlock;
 }
