@@ -136,6 +136,11 @@ pub trait CreateExt {
 	) -> Result<AssetId, DispatchError>;
 }
 
+pub trait InspectExt {
+	/// Check if the asset exists
+	fn exists(asset_id: AssetId) -> bool;
+}
+
 /// The nft with the given token_id was transferred.
 pub trait OnTransferSubscriber {
 	/// The nft with the given token_id was transferred.
