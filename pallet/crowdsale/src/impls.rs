@@ -14,13 +14,13 @@ use scale_info::prelude::format;
 
 impl<T: Config> Pallet<T> {
 	/// Creates a unique voucher asset for a sale. Returns the AssetId of the created asset
-	pub(crate) fn create_voucher_asset(sale_id: SaleId) -> Result<AssetId, DispatchError> {
+	pub(crate) fn create_voucher_asset(sale_id: SaleId, decimals: u8) -> Result<AssetId, DispatchError> {
 		let voucher_owner = T::PalletId::get().into_account_truncating();
 		let voucher_asset_id = T::MultiCurrency::create_with_metadata(
 			&voucher_owner,
 			format!("CrowdSale Voucher-{}", sale_id).as_bytes().to_vec(),
 			format!("CSV-{}", sale_id).as_bytes().to_vec(),
-			VOUCHER_DECIMALS,
+			decimals,
 			None,
 		)
 		.map_err(|_| Error::<T>::CreateAssetFailed)?;
@@ -52,7 +52,8 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Return total vouchers converted to the correct decimals
-		account_contribution * 10u128.pow(VOUCHER_DECIMALS as u32) / voucher_price
+		todo!("Calculate voucher rewards based on the account contribution and voucher price.")
+		// account_contribution * 10u128.pow(VOUCHER_DECIMALS as u32) / voucher_price
 	}
 
 	/// Close all crowdsales that are scheduled to end this block
