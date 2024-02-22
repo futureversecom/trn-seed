@@ -20,8 +20,11 @@
 use codec::Codec;
 use pallet_nft::Config;
 use seed_primitives::types::{CollectionUuid, SerialNumber, TokenCount, TokenId};
+use sp_core::{bounded::BoundedVec, ConstU32};
+use sp_runtime::Permill;
 use sp_std::prelude::*;
 
+pub const COLLECTION_NAME_STRING_LIMIT: u32 = 50;
 sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with NFT module
 	pub trait NftApi<AccountId, T> where
@@ -38,5 +41,8 @@ sp_api::decl_runtime_apis! {
 
 		/// Return the token metadata URI for a given token
 		fn token_uri(token_id: TokenId) -> Vec<u8>;
+
+		fn collection_info(collection_id: CollectionUuid) -> CollectionInfo<T>;
+		// (AccountId, BoundedVec<u8, ConstU32<COLLECTION_NAME_STRING_LIMIT>>, Vec<u8>, Permill, Option<TokenCount>, SerialNumber, TokenCount, bool);
 	}
 }
