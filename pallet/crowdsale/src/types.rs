@@ -10,8 +10,10 @@ pub struct SaleInformation<AccountId, BlockNumber> {
 	pub admin: AccountId,
 	pub payment_asset: AssetId,
 	pub collection_id: CollectionUuid,
-	pub tokens_per_nft: Balance,
+  pub tokens_per_voucher: Balance,
+	pub vouchers_per_nft: Balance,
 	pub funds_raised: Balance,
+  pub voucher: AssetId,
 	pub start_block: BlockNumber,
 	pub end_block: BlockNumber,
 }
