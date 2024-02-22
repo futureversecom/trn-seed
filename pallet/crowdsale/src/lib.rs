@@ -54,6 +54,10 @@ mod tests;
 
 // pub use weights::WeightInfo;
 
+/// The logging target for this pallet
+#[allow(dead_code)]
+pub(crate) const LOG_TARGET: &str = "crowdsale";
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -164,6 +168,8 @@ pub mod pallet {
 		CreateAssetFailed,
 		/// Asset transfer failed
 		AssetTransferFailed,
+    /// Asset mint failed
+    AssetMintFailed,
 		/// NFT mint failed
 		NFTMintFailed,
 		/// The NFT collection max issuance is not set
@@ -194,6 +200,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Initialize a new crowdsale with the given parameters.
+    /// The provided collection max_issuance must be set and the collection must not have minted any NFTs.
 		///
 		/// Parameters:
 		/// - `payment_asset`: Asset id of the token that will be used to redeem the NFTs at the end
@@ -239,8 +246,8 @@ pub mod pallet {
 			// What happens if we set the max issuance after the sale? If the vouchers
 			// are reliant on the max issuance, the sale will end up corrupt
 
-			// TODO Maybe pass ownership of NFT collection to the crowdsale pallet until the
-			// vouchers are redeemed?
+			// TODO: pass ownership to the pallet account
+
 			let collection_info = T::NFTExt::get_collection_info(collection_id)?;
 			ensure!(collection_info.max_issuance.is_some(), Error::<T>::MaxIssuanceNotSet);
 			ensure!(
@@ -249,7 +256,8 @@ pub mod pallet {
 			);
 
 			// create voucher asset
-			let voucher_asset_id = Self::create_voucher_asset(sale_id)?;
+      let voucher_decimals = T::MultiCurrency::decimals(&payment_asset);
+			let voucher_asset_id = Self::create_voucher_asset(sale_id, voucher_decimals)?;
 
 			// store the sale information
 			let sale_info = SaleInformation::<T::AccountId, T::BlockNumber> {
@@ -403,10 +411,11 @@ pub mod pallet {
 				// burn vouchers from the user, will fail if the user does not have enough vouchers
 				// since 1:1 mapping between vouchers and NFTs, we can use the quantity * decimals
 				// as the amount burned
+        let voucher_decimals = T::MultiCurrency::decimals(&sale_info.payment_asset);
 				T::MultiCurrency::burn_from(
 					sale_info.voucher,
 					&who,
-					quantity.saturating_mul(VOUCHER_DECIMALS.into()).into(),
+					quantity.saturating_mul(voucher_decimals.into()).into(),
 				)
 				.map_err(|_| Error::<T>::AssetTransferFailed)?;
 
@@ -431,12 +440,5 @@ pub mod pallet {
 
 			Ok(())
 		}
-
-		// TODO: offchain worker
-		// closes sale if end_block is reached
-		// sets the vouchers_per_nft - based on funds_raised and tokens_per_voucher
-		// mints vouchers to participants based on softcap reached
-		// refunds/mints vouchers to admin if softcap not reached
-		// changes sale status to closed
 	}
 }
