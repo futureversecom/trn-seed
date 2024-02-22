@@ -29,6 +29,7 @@ use seed_primitives::{
 use sp_runtime::{
 	traits::Zero, ArithmeticError, BoundedVec, DispatchError, DispatchResult, SaturatedConversion,
 };
+use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
 	/// Returns the CollectionUuid unique across parachains
