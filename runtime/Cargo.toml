@@ -293,8 +293,9 @@ try-runtime = [
 	"pallet-fee-control/try-runtime",
 	"pallet-fee-proxy/try-runtime",
 	"pallet-evm-chain-id/try-runtime",
-	"pallet-maintenance-mode/try-runtime",
 	"pallet-doughnut/try-runtime",
+	"pallet-maintenance-mode/try-runtime",
+	"pallet-crowdsale/try-runtime",
 ]
 
 runtime-benchmarks = [
@@ -341,6 +342,7 @@ runtime-benchmarks = [
 	"pallet-vortex/runtime-benchmarks",
 	"pallet-evm/runtime-benchmarks",
 	"pallet-fee-proxy/runtime-benchmarks",
+	"pallet-doughnut/runtime-benchmarks",
 	"pallet-maintenance-mode/runtime-benchmarks",
-	"pallet-doughnut/runtime-benchmarks"
+	"pallet-crowdsale/runtime-benchmarks",
 ]

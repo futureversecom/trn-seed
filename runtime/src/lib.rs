@@ -1352,6 +1352,7 @@ construct_runtime! {
 		Xls20: pallet_xls20 = 42,
 		Doughnut: pallet_doughnut = 48,
 		MaintenanceMode: pallet_maintenance_mode = 47,
+		Crowdsale: pallet_crowdsale = 49
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -1369,7 +1370,6 @@ construct_runtime! {
 		// FuturePass Account
 		Proxy: pallet_proxy = 32,
 		Futurepass: pallet_futurepass = 34,
-		Crowdsale: pallet_crowdsale = 49
 	}
 }
 /// Block type as expected by this runtime.
@@ -2141,8 +2141,9 @@ mod benches {
 		[pallet_futurepass, Futurepass]
 		[pallet_vortex, VortexDistribution]
 		[pallet_dex, Dex]
-		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_marketplace, Marketplace]
 		[pallet_doughnut, Doughnut]
+		[pallet_maintenance_mode, MaintenanceMode]
+		[pallet_crowdsale, Crowdsale]
 	);
 }

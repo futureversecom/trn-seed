@@ -82,10 +82,11 @@ pub mod pallet {
 		/// NFT Extension, used to retrieve collection data
 		type NFTExt: pallet_nft::traits::NFTExt<AccountId = Self::AccountId>;
 
+		/// The maximum number of sales that can be queued for completion in a single block
+		type MaxSalesPerBlock: Get<u32>;
+
 		// / Interface to access weight values
 		// type WeightInfo: WeightInfo;
-
-		type MaxSalesPerBlock: Get<u32>;
 	}
 
 	/// The next available sale id
