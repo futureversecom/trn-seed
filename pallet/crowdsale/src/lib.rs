@@ -36,8 +36,9 @@ use frame_support::{
 	transactional, PalletId,
 };
 use frame_system::pallet_prelude::*;
+use pallet_nft::traits::NFTExt;
 use seed_pallet_common::{CreateExt, InspectExt};
-use seed_primitives::{AccountId, AssetId, Balance, BlockNumber, CollectionUuid};
+use seed_primitives::{AccountId, AssetId, Balance, BlockNumber, CollectionUuid, TokenCount};
 use sp_core::U256;
 
 use types::{SaleInformation, SaleStatus};
@@ -51,8 +52,6 @@ mod tests;
 // mod weights;
 
 // pub use weights::WeightInfo;
-
-type SaleId = u64;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -135,6 +134,12 @@ pub mod pallet {
 		InvalidAsset,
 		/// Asset transfer failed
 		AssetTransferFailed,
+		/// The NFT collection max issuance is not set
+		MaxIssuanceNotSet,
+		/// The NFT collection must not contain any minted NFTs
+		CollectionIssuanceNotZero,
+		/// Cannot manually start the sale as an automatic start block is set
+		ManualStartDisabled,
 	}
 
 	#[pallet::call]
@@ -184,12 +189,16 @@ pub mod pallet {
 				return Err(Error::<T>::InvalidAsset.into())
 			}
 
-			// TODO: ensure max issuance is set
-
-			// TODO: migrate the NFTExt trait declaration to common trait pallet
-			// - to remove the tight coupling between the two pallets
-			// ensure the collection exists
-			// use T::NFTExt::get_collection_info(collection_id).is_ok();
+			// TODO, maybe set the max issuance here?
+			// Might be bad user experience to create a collection and fail due to one of these 2
+			// Potentially a better approach would be to create the collection here.
+			// Discuss with Zee
+			let collection_info = T::NFTExt::get_collection_info(collection_id)?;
+			ensure!(collection_info.max_issuance.is_none(), Error::<T>::MaxIssuanceNotSet);
+			ensure!(
+				collection_info.collection_issuance.is_zero(),
+				Error::<T>::CollectionIssuanceNotZero
+			);
 
 			// store the sale information
 			let sale_info = SaleInformation::<T::AccountId, T::BlockNumber> {
@@ -208,6 +217,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		// TODO Should we have the sale start automatically at the start block?
 		/// Enable a crowdsale if current block within range of the start and end block.
 		/// This will enable the sale to be participated in.
 		/// Any user can call this function to initialize the sale once block conditions are met.
@@ -314,13 +324,13 @@ pub mod pallet {
 		/// Emits `CrowdsaleNFTRedeemed` event when successful.
 		#[pallet::weight(0)]
 		#[transactional]
-		pub fn redeem(origin: OriginFor<T>, id: SaleId, nft_amount: Balance) -> DispatchResult {
+		pub fn redeem(origin: OriginFor<T>, id: SaleId, nft_count: TokenCount) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			SaleInfo::<T>::try_mutate(id, |sale_info: &mut Option<SaleInformation<_, _>>| {
 				let Some(sale_info) = sale_info else {
-          return Err(Error::<T>::CrowdsaleNotFound);
-        };
+					return Err(Error::<T>::CrowdsaleNotFound);
+				};
 
 				// ensure the sale has concluded
 				ensure!(sale_info.status == SaleStatus::Closed, Error::<T>::InvalidCrowdsaleStatus);

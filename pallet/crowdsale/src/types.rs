@@ -4,6 +4,8 @@ use scale_info::TypeInfo;
 use seed_primitives::{AccountId, AssetId, Balance, BlockNumber, CollectionUuid};
 use sp_core::U256;
 
+pub type SaleId = u64;
+
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct SaleInformation<AccountId, BlockNumber> {
 	/// The current sale status
