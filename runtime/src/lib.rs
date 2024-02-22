@@ -41,7 +41,7 @@ use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use seed_pallet_common::MaintenanceCheck;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
+use sp_core::{bounded::BoundedVec, crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
@@ -1471,6 +1471,7 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 	(migrations::AllMigrations,),
 >;
+pub const COLLECTION_NAME_STRING_LIMIT: u32 = 50;
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -1703,6 +1704,9 @@ impl_runtime_apis! {
 		}
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Nft::token_uri(token_id)
+		}
+		fn collection_info(collection_id: CollectionUuid) -> (AccountId, BoundedVec<u8, ConstU32<COLLECTION_NAME_STRING_LIMIT>>, Vec<u8>, Permill, Option<TokenCount>, SerialNumber, TokenCount, bool) {
+			Nft::collection_info(collection_id)
 		}
 	}
 
