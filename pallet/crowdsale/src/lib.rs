@@ -401,8 +401,14 @@ pub mod pallet {
 				ensure!(sale_info.status == SaleStatus::Closed, Error::<T>::InvalidCrowdsaleStatus);
 
 				// burn vouchers from the user, will fail if the user does not have enough vouchers
-				T::MultiCurrency::burn_from(sale_info.voucher, &who, quantity.into())
-					.map_err(|_| Error::<T>::AssetTransferFailed)?;
+				// since 1:1 mapping between vouchers and NFTs, we can use the quantity * decimals
+				// as the amount burned
+				T::MultiCurrency::burn_from(
+					sale_info.voucher,
+					&who,
+					quantity.saturating_mul(VOUCHER_DECIMALS.into()).into(),
+				)
+				.map_err(|_| Error::<T>::AssetTransferFailed)?;
 
 				// mint the NFT(s) to the user
 				T::NFTExt::do_mint(
