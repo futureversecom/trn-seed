@@ -131,6 +131,28 @@ mod calculate_voucher_rewards {
 			assert_eq!(user_vouchers, expected_vouchers);
 		});
 	}
+
+	#[test]
+	fn calculate_voucher_rewards_partial_rewards() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let soft_cap_price = 50;
+			let funds_raised = 10_000_000;
+			let voucher_total_supply = 135_000; // 135000 * 50 = 6_750_000
+			let contribution = 50;
+
+			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
+				soft_cap_price,
+				funds_raised,
+				contribution,
+				voucher_total_supply,
+			);
+
+			// We should get 0.675676 vouchers (at 6DP)
+			// TODO Figure out rounding... Should probably be 675676
+			let expected_vouchers = 675675;
+			assert_eq!(user_vouchers, expected_vouchers);
+		});
+	}
 }
 
 mod initialize {

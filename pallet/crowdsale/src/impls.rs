@@ -51,11 +51,8 @@ impl<T: Config> Pallet<T> {
 			soft_cap_price
 		};
 
-		let total_user_vouchers = account_contribution / voucher_price;
-
-		const VOUCHER_DECIMALS: u32 = 6;
 		// Return total vouchers converted to the correct decimals
-		return total_user_vouchers * 10u128.pow(VOUCHER_DECIMALS)
+		account_contribution * 10u128.pow(VOUCHER_DECIMALS as u32) / voucher_price
 	}
 
 	/// Close all crowdsales that are scheduled to end this block
