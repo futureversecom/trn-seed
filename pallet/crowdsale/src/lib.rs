@@ -415,10 +415,11 @@ pub mod pallet {
 				// since 1:1 mapping between vouchers and NFTs, we can use the quantity * decimals
 				// as the amount burned
         let voucher_decimals = T::MultiCurrency::decimals(&sale_info.payment_asset);
+        let voucher_amount = quantity.saturating_mul(10u32.pow(voucher_decimals as u32));
 				T::MultiCurrency::burn_from(
 					sale_info.voucher,
 					&who,
-					quantity.saturating_mul(voucher_decimals.into()).into(),
+					voucher_amount.into(),
 				)
 				.map_err(|_| Error::<T>::AssetTransferFailed)?;
 
