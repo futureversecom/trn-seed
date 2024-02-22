@@ -44,10 +44,10 @@ use types::{SaleInformation, SaleStatus};
 
 // #[cfg(feature = "runtime-benchmarks")]
 // mod benchmarking;
-// #[cfg(test)]
-// mod mock;
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 // mod weights;
 
 // pub use weights::WeightInfo;
@@ -146,7 +146,7 @@ pub mod pallet {
 		///   of the sale
 		/// - `collection_id`: Collection id of the NFTs that will be minted/redeemed to the
 		///   participants
-		/// - `tokens_per_nft`: Number of payment_asset tokens that will be required to purchase a
+		/// - `soft_cap_price`: Number of payment_asset tokens that will be required to purchase a
 		///   single NFT
 		/// - `start_block`: Block number at which the sale will start
 		/// - `end_block`: Block number at which the sale will end
@@ -159,7 +159,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			payment_asset: AssetId,
 			collection_id: CollectionUuid,
-			tokens_per_nft: Balance,
+			soft_cap_price: Balance,
 			start_block: T::BlockNumber, // TODO: maybe make this a manual action/extrinsic
 			end_block: T::BlockNumber,
 		) -> DispatchResult {
@@ -196,8 +196,8 @@ pub mod pallet {
 				status: SaleStatus::Disabled,
 				admin: who.clone(),
 				payment_asset,
-				collection_id,
-				tokens_per_nft,
+				reward_collection_id: collection_id,
+				soft_cap_price,
 				funds_raised: 0,
 				start_block,
 				end_block,
@@ -224,8 +224,8 @@ pub mod pallet {
 			// update the sale status if the start block is met
 			SaleInfo::<T>::try_mutate(id, |sale_info| {
 				let Some(sale_info) = sale_info else {
-          return Err(Error::<T>::CrowdsaleNotFound);
-        };
+					return Err(Error::<T>::CrowdsaleNotFound);
+        		};
 
 				// ensure the sale is not already enabled
 				ensure!(
@@ -267,8 +267,8 @@ pub mod pallet {
 			// update the sale status if the start block is met
 			SaleInfo::<T>::try_mutate(id, |sale_info: &mut Option<SaleInformation<_, _>>| {
 				let Some(sale_info) = sale_info else {
-          return Err(Error::<T>::CrowdsaleNotFound);
-        };
+					return Err(Error::<T>::CrowdsaleNotFound);
+				};
 
 				// ensure the sale is enabled
 				ensure!(sale_info.status == SaleStatus::Enabled, Error::<T>::CrowdsaleNotEnabled);

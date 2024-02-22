@@ -6,22 +6,35 @@ use sp_core::U256;
 
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct SaleInformation<AccountId, BlockNumber> {
+	/// The current sale status
 	pub status: SaleStatus,
+	/// The admin account that can manage the sale
 	pub admin: AccountId,
+	/// The payment asset used for participation
 	pub payment_asset: AssetId,
-	pub collection_id: CollectionUuid,
-	pub tokens_per_nft: Balance,
+	/// The reward NFT collection id
+	pub reward_collection_id: CollectionUuid,
+	/// The soft cap price set per token at the sale start
+	pub soft_cap_price: Balance,
+	/// Total funds raised during the crowdsale
 	pub funds_raised: Balance,
+	/// The block number at which the sale will start
 	pub start_block: BlockNumber,
+	/// The block number at which the sale will end
 	pub end_block: BlockNumber,
 }
 
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub enum SaleStatus {
+	/// The sale is awaiting activation
 	Disabled,
+	/// The sale has been started and is accepting payments
 	Enabled,
+	/// The sale is complete and vouchers are being paid out
 	Paying,
+	/// The sale is complete and refunds are being processed
 	Refunding,
+	/// The sale is complete and is no longer active
 	Closed,
 }
 
