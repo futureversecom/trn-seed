@@ -43,7 +43,7 @@ use frame_system::pallet_prelude::*;
 use pallet_assets::WeightInfo as AssetsWeightInfo;
 use precompile_utils::constants::ERC20_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
-	utils::next_asset_uuid, CreateExt, Hold, OnNewAssetSubscriber, TransferExt,
+	utils::next_asset_uuid, CreateExt, Hold, InspectExt, OnNewAssetSubscriber, TransferExt,
 };
 use seed_primitives::{AssetId, Balance, ParachainId};
 use sp_runtime::traits::{AccountIdConversion, One, StaticLookup, Zero};
@@ -603,6 +603,12 @@ impl<T: Config> Hold for Pallet<T> {
 		} else {
 			Err(Error::<T>::BalanceLow.into())
 		}
+	}
+}
+
+impl<T: Config> InspectExt for Pallet<T> {
+	fn exists(asset_id: AssetId) -> bool {
+		Self::asset_exists(asset_id)
 	}
 }
 
