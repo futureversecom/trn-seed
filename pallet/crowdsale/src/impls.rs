@@ -71,9 +71,53 @@ impl<T: Config> Pallet<T> {
 				let Some(sale_info) = sale_info else {
 					return Err(Error::<T>::CrowdsaleNotFound.into());
 				};
+
 				ensure!(sale_info.status == SaleStatus::Enabled, Error::<T>::SaleNotEnabled);
-				// Close the sale
+
+				// TODO: use NFTExt to get the collection max issuance
+				let collection_max_issuance = 1000;
+				let crowd_sale_target = sale_info.soft_cap_price * collection_max_issuance;
+
+				// example:
+				// soft_cap_price = 10_000_000 ROOT (10 root)
+				// max_issuance = 1000
+				// = crowd_sale_target = 10_000_000 * 1000 = 10_000_000_000 (10_000 root)
+				// funds_raised = 20_000_000_000 (20_000 root)
+
+				// voucher_price = 20_000_000_000 / 1000 = 20_000_000 (20 root)
+				let mut voucher_price = sale_info.soft_cap_price;
+				if sale_info.funds_raised > crowd_sale_target {
+					// We are over committed! Calculate the voucher price based on the total
+					voucher_price = sale_info.funds_raised / collection_max_issuance;
+				}
+
+				let refunded_vouchers = sale_info.funds_raised.saturating_sub(crowd_sale_target);
+				if refunded_vouchers > 0 {
+					T::MultiCurrency::mint_into(sale_info.payment_asset, &sale_info.admin, refunded_vouchers)
+						.map_err(|_| Error::<T>::AssetMintFailed)?;
+				}
+
+				// TODO: get contributers list from storage map based on sale ID
+				// TODO: figure out an optimized way to do that; example below is with 1 contributor
+				let contributor = T::PalletId::get().into_account_truncating();
+				let contribution = 500_000_000; // 500 root
+				let vouchers_quantity_redeemed = contribution / voucher_price; // 500_000_000 / 20_000_000 = 25
+				let voucher_decimals = T::MultiCurrency::decimals(&sale_info.payment_asset);
+        let voucher_amount = vouchers_quantity_redeemed.saturating_mul(10u32.pow(voucher_decimals as u32).into());
+				T::MultiCurrency::mint_into(sale_info.voucher, &contributor, voucher_amount)
+					.map_err(|_| Error::<T>::AssetMintFailed)?;
+
+				// TODO: emit an event for each contributor redeeming their vouchers
+
+				// close the sale
 				sale_info.status = SaleStatus::Closed;
+
+				// TODO: emit event for sale closing with:
+				// - voucher price
+				// - soft cap target
+				// - total funds raised
+				// - admin vouchers refunded
+
 				Ok(())
 			});
 		}
