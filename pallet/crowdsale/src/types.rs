@@ -20,6 +20,8 @@ pub struct SaleInformation<AccountId, BlockNumber> {
 	pub soft_cap_price: Balance,
 	/// Total funds raised during the crowdsale
 	pub funds_raised: Balance,
+	/// The voucher asset id to be paid out
+	pub voucher: AssetId,
 	/// The block number at which the sale will start
 	pub start_block: BlockNumber,
 	/// The block number at which the sale will end
