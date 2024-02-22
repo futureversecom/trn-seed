@@ -23,6 +23,7 @@ use seed_primitives::types::{CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_core::{bounded::BoundedVec, ConstU32};
 use sp_runtime::Permill;
 use sp_std::prelude::*;
+use pallet_nft::{CollectionInformation};
 
 pub const COLLECTION_NAME_STRING_LIMIT: u32 = 50;
 sp_api::decl_runtime_apis! {
@@ -42,7 +43,9 @@ sp_api::decl_runtime_apis! {
 		/// Return the token metadata URI for a given token
 		fn token_uri(token_id: TokenId) -> Vec<u8>;
 
-		fn collection_info(collection_id: CollectionUuid) -> CollectionInfo<T>;
+		fn collection_info(collection_id: CollectionUuid) -> CollectionInformation<T::AccountId,
+		<T as Config>::MaxTokensPerCollection,
+		<T as Config>::StringLimit>;
 		// (AccountId, BoundedVec<u8, ConstU32<COLLECTION_NAME_STRING_LIMIT>>, Vec<u8>, Permill, Option<TokenCount>, SerialNumber, TokenCount, bool);
 	}
 }

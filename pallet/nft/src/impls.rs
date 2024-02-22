@@ -31,12 +31,8 @@ use sp_runtime::{
 	traits::Zero, ArithmeticError, BoundedVec, DispatchError, DispatchResult, Permill,
 	SaturatedConversion,
 };
-pub const CollectionNameStringLimit: u32 = 50;
-impl<T: Config> Pallet<T>
-where
-	frame_support::BoundedVec<u8, ConstU32<50>>:
-		From<frame_support::BoundedVec<u8, <T as pallet::Config>::StringLimit>>,
-{
+
+impl<T: Config> Pallet<T> {
 	/// Returns the CollectionUuid unique across parachains
 	pub fn next_collection_uuid() -> Result<CollectionUuid, DispatchError> {
 		let collection_id = <NextCollectionId<T>>::get();
