@@ -239,6 +239,9 @@ pub mod pallet {
 				return Err(Error::<T>::InvalidAsset.into())
 			}
 
+      // ensure soft_cap_price is not zero - prevent future div by zero
+      ensure!(!soft_cap_price.is_zero(), Error::<T>::InvalidAsset);
+
 			// TODO, maybe set the max issuance here?
 			// Might be bad user experience to create a collection and fail due to one of these 2
 			// Potentially a better approach would be to create the collection here.
