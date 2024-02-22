@@ -14,7 +14,10 @@ use scale_info::prelude::format;
 
 impl<T: Config> Pallet<T> {
 	/// Creates a unique voucher asset for a sale. Returns the AssetId of the created asset
-	pub(crate) fn create_voucher_asset(sale_id: SaleId, decimals: u8) -> Result<AssetId, DispatchError> {
+	pub(crate) fn create_voucher_asset(
+		sale_id: SaleId,
+		decimals: u8,
+	) -> Result<AssetId, DispatchError> {
 		let voucher_owner = T::PalletId::get().into_account_truncating();
 		let voucher_asset_id = T::MultiCurrency::create_with_metadata(
 			&voucher_owner,
@@ -93,8 +96,12 @@ impl<T: Config> Pallet<T> {
 
 				let refunded_vouchers = sale_info.funds_raised.saturating_sub(crowd_sale_target);
 				if refunded_vouchers > 0 {
-					T::MultiCurrency::mint_into(sale_info.payment_asset, &sale_info.admin, refunded_vouchers)
-						.map_err(|_| Error::<T>::AssetMintFailed)?;
+					T::MultiCurrency::mint_into(
+						sale_info.payment_asset,
+						&sale_info.admin,
+						refunded_vouchers,
+					)
+					.map_err(|_| Error::<T>::AssetMintFailed)?;
 				}
 
 				// TODO: get contributers list from storage map based on sale ID
@@ -103,7 +110,8 @@ impl<T: Config> Pallet<T> {
 				let contribution = 500_000_000; // 500 root
 				let vouchers_quantity_redeemed = contribution / voucher_price; // 500_000_000 / 20_000_000 = 25
 				let voucher_decimals = T::MultiCurrency::decimals(&sale_info.payment_asset);
-        let voucher_amount = vouchers_quantity_redeemed.saturating_mul(10u32.pow(voucher_decimals as u32).into());
+				let voucher_amount = vouchers_quantity_redeemed
+					.saturating_mul(10u32.pow(voucher_decimals as u32).into());
 				T::MultiCurrency::mint_into(sale_info.voucher, &contributor, voucher_amount)
 					.map_err(|_| Error::<T>::AssetMintFailed)?;
 

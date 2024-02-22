@@ -168,8 +168,8 @@ pub mod pallet {
 		CreateAssetFailed,
 		/// Asset transfer failed
 		AssetTransferFailed,
-    /// Asset mint failed
-    AssetMintFailed,
+		/// Asset mint failed
+		AssetMintFailed,
 		/// NFT mint failed
 		NFTMintFailed,
 		/// The NFT collection max issuance is not set
@@ -200,7 +200,8 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Initialize a new crowdsale with the given parameters.
-    /// The provided collection max_issuance must be set and the collection must not have minted any NFTs.
+		/// The provided collection max_issuance must be set and the collection must not have minted
+		/// any NFTs.
 		///
 		/// Parameters:
 		/// - `payment_asset`: Asset id of the token that will be used to redeem the NFTs at the end
@@ -239,8 +240,8 @@ pub mod pallet {
 				return Err(Error::<T>::InvalidAsset.into())
 			}
 
-      // ensure soft_cap_price is not zero - prevent future div by zero
-      ensure!(!soft_cap_price.is_zero(), Error::<T>::InvalidAsset);
+			// ensure soft_cap_price is not zero - prevent future div by zero
+			ensure!(!soft_cap_price.is_zero(), Error::<T>::InvalidAsset);
 
 			// TODO, maybe set the max issuance here?
 			// Might be bad user experience to create a collection and fail due to one of these 2
@@ -259,7 +260,7 @@ pub mod pallet {
 			);
 
 			// create voucher asset
-      let voucher_decimals = T::MultiCurrency::decimals(&payment_asset);
+			let voucher_decimals = T::MultiCurrency::decimals(&payment_asset);
 			let voucher_asset_id = Self::create_voucher_asset(sale_id, voucher_decimals)?;
 
 			// store the sale information
@@ -414,14 +415,10 @@ pub mod pallet {
 				// burn vouchers from the user, will fail if the user does not have enough vouchers
 				// since 1:1 mapping between vouchers and NFTs, we can use the quantity * decimals
 				// as the amount burned
-        let voucher_decimals = T::MultiCurrency::decimals(&sale_info.payment_asset);
-        let voucher_amount = quantity.saturating_mul(10u32.pow(voucher_decimals as u32));
-				T::MultiCurrency::burn_from(
-					sale_info.voucher,
-					&who,
-					voucher_amount.into(),
-				)
-				.map_err(|_| Error::<T>::AssetTransferFailed)?;
+				let voucher_decimals = T::MultiCurrency::decimals(&sale_info.payment_asset);
+				let voucher_amount = quantity.saturating_mul(10u32.pow(voucher_decimals as u32));
+				T::MultiCurrency::burn_from(sale_info.voucher, &who, voucher_amount.into())
+					.map_err(|_| Error::<T>::AssetTransferFailed)?;
 
 				// mint the NFT(s) to the user
 				T::NFTExt::do_mint(
