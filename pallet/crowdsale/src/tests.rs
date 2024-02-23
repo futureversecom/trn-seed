@@ -135,10 +135,10 @@ mod calculate_voucher_rewards {
 	#[test]
 	fn calculate_voucher_rewards_partial_rewards() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let soft_cap_price = 50;
-			let funds_raised = 10_000_000;
-			let voucher_total_supply = 135_000; // 135000 * 50 = 6_750_000
-			let contribution = 50;
+			let soft_cap_price = 50_000_000;
+			let funds_raised = 10_000_000_000_000;
+			let voucher_total_supply = 135_000; // 135000 * 50 = 6_750_000_000_000
+			let contribution = 50_000_000;
 
 			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
 				soft_cap_price,
@@ -148,9 +148,85 @@ mod calculate_voucher_rewards {
 			);
 
 			// We should get 0.675676 vouchers (at 6DP)
+			//               0.675675675675675675
+			//               0.675000000000000000
 			// TODO Figure out rounding... Should probably be 675676
 			let expected_vouchers = 675675;
 			assert_eq!(user_vouchers, expected_vouchers);
+		});
+	}
+
+	#[test]
+	fn calculate_voucher_rewards_partial_rewards_2() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let soft_cap_price = 10_000_000;
+			let funds_raised = 20_000_000_000;
+			let voucher_total_supply = 1000;
+			let contribution = 500_000_000;
+
+			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
+				soft_cap_price,
+				funds_raised,
+				contribution,
+				voucher_total_supply,
+			);
+
+			let expected_vouchers = 25_000_000;
+			assert_eq!(user_vouchers, expected_vouchers);
+		});
+	}
+
+	#[test]
+	fn calculate_voucher_rewards_3() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let soft_cap_price = 10_000_000_000_000_000_000;
+			let funds_raised = 20_000_000_000_000_000_000_000;
+			let voucher_total_supply = 1000;
+			let contribution = 500_000_000_000_000_000_000;
+
+			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
+				soft_cap_price,
+				funds_raised,
+				contribution,
+				voucher_total_supply,
+			);
+
+			let expected_vouchers = 25_000_000;
+			assert_eq!(user_vouchers, expected_vouchers);
+		});
+	}
+
+	// TODO
+
+	#[test]
+	fn calculate_voucher_rewards_rounding() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let soft_cap_price = 10_000_000_000;
+			let voucher_total_supply = 1000;
+
+			let mut funds_raised = 0;
+			let mut contributions: Vec<Balance> = Vec::new();
+			for i in 0..1000000 {
+				funds_raised += i;
+				contributions.push(i);
+			}
+
+			let mut total_vouchers = 0;
+			for i in 0..1000000 {
+				let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
+					soft_cap_price,
+					funds_raised * 1_000_000,
+					i * 1_000_000,
+					voucher_total_supply,
+				);
+				total_vouchers += user_vouchers;
+			}
+
+			let test: Balance = 10;
+			let remainder = test % 3;
+			let x = test / 3;
+			println!("x: {}, rem: {}", x, remainder);
+			assert_eq!(total_vouchers, voucher_total_supply * 1_000_000);
 		});
 	}
 }

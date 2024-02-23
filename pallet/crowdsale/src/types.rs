@@ -7,6 +7,9 @@ use sp_core::U256;
 /// The unique identifier for a sale
 pub type SaleId = u64;
 
+/// Number of decimal places for each voucher asset
+pub const VOUCHER_DECIMALS: u8 = 6;
+
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct SaleInformation<AccountId, BlockNumber> {
 	/// The current sale status

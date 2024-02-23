@@ -14,16 +14,13 @@ use scale_info::prelude::format;
 
 impl<T: Config> Pallet<T> {
 	/// Creates a unique voucher asset for a sale. Returns the AssetId of the created asset
-	pub(crate) fn create_voucher_asset(
-		sale_id: SaleId,
-		decimals: u8,
-	) -> Result<AssetId, DispatchError> {
+	pub(crate) fn create_voucher_asset(sale_id: SaleId) -> Result<AssetId, DispatchError> {
 		let voucher_owner = T::PalletId::get().into_account_truncating();
 		let voucher_asset_id = T::MultiCurrency::create_with_metadata(
 			&voucher_owner,
 			format!("CrowdSale Voucher-{}", sale_id).as_bytes().to_vec(),
 			format!("CSV-{}", sale_id).as_bytes().to_vec(),
-			decimals,
+			VOUCHER_DECIMALS,
 			None,
 		)
 		.map_err(|_| Error::<T>::CreateAssetFailed)?;
@@ -43,10 +40,10 @@ impl<T: Config> Pallet<T> {
 		voucher_total_supply: Balance,
 	) -> Balance {
 		// Calculate the price of the soft cap across the total supply. This is our baseline
-		let soft_cap_total = soft_cap_price * voucher_total_supply;
+		let crowd_sale_target = soft_cap_price * voucher_total_supply;
 
 		// Check if we are over or under committed
-		let voucher_price: Balance = if total_funds_raised > soft_cap_total {
+		let voucher_price: Balance = if total_funds_raised > crowd_sale_target {
 			// We are over committed! Calculate the voucher price based on the total
 			total_funds_raised / voucher_total_supply
 		} else {
@@ -54,9 +51,19 @@ impl<T: Config> Pallet<T> {
 			soft_cap_price
 		};
 
+		// divide account_contribution by voucher_price and round up or down
+		// let contribution = account_contribution * 10u128.pow(6 as u32);
+		// let remainder = contribution % voucher_price;
+		// let vouchers_quantity = contribution / voucher_price;
+		// let vouchers_quantity_rounded = if remainder >= (remainder / voucher_price) {
+		// 	vouchers_quantity + 1
+		// } else {
+		// 	vouchers_quantity
+		// };
+
+		// vouchers_quantity_rounded
 		// Return total vouchers converted to the correct decimals
-		todo!("Calculate voucher rewards based on the account contribution and voucher price.")
-		// account_contribution * 10u128.pow(VOUCHER_DECIMALS as u32) / voucher_price
+		account_contribution * 10u128.pow(6 as u32) / voucher_price
 	}
 
 	/// Close all crowdsales that are scheduled to end this block
@@ -76,6 +83,9 @@ impl<T: Config> Pallet<T> {
 				};
 
 				ensure!(sale_info.status == SaleStatus::Enabled, Error::<T>::SaleNotEnabled);
+
+				// close the sale
+				sale_info.status = SaleStatus::Closed;
 
 				// TODO: use NFTExt to get the collection max issuance
 				let collection_max_issuance = 1000;
@@ -100,25 +110,29 @@ impl<T: Config> Pallet<T> {
 						sale_info.payment_asset,
 						&sale_info.admin,
 						refunded_vouchers,
-					)
-					.map_err(|_| Error::<T>::AssetMintFailed)?;
+					)?;
 				}
 
 				// TODO: get contributers list from storage map based on sale ID
 				// TODO: figure out an optimized way to do that; example below is with 1 contributor
-				let contributor = T::PalletId::get().into_account_truncating();
-				let contribution = 500_000_000; // 500 root
-				let vouchers_quantity_redeemed = contribution / voucher_price; // 500_000_000 / 20_000_000 = 25
-				let voucher_decimals = T::MultiCurrency::decimals(&sale_info.payment_asset);
-				let voucher_amount = vouchers_quantity_redeemed
-					.saturating_mul(10u32.pow(voucher_decimals as u32).into());
-				T::MultiCurrency::mint_into(sale_info.voucher, &contributor, voucher_amount)
-					.map_err(|_| Error::<T>::AssetMintFailed)?;
+				// let contributor = T::PalletId::get().into_account_truncating();
+				// let contribution = 500_000_000; // 500 root
+				// 				// let vouchers_quantity_redeemed = contribution / voucher_price; // 500_000_000
+				// / 				// 20_000_000 = 25 let voucher_decimals =
+				// 				// T::MultiCurrency::decimals(&sale_info.payment_asset); let voucher_amount =
+				// 				// vouchers_quantity_redeemed 	.saturating_mul(10u32.pow(voucher_decimals as
+				// 				// u32).into());
+				//
+				// let allocated_vouchers = Self::calculate_voucher_rewards(
+				// 	sale_info.soft_cap_price,
+				// 	sale_info.funds_raised,
+				// 	contribution,
+				// 	collection_max_issuance,
+				// );
+				// T::MultiCurrency::mint_into(sale_info.voucher, &contributor,
+				// allocated_vouchers)?;
 
 				// TODO: emit an event for each contributor redeeming their vouchers
-
-				// close the sale
-				sale_info.status = SaleStatus::Closed;
 
 				// TODO: emit event for sale closing with:
 				// - voucher price
