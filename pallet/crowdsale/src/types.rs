@@ -7,7 +7,7 @@ use sp_core::U256;
 /// The unique identifier for a sale
 pub type SaleId = u64;
 
-/// How many decimals the voucher assets will have
+/// Number of decimal places for each voucher asset
 pub const VOUCHER_DECIMALS: u8 = 6;
 
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
@@ -25,7 +25,7 @@ pub struct SaleInformation<AccountId, BlockNumber> {
 	/// Total funds raised during the crowdsale
 	pub funds_raised: Balance,
 	/// The voucher asset id to be paid out
-	pub voucher: AssetId,
+	pub voucher: AssetId, // TODO: could potentially be (AssedId, decimals)
 	/// How long the sale will last in blocks
 	pub sale_duration: BlockNumber,
 }
@@ -36,10 +36,6 @@ pub enum SaleStatus {
 	Disabled,
 	/// The sale has been started and is accepting payments
 	Enabled,
-	/// The sale is complete and vouchers are being paid out
-	Paying,
-	/// The sale is complete and refunds are being processed
-	Refunding,
 	/// The sale is complete and is no longer active
 	Closed,
 }
