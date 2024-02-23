@@ -18,6 +18,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+#[allow(unused_imports)]
 use crate::Pallet as MaintenanceMode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;

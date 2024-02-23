@@ -62,6 +62,10 @@ pub trait NFTExt {
 		DispatchError,
 	>;
 
+	fn get_royalties_schedule(
+		collection_id: CollectionUuid,
+	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError>;
+
 	fn enable_xls20_compatibility(
 		who: Self::AccountId,
 		collection_id: CollectionUuid,
@@ -73,5 +77,11 @@ pub trait NFTExt {
 
 	fn get_token_lock(token_id: TokenId) -> Option<TokenLockReason>;
 
-	fn set_token_lock(token_id: TokenId, lock_reason: Option<TokenLockReason>) -> DispatchResult;
+	fn set_token_lock(
+		token_id: TokenId,
+		lock_reason: TokenLockReason,
+		who: Self::AccountId,
+	) -> DispatchResult;
+
+	fn remove_token_lock(token_id: TokenId);
 }

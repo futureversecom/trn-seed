@@ -531,7 +531,7 @@ describe("Marketplace Precompile", function () {
         duration,
         marketplaceId,
       )
-      .catch((err: any) => expect(err.message).contains("NoToken"));
+      .catch((err: any) => expect(err.message).contains("EmptyTokens"));
   });
 
   it("update fixed price listing fails of non existing listing id", async () => {

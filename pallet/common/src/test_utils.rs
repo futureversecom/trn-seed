@@ -131,7 +131,7 @@ macro_rules! impl_frame_system_config {
 			type BlockLength = ();
 			type BaseCallFilter = frame_support::traits::Everything;
 			type RuntimeOrigin = RuntimeOrigin;
-			type Index = u64;
+			type Index = u32;
 			type BlockNumber = BlockNumber;
 			type RuntimeCall = RuntimeCall;
 			type Hash = H256;
@@ -269,7 +269,7 @@ macro_rules! impl_pallet_nft_config {
 		parameter_types! {
 			pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 			pub const MaxTokensPerCollection: u32 = 10_000;
-			pub const MintLimit: u32 = 100;
+			pub const MintLimit: u32 = 1000;
 			pub const Xls20PaymentAsset: AssetId = 2;
 			pub const StringLimit: u32 = 50;
 			pub const FeePotId: PalletId = PalletId(*b"txfeepot");
@@ -287,6 +287,41 @@ macro_rules! impl_pallet_nft_config {
 			type Xls20MintRequest = MockXls20MintRequest;
 			type WeightInfo = ();
 			type StringLimit = StringLimit;
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_pallet_sft_config {
+	($test:ident) => {
+		pub struct MockSftNewAssetSubscription;
+		impl<RuntimeId> OnNewAssetSubscriber<RuntimeId> for MockSftNewAssetSubscription
+		where
+			RuntimeId: From<u32> + Into<u32>,
+		{
+			fn on_asset_create(_runtime_id: RuntimeId, _precompile_address_prefix: &[u8; 4]) {}
+		}
+
+		parameter_types! {
+			pub const SftPalletId: PalletId = PalletId(*b"sftokens");
+			pub const MaxTokensPerSftCollection: u32 = 10_000;
+			pub const MaxSerialsPerSftMint: u32 = 10;
+			pub const MaxOwnersPerSftToken: u32 = 100;
+		}
+
+		impl pallet_sft::Config for Test {
+			type RuntimeEvent = RuntimeEvent;
+			type MultiCurrency = AssetsExt;
+			type NFTExt = Nft;
+			type OnTransferSubscription = MockTransferSubscriber;
+			type OnNewAssetSubscription = MockSftNewAssetSubscription;
+			type PalletId = SftPalletId;
+			type ParachainId = TestParachainId;
+			type StringLimit = StringLimit;
+			type WeightInfo = ();
+			type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
+			type MaxSerialsPerMint = MaxSerialsPerSftMint;
+			type MaxOwnersPerSftToken = MaxOwnersPerSftToken;
 		}
 	};
 }
@@ -648,10 +683,19 @@ macro_rules! impl_pallet_futurepass_config {
 			}
 		}
 
+		pub struct MockFuturepassCallValidator;
+		impl seed_pallet_common::ExtrinsicChecker for MockFuturepassCallValidator {
+			type Call = RuntimeCall;
+			fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+				false
+			}
+		}
+
 		impl pallet_futurepass::Config for $test {
 			type RuntimeEvent = RuntimeEvent;
 			type Proxy = MockProxyProvider;
 			type RuntimeCall = RuntimeCall;
+			type BlacklistedCallValidator = MockFuturepassCallValidator;
 			type ApproveOrigin = EnsureRoot<AccountId>;
 			type ProxyType = ProxyType;
 			type WeightInfo = ();

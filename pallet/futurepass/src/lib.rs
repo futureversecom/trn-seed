@@ -37,6 +37,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use precompile_utils::constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
+use seed_pallet_common::{AccountProxy, ExtrinsicChecker};
 use sp_core::H160;
 use sp_io::hashing::keccak_256;
 use sp_runtime::traits::Dispatchable;
@@ -121,6 +122,13 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
+
+		/// Futurepass proxy extrinsic inner call blacklist validator
+		type BlacklistedCallValidator: ExtrinsicChecker<
+			Call = <Self as pallet::Config>::RuntimeCall,
+			Extra = (),
+			Result = bool,
+		>;
 
 		/// Allowed origins to ease transition to council governance
 		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -219,6 +227,8 @@ pub mod pallet {
 		DelegateNotRegistered,
 		/// Account already exists as a delegate
 		DelegateAlreadyExists,
+		/// Blacklisted extrinsic
+		BlacklistedExtrinsic,
 		/// Account is not futurepass owner
 		NotFuturepassOwner,
 		/// Futurepass owner cannot remove themselves
@@ -512,6 +522,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 
+			// disallow blacklisted extrinsics
+			ensure!(
+				!<T as pallet::Config>::BlacklistedCallValidator::check_extrinsic(&call, &()),
+				Error::<T>::BlacklistedExtrinsic,
+			);
+
 			// restrict delegate access to whitelist
 			match call.is_sub_type() {
 				Some(Call::register_delegate_with_signature { .. }) |
@@ -709,7 +725,7 @@ where
 	}
 }
 
-impl<T: Config> seed_pallet_common::AccountProxy<T::AccountId> for Pallet<T>
+impl<T: Config> AccountProxy<T::AccountId> for Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<H160>,
 {

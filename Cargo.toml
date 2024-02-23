@@ -8,6 +8,7 @@ members = [
 	"ethy-gadget",
 	"evm-precompiles/*"
 ]
+resolver = "2"
 
 [profile.release]
 panic = "unwind"

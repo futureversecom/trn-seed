@@ -22,6 +22,7 @@ scale-info = { version = "2.3.0", default-features = false, features = ["derive"
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
 pallet-nft = { path = "../nft", default-features = false }
+pallet-sft = { path = "../sft", default-features = false }
 log = { default-features = false, version = "0.4.14"}
 
 [dev-dependencies]
@@ -32,6 +33,7 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "p
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+pallet-sft = { path = "../sft" }
 
 [features]
 default = ["std"]
@@ -39,6 +41,7 @@ std = [
 	"seed-primitives/std",
 	"seed-pallet-common/std",
 	"pallet-nft/std",
+	"pallet-sft/std",
 	"codec/std",
 	"serde",
 	"sp-core/std",

@@ -28,6 +28,7 @@ construct_runtime!(
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
 		Nft: pallet_nft,
+		Sft: pallet_sft,
 		Marketplace: pallet_marketplace,
 	}
 );
@@ -37,12 +38,14 @@ impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 impl_pallet_nft_config!(Test);
+impl_pallet_sft_config!(Test);
 
 parameter_types! {
 	pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxOffers: u32 = 10;
 	pub const MaxTokensPerListing: u32 = 100;
+	pub const MaxListingsPerMultiBuy: u32 = 100;
 	pub const DefaultFeeTo: Option<PalletId> = Some(FeePotId::get());
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 }
@@ -54,9 +57,11 @@ impl crate::Config for Test {
 	type DefaultFeeTo = DefaultFeeTo;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
+	type SFTExt = Sft;
 	type PalletId = MarketplacePalletId;
 	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type WeightInfo = ();
 	type MaxTokensPerListing = MaxTokensPerListing;
+	type MaxListingsPerMultiBuy = MaxListingsPerMultiBuy;
 	type MaxOffers = MaxOffers;
 }

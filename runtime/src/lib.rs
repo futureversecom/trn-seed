@@ -134,7 +134,8 @@ mod migrations;
 mod weights;
 
 use crate::impls::{
-	FutureverseEVMCurrencyAdapter, FutureverseEnsureAddressSame, OnNewAssetSubscription,
+	DoughnutCallValidator, DoughnutFuturepassLookup, FutureverseEVMCurrencyAdapter,
+	FutureverseEnsureAddressSame, OnNewAssetSubscription,
 };
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
@@ -152,7 +153,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 48,
+	spec_version: 49,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -434,6 +435,7 @@ parameter_types! {
 	/// How long listings are open for by default
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
 	pub const MaxTokensPerListing: u32 = 1000;
+	pub const MaxListingsPerMultiBuy: u32 = 50;
 	pub const MaxOffers: u32 = 100;
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 	pub const DefaultTxFeePotId: Option<PalletId> = Some(TxFeePotId::get());
@@ -445,10 +447,12 @@ impl pallet_marketplace::Config for Runtime {
 	type DefaultFeeTo = DefaultFeeTo;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
+	type SFTExt = Sft;
 	type PalletId = MarketplacePalletId;
 	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type WeightInfo = weights::pallet_marketplace::WeightInfo<Runtime>;
 	type MaxTokensPerListing = MaxTokensPerListing;
+	type MaxListingsPerMultiBuy = MaxListingsPerMultiBuy;
 	type MaxOffers = MaxOffers;
 }
 
@@ -595,6 +599,22 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPTransactionLimitPerLedger;
+}
+
+parameter_types! {
+	pub const MaxMessageLength: u32 = 2048;
+	pub const MaxSignatureLength: u32 = 80;
+}
+
+impl pallet_xrpl::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type CallValidator = impls::MaintenanceModeCallValidator;
+	type FuturepassLookup = impls::FuturepassLookup;
+	type PalletsOrigin = OriginCaller;
+	type MaxMessageLength = MaxMessageLength;
+	type MaxSignatureLength = MaxSignatureLength;
+	type WeightInfo = weights::pallet_xrpl::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1158,6 +1178,14 @@ impl pallet_fee_control::Config for Runtime {
 	type FeeConfig = ();
 }
 
+impl pallet_doughnut::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type CallValidator = DoughnutCallValidator;
+	type FuturepassLookup = DoughnutFuturepassLookup;
+	type WeightInfo = weights::pallet_doughnut::WeightInfo<Runtime>;
+}
+
 parameter_types! {
 	pub const ConfigDepositBase: u64 = 10;
 	pub const FriendDepositFactor: u64 = 1;
@@ -1209,6 +1237,7 @@ impl pallet_futurepass::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Proxy = impls::ProxyPalletProvider;
 	type RuntimeCall = RuntimeCall;
+	type BlacklistedCallValidator = impls::FuturepassCallValidator;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
 	type FuturepassMigrator = impls::FuturepassMigrationProvider;
@@ -1297,6 +1326,7 @@ construct_runtime! {
 		Nft: pallet_nft = 17,
 		Sft: pallet_sft = 43,
 		XRPLBridge: pallet_xrpl_bridge = 18,
+		Xrpl: pallet_xrpl = 35,
 		TokenApprovals: pallet_token_approvals = 19,
 		Historical: pallet_session::historical = 20,
 		Echo: pallet_echo = 21,
@@ -1306,6 +1336,7 @@ construct_runtime! {
 		FeeProxy: pallet_fee_proxy = 31,
 		FeeControl: pallet_fee_control = 40,
 		Xls20: pallet_xls20 = 42,
+		Doughnut: pallet_doughnut = 48,
 		MaintenanceMode: pallet_maintenance_mode = 47,
 
 		// Election pallet. Only works with staking
@@ -1936,6 +1967,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	fn is_self_contained(&self) -> bool {
 		match self {
 			RuntimeCall::Ethereum(call) => call.is_self_contained(),
+			RuntimeCall::Xrpl(call) => call.is_self_contained(),
+			RuntimeCall::Doughnut(call) => call.is_self_contained(),
 			_ => false,
 		}
 	}
@@ -1943,6 +1976,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	fn check_self_contained(&self) -> Option<Result<Self::SignedInfo, TransactionValidityError>> {
 		match self {
 			RuntimeCall::Ethereum(call) => call.check_self_contained(),
+			RuntimeCall::Xrpl(call) => call.check_self_contained(),
+			RuntimeCall::Doughnut(call) => call.check_self_contained(),
 			_ => None,
 		}
 	}
@@ -1956,6 +1991,10 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		match self {
 			RuntimeCall::Ethereum(ref call) =>
 				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len)),
+			RuntimeCall::Xrpl(ref call) =>
+				call.validate_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::Doughnut(ref call) =>
+				call.validate_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
 	}
@@ -1969,6 +2008,10 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		match self {
 			RuntimeCall::Ethereum(call) =>
 				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::Xrpl(ref call) =>
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::Doughnut(ref call) =>
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
 	}
@@ -1976,14 +2019,26 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	fn apply_self_contained(
 		self,
 		info: Self::SignedInfo,
-		_dispatch_info: &DispatchInfoOf<Self>,
-		_len: usize,
+		dispatch_info: &DispatchInfoOf<Self>,
+		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
 		match self {
 			call @ RuntimeCall::Ethereum(pallet_ethereum::Call::transact { .. }) =>
 				Some(call.dispatch(RuntimeOrigin::from(
 					pallet_ethereum::RawOrigin::EthereumTransaction(info),
 				))),
+			RuntimeCall::Xrpl(call) => pallet_xrpl::Call::<Runtime>::apply_self_contained(
+				call.into(),
+				&info,
+				&dispatch_info,
+				len,
+			),
+			RuntimeCall::Doughnut(call) => pallet_doughnut::Call::<Runtime>::apply_self_contained(
+				call.into(),
+				&info,
+				&dispatch_info,
+				len,
+			),
 			_ => None,
 		}
 	}
@@ -2064,6 +2119,7 @@ mod benches {
 		[pallet_fee_control, FeeControl]
 		[pallet_nft_peg, NftPeg]
 		[pallet_xrpl_bridge, XRPLBridge]
+		[pallet_xrpl, Xrpl]
 		[pallet_erc20_peg, Erc20Peg]
 		[pallet_echo, Echo]
 		[pallet_assets_ext, AssetsExt]
@@ -2075,5 +2131,6 @@ mod benches {
 		[pallet_dex, Dex]
 		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_marketplace, Marketplace]
+		[pallet_doughnut, Doughnut]
 	);
 }

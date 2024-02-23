@@ -536,9 +536,9 @@ where
 		call: RuntimeCall,
 		_public: <Signature as Verify>::Signer,
 		_account: AccountId,
-		nonce: u64,
+		nonce: u32,
 	) -> Option<(RuntimeCall, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
-		Some((call, (nonce, ())))
+		Some((call, (nonce as u64, ())))
 	}
 }
 

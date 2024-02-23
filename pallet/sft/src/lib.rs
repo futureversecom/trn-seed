@@ -41,7 +41,7 @@ mod tests;
 mod benchmarking;
 
 mod impls;
-mod types;
+pub mod types;
 mod weights;
 
 pub use weights::WeightInfo;
