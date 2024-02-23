@@ -30,7 +30,6 @@ use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
 	TokenId, MAX_COLLECTION_ENTITLEMENTS,
 };
-use sp_core::ConstU32;
 use sp_runtime::{
 	traits::Zero, ArithmeticError, BoundedVec, DispatchError, DispatchResult, Permill,
 	SaturatedConversion,
@@ -389,51 +388,53 @@ impl<T: Config> Pallet<T>
 	/// and the new cursor for the next owned SerialNumber not included in the returned list
 	pub fn collection_info(
 		collection_id: CollectionUuid,
-	) -> CollectionInformation<
-		T::AccountId,
-		<T as Config>::MaxTokensPerCollection,
-		<T as Config>::StringLimit,
-	> {
-		// (T::AccountId, BoundedVec<u8, ConstU32<CollectionNameStringLimit>>, Vec<u8>, Permill,
-		// Option<TokenCount>, SerialNumber, TokenCount, bool) { let collection_info = match
-		// <CollectionInfo<T>>::get(collection_id) { 	Some(info) => info,
-		// 	// None => return (Default::default(), Default::default(), Default::default(),
-		// 	// 				Default::default(), Default::default(), Default::default(),
-		// 	// 				Default::default(), Default::default(), Default::default()),
-		// };
-
-		// if collection_info.is_none() {
-		// 	// should not happen
-		// 	log!(warn, "🃏 Unexpected empty collection: {:?}", collection_id);
-		// 	return Default::default()
-		// }
+	) -> (T::AccountId, Vec<u8>, Vec<u8>, Permill, Option<TokenCount>, SerialNumber, TokenCount, bool)
+	where
+		<T as frame_system::Config>::AccountId: core::default::Default,
+	{
 		let collection_info = <CollectionInfo<T>>::get(collection_id);
-		// if collection_info.is_none() {
-		// 	// should not happen
-		// 	log!(warn, "🃏 Unexpected empty collection: {:?}", collection_id);
-		// 	return (Default::default(), Default::default(),
-		// MetadataScheme::try_from(b"<CID>".as_slice()).unwrap(), 						Default::default(),
-		// Default::default(), OriginChain::Root, 						Default::default(), Default::default(),
-		// Default::default()) }
+		if collection_info.is_none() {
+			// should not happen
+			log!(warn, "🃏 Unexpected empty collection: {:?}", collection_id);
+			let default_owner = T::AccountId::from(Default::default());
 
-		let mut collection_info = collection_info.unwrap();
-		collection_info.owned_tokens = Default::default();
-		collection_info
-		// let owner = collection_info.owner;
-		// let name = collection_info.name.into();
-		// let metadata_scheme = collection_info.metadata_scheme.construct_token_uri(collection_id);
-		// let royalties_schedule =
-		// collection_info.royalties_schedule.unwrap().calculate_total_entitlement();
-		// let max_issuance = collection_info.max_issuance;
-		// // let origin_chain = collection_info.origin_chain;
-		// let next_serial_number = collection_info.next_serial_number;
-		// let collection_issuance = collection_info.collection_issuance;
-		// let is_xrpl_compatibile = collection_info.cross_chain_compatibility.xrpl;
+			return (
+				default_owner,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			)
+		}
 
-		// (T::AccountId::from(owner), name, metadata_scheme, royalties_schedule, max_issuance,
-		// origin_chain, next_serial_number, collection_issuance, cross_chain_compatibility)
-		// (T::AccountId::from(owner), name, metadata_scheme, royalties_schedule, max_issuance,
-		// next_serial_number, collection_issuance, is_xrpl_compatibile)
+		let collection_info = collection_info.unwrap();
+		let owner = collection_info.owner;
+		let name = collection_info.name.into();
+		let metadata_scheme = collection_info.metadata_scheme.construct_token_uri(0);
+		let royalties_schedule = if collection_info.royalties_schedule.is_some() {
+			collection_info.royalties_schedule.unwrap().calculate_total_entitlement()
+		} else {
+			Zero::zero()
+		};
+
+		let max_issuance = collection_info.max_issuance;
+		let next_serial_number = collection_info.next_serial_number;
+		let collection_issuance = collection_info.collection_issuance;
+		let cross_chain_compatibility = collection_info.cross_chain_compatibility.xrpl;
+
+		(
+			T::AccountId::from(owner),
+			name,
+			metadata_scheme,
+			royalties_schedule,
+			max_issuance,
+			next_serial_number,
+			collection_issuance,
+			cross_chain_compatibility,
+		)
 	}
 
 	/// Create the collection
