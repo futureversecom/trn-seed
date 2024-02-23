@@ -15,7 +15,6 @@
 
 //! Node-specific RPC methods for interaction with NFT module.
 
-use std::fmt::Debug;
 use std::sync::Arc;
 
 use codec::Codec;
@@ -23,25 +22,17 @@ use jsonrpsee::{
 	core::{Error as RpcError, RpcResult},
 	proc_macros::rpc,
 };
-use pallet_nft::{CollectionInfo, CollectionInformation, Config};
+use pallet_nft::Config;
 use seed_primitives::types::{BlockNumber, CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_core::{bounded::BoundedVec, ConstU32, Get};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT, Permill};
-// use pallet_nft::mock::{MaxTokensPerCollection, StringLimit};
-//use pallet_nft::mock::StringLimit;
 
-// use pallet_nft::mock::StringLimit;
-pub const CollectionNameStringLimit: u32 = 50;
 pub use pallet_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi};
-use seed_primitives::{MaxTokensPerCollection, StringLimit};
 
 /// NFT RPC methods.
 #[rpc(client, server, namespace = "nft")]
-pub trait NftApi<AccountId> where
-	AccountId: Debug + PartialEq + Clone
-{
+pub trait NftApi<AccountId> {
 	#[method(name = "ownedTokens")]
 	fn owned_tokens(
 		&self,
@@ -55,10 +46,19 @@ pub trait NftApi<AccountId> where
 	fn token_uri(&self, token_id: TokenId) -> RpcResult<Vec<u8>>;
 
 	#[method(name = "collectionInfo")]
-	fn collection_info(&self, collection_id: CollectionUuid) -> RpcResult<CollectionInformation<AccountId, MaxTokensPerCollection, StringLimit>>;
-	// fn collection_info(&self, collection_id: CollectionUuid) -> RpcResult<(AccountId,
-	// BoundedVec<u8, ConstU32<CollectionNameStringLimit>>, Vec<u8>, Permill, Option<TokenCount>,
-	// SerialNumber, TokenCount, bool)>;
+	fn collection_info(
+		&self,
+		collection_id: CollectionUuid,
+	) -> RpcResult<(
+		AccountId,
+		Vec<u8>,
+		Vec<u8>,
+		Permill,
+		Option<TokenCount>,
+		SerialNumber,
+		TokenCount,
+		bool,
+	)>;
 }
 
 /// An implementation of NFT specific RPC methods.
@@ -80,7 +80,7 @@ where
 	T: Config<BlockNumber = BlockNumber> + Send + Sync,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: NftRuntimeApi<Block, AccountId, T>,
-	AccountId: Codec + std::clone::Clone + std::cmp::PartialEq + std::fmt::Debug,
+	AccountId: Codec,
 {
 	fn owned_tokens(
 		&self,
@@ -103,9 +103,19 @@ where
 		api.token_uri(&at, token_id).map_err(|e| RpcError::to_call_error(e))
 	}
 
-	fn collection_info(&self, collection_id: CollectionUuid) -> RpcResult<CollectionInformation<T::AccountId, T::MaxTokensPerCollection, T::StringLimit>> {
-		// RpcResult<(AccountId, BoundedVec<u8, T::StringLimit>, Vec<u8>, Permill,
-		// Option<TokenCount>, SerialNumber, TokenCount, bool)> {
+	fn collection_info(
+		&self,
+		collection_id: CollectionUuid,
+	) -> RpcResult<(
+		AccountId,
+		Vec<u8>,
+		Vec<u8>,
+		Permill,
+		Option<TokenCount>,
+		SerialNumber,
+		TokenCount,
+		bool,
+	)> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);

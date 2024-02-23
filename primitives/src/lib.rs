@@ -32,7 +32,6 @@ pub use nft::*;
 pub const XRP_HTTP_URI: [u8; 8] = *b"XRP_HTTP";
 
 pub mod types {
-	use sp_core::{ConstU32, Get};
 	use crate::signature::EthereumSignature;
 	use sp_runtime::traits::{BlakeTwo256, IdentifyAccount, Verify};
 
@@ -82,9 +81,7 @@ pub mod types {
 
 	/// Global unique token identifier
 	pub type TokenId = (CollectionUuid, SerialNumber);
-	pub type StringLimit = ConstU32<50>;
 
-	pub type MaxTokensPerCollection = ConstU32<10000>;
 	/// Denotes a quantitiy of tokens
 	pub type TokenCount = SerialNumber;
 
