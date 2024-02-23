@@ -54,6 +54,10 @@ mod tests;
 
 // pub use weights::WeightInfo;
 
+/// The logging target for this pallet
+#[allow(dead_code)]
+pub(crate) const LOG_TARGET: &str = "crowdsale";
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -164,8 +168,6 @@ pub mod pallet {
 		CreateAssetFailed,
 		/// Asset transfer failed
 		AssetTransferFailed,
-		/// NFT mint failed
-		NFTMintFailed,
 		/// The NFT collection max issuance is not set
 		MaxIssuanceNotSet,
 		/// The NFT collection must not contain any minted NFTs
@@ -194,6 +196,8 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Initialize a new crowdsale with the given parameters.
+		/// The provided collection max_issuance must be set and the collection must not have minted
+		/// any NFTs.
 		///
 		/// Parameters:
 		/// - `payment_asset`: Asset id of the token that will be used to redeem the NFTs at the end
@@ -232,6 +236,9 @@ pub mod pallet {
 				return Err(Error::<T>::InvalidAsset.into())
 			}
 
+			// ensure soft_cap_price is not zero - prevent future div by zero
+			ensure!(!soft_cap_price.is_zero(), Error::<T>::InvalidAsset);
+
 			// TODO, maybe set the max issuance here?
 			// Might be bad user experience to create a collection and fail due to one of these 2
 			// Potentially a better approach would be to create the collection here.
@@ -239,8 +246,8 @@ pub mod pallet {
 			// What happens if we set the max issuance after the sale? If the vouchers
 			// are reliant on the max issuance, the sale will end up corrupt
 
-			// TODO Maybe pass ownership of NFT collection to the crowdsale pallet until the
-			// vouchers are redeemed?
+			// TODO: pass ownership to the pallet account
+
 			let collection_info = T::NFTExt::get_collection_info(collection_id)?;
 			ensure!(collection_info.max_issuance.is_some(), Error::<T>::MaxIssuanceNotSet);
 			ensure!(
@@ -249,6 +256,7 @@ pub mod pallet {
 			);
 
 			// create voucher asset
+			let voucher_decimals = T::MultiCurrency::decimals(&payment_asset);
 			let voucher_asset_id = Self::create_voucher_asset(sale_id)?;
 
 			// store the sale information
@@ -392,51 +400,46 @@ pub mod pallet {
 		pub fn redeem(origin: OriginFor<T>, id: SaleId, quantity: TokenCount) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			SaleInfo::<T>::try_mutate(id, |sale_info: &mut Option<SaleInformation<_, _>>| {
-				let Some(sale_info) = sale_info else {
-					return Err(Error::<T>::CrowdsaleNotFound);
+			SaleInfo::<T>::try_mutate(
+				id,
+				|sale_info: &mut Option<SaleInformation<_, _>>| -> DispatchResult {
+					let Some(sale_info) = sale_info else {
+					return Err(Error::<T>::CrowdsaleNotFound.into());
 				};
 
-				// ensure the sale has concluded
-				ensure!(sale_info.status == SaleStatus::Closed, Error::<T>::InvalidCrowdsaleStatus);
+					// ensure the sale has concluded
+					ensure!(
+						sale_info.status == SaleStatus::Closed,
+						Error::<T>::InvalidCrowdsaleStatus
+					);
 
-				// burn vouchers from the user, will fail if the user does not have enough vouchers
-				// since 1:1 mapping between vouchers and NFTs, we can use the quantity * decimals
-				// as the amount burned
-				T::MultiCurrency::burn_from(
-					sale_info.voucher,
-					&who,
-					quantity.saturating_mul(VOUCHER_DECIMALS.into()).into(),
-				)
-				.map_err(|_| Error::<T>::AssetTransferFailed)?;
+					// burn vouchers from the user, will fail if the user does not have enough
+					// vouchers since 1:1 mapping between vouchers and NFTs, we can use the quantity
+					// * decimals as the amount burned
+					let voucher_amount =
+						quantity.saturating_mul(10u32.pow(VOUCHER_DECIMALS as u32));
+					T::MultiCurrency::burn_from(sale_info.voucher, &who, voucher_amount.into())?;
 
-				// mint the NFT(s) to the user
-				T::NFTExt::do_mint(
-					T::PalletId::get().into_account_truncating(),
-					sale_info.reward_collection_id,
-					quantity,
-					Some(who.clone()),
-				)
-				.map_err(|_| Error::<T>::NFTMintFailed)?;
+					// mint the NFT(s) to the user
+					T::NFTExt::do_mint(
+						T::PalletId::get().into_account_truncating(),
+						sale_info.reward_collection_id,
+						quantity,
+						Some(who.clone()),
+					)?;
 
-				Self::deposit_event(Event::CrowdsaleNFTRedeemed {
-					id,
-					who,
-					collection_id: sale_info.reward_collection_id,
-					quantity,
-				});
+					Self::deposit_event(Event::CrowdsaleNFTRedeemed {
+						id,
+						who,
+						collection_id: sale_info.reward_collection_id,
+						quantity,
+					});
 
-				Ok(())
-			})?;
+					Ok(())
+				},
+			)?;
 
 			Ok(())
 		}
-
-		// TODO: offchain worker
-		// closes sale if end_block is reached
-		// sets the vouchers_per_nft - based on funds_raised and tokens_per_voucher
-		// mints vouchers to participants based on softcap reached
-		// refunds/mints vouchers to admin if softcap not reached
-		// changes sale status to closed
 	}
 }
