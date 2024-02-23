@@ -47,6 +47,10 @@ pub fn bounded_string(name: &str) -> BoundedVec<u8, <Test as pallet_nft::Config>
 	BoundedVec::truncate_from(name.as_bytes().to_vec())
 }
 
+fn add_decimals(balance: Balance, decimals: u8) -> Balance {
+	balance * 10u128.pow(decimals as u32)
+}
+
 mod calculate_voucher_rewards {
 	use super::*;
 
@@ -201,32 +205,32 @@ mod calculate_voucher_rewards {
 	#[test]
 	fn calculate_voucher_rewards_rounding() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let soft_cap_price = 10_000_000_000;
+			let decimals = 6;
+			let total_contributors: Balance = 100000000;
+			let soft_cap_price = add_decimals(1, decimals);
 			let voucher_total_supply = 1000;
 
 			let mut funds_raised = 0;
 			let mut contributions: Vec<Balance> = Vec::new();
-			for i in 0..1000000 {
-				funds_raised += i;
-				contributions.push(i);
+			for i in 0..total_contributors {
+				let contribution = soft_cap_price * (i + 1); // Each contributor contributes some multiple of the soft cap
+				funds_raised += contribution;
+				contributions.push(contribution);
 			}
 
 			let mut total_vouchers = 0;
-			for i in 0..1000000 {
+			for i in 0..total_contributors {
 				let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
 					soft_cap_price,
-					funds_raised * 1_000_000,
-					i * 1_000_000,
+					funds_raised,
+					contributions[i as usize],
 					voucher_total_supply,
 				);
 				total_vouchers += user_vouchers;
 			}
 
-			let test: Balance = 10;
-			let remainder = test % 3;
-			let x = test / 3;
-			println!("x: {}, rem: {}", x, remainder);
-			assert_eq!(total_vouchers, voucher_total_supply * 1_000_000);
+			// Theoretically the total supply should be deterministic
+			assert_eq!(total_vouchers, add_decimals(voucher_total_supply, 6));
 		});
 	}
 }

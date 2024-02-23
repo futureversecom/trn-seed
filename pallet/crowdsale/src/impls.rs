@@ -52,18 +52,18 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// divide account_contribution by voucher_price and round up or down
-		// let contribution = account_contribution * 10u128.pow(6 as u32);
-		// let remainder = contribution % voucher_price;
-		// let vouchers_quantity = contribution / voucher_price;
-		// let vouchers_quantity_rounded = if remainder >= (remainder / voucher_price) {
-		// 	vouchers_quantity + 1
-		// } else {
-		// 	vouchers_quantity
-		// };
+		let contribution = account_contribution * 10u128.pow(6 as u32);
+		let remainder = contribution % voucher_price;
+		let vouchers_quantity = contribution / voucher_price;
+		let vouchers_quantity_rounded = if remainder > (remainder / voucher_price) {
+			vouchers_quantity + 1
+		} else {
+			vouchers_quantity
+		};
 
-		// vouchers_quantity_rounded
+		vouchers_quantity_rounded
 		// Return total vouchers converted to the correct decimals
-		account_contribution * 10u128.pow(6 as u32) / voucher_price
+		// account_contribution * 10u128.pow(6 as u32) / voucher_price
 	}
 
 	/// Close all crowdsales that are scheduled to end this block
