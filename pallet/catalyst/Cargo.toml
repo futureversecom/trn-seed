@@ -1,0 +1,48 @@
+[package]
+authors.workspace = true
+edition.workspace = true
+name = "pallet-catalyst"
+version = "0.0.1"
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+[dev-dependencies]
+serde = { workspace = true }
+sp-consensus-babe = { workspace = true }
+pallet-balances = { workspace = true, features = ["std"] }
+pallet-timestamp = { workspace = true, features = ["std"] }
+pallet-assets = { workspace = true }
+pallet-babe = { workspace = true }
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", optional = true, default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
+frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
+scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+#plug-utils = { workspace = true }
+#pallet-plugstaking = { workspace = true }
+#plug-primitives = { workspace = true }
+#pallet-catalyst-reward = { workspace = true }
+
+[features]
+default = ['std']
+std = [
+	'sp-consensus-babe/std',
+    'parity-scale-codec/std',
+    'frame-support/std',
+    'frame-system/std',
+    'frame-benchmarking?/std',
+    'pallet-assets/std',
+	'pallet-babe/std',
+    'pallet-timestamp/std',
+    'pallet-balances/std',
+#    'plug-primitives/std',
+]
+runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
+try-runtime = ["frame-support/try-runtime"]
