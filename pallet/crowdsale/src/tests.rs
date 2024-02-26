@@ -66,10 +66,10 @@ mod calculate_voucher_rewards {
 			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 				soft_cap_price,
 				funds_raised,
-				contribution,
+				contribution.into(),
 				voucher_total_supply,
 				0,
-				0,
+				0.into(),
 			);
 
 			let expected_vouchers = 2_000_000;
@@ -88,10 +88,10 @@ mod calculate_voucher_rewards {
 			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 				soft_cap_price,
 				funds_raised,
-				contribution,
+				contribution.into(),
 				voucher_total_supply,
 				0,
-				0,
+				0.into(),
 			);
 
 			let expected_vouchers = 1_000_000;
@@ -110,10 +110,10 @@ mod calculate_voucher_rewards {
 			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 				soft_cap_price,
 				funds_raised,
-				contribution,
+				contribution.into(),
 				voucher_total_supply,
 				0,
-				0,
+				0.into(),
 			);
 
 			// We still get 2 vouchers because we are paying out the soft cap price
@@ -128,15 +128,15 @@ mod calculate_voucher_rewards {
 			let soft_cap_price = 50_000_000_000_000_000_000; // Simulate 18 Decimal Places
 			let funds_raised = 5_000_000_000_000_000_000_000; // Just enoughw as raised for 1<>1
 			let voucher_total_supply = 100_000_000; // 6 DP Voucher issuance
-			let contribution = 100_000_000_000_000_000_000; // Contribution in 18 DP asset
+			let contribution: Balance = 100_000_000_000_000_000_000; // Contribution in 18 DP asset
 
 			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 				soft_cap_price,
 				funds_raised,
-				contribution,
+				contribution.into(),
 				voucher_total_supply,
 				0,
-				0,
+				0.into(),
 			);
 
 			// We should get 2_000_000 vouchers (at 6DP)
@@ -156,10 +156,10 @@ mod calculate_voucher_rewards {
 			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 				soft_cap_price,
 				funds_raised,
-				contribution,
+				contribution.into(),
 				voucher_total_supply,
 				0,
-				0,
+				0.into(),
 			);
 
 			let expected_vouchers = 675000;
@@ -178,10 +178,10 @@ mod calculate_voucher_rewards {
 			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 				soft_cap_price,
 				funds_raised,
-				contribution,
+				contribution.into(),
 				voucher_total_supply,
 				0,
-				0,
+				0.into(),
 			);
 
 			let expected_vouchers = 25_000_000;
@@ -195,15 +195,15 @@ mod calculate_voucher_rewards {
 			let soft_cap_price = 10_000_000_000_000_000_000;
 			let funds_raised = 20_000_000_000_000_000_000_000;
 			let voucher_total_supply = 1000;
-			let contribution = 500_000_000_000_000_000_000;
+			let contribution: Balance = 500_000_000_000_000_000_000;
 
 			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 				soft_cap_price,
 				funds_raised,
-				contribution,
+				contribution.into(),
 				voucher_total_supply,
 				0,
-				0,
+				0.into(),
 			);
 
 			let expected_vouchers = 25_000_000;
@@ -233,10 +233,10 @@ mod calculate_voucher_rewards {
 				let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 					soft_cap_price,
 					funds_raised,
-					contributions[i as usize],
+					contributions[i as usize].into(),
 					voucher_total_supply,
 					total_vouchers,
-					total_paid_contributions,
+					total_paid_contributions.into(),
 				);
 				total_vouchers += user_vouchers;
 				total_paid_contributions += contributions[i as usize];
@@ -268,10 +268,10 @@ mod calculate_voucher_rewards {
 				let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 					soft_cap_price,
 					funds_raised,
-					contributions[i as usize],
+					contributions[i as usize].into(),
 					voucher_total_supply,
 					total_vouchers,
-					total_paid_contributions,
+					total_paid_contributions.into(),
 				);
 				total_vouchers += user_vouchers;
 				total_paid_contributions += contributions[i as usize];
@@ -306,10 +306,10 @@ mod calculate_voucher_rewards {
 					let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 						soft_cap_price,
 						funds_raised,
-						contributions[i as usize],
+						contributions[i as usize].into(),
 						voucher_total_supply,
 						total_vouchers,
-						total_paid_contributions,
+						total_paid_contributions.into(),
 					);
 					total_vouchers += user_vouchers;
 					total_paid_contributions += contributions[i as usize];
@@ -345,10 +345,10 @@ mod calculate_voucher_rewards {
 					let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 						soft_cap_price,
 						funds_raised,
-						contributions[i as usize],
+						contributions[i as usize].into(),
 						voucher_total_supply,
 						total_vouchers,
-						total_paid_contributions,
+						total_paid_contributions.into(),
 					);
 					total_vouchers += user_vouchers;
 					total_paid_contributions += contributions[i as usize];
@@ -383,10 +383,10 @@ mod calculate_voucher_rewards {
 				let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 					soft_cap_price,
 					funds_raised,
-					contributions[i as usize],
+					contributions[i as usize].into(),
 					voucher_total_supply,
 					total_vouchers,
-					total_paid_contributions,
+					total_paid_contributions.into(),
 				);
 				total_vouchers += user_vouchers;
 				total_paid_contributions += contributions[i as usize];
@@ -409,10 +409,10 @@ mod calculate_voucher_rewards {
 			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 				soft_cap_price,
 				total_raised,
-				contribution,
+				contribution.into(),
 				voucher_total_supply,
 				0,
-				0,
+				0.into(),
 			);
 
 			assert_eq!(user_vouchers, add_decimals(voucher_total_supply, VOUCHER_DECIMALS));
@@ -433,10 +433,10 @@ mod calculate_voucher_rewards {
 			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 				soft_cap_price,
 				total_raised,
-				contribution,
+				contribution.into(),
 				voucher_total_supply,
 				0,
-				0,
+				0.into(),
 			);
 
 			assert_eq!(user_vouchers, 0);
@@ -457,10 +457,10 @@ mod calculate_voucher_rewards {
 			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 				soft_cap_price,
 				total_raised,
-				contribution,
+				contribution.into(),
 				voucher_total_supply,
 				0,
-				0,
+				0.into(),
 			);
 
 			assert_eq!(user_vouchers, 0);
@@ -493,10 +493,10 @@ mod calculate_voucher_rewards {
 				let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 					soft_cap_price,
 					funds_raised,
-					contributions[i as usize],
+					contributions[i as usize].into(),
 					voucher_total_supply,
 					total_vouchers,
-					total_paid_contributions,
+					total_paid_contributions.into(),
 				);
 
 				let vouchers_old_method = Pallet::<Test>::calculate_voucher_rewards_old(
@@ -536,10 +536,10 @@ mod calculate_voucher_rewards {
 			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
 				soft_cap_price,
 				contribution,
-				contribution,
+				contribution.into(),
 				voucher_total_supply,
 				0,
-				0,
+				0.into(),
 			);
 
 			// Even if one user over commits, we still only mint the max_supply
