@@ -1130,6 +1130,17 @@ where
 				let serial_numbers = tokens.serial_numbers.into_inner();
 				Ok((collection_id, serial_numbers))
 			},
+			ListingTokens::Sft(tokens) => {
+				let collection_id = tokens.collection_id;
+				// let serial_numbers = tokens.serial_numbers.into_inner();
+				let serial_numbers = tokens
+					.serial_numbers
+					.clone()
+					.into_iter()
+					.map(|(serial_number, quantity)| serial_number)
+					.collect();
+				Ok((collection_id, serial_numbers))
+			},
 			_ => Err(revert("Marketplace: Expected NFT tokens")),
 		}
 	}
