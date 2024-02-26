@@ -239,6 +239,9 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			// Decimals cannot be higher than 18 due to a restriction in the conversion function
 			// scale_wei_to_correct_decimals
+			// There is also a restriction with calculations in the crowdsale pallet where if
+			// an asset has higher than 29 decimal places, the calculations will return highly
+			// saturated results
 			ensure!(decimals <= MAX_DECIMALS, Error::<T>::DecimalsTooHigh);
 			// reserves some native currency from the user - as this should be a costly operation
 			let deposit = <AssetDeposit<T>>::get();
