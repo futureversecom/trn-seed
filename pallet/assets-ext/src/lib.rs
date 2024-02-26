@@ -226,6 +226,8 @@ pub mod pallet {
 		}
 
 		/// Creates a new asset with unique ID according to the network asset id scheme.
+		/// Decimals cannot be higher than 18 due to a restriction in the conversion function
+		/// scale_wei_to_correct_decimals
 		#[pallet::weight(< T as Config >::WeightInfo::create_asset())]
 		#[transactional]
 		pub fn create_asset(
@@ -237,8 +239,6 @@ pub mod pallet {
 			owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// Decimals cannot be higher than 18 due to a restriction in the conversion function
-			// scale_wei_to_correct_decimals
 			ensure!(decimals <= MAX_DECIMALS, Error::<T>::DecimalsTooHigh);
 			// reserves some native currency from the user - as this should be a costly operation
 			let deposit = <AssetDeposit<T>>::get();

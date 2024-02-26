@@ -164,6 +164,8 @@ pub mod pallet {
 		InvalidCollectionMaxIssuance,
 		/// Invalid asset id
 		InvalidAsset,
+		/// The max supply must be greater than 0
+		InvalidMaxSupply,
 		/// Failed to create voucher asset
 		CreateAssetFailed,
 		/// Asset transfer failed

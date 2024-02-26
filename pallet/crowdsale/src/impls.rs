@@ -33,7 +33,7 @@ impl<T: Config> Pallet<T> {
 	/// 'total_funds_raised' - How many funds were raised in total for the sale
 	/// 'account_contribution' - How much has the user contributed to this round?
 	/// 'voucher_total_supply' - Also NFT max_issuance
-	pub(crate) fn calculate_voucher_rewards(
+	pub(crate) fn calculate_voucher_rewards_old(
 		soft_cap_price: Balance,
 		total_funds_raised: Balance,
 		account_contribution: Balance,
@@ -44,26 +44,105 @@ impl<T: Config> Pallet<T> {
 
 		// Check if we are over or under committed
 		let voucher_price: Balance = if total_funds_raised > crowd_sale_target {
-			// We are over committed! Calculate the voucher price based on the total
+			// We are over committed. Calculate the voucher price based on the total
 			total_funds_raised / voucher_total_supply
+		// Self::divide_rounding(total_funds_raised, voucher_total_supply)
 		} else {
 			// We are under committed so we will pay out the soft cap
 			soft_cap_price
 		};
 
+		// Add 6 zeros to the account contribution to match the voucher price decimals.
+		// If we add this later, we will lose precision
+		let contribution = account_contribution * 10u128.pow(VOUCHER_DECIMALS as u32);
 		// divide account_contribution by voucher_price and round up or down
-		// let contribution = account_contribution * 10u128.pow(6 as u32);
-		// let remainder = contribution % voucher_price;
-		// let vouchers_quantity = contribution / voucher_price;
-		// let vouchers_quantity_rounded = if remainder >= (remainder / voucher_price) {
-		// 	vouchers_quantity + 1
-		// } else {
-		// 	vouchers_quantity
-		// };
+		let voucher_quantity = Self::divide_rounding(contribution, voucher_price);
 
-		// vouchers_quantity_rounded
-		// Return total vouchers converted to the correct decimals
-		account_contribution * 10u128.pow(6 as u32) / voucher_price
+		voucher_quantity
+	}
+
+	// Divide two numbers and round up if the remainder is greater than half the divisor
+	fn divide_rounding(numerator: Balance, denominator: Balance) -> Balance {
+		let quotient = numerator / denominator;
+		let remainder = numerator % denominator;
+
+		if remainder * 2 >= denominator {
+			quotient //+ 1
+		} else {
+			quotient
+		}
+	}
+
+	/// Calculate how many vouchers an account should receive based on their contribution at the
+	/// end of the sale
+	/// 'soft_cap_price' - What was the initial soft cap price?
+	/// 'total_funds_raised' - How many funds were raised in total for the sale
+	/// 'account_contribution' - How much has the user contributed to this round?
+	/// 'voucher_max_supply' - The max amount of vouchers to be minted.
+	///                        Also NFT max_issuance
+	/// 'voucher_current_supply' - The current amount of vouchers minted
+	/// 'total_paid_contributions' - The total amount of contributions paid so far
+	///
+	/// Note. The standard calculation involves dividing the users contribution by
+	/// the voucher_price. This works, however we end up accumulating inaccuracies due to the
+	/// precision of using 6 decimal places.
+	/// We can counter this by calculating the total supply of vouchers after this payment is made
+	/// and subtracting the amount of vouchers that were minted before this payment was made.
+	/// That way we spread the inaccuracies across multiple accounts and end up with a more accurate
+	/// total supply.
+	/// As a last precaution, we limit the total supply to the max supply to avoid minting more than
+	/// the max supply.
+	pub(crate) fn calculate_voucher_rewards(
+		soft_cap_price: Balance,
+		total_funds_raised: Balance,
+		account_contribution: U256,
+		voucher_max_supply: Balance,
+		voucher_current_supply: Balance,
+		total_paid_contributions: U256,
+	) -> Result<Balance, &'static str> {
+		// Calculate the price of the soft cap across the total supply. This is our baseline
+		let crowd_sale_target = soft_cap_price * voucher_max_supply;
+
+		// Check if we are over or under committed
+		let voucher_price: Balance = if total_funds_raised > crowd_sale_target {
+			// We are over committed. Calculate the voucher price based on the total
+			total_funds_raised
+				.checked_div(voucher_max_supply)
+				.ok_or("Voucher max supply must be greater than 0")?
+		} else {
+			// We are under committed so we will pay out the soft cap
+			soft_cap_price
+		};
+
+		// Total contributions of all payments prior to this payment + the contributions
+		// from this account
+		// Converted to U256 to avoid overflow during calculations
+		let contribution_after: U256 =
+			account_contribution.saturating_add(total_paid_contributions);
+
+		// Add voucher decimals due to the fact that voucher_total_supply is excluding decimals
+		// (As we need a whole number of NFTs)
+		// Note. We add decimals here to avoid losing precision
+		let contribution_after =
+			contribution_after.saturating_mul(U256::from(10_u128.pow(VOUCHER_DECIMALS as u32)));
+
+		// The total supply of vouchers after this payment is made
+		// Use checked div, if voucher_price is 0, return 0
+		let voucher_supply_after = contribution_after
+			.checked_div(U256::from(voucher_price))
+			.ok_or("Voucher price must be greater than 0")?;
+		let voucher_supply_after: u128 = voucher_supply_after.saturated_into();
+
+		// Limit the voucher supply to the total supply in the case where voucher_price
+		// is inaccurate. This ensures we will never payout more than the total supply
+		let voucher_supply_after = u128::min(
+			voucher_supply_after,
+			voucher_max_supply * 10_u128.pow(VOUCHER_DECIMALS as u32),
+		);
+
+		// Return the number of vouchers to be paid out, which is the difference between
+		// the total supply after this payment and the total supply before this payment
+		return Ok(voucher_supply_after.saturating_sub(voucher_current_supply))
 	}
 
 	/// Close all crowdsales that are scheduled to end this block
