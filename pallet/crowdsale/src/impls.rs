@@ -10,14 +10,26 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::*;
-use scale_info::prelude::format;
+use alloc::format;
+use frame_support::sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_core::U256;
 
 impl<T: Config> Pallet<T> {
-	/// Creates a unique voucher asset for a sale. Returns the AssetId of the created asset
-	pub(crate) fn create_voucher_asset(sale_id: SaleId) -> Result<AssetId, DispatchError> {
-		let voucher_owner = T::PalletId::get().into_account_truncating();
+	/// Create a unique account (vault) to hold funds (payment_asset) for a crowdsale
+	pub(crate) fn vault_account(nonce: SaleId) -> T::AccountId {
+		let seed: T::AccountId = T::PalletId::get().into_account_truncating();
+		let entropy = (seed, nonce).using_encoded(BlakeTwo256::hash);
+		T::AccountId::decode(&mut &entropy[..]).expect("Created account ID is always valid; qed")
+	}
+
+	/// Creates a unique voucher asset for a sale with 6 decimals
+	/// Returns the AssetId of the created asset.
+	pub(crate) fn create_voucher_asset(
+		owner: &T::AccountId,
+		sale_id: SaleId,
+	) -> Result<AssetId, DispatchError> {
 		let voucher_asset_id = T::MultiCurrency::create_with_metadata(
-			&voucher_owner,
+			&owner,
 			format!("CrowdSale Voucher-{}", sale_id).as_bytes().to_vec(),
 			format!("CSV-{}", sale_id).as_bytes().to_vec(),
 			VOUCHER_DECIMALS,
@@ -146,82 +158,58 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Close all crowdsales that are scheduled to end this block
-	pub(crate) fn close_sales_at(now: T::BlockNumber) -> u32 {
+	pub(crate) fn close_sales_at(now: T::BlockNumber) -> Result<u32, &'static str> {
 		let mut removed = 0_u32;
+
 		let Some(sales_to_close) = SaleEndBlocks::<T>::take(now) else {
-			return removed
+			return Ok(removed);
 		};
 
 		for sale_id in sales_to_close.into_iter() {
-			// TODO log error, can't error here
-			// Neither of the errors should happen
 			let _ = SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
 				removed += 1;
 				let Some(sale_info) = sale_info else {
 					return Err(Error::<T>::CrowdsaleNotFound.into());
 				};
 
-				ensure!(sale_info.status == SaleStatus::Enabled, Error::<T>::SaleNotEnabled);
+				ensure!(
+					matches!(sale_info.status, SaleStatus::Enabled(_)),
+					Error::<T>::CrowdsaleNotEnabled
+				);
 
-				// close the sale
-				sale_info.status = SaleStatus::Closed;
+				// transfer all payment_asset from the sale vault to the admin
+				T::MultiCurrency::transfer(
+					sale_info.payment_asset,
+					&sale_info.vault,
+					&sale_info.admin,
+					sale_info.funds_raised,
+					false,
+				)?;
 
 				// TODO: use NFTExt to get the collection max issuance
 				let collection_max_issuance = 1000;
 				let crowd_sale_target = sale_info.soft_cap_price * collection_max_issuance;
 
-				// example:
-				// soft_cap_price = 10_000_000 ROOT (10 root)
-				// max_issuance = 1000
-				// = crowd_sale_target = 10_000_000 * 1000 = 10_000_000_000 (10_000 root)
-				// funds_raised = 20_000_000_000 (20_000 root)
-
-				// voucher_price = 20_000_000_000 / 1000 = 20_000_000 (20 root)
-				let mut voucher_price = sale_info.soft_cap_price;
-				if sale_info.funds_raised > crowd_sale_target {
-					// We are over committed! Calculate the voucher price based on the total
-					voucher_price = sale_info.funds_raised / collection_max_issuance;
-				}
-
 				let refunded_vouchers = sale_info.funds_raised.saturating_sub(crowd_sale_target);
 				if refunded_vouchers > 0 {
 					T::MultiCurrency::mint_into(
-						sale_info.payment_asset,
+						sale_info.voucher,
 						&sale_info.admin,
 						refunded_vouchers,
 					)?;
 				}
 
-				// TODO: get contributers list from storage map based on sale ID
-				// TODO: figure out an optimized way to do that; example below is with 1 contributor
-				// let contributor = T::PalletId::get().into_account_truncating();
-				// let contribution = 500_000_000; // 500 root
-				// 				// let vouchers_quantity_redeemed = contribution / voucher_price; // 500_000_000
-				// / 				// 20_000_000 = 25 let voucher_decimals =
-				// 				// T::MultiCurrency::decimals(&sale_info.payment_asset); let voucher_amount =
-				// 				// vouchers_quantity_redeemed 	.saturating_mul(10u32.pow(voucher_decimals as
-				// 				// u32).into());
-				//
-				// let allocated_vouchers = Self::calculate_voucher_rewards(
-				// 	sale_info.soft_cap_price,
-				// 	sale_info.funds_raised,
-				// 	contribution,
-				// 	collection_max_issuance,
-				// );
-				// T::MultiCurrency::mint_into(sale_info.voucher, &contributor,
-				// allocated_vouchers)?;
+				// close the sale
+				sale_info.status = SaleStatus::Closed(now);
 
-				// TODO: emit an event for each contributor redeeming their vouchers
-
-				// TODO: emit event for sale closing with:
-				// - voucher price
-				// - soft cap target
-				// - total funds raised
-				// - admin vouchers refunded
+				Self::deposit_event(Event::CrowdsaleClosed {
+					id: sale_id,
+					info: sale_info.clone(),
+				});
 
 				Ok(())
-			});
+			})?;
 		}
-		removed
+		Ok(removed)
 	}
 }

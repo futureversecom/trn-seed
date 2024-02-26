@@ -1,8 +1,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::sp_runtime::RuntimeDebug;
 use scale_info::TypeInfo;
-use seed_primitives::{AccountId, AssetId, Balance, BlockNumber, CollectionUuid};
-use sp_core::U256;
+use seed_primitives::{AccountId, AssetId, Balance, Block, BlockNumber, CollectionUuid};
 
 /// The unique identifier for a sale
 pub type SaleId = u64;
@@ -13,9 +12,11 @@ pub const VOUCHER_DECIMALS: u8 = 6;
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct SaleInformation<AccountId, BlockNumber> {
 	/// The current sale status
-	pub status: SaleStatus,
+	pub status: SaleStatus<BlockNumber>,
 	/// The admin account that can manage the sale
 	pub admin: AccountId,
+	/// The account that will receive and hold the funds raised
+	pub vault: AccountId,
 	/// The payment asset used for participation
 	pub payment_asset: AssetId,
 	/// The reward NFT collection id
@@ -31,16 +32,20 @@ pub struct SaleInformation<AccountId, BlockNumber> {
 }
 
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
-pub enum SaleStatus {
+pub enum SaleStatus<BlockNumber> {
 	/// The sale is awaiting activation
 	Disabled,
-	/// The sale has been started and is accepting payments
-	Enabled,
-	/// The sale is complete and is no longer active
-	Closed,
+	/// The sale has been started and is accepting contributions
+	Enabled(BlockNumber),
+	/// The sale has concluded, disabling participant contributions
+	Closed(BlockNumber),
+	/// Distributing the rewards to participants, u32 represents participant distribution index
+	Distributing(u32),
+	/// The sale rewards have been distributed to participants
+	Distributed,
 }
 
-impl Default for SaleStatus {
+impl Default for SaleStatus<BlockNumber> {
 	fn default() -> Self {
 		SaleStatus::Disabled
 	}
