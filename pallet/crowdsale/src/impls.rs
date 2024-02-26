@@ -10,14 +10,26 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::*;
-use scale_info::prelude::format;
+use alloc::format;
+use frame_support::sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_core::U256;
 
 impl<T: Config> Pallet<T> {
-	/// Creates a unique voucher asset for a sale. Returns the AssetId of the created asset
-	pub(crate) fn create_voucher_asset(sale_id: SaleId) -> Result<AssetId, DispatchError> {
-		let voucher_owner = T::PalletId::get().into_account_truncating();
+	/// Create a unique account (vault) to hold funds (payment_asset) for a crowdsale
+	pub(crate) fn vault_account(nonce: SaleId) -> T::AccountId {
+		let seed: T::AccountId = T::PalletId::get().into_account_truncating();
+		let entropy = (seed, nonce).using_encoded(BlakeTwo256::hash);
+		T::AccountId::decode(&mut &entropy[..]).expect("Created account ID is always valid; qed")
+	}
+
+	/// Creates a unique voucher asset for a sale with 6 decimals
+	/// Returns the AssetId of the created asset.
+	pub(crate) fn create_voucher_asset(
+		owner: &T::AccountId,
+		sale_id: SaleId,
+	) -> Result<AssetId, DispatchError> {
 		let voucher_asset_id = T::MultiCurrency::create_with_metadata(
-			&voucher_owner,
+			&owner,
 			format!("CrowdSale Voucher-{}", sale_id).as_bytes().to_vec(),
 			format!("CSV-{}", sale_id).as_bytes().to_vec(),
 			VOUCHER_DECIMALS,
@@ -148,7 +160,9 @@ impl<T: Config> Pallet<T> {
 	/// Close all crowdsales that are scheduled to end this block
 	pub(crate) fn close_sales_at(now: T::BlockNumber) -> u32 {
 		let mut removed = 0_u32;
-		let Some(sales_to_close) = SaleEndBlocks::<T>::take(now) else {
+
+		let sales_to_close = SaleEndBlocks::<T>::get(now);
+		if sales_to_close.is_empty() {
 			return removed
 		};
 
@@ -161,10 +175,20 @@ impl<T: Config> Pallet<T> {
 					return Err(Error::<T>::CrowdsaleNotFound.into());
 				};
 
-				ensure!(sale_info.status == SaleStatus::Enabled, Error::<T>::SaleNotEnabled);
+				ensure!(
+					matches!(sale_info.status, SaleStatus::Enabled(_)),
+					Error::<T>::CrowdsaleNotEnabled
+				);
+
+				// TODO: transfer all payment_asset from the sale vault to the admin
 
 				// close the sale
-				sale_info.status = SaleStatus::Closed;
+				sale_info.status = SaleStatus::Closed(now);
+
+				Self::deposit_event(Event::CrowdsaleClosed {
+					id: sale_id,
+					info: sale_info.clone(),
+				});
 
 				// TODO: use NFTExt to get the collection max issuance
 				let collection_max_issuance = 1000;
@@ -186,7 +210,7 @@ impl<T: Config> Pallet<T> {
 				let refunded_vouchers = sale_info.funds_raised.saturating_sub(crowd_sale_target);
 				if refunded_vouchers > 0 {
 					T::MultiCurrency::mint_into(
-						sale_info.payment_asset,
+						sale_info.voucher,
 						&sale_info.admin,
 						refunded_vouchers,
 					)?;
