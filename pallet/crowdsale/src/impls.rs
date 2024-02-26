@@ -92,21 +92,23 @@ impl<T: Config> Pallet<T> {
 	/// total supply.
 	/// As a last precaution, we limit the total supply to the max supply to avoid minting more than
 	/// the max supply.
-	pub(crate) fn calculate_voucher_rewards_new(
+	pub(crate) fn calculate_voucher_rewards(
 		soft_cap_price: Balance,
 		total_funds_raised: Balance,
 		account_contribution: U256,
 		voucher_max_supply: Balance,
 		voucher_current_supply: Balance,
 		total_paid_contributions: U256,
-	) -> Balance {
+	) -> Result<Balance, &'static str> {
 		// Calculate the price of the soft cap across the total supply. This is our baseline
 		let crowd_sale_target = soft_cap_price * voucher_max_supply;
 
 		// Check if we are over or under committed
 		let voucher_price: Balance = if total_funds_raised > crowd_sale_target {
 			// We are over committed. Calculate the voucher price based on the total
-			total_funds_raised.checked_div(voucher_max_supply).unwrap_or_default()
+			total_funds_raised
+				.checked_div(voucher_max_supply)
+				.ok_or("Voucher max supply must be greater than 0")?
 		} else {
 			// We are under committed so we will pay out the soft cap
 			soft_cap_price
@@ -126,8 +128,9 @@ impl<T: Config> Pallet<T> {
 
 		// The total supply of vouchers after this payment is made
 		// Use checked div, if voucher_price is 0, return 0
-		let voucher_supply_after =
-			contribution_after.checked_div(U256::from(voucher_price)).unwrap_or_default();
+		let voucher_supply_after = contribution_after
+			.checked_div(U256::from(voucher_price))
+			.ok_or("Voucher price must be greater than 0")?;
 		let voucher_supply_after: u128 = voucher_supply_after.saturated_into();
 
 		// Limit the voucher supply to the total supply in the case where voucher_price
@@ -139,7 +142,7 @@ impl<T: Config> Pallet<T> {
 
 		// Return the number of vouchers to be paid out, which is the difference between
 		// the total supply after this payment and the total supply before this payment
-		return voucher_supply_after.saturating_sub(voucher_current_supply)
+		return Ok(voucher_supply_after.saturating_sub(voucher_current_supply))
 	}
 
 	/// Close all crowdsales that are scheduled to end this block
