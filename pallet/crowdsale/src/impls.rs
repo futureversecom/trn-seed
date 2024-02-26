@@ -78,50 +78,73 @@ impl<T: Config> Pallet<T> {
 	/// 'soft_cap_price' - What was the initial soft cap price?
 	/// 'total_funds_raised' - How many funds were raised in total for the sale
 	/// 'account_contribution' - How much has the user contributed to this round?
-	/// 'voucher_total_supply' - Also NFT max_issuance
+	/// 'voucher_max_supply' - The max amount of vouchers to be minted.
+	///                        Also NFT max_issuance
+	/// 'voucher_current_supply' - The current amount of vouchers minted
+	/// 'total_paid_contributions' - The total amount of contributions paid so far
+	///
+	/// Note. The standard calculation involves dividing the users contribution by
+	/// the voucher_price. This works, however we end up accumulating inaccuracies due to the
+	/// precision of using 6 decimal places.
+	/// We can counter this by calculating the total supply of vouchers after this payment is made
+	/// and subtracting the amount of vouchers that were minted before this payment was made.
+	/// That way we spread the inaccuracies across multiple accounts and end up with a more accurate
+	/// total supply.
+	/// As a last precaution, we limit the total supply to the max supply to avoid minting more than
+	/// the max supply.
 	pub(crate) fn calculate_voucher_rewards_new(
 		soft_cap_price: Balance,
 		total_funds_raised: Balance,
 		account_contribution: Balance,
-		voucher_total_supply: Balance,
-		total_paid_vouchers: Balance,
+		voucher_max_supply: Balance,
+		voucher_current_supply: Balance,
 		total_paid_contributions: Balance,
 	) -> Balance {
 		// Calculate the price of the soft cap across the total supply. This is our baseline
-		let crowd_sale_target = soft_cap_price * voucher_total_supply;
+		let crowd_sale_target = soft_cap_price * voucher_max_supply;
 
 		// Check if we are over or under committed
 		let voucher_price: Balance = if total_funds_raised > crowd_sale_target {
 			// We are over committed. Calculate the voucher price based on the total
-			total_funds_raised / voucher_total_supply
-		// Self::divide_rounding(total_funds_raised, voucher_total_supply)
+			total_funds_raised.checked_div(voucher_max_supply).unwrap_or(0)
 		} else {
 			// We are under committed so we will pay out the soft cap
 			soft_cap_price
 		};
+		// Check prior to calculations to avoid division by zero
+		if voucher_price == 0 {
+			return 0
+		}
 
 		// Total contributions of all payments prior to this payment + the contributions
 		// from this account
-		let contribution_after = account_contribution.saturating_add(total_paid_contributions);
+		// Converted to U256 to avoid overflow during calculations
+		let account_contribution = U256::from(account_contribution);
+		let total_paid_contributions = U256::from(total_paid_contributions);
+		let contribution_after: U256 =
+			account_contribution.saturating_add(total_paid_contributions);
+
 		// Add voucher decimals due to the fact that voucher_total_supply is excluding decimals
 		// (As we need a whole number of NFTs)
 		// Note. We add decimals here to avoid losing precision
 		let contribution_after =
-			contribution_after.saturating_mul(10_u128.pow(VOUCHER_DECIMALS as u32));
+			contribution_after.saturating_mul(U256::from(10_u128.pow(VOUCHER_DECIMALS as u32)));
 
 		// The total supply of vouchers after this payment is made
-		let voucher_supply_after = contribution_after.saturating_div(voucher_price);
+		// Use checked div, if voucher_price is 0, return 0
+		let voucher_supply_after = contribution_after / U256::from(voucher_price);
+		let voucher_supply_after: u128 = voucher_supply_after.saturated_into();
 
 		// Limit the voucher supply to the total supply in the case where voucher_price
 		// is inaccurate. This ensures we will never payout more than the total supply
 		let voucher_supply_after = u128::min(
 			voucher_supply_after,
-			voucher_total_supply * 10_u128.pow(VOUCHER_DECIMALS as u32),
+			voucher_max_supply * 10_u128.pow(VOUCHER_DECIMALS as u32),
 		);
 
 		// Return the number of vouchers to be paid out, which is the difference between
 		// the total supply after this payment and the total supply before this payment
-		return voucher_supply_after - total_paid_vouchers
+		return voucher_supply_after - voucher_current_supply
 	}
 
 	/// Close all crowdsales that are scheduled to end this block

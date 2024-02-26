@@ -282,6 +282,84 @@ mod calculate_voucher_rewards {
 	}
 
 	#[test]
+	fn calculate_voucher_rewards_rounding_many_contributors() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let decimals = 6;
+			let iterations = 1000;
+			// Test that total vouchers is always correct even with varying contributors
+			for n in 0..iterations {
+				let total_contributors: Balance = 20 + n;
+				let soft_cap_price = add_decimals(1, decimals);
+				let voucher_total_supply = 14;
+
+				let mut funds_raised = 0;
+				let mut contributions: Vec<Balance> = Vec::new();
+				for i in 0..total_contributors {
+					let contribution = soft_cap_price * (i + 1);
+					funds_raised += contribution;
+					contributions.push(contribution);
+				}
+
+				let mut total_vouchers = 0;
+				let mut total_paid_contributions = 0;
+				for i in 0..total_contributors {
+					let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
+						soft_cap_price,
+						funds_raised,
+						contributions[i as usize],
+						voucher_total_supply,
+						total_vouchers,
+						total_paid_contributions,
+					);
+					total_vouchers += user_vouchers;
+					total_paid_contributions += contributions[i as usize];
+				}
+
+				assert_eq!(total_vouchers, add_decimals(voucher_total_supply, VOUCHER_DECIMALS));
+			}
+		});
+	}
+
+	#[test]
+	fn calculate_voucher_rewards_rounding_many_total_supplies() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let decimals = 6;
+			let iterations = 1000;
+			// Test that total vouchers is always correct even with varying total supplies
+			for n in 0..iterations {
+				let total_contributors: Balance = iterations;
+				let soft_cap_price = add_decimals(1, decimals);
+				let voucher_total_supply = n;
+
+				let mut funds_raised = 0;
+				let mut contributions: Vec<Balance> = Vec::new();
+				for i in 0..total_contributors {
+					let contribution = soft_cap_price + i;
+					funds_raised += contribution;
+					contributions.push(contribution);
+				}
+
+				let mut total_vouchers = 0;
+				let mut total_paid_contributions = 0;
+				for i in 0..total_contributors {
+					let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
+						soft_cap_price,
+						funds_raised,
+						contributions[i as usize],
+						voucher_total_supply,
+						total_vouchers,
+						total_paid_contributions,
+					);
+					total_vouchers += user_vouchers;
+					total_paid_contributions += contributions[i as usize];
+				}
+
+				assert_eq!(total_vouchers, add_decimals(voucher_total_supply, VOUCHER_DECIMALS));
+			}
+		});
+	}
+
+	#[test]
 	fn calculate_voucher_rewards_many_single_payments() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let decimals = 1;
@@ -321,10 +399,10 @@ mod calculate_voucher_rewards {
 	#[test]
 	fn calculate_voucher_rewards_over_max_decimals() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let decimals = 18;
+			let decimals = 34;
 			// all contributing 1 each.
 			// If not accounted for, our total supply would be 0
-			let soft_cap_price = add_decimals(38000000000, decimals);
+			let soft_cap_price = add_decimals(1, decimals);
 			let voucher_total_supply = MaxTokensPerCollection::get() as u128;
 			let total_raised = voucher_total_supply * soft_cap_price;
 			let contribution = total_raised;
@@ -342,6 +420,55 @@ mod calculate_voucher_rewards {
 	}
 
 	#[test]
+	fn calculate_voucher_rewards_zero_total_funds() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let decimals = 18;
+			let soft_cap_price = add_decimals(10, decimals);
+			let voucher_total_supply = 12;
+			let total_raised = 0;
+			let contribution = 0;
+
+			// Although this should never happen, in the case where total raised is zero
+			// we should expect 0 to be paid out
+			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
+				soft_cap_price,
+				total_raised,
+				contribution,
+				voucher_total_supply,
+				0,
+				0,
+			);
+
+			assert_eq!(user_vouchers, 0);
+		});
+	}
+
+	#[test]
+	fn calculate_voucher_rewards_zero_total_supply() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let decimals = 6;
+			let soft_cap_price = add_decimals(1, decimals);
+			let voucher_total_supply = 0;
+			let total_raised = soft_cap_price;
+			let contribution = soft_cap_price;
+
+			// Although this should never happen, in the case where total supply is zero
+			// we should expect 0 to be paid out
+			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards_new(
+				soft_cap_price,
+				total_raised,
+				contribution,
+				voucher_total_supply,
+				0,
+				0,
+			);
+
+			assert_eq!(user_vouchers, 0);
+		});
+	}
+
+	#[test]
+	#[ignore]
 	// TODO Remove this test. It is purely for demonstrating the difference between the old and new
 	// methods
 	fn calculate_voucher_rewards_old_vs_new_test_for_demonstration() {
