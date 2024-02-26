@@ -124,7 +124,7 @@ pub mod pallet {
 		Twox64Concat,
 		T::BlockNumber,
 		BoundedVec<SaleId, T::MaxSalesPerBlock>,
-		ValueQuery,
+		OptionQuery,
 	>;
 
 	#[pallet::event]
@@ -201,7 +201,11 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			let _total_closed = Self::close_sales_at(now);
+			match Self::close_sales_at(now) {
+				Ok(total_closed) =>
+					log!(info, "✅ closed {} sales at block {:?}", total_closed, now),
+				Err(e) => log!(error, "⛔️ failed to close sales at block {:?}: {:?}", now, e),
+			};
 			// TODO Benchmark this
 			// <T as Config>::WeightInfo::close().mul(total_closed as u64)
 			// total_closed == 1 read + 1 write per close
@@ -220,7 +224,7 @@ pub mod pallet {
 				);
 			}
 
-			if !SaleEndBlocks::<T>::get(&now).is_empty() {
+			if SaleEndBlocks::<T>::get(&now).is_some() {
 				log!(info, "⭐️ distributing rewards for crowdsales closing at {:?}", now);
 				let call = Call::distribute_crowdsale_rewards { block: now };
 				let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
@@ -237,7 +241,7 @@ pub mod pallet {
 				Call::distribute_crowdsale_rewards { block } => {
 					// reject crowdsale distribution tx which have already been processed
 					let now = <frame_system::Pallet<T>>::block_number();
-					if SaleEndBlocks::<T>::get(&now).is_empty() {
+					if SaleEndBlocks::<T>::get(&now).is_none() {
 						return InvalidTransaction::Stale.into()
 					}
 					if now < *block {
@@ -369,7 +373,12 @@ pub mod pallet {
 
 				// Append end block to SaleEndBlocks
 				SaleEndBlocks::<T>::try_mutate(end_block, |sales| -> DispatchResult {
-					sales.try_push(id).map_err(|_| Error::<T>::TooManySales)?;
+					if let Some(sales) = sales {
+						sales.try_push(id).map_err(|_| Error::<T>::TooManySales)?;
+					} else {
+						let new_sales = BoundedVec::truncate_from(vec![id]);
+						*sales = Some(new_sales);
+					}
 					Ok(())
 				})?;
 
