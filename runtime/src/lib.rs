@@ -1360,7 +1360,7 @@ construct_runtime! {
 		Xls20: pallet_xls20 = 42,
 		Doughnut: pallet_doughnut = 48,
 		MaintenanceMode: pallet_maintenance_mode = 47,
-		Crowdsale: pallet_crowdsale = 49
+		Crowdsale: pallet_crowdsale = 49,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,

@@ -41,7 +41,7 @@ use frame_system::{
 use pallet_nft::traits::NFTExt;
 use seed_pallet_common::{log, CreateExt, InspectExt};
 use seed_primitives::{AssetId, Balance, CollectionUuid, OffchainErr, TokenCount};
-use sp_std::vec;
+use sp_std::{vec, vec::Vec};
 
 pub mod types;
 use types::*;
