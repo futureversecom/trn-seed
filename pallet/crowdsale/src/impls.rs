@@ -15,7 +15,7 @@ use frame_support::sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_core::U256;
 
 impl<T: Config> Pallet<T> {
-	/// Create a unique account (vault) to hold funds (payment_asset) for a crowdsale
+	/// Create a unique account (vault) to hold funds (payment_asset) for a crowdsale.
 	pub(crate) fn vault_account(nonce: SaleId) -> T::AccountId {
 		let seed: T::AccountId = T::PalletId::get().into_account_truncating();
 		let entropy = (seed, nonce).using_encoded(BlakeTwo256::hash);
@@ -40,7 +40,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Calculate how many vouchers an account should receive based on their contribution at the
-	/// end of the sale
+	/// end of the sale.
 	/// 'soft_cap_price' - What was the initial soft cap price?
 	/// 'total_funds_raised' - How many funds were raised in total for the sale
 	/// 'account_contribution' - How much has the user contributed to this round?
@@ -92,7 +92,8 @@ impl<T: Config> Pallet<T> {
 	/// 'account_contribution' - How much has the user contributed to this round?
 	/// 'voucher_max_supply' - The max amount of vouchers to be minted.
 	///                        Also NFT max_issuance
-	/// 'voucher_current_supply' - The current amount of vouchers minted
+	/// 'voucher_current_supply' - The current amount of vouchers minted to participants. Excluding
+	/// 						   any vouchers refunded to the admin
 	/// 'total_paid_contributions' - The total amount of contributions paid so far
 	///
 	/// Note. The standard calculation involves dividing the users contribution by
@@ -113,7 +114,7 @@ impl<T: Config> Pallet<T> {
 		total_paid_contributions: U256,
 	) -> Result<Balance, &'static str> {
 		// Calculate the price of the soft cap across the total supply. This is our baseline
-		let crowd_sale_target = soft_cap_price * voucher_max_supply;
+		let crowd_sale_target = soft_cap_price.saturating_mul(voucher_max_supply);
 
 		// Check if we are over or under committed
 		let voucher_price: Balance = if total_funds_raised > crowd_sale_target {
@@ -139,7 +140,6 @@ impl<T: Config> Pallet<T> {
 			contribution_after.saturating_mul(U256::from(10_u128.pow(VOUCHER_DECIMALS as u32)));
 
 		// The total supply of vouchers after this payment is made
-		// Use checked div, if voucher_price is 0, return 0
 		let voucher_supply_after = contribution_after
 			.checked_div(U256::from(voucher_price))
 			.ok_or("Voucher price must be greater than 0")?;
@@ -149,7 +149,7 @@ impl<T: Config> Pallet<T> {
 		// is inaccurate. This ensures we will never payout more than the total supply
 		let voucher_supply_after = u128::min(
 			voucher_supply_after,
-			voucher_max_supply * 10_u128.pow(VOUCHER_DECIMALS as u32),
+			voucher_max_supply.saturating_mul(10_u128.pow(VOUCHER_DECIMALS as u32)),
 		);
 
 		// Return the number of vouchers to be paid out, which is the difference between
@@ -157,7 +157,39 @@ impl<T: Config> Pallet<T> {
 		return Ok(voucher_supply_after.saturating_sub(voucher_current_supply))
 	}
 
-	/// Close all crowdsales that are scheduled to end this block
+	// Mints vouchers into a users wallet and returns the amount minted.
+	pub fn mint_user_vouchers(
+		who: T::AccountId,
+		sale_id: SaleId,
+		sale_info: &SaleInformation<T::AccountId, T::BlockNumber>,
+		contribution: Balance,
+		voucher_max_supply: Balance,
+		voucher_current_supply: Balance,
+		total_paid_contributions: Balance,
+	) -> Result<Balance, DispatchError> {
+		// calculate the claimable vouchers
+		let claimable_vouchers = Self::calculate_voucher_rewards(
+			sale_info.soft_cap_price,
+			sale_info.funds_raised,
+			contribution.into(),
+			voucher_max_supply.into(),
+			voucher_current_supply,
+			total_paid_contributions.into(),
+		)
+		.map_err(|_| Error::<T>::VoucherClaimFailed)?;
+
+		// mint claimable vouchers to the user
+		T::MultiCurrency::mint_into(sale_info.voucher, &who, claimable_vouchers)?;
+
+		Self::deposit_event(Event::CrowdsaleVouchersClaimed {
+			sale_id,
+			who,
+			amount: claimable_vouchers,
+		});
+		Ok(claimable_vouchers)
+	}
+
+	/// Close all crowdsales that are scheduled to end this block.
 	pub(crate) fn close_sales_at(now: T::BlockNumber) -> Result<u32, &'static str> {
 		let mut removed = 0_u32;
 
@@ -186,9 +218,13 @@ impl<T: Config> Pallet<T> {
 					false,
 				)?;
 
-				// TODO: use NFTExt to get the collection max issuance
-				let collection_max_issuance = 1000;
-				let crowd_sale_target = sale_info.soft_cap_price * collection_max_issuance;
+				let collection_info =
+					T::NFTExt::get_collection_info(sale_info.reward_collection_id)?;
+				let collection_max_issuance =
+					collection_info.max_issuance.ok_or(Error::<T>::MaxIssuanceNotSet)?;
+
+				let crowd_sale_target =
+					sale_info.soft_cap_price.saturating_mul(collection_max_issuance as u128);
 
 				let refunded_vouchers = sale_info.funds_raised.saturating_sub(crowd_sale_target);
 				if refunded_vouchers > 0 {
@@ -199,16 +235,27 @@ impl<T: Config> Pallet<T> {
 					)?;
 				}
 
-				// close the sale
-				sale_info.status = SaleStatus::Closed(now);
+				// Emit event to mark end of crowdsale
+				Self::deposit_event(Event::CrowdsaleClosed { sale_id, info: sale_info.clone() });
 
-				Self::deposit_event(Event::CrowdsaleClosed {
-					id: sale_id,
-					info: sale_info.clone(),
-				});
+				// Try append to distributingSales, if this fails due to upper vec bounds
+				// Set status to DistributionFailed and log the error
+				if SaleDistribution::<T>::try_append(sale_id).is_err() {
+					sale_info.status = SaleStatus::DistributionFailed(now);
+					log!(error, "⛔️ failed to mark sale {:?} for distribution", sale_id);
+					return Ok(())
+				}
+
+				if sale_info.funds_raised.is_zero() {
+					sale_info.status = SaleStatus::Ended(now, Balance::default());
+				} else {
+					// Mark the sale for distribution
+					sale_info.status =
+						SaleStatus::Distributing(now, Balance::default(), Balance::default());
+				}
 
 				Ok(())
-			})?;
+			});
 		}
 		Ok(removed)
 	}
