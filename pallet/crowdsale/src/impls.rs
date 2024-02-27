@@ -15,7 +15,7 @@ use frame_support::sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_core::U256;
 
 impl<T: Config> Pallet<T> {
-	/// Create a unique account (vault) to hold funds (payment_asset) for a crowdsale
+	/// Create a unique account (vault) to hold funds (payment_asset) for a crowdsale.
 	pub(crate) fn vault_account(nonce: SaleId) -> T::AccountId {
 		let seed: T::AccountId = T::PalletId::get().into_account_truncating();
 		let entropy = (seed, nonce).using_encoded(BlakeTwo256::hash);
@@ -40,7 +40,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Calculate how many vouchers an account should receive based on their contribution at the
-	/// end of the sale
+	/// end of the sale.
 	/// 'soft_cap_price' - What was the initial soft cap price?
 	/// 'total_funds_raised' - How many funds were raised in total for the sale
 	/// 'account_contribution' - How much has the user contributed to this round?
@@ -157,7 +157,7 @@ impl<T: Config> Pallet<T> {
 		return Ok(voucher_supply_after.saturating_sub(voucher_current_supply))
 	}
 
-	// Mints vouchers into a users wallet and returns the amount minted
+	// Mints vouchers into a users wallet and returns the amount minted.
 	pub fn mint_user_vouchers(
 		who: T::AccountId,
 		sale_id: SaleId,
@@ -189,7 +189,7 @@ impl<T: Config> Pallet<T> {
 		Ok(claimable_vouchers)
 	}
 
-	/// Close all crowdsales that are scheduled to end this block
+	/// Close all crowdsales that are scheduled to end this block.
 	pub(crate) fn close_sales_at(now: T::BlockNumber) -> Result<u32, &'static str> {
 		let mut removed = 0_u32;
 
@@ -218,13 +218,11 @@ impl<T: Config> Pallet<T> {
 					false,
 				)?;
 
-				// TODO: use NFTExt to get the collection max issuance
-
 				let collection_info =
 					T::NFTExt::get_collection_info(sale_info.reward_collection_id)?;
-				let Some(collection_max_issuance) = collection_info.max_issuance else {
-					return Err(Error::<T>::MaxIssuanceNotSet.into());
-				};
+				let collection_max_issuance =
+					collection_info.max_issuance.ok_or(Error::<T>::MaxIssuanceNotSet)?;
+
 				let crowd_sale_target =
 					sale_info.soft_cap_price.saturating_mul(collection_max_issuance as u128);
 
@@ -237,16 +235,16 @@ impl<T: Config> Pallet<T> {
 					)?;
 				}
 
-				// Throw event to mark end of crowdsale
+				// Emit event to mark end of crowdsale
 				Self::deposit_event(Event::CrowdsaleClosed { sale_id, info: sale_info.clone() });
 
 				// Try append to distributingSales, if this fails due to upper vec bounds
 				// Set status to DistributionFailed and log the error
-				DistributingSales::<T>::try_append(sale_id).map_err(|_| {
+				if SaleDistribution::<T>::try_append(sale_id).is_err() {
 					sale_info.status = SaleStatus::DistributionFailed(now);
 					log!(error, "⛔️ failed to mark sale {:?} for distribution", sale_id);
-					Error::<T>::DistributingSaleFailed
-				})?;
+					return Ok(())
+				}
 
 				if sale_info.funds_raised.is_zero() {
 					sale_info.status = SaleStatus::Ended(now, Balance::default());
@@ -257,7 +255,7 @@ impl<T: Config> Pallet<T> {
 				}
 
 				Ok(())
-			})?;
+			});
 		}
 		Ok(removed)
 	}
