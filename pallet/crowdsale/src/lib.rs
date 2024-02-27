@@ -564,7 +564,10 @@ pub mod pallet {
 			if payout_complete {
 				// Distribution complete
 				sale_info.status = SaleStatus::Ended(block_number, vouchers_distributed);
-				Self::deposit_event(Event::CrowdsaleDistributionComplete { sale_id });
+				Self::deposit_event(Event::CrowdsaleDistributionComplete {
+					sale_id,
+					vouchers_distributed,
+				});
 				sale_ids = sale_ids.drain(1..).collect();
 				SaleDistribution::<T>::put(BoundedVec::truncate_from(sale_ids));
 			} else {
