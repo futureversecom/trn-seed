@@ -126,6 +126,33 @@ mod calculate_voucher_rewards {
 	}
 
 	#[test]
+	fn calculate_voucher_rewards_under_committed_works_2() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let soft_cap_price = 50;
+			let funds_raised = 100; // Not nearly enough was raised :(
+			let voucher_total_supply = 100;
+			let contribution = 100;
+
+			let total_supply = 10_000;
+			let paid_to_admin = total_supply - funds_raised;
+
+			let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
+				soft_cap_price,
+				funds_raised,
+				contribution.into(),
+				voucher_total_supply,
+				paid_to_admin,
+				0.into(),
+			)
+			.unwrap();
+
+			// We still get 2 vouchers because we are paying out the soft cap price
+			let expected_vouchers = 2_000_000;
+			assert_eq!(user_vouchers, expected_vouchers);
+		});
+	}
+
+	#[test]
 	fn calculate_voucher_rewards_different_decimals_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let soft_cap_price = 50_000_000_000_000_000_000; // Simulate 18 Decimal Places
