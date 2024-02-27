@@ -335,10 +335,11 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			let total_closed = Self::close_listings_at(now);
-			// TODO Benchmark this
-			// <T as Config>::WeightInfo::close().mul(total_closed as u64)
-			Weight::zero()
+			// TODO: this is unbounded and could become costly
+			// https://github.com/cennznet/cennznet/issues/444
+			let removed_count = Self::close_listings_at(now);
+			// 'buy' weight is comparable to successful closure of an auction
+			<T as Config>::WeightInfo::buy().mul(removed_count as u64)
 		}
 	}
 

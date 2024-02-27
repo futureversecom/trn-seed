@@ -1309,6 +1309,7 @@ impl pallet_crowdsale::Config for Runtime {
 	type MaxConsecutiveSales = MaxConsecutiveSales;
 	type MaxPaymentsPerBlock = MaxPaymentsPerBlock;
 	type MaxSaleDuration = MaxSaleDuration;
+	type UnsignedInterval = UnsignedInterval;
 }
 
 /// Block header type as expected by this runtime.

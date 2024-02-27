@@ -54,6 +54,7 @@ parameter_types! {
 	pub const MaxConsecutiveSales: u32 = 1000;
 	pub const MaxPaymentsPerBlock: u32 = 5;
 	pub const MaxSaleDuration: u32 = 1000;
+	pub const UnsignedInterval: u32 = 10;
 }
 
 impl crate::Config for Test {
@@ -65,4 +66,5 @@ impl crate::Config for Test {
 	type MaxConsecutiveSales = MaxConsecutiveSales;
 	type MaxPaymentsPerBlock = MaxPaymentsPerBlock;
 	type MaxSaleDuration = MaxSaleDuration;
+	type UnsignedInterval = UnsignedInterval;
 }
