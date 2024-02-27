@@ -93,16 +93,24 @@ pub mod pallet {
 		type NFTExt: pallet_nft::traits::NFTExt<AccountId = Self::AccountId>;
 
 		/// The maximum number of sales that can be queued for completion in a single block
+		#[pallet::constant]
 		type MaxSalesPerBlock: Get<u32>;
 
 		/// The maximum number of sales that can be active at one time
+		#[pallet::constant]
 		type MaxConsecutiveSales: Get<u32>;
 
 		/// The maximum number of payments that can be processed in the offchain worker per block
+		#[pallet::constant]
 		type MaxPaymentsPerBlock: Get<u32>;
 
 		/// The maximum duration of a sale
+		#[pallet::constant]
 		type MaxSaleDuration: Get<Self::BlockNumber>;
+
+		/// Unsigned transaction interval
+		#[pallet::constant]
+		type UnsignedInterval: Get<Self::BlockNumber>;
 
 		// / Interface to access weight values
 		// type WeightInfo: WeightInfo;
@@ -138,6 +146,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type DistributingSales<T: Config> =
 		StorageValue<_, BoundedVec<SaleId, T::MaxConsecutiveSales>, ValueQuery>;
+
+	/// Stores next unsigned tx block number
+	#[pallet::storage]
+	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -235,6 +247,9 @@ pub mod pallet {
 				);
 			}
 
+			if <NextUnsignedAt<T>>::get() > now {
+				return
+			}
 			if !DistributingSales::<T>::get().is_empty() {
 				log!(info, "⭐️ distributing rewards for crowdsales");
 				let call = Call::distribute_crowdsale_rewards {};
@@ -546,7 +561,6 @@ pub mod pallet {
 				// Distribution complete
 				sale_info.status = SaleStatus::Ended(block_number, voucher_current_supply);
 				Self::deposit_event(Event::CrowdsaleDistributionComplete { sale_id });
-				// TODO Verify this:
 				sale_ids = sale_ids.drain(1..).collect();
 				DistributingSales::<T>::put(BoundedVec::truncate_from(sale_ids));
 			} else {
@@ -558,6 +572,8 @@ pub mod pallet {
 				);
 			}
 
+			let next_unsigned_at = block_number + T::UnsignedInterval::get();
+			<NextUnsignedAt<T>>::put(next_unsigned_at);
 			Ok(())
 		}
 
@@ -588,7 +604,6 @@ pub mod pallet {
 				// mint vouchers to user based on contribution; remove user from sale
 				let contribution = SaleParticipation::<T>::take(sale_id, &who)
 					.ok_or(Error::<T>::VouchersAlreadyClaimed)?;
-				// TODO maybe set stale status to distributed here if it is the last claim
 
 				// get amount of claimable vouchers based on the user's contribution
 				let collection_info =
