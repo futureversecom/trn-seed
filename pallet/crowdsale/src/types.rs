@@ -1,7 +1,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::sp_runtime::RuntimeDebug;
 use scale_info::TypeInfo;
-use seed_primitives::{AccountId, AssetId, Balance, Block, BlockNumber, CollectionUuid};
+use seed_primitives::{AssetId, Balance, CollectionUuid};
 
 /// The unique identifier for a sale
 pub type SaleId = u64;
@@ -26,7 +26,7 @@ pub struct SaleInformation<AccountId, BlockNumber> {
 	/// Total funds raised during the crowdsale
 	pub funds_raised: Balance,
 	/// The voucher asset id to be paid out
-	pub voucher: AssetId, // TODO: could potentially be (AssedId, decimals)
+	pub voucher: AssetId,
 	/// How long the sale will last in blocks
 	pub sale_duration: BlockNumber,
 }
@@ -34,19 +34,16 @@ pub struct SaleInformation<AccountId, BlockNumber> {
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub enum SaleStatus<BlockNumber> {
 	/// The sale is awaiting activation
-	Disabled,
+	Pending(BlockNumber),
 	/// The sale has been started and is accepting contributions
 	Enabled(BlockNumber),
-	/// The sale has concluded, disabling participant contributions
-	Closed(BlockNumber),
-	/// Distributing the rewards to participants, u32 represents participant distribution index
-	Distributing(u32),
+	/// Distributing the rewards to participants,
+	/// (Total contributions paid out, total vouchers paid out)
+	Distributing(BlockNumber, Balance, Balance),
 	/// The sale rewards have been distributed to participants
-	Distributed,
-}
-
-impl Default for SaleStatus<BlockNumber> {
-	fn default() -> Self {
-		SaleStatus::Disabled
-	}
+	/// Balance represents total vouchers distributed
+	Ended(BlockNumber, Balance),
+	/// Distribution has not triggered automatically due to too much
+	/// Network traffic
+	DistributionFailed(BlockNumber),
 }
