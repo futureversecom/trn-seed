@@ -28,10 +28,10 @@ pub use pallet::*;
 use frame_support::{
 	pallet_prelude::*,
 	sp_runtime::{
-		traits::{AccountIdConversion, One, Zero},
+		traits::{AccountIdConversion, Zero},
 		SaturatedConversion, Saturating,
 	},
-	traits::fungibles::{self, Inspect, Mutate, Transfer},
+	traits::fungibles::{self, Mutate, Transfer},
 	transactional, PalletId,
 };
 use frame_system::{
@@ -40,9 +40,7 @@ use frame_system::{
 };
 use pallet_nft::traits::NFTExt;
 use seed_pallet_common::{log, CreateExt, InspectExt};
-use seed_primitives::{
-	AccountId, AssetId, Balance, BlockNumber, CollectionUuid, OffchainErr, TokenCount,
-};
+use seed_primitives::{AssetId, Balance, CollectionUuid, OffchainErr, TokenCount};
 use sp_std::vec;
 
 pub mod types;
@@ -145,28 +143,33 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Crowdsale created
-		CrowdsaleCreated { id: SaleId, info: SaleInformation<T::AccountId, T::BlockNumber> },
+		CrowdsaleCreated { sale_id: SaleId, info: SaleInformation<T::AccountId, T::BlockNumber> },
 		/// Crowdsale enabled
 		CrowdsaleEnabled {
-			id: SaleId,
+			sale_id: SaleId,
 			info: SaleInformation<T::AccountId, T::BlockNumber>,
 			end_block: T::BlockNumber,
 		},
 		/// Crowdsale participated
-		CrowdsaleParticipated { id: SaleId, who: T::AccountId, asset: AssetId, amount: Balance },
+		CrowdsaleParticipated {
+			sale_id: SaleId,
+			who: T::AccountId,
+			asset: AssetId,
+			amount: Balance,
+		},
 		/// Crowdsale NFT redeemed
 		CrowdsaleNFTRedeemed {
-			id: SaleId,
+			sale_id: SaleId,
 			who: T::AccountId,
 			collection_id: CollectionUuid,
 			quantity: TokenCount,
 		},
 		/// Crowdsale closed
-		CrowdsaleClosed { id: SaleId, info: SaleInformation<T::AccountId, T::BlockNumber> },
+		CrowdsaleClosed { sale_id: SaleId, info: SaleInformation<T::AccountId, T::BlockNumber> },
 		/// Crowdsale vouchers claimed
-		CrowdsaleVouchersClaimed { id: SaleId, who: T::AccountId, amount: Balance },
+		CrowdsaleVouchersClaimed { sale_id: SaleId, who: T::AccountId, amount: Balance },
 		/// Crowdsale distribution has been completed and all vouchers paid out
-		CrowdsaleDistributionComplete { id: SaleId },
+		CrowdsaleDistributionComplete { sale_id: SaleId },
 	}
 
 	#[pallet::error]
@@ -343,7 +346,7 @@ pub mod pallet {
 			};
 			SaleInfo::<T>::insert(sale_id, sale_info.clone());
 
-			Self::deposit_event(Event::CrowdsaleCreated { id: sale_id, info: sale_info });
+			Self::deposit_event(Event::CrowdsaleCreated { sale_id, info: sale_info });
 			Ok(())
 		}
 
@@ -354,16 +357,16 @@ pub mod pallet {
 		/// sale end block/time is based on current block + sale_duration.
 		///
 		/// Parameters:
-		/// - `id`: The id of the sale to enable
+		/// - `sale_id`: The id of the sale to enable
 		///
 		/// Emits `CrowdsaleEnabled` event when successful.
 		#[pallet::weight(0)]
 		#[transactional]
-		pub fn enable(origin: OriginFor<T>, id: SaleId) -> DispatchResult {
+		pub fn enable(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			// update the sale status if the start block is met
-			SaleInfo::<T>::try_mutate(id, |sale_info| -> DispatchResult {
+			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
 				let Some(sale_info) = sale_info else {
 					return Err(Error::<T>::CrowdsaleNotFound.into());
 				};
@@ -382,9 +385,9 @@ pub mod pallet {
 				// Append end block to SaleEndBlocks
 				SaleEndBlocks::<T>::try_mutate(end_block, |sales| -> DispatchResult {
 					if let Some(sales) = sales {
-						sales.try_push(id).map_err(|_| Error::<T>::TooManySales)?;
+						sales.try_push(sale_id).map_err(|_| Error::<T>::TooManySales)?;
 					} else {
-						let new_sales = BoundedVec::truncate_from(vec![id]);
+						let new_sales = BoundedVec::truncate_from(vec![sale_id]);
 						*sales = Some(new_sales);
 					}
 					Ok(())
@@ -394,7 +397,7 @@ pub mod pallet {
 				sale_info.status = SaleStatus::Enabled(<frame_system::Pallet<T>>::block_number());
 
 				Self::deposit_event(Event::CrowdsaleEnabled {
-					id,
+					sale_id,
 					info: sale_info.clone(),
 					end_block,
 				});
@@ -411,17 +414,21 @@ pub mod pallet {
 		/// participate. The tokens required to participate are transferred to the pallet account.
 		///
 		/// Parameters:
-		/// - `id`: The id of the sale to participate in
+		/// - `sale_id`: The id of the sale to participate in
 		/// - `amount`: The amount of tokens to participate with
 		///
 		/// Emits `CrowdsaleParticipated` event when successful.
 		#[pallet::weight(0)]
 		#[transactional]
-		pub fn participate(origin: OriginFor<T>, id: SaleId, amount: Balance) -> DispatchResult {
+		pub fn participate(
+			origin: OriginFor<T>,
+			sale_id: SaleId,
+			amount: Balance,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			// update the sale status if the start block is met
-			SaleInfo::<T>::try_mutate(id, |sale_info: &mut Option<SaleInformation<_, _>>| {
+			SaleInfo::<T>::try_mutate(sale_id, |sale_info: &mut Option<SaleInformation<_, _>>| {
 				let Some(sale_info) = sale_info else {
 					return Err(Error::<T>::CrowdsaleNotFound);
 				};
@@ -446,7 +453,7 @@ pub mod pallet {
 				sale_info.funds_raised = sale_info.funds_raised.saturating_add(amount);
 
 				// update the user's contribution
-				SaleParticipation::<T>::mutate(id, who.clone(), |maybe_contribute| {
+				SaleParticipation::<T>::mutate(sale_id, who.clone(), |maybe_contribute| {
 					match maybe_contribute {
 						Some(contribution) => *contribution = contribution.saturating_add(amount),
 						None => *maybe_contribute = Some(amount),
@@ -454,7 +461,7 @@ pub mod pallet {
 				});
 
 				Self::deposit_event(Event::CrowdsaleParticipated {
-					id,
+					sale_id,
 					who,
 					asset: sale_info.payment_asset,
 					amount,
@@ -473,7 +480,7 @@ pub mod pallet {
 		/// block reached). The extrinsic can also manually be called by anyone.
 		///
 		/// Parameters:
-		/// - `id`: The id of the sale to distribute the vouchers for
+		/// - `sale_id`: The id of the sale to distribute the vouchers for
 		///
 		/// Emits `CrowdsaleVouchersDistributed` event when successful.
 		#[pallet::weight(0)]
@@ -484,11 +491,11 @@ pub mod pallet {
 			let mut sale_ids: Vec<SaleId> = DistributingSales::<T>::get().into_inner();
 
 			// Get the first sale_id and process in FiFo order
-			let sale_id = sale_ids.first().ok_or(Error::<T>::CrowdsaleNotFound)?;
+			let sale_id = *sale_ids.first().ok_or(Error::<T>::CrowdsaleNotFound)?;
 			let mut sale_info = SaleInfo::<T>::get(sale_id).ok_or(Error::<T>::CrowdsaleNotFound)?;
 
 			// ensure the sale is in the distribution phase
-			let SaleStatus::Distributing(_, total_paid_contributions) = sale_info.status else {
+			let SaleStatus::Distributing(_, mut total_paid_contributions, mut voucher_current_supply) = sale_info.status else {
 				return Err(Error::<T>::InvalidCrowdsaleStatus.into());
 			};
 
@@ -497,26 +504,25 @@ pub mod pallet {
 			let voucher_max_supply =
 				collection_info.max_issuance.ok_or(Error::<T>::MaxIssuanceNotSet)?;
 
-			let mut voucher_current_supply = T::MultiCurrency::total_issuance(sale_info.voucher);
-			// If the sale didn't reach the soft cap, then the admin will have some balance that
-			// is included in the currency::total_issuance
-			let crowd_sale_target = sale_info.soft_cap_price * voucher_max_supply.into();
-			let refunded_vouchers = sale_info.funds_raised.saturating_sub(crowd_sale_target);
-			voucher_current_supply = voucher_current_supply.saturating_sub(refunded_vouchers);
-
-			let mut contributions_iterator = SaleParticipation::<T>::drain_prefix(*sale_id);
+			let mut contributions_iterator = SaleParticipation::<T>::drain_prefix(sale_id);
 			let mut payout_complete: bool = false;
 
-			for i in 0..T::MaxPaymentsPerBlock::get() {
+			for _ in 0..T::MaxPaymentsPerBlock::get() {
+				// Note. There is a very small chance that this payout_complete check will not
+				// execute on the last iteration, this is because the for loop may end before
+				// it realizes it is the last item in the iterator. Due to the iterator being
+				// a drain_prefix, it is safest to ignore this and end the distribution
+				// the next time this function is called
+				// The chance of this happening is 1 / MaxPaymentsPerBlock
 				let Some((who, contribution)) = contributions_iterator.next() else {
 					payout_complete = true;
 					break;
 				};
 
-				// calculate the claimable vouchers
-				let Ok(claimable_vouchers) = Self::calculate_voucher_rewards(
-					sale_info.soft_cap_price,
-					sale_info.funds_raised,
+				let Ok(claimable_vouchers) = Self::mint_user_vouchers(
+					who.clone(),
+					sale_id,
+					&sale_info,
 					contribution.into(),
 					voucher_max_supply.into(),
 					voucher_current_supply,
@@ -524,37 +530,32 @@ pub mod pallet {
 				) else {
 					log!(
 						error,
-						"⛔️ failed to calculate voucher rewards for user {:?} in sale {:?}: {:?}",
+						"⛔️ failed to mint voucher rewards for user {:?} in sale {:?}",
 						who,
-						id,
-						e
+						sale_id,
 					);
 					continue;
 				};
 
-				// mint claimable vouchers to the user
-				let _ = T::MultiCurrency::mint_into(sale_info.voucher, &who, claimable_vouchers)?;
-
-				Self::deposit_event(Event::CrowdsaleVouchersClaimed {
-					id,
-					who,
-					amount: claimable_vouchers,
-				});
-
 				voucher_current_supply = voucher_current_supply.saturating_add(claimable_vouchers);
+				total_paid_contributions = total_paid_contributions.saturating_add(contribution);
 			}
 
+			let block_number = <frame_system::Pallet<T>>::block_number();
 			if payout_complete {
 				// Distribution complete
 				sale_info.status = SaleStatus::Ended(block_number, voucher_current_supply);
-				Self::deposit_event(Event::CrowdsaleDistributionComplete { id });
+				Self::deposit_event(Event::CrowdsaleDistributionComplete { sale_id });
 				// TODO Verify this:
 				sale_ids = sale_ids.drain(1..).collect();
-				DistributingSales::<T>::put(sale_ids);
+				DistributingSales::<T>::put(BoundedVec::truncate_from(sale_ids));
 			} else {
 				// Update total_contributions
-				sale_info.status =
-					SaleStatus::Distributing(total_paid_contributions.saturating_add(contribution));
+				sale_info.status = SaleStatus::Distributing(
+					block_number,
+					total_paid_contributions,
+					voucher_current_supply,
+				);
 			}
 
 			Ok(())
@@ -566,26 +567,26 @@ pub mod pallet {
 		/// vouchers to the user.
 		///
 		/// Parameters:
-		/// - `id`: The id of the sale to claim the vouchers from
+		/// - `sale_id`: The id of the sale to claim the vouchers from
 		///
 		/// Emits `CrowdsaleVouchersClaimed` event when successful.
 		#[pallet::weight(0)]
 		#[transactional]
-		pub fn claim_voucher(origin: OriginFor<T>, id: SaleId) -> DispatchResult {
+		pub fn claim_voucher(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			SaleInfo::<T>::try_mutate(id, |sale_info| -> DispatchResult {
+			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
 				let Some(sale_info) = sale_info else {
 					return Err(Error::<T>::CrowdsaleNotFound.into());
 				};
 
 				// ensure the sale is in the distribution phase
-				let SaleStatus::Distributing(_, total_paid_contributions) = sale_info.status else {
+				let SaleStatus::Distributing(_, total_paid_contributions, voucher_current_supply) = sale_info.status else {
 					return Err(Error::<T>::InvalidCrowdsaleStatus.into());
 				};
 
 				// mint vouchers to user based on contribution; remove user from sale
-				let contribution = SaleParticipation::<T>::take(id, &who)
+				let contribution = SaleParticipation::<T>::take(sale_id, &who)
 					.ok_or(Error::<T>::VouchersAlreadyClaimed)?;
 				// TODO maybe set stale status to distributed here if it is the last claim
 
@@ -595,50 +596,42 @@ pub mod pallet {
 				let voucher_max_supply =
 					collection_info.max_issuance.ok_or(Error::<T>::MaxIssuanceNotSet)?;
 
-				let mut voucher_current_supply =
-					T::MultiCurrency::total_issuance(sale_info.voucher);
-
 				// calculate the claimable vouchers
-				let claimable_vouchers = Self::calculate_voucher_rewards(
-					sale_info.soft_cap_price,
-					sale_info.funds_raised,
+				let claimable_vouchers = Self::mint_user_vouchers(
+					who.clone(),
+					sale_id,
+					sale_info,
 					contribution.into(),
 					voucher_max_supply.into(),
 					voucher_current_supply,
 					total_paid_contributions.into(),
 				)
-				.map_err(|e| {
+				.map_err(|_| {
 					log!(
 						error,
-						"⛔️ failed to calculate voucher rewards for user {:?} in sale {:?}: {:?}",
+						"⛔️ failed to mint voucher rewards for user {:?} in sale: {:?}",
 						who,
-						id,
-						e
+						sale_id,
 					);
 					Error::<T>::VoucherClaimFailed
 				})?;
 
-				// mint claimable vouchers to the user
-				T::MultiCurrency::mint_into(sale_info.voucher, &who, claimable_vouchers)?;
-
-				Self::deposit_event(Event::CrowdsaleVouchersClaimed {
-					id,
-					who,
-					amount: claimable_vouchers,
-				});
-
-				let voucher_max_supply: Balance =
-					voucher_max_supply as u128 * 10u128.pow(VOUCHER_DECIMALS as u32);
+				let voucher_max_supply: Balance = (voucher_max_supply as u128)
+					.saturating_mul(10u128.pow(VOUCHER_DECIMALS as u32));
 				let block_number = <frame_system::Pallet<T>>::block_number();
-				if voucher_current_supply + claimable_vouchers >= voucher_max_supply {
+				let voucher_current_supply =
+					voucher_current_supply.saturating_add(claimable_vouchers);
+
+				if voucher_current_supply >= voucher_max_supply {
 					// Distribution complete
 					sale_info.status = SaleStatus::Ended(block_number, voucher_max_supply);
-					Self::deposit_event(Event::CrowdsaleDistributionComplete { id });
+					Self::deposit_event(Event::CrowdsaleDistributionComplete { sale_id });
 				} else {
 					// Update total_contributions
 					sale_info.status = SaleStatus::Distributing(
 						block_number,
 						total_paid_contributions.saturating_add(contribution),
+						voucher_current_supply,
 					);
 				}
 
@@ -654,7 +647,7 @@ pub mod pallet {
 		/// NFTs can be redeemed during or after payment of all vouchers
 		///
 		/// Parameters:
-		/// - `id`: The id of the sale to redeem the voucher from
+		/// - `sale_id`: The id of the sale to redeem the voucher from
 		/// - `quantity`: The amount of NFT(s) to redeem
 		///
 		/// Emits `CrowdsaleNFTRedeemed` event when successful.
@@ -662,19 +655,19 @@ pub mod pallet {
 		#[transactional]
 		pub fn redeem_voucher(
 			origin: OriginFor<T>,
-			id: SaleId,
+			sale_id: SaleId,
 			quantity: TokenCount,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			SaleInfo::<T>::try_mutate(id, |sale_info| -> DispatchResult {
+			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
 				let Some(sale_info) = sale_info else {
 					return Err(Error::<T>::CrowdsaleNotFound.into());
 				};
 
 				// ensure the sale has concluded and is being distributed or has been distributed
 				ensure!(
-					matches!(sale_info.status, SaleStatus::Distributing(_, _)) ||
+					matches!(sale_info.status, SaleStatus::Distributing(_, _, _)) ||
 						matches!(sale_info.status, SaleStatus::Ended(_, _)),
 					Error::<T>::InvalidCrowdsaleStatus
 				);
@@ -694,7 +687,7 @@ pub mod pallet {
 				)?;
 
 				Self::deposit_event(Event::CrowdsaleNFTRedeemed {
-					id,
+					sale_id,
 					who,
 					collection_id: sale_info.reward_collection_id,
 					quantity,
@@ -712,7 +705,7 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		pub fn claim_blocked_sale(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			SaleInfo::<T>::try_mutate(id, |sale_info| -> DispatchResult {
+			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
 				let Some(sale_info) = sale_info else {
 					return Err(Error::<T>::CrowdsaleNotFound.into());
 				};
@@ -733,13 +726,14 @@ pub mod pallet {
 					sale_info.status = SaleStatus::Ended(block_number, Balance::default());
 				} else {
 					// Mark the sale for distribution
-					sale_info.status = SaleStatus::Distributing(block_number, Balance::default());
+					sale_info.status = SaleStatus::Distributing(
+						block_number,
+						Balance::default(),
+						Balance::default(),
+					);
 				}
 
-				Self::deposit_event(Event::CrowdsaleClosed {
-					id: sale_id,
-					info: sale_info.clone(),
-				});
+				Self::deposit_event(Event::CrowdsaleClosed { sale_id, info: sale_info.clone() });
 
 				Ok(())
 			})?;

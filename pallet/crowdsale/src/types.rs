@@ -1,7 +1,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::sp_runtime::RuntimeDebug;
 use scale_info::TypeInfo;
-use seed_primitives::{AccountId, AssetId, Balance, Block, BlockNumber, CollectionUuid};
+use seed_primitives::{AssetId, Balance, CollectionUuid};
 
 /// The unique identifier for a sale
 pub type SaleId = u64;
@@ -38,8 +38,8 @@ pub enum SaleStatus<BlockNumber> {
 	/// The sale has been started and is accepting contributions
 	Enabled(BlockNumber),
 	/// Distributing the rewards to participants,
-	/// Balance represents participant distribution index
-	Distributing(BlockNumber, Balance),
+	/// (Total contributions paid out, total vouchers paid out)
+	Distributing(BlockNumber, Balance, Balance),
 	/// The sale rewards have been distributed to participants
 	/// Balance represents total vouchers distributed
 	Ended(BlockNumber, Balance),
