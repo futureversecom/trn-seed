@@ -129,7 +129,7 @@ mod calculate_voucher_rewards {
 	fn calculate_voucher_rewards_different_decimals_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let soft_cap_price = 50_000_000_000_000_000_000; // Simulate 18 Decimal Places
-			let funds_raised = 5_000_000_000_000_000_000_000; // Just enoughw as raised for 1<>1
+			let funds_raised = 5_000_000_000_000_000_000_000; // Just enough as raised for 1<>1
 			let voucher_total_supply = 100_000_000; // 6 DP Voucher issuance
 			let contribution: Balance = 100_000_000_000_000_000_000; // Contribution in 18 DP asset
 
@@ -382,7 +382,7 @@ mod calculate_voucher_rewards {
 
 			let mut funds_raised = 0;
 			let mut contributions: Vec<Balance> = Vec::new();
-			for i in 0..total_contributors {
+			for _ in 0..total_contributors {
 				let contribution = 1;
 				funds_raised += contribution;
 				contributions.push(contribution);
@@ -460,7 +460,6 @@ mod calculate_voucher_rewards {
 	#[test]
 	fn calculate_voucher_rewards_zero_total_funds_and_soft_cap() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let decimals = 18;
 			let soft_cap_price = 0;
 			let voucher_total_supply = 12;
 			let total_raised = 0;
@@ -614,9 +613,11 @@ mod initialize {
 				duration
 			));
 
+			let vault = Pallet::<Test>::vault_account(sale_id);
 			let sale_info = SaleInformation::<AccountId, BlockNumber> {
-				status: SaleStatus::Disabled,
+				status: SaleStatus::Pending(System::block_number()),
 				admin: alice(),
+				vault,
 				payment_asset,
 				reward_collection_id,
 				soft_cap_price,
@@ -629,9 +630,7 @@ mod initialize {
 			assert_eq!(NextSaleId::<Test>::get(), sale_id + 1);
 
 			// Check event thrown
-			System::assert_last_event(
-				Event::CrowdsaleCreated { id: sale_id, info: sale_info }.into(),
-			);
+			System::assert_last_event(Event::CrowdsaleCreated { sale_id, info: sale_info }.into());
 		});
 	}
 
