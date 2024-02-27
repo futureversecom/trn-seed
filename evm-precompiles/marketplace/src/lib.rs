@@ -88,7 +88,7 @@ pub enum Action {
 		"sellNftWithMarketplaceId(address,uint256[],address,address,uint256,uint256,uint32)",
 	SellSftWithMarketplaceId = "sellSftWithMarketplaceId(address,uint256[],uint256[],address,address,uint256,uint256,uint32)", /* collection_address, serial_number_ids, quantities, buyer, payment_asset, fixed_price, duration, marketplace_id */
 	SellNftWithoutMarketplaceId =
-		"sellNftWithoutMarketplace(address,uint256[],address,address,uint256,uint256)",
+		"sellNftWithoutMarketplaceId(address,uint256[],address,address,uint256,uint256)",
 	SellSftWithoutMarketplaceId =
 		"sellSftWithoutMarketplaceId(address,uint256[],uint256[],address,address,uint256,uint256)", /* collection_address, serial_number_ids, quantities, buyer, payment_asset, fixed_price, duration */
 	UpdateFixedPrice = "updateFixedPrice(uint128,uint256)",
@@ -96,11 +96,11 @@ pub enum Action {
 	AuctionNftWithMarketplaceId =
 		"auctionNftWithMarketplaceId(address,uint256[],address,uint256,uint256,uint256)",
 	AuctionNftWithoutMarketplaceId =
-		"auctionNftWithoutMarketplace(address,uint256[],address,uint256,uint256)",
+		"auctionNftWithoutMarketplaceId(address,uint256[],address,uint256,uint256)",
 	AuctionSftWithMarketplaceId =
 		"auctionSftWithMarketplaceId(address,uint256[],uint256[],address,uint256,uint256,uint256)",
 	AuctionSftWithoutMarketplaceId =
-		"auctionSftWithoutMarketplace(address,uint256[],uint256[],address,uint256,uint256)",
+		"auctionSftWithoutMarketplaceId(address,uint256[],uint256[],address,uint256,uint256)",
 	Bid = "bid(uint128,uint256)",
 	CancelSale = "cancelSale(uint128)",
 	MakeSimpleOfferWithMarketplaceId =
