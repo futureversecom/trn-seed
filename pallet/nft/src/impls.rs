@@ -568,6 +568,14 @@ impl<T: Config> NFTExt for Pallet<T> {
 		collection.get_token_owner(token_id.1)
 	}
 
+	fn get_collection_issuance(
+		collection_id: CollectionUuid,
+	) -> Result<(TokenCount, Option<TokenCount>), DispatchError> {
+		let collection_info =
+			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		Ok((collection_info.collection_issuance, collection_info.max_issuance))
+	}
+
 	fn get_royalties_schedule(
 		collection_id: CollectionUuid,
 	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError> {

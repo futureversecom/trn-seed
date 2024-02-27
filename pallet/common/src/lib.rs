@@ -453,6 +453,11 @@ pub trait NFTExt {
 	/// Returns Some(token_owner) for a token if the owner exists
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId>;
 
+	/// Returns collection current issuance and max issuance
+	fn get_collection_issuance(
+		collection_id: CollectionUuid,
+	) -> Result<(TokenCount, Option<TokenCount>), DispatchError>;
+
 	/// Return the RoyaltiesSchedule if it exists for a collection
 	/// Returns an error if the collection does not exist
 	fn get_royalties_schedule(
