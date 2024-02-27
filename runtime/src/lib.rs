@@ -1293,6 +1293,11 @@ parameter_types! {
 	pub const CrowdSalePalletId: PalletId = PalletId(*b"crowdsal");
 	// Some low limit to prevent overworking on_initialize
 	pub const MaxSalesPerBlock: u32 = 5;
+	// Limit for bounded vec of max consecutive sales. Should be a reasonable upper bound
+	pub const MaxConsecutiveSales: u32 = 2_000;
+	// Maximum number of payments to be processed per offchain_worker call for auto distributing sales
+	pub const MaxPaymentsPerBlock: u32 = 100;
+	pub const MaxSaleDuration: BlockNumber = 1_944_000; // ~3 months
 }
 
 impl pallet_crowdsale::Config for Runtime {
@@ -1301,6 +1306,9 @@ impl pallet_crowdsale::Config for Runtime {
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
 	type MaxSalesPerBlock = MaxSalesPerBlock;
+	type MaxConsecutiveSales = MaxConsecutiveSales;
+	type MaxPaymentsPerBlock = MaxPaymentsPerBlock;
+	type MaxSaleDuration = MaxSaleDuration;
 }
 
 /// Block header type as expected by this runtime.

@@ -15,6 +15,9 @@
 
 use crate as pallet_crowdsale;
 use seed_pallet_common::test_prelude::*;
+use sp_runtime::testing::TestXt;
+
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 construct_runtime!(
 	pub enum Test where
@@ -37,9 +40,20 @@ impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 impl_pallet_nft_config!(Test);
 
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	type OverarchingCall = RuntimeCall;
+	type Extrinsic = Extrinsic;
+}
+
 parameter_types! {
 	pub const CrowdSalePalletId: PalletId = PalletId(*b"crowdsal");
 	pub const MaxSalesPerBlock: u32 = 5;
+	pub const MaxConsecutiveSales: u32 = 1000;
+	pub const MaxPaymentsPerBlock: u32 = 5;
+	pub const MaxSaleDuration: u32 = 1000;
 }
 
 impl crate::Config for Test {
@@ -48,4 +62,7 @@ impl crate::Config for Test {
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
 	type MaxSalesPerBlock = MaxSalesPerBlock;
+	type MaxConsecutiveSales = MaxConsecutiveSales;
+	type MaxPaymentsPerBlock = MaxPaymentsPerBlock;
+	type MaxSaleDuration = MaxSaleDuration;
 }

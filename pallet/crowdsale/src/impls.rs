@@ -92,7 +92,8 @@ impl<T: Config> Pallet<T> {
 	/// 'account_contribution' - How much has the user contributed to this round?
 	/// 'voucher_max_supply' - The max amount of vouchers to be minted.
 	///                        Also NFT max_issuance
-	/// 'voucher_current_supply' - The current amount of vouchers minted
+	/// 'voucher_current_supply' - The current amount of vouchers minted to participants. Excluding
+	/// 						   any vouchers refunded to the admin
 	/// 'total_paid_contributions' - The total amount of contributions paid so far
 	///
 	/// Note. The standard calculation involves dividing the users contribution by
