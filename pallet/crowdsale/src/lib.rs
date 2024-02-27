@@ -674,7 +674,7 @@ pub mod pallet {
 		/// Emits `CrowdsaleNFTRedeemed` event when successful.
 		#[pallet::weight(0)]
 		#[transactional]
-		pub fn redeem(
+		pub fn redeem_voucher(
 			origin: OriginFor<T>,
 			sale_id: SaleId,
 			quantity: TokenCount,
