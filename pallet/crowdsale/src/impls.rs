@@ -218,7 +218,10 @@ impl<T: Config> Pallet<T> {
 					false,
 				)?;
 
-				let collection_max_issuance = T::NFTExt::get_collection_issuance(sale_info.reward_collection_id)?.1.ok_or(Error::<T>::MaxIssuanceNotSet)?;
+				let collection_max_issuance =
+					T::NFTExt::get_collection_issuance(sale_info.reward_collection_id)?
+						.1
+						.ok_or(Error::<T>::MaxIssuanceNotSet)?;
 
 				let crowd_sale_target =
 					sale_info.soft_cap_price.saturating_mul(collection_max_issuance as u128);

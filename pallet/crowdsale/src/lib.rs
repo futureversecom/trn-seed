@@ -341,12 +341,10 @@ pub mod pallet {
 			// TODO: pass NFT collection ownership to the vault account
 			// - this is required so collection owner cannot mint/rug to dilute the crowdsale
 
-			let (collection_issuance, max_issuance) = T::NFTExt::get_collection_issuance(collection_id)?;
+			let (collection_issuance, max_issuance) =
+				T::NFTExt::get_collection_issuance(collection_id)?;
 			ensure!(max_issuance.is_some(), Error::<T>::MaxIssuanceNotSet);
-			ensure!(
-				collection_issuance.is_zero(),
-				Error::<T>::CollectionIssuanceNotZero
-			);
+			ensure!(collection_issuance.is_zero(), Error::<T>::CollectionIssuanceNotZero);
 
 			// create voucher asset
 			let voucher_asset_id = Self::create_voucher_asset(&vault, sale_id)?;
@@ -518,7 +516,10 @@ pub mod pallet {
 				return Err(Error::<T>::InvalidCrowdsaleStatus.into());
 			};
 
-			let voucher_max_supply = T::NFTExt::get_collection_issuance(sale_info.reward_collection_id)?.1.ok_or(Error::<T>::MaxIssuanceNotSet)?;
+			let voucher_max_supply =
+				T::NFTExt::get_collection_issuance(sale_info.reward_collection_id)?
+					.1
+					.ok_or(Error::<T>::MaxIssuanceNotSet)?;
 
 			let mut contributions_iterator = SaleParticipation::<T>::drain_prefix(sale_id);
 			let mut payout_complete: bool = false;
@@ -610,7 +611,10 @@ pub mod pallet {
 					.ok_or(Error::<T>::VouchersAlreadyClaimed)?;
 
 				// get amount of claimable vouchers based on the user's contribution
-				let voucher_max_supply = T::NFTExt::get_collection_issuance(sale_info.reward_collection_id)?.1.ok_or(Error::<T>::MaxIssuanceNotSet)?;
+				let voucher_max_supply =
+					T::NFTExt::get_collection_issuance(sale_info.reward_collection_id)?
+						.1
+						.ok_or(Error::<T>::MaxIssuanceNotSet)?;
 
 				// calculate the claimable vouchers
 				let claimable_vouchers = Self::mint_user_vouchers(
