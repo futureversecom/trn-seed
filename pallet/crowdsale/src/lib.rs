@@ -204,14 +204,14 @@ pub mod pallet {
 		InvalidCrowdsaleStatus,
 		/// Crowdsale is not enabled
 		CrowdsaleNotEnabled,
+		/// The soft cap price must be greater than zero
+		InvalidSoftCap,
 		/// Invalid asset id
 		InvalidAsset,
+		/// The collection max issuance is too high
+		InvalidMaxIssuance,
 		/// The voucher claim could not be completed due to invalid voucher supply
 		VoucherClaimFailed,
-		/// Failed to create voucher asset
-		CreateAssetFailed,
-		/// Asset transfer failed
-		AssetTransferFailed,
 		/// The NFT collection max issuance is not set
 		MaxIssuanceNotSet,
 		/// The NFT collection must not contain any minted NFTs
@@ -295,15 +295,12 @@ pub mod pallet {
 		/// any NFTs.
 		///
 		/// Parameters:
-		/// - `payment_asset`: Asset id of the token that will be used to redeem the NFTs at the end
-		///   of the sale
+		/// - `payment_asset_id`: The asset_id used for participating in the crowdsale
 		/// - `collection_id`: Collection id of the NFTs that will be minted/redeemed to the
 		///   participants
 		/// - `soft_cap_price`: Number/Ratio of payment_asset tokens that will be required to
 		///   purchase vouchers; Note: this does not take into account asset decimals or voucher
 		///   decimals
-		/// - `vouchers_per_nft`: Number of vouchers required to redeem for a single NFT; Note: this
-		///   does not take into account voucher decimals
 		/// - `sale_duration`: How many blocks will the sale last once enabled
 		///
 		/// Emits `CrowdsaleCreated` event when successful.
@@ -312,7 +309,7 @@ pub mod pallet {
 		#[transactional]
 		pub fn initialize(
 			origin: OriginFor<T>,
-			payment_asset: AssetId,
+			payment_asset_id: AssetId,
 			collection_id: CollectionUuid,
 			soft_cap_price: Balance,
 			sale_duration: T::BlockNumber,
@@ -327,42 +324,43 @@ pub mod pallet {
 			})?;
 
 			// ensure the asset exists
-			if !T::MultiCurrency::exists(payment_asset) {
+			if !T::MultiCurrency::exists(payment_asset_id) {
 				return Err(Error::<T>::InvalidAsset.into())
 			}
 
 			// ensure soft_cap_price is not zero - prevent future div by zero
-			ensure!(!soft_cap_price.is_zero(), Error::<T>::InvalidAsset);
+			ensure!(!soft_cap_price.is_zero(), Error::<T>::InvalidSoftCap);
 			// Disallow sale durations that are too long
 			ensure!(sale_duration <= T::MaxSaleDuration::get(), Error::<T>::SaleDurationTooLong);
 
 			// create crowdsale vault account which will temporary manage ownership and hold funds
 			let vault = Self::vault_account(sale_id);
 
-			// TODO: pass NFT collection ownership to the vault account
-			// - this is required so collection owner cannot mint/rug to dilute the crowdsale
-
 			let collection_info = T::NFTExt::get_collection_info(collection_id)?;
-			ensure!(collection_info.max_issuance.is_some(), Error::<T>::MaxIssuanceNotSet);
+			let max_issuance = collection_info.max_issuance.ok_or(Error::<T>::MaxIssuanceNotSet)?;
 			ensure!(
 				collection_info.collection_issuance.is_zero(),
 				Error::<T>::CollectionIssuanceNotZero
 			);
+			// Transfer ownership of the collection to the vault account. This also ensures
+			// the caller is the owner of the collection
+			// - this is required so collection owner cannot mint/rug to dilute the crowdsale
+			T::NFTExt::transfer_collection_ownership(who.clone(), collection_id, vault.clone())?;
 
 			// create voucher asset
-			let voucher_asset_id = Self::create_voucher_asset(&vault, sale_id)?;
+			let voucher_asset_id = Self::create_voucher_asset(&vault, sale_id, max_issuance)?;
 
 			// store the sale information
 			let sale_info = SaleInformation::<T::AccountId, T::BlockNumber> {
 				status: SaleStatus::Pending(<frame_system::Pallet<T>>::block_number()),
 				admin: who.clone(),
 				vault,
-				payment_asset,
+				payment_asset: payment_asset_id,
 				reward_collection_id: collection_id,
 				soft_cap_price,
 				funds_raised: 0,
 				voucher: voucher_asset_id,
-				sale_duration,
+				duration: sale_duration,
 			};
 			SaleInfo::<T>::insert(sale_id, sale_info.clone());
 
@@ -400,7 +398,7 @@ pub mod pallet {
 
 				// ensure start block is met and end block is not met
 				let current_block = <frame_system::Pallet<T>>::block_number();
-				let end_block = sale_info.sale_duration.saturating_add(current_block);
+				let end_block = sale_info.duration.saturating_add(current_block);
 
 				// Append end block to SaleEndBlocks
 				SaleEndBlocks::<T>::try_mutate(end_block, |sales| -> DispatchResult {
@@ -448,9 +446,9 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			// update the sale status if the start block is met
-			SaleInfo::<T>::try_mutate(sale_id, |sale_info: &mut Option<SaleInformation<_, _>>| {
+			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
 				let Some(sale_info) = sale_info else {
-					return Err(Error::<T>::CrowdsaleNotFound);
+					return Err(Error::<T>::CrowdsaleNotFound.into());
 				};
 
 				// ensure the sale is enabled
@@ -466,8 +464,7 @@ pub mod pallet {
 					&sale_info.vault,
 					amount,
 					false,
-				)
-				.map_err(|_| Error::<T>::AssetTransferFailed)?;
+				)?;
 
 				// update the sale funds
 				sale_info.funds_raised = sale_info.funds_raised.saturating_add(amount);
@@ -538,7 +535,7 @@ pub mod pallet {
 					break;
 				};
 
-				let Ok(claimable_vouchers) = Self::mint_user_vouchers(
+				let Ok(claimable_vouchers) = Self::transfer_user_vouchers(
 					who.clone(),
 					sale_id,
 					&sale_info,
@@ -619,7 +616,7 @@ pub mod pallet {
 					collection_info.max_issuance.ok_or(Error::<T>::MaxIssuanceNotSet)?;
 
 				// calculate the claimable vouchers
-				let claimable_vouchers = Self::mint_user_vouchers(
+				let claimable_vouchers = Self::transfer_user_vouchers(
 					who.clone(),
 					sale_id,
 					sale_info,

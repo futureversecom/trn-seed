@@ -62,6 +62,12 @@ pub trait NFTExt {
 		DispatchError,
 	>;
 
+	fn transfer_collection_ownership(
+		who: Self::AccountId,
+		collection_id: CollectionUuid,
+		new_owner: Self::AccountId,
+	) -> DispatchResult;
+
 	fn get_royalties_schedule(
 		collection_id: CollectionUuid,
 	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError>;

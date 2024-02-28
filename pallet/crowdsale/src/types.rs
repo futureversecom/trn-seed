@@ -28,7 +28,7 @@ pub struct SaleInformation<AccountId, BlockNumber> {
 	/// The voucher asset id to be paid out
 	pub voucher: AssetId,
 	/// How long the sale will last in blocks
-	pub sale_duration: BlockNumber,
+	pub duration: BlockNumber,
 }
 
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]

@@ -25,17 +25,24 @@ impl<T: Config> Pallet<T> {
 	/// Creates a unique voucher asset for a sale with 6 decimals
 	/// Returns the AssetId of the created asset.
 	pub(crate) fn create_voucher_asset(
-		owner: &T::AccountId,
+		vault: &T::AccountId,
 		sale_id: SaleId,
+		collection_max_issuance: TokenCount,
 	) -> Result<AssetId, DispatchError> {
 		let voucher_asset_id = T::MultiCurrency::create_with_metadata(
-			&owner,
+			&vault,
 			format!("CrowdSale Voucher-{}", sale_id).as_bytes().to_vec(),
 			format!("CSV-{}", sale_id).as_bytes().to_vec(),
 			VOUCHER_DECIMALS,
 			None,
-		)
-		.map_err(|_| Error::<T>::CreateAssetFailed)?;
+		)?;
+
+		// Calculate total supply and mint into the vault
+		let total_supply = Balance::from(collection_max_issuance)
+			.checked_mul(10u128.pow(VOUCHER_DECIMALS as u32))
+			.ok_or(Error::<T>::InvalidMaxIssuance)?;
+		T::MultiCurrency::mint_into(voucher_asset_id, &vault, total_supply)?;
+
 		Ok(voucher_asset_id)
 	}
 
@@ -157,8 +164,8 @@ impl<T: Config> Pallet<T> {
 		return Ok(voucher_supply_after.saturating_sub(voucher_current_supply))
 	}
 
-	// Mints vouchers into a users wallet and returns the amount minted.
-	pub fn mint_user_vouchers(
+	// Transfers vouchers from the vault account into a users wallet and returns the amount minted.
+	pub fn transfer_user_vouchers(
 		who: T::AccountId,
 		sale_id: SaleId,
 		sale_info: &SaleInformation<T::AccountId, T::BlockNumber>,
@@ -178,8 +185,14 @@ impl<T: Config> Pallet<T> {
 		)
 		.map_err(|_| Error::<T>::VoucherClaimFailed)?;
 
-		// mint claimable vouchers to the user
-		T::MultiCurrency::mint_into(sale_info.voucher, &who, claimable_vouchers)?;
+		// transfer claimable vouchers from vault account to the user
+		T::MultiCurrency::transfer(
+			sale_info.voucher,
+			&sale_info.vault,
+			&who,
+			claimable_vouchers,
+			false,
+		)?;
 
 		Self::deposit_event(Event::CrowdsaleVouchersClaimed {
 			sale_id,
@@ -228,10 +241,12 @@ impl<T: Config> Pallet<T> {
 
 				let refunded_vouchers = sale_info.funds_raised.saturating_sub(crowd_sale_target);
 				if refunded_vouchers > 0 {
-					T::MultiCurrency::mint_into(
+					T::MultiCurrency::transfer(
 						sale_info.voucher,
+						&sale_info.vault,
 						&sale_info.admin,
 						refunded_vouchers,
+						false,
 					)?;
 				}
 
