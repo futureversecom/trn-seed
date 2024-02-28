@@ -21,9 +21,8 @@ use frame_support::{
 	traits::tokens::fungibles::{Mutate, Transfer},
 	transactional, PalletId,
 };
-use pallet_nft::traits::NFTExt;
 use seed_pallet_common::{
-	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
+	CreateExt, Hold, NFTExt, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
 };
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
