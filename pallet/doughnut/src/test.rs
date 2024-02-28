@@ -807,7 +807,6 @@ fn generate_alice_to_bob_outer_signature_for_balances_transfer_keep_alive() {
 			let mut outer_call_payload: Vec<u8> = outer_call.encode();
 			outer_call_payload.as_mut_slice()[1] = 0x05; // due to real runtime pallet versioning
 			let outer_signature = holder.sign_ecdsa(&outer_call_payload.as_slice());
-			// println!("outer signature: {:?}", to_hex(&outer_signature, false));
 		});
 }
 
