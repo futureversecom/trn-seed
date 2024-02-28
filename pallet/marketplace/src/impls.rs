@@ -11,8 +11,7 @@
 
 use crate::*;
 use frame_support::{ensure, traits::Get, transactional};
-use pallet_nft::traits::NFTExt;
-use seed_pallet_common::{log, Hold, TransferExt};
+use seed_pallet_common::{log, Hold, NFTExt, TransferExt};
 use seed_primitives::{AssetId, Balance, RoyaltiesSchedule, SerialNumber, TokenId};
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
@@ -311,8 +310,7 @@ impl<T: Config> Pallet<T> {
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<OfferId, DispatchError> {
 		ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
-		let collection_info = T::NFTExt::get_collection_info(token_id.0)?;
-		ensure!(!collection_info.is_token_owner(&who, token_id.1), Error::<T>::IsTokenOwner);
+		ensure!(T::NFTExt::get_token_owner(&token_id) != Some(who), Error::<T>::IsTokenOwner);
 		let offer_id = Self::next_offer_id();
 		ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 

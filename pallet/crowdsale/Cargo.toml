@@ -22,13 +22,12 @@ pallet-assets-ext = { path = "../assets-ext", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
 
-pallet-nft = { path = "../nft", default-features = false } # TODO: remove
-
 [dev-dependencies]
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+pallet-nft = { path = "../nft" }
 
 [features]
 default = ["std"]
