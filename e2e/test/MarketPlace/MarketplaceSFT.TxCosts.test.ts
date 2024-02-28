@@ -37,7 +37,6 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
   let marketPlacePrecompile: Contract;
   let erc1155PrecompileAddress: string;
   let collectionId: string;
-  let alithKeyring: KeyringPair;
   let bobKeyring: KeyringPair;
   let provider: JsonRpcProvider;
 
@@ -53,7 +52,6 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     const keyring = new Keyring({ type: "ethereum" });
     bobKeyring = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
-    alithKeyring = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
 
     provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
@@ -326,7 +324,7 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
   });
 
   it("auction sft with marketplaceId", async () => {
-    let auctionSFTSeries = [0, 1, 2];
+    const auctionSFTSeries = [0, 1, 2];
     let paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const reservePrice = 1000000;
     const duration = 10000; //blocks
@@ -411,7 +409,7 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
   });
 
   it("auction sft without marketplaceId", async () => {
-    let auctionSFTSeries = [0, 1, 2];
+    const auctionSFTSeries = [0, 1, 2];
     let paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
     const reservePrice = 10000;
     const duration = 10000; //blocks
