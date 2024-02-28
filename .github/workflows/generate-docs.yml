@@ -11,11 +11,8 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        description: 'Branch name; do not use `main`'
-        required: true
-      pallets:
-        description: 'Pallet names; e.g. `pallet-futurepass`'
+      pallet:
+        description: 'Pallet name; e.g. `pallet-futurepass`'
         required: true
 
 jobs:
@@ -25,22 +22,19 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.inputs.branch }}
+        ref: ${{ github.ref_name }}
         fetch-depth: 0
 
     - uses: dtolnay/rust-toolchain@1.69
-
-    - name: Install toolchain
-      run: rustup show
+      with:
+        toolchain: nightly
+        targets: wasm32-unknown-unknown
 
     - name: Generate Documentation
-      run: cargo doc -p ${{ github.event.inputs.pallet_name }}
-
-    - name: Zip Documentation
-      run: zip -r ${GITHUB_WORKSPACE}/${{ github.event.inputs.pallet_name }}-docs.zip ./target/doc
+      run: cargo doc -p ${{ github.event.inputs.pallet }} --no-deps
 
     - name: Upload Pallet Doc as Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ github.event.inputs.pallet_name }}-docs.zip
-        path: ${{ github.workspace }}/${{ github.event.inputs.pallet_name }}-docs.zip
+        name: ${{ github.event.inputs.pallet }}-docs
+        path: ${{ github.workspace }}/target/doc
