@@ -42,7 +42,6 @@ std = [
     "pallet-assets-ext/std",
     "seed-primitives/std",
     "seed-pallet-common/std",
-    "pallet-nft/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]
