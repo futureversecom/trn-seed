@@ -791,7 +791,7 @@ mod initialize {
 					soft_cap_price,
 					duration
 				),
-				Error::<Test>::InvalidSoftCap
+				Error::<Test>::InvalidSoftCapPrice
 			);
 		});
 	}

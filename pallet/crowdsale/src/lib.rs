@@ -204,7 +204,7 @@ pub mod pallet {
 		/// Crowdsale is not enabled
 		CrowdsaleNotEnabled,
 		/// The soft cap price must be greater than zero
-		InvalidSoftCap,
+		InvalidSoftCapPrice,
 		/// Invalid asset id
 		InvalidAsset,
 		/// The collection max issuance is too high
@@ -328,7 +328,7 @@ pub mod pallet {
 			}
 
 			// ensure soft_cap_price is not zero - prevent future div by zero
-			ensure!(!soft_cap_price.is_zero(), Error::<T>::InvalidSoftCap);
+			ensure!(!soft_cap_price.is_zero(), Error::<T>::InvalidSoftCapPrice);
 			// Disallow sale durations that are too long
 			ensure!(sale_duration <= T::MaxSaleDuration::get(), Error::<T>::SaleDurationTooLong);
 
