@@ -216,9 +216,7 @@ impl<T: Config> Pallet<T> {
 		for sale_id in sales_to_close.into_iter() {
 			let _ = SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
 				removed += 1;
-				let Some(sale_info) = sale_info else {
-					return Err(Error::<T>::CrowdsaleNotFound.into());
-				};
+				let sale_info = sale_info.as_mut().ok_or(Error::<T>::CrowdsaleNotFound)?;
 
 				ensure!(
 					matches!(sale_info.status, SaleStatus::Enabled(_)),

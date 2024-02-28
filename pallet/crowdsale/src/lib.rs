@@ -384,9 +384,7 @@ pub mod pallet {
 
 			// update the sale status if the start block is met
 			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
-				let Some(sale_info) = sale_info else {
-					return Err(Error::<T>::CrowdsaleNotFound.into());
-				};
+				let sale_info = sale_info.as_mut().ok_or(Error::<T>::CrowdsaleNotFound)?;
 
 				// ensure the sale is not already enabled
 				ensure!(
@@ -446,9 +444,7 @@ pub mod pallet {
 
 			// update the sale status if the start block is met
 			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
-				let Some(sale_info) = sale_info else {
-					return Err(Error::<T>::CrowdsaleNotFound.into());
-				};
+				let sale_info = sale_info.as_mut().ok_or(Error::<T>::CrowdsaleNotFound)?;
 
 				// ensure the sale is enabled
 				ensure!(
@@ -596,9 +592,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
-				let Some(sale_info) = sale_info else {
-					return Err(Error::<T>::CrowdsaleNotFound.into());
-				};
+				let sale_info = sale_info.as_mut().ok_or(Error::<T>::CrowdsaleNotFound)?;
 
 				// ensure the sale is in the distribution phase
 				let SaleStatus::Distributing(_, total_paid_contributions, vouchers_distributed) = sale_info.status else {
@@ -682,9 +676,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
-				let Some(sale_info) = sale_info else {
-					return Err(Error::<T>::CrowdsaleNotFound.into());
-				};
+				let sale_info = sale_info.as_mut().ok_or(Error::<T>::CrowdsaleNotFound)?;
 
 				// ensure the sale has concluded and is being distributed or has been distributed
 				ensure!(
@@ -731,9 +723,7 @@ pub mod pallet {
 		pub fn try_force_distribution(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
-				let Some(sale_info) = sale_info else {
-					return Err(Error::<T>::CrowdsaleNotFound.into());
-				};
+				let sale_info = sale_info.as_mut().ok_or(Error::<T>::CrowdsaleNotFound)?;
 
 				// ensure the sale is in the correct state
 				ensure!(
