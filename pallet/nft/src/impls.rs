@@ -13,14 +13,14 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{traits::NFTExt, *};
+use crate::{traits::NFTCollectionInfo, *};
 use frame_support::{ensure, traits::Get, weights::Weight};
 use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	log,
 	utils::{next_asset_uuid, PublicMintInformation},
-	OnNewAssetSubscriber, OnTransferSubscriber,
+	NFTExt, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
@@ -516,7 +516,6 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> NFTExt for Pallet<T> {
 	type AccountId = T::AccountId;
-	type MaxTokensPerCollection = T::MaxTokensPerCollection;
 	type StringLimit = T::StringLimit;
 
 	fn do_mint(
@@ -569,13 +568,12 @@ impl<T: Config> NFTExt for Pallet<T> {
 		collection.get_token_owner(token_id.1)
 	}
 
-	fn get_collection_info(
+	fn get_collection_issuance(
 		collection_id: CollectionUuid,
-	) -> Result<
-		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
-		DispatchError,
-	> {
-		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
+	) -> Result<(TokenCount, Option<TokenCount>), DispatchError> {
+		let collection_info =
+			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		Ok((collection_info.collection_issuance, collection_info.max_issuance))
 	}
 
 	fn get_royalties_schedule(
@@ -597,7 +595,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 		Self::next_collection_uuid()
 	}
 
-	fn increment_collection_id() -> DispatchResult {
+	fn increment_collection_uuid() -> DispatchResult {
 		ensure!(<NextCollectionId<T>>::get().checked_add(1).is_some(), Error::<T>::NoAvailableIds);
 		<NextCollectionId<T>>::mutate(|i| *i += u32::one());
 		Ok(())
@@ -620,5 +618,20 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn remove_token_lock(token_id: TokenId) {
 		<TokenLocks<T>>::remove(token_id);
+	}
+}
+
+impl<T: Config> NFTCollectionInfo for Pallet<T> {
+	type AccountId = T::AccountId;
+	type MaxTokensPerCollection = T::MaxTokensPerCollection;
+	type StringLimit = T::StringLimit;
+
+	fn get_collection_info(
+		collection_id: CollectionUuid,
+	) -> Result<
+		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
+		DispatchError,
+	> {
+		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
 	}
 }

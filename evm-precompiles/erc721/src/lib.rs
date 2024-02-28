@@ -23,7 +23,7 @@ use frame_support::{
 	traits::OriginTrait,
 };
 use pallet_evm::{Context, ExitReason, PrecompileSet};
-use pallet_nft::traits::NFTExt;
+use seed_pallet_common::NFTExt;
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
