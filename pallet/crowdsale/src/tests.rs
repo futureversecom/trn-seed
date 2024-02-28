@@ -23,7 +23,7 @@ use crate::{
 	Pallet,
 };
 use frame_support::traits::fungibles::Inspect;
-use pallet_nft::CrossChainCompatibility;
+use pallet_nft::{traits::NFTCollectionInfo, CrossChainCompatibility};
 use seed_pallet_common::test_prelude::{BlockNumber, *};
 use seed_primitives::TokenCount;
 

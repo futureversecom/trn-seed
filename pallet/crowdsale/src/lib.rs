@@ -338,7 +338,7 @@ pub mod pallet {
 			// Verify collection max and total issuance
 			let (collection_issuance, max_issuance) =
 				T::NFTExt::get_collection_issuance(collection_id)?;
-			ensure!(max_issuance.is_some(), Error::<T>::MaxIssuanceNotSet);
+			let max_issuance = max_issuance.ok_or(Error::<T>::MaxIssuanceNotSet)?;
 			ensure!(collection_issuance.is_zero(), Error::<T>::CollectionIssuanceNotZero);
 
 			// Transfer ownership of the collection to the vault account. This also ensures
