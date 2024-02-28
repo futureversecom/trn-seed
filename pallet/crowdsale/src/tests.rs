@@ -47,8 +47,10 @@ fn create_nft_collection(owner: AccountId, max_issuance: TokenCount) -> Collecti
 }
 
 // Helper function ton initialize a crowdsale with default values
-fn initialize_crowdsale() -> (SaleId, SaleInformation<AccountId, BlockNumber>) {
-	let reward_collection_id = create_nft_collection(alice(), 10);
+fn initialize_crowdsale(
+	max_issuance: Balance,
+) -> (SaleId, SaleInformation<AccountId, BlockNumber>) {
+	let reward_collection_id = create_nft_collection(alice(), max_issuance.saturated_into());
 	let payment_asset = ROOT_ASSET_ID;
 	let soft_cap_price = 10;
 	let duration = 100;
@@ -944,7 +946,7 @@ mod enable {
 	#[test]
 	fn enable_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (sale_id, mut sale_info) = initialize_crowdsale();
+			let (sale_id, mut sale_info) = initialize_crowdsale(100);
 
 			assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -972,7 +974,7 @@ mod enable {
 	#[test]
 	fn not_admin_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (sale_id, _) = initialize_crowdsale();
+			let (sale_id, _) = initialize_crowdsale(100);
 
 			// Bob fails
 			assert_noop!(
@@ -999,7 +1001,7 @@ mod enable {
 	#[test]
 	fn too_many_sales_at_end_block_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (sale_id, sale_info) = initialize_crowdsale();
+			let (sale_id, sale_info) = initialize_crowdsale(100);
 
 			// Insert 5 sales at the same end block
 			let end_block = System::block_number() + sale_info.duration;
@@ -1024,7 +1026,7 @@ mod enable {
 	#[test]
 	fn invalid_sale_status_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (sale_id, mut sale_info) = initialize_crowdsale();
+			let (sale_id, mut sale_info) = initialize_crowdsale(100);
 
 			sale_info.status = SaleStatus::Enabled(0);
 			SaleInfo::<Test>::insert(sale_id, sale_info);
@@ -1073,7 +1075,7 @@ mod participate {
 			.with_balances(&[(bob(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, sale_info) = initialize_crowdsale();
+				let (sale_id, sale_info) = initialize_crowdsale(100);
 
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -1111,7 +1113,7 @@ mod participate {
 			.with_balances(&[(bob(), initial_balance), (charlie(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, sale_info) = initialize_crowdsale();
+				let (sale_id, sale_info) = initialize_crowdsale(100);
 
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -1179,7 +1181,7 @@ mod participate {
 			.with_balances(&[(bob(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, mut sale_info) = initialize_crowdsale();
+				let (sale_id, mut sale_info) = initialize_crowdsale(100);
 				let amount = 2;
 
 				sale_info.status = SaleStatus::Pending(0);
@@ -1225,7 +1227,7 @@ mod participate {
 			.with_balances(&[(bob(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, sale_info) = initialize_crowdsale();
+				let (sale_id, sale_info) = initialize_crowdsale(100);
 
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -1252,6 +1254,219 @@ mod participate {
 				System::assert_last_event(
 					Event::CrowdsaleParticipated { sale_id, who: bob(), asset: asset_id, amount }
 						.into(),
+				);
+			});
+	}
+}
+
+mod on_initialize {
+	use super::*;
+
+	#[test]
+	fn on_initialize_works() {
+		let initial_balance = 1_000_000;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(bob(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				let max_issuance = 100;
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+				let voucher_asset_id = sale_info.voucher;
+
+				let vault_balance =
+					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				assert_eq!(vault_balance, add_decimals(max_issuance, VOUCHER_DECIMALS));
+
+				// Enable crowdsale
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				// Participate some amount
+				let participation_amount = 10;
+				assert_ok!(Crowdsale::participate(
+					Some(bob()).into(),
+					sale_id,
+					participation_amount
+				));
+
+				// Call on_initialize at sale close
+				let end_block = System::block_number() + sale_info.duration;
+				System::set_block_number(end_block);
+				Crowdsale::on_initialize(end_block);
+
+				// Check storage
+				assert_eq!(SaleEndBlocks::<Test>::get(end_block), None);
+				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+				assert_eq!(sale_info.status, SaleStatus::Distributing(end_block, 0, 0));
+				assert_eq!(SaleDistribution::<Test>::get().into_inner(), vec![sale_id]);
+
+				// Check vouchers are refunded to admin
+				let voucher_asset_id = sale_info.voucher;
+				let vault_balance =
+					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				let admin_balance =
+					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.admin, false);
+
+				// Vault account should have the vouchers that are to be paid out
+				let vault_expected =
+					add_decimals(participation_amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
+				assert_eq!(vault_balance, vault_expected);
+				// Admin account should have refunded vouchers
+				let admin_expected = add_decimals(max_issuance, VOUCHER_DECIMALS) - vault_expected;
+				assert_eq!(admin_balance, admin_expected);
+
+				// Event thrown
+				System::assert_last_event(
+					Event::CrowdsaleClosed { sale_id, info: sale_info }.into(),
+				);
+			});
+	}
+
+	#[test]
+	fn over_committed_doesnt_pay_admin() {
+		let initial_balance = 1_000_000;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(bob(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				let max_issuance = 100;
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+				let voucher_asset_id = sale_info.voucher;
+
+				let vault_balance =
+					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				assert_eq!(vault_balance, add_decimals(max_issuance, VOUCHER_DECIMALS));
+
+				// Enable crowdsale
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				// Participate some amount == target amount
+				let participation_amount = 1000;
+				assert_ok!(Crowdsale::participate(
+					Some(bob()).into(),
+					sale_id,
+					participation_amount
+				));
+
+				// Call on_initialize at sale close
+				let end_block = System::block_number() + sale_info.duration;
+				System::set_block_number(end_block);
+				Crowdsale::on_initialize(end_block);
+
+				// Check storage
+				assert_eq!(SaleEndBlocks::<Test>::get(end_block), None);
+				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+				assert_eq!(sale_info.status, SaleStatus::Distributing(end_block, 0, 0));
+				assert_eq!(SaleDistribution::<Test>::get().into_inner(), vec![sale_id]);
+
+				// Check no vouchers are refunded to admin
+				let voucher_asset_id = sale_info.voucher;
+				let vault_balance =
+					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				let admin_balance =
+					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.admin, false);
+
+				// Vault account has the entire voucher supply
+				assert_eq!(vault_balance, add_decimals(max_issuance, VOUCHER_DECIMALS));
+				// Admin gets no refund
+				assert_eq!(admin_balance, 0);
+
+				// Event thrown
+				System::assert_last_event(
+					Event::CrowdsaleClosed { sale_id, info: sale_info }.into(),
+				);
+			});
+	}
+
+	#[test]
+	fn under_committed_pays_admin() {
+		let initial_balance = 1_000_000;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(bob(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				let max_issuance = 100;
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+				let voucher_asset_id = sale_info.voucher;
+
+				let vault_balance =
+					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				assert_eq!(vault_balance, add_decimals(max_issuance, VOUCHER_DECIMALS));
+
+				// Enable crowdsale
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				// Participate some amount just under target amount
+				let participation_amount = 999;
+				assert_ok!(Crowdsale::participate(
+					Some(bob()).into(),
+					sale_id,
+					participation_amount
+				));
+
+				// Call on_initialize at sale close
+				let end_block = System::block_number() + sale_info.duration;
+				System::set_block_number(end_block);
+				Crowdsale::on_initialize(end_block);
+
+				// Check storage
+				assert_eq!(SaleEndBlocks::<Test>::get(end_block), None);
+				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+				assert_eq!(sale_info.status, SaleStatus::Distributing(end_block, 0, 0));
+				assert_eq!(SaleDistribution::<Test>::get().into_inner(), vec![sale_id]);
+
+				// Check no vouchers are refunded to admin
+				let voucher_asset_id = sale_info.voucher;
+				let vault_balance =
+					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				let admin_balance =
+					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.admin, false);
+
+				// Vault account should have the vouchers that are to be paid out
+				let vault_expected =
+					add_decimals(participation_amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
+				assert_eq!(vault_balance, vault_expected);
+				// Admin account should have refunded vouchers
+				let admin_expected = add_decimals(max_issuance, VOUCHER_DECIMALS) - vault_expected;
+				assert_eq!(admin_balance, admin_expected);
+
+				// Event thrown
+				System::assert_last_event(
+					Event::CrowdsaleClosed { sale_id, info: sale_info }.into(),
+				);
+			});
+	}
+
+	#[test]
+	fn zero_balance_skips_distribution() {
+		let initial_balance = 1_000_000;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(bob(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				let (sale_id, sale_info) = initialize_crowdsale(100);
+
+				// Enable crowdsale
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				// Call on_initialize at sale close with no participation
+				let end_block = System::block_number() + sale_info.duration;
+				System::set_block_number(end_block);
+				Crowdsale::on_initialize(end_block);
+
+				// Check storage
+				assert_eq!(SaleEndBlocks::<Test>::get(end_block), None);
+				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+				// Status should be ended with 0 funds raised
+				assert_eq!(sale_info.status, SaleStatus::Ended(end_block, 0));
+				assert!(SaleDistribution::<Test>::get().is_empty());
+
+				// Event thrown
+				System::assert_last_event(
+					Event::CrowdsaleClosed { sale_id, info: sale_info }.into(),
 				);
 			});
 	}

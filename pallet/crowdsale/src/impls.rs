@@ -11,7 +11,10 @@
 
 use crate::*;
 use alloc::format;
-use frame_support::sp_runtime::traits::{BlakeTwo256, Hash};
+use frame_support::{
+	sp_runtime::traits::{BlakeTwo256, Hash},
+	traits::fungibles::Inspect,
+};
 use sp_core::U256;
 
 impl<T: Config> Pallet<T> {
@@ -235,12 +238,25 @@ impl<T: Config> Pallet<T> {
 					T::NFTExt::get_collection_issuance(sale_info.reward_collection_id)?
 						.1
 						.ok_or(Error::<T>::MaxIssuanceNotSet)?;
+				let collection_max_issuance: Balance = collection_max_issuance.into();
 
+				// Should find the voucher price
 				let crowd_sale_target =
-					sale_info.soft_cap_price.saturating_mul(collection_max_issuance as u128);
+					sale_info.soft_cap_price.saturating_mul(collection_max_issuance);
 
-				let refunded_vouchers = sale_info.funds_raised.saturating_sub(crowd_sale_target);
-				if refunded_vouchers > 0 {
+				if sale_info.funds_raised < crowd_sale_target {
+					// Refunded amount is equal to the total issuance minus the total vouchers paid
+					// out Total vouchers paid out is the total funds raised divided by the voucher
+					// price
+					let voucher_total_issuance =
+						collection_max_issuance.saturating_mul(10u128.pow(VOUCHER_DECIMALS as u32));
+					let voucher_price = sale_info.soft_cap_price;
+					let total_vouchers = sale_info
+						.funds_raised
+						.saturating_mul(10u128.pow(VOUCHER_DECIMALS as u32))
+						.saturating_div(voucher_price);
+					let refunded_vouchers = voucher_total_issuance.saturating_sub(total_vouchers);
+
 					T::MultiCurrency::transfer(
 						sale_info.voucher,
 						&sale_info.vault,
@@ -250,25 +266,24 @@ impl<T: Config> Pallet<T> {
 					)?;
 				}
 
-				// Emit event to mark end of crowdsale
-				Self::deposit_event(Event::CrowdsaleClosed { sale_id, info: sale_info.clone() });
-
-				// Try append to distributingSales, if this fails due to upper vec bounds
-				// Set status to DistributionFailed and log the error
-				if SaleDistribution::<T>::try_append(sale_id).is_err() {
-					sale_info.status = SaleStatus::DistributionFailed(now);
-					log!(error, "⛔️ failed to mark sale {:?} for distribution", sale_id);
-					return Ok(())
-				}
-
 				if sale_info.funds_raised.is_zero() {
+					// No funds raised, end the sale now and skip distribution step
 					sale_info.status = SaleStatus::Ended(now, Balance::default());
 				} else {
 					// Mark the sale for distribution
+					// Try append to distributingSales, if this fails due to upper vec bounds
+					// Set status to DistributionFailed and log the error
+					if SaleDistribution::<T>::try_append(sale_id).is_err() {
+						sale_info.status = SaleStatus::DistributionFailed(now);
+						log!(error, "⛔️ failed to mark sale {:?} for distribution", sale_id);
+						return Ok(())
+					}
 					sale_info.status =
 						SaleStatus::Distributing(now, Balance::default(), Balance::default());
 				}
 
+				// Emit event to mark end of crowdsale
+				Self::deposit_event(Event::CrowdsaleClosed { sale_id, info: sale_info.clone() });
 				Ok(())
 			});
 		}
