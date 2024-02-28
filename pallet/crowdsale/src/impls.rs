@@ -11,7 +11,10 @@
 
 use crate::*;
 use alloc::format;
-use frame_support::sp_runtime::traits::{BlakeTwo256, Hash};
+use frame_support::{
+	sp_runtime::traits::{BlakeTwo256, Hash},
+	traits::fungibles::Inspect,
+};
 use sp_core::U256;
 
 impl<T: Config> Pallet<T> {
@@ -25,17 +28,24 @@ impl<T: Config> Pallet<T> {
 	/// Creates a unique voucher asset for a sale with 6 decimals
 	/// Returns the AssetId of the created asset.
 	pub(crate) fn create_voucher_asset(
-		owner: &T::AccountId,
+		vault: &T::AccountId,
 		sale_id: SaleId,
+		collection_max_issuance: TokenCount,
 	) -> Result<AssetId, DispatchError> {
 		let voucher_asset_id = T::MultiCurrency::create_with_metadata(
-			&owner,
+			&vault,
 			format!("CrowdSale Voucher-{}", sale_id).as_bytes().to_vec(),
 			format!("CSV-{}", sale_id).as_bytes().to_vec(),
 			VOUCHER_DECIMALS,
 			None,
-		)
-		.map_err(|_| Error::<T>::CreateAssetFailed)?;
+		)?;
+
+		// Calculate total supply and mint into the vault
+		let total_supply = Balance::from(collection_max_issuance)
+			.checked_mul(10u128.pow(VOUCHER_DECIMALS as u32))
+			.ok_or(Error::<T>::InvalidMaxIssuance)?;
+		T::MultiCurrency::mint_into(voucher_asset_id, &vault, total_supply)?;
+
 		Ok(voucher_asset_id)
 	}
 
@@ -157,8 +167,8 @@ impl<T: Config> Pallet<T> {
 		return Ok(voucher_supply_after.saturating_sub(voucher_current_supply))
 	}
 
-	// Mints vouchers into a users wallet and returns the amount minted.
-	pub fn mint_user_vouchers(
+	// Transfers vouchers from the vault account into a users wallet and returns the amount minted.
+	pub fn transfer_user_vouchers(
 		who: T::AccountId,
 		sale_id: SaleId,
 		sale_info: &SaleInformation<T::AccountId, T::BlockNumber>,
@@ -178,8 +188,14 @@ impl<T: Config> Pallet<T> {
 		)
 		.map_err(|_| Error::<T>::VoucherClaimFailed)?;
 
-		// mint claimable vouchers to the user
-		T::MultiCurrency::mint_into(sale_info.voucher, &who, claimable_vouchers)?;
+		// transfer claimable vouchers from vault account to the user
+		T::MultiCurrency::transfer(
+			sale_info.voucher_asset_id,
+			&sale_info.vault,
+			&who,
+			claimable_vouchers,
+			false,
+		)?;
 
 		Self::deposit_event(Event::CrowdsaleVouchersClaimed {
 			sale_id,
@@ -200,9 +216,7 @@ impl<T: Config> Pallet<T> {
 		for sale_id in sales_to_close.into_iter() {
 			let _ = SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
 				removed += 1;
-				let Some(sale_info) = sale_info else {
-					return Err(Error::<T>::CrowdsaleNotFound.into());
-				};
+				let sale_info = sale_info.as_mut().ok_or(Error::<T>::CrowdsaleNotFound)?;
 
 				ensure!(
 					matches!(sale_info.status, SaleStatus::Enabled(_)),
@@ -211,7 +225,7 @@ impl<T: Config> Pallet<T> {
 
 				// transfer all payment_asset from the sale vault to the admin
 				T::MultiCurrency::transfer(
-					sale_info.payment_asset,
+					sale_info.payment_asset_id,
 					&sale_info.vault,
 					&sale_info.admin,
 					sale_info.funds_raised,
@@ -222,38 +236,53 @@ impl<T: Config> Pallet<T> {
 					T::NFTExt::get_collection_issuance(sale_info.reward_collection_id)?
 						.1
 						.ok_or(Error::<T>::MaxIssuanceNotSet)?;
+				let collection_max_issuance: Balance = collection_max_issuance.into();
 
+				// Should find the voucher price
 				let crowd_sale_target =
-					sale_info.soft_cap_price.saturating_mul(collection_max_issuance as u128);
+					sale_info.soft_cap_price.saturating_mul(collection_max_issuance);
 
-				let refunded_vouchers = sale_info.funds_raised.saturating_sub(crowd_sale_target);
-				if refunded_vouchers > 0 {
-					T::MultiCurrency::mint_into(
-						sale_info.voucher,
+				if sale_info.funds_raised < crowd_sale_target {
+					// Refunded amount is equal to the total issuance minus the total vouchers paid
+					// out Total vouchers paid out is the total funds raised divided by the voucher
+					// price
+					// TODO Verify this calculation
+					let voucher_total_issuance =
+						collection_max_issuance.saturating_mul(10u128.pow(VOUCHER_DECIMALS as u32));
+					let voucher_price = sale_info.soft_cap_price;
+					let total_vouchers = sale_info
+						.funds_raised
+						.saturating_mul(10u128.pow(VOUCHER_DECIMALS as u32))
+						.saturating_div(voucher_price);
+					let refunded_vouchers = voucher_total_issuance.saturating_sub(total_vouchers);
+
+					T::MultiCurrency::transfer(
+						sale_info.voucher_asset_id,
+						&sale_info.vault,
 						&sale_info.admin,
 						refunded_vouchers,
+						false,
 					)?;
 				}
 
-				// Emit event to mark end of crowdsale
-				Self::deposit_event(Event::CrowdsaleClosed { sale_id, info: sale_info.clone() });
-
-				// Try append to distributingSales, if this fails due to upper vec bounds
-				// Set status to DistributionFailed and log the error
-				if SaleDistribution::<T>::try_append(sale_id).is_err() {
-					sale_info.status = SaleStatus::DistributionFailed(now);
-					log!(error, "⛔️ failed to mark sale {:?} for distribution", sale_id);
-					return Ok(())
-				}
-
 				if sale_info.funds_raised.is_zero() {
+					// No funds raised, end the sale now and skip distribution step
 					sale_info.status = SaleStatus::Ended(now, Balance::default());
 				} else {
 					// Mark the sale for distribution
+					// Try append to distributingSales, if this fails due to upper vec bounds
+					// Set status to DistributionFailed and log the error
+					if SaleDistribution::<T>::try_append(sale_id).is_err() {
+						sale_info.status = SaleStatus::DistributionFailed(now);
+						log!(error, "⛔️ failed to mark sale {:?} for distribution", sale_id);
+						return Ok(())
+					}
 					sale_info.status =
 						SaleStatus::Distributing(now, Balance::default(), Balance::default());
 				}
 
+				// Emit event to mark end of crowdsale
+				Self::deposit_event(Event::CrowdsaleClosed { sale_id, info: sale_info.clone() });
 				Ok(())
 			});
 		}
