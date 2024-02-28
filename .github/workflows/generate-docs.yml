@@ -1,0 +1,46 @@
+name: Generate Pallet Documentation
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+  contents: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch name; do not use `main`'
+        required: true
+      pallets:
+        description: 'Pallet names; e.g. `pallet-futurepass`'
+        required: true
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.branch }}
+        fetch-depth: 0
+
+    - uses: dtolnay/rust-toolchain@1.69
+
+    - name: Install toolchain
+      run: rustup show
+
+    - name: Generate Documentation
+      run: cargo doc -p ${{ github.event.inputs.pallet_name }}
+
+    - name: Zip Documentation
+      run: zip -r ${GITHUB_WORKSPACE}/${{ github.event.inputs.pallet_name }}-docs.zip ./target/doc
+
+    - name: Upload Pallet Doc as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ github.event.inputs.pallet_name }}-docs.zip
+        path: ${{ github.workspace }}/${{ github.event.inputs.pallet_name }}-docs.zip
