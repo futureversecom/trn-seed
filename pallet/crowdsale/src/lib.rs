@@ -354,11 +354,11 @@ pub mod pallet {
 				status: SaleStatus::Pending(<frame_system::Pallet<T>>::block_number()),
 				admin: who.clone(),
 				vault,
-				payment_asset: payment_asset_id,
+				payment_asset_id,
 				reward_collection_id: collection_id,
 				soft_cap_price,
 				funds_raised: 0,
-				voucher: voucher_asset_id,
+				voucher_asset_id,
 				duration: sale_duration,
 			};
 			SaleInfo::<T>::insert(sale_id, sale_info.clone());
@@ -458,7 +458,7 @@ pub mod pallet {
 
 				// transfer payment tokens to the crowdsale vault
 				T::MultiCurrency::transfer(
-					sale_info.payment_asset,
+					sale_info.payment_asset_id,
 					&who,
 					&sale_info.vault,
 					amount,
@@ -479,7 +479,7 @@ pub mod pallet {
 				Self::deposit_event(Event::CrowdsaleParticipated {
 					sale_id,
 					who,
-					asset: sale_info.payment_asset,
+					asset: sale_info.payment_asset_id,
 					amount,
 				});
 
@@ -697,7 +697,11 @@ pub mod pallet {
 				// vouchers since 1:1 mapping between vouchers and NFTs, we can use the quantity
 				// * decimals as the amount burned
 				let voucher_amount = quantity.saturating_mul(10u32.pow(VOUCHER_DECIMALS as u32));
-				T::MultiCurrency::burn_from(sale_info.voucher, &who, voucher_amount.into())?;
+				T::MultiCurrency::burn_from(
+					sale_info.voucher_asset_id,
+					&who,
+					voucher_amount.into(),
+				)?;
 
 				// mint the NFT(s) to the user
 				T::NFTExt::do_mint(

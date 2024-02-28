@@ -18,7 +18,7 @@ pub struct SaleInformation<AccountId, BlockNumber> {
 	/// The account that will receive and hold the funds raised
 	pub vault: AccountId,
 	/// The payment asset used for participation
-	pub payment_asset: AssetId,
+	pub payment_asset_id: AssetId,
 	/// The reward NFT collection id
 	pub reward_collection_id: CollectionUuid,
 	/// The soft cap price set per token at the sale start
@@ -26,7 +26,7 @@ pub struct SaleInformation<AccountId, BlockNumber> {
 	/// Total funds raised during the crowdsale
 	pub funds_raised: Balance,
 	/// The voucher asset id to be paid out
-	pub voucher: AssetId,
+	pub voucher_asset_id: AssetId,
 	/// How long the sale will last in blocks
 	pub duration: BlockNumber,
 }

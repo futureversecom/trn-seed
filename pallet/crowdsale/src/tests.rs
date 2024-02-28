@@ -51,7 +51,7 @@ fn initialize_crowdsale(
 	max_issuance: Balance,
 ) -> (SaleId, SaleInformation<AccountId, BlockNumber>) {
 	let reward_collection_id = create_nft_collection(alice(), max_issuance.saturated_into());
-	let payment_asset = ROOT_ASSET_ID;
+	let payment_asset_id = ROOT_ASSET_ID;
 	let soft_cap_price = 10;
 	let duration = 100;
 
@@ -63,7 +63,7 @@ fn initialize_crowdsale(
 	// Initialize the crowdsale
 	assert_ok!(Crowdsale::initialize(
 		Some(alice()).into(),
-		payment_asset,
+		payment_asset_id,
 		reward_collection_id,
 		soft_cap_price,
 		duration
@@ -74,11 +74,11 @@ fn initialize_crowdsale(
 		status: SaleStatus::Pending(System::block_number()),
 		admin: alice(),
 		vault,
-		payment_asset,
+		payment_asset_id,
 		reward_collection_id,
 		soft_cap_price,
 		funds_raised: 0,
-		voucher: next_asset_id,
+		voucher_asset_id: next_asset_id,
 		duration,
 	};
 	return (sale_id, sale_info)
@@ -665,7 +665,7 @@ mod initialize {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let max_issuance = 10_000;
 			let reward_collection_id = create_nft_collection(alice(), max_issuance);
-			let payment_asset = 1;
+			let payment_asset_id = 1;
 			let soft_cap_price = 10;
 			let duration = 100;
 
@@ -677,7 +677,7 @@ mod initialize {
 			// Initialize the crowdsale
 			assert_ok!(Crowdsale::initialize(
 				Some(alice()).into(),
-				payment_asset,
+				payment_asset_id,
 				reward_collection_id,
 				soft_cap_price,
 				duration
@@ -688,11 +688,11 @@ mod initialize {
 				status: SaleStatus::Pending(System::block_number()),
 				admin: alice(),
 				vault,
-				payment_asset,
+				payment_asset_id,
 				reward_collection_id,
 				soft_cap_price,
 				funds_raised: 0,
-				voucher: next_asset_id,
+				voucher_asset_id: next_asset_id,
 				duration,
 			};
 			// Check storage
@@ -1084,7 +1084,7 @@ mod participate {
 
 				// Check storage
 				let vault = sale_info.vault;
-				let asset_id = sale_info.payment_asset;
+				let asset_id = sale_info.payment_asset_id;
 
 				// Vault account should have the contributed amount
 				let vault_balance = AssetsExt::reducible_balance(asset_id, &vault, false);
@@ -1135,7 +1135,7 @@ mod participate {
 
 				// Check storage
 				let vault = sale_info.vault;
-				let asset_id = sale_info.payment_asset;
+				let asset_id = sale_info.payment_asset_id;
 
 				// Vault account should have the contributed amount
 				let vault_balance = AssetsExt::reducible_balance(asset_id, &vault, false);
@@ -1236,7 +1236,7 @@ mod participate {
 
 				// Check storage
 				let vault = sale_info.vault;
-				let asset_id = sale_info.payment_asset;
+				let asset_id = sale_info.payment_asset_id;
 
 				// Vault account should have the contributed amount
 				let vault_balance = AssetsExt::reducible_balance(asset_id, &vault, false);
@@ -1272,7 +1272,7 @@ mod on_initialize {
 			.execute_with(|| {
 				let max_issuance = 100;
 				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
-				let voucher_asset_id = sale_info.voucher;
+				let voucher_asset_id = sale_info.voucher_asset_id;
 
 				let vault_balance =
 					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
@@ -1301,7 +1301,7 @@ mod on_initialize {
 				assert_eq!(SaleDistribution::<Test>::get().into_inner(), vec![sale_id]);
 
 				// Check vouchers are refunded to admin
-				let voucher_asset_id = sale_info.voucher;
+				let voucher_asset_id = sale_info.voucher_asset_id;
 				let vault_balance =
 					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
 				let admin_balance =
@@ -1332,7 +1332,7 @@ mod on_initialize {
 			.execute_with(|| {
 				let max_issuance = 100;
 				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
-				let voucher_asset_id = sale_info.voucher;
+				let voucher_asset_id = sale_info.voucher_asset_id;
 
 				let vault_balance =
 					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
@@ -1361,7 +1361,7 @@ mod on_initialize {
 				assert_eq!(SaleDistribution::<Test>::get().into_inner(), vec![sale_id]);
 
 				// Check no vouchers are refunded to admin
-				let voucher_asset_id = sale_info.voucher;
+				let voucher_asset_id = sale_info.voucher_asset_id;
 				let vault_balance =
 					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
 				let admin_balance =
@@ -1389,7 +1389,7 @@ mod on_initialize {
 			.execute_with(|| {
 				let max_issuance = 100;
 				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
-				let voucher_asset_id = sale_info.voucher;
+				let voucher_asset_id = sale_info.voucher_asset_id;
 
 				let vault_balance =
 					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
@@ -1418,7 +1418,7 @@ mod on_initialize {
 				assert_eq!(SaleDistribution::<Test>::get().into_inner(), vec![sale_id]);
 
 				// Check no vouchers are refunded to admin
-				let voucher_asset_id = sale_info.voucher;
+				let voucher_asset_id = sale_info.voucher_asset_id;
 				let vault_balance =
 					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
 				let admin_balance =

@@ -190,7 +190,7 @@ impl<T: Config> Pallet<T> {
 
 		// transfer claimable vouchers from vault account to the user
 		T::MultiCurrency::transfer(
-			sale_info.voucher,
+			sale_info.voucher_asset_id,
 			&sale_info.vault,
 			&who,
 			claimable_vouchers,
@@ -227,7 +227,7 @@ impl<T: Config> Pallet<T> {
 
 				// transfer all payment_asset from the sale vault to the admin
 				T::MultiCurrency::transfer(
-					sale_info.payment_asset,
+					sale_info.payment_asset_id,
 					&sale_info.vault,
 					&sale_info.admin,
 					sale_info.funds_raised,
@@ -258,7 +258,7 @@ impl<T: Config> Pallet<T> {
 					let refunded_vouchers = voucher_total_issuance.saturating_sub(total_vouchers);
 
 					T::MultiCurrency::transfer(
-						sale_info.voucher,
+						sale_info.voucher_asset_id,
 						&sale_info.vault,
 						&sale_info.admin,
 						refunded_vouchers,
