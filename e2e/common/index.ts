@@ -401,15 +401,25 @@ export const FUTUREPASS_PRECOMPILE_ABI = [
 export const MARKET_PLACE_ABI = [
   "event MarketplaceRegister(address indexed sender, uint256 indexed marketplaceId, address marketplace_account)",
   "event FixedPriceSaleList(address indexed seller, uint256 indexed listingId, uint256 indexed fixedPrice, uint256[] serialNumbers, address collectionAddress)",
+  "event FixedPriceSaleListWithMarketplace(address indexed seller, uint256 indexed listingId, uint256 indexed fixedPrice, uint256[] serialNumbers, address collectionAddress, uint128 marketplace_id)",
+  "event FixedPriceSaleWithMarketplaceUpdate(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed newPrice, address sender, uint256[] serialNumbers, uint128 marketplace_id)",
   "event FixedPriceSaleUpdate(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed newPrice, address sender, uint256[] serialNumbers)",
   "event FixedPriceSaleComplete(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed fixedPrice, address sender, uint256[] serialNumbers)",
+  "event FixedPriceSaleWithMarketplaceComplete(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed fixedPrice, address sender, uint256[] serialNumbers, uint128 marketplace_id)",
   "event AuctionOpen(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed reservePrice, address sender, uint256[] serialNumbers)",
+  "event AuctionWithMarketplaceOpen(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed reservePrice, address sender, uint256[] serialNumbers, uint128 marketplace_id)",
   "event Bid(address indexed bidder, uint256 indexed listingId, uint256 indexed amount)",
+  "event BidWithMarketplace(address indexed bidder, uint256 indexed listingId, uint256 indexed amount, uint128 marketplace_id)",
   "event FixedPriceSaleClose(uint256 indexed collectionId, uint256 indexed listingId, address sender, uint256[] serialNumbers)", //uint256,uint256,address,uint256[]
+  "event FixedPriceSaleWithMarketplaceClose(uint256 indexed collectionId, uint256 indexed listingId, address sender, uint256[] serialNumbers, uint128 marketplace_id)", //uint256,uint256,address,uint256[]
   "event AuctionClose(uint256 indexed collectionId, uint256 indexed listingId, address sender, uint256[] serialNumbers)",
+  "event AuctionWithMarketplaceClose(uint256 indexed collectionId, uint256 indexed listingId, address sender, uint256[] serialNumbers, uint128 marketplace_id)",
   "event Offer(uint256 indexed offerId, address indexed sender, uint256 collectionId, uint256 seriesId)",
+  "event OfferWithMarketplace(uint256 indexed offerId, address indexed sender, uint256 collectionId, uint256 seriesId, uint128 marketplace_id)",
   "event OfferCancel(uint256 indexed offerId, address indexed sender, uint256 collectionId, uint256 seriesId)",
+  "event OfferWithMarketplaceCancel(uint256 indexed offerId, address indexed sender, uint256 collectionId, uint256 seriesId, uint128 marketplace_id)",
   "event OfferAccept(uint256 indexed offerId, uint256 indexed amount, address indexed sender, uint256 collectionId, uint256 seriesId)", // uint256,uint256,address,uint256
+  "event OfferWithMarketplaceAccept(uint256 indexed offerId, uint256 indexed amount, address indexed sender, uint256 collectionId, uint256 seriesId, uint128 marketplace_id)", // uint256,uint256,address,uint256
 
   "function registerMarketplace(address marketplaceAccount, uint256 entitlement) external returns (uint marketplaceId)",
   "function sellNftWithMarketplaceId(address collectionAddress, uint256[] calldata serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration, uint32 marketplaceId) external returns (uint listingId)",

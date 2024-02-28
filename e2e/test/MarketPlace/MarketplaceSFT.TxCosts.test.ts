@@ -192,14 +192,17 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     const receipt = await tx.wait();
     let balanceAfter = await bobSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
-    const [seller, listingId, fixedPriceFromCall, serialNumbers, collectionAddress] = (receipt?.events as any)[0].args;
-    expect((receipt?.events as any)[0].event).to.equal("FixedPriceSaleList");
+    const [seller, listingId, fixedPriceFromCall, serialNumbers, collectionAddress, marketplaceIdArgs] = (
+      receipt?.events as any
+    )[0].args;
+    expect((receipt?.events as any)[0].event).to.equal("FixedPriceSaleListWithMarketplace");
     expect(collectionAddress).to.equal(erc1155Precompile.address);
     expect(listingId.toNumber()).to.gte(0);
     expect(fixedPriceFromCall.toNumber()).to.equal(fixedPrice);
     expect(seller).to.equal(bobSigner.address);
     const s = serialNumbers.map((s: BigNumber) => s.toNumber());
     expect(JSON.stringify(s)).to.equal(JSON.stringify(sellSFTSeries));
+    expect(marketplaceIdArgs.toNumber()).to.gte(0);
 
     // extrinsic
     paymentAsset = 2;
@@ -354,15 +357,17 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
         marketplaceId,
       );
     const receipt = await tx.wait();
-    const [collectionIdArgs, listingId, reservePriceFromChain, seller, serialNumbers] = (receipt?.events as any)[0]
-      .args;
-    expect((receipt?.events as any)[0].event).to.equal("AuctionOpen");
+    const [collectionIdArgs, listingId, reservePriceFromChain, seller, serialNumbers, marketplaceIdArgs] = (
+      receipt?.events as any
+    )[0].args;
+    expect((receipt?.events as any)[0].event).to.equal("AuctionWithMarketplaceOpen");
     expect(collectionIdArgs.toNumber()).to.gte(0);
     expect(listingId.toNumber()).to.gte(0);
     expect(reservePriceFromChain.toNumber()).to.equal(reservePrice);
     expect(seller).to.equal(bobSigner.address);
     const s = serialNumbers.map((s: BigNumber) => s.toNumber());
     expect(JSON.stringify(s)).to.equal(JSON.stringify(auctionSFTSeries));
+    expect(marketplaceIdArgs.toNumber()).to.gte(0);
 
     let balanceAfter = await bobSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
