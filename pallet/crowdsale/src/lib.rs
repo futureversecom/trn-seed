@@ -38,8 +38,7 @@ use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},
 	pallet_prelude::*,
 };
-use pallet_nft::traits::NFTExt;
-use seed_pallet_common::{log, CreateExt, InspectExt};
+use seed_pallet_common::{log, CreateExt, InspectExt, NFTExt};
 use seed_primitives::{AssetId, Balance, CollectionUuid, OffchainErr, TokenCount};
 use sp_std::{vec, vec::Vec};
 
@@ -90,7 +89,7 @@ pub mod pallet {
 			+ fungibles::Mutate<Self::AccountId>;
 
 		/// NFT Extension, used to retrieve collection data
-		type NFTExt: pallet_nft::traits::NFTExt<AccountId = Self::AccountId>;
+		type NFTExt: NFTExt<AccountId = Self::AccountId>;
 
 		/// The maximum number of sales that can be queued for completion in a single block
 		#[pallet::constant]
@@ -342,10 +341,10 @@ pub mod pallet {
 			// TODO: pass NFT collection ownership to the vault account
 			// - this is required so collection owner cannot mint/rug to dilute the crowdsale
 
-			let collection_info = T::NFTExt::get_collection_info(collection_id)?;
-			ensure!(collection_info.max_issuance.is_some(), Error::<T>::MaxIssuanceNotSet);
+			let (collection_issuance, max_issuance) = T::NFTExt::get_collection_issuance(collection_id)?;
+			ensure!(max_issuance.is_some(), Error::<T>::MaxIssuanceNotSet);
 			ensure!(
-				collection_info.collection_issuance.is_zero(),
+				collection_issuance.is_zero(),
 				Error::<T>::CollectionIssuanceNotZero
 			);
 
@@ -519,9 +518,7 @@ pub mod pallet {
 				return Err(Error::<T>::InvalidCrowdsaleStatus.into());
 			};
 
-			let collection_info = T::NFTExt::get_collection_info(sale_info.reward_collection_id)?;
-			let voucher_max_supply =
-				collection_info.max_issuance.ok_or(Error::<T>::MaxIssuanceNotSet)?;
+			let voucher_max_supply = T::NFTExt::get_collection_issuance(sale_info.reward_collection_id)?.1.ok_or(Error::<T>::MaxIssuanceNotSet)?;
 
 			let mut contributions_iterator = SaleParticipation::<T>::drain_prefix(sale_id);
 			let mut payout_complete: bool = false;
@@ -613,10 +610,7 @@ pub mod pallet {
 					.ok_or(Error::<T>::VouchersAlreadyClaimed)?;
 
 				// get amount of claimable vouchers based on the user's contribution
-				let collection_info =
-					T::NFTExt::get_collection_info(sale_info.reward_collection_id)?;
-				let voucher_max_supply =
-					collection_info.max_issuance.ok_or(Error::<T>::MaxIssuanceNotSet)?;
+				let voucher_max_supply = T::NFTExt::get_collection_issuance(sale_info.reward_collection_id)?.1.ok_or(Error::<T>::MaxIssuanceNotSet)?;
 
 				// calculate the claimable vouchers
 				let claimable_vouchers = Self::mint_user_vouchers(
