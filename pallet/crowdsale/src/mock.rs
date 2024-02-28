@@ -53,7 +53,7 @@ parameter_types! {
 	pub const MaxSalesPerBlock: u32 = 5;
 	pub const MaxConsecutiveSales: u32 = 1000;
 	pub const MaxPaymentsPerBlock: u32 = 5;
-	pub const MaxSaleDuration: u32 = 1000;
+	pub const MaxSaleDuration: u64 = 1000;
 	pub const UnsignedInterval: u32 = 10;
 }
 
