@@ -246,6 +246,7 @@ impl<T: Config> Pallet<T> {
 					// Refunded amount is equal to the total issuance minus the total vouchers paid
 					// out Total vouchers paid out is the total funds raised divided by the voucher
 					// price
+					// TODO Verify this calculation
 					let voucher_total_issuance =
 						collection_max_issuance.saturating_mul(10u128.pow(VOUCHER_DECIMALS as u32));
 					let voucher_price = sale_info.soft_cap_price;
