@@ -17,8 +17,8 @@
 use super::*;
 use crate::{
 	mock::{
-		AssetsExt, Crowdsale, MaxSaleDuration, MaxSalesPerBlock, MaxTokensPerCollection, Nft,
-		System, Test,
+		AssetsExt, Crowdsale, MaxConsecutiveSales, MaxSaleDuration, MaxSalesPerBlock,
+		MaxTokensPerCollection, Nft, System, Test,
 	},
 	Pallet,
 };
@@ -1266,7 +1266,6 @@ mod participate {
 
 mod on_initialize {
 	use super::*;
-	use crate::mock::MaxConsecutiveSales;
 
 	#[test]
 	fn on_initialize_works() {
@@ -1395,7 +1394,6 @@ mod on_initialize {
 			.execute_with(|| {
 				let max_issuance = 100;
 				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
-				let voucher_asset_id = sale_info.voucher_asset_id;
 
 				// Enable crowdsale
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
@@ -1483,7 +1481,6 @@ mod on_initialize {
 			.execute_with(|| {
 				let max_issuance = 100;
 				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
-				let voucher_asset_id = sale_info.voucher_asset_id;
 
 				// Enable crowdsale
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
@@ -1746,7 +1743,7 @@ mod claim_voucher {
 	fn claim_twice_fails() {
 		let initial_balance = 1_000_000;
 		TestExt::<Test>::default()
-			.with_balances(&[(bob(), initial_balance)])
+			.with_balances(&[(bob(), initial_balance), (charlie(), initial_balance)])
 			.build()
 			.execute_with(|| {
 				let max_issuance = 1000;
@@ -1757,6 +1754,11 @@ mod claim_voucher {
 				let participation_amount = 100;
 				assert_ok!(Crowdsale::participate(
 					Some(bob()).into(),
+					sale_id,
+					participation_amount
+				));
+				assert_ok!(Crowdsale::participate(
+					Some(charlie()).into(),
 					sale_id,
 					participation_amount
 				));
@@ -1827,6 +1829,484 @@ mod claim_voucher {
 				sale_info.status = SaleStatus::Distributing(0, 0, 0);
 				SaleInfo::<Test>::insert(sale_id, sale_info);
 				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
+			});
+	}
+}
+
+mod redeem_voucher {
+	use super::*;
+
+	#[test]
+	fn redeem_voucher_works() {
+		let initial_balance = 1_000_000;
+		TestExt::<Test>::default()
+			.with_balances(&[(bob(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				let max_issuance = 1000;
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+				let voucher_asset_id = sale_info.voucher_asset_id;
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				// Participate some amount
+				let participation_amount = 100;
+				assert_ok!(Crowdsale::participate(
+					Some(bob()).into(),
+					sale_id,
+					participation_amount
+				));
+
+				// Call on_initialize at sale close
+				let end_block = System::block_number() + sale_info.duration;
+				System::set_block_number(end_block);
+				Crowdsale::on_initialize(end_block);
+
+				// Manual claim
+				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
+				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let quantity = voucher_balance / 10u128.pow(VOUCHER_DECIMALS as u32);
+
+				// Redeem voucher
+				assert_ok!(Crowdsale::redeem_voucher(Some(bob()).into(), sale_id, quantity as u32));
+
+				// Check voucher total_issuance reduced
+				let total_issuance = AssetsExt::total_issuance(voucher_asset_id);
+				assert_eq!(
+					total_issuance,
+					add_decimals(max_issuance, VOUCHER_DECIMALS) - voucher_balance as u128
+				);
+
+				// Check voucher burned
+				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				assert_eq!(voucher_balance, 0);
+
+				// Check NFT ownership
+				assert_eq!(
+					Nft::token_balance_of(&bob(), sale_info.reward_collection_id),
+					quantity as u32
+				);
+
+				// Event thrown
+				System::assert_last_event(
+					Event::CrowdsaleNFTRedeemed {
+						sale_id,
+						who: bob(),
+						collection_id: sale_info.reward_collection_id,
+						quantity: quantity as u32,
+					}
+					.into(),
+				);
+			});
+	}
+
+	#[test]
+	fn fractional_voucher() {
+		let initial_balance = 1_000_000;
+		TestExt::<Test>::default()
+			.with_balances(&[(bob(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				let max_issuance = 1000;
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+				let voucher_asset_id = sale_info.voucher_asset_id;
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				// Participate some amount that is not a multiple of softcap price (10)
+				let participation_amount = 105;
+				assert_ok!(Crowdsale::participate(
+					Some(bob()).into(),
+					sale_id,
+					participation_amount
+				));
+
+				// Call on_initialize at sale close
+				let end_block = System::block_number() + sale_info.duration;
+				System::set_block_number(end_block);
+				Crowdsale::on_initialize(end_block);
+
+				// Manual claim
+				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
+				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				// Quantity = 105 / 10 = 10.5, rounded to 10
+				let quantity = voucher_balance / 10u128.pow(VOUCHER_DECIMALS as u32);
+
+				// Redeem voucher
+				assert_ok!(Crowdsale::redeem_voucher(Some(bob()).into(), sale_id, quantity as u32));
+
+				// Check voucher burned but remainder is kept
+				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				assert_eq!(voucher_balance, 500_000);
+
+				// Check NFT ownership
+				assert_eq!(
+					Nft::token_balance_of(&bob(), sale_info.reward_collection_id),
+					quantity as u32
+				);
+			});
+	}
+
+	#[test]
+	fn partial_redemption() {
+		let initial_balance = 1_000_000;
+		TestExt::<Test>::default()
+			.with_balances(&[(bob(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				let max_issuance = 1000;
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+				let voucher_asset_id = sale_info.voucher_asset_id;
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				// Participate some amount
+				let participation_amount = 100;
+				assert_ok!(Crowdsale::participate(
+					Some(bob()).into(),
+					sale_id,
+					participation_amount
+				));
+
+				// Call on_initialize at sale close
+				let end_block = System::block_number() + sale_info.duration;
+				System::set_block_number(end_block);
+				Crowdsale::on_initialize(end_block);
+
+				// Manual claim
+				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
+				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				// Quantity = 105 / 10 = 10.5, rounded to 10
+				let quantity = voucher_balance / 10u128.pow(VOUCHER_DECIMALS as u32);
+				let redeem_quantity = quantity as u32 - 1;
+
+				// Redeem vouchers - 1
+				assert_ok!(Crowdsale::redeem_voucher(Some(bob()).into(), sale_id, redeem_quantity));
+
+				// Check voucher burned but remainder is kept
+				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				assert_eq!(voucher_balance, 1_000_000);
+
+				// Check NFT ownership
+				assert_eq!(
+					Nft::token_balance_of(&bob(), sale_info.reward_collection_id),
+					redeem_quantity as u32
+				);
+
+				// Redeem last voucher
+				assert_ok!(Crowdsale::redeem_voucher(Some(bob()).into(), sale_id, 1));
+
+				// Check voucher burned but remainder is kept
+				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				assert_eq!(voucher_balance, 0);
+
+				// Check NFT ownership
+				assert_eq!(
+					Nft::token_balance_of(&bob(), sale_info.reward_collection_id),
+					quantity as u32
+				);
+			});
+	}
+
+	#[test]
+	fn zero_quantity_fails() {
+		let initial_balance = 1_000_000;
+		TestExt::<Test>::default()
+			.with_balances(&[(bob(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				let max_issuance = 1000;
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				// Participate some amount
+				let participation_amount = 100;
+				assert_ok!(Crowdsale::participate(
+					Some(bob()).into(),
+					sale_id,
+					participation_amount
+				));
+
+				// Call on_initialize at sale close
+				let end_block = System::block_number() + sale_info.duration;
+				System::set_block_number(end_block);
+				Crowdsale::on_initialize(end_block);
+
+				// Manual claim
+				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
+				// Redeem more vouchers than allocated
+				let redeem_quantity = 0;
+				assert_noop!(
+					Crowdsale::redeem_voucher(Some(bob()).into(), sale_id, redeem_quantity),
+					Error::<Test>::InvalidQuantity
+				);
+			});
+	}
+
+	#[test]
+	fn no_sale_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			assert_noop!(
+				Crowdsale::redeem_voucher(Some(bob()).into(), 2, 1),
+				Error::<Test>::CrowdsaleNotFound
+			);
+		});
+	}
+
+	#[test]
+	fn insufficient_balance_fails() {
+		let initial_balance = 1_000_000;
+		TestExt::<Test>::default()
+			.with_balances(&[(bob(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				let max_issuance = 1000;
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+				let voucher_asset_id = sale_info.voucher_asset_id;
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				// Participate some amount
+				let participation_amount = 100;
+				assert_ok!(Crowdsale::participate(
+					Some(bob()).into(),
+					sale_id,
+					participation_amount
+				));
+
+				// Call on_initialize at sale close
+				let end_block = System::block_number() + sale_info.duration;
+				System::set_block_number(end_block);
+				Crowdsale::on_initialize(end_block);
+
+				// Manual claim
+				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
+				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let quantity = voucher_balance / 10u128.pow(VOUCHER_DECIMALS as u32);
+
+				// Redeem more vouchers than allocated
+				let redeem_quantity = quantity as u32 + 1;
+				assert_noop!(
+					Crowdsale::redeem_voucher(Some(bob()).into(), sale_id, redeem_quantity),
+					pallet_assets::Error::<Test>::BalanceLow
+				);
+			});
+	}
+
+	#[test]
+	fn invalid_sale_status_fails() {
+		let initial_balance = 1_000_000;
+		TestExt::<Test>::default()
+			.with_balances(&[(bob(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				let (sale_id, mut sale_info) = initialize_crowdsale(100);
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				// Participate some amount
+				let participation_amount = 100;
+				assert_ok!(Crowdsale::participate(
+					Some(bob()).into(),
+					sale_id,
+					participation_amount
+				));
+
+				// Call on_initialize at sale close
+				let end_block = System::block_number() + sale_info.duration;
+				System::set_block_number(end_block);
+				Crowdsale::on_initialize(end_block);
+
+				// Manual claim
+				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
+
+				// Check redeem_voucher against invalid statuses
+				sale_info.status = SaleStatus::Enabled(0);
+				SaleInfo::<Test>::insert(sale_id, sale_info);
+				assert_noop!(
+					Crowdsale::redeem_voucher(Some(alice()).into(), sale_id, 1),
+					Error::<Test>::InvalidCrowdsaleStatus
+				);
+
+				sale_info.status = SaleStatus::Pending(0);
+				SaleInfo::<Test>::insert(sale_id, sale_info);
+				assert_noop!(
+					Crowdsale::redeem_voucher(Some(alice()).into(), sale_id, 1),
+					Error::<Test>::InvalidCrowdsaleStatus
+				);
+
+				sale_info.status = SaleStatus::DistributionFailed(0);
+				SaleInfo::<Test>::insert(sale_id, sale_info);
+				assert_noop!(
+					Crowdsale::redeem_voucher(Some(alice()).into(), sale_id, 1),
+					Error::<Test>::InvalidCrowdsaleStatus
+				);
+
+				// Sanity check, these two should both work
+				sale_info.status = SaleStatus::Distributing(0, 0, 0);
+				SaleInfo::<Test>::insert(sale_id, sale_info);
+				assert_ok!(Crowdsale::redeem_voucher(Some(alice()).into(), sale_id, 1));
+
+				sale_info.status = SaleStatus::Ended(0, 0);
+				SaleInfo::<Test>::insert(sale_id, sale_info);
+				assert_ok!(Crowdsale::redeem_voucher(Some(alice()).into(), sale_id, 1),);
+			});
+	}
+}
+
+mod try_force_distribution {
+	use super::*;
+
+	#[test]
+	fn try_force_distribution_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let max_issuance = 1000;
+			let (sale_id, mut sale_info) = initialize_crowdsale(max_issuance);
+
+			// Manually set status to DistributionFailed
+			sale_info.status = SaleStatus::DistributionFailed(0);
+			SaleInfo::<Test>::insert(sale_id, sale_info);
+
+			// Try force distribution
+			assert_ok!(Crowdsale::try_force_distribution(Some(alice()).into(), sale_id));
+
+			// Sale status should be set to Ended as nobody participated
+			let block_number = System::block_number();
+			sale_info.status = SaleStatus::Ended(block_number, 0);
+			assert_eq!(SaleInfo::<Test>::get(sale_id).unwrap(), sale_info);
+
+			// Event thrown
+			System::assert_last_event(
+				Event::CrowdsaleManualDistribution { sale_id, info: sale_info, who: alice() }
+					.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn not_admin_can_call() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let max_issuance = 1000;
+			let (sale_id, mut sale_info) = initialize_crowdsale(max_issuance);
+
+			// Manually set status to DistributionFailed
+			sale_info.status = SaleStatus::DistributionFailed(0);
+			SaleInfo::<Test>::insert(sale_id, sale_info);
+
+			// Try force distribution as not sale admin
+			assert_ok!(Crowdsale::try_force_distribution(Some(bob()).into(), sale_id));
+		});
+	}
+
+	#[test]
+	fn no_sale_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			assert_noop!(
+				Crowdsale::try_force_distribution(Some(alice()).into(), 3),
+				Error::<Test>::CrowdsaleNotFound
+			);
+		});
+	}
+
+	#[test]
+	fn distribution_table_full_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let max_issuance = 1000;
+			let (sale_id, mut sale_info) = initialize_crowdsale(max_issuance);
+
+			// Manually set status to DistributionFailed
+			sale_info.status = SaleStatus::DistributionFailed(0);
+			SaleInfo::<Test>::insert(sale_id, sale_info);
+
+			// Fill SaleDistribution with random sale_ids
+			let sale_ids = vec![3; MaxConsecutiveSales::get() as usize];
+			SaleDistribution::<Test>::put(BoundedVec::truncate_from(sale_ids.clone()));
+
+			// Try force distribution fails as we are still full
+			assert_noop!(
+				Crowdsale::try_force_distribution(Some(alice()).into(), sale_id),
+				Error::<Test>::SaleDistributionFailed
+			);
+		});
+	}
+
+	#[test]
+	fn invalid_status_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let max_issuance = 1000;
+			let (sale_id, mut sale_info) = initialize_crowdsale(max_issuance);
+
+			sale_info.status = SaleStatus::Enabled(0);
+			SaleInfo::<Test>::insert(sale_id, sale_info);
+			assert_noop!(
+				Crowdsale::try_force_distribution(Some(bob()).into(), sale_id),
+				Error::<Test>::InvalidCrowdsaleStatus
+			);
+
+			sale_info.status = SaleStatus::Pending(0);
+			SaleInfo::<Test>::insert(sale_id, sale_info);
+			assert_noop!(
+				Crowdsale::try_force_distribution(Some(bob()).into(), sale_id),
+				Error::<Test>::InvalidCrowdsaleStatus
+			);
+
+			sale_info.status = SaleStatus::Ended(0, 0);
+			SaleInfo::<Test>::insert(sale_id, sale_info);
+			assert_noop!(
+				Crowdsale::try_force_distribution(Some(bob()).into(), sale_id),
+				Error::<Test>::InvalidCrowdsaleStatus
+			);
+
+			sale_info.status = SaleStatus::Distributing(0, 0, 0);
+			SaleInfo::<Test>::insert(sale_id, sale_info);
+			assert_noop!(
+				Crowdsale::try_force_distribution(Some(bob()).into(), sale_id),
+				Error::<Test>::InvalidCrowdsaleStatus
+			);
+
+			// Sanity check
+			sale_info.status = SaleStatus::DistributionFailed(0);
+			SaleInfo::<Test>::insert(sale_id, sale_info);
+			assert_ok!(Crowdsale::try_force_distribution(Some(bob()).into(), sale_id));
+		});
+	}
+
+	#[test]
+	fn triggers_distribution() {
+		let initial_balance = 1_000_000;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(bob(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				let max_issuance = 100;
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+
+				// Enable crowdsale
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				// Participate some amount
+				let participation_amount = 10;
+				assert_ok!(Crowdsale::participate(
+					Some(bob()).into(),
+					sale_id,
+					participation_amount
+				));
+
+				// Fill SaleDistribution with random sale_ids
+				let sale_ids = vec![3; MaxConsecutiveSales::get() as usize];
+				SaleDistribution::<Test>::put(BoundedVec::truncate_from(sale_ids.clone()));
+
+				// Call on_initialize at sale close
+				let end_block = System::block_number() + sale_info.duration;
+				System::set_block_number(end_block);
+				Crowdsale::on_initialize(end_block);
+
+				// Remove one sale_id from SaleDistribution
+				let sale_ids = vec![3; MaxConsecutiveSales::get() as usize - 1];
+				SaleDistribution::<Test>::put(BoundedVec::truncate_from(sale_ids.clone()));
+
+				// Try force distribution
+				assert_ok!(Crowdsale::try_force_distribution(Some(alice()).into(), sale_id));
+
+				let block_number = System::block_number();
+				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+				assert_eq!(sale_info.status, SaleStatus::Distributing(block_number, 0, 0));
 			});
 	}
 }

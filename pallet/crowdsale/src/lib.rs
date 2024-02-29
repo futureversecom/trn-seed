@@ -209,6 +209,8 @@ pub mod pallet {
 		InvalidAsset,
 		/// The collection max issuance is too high
 		InvalidMaxIssuance,
+		/// Redemption quantity must not be zero
+		InvalidQuantity,
 		/// The voucher claim could not be completed due to invalid voucher supply
 		VoucherClaimFailed,
 		/// The NFT collection max issuance is not set
@@ -684,6 +686,7 @@ pub mod pallet {
 			quantity: TokenCount,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(quantity > 0, Error::<T>::InvalidQuantity);
 
 			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
 				let sale_info = sale_info.as_mut().ok_or(Error::<T>::CrowdsaleNotFound)?;
@@ -707,7 +710,7 @@ pub mod pallet {
 
 				// mint the NFT(s) to the user
 				T::NFTExt::do_mint(
-					T::PalletId::get().into_account_truncating(),
+					sale_info.vault.clone(),
 					sale_info.reward_collection_id,
 					quantity,
 					Some(who.clone()),
