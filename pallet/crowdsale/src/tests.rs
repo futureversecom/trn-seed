@@ -2442,6 +2442,9 @@ mod automatic_distribution {
 			// Distribute the next half
 			assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
 
+			// SaleParticipation should be empty
+			assert_eq!(SaleParticipation::<Test>::iter_prefix(sale_id).count(), 0);
+
 			let mut total_distributed = 0;
 			// Check status of each individual account
 			for (account, amount) in accounts.into_iter() {
@@ -2464,9 +2467,6 @@ mod automatic_distribution {
 				AssetsExt::total_issuance(voucher_asset_id),
 				add_decimals(max_issuance, VOUCHER_DECIMALS)
 			);
-
-			// SaleParticipation should be empty
-			assert_eq!(SaleParticipation::<Test>::iter_prefix(sale_id).count(), 0);
 
 			// Sales status should be ended as we have paid out all accounts
 			let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
