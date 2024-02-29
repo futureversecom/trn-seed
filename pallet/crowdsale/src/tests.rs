@@ -2541,6 +2541,10 @@ mod automatic_distribution {
 			// redeemed)
 			assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
 
+			// Assert account has the same balance since it manually redeemed
+			let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+			assert_eq!(voucher_balance, expected_balance);
+
 			let mut total_distributed = 0;
 			// Check status of each individual account
 			for (account, amount) in accounts.into_iter() {
