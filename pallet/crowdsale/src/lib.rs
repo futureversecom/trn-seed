@@ -562,7 +562,7 @@ pub mod pallet {
 			}
 
 			let block_number = <frame_system::Pallet<T>>::block_number();
-			if payout_complete {
+			if payout_complete || SaleParticipation::<T>::iter_prefix(sale_id).next().is_none() {
 				// Distribution complete
 				sale_info.status = SaleStatus::Ended(block_number, vouchers_distributed);
 				Self::deposit_event(Event::CrowdsaleDistributionComplete {
@@ -582,6 +582,7 @@ pub mod pallet {
 
 			let next_unsigned_at = block_number + T::UnsignedInterval::get();
 			<NextUnsignedAt<T>>::put(next_unsigned_at);
+			SaleInfo::<T>::insert(sale_id, sale_info);
 			Ok(())
 		}
 
