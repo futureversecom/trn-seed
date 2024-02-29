@@ -2439,6 +2439,10 @@ mod automatic_distribution {
 				total_contributors as usize / 2
 			);
 
+			// Sales status should be ended as we have paid out all accounts
+			let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+			assert!(matches!(sale_info.status, SaleStatus::Distributing(_, _, _)));
+
 			// Distribute the next half
 			assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
 
