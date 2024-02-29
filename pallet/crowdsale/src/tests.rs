@@ -1933,7 +1933,7 @@ mod redeem_voucher {
 				// Redeem voucher
 				assert_ok!(Crowdsale::redeem_voucher(Some(bob()).into(), sale_id, quantity as u32));
 
-				// Check voucher burned but remainder is kept
+				// Check voucher burned and no remainder
 				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
 				assert_eq!(voucher_balance, 500_000);
 
