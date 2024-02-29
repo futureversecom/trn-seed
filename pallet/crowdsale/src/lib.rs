@@ -549,6 +549,12 @@ pub mod pallet {
 					continue;
 				};
 
+				Self::deposit_event(Event::CrowdsaleVouchersClaimed {
+					sale_id,
+					who,
+					amount: claimable_vouchers,
+				});
+
 				vouchers_distributed = vouchers_distributed.saturating_add(claimable_vouchers);
 				total_paid_contributions = total_paid_contributions.saturating_add(contribution);
 			}
@@ -629,14 +635,12 @@ pub mod pallet {
 					Error::<T>::VoucherClaimFailed
 				})?;
 
-				let voucher_max_supply: Balance = (voucher_max_supply as u128)
-					.saturating_mul(10u128.pow(VOUCHER_DECIMALS as u32));
 				let block_number = <frame_system::Pallet<T>>::block_number();
 				let vouchers_distributed = vouchers_distributed.saturating_add(claimable_vouchers);
-
-				if vouchers_distributed >= voucher_max_supply {
+				// Check if we have any more payments to make
+				if SaleParticipation::<T>::iter_prefix(sale_id).next().is_none() {
 					// Distribution complete
-					sale_info.status = SaleStatus::Ended(block_number, voucher_max_supply);
+					sale_info.status = SaleStatus::Ended(block_number, vouchers_distributed);
 					Self::deposit_event(Event::CrowdsaleDistributionComplete {
 						sale_id,
 						vouchers_distributed,
@@ -649,6 +653,12 @@ pub mod pallet {
 						vouchers_distributed,
 					);
 				}
+
+				Self::deposit_event(Event::CrowdsaleVouchersClaimed {
+					sale_id,
+					who,
+					amount: claimable_vouchers,
+				});
 
 				Ok(())
 			})?;
