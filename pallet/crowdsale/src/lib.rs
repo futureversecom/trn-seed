@@ -235,7 +235,7 @@ pub mod pallet {
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			match Self::close_sales_at(now) {
 				Ok(total_closed) =>
-					log!(info, "✅ closed {} sales at block {:?}", total_closed, now),
+					log!(debug, "✅ closed {} sales at block {:?}", total_closed, now),
 				Err(e) => log!(error, "⛔️ failed to close sales at block {:?}: {:?}", now, e),
 			};
 			// TODO Benchmark this
