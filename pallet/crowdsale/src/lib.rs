@@ -522,12 +522,7 @@ pub mod pallet {
 			let mut payout_complete: bool = false;
 
 			for _ in 0..T::MaxPaymentsPerBlock::get() {
-				// Note. There is a very small chance that this payout_complete check will not
-				// execute on the last iteration, this is because the for loop may end before
-				// it realizes it is the last item in the iterator. Due to the iterator being
-				// a drain_prefix, it is safest to ignore this and end the distribution
-				// the next time this function is called
-				// The chance of this happening is 1 / MaxPaymentsPerBlock
+				// End early if we have no more contributions to payout
 				let Some((who, contribution)) = contributions_iterator.next() else {
 					payout_complete = true;
 					break;
