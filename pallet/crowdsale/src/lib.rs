@@ -209,6 +209,10 @@ pub mod pallet {
 		InvalidAsset,
 		/// The collection max issuance is too high
 		InvalidMaxIssuance,
+		/// The amount must not be zero
+		InvalidAmount,
+		/// Redemption quantity must not be zero
+		InvalidQuantity,
 		/// The voucher claim could not be completed due to invalid voucher supply
 		VoucherClaimFailed,
 		/// The NFT collection max issuance is not set
@@ -441,6 +445,7 @@ pub mod pallet {
 			amount: Balance,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(amount > 0, Error::<T>::InvalidAmount);
 
 			// update the sale status if the start block is met
 			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
@@ -520,12 +525,7 @@ pub mod pallet {
 			let mut payout_complete: bool = false;
 
 			for _ in 0..T::MaxPaymentsPerBlock::get() {
-				// Note. There is a very small chance that this payout_complete check will not
-				// execute on the last iteration, this is because the for loop may end before
-				// it realizes it is the last item in the iterator. Due to the iterator being
-				// a drain_prefix, it is safest to ignore this and end the distribution
-				// the next time this function is called
-				// The chance of this happening is 1 / MaxPaymentsPerBlock
+				// End early if we have no more contributions to payout
 				let Some((who, contribution)) = contributions_iterator.next() else {
 					payout_complete = true;
 					break;
@@ -549,12 +549,18 @@ pub mod pallet {
 					continue;
 				};
 
+				Self::deposit_event(Event::CrowdsaleVouchersClaimed {
+					sale_id,
+					who,
+					amount: claimable_vouchers,
+				});
+
 				vouchers_distributed = vouchers_distributed.saturating_add(claimable_vouchers);
 				total_paid_contributions = total_paid_contributions.saturating_add(contribution);
 			}
 
 			let block_number = <frame_system::Pallet<T>>::block_number();
-			if payout_complete {
+			if payout_complete || SaleParticipation::<T>::iter_prefix(sale_id).next().is_none() {
 				// Distribution complete
 				sale_info.status = SaleStatus::Ended(block_number, vouchers_distributed);
 				Self::deposit_event(Event::CrowdsaleDistributionComplete {
@@ -574,6 +580,7 @@ pub mod pallet {
 
 			let next_unsigned_at = block_number + T::UnsignedInterval::get();
 			<NextUnsignedAt<T>>::put(next_unsigned_at);
+			SaleInfo::<T>::insert(sale_id, sale_info);
 			Ok(())
 		}
 
@@ -629,14 +636,12 @@ pub mod pallet {
 					Error::<T>::VoucherClaimFailed
 				})?;
 
-				let voucher_max_supply: Balance = (voucher_max_supply as u128)
-					.saturating_mul(10u128.pow(VOUCHER_DECIMALS as u32));
 				let block_number = <frame_system::Pallet<T>>::block_number();
 				let vouchers_distributed = vouchers_distributed.saturating_add(claimable_vouchers);
-
-				if vouchers_distributed >= voucher_max_supply {
+				// Check if we have any more payments to make
+				if SaleParticipation::<T>::iter_prefix(sale_id).next().is_none() {
 					// Distribution complete
-					sale_info.status = SaleStatus::Ended(block_number, voucher_max_supply);
+					sale_info.status = SaleStatus::Ended(block_number, vouchers_distributed);
 					Self::deposit_event(Event::CrowdsaleDistributionComplete {
 						sale_id,
 						vouchers_distributed,
@@ -649,6 +654,12 @@ pub mod pallet {
 						vouchers_distributed,
 					);
 				}
+
+				Self::deposit_event(Event::CrowdsaleVouchersClaimed {
+					sale_id,
+					who,
+					amount: claimable_vouchers,
+				});
 
 				Ok(())
 			})?;
@@ -674,6 +685,7 @@ pub mod pallet {
 			quantity: TokenCount,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(quantity > 0, Error::<T>::InvalidQuantity);
 
 			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
 				let sale_info = sale_info.as_mut().ok_or(Error::<T>::CrowdsaleNotFound)?;
@@ -697,7 +709,7 @@ pub mod pallet {
 
 				// mint the NFT(s) to the user
 				T::NFTExt::do_mint(
-					T::PalletId::get().into_account_truncating(),
+					sale_info.vault.clone(),
 					sale_info.reward_collection_id,
 					quantity,
 					Some(who.clone()),

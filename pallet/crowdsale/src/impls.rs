@@ -11,10 +11,7 @@
 
 use crate::*;
 use alloc::format;
-use frame_support::{
-	sp_runtime::traits::{BlakeTwo256, Hash},
-	traits::fungibles::Inspect,
-};
+use frame_support::sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_core::U256;
 
 impl<T: Config> Pallet<T> {
