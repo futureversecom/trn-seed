@@ -209,6 +209,8 @@ pub mod pallet {
 		InvalidAsset,
 		/// The collection max issuance is too high
 		InvalidMaxIssuance,
+		/// The amount must not be zero
+		InvalidAmount,
 		/// Redemption quantity must not be zero
 		InvalidQuantity,
 		/// The voucher claim could not be completed due to invalid voucher supply
@@ -443,6 +445,7 @@ pub mod pallet {
 			amount: Balance,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(amount > 0, Error::<T>::InvalidAmount);
 
 			// update the sale status if the start block is met
 			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {

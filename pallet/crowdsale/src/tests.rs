@@ -1225,6 +1225,26 @@ mod participate {
 	}
 
 	#[test]
+	fn zero_participation_fails() {
+		let initial_balance = 1_000_000;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(bob(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				let (sale_id, _) = initialize_crowdsale(100);
+
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				let amount = 0;
+				assert_noop!(
+					Crowdsale::participate(Some(bob()).into(), sale_id, amount),
+					Error::<Test>::InvalidAmount
+				);
+			});
+	}
+
+	#[test]
 	fn insufficient_balance_fails() {
 		let initial_balance = 1_000_000;
 
