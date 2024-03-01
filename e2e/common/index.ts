@@ -1,6 +1,6 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, Keyring } from "@polkadot/api";
-import { SubmittableExtrinsic } from "@polkadot/api/types";
+import { SignerOptions, SubmittableExtrinsic } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
 import { BigNumber } from "ethers";
@@ -470,6 +470,11 @@ export const collectionIdToERC721Address = (collectionId: string | number): stri
   return web3.utils.toChecksumAddress(`0xAAAAAAAA${collection_id_hex}000000000000000000000000`);
 };
 
+  // Combine the nextId and parachainId into a single 32-bit value
+export const nftCollectionIdToCollectionUUID = (nextId: number | string): number => {
+  return (+nextId << 10) | 100; // parachainId = 100
+}
+
 /**
  * Fields of a Polkadotjs event to match on
  */
@@ -551,11 +556,17 @@ export const saveTxGas = (costs: { [key: string]: TxCosts }, filePath: string, h
   });
 };
 
-export const finalizeTx = (signer: KeyringPair, extrinsic: SubmittableExtrinsic<"promise">) => {
-  return new Promise<void>((resolve) => {
-    extrinsic.signAndSend(signer, ({ status }: any) => {
-      if (status.isInBlock) resolve();
-    });
+export const finalizeTx = (signer: KeyringPair, extrinsic: SubmittableExtrinsic<"promise">, opts?: Partial<SignerOptions>) => {
+  return new Promise<any[]>((resolve) => {
+    if (opts) {
+      extrinsic.signAndSend(signer, opts, ({ status, events = [] }: any) => {
+        if (status.isInBlock) resolve(events);
+      });
+    } else {
+      extrinsic.signAndSend(signer, ({ status, events = [] }: any) => {
+        if (status.isInBlock) resolve(events);
+      });
+    }
   });
 };
 
