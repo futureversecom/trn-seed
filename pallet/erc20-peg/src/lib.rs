@@ -126,6 +126,8 @@ decl_event! {
 		Erc20Deposit(AssetId, Balance, AccountId),
 		/// Tokens were burnt for withdrawal on Ethereum as ERC20s (asset, amount, beneficiary)
 		Erc20Withdraw(AssetId, Balance, EthAddress),
+		/// Tokens were burnt for withdrawal on Ethereum as ERC20s (asset, amount, source)
+		Erc20WithdrawSource(AssetId, Balance, AccountId),
 		/// A bridged erc20 deposit failed. (source address, abi data)
 		Erc20DepositFail(H160, Vec<u8>),
 		/// The peg contract address has been set
@@ -351,6 +353,11 @@ impl<T: Config> Module<T> {
 			// burn all other tokens
 			T::MultiCurrency::burn_from(asset_id, origin, amount)?;
 		}
+		Self::deposit_event(Event::<T>::Erc20WithdrawSource(
+			asset_id.clone(),
+			amount.saturated_into(),
+			origin.clone(),
+		));
 		Ok(())
 	}
 
