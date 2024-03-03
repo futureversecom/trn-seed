@@ -392,7 +392,117 @@ describe("Crowdsale pallet", () => {
   });
 
   it("crowdsale participation using fee-proxy", async () => {
+    const paymentAssetId = await getNextAssetId(api);
+
+    const participants = Array.from({ length: 5 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowsale participants (10)
+    const maxIssuance = 5; // create nft collection - total supply
+    const nextCollectionUuid = nftCollectionIdToCollectionUUID(await api.query.nft.nextCollectionId() as any);
+    const nextCrowdsaleId = +(await api.query.crowdsale.nextSaleId());
+
+    let txs = [
+      // create new token (crowdsale payment asset)
+      api.tx.assetsExt.createAsset("TOKEN3", "T3", 6, 1, alith.address),
+
+      // fund admin - 500 tokens (for dex liquidity - fee-proxy)
+      api.tx.assets.mint(paymentAssetId, alith.address, 500_000_000),
+
+      // add liquidity on dex by admin
+      api.tx.dex.addLiquidity( // 1:1 ratio TOKEN:XRP
+        paymentAssetId,
+        GAS_TOKEN_ID,
+        500_000_000,
+        500_000_000,
+        500_000_000,
+        500_000_000,
+        null,
+        null,
+      ),
+
+      // fund participants - 50 tokens per participant to participate
+      ...participants.map((user) => api.tx.assets.mint(paymentAssetId, user.address, 55_000_000)), // 50 tokens + 5 tokens for fee-proxy
+      // ...participants.map((user) => api.tx.assets.transfer(paymentAssetId, user.address, 50_000_000)),
+
+      // create nft collection
+      api.tx.nft.createCollection("test", 0, maxIssuance, null, "http://example.com", null, { xrpl: false }),
+
+      // initialize crowdsale as admin
+      api.tx.crowdsale.initialize(
+        paymentAssetId,
+        nextCollectionUuid,
+        50_000_000, // 50 root * 5 = 250 root
+        2, // 2 blocks ~ 8s
+      ),
+
+      // enable crowdsale as admin - will expire in 2 blocks
+      api.tx.crowdsale.enable(nextCrowdsaleId),
+    ];
+    await finalizeTx(alith, api.tx.utility.batch(txs));
+
+    let saleInfo: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
+    expect(saleInfo.status).to.haveOwnProperty("enabled");
+
+    // user participations in crowdsale - only using tokens (no XRP for gas)
+    await Promise.all(
+      participants.map((user) => {
+        const innerCall = api.tx.crowdsale.participate(nextCrowdsaleId, 50_000_000);
+        const extrinsic = api.tx.feeProxy.callWithFeePreferences(paymentAssetId, 1_000_000, innerCall)
+        return finalizeTx(user, extrinsic);
+      })
+    );
+
+    saleInfo = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
+    expect(saleInfo.fundsRaised).to.equal(250_000_000); // 5 participants * 50_000_000 tokens each
+
+    // wait for sale to reach end block, automatically distribute vouchers, end sale
+    await new Promise<void>((resolve) => setInterval(async () => {
+      const saleStatus: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
+      if (saleStatus?.status?.ended) resolve();
+    }, 500));
+
+    // assert all participants have vouchers
+    const userVoucherBalances = await Promise.all(
+      participants.map(async (user) => ((await api.query.assets.account(saleInfo.voucherAssetId, user.address)).toJSON() as any)?.balance ?? 0)
+    );
+    expect(userVoucherBalances).to.deep.equal(Array(participants.length).fill(1_000_000));
+
+    // participant can redeem 1 NFT (price of each NFT is 1_000_000 vouchers)
+    const rEvents = await finalizeTx(participants[0], api.tx.feeProxy.callWithFeePreferences(paymentAssetId, 1_000_000, api.tx.crowdsale.redeemVoucher(nextCrowdsaleId, 1)));
+    // rEvents.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+
+    // dex     Swap    ["0xDfB74294612e56D1198a63F2621DF68c65B06Fa6",[45156,2],323444,320011,"0xDfB74294612e56D1198a63F2621DF68c65B06Fa6"]
+    expect(rEvents[3].event.section).to.equal("dex");
+    expect(rEvents[3].event.method).to.equal("Swap");
+    expect(rEvents[3].event.data[0].toString()).to.equal(participants[0].address);
+    expect(rEvents[3].event.data[1][0]).to.equal(paymentAssetId);
+    expect(rEvents[3].event.data[1][1]).to.equal(GAS_TOKEN_ID);
     
+    // assets  Burned  [47204,"0xDfB74294612e56D1198a63F2621DF68c65B06Fa6",1000000]
+    expect(rEvents[5].event.section).to.equal("assets");
+    expect(rEvents[5].event.method).to.equal("Burned");
+    expect(rEvents[5].event.data[0]).to.equal(saleInfo.voucherAssetId);
+    expect(rEvents[5].event.data[1].toString()).to.equal(participants[0].address);
+    expect(rEvents[5].event.data[2]).to.equal(1_000_000); // 1 voucher
+
+    // nft     Mint    [22628,0,0,"0xDfB74294612e56D1198a63F2621DF68c65B06Fa6"]
+    expect(rEvents[6].event.section).to.equal("nft");
+    expect(rEvents[6].event.method).to.equal("Mint");
+    expect(rEvents[6].event.data[0]).to.equal(nextCollectionUuid);
+    expect(rEvents[6].event.data[3].toString()).to.equal(participants[0].address);
+
+    // crowdsale       CrowdsaleNFTRedeemed    [21,"0xDfB74294612e56D1198a63F2621DF68c65B06Fa6",22628,1]
+    expect(rEvents[7].event.section).to.equal("crowdsale");
+    expect(rEvents[7].event.method).to.equal("CrowdsaleNFTRedeemed");
+    expect(rEvents[7].event.data[0]).to.equal(nextCrowdsaleId);
+    expect(rEvents[7].event.data[1].toString()).to.equal(participants[0].address);
+    expect(rEvents[7].event.data[2]).to.equal(nextCollectionUuid);
+    expect(rEvents[7].event.data[3]).to.equal(1); // qty redeemed
+
+    // feeProxy        CallWithFeePreferences  ["0xDfB74294612e56D1198a63F2621DF68c65B06Fa6",45156,1000000]
+    expect(rEvents[8].event.section).to.equal("feeProxy");
+    expect(rEvents[8].event.method).to.equal("CallWithFeePreferences");
+    expect(rEvents[8].event.data[0].toString()).to.equal(participants[0].address);
+    expect(rEvents[8].event.data[1]).to.equal(paymentAssetId);
+    expect(rEvents[8].event.data[2]).to.equal(1_000_000); // 1 voucher
   });
 
   it("crowdsale participation using futurepass proxy-extrinsic", async () => {
