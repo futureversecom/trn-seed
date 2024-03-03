@@ -217,20 +217,23 @@ describe("Crowdsale pallet", () => {
       api.tx.crowdsale.enable(nextCrowdsaleId),
     ];
 
-    // const extrinsics = await Promise.all([
-    //   // crowdsale setup
-    //   finalizeTx(alith, api.tx.utility.batch(txs), { tip: 5000 }),
-
-    //   // user participations
-    //   // finalizeTx(participants[0], api.tx.crowdsale.participate(nextCrowdsaleId, 50_000_000), { tip: 1000 }),
-    //   // ...participants.map((user) => finalizeTx(user, api.tx.crowdsale.participate(nextCrowdsaleId, 50_000_000), { tip: 1000 })),
-    // ]);
-    // extrinsics.forEach((events) => events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`)));
-
     const events = await finalizeTx(alith, api.tx.utility.batch(txs));
     // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
 
-    // TODO: assert events
+    // crowdsale       CrowdsaleCreated        [10,{"status":{"pending":200},"admin":"0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac","vault":"0x224814c8cf1e0dA5618Df8870F8c9F5700820a5E","paymentAssetId":21604,"rewardCollectionId":11364,"softCapPrice":50000000,"fundsRaised":0,"voucherAssetId":22628,"duration":2}]
+    expect(events[events.length-8].event.section).to.equal("crowdsale");
+    expect(events[events.length-8].event.method).to.equal("CrowdsaleCreated");
+    expect(events[events.length-8].event.data[0]).to.equal(nextCrowdsaleId);
+    expect(events[events.length-8].event.data[1].toJSON().status).to.haveOwnProperty("pending");
+    expect(events[events.length-8].event.data[1].toJSON().admin).to.equal(alith.address);
+    expect(events[events.length-8].event.data[1].toJSON().paymentAssetId).to.equal(paymentAssetId);
+
+    // crowdsale       CrowdsaleEnabled        [10,{"status":{"enabled":200},"admin":"0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac","vault":"0x224814c8cf1e0dA5618Df8870F8c9F5700820a5E","paymentAssetId":21604,"rewardCollectionId":11364,"softCapPrice":50000000,"fundsRaised":0,"voucherAssetId":22628,"duration":2},202]
+    expect(events[events.length-6].event.section).to.equal("crowdsale");
+    expect(events[events.length-6].event.method).to.equal("CrowdsaleEnabled");
+    expect(events[events.length-6].event.data[0]).to.equal(nextCrowdsaleId);
+    expect(events[events.length-6].event.data[1].toJSON().status).to.haveOwnProperty("enabled");
+    expect(events[events.length-6].event.data[1].toJSON().admin).to.equal(alith.address);
 
     let saleInfo: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
     expect(saleInfo.status).to.haveOwnProperty("enabled");
@@ -273,22 +276,6 @@ describe("Crowdsale pallet", () => {
       const saleStatus: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
       if (saleStatus?.status?.ended) resolve();
     }, 500));
-
-    // // participants manually claim vouchers
-    // const claimEvents = await Promise.all(
-    //   participants.map((user) => finalizeTx(user, api.tx.crowdsale.claimVoucher(nextCrowdsaleId)))
-    // );
-    // claimEvents.forEach((cEvents, index) => {
-    //   console.log("---------------")
-    //   cEvents.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`))
-
-    //   // crowdsale       CrowdsaleVouchersClaimed        [42,"0x69aC6Da40afD256B96356c220F3B04E4246a4423",500_000]
-    //   expect(cEvents[2].event.section).to.equal("crowdsale");
-    //   expect(cEvents[2].event.method).to.equal("CrowdsaleVouchersClaimed");
-    //   expect(cEvents[2].event.data[0]).to.equal(nextCrowdsaleId);
-    //   expect(cEvents[2].event.data[1].toString()).to.equal(participants[index].address);
-    //   expect(cEvents[2].event.data[2]).to.equal(500_000); // 0.5 vouchers
-    // });
 
     // assert all participants have vouchers
     const userVoucherBalances = await Promise.all(
