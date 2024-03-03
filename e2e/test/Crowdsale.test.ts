@@ -314,9 +314,81 @@ describe("Crowdsale pallet", () => {
     expect(rEvents[3].event.data[3]).to.equal(1); // qty redeemed
   });
 
-  // TODO: create 18 decimals token instead
   it("undersubscribed crowdsale", async () => {
-    
+    const paymentAssetId = await getNextAssetId(api);
+
+    const participants = Array.from({ length: 2 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowsale participants (10)
+    const maxIssuance = 5; // create nft collection - total supply
+    const nextCollectionUuid = nftCollectionIdToCollectionUUID(await api.query.nft.nextCollectionId() as any);
+    const nextCrowdsaleId = +(await api.query.crowdsale.nextSaleId());
+
+    let txs = [
+      // create new token (crowdsale payment asset)
+      api.tx.assetsExt.createAsset("TOKEN2", "T2", 18, 1, alith.address),
+
+      // fund participants - 50 tokens per participant to participate
+      ...participants.map((user) => api.tx.assets.mint(paymentAssetId, user.address, 50_000_000)),
+      // ...participants.map((user) => api.tx.assets.transfer(paymentAssetId, user.address, 50_000_000)),
+
+      // fund participants - 2 XRP (GAS) per participant
+      ...participants.map((user) => api.tx.assets.mint(GAS_TOKEN_ID, user.address, 2_000_000)),
+
+      // create nft collection
+      api.tx.nft.createCollection("test", 0, maxIssuance, null, "http://example.com", null, { xrpl: false }),
+
+      // initialize crowdsale as admin
+      api.tx.crowdsale.initialize(
+        paymentAssetId,
+        nextCollectionUuid,
+        50_000_000, // 50 root * 5 = 250 root
+        2, // 2 blocks ~ 8s
+      ),
+
+      // enable crowdsale as admin - will expire in 2 blocks
+      api.tx.crowdsale.enable(nextCrowdsaleId),
+    ];
+    await finalizeTx(alith, api.tx.utility.batch(txs));
+
+    let saleInfo: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
+    expect(saleInfo.status).to.haveOwnProperty("enabled");
+
+    // user participations in crowdsale - with all root tokens
+    await Promise.all(
+      participants.map((user) => finalizeTx(user, api.tx.crowdsale.participate(nextCrowdsaleId, 50_000_000)))
+    );
+
+    // assert all participants token balances are 0
+    const userTokenBalances = await Promise.all(
+      participants.map(async (user) => ((await api.query.assets.account(paymentAssetId, user.address)).toJSON() as any)?.balance ?? 0)
+    );
+    expect(userTokenBalances).to.deep.equal(Array(participants.length).fill(0));
+
+    saleInfo = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
+    expect(saleInfo.fundsRaised).to.equal(100_000_000); // 2 participants * 50_000_000 tokens each
+
+    // wait for sale to reach end block, automatically distribute vouchers, end sale
+    await new Promise<void>((resolve) => setInterval(async () => {
+      const saleStatus: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
+      if (saleStatus?.status?.ended) resolve();
+    }, 500));
+
+    // assert all participants have vouchers
+    const userVoucherBalances = await Promise.all(
+      participants.map(async (user) => ((await api.query.assets.account(saleInfo.voucherAssetId, user.address)).toJSON() as any)?.balance ?? 0)
+    );
+    expect(userVoucherBalances).to.deep.equal(Array(participants.length).fill(1_000_000));
+
+    // participant can redeem 1 NFT (price of each NFT is 1_000_000 vouchers)
+    const rEvents = await finalizeTx(participants[0], api.tx.crowdsale.redeemVoucher(nextCrowdsaleId, 1));
+    // rEvents.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+
+    expect(rEvents[2].event.section).to.equal("nft");
+    expect(rEvents[2].event.method).to.equal("Mint");
+    expect(rEvents[3].event.section).to.equal("crowdsale");
+    expect(rEvents[3].event.method).to.equal("CrowdsaleNFTRedeemed");
+    expect(rEvents[3].event.data[0]).to.equal(nextCrowdsaleId);
+    expect(rEvents[3].event.data[1].toString()).to.equal(participants[0].address);
+    expect(rEvents[3].event.data[3]).to.equal(1); // qty redeemed
   });
 
   it("crowdsale participation using fee-proxy", async () => {
