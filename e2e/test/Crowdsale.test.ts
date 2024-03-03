@@ -181,7 +181,7 @@ describe("Crowdsale pallet", () => {
     expect(rEvents[3].event.data[3]).to.equal(1); // qty redeemed
   });
 
-  it.only("oversubscribed crowdsale", async () => {
+  it("oversubscribed crowdsale", async () => {
     // crowdsale vars
 
     const paymentAssetId = await getNextAssetId(api);
