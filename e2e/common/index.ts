@@ -470,9 +470,16 @@ export const collectionIdToERC721Address = (collectionId: string | number): stri
   return web3.utils.toChecksumAddress(`0xAAAAAAAA${collection_id_hex}000000000000000000000000`);
 };
 
-  // Combine the nextId and parachainId into a single 32-bit value
+// Combine the nextId and parachainId into a single 32-bit value
 export const nftCollectionIdToCollectionUUID = (nextId: number | string): number => {
   return (+nextId << 10) | 100; // parachainId = 100
+}
+
+// Generate futurepass address given next futurepass id
+export const futurepassAddress = (nextId: number | string): string => {
+  // address prefix: 0xFFFFFFFF + 32 byte hex
+  const fpIdHex = (+nextId).toString(16).padStart(32, "0");
+  return web3.utils.toChecksumAddress(`0xFFFFFFFF${fpIdHex}`);
 }
 
 /**
