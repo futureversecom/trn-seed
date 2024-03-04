@@ -677,23 +677,147 @@ describe("Crowdsale pallet", () => {
   });
 
   it("multiple crowdsales", async () => {
-    // initialize 2 crowdsales from 2 different accounts - using same payment asset
-    // start and end at the same time
-    // enable crowdsales
+    // initialize 2 crowdsales from 2 different accounts - using different payment assets
+    const participants = Array.from({ length: 2 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowdsale participants (10)
+    const maxIssuance = 5; // create nft collection - total supply
 
-    // participate in crowdsale 1 as user (eoa, futurepass, feeproxy futurepass)
-    // participate in crowdsale 2 as user (eoa, futurepass, feeproxy futurepass)
+    const paymentAssetId1 = await getNextAssetId(api);
+    const nextCollectionUuid1 = nftCollectionIdToCollectionUUID(await api.query.nft.nextCollectionId() as any);
+    const nextCrowdsaleId1 = +(await api.query.crowdsale.nextSaleId());
 
-    // claim vouchers
-    // redeem NFTs
+    // nextAssetId + 2 since voucher asset gets created from from 1st crowdsale too
+    const paymentAssetId2 = await getNextAssetId(api, +(await api.query.assetsExt.nextAssetId()).toPrimitive()! + 2);
+    const nextCollectionUuid2 = nftCollectionIdToCollectionUUID(+(await api.query.nft.nextCollectionId()).toPrimitive()! + 1);
+    const nextCrowdsaleId2 = +(await api.query.crowdsale.nextSaleId()) + 1;
+
+    const txs = [
+      // fund participants - 2 XRP (GAS) per participant
+      ...participants.map((user) => api.tx.assets.mint(GAS_TOKEN_ID, user.address, 10_000_000)),
+    ]
+    const txsSale1 = [
+      // create new token (crowdsale payment asset)
+      api.tx.assetsExt.createAsset("TOKEN1", "T1", 6, 1, alith.address),
+
+      // fund participants - 50 tokens per participant to participate
+      ...participants.map((user) => api.tx.assets.mint(paymentAssetId1, user.address, 50_000_000)),
+
+      // create nft collection
+      api.tx.nft.createCollection("test-1", 0, maxIssuance, null, "http://example.com/1", null, { xrpl: false }),
+
+      // initialize crowdsale as admin
+      api.tx.crowdsale.initialize(
+        paymentAssetId1,
+        nextCollectionUuid1,
+        50_000_000, // 50 root * 5 = 250 root
+        3, // 3 blocks ~ 12s
+      ),
+
+      // enable crowdsale as admin - will expire in 2 blocks
+      api.tx.crowdsale.enable(nextCrowdsaleId1),
+    ];
+    const txsSale2 = [
+      // create new token (crowdsale payment asset)
+      api.tx.assetsExt.createAsset("TOKEN2", "T2", 6, 1, alith.address),
+
+      // fund participants - 50 tokens per participant to participate
+      ...participants.map((user) => api.tx.assets.mint(paymentAssetId2, user.address, 50_000_000)),
+
+      // create nft collection
+      api.tx.nft.createCollection("test-2", 0, maxIssuance, null, "http://example.com/2", null, { xrpl: false }),
+
+      // initialize crowdsale as admin
+      api.tx.crowdsale.initialize(
+        paymentAssetId2,
+        nextCollectionUuid2,
+        50_000_000, // 50 root * 5 = 250 root
+        3, // 3 blocks ~ 12s
+      ),
+
+      // enable crowdsale as admin - will expire in 2 blocks
+      api.tx.crowdsale.enable(nextCrowdsaleId2),
+    ];
+    await finalizeTx(alith, api.tx.utility.batch([...txs, ...txsSale1, ...txsSale2]));
+
+    let saleInfo1: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId1)).toJSON();
+    expect(saleInfo1.status).to.haveOwnProperty("enabled");
+
+    let saleInfo2: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId2)).toJSON();
+    expect(saleInfo2.status).to.haveOwnProperty("enabled");
+
+    // user participates in crowdsale 1 - with all tokens
+    await Promise.all(
+      participants.map((user) => finalizeTx(user, api.tx.crowdsale.participate(nextCrowdsaleId1, 50_000_000)))
+    );
+
+    // user participates in crowdsale 2 - with all tokens
+    await Promise.all(
+      participants.map((user) => finalizeTx(user, api.tx.crowdsale.participate(nextCrowdsaleId2, 50_000_000)))
+    );
+
+    // assert all participants token 1 balances are 0
+    const userTokenBalances = await Promise.all(
+      participants.map(async (user) => ((await api.query.assets.account(paymentAssetId1, user.address)).toJSON() as any)?.balance ?? 0)
+    );
+    expect(userTokenBalances).to.deep.equal(Array(participants.length).fill(0));
+
+    // assert all participants token 2 balances are 0
+    const userTokenBalances2 = await Promise.all(
+      participants.map(async (user) => ((await api.query.assets.account(paymentAssetId2, user.address)).toJSON() as any)?.balance ?? 0)
+    );
+    expect(userTokenBalances2).to.deep.equal(Array(participants.length).fill(0));
+
+    saleInfo1 = (await api.query.crowdsale.saleInfo(nextCrowdsaleId1)).toJSON();
+    expect(saleInfo1.fundsRaised).to.equal(100_000_000); // 2 participants * 50_000_000 tokens 1 each
+
+    saleInfo2 = (await api.query.crowdsale.saleInfo(nextCrowdsaleId2)).toJSON();
+    expect(saleInfo2.fundsRaised).to.equal(100_000_000); // 2 participants * 50_000_000 tokens 2 each
+
+    // wait for sale1 to reach end block, automatically distribute vouchers, end sale
+    await new Promise<void>((resolve) => setInterval(async () => {
+      const saleStatus: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId1)).toJSON();
+      if (saleStatus?.status?.ended) resolve();
+    }, 500));
+
+    // wait for sale2 to reach end block, automatically distribute vouchers, end sale
+    await new Promise<void>((resolve) => setInterval(async () => {
+      const saleStatus: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId2)).toJSON();
+      if (saleStatus?.status?.ended) resolve();
+    }, 500));
+
+    // assert all participants have vouchers for sale 1
+    const userVoucherBalances = await Promise.all(
+      participants.map(async (user) => ((await api.query.assets.account(saleInfo1.voucherAssetId, user.address)).toJSON() as any)?.balance ?? 0)
+    );
+    expect(userVoucherBalances).to.deep.equal(Array(participants.length).fill(1_000_000));
+
+    // assert all participants have vouchers for sale 2
+    const userVoucherBalances2 = await Promise.all(
+      participants.map(async (user) => ((await api.query.assets.account(saleInfo2.voucherAssetId, user.address)).toJSON() as any)?.balance ?? 0)
+    );
+    expect(userVoucherBalances2).to.deep.equal(Array(participants.length).fill(1_000_000));
+
+    // participant can redeem 1 NFT (price of each NFT is 1_000_000 vouchers)
+    const rEvents1 = await finalizeTx(participants[0], api.tx.crowdsale.redeemVoucher(nextCrowdsaleId1, 1));
+    // rEvents1.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+
+    expect(rEvents1[2].event.section).to.equal("nft");
+    expect(rEvents1[2].event.method).to.equal("Mint");
+    expect(rEvents1[3].event.section).to.equal("crowdsale");
+    expect(rEvents1[3].event.method).to.equal("CrowdsaleNFTRedeemed");
+    expect(rEvents1[3].event.data[0]).to.equal(nextCrowdsaleId1);
+    expect(rEvents1[3].event.data[1].toString()).to.equal(participants[0].address);
+    expect(rEvents1[3].event.data[3]).to.equal(1); // qty redeemed
+
+    // participant can redeem 1 NFT (price of each NFT is 1_000_000 vouchers)
+    const rEvents2 = await finalizeTx(participants[0], api.tx.crowdsale.redeemVoucher(nextCrowdsaleId2, 1));
+    // rEvents2.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+
+    expect(rEvents2[2].event.section).to.equal("nft");
+    expect(rEvents2[2].event.method).to.equal("Mint");
+    expect(rEvents2[3].event.section).to.equal("crowdsale");
+    expect(rEvents2[3].event.method).to.equal("CrowdsaleNFTRedeemed");
+    expect(rEvents2[3].event.data[0]).to.equal(nextCrowdsaleId2);
+    expect(rEvents2[3].event.data[1].toString()).to.equal(participants[0].address);
+    expect(rEvents2[3].event.data[3]).to.equal(1); // qty redeemed
   });
-
-  it("benchmark crowdsale with 10,000 participants", async () => {
-    // initialize crowdsale as admin
-    // enable crowdsale
-    // participate in crowdsale as user (eoa, futurepass, feeproxy futurepass)
-    // claim vouchers
-    // redeem NFTs
-  });
-
 });
