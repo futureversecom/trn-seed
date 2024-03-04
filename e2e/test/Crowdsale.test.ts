@@ -3,13 +3,9 @@ import type { KeyringPair } from "@polkadot/keyring/types";
 import { DispatchError } from "@polkadot/types/interfaces";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { blake256 } from "codechain-primitives";
-import { BigNumber, Wallet } from "ethers";
-import { computePublicKey } from "ethers/lib/utils";
-import { encode, encodeForSigning } from "ripple-binary-codec";
-import { deriveAddress, sign } from "ripple-keypairs";
+import { Wallet } from "ethers";
 
-import { ALITH_PRIVATE_KEY, GAS_TOKEN_ID, NATIVE_TOKEN_ID, NodeProcess, finalizeTx, getNextAssetId, nftCollectionIdToCollectionUUID, startNode, stringToHex, typedefs } from "../common";
+import { ALITH_PRIVATE_KEY, GAS_TOKEN_ID, NATIVE_TOKEN_ID, NodeProcess, finalizeTx, futurepassAddress, getNextAssetId, nftCollectionIdToCollectionUUID, startNode, typedefs } from "../common";
 
 describe("Crowdsale pallet", () => {
   let node: NodeProcess;
@@ -33,15 +29,19 @@ describe("Crowdsale pallet", () => {
   });
 
   it("distribute crowdsale rewards cannot be called manually", async () => {
-    // TODO:
-
-    // try send
-
-    // try signAndSend
+    // validate signer cannot manually call distributeCrowdsaleRewards
+    const dispatchError = await new Promise<DispatchError>((resolve, reject) => {
+      api.tx.crowdsale
+        .distributeCrowdsaleRewards()
+        .signAndSend(alith, ({ status, dispatchError }) => {
+          if (!status.isFinalized) return;
+          if (dispatchError === undefined) return;
+          resolve(dispatchError);
+        })
+        .catch((err) => reject(err));
+    });
+    expect(dispatchError.isBadOrigin).to.be.true;
   });
-
-  // TODO: use native token (ROOT) instead of creating new token
-  it.skip("oversubscribed crowdsale - ROOT", async () => {
     // crowdsale vars
 
     const paymentAssetId = await getNextAssetId(api);
