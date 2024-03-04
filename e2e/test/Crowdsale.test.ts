@@ -140,7 +140,6 @@ describe("Crowdsale pallet", () => {
 
       // fund participants - 50 tokens per participant to participate
       ...participants.map((user) => api.tx.assets.mint(paymentAssetId, user.address, 50_000_000)),
-      // ...participants.map((user) => api.tx.assets.transfer(paymentAssetId, user.address, 50_000_000)),
 
       // fund participants - 2 XRP (GAS) per participant
       ...participants.map((user) => api.tx.assets.mint(GAS_TOKEN_ID, user.address, 2_000_000)),
@@ -271,7 +270,6 @@ describe("Crowdsale pallet", () => {
 
       // fund participants - 50 tokens per participant to participate
       ...participants.map((user) => api.tx.assets.mint(paymentAssetId, user.address, 50_000_000)),
-      // ...participants.map((user) => api.tx.assets.transfer(paymentAssetId, user.address, 50_000_000)),
 
       // fund participants - 2 XRP (GAS) per participant
       ...participants.map((user) => api.tx.assets.mint(GAS_TOKEN_ID, user.address, 2_000_000)),
@@ -363,7 +361,6 @@ describe("Crowdsale pallet", () => {
 
       // fund participants - 50 tokens per participant to participate
       ...participants.map((user) => api.tx.assets.mint(paymentAssetId, user.address, 55_000_000)), // 50 tokens + 5 tokens for fee-proxy
-      // ...participants.map((user) => api.tx.assets.transfer(paymentAssetId, user.address, 50_000_000)),
 
       // create nft collection
       api.tx.nft.createCollection("test", 0, maxIssuance, null, "http://example.com", null, { xrpl: false }),
