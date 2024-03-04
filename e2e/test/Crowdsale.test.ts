@@ -45,7 +45,7 @@ describe("Crowdsale pallet", () => {
 
   it("crowdsale - ROOT", async () => {
     // crowdsale vars
-    const participants = Array.from({ length: 5 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowsale participants (10)
+    const participants = Array.from({ length: 5 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowdsale participants (10)
     const maxIssuance = 5; // create nft collection - total supply
     const nextCollectionUuid = nftCollectionIdToCollectionUUID(await api.query.nft.nextCollectionId() as any);
     const nextCrowdsaleId = +(await api.query.crowdsale.nextSaleId());
@@ -135,7 +135,7 @@ describe("Crowdsale pallet", () => {
 
     const paymentAssetId = await getNextAssetId(api);
 
-    const participants = Array.from({ length: 10 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowsale participants (10)
+    const participants = Array.from({ length: 10 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowdsale participants (10)
     const maxIssuance = 5; // create nft collection - total supply
     const nextCollectionUuid = nftCollectionIdToCollectionUUID(await api.query.nft.nextCollectionId() as any);
     const nextCrowdsaleId = +(await api.query.crowdsale.nextSaleId());
@@ -266,7 +266,7 @@ describe("Crowdsale pallet", () => {
   it("undersubscribed crowdsale", async () => {
     const paymentAssetId = await getNextAssetId(api);
 
-    const participants = Array.from({ length: 2 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowsale participants (10)
+    const participants = Array.from({ length: 2 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowdsale participants (10)
     const maxIssuance = 5; // create nft collection - total supply
     const nextCollectionUuid = nftCollectionIdToCollectionUUID(await api.query.nft.nextCollectionId() as any);
     const nextCrowdsaleId = +(await api.query.crowdsale.nextSaleId());
@@ -343,7 +343,7 @@ describe("Crowdsale pallet", () => {
   it("crowdsale participation using fee-proxy", async () => {
     const paymentAssetId = await getNextAssetId(api);
 
-    const participants = Array.from({ length: 5 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowsale participants (10)
+    const participants = Array.from({ length: 5 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowdsale participants (10)
     const maxIssuance = 5; // create nft collection - total supply
     const nextCollectionUuid = nftCollectionIdToCollectionUUID(await api.query.nft.nextCollectionId() as any);
     const nextCrowdsaleId = +(await api.query.crowdsale.nextSaleId());
@@ -457,7 +457,7 @@ describe("Crowdsale pallet", () => {
   it("crowdsale participation using futurepass proxy-extrinsic", async () => {
     const paymentAssetId = await getNextAssetId(api);
 
-    const participants = Array.from({ length: 5 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowsale participants (10)
+    const participants = Array.from({ length: 5 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowdsale participants (10)
     const maxIssuance = 5; // create nft collection - total supply
     const nextCollectionUuid = nftCollectionIdToCollectionUUID(await api.query.nft.nextCollectionId() as any);
     const nextCrowdsaleId = +(await api.query.crowdsale.nextSaleId());
@@ -552,7 +552,7 @@ describe("Crowdsale pallet", () => {
   it("crowdsale participation using fee-proxy & futurepass proxy-extrinsic", async () => {
     const paymentAssetId = await getNextAssetId(api);
 
-    const participants = Array.from({ length: 5 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowsale participants (10)
+    const participants = Array.from({ length: 5 }, () => new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey))); // crowdsale participants (10)
     const maxIssuance = 5; // create nft collection - total supply
     const nextCollectionUuid = nftCollectionIdToCollectionUUID(await api.query.nft.nextCollectionId() as any);
     const nextCrowdsaleId = +(await api.query.crowdsale.nextSaleId());
