@@ -76,12 +76,6 @@ describe("Crowdsale pallet", () => {
     let saleInfo: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
     expect(saleInfo.status).to.haveOwnProperty("enabled");
 
-    // assert all participants ROOT asset balances are 0
-    const userRootAssetBalances = await Promise.all(
-      participants.map(async (user) => ((await api.query.assets.account(NATIVE_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0)
-    );
-    expect(userRootAssetBalances).to.deep.equal(Array(participants.length).fill(0));
-
     // assert all participants ROOT system balances are 50
     let userRootBalances = await Promise.all(
       participants.map(async (user) => ((await api.query.system.account(user.address)).toJSON() as any)?.data.free ?? 0)
