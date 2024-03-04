@@ -82,7 +82,7 @@ describe("Crowdsale pallet", () => {
     );
     expect(userRootBalances).to.deep.equal(Array(participants.length).fill(50_000_000));
 
-    // user participations in crowdsale - with all root tokens
+    // user participates in crowdsale - with all root tokens
     await Promise.all(
       participants.map((user) => finalizeTx(user, api.tx.crowdsale.participate(nextCrowdsaleId, 50_000_000)))
     );
@@ -181,7 +181,7 @@ describe("Crowdsale pallet", () => {
     let saleInfo: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
     expect(saleInfo.status).to.haveOwnProperty("enabled");
 
-    // user participations in crowdsale - with all root tokens
+    // user participates in crowdsale - with all root tokens
     const participationEvents = await Promise.all(
       participants.map((user) => finalizeTx(user, api.tx.crowdsale.participate(nextCrowdsaleId, 50_000_000)))
     );
@@ -295,7 +295,7 @@ describe("Crowdsale pallet", () => {
     let saleInfo: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
     expect(saleInfo.status).to.haveOwnProperty("enabled");
 
-    // user participations in crowdsale - with all root tokens
+    // user participates in crowdsale - with all root tokens
     await Promise.all(
       participants.map((user) => finalizeTx(user, api.tx.crowdsale.participate(nextCrowdsaleId, 50_000_000)))
     );
@@ -384,7 +384,7 @@ describe("Crowdsale pallet", () => {
     let saleInfo: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
     expect(saleInfo.status).to.haveOwnProperty("enabled");
 
-    // user participations in crowdsale - only using tokens (no XRP for gas)
+    // user participates in crowdsale - only using tokens (no XRP for gas)
     await Promise.all(
       participants.map((user) => {
         const innerCall = api.tx.crowdsale.participate(nextCrowdsaleId, 50_000_000);
