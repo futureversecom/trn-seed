@@ -45,16 +45,16 @@ use sp_std::{vec, vec::Vec};
 pub mod types;
 use types::*;
 
-// #[cfg(feature = "runtime-benchmarks")]
-// mod benchmarking;
 mod impls;
+// mod weights;
+// pub use weights::WeightInfo;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
-// mod weights;
-
-// pub use weights::WeightInfo;
 
 /// The logging target for this pallet
 #[allow(dead_code)]
