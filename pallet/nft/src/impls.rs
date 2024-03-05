@@ -405,7 +405,7 @@ impl<T: Config> Pallet<T> {
 		let cross_chain_compatibility = collection_info.cross_chain_compatibility.xrpl;
 
 		(
-			T::AccountId::from(owner),
+			owner,
 			name,
 			metadata_scheme,
 			royalties_schedule,
