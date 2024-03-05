@@ -2868,6 +2868,29 @@ mod buy_sft {
 					AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
 					5, // 0.5% of 1000
 				);
+
+				System::assert_has_event(MockEvent::Marketplace(
+					Event::<Test>::FixedPriceSaleComplete {
+						tokens: sft_token.clone(),
+						listing_id,
+						marketplace_id: None,
+						price,
+						payment_asset: NativeAssetId::get(),
+						seller: token_owner,
+						buyer,
+					},
+				));
+
+				System::assert_has_event(
+					pallet_sft::Event::<Test>::Transfer {
+						previous_owner: token_owner,
+						collection_id,
+						serial_numbers: BoundedVec::truncate_from(vec![token_id.1]),
+						balances: BoundedVec::truncate_from(vec![sell_quantity]),
+						new_owner: buyer
+					}.into()
+				);
+
 			});
 	}
 
