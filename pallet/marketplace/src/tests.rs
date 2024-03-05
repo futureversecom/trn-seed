@@ -2887,10 +2887,10 @@ mod buy_sft {
 						collection_id,
 						serial_numbers: BoundedVec::truncate_from(vec![token_id.1]),
 						balances: BoundedVec::truncate_from(vec![sell_quantity]),
-						new_owner: buyer
-					}.into()
+						new_owner: buyer,
+					}
+					.into(),
 				);
-
 			});
 	}
 
