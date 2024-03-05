@@ -45,8 +45,8 @@ pub trait NftApi<AccountId> {
 	#[method(name = "tokenUri")]
 	fn token_uri(&self, token_id: TokenId) -> RpcResult<Vec<u8>>;
 
-	#[method(name = "collectionInfo")]
-	fn collection_info(
+	#[method(name = "collectionDetails")]
+	fn collection_details(
 		&self,
 		collection_id: CollectionUuid,
 	) -> RpcResult<(
@@ -103,7 +103,7 @@ where
 		api.token_uri(&at, token_id).map_err(|e| RpcError::to_call_error(e))
 	}
 
-	fn collection_info(
+	fn collection_details(
 		&self,
 		collection_id: CollectionUuid,
 	) -> RpcResult<(
@@ -119,6 +119,7 @@ where
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
-		api.collection_info(&at, collection_id).map_err(|e| RpcError::to_call_error(e))
+		api.collection_details(&at, collection_id)
+			.map_err(|e| RpcError::to_call_error(e))
 	}
 }
