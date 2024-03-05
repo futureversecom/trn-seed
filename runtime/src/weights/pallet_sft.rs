@@ -56,10 +56,15 @@ impl<T: frame_system::Config> pallet_sft::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft TokenInfo (r:1 w:1)
-	fn transfer() -> Weight {
-		Weight::from_ref_time(64_386_000 as u64)
+	/// The range of component `p` is `[1, 50]`.
+	fn transfer(p: u32, ) -> Weight {
+		Weight::from_ref_time(18_000_000 as u64)
+			// Standard Error: 3_822
+			.saturating_add(Weight::from_ref_time(3_381_220 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
+			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
 	}
 	// Storage: Sft TokenInfo (r:1 w:1)
 	fn burn() -> Weight {

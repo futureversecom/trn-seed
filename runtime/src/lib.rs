@@ -434,7 +434,7 @@ parameter_types! {
 	pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
 	/// How long listings are open for by default
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
-	pub const MaxTokensPerListing: u32 = 100;
+	pub const MaxTokensPerListing: u32 = 1000;
 	pub const MaxListingsPerMultiBuy: u32 = 50;
 	pub const MaxOffers: u32 = 100;
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
@@ -460,7 +460,7 @@ parameter_types! {
 	pub const SftPalletId: PalletId = PalletId(*b"sftokens");
 	pub const MaxTokensPerSftCollection: u32 = 1_000_000;
 	pub const MaxOwnersPerSftCollection: u32 = 1_000_000;
-	pub const MaxSerialsPerMint: u32 = 100; // Higher values can be storage heavy
+	pub const MaxSerialsPerMint: u32 = 1000; // Higher values can be storage heavy
 }
 impl pallet_sft::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
