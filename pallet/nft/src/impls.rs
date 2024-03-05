@@ -36,12 +36,7 @@ use sp_runtime::{
 };
 use sp_std::vec;
 
-pub const CollectionNameStringLimit: u32 = 50;
-impl<T: Config> Pallet<T>
-	where
-		frame_support::BoundedVec<u8, ConstU32<50>>:
-		From<frame_support::BoundedVec<u8, <T as pallet::Config>::StringLimit>>,
-{
+impl<T: Config> Pallet<T> {
 	/// Returns the CollectionUuid unique across parachains
 	pub fn next_collection_uuid() -> Result<CollectionUuid, DispatchError> {
 		let collection_id = <NextCollectionId<T>>::get();
@@ -387,7 +382,17 @@ impl<T: Config> Pallet<T>
 	/// next available serial number, collection issuance, is_cross_chain_compatible
 	pub fn collection_details(
 		collection_id: CollectionUuid,
-	) -> (T::AccountId, Vec<u8>, Vec<u8>, Permill, Option<TokenCount>, SerialNumber, TokenCount, bool)
+	) -> (
+		T::AccountId,
+		Vec<u8>,
+		Vec<u8>,
+		Option<Vec<(T::AccountId, Permill)>>,
+		Option<TokenCount>,
+		SerialNumber,
+		TokenCount,
+		CrossChainCompatibility,
+		OriginChain,
+	)
 	where
 		<T as frame_system::Config>::AccountId: core::default::Default,
 	{
@@ -406,6 +411,7 @@ impl<T: Config> Pallet<T>
 				Default::default(),
 				Default::default(),
 				Default::default(),
+				Default::default(),
 			)
 		}
 
@@ -413,19 +419,19 @@ impl<T: Config> Pallet<T>
 		let owner = collection_info.owner;
 		let name = collection_info.name.into();
 		let metadata_scheme = collection_info.metadata_scheme.construct_token_uri(0);
-		let royalties_schedule = if collection_info.royalties_schedule.is_some() {
-			collection_info.royalties_schedule.unwrap().calculate_total_entitlement()
-		} else {
-			Zero::zero()
-		};
-
+		let royalties_schedule: Option<Vec<(T::AccountId, Permill)>> =
+			match collection_info.royalties_schedule {
+				Some(royalties) => Some(royalties.entitlements.into_inner()),
+				None => None,
+			};
 		let max_issuance = collection_info.max_issuance;
 		let next_serial_number = collection_info.next_serial_number;
 		let collection_issuance = collection_info.collection_issuance;
-		let cross_chain_compatibility = collection_info.cross_chain_compatibility.xrpl;
+		let cross_chain_compatibility = collection_info.cross_chain_compatibility;
+		let origin_chain = collection_info.origin_chain;
 
 		(
-			T::AccountId::from(owner),
+			owner,
 			name,
 			metadata_scheme,
 			royalties_schedule,
@@ -433,6 +439,7 @@ impl<T: Config> Pallet<T>
 			next_serial_number,
 			collection_issuance,
 			cross_chain_compatibility,
+			origin_chain,
 		)
 	}
 
@@ -739,6 +746,21 @@ impl<T: Config> NFTExt for Pallet<T> {
 		let collection_info =
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok(collection_info.owner)
+	}
+}
+
+impl<T: Config> NFTCollectionInfo for Pallet<T> {
+	type AccountId = T::AccountId;
+	type MaxTokensPerCollection = T::MaxTokensPerCollection;
+	type StringLimit = T::StringLimit;
+
+	fn get_collection_info(
+		collection_id: CollectionUuid,
+	) -> Result<
+		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
+		DispatchError,
+	> {
+		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
 	}
 }
 

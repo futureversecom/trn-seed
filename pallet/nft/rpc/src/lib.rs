@@ -22,7 +22,7 @@ use jsonrpsee::{
 	core::{async_trait, Error as RpcError, RpcResult},
 	proc_macros::rpc,
 };
-use pallet_nft::Config;
+use pallet_nft::{Config, CrossChainCompatibility};
 use seed_primitives::types::{CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::Permill;
@@ -32,6 +32,7 @@ use sp_core::{bounded::BoundedVec, ConstU32, Get};
 // use pallet_nft::mock::StringLimit;
 pub const CollectionNameStringLimit: u32 = 50;
 pub use pallet_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi};
+use seed_primitives::OriginChain;
 
 /// NFT RPC methods.
 #[rpc(client, server, namespace = "nft")]
@@ -56,11 +57,12 @@ pub trait NftApi<AccountId> {
 		AccountId,
 		Vec<u8>,
 		Vec<u8>,
-		Permill,
+		Option<Vec<(AccountId, Permill)>>,
 		Option<TokenCount>,
 		SerialNumber,
 		TokenCount,
-		bool,
+		CrossChainCompatibility,
+		OriginChain,
 	)>;
 }
 
@@ -111,11 +113,12 @@ where
 		AccountId,
 		Vec<u8>,
 		Vec<u8>,
-		Permill,
+		Option<Vec<(AccountId, Permill)>>,
 		Option<TokenCount>,
 		SerialNumber,
 		TokenCount,
-		bool,
+		CrossChainCompatibility,
+		OriginChain,
 	)> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;

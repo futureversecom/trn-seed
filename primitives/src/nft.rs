@@ -17,6 +17,7 @@ use crate::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::fmt::Write;
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_runtime::{traits::ConstU32, BoundedVec, PerThing, Permill};
 use sp_std::prelude::*;
 
@@ -37,12 +38,30 @@ pub const MAX_COLLECTION_ENTITLEMENTS: u32 = MAX_ENTITLEMENTS - 2;
 pub type ListingId = u128;
 
 /// Describes the chain that the bridged resource originated from
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, Encode, Debug, Deserialize, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum OriginChain {
 	Ethereum,
 	Root,
 }
 
+impl Serialize for OriginChain {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		match *self {
+			OriginChain::Ethereum =>
+				serializer.serialize_unit_variant("OriginChain", 0, "Ethereum"),
+			OriginChain::Root => serializer.serialize_unit_variant("OriginChain", 1, "Root"),
+		}
+	}
+}
+
+impl Default for OriginChain {
+	fn default() -> Self {
+		Self::Root
+	}
+}
 /// Reason for an NFT being locked (un-transferrable)
 #[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum TokenLockReason {

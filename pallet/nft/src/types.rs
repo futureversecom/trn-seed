@@ -19,6 +19,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_primitives::{MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use sp_runtime::BoundedVec;
 use sp_std::{fmt::Debug, prelude::*};
 
@@ -75,11 +76,58 @@ where
 /// Determines compatibility with external chains.
 /// If compatible with XRPL, XLS-20 tokens will be minted with every newly minted
 /// token on The Root Network
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
+#[derive(Debug, Clone, Encode, Decode, Deserialize, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
 pub struct CrossChainCompatibility {
 	/// This collection is compatible with the XLS-20 standard on XRPL
 	pub xrpl: bool,
 }
+
+impl Serialize for CrossChainCompatibility {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		let mut s = serializer.serialize_struct("CrossChainCompatibility", 1)?;
+		s.serialize_field("xrpl", &self.xrpl)?;
+		s.end()
+	}
+}
+
+// impl<'a> Deserialize<'a> for CrossChainCompatibility {
+// 	fn deserialize<D>(deserializer: D) -> Result<CrossChainCompatibility, D::Error>
+// 		where
+// 			D: Deserializer<'a>,
+// 	{
+// 		deserializer.deserialize_any(CrossChainCompatibilityVisitor)
+// 	}
+// }
+//
+// struct CrossChainCompatibilityVisitor;
+//
+// impl<'a> Visitor<'a> for CrossChainCompatibilityVisitor {
+// 	type Value = CrossChainCompatibility;
+//
+// 	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+// 		formatter.write_str("valid abi spec file")
+// 	}
+//
+// 	fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+// 		where
+// 			A: SeqAccess<'a>,
+// 	{
+// 		let mut result = CrossChainCompatibility::default();
+// 		// while let Some(operation) = seq.next_element::<A>()? {
+// 		// 	match operation {
+// 		// 		xrpl => {
+// 					result.xrpl = false;
+// 		// 		}
+// 		// 	}
+// 		// }
+//
+//
+// 		Ok(result)
+// 	}
+// }
 
 impl Default for CrossChainCompatibility {
 	fn default() -> Self {
