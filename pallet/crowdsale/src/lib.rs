@@ -195,8 +195,6 @@ pub mod pallet {
 		AccessDenied,
 		/// There are no remaining sale ids
 		NoAvailableIds,
-		/// The start block is greater than the end block
-		InvalidBlockRange,
 		/// Crowdsale was not found
 		CrowdsaleNotFound,
 		/// Invalid crowdsale status

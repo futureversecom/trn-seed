@@ -47,52 +47,6 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Calculate how many vouchers an account should receive based on their contribution at the
-	/// end of the sale.
-	/// 'soft_cap_price' - What was the initial soft cap price?
-	/// 'total_funds_raised' - How many funds were raised in total for the sale
-	/// 'account_contribution' - How much has the user contributed to this round?
-	/// 'voucher_total_supply' - Also NFT max_issuance
-	pub(crate) fn calculate_voucher_rewards_old(
-		soft_cap_price: Balance,
-		total_funds_raised: Balance,
-		account_contribution: Balance,
-		voucher_total_supply: Balance,
-	) -> Balance {
-		// Calculate the price of the soft cap across the total supply. This is our baseline
-		let crowd_sale_target = soft_cap_price * voucher_total_supply;
-
-		// Check if we are over or under committed
-		let voucher_price: Balance = if total_funds_raised > crowd_sale_target {
-			// We are over committed. Calculate the voucher price based on the total
-			total_funds_raised / voucher_total_supply
-		// Self::divide_rounding(total_funds_raised, voucher_total_supply)
-		} else {
-			// We are under committed so we will pay out the soft cap
-			soft_cap_price
-		};
-
-		// Add 6 zeros to the account contribution to match the voucher price decimals.
-		// If we add this later, we will lose precision
-		let contribution = account_contribution * 10u128.pow(VOUCHER_DECIMALS as u32);
-		// divide account_contribution by voucher_price and round up or down
-		let voucher_quantity = Self::divide_rounding(contribution, voucher_price);
-
-		voucher_quantity
-	}
-
-	// Divide two numbers and round up if the remainder is greater than half the divisor
-	fn divide_rounding(numerator: Balance, denominator: Balance) -> Balance {
-		let quotient = numerator / denominator;
-		let remainder = numerator % denominator;
-
-		if remainder * 2 >= denominator {
-			quotient //+ 1
-		} else {
-			quotient
-		}
-	}
-
-	/// Calculate how many vouchers an account should receive based on their contribution at the
 	/// end of the sale
 	/// 'soft_cap_price' - What was the initial soft cap price?
 	/// 'total_funds_raised' - How many funds were raised in total for the sale
@@ -243,7 +197,6 @@ impl<T: Config> Pallet<T> {
 					// Refunded amount is equal to the total issuance minus the total vouchers paid
 					// out Total vouchers paid out is the total funds raised divided by the voucher
 					// price
-					// TODO Verify this calculation
 					let voucher_total_issuance =
 						collection_max_issuance.saturating_mul(10u128.pow(VOUCHER_DECIMALS as u32));
 					let voucher_price = sale_info.soft_cap_price;
