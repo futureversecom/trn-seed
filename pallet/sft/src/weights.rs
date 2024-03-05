@@ -53,7 +53,7 @@ pub trait WeightInfo {
 	fn set_mint_fee() -> Weight;
 	fn create_token() -> Weight;
 	fn mint() -> Weight;
-	fn transfer() -> Weight;
+	fn transfer(p: u32) -> Weight;
 	fn burn() -> Weight;
 	fn set_owner() -> Weight;
 	fn set_max_issuance() -> Weight;
@@ -90,10 +90,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft TokenInfo (r:1 w:1)
-	fn transfer() -> Weight {
+	/// The range of component `p` is `[1, 50]`.
+	fn transfer(p: u32, ) -> Weight {
 		Weight::from_ref_time(62_718_000 as u64)
+			// Standard Error: 3_822
+			.saturating_add(Weight::from_ref_time(3_381_220 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
+			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
+			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
 	}
 	// Storage: Sft TokenInfo (r:1 w:1)
 	fn burn() -> Weight {
@@ -175,10 +180,15 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft TokenInfo (r:1 w:1)
-	fn transfer() -> Weight {
+	/// The range of component `p` is `[1, 50]`.
+	fn transfer(p: u32, ) -> Weight {
 		Weight::from_ref_time(62_718_000 as u64)
+			// Standard Error: 3_822
+			.saturating_add(Weight::from_ref_time(3_381_220 as u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
+			.saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+			.saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
 	}
 	// Storage: Sft TokenInfo (r:1 w:1)
 	fn burn() -> Weight {

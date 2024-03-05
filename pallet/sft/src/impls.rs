@@ -471,15 +471,16 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> SFTExt for Pallet<T> {
 	type AccountId = T::AccountId;
-	type MaxSerialsPerMint = T::MaxSerialsPerMint;
 
 	fn do_transfer(
 		origin: Self::AccountId,
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<(SerialNumber, Balance), Self::MaxSerialsPerMint>,
+		serial_numbers: Vec<(SerialNumber, Balance)>,
 		new_owner: Self::AccountId,
 	) -> DispatchResult {
-		Self::do_transfer(origin, collection_id, serial_numbers, new_owner)
+		let bounded_serials =
+			BoundedVec::try_from(serial_numbers).map_err(|_| Error::<T>::TokenLimitExceeded)?;
+		Self::do_transfer(origin, collection_id, bounded_serials, new_owner)
 	}
 
 	fn reserve_balance(
@@ -501,20 +502,6 @@ impl<T: Config> SFTExt for Pallet<T> {
 		let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 		token_info
 			.free_reserved_balance(who, amount)
-			.map_err(|err| Error::<T>::from(err))?;
-		TokenInfo::<T>::insert(token_id, token_info);
-		Ok(())
-	}
-
-	fn transfer_reserved_balance(
-		token_id: TokenId,
-		amount: Balance,
-		from: &Self::AccountId,
-		to: &Self::AccountId,
-	) -> DispatchResult {
-		let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
-		token_info
-			.transfer_reserved_balance(from, to, amount)
 			.map_err(|err| Error::<T>::from(err))?;
 		TokenInfo::<T>::insert(token_id, token_info);
 		Ok(())
