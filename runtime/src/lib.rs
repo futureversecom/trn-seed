@@ -1705,8 +1705,8 @@ impl_runtime_apis! {
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Nft::token_uri(token_id)
 		}
-		fn collection_info(collection_id: CollectionUuid) -> (AccountId, Vec<u8>, Vec<u8>, Permill, Option<TokenCount>, SerialNumber, TokenCount, bool) {
-			Nft::collection_info(collection_id)
+		fn collection_details(collection_id: CollectionUuid) -> (AccountId, Vec<u8>, Vec<u8>, Permill, Option<TokenCount>, SerialNumber, TokenCount, bool) {
+			Nft::collection_details(collection_id)
 		}
 	}
 

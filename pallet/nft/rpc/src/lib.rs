@@ -25,6 +25,7 @@ use jsonrpsee::{
 use pallet_nft::Config;
 use seed_primitives::types::{CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_api::ProvideRuntimeApi;
+use sp_arithmetic::Permill;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 use sp_core::{bounded::BoundedVec, ConstU32, Get};
@@ -47,8 +48,8 @@ pub trait NftApi<AccountId> {
 	#[method(name = "tokenUri")]
 	fn token_uri(&self, token_id: TokenId) -> RpcResult<Vec<u8>>;
 
-	#[method(name = "collectionInfo")]
-	fn collection_info(
+	#[method(name = "collectionDetails")]
+	fn collection_details(
 		&self,
 		collection_id: CollectionUuid,
 	) -> RpcResult<(
@@ -103,7 +104,7 @@ where
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 
-	fn collection_info(
+	fn collection_details(
 		&self,
 		collection_id: CollectionUuid,
 	) -> RpcResult<(
@@ -118,6 +119,7 @@ where
 	)> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
-		api.collection_info(best, collection_id).map_err(|e| RpcError::to_call_error(e))
+		api.collection_details(best, collection_id)
+			.map_err(|e| RpcError::to_call_error(e))
 	}
 }

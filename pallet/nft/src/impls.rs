@@ -382,11 +382,10 @@ impl<T: Config> Pallet<T>
 		(new_cursor, total_owned, response)
 	}
 
-	/// Find the tokens owned by an `address` in the given collection
-	/// limit return tokens that are larger than the cursor
-	/// Returns list of tokens, the sum of all tokens owned by the user
-	/// and the new cursor for the next owned SerialNumber not included in the returned list
-	pub fn collection_info(
+	/// Find the tokens details for the given collection id
+	/// Returns collection owner, name, metadata schema, max issuance,
+	/// next available serial number, collection issuance, is_cross_chain_compatible
+	pub fn collection_details(
 		collection_id: CollectionUuid,
 	) -> (T::AccountId, Vec<u8>, Vec<u8>, Permill, Option<TokenCount>, SerialNumber, TokenCount, bool)
 	where
