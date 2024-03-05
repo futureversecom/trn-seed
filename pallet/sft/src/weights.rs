@@ -92,7 +92,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Sft TokenInfo (r:1 w:1)
 	/// The range of component `p` is `[1, 50]`.
 	fn transfer(p: u32, ) -> Weight {
-		Weight::from_ref_time(18_000_000 as u64)
+		Weight::from_ref_time(62_718_000 as u64)
 			// Standard Error: 3_822
 			.saturating_add(Weight::from_ref_time(3_381_220 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
@@ -182,7 +182,7 @@ impl WeightInfo for () {
 	// Storage: Sft TokenInfo (r:1 w:1)
 	/// The range of component `p` is `[1, 50]`.
 	fn transfer(p: u32, ) -> Weight {
-		Weight::from_ref_time(18_000_000 as u64)
+		Weight::from_ref_time(62_718_000 as u64)
 			// Standard Error: 3_822
 			.saturating_add(Weight::from_ref_time(3_381_220 as u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
