@@ -228,6 +228,8 @@ pub mod pallet {
 		Overflow,
 		/// This collection has not allowed public minting
 		PublicMintDisabled,
+		/// The number of tokens have exceeded the max tokens allowed
+		TokenLimitExceeded,
 	}
 
 	#[pallet::call]

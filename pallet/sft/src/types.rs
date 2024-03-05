@@ -171,18 +171,6 @@ where
 
 		balance.remove_reserve(amount)
 	}
-
-	/// Transfers some balance from one accounts reserved balance to another accounts free balance
-	/// This is useful for transferring a balance that is reserved for a sale
-	pub fn transfer_reserved_balance(
-		&mut self,
-		from: &AccountId,
-		to: &AccountId,
-		amount: Balance,
-	) -> Result<(), TokenBalanceError> {
-		self.free_reserved_balance(from, amount)?;
-		self.transfer_balance(from, to, amount)
-	}
 }
 
 /// Holds information about a users balance of a specific token

@@ -434,7 +434,7 @@ parameter_types! {
 	pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
 	/// How long listings are open for by default
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
-	pub const MaxTokensPerListing: u32 = 1000;
+	pub const MaxTokensPerListing: u32 = 100;
 	pub const MaxListingsPerMultiBuy: u32 = 50;
 	pub const MaxOffers: u32 = 100;
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);

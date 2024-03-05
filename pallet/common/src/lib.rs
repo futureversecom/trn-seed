@@ -494,12 +494,11 @@ pub trait NFTExt {
 
 pub trait SFTExt {
 	type AccountId: Debug + PartialEq + Clone;
-	type MaxSerialsPerMint: Get<u32>;
 
 	fn do_transfer(
 		origin: Self::AccountId,
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<(SerialNumber, Balance), Self::MaxSerialsPerMint>,
+		serial_numbers: Vec<(SerialNumber, Balance)>,
 		new_owner: Self::AccountId,
 	) -> DispatchResult;
 
@@ -510,13 +509,6 @@ pub trait SFTExt {
 		token_id: TokenId,
 		amount: Balance,
 		who: &Self::AccountId,
-	) -> DispatchResult;
-
-	fn transfer_reserved_balance(
-		token_id: TokenId,
-		amount: Balance,
-		from: &Self::AccountId,
-		to: &Self::AccountId,
 	) -> DispatchResult;
 
 	fn get_royalties_schedule(
