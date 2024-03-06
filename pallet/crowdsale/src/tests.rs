@@ -52,8 +52,8 @@ fn initialize_crowdsale(
 ) -> (SaleId, SaleInformation<AccountId, BlockNumber>) {
 	let reward_collection_id = create_nft_collection(alice(), max_issuance.saturated_into());
 	let payment_asset_id = ROOT_ASSET_ID;
-	let duration = 100;
 	let soft_cap_price = 10;
+	let duration = 100;
 
 	// Get sale_id
 	let sale_id = NextSaleId::<Test>::get();
