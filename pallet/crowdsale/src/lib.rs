@@ -31,7 +31,7 @@ use frame_support::{
 		traits::{AccountIdConversion, Zero},
 		SaturatedConversion, Saturating,
 	},
-	traits::fungibles::{self, Mutate, Transfer},
+	traits::fungibles::{self, Inspect, Mutate, Transfer},
 	transactional, PalletId,
 };
 use frame_system::{
@@ -41,7 +41,6 @@ use frame_system::{
 use seed_pallet_common::{log, CreateExt, InspectExt, NFTExt};
 use seed_primitives::{AssetId, Balance, CollectionUuid, OffchainErr, TokenCount};
 use sp_std::{vec, vec::Vec};
-use frame_support::traits::fungibles::Inspect;
 
 pub mod types;
 use types::*;
@@ -560,8 +559,11 @@ pub mod pallet {
 			if payout_complete || SaleParticipation::<T>::iter_prefix(sale_id).next().is_none() {
 				// Distribution complete
 				// Refund admin any remaining vouchers in the vault account
-				let vault_balance =
-					T::MultiCurrency::reducible_balance(sale_info.voucher_asset_id, &sale_info.vault, false);
+				let vault_balance = T::MultiCurrency::reducible_balance(
+					sale_info.voucher_asset_id,
+					&sale_info.vault,
+					false,
+				);
 				if vault_balance > 0 {
 					let _ = T::MultiCurrency::transfer(
 						sale_info.voucher_asset_id,
@@ -580,10 +582,7 @@ pub mod pallet {
 				SaleDistribution::<T>::put(BoundedVec::truncate_from(sale_ids));
 			} else {
 				// Update total_contributions
-				sale_info.status = SaleStatus::Distributing(
-					block_number,
-					vouchers_distributed,
-				);
+				sale_info.status = SaleStatus::Distributing(block_number, vouchers_distributed);
 			}
 
 			let next_unsigned_at = block_number + T::UnsignedInterval::get();
@@ -647,8 +646,11 @@ pub mod pallet {
 				if SaleParticipation::<T>::iter_prefix(sale_id).next().is_none() {
 					// Distribution complete
 					// Refund admin any remaining vouchers in the vault account
-					let vault_balance =
-						T::MultiCurrency::reducible_balance(sale_info.voucher_asset_id, &sale_info.vault, false);
+					let vault_balance = T::MultiCurrency::reducible_balance(
+						sale_info.voucher_asset_id,
+						&sale_info.vault,
+						false,
+					);
 					if vault_balance > 0 {
 						let _ = T::MultiCurrency::transfer(
 							sale_info.voucher_asset_id,
@@ -670,10 +672,7 @@ pub mod pallet {
 					});
 				} else {
 					// Update total_contributions
-					sale_info.status = SaleStatus::Distributing(
-						block_number,
-						vouchers_distributed,
-					);
+					sale_info.status = SaleStatus::Distributing(block_number, vouchers_distributed);
 				}
 
 				Self::deposit_event(Event::CrowdsaleVouchersClaimed {
@@ -772,10 +771,7 @@ pub mod pallet {
 					sale_info.status = SaleStatus::Ended(block_number);
 				} else {
 					// Mark the sale for distribution
-					sale_info.status = SaleStatus::Distributing(
-						block_number,
-						Balance::default(),
-					);
+					sale_info.status = SaleStatus::Distributing(block_number, Balance::default());
 				}
 
 				Self::deposit_event(Event::CrowdsaleManualDistribution {

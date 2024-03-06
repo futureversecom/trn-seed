@@ -64,26 +64,25 @@ impl<T: Config> Pallet<T> {
 		// Calculate the price of the soft cap across the total supply. This is our baseline
 		let crowd_sale_target = soft_cap_price.saturating_mul(voucher_total_supply);
 
-		// Check if we are over or under committed
-		let voucher_price: Balance = if total_funds_raised > crowd_sale_target {
-			// We are over committed. Calculate the voucher price based on the total
-			total_funds_raised
-				.checked_div(voucher_total_supply)
-				.ok_or("Voucher max supply must be greater than 0")?
-		} else {
-			// We are under committed so we will pay out the soft cap
-			soft_cap_price
-		};
-
 		// Add 6 zeros to the account contribution to match the voucher price decimals.
 		// If we add this later, we will lose precision
 		let contribution =
 			account_contribution.saturating_mul(U256::from(10_u128.pow(VOUCHER_DECIMALS as u32)));
 
-		// divide account_contribution by voucher_price and down
-		let voucher_quantity = contribution
-			.checked_div(U256::from(voucher_price))
-			.ok_or("Voucher price must be greater than 0")?;
+		// Check if we are over or under committed
+		let voucher_quantity: U256 = if total_funds_raised > crowd_sale_target {
+			// We are over committed. Calculate the voucher price based on the total
+			contribution
+				.saturating_mul(U256::from(voucher_total_supply))
+				.checked_div(U256::from(total_funds_raised))
+				.ok_or("Total funds raised must be greater than 0")?
+		} else {
+			// We are under committed so we will pay out the soft cap
+			contribution
+				.checked_div(U256::from(soft_cap_price))
+				.ok_or("Voucher price must be greater than 0")?
+		};
+
 		let voucher_quantity: Balance = voucher_quantity.saturated_into();
 
 		Ok(voucher_quantity)
@@ -105,8 +104,11 @@ impl<T: Config> Pallet<T> {
 		)
 		.map_err(|_| Error::<T>::VoucherClaimFailed)?;
 
-		let vault_balance =
-			T::MultiCurrency::reducible_balance(sale_info.voucher_asset_id, &sale_info.vault, false);
+		let vault_balance = T::MultiCurrency::reducible_balance(
+			sale_info.voucher_asset_id,
+			&sale_info.vault,
+			false,
+		);
 		let vouchers = u128::min(vault_balance, claimable_vouchers);
 
 		// transfer claimable vouchers from vault account to the user

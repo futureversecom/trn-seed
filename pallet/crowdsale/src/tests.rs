@@ -46,7 +46,9 @@ fn create_nft_collection(owner: AccountId, max_issuance: TokenCount) -> Collecti
 	collection_id
 }
 
-fn initialize_crowdsale(max_issuance: Balance)  -> (SaleId, SaleInformation<AccountId, BlockNumber>) {
+fn initialize_crowdsale(
+	max_issuance: Balance,
+) -> (SaleId, SaleInformation<AccountId, BlockNumber>) {
 	initialize_crowdsale_with_soft_cap(max_issuance, 10)
 }
 
@@ -339,29 +341,6 @@ mod calculate_voucher_rewards {
 					voucher_total_supply,
 				),
 				"Voucher price must be greater than 0"
-			);
-		});
-	}
-
-	#[test]
-	fn zero_total_supply() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let decimals = 6;
-			let soft_cap_price = add_decimals(1, decimals);
-			let voucher_total_supply = 0;
-			let total_raised = soft_cap_price;
-			let contribution = soft_cap_price;
-
-			// Although this should never happen, in the case where total supply is zero
-			// we should expect 0 to be paid out
-			assert_err!(
-				Pallet::<Test>::calculate_voucher_rewards(
-					soft_cap_price,
-					total_raised,
-					contribution.into(),
-					voucher_total_supply,
-				),
-				"Voucher max supply must be greater than 0"
 			);
 		});
 	}
@@ -1387,10 +1366,7 @@ mod claim_voucher {
 
 				// Check sale_info.status still distributing
 				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-				assert_eq!(
-					sale_info.status,
-					SaleStatus::Distributing(end_block, bob_balance)
-				);
+				assert_eq!(sale_info.status, SaleStatus::Distributing(end_block, bob_balance));
 
 				// Manual claim Charlie
 				assert_ok!(Crowdsale::claim_voucher(Some(charlie()).into(), sale_id));
@@ -1582,7 +1558,7 @@ mod claim_voucher {
 				);
 
 				// Sanity check
-				sale_info.status = SaleStatus::Distributing(0,  0);
+				sale_info.status = SaleStatus::Distributing(0, 0);
 				SaleInfo::<Test>::insert(sale_id, sale_info);
 				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
 			});
@@ -2228,7 +2204,8 @@ mod automatic_distribution {
 
 		TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
 			let max_issuance = 14;
-			let (sale_id, sale_info) = initialize_crowdsale_with_soft_cap(max_issuance, soft_cap_price);
+			let (sale_id, sale_info) =
+				initialize_crowdsale_with_soft_cap(max_issuance, soft_cap_price);
 			let voucher_asset_id = sale_info.voucher_asset_id;
 			assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -2253,7 +2230,8 @@ mod automatic_distribution {
 				assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
 			}
 
-			// Check status of each individual account. Each account should have some voucher balance
+			// Check status of each individual account. Each account should have some voucher
+			// balance
 			for (account, _) in accounts.into_iter() {
 				let voucher_balance =
 					AssetsExt::reducible_balance(voucher_asset_id, &account, false);
@@ -2305,7 +2283,8 @@ mod automatic_distribution {
 
 			TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
 				let max_issuance = 14;
-				let (sale_id, sale_info) = initialize_crowdsale_with_soft_cap(max_issuance, soft_cap_price);
+				let (sale_id, sale_info) =
+					initialize_crowdsale_with_soft_cap(max_issuance, soft_cap_price);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -2325,7 +2304,8 @@ mod automatic_distribution {
 					assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
 				}
 
-				// Check status of each individual account. Each account should have some voucher balance
+				// Check status of each individual account. Each account should have some voucher
+				// balance
 				for (account, _) in accounts.into_iter() {
 					let voucher_balance =
 						AssetsExt::reducible_balance(voucher_asset_id, &account, false);
@@ -2370,7 +2350,8 @@ mod automatic_distribution {
 
 			TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
 				let max_issuance = n;
-				let (sale_id, sale_info) = initialize_crowdsale_with_soft_cap(max_issuance, soft_cap_price);
+				let (sale_id, sale_info) =
+					initialize_crowdsale_with_soft_cap(max_issuance, soft_cap_price);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -2390,7 +2371,8 @@ mod automatic_distribution {
 					assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
 				}
 
-				// Check status of each individual account. Each account should have some voucher balance
+				// Check status of each individual account. Each account should have some voucher
+				// balance
 				for (account, _) in accounts.into_iter() {
 					let voucher_balance =
 						AssetsExt::reducible_balance(voucher_asset_id, &account, false);
