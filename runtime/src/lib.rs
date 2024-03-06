@@ -1311,6 +1311,7 @@ impl pallet_crowdsale::Config for Runtime {
 	type MaxPaymentsPerBlock = MaxPaymentsPerBlock;
 	type MaxSaleDuration = MaxSaleDuration;
 	type UnsignedInterval = UnsignedInterval;
+	type WeightInfo = weights::pallet_crowdsale::WeightInfo<Self>;
 }
 
 /// Block header type as expected by this runtime.
