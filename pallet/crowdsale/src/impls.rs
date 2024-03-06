@@ -167,7 +167,6 @@ impl<T: Config> Pallet<T> {
 	// Transfers vouchers from the vault account into a users wallet and returns the amount minted.
 	pub fn transfer_user_vouchers(
 		who: T::AccountId,
-		sale_id: SaleId,
 		sale_info: &SaleInformation<T::AccountId, T::BlockNumber>,
 		contribution: Balance,
 		voucher_max_supply: Balance,
