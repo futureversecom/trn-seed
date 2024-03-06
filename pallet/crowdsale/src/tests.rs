@@ -49,11 +49,11 @@ fn create_nft_collection(owner: AccountId, max_issuance: TokenCount) -> Collecti
 // Helper function ton initialize a crowdsale with default values
 fn initialize_crowdsale(
 	max_issuance: Balance,
-	soft_cap_price: Balance
 ) -> (SaleId, SaleInformation<AccountId, BlockNumber>) {
 	let reward_collection_id = create_nft_collection(alice(), max_issuance.saturated_into());
 	let payment_asset_id = ROOT_ASSET_ID;
 	let duration = 100;
+	let soft_cap_price = 10;
 
 	// Get sale_id
 	let sale_id = NextSaleId::<Test>::get();
@@ -891,7 +891,7 @@ mod enable {
 	#[test]
 	fn enable_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (sale_id, mut sale_info) = initialize_crowdsale(100, 10);
+			let (sale_id, mut sale_info) = initialize_crowdsale(100);
 
 			assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -919,7 +919,7 @@ mod enable {
 	#[test]
 	fn not_admin_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (sale_id, _) = initialize_crowdsale(100, 10);
+			let (sale_id, _) = initialize_crowdsale(100);
 
 			// Bob fails
 			assert_noop!(
@@ -946,7 +946,7 @@ mod enable {
 	#[test]
 	fn too_many_sales_at_end_block_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (sale_id, sale_info) = initialize_crowdsale(100, 10);
+			let (sale_id, sale_info) = initialize_crowdsale(100);
 
 			// Insert 5 sales at the same end block
 			let end_block = System::block_number() + sale_info.duration;
@@ -971,7 +971,7 @@ mod enable {
 	#[test]
 	fn invalid_sale_status_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (sale_id, mut sale_info) = initialize_crowdsale(100, 10);
+			let (sale_id, mut sale_info) = initialize_crowdsale(100);
 
 			sale_info.status = SaleStatus::Enabled(0);
 			SaleInfo::<Test>::insert(sale_id, sale_info);
@@ -1020,7 +1020,7 @@ mod participate {
 			.with_balances(&[(bob(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, sale_info) = initialize_crowdsale(100, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(100);
 
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -1058,7 +1058,7 @@ mod participate {
 			.with_balances(&[(bob(), initial_balance), (charlie(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, sale_info) = initialize_crowdsale(100, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(100);
 
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -1126,7 +1126,7 @@ mod participate {
 			.with_balances(&[(bob(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, mut sale_info) = initialize_crowdsale(100, 10);
+				let (sale_id, mut sale_info) = initialize_crowdsale(100);
 				let amount = 2;
 
 				sale_info.status = SaleStatus::Pending(0);
@@ -1172,7 +1172,7 @@ mod participate {
 			.with_balances(&[(bob(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, _) = initialize_crowdsale(100, 10);
+				let (sale_id, _) = initialize_crowdsale(100);
 
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -1192,7 +1192,7 @@ mod participate {
 			.with_balances(&[(bob(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, sale_info) = initialize_crowdsale(100, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(100);
 
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -1236,7 +1236,7 @@ mod on_initialize {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 100;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 
 				let vault_balance =
@@ -1296,7 +1296,7 @@ mod on_initialize {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 100;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 
 				let vault_balance =
@@ -1353,7 +1353,7 @@ mod on_initialize {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 100;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 
 				// Enable crowdsale
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
@@ -1407,7 +1407,7 @@ mod on_initialize {
 			.with_balances(&[(bob(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, sale_info) = initialize_crowdsale(100, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(100);
 
 				// Enable crowdsale
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
@@ -1440,7 +1440,7 @@ mod on_initialize {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 100;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 
 				// Enable crowdsale
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
@@ -1498,7 +1498,7 @@ mod claim_voucher {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 1000;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -1564,7 +1564,7 @@ mod claim_voucher {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 1000;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -1634,7 +1634,7 @@ mod claim_voucher {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 1000;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -1707,7 +1707,7 @@ mod claim_voucher {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 1000;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
 				// Participate some amount
@@ -1748,7 +1748,7 @@ mod claim_voucher {
 			.with_balances(&[(bob(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, mut sale_info) = initialize_crowdsale(1000, 10);
+				let (sale_id, mut sale_info) = initialize_crowdsale(1000);
 				let participation_amount = 100;
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 				assert_ok!(Crowdsale::participate(
@@ -1804,7 +1804,7 @@ mod redeem_voucher {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 1000;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -1867,7 +1867,7 @@ mod redeem_voucher {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 1000;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -1913,7 +1913,7 @@ mod redeem_voucher {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 1000;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -1973,7 +1973,7 @@ mod redeem_voucher {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 1000;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
 				// Participate some amount
@@ -2018,7 +2018,7 @@ mod redeem_voucher {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 1000;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -2056,7 +2056,7 @@ mod redeem_voucher {
 			.with_balances(&[(bob(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, mut sale_info) = initialize_crowdsale(100, 10);
+				let (sale_id, mut sale_info) = initialize_crowdsale(100);
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
 				// Participate some amount
@@ -2116,7 +2116,7 @@ mod try_force_distribution {
 	fn try_force_distribution_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let max_issuance = 1000;
-			let (sale_id, mut sale_info) = initialize_crowdsale(max_issuance, 10);
+			let (sale_id, mut sale_info) = initialize_crowdsale(max_issuance);
 
 			// Manually set status to DistributionFailed
 			sale_info.status = SaleStatus::DistributionFailed(0);
@@ -2142,7 +2142,7 @@ mod try_force_distribution {
 	fn not_admin_can_call() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let max_issuance = 1000;
-			let (sale_id, mut sale_info) = initialize_crowdsale(max_issuance, 10);
+			let (sale_id, mut sale_info) = initialize_crowdsale(max_issuance);
 
 			// Manually set status to DistributionFailed
 			sale_info.status = SaleStatus::DistributionFailed(0);
@@ -2167,7 +2167,7 @@ mod try_force_distribution {
 	fn distribution_table_full_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let max_issuance = 1000;
-			let (sale_id, mut sale_info) = initialize_crowdsale(max_issuance, 10);
+			let (sale_id, mut sale_info) = initialize_crowdsale(max_issuance);
 
 			// Manually set status to DistributionFailed
 			sale_info.status = SaleStatus::DistributionFailed(0);
@@ -2189,7 +2189,7 @@ mod try_force_distribution {
 	fn invalid_status_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let max_issuance = 1000;
-			let (sale_id, mut sale_info) = initialize_crowdsale(max_issuance, 10);
+			let (sale_id, mut sale_info) = initialize_crowdsale(max_issuance);
 
 			sale_info.status = SaleStatus::Enabled(0);
 			SaleInfo::<Test>::insert(sale_id, sale_info);
@@ -2235,7 +2235,7 @@ mod try_force_distribution {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 100;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 
 				// Enable crowdsale
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
@@ -2283,7 +2283,7 @@ mod automatic_distribution {
 			.build()
 			.execute_with(|| {
 				let max_issuance = 1000;
-				let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -2351,7 +2351,7 @@ mod automatic_distribution {
 
 		TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
 			let max_issuance = 1000;
-			let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+			let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 			let voucher_asset_id = sale_info.voucher_asset_id;
 			assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -2434,7 +2434,7 @@ mod automatic_distribution {
 
 		TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
 			let max_issuance = 1000;
-			let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+			let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 			let voucher_asset_id = sale_info.voucher_asset_id;
 			assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -2531,7 +2531,7 @@ mod automatic_distribution {
 
 		TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
 			let max_issuance = 10000;
-			let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+			let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 			let voucher_asset_id = sale_info.voucher_asset_id;
 			assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -2596,7 +2596,7 @@ mod automatic_distribution {
 
 		TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
 			let max_issuance = 5000;
-			let (sale_id, sale_info) = initialize_crowdsale(max_issuance, 10);
+			let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 			let voucher_asset_id = sale_info.voucher_asset_id;
 			assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -2668,7 +2668,7 @@ mod automatic_distribution {
 	#[test]
 	fn invalid_sale_status_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (sale_id, mut sale_info) = initialize_crowdsale(100, 10);
+			let (sale_id, mut sale_info) = initialize_crowdsale(100);
 
 			// Put sales id in SaleDistribution
 			SaleDistribution::<Test>::put(BoundedVec::truncate_from(vec![sale_id]));
