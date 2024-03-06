@@ -194,11 +194,6 @@ impl<T: Config> Pallet<T> {
 			false,
 		)?;
 
-		Self::deposit_event(Event::CrowdsaleVouchersClaimed {
-			sale_id,
-			who,
-			amount: claimable_vouchers,
-		});
 		Ok(claimable_vouchers)
 	}
 
