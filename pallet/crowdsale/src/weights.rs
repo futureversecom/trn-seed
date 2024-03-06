@@ -54,6 +54,8 @@ pub trait WeightInfo {
 	fn distribute_crowdsale_rewards() -> Weight;
 	fn claim_voucher() -> Weight;
 	fn redeem_voucher() -> Weight;
+	fn on_initialize(p: u32) -> Weight;
+	fn on_initialize_empty() -> Weight;
 }
 
 /// Weights for pallet_crowdsale using the Substrate node and recommended hardware.
@@ -126,6 +128,28 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(6 as u64))
 			.saturating_add(T::DbWeight::get().writes(5 as u64))
 	}
+	// Storage: Crowdsale SaleEndBlocks (r:1 w:1)
+	// Storage: Crowdsale SaleInfo (r:1 w:1)
+	// Storage: Assets Asset (r:2 w:2)
+	// Storage: Assets Account (r:4 w:4)
+	// Storage: System Account (r:2 w:2)
+	// Storage: Nft CollectionInfo (r:1 w:0)
+	// Storage: Crowdsale SaleDistribution (r:1 w:1)
+	/// The range of component `p` is `[1, 5]`.
+	fn on_initialize(p: u32, ) -> Weight {
+		Weight::from_ref_time(74_000_000 as u64)
+			// Standard Error: 428_924
+			.saturating_add(Weight::from_ref_time(40_850_000 as u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(12 as u64))
+			.saturating_add(T::DbWeight::get().reads((6 as u64).saturating_mul(p as u64)))
+			.saturating_add(T::DbWeight::get().writes(11 as u64))
+			.saturating_add(T::DbWeight::get().writes((5 as u64).saturating_mul(p as u64)))
+	}
+	// Storage: Crowdsale SaleEndBlocks (r:1 w:0)
+	fn on_initialize_empty() -> Weight {
+		Weight::from_ref_time(3_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
+	}
 }
 
 // For backwards compatibility and tests
@@ -196,6 +220,28 @@ impl WeightInfo for () {
 		Weight::from_ref_time(98_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(6 as u64))
 			.saturating_add(RocksDbWeight::get().writes(5 as u64))
+	}
+	// Storage: Crowdsale SaleEndBlocks (r:1 w:1)
+	// Storage: Crowdsale SaleInfo (r:1 w:1)
+	// Storage: Assets Asset (r:2 w:2)
+	// Storage: Assets Account (r:4 w:4)
+	// Storage: System Account (r:2 w:2)
+	// Storage: Nft CollectionInfo (r:1 w:0)
+	// Storage: Crowdsale SaleDistribution (r:1 w:1)
+	/// The range of component `p` is `[1, 5]`.
+	fn on_initialize(p: u32, ) -> Weight {
+		Weight::from_ref_time(74_000_000 as u64)
+			// Standard Error: 428_924
+			.saturating_add(Weight::from_ref_time(40_850_000 as u64).saturating_mul(p as u64))
+			.saturating_add(RocksDbWeight::get().reads(12 as u64))
+			.saturating_add(RocksDbWeight::get().reads((6 as u64).saturating_mul(p as u64)))
+			.saturating_add(RocksDbWeight::get().writes(11 as u64))
+			.saturating_add(RocksDbWeight::get().writes((5 as u64).saturating_mul(p as u64)))
+	}
+	// Storage: Crowdsale SaleEndBlocks (r:1 w:0)
+	fn on_initialize_empty() -> Weight {
+		Weight::from_ref_time(3_000_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 	}
 }
 

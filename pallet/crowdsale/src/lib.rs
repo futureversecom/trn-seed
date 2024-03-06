@@ -233,16 +233,20 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			match Self::close_sales_at(now) {
-				Ok(total_closed) =>
-					log!(debug, "✅ closed {} sales at block {:?}", total_closed, now),
-				Err(e) => log!(error, "⛔️ failed to close sales at block {:?}: {:?}", now, e),
+			let total_closed: u32 = match Self::close_sales_at(now) {
+				Ok(total_closed) => total_closed,
+				Err(e) => {
+					log!(error, "⛔️ failed to close sales at block {:?}: {:?}", now, e);
+					0u32
+				},
 			};
-			// TODO Benchmark this
-			// <T as Config>::WeightInfo::close().mul(total_closed as u64)
-			// total_closed == 1 read + 1 write per close
-			// + 1 read + write for SaleEndBlocks
-			Weight::zero()
+			// Record weight for closing sales
+			if total_closed > 0 {
+				log!(debug, "✅ closed {} sales at block {:?}", total_closed, now);
+				T::WeightInfo::on_initialize(total_closed)
+			} else {
+				T::WeightInfo::on_initialize_empty()
+			}
 		}
 
 		/// Offchain worker processes closed sales to distribute voucher rewards to participants
