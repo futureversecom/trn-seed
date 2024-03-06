@@ -733,9 +733,7 @@ pub mod pallet {
 		/// In the very unlikely case that a sale was blocked from automatic distribution within
 		/// the on_initialise step. This function allows a manual trigger of distribution
 		/// callable by anyone to kickstart the sale distribution process.
-		// TODO: update weight
-		// #[pallet::weight(T::WeightInfo::try_force_distribution())]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::try_force_distribution())]
 		pub fn try_force_distribution(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {

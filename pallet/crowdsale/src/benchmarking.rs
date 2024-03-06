@@ -177,6 +177,26 @@ benchmarks! {
 		assert_eq!(T::NFTExt::get_collection_issuance(collection_id).unwrap(), (2, Some(1000)));
 	}
 
+	try_force_distribution {
+		let acc: T::AccountId = account("acc", 0, 0);
+		let (sale_id, payment_asset_id, collection_id) = initialize_crowdsale::<T>(acc.clone());
+
+		// update block no. to end the sale
+		let current_block = <frame_system::Pallet<T>>::block_number();
+		let end_block = SaleInfo::<T>::get(0).unwrap().duration.saturating_add(current_block);
+		<frame_system::Pallet<T>>::set_block_number(end_block);
+
+		// manually change the status to DistributionFailed
+		let mut sale_info = SaleInfo::<T>::get(sale_id).unwrap();
+		sale_info.status = SaleStatus::DistributionFailed(end_block);
+		SaleInfo::<T>::insert(0, sale_info);
+
+	}: _(RawOrigin::Signed(acc.clone()), sale_id)
+	verify {
+		let sale_info = SaleInfo::<T>::get(0).unwrap();
+		assert_eq!(sale_info.status, SaleStatus::Ended(end_block, 0));
+	}
+
 	on_initialize {
 		let p in 1 .. (T::MaxSalesPerBlock::get());
 

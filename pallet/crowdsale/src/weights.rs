@@ -54,7 +54,8 @@ pub trait WeightInfo {
 	fn distribute_crowdsale_rewards() -> Weight;
 	fn claim_voucher() -> Weight;
 	fn redeem_voucher() -> Weight;
-	fn on_initialize(p: u32) -> Weight;
+	fn try_force_distribution() -> Weight;
+	fn on_initialize(p: u32, ) -> Weight;
 	fn on_initialize_empty() -> Weight;
 }
 
@@ -72,7 +73,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Assets Account (r:1 w:1)
 	// Storage: Crowdsale SaleInfo (r:0 w:1)
 	fn initialize() -> Weight {
-		Weight::from_ref_time(132_000_000 as u64)
+		Weight::from_ref_time(133_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(11 as u64))
 			.saturating_add(T::DbWeight::get().writes(10 as u64))
 	}
@@ -102,7 +103,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: System Account (r:2 w:2)
 	// Storage: Crowdsale NextUnsignedAt (r:0 w:1)
 	fn distribute_crowdsale_rewards() -> Weight {
-		Weight::from_ref_time(129_000_000 as u64)
+		Weight::from_ref_time(126_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(10 as u64))
 			.saturating_add(T::DbWeight::get().writes(9 as u64))
 	}
@@ -113,7 +114,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Assets Account (r:2 w:2)
 	// Storage: System Account (r:2 w:2)
 	fn claim_voucher() -> Weight {
-		Weight::from_ref_time(130_000_000 as u64)
+		Weight::from_ref_time(122_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(9 as u64))
 			.saturating_add(T::DbWeight::get().writes(7 as u64))
 	}
@@ -128,6 +129,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(6 as u64))
 			.saturating_add(T::DbWeight::get().writes(5 as u64))
 	}
+	// Storage: Crowdsale SaleInfo (r:1 w:1)
+	// Storage: Crowdsale SaleDistribution (r:1 w:1)
+	fn try_force_distribution() -> Weight {
+		Weight::from_ref_time(31_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(2 as u64))
+			.saturating_add(T::DbWeight::get().writes(2 as u64))
+	}
 	// Storage: Crowdsale SaleEndBlocks (r:1 w:1)
 	// Storage: Crowdsale SaleInfo (r:1 w:1)
 	// Storage: Assets Asset (r:2 w:2)
@@ -137,9 +145,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Crowdsale SaleDistribution (r:1 w:1)
 	/// The range of component `p` is `[1, 5]`.
 	fn on_initialize(p: u32, ) -> Weight {
-		Weight::from_ref_time(74_000_000 as u64)
-			// Standard Error: 428_924
-			.saturating_add(Weight::from_ref_time(40_850_000 as u64).saturating_mul(p as u64))
+		Weight::from_ref_time(116_000_000 as u64)
+			// Standard Error: 619_997
+			.saturating_add(Weight::from_ref_time(61_287_305 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(12 as u64))
 			.saturating_add(T::DbWeight::get().reads((6 as u64).saturating_mul(p as u64)))
 			.saturating_add(T::DbWeight::get().writes(11 as u64))
@@ -147,7 +155,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	// Storage: Crowdsale SaleEndBlocks (r:1 w:0)
 	fn on_initialize_empty() -> Weight {
-		Weight::from_ref_time(3_000_000 as u64)
+		Weight::from_ref_time(4_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 	}
 }
@@ -165,7 +173,7 @@ impl WeightInfo for () {
 	// Storage: Assets Account (r:1 w:1)
 	// Storage: Crowdsale SaleInfo (r:0 w:1)
 	fn initialize() -> Weight {
-		Weight::from_ref_time(132_000_000 as u64)
+		Weight::from_ref_time(133_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(11 as u64))
 			.saturating_add(RocksDbWeight::get().writes(10 as u64))
 	}
@@ -195,7 +203,7 @@ impl WeightInfo for () {
 	// Storage: System Account (r:2 w:2)
 	// Storage: Crowdsale NextUnsignedAt (r:0 w:1)
 	fn distribute_crowdsale_rewards() -> Weight {
-		Weight::from_ref_time(129_000_000 as u64)
+		Weight::from_ref_time(126_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(10 as u64))
 			.saturating_add(RocksDbWeight::get().writes(9 as u64))
 	}
@@ -206,7 +214,7 @@ impl WeightInfo for () {
 	// Storage: Assets Account (r:2 w:2)
 	// Storage: System Account (r:2 w:2)
 	fn claim_voucher() -> Weight {
-		Weight::from_ref_time(130_000_000 as u64)
+		Weight::from_ref_time(122_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(9 as u64))
 			.saturating_add(RocksDbWeight::get().writes(7 as u64))
 	}
@@ -221,6 +229,13 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(6 as u64))
 			.saturating_add(RocksDbWeight::get().writes(5 as u64))
 	}
+	// Storage: Crowdsale SaleInfo (r:1 w:1)
+	// Storage: Crowdsale SaleDistribution (r:1 w:1)
+	fn try_force_distribution() -> Weight {
+		Weight::from_ref_time(31_000_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(2 as u64))
+			.saturating_add(RocksDbWeight::get().writes(2 as u64))
+	}
 	// Storage: Crowdsale SaleEndBlocks (r:1 w:1)
 	// Storage: Crowdsale SaleInfo (r:1 w:1)
 	// Storage: Assets Asset (r:2 w:2)
@@ -230,9 +245,9 @@ impl WeightInfo for () {
 	// Storage: Crowdsale SaleDistribution (r:1 w:1)
 	/// The range of component `p` is `[1, 5]`.
 	fn on_initialize(p: u32, ) -> Weight {
-		Weight::from_ref_time(74_000_000 as u64)
-			// Standard Error: 428_924
-			.saturating_add(Weight::from_ref_time(40_850_000 as u64).saturating_mul(p as u64))
+		Weight::from_ref_time(116_000_000 as u64)
+			// Standard Error: 619_997
+			.saturating_add(Weight::from_ref_time(61_287_305 as u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(12 as u64))
 			.saturating_add(RocksDbWeight::get().reads((6 as u64).saturating_mul(p as u64)))
 			.saturating_add(RocksDbWeight::get().writes(11 as u64))
@@ -240,7 +255,7 @@ impl WeightInfo for () {
 	}
 	// Storage: Crowdsale SaleEndBlocks (r:1 w:0)
 	fn on_initialize_empty() -> Weight {
-		Weight::from_ref_time(3_000_000 as u64)
+		Weight::from_ref_time(4_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 	}
 }
