@@ -46,13 +46,17 @@ fn create_nft_collection(owner: AccountId, max_issuance: TokenCount) -> Collecti
 	collection_id
 }
 
+fn initialize_crowdsale(max_issuance: Balance)  -> (SaleId, SaleInformation<AccountId, BlockNumber>) {
+	initialize_crowdsale_with_soft_cap(max_issuance, 10)
+}
+
 // Helper function ton initialize a crowdsale with default values
-fn initialize_crowdsale(
+fn initialize_crowdsale_with_soft_cap(
 	max_issuance: Balance,
+	soft_cap_price: Balance,
 ) -> (SaleId, SaleInformation<AccountId, BlockNumber>) {
 	let reward_collection_id = create_nft_collection(alice(), max_issuance.saturated_into());
 	let payment_asset_id = ROOT_ASSET_ID;
-	let soft_cap_price = 10;
 	let duration = 100;
 
 	// Get sale_id
@@ -137,8 +141,6 @@ mod calculate_voucher_rewards {
 				funds_raised,
 				contribution.into(),
 				voucher_total_supply,
-				0,
-				0.into(),
 			)
 			.unwrap();
 
@@ -160,8 +162,6 @@ mod calculate_voucher_rewards {
 				funds_raised,
 				contribution.into(),
 				voucher_total_supply,
-				0,
-				0.into(),
 			)
 			.unwrap();
 
@@ -183,8 +183,6 @@ mod calculate_voucher_rewards {
 				funds_raised,
 				contribution.into(),
 				voucher_total_supply,
-				0,
-				0.into(),
 			)
 			.unwrap();
 
@@ -207,8 +205,6 @@ mod calculate_voucher_rewards {
 				funds_raised,
 				contribution.into(),
 				voucher_total_supply,
-				0,
-				0.into(),
 			)
 			.unwrap();
 
@@ -231,8 +227,6 @@ mod calculate_voucher_rewards {
 				funds_raised,
 				contribution.into(),
 				voucher_total_supply,
-				0,
-				0.into(),
 			)
 			.unwrap();
 
@@ -254,8 +248,6 @@ mod calculate_voucher_rewards {
 				funds_raised,
 				contribution.into(),
 				voucher_total_supply,
-				0,
-				0.into(),
 			)
 			.unwrap();
 
@@ -277,203 +269,11 @@ mod calculate_voucher_rewards {
 				funds_raised,
 				contribution.into(),
 				voucher_total_supply,
-				0,
-				0.into(),
 			)
 			.unwrap();
 
 			let expected_vouchers = 25_000_000;
 			assert_eq!(user_vouchers, expected_vouchers);
-		});
-	}
-
-	#[test]
-	fn rounding_works() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let decimals = 6;
-			let total_contributors: Balance = 123456;
-			let soft_cap_price = add_decimals(1, decimals);
-			let voucher_total_supply = 1234;
-
-			let mut funds_raised = 0;
-			let mut contributions: Vec<Balance> = Vec::new();
-			for i in 0..total_contributors {
-				let contribution = soft_cap_price * (i + 1);
-				funds_raised += contribution;
-				contributions.push(contribution);
-			}
-
-			let mut total_vouchers = 0;
-			let mut total_paid_contributions = 0;
-			for i in 0..total_contributors {
-				let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
-					soft_cap_price,
-					funds_raised,
-					contributions[i as usize].into(),
-					voucher_total_supply,
-					total_vouchers,
-					total_paid_contributions.into(),
-				)
-				.unwrap();
-				total_vouchers += user_vouchers;
-				total_paid_contributions += contributions[i as usize];
-			}
-
-			assert_eq!(total_vouchers, add_decimals(voucher_total_supply, VOUCHER_DECIMALS));
-		});
-	}
-
-	#[test]
-	fn rounding_smallest_issue_with_adjustments() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let decimals = 6;
-			let total_contributors: Balance = 53; //53;
-			let soft_cap_price = add_decimals(1, decimals);
-			let voucher_total_supply = 1;
-
-			let mut funds_raised = 0;
-			let mut contributions: Vec<Balance> = Vec::new();
-			for i in 0..total_contributors {
-				let contribution = soft_cap_price * (i + 1);
-				funds_raised += contribution;
-				contributions.push(contribution);
-			}
-
-			let mut total_vouchers = 0;
-			let mut total_paid_contributions = 0;
-			for i in 0..total_contributors {
-				let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
-					soft_cap_price,
-					funds_raised,
-					contributions[i as usize].into(),
-					voucher_total_supply,
-					total_vouchers,
-					total_paid_contributions.into(),
-				)
-				.unwrap();
-				total_vouchers += user_vouchers;
-				total_paid_contributions += contributions[i as usize];
-			}
-
-			assert_eq!(total_vouchers, add_decimals(voucher_total_supply, VOUCHER_DECIMALS));
-		});
-	}
-
-	#[test]
-	fn rounding_many_contributors() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let decimals = 6;
-			let iterations = 1000;
-			// Test that total vouchers is always correct even with varying contributors
-			for n in 0..iterations {
-				let total_contributors: Balance = 20 + n;
-				let soft_cap_price = add_decimals(1, decimals);
-				let voucher_total_supply = 14;
-
-				let mut funds_raised = 0;
-				let mut contributions: Vec<Balance> = Vec::new();
-				for i in 0..total_contributors {
-					let contribution = soft_cap_price * (i + 1);
-					funds_raised += contribution;
-					contributions.push(contribution);
-				}
-
-				let mut total_vouchers = 0;
-				let mut total_paid_contributions = 0;
-				for i in 0..total_contributors {
-					let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
-						soft_cap_price,
-						funds_raised,
-						contributions[i as usize].into(),
-						voucher_total_supply,
-						total_vouchers,
-						total_paid_contributions.into(),
-					)
-					.unwrap();
-					total_vouchers += user_vouchers;
-					total_paid_contributions += contributions[i as usize];
-				}
-
-				assert_eq!(total_vouchers, add_decimals(voucher_total_supply, VOUCHER_DECIMALS));
-			}
-		});
-	}
-
-	#[test]
-	fn rounding_many_total_supplies() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let decimals = 6;
-			let iterations = 1000;
-			// Test that total vouchers is always correct even with varying total supplies
-			for n in 1..iterations {
-				let total_contributors: Balance = iterations;
-				let soft_cap_price = add_decimals(1, decimals);
-				let voucher_total_supply = n;
-
-				let mut funds_raised = 0;
-				let mut contributions: Vec<Balance> = Vec::new();
-				for i in 0..total_contributors {
-					let contribution = soft_cap_price + i;
-					funds_raised += contribution;
-					contributions.push(contribution);
-				}
-
-				let mut total_vouchers = 0;
-				let mut total_paid_contributions = 0;
-				for i in 0..total_contributors {
-					let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
-						soft_cap_price,
-						funds_raised,
-						contributions[i as usize].into(),
-						voucher_total_supply,
-						total_vouchers,
-						total_paid_contributions.into(),
-					)
-					.unwrap();
-					total_vouchers += user_vouchers;
-					total_paid_contributions += contributions[i as usize];
-				}
-
-				assert_eq!(total_vouchers, add_decimals(voucher_total_supply, VOUCHER_DECIMALS));
-			}
-		});
-	}
-
-	#[test]
-	fn many_single_payments() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let decimals = 1;
-			// all contributing 1 each.
-			// If not accounted for, our total supply would be 0
-			let total_contributors: Balance = 10_000_000;
-			let soft_cap_price = add_decimals(1, decimals);
-			let voucher_total_supply = 1;
-
-			let mut funds_raised = 0;
-			let mut contributions: Vec<Balance> = Vec::new();
-			for _ in 0..total_contributors {
-				let contribution = 1;
-				funds_raised += contribution;
-				contributions.push(contribution);
-			}
-
-			let mut total_vouchers = 0;
-			let mut total_paid_contributions = 0;
-			for i in 0..total_contributors {
-				let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
-					soft_cap_price,
-					funds_raised,
-					contributions[i as usize].into(),
-					voucher_total_supply,
-					total_vouchers,
-					total_paid_contributions.into(),
-				)
-				.unwrap();
-				total_vouchers += user_vouchers;
-				total_paid_contributions += contributions[i as usize];
-			}
-
-			assert_eq!(total_vouchers, add_decimals(voucher_total_supply, VOUCHER_DECIMALS));
 		});
 	}
 
@@ -492,8 +292,6 @@ mod calculate_voucher_rewards {
 				total_raised,
 				contribution.into(),
 				voucher_total_supply,
-				0,
-				0.into(),
 			)
 			.unwrap();
 
@@ -517,8 +315,6 @@ mod calculate_voucher_rewards {
 				total_raised,
 				contribution.into(),
 				voucher_total_supply,
-				0,
-				0.into(),
 			)
 			.unwrap();
 
@@ -541,8 +337,6 @@ mod calculate_voucher_rewards {
 					total_raised,
 					contribution.into(),
 					voucher_total_supply,
-					0,
-					0.into(),
 				),
 				"Voucher price must be greater than 0"
 			);
@@ -566,71 +360,9 @@ mod calculate_voucher_rewards {
 					total_raised,
 					contribution.into(),
 					voucher_total_supply,
-					0,
-					0.into(),
 				),
 				"Voucher max supply must be greater than 0"
 			);
-		});
-	}
-
-	#[test]
-	#[ignore]
-	// TODO Remove this test. It is purely for demonstrating the difference between the old and new
-	// methods
-	fn old_vs_new_test_for_demonstration() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let decimals = 6;
-			let total_contributors: Balance = 53; //53;
-			let soft_cap_price = add_decimals(1, decimals);
-			let voucher_total_supply = 1;
-
-			let mut funds_raised = 0;
-			let mut contributions: Vec<Balance> = Vec::new();
-			for i in 0..total_contributors {
-				let contribution = soft_cap_price * (i + 1);
-				funds_raised += contribution;
-				contributions.push(contribution);
-			}
-
-			let mut total_vouchers = 0;
-			let mut total_paid_contributions = 0;
-			for i in 0..total_contributors {
-				println!("\n===== User {:?} contributed: {:?}", i, contributions[i as usize]);
-				let user_vouchers = Pallet::<Test>::calculate_voucher_rewards(
-					soft_cap_price,
-					funds_raised,
-					contributions[i as usize].into(),
-					voucher_total_supply,
-					total_vouchers,
-					total_paid_contributions.into(),
-				)
-				.unwrap();
-
-				let vouchers_old_method = Pallet::<Test>::calculate_voucher_rewards_old(
-					soft_cap_price,
-					funds_raised,
-					contributions[i as usize],
-					voucher_total_supply,
-				);
-				println!("New Method: {:?} | Old Method: {:?}", user_vouchers, vouchers_old_method);
-				total_vouchers += user_vouchers;
-				total_paid_contributions += contributions[i as usize];
-			}
-
-			println!("\n===== SUMMARY =====");
-			println!("Total Contributors: {:?}", total_contributors);
-			println!("Total Voucher Supply: {:?}", voucher_total_supply);
-			println!("Soft Cap Price: {:?}", soft_cap_price);
-			println!("Funds Raised          : {:?}", funds_raised);
-			println!("Expected funds Raised : {:?}", voucher_total_supply * soft_cap_price);
-			println!("\nTotal Vouchers          : {:?}", total_vouchers);
-			println!(
-				"Expected total Vouchers : {:?}\n",
-				add_decimals(voucher_total_supply, VOUCHER_DECIMALS)
-			);
-
-			assert_eq!(total_vouchers, add_decimals(voucher_total_supply, VOUCHER_DECIMALS));
 		});
 	}
 
@@ -646,8 +378,6 @@ mod calculate_voucher_rewards {
 				contribution,
 				contribution.into(),
 				voucher_total_supply,
-				0,
-				0.into(),
 			)
 			.unwrap();
 
@@ -1040,14 +770,14 @@ mod enable {
 				Error::<Test>::InvalidCrowdsaleStatus
 			);
 
-			sale_info.status = SaleStatus::Distributing(0, 0, 0);
+			sale_info.status = SaleStatus::Distributing(0, 0);
 			SaleInfo::<Test>::insert(sale_id, sale_info);
 			assert_noop!(
 				Crowdsale::enable(Some(alice()).into(), sale_id),
 				Error::<Test>::InvalidCrowdsaleStatus
 			);
 
-			sale_info.status = SaleStatus::Ended(0, 0);
+			sale_info.status = SaleStatus::Ended(0);
 			SaleInfo::<Test>::insert(sale_id, sale_info);
 			assert_noop!(
 				Crowdsale::enable(Some(alice()).into(), sale_id),
@@ -1196,14 +926,14 @@ mod participate {
 					Error::<Test>::CrowdsaleNotEnabled
 				);
 
-				sale_info.status = SaleStatus::Distributing(0, 0, 0);
+				sale_info.status = SaleStatus::Distributing(0, 0);
 				SaleInfo::<Test>::insert(sale_id, sale_info);
 				assert_noop!(
 					Crowdsale::participate(Some(bob()).into(), sale_id, amount),
 					Error::<Test>::CrowdsaleNotEnabled
 				);
 
-				sale_info.status = SaleStatus::Ended(0, 0);
+				sale_info.status = SaleStatus::Ended(0);
 				SaleInfo::<Test>::insert(sale_id, sale_info);
 				assert_noop!(
 					Crowdsale::participate(Some(bob()).into(), sale_id, amount),
@@ -1322,7 +1052,7 @@ mod on_initialize {
 				// Check storage
 				assert_eq!(SaleEndBlocks::<Test>::get(end_block), None);
 				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-				assert_eq!(sale_info.status, SaleStatus::Distributing(end_block, 0, 0));
+				assert_eq!(sale_info.status, SaleStatus::Distributing(end_block, 0));
 				assert_eq!(SaleDistribution::<Test>::get().into_inner(), vec![sale_id]);
 
 				// Check vouchers are refunded to admin
@@ -1382,7 +1112,7 @@ mod on_initialize {
 				// Check storage
 				assert_eq!(SaleEndBlocks::<Test>::get(end_block), None);
 				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-				assert_eq!(sale_info.status, SaleStatus::Distributing(end_block, 0, 0));
+				assert_eq!(sale_info.status, SaleStatus::Distributing(end_block, 0));
 				assert_eq!(SaleDistribution::<Test>::get().into_inner(), vec![sale_id]);
 
 				// Check no vouchers are refunded to admin
@@ -1434,7 +1164,7 @@ mod on_initialize {
 				// Check storage
 				assert_eq!(SaleEndBlocks::<Test>::get(end_block), None);
 				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-				assert_eq!(sale_info.status, SaleStatus::Distributing(end_block, 0, 0));
+				assert_eq!(sale_info.status, SaleStatus::Distributing(end_block, 0));
 				assert_eq!(SaleDistribution::<Test>::get().into_inner(), vec![sale_id]);
 
 				// Check no vouchers are refunded to admin
@@ -1481,7 +1211,7 @@ mod on_initialize {
 				assert_eq!(SaleEndBlocks::<Test>::get(end_block), None);
 				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
 				// Status should be ended with 0 funds raised
-				assert_eq!(sale_info.status, SaleStatus::Ended(end_block, 0));
+				assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
 				assert!(SaleDistribution::<Test>::get().is_empty());
 
 				// Event thrown
@@ -1602,7 +1332,10 @@ mod claim_voucher {
 
 				// Check sale_info.status updated to Ended
 				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-				assert_eq!(sale_info.status, SaleStatus::Ended(end_block, expected_balance));
+				assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
+
+				// SaleDistribution should be empty
+				assert!(SaleDistribution::<Test>::get().is_empty());
 
 				// Event thrown
 				System::assert_last_event(
@@ -1643,6 +1376,9 @@ mod claim_voucher {
 				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
 				assert_eq!(SaleParticipation::<Test>::get(sale_id, bob()), None);
 
+				// SaleDistribution should still contain sale_id
+				assert_eq!(SaleDistribution::<Test>::get().into_inner(), vec![sale_id]);
+
 				// Check Bob balance
 				let bob_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
 				let bob_expected =
@@ -1653,7 +1389,7 @@ mod claim_voucher {
 				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
 				assert_eq!(
 					sale_info.status,
-					SaleStatus::Distributing(end_block, b_amount, bob_balance)
+					SaleStatus::Distributing(end_block, bob_balance)
 				);
 
 				// Manual claim Charlie
@@ -1669,8 +1405,10 @@ mod claim_voucher {
 
 				// Check sale_info.status updated to Ended
 				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-				let vouchers_issued = charlie_balance + bob_balance;
-				assert_eq!(sale_info.status, SaleStatus::Ended(end_block, vouchers_issued));
+				assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
+
+				// SaleDistribution should now be empty
+				assert!(SaleDistribution::<Test>::get().is_empty());
 			});
 	}
 
@@ -1716,7 +1454,6 @@ mod claim_voucher {
 				}
 
 				// Manual claim for each
-				let mut total_vouchers_issued = 0;
 				for (account, amount) in participations {
 					assert_ok!(Crowdsale::claim_voucher(Some(account).into(), sale_id));
 					let voucher_balance =
@@ -1725,7 +1462,6 @@ mod claim_voucher {
 						add_decimals(amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
 					assert_eq!(voucher_balance, expected_balance);
 					assert_eq!(SaleParticipation::<Test>::get(sale_id, account), None);
-					total_vouchers_issued += voucher_balance;
 
 					// Event thrown
 					System::assert_has_event(
@@ -1740,7 +1476,7 @@ mod claim_voucher {
 
 				// Check ended status
 				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-				assert_eq!(sale_info.status, SaleStatus::Ended(end_block, total_vouchers_issued));
+				assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
 
 				// Check vault balance is 0 (All vouchers redeemed)
 				let vault_balance =
@@ -1831,7 +1567,7 @@ mod claim_voucher {
 					Error::<Test>::InvalidCrowdsaleStatus
 				);
 
-				sale_info.status = SaleStatus::Ended(0, 0);
+				sale_info.status = SaleStatus::Ended(0);
 				SaleInfo::<Test>::insert(sale_id, sale_info);
 				assert_noop!(
 					Crowdsale::claim_voucher(Some(bob()).into(), sale_id),
@@ -1846,7 +1582,7 @@ mod claim_voucher {
 				);
 
 				// Sanity check
-				sale_info.status = SaleStatus::Distributing(0, 0, 0);
+				sale_info.status = SaleStatus::Distributing(0,  0);
 				SaleInfo::<Test>::insert(sale_id, sale_info);
 				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
 			});
@@ -2007,7 +1743,7 @@ mod redeem_voucher {
 				// Check NFT ownership
 				assert_eq!(
 					Nft::token_balance_of(&bob(), sale_info.reward_collection_id),
-					redeem_quantity as u32
+					redeem_quantity
 				);
 
 				// Redeem last voucher
@@ -2158,11 +1894,11 @@ mod redeem_voucher {
 				);
 
 				// Sanity check, these two should both work
-				sale_info.status = SaleStatus::Distributing(0, 0, 0);
+				sale_info.status = SaleStatus::Distributing(0, 0);
 				SaleInfo::<Test>::insert(sale_id, sale_info);
 				assert_ok!(Crowdsale::redeem_voucher(Some(alice()).into(), sale_id, 1));
 
-				sale_info.status = SaleStatus::Ended(0, 0);
+				sale_info.status = SaleStatus::Ended(0);
 				SaleInfo::<Test>::insert(sale_id, sale_info);
 				assert_ok!(Crowdsale::redeem_voucher(Some(alice()).into(), sale_id, 1),);
 			});
@@ -2187,7 +1923,7 @@ mod try_force_distribution {
 
 			// Sale status should be set to Ended as nobody participated
 			let block_number = System::block_number();
-			sale_info.status = SaleStatus::Ended(block_number, 0);
+			sale_info.status = SaleStatus::Ended(block_number);
 			assert_eq!(SaleInfo::<Test>::get(sale_id).unwrap(), sale_info);
 
 			// Event thrown
@@ -2265,14 +2001,14 @@ mod try_force_distribution {
 				Error::<Test>::InvalidCrowdsaleStatus
 			);
 
-			sale_info.status = SaleStatus::Ended(0, 0);
+			sale_info.status = SaleStatus::Ended(0);
 			SaleInfo::<Test>::insert(sale_id, sale_info);
 			assert_noop!(
 				Crowdsale::try_force_distribution(Some(bob()).into(), sale_id),
 				Error::<Test>::InvalidCrowdsaleStatus
 			);
 
-			sale_info.status = SaleStatus::Distributing(0, 0, 0);
+			sale_info.status = SaleStatus::Distributing(0, 0);
 			SaleInfo::<Test>::insert(sale_id, sale_info);
 			assert_noop!(
 				Crowdsale::try_force_distribution(Some(bob()).into(), sale_id),
@@ -2326,7 +2062,7 @@ mod try_force_distribution {
 
 				let block_number = System::block_number();
 				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-				assert_eq!(sale_info.status, SaleStatus::Distributing(block_number, 0, 0));
+				assert_eq!(sale_info.status, SaleStatus::Distributing(block_number, 0));
 			});
 	}
 }
@@ -2376,7 +2112,7 @@ mod automatic_distribution {
 
 				// Check other storage values
 				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-				assert_eq!(sale_info.status, SaleStatus::Ended(end_block, expected_balance));
+				assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
 				let block_number = System::block_number();
 				let next_unsigned_at = block_number + UnsignedInterval::get() as u64;
 				assert_eq!(NextUnsignedAt::<Test>::get(), next_unsigned_at);
@@ -2402,7 +2138,7 @@ mod automatic_distribution {
 
 	#[test]
 	fn distribution_across_multiple_blocks() {
-		let total_contributors = MaxPaymentsPerBlock::get() as u32 * 2;
+		let total_contributors = MaxPaymentsPerBlock::get() * 2;
 		let mut accounts = vec![];
 		for i in 0..total_contributors {
 			let i = i + 1;
@@ -2441,7 +2177,7 @@ mod automatic_distribution {
 
 			// Sales status should be ended as we have paid out all accounts
 			let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-			assert!(matches!(sale_info.status, SaleStatus::Distributing(_, _, _)));
+			assert!(matches!(sale_info.status, SaleStatus::Distributing(_, _)));
 
 			// Distribute the next half
 			assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
@@ -2449,14 +2185,12 @@ mod automatic_distribution {
 			// SaleParticipation should be empty
 			assert_eq!(SaleParticipation::<Test>::iter_prefix(sale_id).count(), 0);
 
-			let mut total_distributed = 0;
 			// Check status of each individual account
 			for (account, amount) in accounts.into_iter() {
 				let voucher_balance =
 					AssetsExt::reducible_balance(voucher_asset_id, &account, false);
 				let expected_balance =
 					add_decimals(amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
-				total_distributed += expected_balance;
 				assert_eq!(voucher_balance, expected_balance);
 				assert!(SaleParticipation::<Test>::get(sale_id, account).is_none());
 			}
@@ -2474,7 +2208,7 @@ mod automatic_distribution {
 
 			// Sales status should be ended as we have paid out all accounts
 			let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-			assert_eq!(sale_info.status, SaleStatus::Ended(end_block, total_distributed));
+			assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
 			let block_number = System::block_number();
 			let next_unsigned_at = block_number + UnsignedInterval::get() as u64;
 			assert_eq!(NextUnsignedAt::<Test>::get(), next_unsigned_at);
@@ -2482,10 +2216,211 @@ mod automatic_distribution {
 	}
 
 	#[test]
+	fn distribution_over_committed_refunds_admin() {
+		let total_contributors = 20;
+		let soft_cap_price = add_decimals(1, 6);
+		let mut accounts = vec![];
+		for i in 0..total_contributors {
+			let i = i + 1;
+			let contribution = soft_cap_price * (i + 1);
+			accounts.push((create_account(i as u64), contribution));
+		}
+
+		TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
+			let max_issuance = 14;
+			let (sale_id, sale_info) = initialize_crowdsale_with_soft_cap(max_issuance, soft_cap_price);
+			let voucher_asset_id = sale_info.voucher_asset_id;
+			assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+			// Participate for each account
+			for (account, amount) in accounts.clone() {
+				assert_ok!(Crowdsale::participate(Some(account).into(), sale_id, amount));
+				assert_eq!(SaleParticipation::<Test>::get(sale_id, account), Some(amount));
+			}
+
+			// Call on_initialize at sale close
+			let end_block = System::block_number() + sale_info.duration;
+			System::set_block_number(end_block);
+			Crowdsale::on_initialize(end_block);
+
+			// Check admin balance has 0 at this stage as we are over committed
+			let admin_balance =
+				AssetsExt::reducible_balance(voucher_asset_id, &sale_info.admin, false);
+			assert_eq!(admin_balance, 0);
+
+			// Call auto distribute until we have finished distribution
+			while !SaleDistribution::<Test>::get().is_empty() {
+				assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
+			}
+
+			// Check status of each individual account. Each account should have some voucher balance
+			for (account, _) in accounts.into_iter() {
+				let voucher_balance =
+					AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+				assert!(voucher_balance > 0);
+				assert!(SaleParticipation::<Test>::get(sale_id, account).is_none());
+			}
+
+			// Check vault balance is 0 (All vouchers redeemed)
+			let vault_balance =
+				AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+			assert_eq!(vault_balance, 0);
+
+			// Check admin balance has 10 remainder, paid out due to rounding errors
+			let admin_balance =
+				AssetsExt::reducible_balance(voucher_asset_id, &sale_info.admin, false);
+			assert_eq!(admin_balance, 10);
+
+			// total supply remains the max issuance
+			assert_eq!(
+				AssetsExt::total_issuance(voucher_asset_id),
+				add_decimals(max_issuance, VOUCHER_DECIMALS)
+			);
+
+			// Sales status should be ended as we have paid out all accounts
+			let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+			assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
+			let block_number = System::block_number();
+			let next_unsigned_at = block_number + UnsignedInterval::get() as u64;
+			assert_eq!(NextUnsignedAt::<Test>::get(), next_unsigned_at);
+		});
+	}
+
+	#[test]
+	fn distribution_many_contributors() {
+		// Test the automatic payout 50 times with different numbers of contributors
+		// Each iteration, check that there are no issues with the distribution
+		// due to rounding by asserting vault balance, contributor balance and total issuance
+		let iterations = 50;
+
+		for n in 0..iterations {
+			let total_contributors = 200 + n;
+			let soft_cap_price = add_decimals(1, 6);
+			let mut accounts = vec![];
+			for i in 0..total_contributors {
+				let i = i + 1;
+				let contribution = soft_cap_price * (i + 1);
+				accounts.push((create_account(i as u64), contribution));
+			}
+
+			TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
+				let max_issuance = 14;
+				let (sale_id, sale_info) = initialize_crowdsale_with_soft_cap(max_issuance, soft_cap_price);
+				let voucher_asset_id = sale_info.voucher_asset_id;
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				// Participate for each account
+				for (account, amount) in accounts.clone() {
+					assert_ok!(Crowdsale::participate(Some(account).into(), sale_id, amount));
+					assert_eq!(SaleParticipation::<Test>::get(sale_id, account), Some(amount));
+				}
+
+				// Call on_initialize at sale close
+				let end_block = System::block_number() + sale_info.duration;
+				System::set_block_number(end_block);
+				Crowdsale::on_initialize(end_block);
+
+				// Call auto distribute until we have finished distribution
+				while !SaleDistribution::<Test>::get().is_empty() {
+					assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
+				}
+
+				// Check status of each individual account. Each account should have some voucher balance
+				for (account, _) in accounts.into_iter() {
+					let voucher_balance =
+						AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+					assert!(voucher_balance > 0);
+					assert!(SaleParticipation::<Test>::get(sale_id, account).is_none());
+				}
+
+				// Check vault balance is 0 (All vouchers redeemed)
+				let vault_balance =
+					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				assert_eq!(vault_balance, 0);
+
+				// total supply remains the max issuance
+				assert_eq!(
+					AssetsExt::total_issuance(voucher_asset_id),
+					add_decimals(max_issuance, VOUCHER_DECIMALS)
+				);
+
+				// Sales status should be ended as we have paid out all accounts
+				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+				assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
+			});
+		}
+	}
+
+	#[test]
+	fn distribution_many_total_supplies() {
+		// Test the automatic payout 50 times with different voucher total supplies
+		// Each iteration, check that there are no issues with the distribution
+		// due to rounding by asserting vault balance, contributor balance and total issuance
+		let iterations = 50;
+
+		for n in 1..iterations {
+			let total_contributors = 50;
+			let soft_cap_price = add_decimals(1, 6);
+			let mut accounts = vec![];
+			for i in 0..total_contributors {
+				let i = i + 1;
+				let contribution = soft_cap_price * (i + 1);
+				accounts.push((create_account(i as u64), contribution));
+			}
+
+			TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
+				let max_issuance = n;
+				let (sale_id, sale_info) = initialize_crowdsale_with_soft_cap(max_issuance, soft_cap_price);
+				let voucher_asset_id = sale_info.voucher_asset_id;
+				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+				// Participate for each account
+				for (account, amount) in accounts.clone() {
+					assert_ok!(Crowdsale::participate(Some(account).into(), sale_id, amount));
+					assert_eq!(SaleParticipation::<Test>::get(sale_id, account), Some(amount));
+				}
+
+				// Call on_initialize at sale close
+				let end_block = System::block_number() + sale_info.duration;
+				System::set_block_number(end_block);
+				Crowdsale::on_initialize(end_block);
+
+				// Call auto distribute until we have finished distribution
+				while !SaleDistribution::<Test>::get().is_empty() {
+					assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
+				}
+
+				// Check status of each individual account. Each account should have some voucher balance
+				for (account, _) in accounts.into_iter() {
+					let voucher_balance =
+						AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+					assert!(voucher_balance > 0);
+					assert!(SaleParticipation::<Test>::get(sale_id, account).is_none());
+				}
+
+				// Check vault balance is 0 (All vouchers redeemed)
+				let vault_balance =
+					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				assert_eq!(vault_balance, 0);
+
+				// total supply remains the max issuance
+				assert_eq!(
+					AssetsExt::total_issuance(voucher_asset_id),
+					add_decimals(max_issuance, VOUCHER_DECIMALS)
+				);
+
+				// Sales status should be ended as we have paid out all accounts
+				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+				assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
+			});
+		}
+	}
+
+	#[test]
 	// This test checks that payment is only made once if a user manually redeems tokens
 	// while auto distribution is occurring
 	fn distribution_across_multiple_blocks_with_manual_redemption() {
-		let total_contributors = MaxPaymentsPerBlock::get() as u32 * 2;
+		let total_contributors = MaxPaymentsPerBlock::get() * 2;
 		let mut accounts = vec![];
 		for i in 0..total_contributors {
 			let i = i + 1;
@@ -2545,14 +2480,12 @@ mod automatic_distribution {
 			let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &account, false);
 			assert_eq!(voucher_balance, expected_balance);
 
-			let mut total_distributed = 0;
 			// Check status of each individual account
 			for (account, amount) in accounts.into_iter() {
 				let voucher_balance =
 					AssetsExt::reducible_balance(voucher_asset_id, &account, false);
 				let expected_balance =
 					add_decimals(amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
-				total_distributed += expected_balance;
 				assert_eq!(voucher_balance, expected_balance);
 				assert!(SaleParticipation::<Test>::get(sale_id, account).is_none());
 			}
@@ -2573,7 +2506,7 @@ mod automatic_distribution {
 
 			// Sales status should be ended as we have paid out all accounts
 			let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-			assert_eq!(sale_info.status, SaleStatus::Ended(end_block, total_distributed));
+			assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
 			let block_number = System::block_number();
 			let next_unsigned_at = block_number + UnsignedInterval::get() as u64;
 			assert_eq!(NextUnsignedAt::<Test>::get(), next_unsigned_at);
@@ -2583,7 +2516,7 @@ mod automatic_distribution {
 	#[test]
 	fn distribution_across_many_blocks_under_committed() {
 		let payout_iterations = 50;
-		let total_contributors = MaxPaymentsPerBlock::get() as u32 * payout_iterations;
+		let total_contributors = MaxPaymentsPerBlock::get() * payout_iterations;
 		let mut accounts = vec![];
 		for i in 0..total_contributors {
 			accounts.push((create_account(i as u64 + 1), 100u128));
@@ -2611,14 +2544,12 @@ mod automatic_distribution {
 				assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
 			}
 
-			let mut total_distributed = 0;
 			// Check status of each individual account
 			for (account, amount) in accounts.into_iter() {
 				let voucher_balance =
 					AssetsExt::reducible_balance(voucher_asset_id, &account, false);
 				let expected_balance =
 					add_decimals(amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
-				total_distributed += expected_balance;
 				assert_eq!(voucher_balance, expected_balance);
 				assert!(SaleParticipation::<Test>::get(sale_id, account).is_none());
 			}
@@ -2639,7 +2570,7 @@ mod automatic_distribution {
 
 			// Sales status should be ended as we have paid out all accounts
 			let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-			assert_eq!(sale_info.status, SaleStatus::Ended(end_block, total_distributed));
+			assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
 		});
 	}
 
@@ -2755,7 +2686,7 @@ mod automatic_distribution {
 				Error::<Test>::InvalidCrowdsaleStatus
 			);
 
-			sale_info.status = SaleStatus::Ended(0, 0);
+			sale_info.status = SaleStatus::Ended(0);
 			SaleInfo::<Test>::insert(sale_id, sale_info);
 			assert_noop!(
 				Crowdsale::distribute_crowdsale_rewards(None.into()),
@@ -2763,7 +2694,7 @@ mod automatic_distribution {
 			);
 
 			// Sanity check
-			sale_info.status = SaleStatus::Distributing(0, 0, 0);
+			sale_info.status = SaleStatus::Distributing(0, 0);
 			SaleInfo::<Test>::insert(sale_id, sale_info);
 			assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
 		});
