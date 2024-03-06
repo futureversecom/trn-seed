@@ -38,11 +38,10 @@ pub enum SaleStatus<BlockNumber> {
 	/// The sale has been started and is accepting contributions
 	Enabled(BlockNumber),
 	/// Distributing the rewards to participants,
-	/// (Total contributions paid out, total vouchers paid out)
-	Distributing(BlockNumber, Balance, Balance),
+	/// (Total vouchers paid out)
+	Distributing(BlockNumber, Balance),
 	/// The sale rewards have been distributed to participants
-	/// Balance represents total vouchers distributed
-	Ended(BlockNumber, Balance),
+	Ended(BlockNumber),
 	/// Distribution has not triggered automatically due to too much
 	/// Network traffic
 	DistributionFailed(BlockNumber),
