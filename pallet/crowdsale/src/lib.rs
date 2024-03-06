@@ -177,7 +177,7 @@ pub mod pallet {
 		},
 		/// Crowdsale closed
 		CrowdsaleClosed { sale_id: SaleId, info: SaleInformation<T::AccountId, T::BlockNumber> },
-		/// Crowdsale distribution was manually re triggered
+		/// Crowdsale distribution was manually triggered
 		CrowdsaleManualDistribution {
 			sale_id: SaleId,
 			info: SaleInformation<T::AccountId, T::BlockNumber>,

@@ -235,7 +235,7 @@ impl<T: Config> Pallet<T> {
 
 				if sale_info.funds_raised < crowd_sale_target {
 					// Refunded amount is equal to the total issuance minus the total vouchers paid
-					// out Total vouchers paid out is the total funds raised divided by the voucher
+					// out. Total vouchers paid out is the total funds raised divided by the voucher
 					// price
 					// TODO Verify this calculation
 					let voucher_total_issuance =
