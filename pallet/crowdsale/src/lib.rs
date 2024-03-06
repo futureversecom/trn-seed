@@ -45,16 +45,16 @@ use sp_std::{vec, vec::Vec};
 pub mod types;
 use types::*;
 
-// #[cfg(feature = "runtime-benchmarks")]
-// mod benchmarking;
 mod impls;
+mod weights;
+pub use weights::WeightInfo;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
-// mod weights;
-
-// pub use weights::WeightInfo;
 
 /// The logging target for this pallet
 #[allow(dead_code)]
@@ -111,8 +111,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type UnsignedInterval: Get<Self::BlockNumber>;
 
-		// / Interface to access weight values
-		// type WeightInfo: WeightInfo;
+		/// Interface to access weight values
+		type WeightInfo: WeightInfo;
 	}
 
 	/// The next available sale id
@@ -233,16 +233,20 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			match Self::close_sales_at(now) {
-				Ok(total_closed) =>
-					log!(debug, "✅ closed {} sales at block {:?}", total_closed, now),
-				Err(e) => log!(error, "⛔️ failed to close sales at block {:?}: {:?}", now, e),
+			let total_closed: u32 = match Self::close_sales_at(now) {
+				Ok(total_closed) => total_closed,
+				Err(e) => {
+					log!(error, "⛔️ failed to close sales at block {:?}: {:?}", now, e);
+					0u32
+				},
 			};
-			// TODO Benchmark this
-			// <T as Config>::WeightInfo::close().mul(total_closed as u64)
-			// total_closed == 1 read + 1 write per close
-			// + 1 read + write for SaleEndBlocks
-			Weight::zero()
+			// Record weight for closing sales
+			if total_closed > 0 {
+				log!(debug, "✅ closed {} sales at block {:?}", total_closed, now);
+				T::WeightInfo::on_initialize(total_closed)
+			} else {
+				T::WeightInfo::on_initialize_empty()
+			}
 		}
 
 		/// Offchain worker processes closed sales to distribute voucher rewards to participants
@@ -307,8 +311,7 @@ pub mod pallet {
 		/// - `sale_duration`: How many blocks will the sale last once enabled
 		///
 		/// Emits `CrowdsaleCreated` event when successful.
-		#[pallet::weight(0)]
-		// #[pallet::weight(T::WeightInfo::initialize())]
+		#[pallet::weight(T::WeightInfo::initialize())]
 		#[transactional]
 		pub fn initialize(
 			origin: OriginFor<T>,
@@ -381,7 +384,7 @@ pub mod pallet {
 		/// - `sale_id`: The id of the sale to enable
 		///
 		/// Emits `CrowdsaleEnabled` event when successful.
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::enable())]
 		#[transactional]
 		pub fn enable(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -437,7 +440,7 @@ pub mod pallet {
 		/// - `amount`: The amount of tokens to participate with
 		///
 		/// Emits `CrowdsaleParticipated` event when successful.
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::participate())]
 		#[transactional]
 		pub fn participate(
 			origin: OriginFor<T>,
@@ -500,7 +503,8 @@ pub mod pallet {
 		/// - `sale_id`: The id of the sale to distribute the vouchers for
 		///
 		/// Emits `CrowdsaleVouchersDistributed` event when successful.
-		#[pallet::weight(0)]
+		// TODO: update weight based on participants processable
+		#[pallet::weight(T::WeightInfo::distribute_crowdsale_rewards())]
 		#[transactional]
 		pub fn distribute_crowdsale_rewards(origin: OriginFor<T>) -> DispatchResult {
 			ensure_none(origin)?;
@@ -533,7 +537,6 @@ pub mod pallet {
 
 				let Ok(claimable_vouchers) = Self::transfer_user_vouchers(
 					who.clone(),
-					sale_id,
 					&sale_info,
 					contribution.into(),
 					voucher_max_supply.into(),
@@ -593,7 +596,7 @@ pub mod pallet {
 		/// - `sale_id`: The id of the sale to claim the vouchers from
 		///
 		/// Emits `CrowdsaleVouchersClaimed` event when successful.
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::claim_voucher())]
 		#[transactional]
 		pub fn claim_voucher(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -619,7 +622,6 @@ pub mod pallet {
 				// calculate the claimable vouchers
 				let claimable_vouchers = Self::transfer_user_vouchers(
 					who.clone(),
-					sale_id,
 					sale_info,
 					contribution.into(),
 					voucher_max_supply.into(),
@@ -677,7 +679,7 @@ pub mod pallet {
 		/// - `quantity`: The amount of NFT(s) to redeem
 		///
 		/// Emits `CrowdsaleNFTRedeemed` event when successful.
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::redeem_voucher())]
 		#[transactional]
 		pub fn redeem_voucher(
 			origin: OriginFor<T>,
@@ -731,7 +733,7 @@ pub mod pallet {
 		/// In the very unlikely case that a sale was blocked from automatic distribution within
 		/// the on_initialise step. This function allows a manual trigger of distribution
 		/// callable by anyone to kickstart the sale distribution process.
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::try_force_distribution())]
 		pub fn try_force_distribution(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {

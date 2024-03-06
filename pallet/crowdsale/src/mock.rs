@@ -67,4 +67,5 @@ impl crate::Config for Test {
 	type MaxPaymentsPerBlock = MaxPaymentsPerBlock;
 	type MaxSaleDuration = MaxSaleDuration;
 	type UnsignedInterval = UnsignedInterval;
+	type WeightInfo = ();
 }
