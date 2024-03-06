@@ -46,13 +46,14 @@ fn create_nft_collection(owner: AccountId, max_issuance: TokenCount) -> Collecti
 	collection_id
 }
 
+// Helper function to initialize a crowdsale with default values
 fn initialize_crowdsale(
 	max_issuance: Balance,
 ) -> (SaleId, SaleInformation<AccountId, BlockNumber>) {
 	initialize_crowdsale_with_soft_cap(max_issuance, 10)
 }
 
-// Helper function ton initialize a crowdsale with default values
+// Helper function to initialize a crowdsale with specified soft_cap and max_issuance
 fn initialize_crowdsale_with_soft_cap(
 	max_issuance: Balance,
 	soft_cap_price: Balance,
