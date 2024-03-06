@@ -21,10 +21,7 @@ use frame_support::traits::fungibles::Inspect;
 use frame_system::RawOrigin;
 use seed_primitives::{nft::OriginChain, MetadataScheme};
 
-
-pub fn build_collection<T: Config>(
-	collection_owner: T::AccountId,
-) -> CollectionUuid {
+pub fn build_collection<T: Config>(collection_owner: T::AccountId) -> CollectionUuid {
 	T::NFTExt::do_create_collection(
 		collection_owner.clone(),
 		BoundedVec::truncate_from("Hello".encode()),
@@ -34,10 +31,11 @@ pub fn build_collection<T: Config>(
 		MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
 		None,
 		OriginChain::Root,
-	).unwrap()
+	)
+	.unwrap()
 }
 
-fn initialize_crowdsale<T: Config>(owner: T::AccountId) -> (SaleId, AssetId, CollectionUuid){
+fn initialize_crowdsale<T: Config>(owner: T::AccountId) -> (SaleId, AssetId, CollectionUuid) {
 	let payment_asset_id = T::MultiCurrency::create(&owner, None).unwrap();
 	let collection_id = build_collection::<T>(owner.clone());
 
@@ -45,7 +43,14 @@ fn initialize_crowdsale<T: Config>(owner: T::AccountId) -> (SaleId, AssetId, Col
 	let sale_duration: T::BlockNumber = 1000_u32.into();
 
 	let sale_id = NextSaleId::<T>::get();
-	CrowdSale::<T>::initialize(RawOrigin::Signed(owner.clone()).into(), payment_asset_id, collection_id, soft_cap_price, sale_duration).unwrap();
+	CrowdSale::<T>::initialize(
+		RawOrigin::Signed(owner.clone()).into(),
+		payment_asset_id,
+		collection_id,
+		soft_cap_price,
+		sale_duration,
+	)
+	.unwrap();
 	CrowdSale::<T>::enable(RawOrigin::Signed(owner.clone()).into(), sale_id).unwrap();
 	(sale_id, payment_asset_id, collection_id)
 }
@@ -147,8 +152,7 @@ benchmarks! {
 
 	redeem_voucher {
 		let acc: T::AccountId = account("acc", 0, 0);
-        let (sale_id, payment_asset_id, collection_id) = initialize_crowdsale::<T>(acc.clone());
-
+		let (sale_id, payment_asset_id, collection_id) = initialize_crowdsale::<T>(acc.clone());
 
 		// mint a participant some tokens; participate in the sale
 		let participant = account("participant", 0, 0);
