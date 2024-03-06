@@ -15,8 +15,14 @@
 
 use crate::*;
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::fmt::Write;
+use core::{fmt, fmt::Write};
 use scale_info::TypeInfo;
+use serde::{
+	de::{Error, SeqAccess, Visitor},
+	ser::SerializeStruct,
+	Deserialize, Deserializer, Serialize, Serializer,
+};
+use sp_core::Get;
 use sp_runtime::{traits::ConstU32, BoundedVec, PerThing, Permill};
 use sp_std::prelude::*;
 
@@ -37,12 +43,30 @@ pub const MAX_COLLECTION_ENTITLEMENTS: u32 = MAX_ENTITLEMENTS - 2;
 pub type ListingId = u128;
 
 /// Describes the chain that the bridged resource originated from
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, Encode, Debug, Deserialize, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum OriginChain {
 	Ethereum,
 	Root,
 }
 
+impl Serialize for OriginChain {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		match *self {
+			OriginChain::Ethereum =>
+				serializer.serialize_unit_variant("OriginChain", 0, "Ethereum"),
+			OriginChain::Root => serializer.serialize_unit_variant("OriginChain", 1, "Root"),
+		}
+	}
+}
+
+impl Default for OriginChain {
+	fn default() -> Self {
+		Self::Root
+	}
+}
 /// Reason for an NFT being locked (un-transferrable)
 #[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum TokenLockReason {
@@ -78,12 +102,140 @@ impl TryFrom<&[u8]> for MetadataScheme {
 	}
 }
 
+/// A bounded vector.
+///
+/// It has implementations for efficient append and length decoding, as with a normal `Vec<_>`, once
+/// put into storage as a raw value, map or double-map.
+///
+/// As the name suggests, the length of the queue is always bounded. All internal operations ensure
+/// this bound is respected.
+// #[cfg_attr(feature = "std", derive(Serialize), serde(transparent))]
+// #[derive(Encode, scale_info::TypeInfo)]
+// #[scale_info(skip_type_params(S))]
+// pub struct BoundedVector<T, S>(
+// 	pub(super) Vec<T>,
+// 	#[cfg_attr(feature = "std", serde(skip_serializing))] PhantomData<S>,
+// );
+//
+// #[cfg(feature = "std")]
+// impl<'de, T, S: Get<u32>> Deserialize<'de> for BoundedVector<T, S>
+// 	where
+// 		T: Deserialize<'de>,
+// {
+// 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+// 		where
+// 			D: Deserializer<'de>,
+// 	{
+// 		struct VecVisitor<T, S: Get<u32>>(PhantomData<(T, S)>);
+//
+// 		impl<'de, T, S: Get<u32>> Visitor<'de> for VecVisitor<T, S>
+// 			where
+// 				T: Deserialize<'de>,
+// 		{
+// 			type Value = Vec<T>;
+//
+// 			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+// 				formatter.write_str("a sequence")
+// 			}
+//
+// 			fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+// 				where
+// 					A: SeqAccess<'de>,
+// 			{
+// 				let size = seq.size_hint().unwrap_or(0);
+// 				let max = match usize::try_from(S::get()) {
+// 					Ok(n) => n,
+// 					Err(_) => return Err(A::Error::custom("can't convert to usize")),
+// 				};
+// 				if size > max {
+// 					Err(A::Error::custom("out of bounds"))
+// 				} else {
+// 					let mut values = Vec::with_capacity(size);
+//
+// 					while let Some(value) = seq.next_element()? {
+// 						values.push(value);
+// 						if values.len() > max {
+// 							return Err(A::Error::custom("out of bounds"))
+// 						}
+// 					}
+//
+// 					Ok(values)
+// 				}
+// 			}
+// 		}
+//
+// 		let visitor: VecVisitor<T, S> = VecVisitor(PhantomData);
+// 		deserializer
+// 			.deserialize_seq(visitor)
+// 			.map(|v| BoundedVector::<T, S>::try_from(v).map_err(|_| Error::custom("out of bounds")))?
+// 	}
+// }
+
 /// Describes the royalty scheme for secondary sales for an NFT collection/token
 #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct RoyaltiesSchedule<AccountId> {
 	/// Entitlements on all secondary sales, (beneficiary, % of sale price)
 	pub entitlements: BoundedVec<(AccountId, Permill), ConstU32<MAX_ENTITLEMENTS>>,
 }
+
+// impl Serialize for RoyaltiesSchedule<AccountId> {
+// 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+// 		where
+// 			S: serde::Serializer,
+// 	{
+// 		let mut s = serializer.serialize_struct("RoyaltiesSchedule", 1)?;
+// 		s.serialize_field("entitlements", &self.entitlements)?;
+// 		s.end()
+// 	}
+// }
+
+// impl<'a> Deserialize<'a> for RoyaltiesSchedule<AccountId> {
+// 	fn deserialize<D>(deserializer: D) -> Result<RoyaltiesSchedule<AccountId>, D::Error>
+// 		where
+// 			D: Deserializer<'a>,
+// 	{
+// 		deserializer.deserialize_any(RoyaltiesScheduleVisitor)
+// 	}
+// }
+
+// struct RoyaltiesScheduleVisitor;
+//
+// impl<'a> Visitor<'a> for RoyaltiesScheduleVisitor {
+// 	type Value = RoyaltiesSchedule<AccountId>;
+//
+// 	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+// 		formatter.write_str("valid abi spec file")
+// 	}
+//
+// 	fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+// 		where
+// 			A: SeqAccess<'a>,
+// 	{
+// 		let mut result = RoyaltiesSchedule::default();
+// 		// while let Some(operation) = seq.next_element::<A>()? {
+// 		// 	match operation {
+// 		// 		xrpl => {
+// 		// 			result.entitlements = false;
+// 		// 		}
+// 		// 	}
+// 		// }
+//
+//
+// 		Ok(result)
+// 	}
+// }
+
+// impl<T> Serialize for RoyaltiesSchedule<T>
+// 	where T: Serialize {
+// 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+// 		where
+// 			S: serde::Serializer,
+// 	{
+// 		let mut s = serializer.serialize_struct("RoyaltiesSchedule", 1)?;
+// 		s.serialize_field("entitlements", &self.entitlements)?;
+// 		s.end()
+// 	}
+// }
 
 impl<AccountId> RoyaltiesSchedule<AccountId> {
 	/// True if entitlements are within valid parameters

@@ -367,7 +367,17 @@ impl<T: Config> Pallet<T> {
 	/// next available serial number, collection issuance, is_cross_chain_compatible
 	pub fn collection_details(
 		collection_id: CollectionUuid,
-	) -> (T::AccountId, Vec<u8>, Vec<u8>, Permill, Option<TokenCount>, SerialNumber, TokenCount, bool)
+	) -> (
+		T::AccountId,
+		Vec<u8>,
+		Vec<u8>,
+		//Option<RoyaltiesSchedule<T::AccountId>>,
+		Option<TokenCount>,
+		SerialNumber,
+		TokenCount,
+		CrossChainCompatibility,
+		OriginChain,
+	)
 	where
 		<T as frame_system::Config>::AccountId: core::default::Default,
 	{
@@ -393,26 +403,29 @@ impl<T: Config> Pallet<T> {
 		let owner = collection_info.owner;
 		let name = collection_info.name.into();
 		let metadata_scheme = collection_info.metadata_scheme.construct_token_uri(0);
-		let royalties_schedule = if collection_info.royalties_schedule.is_some() {
-			collection_info.royalties_schedule.unwrap().calculate_total_entitlement()
-		} else {
-			Zero::zero()
-		};
+		// let royalties_schedule = if collection_info.royalties_schedule.is_some() {
+		// 	collection_info.royalties_schedule.unwrap().calculate_total_entitlement()
+		// } else {
+		// 	Zero::zero()
+		// };
+		let royalties_schedule = collection_info.royalties_schedule;
 
 		let max_issuance = collection_info.max_issuance;
 		let next_serial_number = collection_info.next_serial_number;
 		let collection_issuance = collection_info.collection_issuance;
-		let cross_chain_compatibility = collection_info.cross_chain_compatibility.xrpl;
+		let cross_chain_compatibility = collection_info.cross_chain_compatibility;
+		let origin_chain = collection_info.origin_chain;
 
 		(
 			owner,
 			name,
 			metadata_scheme,
-			royalties_schedule,
+			// royalties_schedule,
 			max_issuance,
 			next_serial_number,
 			collection_issuance,
 			cross_chain_compatibility,
+			origin_chain,
 		)
 	}
 

@@ -38,6 +38,7 @@ use pallet_evm::{Account as EVMAccount, EnsureAddressNever, FeeCalculator, Runne
 use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use seed_pallet_common::MaintenanceCheck;
+use seed_primitives::nft::OriginChain;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, ConstU16, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
@@ -56,7 +57,8 @@ use sp_std::prelude::*;
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
-
+use pallet_nft::CrossChainCompatibility;
+use seed_primitives::RoyaltiesSchedule;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -1618,7 +1620,9 @@ impl_runtime_apis! {
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Nft::token_uri(token_id)
 		}
-		fn collection_details(collection_id: CollectionUuid) -> (AccountId, Vec<u8>, Vec<u8>, Permill, Option<TokenCount>, SerialNumber, TokenCount, bool) {
+		fn collection_details(collection_id: CollectionUuid) -> (AccountId, Vec<u8>, Vec<u8>,
+			// Option<RoyaltiesSchedule<AccountId>>,
+			Option<TokenCount>, SerialNumber, TokenCount, CrossChainCompatibility, OriginChain) {
 			Nft::collection_details(collection_id)
 		}
 	}
