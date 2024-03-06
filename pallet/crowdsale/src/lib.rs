@@ -537,7 +537,6 @@ pub mod pallet {
 
 				let Ok(claimable_vouchers) = Self::transfer_user_vouchers(
 					who.clone(),
-					sale_id,
 					&sale_info,
 					contribution.into(),
 					voucher_max_supply.into(),
@@ -623,7 +622,6 @@ pub mod pallet {
 				// calculate the claimable vouchers
 				let claimable_vouchers = Self::transfer_user_vouchers(
 					who.clone(),
-					sale_id,
 					sale_info,
 					contribution.into(),
 					voucher_max_supply.into(),
