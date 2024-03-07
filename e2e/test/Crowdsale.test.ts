@@ -35,7 +35,7 @@ describe("Crowdsale pallet", () => {
 
   after(async () => await node.stop());
 
-  it.only("crowdsale extrinsic gas fees", async () => {
+  it("crowdsale extrinsic gas fees", async () => {
     const fees = {
       initialize: [300_000, 315_000],
       enable: [250_000, 265_000],
