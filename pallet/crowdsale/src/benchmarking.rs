@@ -119,7 +119,7 @@ benchmarks! {
 	}: _(RawOrigin::None)
 	verify {
 		let sale_info = SaleInfo::<T>::get(0).unwrap();
-		assert_eq!(sale_info.status, SaleStatus::Ended(end_block, 2_000_000));
+		assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
 	}
 
 	claim_voucher {
@@ -144,7 +144,7 @@ benchmarks! {
 	verify {
 		let sale_info = SaleInfo::<T>::get(sale_id).unwrap();
 
-		assert_eq!(sale_info.status, SaleStatus::Ended(end_block, 2_000_000));
+		assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
 		assert_eq!(T::MultiCurrency::balance(sale_info.voucher_asset_id, &sale_info.vault), 0);
 		assert_eq!(T::MultiCurrency::balance(sale_info.voucher_asset_id, &acc), 998_000_000);
 		assert_eq!(T::MultiCurrency::balance(sale_info.voucher_asset_id, &participant), 2_000_000);
@@ -194,7 +194,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(acc.clone()), sale_id)
 	verify {
 		let sale_info = SaleInfo::<T>::get(0).unwrap();
-		assert_eq!(sale_info.status, SaleStatus::Ended(end_block, 0));
+		assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
 	}
 
 	on_initialize {
