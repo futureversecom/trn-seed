@@ -70,8 +70,8 @@ benchmark_runtime() {
 benchmark_pallet() {
     echo "[+][pallet] Benchmarking $PALLET";
 
-    # remove the 'pallet_' prefix and replace any underscores with dashes
-    PALLET_FOLDER="./pallet/$(echo ${PALLET#pallet_} | tr '_' '-')/src"
+    # remove the 'pallet-' prefix
+    PALLET_FOLDER="./pallet/$(echo ${PALLET#pallet-})/src"
 
     OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$PALLET_FOLDER/weights.rs" $1 2>&1 )
     if [ $? -ne 0 ]; then
@@ -96,7 +96,6 @@ is_custom_pallet() {
             return 0
         fi
     done
-    
     return 1
 }
 
@@ -124,7 +123,7 @@ populate_pallet_list() {
     
     CUSTOM_PALLETS=()
     for f in ./pallet/*/Cargo.toml; do
-        pallet_name=$(awk -F' = ' '$1 == "name" {print $2}' $f | tr -d '"' | tr '-' '_')
+        pallet_name=$(awk -F' = ' '$1 == "name" {print $2}' $f | tr -d '"')
         CUSTOM_PALLETS+=($pallet_name)
     done;
     

@@ -29,6 +29,7 @@ use seed_primitives::{
 use sp_runtime::{
 	traits::Zero, ArithmeticError, BoundedVec, DispatchError, DispatchResult, SaturatedConversion,
 };
+use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
 	/// Returns the CollectionUuid unique across parachains
@@ -508,6 +509,24 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Sets the owner of a collection to a new account
+	pub fn do_set_owner(
+		previous_owner: T::AccountId,
+		collection_id: CollectionUuid,
+		new_owner: T::AccountId,
+	) -> DispatchResult {
+		let mut collection_info =
+			<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		ensure!(
+			collection_info.is_collection_owner(&previous_owner),
+			Error::<T>::NotCollectionOwner
+		);
+		collection_info.owner = new_owner.clone();
+		<CollectionInfo<T>>::insert(collection_id, collection_info);
+		Self::deposit_event(Event::<T>::OwnerSet { collection_id, new_owner });
+		Ok(())
+	}
+
 	/// The account ID of the NFT pallet.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
@@ -574,6 +593,14 @@ impl<T: Config> NFTExt for Pallet<T> {
 		let collection_info =
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok((collection_info.collection_issuance, collection_info.max_issuance))
+	}
+
+	fn transfer_collection_ownership(
+		who: Self::AccountId,
+		collection_id: CollectionUuid,
+		new_owner: Self::AccountId,
+	) -> DispatchResult {
+		Self::do_set_owner(who, collection_id, new_owner)
 	}
 
 	fn get_royalties_schedule(

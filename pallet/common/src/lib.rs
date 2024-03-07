@@ -136,6 +136,11 @@ pub trait CreateExt {
 	) -> Result<AssetId, DispatchError>;
 }
 
+pub trait InspectExt {
+	/// Check if the asset exists
+	fn exists(asset_id: AssetId) -> bool;
+}
+
 /// The nft with the given token_id was transferred.
 pub trait OnTransferSubscriber {
 	/// The nft with the given token_id was transferred.
@@ -457,6 +462,13 @@ pub trait NFTExt {
 	fn get_collection_issuance(
 		collection_id: CollectionUuid,
 	) -> Result<(TokenCount, Option<TokenCount>), DispatchError>;
+
+	/// Transfers the ownership of a collection to the new owner
+	fn transfer_collection_ownership(
+		who: Self::AccountId,
+		collection_id: CollectionUuid,
+		new_owner: Self::AccountId,
+	) -> DispatchResult;
 
 	/// Return the RoyaltiesSchedule if it exists for a collection
 	/// Returns an error if the collection does not exist

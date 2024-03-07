@@ -5087,6 +5087,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-crowdsale"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-nft",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-dex"
 version = "0.0.1"
 dependencies = [
@@ -8882,6 +8903,7 @@ dependencies = [
  "pallet-bags-list",
  "pallet-balances",
  "pallet-base-fee",
+ "pallet-crowdsale",
  "pallet-dex",
  "pallet-dex-rpc-runtime-api",
  "pallet-doughnut",
