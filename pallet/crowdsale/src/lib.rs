@@ -711,43 +711,39 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(quantity > 0, Error::<T>::InvalidQuantity);
 
-			SaleInfo::<T>::try_mutate(sale_id, |sale_info| -> DispatchResult {
-				let sale_info = sale_info.as_mut().ok_or(Error::<T>::CrowdsaleNotFound)?;
+			let sale_info = SaleInfo::<T>::get(sale_id).ok_or(Error::<T>::CrowdsaleNotFound)?;
 
-				// ensure the sale has concluded and is being distributed or has been distributed
-				ensure!(
-					matches!(sale_info.status, SaleStatus::Distributing(_, _)) ||
-						matches!(sale_info.status, SaleStatus::Ended(_)),
-					Error::<T>::InvalidCrowdsaleStatus
-				);
+			// ensure the sale has concluded and is being distributed or has been distributed
+			ensure!(
+				matches!(sale_info.status, SaleStatus::Distributing(_, _)) ||
+					matches!(sale_info.status, SaleStatus::Ended(_)),
+				Error::<T>::InvalidCrowdsaleStatus
+			);
 
-				// burn vouchers from the user, will fail if the user does not have enough
-				// vouchers since 1:1 mapping between vouchers and NFTs, we can use the quantity
-				// * decimals as the amount burned
-				let voucher_amount = quantity.saturating_mul(10u32.pow(VOUCHER_DECIMALS as u32));
-				T::MultiCurrency::burn_from(
-					sale_info.voucher_asset_id,
-					&who,
-					voucher_amount.into(),
-				)?;
+			// burn vouchers from the user, will fail if the user does not have enough
+			// vouchers since 1:1 mapping between vouchers and NFTs, we can use the quantity
+			// * decimals as the amount burned
+			let voucher_amount = quantity.saturating_mul(10u32.pow(VOUCHER_DECIMALS as u32));
+			T::MultiCurrency::burn_from(
+				sale_info.voucher_asset_id,
+				&who,
+				voucher_amount.into(),
+			)?;
 
-				// mint the NFT(s) to the user
-				T::NFTExt::do_mint(
-					sale_info.vault.clone(),
-					sale_info.reward_collection_id,
-					quantity,
-					Some(who.clone()),
-				)?;
+			// mint the NFT(s) to the user
+			T::NFTExt::do_mint(
+				sale_info.vault.clone(),
+				sale_info.reward_collection_id,
+				quantity,
+				Some(who.clone()),
+			)?;
 
-				Self::deposit_event(Event::CrowdsaleNFTRedeemed {
-					sale_id,
-					who,
-					collection_id: sale_info.reward_collection_id,
-					quantity,
-				});
-
-				Ok(())
-			})?;
+			Self::deposit_event(Event::CrowdsaleNFTRedeemed {
+				sale_id,
+				who,
+				collection_id: sale_info.reward_collection_id,
+				quantity,
+			});
 
 			Ok(())
 		}
