@@ -58,7 +58,6 @@ use sp_std::prelude::*;
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 use pallet_nft::CrossChainCompatibility;
-use seed_primitives::RoyaltiesSchedule;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -1621,7 +1620,7 @@ impl_runtime_apis! {
 			Nft::token_uri(token_id)
 		}
 		fn collection_details(collection_id: CollectionUuid) -> (AccountId, Vec<u8>, Vec<u8>,
-			// Option<RoyaltiesSchedule<AccountId>>,
+			Option<Vec<(AccountId, Permill)>>,
 			Option<TokenCount>, SerialNumber, TokenCount, CrossChainCompatibility, OriginChain) {
 			Nft::collection_details(collection_id)
 		}

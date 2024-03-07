@@ -29,7 +29,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT, Permill};
 
 pub use pallet_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi};
-use seed_primitives::{OriginChain, RoyaltiesSchedule};
+use seed_primitives::OriginChain;
 
 /// NFT RPC methods.
 #[rpc(client, server, namespace = "nft")]
@@ -54,7 +54,7 @@ pub trait NftApi<AccountId> {
 		AccountId,
 		Vec<u8>,
 		Vec<u8>,
-		// Option<RoyaltiesSchedule<AccountId>>,
+		Option<Vec<(AccountId, Permill)>>,
 		Option<TokenCount>,
 		SerialNumber,
 		TokenCount,
@@ -112,7 +112,7 @@ where
 		AccountId,
 		Vec<u8>,
 		Vec<u8>,
-		// Option<RoyaltiesSchedule<AccountId>>,
+		Option<Vec<(AccountId, Permill)>>,
 		Option<TokenCount>,
 		SerialNumber,
 		TokenCount,

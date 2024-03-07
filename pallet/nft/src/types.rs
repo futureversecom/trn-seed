@@ -16,15 +16,10 @@
 //! NFT module types
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::fmt;
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_primitives::{MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount};
-use serde::{
-	de::{SeqAccess, Visitor},
-	ser::SerializeStruct,
-	Deserialize, Deserializer, Serialize, Serializer,
-};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use sp_runtime::BoundedVec;
 use sp_std::{fmt::Debug, prelude::*};
 

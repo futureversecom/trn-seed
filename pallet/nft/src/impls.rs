@@ -371,7 +371,7 @@ impl<T: Config> Pallet<T> {
 		T::AccountId,
 		Vec<u8>,
 		Vec<u8>,
-		//Option<RoyaltiesSchedule<T::AccountId>>,
+		Option<Vec<(T::AccountId, Permill)>>,
 		Option<TokenCount>,
 		SerialNumber,
 		TokenCount,
@@ -396,6 +396,7 @@ impl<T: Config> Pallet<T> {
 				Default::default(),
 				Default::default(),
 				Default::default(),
+				Default::default(),
 			)
 		}
 
@@ -403,13 +404,11 @@ impl<T: Config> Pallet<T> {
 		let owner = collection_info.owner;
 		let name = collection_info.name.into();
 		let metadata_scheme = collection_info.metadata_scheme.construct_token_uri(0);
-		// let royalties_schedule = if collection_info.royalties_schedule.is_some() {
-		// 	collection_info.royalties_schedule.unwrap().calculate_total_entitlement()
-		// } else {
-		// 	Zero::zero()
-		// };
-		let royalties_schedule = collection_info.royalties_schedule;
-
+		let royalties_schedule: Option<Vec<(T::AccountId, Permill)>> =
+			match collection_info.royalties_schedule {
+				Some(royalties) => Some(royalties.entitlements.into_inner()),
+				None => None,
+			};
 		let max_issuance = collection_info.max_issuance;
 		let next_serial_number = collection_info.next_serial_number;
 		let collection_issuance = collection_info.collection_issuance;
@@ -420,7 +419,7 @@ impl<T: Config> Pallet<T> {
 			owner,
 			name,
 			metadata_scheme,
-			// royalties_schedule,
+			royalties_schedule,
 			max_issuance,
 			next_serial_number,
 			collection_issuance,

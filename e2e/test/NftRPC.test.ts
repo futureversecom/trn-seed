@@ -1,4 +1,5 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
+import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a, u8aToHex, u8aToString } from "@polkadot/util";
 import axios from "axios";
 import { expect } from "chai";
@@ -15,16 +16,16 @@ export const rpc = {
           type: "u32",
         },
       ],
-      // type: "(AccountId, Vec<u8>, Vec<u8>, Permill, Option<u32>, u32, u32, CrossChainCompatibility, OriginChain)",
-      type: "(AccountId, Vec<u8>, Vec<u8>, Option<u32>, u32, u32, CrossChainCompatibility, Text)",
+      type: "(AccountId, Vec<u8>, Vec<u8>, Option<Vec<(T::AccountId, Permill)>>,Option<u32>, u32, u32, CrossChainCompatibility, Text)",
     },
   },
 };
 
-describe("NftRPC", () => {
+describe.only("NftRPC", () => {
   let node: NodeProcess;
   let api: ApiPromise;
   let collectionId: any;
+  let alith: KeyringPair;
 
   before(async () => {
     node = await startNode();
@@ -38,13 +39,15 @@ describe("NftRPC", () => {
     });
 
     const keyring = new Keyring({ type: "ethereum" });
-    const alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
+    alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
 
     collectionId = await api.query.nft.nextCollectionId();
-
+    const royaltiesSchedule = {
+      entitlements: [[alith.address, 10000 /* one percent */]],
+    };
     await new Promise<void>((resolve, reject) => {
       api.tx.nft
-        .createCollection("test-collection", 0, null, null, "https://test/api/", null, { xrpl: false })
+        .createCollection("test-collection", 0, null, null, "https://test/api/", royaltiesSchedule, { xrpl: false })
         .signAndSend(alith, ({ status, events }) => {
           if (status.isInBlock) {
             events.forEach(({ event: { data, method } }) => {
@@ -77,16 +80,16 @@ describe("NftRPC", () => {
     const owner = result[0];
     const name = u8aToString(new Uint8Array(result[1]));
     const metadata = u8aToString(new Uint8Array(result[2]));
-    // const royalitySchedule = result[3];
-    const maxIssuance = result[3];
-    const nextSerialNumber = result[4];
-    const collectionIssuance = result[5];
-    const crossChainCompatibility = result[6];
-    const chainOrigin = result[7];
+    const royalitySchedule = result[3];
+    const maxIssuance = result[4];
+    const nextSerialNumber = result[5];
+    const collectionIssuance = result[6];
+    const crossChainCompatibility = result[7];
+    const chainOrigin = result[8];
     expect(owner).to.eql("0xf24ff3a9cf04c71dbc94d0b566f7a27b94566cac");
     expect(name).to.eql("test-collection");
     expect(metadata).to.eql("https://test/api/0");
-    // expect(royalitySchedule).to.eql(0);
+    expect(royalitySchedule).to.eql([["0xf24ff3a9cf04c71dbc94d0b566f7a27b94566cac", 10000]]);
     expect(maxIssuance).to.eql(null);
     expect(nextSerialNumber).to.eql(0);
     expect(collectionIssuance).to.eql(0);
@@ -99,16 +102,16 @@ describe("NftRPC", () => {
     const owner = u8aToHex(result[0]);
     const name = u8aToString(result[1]);
     const metadata = u8aToString(result[2]);
-    // const royalitySchedule = result[3];
-    const maxIssuance = result[3];
-    const nextSerialNumber = result[4];
-    const collectionIssuance = result[5];
-    const crossChainCompatibility = result[6];
-    const chainOrigin = result[7];
+    const royalitySchedule = result[3];
+    const maxIssuance = result[4];
+    const nextSerialNumber = result[5];
+    const collectionIssuance = result[6];
+    const crossChainCompatibility = result[7];
+    const chainOrigin = result[8];
     expect(owner).to.eql("0xf24ff3a9cf04c71dbc94d0b566f7a27b94566cac");
     expect(name).to.eql("test-collection");
     expect(metadata).to.eql("https://test/api/0");
-    // expect(royalitySchedule.toNumber()).to.eql(0);
+    expect(royalitySchedule.toJSON()).to.eql([[alith.address, 10000]]);
     expect(maxIssuance.toJSON()).to.eql(null);
     expect(nextSerialNumber.toNumber()).to.eql(0);
     expect(collectionIssuance.toNumber()).to.eql(0);
@@ -121,16 +124,16 @@ describe("NftRPC", () => {
     const owner = u8aToHex(result[0]);
     const name = u8aToString(result[1]);
     const metadata = u8aToString(result[2]);
-    // const royalitySchedule = result[3];
-    const maxIssuance = result[3];
-    const nextSerialNumber = result[4];
-    const collectionIssuance = result[5];
-    const crossChainCompatibility = result[6];
-    const chainOrigin = result[7];
+    const royalitySchedule = result[3];
+    const maxIssuance = result[4];
+    const nextSerialNumber = result[5];
+    const collectionIssuance = result[6];
+    const crossChainCompatibility = result[7];
+    const chainOrigin = result[8];
     expect(owner).to.eql("0x0000000000000000000000000000000000000000");
     expect(name).to.eql("");
     expect(metadata).to.eql("");
-    // expect(royalitySchedule.toNumber()).to.eql(0);
+    expect(royalitySchedule.toJSON()).to.eql(null);
     expect(maxIssuance.toJSON()).to.eql(null);
     expect(nextSerialNumber.toNumber()).to.eql(0);
     expect(collectionIssuance.toNumber()).to.eql(0);
