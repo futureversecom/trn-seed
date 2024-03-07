@@ -36,7 +36,88 @@ describe("Crowdsale pallet", () => {
   after(async () => await node.stop());
 
   it("crowdsale extrinsic gas fees", async () => {
-    // TODO:
+    const fees = {
+      initialize: [300_000, 315_000],
+      enable: [250_000, 265_000],
+      participate: [290_000, 305_000],
+      redeemVoucher: [260_000, 275_000],
+    };
+
+    // crowdsale vars
+    const paymentAssetId = await getNextAssetId(api);
+    const participant = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey));
+    const maxIssuance = 5; // create nft collection - total supply
+    const nextCollectionUuid = nftCollectionIdToCollectionUUID((await api.query.nft.nextCollectionId()) as any);
+    const nextCrowdsaleId = +(await api.query.crowdsale.nextSaleId());
+
+    // setup
+    const txs = [
+      // create new token (crowdsale payment asset)
+      api.tx.assetsExt.createAsset("TOKEN2", "T2", 18, 1, alith.address),
+
+      // fund participants - 50 tokens per participant to participate
+      api.tx.assets.mint(paymentAssetId, participant.address, 50_000_000),
+
+      // fund participants - 2 XRP (GAS) per participant
+      api.tx.assets.mint(GAS_TOKEN_ID, participant.address, 2_000_000),
+
+      // create nft collection
+      api.tx.nft.createCollection("test", 0, maxIssuance, null, "http://example.com", null, { xrpl: false }),
+    ];
+    await finalizeTx(alith, api.tx.utility.batch(txs));
+
+    // initialize crowdsale as admin
+    let extrinsic = api.tx.crowdsale.initialize(
+      paymentAssetId,
+      nextCollectionUuid,
+      50_000_000, // 50 root * 5 = 250 root
+      2, // 2 blocks ~ 8s
+    );
+    let cost = await extrinsic.paymentInfo(alith.address);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(fees.initialize[0]).and.lessThan(fees.initialize[1]);
+
+    await finalizeTx(alith, extrinsic); // execute tx
+
+    // enable crowdsale as admin - will expire in 2 blocks
+    (extrinsic = api.tx.crowdsale.enable(nextCrowdsaleId)), (cost = await extrinsic.paymentInfo(alith.address));
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(fees.enable[0]).and.lessThan(fees.enable[1]);
+
+    await finalizeTx(alith, extrinsic); // execute tx
+
+    // user participates in crowdsale - with all root tokens
+    extrinsic = api.tx.crowdsale.participate(nextCrowdsaleId, 50_000_000);
+    cost = await extrinsic.paymentInfo(participant.address);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(fees.participate[0]).and.lessThan(fees.participate[1]);
+
+    await finalizeTx(participant, extrinsic); // execute tx
+
+    // assert participant token balance is 0
+    const userTokenBalance =
+      ((await api.query.assets.account(paymentAssetId, participant.address)).toJSON() as any)?.balance ?? 0;
+    expect(userTokenBalance).to.equal(0);
+
+    const saleInfo: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
+    expect(saleInfo.fundsRaised).to.equal(50_000_000); // 1 participants * 50_000_000 tokens
+
+    // wait for sale to reach end block, automatically distribute vouchers, end sale
+    await new Promise<void>((resolve) =>
+      setInterval(async () => {
+        const saleStatus: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
+        if (saleStatus?.status?.ended) resolve();
+      }, 500),
+    );
+
+    // assert all participant has vouchers
+    const userVoucherBalance =
+      ((await api.query.assets.account(saleInfo.voucherAssetId, participant.address)).toJSON() as any)?.balance ?? 0;
+    expect(userVoucherBalance).to.equal(1_000_000);
+
+    // participant can redeem 1 NFT (price of each NFT is 1_000_000 vouchers)
+    extrinsic = api.tx.crowdsale.redeemVoucher(nextCrowdsaleId, 1);
+    cost = await extrinsic.paymentInfo(participant.address);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(fees.redeemVoucher[0]).and.lessThan(fees.redeemVoucher[1]);
+
+    await finalizeTx(participant, extrinsic); // execute tx
   });
 
   it("distribute crowdsale rewards cannot be called manually", async () => {
