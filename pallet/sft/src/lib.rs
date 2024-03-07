@@ -21,9 +21,8 @@ use frame_support::{
 	traits::tokens::fungibles::{Mutate, Transfer},
 	transactional, PalletId,
 };
-use pallet_nft::traits::NFTExt;
 use seed_pallet_common::{
-	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
+	CreateExt, Hold, NFTExt, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
 };
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
@@ -229,6 +228,8 @@ pub mod pallet {
 		Overflow,
 		/// This collection has not allowed public minting
 		PublicMintDisabled,
+		/// The number of tokens have exceeded the max tokens allowed
+		TokenLimitExceeded,
 	}
 
 	#[pallet::call]
@@ -314,7 +315,7 @@ pub mod pallet {
 
 		/// Transfer ownership of an SFT
 		/// Caller must be the token owner
-		#[pallet::weight(T::WeightInfo::transfer())]
+		#[pallet::weight(T::WeightInfo::transfer(serial_numbers.len() as u32))]
 		#[transactional]
 		pub fn transfer(
 			origin: OriginFor<T>,
