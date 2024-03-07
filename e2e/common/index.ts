@@ -473,14 +473,14 @@ export const collectionIdToERC721Address = (collectionId: string | number): stri
 // Combine the nextId and parachainId into a single 32-bit value
 export const nftCollectionIdToCollectionUUID = (nextId: number | string): number => {
   return (+nextId << 10) | 100; // parachainId = 100
-}
+};
 
 // Generate futurepass address given next futurepass id
 export const futurepassAddress = (nextId: number | string): string => {
   // address prefix: 0xFFFFFFFF + 32 byte hex
   const fpIdHex = (+nextId).toString(16).padStart(32, "0");
   return web3.utils.toChecksumAddress(`0xFFFFFFFF${fpIdHex}`);
-}
+};
 
 /**
  * Fields of a Polkadotjs event to match on
@@ -563,7 +563,11 @@ export const saveTxGas = (costs: { [key: string]: TxCosts }, filePath: string, h
   });
 };
 
-export const finalizeTx = (signer: KeyringPair, extrinsic: SubmittableExtrinsic<"promise">, opts?: Partial<SignerOptions>) => {
+export const finalizeTx = (
+  signer: KeyringPair,
+  extrinsic: SubmittableExtrinsic<"promise">,
+  opts?: Partial<SignerOptions>,
+) => {
   return new Promise<any[]>((resolve) => {
     if (opts) {
       extrinsic.signAndSend(signer, opts, ({ status, events = [] }: any) => {
