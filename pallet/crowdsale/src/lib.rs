@@ -31,7 +31,7 @@ use frame_support::{
 		traits::{AccountIdConversion, Zero},
 		SaturatedConversion, Saturating,
 	},
-	traits::fungibles::{self, Mutate, Transfer},
+	traits::fungibles::{self, Inspect, Mutate, Transfer},
 	transactional, PalletId,
 };
 use frame_system::{
@@ -516,7 +516,7 @@ pub mod pallet {
 			let mut sale_info = SaleInfo::<T>::get(sale_id).ok_or(Error::<T>::CrowdsaleNotFound)?;
 
 			// ensure the sale is in the distribution phase
-			let SaleStatus::Distributing(_, mut total_paid_contributions, mut vouchers_distributed) = sale_info.status else {
+			let SaleStatus::Distributing(_, mut vouchers_distributed) = sale_info.status else {
 				return Err(Error::<T>::InvalidCrowdsaleStatus.into());
 			};
 
@@ -540,8 +540,6 @@ pub mod pallet {
 					&sale_info,
 					contribution.into(),
 					voucher_max_supply.into(),
-					vouchers_distributed,
-					total_paid_contributions.into(),
 				) else {
 					log!(
 						error,
@@ -559,13 +557,27 @@ pub mod pallet {
 				});
 
 				vouchers_distributed = vouchers_distributed.saturating_add(claimable_vouchers);
-				total_paid_contributions = total_paid_contributions.saturating_add(contribution);
 			}
 
 			let block_number = <frame_system::Pallet<T>>::block_number();
 			if payout_complete || SaleParticipation::<T>::iter_prefix(sale_id).next().is_none() {
 				// Distribution complete
-				sale_info.status = SaleStatus::Ended(block_number, vouchers_distributed);
+				// Refund admin any remaining vouchers in the vault account
+				let vault_balance = T::MultiCurrency::reducible_balance(
+					sale_info.voucher_asset_id,
+					&sale_info.vault,
+					false,
+				);
+				if vault_balance > 0 {
+					let _ = T::MultiCurrency::transfer(
+						sale_info.voucher_asset_id,
+						&sale_info.vault,
+						&sale_info.admin,
+						vault_balance,
+						false,
+					);
+				}
+				sale_info.status = SaleStatus::Ended(block_number);
 				Self::deposit_event(Event::CrowdsaleDistributionComplete {
 					sale_id,
 					vouchers_distributed,
@@ -574,11 +586,7 @@ pub mod pallet {
 				SaleDistribution::<T>::put(BoundedVec::truncate_from(sale_ids));
 			} else {
 				// Update total_contributions
-				sale_info.status = SaleStatus::Distributing(
-					block_number,
-					total_paid_contributions,
-					vouchers_distributed,
-				);
+				sale_info.status = SaleStatus::Distributing(block_number, vouchers_distributed);
 			}
 
 			let next_unsigned_at = block_number + T::UnsignedInterval::get();
@@ -605,7 +613,7 @@ pub mod pallet {
 				let sale_info = sale_info.as_mut().ok_or(Error::<T>::CrowdsaleNotFound)?;
 
 				// ensure the sale is in the distribution phase
-				let SaleStatus::Distributing(_, total_paid_contributions, vouchers_distributed) = sale_info.status else {
+				let SaleStatus::Distributing(_, vouchers_distributed) = sale_info.status else {
 					return Err(Error::<T>::InvalidCrowdsaleStatus.into());
 				};
 
@@ -625,8 +633,6 @@ pub mod pallet {
 					sale_info,
 					contribution.into(),
 					voucher_max_supply.into(),
-					vouchers_distributed,
-					total_paid_contributions.into(),
 				)
 				.map_err(|_| {
 					log!(
@@ -643,18 +649,34 @@ pub mod pallet {
 				// Check if we have any more payments to make
 				if SaleParticipation::<T>::iter_prefix(sale_id).next().is_none() {
 					// Distribution complete
-					sale_info.status = SaleStatus::Ended(block_number, vouchers_distributed);
+					// Refund admin any remaining vouchers in the vault account
+					let vault_balance = T::MultiCurrency::reducible_balance(
+						sale_info.voucher_asset_id,
+						&sale_info.vault,
+						false,
+					);
+					if vault_balance > 0 {
+						let _ = T::MultiCurrency::transfer(
+							sale_info.voucher_asset_id,
+							&sale_info.vault,
+							&sale_info.admin,
+							vault_balance,
+							false,
+						);
+					}
+					sale_info.status = SaleStatus::Ended(block_number);
 					Self::deposit_event(Event::CrowdsaleDistributionComplete {
 						sale_id,
 						vouchers_distributed,
 					});
+					// Clear SaleDistribution storage vec
+					let _ = SaleDistribution::<T>::try_mutate(|sales| -> DispatchResult {
+						sales.retain(|&id| id != sale_id);
+						Ok(())
+					});
 				} else {
 					// Update total_contributions
-					sale_info.status = SaleStatus::Distributing(
-						block_number,
-						total_paid_contributions.saturating_add(contribution),
-						vouchers_distributed,
-					);
+					sale_info.status = SaleStatus::Distributing(block_number, vouchers_distributed);
 				}
 
 				Self::deposit_event(Event::CrowdsaleVouchersClaimed {
@@ -694,8 +716,8 @@ pub mod pallet {
 
 				// ensure the sale has concluded and is being distributed or has been distributed
 				ensure!(
-					matches!(sale_info.status, SaleStatus::Distributing(_, _, _)) ||
-						matches!(sale_info.status, SaleStatus::Ended(_, _)),
+					matches!(sale_info.status, SaleStatus::Distributing(_, _)) ||
+						matches!(sale_info.status, SaleStatus::Ended(_)),
 					Error::<T>::InvalidCrowdsaleStatus
 				);
 
@@ -750,14 +772,10 @@ pub mod pallet {
 
 				let block_number = <frame_system::Pallet<T>>::block_number();
 				if sale_info.funds_raised.is_zero() {
-					sale_info.status = SaleStatus::Ended(block_number, Balance::default());
+					sale_info.status = SaleStatus::Ended(block_number);
 				} else {
 					// Mark the sale for distribution
-					sale_info.status = SaleStatus::Distributing(
-						block_number,
-						Balance::default(),
-						Balance::default(),
-					);
+					sale_info.status = SaleStatus::Distributing(block_number, Balance::default());
 				}
 
 				Self::deposit_event(Event::CrowdsaleManualDistribution {
