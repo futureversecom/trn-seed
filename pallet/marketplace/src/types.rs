@@ -15,9 +15,8 @@ use crate::{Config, Error};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::DispatchResult, ensure, RuntimeDebugNoBound};
-use pallet_nft::traits::NFTExt;
 use scale_info::TypeInfo;
-use seed_pallet_common::SFTExt;
+use seed_pallet_common::{NFTExt, SFTExt};
 use seed_primitives::{
 	AssetId, Balance, BlockNumber, CollectionUuid, ListingId, RoyaltiesSchedule, SerialNumber,
 	TokenId, TokenLockReason,
@@ -146,11 +145,18 @@ impl<T: Config> ListingTokens<T> {
 					to.clone(),
 				)?;
 			},
-			ListingTokens::Sft(sfts) =>
+			ListingTokens::Sft(sfts) => {
 				for (serial_number, balance) in sfts.serial_numbers.iter() {
 					let token_id = (sfts.collection_id, *serial_number);
-					T::SFTExt::transfer_reserved_balance(token_id, *balance, from, to)?;
-				},
+					T::SFTExt::free_reserved_balance(token_id, *balance, from)?;
+				}
+				T::SFTExt::do_transfer(
+					*from,
+					sfts.collection_id,
+					sfts.clone().serial_numbers.into_inner(),
+					*to,
+				)?;
+			},
 		}
 		Ok(())
 	}
