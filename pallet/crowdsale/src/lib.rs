@@ -724,11 +724,7 @@ pub mod pallet {
 			// vouchers since 1:1 mapping between vouchers and NFTs, we can use the quantity
 			// * decimals as the amount burned
 			let voucher_amount = quantity.saturating_mul(10u32.pow(VOUCHER_DECIMALS as u32));
-			T::MultiCurrency::burn_from(
-				sale_info.voucher_asset_id,
-				&who,
-				voucher_amount.into(),
-			)?;
+			T::MultiCurrency::burn_from(sale_info.voucher_asset_id, &who, voucher_amount.into())?;
 
 			// mint the NFT(s) to the user
 			T::NFTExt::do_mint(
