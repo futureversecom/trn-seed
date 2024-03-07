@@ -21,7 +21,7 @@ export const rpc = {
   },
 };
 
-describe.only("NftRPC", () => {
+describe("NftRPC", () => {
   let node: NodeProcess;
   let api: ApiPromise;
   let collectionId: any;
