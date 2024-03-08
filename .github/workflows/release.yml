@@ -1,13 +1,12 @@
 name: Release
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        type: string
-        description: 'Branch name'
-        default: 'main'
-        required: true
       patch:
         type: number
         description: "Release patch version number (default 0)"
@@ -24,7 +23,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.inputs.branch }}
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
       - name: Find release version
         id: find_client_version
