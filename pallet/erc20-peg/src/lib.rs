@@ -344,7 +344,7 @@ impl<T: Config> Module<T> {
 								delay,
 								PendingPayment::Withdrawal(message),
 								asset_id,
-								origin
+								origin,
 							);
 							Ok(None)
 						},
@@ -448,7 +448,7 @@ impl<T: Config> Module<T> {
 		delay: T::BlockNumber,
 		pending_payment: PendingPayment,
 		asset_id: AssetId,
-		source: T::AccountId
+		source: T::AccountId,
 	) {
 		let payment_id = NextDelayedPaymentId::get();
 		if !payment_id.checked_add(One::one()).is_some() {
@@ -470,7 +470,7 @@ impl<T: Config> Module<T> {
 					withdrawal.amount.as_u128(),
 					withdrawal.beneficiary,
 					asset_id,
-					source
+					source,
 				));
 			},
 			PendingPayment::Deposit(deposit) => {
@@ -517,7 +517,7 @@ impl<T: Config> Module<T> {
 							delay,
 							PendingPayment::Deposit(deposit_event.clone()),
 							asset_id,
-							(*source).into()
+							(*source).into(),
 						);
 						return Ok(())
 					}
