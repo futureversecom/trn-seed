@@ -507,7 +507,7 @@ impl<T: Config> Module<T> {
 			}
 			// Asset exists, check if there are delays on this deposit
 			let payment_delay: Option<(Balance, T::BlockNumber)> = Self::payment_delay(asset_id);
-			if Self::withdrawals_delay_active() {
+			if Self::deposits_delay_active() {
 				if let Some((min_amount, delay)) = payment_delay {
 					if U256::from(min_amount) <= deposit_event.amount {
 						Self::delay_payment(
