@@ -351,8 +351,9 @@ pub mod pallet {
 			ensure!(collection_issuance.is_zero(), Error::<T>::CollectionIssuanceNotZero);
 
 			// Verify collection public mint is disabled
-			let mint_info = T::NFTExt::get_public_mint_info(collection_id)?;
-			ensure!(!mint_info.enabled, Error::<T>::CollectionPublicMintable);
+			if let Ok(mint_info) = T::NFTExt::get_public_mint_info(collection_id) {
+				ensure!(!mint_info.enabled, Error::<T>::CollectionPublicMintable);
+			}
 
 			// Transfer ownership of the collection to the vault account. This also ensures
 			// the caller is the owner of the collection

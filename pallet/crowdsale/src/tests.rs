@@ -622,6 +622,53 @@ mod initialize {
 	}
 
 	#[test]
+	fn publicly_mintable_collection_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			assert_ok!(Nft::create_collection(
+				Some(alice()).into(),
+				bounded_string("test-collection"),
+				0,
+				Some(1000),
+				None,
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
+				None,
+				CrossChainCompatibility::default(),
+			));
+			let payment_asset = 1;
+			let soft_cap_price = 10;
+			let duration = 100;
+
+			// enable collection public minting
+			assert_ok!(Nft::toggle_public_mint(Some(alice()).into(), collection_id, true));
+
+			// Initialize the crowdsale
+			assert_noop!(
+				Crowdsale::initialize(
+					Some(alice()).into(),
+					payment_asset,
+					collection_id,
+					soft_cap_price,
+					duration
+				),
+				Error::<Test>::CollectionPublicMintable
+			);
+
+			// disable collection public minting
+			assert_ok!(Nft::toggle_public_mint(Some(alice()).into(), collection_id, false));
+
+			// Initialize the crowdsale - succeeds
+			assert_ok!(Crowdsale::initialize(
+				Some(alice()).into(),
+				payment_asset,
+				collection_id,
+				soft_cap_price,
+				duration
+			));
+		});
+	}
+
+	#[test]
 	fn not_collection_owner_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_id = Nft::next_collection_uuid().unwrap();

@@ -599,7 +599,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 		collection_id: CollectionUuid,
 	) -> Result<PublicMintInformation, DispatchError> {
 		let mint_info =
-			<PublicMintInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			<PublicMintInfo<T>>::get(collection_id).ok_or(Error::<T>::PublicMintDisabled)?;
 		Ok(mint_info)
 	}
 
