@@ -219,6 +219,8 @@ pub mod pallet {
 		MaxIssuanceNotSet,
 		/// The NFT collection must not contain any minted NFTs
 		CollectionIssuanceNotZero,
+		/// The NFT collection must not be mintable
+		CollectionPublicMintable,
 		/// There are too many sales queued for this block, try again on a different block
 		TooManySales,
 		/// Vouchers have already been claimed
@@ -347,6 +349,10 @@ pub mod pallet {
 				T::NFTExt::get_collection_issuance(collection_id)?;
 			let max_issuance = max_issuance.ok_or(Error::<T>::MaxIssuanceNotSet)?;
 			ensure!(collection_issuance.is_zero(), Error::<T>::CollectionIssuanceNotZero);
+
+			// Verify collection public mint is disabled
+			let mint_info = T::NFTExt::get_public_mint_info(collection_id)?;
+			ensure!(!mint_info.enabled, Error::<T>::CollectionPublicMintable);
 
 			// Transfer ownership of the collection to the vault account. This also ensures
 			// the caller is the owner of the collection
