@@ -452,6 +452,8 @@ fn deposit_payment_with_delay() {
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 
+		// Activate deposits delays
+		assert_ok!(Erc20Peg::activate_deposits_delay(frame_system::RawOrigin::Root.into(), true));
 		// Setup token mapping
 		let token_address: H160 = H160::from_low_u64_be(666);
 		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
@@ -568,6 +570,11 @@ fn withdraw_with_delay() {
 		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
 		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
 		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
+		// Activate withdrawal delays
+		assert_ok!(Erc20Peg::activate_withdrawals_delay(
+			frame_system::RawOrigin::Root.into(),
+			true
+		));
 
 		assert_ok!(Erc20Peg::set_payment_delay(
 			frame_system::RawOrigin::Root.into(),
