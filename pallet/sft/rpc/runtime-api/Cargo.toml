@@ -7,9 +7,9 @@ license = "Apache-2.0"
 
 [dependencies]
 codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
-sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
 pallet-sft = { path = "../../../sft", default-features = false }
 seed-primitives = { path = "../../../../primitives", default-features = false}
 

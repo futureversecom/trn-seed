@@ -15,12 +15,12 @@ serde = { version = "1.0.131", features = ["derive"] }
 serde_json = "1.0.64"
 rustc-hex = { version = "2.1.0", default-features = false }
 
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sc-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sc-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 
 ethy-gadget = { path = "../." }
 seed-primitives = { path = "../../primitives" }
