@@ -32,9 +32,9 @@ seed-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
 frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-fp-self-contained = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
+fp-self-contained = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
+pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
 pallet-fee-control = { path = "../fee-control" }
 pallet-fee-proxy = { path = "../fee-proxy" }
 pallet-dex = { path = "../dex" }
