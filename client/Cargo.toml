@@ -40,9 +40,9 @@ sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = 
 sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sc-consensus-epochs = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sc-finality-grandpa-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sc-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sc-consensus-grandpa-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-consensus-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }

@@ -38,7 +38,7 @@ codegen-units = 1
 # substrate packages
 finality-grandpa = { opt-level = 3 }
 pallet-grandpa = { opt-level = 3 }
-sc-finality-grandpa = { opt-level = 3 }
+sc-consensus-grandpa = { opt-level = 3 }
 # end substrate packages
 aes = { opt-level = 3 }
 blake2 = { opt-level = 3 }
