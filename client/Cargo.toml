@@ -36,8 +36,6 @@ sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch 
 sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sc-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sc-consensus-babe-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sc-consensus-uncles = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sp-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
