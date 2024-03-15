@@ -54,6 +54,7 @@ pub trait WeightInfo {
 	fn distribute_crowdsale_rewards() -> Weight;
 	fn claim_voucher() -> Weight;
 	fn redeem_voucher() -> Weight;
+	fn proxy_vault_call() -> Weight;
 	fn try_force_distribution() -> Weight;
 	fn on_initialize(p: u32, ) -> Weight;
 	fn on_initialize_empty() -> Weight;
@@ -130,6 +131,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_ref_time(175_930_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(6 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
+	}
+	// Storage: Crowdsale SaleInfo (r:1 w:0)
+	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
+	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
+	fn proxy_vault_call() -> Weight {
+		Weight::from_ref_time(40_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(3 as u64))
 	}
 	// Storage: Crowdsale SaleInfo (r:1 w:1)
 	// Storage: Crowdsale SaleDistribution (r:1 w:1)
@@ -232,6 +240,13 @@ impl WeightInfo for () {
 		Weight::from_ref_time(175_930_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(6 as u64))
 			.saturating_add(RocksDbWeight::get().writes(4 as u64))
+	}
+	// Storage: Crowdsale SaleInfo (r:1 w:0)
+	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
+	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
+	fn proxy_vault_call() -> Weight {
+		Weight::from_ref_time(40_000_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 	}
 	// Storage: Crowdsale SaleInfo (r:1 w:1)
 	// Storage: Crowdsale SaleDistribution (r:1 w:1)

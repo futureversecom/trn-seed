@@ -100,6 +100,13 @@ impl<T: frame_system::Config> pallet_crowdsale::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(6 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
+	// Storage: Crowdsale SaleInfo (r:1 w:0)
+	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
+	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
+	fn proxy_vault_call() -> Weight {
+		Weight::from_ref_time(39_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(3 as u64))
+	}
 	// Storage: Crowdsale SaleInfo (r:1 w:1)
 	// Storage: Crowdsale SaleDistribution (r:1 w:1)
 	fn try_force_distribution() -> Weight {
