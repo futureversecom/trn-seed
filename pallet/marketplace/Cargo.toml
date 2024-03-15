@@ -23,8 +23,8 @@ scale-info = { version = "2.3.0", default-features = false, features = ["derive"
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
 
-pallet-nft = { path = "../nft", optional = true }
-pallet-sft = { path = "../sft", optional = true }
+pallet-nft = { path = "../nft", default-features = false, optional = true }
+pallet-sft = { path = "../sft", default-features = false, optional = true }
 
 [dev-dependencies]
 serde_json = "1.0"
