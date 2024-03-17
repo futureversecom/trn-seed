@@ -365,7 +365,7 @@ pub mod pallet {
 				reward_collection_id: collection_id,
 				soft_cap_price,
 				funds_raised: 0,
-				contributor_count: 0,
+				participant_count: 0,
 				voucher_asset_id,
 				duration: sale_duration,
 			};
@@ -478,8 +478,8 @@ pub mod pallet {
 					match maybe_contribute {
 						Some(contribution) => *contribution = contribution.saturating_add(amount),
 						None => {
-							sale_info.contributor_count =
-								sale_info.contributor_count.saturating_add(1);
+							sale_info.participant_count =
+								sale_info.participant_count.saturating_add(1);
 							*maybe_contribute = Some(amount)
 						},
 					}

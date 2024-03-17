@@ -85,7 +85,7 @@ fn initialize_crowdsale_with_soft_cap(
 		reward_collection_id,
 		soft_cap_price,
 		funds_raised: 0,
-		contributor_count: 0,
+		participant_count: 0,
 		voucher_asset_id: next_asset_id,
 		duration,
 	};
@@ -403,7 +403,7 @@ mod initialize {
 				reward_collection_id,
 				soft_cap_price,
 				funds_raised: 0,
-				contributor_count: 0,
+				participant_count: 0,
 				voucher_asset_id: next_asset_id,
 				duration,
 			};
@@ -815,7 +815,7 @@ mod participate {
 				assert_eq!(SaleParticipation::<Test>::get(sale_id, bob()).unwrap(), amount);
 				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
 				assert_eq!(sale_info.funds_raised, amount);
-				assert_eq!(sale_info.contributor_count, 1);
+				assert_eq!(sale_info.participant_count, 1);
 
 				// Event thrown
 				System::assert_last_event(
@@ -847,7 +847,7 @@ mod participate {
 				let bob_total = b_amount_1 + b_amount_2 + b_amount_3;
 				assert_eq!(sale_info.funds_raised, bob_total);
 				// Contributor count should be 1 as it counts unique contributors
-				assert_eq!(sale_info.contributor_count, 1);
+				assert_eq!(sale_info.participant_count, 1);
 
 				// Charlie's participation
 				let c_amount_1 = 40_000;
@@ -860,7 +860,7 @@ mod participate {
 				let charlie_total = c_amount_1 + c_amount_2 + c_amount_3;
 				assert_eq!(sale_info.funds_raised, bob_total + charlie_total);
 				// Contributor count now 2 as charlie is a new unique contributor
-				assert_eq!(sale_info.contributor_count, 2);
+				assert_eq!(sale_info.participant_count, 2);
 
 				// Check storage
 				let vault = sale_info.vault;
@@ -890,7 +890,7 @@ mod participate {
 	}
 
 	#[test]
-	fn many_participations_updates_contributor_count() {
+	fn many_participations_updates_participant_count() {
 		let total_contributors = 500;
 		let mut accounts = vec![];
 		for i in 0..total_contributors {
@@ -911,7 +911,7 @@ mod participate {
 				assert_eq!(SaleParticipation::<Test>::get(sale_id, account), Some(reduced_amount));
 			}
 			let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-			assert_eq!(sale_info.contributor_count, total_contributors as u64);
+			assert_eq!(sale_info.participant_count, total_contributors as u64);
 
 			// Participate for each account again, which should not change the contributor count
 			for (account, amount) in accounts.clone() {
@@ -921,7 +921,7 @@ mod participate {
 				assert_eq!(SaleParticipation::<Test>::get(sale_id, account), Some(amount));
 			}
 			let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
-			assert_eq!(sale_info.contributor_count, total_contributors as u64);
+			assert_eq!(sale_info.participant_count, total_contributors as u64);
 		});
 	}
 
