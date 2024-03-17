@@ -1,5 +1,5 @@
 # Stage 1 - Build node
-FROM docker.io/library/rust:1.67.0-bullseye AS builder
+FROM docker.io/library/rust:1.69.0-bookworm AS builder
 
 # Copy local files to workdir
 ADD . ./workdir
@@ -13,10 +13,10 @@ RUN apt update -y && \
 RUN rustup show && cargo build --release --locked
 
 # Stage 2 - Run node
-FROM docker.io/library/debian:bullseye-slim AS run
+FROM docker.io/library/debian:bookworm-slim AS run
 RUN apt update -y && apt install curl -y
 LABEL maintainer="support@centrality.ai"
-LABEL org.opencontainers.image.source=https://github.com/futureversecom/seed
+LABEL org.opencontainers.image.source=https://github.com/futureversecom/trn-seed
 COPY --from=0 /workdir/target/release/seed /usr/bin/
 
 EXPOSE 30333 9933 9944
