@@ -890,7 +890,7 @@ mod participate {
 	}
 
 	#[test]
-	fn distribution_across_multiple_blocks() {
+	fn many_participations_updates_contributor_count() {
 		let total_contributors = 500;
 		let mut accounts = vec![];
 		for i in 0..total_contributors {
