@@ -60,7 +60,6 @@ where
 impl<T> TestExt<T>
 where
 	T: frame_system::Config + pallet_balances::Config + pallet_assets::Config,
-	<T as frame_system::Config>::BlockNumber: From<u64>,
 	<T as pallet_balances::Config>::Balance: From<Balance>,
 	<T as pallet_assets::Config>::Balance: From<Balance>,
 	T::AccountId: From<H160>,

@@ -274,6 +274,8 @@ pub type SlowAdjustingFeeUpdate<R> =
 	TargetedFeeAdjustment<R, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 
 impl frame_system::Config for Runtime {
+	/// The block type for the runtime.
+	type Block = Block;
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
 	/// The aggregated dispatch type that is available for extrinsics.
@@ -282,14 +284,10 @@ impl frame_system::Config for Runtime {
 	type Lookup = IdentityLookup<AccountId>;
 	/// The index type for storing how many extrinsics an account has signed.
 	type Index = Index;
-	/// The index type for blocks.
-	type BlockNumber = BlockNumber;
 	/// The type for hashing blocks and tries.
 	type Hash = Hash;
 	/// The hashing algorithm used.
 	type Hashing = BlakeTwo256Hash;
-	/// The header type.
-	type Header = Header;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	/// The ubiquitous origin type.
@@ -1314,15 +1312,8 @@ impl pallet_crowdsale::Config for Runtime {
 	type WeightInfo = weights::pallet_crowdsale::WeightInfo<Self>;
 }
 
-/// Block header type as expected by this runtime.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256Hash>;
-
-construct_runtime! {
-	pub enum Runtime where
-		Block = Block,
-		NodeBlock = generic::Block<Header, sp_runtime::OpaqueExtrinsic>,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
+construct_runtime!(
+	pub enum Runtime {
 		System: frame_system = 0,
 		Babe: pallet_babe = 1,
 		Timestamp: pallet_timestamp = 2,
@@ -1382,7 +1373,10 @@ construct_runtime! {
 		Proxy: pallet_proxy = 32,
 		Futurepass: pallet_futurepass = 34,
 	}
-}
+);
+
+/// Block header type as expected by this runtime.
+pub type Header = generic::Header<BlockNumber, BlakeTwo256Hash>;
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// A Block signed with a Justification
