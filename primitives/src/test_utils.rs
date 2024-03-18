@@ -14,19 +14,19 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::*;
-use frame_support::{sp_io, traits::GenesisBuild};
+use frame_support::sp_io;
 use sp_core::H160;
+use sp_runtime::BuildStorage;
 
-#[derive(Default)]
 struct AssetsFixture<T: frame_system::Config + pallet_assets::Config> {
-	pub id: <T as pallet_assets::Config>::AssetId,
+	pub id: <T as pallet_assets::Config>::AssetIdParameter,
 	pub symbol: Vec<u8>,
 	pub endowments: Vec<(T::AccountId, <T as pallet_assets::Config>::Balance)>,
 }
 
 impl<T: frame_system::Config + pallet_assets::Config> AssetsFixture<T> {
 	fn new(
-		id: <T as pallet_assets::Config>::AssetId,
+		id: <T as pallet_assets::Config>::AssetIdParameter,
 		symbol: &[u8],
 		endowments: &[(T::AccountId, <T as pallet_assets::Config>::Balance)],
 	) -> Self {
@@ -38,7 +38,7 @@ impl<T: frame_system::Config + pallet_assets::Config> AssetsFixture<T> {
 pub struct TestExt<T: frame_system::Config + pallet_balances::Config + pallet_assets::Config> {
 	balances: Vec<(T::AccountId, <T as pallet_balances::Config>::Balance)>,
 	xrp_balances: Vec<(
-		<T as pallet_assets::Config>::AssetId,
+		<T as pallet_assets::Config>::AssetIdParameter,
 		T::AccountId,
 		<T as pallet_assets::Config>::Balance,
 	)>,
@@ -63,7 +63,8 @@ where
 	<T as pallet_balances::Config>::Balance: From<Balance>,
 	<T as pallet_assets::Config>::Balance: From<Balance>,
 	T::AccountId: From<H160>,
-	<T as pallet_assets::Config>::AssetId: From<AssetId>,
+	<T as pallet_assets::Config>::AssetIdParameter: From<AssetId>,
+	<T as pallet_assets::Config>::AssetId: From<u32>,
 	<T as frame_system::Config>::Hash: From<[u8; 32]>,
 {
 	/// Configure some native token balances
@@ -79,7 +80,7 @@ where
 	/// total supply = sum(endowments)
 	pub fn with_asset(
 		mut self,
-		id: <T as pallet_assets::Config>::AssetId,
+		id: <T as pallet_assets::Config>::AssetIdParameter,
 		name: &str,
 		endowments: &[(T::AccountId, <T as pallet_assets::Config>::Balance)],
 	) -> Self {
@@ -108,7 +109,7 @@ where
 
 	/// Build the Text Externalities for general use across all pallets
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext = frame_system::GenesisConfig::default().build_storage::<T>().unwrap();
+		let mut ext = frame_system::GenesisConfig::<T>::default().build_storage().unwrap();
 		let mut assets = Vec::default();
 		let mut metadata = Vec::default();
 		let mut accounts = Vec::default();
@@ -117,10 +118,10 @@ where
 		// add assets
 		if !self.assets.is_empty() {
 			for AssetsFixture { id, symbol, endowments } in self.assets {
-				assets.push((id, default_owner.clone(), true, 1.into()));
-				metadata.push((id, symbol.clone(), symbol, 6));
+				assets.push((id.into(), default_owner.clone(), true, 1.into()));
+				metadata.push((id.into(), symbol.clone(), symbol, 6));
 				for (payee, balance) in endowments {
-					accounts.push((id, payee, balance));
+					accounts.push((id.into(), payee, balance));
 				}
 			}
 		}
@@ -129,7 +130,9 @@ where
 		if !self.xrp_balances.is_empty() {
 			assets.push((2.into(), default_owner, true, 1.into()));
 			metadata.push((2.into(), b"XRP".to_vec(), b"XRP".to_vec(), 6_u8));
-			accounts.extend(self.xrp_balances);
+			for (_, payee, balance) in self.xrp_balances {
+				accounts.push((2.into(), payee, balance));
+			}
 		}
 
 		// Configure pallet_assets Genesis Config with assets
