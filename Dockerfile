@@ -15,7 +15,7 @@ RUN rustup show && cargo build --release --locked
 # Stage 2 - Run node
 FROM docker.io/library/debian:bookworm-slim AS run
 RUN apt update -y && apt install curl -y
-LABEL maintainer="support@centrality.ai"
+LABEL maintainer="The Root Network Team"
 LABEL org.opencontainers.image.source=https://github.com/futureversecom/trn-seed
 COPY --from=0 /workdir/target/release/seed /usr/bin/
 
