@@ -41,6 +41,7 @@ describe("Crowdsale pallet", () => {
       enable: [250_000, 265_000],
       participate: [290_000, 305_000],
       redeemVoucher: [260_000, 275_000],
+      proxyVaultCall: [300_000, 315_000],
     };
 
     // crowdsale vars
@@ -72,6 +73,8 @@ describe("Crowdsale pallet", () => {
       nextCollectionUuid,
       50_000_000, // 50 root * 5 = 250 root
       2, // 2 blocks ~ 8s
+      undefined,
+      undefined,
     );
     let cost = await extrinsic.paymentInfo(alith.address);
     expect(cost.partialFee.toNumber()).to.be.greaterThan(fees.initialize[0]).and.lessThan(fees.initialize[1]);
@@ -118,6 +121,14 @@ describe("Crowdsale pallet", () => {
     expect(cost.partialFee.toNumber()).to.be.greaterThan(fees.redeemVoucher[0]).and.lessThan(fees.redeemVoucher[1]);
 
     await finalizeTx(participant, extrinsic); // execute tx
+
+    // update collection metadata
+    extrinsic = api.tx.crowdsale.proxyVaultCall(
+      nextCrowdsaleId,
+      api.tx.nft.setName(nextCollectionUuid, "test-updated"),
+    );
+    cost = await extrinsic.paymentInfo(alith.address);
+    expect(cost.partialFee.toNumber()).to.be.greaterThan(fees.proxyVaultCall[0]).and.lessThan(fees.proxyVaultCall[1]);
   });
 
   it("distribute crowdsale rewards cannot be called manually", async () => {
@@ -160,6 +171,8 @@ describe("Crowdsale pallet", () => {
         nextCollectionUuid,
         50_000_000, // 50 root * 5 = 250 root
         2, // 2 blocks ~ 8s
+        "Generation V",
+        "GenV",
       ),
 
       // enable crowdsale as admin - will expire in 2 blocks
@@ -169,6 +182,12 @@ describe("Crowdsale pallet", () => {
 
     let saleInfo: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
     expect(saleInfo.status).to.haveOwnProperty("enabled");
+
+    // assert voucher asset metadata (strings are encoded as hex)
+    const voucherAsset: any = (await api.query.assets.metadata(saleInfo.voucherAssetId)).toJSON();
+    expect(Buffer.from(voucherAsset.name.slice(2), "hex").toString()).to.equal("Generation V");
+    expect(Buffer.from(voucherAsset.symbol.slice(2), "hex").toString()).to.equal("GenV");
+    expect(voucherAsset.decimals).to.equal(6);
 
     // assert all participants ROOT system balances are 50
     let userRootBalances = await Promise.all(
@@ -229,7 +248,6 @@ describe("Crowdsale pallet", () => {
 
   it("oversubscribed crowdsale", async () => {
     // crowdsale vars
-
     const paymentAssetId = await getNextAssetId(api);
 
     const participants = Array.from({ length: 10 }, () =>
@@ -239,7 +257,7 @@ describe("Crowdsale pallet", () => {
     const nextCollectionUuid = nftCollectionIdToCollectionUUID((await api.query.nft.nextCollectionId()) as any);
     const nextCrowdsaleId = +(await api.query.crowdsale.nextSaleId());
 
-    const txs = [
+    let txs = [
       // create new token (crowdsale payment asset)
       api.tx.assetsExt.createAsset("TOKEN1", "T1", 6, 1, alith.address),
 
@@ -257,7 +275,9 @@ describe("Crowdsale pallet", () => {
         paymentAssetId,
         nextCollectionUuid,
         50_000_000, // 50 root * 5 = 250 root
-        2, // 2 blocks ~ 8s
+        4, // 4 blocks ~ 16s
+        undefined,
+        undefined,
       ),
 
       // enable crowdsale as admin - will expire in 2 blocks
@@ -284,6 +304,27 @@ describe("Crowdsale pallet", () => {
 
     let saleInfo: any = (await api.query.crowdsale.saleInfo(nextCrowdsaleId)).toJSON();
     expect(saleInfo.status).to.haveOwnProperty("enabled");
+
+    // validate NFT collection metadata can be updated by admin
+    txs = [
+      api.tx.crowdsale.proxyVaultCall(nextCrowdsaleId, api.tx.nft.setName(nextCollectionUuid, "test-updated")),
+      api.tx.crowdsale.proxyVaultCall(
+        nextCrowdsaleId,
+        api.tx.nft.setBaseUri(nextCollectionUuid, "http://example.com/updated"),
+      ),
+      api.tx.crowdsale.proxyVaultCall(
+        nextCrowdsaleId,
+        api.tx.nft.setRoyaltiesSchedule(nextCollectionUuid, { entitlements: [[participants[0].address, 1000]] }),
+      ),
+    ];
+    await finalizeTx(alith, api.tx.utility.batch(txs));
+
+    // assert nft collection metadata is updated
+    const collection: any = (await api.query.nft.collectionInfo(nextCollectionUuid)).toJSON();
+    expect(Buffer.from(collection.name.slice(2), "hex").toString()).to.equal("test-updated");
+    expect(Buffer.from(collection.metadataScheme.slice(2), "hex").toString()).to.equal("http://example.com/updated");
+    expect(collection.royaltiesSchedule.entitlements[0][0]).to.equal(participants[0].address);
+    expect(collection.royaltiesSchedule.entitlements[0][1]).to.equal(1000);
 
     // user participates in crowdsale - with all root tokens
     const participationEvents = await Promise.all(
@@ -400,6 +441,8 @@ describe("Crowdsale pallet", () => {
         nextCollectionUuid,
         50_000_000, // 50 root * 5 = 250 root
         2, // 2 blocks ~ 8s
+        undefined,
+        undefined,
       ),
 
       // enable crowdsale as admin - will expire in 2 blocks
@@ -498,6 +541,8 @@ describe("Crowdsale pallet", () => {
         nextCollectionUuid,
         50_000_000, // 50 root * 5 = 250 root
         2, // 2 blocks ~ 8s
+        undefined,
+        undefined,
       ),
 
       // enable crowdsale as admin - will expire in 2 blocks
@@ -619,6 +664,8 @@ describe("Crowdsale pallet", () => {
         nextCollectionUuid,
         50_000_000, // 50 root * 5 = 250 root
         2, // 2 blocks ~ 8s
+        undefined,
+        undefined,
       ),
 
       // enable crowdsale as admin - will expire in 2 blocks
@@ -737,6 +784,8 @@ describe("Crowdsale pallet", () => {
         nextCollectionUuid,
         50_000_000, // 50 root * 5 = 250 root
         2, // 2 blocks ~ 8s
+        undefined,
+        undefined,
       ),
 
       // enable crowdsale as admin - will expire in 2 blocks
@@ -871,6 +920,8 @@ describe("Crowdsale pallet", () => {
         nextCollectionUuid1,
         50_000_000, // 50 root * 5 = 250 root
         3, // 3 blocks ~ 12s
+        undefined,
+        undefined,
       ),
 
       // enable crowdsale as admin - will expire in 2 blocks
@@ -892,6 +943,8 @@ describe("Crowdsale pallet", () => {
         nextCollectionUuid2,
         50_000_000, // 50 root * 5 = 250 root
         3, // 3 blocks ~ 12s
+        undefined,
+        undefined,
       ),
 
       // enable crowdsale as admin - will expire in 2 blocks

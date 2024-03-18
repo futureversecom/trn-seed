@@ -595,6 +595,14 @@ impl<T: Config> NFTExt for Pallet<T> {
 		Ok((collection_info.collection_issuance, collection_info.max_issuance))
 	}
 
+	fn get_public_mint_info(
+		collection_id: CollectionUuid,
+	) -> Result<PublicMintInformation, DispatchError> {
+		let mint_info =
+			<PublicMintInfo<T>>::get(collection_id).ok_or(Error::<T>::PublicMintDisabled)?;
+		Ok(mint_info)
+	}
+
 	fn transfer_collection_ownership(
 		who: Self::AccountId,
 		collection_id: CollectionUuid,
