@@ -782,7 +782,7 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Finalize authority changes, set new notary keys, unpause bridge and increase set id
-	pub fn do_finalise_authorities_change(next_notary_keys: Vec<T::EthyId>) {
+	pub fn do_finalise_authorities_change(next_notary_keys: Vec<T::EthyId>, bridge_paused) {
 		debug!(target: "ethy-pallet", "💎 session & era ending, set new validator keys");
 
 		// notify ethy-gadget about validator set change
@@ -799,8 +799,13 @@ impl<T: Config> Module<T> {
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
 
-		// Unpause the bridge
-		BridgePaused::kill();
+		// Check if bridge was paused before the era ended
+		if bridge_paused {
+			BridgePaused::put(true);
+		} else {
+			// Unpause the bridge
+			BridgePaused::kill();
+		}
 		// A proof should've been generated now so we can reactivate the bridge with the new
 		// validator set
 		AuthoritiesChangedThisEra::kill();
@@ -929,6 +934,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		if T::FinalSessionTracker::is_active_session_final() {
 			// Get the next_notary_keys for the next era
 			let next_notary_keys = NextNotaryKeys::<T>::get();
+			let bridge_paused = BridgePaused::get();
 
 			if !Self::authorities_changed_this_era() {
 				// The authorities haven't been changed yet
@@ -939,12 +945,15 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 				// authority set change.
 				let scheduled_block =
 					<frame_system::Pallet<T>>::block_number() + T::AuthorityChangeDelay::get();
+				// TODO Do we need to migrate the scheduler storage if there is a pending
+				// finalise_authorities_change call being scheduled?
+				// Rare edge case but something to consider
 				if T::Scheduler::schedule(
 					DispatchTime::At(scheduled_block),
 					None,
 					SCHEDULER_PRIORITY,
 					frame_system::RawOrigin::None.into(),
-					Call::finalise_authorities_change { next_notary_keys }.into(),
+					Call::finalise_authorities_change { next_notary_keys, bridge_paused }.into(),
 				)
 				.is_err()
 				{
@@ -954,7 +963,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 				}
 			} else {
 				// Authorities have been changed, finalise those changes immediately
-				Self::do_finalise_authorities_change(next_notary_keys);
+				Self::do_finalise_authorities_change(next_notary_keys, bridge_paused);
 			}
 		}
 	}

@@ -504,9 +504,9 @@ decl_module! {
 		#[weight = DbWeight::get().writes(1)]
 		/// Finalise authority changes, unpauses bridge and sets new notary keys
 		/// Called internally after force new era
-		pub fn finalise_authorities_change(origin, next_notary_keys: Vec<T::EthyId>) {
+		pub fn finalise_authorities_change(origin, next_notary_keys: Vec<T::EthyId>, bridge_paused: bool) {
 			ensure_none(origin)?;
-			Self::do_finalise_authorities_change(next_notary_keys);
+			Self::do_finalise_authorities_change(next_notary_keys, bridge_paused);
 		}
 
 		#[weight = DbWeight::get().writes(1)]
