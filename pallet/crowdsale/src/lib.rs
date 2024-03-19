@@ -72,8 +72,12 @@ pub const CROWDSALE_DIST_UNSIGNED_PRIORITY: TransactionPriority =
 pub mod pallet {
 	use super::*;
 
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -413,6 +417,7 @@ pub mod pallet {
 				reward_collection_id: collection_id,
 				soft_cap_price,
 				funds_raised: 0,
+				participant_count: 0,
 				voucher_asset_id,
 				duration: sale_duration,
 			};
@@ -524,7 +529,11 @@ pub mod pallet {
 				SaleParticipation::<T>::mutate(sale_id, who.clone(), |maybe_contribute| {
 					match maybe_contribute {
 						Some(contribution) => *contribution = contribution.saturating_add(amount),
-						None => *maybe_contribute = Some(amount),
+						None => {
+							sale_info.participant_count =
+								sale_info.participant_count.saturating_add(1);
+							*maybe_contribute = Some(amount)
+						},
 					}
 				});
 

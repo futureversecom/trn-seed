@@ -87,6 +87,7 @@ fn initialize_crowdsale_with_soft_cap(
 		reward_collection_id,
 		soft_cap_price,
 		funds_raised: 0,
+		participant_count: 0,
 		voucher_asset_id: next_asset_id,
 		duration,
 	};
@@ -406,6 +407,7 @@ mod initialize {
 				reward_collection_id,
 				soft_cap_price,
 				funds_raised: 0,
+				participant_count: 0,
 				voucher_asset_id: next_asset_id,
 				duration,
 			};
@@ -927,7 +929,9 @@ mod participate {
 
 				// Contribution should be stored
 				assert_eq!(SaleParticipation::<Test>::get(sale_id, bob()).unwrap(), amount);
-				assert_eq!(SaleInfo::<Test>::get(sale_id).unwrap().funds_raised, amount);
+				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+				assert_eq!(sale_info.funds_raised, amount);
+				assert_eq!(sale_info.participant_count, 1);
 
 				// Event thrown
 				System::assert_last_event(
@@ -944,7 +948,7 @@ mod participate {
 			.with_balances(&[(bob(), initial_balance), (charlie(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, sale_info) = initialize_crowdsale(100);
+				let (sale_id, _) = initialize_crowdsale(100);
 
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -955,6 +959,11 @@ mod participate {
 				assert_ok!(Crowdsale::participate(Some(bob()).into(), sale_id, b_amount_1));
 				assert_ok!(Crowdsale::participate(Some(bob()).into(), sale_id, b_amount_2));
 				assert_ok!(Crowdsale::participate(Some(bob()).into(), sale_id, b_amount_3));
+				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+				let bob_total = b_amount_1 + b_amount_2 + b_amount_3;
+				assert_eq!(sale_info.funds_raised, bob_total);
+				// Contributor count should be 1 as it counts unique contributors
+				assert_eq!(sale_info.participant_count, 1);
 
 				// Charlie's participation
 				let c_amount_1 = 40_000;
@@ -963,6 +972,11 @@ mod participate {
 				assert_ok!(Crowdsale::participate(Some(charlie()).into(), sale_id, c_amount_1));
 				assert_ok!(Crowdsale::participate(Some(charlie()).into(), sale_id, c_amount_2));
 				assert_ok!(Crowdsale::participate(Some(charlie()).into(), sale_id, c_amount_3));
+				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+				let charlie_total = c_amount_1 + c_amount_2 + c_amount_3;
+				assert_eq!(sale_info.funds_raised, bob_total + charlie_total);
+				// Contributor count now 2 as charlie is a new unique contributor
+				assert_eq!(sale_info.participant_count, 2);
 
 				// Check storage
 				let vault = sale_info.vault;
@@ -970,29 +984,61 @@ mod participate {
 
 				// Vault account should have the contributed amount
 				let vault_balance = AssetsExt::reducible_balance(asset_id, &vault, false);
-				let expected_vault_balance =
-					b_amount_1 + b_amount_2 + b_amount_3 + c_amount_1 + c_amount_2 + c_amount_3;
+				let expected_vault_balance = bob_total + charlie_total;
 				assert_eq!(vault_balance, expected_vault_balance);
 
 				// Bobs balance should be decreased
 				let bob_balance = AssetsExt::reducible_balance(asset_id, &bob(), false);
-				let expected_bob_balance = initial_balance - b_amount_1 - b_amount_2 - b_amount_3;
+				let expected_bob_balance = initial_balance - bob_total;
 				assert_eq!(bob_balance, expected_bob_balance);
 
 				// Contribution should be stored
-				assert_eq!(
-					SaleParticipation::<Test>::get(sale_id, bob()).unwrap(),
-					b_amount_1 + b_amount_2 + b_amount_3
-				);
+				assert_eq!(SaleParticipation::<Test>::get(sale_id, bob()).unwrap(), bob_total);
 				assert_eq!(
 					SaleParticipation::<Test>::get(sale_id, charlie()).unwrap(),
-					c_amount_1 + c_amount_2 + c_amount_3
+					charlie_total
 				);
 				assert_eq!(
 					SaleInfo::<Test>::get(sale_id).unwrap().funds_raised,
 					expected_vault_balance
 				);
 			});
+	}
+
+	#[test]
+	fn many_participations_updates_participant_count() {
+		let total_contributors = 500;
+		let mut accounts = vec![];
+		for i in 0..total_contributors {
+			let i = i + 1;
+			accounts.push((create_account(i as u64), i as u128 * 100u128));
+		}
+
+		TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
+			let max_issuance = 1000;
+			let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+			assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+			// Participate for each account
+			for (account, amount) in accounts.clone() {
+				// Reduce amount so we can participate twice for each account
+				let reduced_amount = amount / 2;
+				assert_ok!(Crowdsale::participate(Some(account).into(), sale_id, reduced_amount));
+				assert_eq!(SaleParticipation::<Test>::get(sale_id, account), Some(reduced_amount));
+			}
+			let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+			assert_eq!(sale_info.participant_count, total_contributors as u64);
+
+			// Participate for each account again, which should not change the contributor count
+			for (account, amount) in accounts.clone() {
+				// Reduce amount so we can participate twice for each account
+				let reduced_amount = amount / 2;
+				assert_ok!(Crowdsale::participate(Some(account).into(), sale_id, reduced_amount));
+				assert_eq!(SaleParticipation::<Test>::get(sale_id, account), Some(amount));
+			}
+			let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+			assert_eq!(sale_info.participant_count, total_contributors as u64);
+		});
 	}
 
 	#[test]
