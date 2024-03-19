@@ -153,10 +153,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 51,
+	spec_version: 52,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 6,
+	transaction_version: 7,
 	state_version: 0,
 };
 
@@ -418,6 +418,7 @@ parameter_types! {
 }
 impl pallet_nft::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
 	type OnTransferSubscription = TokenApprovals;
@@ -1303,7 +1304,10 @@ parameter_types! {
 
 impl pallet_crowdsale::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 	type PalletId = CrowdSalePalletId;
+	type StringLimit = AssetsStringLimit;
+	type ProxyCallValidator = impls::CrowdsaleProxyVaultValidator;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
 	type MaxSalesPerBlock = MaxSalesPerBlock;

@@ -25,20 +25,25 @@ extern crate alloc;
 
 pub use pallet::*;
 
+use alloc::boxed::Box;
 use frame_support::{
+	dispatch::{Dispatchable, GetDispatchInfo},
 	pallet_prelude::*,
 	sp_runtime::{
 		traits::{AccountIdConversion, Zero},
 		SaturatedConversion, Saturating,
 	},
-	traits::fungibles::{self, Inspect, Mutate, Transfer},
+	traits::{
+		fungibles::{self, Inspect, Mutate, Transfer},
+		IsSubType,
+	},
 	transactional, PalletId,
 };
 use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},
 	pallet_prelude::*,
 };
-use seed_pallet_common::{log, CreateExt, InspectExt, NFTExt};
+use seed_pallet_common::{log, CreateExt, ExtrinsicChecker, InspectExt, NFTExt};
 use seed_primitives::{AssetId, Balance, CollectionUuid, OffchainErr, TokenCount};
 use sp_std::{vec, vec::Vec};
 
@@ -67,8 +72,12 @@ pub const CROWDSALE_DIST_UNSIGNED_PRIORITY: TransactionPriority =
 pub mod pallet {
 	use super::*;
 
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -76,9 +85,28 @@ pub mod pallet {
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		/// The overarching call type.
+		type RuntimeCall: Parameter
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+			+ GetDispatchInfo
+			+ From<frame_system::Call<Self>>
+			+ IsSubType<Call<Self>>
+			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
+
 		/// This pallet's Id, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+
+		/// The maximum length of a intermediary sale voucher asset name and symbol
+		#[pallet::constant]
+		type StringLimit: Get<u32>;
+
+		/// Futurepass proxy extrinsic inner call blacklist validator
+		type ProxyCallValidator: ExtrinsicChecker<
+			Call = <Self as pallet::Config>::RuntimeCall,
+			Extra = (),
+			Result = DispatchResult,
+		>;
 
 		/// Currency implementation to deal with assets.
 		type MultiCurrency: InspectExt
@@ -155,6 +183,13 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Crowdsale created
 		CrowdsaleCreated { sale_id: SaleId, info: SaleInformation<T::AccountId, T::BlockNumber> },
+		/// Call proxied
+		VaultCallProxied {
+			sale_id: SaleId,
+			who: T::AccountId,
+			vault: T::AccountId,
+			call: Box<<T as Config>::RuntimeCall>,
+		},
 		/// Crowdsale enabled
 		CrowdsaleEnabled {
 			sale_id: SaleId,
@@ -219,6 +254,8 @@ pub mod pallet {
 		MaxIssuanceNotSet,
 		/// The NFT collection must not contain any minted NFTs
 		CollectionIssuanceNotZero,
+		/// The NFT collection must not be mintable
+		CollectionPublicMintable,
 		/// There are too many sales queued for this block, try again on a different block
 		TooManySales,
 		/// Vouchers have already been claimed
@@ -227,6 +264,8 @@ pub mod pallet {
 		SaleDistributionFailed,
 		/// The sale duration is too long
 		SaleDurationTooLong,
+		/// Extrinsic not allowed
+		ExtrinsicForbidden,
 	}
 
 	#[pallet::hooks]
@@ -319,6 +358,8 @@ pub mod pallet {
 			collection_id: CollectionUuid,
 			soft_cap_price: Balance,
 			sale_duration: T::BlockNumber,
+			voucher_name: Option<BoundedVec<u8, T::StringLimit>>,
+			voucher_symbol: Option<BoundedVec<u8, T::StringLimit>>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -348,13 +389,24 @@ pub mod pallet {
 			let max_issuance = max_issuance.ok_or(Error::<T>::MaxIssuanceNotSet)?;
 			ensure!(collection_issuance.is_zero(), Error::<T>::CollectionIssuanceNotZero);
 
+			// Verify collection public mint is disabled
+			if let Ok(mint_info) = T::NFTExt::get_public_mint_info(collection_id) {
+				ensure!(!mint_info.enabled, Error::<T>::CollectionPublicMintable);
+			}
+
 			// Transfer ownership of the collection to the vault account. This also ensures
 			// the caller is the owner of the collection
 			// - this is required so collection owner cannot mint/rug to dilute the crowdsale
 			T::NFTExt::transfer_collection_ownership(who.clone(), collection_id, vault.clone())?;
 
 			// create voucher asset
-			let voucher_asset_id = Self::create_voucher_asset(&vault, sale_id, max_issuance)?;
+			let voucher_asset_id = Self::create_voucher_asset(
+				&vault,
+				sale_id,
+				max_issuance,
+				voucher_name.map(|v| v.into()),
+				voucher_symbol.map(|v| v.into()),
+			)?;
 
 			// store the sale information
 			let sale_info = SaleInformation::<T::AccountId, T::BlockNumber> {
@@ -365,6 +417,7 @@ pub mod pallet {
 				reward_collection_id: collection_id,
 				soft_cap_price,
 				funds_raised: 0,
+				participant_count: 0,
 				voucher_asset_id,
 				duration: sale_duration,
 			};
@@ -476,7 +529,11 @@ pub mod pallet {
 				SaleParticipation::<T>::mutate(sale_id, who.clone(), |maybe_contribute| {
 					match maybe_contribute {
 						Some(contribution) => *contribution = contribution.saturating_add(amount),
-						None => *maybe_contribute = Some(amount),
+						None => {
+							sale_info.participant_count =
+								sale_info.participant_count.saturating_add(1);
+							*maybe_contribute = Some(amount)
+						},
 					}
 				});
 
@@ -739,6 +796,48 @@ pub mod pallet {
 				who,
 				collection_id: sale_info.reward_collection_id,
 				quantity,
+			});
+
+			Ok(())
+		}
+
+		/// Caller (crowdsale admin) proxies the `call` to the sale vault account to manage the
+		/// assets and NFTs owned by the vault.
+		/// Note: Only the asset and nft metadata can be modified by the proxied account.
+		///
+		/// Parameters:
+		/// - `sale_id`: The id of the sale to proxy the call to
+		/// - `call`: The call to be proxied
+		///
+		/// Emits `VaultCallProxied` event when successful.
+		#[pallet::weight({
+			let call_weight = call.get_dispatch_info().weight;
+			T::WeightInfo::proxy_vault_call().saturating_add(call_weight)
+		})]
+		#[transactional]
+		pub fn proxy_vault_call(
+			origin: OriginFor<T>,
+			sale_id: SaleId,
+			call: Box<<T as Config>::RuntimeCall>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin.clone())?;
+			let sale_info = SaleInfo::<T>::get(sale_id).ok_or(Error::<T>::CrowdsaleNotFound)?;
+
+			// ensure the caller is the sale admin
+			ensure!(sale_info.admin == who, Error::<T>::AccessDenied);
+
+			// disallow invalid extrinsics
+			let _ = <T as pallet::Config>::ProxyCallValidator::check_extrinsic(&call, &())?;
+
+			// proxy the call through the vault account
+			let vault_origin = frame_system::RawOrigin::Signed(sale_info.vault.clone());
+			call.clone().dispatch(vault_origin.into()).map_err(|e| e.error)?;
+
+			Self::deposit_event(Event::VaultCallProxied {
+				sale_id,
+				who,
+				vault: sale_info.vault,
+				call,
 			});
 
 			Ok(())
