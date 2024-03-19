@@ -52,6 +52,47 @@ fn set_peg_contract_address_works() {
 }
 
 #[test]
+fn set_deposit_delay_active() {
+	ExtBuilder::default().build().execute_with(|| {
+		let signer = create_account(22);
+
+		// Setting as not sudo fails
+		assert_noop!(Erc20Peg::activate_deposits_delay(Some(signer).into(), true), BadOrigin);
+
+		// Sanity check
+		assert_eq!(Erc20Peg::deposits_delay_active(), false);
+
+		// Calling as sudo should work
+		assert_ok!(Erc20Peg::activate_deposits_delay(frame_system::RawOrigin::Root.into(), true));
+
+		// Storage updated
+		assert_eq!(Erc20Peg::deposits_delay_active(), true);
+	});
+}
+
+#[test]
+fn set_withdrawal_delay_active() {
+	ExtBuilder::default().build().execute_with(|| {
+		let signer = create_account(22);
+
+		// Setting as not sudo fails
+		assert_noop!(Erc20Peg::activate_withdrawals_delay(Some(signer).into(), true), BadOrigin);
+
+		// Sanity check
+		assert_eq!(Erc20Peg::withdrawals_delay_active(), false);
+
+		// Calling as sudo should work
+		assert_ok!(Erc20Peg::activate_withdrawals_delay(
+			frame_system::RawOrigin::Root.into(),
+			true
+		));
+
+		// Storage updated
+		assert_eq!(Erc20Peg::withdrawals_delay_active(), true);
+	});
+}
+
+#[test]
 fn set_root_peg_address_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let signer = create_account(22);
