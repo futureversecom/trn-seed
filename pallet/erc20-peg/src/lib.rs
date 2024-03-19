@@ -140,6 +140,10 @@ decl_event! {
 		PaymentDelaySet(AssetId, Balance, BlockNumber),
 		/// There are no more payment ids available, they've been exhausted
 		NoAvailableDelayedPaymentIds,
+		/// Toggle deposit delay
+		ActivateDepositDelay(bool),
+		/// Toggle withdrawal delay
+		ActivateWithdrawalDelay(bool),
 	}
 }
 
@@ -242,17 +246,19 @@ decl_module! {
 		}
 
 		/// Activate/deactivate delay deposits (root only)
-		#[weight = T::WeightInfo::activate_deposits()]
+		#[weight = T::WeightInfo::activate_deposits_delay()]
 		pub fn activate_deposits_delay(origin, activate: bool) {
 			ensure_root(origin)?;
 			DepositsDelayActive::put(activate);
+			Self::deposit_event(<Event<T>>::ActivateDepositDelay(activate));
 		}
 
 		/// Activate/deactivate withdrawals (root only)
-		#[weight = T::WeightInfo::activate_withdrawals()]
+		#[weight = T::WeightInfo::activate_withdrawals_delay()]
 		pub fn activate_withdrawals_delay(origin, activate: bool) {
 			ensure_root(origin)?;
 			WithdrawalsDelayActive::put(activate);
+			Self::deposit_event(<Event<T>>::ActivateWithdrawalDelay(activate));
 		}
 
 		#[weight = T::WeightInfo::withdraw()]
