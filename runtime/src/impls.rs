@@ -1109,6 +1109,28 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutFuturepassLookup {
 	}
 }
 
+pub struct CrowdsaleProxyVaultValidator;
+impl seed_pallet_common::ExtrinsicChecker for CrowdsaleProxyVaultValidator {
+	type Call = RuntimeCall;
+	type Extra = ();
+	type Result = DispatchResult;
+
+	fn check_extrinsic(call: &Self::Call, _permission_object: &Self::Extra) -> Self::Result {
+		// check maintenance mode
+		if pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(&call) {
+			return Err(frame_system::Error::<Runtime>::CallFiltered.into())
+		}
+
+		match call {
+			RuntimeCall::System(frame_system::Call::remark { .. }) => Ok(()),
+			RuntimeCall::Nft(pallet_nft::Call::set_base_uri { .. }) => Ok(()),
+			RuntimeCall::Nft(pallet_nft::Call::set_name { .. }) => Ok(()),
+			RuntimeCall::Nft(pallet_nft::Call::set_royalties_schedule { .. }) => Ok(()),
+			_ => Err(pallet_crowdsale::Error::<Runtime>::ExtrinsicForbidden.into()),
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

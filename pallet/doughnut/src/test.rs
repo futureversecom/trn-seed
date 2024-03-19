@@ -716,7 +716,7 @@ fn generate_alice_to_bob_outer_signature() {
 
 			let mut outer_call_payload: Vec<u8> = outer_call.encode();
 			outer_call_payload.as_mut_slice()[1] = 0x05; // due to real runtime pallet versioning
-			let outer_signature = holder.sign_ecdsa(&outer_call_payload.as_slice());
+			let _outer_signature = holder.sign_ecdsa(&outer_call_payload.as_slice());
 			// println!("doughnut: {:?}", to_hex(doughnut_encoded.as_slice(), false));
 			// println!("outer call: {:?}", outer_call);
 			// println!("outer call payload: {:?}", to_hex(outer_call_payload.as_slice(), false));
@@ -759,7 +759,7 @@ fn generate_alice_to_bob_outer_signature_for_system_remark_for_benchmark() {
 			};
 
 			let outer_call_payload: Vec<u8> = outer_call.encode();
-			let outer_signature = holder.sign_eip191(&outer_call_payload.as_slice());
+			let _outer_signature = holder.sign_eip191(&outer_call_payload.as_slice());
 			// println!("doughnut encoded: {:?}", to_hex(doughnut_encoded.as_slice(), false));
 		});
 }
@@ -806,7 +806,7 @@ fn generate_alice_to_bob_outer_signature_for_balances_transfer_keep_alive() {
 
 			let mut outer_call_payload: Vec<u8> = outer_call.encode();
 			outer_call_payload.as_mut_slice()[1] = 0x05; // due to real runtime pallet versioning
-			let outer_signature = holder.sign_ecdsa(&outer_call_payload.as_slice());
+			let _outer_signature = holder.sign_ecdsa(&outer_call_payload.as_slice());
 		});
 }
 

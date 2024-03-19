@@ -22,7 +22,7 @@ use crate::{
 	},
 	Pallet,
 };
-use frame_support::traits::fungibles::Inspect;
+use frame_support::traits::fungibles::{Inspect, InspectMetadata};
 use pallet_nft::{traits::NFTCollectionInfo, CrossChainCompatibility};
 use seed_pallet_common::test_prelude::{BlockNumber, *};
 use seed_primitives::TokenCount;
@@ -73,7 +73,9 @@ fn initialize_crowdsale_with_soft_cap(
 		payment_asset_id,
 		reward_collection_id,
 		soft_cap_price,
-		duration
+		duration,
+		None,
+		None,
 	));
 
 	let vault = Pallet::<Test>::vault_account(sale_id);
@@ -93,7 +95,7 @@ fn initialize_crowdsale_with_soft_cap(
 }
 
 // Helper function for creating the collection name type
-pub fn bounded_string(name: &str) -> BoundedVec<u8, <Test as pallet_nft::Config>::StringLimit> {
+pub fn bounded_string(name: &str) -> BoundedVec<u8, <Test as Config>::StringLimit> {
 	BoundedVec::truncate_from(name.as_bytes().to_vec())
 }
 
@@ -391,7 +393,9 @@ mod initialize {
 				payment_asset_id,
 				reward_collection_id,
 				soft_cap_price,
-				duration
+				duration,
+				None,
+				None,
 			));
 
 			let vault = Pallet::<Test>::vault_account(sale_id);
@@ -445,6 +449,51 @@ mod initialize {
 	}
 
 	#[test]
+	fn initialize_with_voucher_metadata_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let max_issuance = 10_000;
+			let reward_collection_id = create_nft_collection(alice(), max_issuance);
+			let payment_asset_id = 1;
+			let soft_cap_price = 10;
+			let duration = 100;
+
+			// Get sale_id
+			let sale_id = NextSaleId::<Test>::get();
+			// Get next asset id
+			let next_asset_id = AssetsExt::next_asset_uuid().unwrap();
+
+			// Initialize the crowdsale
+			let (voucher_name, voucher_symbol) = ("Generation-V", "GenV");
+			assert_ok!(Crowdsale::initialize(
+				Some(alice()).into(),
+				payment_asset_id,
+				reward_collection_id,
+				soft_cap_price,
+				duration,
+				Some(bounded_string(voucher_name)),
+				Some(bounded_string(voucher_symbol)),
+			));
+
+			// Check storage
+			assert_eq!(NextSaleId::<Test>::get(), sale_id + 1);
+
+			// Check voucher metadata
+			assert_eq!(
+				<AssetsExt as InspectMetadata<AccountId>>::name(&next_asset_id),
+				voucher_name.as_bytes().to_vec()
+			);
+			assert_eq!(
+				<AssetsExt as InspectMetadata<AccountId>>::symbol(&next_asset_id),
+				voucher_symbol.as_bytes().to_vec()
+			);
+			assert_eq!(
+				<AssetsExt as InspectMetadata<AccountId>>::decimals(&next_asset_id),
+				VOUCHER_DECIMALS
+			);
+		});
+	}
+
+	#[test]
 	fn no_ids_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_id = create_nft_collection(alice(), 10);
@@ -462,7 +511,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				Error::<Test>::NoAvailableIds
 			);
@@ -484,7 +535,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				Error::<Test>::InvalidAsset
 			);
@@ -506,7 +559,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				Error::<Test>::InvalidSoftCapPrice
 			);
@@ -528,7 +583,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				Error::<Test>::SaleDurationTooLong
 			);
@@ -550,7 +607,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				pallet_nft::Error::<Test>::NoCollectionFound
 			);
@@ -583,7 +642,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				Error::<Test>::MaxIssuanceNotSet
 			);
@@ -616,10 +677,63 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				Error::<Test>::CollectionIssuanceNotZero
 			);
+		});
+	}
+
+	#[test]
+	fn publicly_mintable_collection_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			assert_ok!(Nft::create_collection(
+				Some(alice()).into(),
+				bounded_string("test-collection"),
+				0,
+				Some(1000),
+				None,
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
+				None,
+				CrossChainCompatibility::default(),
+			));
+			let payment_asset = 1;
+			let soft_cap_price = 10;
+			let duration = 100;
+
+			// enable collection public minting
+			assert_ok!(Nft::toggle_public_mint(Some(alice()).into(), collection_id, true));
+
+			// Initialize the crowdsale
+			assert_noop!(
+				Crowdsale::initialize(
+					Some(alice()).into(),
+					payment_asset,
+					collection_id,
+					soft_cap_price,
+					duration,
+					None,
+					None,
+				),
+				Error::<Test>::CollectionPublicMintable
+			);
+
+			// disable collection public minting
+			assert_ok!(Nft::toggle_public_mint(Some(alice()).into(), collection_id, false));
+
+			// Initialize the crowdsale - succeeds
+			assert_ok!(Crowdsale::initialize(
+				Some(alice()).into(),
+				payment_asset,
+				collection_id,
+				soft_cap_price,
+				duration,
+				None,
+				None,
+			));
 		});
 	}
 
@@ -649,7 +763,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				pallet_nft::Error::<Test>::NotCollectionOwner
 			);
@@ -1925,6 +2041,39 @@ mod redeem_voucher {
 				SaleInfo::<Test>::insert(sale_id, sale_info);
 				assert_ok!(Crowdsale::redeem_voucher(Some(alice()).into(), sale_id, 1),);
 			});
+	}
+}
+
+mod proxy_vault_call {
+	use super::*;
+
+	#[test]
+	fn proxy_vault_call_succeeds() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let max_issuance = 1000;
+			let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+
+			let call = mock::RuntimeCall::Nft(pallet_nft::Call::set_name {
+				collection_id: sale_info.reward_collection_id,
+				name: BoundedVec::truncate_from("New Name".encode()),
+			});
+			assert_ok!(Crowdsale::proxy_vault_call(
+				Some(alice()).into(),
+				sale_id,
+				Box::new(call.clone())
+			));
+
+			// Event thrown
+			System::assert_last_event(
+				Event::VaultCallProxied {
+					sale_id,
+					who: alice(),
+					vault: sale_info.vault,
+					call: Box::new(call),
+				}
+				.into(),
+			);
+		});
 	}
 }
 

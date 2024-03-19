@@ -418,6 +418,7 @@ parameter_types! {
 }
 impl pallet_nft::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
 	type OnTransferSubscription = TokenApprovals;
@@ -1303,7 +1304,10 @@ parameter_types! {
 
 impl pallet_crowdsale::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 	type PalletId = CrowdSalePalletId;
+	type StringLimit = AssetsStringLimit;
+	type ProxyCallValidator = impls::CrowdsaleProxyVaultValidator;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
 	type MaxSalesPerBlock = MaxSalesPerBlock;

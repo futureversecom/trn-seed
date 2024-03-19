@@ -48,6 +48,15 @@ where
 	type Extrinsic = Extrinsic;
 }
 
+pub struct ValidatedCall;
+impl seed_pallet_common::ExtrinsicChecker for ValidatedCall {
+	type Call = RuntimeCall;
+	type Result = DispatchResult;
+	fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+		Ok(())
+	}
+}
+
 parameter_types! {
 	pub const CrowdSalePalletId: PalletId = PalletId(*b"crowdsal");
 	pub const MaxSalesPerBlock: u32 = 5;
@@ -59,7 +68,10 @@ parameter_types! {
 
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 	type PalletId = CrowdSalePalletId;
+	type StringLimit = StringLimit;
+	type ProxyCallValidator = ValidatedCall;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
 	type MaxSalesPerBlock = MaxSalesPerBlock;
