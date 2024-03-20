@@ -106,6 +106,7 @@ pub mod pallet {
 		///                OnChargeTransaction::withdraw_fee()
 		/// max_payment: The limit of how many tokens will be used to perform the exchange
 		/// call: The inner call to be performed after the exchange
+		#[pallet::call_index(0)]
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(dispatch_info.weight.saturating_add(Weight::from_all(10_000u64)), dispatch_info.class)

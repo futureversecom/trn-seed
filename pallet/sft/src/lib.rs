@@ -246,6 +246,7 @@ pub mod pallet {
 		/// The collectionUuid used to store the SFT CollectionInfo is retrieved from the NFT
 		/// pallet. This is so that CollectionUuids are unique across all collections, regardless
 		/// of if they are SFT or NFT collections.
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::create_collection())]
 		#[transactional]
 		pub fn create_collection(
@@ -270,6 +271,7 @@ pub mod pallet {
 		/// Create additional tokens for an existing collection
 		/// These tokens act similar to tokens within an ERC1155 contract
 		/// Each token has individual issuance, max_issuance,
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::create_token())]
 		#[transactional]
 		pub fn create_token(
@@ -301,6 +303,7 @@ pub mod pallet {
 		/// `serial_numbers` - A list of serial numbers to mint into
 		/// `quantities` - A list of quantities to mint into each serial number
 		/// `token_owner` - The owner of the tokens, defaults to the caller
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::mint())]
 		#[transactional]
 		pub fn mint(
@@ -315,6 +318,7 @@ pub mod pallet {
 
 		/// Transfer ownership of an SFT
 		/// Caller must be the token owner
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::transfer(serial_numbers.len() as u32))]
 		#[transactional]
 		pub fn transfer(
@@ -330,6 +334,7 @@ pub mod pallet {
 		/// Burn a token 🔥
 		///
 		/// Caller must be the token owner
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::burn())]
 		#[transactional]
 		pub fn burn(
@@ -343,6 +348,7 @@ pub mod pallet {
 
 		/// Set the owner of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::set_owner())]
 		#[transactional]
 		pub fn set_owner(
@@ -356,6 +362,7 @@ pub mod pallet {
 
 		/// Set the max issuance of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::set_max_issuance())]
 		pub fn set_max_issuance(
 			origin: OriginFor<T>,
@@ -368,6 +375,7 @@ pub mod pallet {
 
 		/// Set the base URI of a collection (MetadataScheme)
 		/// Caller must be the current collection owner
+		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::set_base_uri())]
 		pub fn set_base_uri(
 			origin: OriginFor<T>,
@@ -380,6 +388,7 @@ pub mod pallet {
 
 		/// Set the name of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::set_name())]
 		pub fn set_name(
 			origin: OriginFor<T>,
@@ -392,6 +401,7 @@ pub mod pallet {
 
 		/// Set the royalties schedule of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::set_royalties_schedule())]
 		pub fn set_royalties_schedule(
 			origin: OriginFor<T>,
@@ -402,6 +412,7 @@ pub mod pallet {
 			Self::do_set_royalties_schedule(who, collection_id, royalties_schedule)
 		}
 
+		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::toggle_public_mint())]
 		pub fn toggle_public_mint(
 			origin: OriginFor<T>,
@@ -431,6 +442,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(11)]
 		#[pallet::weight(T::WeightInfo::set_mint_fee())]
 		pub fn set_mint_fee(
 			origin: OriginFor<T>,

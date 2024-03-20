@@ -97,6 +97,7 @@ pub mod mock_pallet {
 		#[pallet::call]
 		impl<T: Config> Pallet<T> {
 			// For tests. Charge some expected fee amount
+			#[pallet::call_index(0)]
 			#[pallet::weight(WEIGHT)]
 			pub fn mock_charge_fee(_origin: OriginFor<T>) -> DispatchResult {
 				Ok(())

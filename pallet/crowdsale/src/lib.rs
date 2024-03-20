@@ -311,6 +311,7 @@ pub mod pallet {
 		/// - `sale_duration`: How many blocks will the sale last once enabled
 		///
 		/// Emits `CrowdsaleCreated` event when successful.
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::initialize())]
 		#[transactional]
 		pub fn initialize(
@@ -384,6 +385,7 @@ pub mod pallet {
 		/// - `sale_id`: The id of the sale to enable
 		///
 		/// Emits `CrowdsaleEnabled` event when successful.
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::enable())]
 		#[transactional]
 		pub fn enable(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
@@ -440,6 +442,7 @@ pub mod pallet {
 		/// - `amount`: The amount of tokens to participate with
 		///
 		/// Emits `CrowdsaleParticipated` event when successful.
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::participate())]
 		#[transactional]
 		pub fn participate(
@@ -504,6 +507,7 @@ pub mod pallet {
 		///
 		/// Emits `CrowdsaleVouchersDistributed` event when successful.
 		// TODO: update weight based on participants processable
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::distribute_crowdsale_rewards())]
 		#[transactional]
 		pub fn distribute_crowdsale_rewards(origin: OriginFor<T>) -> DispatchResult {
@@ -604,6 +608,7 @@ pub mod pallet {
 		/// - `sale_id`: The id of the sale to claim the vouchers from
 		///
 		/// Emits `CrowdsaleVouchersClaimed` event when successful.
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::claim_voucher())]
 		#[transactional]
 		pub fn claim_voucher(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
@@ -701,6 +706,7 @@ pub mod pallet {
 		/// - `quantity`: The amount of NFT(s) to redeem
 		///
 		/// Emits `CrowdsaleNFTRedeemed` event when successful.
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::redeem_voucher())]
 		#[transactional]
 		pub fn redeem_voucher(
@@ -747,6 +753,7 @@ pub mod pallet {
 		/// In the very unlikely case that a sale was blocked from automatic distribution within
 		/// the on_initialise step. This function allows a manual trigger of distribution
 		/// callable by anyone to kickstart the sale distribution process.
+		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::try_force_distribution())]
 		pub fn try_force_distribution(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
 			let who = ensure_signed(origin)?;

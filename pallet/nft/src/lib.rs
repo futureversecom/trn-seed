@@ -270,6 +270,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::claim_unowned_collection())]
 		/// Bridged collections from Ethereum will initially lack an owner. These collections will
 		/// be assigned to the pallet. This allows for claiming those collections assuming they were
@@ -299,6 +300,7 @@ pub mod pallet {
 
 		/// Set the owner of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_owner())]
 		pub fn set_owner(
 			origin: OriginFor<T>,
@@ -311,6 +313,7 @@ pub mod pallet {
 
 		/// Set the max issuance of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_max_issuance())]
 		pub fn set_max_issuance(
 			origin: OriginFor<T>,
@@ -336,6 +339,7 @@ pub mod pallet {
 
 		/// Set the base URI of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::set_base_uri())]
 		pub fn set_base_uri(
 			origin: OriginFor<T>,
@@ -368,6 +372,7 @@ pub mod pallet {
 		/// `metadata_scheme` - The off-chain metadata referencing scheme for tokens in this
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will
 		/// apply to all tokens in the collection by default.
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::create_collection())]
 		#[transactional]
 		pub fn create_collection(
@@ -395,6 +400,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::toggle_public_mint())]
 		pub fn toggle_public_mint(
 			origin: OriginFor<T>,
@@ -424,6 +430,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::set_mint_fee())]
 		pub fn set_mint_fee(
 			origin: OriginFor<T>,
@@ -471,6 +478,7 @@ pub mod pallet {
 		/// Caller must be the collection owner
 		/// -----------
 		/// Weight is O(N) where N is `quantity`
+		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::mint())]
 		#[transactional]
 		pub fn mint(
@@ -537,6 +545,7 @@ pub mod pallet {
 
 		/// Transfer ownership of an NFT
 		/// Caller must be the token owner
+		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::transfer())]
 		#[transactional]
 		pub fn transfer(
@@ -553,6 +562,7 @@ pub mod pallet {
 		/// Burn a token 🔥
 		///
 		/// Caller must be the token owner
+		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::burn())]
 		#[transactional]
 		pub fn burn(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
@@ -566,6 +576,7 @@ pub mod pallet {
 
 		/// Set the name of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::set_name())]
 		pub fn set_name(
 			origin: OriginFor<T>,
@@ -588,6 +599,7 @@ pub mod pallet {
 
 		/// Set the royalties schedule of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(11)]
 		#[pallet::weight(T::WeightInfo::set_royalties_schedule())]
 		pub fn set_royalties_schedule(
 			origin: OriginFor<T>,

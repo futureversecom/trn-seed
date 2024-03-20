@@ -150,6 +150,7 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	{
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::NftPegWeightInfo::set_contract_address())]
 		pub fn set_contract_address(origin: OriginFor<T>, contract: H160) -> DispatchResult {
 			ensure_root(origin)?;
@@ -158,6 +159,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::NftPegWeightInfo::withdraw())]
 		#[transactional]
 		pub fn withdraw(
@@ -175,6 +177,7 @@ pub mod pallet {
 		}
 
 		/// Withdraw blocked tokens, must be called by the destination defined in `BlockedTokens`
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::NftPegWeightInfo::reclaim_blocked_nfts())]
 		#[transactional]
 		pub fn reclaim_blocked_nfts(

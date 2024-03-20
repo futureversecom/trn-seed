@@ -346,6 +346,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
 		#[pallet::weight(1000)]
 		pub fn set_admin(origin: OriginFor<T>, new: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_root(origin)?;
@@ -361,6 +362,7 @@ pub mod pallet {
 		}
 
 		/// List a vortex distribution
+		#[pallet::call_index(1)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::create_vtx_dist())]
 		#[transactional]
 		pub fn create_vtx_dist(origin: OriginFor<T>) -> DispatchResult {
@@ -381,6 +383,7 @@ pub mod pallet {
 		/// Disable a distribution
 		///
 		/// `id` - The distribution id
+		#[pallet::call_index(2)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::disable_vtx_dist())]
 		#[transactional]
 		pub fn disable_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
@@ -397,6 +400,7 @@ pub mod pallet {
 		/// Start distributing vortex
 		///
 		/// `id` - The distribution id
+		#[pallet::call_index(3)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::start_vtx_dist())]
 		#[transactional]
 		pub fn start_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
@@ -415,6 +419,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `current_block` - Current block number
+		#[pallet::call_index(4)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::pay_unsigned().saturating_mul(T::PayoutBatchSize::get().into()))]
 		#[transactional]
 		pub fn pay_unsigned(
@@ -490,6 +495,7 @@ pub mod pallet {
 		/// `id` - The distribution id
 		/// `start_era` - Start era
 		/// `end_era` - End era
+		#[pallet::call_index(5)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_vtx_dist_eras())]
 		#[transactional]
 		pub fn set_vtx_dist_eras(
@@ -510,6 +516,7 @@ pub mod pallet {
 		///
 		/// `asset_prices` - List of asset prices
 		/// `id` - The distribution id
+		#[pallet::call_index(6)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_asset_prices(asset_prices.len() as u32))]
 		#[transactional]
 		pub fn set_asset_prices(
@@ -525,6 +532,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `rewards` - Rewards list
+		#[pallet::call_index(7)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
 		pub fn register_rewards(
 			origin: OriginFor<T>,
@@ -557,6 +565,7 @@ pub mod pallet {
 		/// Trigger distribution
 		///
 		/// `id` - The distribution id
+		#[pallet::call_index(8)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution())]
 		#[transactional]
 		pub fn trigger_vtx_distribution(
@@ -577,6 +586,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `vortex_token_amount` - Amount of vortex to redeem
+		#[pallet::call_index(9)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::redeem_tokens_from_vault())]
 		#[transactional]
 		pub fn redeem_tokens_from_vault(

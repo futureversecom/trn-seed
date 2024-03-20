@@ -269,6 +269,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `account`: The delegated account for the futurepass.
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::create())]
 		#[transactional]
 		pub fn create(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
@@ -301,6 +302,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(1)]
 		#[pallet::weight({
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
 			T::WeightInfo::register_delegate_with_signature(delegate_count)
@@ -385,6 +387,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(2)]
 		#[pallet::weight({
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
 			T::WeightInfo::unregister_delegate(delegate_count)
@@ -438,6 +441,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(3)]
 		#[pallet::weight({
 			match Holders::<T>::get(current_owner) {
 				Some(futurepass) => {
@@ -506,6 +510,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(4)]
 		#[pallet::weight({
 			let di = call.get_dispatch_info();
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
@@ -555,6 +560,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `migrator`: The new account that will become the futurepass asset migrator.
+		#[pallet::call_index(5)]
 		#[pallet::weight((RocksDbWeight::get().writes(1), DispatchClass::Operational))]
 		pub fn set_futurepass_migrator(
 			origin: OriginFor<T>,
@@ -579,6 +585,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of collections migrated; not the tokens migrated.
 		/// # </weight>
+		#[pallet::call_index(6)]
 		#[pallet::weight((RocksDbWeight::get().writes(collection_ids.len() as u64), DispatchClass::Operational))]
 		#[transactional]
 		pub fn migrate_evm_futurepass(

@@ -412,6 +412,7 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<H160>,
 		<T as Config>::RuntimeCall: GetCallMetadata,
 	{
+		#[pallet::call_index(0)]
 		#[pallet::weight({
 			let call_weight = call.get_dispatch_info().weight;
 			T::WeightInfo::transact().saturating_add(call_weight)
@@ -478,6 +479,7 @@ pub mod pallet {
 		}
 
 		/// Block a specific doughnut to be used
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::revoke_doughnut())]
 		pub fn revoke_doughnut(
 			origin: OriginFor<T>,
@@ -504,6 +506,7 @@ pub mod pallet {
 		}
 
 		/// Block a holder from executing any doughnuts from a specific issuer
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::revoke_holder())]
 		pub fn revoke_holder(
 			origin: OriginFor<T>,
@@ -525,6 +528,7 @@ pub mod pallet {
 
 		/// Update whitelisted holders list
 		// Note: this is for temporary purpose. Might change in the future
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::update_whitelisted_holders())]
 		pub fn update_whitelisted_holders(
 			origin: OriginFor<T>,

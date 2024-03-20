@@ -391,6 +391,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Submit xrp transaction
+		#[pallet::call_index(0)]
 		#[pallet::weight((T::WeightInfo::submit_transaction(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn submit_transaction(
@@ -420,6 +421,7 @@ pub mod pallet {
 		}
 
 		/// Submit xrp transaction challenge
+		#[pallet::call_index(1)]
 		#[pallet::weight((T::WeightInfo::submit_challenge(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn submit_challenge(
@@ -433,6 +435,7 @@ pub mod pallet {
 
 		/// Sets the payment delay
 		/// payment_delay is a tuple of payment_threshold and delay in blocks
+		#[pallet::call_index(2)]
 		#[pallet::weight((T::WeightInfo::set_payment_delay(), DispatchClass::Operational))]
 		pub fn set_payment_delay(
 			origin: OriginFor<T>,
@@ -453,6 +456,7 @@ pub mod pallet {
 		}
 
 		/// Withdraw xrp transaction
+		#[pallet::call_index(3)]
 		#[pallet::weight((T::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn withdraw_xrp(
@@ -465,6 +469,7 @@ pub mod pallet {
 		}
 
 		/// Withdraw xrp transaction
+		#[pallet::call_index(4)]
 		#[pallet::weight((T::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn withdraw_xrp_with_destination_tag(
@@ -478,6 +483,7 @@ pub mod pallet {
 		}
 
 		/// add a relayer
+		#[pallet::call_index(5)]
 		#[pallet::weight((T::WeightInfo::add_relayer(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn add_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
@@ -488,6 +494,7 @@ pub mod pallet {
 		}
 
 		/// remove a relayer
+		#[pallet::call_index(6)]
 		#[pallet::weight((T::WeightInfo::remove_relayer(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn remove_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
@@ -502,6 +509,7 @@ pub mod pallet {
 		}
 
 		/// Set the door tx fee amount
+		#[pallet::call_index(7)]
 		#[pallet::weight((<T as Config>::WeightInfo::set_door_tx_fee(), DispatchClass::Operational))]
 		pub fn set_door_tx_fee(origin: OriginFor<T>, fee: u64) -> DispatchResult {
 			ensure_root(origin)?;
@@ -510,6 +518,7 @@ pub mod pallet {
 		}
 
 		/// Set the xrp source tag
+		#[pallet::call_index(8)]
 		#[pallet::weight((<T as Config>::WeightInfo::set_xrp_source_tag(), DispatchClass::Operational))]
 		pub fn set_xrp_source_tag(origin: OriginFor<T>, source_tag: u32) -> DispatchResult {
 			ensure_root(origin)?;
@@ -518,6 +527,7 @@ pub mod pallet {
 		}
 
 		/// Set XRPL door address managed by this pallet
+		#[pallet::call_index(9)]
 		#[pallet::weight((T::WeightInfo::set_door_address(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn set_door_address(
@@ -531,6 +541,7 @@ pub mod pallet {
 		}
 
 		/// Set the door account ticket sequence params for the next allocation
+		#[pallet::call_index(10)]
 		#[pallet::weight((T::WeightInfo::set_ticket_sequence_next_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_next_allocation(
 			origin: OriginFor<T>,
@@ -562,6 +573,7 @@ pub mod pallet {
 		}
 
 		/// Set the door account current ticket sequence params for current allocation - force set
+		#[pallet::call_index(11)]
 		#[pallet::weight((T::WeightInfo::set_ticket_sequence_current_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_current_allocation(
 			origin: OriginFor<T>,
@@ -594,6 +606,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::reset_settled_xrpl_tx_data(settled_tx_data.as_ref().unwrap_or(&vec![]).len() as u32))]
 		#[transactional]
 		pub fn reset_settled_xrpl_tx_data(
@@ -630,6 +643,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(13)]
 		#[pallet::weight({
 			let ledger_count = SettledXRPTransactionDetails::<T>::get(ledger_index).unwrap_or_default().len() as u32;
 			(T::WeightInfo::prune_settled_ledger_index(ledger_count), DispatchClass::Operational)

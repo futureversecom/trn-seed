@@ -263,6 +263,7 @@ pub mod pallet {
 		/// - note: analogous to Uniswapv2 `setFeeTo`
 		///
 		/// - `fee_to`: the new account or None assigned to FeeTo.
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_fee_to())]
 		#[transactional]
 		pub fn set_fee_to(
@@ -289,6 +290,7 @@ pub mod pallet {
 		///   it is set to None.
 		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
 		///   it is set to None
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::swap_with_exact_supply())]
 		#[transactional]
 		pub fn swap_with_exact_supply(
@@ -324,6 +326,7 @@ pub mod pallet {
 		///   it is set to None.
 		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
 		///   it is set to None
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::swap_with_exact_target())]
 		#[transactional]
 		pub fn swap_with_exact_target(
@@ -368,6 +371,7 @@ pub mod pallet {
 		///   to None.
 		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
 		///   it is set to None
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::add_liquidity())]
 		#[transactional]
 		pub fn add_liquidity(
@@ -412,6 +416,7 @@ pub mod pallet {
 		///   if it is set to None.
 		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
 		///   it is set to None
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::remove_liquidity())]
 		#[transactional]
 		pub fn remove_liquidity(
@@ -446,6 +451,7 @@ pub mod pallet {
 		///
 		/// - `token_a`: Asset id A.
 		/// - `token_b`: Asset id B.
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::reenable_trading_pair())]
 		#[transactional]
 		pub fn reenable_trading_pair(
@@ -479,6 +485,7 @@ pub mod pallet {
 		///
 		/// - `token_a`: Asset id A.
 		/// - `token_b`: Asset id B.
+		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::disable_trading_pair())]
 		#[transactional]
 		pub fn disable_trading_pair(

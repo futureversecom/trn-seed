@@ -423,6 +423,7 @@ pub mod pallet {
 		/// - `signature`: The signature of the XRPL transaction; ignored since it's verified in
 		///   self-contained call trait impl.
 		/// - `call`: The call to dispatch by the XRPL transaction signer (pubkey).
+		#[pallet::call_index(0)]
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			T::WeightInfo::transact().saturating_add(dispatch_info.weight)

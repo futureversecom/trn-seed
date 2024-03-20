@@ -145,6 +145,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Enable maintenance mode which prevents all non sudo calls
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::enable_maintenance_mode())]
 		pub fn enable_maintenance_mode(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
 			ensure_root(origin)?;
@@ -156,6 +157,7 @@ pub mod pallet {
 		}
 
 		/// Blocks an account from transacting on the network
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::block_account())]
 		pub fn block_account(
 			origin: OriginFor<T>,
@@ -176,6 +178,7 @@ pub mod pallet {
 
 		/// Blocks an account from transacting on the network
 		/// Can be used to block individual precompile addresses or contracts
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::block_evm_target())]
 		pub fn block_evm_target(
 			origin: OriginFor<T>,
@@ -198,6 +201,7 @@ pub mod pallet {
 		/// pallet_name: The name of the pallet as per the runtime file. i.e. FeeProxy
 		/// call_name: The snake_case name for the call. i.e. set_fee
 		/// Both pallet and call names are not case sensitive
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::block_call())]
 		pub fn block_call(
 			origin: OriginFor<T>,
@@ -232,6 +236,7 @@ pub mod pallet {
 		/// Blocks an entire pallets calls from being executed
 		/// pallet_name: The name of the pallet as per the runtime file. i.e. FeeProxy
 		/// Pallet names are not case sensitive
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::block_pallet())]
 		pub fn block_pallet(
 			origin: OriginFor<T>,
