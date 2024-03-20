@@ -77,7 +77,6 @@ pub mod mock_pallet {
 			_marker: PhantomData<T>,
 		}
 
-		#[cfg(feature = "std")]
 		impl<T: Config> Default for GenesisConfig<T> {
 			fn default() -> Self {
 				GenesisConfig { _marker: Default::default() }
@@ -85,7 +84,7 @@ pub mod mock_pallet {
 		}
 
 		#[pallet::genesis_build]
-		impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 			fn build(&self) {
 				unimplemented!()
 			}
