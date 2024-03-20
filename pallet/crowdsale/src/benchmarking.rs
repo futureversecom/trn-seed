@@ -40,7 +40,7 @@ fn initialize_crowdsale<T: Config>(owner: T::AccountId) -> (SaleId, AssetId, Col
 	let collection_id = build_collection::<T>(owner.clone());
 
 	let soft_cap_price = 50_000_000;
-	let sale_duration: T::BlockNumber = 1000_u32.into();
+	let sale_duration: BlockNumberFor<T> = 1000_u32.into();
 
 	let sale_id = NextSaleId::<T>::get();
 	CrowdSale::<T>::initialize(
@@ -62,7 +62,7 @@ benchmarks! {
 		let payment_asset_id = T::MultiCurrency::create(&acc, None).unwrap();
 		let collection_id = build_collection::<T>(acc.clone());
 		let soft_cap_price = 50_000_000;
-		let sale_duration: T::BlockNumber = 1000_u32.into();
+		let sale_duration: BlockNumberFor<T> = 1000_u32.into();
 	}: _(RawOrigin::Signed(acc.clone()), payment_asset_id, collection_id, soft_cap_price, sale_duration)
   verify {
 		// validate NextSaleId
@@ -76,7 +76,7 @@ benchmarks! {
 		let collection_id = build_collection::<T>(acc.clone());
 
 		let soft_cap_price = 50_000_000;
-		let sale_duration: T::BlockNumber = 1000_u32.into();
+		let sale_duration: BlockNumberFor<T> = 1000_u32.into();
 		CrowdSale::<T>::initialize(RawOrigin::Signed(acc.clone()).into(), payment_asset_id, collection_id, soft_cap_price, sale_duration).unwrap();
 
 		let sale_id = 0;

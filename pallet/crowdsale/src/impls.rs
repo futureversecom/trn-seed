@@ -91,7 +91,7 @@ impl<T: Config> Pallet<T> {
 	// Transfers vouchers from the vault account into a users wallet and returns the amount minted.
 	pub fn transfer_user_vouchers(
 		who: T::AccountId,
-		sale_info: &SaleInformation<T::AccountId, T::BlockNumber>,
+		sale_info: &SaleInformation<T::AccountId, BlockNumberFor<T>>,
 		contribution: Balance,
 		voucher_max_supply: Balance,
 	) -> Result<Balance, DispatchError> {
@@ -124,7 +124,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Close all crowdsales that are scheduled to end this block.
-	pub(crate) fn close_sales_at(now: T::BlockNumber) -> Result<u32, &'static str> {
+	pub(crate) fn close_sales_at(now: BlockNumberFor<T>) -> Result<u32, &'static str> {
 		let mut removed = 0_u32;
 
 		let Some(sales_to_close) = SaleEndBlocks::<T>::take(now) else {

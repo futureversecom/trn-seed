@@ -287,7 +287,7 @@ where
 		})?;
 
 	// check if genesis hash matches chain genesis hash
-	if <frame_system::Pallet<T>>::block_hash(T::BlockNumber::zero()).as_ref() !=
+	if <frame_system::Pallet<T>>::block_hash(BlockNumberFor<T>::zero()).as_ref() !=
 		genesis_hash.as_ref()
 	{
 		return Err("⛔️ genesis hash mismatch".into())
@@ -404,7 +404,7 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> where
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> where
 		<T as frame_system::Config>::AccountId: From<H160>
 	{
 	}

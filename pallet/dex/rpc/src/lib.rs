@@ -96,7 +96,7 @@ where
 impl<C, Block, T> DexApiServer for Dex<C, Block, T>
 where
 	Block: BlockT,
-	T: Config<BlockNumber = BlockNumber> + Send + Sync,
+	T: Config + Send + Sync,
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: DexRuntimeApi<Block, T>,

@@ -106,7 +106,7 @@ pub mod pallet {
 
 		/// Upper limit to the number of blocks we can check per block for delayed payments
 		#[pallet::constant]
-		type DelayedPaymentBlockLimit: Get<Self::BlockNumber>;
+		type DelayedPaymentBlockLimit: Get<BlockNumberFor<Self>>;
 
 		/// Unix time
 		type UnixTime: UnixTime;
@@ -170,7 +170,7 @@ pub mod pallet {
 		/// The payment delay was set
 		PaymentDelaySet {
 			payment_threshold: Balance,
-			delay: T::BlockNumber,
+			delay: BlockNumberFor<T>,
 		},
 		/// The payment delay was removed
 		PaymentDelayRemoved,
@@ -193,7 +193,7 @@ pub mod pallet {
 			amount: Balance,
 			destination: XrplAccountId,
 			delayed_payment_id: DelayedPaymentId,
-			payment_block: T::BlockNumber,
+			payment_block: BlockNumberFor<T>,
 		},
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
@@ -215,15 +215,15 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T>
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
-		fn on_initialize(n: T::BlockNumber) -> Weight {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			Self::process_xrp_tx(n)
 		}
 
-		fn on_idle(now: T::BlockNumber, remaining_weight: Weight) -> Weight {
+		fn on_idle(now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			let delay_weight = Self::process_delayed_payments(now, remaining_weight);
 			let prune_weight = Self::clear_storages(remaining_weight.saturating_sub(delay_weight));
 			delay_weight.saturating_add(prune_weight)
@@ -244,7 +244,7 @@ pub mod pallet {
 	#[pallet::getter(fn process_xrp_transaction)]
 	/// Temporary storage to set the transactions ready to be processed at specified block number
 	pub type ProcessXRPTransaction<T: Config> =
-		StorageMap<_, Twox64Concat, T::BlockNumber, BoundedVec<XrplTxHash, T::XRPTransactionLimit>>;
+		StorageMap<_, Twox64Concat, BlockNumberFor<T>, BoundedVec<XrplTxHash, T::XRPTransactionLimit>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction_details)]
@@ -290,7 +290,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Payment delay for any withdraw over the specified Balance threshold
-	pub type PaymentDelay<T: Config> = StorageValue<_, (Balance, T::BlockNumber), OptionQuery>;
+	pub type PaymentDelay<T: Config> = StorageValue<_, (Balance, BlockNumberFor<T>), OptionQuery>;
 
 	#[pallet::storage]
 	/// Map from DelayedPaymentId to (sender, WithdrawTx)
@@ -302,13 +302,13 @@ pub mod pallet {
 	pub type DelayedPaymentSchedule<T: Config> = StorageMap<
 		_,
 		Identity,
-		T::BlockNumber,
+		BlockNumberFor<T>,
 		BoundedVec<DelayedPaymentId, T::MaxDelayedPaymentsPerBlock>,
 	>;
 
 	#[pallet::storage]
 	/// The highest block number that has had all delayed payments processed
-	pub type NextDelayProcessBlock<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+	pub type NextDelayProcessBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
 	/// The next available delayedPaymentId
@@ -436,7 +436,7 @@ pub mod pallet {
 		#[pallet::weight((T::WeightInfo::set_payment_delay(), DispatchClass::Operational))]
 		pub fn set_payment_delay(
 			origin: OriginFor<T>,
-			payment_delay: Option<(Balance, T::BlockNumber)>,
+			payment_delay: Option<(Balance, BlockNumberFor<T>)>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			match payment_delay {
@@ -667,7 +667,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	pub fn process_xrp_tx(n: T::BlockNumber) -> Weight
+	pub fn process_xrp_tx(n: BlockNumberFor<T>) -> Weight
 	where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
@@ -733,7 +733,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Process any transactions that have been delayed due to the min_payment threshold
 	pub fn process_delayed_payments(
-		block_number: T::BlockNumber,
+		block_number: BlockNumberFor<T>,
 		remaining_weight: Weight,
 	) -> Weight {
 		// Initial reads for the following:
@@ -784,7 +784,7 @@ impl<T: Config> Pallet<T> {
 			used_weight = used_weight.saturating_add(DbWeight::get().reads(1));
 			let Some(delayed_payment_ids) = <DelayedPaymentSchedule<T>>::get(new_highest) else {
 				// No delayed payments to process for this block
-				new_highest = new_highest.saturating_add(T::BlockNumber::one());
+				new_highest = new_highest.saturating_add(BlockNumberFor<T>::one());
 				continue;
 			};
 			// Add weight for writing DelayedPaymentSchedule
@@ -821,7 +821,7 @@ impl<T: Config> Pallet<T> {
 				break
 			} else {
 				<DelayedPaymentSchedule<T>>::remove(new_highest);
-				new_highest = new_highest.saturating_add(T::BlockNumber::one());
+				new_highest = new_highest.saturating_add(BlockNumberFor<T>::one());
 			}
 		}
 
@@ -1003,7 +1003,7 @@ impl<T: Config> Pallet<T> {
 	/// Delay a withdrawal until a later block. Called if the withdrawal amount is over the
 	/// PaymentDelay threshold
 	fn delay_payment(
-		delay: T::BlockNumber,
+		delay: BlockNumberFor<T>,
 		sender: T::AccountId,
 		withdrawal: XrpWithdrawTransaction,
 		destination_tag: Option<u32>,

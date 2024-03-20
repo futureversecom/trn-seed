@@ -90,7 +90,7 @@ pub mod pallet {
 			+ GetDispatchInfo;
 		/// Default auction / sale length in blocks
 		#[pallet::constant]
-		type DefaultListingDuration: Get<Self::BlockNumber>;
+		type DefaultListingDuration: Get<BlockNumberFor<Self>>;
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The default account which collects network fees from marketplace sales
@@ -163,7 +163,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn listing_end_schedule)]
 	pub type ListingEndSchedule<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, T::BlockNumber, Twox64Concat, ListingId, bool>;
+		StorageDoubleMap<_, Twox64Concat, BlockNumberFor<T>, Twox64Concat, ListingId, bool>;
 
 	/// Map from offer_id to the information related to the offer
 	#[pallet::storage]
@@ -196,7 +196,7 @@ pub mod pallet {
 			price: Balance,
 			payment_asset: AssetId,
 			seller: T::AccountId,
-			close: T::BlockNumber,
+			close: BlockNumberFor<T>,
 		},
 		/// A fixed price sale has completed
 		FixedPriceSaleComplete {
@@ -230,7 +230,7 @@ pub mod pallet {
 			payment_asset: AssetId,
 			reserve_price: Balance,
 			seller: T::AccountId,
-			close: T::BlockNumber,
+			close: BlockNumberFor<T>,
 		},
 		/// An auction has sold
 		AuctionSold {
@@ -333,7 +333,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Check and close all expired listings
-		fn on_initialize(now: T::BlockNumber) -> Weight {
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			// TODO: this is unbounded and could become costly
 			// https://github.com/cennznet/cennznet/issues/444
 			let removed_count = Self::close_listings_at(now);
@@ -380,7 +380,7 @@ pub mod pallet {
 			buyer: Option<T::AccountId>,
 			payment_asset: AssetId,
 			fixed_price: Balance,
-			duration: Option<T::BlockNumber>,
+			duration: Option<BlockNumberFor<T>>,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -418,7 +418,7 @@ pub mod pallet {
 			buyer: Option<T::AccountId>,
 			payment_asset: AssetId,
 			fixed_price: Balance,
-			duration: Option<T::BlockNumber>,
+			duration: Option<BlockNumberFor<T>>,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -492,7 +492,7 @@ pub mod pallet {
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing>,
 			payment_asset: AssetId,
 			reserve_price: Balance,
-			duration: Option<T::BlockNumber>,
+			duration: Option<BlockNumberFor<T>>,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -520,7 +520,7 @@ pub mod pallet {
 			tokens: ListingTokens<T>,
 			payment_asset: AssetId,
 			reserve_price: Balance,
-			duration: Option<T::BlockNumber>,
+			duration: Option<BlockNumberFor<T>>,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;

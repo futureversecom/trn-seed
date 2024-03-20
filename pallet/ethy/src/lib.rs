@@ -94,7 +94,7 @@ const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
 /// This is the pallet's configuration trait
 pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// Length of time the bridge will be paused while the authority set changes
-	type AuthorityChangeDelay: Get<Self::BlockNumber>;
+	type AuthorityChangeDelay: Get<BlockNumberFor<Self>>;
 	/// Knows the active authority set (validator stash addresses)
 	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 	/// The pallet bridge address (destination for incoming messages, source for outgoing)
@@ -134,7 +134,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// Bond required for an account to act as relayer
 	type RelayerBond: Get<Balance>;
 	/// The Scheduler.
-	type Scheduler: Anon<Self::BlockNumber, <Self as Config>::RuntimeCall, Self::PalletsOrigin>;
+	type Scheduler: Anon<BlockNumberFor<Self>, <Self as Config>::RuntimeCall, Self::PalletsOrigin>;
 	/// Overarching type of all pallets origins.
 	type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 	/// Returns the block timestamp
@@ -154,7 +154,7 @@ decl_storage! {
 		/// Maps from event claim id to challenger and bond amount paid
 		ChallengerAccount get(fn challenger_account): map hasher(twox_64_concat) EventClaimId => Option<(T::AccountId, Balance)>;
 		/// The (optimistic) challenge period after which a submitted event is considered valid
-		ChallengePeriod get(fn challenge_period): T::BlockNumber = T::BlockNumber::from(150_u32); // 10 Minutes
+		ChallengePeriod get(fn challenge_period): BlockNumberFor<T> = BlockNumberFor<T>::from(150_u32); // 10 Minutes
 		/// The bridge contract address on Ethereum
 		pub ContractAddress get(fn contract_address): EthAddress;
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
@@ -193,9 +193,9 @@ decl_storage! {
 		/// Tracks processed message Ids (prevent replay)
 		ProcessedMessageIds get(fn processed_message_ids): Vec<EventClaimId>;
 		/// The block in which we process the next authority change
-		NextAuthorityChange get(fn next_authority_change): Option<T::BlockNumber>;
+		NextAuthorityChange get(fn next_authority_change): Option<BlockNumberFor<T>>;
 		/// Map from block number to list of EventClaims that will be considered valid and should be forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
-		MessagesValidAt get(fn messages_valid_at): map hasher(twox_64_concat) T::BlockNumber => Vec<EventClaimId>;
+		MessagesValidAt get(fn messages_valid_at): map hasher(twox_64_concat) BlockNumberFor<T> => Vec<EventClaimId>;
 		// State Oracle
 		/// Subscription Id for EthCall requests
 		NextEthCallId: EthCallId;
@@ -233,7 +233,7 @@ decl_storage! {
 decl_event! {
 	pub enum Event<T> where
 		AccountId = <T as frame_system::Config>::AccountId,
-		BlockNumber = <T as frame_system::Config>::BlockNumber,
+		BlockNumber = BlockNumberFor<T>,
 	{
 		/// Verifying an event succeeded
 		Verified(EventClaimId),
@@ -326,7 +326,7 @@ decl_module! {
 		/// 1) Handle change in authorities 5 minutes before the end of an epoch
 		/// 2) Process any newly valid event claims (incoming)
 		/// 3) Process any deferred event proofs that were submitted while the bridge was paused (should only happen on the first few blocks in a new era) (outgoing)
-		fn on_initialize(block_number: T::BlockNumber) -> Weight {
+		fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
 			let mut consumed_weight = Weight::zero();
 
 			// 1) Handle authority change
@@ -478,7 +478,7 @@ decl_module! {
 
 		#[weight = DbWeight::get().writes(1)]
 		/// Set challenge period, this is the window in which an event can be challenged before processing
-		pub fn set_challenge_period(origin, blocks: T::BlockNumber) {
+		pub fn set_challenge_period(origin, blocks: BlockNumberFor<T>) {
 			ensure_root(origin)?;
 			<ChallengePeriod<T>>::put(blocks);
 		}
@@ -544,7 +544,7 @@ decl_module! {
 				PendingClaimStatus::insert(event_id, EventClaimStatus::Pending);
 
 				// TODO: there should be some limit per block
-				let process_at: T::BlockNumber = <frame_system::Pallet<T>>::block_number() + Self::challenge_period();
+				let process_at: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number() + Self::challenge_period();
 				<MessagesValidAt<T>>::append(process_at, event_id);
 
 				Self::deposit_event(Event::<T>::EventSubmit(event_id, event_claim, process_at));
@@ -605,7 +605,7 @@ decl_module! {
 			}
 		}
 
-		fn offchain_worker(block_number: T::BlockNumber) {
+		fn offchain_worker(block_number: BlockNumberFor<T>) {
 			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
 			log!(trace, "💎 active notaries: {:?}", Self::notary_keys());
 

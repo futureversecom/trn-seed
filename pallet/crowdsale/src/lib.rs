@@ -105,11 +105,11 @@ pub mod pallet {
 
 		/// The maximum duration of a sale
 		#[pallet::constant]
-		type MaxSaleDuration: Get<Self::BlockNumber>;
+		type MaxSaleDuration: Get<BlockNumberFor<Self>>;
 
 		/// Unsigned transaction interval
 		#[pallet::constant]
-		type UnsignedInterval: Get<Self::BlockNumber>;
+		type UnsignedInterval: Get<BlockNumberFor<Self>>;
 
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
@@ -122,7 +122,7 @@ pub mod pallet {
 	/// Map from sale id to its information
 	#[pallet::storage]
 	pub type SaleInfo<T: Config> =
-		StorageMap<_, Twox64Concat, SaleId, SaleInformation<T::AccountId, T::BlockNumber>>;
+		StorageMap<_, Twox64Concat, SaleId, SaleInformation<T::AccountId, BlockNumberFor<T>>>;
 
 	/// User participation in the sale
 	/// sale_id -> user -> payment_asset contribution amount
@@ -136,7 +136,7 @@ pub mod pallet {
 	pub type SaleEndBlocks<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
-		T::BlockNumber,
+		BlockNumberFor<T>,
 		BoundedVec<SaleId, T::MaxSalesPerBlock>,
 		OptionQuery,
 	>;
@@ -148,18 +148,18 @@ pub mod pallet {
 
 	/// Stores next unsigned tx block number
 	#[pallet::storage]
-	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Crowdsale created
-		CrowdsaleCreated { sale_id: SaleId, info: SaleInformation<T::AccountId, T::BlockNumber> },
+		CrowdsaleCreated { sale_id: SaleId, info: SaleInformation<T::AccountId, BlockNumberFor<T>> },
 		/// Crowdsale enabled
 		CrowdsaleEnabled {
 			sale_id: SaleId,
-			info: SaleInformation<T::AccountId, T::BlockNumber>,
-			end_block: T::BlockNumber,
+			info: SaleInformation<T::AccountId, BlockNumberFor<T>>,
+			end_block: BlockNumberFor<T>,
 		},
 		/// Crowdsale participated
 		CrowdsaleParticipated {
@@ -176,11 +176,11 @@ pub mod pallet {
 			quantity: TokenCount,
 		},
 		/// Crowdsale closed
-		CrowdsaleClosed { sale_id: SaleId, info: SaleInformation<T::AccountId, T::BlockNumber> },
+		CrowdsaleClosed { sale_id: SaleId, info: SaleInformation<T::AccountId, BlockNumberFor<T>> },
 		/// Crowdsale distribution was manually triggered
 		CrowdsaleManualDistribution {
 			sale_id: SaleId,
-			info: SaleInformation<T::AccountId, T::BlockNumber>,
+			info: SaleInformation<T::AccountId, BlockNumberFor<T>>,
 			who: T::AccountId,
 		},
 		/// Crowdsale vouchers claimed
@@ -232,7 +232,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Check and close all expired listings
-		fn on_initialize(now: T::BlockNumber) -> Weight {
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			let total_closed: u32 = match Self::close_sales_at(now) {
 				Ok(total_closed) => total_closed,
 				Err(e) => {
@@ -250,7 +250,7 @@ pub mod pallet {
 		}
 
 		/// Offchain worker processes closed sales to distribute voucher rewards to participants
-		fn offchain_worker(now: T::BlockNumber) {
+		fn offchain_worker(now: BlockNumberFor<T>) {
 			if !sp_io::offchain::is_validator() {
 				log!(
 					error,
@@ -318,7 +318,7 @@ pub mod pallet {
 			payment_asset_id: AssetId,
 			collection_id: CollectionUuid,
 			soft_cap_price: Balance,
-			sale_duration: T::BlockNumber,
+			sale_duration: BlockNumberFor<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -357,7 +357,7 @@ pub mod pallet {
 			let voucher_asset_id = Self::create_voucher_asset(&vault, sale_id, max_issuance)?;
 
 			// store the sale information
-			let sale_info = SaleInformation::<T::AccountId, T::BlockNumber> {
+			let sale_info = SaleInformation::<T::AccountId, BlockNumberFor<T>> {
 				status: SaleStatus::Pending(<frame_system::Pallet<T>>::block_number()),
 				admin: who.clone(),
 				vault,

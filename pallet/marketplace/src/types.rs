@@ -236,7 +236,7 @@ pub struct AuctionListing<T: Config> {
 	/// The threshold amount for a successful bid
 	pub reserve_price: Balance,
 	/// When the listing closes
-	pub close: T::BlockNumber,
+	pub close: BlockNumberFor<T>,
 	/// The seller of the tokens
 	pub seller: T::AccountId,
 	/// The tokens contained within the listing
@@ -256,7 +256,7 @@ pub struct FixedPriceListing<T: Config> {
 	/// The requested amount for a succesful sale
 	pub fixed_price: Balance,
 	/// When the listing closes
-	pub close: T::BlockNumber,
+	pub close: BlockNumberFor<T>,
 	/// The authorised buyer. If unset, any buyer is authorised
 	pub buyer: Option<T::AccountId>,
 	/// The seller of the tokens

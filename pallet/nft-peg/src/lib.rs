@@ -53,7 +53,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type PalletId: Get<PalletId>;
 		#[pallet::constant]
-		type DelayLength: Get<Self::BlockNumber>;
+		type DelayLength: Get<BlockNumberFor<Self>>;
 		type MaxAddresses: Get<u32>;
 		type MaxTokensPerMint: Get<u32>;
 		type EthBridge: EthereumBridge;

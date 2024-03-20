@@ -249,7 +249,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> where
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> where
 		<T as frame_system::Config>::AccountId: From<H160>
 	{
 	}
@@ -297,7 +297,7 @@ pub mod pallet {
 			#[pallet::compact] amount_out_min: Balance,
 			path: Vec<AssetId>,
 			to: Option<T::AccountId>,
-			deadline: Option<T::BlockNumber>,
+			deadline: Option<BlockNumberFor<T>>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
@@ -332,7 +332,7 @@ pub mod pallet {
 			#[pallet::compact] amount_in_max: Balance,
 			path: Vec<AssetId>,
 			to: Option<T::AccountId>,
-			deadline: Option<T::BlockNumber>,
+			deadline: Option<BlockNumberFor<T>>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
@@ -379,7 +379,7 @@ pub mod pallet {
 			#[pallet::compact] amount_a_min: Balance,
 			#[pallet::compact] amount_b_min: Balance,
 			to: Option<T::AccountId>,
-			deadline: Option<T::BlockNumber>,
+			deadline: Option<BlockNumberFor<T>>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
@@ -422,7 +422,7 @@ pub mod pallet {
 			#[pallet::compact] amount_a_min: Balance,
 			#[pallet::compact] amount_b_min: Balance,
 			to: Option<T::AccountId>,
-			deadline: Option<T::BlockNumber>,
+			deadline: Option<BlockNumberFor<T>>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
@@ -578,7 +578,7 @@ where
 		amount_a_min: Balance,
 		amount_b_min: Balance,
 		to: T::AccountId,
-		deadline: Option<T::BlockNumber>,
+		deadline: Option<BlockNumberFor<T>>,
 	) -> sp_std::result::Result<(Balance, Balance, Balance), DispatchError> {
 		const MINIMUM_LIQUIDITY_AMOUNT: u128 = 1000_u128; // for 18 decimals -> 1000; hence for 6 decimals -> 10
 
@@ -738,7 +738,7 @@ where
 		amount_a_min: Balance,
 		amount_b_min: Balance,
 		to: T::AccountId,
-		deadline: Option<T::BlockNumber>,
+		deadline: Option<BlockNumberFor<T>>,
 	) -> sp_std::result::Result<(Balance, Balance), DispatchError> {
 		// Check if the deadline is met when the `deadline` parameter is not None
 		if let Some(deadline_block) = deadline {
@@ -1152,7 +1152,7 @@ where
 		min_amount_out: Balance,
 		path: &[AssetId],
 		to: T::AccountId,
-		deadline: Option<T::BlockNumber>,
+		deadline: Option<BlockNumberFor<T>>,
 	) -> sp_std::result::Result<
 		(Vec<Balance>, Vec<(Balance, Balance, Balance, Balance)>),
 		DispatchError,
@@ -1192,7 +1192,7 @@ where
 		amount_in_max: Balance,
 		path: &[AssetId],
 		to: T::AccountId,
-		deadline: Option<T::BlockNumber>,
+		deadline: Option<BlockNumberFor<T>>,
 	) -> sp_std::result::Result<
 		(Vec<Balance>, Vec<(Balance, Balance, Balance, Balance)>),
 		DispatchError,

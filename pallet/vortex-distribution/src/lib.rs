@@ -122,7 +122,7 @@ pub mod pallet {
 
 		/// Unsigned transaction interval
 		#[pallet::constant]
-		type UnsignedInterval: Get<Self::BlockNumber>;
+		type UnsignedInterval: Get<BlockNumberFor<Self>>;
 
 		/// Payout batch size
 		#[pallet::constant]
@@ -223,7 +223,7 @@ pub mod pallet {
 
 	/// Stores next unsigned tx block number
 	#[pallet::storage]
-	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// Stores payout pivot block for each vortex distribution
 	#[pallet::storage]
@@ -276,9 +276,9 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		// incentive calculation
-		fn offchain_worker(now: T::BlockNumber) {
+		fn offchain_worker(now: BlockNumberFor<T>) {
 			if let Err(e) = Self::vtx_dist_offchain_worker(now) {
 				log::info!(
 				  target: "vtx-dist",
@@ -420,7 +420,7 @@ pub mod pallet {
 		pub fn pay_unsigned(
 			origin: OriginFor<T>,
 			id: T::VtxDistIdentifier,
-			_current_block: T::BlockNumber,
+			_current_block: BlockNumberFor<T>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 			if let VtxDistStatus::Paying = VtxDistStatuses::<T>::get(id) {
@@ -731,7 +731,7 @@ pub mod pallet {
 		}
 
 		/// offchain worker for unsigned tx
-		fn vtx_dist_offchain_worker(now: T::BlockNumber) -> Result<(), OffchainErr> {
+		fn vtx_dist_offchain_worker(now: BlockNumberFor<T>) -> Result<(), OffchainErr> {
 			if !sp_io::offchain::is_validator() {
 				return Err(OffchainErr::NotAValidator)
 			}

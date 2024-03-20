@@ -124,7 +124,7 @@ benchmarks! {
 	set_payment_delay {
 		let asset_id: AssetId = 0x1A4u32.into();
 		let min_balance: Balance = 10u32.into();
-		let delay: T::BlockNumber = 20u32.into();
+		let delay: BlockNumberFor<T> = 20u32.into();
 		// Sanity check
 		assert_eq!(PaymentDelay::<T>::get(asset_id), None);
 

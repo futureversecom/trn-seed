@@ -259,7 +259,7 @@ impl<T> Call<T>
 		call: &<T as Config>::RuntimeCall,
 	) -> Result<T::AccountId, String> {
 		// Genesis hash check
-		let genesis_hash_onchain: T::Hash = frame_system::Pallet::<T>::block_hash(T::BlockNumber::zero());
+		let genesis_hash_onchain: T::Hash = frame_system::Pallet::<T>::block_hash(BlockNumberFor<T>::zero());
 		if *genesis_hash != genesis_hash_onchain {
 			log!(info,"🍩 genesis hash mismatch: {:?}", genesis_hash);
 			return Err("🍩 genesis hash mismatch".into())
@@ -401,7 +401,7 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> where
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> where
 		<T as frame_system::Config>::AccountId: From<H160>
 	{
 	}

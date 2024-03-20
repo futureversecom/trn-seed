@@ -252,7 +252,7 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> where
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> where
 		<T as frame_system::Config>::AccountId: From<H160>
 	{
 	}
@@ -338,7 +338,7 @@ pub mod pallet {
 				Error::<T>::DelegateAlreadyExists
 			);
 
-			let deadline_block_number: T::BlockNumber = deadline.into();
+			let deadline_block_number: BlockNumberFor<T> = deadline.into();
 			ensure!(
 				deadline_block_number >= frame_system::Pallet::<T>::block_number(),
 				Error::<T>::ExpiredDeadline

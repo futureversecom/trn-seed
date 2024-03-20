@@ -85,13 +85,13 @@ decl_storage! {
 		/// Metadata for well-known erc20 tokens (symbol, decimals)
 		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
 		/// Map from asset_id to minimum amount and delay
-		PaymentDelay get(fn payment_delay): map hasher(twox_64_concat) AssetId => Option<(Balance, T::BlockNumber)>;
+		PaymentDelay get(fn payment_delay): map hasher(twox_64_concat) AssetId => Option<(Balance, BlockNumberFor<T>)>;
 		/// Map from DelayedPaymentId to PendingPayment
 		DelayedPayments get(fn delayed_payments): map hasher(twox_64_concat) DelayedPaymentId => Option<PendingPayment>;
 		/// Map from block number to DelayedPaymentIds scheduled for that block
-		DelayedPaymentSchedule get(fn delayed_payment_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<DelayedPaymentId>;
+		DelayedPaymentSchedule get(fn delayed_payment_schedule): map hasher(twox_64_concat) BlockNumberFor<T> => Vec<DelayedPaymentId>;
 		/// The blocks with payments that are ready to be processed
-		ReadyBlocks get(fn ready_blocks): Vec<T::BlockNumber>;
+		ReadyBlocks get(fn ready_blocks): Vec<BlockNumberFor<T>>;
 		/// The next available payment id for withdrawals and deposits
 		NextDelayedPaymentId get(fn next_delayed_payment_id): DelayedPaymentId;
 		/// The peg contract address on Ethereum
@@ -112,7 +112,7 @@ decl_storage! {
 decl_event! {
 	pub enum Event<T> where
 		AccountId = <T as frame_system::Config>::AccountId,
-		BlockNumber = <T as frame_system::Config>::BlockNumber,
+		BlockNumber = BlockNumberFor<T>,
 	{
 		/// An erc20 deposit has been delayed.(payment_id, scheduled block, amount, beneficiary)
 		Erc20DepositDelayed(DelayedPaymentId, BlockNumber, Balance, AccountId),
@@ -169,7 +169,7 @@ decl_module! {
 		fn deposit_event() = default;
 
 		/// Check and process outstanding payments
-		fn on_initialize(now: T::BlockNumber) -> Weight {
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			let mut weight: Weight = DbWeight::get().reads(1u64);
 			if DelayedPaymentSchedule::<T>::contains_key(now) {
 				ReadyBlocks::<T>::append(now);
@@ -179,7 +179,7 @@ decl_module! {
 		}
 
 		/// Check and process outstanding payments
-		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
+		fn on_idle(_now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			let initial_read_cost = DbWeight::get().reads(1u64);
 			// Ensure we have enough weight to perform the initial read
 			if remaining_weight.all_lte(initial_read_cost) {
@@ -194,7 +194,7 @@ decl_module! {
 			// Process as many payments as we can
 			let weight_each: Weight = DbWeight::get().reads(8u64).saturating_add(DbWeight::get().writes(10u64));
 			let max_payments = remaining_weight.sub(initial_read_cost.ref_time()).div(weight_each.ref_time()).ref_time().saturated_into::<u8>();
-			let ready_blocks: Vec<T::BlockNumber> = Self::ready_blocks();
+			let ready_blocks: Vec<BlockNumberFor<T>> = Self::ready_blocks();
 			// Total payments processed in this block
 			let mut processed_payment_count: u8 = 0;
 			// Count of blocks where all payments have been processed
@@ -282,7 +282,7 @@ decl_module! {
 
 		#[weight = T::WeightInfo::set_payment_delay()]
 		/// Sets the payment delay for a given AssetId
-		pub fn set_payment_delay(origin, asset_id: AssetId, min_balance: Balance, delay: T::BlockNumber) {
+		pub fn set_payment_delay(origin, asset_id: AssetId, min_balance: Balance, delay: BlockNumberFor<T>) {
 			ensure_root(origin)?;
 			PaymentDelay::<T>::insert(asset_id, (min_balance, delay));
 			Self::deposit_event(<Event<T>>::PaymentDelaySet(asset_id, min_balance, delay));
@@ -314,7 +314,7 @@ impl<T: Config> Module<T> {
 		let message = WithdrawMessage { token_address, amount: amount.into(), beneficiary };
 
 		// Check if there is a delay on the asset
-		let payment_delay: Option<(Balance, T::BlockNumber)> = Self::payment_delay(asset_id);
+		let payment_delay: Option<(Balance, BlockNumberFor<T>)> = Self::payment_delay(asset_id);
 		if let Some((min_amount, delay)) = payment_delay {
 			if min_amount <= amount {
 				return match call_origin {
@@ -419,7 +419,7 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Delay a withdrawal or deposit until a later block
-	pub fn delay_payment(delay: T::BlockNumber, pending_payment: PendingPayment) {
+	pub fn delay_payment(delay: BlockNumberFor<T>, pending_payment: PendingPayment) {
 		let payment_id = NextDelayedPaymentId::get();
 		if !payment_id.checked_add(One::one()).is_some() {
 			Self::deposit_event(Event::<T>::NoAvailableDelayedPaymentIds);
@@ -476,7 +476,7 @@ impl<T: Config> Module<T> {
 				ensure!(source == &Self::contract_address(), Error::<T>::InvalidSourceAddress);
 			}
 			// Asset exists, check if there are delays on this deposit
-			let payment_delay: Option<(Balance, T::BlockNumber)> = Self::payment_delay(asset_id);
+			let payment_delay: Option<(Balance, BlockNumberFor<T>)> = Self::payment_delay(asset_id);
 			if let Some((min_amount, delay)) = payment_delay {
 				if U256::from(min_amount) <= deposit_event.amount {
 					Self::delay_payment(delay, PendingPayment::Deposit(deposit_event.clone()));
