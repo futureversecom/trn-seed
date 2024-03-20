@@ -76,13 +76,13 @@ impl<T> Call<T>
 	where
 		T: Send + Sync + Config,
 		<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-		<T as frame_system::Config>::Index : Into<u32>,
+		<T as frame_system::Config>::Nonce : Into<u32>,
 		T::AccountId: From<H160> + Into<H160>,
 		T: pallet_transaction_payment::Config,
 		<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance: Send + Sync + FixedPointOperand + From<u64>,
 		<T as frame_system::Config>::RuntimeCall: From<<T as Config>::RuntimeCall>,
 		PostDispatchInfo: From<<<T as Config>::RuntimeCall as Dispatchable>::PostInfo>,
-		<T as frame_system::Config>::Index: From<u32>,
+		<T as frame_system::Config>::Nonce: From<u32>,
 		<T as Config>::RuntimeCall: GetCallMetadata,
 {
 	pub fn is_self_contained(&self) -> bool {
