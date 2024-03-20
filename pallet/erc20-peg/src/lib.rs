@@ -22,7 +22,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungibles,
-		fungibles::{Mutate, Transfer},
+		fungibles::{Mutate},
 		Get, IsType,
 	},
 	transactional,
@@ -60,8 +60,7 @@ pub trait Config: frame_system::Config<AccountId = AccountId> {
 	/// Currency functions
 	type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 		+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
-		+ fungibles::Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
-		+ fungibles::Mutate<Self::AccountId>;
+		+ fungibles::Mutate<Self::AccountId, AssetId = AssetId, Balance = Balance>;
 	/// The overarching event type.
 	type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 

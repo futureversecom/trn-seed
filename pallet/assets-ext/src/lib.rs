@@ -33,7 +33,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{self, Inspect as _, Mutate as _},
-		fungibles::{self, roles::Inspect as InspectRole, Inspect, Mutate, Transfer},
+		fungibles::{self, roles::Inspect as InspectRole, Inspect, Mutate},
 		tokens::{DepositConsequence, WithdrawConsequence},
 		Currency, ReservableCurrency,
 	},
@@ -279,7 +279,7 @@ pub mod pallet {
 			keep_alive: bool,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			<Self as Transfer<T::AccountId>>::transfer(
+			<Self as Mutate<T::AccountId>>::transfer(
 				asset_id,
 				&who,
 				&destination,
@@ -426,9 +426,7 @@ impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
 			<pallet_assets::Pallet<T>>::burn_from(asset_id, who, amount)
 		}
 	}
-}
 
-impl<T: Config> Transfer<T::AccountId> for Pallet<T> {
 	fn transfer(
 		asset_id: AssetId,
 		source: &T::AccountId,
@@ -437,11 +435,11 @@ impl<T: Config> Transfer<T::AccountId> for Pallet<T> {
 		keep_alive: bool,
 	) -> Result<Balance, DispatchError> {
 		if asset_id == T::NativeAssetId::get() {
-			<pallet_balances::Pallet<T, _> as fungible::Transfer<_>>::transfer(
+			<pallet_balances::Pallet<T, _> as fungible::Mutate<_>>::transfer(
 				source, dest, amount, keep_alive,
 			)
 		} else {
-			<pallet_assets::Pallet<T> as fungibles::Transfer<T::AccountId>>::transfer(
+			<pallet_assets::Pallet<T> as fungibles::Mutate<T::AccountId>>::transfer(
 				asset_id, source, dest, amount, keep_alive,
 			)
 		}
@@ -461,7 +459,7 @@ impl<T: Config> TransferExt for Pallet<T> {
 		ensure!(Self::reducible_balance(asset_id, who, false) >= total, Error::<T>::BalanceLow);
 
 		for (payee, amount) in transfers.into_iter() {
-			<Self as Transfer<T::AccountId>>::transfer(asset_id, who, payee, *amount, false)?;
+			<Self as Mutate<T::AccountId>>::transfer(asset_id, who, payee, *amount, false)?;
 		}
 
 		Self::deposit_event(Event::SplitTransfer {
@@ -501,7 +499,7 @@ impl<T: Config> Hold for Pallet<T> {
 			},
 		}
 
-		let _ = <Self as Transfer<T::AccountId>>::transfer(
+		let _ = <Self as Mutate<T::AccountId>>::transfer(
 			asset_id,
 			who,
 			&T::PalletId::get().into_account_truncating(),
@@ -537,7 +535,7 @@ impl<T: Config> Hold for Pallet<T> {
 				holds[index].1 = decreased_hold;
 			}
 
-			let _ = <Self as Transfer<T::AccountId>>::transfer(
+			let _ = <Self as Mutate<T::AccountId>>::transfer(
 				asset_id,
 				&T::PalletId::get().into_account_truncating(),
 				who,
@@ -673,16 +671,16 @@ impl<T: Config> CreateExt for Pallet<T> {
 	}
 }
 
-impl<T: Config> fungibles::InspectMetadata<T::AccountId> for Pallet<T> {
-	fn name(asset: &Self::AssetId) -> Vec<u8> {
-		<pallet_assets::Pallet<T> as fungibles::InspectMetadata<T::AccountId>>::name(asset)
+impl<T: Config> fungibles::metadata::Inspect<T::AccountId> for Pallet<T> {
+	fn name(asset: Self::AssetId) -> Vec<u8> {
+		<pallet_assets::Pallet<T> as fungibles::metadata::Inspect<T::AccountId>>::name(asset)
 	}
 
-	fn symbol(asset: &Self::AssetId) -> Vec<u8> {
-		<pallet_assets::Pallet<T> as fungibles::InspectMetadata<T::AccountId>>::symbol(asset)
+	fn symbol(asset: Self::AssetId) -> Vec<u8> {
+		<pallet_assets::Pallet<T> as fungibles::metadata::Inspect<T::AccountId>>::symbol(asset)
 	}
 
-	fn decimals(asset: &Self::AssetId) -> u8 {
-		<pallet_assets::Pallet<T> as fungibles::InspectMetadata<T::AccountId>>::decimals(asset)
+	fn decimals(asset: Self::AssetId) -> u8 {
+		<pallet_assets::Pallet<T> as fungibles::metadata::Inspect<T::AccountId>>::decimals(asset)
 	}
 }

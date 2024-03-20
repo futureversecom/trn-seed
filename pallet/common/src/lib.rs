@@ -22,7 +22,7 @@ pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult, GetCallMetadata},
 	sp_runtime::{traits::AccountIdConversion, Perbill},
-	traits::{fungibles::Transfer, Get},
+	traits::{fungibles::Mutate, Get},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	PalletId,
 };
@@ -55,7 +55,7 @@ macro_rules! log {
 }
 
 /// Extended transfer functionality for assets
-pub trait TransferExt: Transfer<Self::AccountId> {
+pub trait TransferExt: Mutate<Self::AccountId> {
 	/// The ID type for an account in the system
 	type AccountId;
 	/// Perform a split transfer from `source` to many destinations

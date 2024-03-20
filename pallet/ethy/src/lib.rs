@@ -41,7 +41,7 @@ use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
 	traits::{
-		fungibles::Transfer,
+		fungibles::Mutate,
 		schedule::{Anon, DispatchTime},
 		UnixTime, ValidatorSet as ValidatorSetT,
 	},
@@ -126,7 +126,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// Max amount of new signers that can be set an in extrinsic
 	type MaxNewSigners: Get<u8>;
 	/// Handles a multi-currency fungible asset system
-	type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
+	type MultiCurrency: Mutate<Self::AccountId> + Hold<AccountId = Self::AccountId>;
 	/// The native token asset Id (managed by pallet-balances)
 	type NativeAssetId: Get<AssetId>;
 	/// The threshold of notarizations required to approve an Ethereum event

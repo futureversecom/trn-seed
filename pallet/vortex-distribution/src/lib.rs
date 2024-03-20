@@ -95,10 +95,9 @@ pub mod pallet {
 
 		/// Multi currency
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
-			+ fungibles::Transfer<Self::AccountId, Balance = BalanceOf<Self>>
 			+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
-			+ fungibles::InspectMetadata<Self::AccountId>
-			+ fungibles::Mutate<Self::AccountId>;
+			+ fungibles::metadata::Inspect<Self::AccountId>
+			+ fungibles::Mutate<Self::AccountId, Balance = BalanceOf<Self>>;
 
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]

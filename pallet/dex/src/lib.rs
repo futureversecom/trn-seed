@@ -126,10 +126,9 @@ pub mod pallet {
 
 		/// Currency implementation to deal with assets on DEX.
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
-			+ fungibles::Transfer<Self::AccountId, Balance = Balance>
 			+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
-			+ fungibles::InspectMetadata<Self::AccountId>
-			+ fungibles::Mutate<Self::AccountId>;
+			+ fungibles::metadata::Inspect<Self::AccountId>
+			+ fungibles::Mutate<Self::AccountId, Balance = Balance>;
 	}
 
 	#[pallet::error]

@@ -23,7 +23,7 @@ use sp_std::marker::PhantomData;
 
 use frame_support::traits::{
 	fungible,
-	fungibles::{self, Inspect, Transfer, Unbalanced},
+	fungibles::{self, Inspect, Mutate, Unbalanced},
 	tokens::{DepositConsequence, WithdrawConsequence},
 };
 
@@ -105,7 +105,7 @@ where
 			ExistenceRequirement::KeepAlive => true,
 			ExistenceRequirement::AllowDeath => false,
 		};
-		<Pallet<T> as Transfer<T::AccountId>>::transfer(U::get(), from, to, value, keep_alive)
+		<Pallet<T> as Mutate<T::AccountId>>::transfer(U::get(), from, to, value, keep_alive)
 			.map(|_| ())
 	}
 	fn ensure_can_withdraw(
