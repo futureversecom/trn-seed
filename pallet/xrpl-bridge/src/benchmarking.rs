@@ -60,7 +60,7 @@ benchmarks! {
 	}
 
 	set_payment_delay {
-		let payment_delay: (u128, BlockNumberFor<T>) = (100, BlockNumberFor<T>::from(1000u32));
+		let payment_delay: (u128, BlockNumberFor<T>) = (100, BlockNumberFor::<T>::from(1000u32));
 	}: _(RawOrigin::Root, Some(payment_delay))
 	verify {
 		assert_eq!(PaymentDelay::<T>::get(), Some(payment_delay));

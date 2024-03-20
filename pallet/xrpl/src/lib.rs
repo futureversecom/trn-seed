@@ -287,7 +287,7 @@ where
 		})?;
 
 	// check if genesis hash matches chain genesis hash
-	if <frame_system::Pallet<T>>::block_hash(BlockNumberFor<T>::zero()).as_ref() !=
+	if <frame_system::Pallet<T>>::block_hash(BlockNumberFor::<T>::zero()).as_ref() !=
 		genesis_hash.as_ref()
 	{
 		return Err("⛔️ genesis hash mismatch".into())

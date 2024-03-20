@@ -251,8 +251,8 @@ impl<T: Config> Pallet<T> {
 		let listing_end_block = listing.close;
 		let current_block = <frame_system::Pallet<T>>::block_number();
 		let blocks_till_close = listing_end_block - current_block;
-		let new_closing_block = current_block + BlockNumberFor<T>::from(AUCTION_EXTENSION_PERIOD);
-		if blocks_till_close <= BlockNumberFor<T>::from(AUCTION_EXTENSION_PERIOD) {
+		let new_closing_block = current_block + BlockNumberFor::<T>::from(AUCTION_EXTENSION_PERIOD);
+		if blocks_till_close <= BlockNumberFor::<T>::from(AUCTION_EXTENSION_PERIOD) {
 			ListingEndSchedule::<T>::remove(listing_end_block, listing_id);
 			ListingEndSchedule::<T>::insert(new_closing_block, listing_id, true);
 			listing.close = new_closing_block;

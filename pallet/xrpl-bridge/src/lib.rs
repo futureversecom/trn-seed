@@ -798,7 +798,7 @@ impl<T: Config> Pallet<T> {
 			used_weight = used_weight.saturating_add(DbWeight::get().reads(1));
 			let Some(delayed_payment_ids) = <DelayedPaymentSchedule<T>>::get(new_highest) else {
 				// No delayed payments to process for this block
-				new_highest = new_highest.saturating_add(BlockNumberFor<T>::one());
+				new_highest = new_highest.saturating_add(BlockNumberFor::<T>::one());
 				continue;
 			};
 			// Add weight for writing DelayedPaymentSchedule
@@ -835,7 +835,7 @@ impl<T: Config> Pallet<T> {
 				break
 			} else {
 				<DelayedPaymentSchedule<T>>::remove(new_highest);
-				new_highest = new_highest.saturating_add(BlockNumberFor<T>::one());
+				new_highest = new_highest.saturating_add(BlockNumberFor::<T>::one());
 			}
 		}
 

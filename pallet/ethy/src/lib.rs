@@ -154,7 +154,7 @@ decl_storage! {
 		/// Maps from event claim id to challenger and bond amount paid
 		ChallengerAccount get(fn challenger_account): map hasher(twox_64_concat) EventClaimId => Option<(T::AccountId, Balance)>;
 		/// The (optimistic) challenge period after which a submitted event is considered valid
-		ChallengePeriod get(fn challenge_period): BlockNumberFor<T> = BlockNumberFor<T>::from(150_u32); // 10 Minutes
+		ChallengePeriod get(fn challenge_period): BlockNumberFor<T> = BlockNumberFor::<T>::from(150_u32); // 10 Minutes
 		/// The bridge contract address on Ethereum
 		pub ContractAddress get(fn contract_address): EthAddress;
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
