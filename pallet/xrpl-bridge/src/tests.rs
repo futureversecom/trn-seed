@@ -584,7 +584,7 @@ fn settle_new_higher_ledger_index_brings_submission_window_forward() {
 		let block_number = System::block_number() + XrpTxChallengePeriod::get() as u64;
 		XRPLBridge::on_initialize(block_number);
 		System::set_block_number(block_number);
-		XRPLBridge::on_idle(block_number, Weight::from_ref_time(1_000_000_000u64));
+		XRPLBridge::on_idle(block_number, Weight::from_all(1_000_000_000u64));
 
 		// data outside the previous submission window end should be cleaned now
 		assert!(<SettledXRPTransactionDetails<Test>>::get(2).is_none());
@@ -690,7 +690,7 @@ fn reset_settled_xrpl_tx_data_success() {
 		XRPLBridge::on_initialize(block_number);
 		System::set_block_number(block_number);
 		// Call on idle to prune the settled data
-		XRPLBridge::on_idle(block_number, Weight::from_ref_time(1_000_000_000u64));
+		XRPLBridge::on_idle(block_number, Weight::from_all(1_000_000_000u64));
 
 		// all previous settled data should be pruned by now
 		assert!(<SettledXRPTransactionDetails<Test>>::get(current_submission_window_end).is_none());
@@ -834,7 +834,7 @@ fn clear_storages_works() {
 		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
 		System::set_block_number(XrpTxChallengePeriod::get() as u64);
 		// Call on idle to prune the settled data with enough weight to settle both
-		let idle_weight = XRPLBridge::clear_storages(Weight::from_ref_time(10_000_000_000u64));
+		let idle_weight = XRPLBridge::clear_storages(Weight::from_all(10_000_000_000u64));
 		let expected_weight = DbWeight::get().reads_writes(4, 4);
 		assert_eq!(idle_weight, expected_weight);
 
@@ -858,7 +858,7 @@ fn clear_storages_doesnt_exceed_max() {
 		SubmissionWindowWidth::<Test>::put(288_000);
 
 		// Call clear storages to prune the settled data with plenty of weight
-		let idle_weight = XRPLBridge::clear_storages(Weight::from_ref_time(10_000_000_000_000u64));
+		let idle_weight = XRPLBridge::clear_storages(Weight::from_all(10_000_000_000_000u64));
 		// Expected weight should be 5000 reads + 3 and 1 write for the highest pruned ledger index
 		let expected_weight =
 			DbWeight::get().reads_writes(3 + MaxPrunedTransactionsPerBlock::get() as u64, 1);
@@ -896,7 +896,7 @@ fn clear_storages_returns_zero_if_not_enough_weight() {
 		// Call on idle to prune the settled data with not enough weight to settle one tx
 		let remaining_weight = DbWeight::get().reads_writes(4, 3);
 		let idle_weight = XRPLBridge::clear_storages(remaining_weight);
-		assert_eq!(idle_weight, Weight::from_ref_time(0));
+		assert_eq!(idle_weight, Weight::from_all(0));
 		// Data remains in place
 		assert!(<SettledXRPTransactionDetails<Test>>::get(ledger_index).is_some());
 		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash).is_some());
@@ -905,7 +905,7 @@ fn clear_storages_returns_zero_if_not_enough_weight() {
 		// Call on idle to prune the settled data with JUST enough weight to settle one tx
 		let remaining_weight = DbWeight::get().reads_writes(4, 3);
 		let idle_weight =
-			XRPLBridge::clear_storages(remaining_weight + Weight::from_ref_time(1u64));
+			XRPLBridge::clear_storages(remaining_weight + Weight::from_all(1u64));
 		assert_eq!(idle_weight, remaining_weight);
 		// Data updated
 		assert!(<SettledXRPTransactionDetails<Test>>::get(ledger_index).is_none());
@@ -945,7 +945,7 @@ fn clear_storages_doesnt_exceed_on_idle_weight() {
 		// Call on idle with enough weight to clear only 1 tx
 		let remaining_weight = DbWeight::get().reads_writes(4, 2 + 1);
 		let idle_weight =
-			XRPLBridge::clear_storages(remaining_weight + Weight::from_ref_time(1u64));
+			XRPLBridge::clear_storages(remaining_weight + Weight::from_all(1u64));
 		// We subtract 1 from as we did not end up updating HighestPrunedLedgerIndex
 		assert_eq!(idle_weight, remaining_weight - DbWeight::get().writes(1));
 		// One settledXRPTransaction should have been removed
@@ -966,7 +966,7 @@ fn clear_storages_doesnt_exceed_on_idle_weight() {
 		// Call on idle with enough weight to clear 4 more txs
 		let remaining_weight = DbWeight::get().reads_writes(4, 2 + 4);
 		let idle_weight =
-			XRPLBridge::clear_storages(remaining_weight + Weight::from_ref_time(1u64));
+			XRPLBridge::clear_storages(remaining_weight + Weight::from_all(1u64));
 		// We subtract 1 from as we did not end up updating HighestPrunedLedgerIndex
 		assert_eq!(idle_weight, remaining_weight - DbWeight::get().writes(1));
 		// 5 settledXRPTransaction should have been removed total
@@ -987,7 +987,7 @@ fn clear_storages_doesnt_exceed_on_idle_weight() {
 		// Call on idle with enough weight to clear the last 5 txs
 		let remaining_weight = DbWeight::get().reads_writes(4, 2 + 5);
 		let idle_weight =
-			XRPLBridge::clear_storages(remaining_weight + Weight::from_ref_time(1u64));
+			XRPLBridge::clear_storages(remaining_weight + Weight::from_all(1u64));
 		assert_eq!(idle_weight, remaining_weight);
 		// SettledXRPTransactionDetails should now be cleared
 		assert!(<SettledXRPTransactionDetails<Test>>::get(ledger_index).is_none());
@@ -1042,7 +1042,7 @@ fn clear_storages_across_multiple_ledger_indices() {
 		let weight_per_hash = DbWeight::get().writes(1);
 		let remaining_weight = base_weight + (weight_per_index * 2) + (weight_per_hash * 10);
 		let idle_weight =
-			XRPLBridge::clear_storages(remaining_weight + Weight::from_ref_time(1u64));
+			XRPLBridge::clear_storages(remaining_weight + Weight::from_all(1u64));
 		assert_eq!(idle_weight, remaining_weight);
 
 		// SettledXRPTransactionDetails should now be cleared
@@ -1069,7 +1069,7 @@ fn clear_storages_nothing_to_prune() {
 		HighestPrunedLedgerIndex::<Test>::put(3); // 8 - 5
 
 		// Call on idle and only use enough weight to read the 3 storage values
-		let idle_weight = XRPLBridge::clear_storages(Weight::from_ref_time(10_000_000_000u64));
+		let idle_weight = XRPLBridge::clear_storages(Weight::from_all(10_000_000_000u64));
 		// 3 reads for the base storage values
 		let expected_weight = DbWeight::get().reads(3);
 		assert_eq!(idle_weight, expected_weight);
@@ -1082,7 +1082,7 @@ fn clear_storages_nothing_to_prune() {
 
 		// Call on idle and only use enough weight to read the 3 storage values
 		// We have one additional write to update the HighestPrunedLedgerIndex
-		let idle_weight = XRPLBridge::clear_storages(Weight::from_ref_time(10_000_000_000u64));
+		let idle_weight = XRPLBridge::clear_storages(Weight::from_all(10_000_000_000u64));
 		// Extra read and write:
 		// read: SettledXRPTransactionDetails
 		// write: HighestPrunedLedgerIndex
@@ -1105,7 +1105,7 @@ fn clear_storages_nothing_to_prune_increases_ledger_index() {
 		// enough weight to write the data in the case that there is data to write
 		// So we need to give it enough weight to theoretically write if it can
 		let remaining_weight = DbWeight::get().reads_writes(3 + 5000, 3);
-		let idle_weight = XRPLBridge::clear_storages(remaining_weight + Weight::from_ref_time(1));
+		let idle_weight = XRPLBridge::clear_storages(remaining_weight + Weight::from_all(1));
 		// It uses only enough weight to read all 5000
 		let expected_weight = DbWeight::get().reads_writes(3 + 5000, 1);
 		assert_eq!(idle_weight, expected_weight);
@@ -1113,7 +1113,7 @@ fn clear_storages_nothing_to_prune_increases_ledger_index() {
 
 		// Call on idle with plenty of weight to cover the last 5000 ledger indices
 		// It should only use as much as it needs and no more
-		let idle_weight = XRPLBridge::clear_storages(Weight::from_ref_time(u64::MAX));
+		let idle_weight = XRPLBridge::clear_storages(Weight::from_all(u64::MAX));
 		// It uses only enough weight to read all 5000
 		let expected_weight = DbWeight::get().reads_writes(3 + 5000, 1);
 		assert_eq!(idle_weight, expected_weight);
@@ -1490,7 +1490,7 @@ fn process_delayed_payments_works() {
 			// Call process delayed payments with enough weight to process the delayed payment
 			let weight_used = XRPLBridge::process_delayed_payments(
 				1001,
-				Weight::from_ref_time(1_000_000_000_000),
+				Weight::from_all(1_000_000_000_000),
 			);
 			// Assert weight used is as expected
 			assert_eq!(weight_used, DbWeight::get().reads_writes(6, 4));
@@ -1555,7 +1555,7 @@ fn process_delayed_payments_works_in_on_idle() {
 			// Set next process block to this block
 			NextDelayProcessBlock::<Test>::put(1001);
 			// Call process delayed payments with enough weight to process the delayed payment
-			XRPLBridge::on_idle(1001, Weight::from_ref_time(1_000_000_000_000));
+			XRPLBridge::on_idle(1001, Weight::from_all(1_000_000_000_000));
 
 			// Ensure event is thrown
 			System::assert_last_event(
@@ -1631,13 +1631,13 @@ fn process_delayed_payments_multiple_withdrawals() {
 			// Call process delayed payments with enough weight to process all delayed payments
 			let weight_used = XRPLBridge::process_delayed_payments(
 				1001,
-				Weight::from_ref_time(1_000_000_000_000),
+				Weight::from_all(1_000_000_000_000),
 			);
 			// Assert weight used is as expected
 			let weight_per_tx = DbWeight::get().reads_writes(3u64, 2u64);
 			let base_weight = DbWeight::get().reads_writes(7u64, 1u64);
 			let total_weight = base_weight +
-				Weight::from_ref_time(weight_per_tx.ref_time() * withdrawal_count as u64);
+				Weight::from_all(weight_per_tx.ref_time() * withdrawal_count as u64);
 			assert_eq!(weight_used, total_weight);
 
 			// Storage should now be updated
@@ -1704,13 +1704,13 @@ fn process_delayed_payments_multiple_withdrawals_across_multiple_blocks() {
 			// Set block number to the last block we need to process
 			let weight_used = XRPLBridge::process_delayed_payments(
 				1101,
-				Weight::from_ref_time(1_000_000_000_000),
+				Weight::from_all(1_000_000_000_000),
 			);
 			// Assert weight used is as expected
 			let weight_per_tx = DbWeight::get().reads_writes(4u64, 3u64);
 			let base_weight = DbWeight::get().reads_writes(3u64, 1u64);
 			let total_weight = base_weight +
-				Weight::from_ref_time(weight_per_tx.ref_time() * withdrawal_count as u64);
+				Weight::from_all(weight_per_tx.ref_time() * withdrawal_count as u64);
 			assert_eq!(weight_used, total_weight);
 
 			// Storage should now be updated
@@ -1731,7 +1731,7 @@ fn process_delayed_payments_nothing_to_process_works() {
 		// Call process delayed payments with enough weight to process 1000 blocks
 		let weight_used = XRPLBridge::process_delayed_payments(
 			delayed_payment_block_limit,
-			Weight::from_ref_time(1_000_000_000_000_000),
+			Weight::from_all(1_000_000_000_000_000),
 		);
 		// Assert weight used is as expected
 		assert_eq!(weight_used, DbWeight::get().reads_writes(3 + delayed_payment_block_limit, 1));
@@ -1742,7 +1742,7 @@ fn process_delayed_payments_nothing_to_process_works() {
 		// Call process delayed payments for the next block, should only process one block
 		let weight_used = XRPLBridge::process_delayed_payments(
 			delayed_payment_block_limit + 1,
-			Weight::from_ref_time(1_000_000_000_000_000),
+			Weight::from_all(1_000_000_000_000_000),
 		);
 		// Assert weight used is as expected
 		assert_eq!(weight_used, DbWeight::get().reads_writes(3, 1));
@@ -1763,7 +1763,7 @@ fn process_delayed_payments_does_not_exceed_max_delayed_payments() {
 		// Call process delayed payments with more than max_payments_per_block
 		let weight_used = XRPLBridge::process_delayed_payments(
 			delayed_payment_block_limit + 10000,
-			Weight::from_ref_time(1_000_000_000_000_000),
+			Weight::from_all(1_000_000_000_000_000),
 		);
 		// Assert weight used is as expected
 		assert_eq!(weight_used, DbWeight::get().reads_writes(3 + delayed_payment_block_limit, 1));

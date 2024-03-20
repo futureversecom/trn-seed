@@ -63,12 +63,12 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Erc20Peg DepositsActive (r:0 w:1)
 	fn activate_deposits() -> Weight {
-		Weight::from_ref_time(18_206_000 as u64)
+		Weight::from_all(18_206_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Erc20Peg WithdrawalsActive (r:0 w:1)
 	fn activate_withdrawals() -> Weight {
-		Weight::from_ref_time(17_749_000 as u64)
+		Weight::from_all(17_749_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Erc20Peg WithdrawalsActive (r:1 w:0)
@@ -83,34 +83,34 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthBridge BridgePaused (r:1 w:0)
 	// Storage: System Digest (r:1 w:1)
 	fn withdraw() -> Weight {
-		Weight::from_ref_time(164_469_000 as u64)
+		Weight::from_all(164_469_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(11 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 	// Storage: Erc20Peg ContractAddress (r:0 w:1)
 	fn set_erc20_peg_address() -> Weight {
-		Weight::from_ref_time(44_122_000 as u64)
+		Weight::from_all(44_122_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Erc20Peg RootPegContractAddress (r:0 w:1)
 	fn set_root_peg_address() -> Weight {
-		Weight::from_ref_time(11_772_000 as u64)
+		Weight::from_all(11_772_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Erc20Peg Erc20ToAssetId (r:0 w:1)
 	// Storage: Erc20Peg AssetIdToErc20 (r:0 w:1)
 	fn set_erc20_asset_map() -> Weight {
-		Weight::from_ref_time(5_891_000 as u64)
+		Weight::from_all(5_891_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: Erc20Peg Erc20Meta (r:0 w:1)
 	fn set_erc20_meta() -> Weight {
-		Weight::from_ref_time(21_600_000 as u64)
+		Weight::from_all(21_600_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Erc20Peg PaymentDelay (r:0 w:1)
 	fn set_payment_delay() -> Weight {
-		Weight::from_ref_time(43_768_000 as u64)
+		Weight::from_all(43_768_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
@@ -119,12 +119,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	// Storage: Erc20Peg DepositsActive (r:0 w:1)
 	fn activate_deposits() -> Weight {
-		Weight::from_ref_time(18_206_000 as u64)
+		Weight::from_all(18_206_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Erc20Peg WithdrawalsActive (r:0 w:1)
 	fn activate_withdrawals() -> Weight {
-		Weight::from_ref_time(17_749_000 as u64)
+		Weight::from_all(17_749_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Erc20Peg WithdrawalsActive (r:1 w:0)
@@ -139,34 +139,34 @@ impl WeightInfo for () {
 	// Storage: EthBridge BridgePaused (r:1 w:0)
 	// Storage: System Digest (r:1 w:1)
 	fn withdraw() -> Weight {
-		Weight::from_ref_time(164_469_000 as u64)
+		Weight::from_all(164_469_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(11 as u64))
 			.saturating_add(RocksDbWeight::get().writes(4 as u64))
 	}
 	// Storage: Erc20Peg ContractAddress (r:0 w:1)
 	fn set_erc20_peg_address() -> Weight {
-		Weight::from_ref_time(44_122_000 as u64)
+		Weight::from_all(44_122_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Erc20Peg RootPegContractAddress (r:0 w:1)
 	fn set_root_peg_address() -> Weight {
-		Weight::from_ref_time(11_772_000 as u64)
+		Weight::from_all(11_772_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Erc20Peg Erc20ToAssetId (r:0 w:1)
 	// Storage: Erc20Peg AssetIdToErc20 (r:0 w:1)
 	fn set_erc20_asset_map() -> Weight {
-		Weight::from_ref_time(5_891_000 as u64)
+		Weight::from_all(5_891_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	// Storage: Erc20Peg Erc20Meta (r:0 w:1)
 	fn set_erc20_meta() -> Weight {
-		Weight::from_ref_time(21_600_000 as u64)
+		Weight::from_all(21_600_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Erc20Peg PaymentDelay (r:0 w:1)
 	fn set_payment_delay() -> Weight {
-		Weight::from_ref_time(43_768_000 as u64)
+		Weight::from_all(43_768_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }

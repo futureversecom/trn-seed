@@ -1072,7 +1072,7 @@ impl pallet_evm::GasWeightMapping for FutureverseGasWeightMapping {
 			);
 		}
 
-		Weight::from_ref_time(weight)
+		Weight::from_all(weight)
 	}
 	fn weight_to_gas(weight: Weight) -> u64 {
 		weight.div(WEIGHT_PER_GAS).ref_time()
@@ -1083,7 +1083,7 @@ parameter_types! {
 	pub BlockGasLimit: U256
 		= U256::from(NORMAL_DISPATCH_RATIO.mul(MAXIMUM_BLOCK_WEIGHT.ref_time()) / WEIGHT_PER_GAS);
 	pub PrecompilesValue: FutureversePrecompiles<Runtime> = FutureversePrecompiles::<_>::new();
-	pub WeightPerGas: Weight = Weight::from_ref_time(WEIGHT_PER_GAS);
+	pub WeightPerGas: Weight = Weight::from_all(WEIGHT_PER_GAS);
 }
 
 impl pallet_evm::Config for Runtime {

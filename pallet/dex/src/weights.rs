@@ -65,7 +65,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Assets Asset (r:2 w:2)
 	// Storage: Assets Account (r:4 w:4)
 	fn swap_with_exact_supply() -> Weight {
-		Weight::from_ref_time(212_601_000 as u64)
+		Weight::from_all(212_601_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(8 as u64))
 			.saturating_add(T::DbWeight::get().writes(7 as u64))
 	}
@@ -74,7 +74,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Assets Asset (r:2 w:2)
 	// Storage: Assets Account (r:4 w:4)
 	fn swap_with_exact_target() -> Weight {
-		Weight::from_ref_time(214_052_000 as u64)
+		Weight::from_all(214_052_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(8 as u64))
 			.saturating_add(T::DbWeight::get().writes(7 as u64))
 	}
@@ -91,7 +91,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Dex FeeTo (r:1 w:0)
 	// Storage: Dex TradingPairStatuses (r:0 w:1)
 	fn add_liquidity() -> Weight {
-		Weight::from_ref_time(418_386_000 as u64)
+		Weight::from_all(418_386_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(23 as u64))
 			.saturating_add(T::DbWeight::get().writes(20 as u64))
 	}
@@ -103,27 +103,27 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Dex LiquidityPoolLastK (r:1 w:1)
 	// Storage: Dex FeeTo (r:1 w:0)
 	fn remove_liquidity() -> Weight {
-		Weight::from_ref_time(338_661_000 as u64)
+		Weight::from_all(338_661_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(14 as u64))
 			.saturating_add(T::DbWeight::get().writes(12 as u64))
 	}
 	// Storage: Dex TradingPairLPToken (r:1 w:0)
 	// Storage: Dex TradingPairStatuses (r:1 w:1)
 	fn reenable_trading_pair() -> Weight {
-		Weight::from_ref_time(70_315_000 as u64)
+		Weight::from_all(70_315_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Dex TradingPairLPToken (r:1 w:0)
 	// Storage: Dex TradingPairStatuses (r:1 w:1)
 	fn disable_trading_pair() -> Weight {
-		Weight::from_ref_time(70_865_000 as u64)
+		Weight::from_all(70_865_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Dex FeeTo (r:0 w:1)
 	fn set_fee_to() -> Weight {
-		Weight::from_ref_time(41_952_000 as u64)
+		Weight::from_all(41_952_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
@@ -135,7 +135,7 @@ impl WeightInfo for () {
 	// Storage: Assets Asset (r:2 w:2)
 	// Storage: Assets Account (r:4 w:4)
 	fn swap_with_exact_supply() -> Weight {
-		Weight::from_ref_time(212_601_000 as u64)
+		Weight::from_all(212_601_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(8 as u64))
 			.saturating_add(RocksDbWeight::get().writes(7 as u64))
 	}
@@ -144,7 +144,7 @@ impl WeightInfo for () {
 	// Storage: Assets Asset (r:2 w:2)
 	// Storage: Assets Account (r:4 w:4)
 	fn swap_with_exact_target() -> Weight {
-		Weight::from_ref_time(214_052_000 as u64)
+		Weight::from_all(214_052_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(8 as u64))
 			.saturating_add(RocksDbWeight::get().writes(7 as u64))
 	}
@@ -161,7 +161,7 @@ impl WeightInfo for () {
 	// Storage: Dex FeeTo (r:1 w:0)
 	// Storage: Dex TradingPairStatuses (r:0 w:1)
 	fn add_liquidity() -> Weight {
-		Weight::from_ref_time(418_386_000 as u64)
+		Weight::from_all(418_386_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(23 as u64))
 			.saturating_add(RocksDbWeight::get().writes(20 as u64))
 	}
@@ -173,27 +173,27 @@ impl WeightInfo for () {
 	// Storage: Dex LiquidityPoolLastK (r:1 w:1)
 	// Storage: Dex FeeTo (r:1 w:0)
 	fn remove_liquidity() -> Weight {
-		Weight::from_ref_time(338_661_000 as u64)
+		Weight::from_all(338_661_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(14 as u64))
 			.saturating_add(RocksDbWeight::get().writes(12 as u64))
 	}
 	// Storage: Dex TradingPairLPToken (r:1 w:0)
 	// Storage: Dex TradingPairStatuses (r:1 w:1)
 	fn reenable_trading_pair() -> Weight {
-		Weight::from_ref_time(70_315_000 as u64)
+		Weight::from_all(70_315_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Dex TradingPairLPToken (r:1 w:0)
 	// Storage: Dex TradingPairStatuses (r:1 w:1)
 	fn disable_trading_pair() -> Weight {
-		Weight::from_ref_time(70_865_000 as u64)
+		Weight::from_all(70_865_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Dex FeeTo (r:0 w:1)
 	fn set_fee_to() -> Weight {
-		Weight::from_ref_time(41_952_000 as u64)
+		Weight::from_all(41_952_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }

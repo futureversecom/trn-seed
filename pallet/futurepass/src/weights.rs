@@ -63,7 +63,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Proxy Proxies (r:1 w:1)
 	// Storage: System Account (r:1 w:1)
 	fn create() -> Weight {
-		Weight::from_ref_time(146_058_000 as u64)
+		Weight::from_all(146_058_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(4 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
@@ -72,9 +72,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: System Account (r:2 w:2)
 	/// The range of component `p` is `[1, 31]`.
 	fn register_delegate_with_signature(p: u32, ) -> Weight {
-		Weight::from_ref_time(220_928_000 as u64)
+		Weight::from_all(220_928_000 as u64)
 			// Standard Error: 4_617
-			.saturating_add(Weight::from_ref_time(306_992 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_all(306_992 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(4 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
@@ -83,9 +83,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: System Account (r:2 w:2)
 	/// The range of component `p` is `[1, 31]`.
 	fn unregister_delegate(p: u32, ) -> Weight {
-		Weight::from_ref_time(146_646_000 as u64)
+		Weight::from_all(146_646_000 as u64)
 			// Standard Error: 3_409
-			.saturating_add(Weight::from_ref_time(290_417 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_all(290_417 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
@@ -94,9 +94,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: System Account (r:2 w:2)
 	/// The range of component `p` is `[1, 31]`.
 	fn transfer_futurepass(p: u32, ) -> Weight {
-		Weight::from_ref_time(200_511_000 as u64)
+		Weight::from_all(200_511_000 as u64)
 			// Standard Error: 76_919
-			.saturating_add(Weight::from_ref_time(50_389_234 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_all(50_389_234 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 			.saturating_add(T::DbWeight::get().writes(5 as u64))
 	}
@@ -105,9 +105,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Proxy Proxies (r:1 w:0)
 	/// The range of component `p` is `[1, 31]`.
 	fn proxy_extrinsic(p: u32, ) -> Weight {
-		Weight::from_ref_time(90_896_000 as u64)
+		Weight::from_all(90_896_000 as u64)
 			// Standard Error: 3_422
-			.saturating_add(Weight::from_ref_time(192_298 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_all(192_298 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 	}
 }
@@ -119,7 +119,7 @@ impl WeightInfo for () {
 	// Storage: Proxy Proxies (r:1 w:1)
 	// Storage: System Account (r:1 w:1)
 	fn create() -> Weight {
-		Weight::from_ref_time(146_058_000 as u64)
+		Weight::from_all(146_058_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(4 as u64))
 			.saturating_add(RocksDbWeight::get().writes(4 as u64))
 	}
@@ -128,9 +128,9 @@ impl WeightInfo for () {
 	// Storage: System Account (r:2 w:2)
 	/// The range of component `p` is `[1, 31]`.
 	fn register_delegate_with_signature(p: u32, ) -> Weight {
-		Weight::from_ref_time(220_928_000 as u64)
+		Weight::from_all(220_928_000 as u64)
 			// Standard Error: 4_617
-			.saturating_add(Weight::from_ref_time(306_992 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_all(306_992 as u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(4 as u64))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}
@@ -139,9 +139,9 @@ impl WeightInfo for () {
 	// Storage: System Account (r:2 w:2)
 	/// The range of component `p` is `[1, 31]`.
 	fn unregister_delegate(p: u32, ) -> Weight {
-		Weight::from_ref_time(146_646_000 as u64)
+		Weight::from_all(146_646_000 as u64)
 			// Standard Error: 3_409
-			.saturating_add(Weight::from_ref_time(290_417 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_all(290_417 as u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(5 as u64))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}
@@ -150,9 +150,9 @@ impl WeightInfo for () {
 	// Storage: System Account (r:2 w:2)
 	/// The range of component `p` is `[1, 31]`.
 	fn transfer_futurepass(p: u32, ) -> Weight {
-		Weight::from_ref_time(200_511_000 as u64)
+		Weight::from_all(200_511_000 as u64)
 			// Standard Error: 76_919
-			.saturating_add(Weight::from_ref_time(50_389_234 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_all(50_389_234 as u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(5 as u64))
 			.saturating_add(RocksDbWeight::get().writes(5 as u64))
 	}
@@ -161,9 +161,9 @@ impl WeightInfo for () {
 	// Storage: Proxy Proxies (r:1 w:0)
 	/// The range of component `p` is `[1, 31]`.
 	fn proxy_extrinsic(p: u32, ) -> Weight {
-		Weight::from_ref_time(90_896_000 as u64)
+		Weight::from_all(90_896_000 as u64)
 			// Standard Error: 3_422
-			.saturating_add(Weight::from_ref_time(192_298 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_all(192_298 as u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(5 as u64))
 	}
 }

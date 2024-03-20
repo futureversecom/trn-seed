@@ -37,30 +37,30 @@ impl<T: frame_system::Config> pallet_sft::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
 	// Storage: Sft SftCollectionInfo (r:0 w:1)
 	fn create_collection() -> Weight {
-		Weight::from_ref_time(97_485_000 as u64)
+		Weight::from_all(97_485_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(4 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:1)
 	// Storage: Sft TokenInfo (r:0 w:1)
 	fn create_token() -> Weight {
-		Weight::from_ref_time(68_303_000 as u64)
+		Weight::from_all(68_303_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:0)
 	// Storage: Sft TokenInfo (r:1 w:1)
 	fn mint() -> Weight {
-		Weight::from_ref_time(69_085_000 as u64)
+		Weight::from_all(69_085_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft TokenInfo (r:1 w:1)
 	/// The range of component `p` is `[1, 50]`.
 	fn transfer(p: u32, ) -> Weight {
-		Weight::from_ref_time(62_718_000 as u64)
+		Weight::from_all(62_718_000 as u64)
 			// Standard Error: 3_822
-			.saturating_add(Weight::from_ref_time(3_381_220 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_all(3_381_220 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
@@ -68,38 +68,38 @@ impl<T: frame_system::Config> pallet_sft::WeightInfo for WeightInfo<T> {
 	}
 	// Storage: Sft TokenInfo (r:1 w:1)
 	fn burn() -> Weight {
-		Weight::from_ref_time(67_249_000 as u64)
+		Weight::from_all(67_249_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:1)
 	fn set_owner() -> Weight {
-		Weight::from_ref_time(60_343_000 as u64)
+		Weight::from_all(60_343_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:0)
 	// Storage: Sft TokenInfo (r:1 w:1)
 	fn set_max_issuance() -> Weight {
-		Weight::from_ref_time(62_071_000 as u64)
+		Weight::from_all(62_071_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:1)
 	fn set_base_uri() -> Weight {
-		Weight::from_ref_time(56_389_000 as u64)
+		Weight::from_all(56_389_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:1)
 	fn set_name() -> Weight {
-		Weight::from_ref_time(56_311_000 as u64)
+		Weight::from_all(56_311_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft CollectionInfo (r:1 w:1)
 	fn set_royalties_schedule() -> Weight {
-		Weight::from_ref_time(68_177_000 as u64)
+		Weight::from_all(68_177_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -107,14 +107,14 @@ impl<T: frame_system::Config> pallet_sft::WeightInfo for WeightInfo<T> {
 	// Storage: Sft CollectionInfo (r:1 w:0)
 	// Storage: Sft PublicMintInfo (r:1 w:1)
 	fn toggle_public_mint() -> Weight {
-		Weight::from_ref_time(62_779_000 as u64)
+		Weight::from_all(62_779_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft CollectionInfo (r:1 w:0)
 	// Storage: Sft PublicMintInfo (r:1 w:1)
 	fn set_mint_fee() -> Weight {
-		Weight::from_ref_time(63_055_000 as u64)
+		Weight::from_all(63_055_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}

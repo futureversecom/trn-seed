@@ -92,9 +92,9 @@ where
 fn truth_value_update_poc_works() {
 	let fm = Multiplier::saturating_from_rational(1, 2);
 	let test_set = vec![
-		(Weight::from_ref_time(0), fm),
-		(Weight::from_ref_time(100), fm),
-		(Weight::from_ref_time(1000), fm),
+		(Weight::from_all(0), fm),
+		(Weight::from_all(100), fm),
+		(Weight::from_all(1000), fm),
 		(target(), fm),
 		(max_normal() / 2, fm),
 		(max_normal(), fm),
@@ -167,23 +167,23 @@ fn weight_mul_decrease_on_small_block() {
 
 #[test]
 fn weight_to_fee_should_not_overflow_on_large_weights() {
-	let kb = Weight::from_ref_time(1024u64);
+	let kb = Weight::from_all(1024u64);
 	let mb = kb.mul(kb.ref_time());
 	let max_fm = Multiplier::saturating_from_integer(i128::MAX);
 
 	// check that for all values it can compute, correctly.
 	vec![
 		Weight::zero(),
-		Weight::from_ref_time(1u64),
-		Weight::from_ref_time(10u64),
-		Weight::from_ref_time(1000u64),
+		Weight::from_all(1u64),
+		Weight::from_all(10u64),
+		Weight::from_all(1000u64),
 		kb,
 		kb.mul(10u64),
 		kb.mul(100u64),
 		mb,
 		mb.mul(10u64),
-		Weight::from_ref_time(2147483647u64),
-		Weight::from_ref_time(4294967295u64),
+		Weight::from_all(2147483647u64),
+		Weight::from_all(4294967295u64),
 		RuntimeBlockWeights::get().max_block.div(2u64),
 		RuntimeBlockWeights::get().max_block,
 		Weight::MAX.div(2u64),

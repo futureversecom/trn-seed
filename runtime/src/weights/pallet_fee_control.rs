@@ -33,13 +33,13 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_fee_control::WeightInfo for WeightInfo<T> {
 	// Storage: FeeControl Data (r:1 w:1)
 	fn set_evm_base_fee() -> Weight {
-		Weight::from_ref_time(20_501_000 as u64)
+		Weight::from_all(20_501_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: FeeControl Data (r:1 w:1)
 	fn set_weight_multiplier() -> Weight {
-		Weight::from_ref_time(19_789_000 as u64)
+		Weight::from_all(19_789_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}

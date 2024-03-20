@@ -58,7 +58,7 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: NftPeg ContractAddress (r:0 w:1)
 	fn set_contract_address() -> Weight {
-		Weight::from_ref_time(38_330_000 as u64)
+		Weight::from_all(38_330_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Nft CollectionInfo (r:1 w:1)
@@ -72,7 +72,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: System Digest (r:1 w:1)
 	// Storage: TokenApprovals ERC721Approvals (r:0 w:3)
 	fn withdraw() -> Weight {
-		Weight::from_ref_time(156_373_000 as u64)
+		Weight::from_all(156_373_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(11 as u64))
 			.saturating_add(T::DbWeight::get().writes(6 as u64))
 	}
@@ -86,7 +86,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthBridge BridgePaused (r:1 w:0)
 	// Storage: System Digest (r:1 w:1)
 	fn reclaim_blocked_nfts() -> Weight {
-		Weight::from_ref_time(126_019_000 as u64)
+		Weight::from_all(126_019_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(9 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
@@ -96,7 +96,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	// Storage: NftPeg ContractAddress (r:0 w:1)
 	fn set_contract_address() -> Weight {
-		Weight::from_ref_time(38_330_000 as u64)
+		Weight::from_all(38_330_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Nft CollectionInfo (r:1 w:1)
@@ -110,7 +110,7 @@ impl WeightInfo for () {
 	// Storage: System Digest (r:1 w:1)
 	// Storage: TokenApprovals ERC721Approvals (r:0 w:3)
 	fn withdraw() -> Weight {
-		Weight::from_ref_time(156_373_000 as u64)
+		Weight::from_all(156_373_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(11 as u64))
 			.saturating_add(RocksDbWeight::get().writes(6 as u64))
 	}
@@ -124,7 +124,7 @@ impl WeightInfo for () {
 	// Storage: EthBridge BridgePaused (r:1 w:0)
 	// Storage: System Digest (r:1 w:1)
 	fn reclaim_blocked_nfts() -> Weight {
-		Weight::from_ref_time(126_019_000 as u64)
+		Weight::from_all(126_019_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(9 as u64))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}

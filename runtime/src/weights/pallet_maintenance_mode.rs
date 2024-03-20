@@ -33,27 +33,27 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_maintenance_mode::WeightInfo for WeightInfo<T> {
 	// Storage: MaintenanceMode MaintenanceModeActive (r:0 w:1)
 	fn enable_maintenance_mode() -> Weight {
-		Weight::from_ref_time(37_105_000 as u64)
+		Weight::from_all(37_105_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: MaintenanceMode BlockedAccounts (r:0 w:1)
 	fn block_account() -> Weight {
-		Weight::from_ref_time(39_698_000 as u64)
+		Weight::from_all(39_698_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: MaintenanceMode BlockedEVMAddresses (r:0 w:1)
 	fn block_evm_target() -> Weight {
-		Weight::from_ref_time(40_250_000 as u64)
+		Weight::from_all(40_250_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: MaintenanceMode BlockedCalls (r:0 w:1)
 	fn block_call() -> Weight {
-		Weight::from_ref_time(42_341_000 as u64)
+		Weight::from_all(42_341_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: MaintenanceMode BlockedPallets (r:0 w:1)
 	fn block_pallet() -> Weight {
-		Weight::from_ref_time(42_924_000 as u64)
+		Weight::from_all(42_924_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }

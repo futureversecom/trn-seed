@@ -34,7 +34,7 @@ impl<T: frame_system::Config> pallet_xrpl::WeightInfo for WeightInfo<T> {
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
 	fn transact() -> Weight {
-		Weight::from_ref_time(184_324_000 as u64)
+		Weight::from_all(184_324_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 	}
 }

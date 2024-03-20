@@ -33,17 +33,17 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xls20::WeightInfo for WeightInfo<T> {
 	// Storage: Xls20 Relayer (r:0 w:1)
 	fn set_relayer() -> Weight {
-		Weight::from_ref_time(38_720_000 as u64)
+		Weight::from_all(38_720_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Xls20 Xls20MintFee (r:0 w:1)
 	fn set_xls20_fee() -> Weight {
-		Weight::from_ref_time(37_570_000 as u64)
+		Weight::from_all(37_570_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Nft CollectionInfo (r:1 w:1)
 	fn enable_xls20_compatibility() -> Weight {
-		Weight::from_ref_time(55_656_000 as u64)
+		Weight::from_all(55_656_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -51,14 +51,14 @@ impl<T: frame_system::Config> pallet_xls20::WeightInfo for WeightInfo<T> {
 	// Storage: Xls20 Xls20TokenMap (r:1 w:0)
 	// Storage: Xls20 Xls20MintFee (r:1 w:0)
 	fn re_request_xls20_mint() -> Weight {
-		Weight::from_ref_time(70_778_000 as u64)
+		Weight::from_all(70_778_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 	}
 	// Storage: Xls20 Relayer (r:1 w:0)
 	// Storage: Nft CollectionInfo (r:1 w:0)
 	// Storage: Xls20 Xls20TokenMap (r:1 w:1)
 	fn fulfill_xls20_mint() -> Weight {
-		Weight::from_ref_time(73_595_000 as u64)
+		Weight::from_all(73_595_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}

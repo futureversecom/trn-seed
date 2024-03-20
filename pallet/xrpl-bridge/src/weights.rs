@@ -72,18 +72,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:1 w:1)
 	// Storage: XRPLBridge ProcessXRPTransaction (r:1 w:1)
 	fn submit_transaction() -> Weight {
-		Weight::from_ref_time(25_000_000 as u64)
+		Weight::from_all(25_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: XRPLBridge ChallengeXRPTransactionList (r:0 w:1)
 	fn submit_challenge() -> Weight {
-		Weight::from_ref_time(6_000_000 as u64)
+		Weight::from_all(6_000_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge PaymentDelay (r:0 w:1)
 	fn set_payment_delay() -> Weight {
-		Weight::from_ref_time(10_560_000 as u64)
+		Weight::from_all(10_560_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge DoorTxFee (r:1 w:0)
@@ -98,36 +98,36 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: System Digest (r:1 w:1)
 	// Storage: XRPLBridge TicketSequenceThresholdReachedEmitted (r:0 w:1)
 	fn withdraw_xrp() -> Weight {
-		Weight::from_ref_time(51_000_000 as u64)
+		Weight::from_all(51_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(10 as u64))
 			.saturating_add(T::DbWeight::get().writes(8 as u64))
 	}
 	// Storage: XRPLBridge Relayer (r:0 w:1)
 	fn add_relayer() -> Weight {
-		Weight::from_ref_time(14_000_000 as u64)
+		Weight::from_all(14_000_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge Relayer (r:1 w:1)
 	fn remove_relayer() -> Weight {
-		Weight::from_ref_time(19_000_000 as u64)
+		Weight::from_all(19_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge DoorTxFee (r:0 w:1)
 	fn set_door_tx_fee() -> Weight {
-		Weight::from_ref_time(4_000_000 as u64)
+		Weight::from_all(4_000_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 
 	// Storage: XRPLBridge XRPSourceTag (r:0 w:1)
 	fn set_xrp_source_tag() -> Weight {
-		Weight::from_ref_time(4_000_000 as u64)
+		Weight::from_all(4_000_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 
 	// Storage: XRPLBridge DoorAddress (r:0 w:1)
 	fn set_door_address() -> Weight {
-		Weight::from_ref_time(14_000_000 as u64)
+		Weight::from_all(14_000_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge Relayer (r:1 w:0)
@@ -135,7 +135,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: XRPLBridge DoorTicketSequenceParams (r:1 w:0)
 	// Storage: XRPLBridge DoorTicketSequenceParamsNext (r:0 w:1)
 	fn set_ticket_sequence_next_allocation() -> Weight {
-		Weight::from_ref_time(18_000_000 as u64)
+		Weight::from_all(18_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -143,7 +143,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: XRPLBridge DoorTicketSequenceParams (r:1 w:1)
 	// Storage: XRPLBridge TicketSequenceThresholdReachedEmitted (r:0 w:1)
 	fn set_ticket_sequence_current_allocation() -> Weight {
-		Weight::from_ref_time(17_000_000 as u64)
+		Weight::from_all(17_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
@@ -154,9 +154,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:5)
 	/// The range of component `i` is `[0, 256]`.
 	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight {
-		Weight::from_ref_time(10_841_000 as u64)
+		Weight::from_all(10_841_000 as u64)
 			// Standard Error: 4_892
-			.saturating_add(Weight::from_ref_time(6_292_671 as u64).saturating_mul(i as u64))
+			.saturating_add(Weight::from_all(6_292_671 as u64).saturating_mul(i as u64))
 			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(i as u64)))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 			.saturating_add(T::DbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
@@ -167,9 +167,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:1)
 	/// The range of component `i` is `[0, 10]`.
 	fn prune_settled_ledger_index(i: u32, ) -> Weight {
-		Weight::from_ref_time(16_281_000 as u64)
+		Weight::from_all(16_281_000 as u64)
 			// Standard Error: 4_806
-			.saturating_add(Weight::from_ref_time(916_903 as u64).saturating_mul(i as u64))
+			.saturating_add(Weight::from_all(916_903 as u64).saturating_mul(i as u64))
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(i as u64)))
@@ -184,18 +184,18 @@ impl WeightInfo for () {
 	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:1 w:1)
 	// Storage: XRPLBridge ProcessXRPTransaction (r:1 w:1)
 	fn submit_transaction() -> Weight {
-		Weight::from_ref_time(25_000_000 as u64)
+		Weight::from_all(25_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(5 as u64))
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	// Storage: XRPLBridge ChallengeXRPTransactionList (r:0 w:1)
 	fn submit_challenge() -> Weight {
-		Weight::from_ref_time(6_000_000 as u64)
+		Weight::from_all(6_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge PaymentDelay (r:0 w:1)
 	fn set_payment_delay() -> Weight {
-		Weight::from_ref_time(10_560_000 as u64)
+		Weight::from_all(10_560_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge DoorTxFee (r:1 w:0)
@@ -210,34 +210,34 @@ impl WeightInfo for () {
 	// Storage: System Digest (r:1 w:1)
 	// Storage: XRPLBridge TicketSequenceThresholdReachedEmitted (r:0 w:1)
 	fn withdraw_xrp() -> Weight {
-		Weight::from_ref_time(51_000_000 as u64)
+		Weight::from_all(51_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(10 as u64))
 			.saturating_add(RocksDbWeight::get().writes(8 as u64))
 	}
 	// Storage: XRPLBridge Relayer (r:0 w:1)
 	fn add_relayer() -> Weight {
-		Weight::from_ref_time(14_000_000 as u64)
+		Weight::from_all(14_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge Relayer (r:1 w:1)
 	fn remove_relayer() -> Weight {
-		Weight::from_ref_time(19_000_000 as u64)
+		Weight::from_all(19_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge DoorTxFee (r:0 w:1)
 	fn set_door_tx_fee() -> Weight {
-		Weight::from_ref_time(4_000_000 as u64)
+		Weight::from_all(4_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge XRPSourceTag (r:0 w:1)
 	fn set_xrp_source_tag() -> Weight {
-		Weight::from_ref_time(4_000_000 as u64)
+		Weight::from_all(4_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge DoorAddress (r:0 w:1)
 	fn set_door_address() -> Weight {
-		Weight::from_ref_time(14_000_000 as u64)
+		Weight::from_all(14_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge Relayer (r:1 w:0)
@@ -245,7 +245,7 @@ impl WeightInfo for () {
 	// Storage: XRPLBridge DoorTicketSequenceParams (r:1 w:0)
 	// Storage: XRPLBridge DoorTicketSequenceParamsNext (r:0 w:1)
 	fn set_ticket_sequence_next_allocation() -> Weight {
-		Weight::from_ref_time(18_000_000 as u64)
+		Weight::from_all(18_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
@@ -253,7 +253,7 @@ impl WeightInfo for () {
 	// Storage: XRPLBridge DoorTicketSequenceParams (r:1 w:1)
 	// Storage: XRPLBridge TicketSequenceThresholdReachedEmitted (r:0 w:1)
 	fn set_ticket_sequence_current_allocation() -> Weight {
-		Weight::from_ref_time(17_000_000 as u64)
+		Weight::from_all(17_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}
@@ -264,9 +264,9 @@ impl WeightInfo for () {
 	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:5)
 	/// The range of component `i` is `[0, 256]`.
 	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight {
-		Weight::from_ref_time(10_841_000 as u64)
+		Weight::from_all(10_841_000 as u64)
 			// Standard Error: 4_892
-			.saturating_add(Weight::from_ref_time(6_292_671 as u64).saturating_mul(i as u64))
+			.saturating_add(Weight::from_all(6_292_671 as u64).saturating_mul(i as u64))
 			.saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(i as u64)))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
@@ -277,9 +277,9 @@ impl WeightInfo for () {
 	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:1)
 	/// The range of component `i` is `[0, 10]`.
 	fn prune_settled_ledger_index(i: u32, ) -> Weight {
-		Weight::from_ref_time(16_281_000 as u64)
+		Weight::from_all(16_281_000 as u64)
 			// Standard Error: 4_806
-			.saturating_add(Weight::from_ref_time(916_903 as u64).saturating_mul(i as u64))
+			.saturating_add(Weight::from_all(916_903 as u64).saturating_mul(i as u64))
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(i as u64)))

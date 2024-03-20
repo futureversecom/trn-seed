@@ -454,7 +454,7 @@ impl MockValidatorSet {
 pub struct MockEventRouter;
 impl EthereumEventRouter for MockEventRouter {
 	fn route(_source: &H160, _destination: &H160, _data: &[u8]) -> EventRouterResult {
-		Ok(Weight::from_ref_time(1000))
+		Ok(Weight::from_all(1000))
 	}
 }
 

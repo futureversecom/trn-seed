@@ -71,30 +71,30 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: System Account (r:1 w:1)
 	// Storage: Sft SftCollectionInfo (r:0 w:1)
 	fn create_collection() -> Weight {
-		Weight::from_ref_time(96_589_000 as u64)
+		Weight::from_all(96_589_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(4 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:1)
 	// Storage: Sft TokenInfo (r:0 w:1)
 	fn create_token() -> Weight {
-		Weight::from_ref_time(66_702_000 as u64)
+		Weight::from_all(66_702_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:0)
 	// Storage: Sft TokenInfo (r:1 w:1)
 	fn mint() -> Weight {
-		Weight::from_ref_time(67_408_000 as u64)
+		Weight::from_all(67_408_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft TokenInfo (r:1 w:1)
 	/// The range of component `p` is `[1, 50]`.
 	fn transfer(p: u32, ) -> Weight {
-		Weight::from_ref_time(62_718_000 as u64)
+		Weight::from_all(62_718_000 as u64)
 			// Standard Error: 3_822
-			.saturating_add(Weight::from_ref_time(3_381_220 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_all(3_381_220 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
@@ -102,52 +102,52 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	// Storage: Sft TokenInfo (r:1 w:1)
 	fn burn() -> Weight {
-		Weight::from_ref_time(66_107_000 as u64)
+		Weight::from_all(66_107_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:1)
 	fn set_owner() -> Weight {
-		Weight::from_ref_time(59_368_000 as u64)
+		Weight::from_all(59_368_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:0)
 	// Storage: Sft TokenInfo (r:1 w:1)
 	fn set_max_issuance() -> Weight {
-		Weight::from_ref_time(61_021_000 as u64)
+		Weight::from_all(61_021_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:1)
 	fn set_base_uri() -> Weight {
-		Weight::from_ref_time(56_065_000 as u64)
+		Weight::from_all(56_065_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:1)
 	fn set_name() -> Weight {
-		Weight::from_ref_time(55_452_000 as u64)
+		Weight::from_all(55_452_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft CollectionInfo (r:1 w:1)
 	fn set_royalties_schedule() -> Weight {
-		Weight::from_ref_time(68_177_000 as u64)
+		Weight::from_all(68_177_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft CollectionInfo (r:1 w:0)
 	// Storage: Sft PublicMintInfo (r:1 w:1)
 	fn toggle_public_mint() -> Weight {
-		Weight::from_ref_time(30_057_000 as u64)
+		Weight::from_all(30_057_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft CollectionInfo (r:1 w:0)
 	// Storage: Sft PublicMintInfo (r:1 w:1)
 	fn set_mint_fee() -> Weight {
-		Weight::from_ref_time(30_177_000 as u64)
+		Weight::from_all(30_177_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -161,30 +161,30 @@ impl WeightInfo for () {
 	// Storage: System Account (r:1 w:1)
 	// Storage: Sft SftCollectionInfo (r:0 w:1)
 	fn create_collection() -> Weight {
-		Weight::from_ref_time(96_589_000 as u64)
+		Weight::from_all(96_589_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(4 as u64))
 			.saturating_add(RocksDbWeight::get().writes(4 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:1)
 	// Storage: Sft TokenInfo (r:0 w:1)
 	fn create_token() -> Weight {
-		Weight::from_ref_time(66_702_000 as u64)
+		Weight::from_all(66_702_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:0)
 	// Storage: Sft TokenInfo (r:1 w:1)
 	fn mint() -> Weight {
-		Weight::from_ref_time(67_408_000 as u64)
+		Weight::from_all(67_408_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft TokenInfo (r:1 w:1)
 	/// The range of component `p` is `[1, 50]`.
 	fn transfer(p: u32, ) -> Weight {
-		Weight::from_ref_time(62_718_000 as u64)
+		Weight::from_all(62_718_000 as u64)
 			// Standard Error: 3_822
-			.saturating_add(Weight::from_ref_time(3_381_220 as u64).saturating_mul(p as u64))
+			.saturating_add(Weight::from_all(3_381_220 as u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
@@ -192,38 +192,38 @@ impl WeightInfo for () {
 	}
 	// Storage: Sft TokenInfo (r:1 w:1)
 	fn burn() -> Weight {
-		Weight::from_ref_time(66_107_000 as u64)
+		Weight::from_all(66_107_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:1)
 	fn set_owner() -> Weight {
-		Weight::from_ref_time(59_368_000 as u64)
+		Weight::from_all(59_368_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:0)
 	// Storage: Sft TokenInfo (r:1 w:1)
 	fn set_max_issuance() -> Weight {
-		Weight::from_ref_time(61_021_000 as u64)
+		Weight::from_all(61_021_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:1)
 	fn set_base_uri() -> Weight {
-		Weight::from_ref_time(56_065_000 as u64)
+		Weight::from_all(56_065_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft SftCollectionInfo (r:1 w:1)
 	fn set_name() -> Weight {
-		Weight::from_ref_time(55_452_000 as u64)
+		Weight::from_all(55_452_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft CollectionInfo (r:1 w:1)
 	fn set_royalties_schedule() -> Weight {
-		Weight::from_ref_time(68_177_000 as u64)
+		Weight::from_all(68_177_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
@@ -231,14 +231,14 @@ impl WeightInfo for () {
 	// Storage: Sft CollectionInfo (r:1 w:0)
 	// Storage: Sft PublicMintInfo (r:1 w:1)
 	fn toggle_public_mint() -> Weight {
-		Weight::from_ref_time(30_057_000 as u64)
+		Weight::from_all(30_057_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Sft CollectionInfo (r:1 w:0)
 	// Storage: Sft PublicMintInfo (r:1 w:1)
 	fn set_mint_fee() -> Weight {
-		Weight::from_ref_time(30_177_000 as u64)
+		Weight::from_all(30_177_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}

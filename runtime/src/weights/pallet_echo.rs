@@ -38,7 +38,7 @@ impl<T: frame_system::Config> pallet_echo::WeightInfo for WeightInfo<T> {
 	// Storage: EthBridge BridgePaused (r:1 w:0)
 	// Storage: System Digest (r:1 w:1)
 	fn ping() -> Weight {
-		Weight::from_ref_time(87_226_000 as u64)
+		Weight::from_all(87_226_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(6 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}

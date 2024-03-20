@@ -33,7 +33,7 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_evm_chain_id::WeightInfo for WeightInfo<T> {
 	// Storage: EVMChainId ChainId (r:0 w:1)
 	fn set_chain_id() -> Weight {
-		Weight::from_ref_time(36_737_000 as u64)
+		Weight::from_all(36_737_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }

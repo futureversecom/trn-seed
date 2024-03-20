@@ -61,7 +61,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthBridge BridgePaused (r:1 w:0)
 	// Storage: System Digest (r:1 w:1)
 	fn ping() -> Weight {
-		Weight::from_ref_time(85_832_000 as u64)
+		Weight::from_all(85_832_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(6 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
@@ -76,7 +76,7 @@ impl WeightInfo for () {
 	// Storage: EthBridge BridgePaused (r:1 w:0)
 	// Storage: System Digest (r:1 w:1)
 	fn ping() -> Weight {
-		Weight::from_ref_time(85_832_000 as u64)
+		Weight::from_all(85_832_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(6 as u64))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}

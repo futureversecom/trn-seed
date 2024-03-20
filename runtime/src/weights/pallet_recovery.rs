@@ -35,27 +35,27 @@ impl<T: frame_system::Config> pallet_recovery::WeightInfo for WeightInfo<T> {
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
 	fn as_recovered() -> Weight {
-		Weight::from_ref_time(39_795_000 as u64)
+		Weight::from_all(39_795_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 	}
 	// Storage: Recovery Proxy (r:0 w:1)
 	fn set_recovered() -> Weight {
-		Weight::from_ref_time(41_958_000 as u64)
+		Weight::from_all(41_958_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Recovery Recoverable (r:1 w:1)
 	/// The range of component `n` is `[1, 3]`.
 	fn create_recovery(n: u32, ) -> Weight {
-		Weight::from_ref_time(76_749_000 as u64)
+		Weight::from_all(76_749_000 as u64)
 			// Standard Error: 10_879
-			.saturating_add(Weight::from_ref_time(427_761 as u64).saturating_mul(n as u64))
+			.saturating_add(Weight::from_all(427_761 as u64).saturating_mul(n as u64))
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Recovery Recoverable (r:1 w:0)
 	// Storage: Recovery ActiveRecoveries (r:1 w:1)
 	fn initiate_recovery() -> Weight {
-		Weight::from_ref_time(87_814_000 as u64)
+		Weight::from_all(87_814_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -63,9 +63,9 @@ impl<T: frame_system::Config> pallet_recovery::WeightInfo for WeightInfo<T> {
 	// Storage: Recovery ActiveRecoveries (r:1 w:1)
 	/// The range of component `n` is `[1, 3]`.
 	fn vouch_recovery(n: u32, ) -> Weight {
-		Weight::from_ref_time(62_347_000 as u64)
+		Weight::from_all(62_347_000 as u64)
 			// Standard Error: 10_571
-			.saturating_add(Weight::from_ref_time(749_873 as u64).saturating_mul(n as u64))
+			.saturating_add(Weight::from_all(749_873 as u64).saturating_mul(n as u64))
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -74,9 +74,9 @@ impl<T: frame_system::Config> pallet_recovery::WeightInfo for WeightInfo<T> {
 	// Storage: Recovery Proxy (r:1 w:1)
 	/// The range of component `n` is `[1, 3]`.
 	fn claim_recovery(n: u32, ) -> Weight {
-		Weight::from_ref_time(81_946_000 as u64)
+		Weight::from_all(81_946_000 as u64)
 			// Standard Error: 12_095
-			.saturating_add(Weight::from_ref_time(626_761 as u64).saturating_mul(n as u64))
+			.saturating_add(Weight::from_all(626_761 as u64).saturating_mul(n as u64))
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -84,9 +84,9 @@ impl<T: frame_system::Config> pallet_recovery::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
 	/// The range of component `n` is `[1, 3]`.
 	fn close_recovery(n: u32, ) -> Weight {
-		Weight::from_ref_time(90_525_000 as u64)
+		Weight::from_all(90_525_000 as u64)
 			// Standard Error: 15_736
-			.saturating_add(Weight::from_ref_time(473_706 as u64).saturating_mul(n as u64))
+			.saturating_add(Weight::from_all(473_706 as u64).saturating_mul(n as u64))
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
@@ -94,15 +94,15 @@ impl<T: frame_system::Config> pallet_recovery::WeightInfo for WeightInfo<T> {
 	// Storage: Recovery Recoverable (r:1 w:1)
 	/// The range of component `n` is `[1, 3]`.
 	fn remove_recovery(n: u32, ) -> Weight {
-		Weight::from_ref_time(90_367_000 as u64)
+		Weight::from_all(90_367_000 as u64)
 			// Standard Error: 15_559
-			.saturating_add(Weight::from_ref_time(467_866 as u64).saturating_mul(n as u64))
+			.saturating_add(Weight::from_all(467_866 as u64).saturating_mul(n as u64))
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Recovery Proxy (r:1 w:1)
 	fn cancel_recovered() -> Weight {
-		Weight::from_ref_time(45_173_000 as u64)
+		Weight::from_all(45_173_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}

@@ -108,7 +108,7 @@ pub mod pallet {
 		/// call: The inner call to be performed after the exchange
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
-			(dispatch_info.weight.saturating_add(Weight::from_ref_time(10_000u64)), dispatch_info.class)
+			(dispatch_info.weight.saturating_add(Weight::from_all(10_000u64)), dispatch_info.class)
 		})]
 		pub fn call_with_fee_preferences(
 			origin: OriginFor<T>,

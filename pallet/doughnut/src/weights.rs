@@ -63,22 +63,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
 	fn transact() -> Weight {
-		Weight::from_ref_time(209_000_000 as u64)
+		Weight::from_all(209_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 	}
 	// Storage: Doughnut BlockedDoughnuts (r:0 w:1)
 	fn revoke_doughnut() -> Weight {
-		Weight::from_ref_time(14_000_000 as u64)
+		Weight::from_all(14_000_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Doughnut BlockedHolders (r:0 w:1)
 	fn revoke_holder() -> Weight {
-		Weight::from_ref_time(5_000_000 as u64)
+		Weight::from_all(5_000_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Doughnut WhitelistedHolders (r:0 w:1)
 	fn update_whitelisted_holders() -> Weight {
-		Weight::from_ref_time(4_000_000 as u64)
+		Weight::from_all(4_000_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
@@ -91,22 +91,22 @@ impl WeightInfo for () {
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
 	fn transact() -> Weight {
-		Weight::from_ref_time(209_000_000 as u64)
+		Weight::from_all(209_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(5 as u64))
 	}
 	// Storage: Doughnut BlockedDoughnuts (r:0 w:1)
 	fn revoke_doughnut() -> Weight {
-		Weight::from_ref_time(14_000_000 as u64)
+		Weight::from_all(14_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Doughnut BlockedHolders (r:0 w:1)
 	fn revoke_holder() -> Weight {
-		Weight::from_ref_time(5_000_000 as u64)
+		Weight::from_all(5_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: Doughnut WhitelistedHolders (r:0 w:1)
 	fn update_whitelisted_holders() -> Weight {
-		Weight::from_ref_time(4_000_000 as u64)
+		Weight::from_all(4_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }

@@ -60,27 +60,27 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: MaintenanceMode MaintenanceModeActive (r:0 w:1)
 	fn enable_maintenance_mode() -> Weight {
-		Weight::from_ref_time(37_073_000 as u64)
+		Weight::from_all(37_073_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: MaintenanceMode BlockedAccounts (r:0 w:1)
 	fn block_account() -> Weight {
-		Weight::from_ref_time(39_394_000 as u64)
+		Weight::from_all(39_394_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: MaintenanceMode BlockedEVMAddresses (r:0 w:1)
 	fn block_evm_target() -> Weight {
-		Weight::from_ref_time(40_700_000 as u64)
+		Weight::from_all(40_700_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: MaintenanceMode BlockedCalls (r:0 w:1)
 	fn block_call() -> Weight {
-		Weight::from_ref_time(43_340_000 as u64)
+		Weight::from_all(43_340_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: MaintenanceMode BlockedPallets (r:0 w:1)
 	fn block_pallet() -> Weight {
-		Weight::from_ref_time(42_282_000 as u64)
+		Weight::from_all(42_282_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
@@ -89,27 +89,27 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	// Storage: MaintenanceMode MaintenanceModeActive (r:0 w:1)
 	fn enable_maintenance_mode() -> Weight {
-		Weight::from_ref_time(37_073_000 as u64)
+		Weight::from_all(37_073_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: MaintenanceMode BlockedAccounts (r:0 w:1)
 	fn block_account() -> Weight {
-		Weight::from_ref_time(39_394_000 as u64)
+		Weight::from_all(39_394_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: MaintenanceMode BlockedEVMAddresses (r:0 w:1)
 	fn block_evm_target() -> Weight {
-		Weight::from_ref_time(40_700_000 as u64)
+		Weight::from_all(40_700_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: MaintenanceMode BlockedCalls (r:0 w:1)
 	fn block_call() -> Weight {
-		Weight::from_ref_time(43_340_000 as u64)
+		Weight::from_all(43_340_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: MaintenanceMode BlockedPallets (r:0 w:1)
 	fn block_pallet() -> Weight {
-		Weight::from_ref_time(42_282_000 as u64)
+		Weight::from_all(42_282_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }

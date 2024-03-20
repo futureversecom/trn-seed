@@ -37,22 +37,22 @@ impl<T: frame_system::Config> pallet_doughnut::WeightInfo for WeightInfo<T> {
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
 	fn transact() -> Weight {
-		Weight::from_ref_time(504_337_000 as u64)
+		Weight::from_all(504_337_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 	}
 	// Storage: Doughnut BlockedDoughnuts (r:0 w:1)
 	fn revoke_doughnut() -> Weight {
-		Weight::from_ref_time(68_652_000 as u64)
+		Weight::from_all(68_652_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Doughnut BlockedHolders (r:0 w:1)
 	fn revoke_holder() -> Weight {
-		Weight::from_ref_time(41_219_000 as u64)
+		Weight::from_all(41_219_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Doughnut WhitelistedHolders (r:0 w:1)
 	fn update_whitelisted_holders() -> Weight {
-		Weight::from_ref_time(39_451_000 as u64)
+		Weight::from_all(39_451_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }

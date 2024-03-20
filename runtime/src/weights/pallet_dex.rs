@@ -39,7 +39,7 @@ impl<T: frame_system::Config> pallet_dex::WeightInfo for WeightInfo<T> {
 	// Storage: Dex TradingPairLPToken (r:1 w:0)
 	// Storage: Dex LiquidityPoolLastK (r:1 w:1)
 	fn swap_with_exact_supply() -> Weight {
-		Weight::from_ref_time(241_774_000 as u64)
+		Weight::from_all(241_774_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(11 as u64))
 			.saturating_add(T::DbWeight::get().writes(8 as u64))
 	}
@@ -51,7 +51,7 @@ impl<T: frame_system::Config> pallet_dex::WeightInfo for WeightInfo<T> {
 	// Storage: Dex TradingPairLPToken (r:1 w:0)
 	// Storage: Dex LiquidityPoolLastK (r:1 w:1)
 	fn swap_with_exact_target() -> Weight {
-		Weight::from_ref_time(249_416_000 as u64)
+		Weight::from_all(249_416_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(12 as u64))
 			.saturating_add(T::DbWeight::get().writes(8 as u64))
 	}
@@ -68,7 +68,7 @@ impl<T: frame_system::Config> pallet_dex::WeightInfo for WeightInfo<T> {
 	// Storage: Dex LiquidityPoolLastK (r:1 w:1)
 	// Storage: Dex TradingPairStatuses (r:0 w:1)
 	fn add_liquidity() -> Weight {
-		Weight::from_ref_time(409_994_000 as u64)
+		Weight::from_all(409_994_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(23 as u64))
 			.saturating_add(T::DbWeight::get().writes(20 as u64))
 	}
@@ -80,27 +80,27 @@ impl<T: frame_system::Config> pallet_dex::WeightInfo for WeightInfo<T> {
 	// Storage: Dex FeeTo (r:1 w:0)
 	// Storage: Dex LiquidityPoolLastK (r:1 w:1)
 	fn remove_liquidity() -> Weight {
-		Weight::from_ref_time(333_350_000 as u64)
+		Weight::from_all(333_350_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(14 as u64))
 			.saturating_add(T::DbWeight::get().writes(12 as u64))
 	}
 	// Storage: Dex TradingPairLPToken (r:1 w:0)
 	// Storage: Dex TradingPairStatuses (r:1 w:1)
 	fn reenable_trading_pair() -> Weight {
-		Weight::from_ref_time(70_400_000 as u64)
+		Weight::from_all(70_400_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Dex TradingPairLPToken (r:1 w:0)
 	// Storage: Dex TradingPairStatuses (r:1 w:1)
 	fn disable_trading_pair() -> Weight {
-		Weight::from_ref_time(69_817_000 as u64)
+		Weight::from_all(69_817_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Dex FeeTo (r:0 w:1)
 	fn set_fee_to() -> Weight {
-		Weight::from_ref_time(42_312_000 as u64)
+		Weight::from_all(42_312_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }

@@ -625,7 +625,7 @@ fn process_valid_challenged_event() {
 			// Weight returned should include the 1000 that we specified in our mock
 			assert_eq!(
 				EthBridge::on_initialize(process_at),
-				DbWeight::get().reads(2u64) + Weight::from_ref_time(1000u64)
+				DbWeight::get().reads(2u64) + Weight::from_all(1000u64)
 			);
 
 			// Storage should now be fully cleared
@@ -720,7 +720,7 @@ fn process_valid_challenged_event_delayed() {
 			// Weight returned should include the 1000 that we specified in our mock
 			assert_eq!(
 				EthBridge::on_initialize(process_at_extended),
-				DbWeight::get().reads(2u64) + Weight::from_ref_time(1000u64)
+				DbWeight::get().reads(2u64) + Weight::from_all(1000u64)
 			);
 
 			// Storage should now be fully cleared

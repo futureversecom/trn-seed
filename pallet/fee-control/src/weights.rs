@@ -57,13 +57,13 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: FeeControl Data (r:1 w:1)
 	fn set_evm_base_fee() -> Weight {
-		Weight::from_ref_time(19_761_000 as u64)
+		Weight::from_all(19_761_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: FeeControl Data (r:1 w:1)
 	fn set_weight_multiplier() -> Weight {
-		Weight::from_ref_time(19_275_000 as u64)
+		Weight::from_all(19_275_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -73,13 +73,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	// Storage: FeeControl Data (r:1 w:1)
 	fn set_evm_base_fee() -> Weight {
-		Weight::from_ref_time(19_761_000 as u64)
+		Weight::from_all(19_761_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: FeeControl Data (r:1 w:1)
 	fn set_weight_multiplier() -> Weight {
-		Weight::from_ref_time(19_275_000 as u64)
+		Weight::from_all(19_275_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}

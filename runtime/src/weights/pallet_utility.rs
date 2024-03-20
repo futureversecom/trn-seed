@@ -35,33 +35,33 @@ impl<T: frame_system::Config> pallet_utility::WeightInfo for WeightInfo<T> {
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
 	/// The range of component `c` is `[0, 1000]`.
 	fn batch(c: u32, ) -> Weight {
-		Weight::from_ref_time(36_940_000 as u64)
+		Weight::from_all(36_940_000 as u64)
 			// Standard Error: 2_666
-			.saturating_add(Weight::from_ref_time(14_113_912 as u64).saturating_mul(c as u64))
+			.saturating_add(Weight::from_all(14_113_912 as u64).saturating_mul(c as u64))
 	}
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
 	fn as_derivative() -> Weight {
-		Weight::from_ref_time(32_466_000 as u64)
+		Weight::from_all(32_466_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 	}
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
 	/// The range of component `c` is `[0, 1000]`.
 	fn batch_all(c: u32, ) -> Weight {
-		Weight::from_ref_time(36_342_000 as u64)
+		Weight::from_all(36_342_000 as u64)
 			// Standard Error: 2_193
-			.saturating_add(Weight::from_ref_time(14_550_568 as u64).saturating_mul(c as u64))
+			.saturating_add(Weight::from_all(14_550_568 as u64).saturating_mul(c as u64))
 	}
 	fn dispatch_as() -> Weight {
-		Weight::from_ref_time(43_678_000 as u64)
+		Weight::from_all(43_678_000 as u64)
 	}
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
 	/// The range of component `c` is `[0, 1000]`.
 	fn force_batch(c: u32, ) -> Weight {
-		Weight::from_ref_time(36_175_000 as u64)
+		Weight::from_all(36_175_000 as u64)
 			// Standard Error: 2_551
-			.saturating_add(Weight::from_ref_time(14_050_984 as u64).saturating_mul(c as u64))
+			.saturating_add(Weight::from_all(14_050_984 as u64).saturating_mul(c as u64))
 	}
 }

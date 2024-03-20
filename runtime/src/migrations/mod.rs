@@ -34,7 +34,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		Weight::from_ref_time(0_u64)
+		Weight::from_all(0_u64)
 	}
 
 	#[cfg(feature = "try-runtime")]
