@@ -1756,11 +1756,11 @@ dependencies = [
 
 [[package]]
 name = "ethabi"
-version = "17.2.0"
+version = "18.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4966fba78396ff92db3b817ee71143eccd98acf0f876b8d600e585a670c5d1b"
+checksum = "7413c5f74cc903ea37386a8965a936cbeb334bd270862fdece542c1b2dcbc898"
 dependencies = [
- "ethereum-types 0.13.1",
+ "ethereum-types 0.14.1",
  "hex",
  "once_cell",
  "regex",
@@ -1781,7 +1781,6 @@ dependencies = [
  "fixed-hash 0.7.0",
  "impl-codec",
  "impl-rlp",
- "impl-serde 0.3.2",
  "scale-info",
  "tiny-keccak",
 ]
@@ -1848,7 +1847,6 @@ dependencies = [
  "fixed-hash 0.7.0",
  "impl-codec",
  "impl-rlp",
- "impl-serde 0.3.2",
  "primitive-types 0.11.1",
  "scale-info",
  "uint",
@@ -5543,7 +5541,7 @@ name = "pallet-ethy"
 version = "1.0.1"
 dependencies = [
  "ethabi",
- "ethereum-types 0.13.1",
+ "ethereum-types 0.14.1",
  "frame-support",
  "frame-system",
  "hex",
@@ -5670,7 +5668,7 @@ dependencies = [
 name = "pallet-evm-precompiles-erc1155"
 version = "2.0.0"
 dependencies = [
- "ethereum-types 0.13.1",
+ "ethereum-types 0.14.1",
  "fp-evm",
  "frame-support",
  "frame-system",
@@ -9087,7 +9085,7 @@ version = "0.1.0"
 dependencies = [
  "doughnut-rs",
  "ethabi",
- "ethereum 0.12.0",
+ "ethereum 0.14.0",
  "evm 0.36.0",
  "fp-evm",
  "fp-rpc",
@@ -12029,7 +12027,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde_json",
- "syn 1.0.109",
+ "syn 2.0.48",
 ]
 
 [[package]]
