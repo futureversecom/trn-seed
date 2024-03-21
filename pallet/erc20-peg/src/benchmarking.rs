@@ -52,7 +52,7 @@ benchmarks! {
 	}
 
 	activate_deposits_delay {
-		let activate = true;
+		let activate = false;
 		// Sanity check
 		assert_eq!(DepositsDelayActive::get(), !activate);
 
@@ -62,7 +62,7 @@ benchmarks! {
 	}
 
 	activate_withdrawals_delay {
-		let activate = true;
+		let activate = false;
 		// Sanity check
 		assert_eq!(WithdrawalsDelayActive::get(), !activate);
 
