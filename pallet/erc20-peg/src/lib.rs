@@ -78,10 +78,10 @@ decl_storage! {
 		DepositsActive get(fn deposits_active): bool;
 		/// Whether withdrawals are active
 		WithdrawalsActive get(fn withdrawals_active): bool;
-		/// Whether deposit delays are active
-		DepositsDelayActive get(fn deposits_delay_active): bool;
-		/// Whether withdrawals delays are active
-		WithdrawalsDelayActive get(fn withdrawals_delay_active): bool;
+		/// Whether deposit delays are active, default is set to true
+		DepositsDelayActive get(fn deposits_delay_active): bool = true;
+		/// Whether withdrawals delays are active, default is set to true
+		WithdrawalsDelayActive get(fn withdrawals_delay_active): bool = true;
 		/// Map ERC20 address to GA asset Id
 		Erc20ToAssetId get(fn erc20_to_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
 		/// Map GA asset Id to ERC20 address

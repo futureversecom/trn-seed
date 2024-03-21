@@ -57,16 +57,16 @@ fn set_deposit_delay_active() {
 		let signer = create_account(22);
 
 		// Setting as not sudo fails
-		assert_noop!(Erc20Peg::activate_deposits_delay(Some(signer).into(), true), BadOrigin);
+		assert_noop!(Erc20Peg::activate_deposits_delay(Some(signer).into(), false), BadOrigin);
 
 		// Sanity check
-		assert_eq!(Erc20Peg::deposits_delay_active(), false);
+		assert_eq!(Erc20Peg::deposits_delay_active(), true);
 
 		// Calling as sudo should work
-		assert_ok!(Erc20Peg::activate_deposits_delay(frame_system::RawOrigin::Root.into(), true));
+		assert_ok!(Erc20Peg::activate_deposits_delay(frame_system::RawOrigin::Root.into(), false));
 
 		// Storage updated
-		assert_eq!(Erc20Peg::deposits_delay_active(), true);
+		assert_eq!(Erc20Peg::deposits_delay_active(), false);
 	});
 }
 
@@ -76,19 +76,19 @@ fn set_withdrawal_delay_active() {
 		let signer = create_account(22);
 
 		// Setting as not sudo fails
-		assert_noop!(Erc20Peg::activate_withdrawals_delay(Some(signer).into(), true), BadOrigin);
+		assert_noop!(Erc20Peg::activate_withdrawals_delay(Some(signer).into(), false), BadOrigin);
 
 		// Sanity check
-		assert_eq!(Erc20Peg::withdrawals_delay_active(), false);
+		assert_eq!(Erc20Peg::withdrawals_delay_active(), true);
 
 		// Calling as sudo should work
 		assert_ok!(Erc20Peg::activate_withdrawals_delay(
 			frame_system::RawOrigin::Root.into(),
-			true
+			false
 		));
 
 		// Storage updated
-		assert_eq!(Erc20Peg::withdrawals_delay_active(), true);
+		assert_eq!(Erc20Peg::withdrawals_delay_active(), false);
 	});
 }
 
