@@ -89,6 +89,11 @@ impl<T: Config> XrplBridgeToEthyAdapter<T::EthyId> for Module<T> {
 }
 
 impl<T: Config> Module<T> {
+	// Is the bridge paused?
+	pub fn bridge_paused() -> bool {
+		BridgePaused::get().is_paused()
+	}
+
 	pub fn update_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) {
 		let validators = Self::get_xrpl_notary_keys(validator_list);
 		<NotaryXrplKeys<T>>::put(&validators);
@@ -745,7 +750,7 @@ impl<T: Config> Module<T> {
 		if notary_xrpl_keys == next_notary_xrpl_keys {
 			info!(target: "ethy-pallet", "💎 notary xrpl keys unchanged {:?}", next_notary_xrpl_keys);
 			// Pause the bridge
-			BridgePaused::put(true);
+			BridgePaused::mutate(|p| p.authorities_change = true);
 			<NextAuthorityChange<T>>::kill();
 			return
 		}
@@ -777,12 +782,12 @@ impl<T: Config> Module<T> {
 		};
 
 		// Pause the bridge
-		BridgePaused::put(true);
+		BridgePaused::mutate(|p| p.authorities_change = true);
 		<NextAuthorityChange<T>>::kill();
 	}
 
 	/// Finalize authority changes, set new notary keys, unpause bridge and increase set id
-	pub fn do_finalise_authorities_change(next_notary_keys: Vec<T::EthyId>, bridge_paused) {
+	pub fn do_finalise_authorities_change(next_notary_keys: Vec<T::EthyId>) {
 		debug!(target: "ethy-pallet", "💎 session & era ending, set new validator keys");
 
 		// notify ethy-gadget about validator set change
@@ -799,13 +804,8 @@ impl<T: Config> Module<T> {
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
 
-		// Check if bridge was paused before the era ended
-		if bridge_paused {
-			BridgePaused::put(true);
-		} else {
-			// Unpause the bridge
-			BridgePaused::kill();
-		}
+		BridgePaused::mutate(|p| p.authorities_change = false);
+
 		// A proof should've been generated now so we can reactivate the bridge with the new
 		// validator set
 		AuthoritiesChangedThisEra::kill();
@@ -829,6 +829,21 @@ impl<T: Config> Module<T> {
 			return
 		}
 
+		// check if validator set id is different from the one that is active
+		// If it is, reset the request id to the current one.
+		let mut request = request;
+		if let EthySigningRequest::Ethereum(ethereum_event_info) = &request {
+			let validator_set_id = Self::notary_set_id();
+			if validator_set_id > ethereum_event_info.validator_set_id {
+				request = EthySigningRequest::Ethereum(EthereumEventInfo {
+					source: ethereum_event_info.source,
+					destination: ethereum_event_info.destination,
+					message: ethereum_event_info.message.clone(),
+					validator_set_id,
+					event_proof_id: ethereum_event_info.event_proof_id,
+				});
+			}
+		}
 		let log: DigestItem = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
 			ConsensusLog::<T::AccountId>::OpaqueSigningRequest {
@@ -934,7 +949,6 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		if T::FinalSessionTracker::is_active_session_final() {
 			// Get the next_notary_keys for the next era
 			let next_notary_keys = NextNotaryKeys::<T>::get();
-			let bridge_paused = BridgePaused::get();
 
 			if !Self::authorities_changed_this_era() {
 				// The authorities haven't been changed yet
@@ -945,15 +959,12 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 				// authority set change.
 				let scheduled_block =
 					<frame_system::Pallet<T>>::block_number() + T::AuthorityChangeDelay::get();
-				// TODO Do we need to migrate the scheduler storage if there is a pending
-				// finalise_authorities_change call being scheduled?
-				// Rare edge case but something to consider
 				if T::Scheduler::schedule(
 					DispatchTime::At(scheduled_block),
 					None,
 					SCHEDULER_PRIORITY,
 					frame_system::RawOrigin::None.into(),
-					Call::finalise_authorities_change { next_notary_keys, bridge_paused }.into(),
+					Call::finalise_authorities_change { next_notary_keys }.into(),
 				)
 				.is_err()
 				{
@@ -963,7 +974,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 				}
 			} else {
 				// Authorities have been changed, finalise those changes immediately
-				Self::do_finalise_authorities_change(next_notary_keys, bridge_paused);
+				Self::do_finalise_authorities_change(next_notary_keys);
 			}
 		}
 	}

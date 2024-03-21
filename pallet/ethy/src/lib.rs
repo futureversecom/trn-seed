@@ -150,7 +150,7 @@ decl_storage! {
 		/// Flag to indicate whether authorities have been changed during the current era
 		AuthoritiesChangedThisEra get(fn authorities_changed_this_era): bool;
 		/// Whether the bridge is paused (e.g. during validator transitions or by governance)
-		BridgePaused get(fn bridge_paused): bool;
+		BridgePaused: BridgePauseStatus;
 		/// Maps from event claim id to challenger and bond amount paid
 		ChallengerAccount get(fn challenger_account): map hasher(twox_64_concat) EventClaimId => Option<(T::AccountId, Balance)>;
 		/// The (optimistic) challenge period after which a submitted event is considered valid
@@ -276,46 +276,6 @@ decl_event! {
 	}
 }
 
-decl_error! {
-	pub enum Error for Module<T: Config> {
-		// Error returned when making signed transactions in off-chain worker
-		NoLocalSigningAccount,
-		// Error returned when making unsigned transactions with signed payloads in off-chain worker
-		OffchainUnsignedTxSignedPayload,
-		/// A notarization was invalid
-		InvalidNotarization,
-		// Error returned when fetching github info
-		HttpFetch,
-		/// Claim was invalid e.g. not properly ABI encoded
-		InvalidClaim,
-		/// offchain worker not configured properly
-		OcwConfig,
-		/// Event was already submitted and is pending
-		EventReplayPending,
-		/// Event was already submitted and is complete
-		EventReplayProcessed,
-		/// The bridge is paused pending validator set changes (once every era / 24 hours)
-		/// It will reactive after ~10 minutes
-		BridgePaused,
-		/// Some internal operation failed
-		Internal,
-		/// Caller does not have permission for that action
-		NoPermission,
-		/// There is no event claim associated with the supplied claim_id
-		NoClaim,
-		/// There is already a challenge for this claim
-		ClaimAlreadyChallenged,
-		/// The relayer is active and cant unbond the specified amount
-		CantUnbondRelayer,
-		/// The relayer already has a bonded amount
-		CantBondRelayer,
-		/// The relayer hasn't paid the relayer bond so can't be set as the active relayer
-		NoBondPaid,
-		/// Someone tried to set a greater amount of validators than allowed
-		MaxNewSignersExceeded
-	}
-}
-
 decl_module! {
 	pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
 		type Error = Error<T>;
@@ -378,11 +338,11 @@ decl_module! {
 
 			// 3) Try process delayed proofs
 			consumed_weight += DbWeight::get().reads(2u64);
-			if PendingEventProofs::iter().next().is_some() && !Self::bridge_paused() {
-				let max_delayed_events = Self::delayed_event_proofs_per_block();
+			if !Self::bridge_paused() && PendingEventProofs::iter().next().is_some() {
 				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1u64));
-				consumed_weight = consumed_weight.saturating_add(DbWeight::get().writes(2u64).mul(max_delayed_events as u64));
+				let max_delayed_events = Self::delayed_event_proofs_per_block();
 				for (event_proof_id, signing_request) in PendingEventProofs::iter().take(max_delayed_events as usize) {
+					consumed_weight = consumed_weight.saturating_add(DbWeight::get().writes(2u64));
 					Self::do_request_event_proof(event_proof_id, signing_request);
 					PendingEventProofs::remove(event_proof_id);
 				}
@@ -495,18 +455,15 @@ decl_module! {
 		/// Pause or unpause the bridge (requires governance)
 		pub fn set_bridge_paused(origin, paused: bool) {
 			ensure_root(origin)?;
-			match paused {
-				true => BridgePaused::put(true),
-				false => BridgePaused::kill(),
-			};
+			BridgePaused::mutate(|p| p.manual_pause = paused);
 		}
 
 		#[weight = DbWeight::get().writes(1)]
 		/// Finalise authority changes, unpauses bridge and sets new notary keys
 		/// Called internally after force new era
-		pub fn finalise_authorities_change(origin, next_notary_keys: Vec<T::EthyId>, bridge_paused: bool) {
+		pub fn finalise_authorities_change(origin, next_notary_keys: Vec<T::EthyId>) {
 			ensure_none(origin)?;
-			Self::do_finalise_authorities_change(next_notary_keys, bridge_paused);
+			Self::do_finalise_authorities_change(next_notary_keys);
 		}
 
 		#[weight = DbWeight::get().writes(1)]
@@ -634,5 +591,45 @@ decl_module! {
 
 			log!(trace, "💎 exiting off-chain worker");
 		}
+	}
+}
+
+decl_error! {
+	pub enum Error for Module<T: Config> {
+		// Error returned when making signed transactions in off-chain worker
+		NoLocalSigningAccount,
+		// Error returned when making unsigned transactions with signed payloads in off-chain worker
+		OffchainUnsignedTxSignedPayload,
+		/// A notarization was invalid
+		InvalidNotarization,
+		// Error returned when fetching github info
+		HttpFetch,
+		/// Claim was invalid e.g. not properly ABI encoded
+		InvalidClaim,
+		/// offchain worker not configured properly
+		OcwConfig,
+		/// Event was already submitted and is pending
+		EventReplayPending,
+		/// Event was already submitted and is complete
+		EventReplayProcessed,
+		/// The bridge is paused pending validator set changes (once every era / 24 hours)
+		/// It will reactive after ~10 minutes
+		BridgePaused,
+		/// Some internal operation failed
+		Internal,
+		/// Caller does not have permission for that action
+		NoPermission,
+		/// There is no event claim associated with the supplied claim_id
+		NoClaim,
+		/// There is already a challenge for this claim
+		ClaimAlreadyChallenged,
+		/// The relayer is active and cant unbond the specified amount
+		CantUnbondRelayer,
+		/// The relayer already has a bonded amount
+		CantBondRelayer,
+		/// The relayer hasn't paid the relayer bond so can't be set as the active relayer
+		NoBondPaid,
+		/// Someone tried to set a greater amount of validators than allowed
+		MaxNewSignersExceeded
 	}
 }

@@ -93,6 +93,22 @@ pub type EthAddress = seed_primitives::EthAddress;
 pub type EthHash = H256;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
+// Whether the bridge is paused
+pub struct BridgePauseStatus {
+	/// The bridge has been manually paused
+	pub manual_pause: bool,
+	/// The bridge has been paused to allow for an authorities set change
+	pub authorities_change: bool,
+}
+
+impl BridgePauseStatus {
+	/// Whether the bridge is paused
+	pub fn is_paused(&self) -> bool {
+		self.manual_pause || self.authorities_change
+	}
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
 /// Info required to claim an Ethereum event
 pub struct EventClaim {
 	/// The Ethereum transaction hash which caused the event
