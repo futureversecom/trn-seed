@@ -35,64 +35,53 @@ use precompile_utils::{
 };
 use seed_primitives::{AssetId, Balance, BlockNumber, CollectionUuid, SerialNumber, TokenId};
 use sp_core::{H160, H256, U256};
-use sp_runtime::{traits::SaturatedConversion, BoundedVec, Permill};
-use sp_std::{marker::PhantomData, vec, vec::Vec};
+use sp_runtime::{
+	traits::{SaturatedConversion, Zero},
+	BoundedVec, Permill,
+};
+use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Solidity selector of the Marketplace register log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_MARKETPLACE_REGISTER: [u8; 32] =
 	keccak256!("MarketplaceRegister(address,uint256,address)"); // caller_id, marketplace_id
 
 pub const SELECTOR_LOG_FIXED_PRICE_SALE_LIST: [u8; 32] =
-	keccak256!("FixedPriceSaleList(address,uint256,uint256,uint256[],address)"); // seller_id, listing_id, fixed_price, serial_number_ids, collection_address
-
-pub const SELECTOR_LOG_FIXED_PRICE_SALE_LIST_WITH_MARKETPLACE: [u8; 32] = keccak256!(
-	"FixedPriceSaleListWithMarketplace(address,uint256,uint256,uint256[],address,uint128)"
-); // seller_id, listing_id, fixed_price, serial_number_ids, collection_address, marketplace_id
-
-pub const SELECTOR_LOG_FIXED_PRICE_SALE_WITH_MARKETPLACE_UPDATE: [u8; 32] = keccak256!(
-	"FixedPriceSaleWithMarketplaceUpdate(uint256,uint256,uint256,address,uint256[],uint128)"
-); // collection_id, listing_id, new_price, sender, serial_number_ids, marketplace_id
+	keccak256!("FixedPriceSaleList(address,uint256,uint256,uint256[],address,uint128)");
+// seller_id, listing_id, fixed_price, serial_number_ids, collection_address, marketplace_id
 
 pub const SELECTOR_LOG_FIXED_PRICE_SALE_UPDATE: [u8; 32] =
-	keccak256!("FixedPriceSaleUpdate(uint256,uint256,uint256,address,uint256[])"); // collection_id, listing_id, new_price, sender, serial_number_ids
+	keccak256!("FixedPriceSaleUpdate(uint256,uint256,uint256,address,uint256[],uint128)");
+// collection_id, listing_id, new_price, sender, serial_number_ids, marketplace_id
 
 pub const SELECTOR_LOG_FIXED_PRICE_SALE_COMPLETE: [u8; 32] =
-	keccak256!("FixedPriceSaleComplete(uint256,uint256,uint256,address,uint256[])"); // collection_id, listing_id, fixed_price, sender, serial_number_ids
-pub const SELECTOR_LOG_FIXED_PRICE_SALE_WITH_MARKETPLACE_COMPLETE: [u8; 32] = keccak256!(
-	"FixedPriceSaleWithMarketplaceComplete(uint256,uint256,uint256,address,uint256[],uint128)"
-); // collection_id, listing_id, fixed_price, sender, serial_number_ids, marketplace_id
+	keccak256!("FixedPriceSaleComplete(uint256,uint256,uint256,address,uint256[],uint128)");
+// collection_id, listing_id, fixed_price, sender, serial_number_ids, marketplace_id
+
+
 pub const SELECTOR_LOG_AUCTION_OPEN: [u8; 32] =
-	keccak256!("AuctionOpen(uint256,uint256,uint256,address,uint256[])"); // collection_id, listing_id, reserve_price, sender, serial_number_ids
-pub const SELECTOR_LOG_AUCTION_WITH_MARKETPLACE_OPEN: [u8; 32] =
-	keccak256!("AuctionWithMarketplaceOpen(uint256,uint256,uint256,address,uint256[],uint128)"); // collection_id, listing_id, reserve_price, sender, serial_number_ids, marketplace_id
-pub const SELECTOR_LOG_BID: [u8; 32] = keccak256!("Bid(address,uint256,uint256)"); // bidder, listing_id, amount
-pub const SELECTOR_LOG_WITH_MARKETPLACE_BID: [u8; 32] =
-	keccak256!("BidWithMarketplace(address,uint256,uint256,uint128)"); // bidder, listing_id, amount, marketplace_id
+	keccak256!("AuctionOpen(uint256,uint256,uint256,address,uint256[],uint128)");
+// collection_id, listing_id, reserve_price, sender, serial_number_ids, marketplace_id
+
+pub const SELECTOR_LOG_BID: [u8; 32] = keccak256!("Bid(address,uint256,uint256,uint128)");
+// bidder, listing_id, amount, marketplace_id
+
 pub const SELECTOR_LOG_FIXED_PRICE_SALE_CLOSE: [u8; 32] =
-	keccak256!("FixedPriceSaleClose(uint256,uint256,address,uint256[])"); // collectionId, listing_id, caller, series_ids
-pub const SELECTOR_LOG_FIXED_PRICE_SALE_WITH_MARKETPLACE_CLOSE: [u8; 32] =
-	keccak256!("FixedPriceSaleWithMarketplaceClose(uint256,uint256,address,uint256[],uint128)"); // collectionId, listing_id, caller, series_ids, marketplace_id
+	keccak256!("FixedPriceSaleClose(uint256,uint256,address,uint256[],uint128)");
+// collectionId, listing_id, caller, series_ids, marketplace_id
+
 pub const SELECTOR_LOG_AUCTION_CLOSE: [u8; 32] =
-	keccak256!("AuctionClose(uint256,uint256,address,uint256[])"); // collectionId, listing_id, caller, series_ids
-pub const SELECTOR_LOG_AUCTION_WITH_MARKETPLACE_CLOSE: [u8; 32] =
-	keccak256!("AuctionWithMarketplaceClose(uint256,uint256,address,uint256[],uint128)"); // collectionId, listing_id, caller, series_ids, marketplace_id
+	keccak256!("AuctionClose(uint256,uint256,address,uint256[],uint128)");
+// collectionId, listing_id, caller, series_ids, marketplace_id
 
-pub const SELECTOR_LOG_OFFER: [u8; 32] = keccak256!("Offer(uint256,address,uint256,uint256)"); // offer_id, caller, collection_id, series_id
-
-pub const SELECTOR_LOG_OFFER_WITH_MARKETPLACE: [u8; 32] =
-	keccak256!("OfferWithMarketplace(uint256,address,uint256,uint256,uint128)"); // offer_id, caller, collection_id, series_id
+pub const SELECTOR_LOG_OFFER: [u8; 32] =
+	keccak256!("Offer(uint256,address,uint256,uint256,uint128)"); // offer_id, caller, collection_id, series_id, marketplace_id
 
 pub const SELECTOR_LOG_OFFER_CANCEL: [u8; 32] =
-	keccak256!("OfferCancel(uint256,address,uint256,uint256)"); // offer_id, caller, token_id
-
-pub const SELECTOR_LOG_OFFER_WITH_MARKETPLACE_CANCEL: [u8; 32] =
-	keccak256!("OfferWithMarketplaceCancel(uint256,address,uint256,uint256,uint128)"); // offer_id, caller, token_id, marketplace_id
+	keccak256!("OfferCancel(uint256,address,uint256,uint256,uint128)"); // offer_id, caller, token_id, marketplace_id
 
 pub const SELECTOR_LOG_OFFER_ACCEPT: [u8; 32] =
-	keccak256!("OfferAccept(uint256,uint256,address,uint256,uint256)"); // offer_id, amount, caller, collection_id, series_id
-
-pub const SELECTOR_LOG_OFFER_WITH_MARKETPLACE_ACCEPT: [u8; 32] =
-	keccak256!("OfferWithMarketplaceAccept(uint256,uint256,address,uint256,uint256,uint128)"); // offer_id, amount, caller, collection_id, series_id, marketplace_id
+	keccak256!("OfferAccept(uint256,uint256,address,uint256,uint256,uint128)");
+// offer_id, amount, caller, collection_id, series_id, marketplace_id
 
 /// Saturated conversion from EVM uint256 to Blocknumber
 fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileFailure> {
@@ -112,26 +101,25 @@ pub enum Action {
 	SellNftWithMarketplaceId =
 		"sellNftWithMarketplaceId(address,uint256[],address,address,uint256,uint256,uint32)",
 	SellSftWithMarketplaceId = "sellSftWithMarketplaceId(address,uint256[],uint256[],address,address,uint256,uint256,uint32)", /* collection_address, serial_number_ids, quantities, buyer, payment_asset, fixed_price, duration, marketplace_id */
-	SellNftWithoutMarketplaceId =
-		"sellNftWithoutMarketplaceId(address,uint256[],address,address,uint256,uint256)",
-	SellSftWithoutMarketplaceId =
-		"sellSftWithoutMarketplaceId(address,uint256[],uint256[],address,address,uint256,uint256)", /* collection_address, serial_number_ids, quantities, buyer, payment_asset, fixed_price, duration */
+	SellNft = "sellNft(address,uint256[],address,address,uint256,uint256,uint32)",
+	SellSft = "sellSft(address,uint256[],uint256[],address,address,uint256,uint256,uint32)", /* collection_address, serial_number_ids, quantities, buyer, payment_asset, fixed_price, duration, marketplace_id */
+
 	UpdateFixedPrice = "updateFixedPrice(uint128,uint256)",
 	Buy = "buy(uint128)",
 	AuctionNftWithMarketplaceId =
-		"auctionNftWithMarketplaceId(address,uint256[],address,uint256,uint256,uint256)",
-	AuctionNftWithoutMarketplaceId =
-		"auctionNftWithoutMarketplaceId(address,uint256[],address,uint256,uint256)",
+		"auctionNftWithMarketplaceId(address,uint256[],address,uint256,uint256,uint32)",
+	AuctionNft = "auctionNft(address,uint256[],address,uint256,uint256,uint32)",
+
 	AuctionSftWithMarketplaceId =
-		"auctionSftWithMarketplaceId(address,uint256[],uint256[],address,uint256,uint256,uint256)",
-	AuctionSftWithoutMarketplaceId =
-		"auctionSftWithoutMarketplaceId(address,uint256[],uint256[],address,uint256,uint256)",
+		"auctionSftWithMarketplaceId(address,uint256[],uint256[],address,uint256,uint256,uint32)",
+	AuctionSft = "auctionSft(address,uint256[],uint256[],address,uint256,uint256,uint32)",
+
 	Bid = "bid(uint128,uint256)",
 	CancelSale = "cancelSale(uint128)",
 	MakeSimpleOfferWithMarketplaceId =
 		"makeSimpleOfferWithMarketplaceId(address,uint32,uint256,address,uint32)",
-	MakeSimpleOfferWithoutMarketplace =
-		"makeSimpleOfferWithoutMarketplace(address,uint32,uint256,address)",
+	MakeSimpleOffer = "makeSimpleOffer(address,uint32,uint256,address,uint32)",
+
 	CancelOffer = "cancelOffer(uint64)",
 	AcceptOffer = "acceptOffer(uint64)",
 	GetMarketplaceAccount = "getMarketplaceAccount(uint32)",
@@ -168,19 +156,19 @@ where
 
 			if let Err(err) = handle.check_function_modifier(match selector {
 				Action::RegisterMarketplace |
-				Action::SellNftWithoutMarketplaceId |
+				Action::SellNft |
 				Action::SellNftWithMarketplaceId |
-				Action::SellSftWithoutMarketplaceId |
+				Action::SellSft |
 				Action::SellSftWithMarketplaceId |
 				Action::UpdateFixedPrice |
-				Action::AuctionNftWithoutMarketplaceId |
+				Action::AuctionNft |
 				Action::AuctionNftWithMarketplaceId |
-				Action::AuctionSftWithoutMarketplaceId |
+				Action::AuctionSft |
 				Action::AuctionSftWithMarketplaceId |
 				Action::Bid |
 				Action::Buy |
 				Action::CancelSale |
-				Action::MakeSimpleOfferWithoutMarketplace |
+				Action::MakeSimpleOffer |
 				Action::MakeSimpleOfferWithMarketplaceId |
 				Action::CancelOffer |
 				Action::AcceptOffer => FunctionModifier::NonPayable,
@@ -192,29 +180,22 @@ where
 			match selector {
 				Action::RegisterMarketplace => Self::register_marketplace(handle),
 				Action::SellNftWithMarketplaceId => Self::sell_nft_with_marketplace_id(handle),
-				Action::SellNftWithoutMarketplaceId => Self::sell_nft_without_marketplace(handle),
+				Action::SellNft => Self::sell_nft(handle),
 				Action::SellSftWithMarketplaceId => Self::sell_sft_with_marketplace_id(handle),
-				Action::SellSftWithoutMarketplaceId => Self::sell_sft_without_marketplace(handle),
+				Action::SellSft => Self::sell_sft_with_marketplace_id(handle),
 				Action::UpdateFixedPrice => Self::update_fixed_price(handle),
 				Action::Buy => Self::buy(handle),
-				Action::AuctionNftWithMarketplaceId => {
-					Self::auction_nft_with_marketplace_id(handle)
-				},
-				Action::AuctionNftWithoutMarketplaceId => {
-					Self::auction_nft_without_marketplace(handle)
-				},
+				Action::AuctionNftWithMarketplaceId =>
+					Self::auction_nft_with_marketplace_id(handle),
+				Action::AuctionNft => Self::auction_nft_with_marketplace_id(handle),
 				Action::AuctionSftWithMarketplaceId =>
 					Self::auction_sft_with_marketplace_id(handle),
-				Action::AuctionSftWithoutMarketplaceId =>
-					Self::auction_sft_without_marketplace(handle),
+				Action::AuctionSft => Self::auction_sft_with_marketplace_id(handle),
 				Action::Bid => Self::bid(handle),
 				Action::CancelSale => Self::cancel_sale(handle),
-				Action::MakeSimpleOfferWithMarketplaceId => {
-					Self::make_simple_offer_with_marketplace_id(handle)
-				},
-				Action::MakeSimpleOfferWithoutMarketplace => {
-					Self::make_simple_offer_without_marketplace(handle)
-				},
+				Action::MakeSimpleOfferWithMarketplaceId =>
+					Self::make_simple_offer_with_marketplace_id(handle),
+				Action::MakeSimpleOffer => Self::make_simple_offer_with_marketplace_id(handle),
 				Action::CancelOffer => Self::cancel_offer(handle),
 				Action::AcceptOffer => Self::accept_offer(handle),
 				Action::GetMarketplaceAccount => Self::get_marketplace_account(handle),
@@ -303,6 +284,12 @@ where
 		Ok(succeed(EvmDataWriter::new().write(marketplace_id).build()))
 	}
 
+	fn sell_nft(
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		Self::sell_nft_with_marketplace_id(handle)
+	}
+
 	fn sell_nft_with_marketplace_id(
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
@@ -335,39 +322,6 @@ where
 			fixed_price,
 			duration,
 			Some(marketplace_id),
-			true,
-			quantities,
-		)
-	}
-
-	fn sell_nft_without_marketplace(
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
-
-		read_args!(
-			handle,
-			{
-				collection_address: Address,
-				serial_number_ids: Vec<U256>,
-				buyer: Address,
-				payment_asset: Address,
-				fixed_price: U256,
-				duration: U256
-			}
-		);
-		let marketplace_id: Option<MarketplaceId> = None;
-		let quantities: Option<Vec<U256>> = None;
-
-		Self::sell_internal(
-			handle,
-			collection_address,
-			serial_number_ids,
-			buyer,
-			payment_asset,
-			fixed_price,
-			duration,
-			marketplace_id,
 			true,
 			quantities,
 		)
@@ -407,39 +361,6 @@ where
 			Some(marketplace_id),
 			false,
 			Some(quantities),
-		)
-	}
-
-	fn sell_sft_without_marketplace(
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
-
-		read_args!(
-			handle,
-			{
-				collection_address: Address,
-				serial_number_ids: Vec<U256>,
-				balances: Vec<U256>,
-				buyer: Address,
-				payment_asset: Address,
-				fixed_price: U256,
-				duration: U256
-			}
-		);
-		let marketplace_id: Option<MarketplaceId> = None;
-
-		Self::sell_internal(
-			handle,
-			collection_address,
-			serial_number_ids,
-			buyer,
-			payment_asset,
-			fixed_price,
-			duration,
-			marketplace_id,
-			false,
-			Some(balances),
 		)
 	}
 
@@ -544,31 +465,19 @@ where
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
 		})?;
-		if marketplace_id.is_some() {
-			log4(
-				handle.code_address(),
-				SELECTOR_LOG_FIXED_PRICE_SALE_LIST_WITH_MARKETPLACE,
-				handle.context().caller, //seller
-				H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-				H256::from_slice(&EvmDataWriter::new().write(fixed_price).build()),
-				EvmDataWriter::new()
-					.write(serial_number_ids)
-					.write(collection_address)
-					.write(marketplace_id.unwrap())
-					.build(),
-			)
-			.record(handle)?;
-		} else {
-			log4(
-				handle.code_address(),
-				SELECTOR_LOG_FIXED_PRICE_SALE_LIST,
-				handle.context().caller, //seller
-				H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-				H256::from_slice(&EvmDataWriter::new().write(fixed_price).build()),
-				EvmDataWriter::new().write(serial_number_ids).write(collection_address).build(),
-			)
-			.record(handle)?;
-		};
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_FIXED_PRICE_SALE_LIST,
+			handle.context().caller, //seller
+			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
+			H256::from_slice(&EvmDataWriter::new().write(fixed_price).build()),
+			EvmDataWriter::new()
+				.write(serial_number_ids)
+				.write(collection_address)
+				.write(marketplace_id.unwrap())
+				.build(),
+		)
+		.record(handle)?;
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(listing_id).build()))
@@ -611,31 +520,19 @@ where
 		let marketplace_id = listing.marketplace_id;
 		let caller: H160 = caller.into();
 
-		if marketplace_id.is_some() {
-			log4(
-				handle.code_address(),
-				SELECTOR_LOG_FIXED_PRICE_SALE_WITH_MARKETPLACE_UPDATE,
-				collection_id,
-				H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-				H256::from_slice(&EvmDataWriter::new().write(new_price).build()),
-				EvmDataWriter::new()
-					.write(Address::from(caller))
-					.write(serial_numbers)
-					.write(marketplace_id.unwrap())
-					.build(),
-			)
-			.record(handle)?;
-		} else {
-			log4(
-				handle.code_address(),
-				SELECTOR_LOG_FIXED_PRICE_SALE_UPDATE,
-				collection_id,
-				H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-				H256::from_slice(&EvmDataWriter::new().write(new_price).build()),
-				EvmDataWriter::new().write(Address::from(caller)).write(serial_numbers).build(),
-			)
-			.record(handle)?;
-		};
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_FIXED_PRICE_SALE_UPDATE,
+			collection_id,
+			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
+			H256::from_slice(&EvmDataWriter::new().write(new_price).build()),
+			EvmDataWriter::new()
+				.write(Address::from(caller))
+				.write(serial_numbers)
+				.write(marketplace_id.unwrap())
+				.build(),
+		)
+		.record(handle)?;
 
 		// Build output.
 		Ok(succeed([]))
@@ -672,7 +569,7 @@ where
 				if marketplace_id.is_some() {
 					log4(
 						handle.code_address(),
-						SELECTOR_LOG_FIXED_PRICE_SALE_WITH_MARKETPLACE_COMPLETE,
+						SELECTOR_LOG_FIXED_PRICE_SALE_COMPLETE,
 						collection_id,
 						H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
 						H256::from_slice(&EvmDataWriter::new().write(listing.fixed_price).build()),
@@ -693,6 +590,7 @@ where
 						EvmDataWriter::new()
 							.write(Address::from(seller))
 							.write(serial_numbers)
+							.write::<u128>(Zero::zero())
 							.build(),
 					)
 					.record(handle)?;
@@ -706,39 +604,6 @@ where
 					.to_vec(),
 			)),
 		}
-	}
-
-	fn auction_nft_without_marketplace(
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
-
-		// Parse input.
-		read_args!(
-			handle,
-			{
-				collection_address: Address,
-				serial_number_ids: Vec<U256>,
-				payment_asset: Address,
-				reserve_price: U256,
-				duration: U256
-			}
-		);
-
-		let marketplace_id: Option<MarketplaceId> = None;
-		let quantities: Option<Vec<U256>> = None;
-
-		Self::auction_internal(
-			handle,
-			collection_address,
-			serial_number_ids,
-			payment_asset,
-			reserve_price,
-			duration,
-			marketplace_id,
-			true,
-			quantities,
-		)
 	}
 
 	fn auction_nft_with_marketplace_id(
@@ -776,39 +641,6 @@ where
 			Some(marketplace_id),
 			true,
 			quantities,
-		)
-	}
-
-	fn auction_sft_without_marketplace(
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
-
-		// Parse input.
-		read_args!(
-			handle,
-			{
-				collection_address: Address,
-				serial_number_ids: Vec<U256>,
-				quantities: Vec<U256>,
-				payment_asset: Address,
-				reserve_price: U256,
-				duration: U256
-			}
-		);
-
-		let marketplace_id: Option<MarketplaceId> = None;
-
-		Self::auction_internal(
-			handle,
-			collection_address,
-			serial_number_ids,
-			payment_asset,
-			reserve_price,
-			duration,
-			marketplace_id,
-			false,
-			Some(quantities),
 		)
 	}
 
@@ -949,34 +781,19 @@ where
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
 		})?;
 		let collection_id = H256::from_low_u64_be(collection_id as u64);
-		if marketplace_id.is_some() {
-			log4(
-				handle.code_address(),
-				SELECTOR_LOG_AUCTION_WITH_MARKETPLACE_OPEN,
-				collection_id,
-				H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-				H256::from_slice(&EvmDataWriter::new().write(reserve_price).build()),
-				EvmDataWriter::new()
-					.write(Address::from(handle.context().caller))
-					.write(serial_number_ids)
-					.write(marketplace_id.unwrap())
-					.build(),
-			)
-			.record(handle)?;
-		} else {
-			log4(
-				handle.code_address(),
-				SELECTOR_LOG_AUCTION_OPEN,
-				collection_id,
-				H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-				H256::from_slice(&EvmDataWriter::new().write(reserve_price).build()),
-				EvmDataWriter::new()
-					.write(Address::from(handle.context().caller))
-					.write(serial_number_ids)
-					.build(),
-			)
-			.record(handle)?;
-		};
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_AUCTION_OPEN,
+			collection_id,
+			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
+			H256::from_slice(&EvmDataWriter::new().write(reserve_price).build()),
+			EvmDataWriter::new()
+				.write(Address::from(handle.context().caller))
+				.write(serial_number_ids)
+				.write(marketplace_id.unwrap())
+				.build(),
+		)
+		.record(handle)?;
 
 		// Build output.
 		Ok(succeed([]))
@@ -1014,7 +831,7 @@ where
 		if marketplace_id.is_some() {
 			log4(
 				handle.code_address(),
-				SELECTOR_LOG_WITH_MARKETPLACE_BID,
+				SELECTOR_LOG_BID,
 				handle.context().caller, //bidder
 				H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
 				H256::from_slice(&EvmDataWriter::new().write(amount).build()),
@@ -1028,7 +845,7 @@ where
 				handle.context().caller, //bidder
 				H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
 				H256::from_slice(&EvmDataWriter::new().write(amount).build()),
-				vec![],
+				EvmDataWriter::new().write::<u128>(Zero::zero()).build(),
 			)
 			.record(handle)?;
 		};
@@ -1071,7 +888,7 @@ where
 				if marketplace_id.is_some() {
 					log3(
 						handle.code_address(),
-						SELECTOR_LOG_FIXED_PRICE_SALE_WITH_MARKETPLACE_CLOSE,
+						SELECTOR_LOG_FIXED_PRICE_SALE_CLOSE,
 						collection_id,
 						H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
 						EvmDataWriter::new()
@@ -1090,6 +907,7 @@ where
 						EvmDataWriter::new()
 							.write(Address::from(handle.context().caller))
 							.write(serial_numbers)
+							.write::<u128>(Zero::zero())
 							.build(),
 					)
 					.record(handle)?;
@@ -1100,7 +918,7 @@ where
 				if marketplace_id.is_some() {
 					log3(
 						handle.code_address(),
-						SELECTOR_LOG_AUCTION_WITH_MARKETPLACE_CLOSE,
+						SELECTOR_LOG_AUCTION_CLOSE,
 						collection_id,
 						H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
 						EvmDataWriter::new()
@@ -1119,6 +937,7 @@ where
 						EvmDataWriter::new()
 							.write(Address::from(handle.context().caller))
 							.write(serial_numbers)
+							.write::<u128>(Zero::zero())
 							.build(),
 					)
 					.record(handle)?;
@@ -1128,32 +947,6 @@ where
 
 		// Build output.
 		Ok(succeed([]))
-	}
-	fn make_simple_offer_without_marketplace(
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
-
-		// Parse input.
-		read_args!(
-			handle,
-			{
-				collection_address: Address,
-				serial_number: U256,
-				amount: U256,
-				asset_id: Address
-			}
-		);
-		let marketplace_id: Option<MarketplaceId> = None;
-
-		Self::make_simple_offer_internal(
-			handle,
-			collection_address,
-			serial_number,
-			amount,
-			asset_id,
-			marketplace_id,
-		)
 	}
 
 	fn make_simple_offer_with_marketplace_id(
@@ -1228,29 +1021,18 @@ where
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
 		})?;
 
-		if marketplace_id.is_some() {
-			log3(
-				handle.code_address(),
-				SELECTOR_LOG_OFFER_WITH_MARKETPLACE,
-				H256::from_slice(&EvmDataWriter::new().write(offer_id).build()),
-				handle.context().caller,
-				EvmDataWriter::new()
-					.write(collection_id)
-					.write(serial_number)
-					.write(marketplace_id.unwrap())
-					.build(),
-			)
-			.record(handle)?;
-		} else {
-			log3(
-				handle.code_address(),
-				SELECTOR_LOG_OFFER,
-				H256::from_slice(&EvmDataWriter::new().write(offer_id).build()),
-				handle.context().caller,
-				EvmDataWriter::new().write(collection_id).write(serial_number).build(),
-			)
-			.record(handle)?;
-		}
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_OFFER,
+			H256::from_slice(&EvmDataWriter::new().write(offer_id).build()),
+			handle.context().caller,
+			EvmDataWriter::new()
+				.write(collection_id)
+				.write(serial_number)
+				.write(marketplace_id.unwrap())
+				.build(),
+		)
+		.record(handle)?;
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(offer_id).build()))
@@ -1280,7 +1062,7 @@ where
 		if marketplace_id.is_some() {
 			log3(
 				handle.code_address(),
-				SELECTOR_LOG_OFFER_WITH_MARKETPLACE_CANCEL,
+				SELECTOR_LOG_OFFER_CANCEL,
 				offer_id,
 				handle.context().caller,
 				EvmDataWriter::new()
@@ -1296,7 +1078,11 @@ where
 				SELECTOR_LOG_OFFER_CANCEL,
 				offer_id,
 				handle.context().caller,
-				EvmDataWriter::new().write(collection_id).write(serial_number).build(),
+				EvmDataWriter::new()
+					.write(collection_id)
+					.write(serial_number)
+					.write::<u128>(Zero::zero())
+					.build(),
 			)
 			.record(handle)?;
 		}
@@ -1328,7 +1114,7 @@ where
 		if marketplace_id.is_some() {
 			log4(
 				handle.code_address(),
-				SELECTOR_LOG_OFFER_WITH_MARKETPLACE_ACCEPT,
+				SELECTOR_LOG_OFFER_ACCEPT,
 				offer_id,
 				H256::from_slice(&EvmDataWriter::new().write(offer.amount).build()),
 				handle.context().caller,
@@ -1346,7 +1132,11 @@ where
 				offer_id,
 				H256::from_slice(&EvmDataWriter::new().write(offer.amount).build()),
 				handle.context().caller,
-				EvmDataWriter::new().write(collection_id).write(serial_number).build(),
+				EvmDataWriter::new()
+					.write(collection_id)
+					.write(serial_number)
+					.write::<u128>(Zero::zero())
+					.build(),
 			)
 			.record(handle)?;
 		}
