@@ -639,7 +639,7 @@ fn withdraw_with_delay() {
 		assert_eq!(Erc20Peg::delayed_payment_schedule(payment_block), vec![delayed_payment_id]);
 		assert_eq!(
 			Erc20Peg::delayed_payments(delayed_payment_id),
-			Some(PendingPayment::Withdrawal(message))
+			Some(PendingPayment::Withdrawal(account.clone(), message))
 		);
 		// Check payment id has been increased
 		assert_eq!(<NextDelayedPaymentId>::get(), delayed_payment_id + 1);
