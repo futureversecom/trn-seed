@@ -166,7 +166,7 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     const marketplaceId = 1;
 
     // precompile
-    const precompileGasCost = await marketPlacePrecompile.estimateGas.sellSftWithMarketplaceId(
+    const precompileGasCost = await marketPlacePrecompile.estimateGas.sellSft(
       erc1155Precompile.address,
       sellSFTSeries,
       quantities,
@@ -179,7 +179,7 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     let balanceBefore = await bobSigner.getBalance();
     const tx = await marketPlacePrecompile
       .connect(bobSigner)
-      .sellSftWithMarketplaceId(
+      .sellSft(
         erc1155Precompile.address,
         sellSFTSeries,
         quantities,
@@ -195,7 +195,7 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     const [seller, listingId, fixedPriceFromCall, serialNumbers, collectionAddress, marketplaceIdArgs] = (
       receipt?.events as any
     )[0].args;
-    expect((receipt?.events as any)[0].event).to.equal("FixedPriceSaleListWithMarketplace");
+    expect((receipt?.events as any)[0].event).to.equal("FixedPriceSaleList");
     expect(collectionAddress).to.equal(erc1155Precompile.address);
     expect(listingId.toNumber()).to.gte(0);
     expect(fixedPriceFromCall.toNumber()).to.equal(fixedPrice);
@@ -232,94 +232,12 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
     // Update all costs
-    allTxGasCosts["sellSftWithMarketplace"] = {
+    allTxGasCosts["sellSft"] = {
       Contract: BigNumber.from(0), // no contract
       Precompile: precompileGasCost, // convert to XRP Drops(6)
       Extrinsic: extrinsicGasCost, // convert to XRP Drops(6)
     };
-    allTxFeeCosts["sellSftWithMarketplace"] = {
-      Contract: BigNumber.from(0), // no contract
-      Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-      Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-    };
-  });
-
-  it("sell sft without marketplace", async () => {
-    const sellSFTSeries = [0, 1, 2];
-    const quantities = [17, 15, 2];
-    let paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
-    const fixedPrice = 1000000;
-    const duration = 1000; //blocks
-
-    // precompile
-    const precompileGasCost = await marketPlacePrecompile.estimateGas.sellSftWithoutMarketplaceId(
-      erc1155Precompile.address,
-      sellSFTSeries,
-      quantities,
-      alithSigner.address,
-      paymentAsset,
-      fixedPrice,
-      duration,
-    );
-    let balanceBefore = await bobSigner.getBalance();
-    const tx = await marketPlacePrecompile
-      .connect(bobSigner)
-      .sellSftWithoutMarketplaceId(
-        erc1155Precompile.address,
-        sellSFTSeries,
-        quantities,
-        alithSigner.address,
-        paymentAsset,
-        fixedPrice,
-        duration,
-      );
-    const receipt = await tx.wait();
-    let balanceAfter = await bobSigner.getBalance();
-    const precompileFeeCost = balanceBefore.sub(balanceAfter);
-    const [seller, listingId, fixedPriceFromCall, serialNumbers, collectionAddress] = (receipt?.events as any)[0].args;
-    expect((receipt?.events as any)[0].event).to.equal("FixedPriceSaleList");
-    expect(collectionAddress).to.equal(erc1155Precompile.address);
-    expect(listingId.toNumber()).to.gte(0);
-    expect(fixedPriceFromCall.toNumber()).to.equal(fixedPrice);
-    expect(seller).to.equal(bobSigner.address);
-    const s = serialNumbers.map((s: BigNumber) => s.toNumber());
-    expect(JSON.stringify(s)).to.equal(JSON.stringify(sellSFTSeries));
-
-    // extrinsic
-    paymentAsset = 2;
-    const tokens = api.createType(
-      "PalletMarketplaceListingTokens",
-      {
-        collectionId: collectionId,
-        serialNumbers: [
-          [0, 10],
-          [1, 21],
-          [2, 5],
-        ],
-      },
-      1,
-    );
-    balanceBefore = await bobSigner.getBalance();
-    const marketplaceId = null;
-    await new Promise<void>((resolve) => {
-      api.tx.marketplace
-        .sell(tokens, alithSigner.address, paymentAsset, fixedPrice, duration, marketplaceId)
-        .signAndSend(bobKeyring, ({ status }) => {
-          if (status.isInBlock) resolve();
-        });
-    });
-    balanceAfter = await bobSigner.getBalance();
-    const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
-    const extrinsicGasCost = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
-    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
-
-    // Update all costs
-    allTxGasCosts["sellSftWithoutMarketplace"] = {
-      Contract: BigNumber.from(0), // no contract
-      Precompile: precompileGasCost, // convert to XRP Drops(6)
-      Extrinsic: extrinsicGasCost, // convert to XRP Drops(6)
-    };
-    allTxFeeCosts["sellSftWithoutMarketplace"] = {
+    allTxFeeCosts["sellSft"] = {
       Contract: BigNumber.from(0), // no contract
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
@@ -335,7 +253,7 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     const quantities = [5, 10, 15];
 
     // precompile
-    const precompileGasCost = await marketPlacePrecompile.estimateGas.auctionSftWithMarketplaceId(
+    const precompileGasCost = await marketPlacePrecompile.estimateGas.auctionSft(
       erc1155Precompile.address,
       auctionSFTSeries,
       quantities,
@@ -347,7 +265,7 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     let balanceBefore = await bobSigner.getBalance();
     const tx = await marketPlacePrecompile
       .connect(bobSigner)
-      .auctionSftWithMarketplaceId(
+      .auctionSft(
         erc1155Precompile.address,
         auctionSFTSeries,
         quantities,
@@ -360,7 +278,7 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     const [collectionIdArgs, listingId, reservePriceFromChain, seller, serialNumbers, marketplaceIdArgs] = (
       receipt?.events as any
     )[0].args;
-    expect((receipt?.events as any)[0].event).to.equal("AuctionWithMarketplaceOpen");
+    expect((receipt?.events as any)[0].event).to.equal("AuctionOpen");
     expect(collectionIdArgs.toNumber()).to.gte(0);
     expect(listingId.toNumber()).to.gte(0);
     expect(reservePriceFromChain.toNumber()).to.equal(reservePrice);
@@ -401,95 +319,12 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
     // Update all costs
-    allTxGasCosts["auctionSftWithMarketplace"] = {
+    allTxGasCosts["auctionSft"] = {
       Contract: BigNumber.from(0), // no contract
       Precompile: precompileGasCost, // convert to XRP Drops(6)
       Extrinsic: extrinsicGasCost, // convert to XRP Drops(6)
     };
-    allTxFeeCosts["auctionSftWithMarketplace"] = {
-      Contract: BigNumber.from(0), // no contract
-      Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-      Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-    };
-  });
-
-  it("auction sft without marketplaceId", async () => {
-    const auctionSFTSeries = [0, 1, 2];
-    let paymentAsset: string | number = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000"); //xrp token address
-    const reservePrice = 10000;
-    const duration = 10000; //blocks
-    const marketplaceId = null;
-    const quantities = [10, 10, 10];
-
-    // precompile
-    const precompileGasCost = await marketPlacePrecompile.estimateGas.auctionSftWithoutMarketplaceId(
-      erc1155Precompile.address,
-      auctionSFTSeries,
-      quantities,
-      paymentAsset,
-      reservePrice,
-      duration,
-    );
-    let balanceBefore = await bobSigner.getBalance();
-    const tx = await marketPlacePrecompile
-      .connect(bobSigner)
-      .auctionSftWithoutMarketplaceId(
-        erc1155Precompile.address,
-        auctionSFTSeries,
-        quantities,
-        paymentAsset,
-        reservePrice,
-        duration,
-      );
-    const receipt = await tx.wait();
-    const [collectionIdArgs, listingId, reservePriceFromChain, seller, serialNumbers] = (receipt?.events as any)[0]
-      .args;
-    expect((receipt?.events as any)[0].event).to.equal("AuctionOpen");
-    expect(collectionIdArgs.toNumber()).to.gte(0);
-    expect(listingId.toNumber()).to.gte(0);
-    expect(reservePriceFromChain.toNumber()).to.equal(reservePrice);
-    expect(seller).to.equal(bobSigner.address);
-    const s = serialNumbers.map((s: BigNumber) => s.toNumber());
-    expect(JSON.stringify(s)).to.equal(JSON.stringify(auctionSFTSeries));
-
-    let balanceAfter = await bobSigner.getBalance();
-    const precompileFeeCost = balanceBefore.sub(balanceAfter);
-
-    // extrinsic
-    paymentAsset = 2;
-    balanceBefore = await bobSigner.getBalance();
-    const tokens = api.createType(
-      "PalletMarketplaceListingTokens",
-      {
-        collectionId: collectionId,
-        serialNumbers: [
-          [0, 10],
-          [1, 21],
-          [2, 5],
-        ],
-      },
-      1,
-    );
-
-    await new Promise<void>((resolve) => {
-      api.tx.marketplace
-        .auction(tokens, paymentAsset, reservePrice, duration, marketplaceId)
-        .signAndSend(bobKeyring, ({ status }) => {
-          if (status.isInBlock) resolve();
-        });
-    });
-    balanceAfter = await bobSigner.getBalance();
-    const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
-    const extrinsicGasCost = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
-    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
-
-    // Update all costs
-    allTxGasCosts["auctionSftWithoutMarketplace"] = {
-      Contract: BigNumber.from(0), // no contract
-      Precompile: precompileGasCost, // convert to XRP Drops(6)
-      Extrinsic: extrinsicGasCost, // convert to XRP Drops(6)
-    };
-    allTxFeeCosts["auctionSftWithoutMarketplace"] = {
+    allTxFeeCosts["auctionSft"] = {
       Contract: BigNumber.from(0), // no contract
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)

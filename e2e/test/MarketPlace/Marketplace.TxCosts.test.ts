@@ -154,7 +154,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     const marketplaceId = 1;
 
     // precompile
-    const precompileGasCost = await marketPlacePrecompile.estimateGas.sellNftWithMarketplaceId(
+    const precompileGasCost = await marketPlacePrecompile.estimateGas.sellNft(
       erc721Precompile.address,
       sellNFTSeries,
       alithSigner.address,
@@ -166,7 +166,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     let balanceBefore = await bobSigner.getBalance();
     const tx = await marketPlacePrecompile
       .connect(bobSigner)
-      .sellNftWithMarketplaceId(
+      .sellNft(
         erc721Precompile.address,
         sellNFTSeries,
         alithSigner.address,
@@ -216,7 +216,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     const marketplaceId = 1;
 
     // precompile
-    const precompileGasCost = await marketPlacePrecompile.estimateGas.auctionNftWithMarketplaceId(
+    const precompileGasCost = await marketPlacePrecompile.estimateGas.auctionNft(
       erc721Precompile.address,
       auctionNFTSeries,
       paymentAsset,
@@ -227,7 +227,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     let balanceBefore = await bobSigner.getBalance();
     const tx = await marketPlacePrecompile
       .connect(bobSigner)
-      .auctionNftWithMarketplaceId(
+      .auctionNft(
         erc721Precompile.address,
         auctionNFTSeries,
         paymentAsset,
@@ -277,7 +277,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     // precompile
     const precompileGasCost = await marketPlacePrecompile
       .connect(alithSigner)
-      .estimateGas.makeSimpleOfferWithMarketplaceId(
+      .estimateGas.makeSimpleOffer(
         erc721Precompile.address,
         offerSeries,
         amount,
@@ -287,7 +287,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     let balanceBefore = await alithSigner.getBalance();
     const tx = await marketPlacePrecompile
       .connect(alithSigner)
-      .makeSimpleOfferWithMarketplaceId(erc721Precompile.address, offerSeries, amount, paymentAsset, marketplaceId);
+      .makeSimpleOffer(erc721Precompile.address, offerSeries, amount, paymentAsset, marketplaceId);
     await tx.wait();
     let balanceAfter = await alithSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
@@ -330,7 +330,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
 
     let sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .sellNftWithMarketplaceId(
+      .sellNft(
         erc721Precompile.address,
         sellNFTSeries,
         alithSigner.address,
@@ -355,7 +355,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
 
     sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .sellNftWithMarketplaceId(
+      .sellNft(
         erc721Precompile.address,
         sellNFTSeries2,
         alithSigner.address,
@@ -404,7 +404,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     // precompile
     let auctionTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .auctionNftWithMarketplaceId(
+      .auctionNft(
         erc721Precompile.address,
         auctionNFTSeries,
         paymentAsset,
@@ -430,7 +430,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     // precompile
     auctionTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .auctionNftWithMarketplaceId(
+      .auctionNft(
         erc721Precompile.address,
         auctionNFTSeries,
         paymentAsset,
@@ -477,7 +477,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
 
     let sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .sellNftWithMarketplaceId(
+      .sellNft(
         erc721Precompile.address,
         sellNFTSeries,
         buyer,
@@ -502,7 +502,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
     sellNFTSeries = [182, 183];
     sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .sellNftWithMarketplaceId(
+      .sellNft(
         erc721Precompile.address,
         sellNFTSeries,
         buyer,
@@ -550,7 +550,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .sellNftWithMarketplaceId(
+      .sellNft(
         erc721Precompile.address,
         sellNFTSeries,
         buyer,
@@ -607,7 +607,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
 
     let offerNftTx = await marketPlacePrecompile
       .connect(alithSigner)
-      .makeSimpleOfferWithMarketplaceId(erc721Precompile.address, offerSeries, amount, paymentAsset, marketplaceId);
+      .makeSimpleOffer(erc721Precompile.address, offerSeries, amount, paymentAsset, marketplaceId);
     let receipt = await offerNftTx.wait();
     let [offerId] = (receipt?.events as any)[0].args;
 
@@ -622,7 +622,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
 
     offerNftTx = await marketPlacePrecompile
       .connect(alithSigner)
-      .makeSimpleOfferWithMarketplaceId(erc721Precompile.address, 161, amount, paymentAsset, marketplaceId);
+      .makeSimpleOffer(erc721Precompile.address, 161, amount, paymentAsset, marketplaceId);
     receipt = await offerNftTx.wait();
     [offerId] = (receipt?.events as any)[0].args;
 
@@ -659,7 +659,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
 
     let offerNftTx = await marketPlacePrecompile
       .connect(alithSigner)
-      .makeSimpleOfferWithMarketplaceId(erc721Precompile.address, offerSeries, amount, paymentAsset, marketplaceId);
+      .makeSimpleOffer(erc721Precompile.address, offerSeries, amount, paymentAsset, marketplaceId);
     let receipt = await offerNftTx.wait();
     let [offerId] = (receipt?.events as any)[0].args;
 
@@ -674,7 +674,7 @@ describe("Marketplace Precompile Gas Estimates", function () {
 
     offerNftTx = await marketPlacePrecompile
       .connect(alithSigner)
-      .makeSimpleOfferWithMarketplaceId(erc721Precompile.address, 399, amount, paymentAsset, marketplaceId);
+      .makeSimpleOffer(erc721Precompile.address, 399, amount, paymentAsset, marketplaceId);
     receipt = await offerNftTx.wait();
     [offerId] = (receipt?.events as any)[0].args;
 
