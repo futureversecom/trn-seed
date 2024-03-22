@@ -52,6 +52,47 @@ fn set_peg_contract_address_works() {
 }
 
 #[test]
+fn set_deposit_delay_active() {
+	ExtBuilder::default().build().execute_with(|| {
+		let signer = create_account(22);
+
+		// Setting as not sudo fails
+		assert_noop!(Erc20Peg::activate_deposits_delay(Some(signer).into(), false), BadOrigin);
+
+		// Sanity check
+		assert_eq!(Erc20Peg::deposits_delay_active(), true);
+
+		// Calling as sudo should work
+		assert_ok!(Erc20Peg::activate_deposits_delay(frame_system::RawOrigin::Root.into(), false));
+
+		// Storage updated
+		assert_eq!(Erc20Peg::deposits_delay_active(), false);
+	});
+}
+
+#[test]
+fn set_withdrawal_delay_active() {
+	ExtBuilder::default().build().execute_with(|| {
+		let signer = create_account(22);
+
+		// Setting as not sudo fails
+		assert_noop!(Erc20Peg::activate_withdrawals_delay(Some(signer).into(), false), BadOrigin);
+
+		// Sanity check
+		assert_eq!(Erc20Peg::withdrawals_delay_active(), true);
+
+		// Calling as sudo should work
+		assert_ok!(Erc20Peg::activate_withdrawals_delay(
+			frame_system::RawOrigin::Root.into(),
+			false
+		));
+
+		// Storage updated
+		assert_eq!(Erc20Peg::withdrawals_delay_active(), false);
+	});
+}
+
+#[test]
 fn set_root_peg_address_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let signer = create_account(22);
@@ -452,6 +493,8 @@ fn deposit_payment_with_delay() {
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 
+		// Activate deposits delays
+		assert_ok!(Erc20Peg::activate_deposits_delay(frame_system::RawOrigin::Root.into(), true));
 		// Setup token mapping
 		let token_address: H160 = H160::from_low_u64_be(666);
 		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
@@ -568,6 +611,11 @@ fn withdraw_with_delay() {
 		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
 		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
 		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
+		// Activate withdrawal delays
+		assert_ok!(Erc20Peg::activate_withdrawals_delay(
+			frame_system::RawOrigin::Root.into(),
+			true
+		));
 
 		assert_ok!(Erc20Peg::set_payment_delay(
 			frame_system::RawOrigin::Root.into(),
