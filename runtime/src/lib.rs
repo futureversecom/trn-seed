@@ -153,10 +153,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 49,
+	spec_version: 52,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 6,
+	transaction_version: 7,
 	state_version: 0,
 };
 
@@ -418,6 +418,7 @@ parameter_types! {
 }
 impl pallet_nft::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
 	type OnTransferSubscription = TokenApprovals;
@@ -460,7 +461,7 @@ parameter_types! {
 	pub const SftPalletId: PalletId = PalletId(*b"sftokens");
 	pub const MaxTokensPerSftCollection: u32 = 1_000_000;
 	pub const MaxOwnersPerSftCollection: u32 = 1_000_000;
-	pub const MaxSerialsPerMint: u32 = 100; // Higher values can be storage heavy
+	pub const MaxSerialsPerMint: u32 = 1000; // Higher values can be storage heavy
 }
 impl pallet_sft::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -1290,6 +1291,33 @@ impl pallet_maintenance_mode::Config for Runtime {
 	type EthyPallet = EthBridge;
 }
 
+parameter_types! {
+	pub const CrowdSalePalletId: PalletId = PalletId(*b"crowdsal");
+	// Some low limit to prevent overworking on_initialize
+	pub const MaxSalesPerBlock: u32 = 5;
+	// Limit for bounded vec of max consecutive sales. Should be a reasonable upper bound
+	pub const MaxConsecutiveSales: u32 = 2_000;
+	// Maximum number of payments to be processed per offchain_worker call for auto distributing sales
+	pub const MaxPaymentsPerBlock: u32 = 100;
+	pub const MaxSaleDuration: BlockNumber = 1_944_000; // ~3 months
+}
+
+impl pallet_crowdsale::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletId = CrowdSalePalletId;
+	type StringLimit = AssetsStringLimit;
+	type ProxyCallValidator = impls::CrowdsaleProxyVaultValidator;
+	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
+	type MaxSalesPerBlock = MaxSalesPerBlock;
+	type MaxConsecutiveSales = MaxConsecutiveSales;
+	type MaxPaymentsPerBlock = MaxPaymentsPerBlock;
+	type MaxSaleDuration = MaxSaleDuration;
+	type UnsignedInterval = UnsignedInterval;
+	type WeightInfo = weights::pallet_crowdsale::WeightInfo<Self>;
+}
+
 /// Block header type as expected by this runtime.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256Hash>;
 
@@ -1339,6 +1367,7 @@ construct_runtime! {
 		Xls20: pallet_xls20 = 42,
 		Doughnut: pallet_doughnut = 48,
 		MaintenanceMode: pallet_maintenance_mode = 47,
+		Crowdsale: pallet_crowdsale = 49,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -2127,8 +2156,9 @@ mod benches {
 		[pallet_futurepass, Futurepass]
 		[pallet_vortex, VortexDistribution]
 		[pallet_dex, Dex]
-		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_marketplace, Marketplace]
 		[pallet_doughnut, Doughnut]
+		[pallet_maintenance_mode, MaintenanceMode]
+		[pallet_crowdsale, Crowdsale]
 	);
 }

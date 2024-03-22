@@ -277,6 +277,7 @@ macro_rules! impl_pallet_nft_config {
 
 		impl pallet_nft::Config for Test {
 			type RuntimeEvent = RuntimeEvent;
+			type RuntimeCall = RuntimeCall;
 			type MaxTokensPerCollection = MaxTokensPerCollection;
 			type MintLimit = MintLimit;
 			type OnTransferSubscription = MockTransferSubscriber;
@@ -305,7 +306,7 @@ macro_rules! impl_pallet_sft_config {
 		parameter_types! {
 			pub const SftPalletId: PalletId = PalletId(*b"sftokens");
 			pub const MaxTokensPerSftCollection: u32 = 10_000;
-			pub const MaxSerialsPerSftMint: u32 = 10;
+			pub const MaxSerialsPerSftMint: u32 = 100;
 			pub const MaxOwnersPerSftToken: u32 = 100;
 		}
 

@@ -7,18 +7,6 @@ on:
   pull_request:
     branches:
       - release/*
-      - trunk/*
-      - main
-    paths:
-      - "**.rs"
-      - "**.toml"
-      - "**.lock"
-      - "chain-specs/**"
-      - ".github/workflows/*.yml"
-      - "**.ts"
-  push:
-    branches:
-      - trunk/*
       - main
     paths:
       - "**.rs"
