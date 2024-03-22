@@ -41,6 +41,15 @@ impl<T: frame_system::Config> pallet_erc20_peg::WeightInfo for WeightInfo<T> {
 		Weight::from_ref_time(17_081_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
+	fn activate_deposits_delay() -> Weight {
+		Weight::from_ref_time(17_003_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+	// Storage: Erc20Peg WithdrawalsActive (r:0 w:1)
+	fn activate_withdrawals_delay() -> Weight {
+		Weight::from_ref_time(17_081_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
 	// Storage: Erc20Peg WithdrawalsActive (r:1 w:0)
 	// Storage: Erc20Peg AssetIdToErc20 (r:1 w:0)
 	// Storage: Erc20Peg PaymentDelay (r:1 w:0)

@@ -145,11 +145,18 @@ impl<T: Config> ListingTokens<T> {
 					to.clone(),
 				)?;
 			},
-			ListingTokens::Sft(sfts) =>
+			ListingTokens::Sft(sfts) => {
 				for (serial_number, balance) in sfts.serial_numbers.iter() {
 					let token_id = (sfts.collection_id, *serial_number);
-					T::SFTExt::transfer_reserved_balance(token_id, *balance, from, to)?;
-				},
+					T::SFTExt::free_reserved_balance(token_id, *balance, from)?;
+				}
+				T::SFTExt::do_transfer(
+					*from,
+					sfts.collection_id,
+					sfts.clone().serial_numbers.into_inner(),
+					*to,
+				)?;
+			},
 		}
 		Ok(())
 	}

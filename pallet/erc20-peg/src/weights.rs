@@ -50,6 +50,8 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn activate_deposits() -> Weight;
 	fn activate_withdrawals() -> Weight;
+	fn activate_deposits_delay() -> Weight;
+	fn activate_withdrawals_delay() -> Weight;
 	fn withdraw() -> Weight;
 	fn set_erc20_peg_address() -> Weight;
 	fn set_root_peg_address() -> Weight;
@@ -68,6 +70,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	// Storage: Erc20Peg WithdrawalsActive (r:0 w:1)
 	fn activate_withdrawals() -> Weight {
+		Weight::from_ref_time(17_749_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+	// Storage: Erc20Peg DepositsDelayActive (r:0 w:1)
+	fn activate_deposits_delay() -> Weight {
+		Weight::from_ref_time(18_206_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+	// Storage: Erc20Peg WithdrawalsDelayActive (r:0 w:1)
+	fn activate_withdrawals_delay() -> Weight {
 		Weight::from_ref_time(17_749_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -124,6 +136,16 @@ impl WeightInfo for () {
 	}
 	// Storage: Erc20Peg WithdrawalsActive (r:0 w:1)
 	fn activate_withdrawals() -> Weight {
+		Weight::from_ref_time(17_749_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+	// Storage: Erc20Peg DepositsDelayActive (r:0 w:1)
+	fn activate_deposits_delay() -> Weight {
+		Weight::from_ref_time(18_206_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+	// Storage: Erc20Peg WithdrawalsDelayActive (r:0 w:1)
+	fn activate_withdrawals_delay() -> Weight {
 		Weight::from_ref_time(17_749_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}

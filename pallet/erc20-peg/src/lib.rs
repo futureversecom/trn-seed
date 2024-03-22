@@ -78,6 +78,10 @@ decl_storage! {
 		DepositsActive get(fn deposits_active): bool;
 		/// Whether withdrawals are active
 		WithdrawalsActive get(fn withdrawals_active): bool;
+		/// Whether deposit delays are active, default is set to true
+		DepositsDelayActive get(fn deposits_delay_active): bool = true;
+		/// Whether withdrawals delays are active, default is set to true
+		WithdrawalsDelayActive get(fn withdrawals_delay_active): bool = true;
 		/// Map ERC20 address to GA asset Id
 		Erc20ToAssetId get(fn erc20_to_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
 		/// Map GA asset Id to ERC20 address
@@ -115,9 +119,9 @@ decl_event! {
 		BlockNumber = <T as frame_system::Config>::BlockNumber,
 	{
 		/// An erc20 deposit has been delayed.(payment_id, scheduled block, amount, beneficiary)
-		Erc20DepositDelayed(DelayedPaymentId, BlockNumber, Balance, AccountId),
+		Erc20DepositDelayed(DelayedPaymentId, BlockNumber, Balance, AccountId, AssetId),
 		/// A withdrawal has been delayed.(payment_id, scheduled block, amount, beneficiary)
-		Erc20WithdrawalDelayed(DelayedPaymentId, BlockNumber, Balance, EthAddress),
+		Erc20WithdrawalDelayed(DelayedPaymentId, BlockNumber, Balance, EthAddress, AssetId, AccountId),
 		/// A delayed erc20 deposit has failed (payment_id, beneficiary)
 		DelayedErc20DepositFailed(DelayedPaymentId, AccountId),
 		/// A delayed erc20 withdrawal has failed (asset_id, beneficiary)
@@ -136,6 +140,10 @@ decl_event! {
 		PaymentDelaySet(AssetId, Balance, BlockNumber),
 		/// There are no more payment ids available, they've been exhausted
 		NoAvailableDelayedPaymentIds,
+		/// Toggle deposit delay
+		ActivateDepositDelay(bool),
+		/// Toggle withdrawal delay
+		ActivateWithdrawalDelay(bool),
 	}
 }
 
@@ -237,6 +245,22 @@ decl_module! {
 			WithdrawalsActive::put(activate);
 		}
 
+		/// Activate/deactivate delay deposits (root only)
+		#[weight = T::WeightInfo::activate_deposits_delay()]
+		pub fn activate_deposits_delay(origin, activate: bool) {
+			ensure_root(origin)?;
+			DepositsDelayActive::put(activate);
+			Self::deposit_event(<Event<T>>::ActivateDepositDelay(activate));
+		}
+
+		/// Activate/deactivate withdrawals (root only)
+		#[weight = T::WeightInfo::activate_withdrawals_delay()]
+		pub fn activate_withdrawals_delay(origin, activate: bool) {
+			ensure_root(origin)?;
+			WithdrawalsDelayActive::put(activate);
+			Self::deposit_event(<Event<T>>::ActivateWithdrawalDelay(activate));
+		}
+
 		#[weight = T::WeightInfo::withdraw()]
 		/// Tokens will be transferred to peg account and a proof generated to allow redemption of tokens on Ethereum
 		#[transactional]
@@ -315,22 +339,29 @@ impl<T: Config> Module<T> {
 
 		// Check if there is a delay on the asset
 		let payment_delay: Option<(Balance, T::BlockNumber)> = Self::payment_delay(asset_id);
-		if let Some((min_amount, delay)) = payment_delay {
-			if min_amount <= amount {
-				return match call_origin {
-					WithdrawCallOrigin::Runtime => {
-						// Delay the payment
-						let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
-						Self::delay_payment(delay, PendingPayment::Withdrawal(message));
-						Ok(None)
-					},
-					WithdrawCallOrigin::Evm => {
-						// EVM payment delays are not supported
-						Err(Error::<T>::EvmWithdrawalFailed.into())
-					},
+		if Self::withdrawals_delay_active() {
+			if let Some((min_amount, delay)) = payment_delay {
+				if min_amount <= amount {
+					return match call_origin {
+						WithdrawCallOrigin::Runtime => {
+							// Delay the payment
+							let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
+							Self::delay_payment(
+								delay,
+								PendingPayment::Withdrawal(message),
+								asset_id,
+								origin,
+							);
+							Ok(None)
+						},
+						WithdrawCallOrigin::Evm => {
+							// EVM payment delays are not supported
+							Err(Error::<T>::EvmWithdrawalFailed.into())
+						},
+					}
 				}
-			}
-		};
+			};
+		}
 
 		// Process transfer or withdrawal of payment asset
 		let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
@@ -419,7 +450,12 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Delay a withdrawal or deposit until a later block
-	pub fn delay_payment(delay: T::BlockNumber, pending_payment: PendingPayment) {
+	pub fn delay_payment(
+		delay: T::BlockNumber,
+		pending_payment: PendingPayment,
+		asset_id: AssetId,
+		source: T::AccountId,
+	) {
 		let payment_id = NextDelayedPaymentId::get();
 		if !payment_id.checked_add(One::one()).is_some() {
 			Self::deposit_event(Event::<T>::NoAvailableDelayedPaymentIds);
@@ -439,6 +475,8 @@ impl<T: Config> Module<T> {
 					payment_block,
 					withdrawal.amount.as_u128(),
 					withdrawal.beneficiary,
+					asset_id,
+					source,
 				));
 			},
 			PendingPayment::Deposit(deposit) => {
@@ -449,6 +487,7 @@ impl<T: Config> Module<T> {
 					payment_block,
 					deposit.amount.as_u128(),
 					beneficiary,
+					asset_id,
 				));
 			},
 		}
@@ -477,12 +516,19 @@ impl<T: Config> Module<T> {
 			}
 			// Asset exists, check if there are delays on this deposit
 			let payment_delay: Option<(Balance, T::BlockNumber)> = Self::payment_delay(asset_id);
-			if let Some((min_amount, delay)) = payment_delay {
-				if U256::from(min_amount) <= deposit_event.amount {
-					Self::delay_payment(delay, PendingPayment::Deposit(deposit_event.clone()));
-					return Ok(())
-				}
-			};
+			if Self::deposits_delay_active() {
+				if let Some((min_amount, delay)) = payment_delay {
+					if U256::from(min_amount) <= deposit_event.amount {
+						Self::delay_payment(
+							delay,
+							PendingPayment::Deposit(deposit_event.clone()),
+							asset_id,
+							(*source).into(),
+						);
+						return Ok(())
+					}
+				};
+			}
 		}
 		// process deposit immediately
 		Self::process_deposit(deposit_event)

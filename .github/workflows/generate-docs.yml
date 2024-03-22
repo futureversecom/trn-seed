@@ -1,0 +1,40 @@
+name: Generate Pallet Documentation
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+  contents: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      pallet:
+        description: 'Pallet name; e.g. `pallet-futurepass`'
+        required: true
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref_name }}
+        fetch-depth: 0
+
+    - uses: dtolnay/rust-toolchain@1.69
+      with:
+        toolchain: nightly
+        targets: wasm32-unknown-unknown
+
+    - name: Generate Documentation
+      run: cargo doc -p ${{ github.event.inputs.pallet }} --no-deps
+
+    - name: Upload Pallet Doc as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ github.event.inputs.pallet }}-docs
+        path: ${{ github.workspace }}/target/doc

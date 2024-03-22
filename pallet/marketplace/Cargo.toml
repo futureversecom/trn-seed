@@ -8,6 +8,7 @@ repository = "https://github.com/futureversecom/seed"
 description = "Root Network Marketplace pallet"
 
 [dependencies]
+log = { default-features = false, version = "0.4.14"}
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.145", default-features = false, features = ["derive"], optional = true }
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
@@ -21,9 +22,9 @@ scale-info = { version = "2.3.0", default-features = false, features = ["derive"
 
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
-pallet-nft = { path = "../nft", default-features = false }
-pallet-sft = { path = "../sft", default-features = false }
-log = { default-features = false, version = "0.4.14"}
+
+pallet-nft = { path = "../nft", default-features = false, optional = true }
+pallet-sft = { path = "../sft", default-features = false, optional = true }
 
 [dev-dependencies]
 serde_json = "1.0"
@@ -33,6 +34,8 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "p
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+pallet-nft = { path = "../nft" }
+pallet-sft = { path = "../sft" }
 
 [features]
 default = ["std"]
@@ -51,5 +54,5 @@ std = [
 	"frame-system/std",
 	"scale-info/std",
 ]
-runtime-benchmarks = ["frame-benchmarking"]
+runtime-benchmarks = ["frame-benchmarking", "pallet-nft/runtime-benchmarks", "pallet-sft/runtime-benchmarks"]
 try-runtime = ["frame-support/try-runtime"]

@@ -3,6 +3,7 @@ pub mod pallet_assets;
 pub mod pallet_assets_ext;
 pub mod pallet_bags_list;
 pub mod pallet_balances;
+pub mod pallet_crowdsale;
 pub mod pallet_dex;
 pub mod pallet_doughnut;
 pub mod pallet_echo;

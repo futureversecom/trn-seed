@@ -13,7 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod marketplace;
+mod crowdsale;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
@@ -32,16 +32,16 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-		marketplace::Upgrade::pre_upgrade()
+		crowdsale::Upgrade::pre_upgrade()
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		marketplace::Upgrade::on_runtime_upgrade()
+		crowdsale::Upgrade::on_runtime_upgrade()
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), &'static str> {
-		marketplace::Upgrade::post_upgrade(state)
+		crowdsale::Upgrade::post_upgrade(state)
 	}
 }
 

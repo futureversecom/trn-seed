@@ -138,16 +138,29 @@ benchmarks! {
 	}
 
 	transfer {
+		let p in 1 .. (50);
 		let owner = account::<T>("Alice");
 		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), u128::MAX);
-		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![u128::MAX]);
-	}: _(origin::<T>(&owner), collection_id, serial_numbers, account::<T>("Bob"))
+		for i in 1..p {
+			assert_ok!(Sft::<T>::create_token(
+				origin::<T>(&owner).into(),
+				collection_id,
+				bounded_string::<T>("SFT Token"),
+				u128::MAX,
+				None,
+				None,
+			));
+		}
+		let serial_numbers: Vec<SerialNumber> = (0..p).collect();
+		let serials_combined: Vec<(SerialNumber, Balance)> = serial_numbers.iter().map(|s| (*s, u128::MAX)).collect();
+		let serial_numbers_bounded = BoundedVec::truncate_from(serials_combined);
+	}: _(origin::<T>(&owner), collection_id, serial_numbers_bounded.clone(), account::<T>("Bob"))
 	verify {
-		let token = TokenInfo::<T>::get((collection_id, serial_number));
-		assert!(token.is_some());
-		let token = token.unwrap();
-		assert_eq!(token.free_balance_of(&account::<T>("Alice")), 0);
-		assert_eq!(token.free_balance_of(&account::<T>("Bob")), u128::MAX);
+		for (serial_number, amount) in serial_numbers_bounded.into_inner() {
+			let token = TokenInfo::<T>::get((collection_id, serial_number)).unwrap();
+			assert_eq!(token.free_balance_of(&account::<T>("Alice")), 0);
+			assert_eq!(token.free_balance_of(&account::<T>("Bob")), amount);
+		}
 	}
 
 	burn {

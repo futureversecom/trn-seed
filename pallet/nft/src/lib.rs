@@ -29,6 +29,7 @@
 //! number)
 
 use frame_support::{
+	dispatch::Dispatchable,
 	ensure,
 	traits::{fungibles::Transfer, Get},
 	transactional, PalletId,
@@ -105,6 +106,10 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// The overarching call type.
+		type RuntimeCall: Parameter
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+			+ From<frame_system::Call<Self>>;
 		/// Max tokens that a collection can contain
 		type MaxTokensPerCollection: Get<u32>;
 		/// Max quantity of NFTs that can be minted in one transaction
@@ -306,13 +311,7 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let mut collection_info =
-				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
-			collection_info.owner = new_owner.clone();
-			<CollectionInfo<T>>::insert(collection_id, collection_info);
-			Self::deposit_event(Event::<T>::OwnerSet { collection_id, new_owner });
-			Ok(())
+			Self::do_set_owner(who, collection_id, new_owner)
 		}
 
 		/// Set the max issuance of a collection

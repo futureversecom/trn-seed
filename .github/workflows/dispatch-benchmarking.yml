@@ -12,9 +12,6 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        description: 'Branch name; do not use `main`'
-        required: true
       pallets:
         description: 'Space-separated list of pallet names; e.g. `pallet-futurepass pallet-dex`; runs all if left empty'
         required: false
@@ -26,7 +23,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.inputs.branch }}
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       # - name: Install toolchain
@@ -75,9 +72,9 @@ jobs:
           git add -A
           if [ -z "$PALLET_INPUT" ]
           then
-            git commit -m "Update all benchmarks on ${{ github.event.inputs.branch }}"
+            git commit -m "Update all benchmarks on ${{ github.ref_name }}"
           else
-            git commit -m "Update benchmarks for $PALLET_INPUT on ${{ github.event.inputs.branch }}"
+            git commit -m "Update benchmarks for $PALLET_INPUT on ${{ github.ref_name }}"
           fi
-          git push origin ${{ github.event.inputs.branch }}
+          git push origin ${{ github.ref_name }}
 

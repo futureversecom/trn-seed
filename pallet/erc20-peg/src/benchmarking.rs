@@ -51,6 +51,26 @@ benchmarks! {
 		assert_eq!(WithdrawalsActive::get(), activate);
 	}
 
+	activate_deposits_delay {
+		let activate = false;
+		// Sanity check
+		assert_eq!(DepositsDelayActive::get(), !activate);
+
+	}: _(RawOrigin::Root, activate)
+	verify {
+		assert_eq!(DepositsDelayActive::get(), activate);
+	}
+
+	activate_withdrawals_delay {
+		let activate = false;
+		// Sanity check
+		assert_eq!(WithdrawalsDelayActive::get(), !activate);
+
+	}: _(RawOrigin::Root, activate)
+	verify {
+		assert_eq!(WithdrawalsDelayActive::get(), activate);
+	}
+
 	withdraw {
 		let alice = account::<T>("Alice");
 		let alice_balance: Balance = 10000u32.into();
