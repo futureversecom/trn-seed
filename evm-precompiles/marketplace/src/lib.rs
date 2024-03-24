@@ -57,7 +57,6 @@ pub const SELECTOR_LOG_FIXED_PRICE_SALE_COMPLETE: [u8; 32] =
 	keccak256!("FixedPriceSaleComplete(uint256,uint256,uint256,address,uint256[],uint128)");
 // collection_id, listing_id, fixed_price, sender, serial_number_ids, marketplace_id
 
-
 pub const SELECTOR_LOG_AUCTION_OPEN: [u8; 32] =
 	keccak256!("AuctionOpen(uint256,uint256,uint256,address,uint256[],uint128)");
 // collection_id, listing_id, reserve_price, sender, serial_number_ids, marketplace_id
@@ -284,9 +283,7 @@ where
 		Ok(succeed(EvmDataWriter::new().write(marketplace_id).build()))
 	}
 
-	fn sell_nft(
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
+	fn sell_nft(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		Self::sell_nft_with_marketplace_id(handle)
 	}
 
