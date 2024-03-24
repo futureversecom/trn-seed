@@ -143,14 +143,7 @@ describe("Marketplace Precompile", function () {
 
     const auctionNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .auctionNft(
-        erc721Precompile.address,
-        auctionNFTSeries,
-        paymentAsset,
-        reservePrice,
-        duration,
-        marketplaceId,
-      );
+      .auctionNft(erc721Precompile.address, auctionNFTSeries, paymentAsset, reservePrice, duration, marketplaceId);
     const receipt = await auctionNftTx.wait();
     const [collectionId, listingId, reservePriceFromChain, seller, serialNumbers] = (receipt?.events as any)[0].args;
     expect((receipt?.events as any)[0].event).to.equal("AuctionOpen");
@@ -228,14 +221,7 @@ describe("Marketplace Precompile", function () {
     // precompile
     const auctionTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .auctionNft(
-        erc721Precompile.address,
-        auctionNFTSeries,
-        paymentAsset,
-        reservePrice,
-        duration,
-        marketplaceId,
-      );
+      .auctionNft(erc721Precompile.address, auctionNFTSeries, paymentAsset, reservePrice, duration, marketplaceId);
     const auctionReceipt = await auctionTx.wait();
     const [, listingIdForAuction, , ,] = (auctionReceipt?.events as any)[0].args;
 
@@ -260,15 +246,7 @@ describe("Marketplace Precompile", function () {
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .sellNft(
-        erc721Precompile.address,
-        sellNFTSeries,
-        buyer,
-        paymentAsset,
-        fixedPrice,
-        duration,
-        marketplaceId,
-      );
+      .sellNft(erc721Precompile.address, sellNFTSeries, buyer, paymentAsset, fixedPrice, duration, marketplaceId);
     const sellReceipt = await sellNftTx.wait();
     const [, listingId, , ,] = (sellReceipt?.events as any)[0].args;
 
@@ -290,14 +268,7 @@ describe("Marketplace Precompile", function () {
 
     const auctionNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .auctionNft(
-        erc721Precompile.address,
-        auctionNFTSeries,
-        paymentAsset,
-        reservePrice,
-        duration,
-        marketplaceId,
-      );
+      .auctionNft(erc721Precompile.address, auctionNFTSeries, paymentAsset, reservePrice, duration, marketplaceId);
     const auctionReceipt = await auctionNftTx.wait();
     const [, listingIdForAuction, , ,] = (auctionReceipt?.events as any)[0].args;
 
@@ -327,15 +298,7 @@ describe("Marketplace Precompile", function () {
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .sellNft(
-        erc721Precompile.address,
-        sellNFTSeries,
-        buyer,
-        paymentAsset,
-        fixedPrice,
-        duration,
-        marketplaceId,
-      );
+      .sellNft(erc721Precompile.address, sellNFTSeries, buyer, paymentAsset, fixedPrice, duration, marketplaceId);
     const sellReceipt = await sellNftTx.wait();
     const [, listingId, , ,] = (sellReceipt?.events as any)[0].args;
 
@@ -444,15 +407,7 @@ describe("Marketplace Precompile", function () {
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .sellNft(
-        erc721Precompile.address,
-        sellNFTSeries,
-        buyer,
-        paymentAsset,
-        fixedPrice,
-        duration,
-        marketplaceId,
-      );
+      .sellNft(erc721Precompile.address, sellNFTSeries, buyer, paymentAsset, fixedPrice, duration, marketplaceId);
     const sellReceipt = await sellNftTx.wait();
     const [, listingId, , ,] = (sellReceipt?.events as any)[0].args;
 
@@ -508,15 +463,7 @@ describe("Marketplace Precompile", function () {
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .sellNft(
-        erc721Precompile.address,
-        sellNFTSeries,
-        buyer,
-        paymentAsset,
-        fixedPrice,
-        duration,
-        marketplaceId,
-      );
+      .sellNft(erc721Precompile.address, sellNFTSeries, buyer, paymentAsset, fixedPrice, duration, marketplaceId);
     const sellReceipt = await sellNftTx.wait();
     const [, listingId, , ,] = (sellReceipt?.events as any)[0].args;
 
@@ -539,15 +486,7 @@ describe("Marketplace Precompile", function () {
 
     const sellNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .sellNft(
-        erc721Precompile.address,
-        sellNFTSeries,
-        buyer,
-        paymentAsset,
-        fixedPrice,
-        duration,
-        marketplaceId,
-      );
+      .sellNft(erc721Precompile.address, sellNFTSeries, buyer, paymentAsset, fixedPrice, duration, marketplaceId);
     const sellReceipt = await sellNftTx.wait();
     const [, listingId, , ,] = (sellReceipt?.events as any)[0].args;
 
@@ -569,14 +508,7 @@ describe("Marketplace Precompile", function () {
 
     const auctionNftTx = await marketPlacePrecompile
       .connect(bobSigner)
-      .auctionNft(
-        erc721Precompile.address,
-        auctionNFTSeries,
-        paymentAsset,
-        reservePrice,
-        duration,
-        marketplaceId,
-      );
+      .auctionNft(erc721Precompile.address, auctionNFTSeries, paymentAsset, reservePrice, duration, marketplaceId);
     const receipt = await auctionNftTx.wait();
     const [, listingId, , ,] = (receipt?.events as any)[0].args;
 
