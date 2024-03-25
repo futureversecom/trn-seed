@@ -243,8 +243,12 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction)]
 	/// Temporary storage to set the transactions ready to be processed at specified block number
-	pub type ProcessXRPTransaction<T: Config> =
-		StorageMap<_, Twox64Concat, BlockNumberFor<T>, BoundedVec<XrplTxHash, T::XRPTransactionLimit>>;
+	pub type ProcessXRPTransaction<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		BlockNumberFor<T>,
+		BoundedVec<XrplTxHash, T::XRPTransactionLimit>,
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction_details)]

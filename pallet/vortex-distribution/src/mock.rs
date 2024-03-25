@@ -16,7 +16,10 @@
 use crate as pallet_vortex;
 use frame_support::traits::{ConstU32, Hooks};
 use seed_pallet_common::test_prelude::*;
-use sp_runtime::testing::{Header, TestXt};
+use sp_runtime::{
+	testing::{Header, TestXt},
+	BuildStorage,
+};
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;
@@ -194,7 +197,7 @@ impl TestExt {
 	}
 
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let mut ext = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		if !self.assets.is_empty() {
 			let mut metadata = Vec::with_capacity(self.assets.len());

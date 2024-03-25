@@ -214,8 +214,8 @@ fn create_lp_token() {
 		assert_eq!(usdc, 1124);
 		assert_eq!(weth, 2148);
 
-		let usdc_symbol_bytes = AssetsExt::symbol(&usdc);
-		let weth_symbol_bytes = AssetsExt::symbol(&weth);
+		let usdc_symbol_bytes = AssetsExt::symbol(usdc);
+		let weth_symbol_bytes = AssetsExt::symbol(weth);
 		let usdc_symbol = sp_std::str::from_utf8(&usdc_symbol_bytes).unwrap();
 		let weth_symbol = sp_std::str::from_utf8(&weth_symbol_bytes).unwrap();
 
@@ -228,10 +228,10 @@ fn create_lp_token() {
 		assert_eq!(lp_token, 3172);
 
 		let lp_token_name_bytes =
-			<AssetsExt as frame_support::traits::fungibles::InspectMetadata<AccountId>>::name(
-				&lp_token,
+			<AssetsExt as frame_support::traits::fungibles::metadata::Inspect<AccountId>>::name(
+				lp_token,
 			);
-		let lp_token_symbol_bytes = AssetsExt::symbol(&lp_token);
+		let lp_token_symbol_bytes = AssetsExt::symbol(lp_token);
 		let lp_token_name = sp_std::str::from_utf8(&lp_token_name_bytes).unwrap();
 		let lp_token_symbol = sp_std::str::from_utf8(&lp_token_symbol_bytes).unwrap();
 
@@ -265,8 +265,8 @@ fn create_lp_token_long_symbol() {
 		assert_eq!(usdc, 1124);
 		assert_eq!(weth, 2148);
 
-		let usdc_symbol_bytes = AssetsExt::symbol(&usdc);
-		let weth_symbol_bytes = AssetsExt::symbol(&weth);
+		let usdc_symbol_bytes = AssetsExt::symbol(usdc);
+		let weth_symbol_bytes = AssetsExt::symbol(weth);
 		let usdc_symbol = sp_std::str::from_utf8(&usdc_symbol_bytes).unwrap();
 		let weth_symbol = sp_std::str::from_utf8(&weth_symbol_bytes).unwrap();
 
@@ -279,10 +279,10 @@ fn create_lp_token_long_symbol() {
 		assert_eq!(lp_token, 3172);
 
 		let lp_token_name_bytes =
-			<AssetsExt as frame_support::traits::fungibles::InspectMetadata<AccountId>>::name(
-				&lp_token,
+			<AssetsExt as frame_support::traits::fungibles::metadata::Inspect<AccountId>>::name(
+				lp_token,
 			);
-		let lp_token_symbol_bytes = AssetsExt::symbol(&lp_token);
+		let lp_token_symbol_bytes = AssetsExt::symbol(lp_token);
 		let lp_token_name = sp_std::str::from_utf8(&lp_token_name_bytes).unwrap();
 		let lp_token_symbol = sp_std::str::from_utf8(&lp_token_symbol_bytes).unwrap();
 

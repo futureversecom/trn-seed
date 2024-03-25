@@ -30,7 +30,7 @@
 
 use frame_support::{
 	ensure,
-	traits::{fungibles::Transfer, Get},
+	traits::{fungibles::Mutate, Get},
 	transactional, PalletId,
 };
 use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest};
@@ -113,7 +113,7 @@ pub mod pallet {
 		/// Handler for when an NFT collection has been created
 		type OnNewAssetSubscription: OnNewAssetSubscriber<CollectionUuid>;
 		/// Handles a multi-currency fungible asset system
-		type MultiCurrency: Transfer<Self::AccountId, Balance = Balance, AssetId = AssetId>;
+		type MultiCurrency: Mutate<Self::AccountId, Balance = Balance, AssetId = AssetId>;
 		/// This pallet's Id, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;

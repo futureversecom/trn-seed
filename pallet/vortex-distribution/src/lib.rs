@@ -34,7 +34,7 @@ use frame_support::{
 	log,
 	pallet_prelude::*,
 	traits::{
-		tokens::fungibles::{self, Inspect, Mutate, Transfer},
+		tokens::fungibles::{self, Inspect, Mutate},
 		Get,
 	},
 	PalletId,
@@ -77,8 +77,10 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 
 #[frame_support::pallet]
 pub mod pallet {
-
-	use frame_support::transactional;
+	use frame_support::{
+		traits::tokens::{Fortitude, Precision, Preservation},
+		transactional,
+	};
 	use sp_runtime::traits::AtLeast32BitUnsigned;
 
 	use super::*;
@@ -95,10 +97,9 @@ pub mod pallet {
 
 		/// Multi currency
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
-			+ fungibles::Transfer<Self::AccountId, Balance = BalanceOf<Self>>
 			+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
-			+ fungibles::InspectMetadata<Self::AccountId>
-			+ fungibles::Mutate<Self::AccountId>;
+			+ fungibles::metadata::Inspect<Self::AccountId>
+			+ fungibles::Mutate<Self::AccountId, Balance = BalanceOf<Self>>;
 
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
@@ -620,7 +621,13 @@ pub mod pallet {
 			}
 
 			// Burn the vortex token
-			T::MultiCurrency::burn_from(T::VtxAssetId::get(), &who, vortex_token_amount)?;
+			T::MultiCurrency::burn_from(
+				T::VtxAssetId::get(),
+				&who,
+				vortex_token_amount,
+				Precision::Exact,
+				Fortitude::Polite,
+			)?;
 			Ok(())
 		}
 	}
@@ -773,8 +780,13 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 			_keep_live: bool,
 		) -> DispatchResult {
-			let transfer_result =
-				T::MultiCurrency::transfer(asset_id, source, dest, amount, false)?;
+			let transfer_result = T::MultiCurrency::transfer(
+				asset_id,
+				source,
+				dest,
+				amount,
+				Preservation::Expendable,
+			)?;
 			ensure!(transfer_result == amount, Error::<T>::InvalidAmount);
 			Ok(())
 		}
