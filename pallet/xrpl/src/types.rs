@@ -1,8 +1,11 @@
 use alloc::{string::String, vec::Vec};
+use codec::{Decode, Encode, MaxEncodedLen};
 use libsecp256k1::Message;
+use scale_info::TypeInfo;
 use seed_primitives::AccountId20;
 use sha2::Digest;
-use sp_core::{ecdsa::Public, H160};
+use sp_core::{ecdsa, ed25519, H160};
+use sp_runtime::traits::Verify;
 use xrpl_binary_codec::{
 	deserializer::Deserializer,
 	serializer::{field_id::TypeCode, field_info::field_info_lookup, Serializer},
@@ -25,13 +28,6 @@ pub struct ExtrinsicMemoData {
 	pub hashed_call: [u8; 32],
 }
 
-/// First half of sha512 hash of a message
-pub fn sha512_first_half(message: &[u8]) -> [u8; SHA512_HASH_LENGTH] {
-	let mut sha512 = sha2::Sha512::new();
-	sha512.update(message);
-	sha512.finalize()[..SHA512_HASH_LENGTH].try_into().unwrap()
-}
-
 /// The prefix to be prepended to the signed message, for signature verification.
 /// This is hex decoded string of the value `0x53545800`
 pub const SIGNED_MESSAGE_PREFIX: [u8; 4] = [83, 84, 88, 0];
@@ -51,6 +47,40 @@ pub fn encode_for_signing(tx_common: &TransactionCommon) -> Result<Vec<u8>, &'st
 	message_with_prefix.append(&mut serialized_msg);
 
 	Ok(message_with_prefix)
+}
+
+/// Supported XRPL public key types:
+/// https://xrpl.org/docs/concepts/accounts/cryptographic-keys#signing-algorithms
+#[derive(Debug, Clone, Decode, Encode, MaxEncodedLen, PartialEq, TypeInfo)]
+pub enum XrplPublicKey {
+	ED25519(ed25519::Public),
+	ECDSA(ecdsa::Public),
+}
+
+impl AsRef<[u8]> for XrplPublicKey {
+	fn as_ref(&self) -> &[u8] {
+		match self {
+			XrplPublicKey::ED25519(public) => public.0.as_ref(),
+			XrplPublicKey::ECDSA(public) => public.0.as_ref(),
+		}
+	}
+}
+
+impl TryInto<AccountId20> for XrplPublicKey {
+	type Error = &'static str;
+	fn try_into(self) -> Result<AccountId20, Self::Error> {
+		match self {
+			XrplPublicKey::ED25519(public) => Ok(public.try_into()?),
+			XrplPublicKey::ECDSA(public) => Ok(public.try_into()?),
+		}
+	}
+}
+
+/// First half of sha512 hash of a message
+pub fn sha512_first_half(message: &[u8]) -> [u8; SHA512_HASH_LENGTH] {
+	let mut sha512 = sha2::Sha512::new();
+	sha512.update(message);
+	sha512.finalize()[..SHA512_HASH_LENGTH].try_into().unwrap()
 }
 
 /// XRPL transaction memo field
@@ -84,18 +114,32 @@ pub struct XRPLTransaction {
 }
 impl XRPLTransaction {
 	/// Retrieves the public key from the `signing_pub_key` in the XRPL transaction.
-	pub fn get_public_key(&self) -> Result<[u8; 33], &'static str> {
-		let pub_key: [u8; 33] = hex::decode(&self.signing_pub_key)
-			.map_err(|_| "Error decoding hex string")?
-			.try_into()
-			.map_err(|_| "Invalid length of decoded bytes")?;
-		Ok(pub_key)
+	pub fn get_public_key(&self) -> Result<XrplPublicKey, &'static str> {
+		let pub_key =
+			hex::decode(&self.signing_pub_key).map_err(|_| "Error decoding hex string")?;
+		// check prefix (ignore-case "ED") to determine the public key type
+		// uppercase first 2 characters and compare with "ED"
+		let key_prefix = &self.signing_pub_key[0..2].to_uppercase();
+		match key_prefix.as_str() {
+			"ED" => {
+				// remove the first byte (prefix) from the public key
+				let pub_key: [u8; 32] =
+					pub_key[1..].try_into().map_err(|_| "Invalid length of decoded bytes")?;
+				let public = ed25519::Public::from_raw(pub_key);
+				Ok(XrplPublicKey::ED25519(public))
+			},
+			_ => {
+				let pub_key: [u8; 33] =
+					pub_key.try_into().map_err(|_| "Invalid length of decoded bytes")?;
+				let public = ecdsa::Public::from_raw(pub_key);
+				Ok(XrplPublicKey::ECDSA(public))
+			},
+		}
 	}
 
 	/// Derives the account (H160) from the `signing_pub_key` in the XRPL transaction.
 	pub fn get_account(&self) -> Result<H160, &'static str> {
-		let account_bytes = self.get_public_key()?;
-		let public = Public::from_raw(account_bytes);
+		let public = self.get_public_key()?;
 		let account: AccountId20 = public.try_into()?;
 		Ok(account.into())
 	}
