@@ -125,7 +125,7 @@ describe("Marketplace Precompile", function () {
     const [seller, listingId, fixedPriceFromCall, serialNumbers, collectionAddress, marketplaceIdArgs] = (
       receipt?.events as any
     )[0].args;
-    expect((receipt?.events as any)[0].event).to.equal("FixedPriceSaleList");
+    expect((receipt?.events as any)[0].event).to.equal("FixedPriceSaleListForNFT");
     expect(collectionAddress).to.equal(erc721Precompile.address);
     expect(listingId.toNumber()).to.gte(0);
     expect(fixedPriceFromCall.toNumber()).to.equal(fixedPrice);
@@ -147,7 +147,7 @@ describe("Marketplace Precompile", function () {
       .auctionNft(erc721Precompile.address, auctionNFTSeries, paymentAsset, reservePrice, duration, marketplaceId);
     const receipt = await auctionNftTx.wait();
     const [collectionId, listingId, reservePriceFromChain, seller, serialNumbers] = (receipt?.events as any)[0].args;
-    expect((receipt?.events as any)[0].event).to.equal("AuctionOpen");
+    expect((receipt?.events as any)[0].event).to.equal("AuctionOpenForNFT");
     expect(collectionId.toNumber()).to.gte(0);
     expect(listingId.toNumber()).to.gte(0);
     expect(reservePriceFromChain.toNumber()).to.equal(reservePrice);

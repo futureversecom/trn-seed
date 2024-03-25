@@ -35,18 +35,19 @@ use precompile_utils::{
 };
 use seed_primitives::{AssetId, Balance, BlockNumber, CollectionUuid, SerialNumber, TokenId};
 use sp_core::{H160, H256, U256};
-use sp_runtime::{
-	traits::{SaturatedConversion, Zero},
-	BoundedVec, Permill,
-};
+use sp_runtime::{traits::SaturatedConversion, BoundedVec, Permill};
 use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Solidity selector of the Marketplace register log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_MARKETPLACE_REGISTER: [u8; 32] =
 	keccak256!("MarketplaceRegister(address,uint256,address)"); // caller_id, marketplace_id
 
-pub const SELECTOR_LOG_FIXED_PRICE_SALE_LIST: [u8; 32] =
-	keccak256!("FixedPriceSaleList(address,uint256,uint256,uint256[],address,uint128)");
+pub const SELECTOR_LOG_FIXED_PRICE_SALE_LIST_NFT: [u8; 32] =
+	keccak256!("FixedPriceSaleListForNFT(address,uint256,uint256,uint256[],address,uint128)");
+// seller_id, listing_id, fixed_price, serial_number_ids, collection_address, marketplace_id
+
+pub const SELECTOR_LOG_FIXED_PRICE_SALE_LIST_SFT: [u8; 32] =
+	keccak256!("FixedPriceSaleListForSFT(address,uint256,uint256,uint256[],address,uint128)");
 // seller_id, listing_id, fixed_price, serial_number_ids, collection_address, marketplace_id
 
 pub const SELECTOR_LOG_FIXED_PRICE_SALE_UPDATE: [u8; 32] =
@@ -57,8 +58,12 @@ pub const SELECTOR_LOG_FIXED_PRICE_SALE_COMPLETE: [u8; 32] =
 	keccak256!("FixedPriceSaleComplete(uint256,uint256,uint256,address,uint256[],uint128)");
 // collection_id, listing_id, fixed_price, sender, serial_number_ids, marketplace_id
 
-pub const SELECTOR_LOG_AUCTION_OPEN: [u8; 32] =
-	keccak256!("AuctionOpen(uint256,uint256,uint256,address,uint256[],uint128)");
+pub const SELECTOR_LOG_AUCTION_OPEN_NFT: [u8; 32] =
+	keccak256!("AuctionOpenForNFT(uint256,uint256,uint256,address,uint256[],uint128)");
+// collection_id, listing_id, reserve_price, sender, serial_number_ids, marketplace_id
+
+pub const SELECTOR_LOG_AUCTION_OPEN_SFT: [u8; 32] =
+	keccak256!("AuctionOpenForSFT(uint256,uint256,uint256,address,uint256[],uint128)");
 // collection_id, listing_id, reserve_price, sender, serial_number_ids, marketplace_id
 
 pub const SELECTOR_LOG_BID: [u8; 32] = keccak256!("Bid(address,uint256,uint256,uint128)");
@@ -97,24 +102,28 @@ fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileF
 #[derive(Debug, PartialEq)]
 pub enum Action {
 	RegisterMarketplace = "registerMarketplace(address,uint256)",
+	#[deprecated(
+		note = "Use `sellNft(address,uint256[],address,address,uint256,uint256,uint32)` instead"
+	)]
 	SellNftWithMarketplaceId =
 		"sellNftWithMarketplaceId(address,uint256[],address,address,uint256,uint256,uint32)",
-	SellSftWithMarketplaceId = "sellSftWithMarketplaceId(address,uint256[],uint256[],address,address,uint256,uint256,uint32)", /* collection_address, serial_number_ids, quantities, buyer, payment_asset, fixed_price, duration, marketplace_id */
 	SellNft = "sellNft(address,uint256[],address,address,uint256,uint256,uint32)",
 	SellSft = "sellSft(address,uint256[],uint256[],address,address,uint256,uint256,uint32)", /* collection_address, serial_number_ids, quantities, buyer, payment_asset, fixed_price, duration, marketplace_id */
 
 	UpdateFixedPrice = "updateFixedPrice(uint128,uint256)",
 	Buy = "buy(uint128)",
+	#[deprecated(
+		note = "Use `auctionNft(address,uint256[],address,uint256,uint256,uint32)` instead"
+	)]
 	AuctionNftWithMarketplaceId =
 		"auctionNftWithMarketplaceId(address,uint256[],address,uint256,uint256,uint32)",
 	AuctionNft = "auctionNft(address,uint256[],address,uint256,uint256,uint32)",
 
-	AuctionSftWithMarketplaceId =
-		"auctionSftWithMarketplaceId(address,uint256[],uint256[],address,uint256,uint256,uint32)",
 	AuctionSft = "auctionSft(address,uint256[],uint256[],address,uint256,uint256,uint32)",
 
 	Bid = "bid(uint128,uint256)",
 	CancelSale = "cancelSale(uint128)",
+	#[deprecated(note = "Use `makeSimpleOffer(address,uint32,uint256,address,uint32)` instead")]
 	MakeSimpleOfferWithMarketplaceId =
 		"makeSimpleOfferWithMarketplaceId(address,uint32,uint256,address,uint32)",
 	MakeSimpleOffer = "makeSimpleOffer(address,uint32,uint256,address,uint32)",
@@ -158,12 +167,10 @@ where
 				Action::SellNft |
 				Action::SellNftWithMarketplaceId |
 				Action::SellSft |
-				Action::SellSftWithMarketplaceId |
 				Action::UpdateFixedPrice |
 				Action::AuctionNft |
 				Action::AuctionNftWithMarketplaceId |
 				Action::AuctionSft |
-				Action::AuctionSftWithMarketplaceId |
 				Action::Bid |
 				Action::Buy |
 				Action::CancelSale |
@@ -178,17 +185,14 @@ where
 
 			match selector {
 				Action::RegisterMarketplace => Self::register_marketplace(handle),
-				Action::SellNftWithMarketplaceId => Self::sell_nft_with_marketplace_id(handle),
+				Action::SellNftWithMarketplaceId => Self::sell_nft(handle),
 				Action::SellNft => Self::sell_nft(handle),
-				Action::SellSftWithMarketplaceId => Self::sell_sft_with_marketplace_id(handle),
-				Action::SellSft => Self::sell_sft_with_marketplace_id(handle),
+				Action::SellSft => Self::sell_sft(handle),
 				Action::UpdateFixedPrice => Self::update_fixed_price(handle),
 				Action::Buy => Self::buy(handle),
 				Action::AuctionNftWithMarketplaceId =>
 					Self::auction_nft_with_marketplace_id(handle),
 				Action::AuctionNft => Self::auction_nft_with_marketplace_id(handle),
-				Action::AuctionSftWithMarketplaceId =>
-					Self::auction_sft_with_marketplace_id(handle),
 				Action::AuctionSft => Self::auction_sft_with_marketplace_id(handle),
 				Action::Bid => Self::bid(handle),
 				Action::CancelSale => Self::cancel_sale(handle),
@@ -284,12 +288,6 @@ where
 	}
 
 	fn sell_nft(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		Self::sell_nft_with_marketplace_id(handle)
-	}
-
-	fn sell_nft_with_marketplace_id(
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(3, 32)?;
 		read_args!(
 			handle,
@@ -308,9 +306,8 @@ where
 			revert("Marketplace: Expected marketplace id <= 2^32")
 		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
-		let quantities: Option<Vec<U256>> = None;
 
-		Self::sell_internal(
+		Self::sell_internal_nft(
 			handle,
 			collection_address,
 			serial_number_ids,
@@ -319,14 +316,10 @@ where
 			fixed_price,
 			duration,
 			Some(marketplace_id),
-			true,
-			quantities,
 		)
 	}
 
-	fn sell_sft_with_marketplace_id(
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
+	fn sell_sft(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(3, 32)?;
 		read_args!(
 			handle,
@@ -347,7 +340,7 @@ where
 		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
 
-		Self::sell_internal(
+		Self::sell_internal_sft(
 			handle,
 			collection_address,
 			serial_number_ids,
@@ -356,12 +349,11 @@ where
 			fixed_price,
 			duration,
 			Some(marketplace_id),
-			false,
 			Some(quantities),
 		)
 	}
 
-	fn sell_internal(
+	fn sell_internal_sft(
 		handle: &mut impl PrecompileHandle,
 		collection_address: Address,
 		serial_number_ids: Vec<U256>,
@@ -370,7 +362,6 @@ where
 		fixed_price: U256,
 		duration: U256,
 		marketplace_id: Option<MarketplaceId>,
-		is_nft: bool,
 		quantities: Option<Vec<U256>>,
 	) -> EvmResult<PrecompileOutput> {
 		// Parse asset_id
@@ -378,67 +369,41 @@ where
 			payment_asset,
 			ERC20_PRECOMPILE_ADDRESS_PREFIX,
 		)
-		.ok_or_else(|| revert("Marketplace: Invalid payment asset address"))?;
+		.ok_or_else(|| revert("Marketplace SFT: Invalid payment asset address"))?;
 
 		let duration = Some(saturated_convert_blocknumber(duration)?.into());
 		ensure!(
 			fixed_price <= u128::MAX.into(),
-			revert("Marketplace: Expected fixed price <= 2^128")
+			revert("Marketplace SFT: Expected fixed price <= 2^128")
 		);
 		let fixed_price: Balance = fixed_price.saturated_into();
-		let tokens = if is_nft == true {
-			let collection_id: CollectionUuid =
-				<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
-					collection_address,
-					ERC721_PRECOMPILE_ADDRESS_PREFIX,
-				)
-				.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
+		let collection_id: CollectionUuid =
+			<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
+				collection_address,
+				ERC1155_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("Marketplace SFT: Invalid collection address"))?;
 
-			let serials_unbounded = serial_number_ids
-				.clone()
-				.into_iter()
-				.map(|serial_number| {
-					if serial_number > SerialNumber::MAX.into() {
-						return Err(revert("Marketplace: Expected serial_number <= 2^32").into());
-					}
-					let serial_number: SerialNumber = serial_number.saturated_into();
-					Ok(serial_number)
-				})
-				.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
+		let serials_unbounded = serial_number_ids
+			.clone()
+			.into_iter()
+			.zip(quantities.unwrap())
+			.map(|(serial_number, quantity)| {
+				if serial_number > SerialNumber::MAX.into() {
+					return Err(revert("Marketplace SFT: Expected serial_number <= 2^32").into())
+				}
+				if quantity > Balance::MAX.into() {
+					return Err(revert("Marketplace SFT: Expected quantity <= 2^128").into())
+				}
+				let serial_number: SerialNumber = serial_number.saturated_into();
+				let quantity: Balance = quantity.saturated_into();
+				Ok((serial_number, quantity))
+			})
+			.collect::<Result<Vec<(SerialNumber, Balance)>, PrecompileFailure>>()?;
 
-			let serial_numbers: BoundedVec<SerialNumber, Runtime::MaxTokensPerListing> =
-				BoundedVec::try_from(serials_unbounded)
-					.or_else(|_| Err(revert("Marketplace: Too many serial numbers")))?;
-			ListingTokens::Nft(NftListing { collection_id, serial_numbers })
-		} else {
-			let collection_id: CollectionUuid =
-				<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
-					collection_address,
-					ERC1155_PRECOMPILE_ADDRESS_PREFIX,
-				)
-				.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
-
-			let serials_unbounded = serial_number_ids
-				.clone()
-				.into_iter()
-				.zip(quantities.unwrap())
-				.map(|(serial_number, quantity)| {
-					if serial_number > SerialNumber::MAX.into() {
-						return Err(revert("Marketplace: Expected serial_number <= 2^32").into())
-					}
-					if quantity > Balance::MAX.into() {
-						return Err(revert("Marketplace: Expected quantity <= 2^128").into())
-					}
-					let serial_number: SerialNumber = serial_number.saturated_into();
-					let quantity: Balance = quantity.saturated_into();
-					Ok((serial_number, quantity))
-				})
-				.collect::<Result<Vec<(SerialNumber, Balance)>, PrecompileFailure>>()?;
-
-			let serial_numbers: BoundedVec<(SerialNumber, Balance), Runtime::MaxTokensPerListing> =
-				BoundedVec::truncate_from(serials_unbounded);
-			ListingTokens::Sft(SftListing { collection_id, serial_numbers })
-		};
+		let serial_numbers: BoundedVec<(SerialNumber, Balance), Runtime::MaxTokensPerListing> =
+			BoundedVec::truncate_from(serials_unbounded);
+		let tokens = ListingTokens::Sft(SftListing { collection_id, serial_numbers });
 		let buyer: H160 = buyer.into();
 		let buyer: Option<Runtime::AccountId> =
 			if buyer == H160::default() { None } else { Some(buyer.into()) };
@@ -460,18 +425,107 @@ where
 			marketplace_id,
 		)
 		.map_err(|e| {
-			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
+			revert(alloc::format!("Marketplace SFT: Dispatched call failed with error: {:?}", e))
 		})?;
 		log4(
 			handle.code_address(),
-			SELECTOR_LOG_FIXED_PRICE_SALE_LIST,
+			SELECTOR_LOG_FIXED_PRICE_SALE_LIST_SFT,
 			handle.context().caller, //seller
 			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
 			H256::from_slice(&EvmDataWriter::new().write(fixed_price).build()),
 			EvmDataWriter::new()
 				.write(serial_number_ids)
 				.write(collection_address)
-				.write(marketplace_id.unwrap())
+				.write(marketplace_id.unwrap_or_default())
+				.build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(listing_id).build()))
+	}
+
+	fn sell_internal_nft(
+		handle: &mut impl PrecompileHandle,
+		collection_address: Address,
+		serial_number_ids: Vec<U256>,
+		buyer: Address,
+		payment_asset: Address,
+		fixed_price: U256,
+		duration: U256,
+		marketplace_id: Option<MarketplaceId>,
+	) -> EvmResult<PrecompileOutput> {
+		// Parse asset_id
+		let payment_asset: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+			payment_asset,
+			ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		)
+		.ok_or_else(|| revert("Marketplace NFT: Invalid payment asset address"))?;
+
+		let duration = Some(saturated_convert_blocknumber(duration)?.into());
+		ensure!(
+			fixed_price <= u128::MAX.into(),
+			revert("Marketplace NFT: Expected fixed price <= 2^128")
+		);
+		let fixed_price: Balance = fixed_price.saturated_into();
+
+		let collection_id: CollectionUuid =
+			<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
+				collection_address,
+				ERC721_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("Marketplace NFT: Invalid collection address"))?;
+
+		let serials_unbounded = serial_number_ids
+			.clone()
+			.into_iter()
+			.map(|serial_number| {
+				if serial_number > SerialNumber::MAX.into() {
+					return Err(revert("Marketplace NFT: Expected serial_number <= 2^32").into())
+				}
+				let serial_number: SerialNumber = serial_number.saturated_into();
+				Ok(serial_number)
+			})
+			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
+
+		let serial_numbers: BoundedVec<SerialNumber, Runtime::MaxTokensPerListing> =
+			BoundedVec::try_from(serials_unbounded)
+				.or_else(|_| Err(revert("Marketplace NFT: Too many serial numbers")))?;
+		let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
+
+		let buyer: H160 = buyer.into();
+		let buyer: Option<Runtime::AccountId> =
+			if buyer == H160::default() { None } else { Some(buyer.into()) };
+
+		let caller: Runtime::AccountId = handle.context().caller.into();
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_marketplace::Config>::WeightInfo::sell_nft(
+				serial_number_ids.len() as u32
+			),
+		))?;
+		let listing_id = pallet_marketplace::Pallet::<Runtime>::do_sell(
+			caller,
+			tokens,
+			buyer,
+			payment_asset,
+			fixed_price,
+			duration,
+			marketplace_id,
+		)
+		.map_err(|e| {
+			revert(alloc::format!("Marketplace NFT: Dispatched call failed with error: {:?}", e))
+		})?;
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_FIXED_PRICE_SALE_LIST_NFT,
+			handle.context().caller, //seller
+			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
+			H256::from_slice(&EvmDataWriter::new().write(fixed_price).build()),
+			EvmDataWriter::new()
+				.write(serial_number_ids)
+				.write(collection_address)
+				.write(marketplace_id.unwrap_or_default())
 				.build(),
 		)
 		.record(handle)?;
@@ -526,7 +580,7 @@ where
 			EvmDataWriter::new()
 				.write(Address::from(caller))
 				.write(serial_numbers)
-				.write(marketplace_id.unwrap())
+				.write(marketplace_id.unwrap_or_default())
 				.build(),
 		)
 		.record(handle)?;
@@ -559,39 +613,24 @@ where
 			Ok(listing) => {
 				let (collection_id, serial_numbers) = Self::split_listing_tokens(listing.tokens)?;
 				let collection_id = H256::from_low_u64_be(collection_id as u64);
-				let marketplace_id = listing.marketplace_id;
+				let marketplace_id = listing.marketplace_id.unwrap_or_default();
 
 				let seller = listing.seller;
 				let seller: H160 = seller.into();
-				if marketplace_id.is_some() {
-					log4(
-						handle.code_address(),
-						SELECTOR_LOG_FIXED_PRICE_SALE_COMPLETE,
-						collection_id,
-						H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-						H256::from_slice(&EvmDataWriter::new().write(listing.fixed_price).build()),
-						EvmDataWriter::new()
-							.write(Address::from(seller))
-							.write(serial_numbers)
-							.write(marketplace_id.unwrap())
-							.build(),
-					)
-					.record(handle)?;
-				} else {
-					log4(
-						handle.code_address(),
-						SELECTOR_LOG_FIXED_PRICE_SALE_COMPLETE,
-						collection_id,
-						H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-						H256::from_slice(&EvmDataWriter::new().write(listing.fixed_price).build()),
-						EvmDataWriter::new()
-							.write(Address::from(seller))
-							.write(serial_numbers)
-							.write::<u128>(Zero::zero())
-							.build(),
-					)
-					.record(handle)?;
-				};
+				log4(
+					handle.code_address(),
+					SELECTOR_LOG_FIXED_PRICE_SALE_COMPLETE,
+					collection_id,
+					H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
+					H256::from_slice(&EvmDataWriter::new().write(listing.fixed_price).build()),
+					EvmDataWriter::new()
+						.write(Address::from(seller))
+						.write(serial_numbers)
+						.write(marketplace_id)
+						.build(),
+				)
+				.record(handle)?;
+
 				// Build output.
 				Ok(succeed([]))
 			},
@@ -626,9 +665,8 @@ where
 			revert("Marketplace: Expected marketplace id <= 2^32")
 		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
-		let quantities: Option<Vec<U256>> = None;
 
-		Self::auction_internal(
+		Self::auction_internal_nft(
 			handle,
 			collection_address,
 			serial_number_ids,
@@ -636,8 +674,6 @@ where
 			reserve_price,
 			duration,
 			Some(marketplace_id),
-			true,
-			quantities,
 		)
 	}
 
@@ -666,7 +702,7 @@ where
 		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
 
-		Self::auction_internal(
+		Self::auction_internal_sft(
 			handle,
 			collection_address,
 			serial_number_ids,
@@ -674,12 +710,11 @@ where
 			reserve_price,
 			duration,
 			Some(marketplace_id),
-			false,
 			Some(quantities),
 		)
 	}
 
-	fn auction_internal(
+	fn auction_internal_nft(
 		handle: &mut impl PrecompileHandle,
 		collection_address: Address,
 		serial_number_ids: Vec<U256>,
@@ -687,68 +722,38 @@ where
 		reserve_price: U256,
 		duration: U256,
 		marketplace_id: Option<MarketplaceId>,
-		is_nft: bool,
-		quantities: Option<Vec<U256>>,
+		// quantities: Option<Vec<U256>>,
 	) -> EvmResult<PrecompileOutput> {
 		let duration = Some(saturated_convert_blocknumber(duration)?.into());
 		ensure!(
 			reserve_price <= Balance::MAX.into(),
-			revert("Marketplace: Expected reserve_price <= 2^128")
+			revert("Marketplace NFT: Expected reserve_price <= 2^128")
 		);
 		let reserve_price: Balance = reserve_price.saturated_into();
-		let (tokens, collection_id) = if is_nft == true {
-			let collection_id: CollectionUuid =
-				<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
-					collection_address,
-					ERC721_PRECOMPILE_ADDRESS_PREFIX,
-				)
-				.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
 
-			let serials_unbounded = serial_number_ids
-				.clone()
-				.into_iter()
-				.map(|serial_number| {
-					if serial_number > SerialNumber::MAX.into() {
-						return Err(revert("Marketplace: Expected serial_number <= 2^32").into());
-					}
-					let serial_number: SerialNumber = serial_number.saturated_into();
-					Ok(serial_number)
-				})
-				.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
+		let collection_id: CollectionUuid =
+			<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
+				collection_address,
+				ERC721_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("Marketplace NFT: Invalid collection address"))?;
 
-			let serial_numbers: BoundedVec<SerialNumber, Runtime::MaxTokensPerListing> =
-				BoundedVec::try_from(serials_unbounded)
-					.or_else(|_| Err(revert("Marketplace: Too many serial numbers")))?;
-			(ListingTokens::Nft(NftListing { collection_id, serial_numbers }), collection_id)
-		} else {
-			let collection_id: CollectionUuid =
-				<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
-					collection_address,
-					ERC1155_PRECOMPILE_ADDRESS_PREFIX,
-				)
-				.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
+		let serials_unbounded = serial_number_ids
+			.clone()
+			.into_iter()
+			.map(|serial_number| {
+				if serial_number > SerialNumber::MAX.into() {
+					return Err(revert("Marketplace NFT: Expected serial_number <= 2^32").into())
+				}
+				let serial_number: SerialNumber = serial_number.saturated_into();
+				Ok(serial_number)
+			})
+			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
 
-			let serials_unbounded = serial_number_ids
-				.clone()
-				.into_iter()
-				.zip(quantities.unwrap())
-				.map(|(serial_number, quantity)| {
-					if serial_number > SerialNumber::MAX.into() {
-						return Err(revert("Marketplace: Expected serial_number <= 2^32").into())
-					}
-					if quantity > Balance::MAX.into() {
-						return Err(revert("Marketplace: Expected quantity <= 2^128").into())
-					}
-					let serial_number: SerialNumber = serial_number.saturated_into();
-					let quantity: Balance = quantity.saturated_into();
-					Ok((serial_number, quantity))
-				})
-				.collect::<Result<Vec<(SerialNumber, Balance)>, PrecompileFailure>>()?;
-
-			let serial_numbers: BoundedVec<(SerialNumber, Balance), Runtime::MaxTokensPerListing> =
-				BoundedVec::truncate_from(serials_unbounded);
-			(ListingTokens::Sft(SftListing { collection_id, serial_numbers }), collection_id)
-		};
+		let serial_numbers: BoundedVec<SerialNumber, Runtime::MaxTokensPerListing> =
+			BoundedVec::try_from(serials_unbounded)
+				.or_else(|_| Err(revert("Marketplace NFT: Too many serial numbers")))?;
+		let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
@@ -757,7 +762,7 @@ where
 			payment_asset,
 			ERC20_PRECOMPILE_ADDRESS_PREFIX,
 		)
-		.ok_or_else(|| revert("Marketplace: Invalid payment asset address"))?;
+		.ok_or_else(|| revert("Marketplace NFT: Invalid payment asset address"))?;
 
 		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
 			<Runtime as pallet_marketplace::Config>::WeightInfo::auction_nft(
@@ -780,7 +785,98 @@ where
 		let collection_id = H256::from_low_u64_be(collection_id as u64);
 		log4(
 			handle.code_address(),
-			SELECTOR_LOG_AUCTION_OPEN,
+			SELECTOR_LOG_AUCTION_OPEN_NFT,
+			collection_id,
+			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
+			H256::from_slice(&EvmDataWriter::new().write(reserve_price).build()),
+			EvmDataWriter::new()
+				.write(Address::from(handle.context().caller))
+				.write(serial_number_ids)
+				.write(marketplace_id.unwrap())
+				.build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed([]))
+	}
+
+	fn auction_internal_sft(
+		handle: &mut impl PrecompileHandle,
+		collection_address: Address,
+		serial_number_ids: Vec<U256>,
+		payment_asset: Address,
+		reserve_price: U256,
+		duration: U256,
+		marketplace_id: Option<MarketplaceId>,
+		quantities: Option<Vec<U256>>,
+	) -> EvmResult<PrecompileOutput> {
+		let duration = Some(saturated_convert_blocknumber(duration)?.into());
+		ensure!(
+			reserve_price <= Balance::MAX.into(),
+			revert("Marketplace SFT: Expected reserve_price <= 2^128")
+		);
+		let reserve_price: Balance = reserve_price.saturated_into();
+
+		let collection_id: CollectionUuid =
+			<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
+				collection_address,
+				ERC1155_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
+
+		let serials_unbounded = serial_number_ids
+			.clone()
+			.into_iter()
+			.zip(quantities.unwrap())
+			.map(|(serial_number, quantity)| {
+				if serial_number > SerialNumber::MAX.into() {
+					return Err(revert("Marketplace: Expected serial_number <= 2^32").into())
+				}
+				if quantity > Balance::MAX.into() {
+					return Err(revert("Marketplace: Expected quantity <= 2^128").into())
+				}
+				let serial_number: SerialNumber = serial_number.saturated_into();
+				let quantity: Balance = quantity.saturated_into();
+				Ok((serial_number, quantity))
+			})
+			.collect::<Result<Vec<(SerialNumber, Balance)>, PrecompileFailure>>()?;
+
+		let serial_numbers: BoundedVec<(SerialNumber, Balance), Runtime::MaxTokensPerListing> =
+			BoundedVec::truncate_from(serials_unbounded);
+		let tokens = ListingTokens::Sft(SftListing { collection_id, serial_numbers });
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+		// Parse asset_id
+		let payment_asset: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+			payment_asset,
+			ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		)
+		.ok_or_else(|| revert("Marketplace SFT: Invalid payment asset address"))?;
+
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_marketplace::Config>::WeightInfo::auction_nft(
+				serial_number_ids.len() as u32,
+			),
+		))?;
+
+		let caller: Runtime::AccountId = handle.context().caller.into();
+		let listing_id = pallet_marketplace::Pallet::<Runtime>::do_auction(
+			caller,
+			tokens,
+			payment_asset,
+			reserve_price,
+			duration,
+			marketplace_id,
+		)
+		.map_err(|e| {
+			revert(alloc::format!("Marketplace SFT: Dispatched call failed with error: {:?}", e))
+		})?;
+		let collection_id = H256::from_low_u64_be(collection_id as u64);
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_AUCTION_OPEN_SFT,
 			collection_id,
 			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
 			H256::from_slice(&EvmDataWriter::new().write(reserve_price).build()),
@@ -824,28 +920,16 @@ where
 			pallet_marketplace::Call::<Runtime>::bid { listing_id, amount },
 		)?;
 
-		let marketplace_id = listing.marketplace_id;
-		if marketplace_id.is_some() {
-			log4(
-				handle.code_address(),
-				SELECTOR_LOG_BID,
-				handle.context().caller, //bidder
-				H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-				H256::from_slice(&EvmDataWriter::new().write(amount).build()),
-				EvmDataWriter::new().write(marketplace_id.unwrap()).build(),
-			)
-			.record(handle)?;
-		} else {
-			log4(
-				handle.code_address(),
-				SELECTOR_LOG_BID,
-				handle.context().caller, //bidder
-				H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-				H256::from_slice(&EvmDataWriter::new().write(amount).build()),
-				EvmDataWriter::new().write::<u128>(Zero::zero()).build(),
-			)
-			.record(handle)?;
-		};
+		let marketplace_id = listing.marketplace_id.unwrap_or_default();
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_BID,
+			handle.context().caller, //bidder
+			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
+			H256::from_slice(&EvmDataWriter::new().write(amount).build()),
+			EvmDataWriter::new().write(marketplace_id).build(),
+		)
+		.record(handle)?;
 
 		Ok(succeed([]))
 	}
@@ -881,64 +965,34 @@ where
 		let collection_id = H256::from_low_u64_be(collection_id as u64);
 		match listing {
 			Listing::FixedPrice(sale) => {
-				let marketplace_id = sale.marketplace_id;
-				if marketplace_id.is_some() {
-					log3(
-						handle.code_address(),
-						SELECTOR_LOG_FIXED_PRICE_SALE_CLOSE,
-						collection_id,
-						H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-						EvmDataWriter::new()
-							.write(Address::from(handle.context().caller))
-							.write(serial_numbers)
-							.write(marketplace_id.unwrap())
-							.build(),
-					)
-					.record(handle)?;
-				} else {
-					log3(
-						handle.code_address(),
-						SELECTOR_LOG_FIXED_PRICE_SALE_CLOSE,
-						collection_id,
-						H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-						EvmDataWriter::new()
-							.write(Address::from(handle.context().caller))
-							.write(serial_numbers)
-							.write::<u128>(Zero::zero())
-							.build(),
-					)
-					.record(handle)?;
-				}
+				let marketplace_id = sale.marketplace_id.unwrap_or_default();
+				log3(
+					handle.code_address(),
+					SELECTOR_LOG_FIXED_PRICE_SALE_CLOSE,
+					collection_id,
+					H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
+					EvmDataWriter::new()
+						.write(Address::from(handle.context().caller))
+						.write(serial_numbers)
+						.write(marketplace_id)
+						.build(),
+				)
+				.record(handle)?;
 			},
 			Listing::Auction(auction) => {
-				let marketplace_id = auction.marketplace_id;
-				if marketplace_id.is_some() {
-					log3(
-						handle.code_address(),
-						SELECTOR_LOG_AUCTION_CLOSE,
-						collection_id,
-						H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-						EvmDataWriter::new()
-							.write(Address::from(handle.context().caller))
-							.write(serial_numbers)
-							.write(marketplace_id.unwrap())
-							.build(),
-					)
-					.record(handle)?;
-				} else {
-					log3(
-						handle.code_address(),
-						SELECTOR_LOG_AUCTION_CLOSE,
-						collection_id,
-						H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-						EvmDataWriter::new()
-							.write(Address::from(handle.context().caller))
-							.write(serial_numbers)
-							.write::<u128>(Zero::zero())
-							.build(),
-					)
-					.record(handle)?;
-				}
+				let marketplace_id = auction.marketplace_id.unwrap_or_default();
+				log3(
+					handle.code_address(),
+					SELECTOR_LOG_AUCTION_CLOSE,
+					collection_id,
+					H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
+					EvmDataWriter::new()
+						.write(Address::from(handle.context().caller))
+						.write(serial_numbers)
+						.write(marketplace_id)
+						.build(),
+				)
+				.record(handle)?;
 			},
 		}
 
@@ -1055,34 +1109,19 @@ where
 		)?;
 		let (collection_id, serial_number) = offer.token_id;
 		let offer_id = H256::from_low_u64_be(offer_id);
-		let marketplace_id = offer.marketplace_id;
-		if marketplace_id.is_some() {
-			log3(
-				handle.code_address(),
-				SELECTOR_LOG_OFFER_CANCEL,
-				offer_id,
-				handle.context().caller,
-				EvmDataWriter::new()
-					.write(collection_id)
-					.write(serial_number)
-					.write(marketplace_id.unwrap())
-					.build(),
-			)
-			.record(handle)?;
-		} else {
-			log3(
-				handle.code_address(),
-				SELECTOR_LOG_OFFER_CANCEL,
-				offer_id,
-				handle.context().caller,
-				EvmDataWriter::new()
-					.write(collection_id)
-					.write(serial_number)
-					.write::<u128>(Zero::zero())
-					.build(),
-			)
-			.record(handle)?;
-		}
+		let marketplace_id = offer.marketplace_id.unwrap_or_default();
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_OFFER_CANCEL,
+			offer_id,
+			handle.context().caller,
+			EvmDataWriter::new()
+				.write(collection_id)
+				.write(serial_number)
+				.write(marketplace_id)
+				.build(),
+		)
+		.record(handle)?;
 		Ok(succeed([]))
 	}
 
@@ -1107,36 +1146,21 @@ where
 		)?;
 		let offer_id = H256::from_low_u64_be(offer_id);
 		let (collection_id, serial_number) = offer.token_id;
-		let marketplace_id = offer.marketplace_id;
-		if marketplace_id.is_some() {
-			log4(
-				handle.code_address(),
-				SELECTOR_LOG_OFFER_ACCEPT,
-				offer_id,
-				H256::from_slice(&EvmDataWriter::new().write(offer.amount).build()),
-				handle.context().caller,
-				EvmDataWriter::new()
-					.write(collection_id)
-					.write(serial_number)
-					.write(marketplace_id.unwrap())
-					.build(),
-			)
-			.record(handle)?;
-		} else {
-			log4(
-				handle.code_address(),
-				SELECTOR_LOG_OFFER_ACCEPT,
-				offer_id,
-				H256::from_slice(&EvmDataWriter::new().write(offer.amount).build()),
-				handle.context().caller,
-				EvmDataWriter::new()
-					.write(collection_id)
-					.write(serial_number)
-					.write::<u128>(Zero::zero())
-					.build(),
-			)
-			.record(handle)?;
-		}
+		let marketplace_id = offer.marketplace_id.unwrap_or_default();
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_OFFER_ACCEPT,
+			offer_id,
+			H256::from_slice(&EvmDataWriter::new().write(offer.amount).build()),
+			handle.context().caller,
+			EvmDataWriter::new()
+				.write(collection_id)
+				.write(serial_number)
+				.write(marketplace_id)
+				.build(),
+		)
+		.record(handle)?;
+
 		Ok(succeed([]))
 	}
 

@@ -400,10 +400,12 @@ export const FUTUREPASS_PRECOMPILE_ABI = [
 
 export const MARKET_PLACE_ABI = [
   "event MarketplaceRegister(address indexed sender, uint256 indexed marketplaceId, address marketplace_account)",
-  "event FixedPriceSaleList(address indexed seller, uint256 indexed listingId, uint256 indexed fixedPrice, uint256[] serialNumbers, address collectionAddress, uint128 marketplace_id)",
+  "event FixedPriceSaleListForNFT(address indexed seller, uint256 indexed listingId, uint256 indexed fixedPrice, uint256[] serialNumbers, address collectionAddress, uint128 marketplace_id)",
+  "event FixedPriceSaleListForSFT(address indexed seller, uint256 indexed listingId, uint256 indexed fixedPrice, uint256[] serialNumbers, address collectionAddress, uint128 marketplace_id)",
   "event FixedPriceSaleUpdate(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed newPrice, address sender, uint256[] serialNumbers, uint128 marketplace_id)",
   "event FixedPriceSaleComplete(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed fixedPrice, address sender, uint256[] serialNumbers, uint128 marketplace_id)",
-  "event AuctionOpen(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed reservePrice, address sender, uint256[] serialNumbers, uint128 marketplace_id)",
+  "event AuctionOpenForNFT(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed reservePrice, address sender, uint256[] serialNumbers, uint128 marketplace_id)",
+  "event AuctionOpenForSFT(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed reservePrice, address sender, uint256[] serialNumbers, uint128 marketplace_id)",
   "event Bid(address indexed bidder, uint256 indexed listingId, uint256 indexed amount, uint128 marketplace_id)",
   "event FixedPriceSaleClose(uint256 indexed collectionId, uint256 indexed listingId, address sender, uint256[] serialNumbers, uint128 marketplace_id)", //uint256,uint256,address,uint256[]
   "event AuctionClose(uint256 indexed collectionId, uint256 indexed listingId, address sender, uint256[] serialNumbers, uint128 marketplace_id)",
