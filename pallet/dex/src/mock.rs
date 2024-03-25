@@ -18,6 +18,7 @@
 use super::*;
 use crate::{self as pallet_dex};
 use seed_pallet_common::test_prelude::*;
+use sp_runtime::BuildStorage;
 
 construct_runtime!(
 	pub enum Test where
@@ -62,7 +63,7 @@ pub struct TestExt;
 
 impl TestExt {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		let mut ext: sp_io::TestExternalities = storage.into();
 		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
