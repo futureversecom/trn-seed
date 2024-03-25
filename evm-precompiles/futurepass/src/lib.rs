@@ -17,7 +17,9 @@
 #![allow(dead_code)]
 extern crate alloc;
 
-use fp_evm::{Context, PrecompileHandle, PrecompileOutput, PrecompileResult, Transfer};
+use fp_evm::{
+	Context, IsPrecompileResult, PrecompileHandle, PrecompileOutput, PrecompileResult, Transfer,
+};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	ensure,
@@ -174,9 +176,12 @@ where
 		return Some(result)
 	}
 
-	fn is_precompile(&self, address: H160) -> bool {
+	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
 		// check if the address starts with futurepass precompile prefix
-		address.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX)
+		IsPrecompileResult::Answer {
+			is_precompile: address.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX),
+			extra_cost: 0,
+		}
 	}
 }
 

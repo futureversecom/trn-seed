@@ -17,7 +17,7 @@
 extern crate alloc;
 
 use core::convert::TryFrom;
-use fp_evm::{PrecompileHandle, PrecompileOutput};
+use fp_evm::{IsPrecompileResult, PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::OriginTrait,
@@ -224,14 +224,17 @@ where
 		None
 	}
 
-	fn is_precompile(&self, address: H160) -> bool {
+	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
 		if let Some(collection_id) =
 			Runtime::evm_id_to_runtime_id(Address(address), ERC721_PRECOMPILE_ADDRESS_PREFIX)
 		{
 			// Check whether the collection exists
-			pallet_nft::Pallet::<Runtime>::collection_exists(collection_id)
+			IsPrecompileResult::Answer {
+				is_precompile: pallet_nft::Pallet::<Runtime>::collection_exists(collection_id),
+				extra_cost: 0, // TODO: account gas for above storage read?
+			}
 		} else {
-			false
+			IsPrecompileResult::Answer { is_precompile: false, extra_cost: 0 }
 		}
 	}
 }
