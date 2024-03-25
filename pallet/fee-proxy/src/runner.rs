@@ -15,7 +15,9 @@
 
 use crate::Config;
 use ethabi::{ParamType, Token};
-use frame_support::{dispatch::Weight, ensure, traits::fungibles::InspectMetadata};
+use frame_support::{
+	dispatch::Weight, ensure, traits::fungibles::metadata::Inspect as InspectMetadata,
+};
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator,
 	Runner as RunnerT, RunnerError,
@@ -110,7 +112,7 @@ where
 
 	let gas_token_asset_id = <T as Config>::FeeAssetId::get();
 	let decimals =
-		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(&gas_token_asset_id);
+		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(gas_token_asset_id);
 	let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
 	let max_fee_scaled = scale_wei_to_correct_decimals(max_fee, decimals);
 

@@ -20,7 +20,8 @@ use fp_evm::{PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::{
-		fungibles::{Inspect, InspectMetadata},
+		fungibles::{metadata::Inspect as InspectMetadata, Inspect},
+		tokens::{Fortitude, Preservation},
 		OriginTrait,
 	},
 };
@@ -189,7 +190,8 @@ where
 			<pallet_assets_ext::Pallet<Runtime> as Inspect<Runtime::AccountId>>::reducible_balance(
 				asset_id,
 				&owner.into(),
-				false,
+				Preservation::Expendable,
+				Fortitude::Polite,
 			)
 			.into();
 
@@ -365,7 +367,7 @@ where
 					.write::<Bytes>(
 						<pallet_assets_ext::Pallet<Runtime> as InspectMetadata<
 							Runtime::AccountId,
-						>>::name(&asset_id)
+						>>::name(asset_id)
 						.as_slice()
 						.into(),
 					)
@@ -387,7 +389,7 @@ where
 					.write::<Bytes>(
 						<pallet_assets_ext::Pallet<Runtime> as InspectMetadata<
 							Runtime::AccountId,
-						>>::symbol(&asset_id)
+						>>::symbol(asset_id)
 						.as_slice()
 						.into(),
 					)
@@ -407,7 +409,7 @@ where
 			EvmDataWriter::new()
 				.write::<u8>(<pallet_assets_ext::Pallet<Runtime> as InspectMetadata<
 					Runtime::AccountId,
-				>>::decimals(&asset_id))
+				>>::decimals(asset_id))
 				.build(),
 		))
 	}

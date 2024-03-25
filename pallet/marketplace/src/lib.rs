@@ -24,7 +24,7 @@
 
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
-	traits::fungibles::{Mutate, Transfer},
+	traits::fungibles::Mutate,
 	transactional, PalletId,
 };
 pub use pallet::*;
@@ -98,9 +98,8 @@ pub mod pallet {
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
 			+ Hold<AccountId = Self::AccountId>
-			+ Mutate<Self::AccountId, AssetId = AssetId>
-			+ CreateExt<AccountId = Self::AccountId>
-			+ Transfer<Self::AccountId, Balance = Balance>;
+			+ Mutate<Self::AccountId, AssetId = AssetId, Balance = Balance>
+			+ CreateExt<AccountId = Self::AccountId>;
 		/// NFT Extension
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
 		/// SFT Extension

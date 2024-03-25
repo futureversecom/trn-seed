@@ -31,7 +31,7 @@ use frame_support::{
 		traits::{AccountIdConversion, Zero},
 		SaturatedConversion, Saturating,
 	},
-	traits::fungibles::{self, Inspect, Mutate, Transfer},
+	traits::fungibles::{self, Inspect, Mutate},
 	transactional, PalletId,
 };
 use frame_system::{
@@ -66,6 +66,7 @@ pub const CROWDSALE_DIST_UNSIGNED_PRIORITY: TransactionPriority =
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -83,10 +84,9 @@ pub mod pallet {
 		/// Currency implementation to deal with assets.
 		type MultiCurrency: InspectExt
 			+ CreateExt<AccountId = Self::AccountId>
-			+ fungibles::Transfer<Self::AccountId, Balance = Balance>
 			+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
-			+ fungibles::InspectMetadata<Self::AccountId>
-			+ fungibles::Mutate<Self::AccountId>;
+			+ fungibles::metadata::Inspect<Self::AccountId>
+			+ fungibles::Mutate<Self::AccountId, Balance = Balance>;
 
 		/// NFT Extension, used to retrieve collection data
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
@@ -469,7 +469,7 @@ pub mod pallet {
 					&who,
 					&sale_info.vault,
 					amount,
-					false,
+					Preservation::Expendable,
 				)?;
 
 				// update the sale funds
@@ -570,7 +570,8 @@ pub mod pallet {
 				let vault_balance = T::MultiCurrency::reducible_balance(
 					sale_info.voucher_asset_id,
 					&sale_info.vault,
-					false,
+					Preservation::Expendable,
+					Fortitude::Polite,
 				);
 				if vault_balance > 0 {
 					let _ = T::MultiCurrency::transfer(
@@ -578,7 +579,7 @@ pub mod pallet {
 						&sale_info.vault,
 						&sale_info.admin,
 						vault_balance,
-						false,
+						Preservation::Expendable,
 					);
 				}
 				sale_info.status = SaleStatus::Ended(block_number);
@@ -658,7 +659,8 @@ pub mod pallet {
 					let vault_balance = T::MultiCurrency::reducible_balance(
 						sale_info.voucher_asset_id,
 						&sale_info.vault,
-						false,
+						Preservation::Expendable,
+						Fortitude::Polite,
 					);
 					if vault_balance > 0 {
 						let _ = T::MultiCurrency::transfer(
@@ -666,7 +668,7 @@ pub mod pallet {
 							&sale_info.vault,
 							&sale_info.admin,
 							vault_balance,
-							false,
+							Preservation::Expendable,
 						);
 					}
 					sale_info.status = SaleStatus::Ended(block_number);
@@ -730,7 +732,13 @@ pub mod pallet {
 			// vouchers since 1:1 mapping between vouchers and NFTs, we can use the quantity
 			// * decimals as the amount burned
 			let voucher_amount = quantity.saturating_mul(10u32.pow(VOUCHER_DECIMALS as u32));
-			T::MultiCurrency::burn_from(sale_info.voucher_asset_id, &who, voucher_amount.into())?;
+			T::MultiCurrency::burn_from(
+				sale_info.voucher_asset_id,
+				&who,
+				voucher_amount.into(),
+				Precision::Exact,
+				Fortitude::Polite,
+			)?;
 
 			// mint the NFT(s) to the user
 			T::NFTExt::do_mint(

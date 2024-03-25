@@ -23,7 +23,8 @@ use frame_support::{
 	fail,
 	pallet_prelude::*,
 	traits::{
-		fungibles::{Inspect, Mutate, Transfer},
+		fungibles::{Inspect, Mutate},
+		tokens::{Fortitude, Precision},
 		UnixTime,
 	},
 	transactional,
@@ -78,9 +79,8 @@ pub mod pallet {
 		type EthyAdapter: XrplBridgeToEthyAdapter<AuthorityId>;
 
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
-			+ Transfer<Self::AccountId, Balance = Balance>
 			+ Inspect<Self::AccountId, AssetId = AssetId>
-			+ Mutate<Self::AccountId>;
+			+ Mutate<Self::AccountId, Balance = Balance>;
 
 		/// Allowed origins to add/remove the relayers
 		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -992,8 +992,13 @@ impl<T: Config> Pallet<T> {
 
 		// the door address pays the tx fee on XRPL. Therefore the withdrawn amount must include the
 		// tx fee to maintain an accurate door balance
-		let _ =
-			T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount + tx_fee as Balance)?;
+		let _ = T::MultiCurrency::burn_from(
+			T::XrpAssetId::get(),
+			&who,
+			amount + tx_fee as Balance,
+			Precision::Exact,
+			Fortitude::Polite,
+		)?;
 
 		let ticket_sequence = Self::get_door_ticket_sequence()?;
 		let tx_data = XrpWithdrawTransaction {

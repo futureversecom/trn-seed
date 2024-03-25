@@ -67,7 +67,7 @@ pub use frame_support::{
 	dispatch::{DispatchClass, GetDispatchInfo},
 	ensure, parameter_types,
 	traits::{
-		fungibles::{Inspect, InspectMetadata},
+		fungibles::{metadata::Inspect as InspectMetadata, Inspect},
 		ConstU128, ConstU32, CurrencyToVote, Everything, Get, IsInVec, KeyOwnerProofSystem,
 		Randomness,
 	},

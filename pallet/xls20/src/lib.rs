@@ -24,7 +24,7 @@
 use frame_support::{
 	ensure,
 	pallet_prelude::*,
-	traits::{fungibles::Transfer, Get},
+	traits::{fungibles::Mutate, tokens::Preservation, Get},
 	transactional,
 };
 use frame_system::pallet_prelude::*;
@@ -70,7 +70,7 @@ pub mod pallet {
 		/// Max amount of tokens that can be minted in a single XLS-20 mint request
 		type MaxTokensPerXls20Mint: Get<u32>;
 		/// Handles a multi-currency fungible asset system
-		type MultiCurrency: Transfer<Self::AccountId, Balance = Balance, AssetId = AssetId>;
+		type MultiCurrency: Mutate<Self::AccountId, Balance = Balance, AssetId = AssetId>;
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
 		/// NFT ownership interface
@@ -273,7 +273,7 @@ impl<T: Config> Pallet<T> {
 				who,
 				&relayer,
 				mint_fee,
-				false,
+				Preservation::Expendable,
 			)?;
 			Self::deposit_event(Event::<T>::Xls20MintFeePaid {
 				collection_owner: who.clone(),

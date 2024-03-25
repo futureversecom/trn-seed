@@ -17,10 +17,7 @@
 #![recursion_limit = "256"]
 //! # SFT Module
 
-use frame_support::{
-	traits::tokens::fungibles::{Mutate, Transfer},
-	transactional, PalletId,
-};
+use frame_support::{traits::tokens::fungibles::Mutate, transactional, PalletId};
 use seed_pallet_common::{
 	CreateExt, Hold, NFTExt, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
 };
@@ -71,9 +68,8 @@ pub mod pallet {
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
 			+ Hold<AccountId = Self::AccountId>
-			+ Mutate<Self::AccountId, AssetId = AssetId>
-			+ CreateExt<AccountId = Self::AccountId>
-			+ Transfer<Self::AccountId, Balance = Balance>;
+			+ Mutate<Self::AccountId, AssetId = AssetId, Balance = Balance>
+			+ CreateExt<AccountId = Self::AccountId>;
 		/// NFT Extension, used to retrieve nextCollectionUuid
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
 		/// Handler for when an SFT has been transferred

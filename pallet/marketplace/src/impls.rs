@@ -11,6 +11,7 @@
 
 use crate::*;
 use frame_support::{ensure, traits::Get, transactional};
+use frame_system::pallet_prelude::BlockNumberFor;
 use seed_pallet_common::{log, Hold, NFTExt, TransferExt};
 use seed_primitives::{AssetId, Balance, RoyaltiesSchedule, SerialNumber, TokenId};
 use sp_runtime::{

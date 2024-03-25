@@ -13,7 +13,10 @@ use crate::*;
 use alloc::format;
 use frame_support::{
 	sp_runtime::traits::{BlakeTwo256, Hash},
-	traits::fungibles::Inspect,
+	traits::{
+		fungibles::Inspect,
+		tokens::{Fortitude, Preservation},
+	},
 };
 use sp_core::U256;
 
@@ -107,7 +110,8 @@ impl<T: Config> Pallet<T> {
 		let vault_balance = T::MultiCurrency::reducible_balance(
 			sale_info.voucher_asset_id,
 			&sale_info.vault,
-			false,
+			Preservation::Expendable,
+			Fortitude::Polite,
 		);
 		let vouchers = u128::min(vault_balance, claimable_vouchers);
 
@@ -117,7 +121,7 @@ impl<T: Config> Pallet<T> {
 			&sale_info.vault,
 			&who,
 			vouchers,
-			false,
+			Preservation::Expendable,
 		)?;
 
 		Ok(claimable_vouchers)
@@ -147,7 +151,7 @@ impl<T: Config> Pallet<T> {
 					&sale_info.vault,
 					&sale_info.admin,
 					sale_info.funds_raised,
-					false,
+					Preservation::Expendable,
 				)?;
 
 				let collection_max_issuance =
@@ -178,7 +182,7 @@ impl<T: Config> Pallet<T> {
 						&sale_info.vault,
 						&sale_info.admin,
 						refunded_vouchers,
-						false,
+						Preservation::Expendable,
 					)?;
 				}
 
