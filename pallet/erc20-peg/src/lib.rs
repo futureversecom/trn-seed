@@ -22,7 +22,8 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungibles,
-		fungibles::{Mutate},
+		fungibles::Mutate,
+		tokens::{Fortitude, Precision, Preservation},
 		Get, IsType,
 	},
 	transactional,
@@ -345,10 +346,22 @@ impl<T: Config> Module<T> {
 		if asset_id == T::NativeAssetId::get() {
 			// transfer all ROOT tokens to the peg address
 			let pallet_address: T::AccountId = T::PegPalletId::get().into_account_truncating();
-			T::MultiCurrency::transfer(asset_id, origin, &pallet_address, amount, false)?;
+			T::MultiCurrency::transfer(
+				asset_id,
+				origin,
+				&pallet_address,
+				amount,
+				Preservation::Expendable,
+			)?;
 		} else {
 			// burn all other tokens
-			T::MultiCurrency::burn_from(asset_id, origin, amount)?;
+			T::MultiCurrency::burn_from(
+				asset_id,
+				origin,
+				amount,
+				Precision::Exact,
+				Fortitude::Polite,
+			)?;
 		}
 		Ok(())
 	}
@@ -539,7 +552,13 @@ impl<T: Config> Module<T> {
 		if asset_id == T::NativeAssetId::get() {
 			// Transfer all ROOT tokens from the peg address
 			let pallet_address: T::AccountId = T::PegPalletId::get().into_account_truncating();
-			T::MultiCurrency::transfer(asset_id, &pallet_address, beneficiary, amount, false)?;
+			T::MultiCurrency::transfer(
+				asset_id,
+				&pallet_address,
+				beneficiary,
+				amount,
+				Preservation::Expendable,
+			)?;
 		} else {
 			// Mint all other tokens
 			T::MultiCurrency::mint_into(asset_id, beneficiary, amount)?;

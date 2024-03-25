@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::*;
-use frame_support::ensure;
+use frame_support::{ensure, traits::tokens::Preservation};
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{utils::PublicMintInformation, SFTExt};
 use seed_primitives::{CollectionUuid, MAX_COLLECTION_ENTITLEMENTS};
@@ -147,7 +147,13 @@ impl<T: Config> Pallet<T> {
 		};
 		// Charge the fee if there is a fee set
 		if let Some((asset, total_fee)) = total_fee {
-			T::MultiCurrency::transfer(asset, who, &collection_owner, total_fee, false)?;
+			T::MultiCurrency::transfer(
+				asset,
+				who,
+				&collection_owner,
+				total_fee,
+				Preservation::Expendable,
+			)?;
 			// Deposit event
 			Self::deposit_event(Event::<T>::MintFeePaid {
 				who: who.clone(),

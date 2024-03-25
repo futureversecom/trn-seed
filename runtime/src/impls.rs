@@ -783,9 +783,9 @@ where
 		let amount = <pallet_assets_ext::Pallet<T> as fungibles::Inspect<
 			<T as frame_system::Config>::AccountId,
 		>>::reducible_balance(asset_id, current_owner, false);
-		<pallet_assets_ext::Pallet<T> as fungibles::Transfer<
+		<pallet_assets_ext::Pallet<T> as fungibles::Mutate<
 			<T as frame_system::Config>::AccountId,
-		>>::transfer(asset_id, current_owner, new_owner, amount, false)?;
+		>>::transfer(asset_id, current_owner, new_owner, amount, Preservation::Expendable)?;
 		Ok(())
 	}
 
