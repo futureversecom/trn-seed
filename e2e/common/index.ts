@@ -196,6 +196,9 @@ export const typedefs = {
     crossChainCompatibility: "CrossChainCompatibility",
     ownedTokens: "Vec<TokenOwnership>",
   },
+  CrossChainCompatibility: {
+    xrpl: "bool",
+  },
 };
 
 /** CONSTANTS */

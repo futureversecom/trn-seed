@@ -20,6 +20,7 @@
 use codec::Codec;
 use pallet_nft::Config;
 use seed_primitives::types::{CollectionUuid, SerialNumber, TokenCount, TokenId};
+use sp_runtime::Permill;
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
@@ -38,5 +39,9 @@ sp_api::decl_runtime_apis! {
 
 		/// Return the token metadata URI for a given token
 		fn token_uri(token_id: TokenId) -> Vec<u8>;
+
+		fn collection_details(collection_id: CollectionUuid) -> (AccountId, Vec<u8>, Vec<u8>,
+		Option<Vec<(AccountId, Permill)>>,
+		Option<TokenCount>, SerialNumber, TokenCount, pallet_nft::CrossChainCompatibility, seed_primitives::OriginChain);
 	}
 }
