@@ -195,7 +195,7 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     const [seller, listingId, fixedPriceFromCall, serialNumbers, collectionAddress, marketplaceIdArgs] = (
       receipt?.events as any
     )[0].args;
-    expect((receipt?.events as any)[0].event).to.equal("FixedPriceSaleList");
+    expect((receipt?.events as any)[0].event).to.equal("FixedPriceSaleListForSFT");
     expect(collectionAddress).to.equal(erc1155Precompile.address);
     expect(listingId.toNumber()).to.gte(0);
     expect(fixedPriceFromCall.toNumber()).to.equal(fixedPrice);
@@ -278,7 +278,7 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     const [collectionIdArgs, listingId, reservePriceFromChain, seller, serialNumbers, marketplaceIdArgs] = (
       receipt?.events as any
     )[0].args;
-    expect((receipt?.events as any)[0].event).to.equal("AuctionOpen");
+    expect((receipt?.events as any)[0].event).to.equal("AuctionOpenForSFT");
     expect(collectionIdArgs.toNumber()).to.gte(0);
     expect(listingId.toNumber()).to.gte(0);
     expect(reservePriceFromChain.toNumber()).to.equal(reservePrice);
