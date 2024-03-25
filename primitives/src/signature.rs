@@ -290,6 +290,16 @@ mod tests {
 	}
 
 	#[test]
+	fn ed25519_to_ethereum() {
+		let public_key = "FB2A3A850B43E24D2700532EF1F9CCB2475DFF4F62B634B0C58845F23C263965";
+		let public_key_bytes = hex::decode(public_key).unwrap();
+		let public = ed25519::Public::from_raw(public_key_bytes.try_into().unwrap());
+		let account: AccountId20 = public.try_into().unwrap();
+
+		assert_eq!(hex!("83a6dd17b5db4f87b9d877a38e172f3bff0cde46"), account.0);
+	}
+
+	#[test]
 	fn verify_ethereum_sign_works_0() {
 		let msg = "test eth signed message";
 		let pair = ecdsa::Pair::from_seed(&hex![
