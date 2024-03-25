@@ -1016,7 +1016,7 @@ mod participate {
 
 		TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
 			let max_issuance = 1000;
-			let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+			let (sale_id, _sale_info) = initialize_crowdsale(max_issuance);
 			assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
 			// Participate for each account

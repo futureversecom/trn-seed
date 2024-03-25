@@ -10,3 +10,5 @@ The scale_encoded_extrinsic is a SCALE encoded `Vec<u8>` of the extrinsic to be 
 The pallet only contains a single extrinsic, `transact` call; a self contained call that validates the signed transaction and dispatches the encoded extrinsic to the chain.
 
 A signature must be provided along with the encoded message (signed transaction) in the `transact` call - which validates that the signed transaction was signed by the public key provided in the signed transaction.
+
+The encoded transaction/message can be signed using [xrpl supported](https://xrpl.org/docs/concepts/accounts/cryptographic-keys#signing-algorithms) signing algorithms (`secp256k1` and `ed25519`).
