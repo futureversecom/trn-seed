@@ -89,6 +89,11 @@ impl<T: Config> XrplBridgeToEthyAdapter<T::EthyId> for Module<T> {
 }
 
 impl<T: Config> Module<T> {
+	// Is the bridge paused?
+	pub fn bridge_paused() -> bool {
+		BridgePaused::get().is_paused()
+	}
+
 	pub fn update_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) {
 		let validators = Self::get_xrpl_notary_keys(validator_list);
 		<NotaryXrplKeys<T>>::put(&validators);
@@ -745,7 +750,7 @@ impl<T: Config> Module<T> {
 		if notary_xrpl_keys == next_notary_xrpl_keys {
 			info!(target: "ethy-pallet", "💎 notary xrpl keys unchanged {:?}", next_notary_xrpl_keys);
 			// Pause the bridge
-			BridgePaused::put(true);
+			BridgePaused::mutate(|p| p.authorities_change = true);
 			<NextAuthorityChange<T>>::kill();
 			return
 		}
@@ -777,7 +782,7 @@ impl<T: Config> Module<T> {
 		};
 
 		// Pause the bridge
-		BridgePaused::put(true);
+		BridgePaused::mutate(|p| p.authorities_change = true);
 		<NextAuthorityChange<T>>::kill();
 	}
 
@@ -799,8 +804,8 @@ impl<T: Config> Module<T> {
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
 
-		// Unpause the bridge
-		BridgePaused::kill();
+		BridgePaused::mutate(|p| p.authorities_change = false);
+
 		// A proof should've been generated now so we can reactivate the bridge with the new
 		// validator set
 		AuthoritiesChangedThisEra::kill();
@@ -824,6 +829,21 @@ impl<T: Config> Module<T> {
 			return
 		}
 
+		// check if validator set id is different from the one that is active
+		// If it is, reset the request id to the current one.
+		let mut request = request;
+		if let EthySigningRequest::Ethereum(ethereum_event_info) = &request {
+			let validator_set_id = Self::notary_set_id();
+			if validator_set_id > ethereum_event_info.validator_set_id {
+				request = EthySigningRequest::Ethereum(EthereumEventInfo {
+					source: ethereum_event_info.source,
+					destination: ethereum_event_info.destination,
+					message: ethereum_event_info.message.clone(),
+					validator_set_id,
+					event_proof_id: ethereum_event_info.event_proof_id,
+				});
+			}
+		}
 		let log: DigestItem = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
 			ConsensusLog::<T::AccountId>::OpaqueSigningRequest {
