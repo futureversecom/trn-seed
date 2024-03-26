@@ -43,11 +43,12 @@ pub const SELECTOR_LOG_MARKETPLACE_REGISTER: [u8; 32] =
 	keccak256!("MarketplaceRegister(address,uint256,address)"); // caller_id, marketplace_id
 
 pub const SELECTOR_LOG_FIXED_PRICE_SALE_LIST_NFT: [u8; 32] =
-	keccak256!("FixedPriceSaleListForNFT(address,uint256,uint256,uint256[],address,uint128)");
+	keccak256!("FixedPriceSaleListNFT(address,uint256,uint256,uint256[],address,uint128)");
 // seller_id, listing_id, fixed_price, serial_number_ids, collection_address, marketplace_id
 
-pub const SELECTOR_LOG_FIXED_PRICE_SALE_LIST_SFT: [u8; 32] =
-	keccak256!("FixedPriceSaleListForSFT(address,uint256,uint256,uint256[],address,uint128)");
+pub const SELECTOR_LOG_FIXED_PRICE_SALE_LIST_SFT: [u8; 32] = keccak256!(
+	"FixedPriceSaleListSFT(address,uint256,uint256,uint256[],address,uint128,uint256[])"
+);
 // seller_id, listing_id, fixed_price, serial_number_ids, collection_address, marketplace_id
 
 pub const SELECTOR_LOG_FIXED_PRICE_SALE_UPDATE: [u8; 32] =
@@ -59,11 +60,11 @@ pub const SELECTOR_LOG_FIXED_PRICE_SALE_COMPLETE: [u8; 32] =
 // collection_id, listing_id, fixed_price, sender, serial_number_ids, marketplace_id
 
 pub const SELECTOR_LOG_AUCTION_OPEN_NFT: [u8; 32] =
-	keccak256!("AuctionOpenForNFT(uint256,uint256,uint256,address,uint256[],uint128)");
+	keccak256!("AuctionOpenNFT(uint256,uint256,uint256,address,uint256[],uint128)");
 // collection_id, listing_id, reserve_price, sender, serial_number_ids, marketplace_id
 
 pub const SELECTOR_LOG_AUCTION_OPEN_SFT: [u8; 32] =
-	keccak256!("AuctionOpenForSFT(uint256,uint256,uint256,address,uint256[],uint128)");
+	keccak256!("AuctionOpenSFT(uint256,uint256,uint256,address,uint256[],uint128)");
 // collection_id, listing_id, reserve_price, sender, serial_number_ids, marketplace_id
 
 pub const SELECTOR_LOG_BID: [u8; 32] = keccak256!("Bid(address,uint256,uint256,uint128)");
@@ -307,155 +308,6 @@ where
 		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
 
-		Self::sell_internal_nft(
-			handle,
-			collection_address,
-			serial_number_ids,
-			buyer,
-			payment_asset,
-			fixed_price,
-			duration,
-			Some(marketplace_id),
-		)
-	}
-
-	fn sell_sft(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
-		read_args!(
-			handle,
-			{
-				collection_address: Address,
-				serial_number_ids: Vec<U256>,
-				quantities: Vec<U256>,
-				buyer: Address,
-				payment_asset: Address,
-				fixed_price: U256,
-				duration: U256,
-				marketplace_id: U256
-			}
-		);
-		ensure!(
-			marketplace_id <= u32::MAX.into(),
-			revert("Marketplace: Expected marketplace id <= 2^32")
-		);
-		let marketplace_id: u32 = marketplace_id.saturated_into();
-
-		Self::sell_internal_sft(
-			handle,
-			collection_address,
-			serial_number_ids,
-			buyer,
-			payment_asset,
-			fixed_price,
-			duration,
-			Some(marketplace_id),
-			Some(quantities),
-		)
-	}
-
-	fn sell_internal_sft(
-		handle: &mut impl PrecompileHandle,
-		collection_address: Address,
-		serial_number_ids: Vec<U256>,
-		buyer: Address,
-		payment_asset: Address,
-		fixed_price: U256,
-		duration: U256,
-		marketplace_id: Option<MarketplaceId>,
-		quantities: Option<Vec<U256>>,
-	) -> EvmResult<PrecompileOutput> {
-		// Parse asset_id
-		let payment_asset: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
-			payment_asset,
-			ERC20_PRECOMPILE_ADDRESS_PREFIX,
-		)
-		.ok_or_else(|| revert("Marketplace SFT: Invalid payment asset address"))?;
-
-		let duration = Some(saturated_convert_blocknumber(duration)?.into());
-		ensure!(
-			fixed_price <= u128::MAX.into(),
-			revert("Marketplace SFT: Expected fixed price <= 2^128")
-		);
-		let fixed_price: Balance = fixed_price.saturated_into();
-		let collection_id: CollectionUuid =
-			<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
-				collection_address,
-				ERC1155_PRECOMPILE_ADDRESS_PREFIX,
-			)
-			.ok_or_else(|| revert("Marketplace SFT: Invalid collection address"))?;
-
-		let serials_unbounded = serial_number_ids
-			.clone()
-			.into_iter()
-			.zip(quantities.unwrap())
-			.map(|(serial_number, quantity)| {
-				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("Marketplace SFT: Expected serial_number <= 2^32").into())
-				}
-				if quantity > Balance::MAX.into() {
-					return Err(revert("Marketplace SFT: Expected quantity <= 2^128").into())
-				}
-				let serial_number: SerialNumber = serial_number.saturated_into();
-				let quantity: Balance = quantity.saturated_into();
-				Ok((serial_number, quantity))
-			})
-			.collect::<Result<Vec<(SerialNumber, Balance)>, PrecompileFailure>>()?;
-
-		let serial_numbers: BoundedVec<(SerialNumber, Balance), Runtime::MaxTokensPerListing> =
-			BoundedVec::truncate_from(serials_unbounded);
-		let tokens = ListingTokens::Sft(SftListing { collection_id, serial_numbers });
-		let buyer: H160 = buyer.into();
-		let buyer: Option<Runtime::AccountId> =
-			if buyer == H160::default() { None } else { Some(buyer.into()) };
-
-		let caller: Runtime::AccountId = handle.context().caller.into();
-		// Manually record gas
-		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-			<Runtime as pallet_marketplace::Config>::WeightInfo::sell_nft(
-				serial_number_ids.len() as u32
-			),
-		))?;
-		let listing_id = pallet_marketplace::Pallet::<Runtime>::do_sell(
-			caller,
-			tokens,
-			buyer,
-			payment_asset,
-			fixed_price,
-			duration,
-			marketplace_id,
-		)
-		.map_err(|e| {
-			revert(alloc::format!("Marketplace SFT: Dispatched call failed with error: {:?}", e))
-		})?;
-		log4(
-			handle.code_address(),
-			SELECTOR_LOG_FIXED_PRICE_SALE_LIST_SFT,
-			handle.context().caller, //seller
-			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
-			H256::from_slice(&EvmDataWriter::new().write(fixed_price).build()),
-			EvmDataWriter::new()
-				.write(serial_number_ids)
-				.write(collection_address)
-				.write(marketplace_id.unwrap_or_default())
-				.build(),
-		)
-		.record(handle)?;
-
-		// Build output.
-		Ok(succeed(EvmDataWriter::new().write(listing_id).build()))
-	}
-
-	fn sell_internal_nft(
-		handle: &mut impl PrecompileHandle,
-		collection_address: Address,
-		serial_number_ids: Vec<U256>,
-		buyer: Address,
-		payment_asset: Address,
-		fixed_price: U256,
-		duration: U256,
-		marketplace_id: Option<MarketplaceId>,
-	) -> EvmResult<PrecompileOutput> {
-		// Parse asset_id
 		let payment_asset: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
 			payment_asset,
 			ERC20_PRECOMPILE_ADDRESS_PREFIX,
@@ -511,7 +363,7 @@ where
 			payment_asset,
 			fixed_price,
 			duration,
-			marketplace_id,
+			Some(marketplace_id),
 		)
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace NFT: Dispatched call failed with error: {:?}", e))
@@ -525,7 +377,114 @@ where
 			EvmDataWriter::new()
 				.write(serial_number_ids)
 				.write(collection_address)
-				.write(marketplace_id.unwrap_or_default())
+				.write(marketplace_id)
+				.build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(listing_id).build()))
+	}
+
+	fn sell_sft(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+		read_args!(
+			handle,
+			{
+				collection_address: Address,
+				serial_number_ids: Vec<U256>,
+				quantities: Vec<U256>,
+				buyer: Address,
+				payment_asset: Address,
+				fixed_price: U256,
+				duration: U256,
+				marketplace_id: U256
+			}
+		);
+		ensure!(
+			marketplace_id <= u32::MAX.into(),
+			revert("Marketplace: Expected marketplace id <= 2^32")
+		);
+		let marketplace_id: u32 = marketplace_id.saturated_into();
+
+		// Parse asset_id
+		let payment_asset: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+			payment_asset,
+			ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		)
+		.ok_or_else(|| revert("Marketplace SFT: Invalid payment asset address"))?;
+
+		let duration = Some(saturated_convert_blocknumber(duration)?.into());
+		ensure!(
+			fixed_price <= u128::MAX.into(),
+			revert("Marketplace SFT: Expected fixed price <= 2^128")
+		);
+		let fixed_price: Balance = fixed_price.saturated_into();
+		let collection_id: CollectionUuid =
+			<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
+				collection_address,
+				ERC1155_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("Marketplace SFT: Invalid collection address"))?;
+		ensure!(
+			serial_number_ids.len() == quantities.len(),
+			revert("Marketplace SFT: Expected serial number ids and quantities array to be equal")
+		);
+
+		let serials_unbounded = serial_number_ids
+			.clone()
+			.into_iter()
+			.zip(quantities.clone())
+			.map(|(serial_number, quantity)| {
+				if serial_number > SerialNumber::MAX.into() {
+					return Err(revert("Marketplace SFT: Expected serial_number <= 2^32").into())
+				}
+				if quantity > Balance::MAX.into() {
+					return Err(revert("Marketplace SFT: Expected quantity <= 2^128").into())
+				}
+				let serial_number: SerialNumber = serial_number.saturated_into();
+				let quantity: Balance = quantity.saturated_into();
+				Ok((serial_number, quantity))
+			})
+			.collect::<Result<Vec<(SerialNumber, Balance)>, PrecompileFailure>>()?;
+
+		let serial_numbers: BoundedVec<(SerialNumber, Balance), Runtime::MaxTokensPerListing> =
+			BoundedVec::truncate_from(serials_unbounded);
+		let tokens = ListingTokens::Sft(SftListing { collection_id, serial_numbers });
+		let buyer: H160 = buyer.into();
+		let buyer: Option<Runtime::AccountId> =
+			if buyer == H160::default() { None } else { Some(buyer.into()) };
+
+		let caller: Runtime::AccountId = handle.context().caller.into();
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_marketplace::Config>::WeightInfo::sell_sft(
+				serial_number_ids.len() as u32
+			),
+		))?;
+		let listing_id = pallet_marketplace::Pallet::<Runtime>::do_sell(
+			caller,
+			tokens,
+			buyer,
+			payment_asset,
+			fixed_price,
+			duration,
+			Some(marketplace_id),
+		)
+		.map_err(|e| {
+			revert(alloc::format!("Marketplace SFT: Dispatched call failed with error: {:?}", e))
+		})?;
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_FIXED_PRICE_SALE_LIST_SFT,
+			handle.context().caller, //seller
+			H256::from_slice(&EvmDataWriter::new().write(listing_id).build()),
+			H256::from_slice(&EvmDataWriter::new().write(fixed_price).build()),
+			EvmDataWriter::new()
+				.write(serial_number_ids)
+				.write(collection_address)
+				.write(marketplace_id)
+				.write::<Vec<U256>>(quantities)
 				.build(),
 		)
 		.record(handle)?;
@@ -666,64 +625,6 @@ where
 		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
 
-		Self::auction_internal_nft(
-			handle,
-			collection_address,
-			serial_number_ids,
-			payment_asset,
-			reserve_price,
-			duration,
-			Some(marketplace_id),
-		)
-	}
-
-	fn auction_sft_with_marketplace_id(
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
-
-		// Parse input.
-		read_args!(
-			handle,
-			{
-				collection_address: Address,
-				serial_number_ids: Vec<U256>,
-				quantities: Vec<U256>,
-				payment_asset: Address,
-				reserve_price: U256,
-				duration: U256,
-				marketplace_id: U256
-			}
-		);
-
-		ensure!(
-			marketplace_id <= u32::MAX.into(),
-			revert("Marketplace: Expected marketplace id <= 2^32")
-		);
-		let marketplace_id: u32 = marketplace_id.saturated_into();
-
-		Self::auction_internal_sft(
-			handle,
-			collection_address,
-			serial_number_ids,
-			payment_asset,
-			reserve_price,
-			duration,
-			Some(marketplace_id),
-			Some(quantities),
-		)
-	}
-
-	fn auction_internal_nft(
-		handle: &mut impl PrecompileHandle,
-		collection_address: Address,
-		serial_number_ids: Vec<U256>,
-		payment_asset: Address,
-		reserve_price: U256,
-		duration: U256,
-		marketplace_id: Option<MarketplaceId>,
-		// quantities: Option<Vec<U256>>,
-	) -> EvmResult<PrecompileOutput> {
 		let duration = Some(saturated_convert_blocknumber(duration)?.into());
 		ensure!(
 			reserve_price <= Balance::MAX.into(),
@@ -777,7 +678,7 @@ where
 			payment_asset,
 			reserve_price,
 			duration,
-			marketplace_id,
+			Some(marketplace_id),
 		)
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
@@ -792,7 +693,7 @@ where
 			EvmDataWriter::new()
 				.write(Address::from(handle.context().caller))
 				.write(serial_number_ids)
-				.write(marketplace_id.unwrap())
+				.write(marketplace_id)
 				.build(),
 		)
 		.record(handle)?;
@@ -801,16 +702,31 @@ where
 		Ok(succeed([]))
 	}
 
-	fn auction_internal_sft(
+	fn auction_sft_with_marketplace_id(
 		handle: &mut impl PrecompileHandle,
-		collection_address: Address,
-		serial_number_ids: Vec<U256>,
-		payment_asset: Address,
-		reserve_price: U256,
-		duration: U256,
-		marketplace_id: Option<MarketplaceId>,
-		quantities: Option<Vec<U256>>,
 	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				collection_address: Address,
+				serial_number_ids: Vec<U256>,
+				quantities: Vec<U256>,
+				payment_asset: Address,
+				reserve_price: U256,
+				duration: U256,
+				marketplace_id: U256
+			}
+		);
+
+		ensure!(
+			marketplace_id <= u32::MAX.into(),
+			revert("Marketplace: Expected marketplace id <= 2^32")
+		);
+		let marketplace_id: u32 = marketplace_id.saturated_into();
+
 		let duration = Some(saturated_convert_blocknumber(duration)?.into());
 		ensure!(
 			reserve_price <= Balance::MAX.into(),
@@ -825,10 +741,15 @@ where
 			)
 			.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
 
+		ensure!(
+			serial_number_ids.len() == quantities.len(),
+			revert("Marketplace: Expected serial number ids and quantities array to be equal")
+		);
+
 		let serials_unbounded = serial_number_ids
 			.clone()
 			.into_iter()
-			.zip(quantities.unwrap())
+			.zip(quantities.clone())
 			.map(|(serial_number, quantity)| {
 				if serial_number > SerialNumber::MAX.into() {
 					return Err(revert("Marketplace: Expected serial_number <= 2^32").into())
@@ -856,7 +777,7 @@ where
 		.ok_or_else(|| revert("Marketplace SFT: Invalid payment asset address"))?;
 
 		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-			<Runtime as pallet_marketplace::Config>::WeightInfo::auction_nft(
+			<Runtime as pallet_marketplace::Config>::WeightInfo::auction_sft(
 				serial_number_ids.len() as u32,
 			),
 		))?;
@@ -868,7 +789,7 @@ where
 			payment_asset,
 			reserve_price,
 			duration,
-			marketplace_id,
+			Some(marketplace_id),
 		)
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace SFT: Dispatched call failed with error: {:?}", e))
@@ -883,7 +804,7 @@ where
 			EvmDataWriter::new()
 				.write(Address::from(handle.context().caller))
 				.write(serial_number_ids)
-				.write(marketplace_id.unwrap())
+				.write(marketplace_id)
 				.build(),
 		)
 		.record(handle)?;
@@ -1017,24 +938,6 @@ where
 			}
 		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
-		Self::make_simple_offer_internal(
-			handle,
-			collection_address,
-			serial_number,
-			amount,
-			asset_id,
-			Some(marketplace_id),
-		)
-	}
-
-	fn make_simple_offer_internal(
-		handle: &mut impl PrecompileHandle,
-		collection_address: Address,
-		serial_number: U256,
-		amount: U256,
-		asset_id: Address,
-		marketplace_id: Option<MarketplaceId>,
-	) -> EvmResult<PrecompileOutput> {
 		ensure!(amount <= u128::MAX.into(), revert("Marketplace: Expected amount <= 2^128"));
 		let amount: Balance = amount.saturated_into();
 		let collection_id: CollectionUuid =
@@ -1066,7 +969,7 @@ where
 			token_id,
 			amount,
 			asset_id,
-			marketplace_id,
+			Some(marketplace_id),
 		)
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
@@ -1080,7 +983,7 @@ where
 			EvmDataWriter::new()
 				.write(collection_id)
 				.write(serial_number)
-				.write(marketplace_id.unwrap())
+				.write(marketplace_id)
 				.build(),
 		)
 		.record(handle)?;
