@@ -91,7 +91,7 @@ decl_storage! {
 		/// Map from asset_id to minimum amount and delay
 		PaymentDelay get(fn payment_delay): map hasher(twox_64_concat) AssetId => Option<(Balance, T::BlockNumber)>;
 		/// Map from DelayedPaymentId to PendingPayment
-		DelayedPayments get(fn delayed_payments): map hasher(twox_64_concat) DelayedPaymentId => Option<PendingPayment>;
+		pub DelayedPayments get(fn delayed_payments): map hasher(twox_64_concat) DelayedPaymentId => Option<PendingPayment>;
 		/// Map from block number to DelayedPaymentIds scheduled for that block
 		DelayedPaymentSchedule get(fn delayed_payment_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<DelayedPaymentId>;
 		/// The blocks with payments that are ready to be processed
