@@ -18,7 +18,7 @@
 use codec::Decode;
 use ethabi::{ParamType, Token};
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure, log,
+	ensure, log,
 	pallet_prelude::*,
 	traits::{
 		fungibles,
@@ -30,17 +30,14 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
+use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
+use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
 use sp_core::{H160, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating},
 	SaturatedConversion,
 };
 use sp_std::prelude::*;
-
-use frame_support::pallet_prelude::*;
-use frame_system::pallet_prelude::*;
-use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
-use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -61,12 +58,11 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
-	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		erc20s: Vec<(EthAddress, Vec<u8>, u8)>,
+		erc20s: Vec<(EthAddress, BoundedVec<u8, T::StringLimit>, u8)>,
 		_phantom: sp_std::marker::PhantomData<T>,
 	}
 
@@ -105,6 +101,18 @@ pub mod pallet {
 
 		/// The native token asset Id (managed by pallet-balances)
 		type NativeAssetId: Get<AssetId>;
+
+		/// The maximum length of an ERC20 token symbol
+		#[pallet::constant]
+		type StringLimit: Get<u32>;
+
+		/// The maximum number of delayed payments allowed per block
+		#[pallet::constant]
+		type MaxDelaysPerBlock: Get<u32>;
+
+		/// The maximum number of ready blocks allowed per storage
+		#[pallet::constant]
+		type MaxReadyBlocks: Get<u32>;
 	}
 
 	/// Whether deposit are active
@@ -140,7 +148,8 @@ pub mod pallet {
 	/// Metadata for well-known erc20 tokens (symbol, decimals)
 	#[pallet::storage]
 	#[pallet::getter(fn erc20_meta)]
-	pub type Erc20Meta<T: Config> = StorageMap<_, Twox64Concat, EthAddress, (Vec<u8>, u8)>;
+	pub type Erc20Meta<T: Config> =
+		StorageMap<_, Twox64Concat, EthAddress, (BoundedVec<u8, T::StringLimit>, u8)>;
 
 	/// Map from asset_id to minimum amount and delay
 	#[pallet::storage]
@@ -157,13 +166,19 @@ pub mod pallet {
 	/// Map from block number to DelayedPaymentIds scheduled for that block
 	#[pallet::storage]
 	#[pallet::getter(fn delayed_payment_schedule)]
-	pub type DelayedPaymentSchedule<T: Config> =
-		StorageMap<_, Twox64Concat, T::BlockNumber, Vec<DelayedPaymentId>, ValueQuery>;
+	pub type DelayedPaymentSchedule<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::BlockNumber,
+		BoundedVec<DelayedPaymentId, T::MaxDelaysPerBlock>,
+		ValueQuery,
+	>;
 
 	/// The blocks with payments that are ready to be processed
 	#[pallet::storage]
 	#[pallet::getter(fn ready_blocks)]
-	pub type ReadyBlocks<T: Config> = StorageValue<_, Vec<T::BlockNumber>, ValueQuery>;
+	pub type ReadyBlocks<T: Config> =
+		StorageValue<_, BoundedVec<T::BlockNumber, T::MaxReadyBlocks>, ValueQuery>;
 
 	/// The next available payment id for withdrawals and deposits
 	#[pallet::storage]
@@ -194,6 +209,8 @@ pub mod pallet {
 			AssetId,
 			T::AccountId,
 		),
+		/// An ERC20 delay has failed and must be manually claimed
+		Erc20DelayFailed(DelayedPaymentId, T::BlockNumber, AssetId, T::AccountId),
 		/// A delayed erc20 deposit has failed (payment_id, beneficiary)
 		DelayedErc20DepositFailed(DelayedPaymentId, T::AccountId),
 		/// A delayed erc20 withdrawal has failed (asset_id, beneficiary)
@@ -263,20 +280,20 @@ pub mod pallet {
 				.div(weight_each.ref_time())
 				.ref_time()
 				.saturated_into::<u8>();
-			let ready_blocks: Vec<T::BlockNumber> = Self::ready_blocks();
+			let ready_blocks: Vec<T::BlockNumber> = Self::ready_blocks().into_inner();
 			// Total payments processed in this block
 			let mut processed_payment_count: u8 = 0;
 			// Count of blocks where all payments have been processed
 			let mut processed_block_count: u8 = 0;
 
 			for block in ready_blocks.iter() {
-				let mut payment_ids = DelayedPaymentSchedule::<T>::take(block);
+				let mut payment_ids = DelayedPaymentSchedule::<T>::take(block).into_inner();
 				let remaining_payments = (max_payments - processed_payment_count) as usize;
 				if payment_ids.len() > remaining_payments {
 					// Update storage with unprocessed payments
 					DelayedPaymentSchedule::<T>::insert(
 						block,
-						payment_ids.split_off(remaining_payments),
+						BoundedVec::truncate_from(payment_ids.split_off(remaining_payments)),
 					);
 				} else {
 					processed_block_count += 1;
@@ -291,7 +308,9 @@ pub mod pallet {
 				}
 			}
 
-			ReadyBlocks::<T>::put(&ready_blocks[processed_block_count as usize..]);
+			let ready_blocks =
+				BoundedVec::truncate_from(ready_blocks[processed_block_count as usize..].to_vec());
+			ReadyBlocks::<T>::put(ready_blocks);
 			initial_read_cost.add(weight_each.mul(processed_payment_count as u64).ref_time())
 		}
 
@@ -299,7 +318,9 @@ pub mod pallet {
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			let mut weight: Weight = DbWeight::get().reads(1u64);
 			if DelayedPaymentSchedule::<T>::contains_key(now) {
-				ReadyBlocks::<T>::append(now);
+				let _ = ReadyBlocks::<T>::try_append(now).map_err(|_| {
+					log::error!("ERC20-Peg: 📌 Failed to append ready block: {:?}", now);
+				});
 				weight = weight.saturating_add(DbWeight::get().writes(1u64));
 			}
 			weight
@@ -392,7 +413,7 @@ pub mod pallet {
 		/// details: `[(contract address, symbol, decimals)]`
 		pub fn set_erc20_meta(
 			origin: OriginFor<T>,
-			details: Vec<(EthAddress, Vec<u8>, u8)>,
+			details: Vec<(EthAddress, BoundedVec<u8, T::StringLimit>, u8)>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			for (address, symbol, decimals) in details {
@@ -580,9 +601,20 @@ impl<T: Config> Pallet<T> {
 		}
 		let payment_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
 		DelayedPayments::<T>::insert(payment_id, &pending_payment);
-		// Modify DelayedPaymentSchedule with new payment_id
-		DelayedPaymentSchedule::<T>::append(payment_block, payment_id);
 		NextDelayedPaymentId::<T>::put(payment_id + 1);
+		let _ = DelayedPaymentSchedule::<T>::try_append(payment_block, payment_id).map_err(|_| {
+			// If we fail to append the payment_id to the schedule, log the error and throw an event
+			log::error!(
+				"ERC20-Peg: 📌 Failed to add delayed payment to DelayedPaymentSchedule: {:?}",
+				payment_id
+			);
+			Self::deposit_event(Event::<T>::Erc20DelayFailed(
+				payment_id,
+				payment_block,
+				asset_id,
+				source,
+			));
+		});
 
 		// Throw event for delayed payment
 		match pending_payment {
@@ -668,8 +700,8 @@ impl<T: Config> Pallet<T> {
 					&pallet_id,
 					// TODO: We may want to accept a name as input as well later. For now, we will
 					// use the symbol for both symbol and name
-					symbol.clone(),
-					symbol,
+					symbol.clone().into_inner(),
+					symbol.into_inner(),
 					decimals,
 					None,
 				)
