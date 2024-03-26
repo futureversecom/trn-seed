@@ -192,16 +192,18 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     const receipt = await tx.wait();
     let balanceAfter = await bobSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
-    const [seller, listingId, fixedPriceFromCall, serialNumbers, collectionAddress, marketplaceIdArgs] = (
+    const [seller, listingId, fixedPriceFromCall, serialNumbers, collectionAddress, marketplaceIdArgs, _quantities] = (
       receipt?.events as any
     )[0].args;
-    expect((receipt?.events as any)[0].event).to.equal("FixedPriceSaleListForSFT");
+    expect((receipt?.events as any)[0].event).to.equal("FixedPriceSaleListSFT");
     expect(collectionAddress).to.equal(erc1155Precompile.address);
     expect(listingId.toNumber()).to.gte(0);
     expect(fixedPriceFromCall.toNumber()).to.equal(fixedPrice);
     expect(seller).to.equal(bobSigner.address);
     const s = serialNumbers.map((s: BigNumber) => s.toNumber());
     expect(JSON.stringify(s)).to.equal(JSON.stringify(sellSFTSeries));
+    const q = _quantities.map((s: BigNumber) => s.toNumber());
+    expect(JSON.stringify(q)).to.equal(JSON.stringify(quantities));
     expect(marketplaceIdArgs.toNumber()).to.gte(0);
 
     // extrinsic
@@ -278,7 +280,7 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     const [collectionIdArgs, listingId, reservePriceFromChain, seller, serialNumbers, marketplaceIdArgs] = (
       receipt?.events as any
     )[0].args;
-    expect((receipt?.events as any)[0].event).to.equal("AuctionOpenForSFT");
+    expect((receipt?.events as any)[0].event).to.equal("AuctionOpenSFT");
     expect(collectionIdArgs.toNumber()).to.gte(0);
     expect(listingId.toNumber()).to.gte(0);
     expect(reservePriceFromChain.toNumber()).to.equal(reservePrice);

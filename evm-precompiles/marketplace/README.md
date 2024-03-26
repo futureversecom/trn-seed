@@ -7,12 +7,12 @@ Precompile address: `0x00000000000000000000000000000000000006CD`
 ```solidity
 interface Marketplace {
     event MarketplaceRegister(address indexed sender, uint256 indexed marketplaceId, address marketplace_account);
-    event FixedPriceSaleListForNFT(address indexed seller, uint256 indexed listingId, uint256 indexed fixedPrice, uint256[] serialNumbers, address collectionAddress, uint128 marketplace_id);
-    event FixedPriceSaleListForSFT(address indexed seller, uint256 indexed listingId, uint256 indexed fixedPrice, uint256[] serialNumbers, address collectionAddress, uint128 marketplace_id);
+    event FixedPriceSaleListNFT(address indexed seller, uint256 indexed listingId, uint256 indexed fixedPrice, uint256[] serialNumbers, address collectionAddress, uint128 marketplace_id);
+    event FixedPriceSaleListSFT(address indexed seller, uint256 indexed listingId, uint256 indexed fixedPrice, uint256[] serialNumbers, address collectionAddress, uint128 marketplace_id, uint256[] serialNumbers);
     event FixedPriceSaleUpdate(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed newPrice, address sender, uint256[] serialNumbers, uint128 marketplace_id);
     event FixedPriceSaleComplete(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed fixedPrice, address sender, uint256[] serialNumbers, uint128 marketplace_id);
-    event AuctionOpenForNFT(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed reservePrice, address sender, uint256[] serialNumbers, uint128 marketplace_id);
-    event AuctionOpenForSFT(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed reservePrice, address sender, uint256[] serialNumbers, uint128 marketplace_id);
+    event AuctionOpenNFT(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed reservePrice, address sender, uint256[] serialNumbers, uint128 marketplace_id);
+    event AuctionOpenSFT(uint256 indexed collectionId, uint256 indexed listingId, uint256 indexed reservePrice, address sender, uint256[] serialNumbers, uint128 marketplace_id);
     event Bid(address indexed bidder, uint256 indexed listingId, uint256 indexed amount, uint128 marketplace_id);
     event FixedPriceSaleClose(uint256 indexed collectionId, uint256 indexed listingId, address sender, uint256[] serialNumbers, uint128 marketplace_id); //uint256;uint256;address;uint256[]
     event AuctionClose(uint256 indexed collectionId, uint256 indexed listingId, address sender, uint256[] serialNumbers, uint128 marketplace_id);
