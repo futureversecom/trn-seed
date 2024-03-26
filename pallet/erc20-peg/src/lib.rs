@@ -204,41 +204,52 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// An erc20 deposit has been delayed.(payment_id, scheduled block, amount, beneficiary)
-		Erc20DepositDelayed(DelayedPaymentId, T::BlockNumber, Balance, T::AccountId, AssetId),
-		/// A withdrawal has been delayed.(payment_id, scheduled block, amount, beneficiary)
-		Erc20WithdrawalDelayed(
-			DelayedPaymentId,
-			T::BlockNumber,
-			Balance,
-			EthAddress,
-			AssetId,
-			T::AccountId,
-		),
-		/// An ERC20 delay has failed and must be manually claimed
-		Erc20DelayFailed(DelayedPaymentId, T::BlockNumber, AssetId, T::AccountId),
-		/// A delayed erc20 deposit has failed (payment_id, beneficiary)
-		DelayedErc20DepositFailed(DelayedPaymentId, T::AccountId),
-		/// A delayed erc20 withdrawal has failed (asset_id, beneficiary)
-		DelayedErc20WithdrawalFailed(AssetId, EthAddress),
-		/// A bridged erc20 deposit succeeded. (asset, amount, beneficiary)
-		Erc20Deposit(AssetId, Balance, T::AccountId),
-		/// Tokens were burnt for withdrawal on Ethereum as ERC20s (asset, amount, beneficiary)
-		Erc20Withdraw(AssetId, Balance, EthAddress),
-		/// A bridged erc20 deposit failed. (source address, abi data)
-		Erc20DepositFail(H160, Vec<u8>),
-		/// The peg contract address has been set
-		SetContractAddress(EthAddress),
-		/// The ROOT peg contract address has been set
-		SetRootPegContract(EthAddress),
-		/// A delay was added for an asset_id (asset_id, min_balance, delay)
-		PaymentDelaySet(AssetId, Balance, T::BlockNumber),
-		/// There are no more payment ids available, they've been exhausted
+		/// An erc20 deposit has been delayed.
+		Erc20DepositDelayed {
+			payment_id: DelayedPaymentId,
+			scheduled_block: T::BlockNumber,
+			amount: Balance,
+			beneficiary: T::AccountId,
+			asset_id: AssetId,
+		},
+		/// A withdrawal has been delayed.
+		Erc20WithdrawalDelayed {
+			payment_id: DelayedPaymentId,
+			scheduled_block: T::BlockNumber,
+			amount: Balance,
+			beneficiary: EthAddress,
+			asset_id: AssetId,
+			source: T::AccountId,
+		},
+		/// An ERC20 delay has failed due to storage bounds.
+		Erc20DelayFailed {
+			payment_id: DelayedPaymentId,
+			scheduled_block: T::BlockNumber,
+			asset_id: AssetId,
+			source: T::AccountId,
+		},
+		/// A delayed erc20 deposit has failed.
+		DelayedErc20DepositFailed { payment_id: DelayedPaymentId, beneficiary: T::AccountId },
+		/// A delayed erc20 withdrawal has failed.
+		DelayedErc20WithdrawalFailed { asset_id: AssetId, beneficiary: EthAddress },
+		/// A bridged erc20 deposit succeeded.
+		Erc20Deposit { asset_id: AssetId, amount: Balance, beneficiary: T::AccountId },
+		/// Tokens were burnt for withdrawal on Ethereum as ERC20s
+		Erc20Withdraw { asset_id: AssetId, amount: Balance, beneficiary: EthAddress },
+		/// A bridged erc20 deposit failed.
+		Erc20DepositFail { source: H160, abi_data: Vec<u8> },
+		/// The peg contract address has been set.
+		SetContractAddress { address: EthAddress },
+		/// The ROOT peg contract address has been set.
+		SetRootPegContract { address: EthAddress },
+		/// A delay was added for an asset_id.
+		PaymentDelaySet { asset_id: AssetId, min_balance: Balance, delay: T::BlockNumber },
+		/// There are no more payment ids available, they've been exhausted.
 		NoAvailableDelayedPaymentIds,
-		/// Toggle deposit delay
-		ActivateDepositDelay(bool),
-		/// Toggle withdrawal delay
-		ActivateWithdrawalDelay(bool),
+		/// Toggle deposit delay.
+		ActivateDepositDelay { active: bool },
+		/// Toggle withdrawal delay.
+		ActivateWithdrawalDelay { active: bool },
 	}
 
 	#[pallet::error]
@@ -356,7 +367,7 @@ pub mod pallet {
 		pub fn activate_deposits_delay(origin: OriginFor<T>, activate: bool) -> DispatchResult {
 			ensure_root(origin)?;
 			DepositsDelayActive::<T>::put(activate);
-			Self::deposit_event(<Event<T>>::ActivateDepositDelay(activate));
+			Self::deposit_event(Event::<T>::ActivateDepositDelay { active: activate });
 			Ok(())
 		}
 
@@ -365,7 +376,7 @@ pub mod pallet {
 		pub fn activate_withdrawals_delay(origin: OriginFor<T>, activate: bool) -> DispatchResult {
 			ensure_root(origin)?;
 			WithdrawalsDelayActive::<T>::put(activate);
-			Self::deposit_event(<Event<T>>::ActivateWithdrawalDelay(activate));
+			Self::deposit_event(Event::<T>::ActivateWithdrawalDelay { active: activate });
 			Ok(())
 		}
 
@@ -398,7 +409,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ContractAddress::<T>::put(eth_address);
-			Self::deposit_event(<Event<T>>::SetContractAddress(eth_address));
+			Self::deposit_event(Event::<T>::SetContractAddress { address: eth_address });
 			Ok(())
 		}
 
@@ -410,7 +421,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			RootPegContractAddress::<T>::put(eth_address);
-			Self::deposit_event(<Event<T>>::SetRootPegContract(eth_address));
+			Self::deposit_event(Event::<T>::SetRootPegContract { address: eth_address });
 			Ok(())
 		}
 
@@ -452,7 +463,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			PaymentDelay::<T>::insert(asset_id, (min_balance, delay));
-			Self::deposit_event(<Event<T>>::PaymentDelaySet(asset_id, min_balance, delay));
+			Self::deposit_event(Event::<T>::PaymentDelaySet { asset_id, min_balance, delay });
 			Ok(())
 		}
 	}
@@ -550,11 +561,11 @@ impl<T: Config> Pallet<T> {
 			T::EthBridge::send_event(&source.into(), &Self::contract_address(), &message)?
 		};
 
-		Self::deposit_event(Event::<T>::Erc20Withdraw(
+		Self::deposit_event(Event::<T>::Erc20Withdraw {
 			asset_id,
-			withdrawal_message.amount.saturated_into(),
-			withdrawal_message.beneficiary,
-		));
+			amount: withdrawal_message.amount.saturated_into(),
+			beneficiary: withdrawal_message.beneficiary,
+		});
 		Ok(Some(event_proof_id))
 	}
 
@@ -564,10 +575,10 @@ impl<T: Config> Pallet<T> {
 			match pending_payment {
 				PendingPayment::Deposit(deposit) => {
 					if Self::process_deposit(deposit.clone()).is_err() {
-						Self::deposit_event(Event::<T>::DelayedErc20DepositFailed(
+						Self::deposit_event(Event::<T>::DelayedErc20DepositFailed {
 							payment_id,
-							deposit.beneficiary.into(),
-						));
+							beneficiary: deposit.beneficiary.into(),
+						});
 					}
 				},
 				PendingPayment::Withdrawal(withdrawal_message) => {
@@ -577,10 +588,10 @@ impl<T: Config> Pallet<T> {
 					if let Some(asset_id) = asset_id {
 						// Process transfer or withdrawal of payment asset
 						if Self::process_withdrawal(withdrawal_message.clone(), asset_id).is_err() {
-							Self::deposit_event(Event::<T>::DelayedErc20WithdrawalFailed(
+							Self::deposit_event(Event::<T>::DelayedErc20WithdrawalFailed {
 								asset_id,
-								withdrawal_message.beneficiary.into(),
-							));
+								beneficiary: withdrawal_message.beneficiary.into(),
+							});
 						}
 					} else {
 						log::error!(
@@ -614,36 +625,36 @@ impl<T: Config> Pallet<T> {
 				"ERC20-Peg: 📌 Failed to add delayed payment to DelayedPaymentSchedule: {:?}",
 				payment_id
 			);
-			Self::deposit_event(Event::<T>::Erc20DelayFailed(
+			Self::deposit_event(Event::<T>::Erc20DelayFailed {
 				payment_id,
-				payment_block,
+				scheduled_block: payment_block,
 				asset_id,
 				source,
-			));
+			});
 		});
 
 		// Throw event for delayed payment
 		match pending_payment {
 			PendingPayment::Withdrawal(withdrawal) => {
-				Self::deposit_event(Event::<T>::Erc20WithdrawalDelayed(
+				Self::deposit_event(Event::<T>::Erc20WithdrawalDelayed {
 					payment_id,
-					payment_block,
-					withdrawal.amount.as_u128(),
-					withdrawal.beneficiary,
+					scheduled_block: payment_block,
+					amount: withdrawal.amount.as_u128(),
+					beneficiary: withdrawal.beneficiary,
 					asset_id,
 					source,
-				));
+				});
 			},
 			PendingPayment::Deposit(deposit) => {
 				let beneficiary: T::AccountId =
 					T::AccountId::decode(&mut &deposit.beneficiary.0[..]).unwrap();
-				Self::deposit_event(Event::<T>::Erc20DepositDelayed(
+				Self::deposit_event(Event::<T>::Erc20DepositDelayed {
 					payment_id,
-					payment_block,
-					deposit.amount.as_u128(),
+					scheduled_block: payment_block,
+					amount: deposit.amount.as_u128(),
 					beneficiary,
 					asset_id,
-				));
+				});
 			},
 		}
 	}
@@ -728,7 +739,7 @@ impl<T: Config> Pallet<T> {
 		// Give tokens to user
 		Self::mint_or_transfer(asset_id, &beneficiary, amount)?;
 
-		Self::deposit_event(Event::<T>::Erc20Deposit(asset_id, amount, beneficiary));
+		Self::deposit_event(Event::<T>::Erc20Deposit { asset_id, amount, beneficiary });
 		Ok(())
 	}
 
@@ -798,7 +809,10 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 			{
 				Ok(_) => Ok(deposit_weight),
 				Err(e) => {
-					Self::deposit_event(Event::<T>::Erc20DepositFail(*source, data.to_vec()));
+					Self::deposit_event(Event::<T>::Erc20DepositFail {
+						source: *source,
+						abi_data: data.to_vec(),
+					});
 					Err((deposit_weight, e.into()))
 				},
 			}
