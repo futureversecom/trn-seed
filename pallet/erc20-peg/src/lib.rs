@@ -125,15 +125,21 @@ pub mod pallet {
 	#[pallet::getter(fn withdrawals_active)]
 	pub type WithdrawalsActive<T> = StorageValue<_, bool, ValueQuery>;
 
+	/// Default value for deposit and withdrawal delays
+	#[pallet::type_value]
+	pub fn DefaultTrue() -> bool {
+		true
+	}
+
 	/// Whether deposit delays are active, default is set to true
 	#[pallet::storage]
 	#[pallet::getter(fn deposits_delay_active)]
-	pub type DepositsDelayActive<T> = StorageValue<_, bool, ValueQuery>;
+	pub type DepositsDelayActive<T> = StorageValue<_, bool, ValueQuery, DefaultTrue>;
 
 	/// Whether withdrawals delays are active, default is set to true
 	#[pallet::storage]
 	#[pallet::getter(fn withdrawals_delay_active)]
-	pub type WithdrawalsDelayActive<T> = StorageValue<_, bool, ValueQuery>;
+	pub type WithdrawalsDelayActive<T> = StorageValue<_, bool, ValueQuery, DefaultTrue>;
 
 	/// Map ERC20 address to GA asset Id
 	#[pallet::storage]
