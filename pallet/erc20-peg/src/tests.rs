@@ -18,10 +18,7 @@ use crate::{
 	mock::{AssetsExt, Erc20Peg, ExtBuilder, MockEthereumEventRouter, PegPalletId, Test},
 	types::{DelayedPaymentId, Erc20DepositEvent, PendingPayment, WithdrawMessage},
 };
-use frame_support::traits::{
-	fungibles::{Inspect, Mutate},
-	OnIdle, OnInitialize,
-};
+use frame_support::traits::fungibles::{Inspect, Mutate};
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
 
@@ -174,7 +171,7 @@ fn deposit_payment_with_ethereum_event_router() {
 
 		// Setup token mapping
 		let token_address: H160 = H160::from_low_u64_be(666);
-		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(token_address, SPENDING_ASSET_ID);
 
 		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
 		let deposit_amount: Balance = 100;
@@ -208,7 +205,7 @@ fn deposit_payment_with_ethereum_event_router_source_address_not_set() {
 
 		// Setup token mapping
 		let token_address: H160 = H160::from_low_u64_be(666);
-		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(token_address, SPENDING_ASSET_ID);
 
 		let source = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
@@ -247,7 +244,7 @@ fn deposit_payment_with_ethereum_event_router_incorrect_source_address() {
 
 		// Setup token mapping
 		let token_address: H160 = H160::from_low_u64_be(666);
-		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(token_address, SPENDING_ASSET_ID);
 
 		let source = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
@@ -331,8 +328,8 @@ fn on_deposit_fails_with_wrong_source() {
 		));
 
 		// Insert mappings for root and xrp token addresses
-		Erc20ToAssetId::insert(root_token_address, ROOT_ASSET_ID);
-		Erc20ToAssetId::insert(erc20_token_address, XRP_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(root_token_address, ROOT_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(erc20_token_address, XRP_ASSET_ID);
 
 		// Do deposit fails with incorrect source
 		assert_noop!(
@@ -394,8 +391,8 @@ fn on_deposit_transfers_root_token() {
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 
 		// Setup storage values
-		Erc20ToAssetId::insert(token_address, ROOT_ASSET_ID);
-		AssetIdToErc20::insert(ROOT_ASSET_ID, token_address);
+		Erc20ToAssetId::<Test>::insert(token_address, ROOT_ASSET_ID);
+		AssetIdToErc20::<Test>::insert(ROOT_ASSET_ID, token_address);
 
 		assert_ok!(Erc20Peg::set_root_peg_address(
 			frame_system::RawOrigin::Root.into(),
@@ -443,7 +440,7 @@ fn deposit_payment_less_than_delay_goes_through() {
 
 		// Setup token mapping
 		let token_address: H160 = H160::from_low_u64_be(666);
-		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(token_address, SPENDING_ASSET_ID);
 
 		// Set payment delay with higher value than deposit_amount
 		let delay: u64 = 1000;
@@ -463,7 +460,7 @@ fn deposit_payment_less_than_delay_goes_through() {
 
 		// Check payment has not been put in delayed payments
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
-		let delayed_payment_id = <NextDelayedPaymentId>::get();
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
 		assert_eq!(
 			Erc20Peg::delayed_payment_schedule(payment_block),
 			vec![] as Vec<DelayedPaymentId>
@@ -497,7 +494,7 @@ fn deposit_payment_with_delay() {
 		assert_ok!(Erc20Peg::activate_deposits_delay(frame_system::RawOrigin::Root.into(), true));
 		// Setup token mapping
 		let token_address: H160 = H160::from_low_u64_be(666);
-		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(token_address, SPENDING_ASSET_ID);
 
 		// Set payment delay with deposit_amount, this should delay the payment
 		let delay: u64 = 1000;
@@ -507,7 +504,7 @@ fn deposit_payment_with_delay() {
 			deposit_amount,
 			delay
 		));
-		let delayed_payment_id = <NextDelayedPaymentId>::get();
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
 
 		// Process deposit, this should not go through and be added to delays
 		assert_ok!(Erc20Peg::do_deposit(
@@ -582,7 +579,7 @@ fn withdraw() {
 		let account = create_account(123);
 		let asset_id: AssetId = 1;
 		let cennz_eth_address: EthAddress = H160::default();
-		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
+		<AssetIdToErc20<Test>>::insert(asset_id, cennz_eth_address);
 
 		let amount: Balance = 100;
 		let _ = <Test as Config>::MultiCurrency::mint_into(asset_id, &account, amount);
@@ -608,8 +605,8 @@ fn withdraw_with_delay() {
 		let delayed_payment_weight: Weight =
 			DbWeight::get().reads(8u64).saturating_add(DbWeight::get().writes(10u64));
 
-		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
-		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
+		<AssetIdToErc20<Test>>::insert(asset_id, cennz_eth_address);
+		<Erc20ToAssetId<Test>>::insert(cennz_eth_address, asset_id);
 		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 		// Activate withdrawal delays
 		assert_ok!(Erc20Peg::activate_withdrawals_delay(
@@ -624,7 +621,7 @@ fn withdraw_with_delay() {
 			delay
 		));
 
-		let delayed_payment_id = <NextDelayedPaymentId>::get();
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
 		assert_ok!(Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary));
 
@@ -642,7 +639,7 @@ fn withdraw_with_delay() {
 			Some(PendingPayment::Withdrawal(message))
 		);
 		// Check payment id has been increased
-		assert_eq!(<NextDelayedPaymentId>::get(), delayed_payment_id + 1);
+		assert_eq!(<NextDelayedPaymentId<Test>>::get(), delayed_payment_id + 1);
 		assert_eq!(
 			Erc20Peg::on_initialize(payment_block),
 			DbWeight::get().reads(1u64) + DbWeight::get().writes(1u64)
@@ -671,8 +668,8 @@ fn withdraw_less_than_delay_goes_through() {
 		let delay: u64 = 1000;
 		let _ = <Test as Config>::MultiCurrency::mint_into(asset_id, &account, amount);
 
-		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
-		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
+		<AssetIdToErc20<Test>>::insert(asset_id, cennz_eth_address);
+		<Erc20ToAssetId<Test>>::insert(cennz_eth_address, asset_id);
 		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 
 		assert_ok!(Erc20Peg::set_payment_delay(
@@ -682,7 +679,7 @@ fn withdraw_less_than_delay_goes_through() {
 			delay
 		));
 
-		let delayed_payment_id = <NextDelayedPaymentId>::get();
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
 		assert_ok!(Erc20Peg::withdraw(
 			Some(account.clone()).into(),
@@ -742,7 +739,7 @@ fn withdraw_transfers_root_token() {
 		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 
 		// Setup storage values
-		AssetIdToErc20::insert(ROOT_ASSET_ID, token_address);
+		AssetIdToErc20::<Test>::insert(ROOT_ASSET_ID, token_address);
 
 		// Mint tokens to account
 		let _ =
