@@ -63,8 +63,7 @@ where
 	fn free_balance(&self, asset_id: AssetId, who: AccountId) -> RpcResult<String> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
-		let at = BlockId::hash(best);
-		api.free_balance(&at, asset_id, who, false)
+		api.free_balance(best, asset_id, who, false)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 }

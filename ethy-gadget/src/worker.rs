@@ -114,7 +114,7 @@ where
 		} = worker_params;
 
 		let last_finalized_header = client
-			.expect_header(BlockId::number(client.info().finalized_number))
+			.expect_header(client.info().finalized_hash)
 			.expect("latest block always has header available; qed.");
 
 		EthyWorker {
@@ -150,8 +150,7 @@ where
 	/// Such a failure is usually an indication that the Ethy pallet has not been deployed (yet).
 	fn validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
 		// queries the Ethy pallet to get the active validator set public keys
-		let at = BlockId::hash(header.hash());
-		let validator_set = self.runtime.runtime_api().validator_set(&at).ok();
+		let validator_set = self.runtime.runtime_api().validator_set(header.hash()).ok();
 
 		info!(target: "ethy", "💎 active validator set: {:?}", validator_set);
 		validator_set
@@ -164,8 +163,7 @@ where
 	///
 	/// Always query the chain state incase the authorized list changed
 	fn xrpl_validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
-		let at = BlockId::hash(header.hash());
-		let xrpl_signers = self.runtime.runtime_api().xrpl_signers(&at).ok();
+		let xrpl_signers = self.runtime.runtime_api().xrpl_signers(header.hash()).ok();
 		info!(target: "ethy", "💎 xrpl validator set: {:?}", xrpl_signers);
 
 		xrpl_signers
@@ -257,7 +255,7 @@ where
 		// block by ethy and the new finalized block notification
 		if number > *self.best_grandpa_block_header.number() + One::one() {
 			debug!(target: "ethy", "💎 finality notification for non-sequential future block #{:?}", number);
-			match self.backend.blockchain().header(BlockId::Number(number - One::one())) {
+			match self.backend.blockchain().header(*new_header.parent_hash()) {
 				Ok(Some(parent_header)) => {
 					let n = FinalityNotification {
 						hash: parent_header.hash(),

@@ -62,7 +62,7 @@ impl<C, Block, T: Config> Nft<C, Block, T> {
 impl<C, Block, AccountId, T> NftApiServer<AccountId> for Nft<C, Block, T>
 where
 	Block: BlockT,
-	T: Config<BlockNumber = BlockNumber> + Send + Sync,
+	T: Config + Send + Sync,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: NftRuntimeApi<Block, AccountId, T>,
 	AccountId: Codec,
@@ -75,16 +75,13 @@ where
 		limit: u16,
 	) -> RpcResult<(SerialNumber, TokenCount, Vec<SerialNumber>)> {
 		let api = self.client.runtime_api();
-		let best = self.client.info().best_hash;
-		let at = BlockId::hash(best);
-		api.owned_tokens(&at, collection_id, who, cursor, limit)
+		api.owned_tokens(self.client.info().best_hash, collection_id, who, cursor, limit)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 
 	fn token_uri(&self, token_id: TokenId) -> RpcResult<Vec<u8>> {
 		let api = self.client.runtime_api();
-		let best = self.client.info().best_hash;
-		let at = BlockId::hash(best);
-		api.token_uri(&at, token_id).map_err(|e| RpcError::to_call_error(e))
+		api.token_uri(self.client.info().best_hash, token_id)
+			.map_err(|e| RpcError::to_call_error(e))
 	}
 }

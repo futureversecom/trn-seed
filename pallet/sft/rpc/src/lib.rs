@@ -48,14 +48,13 @@ impl<C, Block, T: Config> Sft<C, Block, T> {
 impl<C, Block, T> SftApiServer for Sft<C, Block, T>
 where
 	Block: BlockT,
-	T: Config<BlockNumber = BlockNumber> + Send + Sync,
+	T: Config + Send + Sync,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: SftRuntimeApi<Block, T>,
 {
 	fn token_uri(&self, token_id: TokenId) -> RpcResult<Vec<u8>> {
 		let api = self.client.runtime_api();
-		let best = self.client.info().best_hash;
-		let at = BlockId::hash(best);
-		api.token_uri(&at, token_id).map_err(|e| RpcError::to_call_error(e))
+		api.token_uri(self.client.info().best_hash, token_id)
+			.map_err(|e| RpcError::to_call_error(e))
 	}
 }

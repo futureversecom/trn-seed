@@ -15,6 +15,7 @@ use crate::{Config, Error};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::DispatchResult, ensure, RuntimeDebugNoBound};
+use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use seed_pallet_common::{NFTExt, SFTExt};
 use seed_primitives::{
