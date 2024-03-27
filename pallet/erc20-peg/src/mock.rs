@@ -38,6 +38,9 @@ impl_pallet_assets_ext_config!(Test);
 
 parameter_types! {
 	pub const PegPalletId: PalletId = PalletId(*b"py/erc20");
+	pub const MaxDelaysPerBlock: u32 = 10;
+	pub const MaxReadyBlocks: u32 = 10;
+	pub const StringLimit: u32 = 50;
 }
 
 impl crate::Config for Test {
@@ -47,6 +50,9 @@ impl crate::Config for Test {
 	type MultiCurrency = AssetsExt;
 	type WeightInfo = ();
 	type NativeAssetId = NativeAssetId;
+	type StringLimit = StringLimit;
+	type MaxDelaysPerBlock = MaxDelaysPerBlock;
+	type MaxReadyBlocks = MaxReadyBlocks;
 }
 
 /// Mock ethereum bridge
