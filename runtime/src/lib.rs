@@ -1084,6 +1084,8 @@ parameter_types! {
 		= U256::from(NORMAL_DISPATCH_RATIO.mul(MAXIMUM_BLOCK_WEIGHT.ref_time()) / WEIGHT_PER_GAS);
 	pub PrecompilesValue: FutureversePrecompiles<Runtime> = FutureversePrecompiles::<_>::new();
 	pub WeightPerGas: Weight = Weight::from_all(WEIGHT_PER_GAS);
+	// TRN is a solo chain. Otherwise -> https://github.com/polkadot-evm/frontier/pull/1039
+	pub GasLimitPovSizeRatio: u64 = 0;
 }
 
 impl pallet_evm::Config for Runtime {
@@ -1104,11 +1106,21 @@ impl pallet_evm::Config for Runtime {
 	type FindAuthor = EthereumFindAuthor<Babe>;
 	type HandleTxValidation = HandleTxValidation<pallet_evm::Error<Runtime>>;
 	type WeightPerGas = WeightPerGas;
+	type OnCreate = ();
+	type GasLimitPovSizeRatio = GasLimitPovSizeRatio;
+	type Timestamp = Timestamp;
+	type WeightInfo = pallet_evm::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub const PostBlockAndTxnHashes: PostLogContent = PostLogContent::BlockAndTxnHashes;
 }
 
 impl pallet_ethereum::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type StateRoot = pallet_ethereum::IntermediateStateRoot<Runtime>;
+	type PostLogContent = PostBlockAndTxnHashes;
+	type ExtraDataLength = ConstU32<30>;
 	type HandleTxValidation = HandleTxValidation<InvalidTransactionWrapper>;
 }
 
@@ -1723,7 +1735,10 @@ impl_runtime_apis! {
 				nonce,
 				access_list.unwrap_or_default(),
 				false,
-				false,
+				false, // TODO: check why this is not true
+				// TODO: adjust accordingly
+				None,
+				None,
 				config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
 			).map_err(|err| err.error.into())
 		}
@@ -1757,7 +1772,10 @@ impl_runtime_apis! {
 				nonce,
 				access_list.unwrap_or_default(),
 				false,
-				false,
+				false, // TODO: check why this is not true
+				// TODO: adjust accordingly
+				None,
+				None,
 				config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
 			).map_err(|err| err.error.into())
 		}
