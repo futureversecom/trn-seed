@@ -122,12 +122,12 @@ benchmarks! {
 		let asset_id: AssetId = 12;
 		let token_address: H160 = H160::from_low_u64_be(13);
 		// Sanity check
-		assert!(Erc20Peg::<T>::erc20_to_asset(token_address).is_none());
-		assert!(Erc20Peg::<T>::asset_to_erc20(asset_id).is_none());
+		assert!(Erc20Peg::<T>::Erc20ToAssetId::get(token_address).is_none());
+		assert!(Erc20Peg::<T>::AssetIdToErc20::get(asset_id).is_none());
 	}: _(RawOrigin::Root, asset_id, token_address)
 	verify {
-		assert_eq!(Erc20Peg::<T>::erc20_to_asset(token_address).unwrap(), asset_id);
-		assert_eq!(Erc20Peg::<T>::asset_to_erc20(asset_id).unwrap(), token_address);
+		assert_eq!(Erc20Peg::<T>::Erc20ToAssetId::get()(token_address).unwrap(), asset_id);
+		assert_eq!(Erc20Peg::<T>::AssetIdToErc20::get(asset_id).unwrap(), token_address);
 	}
 
 	set_erc20_meta {
