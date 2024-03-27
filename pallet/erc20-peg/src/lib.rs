@@ -91,7 +91,7 @@ decl_storage! {
 		/// Map from asset_id to minimum amount and delay
 		PaymentDelay get(fn payment_delay): map hasher(twox_64_concat) AssetId => Option<(Balance, T::BlockNumber)>;
 		/// Map from DelayedPaymentId to PendingPayment
-		DelayedPayments get(fn delayed_payments): map hasher(twox_64_concat) DelayedPaymentId => Option<PendingPayment>;
+		pub DelayedPayments get(fn delayed_payments): map hasher(twox_64_concat) DelayedPaymentId => Option<PendingPayment>;
 		/// Map from block number to DelayedPaymentIds scheduled for that block
 		DelayedPaymentSchedule get(fn delayed_payment_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<DelayedPaymentId>;
 		/// The blocks with payments that are ready to be processed
@@ -120,16 +120,16 @@ decl_event! {
 	{
 		/// An erc20 deposit has been delayed.(payment_id, scheduled block, amount, beneficiary)
 		Erc20DepositDelayed(DelayedPaymentId, BlockNumber, Balance, AccountId, AssetId),
-		/// A withdrawal has been delayed.(payment_id, scheduled block, amount, beneficiary)
-		Erc20WithdrawalDelayed(DelayedPaymentId, BlockNumber, Balance, EthAddress, AssetId, AccountId),
+		/// A withdrawal has been delayed.(payment_id, scheduled block, amount, beneficiary, asset, sender)
+		Erc20WithdrawalDelayed(DelayedPaymentId, BlockNumber, Balance, EthAddress, AssetId, AccountId,),
 		/// A delayed erc20 deposit has failed (payment_id, beneficiary)
 		DelayedErc20DepositFailed(DelayedPaymentId, AccountId),
 		/// A delayed erc20 withdrawal has failed (asset_id, beneficiary)
 		DelayedErc20WithdrawalFailed(AssetId, EthAddress),
 		/// A bridged erc20 deposit succeeded. (asset, amount, beneficiary)
 		Erc20Deposit(AssetId, Balance, AccountId),
-		/// Tokens were burnt for withdrawal on Ethereum as ERC20s (asset, amount, beneficiary)
-		Erc20Withdraw(AssetId, Balance, EthAddress),
+		/// Tokens were burnt for withdrawal on Ethereum as ERC20s (asset, amount, beneficiary, source)
+		Erc20Withdraw(AssetId, Balance, EthAddress, AccountId),
 		/// A bridged erc20 deposit failed. (source address, abi data)
 		Erc20DepositFail(H160, Vec<u8>),
 		/// The peg contract address has been set
@@ -348,7 +348,7 @@ impl<T: Config> Module<T> {
 							let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
 							Self::delay_payment(
 								delay,
-								PendingPayment::Withdrawal(message),
+								PendingPayment::Withdrawal((origin.clone(), message)),
 								asset_id,
 								origin,
 							);
@@ -365,7 +365,7 @@ impl<T: Config> Module<T> {
 
 		// Process transfer or withdrawal of payment asset
 		let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
-		Self::process_withdrawal(message, asset_id)
+		Self::process_withdrawal(origin.clone(), message, asset_id)
 	}
 
 	/// For a withdrawal, either transfer ROOT tokens to Peg address or burn all other tokens
@@ -387,6 +387,7 @@ impl<T: Config> Module<T> {
 
 	/// Process withdrawal and send
 	fn process_withdrawal(
+		sender: T::AccountId,
 		withdrawal_message: WithdrawMessage,
 		asset_id: AssetId,
 	) -> Result<Option<u64>, DispatchError> {
@@ -410,6 +411,7 @@ impl<T: Config> Module<T> {
 			asset_id,
 			withdrawal_message.amount.saturated_into(),
 			withdrawal_message.beneficiary,
+			sender,
 		));
 		Ok(Some(event_proof_id))
 	}
@@ -426,13 +428,15 @@ impl<T: Config> Module<T> {
 						));
 					}
 				},
-				PendingPayment::Withdrawal(withdrawal_message) => {
+				PendingPayment::Withdrawal((source, withdrawal_message)) => {
 					// At this stage it is assumed that a mapping between erc20 to asset id exists
 					// for this token
 					let asset_id = Self::erc20_to_asset(withdrawal_message.token_address);
 					if let Some(asset_id) = asset_id {
 						// Process transfer or withdrawal of payment asset
-						if Self::process_withdrawal(withdrawal_message.clone(), asset_id).is_err() {
+						if Self::process_withdrawal(source, withdrawal_message.clone(), asset_id)
+							.is_err()
+						{
 							Self::deposit_event(Event::<T>::DelayedErc20WithdrawalFailed(
 								asset_id,
 								withdrawal_message.beneficiary.into(),
@@ -469,7 +473,7 @@ impl<T: Config> Module<T> {
 
 		// Throw event for delayed payment
 		match pending_payment {
-			PendingPayment::Withdrawal(withdrawal) => {
+			PendingPayment::Withdrawal((_sender, withdrawal)) => {
 				Self::deposit_event(Event::<T>::Erc20WithdrawalDelayed(
 					payment_id,
 					payment_block,
