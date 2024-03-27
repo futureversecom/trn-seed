@@ -238,6 +238,8 @@ where
 		nonce: Option<U256>,
 		access_list: Vec<(H160, Vec<H256>)>,
 		is_transactional: bool,
+		weight_limit: Option<Weight>,
+		proof_size_base_cost: Option<u64>,
 		evm_config: &EvmConfig,
 	) -> Result<(), RunnerError<Self::Error>> {
 		<Runner<T> as RunnerT<T>>::validate(
@@ -251,6 +253,8 @@ where
 			nonce,
 			access_list,
 			is_transactional,
+			weight_limit,
+			proof_size_base_cost,
 			evm_config,
 		)
 	}
@@ -267,6 +271,8 @@ where
 		access_list: Vec<(H160, Vec<H256>)>,
 		is_transactional: bool,
 		validate: bool,
+		weight_limit: Option<Weight>,
+		proof_size_base_cost: Option<u64>,
 		config: &EvmConfig,
 	) -> Result<CallInfo, RunnerError<Self::Error>> {
 		// Futurepass v2 code, should not have any impact
@@ -371,6 +377,8 @@ where
 			access_list,
 			is_transactional,
 			validate,
+			weight_limit,
+			proof_size_base_cost,
 			config,
 		)
 	}
@@ -386,6 +394,8 @@ where
 		access_list: Vec<(H160, Vec<H256>)>,
 		is_transactional: bool,
 		validate: bool,
+		weight_limit: Option<Weight>,
+		proof_size_base_cost: Option<u64>,
 		config: &EvmConfig,
 	) -> Result<CreateInfo, RunnerError<Self::Error>> {
 		// @todo check source, proxy request if needed
@@ -410,6 +420,8 @@ where
 			access_list,
 			is_transactional,
 			validate,
+			weight_limit,
+			proof_size_base_cost,
 			config,
 		)
 	}
@@ -426,6 +438,8 @@ where
 		access_list: Vec<(H160, Vec<H256>)>,
 		is_transactional: bool,
 		validate: bool,
+		weight_limit: Option<Weight>,
+		proof_size_base_cost: Option<u64>,
 		config: &EvmConfig,
 	) -> Result<CreateInfo, RunnerError<Self::Error>> {
 		// @todo check source, proxy request if needed
@@ -451,6 +465,8 @@ where
 			access_list,
 			is_transactional,
 			validate,
+			weight_limit,
+			proof_size_base_cost,
 			config,
 		)
 	}
