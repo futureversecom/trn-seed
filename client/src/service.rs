@@ -233,7 +233,7 @@ pub fn new_partial(
 fn remote_keystore(_url: &String) -> Result<Arc<LocalKeystore>, &'static str> {
 	// FIXME: here would the concrete keystore be built,
 	//        must return a concrete type (NOT `LocalKeystore`) that
-	//        implements `CryptoStore` and `Keystore`
+	//        implements `Keystore`
 	Err("Remote Keystore not supported.")
 }
 
@@ -310,7 +310,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		.extra_sets
 		.push(ethy_gadget::ethy_peers_set_config(ethy_protocol_name.clone()));
 
-	let (network, system_rpc_tx, tx_handler_controller, network_starter) =
+	let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
 			client: client.clone(),
@@ -357,6 +357,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		let keystore = keystore_container.keystore();
 		let is_authority = role.is_authority();
 		let network = network.clone();
+		let sync_service = sync_service.clone();
 		let filter_pool = filter_pool.clone();
 		let frontier_backend = frontier_backend.clone();
 		let overrides = overrides.clone();
@@ -421,6 +422,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		system_rpc_tx,
 		config,
 		telemetry: telemetry.as_mut(),
+		sync_service: sync_service.clone(),
 		tx_handler_controller,
 	})?;
 
@@ -452,8 +454,8 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 			select_chain,
 			env: proposer_factory,
 			block_import: block_import.clone(),
-			sync_oracle: network.clone(),
-			justification_sync_link: network.clone(),
+			sync_oracle: sync_service.clone(),
+			justification_sync_link: sync_service.clone(),
 			create_inherent_data_providers: move |parent, ()| {
 				let client_clone = client_clone.clone();
 				async move {
@@ -504,6 +506,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		event_proof_sender,
 		prometheus_registry: prometheus_registry.clone(),
 		protocol_name: ethy_protocol_name,
+		sync_service: sync_service.clone(),
 		_phantom: std::marker::PhantomData,
 	};
 
@@ -536,6 +539,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 			config: grandpa_config,
 			link: grandpa_link,
 			network,
+			sync: sync_service.clone(),
 			voting_rule: sc_finality_grandpa::VotingRulesBuilder::default().build(),
 			prometheus_registry,
 			shared_voter_state: SharedVoterState::empty(),
