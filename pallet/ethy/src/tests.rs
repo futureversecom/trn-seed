@@ -40,7 +40,7 @@ use seed_primitives::{
 	xrpl::XrplAccountId,
 };
 use sp_core::ByteArray;
-use sp_keystore::{testing::KeyStore, SyncCryptoStore};
+use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::{
 	generic::DigestItem,
 	traits::{AccountIdConversion, Convert},
@@ -875,12 +875,10 @@ fn do_event_notarization_ocw_doesnt_change_storage() {
 			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
 
 			// Generate public key using same authority id and seed as the mock
-			let keystore = KeyStore::new();
-			SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
-			let public_key = SyncCryptoStore::ecdsa_public_keys(&keystore, AuthorityId::ID)
-				.get(0)
-				.unwrap()
-				.clone();
+			let keystore = MemoryKeystore::new();
+			Keystore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
+			let public_key =
+				Keystore::ecdsa_public_keys(&keystore, AuthorityId::ID).get(0).unwrap().clone();
 			let current_set_id = EthBridge::notary_set_id();
 
 			// Check no storage is changed

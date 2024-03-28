@@ -36,7 +36,7 @@ use seed_primitives::ethy::EthyApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
-use sp_keystore::SyncCryptoStorePtr;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 
 mod error;
@@ -131,7 +131,7 @@ where
 	/// Runtime
 	pub runtime: Arc<R>,
 	/// Local key store
-	pub key_store: Option<SyncCryptoStorePtr>,
+	pub key_store: Option<KeystorePtr>,
 	/// Gossip network
 	pub network: N,
 	/// ETHY signed witness sender
