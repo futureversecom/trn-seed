@@ -57,7 +57,7 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system,
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+		EthBridge: pallet_ethy,
 		Balances: pallet_balances,
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
@@ -257,12 +257,11 @@ pub(crate) mod test_storage {
 
 	use seed_pallet_common::EthCallFailure;
 
+	use super::{AccountId, MockBlockResponse, MockReceiptResponse};
 	use crate::{
 		types::{CheckedEthCallResult, EthAddress, EthCallId, EthHash},
 		Config,
 	};
-
-	use super::{AccountId, MockBlockResponse, MockReceiptResponse};
 
 	pub struct Module<T>(sp_std::marker::PhantomData<T>);
 	decl_storage! {

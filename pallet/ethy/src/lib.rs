@@ -104,27 +104,35 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
-	// 	decl_storage! {
-	// 	trait Store for Module<T: Config> as EthBridge {
-	//
-	// 	}
-	// 	add_extra_genesis {
-	// 		config(xrp_door_signers): Vec<T::EthyId>;
-	// 		build(|config: &GenesisConfig<T>| {
-	// 			for new_signer in config.xrp_door_signers.iter() {
-	// 				XrplDoorSigners::<T>::insert(new_signer, true);
-	// 			}
-	// 			// set the NotaryXrplKeys as well
-	// 			let genesis_xrpl_keys = NotaryKeys::<T>::get()
-	// 				.into_iter()
-	// 				.filter(|validator| XrplDoorSigners::<T>::get(validator))
-	// 				.map(|validator| -> T::EthyId { validator.clone() })
-	// 				.take(T::MaxXrplKeys::get().into())
-	// 				.collect::<Vec<_>>();
-	// 			NotaryXrplKeys::<T>::put(genesis_xrpl_keys);
-	// 		});
-	// 	}
-	// }
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		xrp_door_signers: Vec<T::EthyId>,
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			GenesisConfig { xrp_door_signers: Default::default() }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			for new_signer in self.xrp_door_signers.iter() {
+				XrplDoorSigners::<T>::insert(new_signer, true);
+			}
+			// set the NotaryXrplKeys as well
+			let genesis_xrpl_keys = NotaryKeys::<T>::get()
+				.into_iter()
+				.filter(|validator| XrplDoorSigners::<T>::get(validator))
+				.map(|validator| -> T::EthyId { validator.clone() })
+				.take(T::MaxXrplKeys::get().into())
+				.collect::<Vec<_>>();
+			NotaryXrplKeys::<T>::put(genesis_xrpl_keys);
+		}
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 		/// Length of time the bridge will be paused while the authority set changes
@@ -237,15 +245,15 @@ pub mod pallet {
 	>;
 
 	#[pallet::type_value]
-	pub fn DefaultDelayedEventProofsPerBlock() -> u64 {
-		5u64
+	pub fn DefaultDelayedEventProofsPerBlock() -> u8 {
+		5u8
 	}
 
 	/// The maximum number of delayed events that can be processed in on_initialize()
 	#[pallet::storage]
 	#[pallet::getter(fn delayed_event_proofs_per_block)]
 	pub type DelayedEventProofsPerBlock<T> =
-		StorageValue<_, u64, ValueQuery, DefaultDelayedEventProofsPerBlock>;
+		StorageValue<_, u8, ValueQuery, DefaultDelayedEventProofsPerBlock>;
 
 	/// Id of the next event proof
 	#[pallet::storage]
@@ -670,7 +678,7 @@ pub mod pallet {
 			count: u8,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			DelayedEventProofsPerBlock::<T>::put(count as u64);
+			DelayedEventProofsPerBlock::<T>::put(count);
 			Ok(())
 		}
 

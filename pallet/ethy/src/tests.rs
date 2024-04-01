@@ -23,8 +23,8 @@ use crate::{
 		EthereumEventInfo, EthySigningRequest, EventClaim, EventClaimResult, EventProofId,
 		TransactionReceipt,
 	},
-	BridgePaused, Config, Error, EthCallRequestInfo, Event, EventClaimStatus, Module,
-	NextNotaryKeys, NotaryKeys, NotaryXrplKeys, XrplDoorSigners, ETHY_ENGINE_ID,
+	BridgePaused, Config, Error, EthCallRequestInfo, Event, EventClaimStatus, NextNotaryKeys,
+	NotaryKeys, NotaryXrplKeys, Pallet, XrplDoorSigners, ETHY_ENGINE_ID,
 	SUBMIT_BRIDGE_EVENT_SELECTOR,
 };
 use codec::Encode;
@@ -1027,7 +1027,7 @@ fn on_new_session_updates_keys() {
 		// Calling on_before_session_ending should NOT call handle_authorities_change again,
 		// but do_finalise_authorities_change() will add ConsensusLog::AuthoritiesChange
 		// notification log to the header
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		assert_eq!(System::digest().logs.len(), 2); // previous one + new
 		assert_eq!(
 			System::digest().logs[1],
@@ -1099,7 +1099,7 @@ fn on_before_session_ending_handles_authorities() {
 
 		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
 		// changed in on_initialize
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 
 		// Storage should represent the storage before the authorities are finalized
 		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
@@ -1171,7 +1171,7 @@ fn on_before_session_ending_handles_authorities_without_on_new_session() {
 
 		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
 		// changed in on_initialize
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 
 		// Item should be scheduled and bridge still paused
 		assert!(EthBridge::bridge_paused());
@@ -1231,7 +1231,7 @@ fn force_new_era_with_scheduled_authority_change_works() {
 
 		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
 		// changed in on_initialize
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		// Item should be scheduled and bridge still paused
 		assert!(EthBridge::bridge_paused());
 
@@ -1296,7 +1296,7 @@ fn last_session_change() {
 		EthBridge::handle_authorities_change();
 		assert!(EthBridge::bridge_paused());
 		// current session is last in era: finishing
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		assert_eq!(EthBridge::notary_keys(), next_keys);
 		assert_eq!(EthBridge::notary_set_id(), current_set_id + 1);
 		assert_eq!(
@@ -1363,7 +1363,7 @@ fn xrpl_tx_signing_request() {
 		);
 
 		// Bridge is paused, request signing
-		BridgePaused::put(true);
+		BridgePaused::<Test>::put(true);
 		assert_ok!(EthBridge::sign_xrpl_transaction("hello world".as_bytes()), event_proof_id + 1);
 		assert_eq!(
 			EthBridge::pending_event_proofs(event_proof_id + 1),
@@ -1394,7 +1394,7 @@ fn delayed_event_proof() {
 		let message = &b"hello world"[..];
 		let source = H160::from_low_u64_be(444);
 		let destination = H160::from_low_u64_be(555);
-		BridgePaused::put(true);
+		BridgePaused::<Test>::put(true);
 		assert_eq!(EthBridge::bridge_paused(), true);
 
 		let event_proof_id = EthBridge::next_event_proof_id();
@@ -1413,7 +1413,7 @@ fn delayed_event_proof() {
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 
 		// Re-enable bridge
-		BridgePaused::kill();
+		BridgePaused::<Test>::kill();
 		// initialize pallet and initiate event proof
 		let max_delayed_events = EthBridge::delayed_event_proofs_per_block() as u64;
 		let expected_weight: Weight =
@@ -1433,7 +1433,7 @@ fn multiple_delayed_event_proof() {
 		let message = &b"hello world"[..];
 		let source = H160::from_low_u64_be(444);
 		let destination = H160::from_low_u64_be(555);
-		BridgePaused::put(true);
+		BridgePaused::<Test>::put(true);
 		assert_eq!(EthBridge::bridge_paused(), true);
 
 		let max_delayed_events = EthBridge::delayed_event_proofs_per_block();
@@ -1459,7 +1459,7 @@ fn multiple_delayed_event_proof() {
 		}
 
 		// Re-enable bridge
-		BridgePaused::kill();
+		BridgePaused::<Test>::kill();
 		// initialize pallet and initiate event proof
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
@@ -1515,7 +1515,7 @@ fn set_delayed_event_proofs_per_block() {
 		let source = H160::from_low_u64_be(444);
 		let destination = H160::from_low_u64_be(555);
 		let mut event_ids: Vec<EventProofId> = vec![];
-		BridgePaused::put(true);
+		BridgePaused::<Test>::put(true);
 
 		for _ in 0..new_max_delayed_events {
 			let event_proof_id = EthBridge::next_event_proof_id();
@@ -1535,7 +1535,7 @@ fn set_delayed_event_proofs_per_block() {
 		}
 
 		// Re-enable bridge
-		BridgePaused::kill();
+		BridgePaused::<Test>::kill();
 		// initialize pallet and initiate event proof
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
@@ -1964,7 +1964,7 @@ fn handle_call_notarization_success() {
 		.collect();
 	ExtBuilder::default().build().execute_with(|| {
 		let call_id = 1_u64;
-		EthCallRequestInfo::insert(call_id, CheckedEthCallRequest::default());
+		EthCallRequestInfo::<Test>::insert(call_id, CheckedEthCallRequest::default());
 		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
 
 		let block = 555_u64;
@@ -2026,7 +2026,7 @@ fn handle_call_notarization_aborts_no_consensus() {
 		.collect();
 	ExtBuilder::default().build().execute_with(|| {
 		let call_id = 1_u64;
-		EthCallRequestInfo::insert(call_id, CheckedEthCallRequest::default());
+		EthCallRequestInfo::<Test>::insert(call_id, CheckedEthCallRequest::default());
 		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
 		let block = 555_u64;
 		let timestamp = now();
@@ -2331,7 +2331,7 @@ fn notary_xrpl_keys_unchanged_do_not_request_for_xrpl_proof() {
 		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
 
 		// current session is last in era: finishing
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		assert_eq!(EthBridge::notary_keys(), next_keys);
 		assert_eq!(EthBridge::notary_set_id(), current_set_id + 1);
 		assert_eq!(EthBridge::notary_xrpl_keys(), next_keys);
@@ -2392,7 +2392,7 @@ fn notary_xrpl_keys_same_set_shuffled_do_not_request_for_xrpl_proof() {
 		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
 
 		// current session is last in era: finishing
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		assert_eq!(EthBridge::notary_keys(), next_keys);
 		assert_eq!(EthBridge::notary_set_id(), current_set_id + 1);
 		assert_eq!(EthBridge::notary_xrpl_keys(), next_keys);
@@ -2459,7 +2459,7 @@ fn notary_xrpl_keys_changed_request_for_xrpl_proof() {
 		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), eth_proof_id + 1);
 
 		// current session is last in era: finishing
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		assert_eq!(EthBridge::notary_keys(), next_keys);
 		assert_eq!(EthBridge::notary_set_id(), current_set_id + 1);
 		assert_eq!(EthBridge::notary_xrpl_keys(), next_keys);
@@ -2536,7 +2536,7 @@ fn notary_xrpl_keys_removed_request_for_xrpl_proof() {
 		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), eth_proof_id + 1);
 
 		// current session is last in era: finishing
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		assert_eq!(EthBridge::notary_keys(), next_keys);
 		assert_eq!(EthBridge::notary_set_id(), current_set_id + 1);
 		let keys_filtered = vec![
