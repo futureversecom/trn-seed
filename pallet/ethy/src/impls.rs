@@ -49,7 +49,7 @@ impl<T: Config> EthereumBridge for Pallet<T> {
 		destination: &H160,
 		app_event: &[u8],
 	) -> Result<EventProofId, DispatchError> {
-		let event_proof_id = Self::next_event_proof_id();
+		let event_proof_id = NextEventProofId::<T>::get();
 		NextEventProofId::<T>::put(event_proof_id.wrapping_add(1));
 
 		let event_proof_info = EthereumEventInfo {
@@ -74,17 +74,17 @@ impl<T: Config> XrplBridgeToEthyAdapter<T::EthyId> for Pallet<T> {
 	///
 	/// Returns an Id for the proof
 	fn sign_xrpl_transaction(tx_data: &[u8]) -> Result<EventProofId, DispatchError> {
-		let event_proof_id = Self::next_event_proof_id();
+		let event_proof_id = NextEventProofId::<T>::get();
 		NextEventProofId::<T>::put(event_proof_id.wrapping_add(1));
 
 		Self::do_request_event_proof(event_proof_id, EthySigningRequest::XrplTx(tx_data.to_vec()));
 		Ok(event_proof_id)
 	}
 	fn validators() -> Vec<T::EthyId> {
-		Self::notary_keys()
+		NotaryKeys::<T>::get()
 	}
 	fn xrp_validators() -> Vec<T::EthyId> {
-		Self::notary_xrpl_keys()
+		NotaryXrplKeys::<T>::get()
 	}
 }
 
@@ -121,7 +121,7 @@ impl<T: Config> Pallet<T> {
 		let mut maybe_active_key: Option<(T::EthyId, usize)> = None;
 		// search all local ethy keys
 		for key in local_keys {
-			if let Some(active_key_index) = Self::notary_keys().iter().position(|k| k == &key) {
+			if let Some(active_key_index) = NotaryKeys::<T>::get().iter().position(|k| k == &key) {
 				maybe_active_key = Some((key, active_key_index));
 				break
 			}
@@ -139,7 +139,7 @@ impl<T: Config> Pallet<T> {
 	/// Receives the node's local notary session key and index in the set
 	pub(crate) fn do_event_notarization_ocw(active_key: &T::EthyId, authority_index: u16) {
 		// do not try to notarize events while the bridge is paused
-		if Self::bridge_paused() {
+		if BridgePaused::<T>::get() {
 			return
 		}
 
@@ -148,7 +148,7 @@ impl<T: Config> Pallet<T> {
 		// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block
 		// production.
 		for event_claim_id in PendingClaimChallenges::<T>::get().iter().take(CLAIMS_PER_BLOCK) {
-			let event_claim = Self::pending_event_claims(event_claim_id);
+			let event_claim = PendingEventClaims::<T>::get(event_claim_id);
 			if event_claim.is_none() {
 				// This shouldn't happen
 				log!(error, "💎 notarization failed, event claim: {:?} not found", event_claim_id);
@@ -251,7 +251,7 @@ impl<T: Config> Pallet<T> {
 				);
 				return EventClaimResult::UnexpectedData
 			}
-			if log.address != Self::contract_address() {
+			if log.address != ContractAddress::<T>::get() {
 				return EventClaimResult::UnexpectedContractAddress
 			}
 		} else {
@@ -273,7 +273,7 @@ impl<T: Config> Pallet<T> {
 
 		let latest_block_number = latest_block.number.unwrap_or_default().as_u64();
 		let block_confirmations = latest_block_number.saturating_sub(observed_block_number);
-		if block_confirmations < Self::event_block_confirmations() {
+		if block_confirmations < EventBlockConfirmations::<T>::get() {
 			return EventClaimResult::NotEnoughConfirmations
 		}
 
@@ -295,7 +295,7 @@ impl<T: Config> Pallet<T> {
 				continue
 			}
 
-			if let Some(request) = Self::eth_call_request_info(call_id) {
+			if let Some(request) = EthCallRequestInfo::<T>::get(call_id) {
 				let result = Self::offchain_try_eth_call(&request);
 				log!(trace, "💎 checked call status: {:?}", &result);
 				let payload =
@@ -432,11 +432,11 @@ impl<T: Config> Pallet<T> {
 
 	/// Return the active Ethy validator set.
 	pub fn validator_set() -> ValidatorSet<T::EthyId> {
-		let validator_keys = Self::notary_keys();
+		let validator_keys = NotaryKeys::<T>::get();
 		ValidatorSet::<T::EthyId> {
 			proof_threshold: T::NotarizationThreshold::get().mul_ceil(validator_keys.len() as u32),
 			validators: validator_keys,
-			id: Self::notary_set_id(),
+			id: NotarySetId::<T>::get(),
 		}
 	}
 
@@ -447,7 +447,7 @@ impl<T: Config> Pallet<T> {
 		notary_id: &T::EthyId,
 	) -> DispatchResult {
 		ensure!(
-			Self::pending_claim_status(event_claim_id) == Some(EventClaimStatus::Challenged),
+			PendingClaimStatus::<T>::get(event_claim_id) == Some(EventClaimStatus::Challenged),
 			Error::<T>::InvalidClaim
 		);
 
@@ -518,7 +518,7 @@ impl<T: Config> Pallet<T> {
 					bond_amount,
 				)?;
 
-				if let Some(relayer) = Self::relayer() {
+				if let Some(relayer) = Relayer::<T>::get() {
 					// Relayer bond goes to challenger
 					let relayer_paid_bond = <RelayerPaidBond<T>>::take(relayer.clone());
 					T::MultiCurrency::spend_hold(
@@ -569,7 +569,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		if PendingEventClaims::<T>::contains_key(event_claim_id) {
-			if let Some(relayer) = Self::relayer() {
+			if let Some(relayer) = Relayer::<T>::get() {
 				if let Some((challenger, bond_amount)) =
 					<ChallengerAccount<T>>::take(event_claim_id)
 				{
@@ -702,7 +702,7 @@ impl<T: Config> Pallet<T> {
 		//    new_session (start now + 1)
 		debug!(target: "ethy-pallet", "💎 handling authority set change..");
 		let next_keys = &NextNotaryKeys::<T>::get();
-		let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
+		let next_validator_set_id = NotarySetId::<T>::get().wrapping_add(1);
 
 		// TODO: probably don't need both consensus logs...
 		let new_validator_addresses: Vec<Token> = next_keys
@@ -719,7 +719,7 @@ impl<T: Config> Pallet<T> {
 		// notify ethereum contract about validator set change
 		if let Ok(event_proof_id) = Self::send_event(
 			&T::BridgePalletId::get().into_account_truncating(),
-			&Self::contract_address(),
+			&ContractAddress::<T>::get(),
 			new_validator_set_message.as_slice(),
 		) {
 			// Signal the Event Id that will be used for the proof of validator set change.
@@ -787,7 +787,7 @@ impl<T: Config> Pallet<T> {
 		debug!(target: "ethy-pallet", "💎 session & era ending, set new validator keys");
 
 		// notify ethy-gadget about validator set change
-		let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
+		let next_validator_set_id = NotarySetId::<T>::get().wrapping_add(1);
 		let log = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
 			ConsensusLog::AuthoritiesChange(ValidatorSet {
@@ -819,7 +819,7 @@ impl<T: Config> Pallet<T> {
 	) {
 		// if bridge is paused (e.g transitioning authority set at the end of an era)
 		// delay proofs until it is ready again
-		if Self::bridge_paused() {
+		if BridgePaused::<T>::get() {
 			PendingEventProofs::<T>::insert(event_proof_id, request);
 			Self::deposit_event(Event::<T>::ProofDelayed { event_proof_id });
 			return
@@ -845,7 +845,7 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 		if let Call::submit_notarization { ref payload, ref signature } = call {
 			// notarization must be from an active notary
-			let notary_keys = Self::notary_keys();
+			let notary_keys = NotaryKeys::<T>::get();
 			let notary_public_key = match notary_keys.get(payload.authority_index() as usize) {
 				Some(id) => id,
 				None => return InvalidTransaction::BadProof.into(),
@@ -931,7 +931,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			// Get the next_notary_keys for the next era
 			let next_notary_keys = NextNotaryKeys::<T>::get();
 
-			if !Self::authorities_changed_this_era() {
+			if !AuthoritiesChangedThisEra::<T>::get() {
 				// The authorities haven't been changed yet
 				// This could be due to a new era being forced before the final session
 				Self::handle_authorities_change();

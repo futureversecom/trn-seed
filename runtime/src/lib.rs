@@ -1839,11 +1839,11 @@ impl_runtime_apis! {
 			EthBridge::validator_set()
 		}
 		fn xrpl_signers() -> ValidatorSet<EthBridgeId> {
-			let door_signers = EthBridge::notary_xrpl_keys();
+			let door_signers = pallet_ethy::NotaryXrplKeys::<Runtime>::get();
 			ValidatorSet {
 				proof_threshold: door_signers.len().saturating_sub(1) as u32, // tolerate 1 missing witness
 				validators: door_signers,
-				id: EthBridge::notary_set_id(), // the set Id is the same as the overall Ethy set Id
+				id: pallet_ethy::NotarySetId::<Runtime>::get(), // the set Id is the same as the overall Ethy set Id
 			}
 		}
 	}
