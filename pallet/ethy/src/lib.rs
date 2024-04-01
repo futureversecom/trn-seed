@@ -106,7 +106,7 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		xrp_door_signers: Vec<T::EthyId>,
+		pub xrp_door_signers: Vec<T::EthyId>,
 	}
 
 	#[cfg(feature = "std")]

@@ -1378,7 +1378,7 @@ construct_runtime! {
 		Ethereum: pallet_ethereum = 26,
 		EVM: pallet_evm = 27,
 		EVMChainId: pallet_evm_chain_id = 41,
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 25,
+		EthBridge: pallet_ethy = 25,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
 		NftPeg: pallet_nft_peg = 30,
 

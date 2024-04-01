@@ -15,7 +15,9 @@
 
 use crate::{
 	self as pallet_ethy,
-	sp_api_hidden_includes_decl_storage::hidden_include::{IterableStorageMap, StorageMap},
+	mock::sp_api_hidden_includes_construct_runtime::hidden_include::{
+		IterableStorageMap, StorageMap,
+	},
 	types::{
 		BridgeEthereumRpcApi, BridgeRpcError, CheckedEthCallRequest, CheckedEthCallResult,
 		EthAddress, EthBlock, EthCallId, EthHash, LatestOrNumber, Log, TransactionReceipt,
