@@ -386,41 +386,45 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Verifying an event succeeded
-		Verified(EventClaimId),
+		Verified { event_claim_id: EventClaimId },
 		/// Verifying an event failed
-		Invalid(EventClaimId),
-		/// A notary (validator) set change is in motion (event_id, new_validator_set_id)
+		Invalid { event_claim_id: EventClaimId },
+		/// A notary (validator) set change is in motion
 		/// A proof for the change will be generated with the given `event_id`
-		AuthoritySetChange(EventProofId, u64),
-		/// A notary (validator) set change for Xrpl is in motion (event_id, new_validator_set_id)
+		AuthoritySetChange { event_proof_id: EventProofId, validator_set_id: u64 },
+		/// A notary (validator) set change for Xrpl is in motion
 		/// A proof for the change will be generated with the given `event_id`
-		XrplAuthoritySetChange(EventProofId, u64),
+		XrplAuthoritySetChange { event_proof_id: EventProofId, validator_set_id: u64 },
 		/// Generating event proof delayed as bridge is paused
-		ProofDelayed(EventProofId),
+		ProofDelayed { event_proof_id: EventProofId },
 		/// Processing an event succeeded
-		ProcessingOk(EventClaimId),
+		ProcessingOk { event_claim_id: EventClaimId },
 		/// Processing an event failed
-		ProcessingFailed(EventClaimId, EventRouterError),
-		/// An event has been challenged (claim_id, challenger)
-		Challenged(EventClaimId, T::AccountId),
-		/// The event is still awaiting consensus. Process block pushed out (claim_id, process_at)
-		ProcessAtExtended(EventClaimId, T::BlockNumber),
+		ProcessingFailed { event_claim_id: EventClaimId, router_error: EventRouterError },
+		/// An event has been challenged
+		Challenged { event_claim_id: EventClaimId, challenger: T::AccountId },
+		/// The event is still awaiting consensus. Process block pushed out
+		ProcessAtExtended { event_claim_id: EventClaimId, process_at: T::BlockNumber },
 		/// An event proof has been sent for signing by ethy-gadget
 		EventSend { event_proof_id: EventProofId, signing_request: EthySigningRequest },
-		/// An event has been submitted from Ethereum (event_claim_id, event_claim, process_at)
-		EventSubmit(EventClaimId, EventClaim, T::BlockNumber),
+		/// An event has been submitted from Ethereum
+		EventSubmit {
+			event_claim_id: EventClaimId,
+			event_claim: EventClaim,
+			process_at: T::BlockNumber,
+		},
 		/// An account has deposited a relayer bond
-		RelayerBondDeposit(T::AccountId, Balance),
+		RelayerBondDeposit { relayer: T::AccountId, bond: Balance },
 		/// An account has withdrawn a relayer bond
-		RelayerBondWithdraw(T::AccountId, Balance),
+		RelayerBondWithdraw { relayer: T::AccountId, bond: Balance },
 		/// A new relayer has been set
-		RelayerSet(Option<T::AccountId>),
+		RelayerSet { relayer: Option<T::AccountId> },
 		/// Xrpl Door signers are set
 		XrplDoorSignersSet,
-		/// The schedule to unpause the bridge has failed (scheduled_block)
-		FinaliseScheduleFail(T::BlockNumber),
+		/// The schedule to unpause the bridge has failed
+		FinaliseScheduleFail { scheduled_block: T::BlockNumber },
 		/// The bridge contract address has been set
-		SetContractAddress(EthAddress),
+		SetContractAddress { address: EthAddress },
 		/// Xrpl authority set change request failed
 		XrplAuthoritySetChangeRequestFailed,
 	}
@@ -490,8 +494,11 @@ pub mod pallet {
 					// We are still waiting on the challenge to be processed, push out by challenge
 					// period
 					let new_process_at = block_number + Self::challenge_period();
-					<MessagesValidAt<T>>::append(new_process_at, message_id);
-					Self::deposit_event(Event::<T>::ProcessAtExtended(message_id, new_process_at));
+					MessagesValidAt::<T>::append(new_process_at.clone(), message_id);
+					Self::deposit_event(Event::<T>::ProcessAtExtended {
+						event_claim_id: message_id,
+						process_at: new_process_at,
+					});
 					continue
 				}
 				// Removed PendingEventClaim from storage and processes
@@ -502,11 +509,16 @@ pub mod pallet {
 					match T::EventRouter::route(&source, &destination, &data) {
 						Ok(weight) => {
 							consumed_weight += weight;
-							Self::deposit_event(Event::<T>::ProcessingOk(message_id));
+							Self::deposit_event(Event::<T>::ProcessingOk {
+								event_claim_id: message_id,
+							});
 						},
 						Err((weight, err)) => {
 							consumed_weight += weight;
-							Self::deposit_event(Event::<T>::ProcessingFailed(message_id, err));
+							Self::deposit_event(Event::<T>::ProcessingFailed {
+								event_claim_id: message_id,
+								router_error: err,
+							});
 						},
 					}
 				}
@@ -609,7 +621,7 @@ pub mod pallet {
 				Error::<T>::NoBondPaid
 			);
 			Relayer::<T>::put(relayer.clone());
-			Self::deposit_event(Event::<T>::RelayerSet(Some(relayer)));
+			Self::deposit_event(Event::<T>::RelayerSet { relayer: Some(relayer) });
 			Ok(())
 		}
 
@@ -630,7 +642,10 @@ pub mod pallet {
 				relayer_bond,
 			)?;
 			RelayerPaidBond::<T>::insert(origin.clone(), relayer_bond);
-			Self::deposit_event(Event::<T>::RelayerBondDeposit(origin, relayer_bond));
+			Self::deposit_event(Event::<T>::RelayerBondDeposit {
+				relayer: origin,
+				bond: relayer_bond,
+			});
 			Ok(())
 		}
 
@@ -655,7 +670,10 @@ pub mod pallet {
 			)?;
 			RelayerPaidBond::<T>::remove(origin.clone());
 
-			Self::deposit_event(Event::<T>::RelayerBondWithdraw(origin, relayer_paid_bond));
+			Self::deposit_event(Event::<T>::RelayerBondWithdraw {
+				relayer: origin,
+				bond: relayer_paid_bond,
+			});
 			Ok(())
 		}
 
@@ -702,7 +720,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ContractAddress::<T>::put(contract_address);
-			Self::deposit_event(<Event<T>>::SetContractAddress(contract_address));
+			Self::deposit_event(Event::<T>::SetContractAddress { address: contract_address });
 			Ok(())
 		}
 
@@ -780,9 +798,13 @@ pub mod pallet {
 				// TODO: there should be some limit per block
 				let process_at: T::BlockNumber =
 					<frame_system::Pallet<T>>::block_number() + Self::challenge_period();
-				<MessagesValidAt<T>>::append(process_at, event_id);
+				MessagesValidAt::<T>::append(process_at, event_id);
 
-				Self::deposit_event(Event::<T>::EventSubmit(event_id, event_claim, process_at));
+				Self::deposit_event(Event::<T>::EventSubmit {
+					event_claim_id: event_id,
+					event_claim,
+					process_at,
+				});
 			}
 			Ok(())
 		}
@@ -818,10 +840,10 @@ pub mod pallet {
 			// Not sorted so we can check using FIFO
 			// Include challenger account for releasing funds in case claim is invalid
 			PendingClaimChallenges::<T>::append(event_claim_id);
-			<ChallengerAccount<T>>::insert(event_claim_id, (origin.clone(), challenger_bond));
+			ChallengerAccount::<T>::insert(event_claim_id, (origin.clone(), challenger_bond));
 			PendingClaimStatus::<T>::insert(event_claim_id, EventClaimStatus::Challenged);
 
-			Self::deposit_event(Event::<T>::Challenged(event_claim_id, origin));
+			Self::deposit_event(Event::<T>::Challenged { event_claim_id, challenger: origin });
 			Ok(())
 		}
 

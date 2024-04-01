@@ -533,12 +533,12 @@ impl<T: Config> Pallet<T> {
 				};
 
 				PendingClaimStatus::<T>::remove(event_claim_id);
-				Self::deposit_event(Event::<T>::RelayerSet(None));
+				Self::deposit_event(Event::<T>::RelayerSet { relayer: None });
 			} else {
 				// This shouldn't happen
 				log!(error, "💎 unexpected missing challenger account");
 			}
-			Self::deposit_event(Event::<T>::Invalid(event_claim_id));
+			Self::deposit_event(Event::<T>::Invalid { event_claim_id });
 			return Ok(())
 		} else {
 			log!(error, "💎 unexpected empty claim");
@@ -586,7 +586,7 @@ impl<T: Config> Pallet<T> {
 				}
 
 				PendingClaimStatus::<T>::insert(event_claim_id, EventClaimStatus::ProvenValid);
-				Self::deposit_event(Event::<T>::Verified(event_claim_id));
+				Self::deposit_event(Event::<T>::Verified { event_claim_id });
 			} else {
 				log!(error, "💎 No relayer set");
 			}
@@ -725,10 +725,10 @@ impl<T: Config> Pallet<T> {
 			// Signal the Event Id that will be used for the proof of validator set change.
 			// Any observer can subscribe to this event and submit the resulting proof to keep
 			// the validator set on the Ethereum bridge contract updated.
-			Self::deposit_event(Event::<T>::AuthoritySetChange(
+			Self::deposit_event(Event::<T>::AuthoritySetChange {
 				event_proof_id,
-				next_validator_set_id,
-			));
+				validator_set_id: next_validator_set_id,
+			});
 			NotarySetProofId::<T>::put(event_proof_id);
 			// Indicate that the authorities have been changed
 			AuthoritiesChangedThisEra::<T>::put(true);
@@ -765,10 +765,10 @@ impl<T: Config> Pallet<T> {
 				// Signal the Event Id that will be used for the proof of xrpl notary set change.
 				// Any observer can subscribe to this event and submit the resulting proof to keep
 				// the authority set of the xrpl door address updated.
-				Self::deposit_event(Event::<T>::XrplAuthoritySetChange(
+				Self::deposit_event(Event::<T>::XrplAuthoritySetChange {
 					event_proof_id,
-					next_validator_set_id,
-				));
+					validator_set_id: next_validator_set_id,
+				});
 				XrplNotarySetProofId::<T>::put(event_proof_id);
 			},
 			Err(e) => {
@@ -821,7 +821,7 @@ impl<T: Config> Pallet<T> {
 		// delay proofs until it is ready again
 		if Self::bridge_paused() {
 			PendingEventProofs::<T>::insert(event_proof_id, request);
-			Self::deposit_event(Event::<T>::ProofDelayed(event_proof_id));
+			Self::deposit_event(Event::<T>::ProofDelayed { event_proof_id });
 			return
 		}
 
@@ -950,7 +950,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 				.is_err()
 				{
 					// The scheduler failed for some reason, throw a log and event
-					Self::deposit_event(Event::<T>::FinaliseScheduleFail(scheduled_block));
+					Self::deposit_event(Event::<T>::FinaliseScheduleFail { scheduled_block });
 					log!(warn, "💎 Unpause bridge schedule failed");
 				}
 			} else {

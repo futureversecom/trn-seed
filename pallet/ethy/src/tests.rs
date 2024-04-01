@@ -1370,7 +1370,9 @@ fn xrpl_tx_signing_request() {
 			Some(EthySigningRequest::XrplTx("hello world".as_bytes().to_vec()))
 		);
 
-		System::assert_has_event(Event::<Test>::ProofDelayed(event_proof_id + 1).into());
+		System::assert_has_event(
+			Event::<Test>::ProofDelayed { event_proof_id: event_proof_id + 1 }.into(),
+		);
 	});
 }
 
