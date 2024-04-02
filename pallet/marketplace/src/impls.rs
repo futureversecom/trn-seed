@@ -447,6 +447,7 @@ impl<T: Config> Pallet<T> {
 				Listing::Auction(listing) => {
 					Self::remove_listing(listing_outer, listing_id);
 					Self::process_auction_closure(listing, listing_id);
+					let _ = listing.tokens.unlock_tokens(&listing.seller);
 					removed += 1;
 				},
 			}
