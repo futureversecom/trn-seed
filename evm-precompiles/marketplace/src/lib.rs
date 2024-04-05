@@ -449,7 +449,8 @@ where
 			.collect::<Result<Vec<(SerialNumber, Balance)>, PrecompileFailure>>()?;
 
 		let serial_numbers: BoundedVec<(SerialNumber, Balance), Runtime::MaxTokensPerListing> =
-			BoundedVec::truncate_from(serials_unbounded);
+			BoundedVec::try_from(serials_unbounded)
+				.or_else(|_| Err(revert("Marketplace: Too many serial numbers")))?;
 		let tokens = ListingTokens::Sft(SftListing { collection_id, serial_numbers });
 		let buyer: H160 = buyer.into();
 		let buyer: Option<Runtime::AccountId> =
@@ -764,7 +765,8 @@ where
 			.collect::<Result<Vec<(SerialNumber, Balance)>, PrecompileFailure>>()?;
 
 		let serial_numbers: BoundedVec<(SerialNumber, Balance), Runtime::MaxTokensPerListing> =
-			BoundedVec::truncate_from(serials_unbounded);
+			BoundedVec::try_from(serials_unbounded)
+				.or_else(|_| Err(revert("Marketplace: Too many serial numbers")))?;
 		let tokens = ListingTokens::Sft(SftListing { collection_id, serial_numbers });
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
