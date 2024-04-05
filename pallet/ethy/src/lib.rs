@@ -94,6 +94,7 @@ const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use sp_core::bounded::WeakBoundedVec;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -129,23 +130,27 @@ pub mod pallet {
 				.map(|validator| -> T::EthyId { validator.clone() })
 				.take(T::MaxXrplKeys::get().into())
 				.collect::<Vec<_>>();
-			NotaryXrplKeys::<T>::put(genesis_xrpl_keys);
+			NotaryXrplKeys::<T>::put(WeakBoundedVec::force_from(genesis_xrpl_keys, None));
 		}
 	}
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 		/// Length of time the bridge will be paused while the authority set changes
+		#[pallet::constant]
 		type AuthorityChangeDelay: Get<Self::BlockNumber>;
 		/// Knows the active authority set (validator stash addresses)
 		type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 		/// The pallet bridge address (destination for incoming messages, source for outgoing)
+		#[pallet::constant]
 		type BridgePalletId: Get<PalletId>;
 		/// The runtime call type.
 		type RuntimeCall: From<Call<Self>>;
 		/// Bond required by challenger to make a challenge
+		#[pallet::constant]
 		type ChallengeBond: Get<Balance>;
 		// The duration in blocks of one epoch
+		#[pallet::constant]
 		type EpochDuration: Get<u64>;
 		/// Pallet subscribing to of notarized eth calls
 		type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
@@ -162,18 +167,23 @@ pub mod pallet {
 			+ AsRef<[u8]>
 			+ RuntimeAppPublic
 			+ Ord
-			+ MaybeSerializeDeserialize;
+			+ MaybeSerializeDeserialize
+			+ MaxEncodedLen;
 		/// Reports the final session of na eras
 		type FinalSessionTracker: FinalSessionTrackerT;
 		/// Max amount of new signers that can be set an in extrinsic
+		#[pallet::constant]
 		type MaxNewSigners: Get<u8>;
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
 		/// The native token asset Id (managed by pallet-balances)
+		#[pallet::constant]
 		type NativeAssetId: Get<AssetId>;
 		/// The threshold of notarizations required to approve an Ethereum event
+		#[pallet::constant]
 		type NotarizationThreshold: Get<Percent>;
 		/// Bond required for an account to act as relayer
+		#[pallet::constant]
 		type RelayerBond: Get<Balance>;
 		/// The Scheduler.
 		type Scheduler: Anon<Self::BlockNumber, <Self as Config>::RuntimeCall, Self::PalletsOrigin>;
@@ -182,9 +192,16 @@ pub mod pallet {
 		/// Returns the block timestamp
 		type UnixTime: UnixTime;
 		/// Max Xrpl notary (validator) public keys
+		#[pallet::constant]
 		type MaxXrplKeys: Get<u8>;
 		/// Xrpl-bridge adapter
 		type XrplBridgeAdapter: EthyToXrplBridgeAdapter<H160>;
+		/// Maximum count of notary keys
+		#[pallet::constant]
+		type MaxAuthorities: Get<u32>;
+		/// Maximum size of eth abi and message data
+		#[pallet::constant]
+		type MaxEthData: Get<u32>;
 	}
 
 	/// Flag to indicate whether authorities have been changed during the current era
@@ -253,15 +270,18 @@ pub mod pallet {
 
 	/// Scheduled notary (validator) public keys for the next session
 	#[pallet::storage]
-	pub type NextNotaryKeys<T: Config> = StorageValue<_, Vec<T::EthyId>, ValueQuery>;
+	pub type NextNotaryKeys<T: Config> =
+		StorageValue<_, WeakBoundedVec<T::EthyId, T::MaxAuthorities>, ValueQuery>;
 
 	/// Active notary (validator) public keys
 	#[pallet::storage]
-	pub type NotaryKeys<T: Config> = StorageValue<_, Vec<T::EthyId>, ValueQuery>;
+	pub type NotaryKeys<T: Config> =
+		StorageValue<_, WeakBoundedVec<T::EthyId, T::MaxAuthorities>, ValueQuery>;
 
 	/// Active xrpl notary (validator) public keys
 	#[pallet::storage]
-	pub type NotaryXrplKeys<T: Config> = StorageValue<_, Vec<T::EthyId>, ValueQuery>;
+	pub type NotaryXrplKeys<T: Config> =
+		StorageValue<_, WeakBoundedVec<T::EthyId, T::MaxAuthorities>, ValueQuery>;
 
 	/// Door Signers set by sudo (white list)
 	#[pallet::storage]
@@ -525,8 +545,9 @@ pub mod pallet {
 		}
 
 		fn offchain_worker(block_number: T::BlockNumber) {
+			let active_notaries = NotaryKeys::<T>::get().into_inner();
 			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
-			log!(trace, "💎 active notaries: {:?}", NotaryKeys::<T>::get());
+			log!(trace, "💎 active notaries: {:?}", active_notaries);
 
 			// this passes if flag `--validator` set, not necessarily in the active set
 			if !sp_io::offchain::is_validator() {
@@ -537,7 +558,7 @@ pub mod pallet {
 			// check a local key exists for a valid bridge notary
 			if let Some((active_key, authority_index)) = Self::find_active_ethy_key() {
 				// check enough validators have active notary keys
-				let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
+				let supports = active_notaries.len();
 				let needed = T::NotarizationThreshold::get();
 				// TODO: check every session change not block
 				if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {
@@ -712,7 +733,7 @@ pub mod pallet {
 		#[pallet::weight(DbWeight::get().writes(1))]
 		pub fn finalise_authorities_change(
 			origin: OriginFor<T>,
-			next_notary_keys: Vec<T::EthyId>,
+			next_notary_keys: WeakBoundedVec<T::EthyId, T::MaxAuthorities>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 			Self::do_finalise_authorities_change(next_notary_keys);

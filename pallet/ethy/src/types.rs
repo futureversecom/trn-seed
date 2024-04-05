@@ -15,7 +15,7 @@
 
 //! Eth Bridge Types
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::fmt;
 use ethabi::Token;
 use ethereum_types::{Bloom, U64};
@@ -200,7 +200,7 @@ pub trait BridgeEthereumRpcApi {
 }
 
 /// Possible outcomes from attempting to verify an Ethereum event claim
-#[derive(Decode, Encode, Debug, PartialEq, Clone, TypeInfo)]
+#[derive(Decode, Encode, Debug, PartialEq, Clone, TypeInfo, MaxEncodedLen)]
 pub enum EventClaimResult {
 	/// It's valid
 	Valid,
@@ -224,7 +224,7 @@ pub enum EventClaimResult {
 
 /// Current status of a pending event claim
 /// Invalid claims get removed from storage so no need to have an enum variant for ProvedInvalid
-#[derive(Decode, Encode, Debug, PartialEq, Clone, TypeInfo)]
+#[derive(Decode, Encode, Debug, PartialEq, Clone, TypeInfo, MaxEncodedLen)]
 pub enum EventClaimStatus {
 	/// The event is awaiting processing after the challenge period
 	Pending,

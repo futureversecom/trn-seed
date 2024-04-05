@@ -21,6 +21,7 @@ use frame_support::{
 	traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
 };
 use frame_system::offchain::SubmitTransaction;
+use sp_core::bounded::WeakBoundedVec;
 use sp_runtime::{
 	generic::DigestItem,
 	traits::{AccountIdConversion, Convert, SaturatedConversion, Saturating},
@@ -81,17 +82,23 @@ impl<T: Config> XrplBridgeToEthyAdapter<T::EthyId> for Pallet<T> {
 		Ok(event_proof_id)
 	}
 	fn validators() -> Vec<T::EthyId> {
-		NotaryKeys::<T>::get()
+		NotaryKeys::<T>::get().into_inner()
 	}
 	fn xrp_validators() -> Vec<T::EthyId> {
-		NotaryXrplKeys::<T>::get()
+		NotaryXrplKeys::<T>::get().into_inner()
 	}
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn update_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) {
-		let validators = Self::get_xrpl_notary_keys(validator_list);
-		<NotaryXrplKeys<T>>::put(&validators);
+	pub fn update_xrpl_notary_keys(validator_list: &WeakBoundedVec<T::EthyId, T::MaxAuthorities>) {
+		let validators = Self::get_xrpl_notary_keys(&validator_list.clone().into_inner());
+		<NotaryXrplKeys<T>>::put(WeakBoundedVec::force_from(
+			validators,
+			Some(
+				"Warning: There are more XRPL Notary Keys than expected. \
+				A runtime configuration adjustment may be needed.",
+			),
+		));
 	}
 
 	pub(crate) fn get_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Vec<T::EthyId> {
@@ -435,7 +442,7 @@ impl<T: Config> Pallet<T> {
 		let validator_keys = NotaryKeys::<T>::get();
 		ValidatorSet::<T::EthyId> {
 			proof_threshold: T::NotarizationThreshold::get().mul_ceil(validator_keys.len() as u32),
-			validators: validator_keys,
+			validators: validator_keys.into_inner(),
 			id: NotarySetId::<T>::get(),
 		}
 	}
@@ -737,7 +744,7 @@ impl<T: Config> Pallet<T> {
 		// request for proof xrpl - SignerListSet
 		debug!(target: "ethy-pallet", "💎 next keys: {:?}", next_keys);
 		let mut next_notary_xrpl_keys = Self::get_xrpl_notary_keys(next_keys);
-		let mut notary_xrpl_keys = NotaryXrplKeys::<T>::get();
+		let mut notary_xrpl_keys = NotaryXrplKeys::<T>::get().into_inner();
 		// sort to avoid same key set shuffles.
 		next_notary_xrpl_keys.sort();
 		notary_xrpl_keys.sort();
@@ -783,7 +790,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Finalize authority changes, set new notary keys, unpause bridge and increase set id
-	pub fn do_finalise_authorities_change(next_notary_keys: Vec<T::EthyId>) {
+	pub fn do_finalise_authorities_change(
+		next_notary_keys: WeakBoundedVec<T::EthyId, T::MaxAuthorities>,
+	) {
 		debug!(target: "ethy-pallet", "💎 session & era ending, set new validator keys");
 
 		// notify ethy-gadget about validator set change
@@ -791,7 +800,7 @@ impl<T: Config> Pallet<T> {
 		let log = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
 			ConsensusLog::AuthoritiesChange(ValidatorSet {
-				validators: next_notary_keys.to_vec(),
+				validators: next_notary_keys.clone().into_inner(),
 				id: next_validator_set_id,
 				proof_threshold: T::NotarizationThreshold::get()
 					.mul_ceil(next_notary_keys.len() as u32),
@@ -895,10 +904,17 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
 		let keys = validators.map(|x| x.1).collect::<Vec<_>>();
+		let bounded_keys = WeakBoundedVec::<_, T::MaxAuthorities>::force_from(
+			keys.clone(),
+			Some(
+				"Warning: The genesis session has more validators than expected. \
+				A runtime configuration adjustment may be needed.",
+			),
+		);
 		if !keys.is_empty() {
 			assert!(NotaryKeys::<T>::decode_len().is_none(), "NotaryKeys are already initialized!");
-			NotaryKeys::<T>::put(&keys);
-			Self::update_xrpl_notary_keys(&keys);
+			NotaryKeys::<T>::put(&bounded_keys);
+			Self::update_xrpl_notary_keys(&bounded_keys);
 		}
 	}
 
@@ -907,8 +923,15 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
 		// Store the keys for usage next session
-		let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
-		<NextNotaryKeys<T>>::put(next_queued_authorities);
+		let next_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
+		let next_bounded_authorities = WeakBoundedVec::<_, T::MaxAuthorities>::force_from(
+			next_authorities,
+			Some(
+				"Warning: The session has more validators than expected. \
+				A runtime configuration adjustment may be needed.",
+			),
+		);
+		<NextNotaryKeys<T>>::put(next_bounded_authorities);
 
 		if T::FinalSessionTracker::is_active_session_final() {
 			// Next authority change is 5 minutes before this session ends
