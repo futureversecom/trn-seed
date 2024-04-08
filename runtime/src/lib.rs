@@ -978,6 +978,11 @@ parameter_types! {
 	pub const MaxNewSigners: u8 = 20;
 	/// 75 blocks is 5 minutes before the end of the era
 	pub const AuthorityChangeDelay: BlockNumber = 75_u32;
+
+	pub const MaxEthData: u32 = 1024;
+	pub const MaxChallenges: u32 = 100;
+	pub const MaxMessagesPerBlock: u32 = 1000;
+	pub const MaxCallRequests: u32 = 1000;
 }
 
 impl pallet_ethy::Config for Runtime {
@@ -1024,6 +1029,11 @@ impl pallet_ethy::Config for Runtime {
 	type MaxXrplKeys = MaxXrplKeys;
 	/// Xrpl-bridge adapter
 	type XrplBridgeAdapter = XRPLBridge;
+	type MaxAuthorities = MaxAuthorities;
+	type MaxEthData = MaxEthData;
+	type MaxChallenges = MaxChallenges;
+	type MaxMessagesPerBlock = MaxMessagesPerBlock;
+	type MaxCallRequests = MaxCallRequests;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -1839,7 +1849,7 @@ impl_runtime_apis! {
 			EthBridge::validator_set()
 		}
 		fn xrpl_signers() -> ValidatorSet<EthBridgeId> {
-			let door_signers = pallet_ethy::NotaryXrplKeys::<Runtime>::get();
+			let door_signers = pallet_ethy::NotaryXrplKeys::<Runtime>::get().into_inner();
 			ValidatorSet {
 				proof_threshold: door_signers.len().saturating_sub(1) as u32, // tolerate 1 missing witness
 				validators: door_signers,

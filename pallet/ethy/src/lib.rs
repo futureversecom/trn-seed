@@ -35,6 +35,7 @@
 //! outgoing event for signing
 
 #![cfg_attr(not(feature = "std"), no_std)]
+pub use pallet::*;
 
 use ethabi::{ParamType, Token};
 use frame_support::{
@@ -50,19 +51,18 @@ use frame_support::{
 };
 use frame_system::{offchain::CreateSignedTransaction, pallet_prelude::*};
 use hex_literal::hex;
+use seed_pallet_common::{
+	log, EthCallOracleSubscriber, EthereumEventRouter, EthyToXrplBridgeAdapter, EventRouterError,
+	FinalSessionTracker as FinalSessionTrackerT, Hold,
+};
+use seed_primitives::{AssetId, Balance};
+use sp_core::bounded::WeakBoundedVec;
 use sp_runtime::{
 	offchain as rt_offchain,
 	traits::{MaybeSerializeDeserialize, Member, SaturatedConversion},
 	Percent, RuntimeAppPublic,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
-
-pub use pallet::*;
-use seed_pallet_common::{
-	log, EthCallOracleSubscriber, EthereumEventRouter, EthyToXrplBridgeAdapter, EventRouterError,
-	FinalSessionTracker as FinalSessionTrackerT, Hold,
-};
-use seed_primitives::{AssetId, Balance};
 
 mod ethereum_http_cli;
 pub use ethereum_http_cli::EthereumRpcClient;
@@ -94,7 +94,6 @@ const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use sp_core::bounded::WeakBoundedVec;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -202,6 +201,15 @@ pub mod pallet {
 		/// Maximum size of eth abi and message data
 		#[pallet::constant]
 		type MaxEthData: Get<u32>;
+		/// Maximum number of pending challenges
+		#[pallet::constant]
+		type MaxChallenges: Get<u32>;
+		/// Maximum number of valid messages per block
+		#[pallet::constant]
+		type MaxMessagesPerBlock: Get<u32>;
+		/// Maximum number of Eth Call Requests
+		#[pallet::constant]
+		type MaxCallRequests: Get<u32>;
 	}
 
 	/// Flag to indicate whether authorities have been changed during the current era
@@ -303,17 +311,18 @@ pub mod pallet {
 
 	/// Queued event claims, can be challenged within challenge period
 	#[pallet::storage]
-	pub type PendingEventClaims<T> =
-		StorageMap<_, Twox64Concat, EventClaimId, EventClaim, OptionQuery>;
+	pub type PendingEventClaims<T: Config> =
+		StorageMap<_, Twox64Concat, EventClaimId, EventClaim<T::MaxEthData>, OptionQuery>;
 
 	/// Queued event proofs to be processed once bridge has been re-enabled
 	#[pallet::storage]
-	pub type PendingEventProofs<T> =
-		StorageMap<_, Twox64Concat, EventProofId, EthySigningRequest, OptionQuery>;
+	pub type PendingEventProofs<T: Config> =
+		StorageMap<_, Twox64Concat, EventProofId, EthySigningRequest<T::MaxEthData>, OptionQuery>;
 
 	/// List of all event ids that are currently being challenged
 	#[pallet::storage]
-	pub type PendingClaimChallenges<T> = StorageValue<_, Vec<EventClaimId>, ValueQuery>;
+	pub type PendingClaimChallenges<T: Config> =
+		StorageValue<_, BoundedVec<EventClaimId, T::MaxChallenges>, ValueQuery>;
 
 	/// Status of pending event claims
 	#[pallet::storage]
@@ -321,6 +330,7 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, EventProofId, EventClaimStatus, OptionQuery>;
 
 	/// Tracks processed message Ids (prevent replay)
+	/// Must remain unbounded as this list will grow indefinitely
 	#[pallet::storage]
 	pub type ProcessedMessageIds<T> = StorageValue<_, Vec<EventClaimId>, ValueQuery>;
 
@@ -331,8 +341,13 @@ pub mod pallet {
 	/// Map from block number to list of EventClaims that will be considered valid and should be
 	/// forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
 	#[pallet::storage]
-	pub type MessagesValidAt<T: Config> =
-		StorageMap<_, Twox64Concat, T::BlockNumber, Vec<EventClaimId>, ValueQuery>;
+	pub type MessagesValidAt<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::BlockNumber,
+		WeakBoundedVec<EventClaimId, T::MaxMessagesPerBlock>,
+		ValueQuery,
+	>;
 
 	// State Oracle
 	/// Subscription Id for EthCall requests
@@ -350,7 +365,8 @@ pub mod pallet {
 
 	/// Queue of pending EthCallOracle requests
 	#[pallet::storage]
-	pub type EthCallRequests<T> = StorageValue<_, Vec<EthCallId>, ValueQuery>;
+	pub type EthCallRequests<T: Config> =
+		StorageValue<_, WeakBoundedVec<EthCallId, T::MaxCallRequests>, ValueQuery>;
 
 	/// EthCallOracle notarizations keyed by (Id, Notary)
 	#[pallet::storage]
@@ -371,8 +387,8 @@ pub mod pallet {
 
 	/// EthCallOracle request info
 	#[pallet::storage]
-	pub type EthCallRequestInfo<T> =
-		StorageMap<_, Twox64Concat, EthCallId, CheckedEthCallRequest, OptionQuery>;
+	pub type EthCallRequestInfo<T: Config> =
+		StorageMap<_, Twox64Concat, EthCallId, CheckedEthCallRequest<T::MaxEthData>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -398,11 +414,14 @@ pub mod pallet {
 		/// The event is still awaiting consensus. Process block pushed out
 		ProcessAtExtended { event_claim_id: EventClaimId, process_at: T::BlockNumber },
 		/// An event proof has been sent for signing by ethy-gadget
-		EventSend { event_proof_id: EventProofId, signing_request: EthySigningRequest },
+		EventSend {
+			event_proof_id: EventProofId,
+			signing_request: EthySigningRequest<T::MaxEthData>,
+		},
 		/// An event has been submitted from Ethereum
 		EventSubmit {
 			event_claim_id: EventClaimId,
-			event_claim: EventClaim,
+			event_claim: EventClaim<T::MaxEthData>,
 			process_at: T::BlockNumber,
 		},
 		/// An account has deposited a relayer bond
@@ -459,6 +478,10 @@ pub mod pallet {
 		NoBondPaid,
 		/// Someone tried to set a greater amount of validators than allowed
 		MaxNewSignersExceeded,
+		/// No more challenges are allowed for this claim_id
+		MaxChallengesExceeded,
+		/// The supplied message length is above the specified bounds
+		MessageTooLarge,
 	}
 
 	#[pallet::hooks]
@@ -486,7 +509,18 @@ pub mod pallet {
 					// We are still waiting on the challenge to be processed, push out by challenge
 					// period
 					let new_process_at = block_number + ChallengePeriod::<T>::get();
-					MessagesValidAt::<T>::append(new_process_at.clone(), message_id);
+					MessagesValidAt::<T>::mutate(new_process_at.clone(), |v| {
+						let mut message_ids = v.clone().into_inner();
+						message_ids.push(message_id);
+						let message_ids_bounded = WeakBoundedVec::force_from(
+							message_ids,
+							Some(
+								"Warning: There are more MessagesValidAt than expected. \
+								A runtime configuration adjustment may be needed.",
+							),
+						);
+						*v = message_ids_bounded;
+					});
 					Self::deposit_event(Event::<T>::ProcessAtExtended {
 						event_claim_id: message_id,
 						process_at: new_process_at,
@@ -778,6 +812,8 @@ pub mod pallet {
 						Error::<T>::EventReplayProcessed
 					);
 				}
+				let data = BoundedVec::try_from(data.as_slice().to_vec())
+					.map_err(|_| Error::<T>::InvalidClaim)?;
 				let event_claim = EventClaim {
 					tx_hash,
 					source: *source,
@@ -791,7 +827,18 @@ pub mod pallet {
 				// TODO: there should be some limit per block
 				let process_at: T::BlockNumber =
 					<frame_system::Pallet<T>>::block_number() + ChallengePeriod::<T>::get();
-				MessagesValidAt::<T>::append(process_at, event_id);
+				MessagesValidAt::<T>::mutate(process_at.clone(), |v| {
+					let mut message_ids = v.clone().into_inner();
+					message_ids.push(event_id);
+					let message_ids_bounded = WeakBoundedVec::force_from(
+						message_ids,
+						Some(
+							"Warning: There are more MessagesValidAt than expected. \
+								A runtime configuration adjustment may be needed.",
+						),
+					);
+					*v = message_ids_bounded;
+				});
 
 				Self::deposit_event(Event::<T>::EventSubmit {
 					event_claim_id: event_id,
@@ -832,7 +879,8 @@ pub mod pallet {
 			// Add event to challenged event storage
 			// Not sorted so we can check using FIFO
 			// Include challenger account for releasing funds in case claim is invalid
-			PendingClaimChallenges::<T>::append(event_claim_id);
+			PendingClaimChallenges::<T>::try_append(event_claim_id)
+				.map_err(|_| Error::<T>::MaxChallengesExceeded)?;
 			ChallengerAccount::<T>::insert(event_claim_id, (origin.clone(), challenger_bond));
 			PendingClaimStatus::<T>::insert(event_claim_id, EventClaimStatus::Challenged);
 

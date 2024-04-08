@@ -53,10 +53,12 @@ impl<T: Config> EthereumBridge for Pallet<T> {
 		let event_proof_id = NextEventProofId::<T>::get();
 		NextEventProofId::<T>::put(event_proof_id.wrapping_add(1));
 
+		let message =
+			BoundedVec::try_from(app_event.to_vec()).map_err(|_| Error::<T>::MessageTooLarge)?;
 		let event_proof_info = EthereumEventInfo {
 			source: *source,
 			destination: *destination,
-			message: app_event.to_vec(),
+			message,
 			validator_set_id: Self::validator_set().id,
 			event_proof_id,
 		};
@@ -78,7 +80,9 @@ impl<T: Config> XrplBridgeToEthyAdapter<T::EthyId> for Pallet<T> {
 		let event_proof_id = NextEventProofId::<T>::get();
 		NextEventProofId::<T>::put(event_proof_id.wrapping_add(1));
 
-		Self::do_request_event_proof(event_proof_id, EthySigningRequest::XrplTx(tx_data.to_vec()));
+		let tx_data =
+			BoundedVec::try_from(tx_data.to_vec()).map_err(|_| Error::<T>::MessageTooLarge)?;
+		Self::do_request_event_proof(event_proof_id, EthySigningRequest::XrplTx(tx_data));
 		Ok(event_proof_id)
 	}
 	fn validators() -> Vec<T::EthyId> {
@@ -207,7 +211,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns result of the validation
 	pub(crate) fn offchain_try_notarize_event(
 		event_claim_id: EventClaimId,
-		event_claim: EventClaim,
+		event_claim: EventClaim<T::MaxEthData>,
 	) -> EventClaimResult {
 		let EventClaim { tx_hash, data, source, destination } = event_claim;
 		let result = T::EthereumRpcClient::get_transaction_receipt(tx_hash);
@@ -244,7 +248,7 @@ impl<T: Config> Pallet<T> {
 			Token::Uint(event_claim_id.into()),
 			Token::Address(source),
 			Token::Address(destination),
-			Token::Bytes(data),
+			Token::Bytes(data.into_inner()),
 		]);
 		if let Some(log) = matching_log {
 			// check if the Ethereum event data matches what was reported
@@ -330,7 +334,9 @@ impl<T: Config> Pallet<T> {
 	/// `request` - details of the `eth_call` request to perform
 	/// `try_block_number` - a block number to try the call at `latest - max_block_look_behind <= t
 	/// < latest` `max_block_look_behind` - max ethereum blocks to look back from head
-	pub(crate) fn offchain_try_eth_call(request: &CheckedEthCallRequest) -> CheckedEthCallResult {
+	pub(crate) fn offchain_try_eth_call(
+		request: &CheckedEthCallRequest<T::MaxEthData>,
+	) -> CheckedEthCallResult {
 		// OCW has 1 block to do all its stuff, so needs to be kept light
 		//
 		// basic flow of this function:
@@ -824,7 +830,7 @@ impl<T: Config> Pallet<T> {
 	/// Submit an event proof signing request in the block, for use by the ethy-gadget protocol
 	pub(crate) fn do_request_event_proof(
 		event_proof_id: EventProofId,
-		request: EthySigningRequest,
+		request: EthySigningRequest<T::MaxEthData>,
 	) {
 		// if bridge is paused (e.g transitioning authority set at the end of an era)
 		// delay proofs until it is ready again
@@ -985,41 +991,52 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	fn on_disabled(_i: u32) {}
 }
 
-impl<T: Config> EthCallOracle for Pallet<T> {
-	type Address = EthAddress;
-	type CallId = EthCallId;
-	/// Request an eth_call on some `target` contract with `input` on the bridged ethereum network
-	/// Pre-checks are performed based on `max_block_look_behind` and `try_block_number`
-	/// `timestamp` - cennznet timestamp of the request
-	/// `try_block_number` - ethereum block number hint
-	///
-	/// Returns a call Id for subscribers
-	fn checked_eth_call(
-		target: &Self::Address,
-		input: &[u8],
-		timestamp: u64,
-		try_block_number: u64,
-		max_block_look_behind: u64,
-	) -> Self::CallId {
-		// store the job for validators to process async
-		let call_id = NextEthCallId::<T>::get();
-		EthCallRequestInfo::<T>::insert(
-			call_id,
-			CheckedEthCallRequest {
-				check_timestamp: T::UnixTime::now().as_secs(),
-				input: input.to_vec(),
-				target: *target,
-				timestamp,
-				try_block_number,
-				max_block_look_behind,
-			},
-		);
-		EthCallRequests::<T>::append(call_id);
-		NextEthCallId::<T>::put(call_id + 1);
-
-		call_id
-	}
-}
+// impl<T: Config> EthCallOracle for Pallet<T> {
+// 	type Address = EthAddress;
+// 	type CallId = EthCallId;
+// 	/// Request an eth_call on some `target` contract with `input` on the bridged ethereum network
+// 	/// Pre-checks are performed based on `max_block_look_behind` and `try_block_number`
+// 	/// `timestamp` - cennznet timestamp of the request
+// 	/// `try_block_number` - ethereum block number hint
+// 	///
+// 	/// Returns a call Id for subscribers
+// 	fn checked_eth_call(
+// 		target: &Self::Address,
+// 		input: &[u8],
+// 		timestamp: u64,
+// 		try_block_number: u64,
+// 		max_block_look_behind: u64,
+// 	) -> Self::CallId {
+// 		// store the job for validators to process async
+// 		let call_id = NextEthCallId::<T>::get();
+// 		EthCallRequestInfo::<T>::insert(
+// 			call_id,
+// 			CheckedEthCallRequest {
+// 				check_timestamp: T::UnixTime::now().as_secs(),
+// 				input: input.to_vec(),
+// 				target: *target,
+// 				timestamp,
+// 				try_block_number,
+// 				max_block_look_behind,
+// 			},
+// 		);
+// 		EthCallRequests::<T>::mutate(|v| {
+// 			let mut call_ids = v.clone().into_inner();
+// 			call_ids.push(call_id);
+// 			let call_ids_bounded = WeakBoundedVec::force_from(
+// 				call_ids,
+// 				Some(
+// 					"Warning: There are more EthCallRequests than expected. \
+// 								A runtime configuration adjustment may be needed.",
+// 				),
+// 			);
+// 			*v = call_ids_bounded;
+// 		});
+// 		NextEthCallId::<T>::put(call_id + 1);
+//
+// 		call_id
+// 	}
+// }
 
 /// Prunes claim ids that are less than the max contiguous claim id.
 pub(crate) fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) {

@@ -19,6 +19,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::fmt;
 use ethabi::Token;
 use ethereum_types::{Bloom, U64};
+use frame_support::{traits::Get, BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use rustc_hex::ToHex;
 use scale_info::TypeInfo;
 use serde::{
@@ -50,10 +51,11 @@ pub const SCHEDULER_PRIORITY: u8 = 63;
 /// An EthCallOracle call Id
 pub type EthCallId = u64;
 /// An EthCallOracle request
-#[derive(Encode, Decode, Default, PartialEq, Clone, TypeInfo)]
-pub struct CheckedEthCallRequest {
+#[derive(Encode, Decode, Default, PartialEqNoBound, CloneNoBound, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(MaxEthData))]
+pub struct CheckedEthCallRequest<MaxEthData: Get<u32>> {
 	/// EVM input data for the call
-	pub input: Vec<u8>,
+	pub input: BoundedVec<u8, MaxEthData>,
 	/// Ethereum address to receive the call
 	pub target: EthAddress,
 	/// CENNZnet timestamp when the original request was placed e.g by a contract/user (seconds)
@@ -70,7 +72,9 @@ pub struct CheckedEthCallRequest {
 	/// CENNZnet timestamp when _this_ check request was queued (seconds)
 	pub check_timestamp: u64,
 }
-#[derive(Encode, Decode, Debug, Eq, PartialOrd, Ord, PartialEq, Copy, Clone, TypeInfo)]
+#[derive(
+	Encode, Decode, Debug, Eq, PartialOrd, Ord, PartialEq, Copy, Clone, TypeInfo, MaxEncodedLen,
+)]
 pub enum CheckedEthCallResult {
 	/// returndata obtained, ethereum block number, ethereum timestamp
 	Ok([u8; 32], u64, u64),
@@ -92,9 +96,20 @@ pub type EthAddress = seed_primitives::EthAddress;
 /// The ethereum transaction hash type
 pub type EthHash = H256;
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
+#[derive(
+	RuntimeDebugNoBound,
+	Default,
+	CloneNoBound,
+	PartialEqNoBound,
+	Eq,
+	Decode,
+	Encode,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(MaxEthData))]
 /// Info required to claim an Ethereum event
-pub struct EventClaim {
+pub struct EventClaim<MaxEthData: Get<u32>> {
 	/// The Ethereum transaction hash which caused the event
 	pub tx_hash: EthHash,
 	/// The source address (contract) which posted the event
@@ -103,26 +118,37 @@ pub struct EventClaim {
 	/// It may be symbolic, mapping to a pallet vs. a deployed contract
 	pub destination: EthAddress,
 	/// The Ethereum ABI encoded event data as logged on Ethereum
-	pub data: Vec<u8>,
+	pub data: BoundedVec<u8, MaxEthData>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
+#[derive(
+	RuntimeDebugNoBound,
+	Default,
+	CloneNoBound,
+	PartialEqNoBound,
+	Eq,
+	Decode,
+	Encode,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(MaxEthData))]
 /// Info related to an Ethereum event proof (outgoing)
-pub struct EthereumEventInfo {
+pub struct EthereumEventInfo<MaxEthData: Get<u32>> {
 	/// The source address (contract) which posted the event
 	pub source: EthAddress,
 	/// The destination address (contract) which should receive the event
 	/// It may be symbolic, mapping to a pallet vs. a deployed contract
 	pub destination: EthAddress,
 	/// The Ethereum ABI encoded event data as logged on Ethereum
-	pub message: Vec<u8>,
+	pub message: BoundedVec<u8, MaxEthData>,
 	/// The validator set id for the proof
 	pub validator_set_id: ValidatorSetId,
 	/// The event's proof id
 	pub event_proof_id: EventProofId,
 }
 
-impl EthereumEventInfo {
+impl<MaxEthData: Get<u32>> EthereumEventInfo<MaxEthData> {
 	/// Ethereum ABI encode an event/message for proving (and later submission to Ethereum)
 	/// `source` the pallet pseudo address sending the event
 	/// `destination` the contract address to receive the event
@@ -133,7 +159,7 @@ impl EthereumEventInfo {
 		ethabi::encode(&[
 			Token::Address(self.source),
 			Token::Address(self.destination),
-			Token::Bytes(self.message.clone()),
+			Token::Bytes(self.message.clone().into_inner()),
 			Token::Uint(self.validator_set_id.into()),
 			Token::Uint(self.event_proof_id.into()),
 		])
@@ -141,15 +167,18 @@ impl EthereumEventInfo {
 }
 
 /// A request for ethy-gadget to sign something
-#[derive(Debug, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
-pub enum EthySigningRequest {
+#[derive(
+	RuntimeDebugNoBound, CloneNoBound, PartialEqNoBound, Eq, Decode, Encode, TypeInfo, MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(MaxEthData))]
+pub enum EthySigningRequest<MaxEthData: Get<u32>> {
 	/// Request to sign an event for Ethereum
-	Ethereum(EthereumEventInfo),
+	Ethereum(EthereumEventInfo<MaxEthData>),
 	/// Request to sign an XRPL tx (binary serialized in 'for signing' mode)
-	XrplTx(Vec<u8>),
+	XrplTx(BoundedVec<u8, MaxEthData>),
 }
 
-impl EthySigningRequest {
+impl<MaxEthData: Get<u32>> EthySigningRequest<MaxEthData> {
 	/// Return the Chain Id associated with the signing request
 	pub fn chain_id(&self) -> EthyChainId {
 		match self {
@@ -164,7 +193,7 @@ impl EthySigningRequest {
 			Self::Ethereum(event) =>
 				sp_io::hashing::keccak_256(&event.abi_encode().as_slice()).to_vec(),
 			// XRPL tx hashing must happen before signing to inject the public key
-			Self::XrplTx(data) => data.clone(),
+			Self::XrplTx(data) => data.clone().into_inner(),
 		}
 	}
 }
