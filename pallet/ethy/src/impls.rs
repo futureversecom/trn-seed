@@ -991,52 +991,53 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	fn on_disabled(_i: u32) {}
 }
 
-// impl<T: Config> EthCallOracle for Pallet<T> {
-// 	type Address = EthAddress;
-// 	type CallId = EthCallId;
-// 	/// Request an eth_call on some `target` contract with `input` on the bridged ethereum network
-// 	/// Pre-checks are performed based on `max_block_look_behind` and `try_block_number`
-// 	/// `timestamp` - cennznet timestamp of the request
-// 	/// `try_block_number` - ethereum block number hint
-// 	///
-// 	/// Returns a call Id for subscribers
-// 	fn checked_eth_call(
-// 		target: &Self::Address,
-// 		input: &[u8],
-// 		timestamp: u64,
-// 		try_block_number: u64,
-// 		max_block_look_behind: u64,
-// 	) -> Self::CallId {
-// 		// store the job for validators to process async
-// 		let call_id = NextEthCallId::<T>::get();
-// 		EthCallRequestInfo::<T>::insert(
-// 			call_id,
-// 			CheckedEthCallRequest {
-// 				check_timestamp: T::UnixTime::now().as_secs(),
-// 				input: input.to_vec(),
-// 				target: *target,
-// 				timestamp,
-// 				try_block_number,
-// 				max_block_look_behind,
-// 			},
-// 		);
-// 		EthCallRequests::<T>::mutate(|v| {
-// 			let mut call_ids = v.clone().into_inner();
-// 			call_ids.push(call_id);
-// 			let call_ids_bounded = WeakBoundedVec::force_from(
-// 				call_ids,
-// 				Some(
-// 					"Warning: There are more EthCallRequests than expected. \
-// 								A runtime configuration adjustment may be needed.",
-// 				),
-// 			);
-// 			*v = call_ids_bounded;
-// 		});
-// 		NextEthCallId::<T>::put(call_id + 1);
-//
-// 		call_id
-// 	}
-// }
+impl<T: Config> EthCallOracle for Pallet<T> {
+	type Address = EthAddress;
+	type CallId = EthCallId;
+	/// Request an eth_call on some `target` contract with `input` on the bridged ethereum network
+	/// Pre-checks are performed based on `max_block_look_behind` and `try_block_number`
+	/// `timestamp` - cennznet timestamp of the request
+	/// `try_block_number` - ethereum block number hint
+	///
+	/// Returns a call Id for subscribers
+	fn checked_eth_call(
+		target: &Self::Address,
+		input: &[u8],
+		timestamp: u64,
+		try_block_number: u64,
+		max_block_look_behind: u64,
+	) -> Self::CallId {
+		// store the job for validators to process async
+		let call_id = NextEthCallId::<T>::get();
+		let input = BoundedVec::truncate_from(input.to_vec());
+		EthCallRequestInfo::<T>::insert(
+			call_id,
+			CheckedEthCallRequest {
+				check_timestamp: T::UnixTime::now().as_secs(),
+				input,
+				target: *target,
+				timestamp,
+				try_block_number,
+				max_block_look_behind,
+			},
+		);
+		EthCallRequests::<T>::mutate(|v| {
+			let mut call_ids = v.clone().into_inner();
+			call_ids.push(call_id);
+			let call_ids_bounded = WeakBoundedVec::force_from(
+				call_ids,
+				Some(
+					"Warning: There are more EthCallRequests than expected. \
+								A runtime configuration adjustment may be needed.",
+				),
+			);
+			*v = call_ids_bounded;
+		});
+		NextEthCallId::<T>::put(call_id + 1);
+
+		call_id
+	}
+}
 
 /// Prunes claim ids that are less than the max contiguous claim id.
 pub(crate) fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) {
