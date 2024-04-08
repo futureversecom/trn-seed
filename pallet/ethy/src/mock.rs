@@ -37,7 +37,7 @@ use seed_primitives::{
 	AssetId, Balance, Signature,
 };
 use sp_application_crypto::RuntimeAppPublic;
-use sp_core::ByteArray;
+use sp_core::{ByteArray, Get};
 use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
 use sp_runtime::{
 	testing::{Header, TestXt},
@@ -82,6 +82,11 @@ parameter_types! {
 	pub const MaxXrplKeys: u8 = 8;
 	pub const MaxNewSigners: u8 = 20;
 	pub const AuthorityChangeDelay: BlockNumber = 75;
+	pub const MaxAuthorities: u32 = 1000;
+	pub const MaxEthData: u32 = 1024;
+	pub const MaxChallenges: u32 = 100;
+	pub const MaxMessagesPerBlock: u32 = 1000;
+	pub const MaxCallRequests: u32 = 1000;
 }
 impl Config for Test {
 	type AuthorityChangeDelay = AuthorityChangeDelay;
@@ -106,6 +111,11 @@ impl Config for Test {
 	type PalletsOrigin = OriginCaller;
 	type MaxNewSigners = MaxNewSigners;
 	type XrplBridgeAdapter = MockXrplBridgeAdapter;
+	type MaxAuthorities = MaxAuthorities;
+	type MaxEthData = MaxEthData;
+	type MaxChallenges = MaxChallenges;
+	type MaxMessagesPerBlock = MaxMessagesPerBlock;
+	type MaxCallRequests = MaxCallRequests;
 }
 
 pub struct MockXrplBridgeAdapter;
@@ -294,19 +304,20 @@ pub fn now() -> u64 {
 }
 
 /// Builder for `CheckedEthCallRequest`
-pub struct CheckedEthCallRequestBuilder(CheckedEthCallRequest);
+pub struct CheckedEthCallRequestBuilder<MaxEthData: Get<u32>>(CheckedEthCallRequest<MaxEthData>);
 
-impl CheckedEthCallRequestBuilder {
+impl<MaxEthData: Get<u32>> CheckedEthCallRequestBuilder<MaxEthData> {
 	pub fn new() -> Self {
 		Self(CheckedEthCallRequest {
 			max_block_look_behind: 3_u64,
 			target: EthAddress::from_low_u64_be(1),
 			timestamp: now(),
 			check_timestamp: now() + 3 * 5, // 3 blocks
-			..Default::default()
+			try_block_number: 0,
+			input: BoundedVec::truncate_from(vec![]),
 		})
 	}
-	pub fn build(self) -> CheckedEthCallRequest {
+	pub fn build(self) -> CheckedEthCallRequest<MaxEthData> {
 		self.0
 	}
 	pub fn target(mut self, target: EthAddress) -> Self {

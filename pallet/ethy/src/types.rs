@@ -72,6 +72,7 @@ pub struct CheckedEthCallRequest<MaxEthData: Get<u32>> {
 	/// CENNZnet timestamp when _this_ check request was queued (seconds)
 	pub check_timestamp: u64,
 }
+
 #[derive(
 	Encode, Decode, Debug, Eq, PartialOrd, Ord, PartialEq, Copy, Clone, TypeInfo, MaxEncodedLen,
 )]
