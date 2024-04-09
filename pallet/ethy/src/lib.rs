@@ -431,13 +431,13 @@ pub mod pallet {
 		/// A new relayer has been set
 		RelayerSet { relayer: Option<T::AccountId> },
 		/// Xrpl Door signers are set
-		XrplDoorSignersSet,
+		XrplDoorSignersSet { new_signers: Vec<(T::EthyId, bool)> },
 		/// The schedule to unpause the bridge has failed
 		FinaliseScheduleFail { scheduled_block: T::BlockNumber },
 		/// The bridge contract address has been set
 		SetContractAddress { address: EthAddress },
 		/// Xrpl authority set change request failed
-		XrplAuthoritySetChangeRequestFailed,
+		XrplAuthoritySetChangeRequestFailed { error: DispatchError },
 	}
 
 	#[pallet::error]
@@ -629,12 +629,12 @@ pub mod pallet {
 				Error::<T>::MaxNewSignersExceeded
 			);
 
-			for new_signer in new_signers {
+			for new_signer in new_signers.clone() {
 				XrplDoorSigners::<T>::insert(new_signer.0, new_signer.1);
 			}
 
 			Self::update_xrpl_notary_keys(&NotaryKeys::<T>::get());
-			Self::deposit_event(Event::<T>::XrplDoorSignersSet);
+			Self::deposit_event(Event::<T>::XrplDoorSignersSet { new_signers });
 			Ok(())
 		}
 
@@ -804,7 +804,7 @@ pub mod pallet {
 				ensure!(
 					!PendingEventClaims::<T>::contains_key(event_id),
 					Error::<T>::EventReplayPending
-				); // NOTE(surangap): prune PendingEventClaims also?
+				);
 				if !ProcessedMessageIds::<T>::get().is_empty() {
 					ensure!(
 						event_id > ProcessedMessageIds::<T>::get()[0] &&
@@ -853,6 +853,7 @@ pub mod pallet {
 		/// Challenged events won't be processed until verified by validators
 		/// An event can only be challenged once
 		#[pallet::weight(DbWeight::get().writes(1) + DbWeight::get().reads(2))]
+		#[transactional]
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
 			event_claim_id: EventClaimId,

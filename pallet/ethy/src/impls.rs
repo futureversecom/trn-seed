@@ -786,7 +786,7 @@ impl<T: Config> Pallet<T> {
 			},
 			Err(e) => {
 				warn!(target: "ethy-pallet", "💎 Failed to send xrpl signer list set request {:?}", e);
-				Self::deposit_event(Event::<T>::XrplAuthoritySetChangeRequestFailed);
+				Self::deposit_event(Event::<T>::XrplAuthoritySetChangeRequestFailed { error: e });
 			},
 		};
 
