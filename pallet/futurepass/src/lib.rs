@@ -33,7 +33,6 @@ use frame_support::{
 	pallet_prelude::{DispatchError, DispatchResult, *},
 	traits::{InstanceFilter, IsSubType, IsType},
 	transactional,
-	weights::constants::RocksDbWeight,
 };
 use frame_system::pallet_prelude::*;
 use precompile_utils::constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
@@ -78,28 +77,11 @@ where
 	) -> DispatchResult;
 }
 
-pub trait FuturepassMigrator<T: frame_system::Config>
-where
-	<T as frame_system::Config>::AccountId: From<H160>,
-{
-	fn transfer_asset(
-		asset_id: seed_primitives::AssetId,
-		current_owner: &T::AccountId,
-		new_owner: &T::AccountId,
-	) -> DispatchResult;
-
-	fn transfer_nfts(
-		collection_id: u32,
-		current_owner: &T::AccountId,
-		new_owner: &T::AccountId,
-	) -> DispatchResult;
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -149,9 +131,6 @@ pub mod pallet {
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
 
-		/// EVM Futurepass assets migration provider
-		type FuturepassMigrator: FuturepassMigrator<Self>;
-
 		#[cfg(feature = "runtime-benchmarks")]
 		/// Handles a multi-currency fungible asset system for benchmarking.
 		type MultiCurrency: frame_support::traits::fungibles::Inspect<
@@ -178,10 +157,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type DefaultProxy<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::AccountId>;
 
-	/// Migration data for user (root) and collections they can migrate
-	#[pallet::storage]
-	pub type MigrationAdmin<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
-
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config>
@@ -204,19 +179,8 @@ pub mod pallet {
 			new_owner: Option<T::AccountId>,
 			futurepass: T::AccountId,
 		},
-		/// Futurepass set as default proxy
-		DefaultFuturepassSet { delegate: T::AccountId, futurepass: Option<T::AccountId> },
 		/// A proxy call was executed with the given call
 		ProxyExecuted { delegate: T::AccountId, result: DispatchResult },
-		/// Migration of Futurepass assets
-		FuturepassAssetsMigrated {
-			evm_futurepass: T::AccountId,
-			futurepass: T::AccountId,
-			assets: Vec<u32>,
-			collections: Vec<u32>,
-		},
-		/// Updating Futurepass migrator account
-		FuturepassMigratorSet { migrator: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -235,14 +199,10 @@ pub mod pallet {
 		OwnerCannotUnregister,
 		/// Account does not have permission to call this function
 		PermissionDenied,
-		/// Futurepass migrator admin account is not set
-		MigratorNotSet,
 		/// Invalid proxy type
 		InvalidProxyType,
 		/// ExpiredDeadline
 		ExpiredDeadline,
-		/// Invalid deadline
-		InvalidDeadline,
 		/// Invalid signature
 		InvalidSignature,
 		/// AccountParsingFailure
@@ -547,78 +507,6 @@ pub mod pallet {
 				result: result.map(|_| ()).map_err(|e| e),
 			});
 			result
-		}
-
-		/// Update futurepass native assets migrator admin account.
-		///
-		/// The dispatch origin for this call must be sudo/root origin.
-		///
-		/// Parameters:
-		/// - `migrator`: The new account that will become the futurepass asset migrator.
-		#[pallet::weight((RocksDbWeight::get().writes(1), DispatchClass::Operational))]
-		pub fn set_futurepass_migrator(
-			origin: OriginFor<T>,
-			migrator: T::AccountId,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			MigrationAdmin::<T>::set(Some(migrator.clone()));
-			Self::deposit_event(Event::FuturepassMigratorSet { migrator });
-			Ok(())
-		}
-
-		/// This extrinsic migrates EVM-based Futurepass assets to the Substrate-based Futurepass
-		/// (native).
-		///
-		/// Parameters:
-		/// - `owner` - The account ID of the owner of the EVM-based Futurepass.
-		/// - `evm_futurepass` - The account ID of the EVM-based Futurepass.
-		/// - `asset_ids` - A vector of asset IDs representing the assets to be migrated.
-		/// - `collection_ids` - A vector of collection IDs representing the NFTs collections to be
-		///   migrated.
-		///
-		/// # <weight>
-		/// Weight is a function of the number of collections migrated; not the tokens migrated.
-		/// # </weight>
-		#[pallet::weight((RocksDbWeight::get().writes(collection_ids.len() as u64), DispatchClass::Operational))]
-		#[transactional]
-		pub fn migrate_evm_futurepass(
-			origin: OriginFor<T>,
-			owner: T::AccountId,
-			evm_futurepass: T::AccountId,
-			asset_ids: Vec<u32>,
-			collection_ids: Vec<u32>,
-		) -> DispatchResult {
-			let admin = ensure_signed(origin)?;
-
-			let migrator = MigrationAdmin::<T>::get().ok_or(Error::<T>::MigratorNotSet)?;
-			ensure!(admin == migrator, Error::<T>::PermissionDenied);
-
-			// create futurepass if non-existent for owner
-			let futurepass = if Holders::<T>::contains_key(&owner) {
-				Holders::<T>::get(&owner).ok_or(Error::<T>::NotFuturepassOwner)?
-			} else {
-				Self::do_create_futurepass(admin, owner.clone())?;
-				Holders::<T>::get(&owner).ok_or(Error::<T>::NotFuturepassOwner)?
-			};
-
-			// transfer assets
-			for asset_id in asset_ids.iter() {
-				T::FuturepassMigrator::transfer_asset(*asset_id, &evm_futurepass, &futurepass)?;
-			}
-
-			// transfer nfts
-			for collection_id in collection_ids.iter() {
-				T::FuturepassMigrator::transfer_nfts(*collection_id, &evm_futurepass, &futurepass)?;
-			}
-
-			Self::deposit_event(Event::FuturepassAssetsMigrated {
-				evm_futurepass: evm_futurepass.clone(),
-				futurepass: futurepass.clone(),
-				assets: asset_ids,
-				collections: collection_ids,
-			});
-
-			Ok(())
 		}
 	}
 }
