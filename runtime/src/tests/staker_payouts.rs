@@ -254,7 +254,10 @@ fn staking_final_session_tracking_ethy() {
 		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
 
 		advance_session(); // era 2 starts and keys contain the updated key
-		assert!(EthBridge::notary_keys().into_iter().find(|x| x == &new_keys.ethy).is_some());
+		assert!(pallet_ethy::NotaryKeys::<Test>::get()
+			.into_iter()
+			.find(|x| x == &new_keys.ethy)
+			.is_some());
 
 		// Forcing era, marks active session final, sets keys
 		let (_, babe, im_online, grandpa, ethy) = authority_keys_from_seed("Alice3.0");
@@ -268,6 +271,9 @@ fn staking_final_session_tracking_ethy() {
 				   // Call on_initialize for scheduler to update keys and unpause bridge
 		let scheduled_block: BlockNumber = System::block_number() + 75_u32;
 		Scheduler::on_initialize(scheduled_block.into());
-		assert!(EthBridge::notary_keys().into_iter().find(|x| x == &new_keys.ethy).is_some());
+		assert!(pallet_ethy::NotaryKeys::<Test>::get()
+			.into_iter()
+			.find(|x| x == &new_keys.ethy)
+			.is_some());
 	});
 }
