@@ -2158,6 +2158,7 @@ mod benches {
 		[pallet_xrpl_bridge, XRPLBridge]
 		[pallet_xrpl, Xrpl]
 		[pallet_erc20_peg, Erc20Peg]
+		[pallet_ethy, EthBridge]
 		[pallet_echo, Echo]
 		[pallet_assets_ext, AssetsExt]
 		[pallet_evm_chain_id, EVMChainId]

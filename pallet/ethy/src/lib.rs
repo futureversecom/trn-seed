@@ -67,12 +67,15 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 mod ethereum_http_cli;
 pub use ethereum_http_cli::EthereumRpcClient;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 mod impls;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 mod types;
+
 use types::*;
 
 /// The type to sign and send transactions.
