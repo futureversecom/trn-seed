@@ -621,7 +621,7 @@ decl_module! {
 				let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
 				let needed = T::NotarizationThreshold::get();
 				// TODO: check every session change not block
-				if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {
+				if Percent::from_rational(supports as u32, T::AuthoritySet::validators().len() as u32) < needed {
 					log!(info, "💎 waiting for validator support to activate eth-bridge: {:?}/{:?}", supports, needed);
 					return;
 				}
