@@ -28,7 +28,7 @@ use sc_rpc::SubscriptionTaskExecutor;
 use sp_api::{BlockId, ProvideRuntimeApi};
 use sp_core::{Bytes, H256};
 use sp_runtime::traits::{Block, Convert};
-use std::{marker::PhantomData, ops::Deref, sync::Arc};
+use std::{hash::Hash, marker::PhantomData, ops::Deref, sync::Arc};
 
 use ethy_gadget::{notification::EthyEventProofStream, EthyEcdsaToEthereum};
 use seed_primitives::{
@@ -112,7 +112,7 @@ where
 		let runtime_handle = self.runtime.clone();
 		let stream = self
 			.event_proof_stream
-			.subscribe()
+			.subscribe(100_000)
 			.map(move |p| build_event_proof_response::<R, B>(&runtime_handle, p));
 
 		let fut = async move {
@@ -182,10 +182,8 @@ where
 {
 	match versioned_event_proof {
 		VersionedEventProof::V1(event_proof) => {
-			let proof_validator_set = runtime
-				.runtime_api()
-				.validator_set(&BlockId::hash(event_proof.block.into()))
-				.ok()?;
+			let proof_validator_set =
+				runtime.runtime_api().validator_set(event_proof.block.into()).ok()?;
 
 			let validator_addresses: Vec<AccountId20> = proof_validator_set
 				.validators
@@ -222,11 +220,9 @@ where
 {
 	match versioned_event_proof {
 		VersionedEventProof::V1(EventProof { signatures, event_id, block, .. }) => {
-			let xrpl_validator_set =
-				runtime.runtime_api().xrpl_signers(&BlockId::hash(block.into())).ok()?;
+			let xrpl_validator_set = runtime.runtime_api().xrpl_signers(block.into()).ok()?;
 
-			let validator_set =
-				runtime.runtime_api().validator_set(&BlockId::hash(block.into())).ok()?;
+			let validator_set = runtime.runtime_api().validator_set(block.into()).ok()?;
 			let mut xrpl_signer_set: Vec<Bytes> = Default::default();
 
 			Some(XrplEventProofResponse {

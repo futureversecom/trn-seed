@@ -81,8 +81,8 @@ pub(crate) mod ethy_protocol_name {
 /// [`sc_network::config::NetworkConfiguration::extra_sets`].
 pub fn ethy_peers_set_config(
 	protocol_name: ProtocolName,
-) -> sc_network_common::config::NonDefaultSetConfig {
-	let mut cfg = sc_network_common::config::NonDefaultSetConfig::new(protocol_name, 1024 * 1024);
+) -> sc_network::config::NonDefaultSetConfig {
+	let mut cfg = sc_network::config::NonDefaultSetConfig::new(protocol_name, 1024 * 1024);
 	cfg.allow_non_reserved(25, 25);
 	cfg
 }
