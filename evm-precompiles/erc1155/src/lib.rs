@@ -419,7 +419,7 @@ where
 		data: Bytes,
 	) -> Result<(), PrecompileFailure> {
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let caller_code = pallet_evm::Pallet::<Runtime>::account_codes(to);
+		let caller_code = pallet_evm::AccountCodes::<Runtime>::get(to);
 		if !(caller_code.is_empty()) {
 			let operator = handle.context().caller;
 			// Setup input for onErc1155Received call
@@ -524,7 +524,7 @@ where
 		data: Bytes,
 	) -> Result<(), PrecompileFailure> {
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let caller_code = pallet_evm::Pallet::<Runtime>::account_codes(to);
+		let caller_code = pallet_evm::AccountCodes::<Runtime>::get(to);
 		if !(caller_code.is_empty()) {
 			let operator = handle.context().caller;
 			// Setup input for onErc1155BatchReceived call

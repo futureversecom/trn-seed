@@ -444,7 +444,7 @@ where
 		// Check that caller is not a smart contract s.t. no code is inserted into
 		// pallet_evm::AccountCodes except if the caller is another precompile i.e. CallPermit
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let caller_code = pallet_evm::Pallet::<Runtime>::account_codes(to);
+		let caller_code = pallet_evm::AccountCodes::<Runtime>::get(to);
 		if !(caller_code.is_empty()) {
 			// Setup input for onErc721Received call
 			let sub_context = Context {
