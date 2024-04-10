@@ -257,13 +257,12 @@ where
 			debug!(target: "ethy", "💎 finality notification for non-sequential future block #{:?}", number);
 			match self.backend.blockchain().header(*new_header.parent_hash()) {
 				Ok(Some(parent_header)) => {
-					let n = FinalityNotification {
-						hash: parent_header.hash(),
-						header: parent_header.clone(),
-						// these fields are unused by ethy
-						tree_route: Arc::new([]),
-						stale_heads: Arc::new([]),
-					};
+					let mut n = notification.clone();
+					n.hash = parent_header.hash();
+					n.header = parent_header.clone();
+					n.tree_route = Arc::new([]);
+					n.stale_heads = Arc::new([]);
+
 					self.handle_finality_notification(n);
 				},
 				Ok(None) => {
