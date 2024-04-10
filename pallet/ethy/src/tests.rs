@@ -32,7 +32,7 @@ use crate::{
 };
 use codec::Encode;
 use ethabi::Token;
-use frame_support::traits::{fungibles::Inspect, OnInitialize, OneSessionHandler, UnixTime};
+use frame_support::traits::{fungibles::Inspect, Hooks, OneSessionHandler, UnixTime};
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{
@@ -630,10 +630,10 @@ fn process_valid_challenged_event() {
 			);
 			assert_eq!(MessagesValidAt::<Test>::get(process_at), vec![event_id_1]);
 
-			// Weight returned should include the 1000 that we specified in our mock
+			// Weight returned should include the 1000 that we specified in MockEventRouter
 			assert_eq!(
 				EthBridge::on_initialize(process_at),
-				DbWeight::get().reads(2u64) + Weight::from_ref_time(1000u64)
+				DbWeight::get().reads(3u64) + Weight::from_ref_time(1000u64)
 			);
 
 			// Storage should now be fully cleared
@@ -693,9 +693,9 @@ fn process_valid_challenged_event_delayed() {
 
 			assert_eq!(MessagesValidAt::<Test>::get(process_at), vec![event_id_1]);
 
-			// Weight returned should not include the 1000 that we specified in our mock as a
+			// Weight returned should not include the 1000 that we specified in MockEventRouter as a
 			// consensus has not been reached
-			assert_eq!(EthBridge::on_initialize(process_at), DbWeight::get().reads(2u64));
+			assert_eq!(EthBridge::on_initialize(process_at), DbWeight::get().reads(3u64));
 
 			assert_eq!(MessagesValidAt::<Test>::get(process_at_extended), vec![event_id_1]);
 			assert!(MessagesValidAt::<Test>::get(process_at).is_empty());
@@ -725,10 +725,10 @@ fn process_valid_challenged_event_delayed() {
 			);
 			assert_eq!(MessagesValidAt::<Test>::get(process_at_extended), vec![event_id_1]);
 
-			// Weight returned should include the 1000 that we specified in our mock
+			// Weight returned should include the 1000 that we specified in MockEventRouter
 			assert_eq!(
 				EthBridge::on_initialize(process_at_extended),
-				DbWeight::get().reads(2u64) + Weight::from_ref_time(1000u64)
+				DbWeight::get().reads(3u64) + Weight::from_ref_time(1000u64)
 			);
 
 			// Storage should now be fully cleared
@@ -1338,7 +1338,7 @@ fn send_event() {
 		// On initialize does up to 2 reads to check for delayed proofs
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
-			DbWeight::get().reads(2u64)
+			DbWeight::get().reads(3u64)
 		);
 	});
 }
@@ -1430,12 +1430,14 @@ fn delayed_event_proof() {
 
 		// Re-enable bridge
 		BridgePaused::<Test>::kill();
-		// initialize pallet and initiate event proof
-		let max_delayed_events = DelayedEventProofsPerBlock::<Test>::get() as u64;
+		// Call on_idle to process pending event proofs
 		let expected_weight: Weight =
-			DbWeight::get().reads(3u64) + DbWeight::get().writes(2u64) * max_delayed_events;
+			DbWeight::get().reads(3u64) + DbWeight::get().reads_writes(2, 2);
 		assert_eq!(
-			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
+			EthBridge::on_idle(
+				frame_system::Pallet::<Test>::block_number() + 1,
+				Weight::from_ref_time(1_000_000_000_000)
+			),
 			expected_weight
 		);
 		// Ensure event has been removed from delayed claims
@@ -1476,10 +1478,15 @@ fn multiple_delayed_event_proof() {
 
 		// Re-enable bridge
 		BridgePaused::<Test>::kill();
-		// initialize pallet and initiate event proof
+		// Call on_idle to process half of the pending event proofs
+		let expected_weight: Weight = DbWeight::get().reads(3u64) +
+			DbWeight::get().reads_writes(2, 2) * max_delayed_events as u64;
 		assert_eq!(
-			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
-			DbWeight::get().reads(3u64) + DbWeight::get().writes(2u64) * max_delayed_events as u64
+			EthBridge::on_idle(
+				frame_system::Pallet::<Test>::block_number() + 1,
+				Weight::from_ref_time(1_000_000_000_000)
+			),
+			expected_weight
 		);
 
 		let mut removed_count = 0;
@@ -1497,10 +1504,66 @@ fn multiple_delayed_event_proof() {
 		// Should have only processed max amount
 		assert_eq!(removed_count, max_delayed_events);
 
-		// Now initialize next block and process the rest
+		// Calling on_idle should process the rest
 		assert_eq!(
-			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 2),
-			DbWeight::get().reads(3u64) + DbWeight::get().writes(2u64) * max_delayed_events as u64
+			EthBridge::on_idle(
+				frame_system::Pallet::<Test>::block_number() + 1,
+				Weight::from_ref_time(1_000_000_000_000)
+			),
+			expected_weight
+		);
+
+		// All events should have now been processed
+		for i in 0..event_count {
+			assert!(PendingEventProofs::<Test>::get(event_ids[i as usize]).is_none());
+		}
+	});
+}
+
+#[test]
+fn on_idle_limits_processing() {
+	ExtBuilder::default().build().execute_with(|| {
+		let message = &b"hello world"[..];
+		let source = H160::from_low_u64_be(444);
+		let destination = H160::from_low_u64_be(555);
+		BridgePaused::<Test>::put(true);
+		assert_eq!(BridgePaused::<Test>::get(), true);
+
+		let max_delayed_events = DelayedEventProofsPerBlock::<Test>::get();
+		let event_count: u8 = max_delayed_events;
+		let mut event_ids: Vec<EventProofId> = vec![];
+		let mut events_for_proving = vec![];
+		for _ in 0..event_count {
+			let event_proof_id = NextEventProofId::<Test>::get();
+			event_ids.push(event_proof_id);
+			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
+				source,
+				destination: destination.clone(),
+				message: BoundedVec::truncate_from(message.to_vec()),
+				validator_set_id: EthBridge::validator_set().id,
+				event_proof_id,
+			});
+			events_for_proving.push(event_proof_info.clone());
+			// Generate event proof
+			assert_ok!(EthBridge::send_event(&source, &destination, &message));
+			// Ensure event has been added to delayed claims
+			assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
+			assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
+		}
+
+		// Re-enable bridge
+		BridgePaused::<Test>::kill();
+
+		// Call on_idle with only enough weight to process 2 claims
+		let claims_to_process = 2;
+		let expected_weight: Weight = DbWeight::get().reads(3u64) +
+			DbWeight::get().reads_writes(2, 2) * claims_to_process as u64;
+		assert_eq!(
+			EthBridge::on_idle(
+				frame_system::Pallet::<Test>::block_number() + 1,
+				expected_weight + Weight::from_ref_time(1)
+			),
+			expected_weight
 		);
 
 		let mut removed_count = 0;
@@ -1508,10 +1571,80 @@ fn multiple_delayed_event_proof() {
 			// Ensure event has been removed from delayed claims
 			if PendingEventProofs::<Test>::get(event_ids[i as usize]).is_none() {
 				removed_count += 1;
+			} else {
+				assert_eq!(
+					PendingEventProofs::<Test>::get(event_ids[i as usize]),
+					Some(events_for_proving[i as usize].clone())
+				)
 			}
 		}
+		// Should have only processed max amount
+		assert_eq!(removed_count, claims_to_process);
+
+		// Call on_idle with enough weight to process the rest
+		let claims_to_process = event_count - claims_to_process;
+		let expected_weight: Weight = DbWeight::get().reads(3u64) +
+			DbWeight::get().reads_writes(2, 2) * claims_to_process as u64;
+		assert_eq!(
+			EthBridge::on_idle(
+				frame_system::Pallet::<Test>::block_number() + 1,
+				Weight::from_ref_time(1_000_000_000_000)
+			),
+			expected_weight
+		);
+
 		// All events should have now been processed
-		assert_eq!(removed_count, event_count);
+		for i in 0..event_count {
+			assert!(PendingEventProofs::<Test>::get(event_ids[i as usize]).is_none());
+		}
+	});
+}
+
+#[test]
+fn on_idle_no_remaining_weight_is_noop() {
+	ExtBuilder::default().build().execute_with(|| {
+		let message = &b"hello world"[..];
+		let source = H160::from_low_u64_be(444);
+		let destination = H160::from_low_u64_be(555);
+		BridgePaused::<Test>::put(true);
+		assert_eq!(BridgePaused::<Test>::get(), true);
+
+		let max_delayed_events = DelayedEventProofsPerBlock::<Test>::get();
+		let event_count: u8 = max_delayed_events * 2;
+		let mut event_ids: Vec<EventProofId> = vec![];
+		let mut events_for_proving = vec![];
+		for _ in 0..event_count {
+			let event_proof_id = NextEventProofId::<Test>::get();
+			event_ids.push(event_proof_id);
+			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
+				source,
+				destination: destination.clone(),
+				message: BoundedVec::truncate_from(message.to_vec()),
+				validator_set_id: EthBridge::validator_set().id,
+				event_proof_id,
+			});
+			events_for_proving.push(event_proof_info.clone());
+			// Generate event proof
+			assert_ok!(EthBridge::send_event(&source, &destination, &message));
+			// Ensure event has been added to delayed claims
+			assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
+			assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
+		}
+
+		// Re-enable bridge
+		BridgePaused::<Test>::kill();
+		// Calling on_idle with not enough weight to process one claim should do nothing
+		let minimum_weight: Weight =
+			DbWeight::get().reads(3u64) + DbWeight::get().reads_writes(2, 2);
+		assert_eq!(
+			EthBridge::on_idle(frame_system::Pallet::<Test>::block_number() + 1, minimum_weight),
+			Weight::from_ref_time(0)
+		);
+
+		// All PendingEventProofs should still be present
+		for i in 0..event_count {
+			assert!(PendingEventProofs::<Test>::get(event_ids[i as usize]).is_some());
+		}
 	});
 }
 
@@ -1552,11 +1685,15 @@ fn set_delayed_event_proofs_per_block() {
 
 		// Re-enable bridge
 		BridgePaused::<Test>::kill();
-		// initialize pallet and initiate event proof
+		// call on_idle for pallet and initiate event proof
+		let expected_weight: Weight = DbWeight::get().reads(3u64) +
+			DbWeight::get().reads_writes(2, 2) * new_max_delayed_events as u64;
 		assert_eq!(
-			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
-			DbWeight::get().reads(3u64) +
-				DbWeight::get().writes(2u64) * new_max_delayed_events as u64
+			EthBridge::on_idle(
+				frame_system::Pallet::<Test>::block_number() + 1,
+				Weight::from_ref_time(1_000_000_000_000)
+			),
+			expected_weight
 		);
 
 		for i in 0..new_max_delayed_events {

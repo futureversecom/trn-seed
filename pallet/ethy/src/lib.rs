@@ -492,12 +492,14 @@ pub mod pallet {
 		/// 3) Process any deferred event proofs that were submitted while the bridge was paused
 		/// (should only happen on the first few blocks in a new era) (outgoing)
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
-			let mut consumed_weight = Weight::zero();
+			// Reads: NextAuthorityChange, MessagesValidAt, ProcessedMessageIds
+			let mut consumed_weight = DbWeight::get().reads(3u64);
 
 			// 1) Handle authority change
 			if Some(block_number) == NextAuthorityChange::<T>::get() {
 				// Change authority keys, we are 5 minutes before the next epoch
 				log!(trace, "💎 Epoch ends in 5 minutes, changing authorities");
+				// TODO Benchmark this function
 				Self::handle_authorities_change();
 			}
 
@@ -560,19 +562,46 @@ pub mod pallet {
 				ProcessedMessageIds::<T>::put(processed_message_ids);
 			}
 
-			// 3) Try process delayed proofs
-			consumed_weight += DbWeight::get().reads(2u64);
-			if PendingEventProofs::<T>::iter().next().is_some() && !BridgePaused::<T>::get() {
-				let max_delayed_events = DelayedEventProofsPerBlock::<T>::get();
-				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1u64));
-				consumed_weight = consumed_weight
-					.saturating_add(DbWeight::get().writes(2u64).mul(max_delayed_events as u64));
-				for (event_proof_id, signing_request) in
-					PendingEventProofs::<T>::iter().take(max_delayed_events as usize)
-				{
-					Self::do_request_event_proof(event_proof_id, signing_request);
-					PendingEventProofs::<T>::remove(event_proof_id);
+			consumed_weight
+		}
+
+		fn on_idle(_n: T::BlockNumber, remaining_weight: Weight) -> Weight {
+			// Minimum weight to read the initial values:
+			// - BridgePaused, PendingEventProofs, DelayedEventProofsPerBlock
+			let base_weight = DbWeight::get().reads(3u64);
+
+			// do_request_proof weight:
+			// reads - BridgePaused
+			// writes - PendingEventProofs || frame_system::Digest
+			// loop weight:
+			// reads_writes - PendingEventProofs
+			let weight_per_proof = DbWeight::get().reads_writes(2, 2);
+
+			// Do we have enough weight to process one proof?
+			if remaining_weight.all_lte(base_weight + weight_per_proof) {
+				return Weight::zero()
+			}
+
+			// Don't do anything if the bridge is paused
+			if BridgePaused::<T>::get() {
+				return DbWeight::get().reads(1u64)
+			}
+
+			let mut consumed_weight = base_weight;
+			let mut pending_event_proofs = PendingEventProofs::<T>::drain();
+			let max_delayed_events = DelayedEventProofsPerBlock::<T>::get();
+
+			for _ in 0..max_delayed_events {
+				// Check if we have enough weight to process this iteration
+				let new_consumed_weight = consumed_weight.saturating_add(weight_per_proof);
+				if remaining_weight.all_lte(new_consumed_weight) {
+					break
 				}
+				let Some((event_proof_id, signing_request)) = pending_event_proofs.next() else {
+					break
+				};
+				consumed_weight = new_consumed_weight;
+				Self::do_request_event_proof(event_proof_id, signing_request);
 			}
 
 			consumed_weight
