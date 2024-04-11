@@ -390,6 +390,10 @@ pub mod pallet {
 	pub type EthCallRequestInfo<T: Config> =
 		StorageMap<_, Twox64Concat, EthCallId, CheckedEthCallRequest<T::MaxEthData>, OptionQuery>;
 
+	/// The permissioned account for manual proof requests
+	#[pallet::storage]
+	pub type ProofAdmin<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
