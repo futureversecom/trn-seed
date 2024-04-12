@@ -444,6 +444,11 @@ pub mod pallet {
 		XrplAuthoritySetChangeRequestFailed { error: DispatchError },
 		/// Proof admin account has been set
 		ProofAdminSet { proof_admin: Option<T::AccountId> },
+		/// A manual proof has been requested
+		ProofRequested {
+			event_proof_id: EventProofId,
+			signing_request: EthySigningRequest<T::MaxEthData>,
+		},
 	}
 
 	#[pallet::error]
@@ -923,12 +928,46 @@ pub mod pallet {
 			}
 		}
 
-		/// set proof admin account
+		/// Set proof admin account
 		#[pallet::weight(DbWeight::get().writes(1))]
 		pub fn set_proof_admin(origin: OriginFor<T>, proof_admin: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
 			ProofAdmin::<T>::put(proof_admin.clone());
 			Self::deposit_event(Event::<T>::ProofAdminSet { proof_admin: Some(proof_admin) });
+			Ok(())
+		}
+
+		/// Request for proof
+		#[pallet::weight(DbWeight::get().writes(1))]
+		pub fn request_for_proof(
+			origin: OriginFor<T>,
+			request: EthySigningRequest<T::MaxEthData>,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Some(origin) == ProofAdmin::<T>::get(), Error::<T>::NoPermission);
+
+			let mut request = request.clone();
+			let event_proof_id = NextEventProofId::<T>::get();
+			NextEventProofId::<T>::put(event_proof_id.wrapping_add(1));
+			match &mut request {
+				EthySigningRequest::Ethereum(event_proof_info) => {
+					event_proof_info.event_proof_id = event_proof_id;
+					event_proof_info.validator_set_id = Self::validator_set().id;
+
+					Self::do_request_event_proof(event_proof_id, request.clone());
+					Self::deposit_event(Event::<T>::ProofRequested {
+						event_proof_id,
+						signing_request: request,
+					});
+				},
+				EthySigningRequest::XrplTx(..) => {
+					Self::do_request_event_proof(event_proof_id, request.clone());
+					Self::deposit_event(Event::<T>::ProofRequested {
+						event_proof_id,
+						signing_request: request,
+					});
+				},
+			}
 			Ok(())
 		}
 	}
