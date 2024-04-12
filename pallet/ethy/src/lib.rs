@@ -442,6 +442,8 @@ pub mod pallet {
 		SetContractAddress { address: EthAddress },
 		/// Xrpl authority set change request failed
 		XrplAuthoritySetChangeRequestFailed { error: DispatchError },
+		/// Proof admin account has been set
+		ProofAdminSet { proof_admin: Option<T::AccountId> },
 	}
 
 	#[pallet::error]
@@ -919,6 +921,15 @@ pub mod pallet {
 				NotarizationPayload::Event { event_claim_id, result, .. } =>
 					Self::handle_event_notarization(event_claim_id, result, notary_public_key),
 			}
+		}
+
+		/// set proof admin account
+		#[pallet::weight(DbWeight::get().writes(1))]
+		pub fn set_proof_admin(origin: OriginFor<T>, proof_admin: T::AccountId) -> DispatchResult {
+			ensure_root(origin)?;
+			ProofAdmin::<T>::put(proof_admin.clone());
+			Self::deposit_event(Event::<T>::ProofAdminSet { proof_admin: Some(proof_admin) });
+			Ok(())
 		}
 	}
 }
