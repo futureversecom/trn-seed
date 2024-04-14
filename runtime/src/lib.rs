@@ -1252,7 +1252,6 @@ impl pallet_futurepass::Config for Runtime {
 	type BlacklistedCallValidator = impls::FuturepassCallValidator;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
-	type FuturepassMigrator = impls::FuturepassMigrationProvider;
 	type WeightInfo = weights::pallet_futurepass::WeightInfo<Self>;
 
 	#[cfg(feature = "runtime-benchmarks")]

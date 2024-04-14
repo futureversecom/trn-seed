@@ -23,7 +23,6 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
-		fungibles,
 		tokens::{DepositConsequence, WithdrawConsequence},
 		CallMetadata, Currency, ExistenceRequirement, FindAuthor, GetCallMetadata, Imbalance,
 		InstanceFilter, OnUnbalanced, ReservableCurrency, SignedImbalance, WithdrawReasons,
@@ -54,7 +53,7 @@ use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, MaintenanceCheck, OnNewAssetSubscriber,
 };
-use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
+use seed_primitives::{AccountId, Balance, Index, Signature};
 
 use crate::{
 	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
@@ -765,54 +764,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			(_, ProxyType::Owner) | (_, ProxyType::Any) => false,
 			_ => false,
 		}
-	}
-}
-
-pub struct FuturepassMigrationProvider;
-
-impl<T: pallet_nft::Config + pallet_assets_ext::Config> pallet_futurepass::FuturepassMigrator<T>
-	for FuturepassMigrationProvider
-where
-	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
-{
-	fn transfer_asset(
-		asset_id: AssetId,
-		current_owner: &T::AccountId,
-		new_owner: &T::AccountId,
-	) -> DispatchResult {
-		let amount = <pallet_assets_ext::Pallet<T> as fungibles::Inspect<
-			<T as frame_system::Config>::AccountId,
-		>>::reducible_balance(asset_id, current_owner, false);
-		<pallet_assets_ext::Pallet<T> as fungibles::Transfer<
-			<T as frame_system::Config>::AccountId,
-		>>::transfer(asset_id, current_owner, new_owner, amount, false)?;
-		Ok(())
-	}
-
-	fn transfer_nfts(
-		collection_id: u32,
-		current_owner: &T::AccountId,
-		new_owner: &T::AccountId,
-	) -> DispatchResult {
-		let collection_info = pallet_nft::CollectionInfo::<T>::get(collection_id)
-			.ok_or(pallet_nft::Error::<T>::NoCollectionFound)?;
-		let serials = collection_info
-			.owned_tokens
-			.into_iter()
-			.filter(|ownership| ownership.owner == *current_owner)
-			.flat_map(|ownership| ownership.owned_serials)
-			.collect::<Vec<_>>();
-		let serials_bounded: BoundedVec<_, <T as pallet_nft::Config>::MaxTokensPerCollection> =
-			BoundedVec::try_from(serials)
-				.map_err(|_| pallet_nft::Error::<T>::TokenLimitExceeded)?;
-
-		pallet_nft::Pallet::<T>::do_transfer(
-			collection_id,
-			serials_bounded,
-			current_owner,
-			new_owner,
-		)?;
-		Ok(())
 	}
 }
 
