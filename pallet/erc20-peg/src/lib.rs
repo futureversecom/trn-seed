@@ -232,6 +232,10 @@ pub mod pallet {
 		ActivateDepositDelay { active: bool },
 		/// Toggle withdrawal delay.
 		ActivateWithdrawalDelay { active: bool },
+		/// Toggle deposits.
+		ActivateDeposits { active: bool },
+		/// Toggle withdrawals.
+		ActivateWithdrawals { active: bool },
 	}
 
 	#[pallet::error]
@@ -333,6 +337,7 @@ pub mod pallet {
 		pub fn activate_deposits(origin: OriginFor<T>, activate: bool) -> DispatchResult {
 			ensure_root(origin)?;
 			DepositsActive::<T>::put(activate);
+			Self::deposit_event(Event::<T>::ActivateDeposits { active: activate });
 			Ok(())
 		}
 
@@ -341,6 +346,7 @@ pub mod pallet {
 		pub fn activate_withdrawals(origin: OriginFor<T>, activate: bool) -> DispatchResult {
 			ensure_root(origin)?;
 			WithdrawalsActive::<T>::put(activate);
+			Self::deposit_event(Event::<T>::ActivateWithdrawals { active: activate });
 			Ok(())
 		}
 
