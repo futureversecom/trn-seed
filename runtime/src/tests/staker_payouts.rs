@@ -29,9 +29,9 @@ use seed_primitives::{Balance, BlockNumber};
 
 use crate::{
 	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
-	Babe, Balances, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, EthBridge,
-	Executive, Runtime, RuntimeCall, Scheduler, Session, SessionKeys, SessionsPerEra, Staking,
-	System, Timestamp, TxFeePot, XrpCurrency,
+	Babe, Balances, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, Executive,
+	Runtime, RuntimeCall, Scheduler, Session, SessionKeys, SessionsPerEra, Staking, System,
+	Timestamp, TxFeePot, XrpCurrency,
 };
 
 use super::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder};
@@ -254,7 +254,7 @@ fn staking_final_session_tracking_ethy() {
 		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
 
 		advance_session(); // era 2 starts and keys contain the updated key
-		assert!(pallet_ethy::NotaryKeys::<Test>::get()
+		assert!(pallet_ethy::NotaryKeys::<Runtime>::get()
 			.into_iter()
 			.find(|x| x == &new_keys.ethy)
 			.is_some());
@@ -271,7 +271,7 @@ fn staking_final_session_tracking_ethy() {
 				   // Call on_initialize for scheduler to update keys and unpause bridge
 		let scheduled_block: BlockNumber = System::block_number() + 75_u32;
 		Scheduler::on_initialize(scheduled_block.into());
-		assert!(pallet_ethy::NotaryKeys::<Test>::get()
+		assert!(pallet_ethy::NotaryKeys::<Runtime>::get()
 			.into_iter()
 			.find(|x| x == &new_keys.ethy)
 			.is_some());
