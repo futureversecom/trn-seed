@@ -27,13 +27,14 @@ use crate::{
 	EthCallRequestInfo, Event, EventClaimStatus, MessagesValidAt, NextAuthorityChange,
 	NextEventProofId, NextNotaryKeys, NotaryKeys, NotarySetId, NotarySetProofId, NotaryXrplKeys,
 	Pallet, PendingClaimChallenges, PendingClaimStatus, PendingEventClaims, PendingEventProofs,
-	ProcessedMessageIds, Relayer, RelayerPaidBond, XrplDoorSigners, XrplNotarySetProofId,
-	ETHY_ENGINE_ID, SUBMIT_BRIDGE_EVENT_SELECTOR,
+	ProcessedMessageIds, ProofAdmin, Relayer, RelayerPaidBond, XrplDoorSigners,
+	XrplNotarySetProofId, ETHY_ENGINE_ID, SUBMIT_BRIDGE_EVENT_SELECTOR,
 };
 use codec::Encode;
 use ethabi::Token;
 use frame_support::traits::{fungibles::Inspect, OnInitialize, OneSessionHandler, UnixTime};
 use hex_literal::hex;
+use pallet_assets::mock::RuntimeOrigin;
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{
 	ethy::{
@@ -2603,5 +2604,39 @@ fn notary_xrpl_keys_removed_request_for_xrpl_proof() {
 		assert_eq!(NotaryXrplKeys::<Test>::get(), keys_filtered.clone());
 		assert_eq!(XrplNotarySetProofId::<Test>::get(), eth_proof_id + 1);
 		assert!(!BridgePaused::<Test>::get());
+	});
+}
+
+#[test]
+fn set_proof_admin_works() {
+	let proof_admin = H160::from_low_u64_be(123);
+	ExtBuilder::default().build().execute_with(|| {
+		assert_ok!(EthBridge::set_proof_admin(
+			frame_system::RawOrigin::Root.into(),
+			proof_admin.into()
+		),);
+		assert_eq!(ProofAdmin::<Test>::get(), Some(proof_admin.into()));
+	});
+}
+
+#[test]
+fn request_for_proof_works() {
+	let proof_admin = H160::from_low_u64_be(123);
+	ExtBuilder::default().build().execute_with(|| {
+		assert_ok!(EthBridge::set_proof_admin(
+			frame_system::RawOrigin::Root.into(),
+			proof_admin.into()
+		),);
+
+		// assert_ok!(EthBridge::request_for_proof_works(
+		// 	RuntimeOrigin::signed(proof_admin),
+		// 	EthySigningRequest::,
+		// ));
+		//
+		//
+		// System::assert_has_event(
+		// 	Event::DoughnutCallExecuted { doughnut: doughnut_encoded, call, result: Ok(()) }
+		// 		.into(),
+		// );
 	});
 }
