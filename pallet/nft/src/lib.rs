@@ -29,6 +29,7 @@
 //! number)
 
 use frame_support::{
+	dispatch::Dispatchable,
 	ensure,
 	traits::{fungibles::Mutate, Get},
 	transactional, PalletId,
@@ -104,6 +105,10 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// The overarching call type.
+		type RuntimeCall: Parameter
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+			+ From<frame_system::Call<Self>>;
 		/// Max tokens that a collection can contain
 		type MaxTokensPerCollection: Get<u32>;
 		/// Max quantity of NFTs that can be minted in one transaction

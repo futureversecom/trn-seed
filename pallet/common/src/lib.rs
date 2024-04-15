@@ -463,6 +463,11 @@ pub trait NFTExt {
 		collection_id: CollectionUuid,
 	) -> Result<(TokenCount, Option<TokenCount>), DispatchError>;
 
+	/// Returns the collection public mint information
+	fn get_public_mint_info(
+		collection_id: CollectionUuid,
+	) -> Result<utils::PublicMintInformation, DispatchError>;
+
 	/// Transfers the ownership of a collection to the new owner
 	fn transfer_collection_ownership(
 		who: Self::AccountId,

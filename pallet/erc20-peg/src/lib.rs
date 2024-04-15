@@ -18,12 +18,11 @@
 use codec::Decode;
 use ethabi::{ParamType, Token};
 use frame_support::{
-	decl_error, decl_event, decl_module, decl_storage, ensure, log,
+	ensure, log,
 	pallet_prelude::*,
 	traits::{
 		fungibles,
-		fungibles::Mutate,
-		tokens::{Fortitude, Precision, Preservation},
+		fungibles::{Mutate, Transfer},
 		Get, IsType,
 	},
 	transactional,
@@ -31,15 +30,14 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
+use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
+use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
 use sp_core::{H160, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating},
 	SaturatedConversion,
 };
 use sp_std::prelude::*;
-
-use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
-use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -50,97 +48,198 @@ mod mock;
 #[cfg(test)]
 mod tests;
 mod weights;
-
 pub use weights::WeightInfo;
 
-pub trait Config: frame_system::Config<AccountId = AccountId> {
-	/// An onchain address for this pallet
-	type PegPalletId: Get<PalletId>;
-	/// Submits event messages to Ethereum
-	type EthBridge: EthereumBridge;
-	/// Currency functions
-	type MultiCurrency: CreateExt<AccountId = Self::AccountId>
-		+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
-		+ fungibles::Mutate<Self::AccountId, AssetId = AssetId, Balance = Balance>;
-	/// The overarching event type.
-	type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+pub use pallet::*;
 
-	/// Interface to generate weights
-	type WeightInfo: WeightInfo;
+#[frame_support::pallet]
+pub mod pallet {
+	use super::{DispatchResult, *};
 
-	/// The native token asset Id (managed by pallet-balances)
-	type NativeAssetId: Get<AssetId>;
-}
+	#[pallet::pallet]
+	#[pallet::generate_store(pub (super) trait Store)]
+	pub struct Pallet<T>(_);
 
-decl_storage! {
-	trait Store for Module<T: Config> as Erc20Peg {
-		/// Whether deposit are active
-		DepositsActive get(fn deposits_active): bool;
-		/// Whether withdrawals are active
-		WithdrawalsActive get(fn withdrawals_active): bool;
-		/// Map ERC20 address to GA asset Id
-		Erc20ToAssetId get(fn erc20_to_asset): map hasher(twox_64_concat) EthAddress => Option<AssetId>;
-		/// Map GA asset Id to ERC20 address
-		pub AssetIdToErc20 get(fn asset_to_erc20): map hasher(twox_64_concat) AssetId => Option<EthAddress>;
-		/// Metadata for well-known erc20 tokens (symbol, decimals)
-		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
-		/// Map from asset_id to minimum amount and delay
-		PaymentDelay get(fn payment_delay): map hasher(twox_64_concat) AssetId => Option<(Balance, BlockNumberFor<T>)>;
-		/// Map from DelayedPaymentId to PendingPayment
-		DelayedPayments get(fn delayed_payments): map hasher(twox_64_concat) DelayedPaymentId => Option<PendingPayment>;
-		/// Map from block number to DelayedPaymentIds scheduled for that block
-		DelayedPaymentSchedule get(fn delayed_payment_schedule): map hasher(twox_64_concat) BlockNumberFor<T> => Vec<DelayedPaymentId>;
-		/// The blocks with payments that are ready to be processed
-		ReadyBlocks get(fn ready_blocks): Vec<BlockNumberFor<T>>;
-		/// The next available payment id for withdrawals and deposits
-		NextDelayedPaymentId get(fn next_delayed_payment_id): DelayedPaymentId;
-		/// The peg contract address on Ethereum
-		pub ContractAddress get(fn contract_address): EthAddress;
-		/// The ROOT peg contract address on Ethereum
-		pub RootPegContractAddress get(fn root_peg_contract_address): EthAddress;
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		erc20s: Vec<(EthAddress, BoundedVec<u8, T::StringLimit>, u8)>,
+		_phantom: sp_std::marker::PhantomData<T>,
 	}
-	add_extra_genesis {
-		config(erc20s): Vec<(EthAddress, Vec<u8>, u8)>;
-		build(|config: &GenesisConfig| {
-			for (address, symbol, decimals) in config.erc20s.iter() {
-				Erc20Meta::insert(address, (symbol, decimals));
+
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			GenesisConfig { erc20s: vec![], _phantom: Default::default() }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			for (address, symbol, decimals) in self.erc20s.iter() {
+				Erc20Meta::<T>::insert(address, (symbol, decimals));
 			}
-		});
+		}
 	}
-}
 
-decl_event! {
-	pub enum Event<T> where
-		AccountId = <T as frame_system::Config>::AccountId,
-		BlockNumber = BlockNumberFor<T>,
-	{
-		/// An erc20 deposit has been delayed.(payment_id, scheduled block, amount, beneficiary)
-		Erc20DepositDelayed(DelayedPaymentId, BlockNumber, Balance, AccountId),
-		/// A withdrawal has been delayed.(payment_id, scheduled block, amount, beneficiary)
-		Erc20WithdrawalDelayed(DelayedPaymentId, BlockNumber, Balance, EthAddress),
-		/// A delayed erc20 deposit has failed (payment_id, beneficiary)
-		DelayedErc20DepositFailed(DelayedPaymentId, AccountId),
-		/// A delayed erc20 withdrawal has failed (asset_id, beneficiary)
-		DelayedErc20WithdrawalFailed(AssetId, EthAddress),
-		/// A bridged erc20 deposit succeeded. (asset, amount, beneficiary)
-		Erc20Deposit(AssetId, Balance, AccountId),
-		/// Tokens were burnt for withdrawal on Ethereum as ERC20s (asset, amount, beneficiary)
-		Erc20Withdraw(AssetId, Balance, EthAddress),
-		/// A bridged erc20 deposit failed. (source address, abi data)
-		Erc20DepositFail(H160, Vec<u8>),
-		/// The peg contract address has been set
-		SetContractAddress(EthAddress),
-		/// The ROOT peg contract address has been set
-		SetRootPegContract(EthAddress),
-		/// A delay was added for an asset_id (asset_id, min_balance, delay)
-		PaymentDelaySet(AssetId, Balance, BlockNumber),
-		/// There are no more payment ids available, they've been exhausted
+	#[pallet::config]
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
+		/// An onchain address for this pallet
+		type PegPalletId: Get<PalletId>;
+		/// Submits event messages to Ethereum
+		type EthBridge: EthereumBridge;
+		/// Currency functions
+		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
+			+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
+			+ fungibles::Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
+			+ fungibles::Mutate<Self::AccountId>;
+		/// The overarching event type.
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// Interface to generate weights
+		type WeightInfo: WeightInfo;
+		/// The native token asset Id (managed by pallet-balances)
+		#[pallet::constant]
+		type NativeAssetId: Get<AssetId>;
+		/// The maximum length of an ERC20 token symbol
+		#[pallet::constant]
+		type StringLimit: Get<u32>;
+		/// The maximum number of delayed payments allowed per block
+		#[pallet::constant]
+		type MaxDelaysPerBlock: Get<u32>;
+		/// The maximum number of ready blocks allowed per storage
+		#[pallet::constant]
+		type MaxReadyBlocks: Get<u32>;
+	}
+
+	/// Whether deposit are active
+	#[pallet::storage]
+	pub type DepositsActive<T> = StorageValue<_, bool, ValueQuery>;
+
+	/// Whether withdrawals are active
+	#[pallet::storage]
+	pub type WithdrawalsActive<T> = StorageValue<_, bool, ValueQuery>;
+
+	/// Default value for deposit and withdrawal delays
+	#[pallet::type_value]
+	pub fn DefaultTrue() -> bool {
+		true
+	}
+
+	/// Whether deposit delays are active, default is set to true
+	#[pallet::storage]
+	pub type DepositsDelayActive<T> = StorageValue<_, bool, ValueQuery, DefaultTrue>;
+
+	/// Whether withdrawals delays are active, default is set to true
+	#[pallet::storage]
+	pub type WithdrawalsDelayActive<T> = StorageValue<_, bool, ValueQuery, DefaultTrue>;
+
+	/// Map ERC20 address to GA asset Id
+	#[pallet::storage]
+	pub type Erc20ToAssetId<T: Config> = StorageMap<_, Twox64Concat, EthAddress, AssetId>;
+
+	/// Map GA asset Id to ERC20 address
+	#[pallet::storage]
+	pub type AssetIdToErc20<T: Config> = StorageMap<_, Twox64Concat, AssetId, EthAddress>;
+
+	/// Metadata for well-known erc20 tokens (symbol, decimals)
+	#[pallet::storage]
+	pub type Erc20Meta<T: Config> =
+		StorageMap<_, Twox64Concat, EthAddress, (BoundedVec<u8, T::StringLimit>, u8)>;
+
+	/// Map from asset_id to minimum amount and delay
+	#[pallet::storage]
+	pub type PaymentDelay<T: Config> =
+		StorageMap<_, Twox64Concat, AssetId, (Balance, T::BlockNumber)>;
+
+	/// Map from DelayedPaymentId to PendingPayment
+	#[pallet::storage]
+	pub type DelayedPayments<T: Config> =
+		StorageMap<_, Twox64Concat, DelayedPaymentId, PendingPayment>;
+
+	/// Map from block number to DelayedPaymentIds scheduled for that block
+	#[pallet::storage]
+	pub type DelayedPaymentSchedule<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::BlockNumber,
+		BoundedVec<DelayedPaymentId, T::MaxDelaysPerBlock>,
+		ValueQuery,
+	>;
+
+	/// The blocks with payments that are ready to be processed
+	#[pallet::storage]
+	pub type ReadyBlocks<T: Config> =
+		StorageValue<_, BoundedVec<T::BlockNumber, T::MaxReadyBlocks>, ValueQuery>;
+
+	/// The next available payment id for withdrawals and deposits
+	#[pallet::storage]
+	pub type NextDelayedPaymentId<T> = StorageValue<_, DelayedPaymentId, ValueQuery>;
+
+	/// The peg contract address on Ethereum
+	#[pallet::storage]
+	pub type ContractAddress<T> = StorageValue<_, EthAddress, ValueQuery>;
+
+	/// The ROOT peg contract address on Ethereum
+	#[pallet::storage]
+	pub type RootPegContractAddress<T> = StorageValue<_, EthAddress, ValueQuery>;
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// An erc20 deposit has been delayed.
+		Erc20DepositDelayed {
+			payment_id: DelayedPaymentId,
+			scheduled_block: T::BlockNumber,
+			amount: Balance,
+			beneficiary: T::AccountId,
+			asset_id: AssetId,
+		},
+		/// A withdrawal has been delayed.
+		Erc20WithdrawalDelayed {
+			payment_id: DelayedPaymentId,
+			scheduled_block: T::BlockNumber,
+			amount: Balance,
+			beneficiary: EthAddress,
+			asset_id: AssetId,
+			source: T::AccountId,
+		},
+		/// An ERC20 delay has failed due to storage bounds.
+		Erc20DelayFailed {
+			payment_id: DelayedPaymentId,
+			scheduled_block: T::BlockNumber,
+			asset_id: AssetId,
+			source: T::AccountId,
+		},
+		/// A delayed erc20 deposit has failed.
+		DelayedErc20DepositFailed { payment_id: DelayedPaymentId, beneficiary: T::AccountId },
+		/// A delayed erc20 withdrawal has failed.
+		DelayedErc20WithdrawalFailed { asset_id: AssetId, beneficiary: EthAddress },
+		/// A bridged erc20 deposit succeeded.
+		Erc20Deposit { asset_id: AssetId, amount: Balance, beneficiary: T::AccountId },
+		/// Tokens were burnt for withdrawal on Ethereum as ERC20s
+		Erc20Withdraw { asset_id: AssetId, amount: Balance, beneficiary: EthAddress },
+		/// A bridged erc20 deposit failed.
+		Erc20DepositFail { source: H160, abi_data: Vec<u8> },
+		/// The peg contract address has been set.
+		SetContractAddress { address: EthAddress },
+		/// The ROOT peg contract address has been set.
+		SetRootPegContract { address: EthAddress },
+		/// A delay was added for an asset_id.
+		PaymentDelaySet { asset_id: AssetId, min_balance: Balance, delay: T::BlockNumber },
+		/// There are no more payment ids available, they've been exhausted.
 		NoAvailableDelayedPaymentIds,
+		/// Toggle deposit delay.
+		ActivateDepositDelay { active: bool },
+		/// Toggle withdrawal delay.
+		ActivateWithdrawalDelay { active: bool },
+		/// Toggle deposits.
+		ActivateDeposits { active: bool },
+		/// Toggle withdrawals.
+		ActivateWithdrawals { active: bool },
 	}
-}
 
-decl_error! {
-	pub enum Error for Module<T: Config> {
+	#[pallet::error]
+	pub enum Error<T> {
 		/// Could not create the bridged asset
 		CreateAssetFailed,
 		/// Deposit has bad amount
@@ -160,52 +259,45 @@ decl_error! {
 		/// The abi received does not match the encoding scheme
 		InvalidAbiEncoding,
 	}
-}
 
-decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
-		type Error = Error<T>;
-
-		fn deposit_event() = default;
-
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Check and process outstanding payments
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			let mut weight: Weight = DbWeight::get().reads(1u64);
-			if DelayedPaymentSchedule::<T>::contains_key(now) {
-				ReadyBlocks::<T>::append(now);
-				weight = weight.saturating_add(DbWeight::get().writes(1u64));
-			}
-			weight
-		}
-
-		/// Check and process outstanding payments
-		fn on_idle(_now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
 			let initial_read_cost = DbWeight::get().reads(1u64);
 			// Ensure we have enough weight to perform the initial read
 			if remaining_weight.all_lte(initial_read_cost) {
-				return Weight::zero();
+				return Weight::zero()
 			}
 			// Check that there are blocks in ready_blocks
 			let ready_blocks_length = ReadyBlocks::<T>::decode_len();
 			if ready_blocks_length.is_none() || ready_blocks_length == Some(0) {
-				return Weight::zero();
+				return Weight::zero()
 			}
 
 			// Process as many payments as we can
-			let weight_each: Weight = DbWeight::get().reads(8u64).saturating_add(DbWeight::get().writes(10u64));
-			let max_payments = remaining_weight.sub_ref_time(initial_read_cost.ref_time()).div(weight_each.ref_time()).ref_time().saturated_into::<u8>();
-			let ready_blocks: Vec<BlockNumberFor<T>> = Self::ready_blocks();
+			let weight_each: Weight =
+				DbWeight::get().reads(8u64).saturating_add(DbWeight::get().writes(10u64));
+			let max_payments = remaining_weight
+				.sub(initial_read_cost.ref_time())
+				.div(weight_each.ref_time())
+				.ref_time()
+				.saturated_into::<u8>();
+			let ready_blocks: Vec<T::BlockNumber> = ReadyBlocks::<T>::get().into_inner();
 			// Total payments processed in this block
 			let mut processed_payment_count: u8 = 0;
 			// Count of blocks where all payments have been processed
 			let mut processed_block_count: u8 = 0;
 
 			for block in ready_blocks.iter() {
-				let mut payment_ids = DelayedPaymentSchedule::<T>::take(block);
+				let mut payment_ids = DelayedPaymentSchedule::<T>::take(block).into_inner();
 				let remaining_payments = (max_payments - processed_payment_count) as usize;
 				if payment_ids.len() > remaining_payments {
 					// Update storage with unprocessed payments
-					DelayedPaymentSchedule::<T>::insert(block, payment_ids.split_off(remaining_payments));
+					DelayedPaymentSchedule::<T>::insert(
+						block,
+						BoundedVec::truncate_from(payment_ids.split_off(remaining_payments)),
+					);
 				} else {
 					processed_block_count += 1;
 				}
@@ -215,82 +307,157 @@ decl_module! {
 					Self::process_delayed_payment(payment_id);
 				}
 				if processed_payment_count >= max_payments {
-					break;
+					break
 				}
 			}
 
-			ReadyBlocks::<T>::put(&ready_blocks[processed_block_count as usize..]);
-			initial_read_cost.add_ref_time(weight_each.mul(processed_payment_count as u64).ref_time())
+			let ready_blocks =
+				BoundedVec::truncate_from(ready_blocks[processed_block_count as usize..].to_vec());
+			ReadyBlocks::<T>::put(ready_blocks);
+			initial_read_cost.add(weight_each.mul(processed_payment_count as u64).ref_time())
 		}
 
+		/// Check and process outstanding payments
+		fn on_initialize(now: T::BlockNumber) -> Weight {
+			let mut weight: Weight = DbWeight::get().reads(1u64);
+			if DelayedPaymentSchedule::<T>::contains_key(now) {
+				let _ = ReadyBlocks::<T>::try_append(now).map_err(|_| {
+					log::error!("ERC20-Peg: 📌 Failed to append ready block: {:?}", now);
+				});
+				weight = weight.saturating_add(DbWeight::get().writes(1u64));
+			}
+			weight
+		}
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
 		/// Activate/deactivate deposits (root only)
-		#[weight = T::WeightInfo::activate_deposits()]
-		pub fn activate_deposits(origin, activate: bool) {
+		#[pallet::weight(T::WeightInfo::activate_deposits())]
+		pub fn activate_deposits(origin: OriginFor<T>, activate: bool) -> DispatchResult {
 			ensure_root(origin)?;
-			DepositsActive::put(activate);
+			DepositsActive::<T>::put(activate);
+			Self::deposit_event(Event::<T>::ActivateDeposits { active: activate });
+			Ok(())
 		}
 
 		/// Activate/deactivate withdrawals (root only)
-		#[weight = T::WeightInfo::activate_withdrawals()]
-		pub fn activate_withdrawals(origin, activate: bool) {
+		#[pallet::weight(T::WeightInfo::activate_withdrawals())]
+		pub fn activate_withdrawals(origin: OriginFor<T>, activate: bool) -> DispatchResult {
 			ensure_root(origin)?;
-			WithdrawalsActive::put(activate);
+			WithdrawalsActive::<T>::put(activate);
+			Self::deposit_event(Event::<T>::ActivateWithdrawals { active: activate });
+			Ok(())
 		}
 
-		#[weight = T::WeightInfo::withdraw()]
-		/// Tokens will be transferred to peg account and a proof generated to allow redemption of tokens on Ethereum
+		/// Activate/deactivate delay deposits (root only)
+		#[pallet::weight(T::WeightInfo::activate_deposits_delay())]
+		pub fn activate_deposits_delay(origin: OriginFor<T>, activate: bool) -> DispatchResult {
+			ensure_root(origin)?;
+			DepositsDelayActive::<T>::put(activate);
+			Self::deposit_event(Event::<T>::ActivateDepositDelay { active: activate });
+			Ok(())
+		}
+
+		/// Activate/deactivate withdrawals (root only)
+		#[pallet::weight(T::WeightInfo::activate_withdrawals_delay())]
+		pub fn activate_withdrawals_delay(origin: OriginFor<T>, activate: bool) -> DispatchResult {
+			ensure_root(origin)?;
+			WithdrawalsDelayActive::<T>::put(activate);
+			Self::deposit_event(Event::<T>::ActivateWithdrawalDelay { active: activate });
+			Ok(())
+		}
+
+		#[pallet::weight(T::WeightInfo::withdraw())]
+		/// Tokens will be transferred to peg account and a proof generated to allow redemption of
+		/// tokens on Ethereum
 		#[transactional]
-		pub fn withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
+		pub fn withdraw(
+			origin: OriginFor<T>,
+			asset_id: AssetId,
+			amount: Balance,
+			beneficiary: EthAddress,
+		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			Self::do_withdrawal(origin, asset_id, amount, beneficiary, WithdrawCallOrigin::Runtime)?;
+			Self::do_withdrawal(
+				origin,
+				asset_id,
+				amount,
+				beneficiary,
+				WithdrawCallOrigin::Runtime,
+			)?;
+			Ok(())
 		}
 
-		#[weight = T::WeightInfo::set_erc20_peg_address()]
+		#[pallet::weight(T::WeightInfo::set_erc20_peg_address())]
 		/// Set the ERC20 peg contract address on Ethereum (requires governance)
-		pub fn set_erc20_peg_address(origin, eth_address: EthAddress) {
+		pub fn set_erc20_peg_address(
+			origin: OriginFor<T>,
+			eth_address: EthAddress,
+		) -> DispatchResult {
 			ensure_root(origin)?;
-			ContractAddress::put(eth_address);
-			Self::deposit_event(<Event<T>>::SetContractAddress(eth_address));
+			ContractAddress::<T>::put(eth_address);
+			Self::deposit_event(Event::<T>::SetContractAddress { address: eth_address });
+			Ok(())
 		}
 
-		#[weight = T::WeightInfo::set_root_peg_address()]
+		#[pallet::weight(T::WeightInfo::set_root_peg_address())]
 		/// Set the ROOT peg contract address on Ethereum (requires governance)
-		pub fn set_root_peg_address(origin, eth_address: EthAddress) {
+		pub fn set_root_peg_address(
+			origin: OriginFor<T>,
+			eth_address: EthAddress,
+		) -> DispatchResult {
 			ensure_root(origin)?;
-			RootPegContractAddress::put(eth_address);
-			Self::deposit_event(<Event<T>>::SetRootPegContract(eth_address));
+			RootPegContractAddress::<T>::put(eth_address);
+			Self::deposit_event(Event::<T>::SetRootPegContract { address: eth_address });
+			Ok(())
 		}
 
-		#[weight = T::WeightInfo::set_erc20_meta()]
+		#[pallet::weight(T::WeightInfo::set_erc20_meta())]
 		/// Set the metadata details for a given ERC20 address (requires governance)
 		/// details: `[(contract address, symbol, decimals)]`
-		pub fn set_erc20_meta(origin, details: Vec<(EthAddress, Vec<u8>, u8)>) {
+		pub fn set_erc20_meta(
+			origin: OriginFor<T>,
+			details: Vec<(EthAddress, BoundedVec<u8, T::StringLimit>, u8)>,
+		) -> DispatchResult {
 			ensure_root(origin)?;
 			for (address, symbol, decimals) in details {
-				Erc20Meta::insert(address, (symbol, decimals));
+				Erc20Meta::<T>::insert(address, (symbol, decimals));
 			}
+			Ok(())
 		}
 
-		#[weight = T::WeightInfo::set_erc20_asset_map()]
+		#[pallet::weight(T::WeightInfo::set_erc20_asset_map())]
 		/// Sets the mapping for an asset to an ERC20 address (requires governance)
 		/// Sets both Erc20ToAssetId and AssetIdToErc20
-		pub fn set_erc20_asset_map(origin, asset_id: AssetId, eth_address: EthAddress) {
+		pub fn set_erc20_asset_map(
+			origin: OriginFor<T>,
+			asset_id: AssetId,
+			eth_address: EthAddress,
+		) -> DispatchResult {
 			ensure_root(origin)?;
-			Erc20ToAssetId::insert(eth_address, asset_id);
-			AssetIdToErc20::insert(asset_id, eth_address);
+			Erc20ToAssetId::<T>::insert(eth_address, asset_id);
+			AssetIdToErc20::<T>::insert(asset_id, eth_address);
+			Ok(())
 		}
 
-		#[weight = T::WeightInfo::set_payment_delay()]
+		#[pallet::weight(T::WeightInfo::set_payment_delay())]
 		/// Sets the payment delay for a given AssetId
-		pub fn set_payment_delay(origin, asset_id: AssetId, min_balance: Balance, delay: BlockNumberFor<T>) {
+		pub fn set_payment_delay(
+			origin: OriginFor<T>,
+			asset_id: AssetId,
+			min_balance: Balance,
+			delay: T::BlockNumber,
+		) -> DispatchResult {
 			ensure_root(origin)?;
 			PaymentDelay::<T>::insert(asset_id, (min_balance, delay));
-			Self::deposit_event(<Event<T>>::PaymentDelaySet(asset_id, min_balance, delay));
+			Self::deposit_event(Event::<T>::PaymentDelaySet { asset_id, min_balance, delay });
+			Ok(())
 		}
 	}
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
 	/// Initiate the withdrawal
 	/// Can be called by the runtime or erc20-peg precompile
 	/// If a payment delay is in place for the asset, this will be handled when called from the
@@ -303,34 +470,41 @@ impl<T: Config> Module<T> {
 		beneficiary: EthAddress,
 		call_origin: WithdrawCallOrigin,
 	) -> Result<Option<u64>, DispatchError> {
-		ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
+		ensure!(WithdrawalsActive::<T>::get(), Error::<T>::WithdrawalsPaused);
 
 		// there should be a known ERC20 address mapped for this asset
 		// otherwise there may be no liquidity on the Ethereum side of the peg
-		let token_address = Self::asset_to_erc20(asset_id);
+		let token_address = AssetIdToErc20::<T>::get(asset_id);
 		ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
 		let token_address = token_address.unwrap();
 
 		let message = WithdrawMessage { token_address, amount: amount.into(), beneficiary };
 
 		// Check if there is a delay on the asset
-		let payment_delay: Option<(Balance, BlockNumberFor<T>)> = Self::payment_delay(asset_id);
-		if let Some((min_amount, delay)) = payment_delay {
-			if min_amount <= amount {
-				return match call_origin {
-					WithdrawCallOrigin::Runtime => {
-						// Delay the payment
-						let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
-						Self::delay_payment(delay, PendingPayment::Withdrawal(message));
-						Ok(None)
-					},
-					WithdrawCallOrigin::Evm => {
-						// EVM payment delays are not supported
-						Err(Error::<T>::EvmWithdrawalFailed.into())
-					},
+		let payment_delay: Option<(Balance, T::BlockNumber)> = PaymentDelay::<T>::get(asset_id);
+		if WithdrawalsDelayActive::<T>::get() {
+			if let Some((min_amount, delay)) = payment_delay {
+				if min_amount <= amount {
+					return match call_origin {
+						WithdrawCallOrigin::Runtime => {
+							// Delay the payment
+							let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
+							Self::delay_payment(
+								delay,
+								PendingPayment::Withdrawal(message),
+								asset_id,
+								origin,
+							);
+							Ok(None)
+						},
+						WithdrawCallOrigin::Evm => {
+							// EVM payment delays are not supported
+							Err(Error::<T>::EvmWithdrawalFailed.into())
+						},
+					}
 				}
-			}
-		};
+			};
+		}
 
 		// Process transfer or withdrawal of payment asset
 		let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
@@ -346,22 +520,10 @@ impl<T: Config> Module<T> {
 		if asset_id == T::NativeAssetId::get() {
 			// transfer all ROOT tokens to the peg address
 			let pallet_address: T::AccountId = T::PegPalletId::get().into_account_truncating();
-			T::MultiCurrency::transfer(
-				asset_id,
-				origin,
-				&pallet_address,
-				amount,
-				Preservation::Expendable,
-			)?;
+			T::MultiCurrency::transfer(asset_id, origin, &pallet_address, amount, false)?;
 		} else {
 			// burn all other tokens
-			T::MultiCurrency::burn_from(
-				asset_id,
-				origin,
-				amount,
-				Precision::Exact,
-				Fortitude::Polite,
-			)?;
+			T::MultiCurrency::burn_from(asset_id, origin, amount)?;
 		}
 		Ok(())
 	}
@@ -381,43 +543,43 @@ impl<T: Config> Module<T> {
 		// Call whatever handler loosely coupled from ethy
 		let event_proof_id = if asset_id == T::NativeAssetId::get() {
 			// Call with ROOT contract address
-			T::EthBridge::send_event(&source.into(), &Self::root_peg_contract_address(), &message)?
+			T::EthBridge::send_event(&source.into(), &RootPegContractAddress::<T>::get(), &message)?
 		} else {
 			// Call with ERC20Peg contract address
-			T::EthBridge::send_event(&source.into(), &Self::contract_address(), &message)?
+			T::EthBridge::send_event(&source.into(), &ContractAddress::<T>::get(), &message)?
 		};
 
-		Self::deposit_event(Event::<T>::Erc20Withdraw(
+		Self::deposit_event(Event::<T>::Erc20Withdraw {
 			asset_id,
-			withdrawal_message.amount.saturated_into(),
-			withdrawal_message.beneficiary,
-		));
+			amount: withdrawal_message.amount.saturated_into(),
+			beneficiary: withdrawal_message.beneficiary,
+		});
 		Ok(Some(event_proof_id))
 	}
 
 	/// Process payments at a block after a delay
 	fn process_delayed_payment(payment_id: DelayedPaymentId) {
-		if let Some(pending_payment) = DelayedPayments::take(payment_id) {
+		if let Some(pending_payment) = DelayedPayments::<T>::take(payment_id) {
 			match pending_payment {
 				PendingPayment::Deposit(deposit) => {
 					if Self::process_deposit(deposit.clone()).is_err() {
-						Self::deposit_event(Event::<T>::DelayedErc20DepositFailed(
+						Self::deposit_event(Event::<T>::DelayedErc20DepositFailed {
 							payment_id,
-							deposit.beneficiary.into(),
-						));
+							beneficiary: deposit.beneficiary.into(),
+						});
 					}
 				},
 				PendingPayment::Withdrawal(withdrawal_message) => {
 					// At this stage it is assumed that a mapping between erc20 to asset id exists
 					// for this token
-					let asset_id = Self::erc20_to_asset(withdrawal_message.token_address);
+					let asset_id = Erc20ToAssetId::<T>::get(withdrawal_message.token_address);
 					if let Some(asset_id) = asset_id {
 						// Process transfer or withdrawal of payment asset
 						if Self::process_withdrawal(withdrawal_message.clone(), asset_id).is_err() {
-							Self::deposit_event(Event::<T>::DelayedErc20WithdrawalFailed(
+							Self::deposit_event(Event::<T>::DelayedErc20WithdrawalFailed {
 								asset_id,
-								withdrawal_message.beneficiary.into(),
-							));
+								beneficiary: withdrawal_message.beneficiary.into(),
+							});
 						}
 					} else {
 						log::error!(
@@ -431,37 +593,56 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Delay a withdrawal or deposit until a later block
-	pub fn delay_payment(delay: BlockNumberFor<T>, pending_payment: PendingPayment) {
-		let payment_id = NextDelayedPaymentId::get();
+	pub fn delay_payment(
+		delay: T::BlockNumber,
+		pending_payment: PendingPayment,
+		asset_id: AssetId,
+		source: T::AccountId,
+	) {
+		let payment_id = NextDelayedPaymentId::<T>::get();
 		if !payment_id.checked_add(One::one()).is_some() {
 			Self::deposit_event(Event::<T>::NoAvailableDelayedPaymentIds);
 			return
 		}
 		let payment_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
-		DelayedPayments::insert(payment_id, &pending_payment);
-		// Modify DelayedPaymentSchedule with new payment_id
-		DelayedPaymentSchedule::<T>::append(payment_block, payment_id);
-		NextDelayedPaymentId::put(payment_id + 1);
+		DelayedPayments::<T>::insert(payment_id, &pending_payment);
+		NextDelayedPaymentId::<T>::put(payment_id + 1);
+		let _ = DelayedPaymentSchedule::<T>::try_append(payment_block, payment_id).map_err(|_| {
+			// If we fail to append the payment_id to the schedule, log the error and throw an event
+			log::error!(
+				"ERC20-Peg: 📌 Failed to add delayed payment to DelayedPaymentSchedule: {:?}",
+				payment_id
+			);
+			Self::deposit_event(Event::<T>::Erc20DelayFailed {
+				payment_id,
+				scheduled_block: payment_block,
+				asset_id,
+				source,
+			});
+		});
 
 		// Throw event for delayed payment
 		match pending_payment {
 			PendingPayment::Withdrawal(withdrawal) => {
-				Self::deposit_event(Event::<T>::Erc20WithdrawalDelayed(
+				Self::deposit_event(Event::<T>::Erc20WithdrawalDelayed {
 					payment_id,
-					payment_block,
-					withdrawal.amount.as_u128(),
-					withdrawal.beneficiary,
-				));
+					scheduled_block: payment_block,
+					amount: withdrawal.amount.as_u128(),
+					beneficiary: withdrawal.beneficiary,
+					asset_id,
+					source,
+				});
 			},
 			PendingPayment::Deposit(deposit) => {
 				let beneficiary: T::AccountId =
 					T::AccountId::decode(&mut &deposit.beneficiary.0[..]).unwrap();
-				Self::deposit_event(Event::<T>::Erc20DepositDelayed(
+				Self::deposit_event(Event::<T>::Erc20DepositDelayed {
 					payment_id,
-					payment_block,
-					deposit.amount.as_u128(),
+					scheduled_block: payment_block,
+					amount: deposit.amount.as_u128(),
 					beneficiary,
-				));
+					asset_id,
+				});
 			},
 		}
 	}
@@ -470,31 +651,38 @@ impl<T: Config> Module<T> {
 	/// If the token has a delay and the amount is above the delay amount, add this deposit to
 	/// pending
 	pub fn do_deposit(source: &H160, deposit_event: Erc20DepositEvent) -> DispatchResult {
-		ensure!(Self::deposits_active(), Error::<T>::DepositsPaused);
+		ensure!(DepositsActive::<T>::get(), Error::<T>::DepositsPaused);
 		// fail a deposit early for an amount that is too large
 		ensure!(deposit_event.amount < U256::from(Balance::max_value()), Error::<T>::InvalidAmount);
 
-		let asset_id = Self::erc20_to_asset(deposit_event.token_address);
+		let asset_id = Erc20ToAssetId::<T>::get(deposit_event.token_address);
 		if asset_id.is_some() {
 			let asset_id = asset_id.unwrap();
 			if asset_id == T::NativeAssetId::get() {
 				// If this is the root token, check it comes from the root peg contract address
 				ensure!(
-					source == &Self::root_peg_contract_address(),
+					source == &RootPegContractAddress::<T>::get(),
 					Error::<T>::InvalidSourceAddress
 				);
 			} else {
 				// If this is not a root token, check it comes from the erc20peg contract address
-				ensure!(source == &Self::contract_address(), Error::<T>::InvalidSourceAddress);
+				ensure!(source == &ContractAddress::<T>::get(), Error::<T>::InvalidSourceAddress);
 			}
 			// Asset exists, check if there are delays on this deposit
-			let payment_delay: Option<(Balance, BlockNumberFor<T>)> = Self::payment_delay(asset_id);
-			if let Some((min_amount, delay)) = payment_delay {
-				if U256::from(min_amount) <= deposit_event.amount {
-					Self::delay_payment(delay, PendingPayment::Deposit(deposit_event.clone()));
-					return Ok(())
-				}
-			};
+			let payment_delay: Option<(Balance, T::BlockNumber)> = PaymentDelay::<T>::get(asset_id);
+			if DepositsDelayActive::<T>::get() {
+				if let Some((min_amount, delay)) = payment_delay {
+					if U256::from(min_amount) <= deposit_event.amount {
+						Self::delay_payment(
+							delay,
+							PendingPayment::Deposit(deposit_event.clone()),
+							asset_id,
+							(*source).into(),
+						);
+						return Ok(())
+					}
+				};
+			}
 		}
 		// process deposit immediately
 		Self::process_deposit(deposit_event)
@@ -503,13 +691,13 @@ impl<T: Config> Module<T> {
 	/// fulfill a deposit for the given event
 	/// Handles mint and asset creation
 	pub fn process_deposit(verified_event: Erc20DepositEvent) -> DispatchResult {
-		let asset_id = match Self::erc20_to_asset(verified_event.token_address) {
+		let asset_id = match Erc20ToAssetId::<T>::get(verified_event.token_address) {
 			None => {
 				// create asset with known values from `Erc20Meta`
 				// asset will be created with `18` decimal places and "" for symbol if the asset is
 				// unknown dapps can also use `AssetToERC20` to retrieve the appropriate decimal
 				// places from ethereum
-				let (symbol, decimals) = Erc20Meta::get(verified_event.token_address)
+				let (symbol, decimals) = Erc20Meta::<T>::get(verified_event.token_address)
 					.unwrap_or((Default::default(), 18));
 
 				let pallet_id = T::PegPalletId::get().into_account_truncating();
@@ -517,15 +705,15 @@ impl<T: Config> Module<T> {
 					&pallet_id,
 					// TODO: We may want to accept a name as input as well later. For now, we will
 					// use the symbol for both symbol and name
-					symbol.clone(),
-					symbol,
+					symbol.clone().into_inner(),
+					symbol.into_inner(),
 					decimals,
 					None,
 				)
 				.map_err(|_| Error::<T>::CreateAssetFailed)?;
 
-				Erc20ToAssetId::insert(verified_event.token_address, asset_id);
-				AssetIdToErc20::insert(asset_id, verified_event.token_address);
+				Erc20ToAssetId::<T>::insert(verified_event.token_address, asset_id);
+				AssetIdToErc20::<T>::insert(asset_id, verified_event.token_address);
 				asset_id
 			},
 			Some(asset_id) => asset_id,
@@ -539,7 +727,7 @@ impl<T: Config> Module<T> {
 		// Give tokens to user
 		Self::mint_or_transfer(asset_id, &beneficiary, amount)?;
 
-		Self::deposit_event(Event::<T>::Erc20Deposit(asset_id, amount, beneficiary));
+		Self::deposit_event(Event::<T>::Erc20Deposit { asset_id, amount, beneficiary });
 		Ok(())
 	}
 
@@ -552,13 +740,7 @@ impl<T: Config> Module<T> {
 		if asset_id == T::NativeAssetId::get() {
 			// Transfer all ROOT tokens from the peg address
 			let pallet_address: T::AccountId = T::PegPalletId::get().into_account_truncating();
-			T::MultiCurrency::transfer(
-				asset_id,
-				&pallet_address,
-				beneficiary,
-				amount,
-				Preservation::Expendable,
-			)?;
+			T::MultiCurrency::transfer(asset_id, &pallet_address, beneficiary, amount, false)?;
 		} else {
 			// Mint all other tokens
 			T::MultiCurrency::mint_into(asset_id, beneficiary, amount)?;
@@ -567,24 +749,23 @@ impl<T: Config> Module<T> {
 	}
 }
 
-impl Get<H160> for ContractAddress {
+pub struct GetContractAddress<T>(PhantomData<T>);
+
+impl<T: Config> Get<H160> for GetContractAddress<T> {
 	fn get() -> H160 {
-		<ContractAddress as storage::StorageValue<_>>::get()
+		ContractAddress::<T>::get()
 	}
 }
 
-impl<T: Config> EthereumEventSubscriber for Module<T> {
+impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 	type Address = T::PegPalletId;
-
-	type SourceAddress = ContractAddress;
+	type SourceAddress = GetContractAddress<T>;
 
 	/// Verifies the source address with either the erc20Peg contract address
 	/// Or the RootPeg contract address
 	fn verify_source(source: &H160) -> OnEventResult {
-		let erc20_peg_contract_address: H160 =
-			<Self::SourceAddress as storage::StorageValue<_>>::get();
-		let root_peg_contract_address: H160 =
-			<RootPegContractAddress as storage::StorageValue<_>>::get();
+		let erc20_peg_contract_address: H160 = Self::SourceAddress::get();
+		let root_peg_contract_address: H160 = RootPegContractAddress::<T>::get();
 		if source == &erc20_peg_contract_address || source == &root_peg_contract_address {
 			Ok(DbWeight::get().reads(2u64))
 		} else {
@@ -616,7 +797,10 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			{
 				Ok(_) => Ok(deposit_weight),
 				Err(e) => {
-					Self::deposit_event(Event::<T>::Erc20DepositFail(*source, data.to_vec()));
+					Self::deposit_event(Event::<T>::Erc20DepositFail {
+						source: *source,
+						abi_data: data.to_vec(),
+					});
 					Err((deposit_weight, e.into()))
 				},
 			}

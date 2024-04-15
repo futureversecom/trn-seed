@@ -43,12 +43,16 @@ fn initialize_crowdsale<T: Config>(owner: T::AccountId) -> (SaleId, AssetId, Col
 	let sale_duration: BlockNumberFor<T> = 1000_u32.into();
 
 	let sale_id = NextSaleId::<T>::get();
+	let voucher_max_len_data =
+		BoundedVec::try_from(vec![0u8; T::StringLimit::get() as usize]).unwrap();
 	CrowdSale::<T>::initialize(
 		RawOrigin::Signed(owner.clone()).into(),
 		payment_asset_id,
 		collection_id,
 		soft_cap_price,
 		sale_duration,
+		Some(voucher_max_len_data.clone()),
+		Some(voucher_max_len_data),
 	)
 	.unwrap();
 	CrowdSale::<T>::enable(RawOrigin::Signed(owner.clone()).into(), sale_id).unwrap();
@@ -63,7 +67,8 @@ benchmarks! {
 		let collection_id = build_collection::<T>(acc.clone());
 		let soft_cap_price = 50_000_000;
 		let sale_duration: BlockNumberFor<T> = 1000_u32.into();
-	}: _(RawOrigin::Signed(acc.clone()), payment_asset_id, collection_id, soft_cap_price, sale_duration)
+		let voucher_max_len_data = BoundedVec::try_from(vec![0u8; T::StringLimit::get() as usize]).unwrap();
+	}: _(RawOrigin::Signed(acc.clone()), payment_asset_id, collection_id, soft_cap_price, sale_duration, Some(voucher_max_len_data.clone()), Some(voucher_max_len_data))
   verify {
 		// validate NextSaleId
 		assert_eq!(NextSaleId::<T>::get(), 1);
@@ -77,7 +82,7 @@ benchmarks! {
 
 		let soft_cap_price = 50_000_000;
 		let sale_duration: BlockNumberFor<T> = 1000_u32.into();
-		CrowdSale::<T>::initialize(RawOrigin::Signed(acc.clone()).into(), payment_asset_id, collection_id, soft_cap_price, sale_duration).unwrap();
+		CrowdSale::<T>::initialize(RawOrigin::Signed(acc.clone()).into(), payment_asset_id, collection_id, soft_cap_price, sale_duration, None, None).unwrap();
 
 		let sale_id = 0;
 	}: _(RawOrigin::Signed(acc.clone()), sale_id)
@@ -176,6 +181,12 @@ benchmarks! {
 		assert_eq!(T::MultiCurrency::balance(sale_info.voucher_asset_id, &participant), 0);
 		assert_eq!(T::NFTExt::get_collection_issuance(collection_id).unwrap(), (2, Some(1000)));
 	}
+
+	proxy_vault_call {
+		let acc: T::AccountId = account("acc", 0, 0);
+		let (sale_id, payment_asset_id, collection_id) = initialize_crowdsale::<T>(acc.clone());
+		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: b"Mischief Managed".to_vec() }.into();
+	}: _(RawOrigin::Signed(acc), sale_id, Box::new(call))
 
 	try_force_distribution {
 		let acc: T::AccountId = account("acc", 0, 0);

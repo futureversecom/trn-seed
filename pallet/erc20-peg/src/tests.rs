@@ -18,10 +18,7 @@ use crate::{
 	mock::{AssetsExt, Erc20Peg, ExtBuilder, MockEthereumEventRouter, PegPalletId, Test},
 	types::{DelayedPaymentId, Erc20DepositEvent, PendingPayment, WithdrawMessage},
 };
-use frame_support::traits::{
-	fungibles::{Inspect, Mutate},
-	OnIdle, OnInitialize,
-};
+use frame_support::traits::fungibles::{Inspect, Mutate};
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
 
@@ -38,7 +35,7 @@ fn set_peg_contract_address_works() {
 		);
 
 		// Sanity check
-		assert_eq!(Erc20Peg::contract_address(), H160::default());
+		assert_eq!(ContractAddress::<Test>::get(), H160::default());
 
 		// Calling as sudo should work
 		assert_ok!(Erc20Peg::set_erc20_peg_address(
@@ -47,7 +44,48 @@ fn set_peg_contract_address_works() {
 		));
 
 		// Storage updated
-		assert_eq!(Erc20Peg::contract_address(), contract_address);
+		assert_eq!(ContractAddress::<Test>::get(), contract_address);
+	});
+}
+
+#[test]
+fn set_deposit_delay_active() {
+	ExtBuilder::default().build().execute_with(|| {
+		let signer = create_account(22);
+
+		// Setting as not sudo fails
+		assert_noop!(Erc20Peg::activate_deposits_delay(Some(signer).into(), false), BadOrigin);
+
+		// Sanity check
+		assert_eq!(DepositsDelayActive::<Test>::get(), true);
+
+		// Calling as sudo should work
+		assert_ok!(Erc20Peg::activate_deposits_delay(frame_system::RawOrigin::Root.into(), false));
+
+		// Storage updated
+		assert_eq!(DepositsDelayActive::<Test>::get(), false);
+	});
+}
+
+#[test]
+fn set_withdrawal_delay_active() {
+	ExtBuilder::default().build().execute_with(|| {
+		let signer = create_account(22);
+
+		// Setting as not sudo fails
+		assert_noop!(Erc20Peg::activate_withdrawals_delay(Some(signer).into(), false), BadOrigin);
+
+		// Sanity check
+		assert_eq!(WithdrawalsDelayActive::<Test>::get(), true);
+
+		// Calling as sudo should work
+		assert_ok!(Erc20Peg::activate_withdrawals_delay(
+			frame_system::RawOrigin::Root.into(),
+			false
+		));
+
+		// Storage updated
+		assert_eq!(WithdrawalsDelayActive::<Test>::get(), false);
 	});
 }
 
@@ -64,7 +102,7 @@ fn set_root_peg_address_works() {
 		);
 
 		// Sanity check
-		assert_eq!(Erc20Peg::root_peg_contract_address(), H160::default());
+		assert_eq!(RootPegContractAddress::<Test>::get(), H160::default());
 
 		// Calling as sudo should work
 		assert_ok!(Erc20Peg::set_root_peg_address(
@@ -73,7 +111,7 @@ fn set_root_peg_address_works() {
 		));
 
 		// Storage updated
-		assert_eq!(Erc20Peg::root_peg_contract_address(), contract_address);
+		assert_eq!(RootPegContractAddress::<Test>::get(), contract_address);
 	});
 }
 
@@ -98,8 +136,8 @@ fn set_erc20_asset_map_works() {
 		));
 
 		// Storage updated
-		assert_eq!(Erc20Peg::erc20_to_asset(contract_address).unwrap(), asset_id);
-		assert_eq!(Erc20Peg::asset_to_erc20(asset_id).unwrap(), contract_address);
+		assert_eq!(Erc20ToAssetId::<Test>::get(contract_address).unwrap(), asset_id);
+		assert_eq!(AssetIdToErc20::<Test>::get(asset_id).unwrap(), contract_address);
 	});
 }
 
@@ -115,7 +153,7 @@ fn set_payment_delay() {
 			min_balance,
 			delay
 		));
-		assert_eq!(Erc20Peg::payment_delay(asset_id), Some((min_balance, delay)));
+		assert_eq!(PaymentDelay::<Test>::get(asset_id), Some((min_balance, delay)));
 	});
 }
 
@@ -133,7 +171,7 @@ fn deposit_payment_with_ethereum_event_router() {
 
 		// Setup token mapping
 		let token_address: H160 = H160::from_low_u64_be(666);
-		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(token_address, SPENDING_ASSET_ID);
 
 		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
 		let deposit_amount: Balance = 100;
@@ -167,7 +205,7 @@ fn deposit_payment_with_ethereum_event_router_source_address_not_set() {
 
 		// Setup token mapping
 		let token_address: H160 = H160::from_low_u64_be(666);
-		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(token_address, SPENDING_ASSET_ID);
 
 		let source = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
@@ -206,7 +244,7 @@ fn deposit_payment_with_ethereum_event_router_incorrect_source_address() {
 
 		// Setup token mapping
 		let token_address: H160 = H160::from_low_u64_be(666);
-		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(token_address, SPENDING_ASSET_ID);
 
 		let source = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
@@ -247,7 +285,7 @@ fn on_deposit_mints() {
 		));
 
 		// No assets expected at first
-		assert!(Erc20Peg::erc20_to_asset(token_address).is_none());
+		assert!(Erc20ToAssetId::<Test>::get(token_address).is_none());
 
 		// Do the deposit
 		assert_ok!(Erc20Peg::do_deposit(
@@ -255,8 +293,8 @@ fn on_deposit_mints() {
 			Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary }
 		));
 		// Check mapping has been updated
-		assert_eq!(Erc20Peg::erc20_to_asset(token_address), Some(expected_asset_id));
-		assert_eq!(Erc20Peg::asset_to_erc20(expected_asset_id), Some(token_address));
+		assert_eq!(Erc20ToAssetId::<Test>::get(token_address), Some(expected_asset_id));
+		assert_eq!(AssetIdToErc20::<Test>::get(expected_asset_id), Some(token_address));
 
 		// Check beneficiary account received funds
 		assert_eq!(
@@ -290,8 +328,8 @@ fn on_deposit_fails_with_wrong_source() {
 		));
 
 		// Insert mappings for root and xrp token addresses
-		Erc20ToAssetId::insert(root_token_address, ROOT_ASSET_ID);
-		Erc20ToAssetId::insert(erc20_token_address, XRP_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(root_token_address, ROOT_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(erc20_token_address, XRP_ASSET_ID);
 
 		// Do deposit fails with incorrect source
 		assert_noop!(
@@ -353,8 +391,8 @@ fn on_deposit_transfers_root_token() {
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 
 		// Setup storage values
-		Erc20ToAssetId::insert(token_address, ROOT_ASSET_ID);
-		AssetIdToErc20::insert(ROOT_ASSET_ID, token_address);
+		Erc20ToAssetId::<Test>::insert(token_address, ROOT_ASSET_ID);
+		AssetIdToErc20::<Test>::insert(ROOT_ASSET_ID, token_address);
 
 		assert_ok!(Erc20Peg::set_root_peg_address(
 			frame_system::RawOrigin::Root.into(),
@@ -402,7 +440,7 @@ fn deposit_payment_less_than_delay_goes_through() {
 
 		// Setup token mapping
 		let token_address: H160 = H160::from_low_u64_be(666);
-		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(token_address, SPENDING_ASSET_ID);
 
 		// Set payment delay with higher value than deposit_amount
 		let delay: u64 = 1000;
@@ -422,13 +460,13 @@ fn deposit_payment_less_than_delay_goes_through() {
 
 		// Check payment has not been put in delayed payments
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
-		let delayed_payment_id = <NextDelayedPaymentId>::get();
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
 		assert_eq!(
-			Erc20Peg::delayed_payment_schedule(payment_block),
+			DelayedPaymentSchedule::<Test>::get(payment_block),
 			vec![] as Vec<DelayedPaymentId>
 		);
-		assert!(Erc20Peg::delayed_payments(delayed_payment_id).is_none());
-		assert_eq!(Erc20Peg::ready_blocks(), vec![] as Vec<u64>);
+		assert!(DelayedPayments::<Test>::get(delayed_payment_id).is_none());
+		assert_eq!(ReadyBlocks::<Test>::get(), vec![] as Vec<u64>);
 
 		// Check beneficiary account received funds
 		assert_eq!(
@@ -452,9 +490,11 @@ fn deposit_payment_with_delay() {
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 
+		// Activate deposits delays
+		assert_ok!(Erc20Peg::activate_deposits_delay(frame_system::RawOrigin::Root.into(), true));
 		// Setup token mapping
 		let token_address: H160 = H160::from_low_u64_be(666);
-		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
+		Erc20ToAssetId::<Test>::insert(token_address, SPENDING_ASSET_ID);
 
 		// Set payment delay with deposit_amount, this should delay the payment
 		let delay: u64 = 1000;
@@ -464,7 +504,7 @@ fn deposit_payment_with_delay() {
 			deposit_amount,
 			delay
 		));
-		let delayed_payment_id = <NextDelayedPaymentId>::get();
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
 
 		// Process deposit, this should not go through and be added to delays
 		assert_ok!(Erc20Peg::do_deposit(
@@ -476,9 +516,9 @@ fn deposit_payment_with_delay() {
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
 		let payment =
 			Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary };
-		assert_eq!(Erc20Peg::delayed_payment_schedule(payment_block), vec![delayed_payment_id]);
+		assert_eq!(DelayedPaymentSchedule::<Test>::get(payment_block), vec![delayed_payment_id]);
 		assert_eq!(
-			Erc20Peg::delayed_payments(delayed_payment_id),
+			DelayedPayments::<Test>::get(delayed_payment_id),
 			Some(PendingPayment::Deposit(payment.clone()))
 		);
 		// Check beneficiary account hasn't received funds
@@ -504,10 +544,10 @@ fn deposit_payment_with_delay() {
 		);
 
 		// Ensure payment isn't removed from storage after either of the above
-		assert_eq!(Erc20Peg::ready_blocks(), vec![payment_block]);
-		assert_eq!(Erc20Peg::delayed_payment_schedule(payment_block), vec![delayed_payment_id]);
+		assert_eq!(ReadyBlocks::<Test>::get(), vec![payment_block]);
+		assert_eq!(DelayedPaymentSchedule::<Test>::get(payment_block), vec![delayed_payment_id]);
 		assert_eq!(
-			Erc20Peg::delayed_payments(delayed_payment_id),
+			DelayedPayments::<Test>::get(delayed_payment_id),
 			Some(PendingPayment::Deposit(payment.clone()))
 		);
 
@@ -519,12 +559,12 @@ fn deposit_payment_with_delay() {
 		);
 
 		// Check payments removed from storage
-		assert_eq!(Erc20Peg::ready_blocks(), vec![] as Vec<u64>);
+		assert_eq!(ReadyBlocks::<Test>::get(), vec![] as Vec<u64>);
 		assert_eq!(
-			Erc20Peg::delayed_payment_schedule(payment_block),
+			DelayedPaymentSchedule::<Test>::get(payment_block),
 			vec![] as Vec<DelayedPaymentId>
 		);
-		assert!(Erc20Peg::delayed_payments(delayed_payment_id).is_none());
+		assert!(DelayedPayments::<Test>::get(delayed_payment_id).is_none());
 		// Check beneficiary account has now received funds
 		assert_eq!(
 			AssetsExt::balance(SPENDING_ASSET_ID, &AccountId::from(beneficiary)),
@@ -539,7 +579,7 @@ fn withdraw() {
 		let account = create_account(123);
 		let asset_id: AssetId = 1;
 		let cennz_eth_address: EthAddress = H160::default();
-		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
+		<AssetIdToErc20<Test>>::insert(asset_id, cennz_eth_address);
 
 		let amount: Balance = 100;
 		let _ = <Test as Config>::MultiCurrency::mint_into(asset_id, &account, amount);
@@ -565,9 +605,14 @@ fn withdraw_with_delay() {
 		let delayed_payment_weight: Weight =
 			DbWeight::get().reads(8u64).saturating_add(DbWeight::get().writes(10u64));
 
-		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
-		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
+		<AssetIdToErc20<Test>>::insert(asset_id, cennz_eth_address);
+		<Erc20ToAssetId<Test>>::insert(cennz_eth_address, asset_id);
 		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
+		// Activate withdrawal delays
+		assert_ok!(Erc20Peg::activate_withdrawals_delay(
+			frame_system::RawOrigin::Root.into(),
+			true
+		));
 
 		assert_ok!(Erc20Peg::set_payment_delay(
 			frame_system::RawOrigin::Root.into(),
@@ -576,7 +621,7 @@ fn withdraw_with_delay() {
 			delay
 		));
 
-		let delayed_payment_id = <NextDelayedPaymentId>::get();
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
 		assert_ok!(Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary));
 
@@ -588,13 +633,13 @@ fn withdraw_with_delay() {
 			beneficiary,
 		};
 
-		assert_eq!(Erc20Peg::delayed_payment_schedule(payment_block), vec![delayed_payment_id]);
+		assert_eq!(DelayedPaymentSchedule::<Test>::get(payment_block), vec![delayed_payment_id]);
 		assert_eq!(
-			Erc20Peg::delayed_payments(delayed_payment_id),
+			DelayedPayments::<Test>::get(delayed_payment_id),
 			Some(PendingPayment::Withdrawal(message))
 		);
 		// Check payment id has been increased
-		assert_eq!(<NextDelayedPaymentId>::get(), delayed_payment_id + 1);
+		assert_eq!(<NextDelayedPaymentId<Test>>::get(), delayed_payment_id + 1);
 		assert_eq!(
 			Erc20Peg::on_initialize(payment_block),
 			DbWeight::get().reads(1u64) + DbWeight::get().writes(1u64)
@@ -605,10 +650,10 @@ fn withdraw_with_delay() {
 		);
 		// Payment should be removed from storage
 		assert_eq!(
-			Erc20Peg::delayed_payment_schedule(payment_block),
+			DelayedPaymentSchedule::<Test>::get(payment_block),
 			vec![] as Vec<DelayedPaymentId>
 		);
-		assert!(Erc20Peg::delayed_payments(delayed_payment_id).is_none());
+		assert!(DelayedPayments::<Test>::get(delayed_payment_id).is_none());
 	});
 }
 
@@ -623,8 +668,8 @@ fn withdraw_less_than_delay_goes_through() {
 		let delay: u64 = 1000;
 		let _ = <Test as Config>::MultiCurrency::mint_into(asset_id, &account, amount);
 
-		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
-		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
+		<AssetIdToErc20<Test>>::insert(asset_id, cennz_eth_address);
+		<Erc20ToAssetId<Test>>::insert(cennz_eth_address, asset_id);
 		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 
 		assert_ok!(Erc20Peg::set_payment_delay(
@@ -634,7 +679,7 @@ fn withdraw_less_than_delay_goes_through() {
 			delay
 		));
 
-		let delayed_payment_id = <NextDelayedPaymentId>::get();
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
 		assert_ok!(Erc20Peg::withdraw(
 			Some(account.clone()).into(),
@@ -643,10 +688,10 @@ fn withdraw_less_than_delay_goes_through() {
 			beneficiary
 		));
 		assert_eq!(
-			Erc20Peg::delayed_payment_schedule(payment_block),
+			DelayedPaymentSchedule::<Test>::get(payment_block),
 			vec![] as Vec<DelayedPaymentId>
 		);
-		assert!(Erc20Peg::delayed_payments(delayed_payment_id).is_none());
+		assert!(DelayedPayments::<Test>::get(delayed_payment_id).is_none());
 	});
 }
 
@@ -694,7 +739,7 @@ fn withdraw_transfers_root_token() {
 		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 
 		// Setup storage values
-		AssetIdToErc20::insert(ROOT_ASSET_ID, token_address);
+		AssetIdToErc20::<Test>::insert(ROOT_ASSET_ID, token_address);
 
 		// Mint tokens to account
 		let _ =

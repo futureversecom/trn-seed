@@ -22,7 +22,7 @@ use crate::{
 	},
 	Pallet,
 };
-use frame_support::traits::fungibles::Inspect;
+use frame_support::traits::fungibles::{Inspect, InspectMetadata};
 use pallet_nft::{traits::NFTCollectionInfo, CrossChainCompatibility};
 use seed_pallet_common::test_prelude::{BlockNumber, *};
 use seed_primitives::TokenCount;
@@ -73,7 +73,9 @@ fn initialize_crowdsale_with_soft_cap(
 		payment_asset_id,
 		reward_collection_id,
 		soft_cap_price,
-		duration
+		duration,
+		None,
+		None,
 	));
 
 	let vault = Pallet::<Test>::vault_account(sale_id);
@@ -85,6 +87,7 @@ fn initialize_crowdsale_with_soft_cap(
 		reward_collection_id,
 		soft_cap_price,
 		funds_raised: 0,
+		participant_count: 0,
 		voucher_asset_id: next_asset_id,
 		duration,
 	};
@@ -92,7 +95,7 @@ fn initialize_crowdsale_with_soft_cap(
 }
 
 // Helper function for creating the collection name type
-pub fn bounded_string(name: &str) -> BoundedVec<u8, <Test as pallet_nft::Config>::StringLimit> {
+pub fn bounded_string(name: &str) -> BoundedVec<u8, <Test as Config>::StringLimit> {
 	BoundedVec::truncate_from(name.as_bytes().to_vec())
 }
 
@@ -390,7 +393,9 @@ mod initialize {
 				payment_asset_id,
 				reward_collection_id,
 				soft_cap_price,
-				duration
+				duration,
+				None,
+				None,
 			));
 
 			let vault = Pallet::<Test>::vault_account(sale_id);
@@ -402,6 +407,7 @@ mod initialize {
 				reward_collection_id,
 				soft_cap_price,
 				funds_raised: 0,
+				participant_count: 0,
 				voucher_asset_id: next_asset_id,
 				duration,
 			};
@@ -443,6 +449,51 @@ mod initialize {
 	}
 
 	#[test]
+	fn initialize_with_voucher_metadata_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let max_issuance = 10_000;
+			let reward_collection_id = create_nft_collection(alice(), max_issuance);
+			let payment_asset_id = 1;
+			let soft_cap_price = 10;
+			let duration = 100;
+
+			// Get sale_id
+			let sale_id = NextSaleId::<Test>::get();
+			// Get next asset id
+			let next_asset_id = AssetsExt::next_asset_uuid().unwrap();
+
+			// Initialize the crowdsale
+			let (voucher_name, voucher_symbol) = ("Generation-V", "GenV");
+			assert_ok!(Crowdsale::initialize(
+				Some(alice()).into(),
+				payment_asset_id,
+				reward_collection_id,
+				soft_cap_price,
+				duration,
+				Some(bounded_string(voucher_name)),
+				Some(bounded_string(voucher_symbol)),
+			));
+
+			// Check storage
+			assert_eq!(NextSaleId::<Test>::get(), sale_id + 1);
+
+			// Check voucher metadata
+			assert_eq!(
+				<AssetsExt as InspectMetadata<AccountId>>::name(&next_asset_id),
+				voucher_name.as_bytes().to_vec()
+			);
+			assert_eq!(
+				<AssetsExt as InspectMetadata<AccountId>>::symbol(&next_asset_id),
+				voucher_symbol.as_bytes().to_vec()
+			);
+			assert_eq!(
+				<AssetsExt as InspectMetadata<AccountId>>::decimals(&next_asset_id),
+				VOUCHER_DECIMALS
+			);
+		});
+	}
+
+	#[test]
 	fn no_ids_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_id = create_nft_collection(alice(), 10);
@@ -460,7 +511,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				Error::<Test>::NoAvailableIds
 			);
@@ -482,7 +535,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				Error::<Test>::InvalidAsset
 			);
@@ -504,7 +559,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				Error::<Test>::InvalidSoftCapPrice
 			);
@@ -526,7 +583,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				Error::<Test>::SaleDurationTooLong
 			);
@@ -548,7 +607,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				pallet_nft::Error::<Test>::NoCollectionFound
 			);
@@ -581,7 +642,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				Error::<Test>::MaxIssuanceNotSet
 			);
@@ -614,10 +677,63 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				Error::<Test>::CollectionIssuanceNotZero
 			);
+		});
+	}
+
+	#[test]
+	fn publicly_mintable_collection_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			assert_ok!(Nft::create_collection(
+				Some(alice()).into(),
+				bounded_string("test-collection"),
+				0,
+				Some(1000),
+				None,
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
+				None,
+				CrossChainCompatibility::default(),
+			));
+			let payment_asset = 1;
+			let soft_cap_price = 10;
+			let duration = 100;
+
+			// enable collection public minting
+			assert_ok!(Nft::toggle_public_mint(Some(alice()).into(), collection_id, true));
+
+			// Initialize the crowdsale
+			assert_noop!(
+				Crowdsale::initialize(
+					Some(alice()).into(),
+					payment_asset,
+					collection_id,
+					soft_cap_price,
+					duration,
+					None,
+					None,
+				),
+				Error::<Test>::CollectionPublicMintable
+			);
+
+			// disable collection public minting
+			assert_ok!(Nft::toggle_public_mint(Some(alice()).into(), collection_id, false));
+
+			// Initialize the crowdsale - succeeds
+			assert_ok!(Crowdsale::initialize(
+				Some(alice()).into(),
+				payment_asset,
+				collection_id,
+				soft_cap_price,
+				duration,
+				None,
+				None,
+			));
 		});
 	}
 
@@ -647,7 +763,9 @@ mod initialize {
 					payment_asset,
 					collection_id,
 					soft_cap_price,
-					duration
+					duration,
+					None,
+					None,
 				),
 				pallet_nft::Error::<Test>::NotCollectionOwner
 			);
@@ -811,7 +929,9 @@ mod participate {
 
 				// Contribution should be stored
 				assert_eq!(SaleParticipation::<Test>::get(sale_id, bob()).unwrap(), amount);
-				assert_eq!(SaleInfo::<Test>::get(sale_id).unwrap().funds_raised, amount);
+				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+				assert_eq!(sale_info.funds_raised, amount);
+				assert_eq!(sale_info.participant_count, 1);
 
 				// Event thrown
 				System::assert_last_event(
@@ -828,7 +948,7 @@ mod participate {
 			.with_balances(&[(bob(), initial_balance), (charlie(), initial_balance)])
 			.build()
 			.execute_with(|| {
-				let (sale_id, sale_info) = initialize_crowdsale(100);
+				let (sale_id, _) = initialize_crowdsale(100);
 
 				assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
@@ -839,6 +959,11 @@ mod participate {
 				assert_ok!(Crowdsale::participate(Some(bob()).into(), sale_id, b_amount_1));
 				assert_ok!(Crowdsale::participate(Some(bob()).into(), sale_id, b_amount_2));
 				assert_ok!(Crowdsale::participate(Some(bob()).into(), sale_id, b_amount_3));
+				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+				let bob_total = b_amount_1 + b_amount_2 + b_amount_3;
+				assert_eq!(sale_info.funds_raised, bob_total);
+				// Contributor count should be 1 as it counts unique contributors
+				assert_eq!(sale_info.participant_count, 1);
 
 				// Charlie's participation
 				let c_amount_1 = 40_000;
@@ -847,6 +972,11 @@ mod participate {
 				assert_ok!(Crowdsale::participate(Some(charlie()).into(), sale_id, c_amount_1));
 				assert_ok!(Crowdsale::participate(Some(charlie()).into(), sale_id, c_amount_2));
 				assert_ok!(Crowdsale::participate(Some(charlie()).into(), sale_id, c_amount_3));
+				let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+				let charlie_total = c_amount_1 + c_amount_2 + c_amount_3;
+				assert_eq!(sale_info.funds_raised, bob_total + charlie_total);
+				// Contributor count now 2 as charlie is a new unique contributor
+				assert_eq!(sale_info.participant_count, 2);
 
 				// Check storage
 				let vault = sale_info.vault;
@@ -854,29 +984,61 @@ mod participate {
 
 				// Vault account should have the contributed amount
 				let vault_balance = AssetsExt::reducible_balance(asset_id, &vault, false);
-				let expected_vault_balance =
-					b_amount_1 + b_amount_2 + b_amount_3 + c_amount_1 + c_amount_2 + c_amount_3;
+				let expected_vault_balance = bob_total + charlie_total;
 				assert_eq!(vault_balance, expected_vault_balance);
 
 				// Bobs balance should be decreased
 				let bob_balance = AssetsExt::reducible_balance(asset_id, &bob(), false);
-				let expected_bob_balance = initial_balance - b_amount_1 - b_amount_2 - b_amount_3;
+				let expected_bob_balance = initial_balance - bob_total;
 				assert_eq!(bob_balance, expected_bob_balance);
 
 				// Contribution should be stored
-				assert_eq!(
-					SaleParticipation::<Test>::get(sale_id, bob()).unwrap(),
-					b_amount_1 + b_amount_2 + b_amount_3
-				);
+				assert_eq!(SaleParticipation::<Test>::get(sale_id, bob()).unwrap(), bob_total);
 				assert_eq!(
 					SaleParticipation::<Test>::get(sale_id, charlie()).unwrap(),
-					c_amount_1 + c_amount_2 + c_amount_3
+					charlie_total
 				);
 				assert_eq!(
 					SaleInfo::<Test>::get(sale_id).unwrap().funds_raised,
 					expected_vault_balance
 				);
 			});
+	}
+
+	#[test]
+	fn many_participations_updates_participant_count() {
+		let total_contributors = 500;
+		let mut accounts = vec![];
+		for i in 0..total_contributors {
+			let i = i + 1;
+			accounts.push((create_account(i as u64), i as u128 * 100u128));
+		}
+
+		TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
+			let max_issuance = 1000;
+			let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+			assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
+
+			// Participate for each account
+			for (account, amount) in accounts.clone() {
+				// Reduce amount so we can participate twice for each account
+				let reduced_amount = amount / 2;
+				assert_ok!(Crowdsale::participate(Some(account).into(), sale_id, reduced_amount));
+				assert_eq!(SaleParticipation::<Test>::get(sale_id, account), Some(reduced_amount));
+			}
+			let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+			assert_eq!(sale_info.participant_count, total_contributors as u64);
+
+			// Participate for each account again, which should not change the contributor count
+			for (account, amount) in accounts.clone() {
+				// Reduce amount so we can participate twice for each account
+				let reduced_amount = amount / 2;
+				assert_ok!(Crowdsale::participate(Some(account).into(), sale_id, reduced_amount));
+				assert_eq!(SaleParticipation::<Test>::get(sale_id, account), Some(amount));
+			}
+			let sale_info = SaleInfo::<Test>::get(sale_id).unwrap();
+			assert_eq!(sale_info.participant_count, total_contributors as u64);
+		});
 	}
 
 	#[test]
@@ -1879,6 +2041,39 @@ mod redeem_voucher {
 				SaleInfo::<Test>::insert(sale_id, sale_info);
 				assert_ok!(Crowdsale::redeem_voucher(Some(alice()).into(), sale_id, 1),);
 			});
+	}
+}
+
+mod proxy_vault_call {
+	use super::*;
+
+	#[test]
+	fn proxy_vault_call_succeeds() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let max_issuance = 1000;
+			let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
+
+			let call = mock::RuntimeCall::Nft(pallet_nft::Call::set_name {
+				collection_id: sale_info.reward_collection_id,
+				name: BoundedVec::truncate_from("New Name".encode()),
+			});
+			assert_ok!(Crowdsale::proxy_vault_call(
+				Some(alice()).into(),
+				sale_id,
+				Box::new(call.clone())
+			));
+
+			// Event thrown
+			System::assert_last_event(
+				Event::VaultCallProxied {
+					sale_id,
+					who: alice(),
+					vault: sale_info.vault,
+					call: Box::new(call),
+				}
+				.into(),
+			);
+		});
 	}
 }
 

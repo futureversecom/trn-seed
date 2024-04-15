@@ -185,13 +185,13 @@ impl<T> Call<T>
 			let who: T::AccountId = (tx_origin).clone().into();
 			let account = frame_system::Account::<T>::get(who);
 			let mut builder = ValidTransactionBuilder::default()
-				.and_provides((tx_origin, nonce))
+				.and_provides((tx_origin.clone(), nonce))
 				.priority(priority);
 
 			// in the context of the pool, a transaction with too high a nonce is still considered valid
 			if nonce > account.nonce.into() {
 				if let Some(prev_nonce) = nonce.checked_sub(1) {
-					builder = builder.and_requires((origin, prev_nonce))
+					builder = builder.and_requires((tx_origin, prev_nonce))
 				}
 			}
 
