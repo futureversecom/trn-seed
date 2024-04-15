@@ -35,8 +35,8 @@ use frame_support::{
 	},
 	traits::{
 		fungibles::{self, Inspect, Mutate},
-		IsSubType,
 		tokens::{Fortitude, Precision, Preservation},
+		IsSubType,
 	},
 	transactional, PalletId,
 };
@@ -824,6 +824,7 @@ pub mod pallet {
 		/// - `call`: The call to be proxied
 		///
 		/// Emits `VaultCallProxied` event when successful.
+		#[pallet::call_index(6)]
 		#[pallet::weight({
 			let call_weight = call.get_dispatch_info().weight;
 			T::WeightInfo::proxy_vault_call().saturating_add(call_weight)
@@ -860,7 +861,7 @@ pub mod pallet {
 		/// In the very unlikely case that a sale was blocked from automatic distribution within
 		/// the on_initialise step. This function allows a manual trigger of distribution
 		/// callable by anyone to kickstart the sale distribution process.
-		#[pallet::call_index(6)]
+		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::try_force_distribution())]
 		pub fn try_force_distribution(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
 			let who = ensure_signed(origin)?;

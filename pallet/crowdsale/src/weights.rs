@@ -136,7 +136,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
 	fn proxy_vault_call() -> Weight {
-		Weight::from_ref_time(89_316_000 as u64)
+		Weight::from_all(89_316_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 	}
 	// Storage: Crowdsale SaleInfo (r:1 w:1)
@@ -245,7 +245,7 @@ impl WeightInfo for () {
 	// Storage: MaintenanceMode BlockedCalls (r:1 w:0)
 	// Storage: MaintenanceMode BlockedPallets (r:1 w:0)
 	fn proxy_vault_call() -> Weight {
-		Weight::from_ref_time(89_316_000 as u64)
+		Weight::from_all(89_316_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 	}
 	// Storage: Crowdsale SaleInfo (r:1 w:1)
