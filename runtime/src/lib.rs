@@ -1146,6 +1146,10 @@ impl fp_rpc::ConvertTransaction<sp_runtime::OpaqueExtrinsic> for TransactionConv
 parameter_types! {
 	/// The ERC20 peg address
 	pub const PegPalletId: PalletId = PalletId(*b"erc20peg");
+	/// Limit that determines max delays stored simultaneously in a single block
+	pub const MaxDelaysPerBlock: u32 = 10_000;
+	/// Needs to be large enough to handle the maximum number of blocks that can be ready at once
+	pub const MaxReadyBlocks: u32 = 100_000;
 }
 
 impl pallet_erc20_peg::Config for Runtime {
@@ -1159,6 +1163,9 @@ impl pallet_erc20_peg::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_erc20_peg::WeightInfo<Runtime>;
 	type NativeAssetId = RootAssetId;
+	type StringLimit = AssetsStringLimit;
+	type MaxDelaysPerBlock = MaxDelaysPerBlock;
+	type MaxReadyBlocks = MaxReadyBlocks;
 }
 
 parameter_types! {
