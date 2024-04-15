@@ -38,7 +38,7 @@ use seed_primitives::{
 };
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{ByteArray, Get};
-use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
+use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use sp_runtime::{
 	testing::{Header, TestXt},
 	traits::{BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentityLookup, Verify},
@@ -466,7 +466,7 @@ impl MockValidatorSet {
 pub struct MockEventRouter;
 impl EthereumEventRouter for MockEventRouter {
 	fn route(_source: &H160, _destination: &H160, _data: &[u8]) -> EventRouterResult {
-		Ok(Weight::from_ref_time(1000))
+		Ok(Weight::from_all(1000))
 	}
 }
 
@@ -630,8 +630,8 @@ impl ExtBuilder {
 		}
 
 		if self.with_keystore {
-			let keystore = KeyStore::new();
-			SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
+			let keystore = MemoryKeystore::new();
+			Keystore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
 			ext.register_extension(KeystoreExt(Arc::new(keystore)));
 		}
 

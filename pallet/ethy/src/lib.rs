@@ -41,7 +41,7 @@ use ethabi::{ParamType, Token};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungibles::Transfer,
+		fungibles::Mutate,
 		schedule::{Anon, DispatchTime},
 		UnixTime, ValidatorSet as ValidatorSetT,
 	},
@@ -109,7 +109,6 @@ pub mod pallet {
 		pub xrp_door_signers: Vec<T::EthyId>,
 	}
 
-	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
 			GenesisConfig { xrp_door_signers: Default::default() }
@@ -117,7 +116,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			for new_signer in self.xrp_door_signers.iter() {
 				XrplDoorSigners::<T>::insert(new_signer, true);
@@ -137,7 +136,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 		/// Length of time the bridge will be paused while the authority set changes
 		#[pallet::constant]
-		type AuthorityChangeDelay: Get<Self::BlockNumber>;
+		type AuthorityChangeDelay: Get<BlockNumberFor<Self>>;
 		/// Knows the active authority set (validator stash addresses)
 		type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 		/// The pallet bridge address (destination for incoming messages, source for outgoing)
@@ -174,7 +173,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxNewSigners: Get<u8>;
 		/// Handles a multi-currency fungible asset system
-		type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
+		type MultiCurrency: Mutate<Self::AccountId> + Hold<AccountId = Self::AccountId>;
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
 		type NativeAssetId: Get<AssetId>;
@@ -185,7 +184,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type RelayerBond: Get<Balance>;
 		/// The Scheduler.
-		type Scheduler: Anon<Self::BlockNumber, <Self as Config>::RuntimeCall, Self::PalletsOrigin>;
+		type Scheduler: Anon<
+			BlockNumberFor<Self>,
+			<Self as Config>::RuntimeCall,
+			Self::PalletsOrigin,
+		>;
 		/// Overarching type of all pallets origins.
 		type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 		/// Returns the block timestamp
@@ -226,14 +229,14 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, EventClaimId, (T::AccountId, Balance), OptionQuery>;
 
 	#[pallet::type_value]
-	pub fn DefaultChallengePeriod<T: Config>() -> T::BlockNumber {
-		T::BlockNumber::from(150_u32) // block time (4s) * 150 = 10 Minutes
+	pub fn DefaultChallengePeriod<T: Config>() -> BlockNumberFor<T> {
+		BlockNumberFor::<T>::from(150_u32) // block time (4s) * 150 = 10 Minutes
 	}
 
 	/// The (optimistic) challenge period after which a submitted event is considered valid
 	#[pallet::storage]
 	pub type ChallengePeriod<T: Config> =
-		StorageValue<_, T::BlockNumber, ValueQuery, DefaultChallengePeriod<T>>;
+		StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultChallengePeriod<T>>;
 
 	/// The bridge contract address on Ethereum
 	#[pallet::storage]
@@ -336,7 +339,7 @@ pub mod pallet {
 
 	/// The block in which we process the next authority change
 	#[pallet::storage]
-	pub type NextAuthorityChange<T: Config> = StorageValue<_, T::BlockNumber, OptionQuery>;
+	pub type NextAuthorityChange<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
 
 	/// Map from block number to list of EventClaims that will be considered valid and should be
 	/// forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
@@ -344,7 +347,7 @@ pub mod pallet {
 	pub type MessagesValidAt<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
-		T::BlockNumber,
+		BlockNumberFor<T>,
 		WeakBoundedVec<EventClaimId, T::MaxMessagesPerBlock>,
 		ValueQuery,
 	>;
@@ -412,7 +415,7 @@ pub mod pallet {
 		/// An event has been challenged
 		Challenged { event_claim_id: EventClaimId, challenger: T::AccountId },
 		/// The event is still awaiting consensus. Process block pushed out
-		ProcessAtExtended { event_claim_id: EventClaimId, process_at: T::BlockNumber },
+		ProcessAtExtended { event_claim_id: EventClaimId, process_at: BlockNumberFor<T> },
 		/// An event proof has been sent for signing by ethy-gadget
 		EventSend {
 			event_proof_id: EventProofId,
@@ -422,7 +425,7 @@ pub mod pallet {
 		EventSubmit {
 			event_claim_id: EventClaimId,
 			event_claim: EventClaim<T::MaxEthData>,
-			process_at: T::BlockNumber,
+			process_at: BlockNumberFor<T>,
 		},
 		/// An account has deposited a relayer bond
 		RelayerBondDeposit { relayer: T::AccountId, bond: Balance },
@@ -433,7 +436,7 @@ pub mod pallet {
 		/// Xrpl Door signers are set
 		XrplDoorSignersSet { new_signers: Vec<(T::EthyId, bool)> },
 		/// The schedule to unpause the bridge has failed
-		FinaliseScheduleFail { scheduled_block: T::BlockNumber },
+		FinaliseScheduleFail { scheduled_block: BlockNumberFor<T> },
 		/// The bridge contract address has been set
 		SetContractAddress { address: EthAddress },
 		/// Xrpl authority set change request failed
@@ -443,7 +446,7 @@ pub mod pallet {
 		/// DelayedEventProofsPerBlock was set
 		DelayedEventProofsPerBlockSet { count: u8 },
 		/// A new challenge period was set
-		ChallengePeriodSet { period: T::BlockNumber },
+		ChallengePeriodSet { period: BlockNumberFor<T> },
 		/// The bridge has been manually paused or unpaused
 		BridgeManualPause { paused: bool },
 	}
@@ -499,7 +502,7 @@ pub mod pallet {
 		/// 2) Process any newly valid event claims (incoming)
 		/// 3) Process any deferred event proofs that were submitted while the bridge was paused
 		/// (should only happen on the first few blocks in a new era) (outgoing)
-		fn on_initialize(block_number: T::BlockNumber) -> Weight {
+		fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
 			let mut consumed_weight = Weight::zero();
 
 			// 1) Handle authority change
@@ -586,7 +589,7 @@ pub mod pallet {
 			consumed_weight
 		}
 
-		fn offchain_worker(block_number: T::BlockNumber) {
+		fn offchain_worker(block_number: BlockNumberFor<T>) {
 			let active_notaries = NotaryKeys::<T>::get().into_inner();
 			log!(debug, "💎 entering off-chain worker: {:?}", block_number);
 			log!(debug, "💎 active notaries: {:?}", active_notaries);
@@ -603,7 +606,11 @@ pub mod pallet {
 				let supports = active_notaries.len();
 				let needed = T::NotarizationThreshold::get();
 				// TODO: check every session change not block
-				if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {
+				if Percent::from_rational(
+					supports as u32,
+					T::AuthoritySet::validators().len() as u32,
+				) < needed
+				{
 					log!(
 						info,
 						"💎 waiting for validator support to activate eth-bridge: {:?}/{:?}",
@@ -626,6 +633,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Set new XRPL door signers
+		#[pallet::call_index(0)]
 		#[pallet::weight(DbWeight::get().writes(new_signers.len() as u64).saturating_add(DbWeight::get().reads_writes(4, 3)))]
 		pub fn set_xrpl_door_signers(
 			origin: OriginFor<T>,
@@ -647,6 +655,7 @@ pub mod pallet {
 		}
 
 		/// Set the relayer address
+		#[pallet::call_index(1)]
 		#[pallet::weight(DbWeight::get().writes(1))]
 		pub fn set_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
@@ -661,6 +670,7 @@ pub mod pallet {
 		}
 
 		/// Submit bond for relayer account
+		#[pallet::call_index(2)]
 		#[pallet::weight(DbWeight::get().reads_writes(5, 6))]
 		pub fn deposit_relayer_bond(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -685,6 +695,7 @@ pub mod pallet {
 		}
 
 		/// Withdraw relayer bond amount
+		#[pallet::call_index(3)]
 		#[pallet::weight(DbWeight::get().reads_writes(3, 3))]
 		pub fn withdraw_relayer_bond(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -714,6 +725,7 @@ pub mod pallet {
 
 		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to
 		/// be notarized by Seed
+		#[pallet::call_index(4)]
 		#[pallet::weight(DbWeight::get().writes(1))]
 		pub fn set_event_block_confirmations(
 			origin: OriginFor<T>,
@@ -726,6 +738,7 @@ pub mod pallet {
 		}
 
 		/// Set max number of delayed events that can be processed per block
+		#[pallet::call_index(5)]
 		#[pallet::weight(DbWeight::get().writes(1))]
 		pub fn set_delayed_event_proofs_per_block(
 			origin: OriginFor<T>,
@@ -739,10 +752,11 @@ pub mod pallet {
 
 		/// Set challenge period, this is the window in which an event can be challenged before
 		/// processing
+		#[pallet::call_index(6)]
 		#[pallet::weight(DbWeight::get().writes(1))]
 		pub fn set_challenge_period(
 			origin: OriginFor<T>,
-			blocks: T::BlockNumber,
+			blocks: BlockNumberFor<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ChallengePeriod::<T>::put(blocks);
@@ -751,6 +765,7 @@ pub mod pallet {
 		}
 
 		/// Set the bridge contract address on Ethereum (requires governance)
+		#[pallet::call_index(7)]
 		#[pallet::weight(DbWeight::get().writes(1))]
 		pub fn set_contract_address(
 			origin: OriginFor<T>,
@@ -763,6 +778,7 @@ pub mod pallet {
 		}
 
 		/// Pause or unpause the bridge (requires governance)
+		#[pallet::call_index(8)]
 		#[pallet::weight(DbWeight::get().writes(1))]
 		pub fn set_bridge_paused(origin: OriginFor<T>, paused: bool) -> DispatchResult {
 			ensure_root(origin)?;
@@ -776,6 +792,7 @@ pub mod pallet {
 
 		/// Finalise authority changes, unpauses bridge and sets new notary keys
 		/// Called internally after force new era
+		#[pallet::call_index(9)]
 		#[pallet::weight(DbWeight::get().writes(1))]
 		pub fn finalise_authorities_change(
 			origin: OriginFor<T>,
@@ -789,6 +806,7 @@ pub mod pallet {
 		/// Submit ABI encoded event data from the Ethereum bridge contract
 		/// - tx_hash The Ethereum transaction hash which triggered the event
 		/// - event ABI encoded bridge event
+		#[pallet::call_index(10)]
 		#[pallet::weight(DbWeight::get().writes(1))]
 		pub fn submit_event(origin: OriginFor<T>, tx_hash: H256, event: Vec<u8>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -837,7 +855,7 @@ pub mod pallet {
 				PendingClaimStatus::<T>::insert(event_id, EventClaimStatus::Pending);
 
 				// TODO: there should be some limit per block
-				let process_at: T::BlockNumber =
+				let process_at: BlockNumberFor<T> =
 					<frame_system::Pallet<T>>::block_number() + ChallengePeriod::<T>::get();
 				MessagesValidAt::<T>::mutate(process_at.clone(), |v| {
 					let mut message_ids = v.clone().into_inner();
@@ -864,6 +882,7 @@ pub mod pallet {
 		/// Submit a challenge for an event
 		/// Challenged events won't be processed until verified by validators
 		/// An event can only be challenged once
+		#[pallet::call_index(11)]
 		#[pallet::weight(DbWeight::get().writes(1) + DbWeight::get().reads(2))]
 		#[transactional]
 		pub fn submit_challenge(
@@ -903,6 +922,7 @@ pub mod pallet {
 
 		/// Internal only
 		/// Validators will submit inherents with their notarization vote for a given claim
+		#[pallet::call_index(12)]
 		#[pallet::weight(1_000_000)]
 		#[transactional]
 		pub fn submit_notarization(

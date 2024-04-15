@@ -43,7 +43,7 @@ use seed_primitives::{
 	xrpl::XrplAccountId,
 };
 use sp_core::{bounded::WeakBoundedVec, ByteArray};
-use sp_keystore::{testing::KeyStore, SyncCryptoStore};
+use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::{
 	generic::DigestItem,
 	traits::{AccountIdConversion, Convert},
@@ -633,7 +633,7 @@ fn process_valid_challenged_event() {
 			// Weight returned should include the 1000 that we specified in our mock
 			assert_eq!(
 				EthBridge::on_initialize(process_at),
-				DbWeight::get().reads(2u64) + Weight::from_ref_time(1000u64)
+				DbWeight::get().reads(2u64) + Weight::from_all(1000u64)
 			);
 
 			// Storage should now be fully cleared
@@ -728,7 +728,7 @@ fn process_valid_challenged_event_delayed() {
 			// Weight returned should include the 1000 that we specified in our mock
 			assert_eq!(
 				EthBridge::on_initialize(process_at_extended),
-				DbWeight::get().reads(2u64) + Weight::from_ref_time(1000u64)
+				DbWeight::get().reads(2u64) + Weight::from_all(1000u64)
 			);
 
 			// Storage should now be fully cleared
@@ -883,12 +883,10 @@ fn do_event_notarization_ocw_doesnt_change_storage() {
 			assert_eq!(PendingClaimChallenges::<Test>::get(), vec![event_id_1]);
 
 			// Generate public key using same authority id and seed as the mock
-			let keystore = KeyStore::new();
-			SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
-			let public_key = SyncCryptoStore::ecdsa_public_keys(&keystore, AuthorityId::ID)
-				.get(0)
-				.unwrap()
-				.clone();
+			let keystore = MemoryKeystore::new();
+			Keystore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
+			let public_key =
+				Keystore::ecdsa_public_keys(&keystore, AuthorityId::ID).get(0).unwrap().clone();
 			let current_set_id = NotarySetId::<Test>::get();
 
 			// Check no storage is changed
