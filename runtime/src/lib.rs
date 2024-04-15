@@ -979,7 +979,7 @@ parameter_types! {
 	/// 75 blocks is 5 minutes before the end of the era
 	pub const AuthorityChangeDelay: BlockNumber = 75_u32;
 
-	pub const MaxEthData: u32 = 1024;
+	pub const MaxEthData: u32 = 3200;
 	pub const MaxChallenges: u32 = 100;
 	pub const MaxMessagesPerBlock: u32 = 1000;
 	pub const MaxCallRequests: u32 = 1000;

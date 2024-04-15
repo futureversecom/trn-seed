@@ -438,6 +438,14 @@ pub mod pallet {
 		SetContractAddress { address: EthAddress },
 		/// Xrpl authority set change request failed
 		XrplAuthoritySetChangeRequestFailed { error: DispatchError },
+		/// Ethereum event confirmations were set
+		EventBlockConfirmationsSet { confirmations: u64 },
+		/// DelayedEventProofsPerBlock was set
+		DelayedEventProofsPerBlockSet { count: u8 },
+		/// A new challenge period was set
+		ChallengePeriodSet { period: T::BlockNumber },
+		/// The bridge has been manually paused or unpaused
+		BridgeManualPause { paused: bool },
 	}
 
 	#[pallet::error]
@@ -580,8 +588,8 @@ pub mod pallet {
 
 		fn offchain_worker(block_number: T::BlockNumber) {
 			let active_notaries = NotaryKeys::<T>::get().into_inner();
-			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
-			log!(trace, "💎 active notaries: {:?}", active_notaries);
+			log!(debug, "💎 entering off-chain worker: {:?}", block_number);
+			log!(debug, "💎 active notaries: {:?}", active_notaries);
 
 			// this passes if flag `--validator` set, not necessarily in the active set
 			if !sp_io::offchain::is_validator() {
@@ -608,10 +616,10 @@ pub mod pallet {
 				Self::do_event_notarization_ocw(&active_key, authority_index);
 				Self::do_call_notarization_ocw(&active_key, authority_index);
 			} else {
-				log!(trace, "💎 not an active validator, exiting");
+				log!(debug, "💎 not an active validator, exiting");
 			}
 
-			log!(trace, "💎 exiting off-chain worker");
+			log!(debug, "💎 exiting off-chain worker");
 		}
 	}
 
@@ -713,6 +721,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			EventBlockConfirmations::<T>::put(confirmations);
+			Self::deposit_event(Event::<T>::EventBlockConfirmationsSet { confirmations });
 			Ok(())
 		}
 
@@ -724,6 +733,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			DelayedEventProofsPerBlock::<T>::put(count);
+			Self::deposit_event(Event::<T>::DelayedEventProofsPerBlockSet { count });
 			Ok(())
 		}
 
@@ -736,6 +746,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ChallengePeriod::<T>::put(blocks);
+			Self::deposit_event(Event::<T>::ChallengePeriodSet { period: blocks });
 			Ok(())
 		}
 
@@ -759,6 +770,7 @@ pub mod pallet {
 				true => BridgePaused::<T>::put(true),
 				false => BridgePaused::<T>::kill(),
 			};
+			Self::deposit_event(Event::<T>::BridgeManualPause { paused });
 			Ok(())
 		}
 
