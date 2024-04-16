@@ -53,10 +53,7 @@ pub type SessionIndex = u32;
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	pub enum Test
 	{
 		System: frame_system,
 		EthBridge: pallet_ethy,

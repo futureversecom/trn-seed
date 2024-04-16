@@ -25,10 +25,7 @@ use sp_core::{ecdsa, Pair};
 pub const MOCK_NATIVE_ASSET_ID: AssetId = ROOT_ASSET_ID;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	pub enum Test
 	{
 		System: frame_system,
 		Balances: pallet_balances,

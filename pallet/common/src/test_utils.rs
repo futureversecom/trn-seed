@@ -127,18 +127,17 @@ macro_rules! impl_frame_system_config {
 		type BlockNumber = u64;
 
 		impl frame_system::Config for $test {
+			type Block = frame_system::mocking::MockBlock<$test>;
 			type BlockWeights = ();
 			type BlockLength = ();
 			type BaseCallFilter = frame_support::traits::Everything;
 			type RuntimeOrigin = RuntimeOrigin;
-			type Index = u32;
-			type BlockNumber = BlockNumber;
+			type Nonce = u32;
 			type RuntimeCall = RuntimeCall;
 			type Hash = H256;
 			type Hashing = BlakeTwo256;
 			type AccountId = AccountId;
 			type Lookup = IdentityLookup<Self::AccountId>;
-			type Header = Header;
 			type BlockHashCount = BlockHashCount;
 			type RuntimeEvent = RuntimeEvent;
 			type DbWeight = ();
@@ -160,18 +159,23 @@ macro_rules! impl_pallet_balance_config {
 	($test:ident) => {
 		parameter_types! {
 			pub const MaxReserves: u32 = 50;
+			pub const ExistentialDeposit: u128 = 1;
 		}
 
 		impl pallet_balances::Config for $test {
 			type Balance = Balance;
 			type RuntimeEvent = RuntimeEvent;
+			type RuntimeHoldReason = ();
+			type FreezeIdentifier = ();
 			type DustRemoval = ();
-			type ExistentialDeposit = ();
+			type ExistentialDeposit = ExistentialDeposit;
 			type AccountStore = System;
 			type MaxLocks = ();
 			type WeightInfo = ();
 			type MaxReserves = MaxReserves;
 			type ReserveIdentifier = [u8; 8];
+			type MaxHolds = sp_core::ConstU32<0>;
+			type MaxFreezes = sp_core::ConstU32<0>;
 		}
 	};
 }
@@ -202,6 +206,7 @@ macro_rules! impl_pallet_assets_config {
 			pub const AssetsStringLimit: u32 = 50;
 			pub const MetadataDepositBase: Balance = 1 * 68;
 			pub const MetadataDepositPerByte: Balance = 1;
+			pub const RemoveItemsLimit: u32 = 100;
 		}
 
 		impl pallet_assets::Config for $test {
@@ -219,6 +224,10 @@ macro_rules! impl_pallet_assets_config {
 			type Extra = ();
 			type WeightInfo = ();
 			type AssetAccountDeposit = AssetAccountDeposit;
+			type RemoveItemsLimit = RemoveItemsLimit;
+			type AssetIdParameter = AssetId;
+			type CreateOrigin = frame_system::EnsureNever<AccountId>;
+			type CallbackHandle = ();
 		}
 	};
 }
@@ -403,6 +412,10 @@ macro_rules! impl_pallet_evm_config {
 			}
 		}
 
+		parameter_types! {
+			pub GasLimitPovSizeRatio: u64 = 0;
+		}
+
 		impl pallet_evm::Config for $test {
 			type FeeCalculator = FeeControl;
 			type GasWeightMapping = FixedGasWeightMapping;
@@ -421,6 +434,10 @@ macro_rules! impl_pallet_evm_config {
 			type FindAuthor = FindAuthorTruncated;
 			type HandleTxValidation = ();
 			type WeightPerGas = ();
+			type OnCreate = ();
+			type GasLimitPovSizeRatio = GasLimitPovSizeRatio;
+			type Timestamp = Timestamp;
+			type WeightInfo = ();
 		}
 	};
 }

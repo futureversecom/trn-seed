@@ -27,10 +27,7 @@ use sp_runtime::ConsensusEngineId;
 pub const MOCK_PAYMENT_ASSET_ID: AssetId = 100;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	pub enum Test
 	{
 		System: frame_system,
 		Balances: pallet_balances,
