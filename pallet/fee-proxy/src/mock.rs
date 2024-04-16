@@ -37,7 +37,7 @@ construct_runtime!(
 		Assets: pallet_assets,
 		TransactionPayment: pallet_transaction_payment,
 		EVM: pallet_evm,
-		TimestampPallet: pallet_timestamp,
+		Timestamp: pallet_timestamp,
 		Futurepass: pallet_futurepass,
 		FeeControl: pallet_fee_control,
 	}
