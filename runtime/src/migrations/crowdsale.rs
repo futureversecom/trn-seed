@@ -64,6 +64,7 @@ pub mod v1 {
 		sp_runtime::RuntimeDebug, storage_alias, weights::Weight, BoundedVec, StorageHasher,
 		Twox64Concat,
 	};
+	use frame_system::pallet_prelude::BlockNumberFor;
 	use pallet_crowdsale::{
 		types::{SaleId, SaleInformation, SaleStatus},
 		SaleInfo, SaleParticipation,
@@ -72,7 +73,7 @@ pub mod v1 {
 	use seed_primitives::{AssetId, Balance, CollectionUuid};
 
 	type AccountId = <Runtime as frame_system::Config>::AccountId;
-	type BlockNumber = <Runtime as frame_system::Config>::BlockNumber;
+	type BlockNumber = BlockNumberFor<Runtime>;
 
 	/// Information about a fixed price listing
 	#[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]

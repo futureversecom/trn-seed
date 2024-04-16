@@ -32,26 +32,8 @@ use sp_std::marker::PhantomData;
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_balances::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:1 w:1)
-	fn transfer() -> Weight {
-		Weight::from_all(95_263_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: System Account (r:1 w:1)
 	fn transfer_keep_alive() -> Weight {
 		Weight::from_all(86_834_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: System Account (r:1 w:1)
-	fn set_balance_creating() -> Weight {
-		Weight::from_all(64_293_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: System Account (r:1 w:1)
-	fn set_balance_killing() -> Weight {
-		Weight::from_all(71_988_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -72,5 +54,21 @@ impl<T: frame_system::Config> pallet_balances::WeightInfo for WeightInfo<T> {
 		Weight::from_all(56_653_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+
+	fn transfer_allow_death() -> Weight {
+		todo!()
+	}
+
+	fn force_set_balance_creating() -> Weight {
+		todo!()
+	}
+
+	fn force_set_balance_killing() -> Weight {
+		todo!()
+	}
+
+	fn upgrade_accounts(u: u32) -> Weight {
+		todo!()
 	}
 }
