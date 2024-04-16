@@ -37,6 +37,7 @@ construct_runtime!(
 		FeeProxy: pallet_fee_proxy,
 		Dex: pallet_dex,
 		Evm: pallet_evm,
+		Timestamp: pallet_timestamp,
 		Futurepass: pallet_futurepass,
 		MockPallet: mock_pallet::pallet,
 		FeeControl: pallet_fee_control,
