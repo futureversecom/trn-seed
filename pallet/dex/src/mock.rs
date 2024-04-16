@@ -18,7 +18,6 @@
 use super::*;
 use crate::{self as pallet_dex};
 use seed_pallet_common::test_prelude::*;
-use sp_runtime::BuildStorage;
 
 construct_runtime!(
 	pub enum Test {

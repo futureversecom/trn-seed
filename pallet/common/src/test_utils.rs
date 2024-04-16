@@ -24,7 +24,7 @@ pub mod test_prelude {
 		dispatch::{DispatchError, DispatchResult},
 		parameter_types,
 		storage::{StorageMap, StorageValue},
-		traits::GenesisBuild,
+		traits::BuildGenesisConfig,
 		weights::{constants::RocksDbWeight as DbWeight, Weight},
 		PalletId,
 	};
@@ -37,7 +37,7 @@ pub mod test_prelude {
 	pub use sp_runtime::{
 		testing::Header,
 		traits::{BlakeTwo256, IdentityLookup},
-		ArithmeticError, BoundedVec,
+		ArithmeticError, BoundedVec, BuildStorage,
 		DispatchError::BadOrigin,
 		Permill, TokenError,
 	};
@@ -95,26 +95,6 @@ pub mod account_creation {
 	pub fn dave() -> AccountId {
 		create_account(4000)
 	}
-}
-
-#[macro_export]
-macro_rules! construct_test_runtime {
-	(
-		{
-			$($module_name:ident: $module_path:ident $(,)?)*
-		}
-	) => {
-		frame_support::construct_runtime!(
-			pub enum Test where
-				Block = Block,
-				NodeBlock = Block,
-				UncheckedExtrinsic = UncheckedExtrinsic,
-			{
-				$($module_name: $module_path),*
-			}
-		);
-
-	};
 }
 
 #[macro_export]
