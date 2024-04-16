@@ -22,10 +22,7 @@ use frame_support::traits::{
 	tokens::{Fortitude, Preservation},
 };
 use seed_pallet_common::{test_prelude::*, CreateExt, Hold, TransferExt};
-use sp_runtime::{
-	traits::{AccountIdConversion, Zero},
-	ArithmeticError, TokenError,
-};
+use sp_runtime::traits::{AccountIdConversion, Zero};
 
 const TEST_PALLET_ID: PalletId = PalletId(*b"pal/test");
 

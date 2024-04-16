@@ -37,9 +37,9 @@ pub mod test_prelude {
 	pub use sp_runtime::{
 		testing::Header,
 		traits::{BlakeTwo256, IdentityLookup},
-		BoundedVec,
+		ArithmeticError, BoundedVec,
 		DispatchError::BadOrigin,
-		Permill,
+		Permill, TokenError,
 	};
 	pub use sp_std::{vec, vec::Vec};
 }
