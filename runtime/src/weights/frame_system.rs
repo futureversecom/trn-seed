@@ -50,6 +50,11 @@ impl<T: frame_system::Config> frame_system::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
+
+	fn set_code() -> Weight {
+		todo!()
+	}
+
 	// Storage: Skipped Metadata (r:0 w:0)
 	/// The range of component `i` is `[1, 1000]`.
 	fn set_storage(i: u32, ) -> Weight {

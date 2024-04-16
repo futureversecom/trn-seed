@@ -61,6 +61,7 @@ use crate::{
 	UncheckedExtrinsic, EVM,
 };
 use doughnut_rs::Topping;
+use frame_support::traits::tokens::{Fortitude, Preservation, Provenance};
 use sp_runtime::traits::{Dispatchable, Saturating, UniqueSaturatedInto};
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
@@ -96,25 +97,38 @@ impl<C: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 		<C as Inspect<AccountId>>::minimum_balance()
 	}
 
+	/// The total blance of `who`
+	fn total_balance(who: &AccountId) -> Self::Balance {
+		<C as Inspect<AccountId>>::total_balance(who)
+	}
+
 	/// Get the balance of `who`.
 	/// Scaled up so values match expectations of an 18dp asset
 	fn balance(who: &AccountId) -> Self::Balance {
-		Self::reducible_balance(who, false)
+		Self::reducible_balance(who, Preservation::Expendable, Fortitude::Polite)
 	}
 
 	/// Get the maximum amount that `who` can withdraw/transfer successfully.
 	/// Scaled up so values match expectations of an 18dp asset
-	/// keep_alive has been hardcoded to false to provide a similar experience to users coming
-	/// from Ethereum (Following POLA principles)
-	fn reducible_balance(who: &AccountId, _keep_alive: bool) -> Self::Balance {
+	/// preservation has been hardcoded to Preservation::Expendable to provide a similar experience
+	/// to users coming from Ethereum (Following POLA principles)
+	fn reducible_balance(
+		who: &AccountId,
+		preservation: Preservation,
+		force: Fortitude,
+	) -> Self::Balance {
 		// Careful for overflow!
-		let raw = C::reducible_balance(who, false);
+		let raw = C::reducible_balance(who, Preservation::Expendable, force);
 		U256::from(raw).saturating_mul(U256::from(XRP_UNIT_VALUE)).saturated_into()
 	}
 
 	/// Returns `true` if the balance of `who` may be increased by `amount`.
-	fn can_deposit(who: &AccountId, amount: Self::Balance, mint: bool) -> DepositConsequence {
-		C::can_deposit(who, amount, mint)
+	fn can_deposit(
+		who: &AccountId,
+		amount: Self::Balance,
+		provenance: Provenance,
+	) -> DepositConsequence {
+		C::can_deposit(who, amount, provenance)
 	}
 
 	/// Returns `Failed` if the balance of `who` may not be decreased by `amount`, otherwise
@@ -433,7 +447,10 @@ where
 pub struct HandleTxValidation<E: From<InvalidEvmTransactionError>>(PhantomData<E>);
 
 impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for HandleTxValidation<E> {
-	fn with_balance_for(evm_config: &CheckEvmTransaction<E>, who: &Account) -> Result<(), E> {
+	fn with_balance_for(
+		evm_config: &CheckEvmTransaction<E>,
+		who: &fp_evm::Account,
+	) -> Result<(), E> {
 		let decoded_override_destination = H160::from_low_u64_be(FEE_PROXY_ADDRESS);
 		// If we are not overriding with a fee preference, proceed with calculating a fee
 		if evm_config.transaction.to != Some(decoded_override_destination) {

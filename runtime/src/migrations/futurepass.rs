@@ -64,11 +64,12 @@ pub mod v1 {
 		sp_runtime::RuntimeDebug, storage_alias, traits::IsType, weights::Weight, BoundedVec,
 		StorageHasher, Twox64Concat,
 	};
+	use frame_system::pallet_prelude::BlockNumberFor;
 	use scale_info::TypeInfo;
 	use seed_primitives::{AssetId, Balance, CollectionUuid};
 
 	type AccountId = <Runtime as frame_system::Config>::AccountId;
-	type BlockNumber = <Runtime as frame_system::Config>::BlockNumber;
+	type BlockNumber = BlockNumberFor<Runtime>;
 
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade() -> Result<(), &'static str> {
@@ -107,7 +108,7 @@ pub mod v1 {
 
 		log::info!(target: "Migration", "Futurepass: successfully killed MigrationAdmin storage item");
 
-		Weight::from_ref_time(1u64)
+		Weight::from_parts(1u64, 0u64)
 	}
 
 	#[cfg(test)]

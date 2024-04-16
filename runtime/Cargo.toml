@@ -55,7 +55,7 @@ sp-version = { git = "https://github.com/paritytech/substrate", branch = "polkad
 
 # EVM support
 fp-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
-fp-self-contained = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
+fp-self-contained = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN", features = ["serde"] }
 fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
 evm = { version = "0.36.0", default-features = false, features = ["with-codec"] }
 

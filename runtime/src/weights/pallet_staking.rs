@@ -350,7 +350,7 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 	/// The range of component `v` is `[500, 1000]`.
 	/// The range of component `n` is `[500, 1000]`.
 	/// The range of component `s` is `[1, 20]`.
-	fn get_npos_voters(v: u32, n: u32, _s: u32, ) -> Weight {
+	fn get_npos_voters(v: u32, n: u32) -> Weight {
 		Weight::from_all(52_897_035_000 as u64)
 			// Standard Error: 412_068
 			.saturating_add(Weight::from_all(11_532_618 as u64).saturating_mul(v as u64))
@@ -413,5 +413,9 @@ impl<T: frame_system::Config> pallet_staking::WeightInfo for WeightInfo<T> {
 		Weight::from_all(48_456_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+
+	fn set_min_commission() -> Weight {
+		todo!()
 	}
 }

@@ -44,27 +44,6 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Assets Asset (r:1 w:1)
-	// Storage: Assets Account (r:5002 w:5001)
-	// Storage: System Account (r:5000 w:5000)
-	// Storage: Assets Metadata (r:1 w:0)
-	// Storage: Assets Approvals (r:501 w:500)
-	/// The range of component `c` is `[0, 5000]`.
-	/// The range of component `s` is `[0, 5000]`.
-	/// The range of component `a` is `[0, 500]`.
-	fn destroy(c: u32, s: u32, _a: u32, ) -> Weight {
-		Weight::from_all(182_474_283_000 as u64)
-			// Standard Error: 333_416
-			.saturating_add(Weight::from_all(19_004_318 as u64).saturating_mul(c as u64))
-			// Standard Error: 333_416
-			.saturating_add(Weight::from_all(28_796_262 as u64).saturating_mul(s as u64))
-			.saturating_add(T::DbWeight::get().reads(10505 as u64))
-			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(c as u64)))
-			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(s as u64)))
-			.saturating_add(T::DbWeight::get().writes(10502 as u64))
-			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(c as u64)))
-			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(s as u64)))
-	}
-	// Storage: Assets Asset (r:1 w:1)
 	// Storage: Assets Account (r:1 w:1)
 	fn mint() -> Weight {
 		Weight::from_all(100_217_000 as u64)
@@ -214,5 +193,45 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 		Weight::from_all(120_042_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
+	}
+
+	fn start_destroy() -> Weight {
+		todo!()
+	}
+
+	fn destroy_accounts(c: u32) -> Weight {
+		todo!()
+	}
+
+	fn destroy_approvals(a: u32) -> Weight {
+		todo!()
+	}
+
+	fn finish_destroy() -> Weight {
+		todo!()
+	}
+
+	fn set_min_balance() -> Weight {
+		todo!()
+	}
+
+	fn touch() -> Weight {
+		todo!()
+	}
+
+	fn touch_other() -> Weight {
+		todo!()
+	}
+
+	fn refund() -> Weight {
+		todo!()
+	}
+
+	fn refund_other() -> Weight {
+		todo!()
+	}
+
+	fn block() -> Weight {
+		todo!()
 	}
 }
