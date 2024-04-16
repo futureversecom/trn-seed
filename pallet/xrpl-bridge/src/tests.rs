@@ -274,7 +274,7 @@ fn withdraw_request_works() {
 		// Withdraw more than available XRP should throw BalanceLow error
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1001, destination),
-			pallet_assets::Error::<Test>::BalanceLow
+			TokenError::FundsUnavailable
 		);
 
 		// Withdraw second half
@@ -285,7 +285,7 @@ fn withdraw_request_works() {
 		// No xrp left to withdraw, should fail as account is reaped
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1, destination),
-			pallet_assets::Error::<Test>::NoAccount
+			TokenError::FundsUnavailable
 		);
 	})
 }
@@ -341,7 +341,7 @@ fn withdraw_request_with_destination_tag_works() {
 				destination,
 				destination_tag
 			),
-			pallet_assets::Error::<Test>::BalanceLow
+			TokenError::FundsUnavailable
 		);
 
 		// Withdraw second half
@@ -362,7 +362,7 @@ fn withdraw_request_with_destination_tag_works() {
 				destination,
 				destination_tag
 			),
-			pallet_assets::Error::<Test>::NoAccount
+			TokenError::FundsUnavailable
 		);
 	})
 }
@@ -427,7 +427,7 @@ fn withdraw_request_with_destination_tag_works_with_door_fee() {
 				destination,
 				destination_tag
 			),
-			pallet_assets::Error::<Test>::NoAccount
+			TokenError::FundsUnavailable
 		);
 	})
 }
@@ -484,7 +484,7 @@ fn withdraw_request_works_with_door_fee() {
 		assert_eq!(xrp_balance, 0);
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1, destination),
-			pallet_assets::Error::<Test>::NoAccount
+			TokenError::FundsUnavailable
 		);
 	})
 }
@@ -504,7 +504,7 @@ fn withdraw_request_burn_fails() {
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1000, destination),
-			pallet_assets::Error::<Test>::NoAccount
+			TokenError::FundsUnavailable
 		);
 	})
 }
@@ -1627,8 +1627,11 @@ fn process_delayed_payments_multiple_withdrawals() {
 			// Assert weight used is as expected
 			let weight_per_tx = DbWeight::get().reads_writes(3u64, 2u64);
 			let base_weight = DbWeight::get().reads_writes(7u64, 1u64);
-			let total_weight =
-				base_weight + Weight::from_all(weight_per_tx.ref_time() * withdrawal_count as u64);
+			let total_weight = base_weight +
+				Weight::from_parts(
+					weight_per_tx.ref_time() * withdrawal_count as u64,
+					weight_per_tx.proof_size() * withdrawal_count as u64,
+				);
 			assert_eq!(weight_used, total_weight);
 
 			// Storage should now be updated
@@ -1698,8 +1701,11 @@ fn process_delayed_payments_multiple_withdrawals_across_multiple_blocks() {
 			// Assert weight used is as expected
 			let weight_per_tx = DbWeight::get().reads_writes(4u64, 3u64);
 			let base_weight = DbWeight::get().reads_writes(3u64, 1u64);
-			let total_weight =
-				base_weight + Weight::from_all(weight_per_tx.ref_time() * withdrawal_count as u64);
+			let total_weight = base_weight +
+				Weight::from_parts(
+					weight_per_tx.ref_time() * withdrawal_count as u64,
+					weight_per_tx.proof_size() * withdrawal_count as u64,
+				);
 			assert_eq!(weight_used, total_weight);
 
 			// Storage should now be updated
