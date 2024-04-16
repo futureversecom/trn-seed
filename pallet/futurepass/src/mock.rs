@@ -14,7 +14,10 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{self as pallet_futurepass, *};
-use frame_support::traits::{Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency};
+use frame_support::traits::{
+	tokens::{fungibles::Mutate, Preservation},
+	Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency,
+};
 use seed_pallet_common::test_prelude::*;
 use seed_runtime::{
 	impls::{ProxyPalletProvider, ProxyType},
@@ -130,7 +133,7 @@ impl ProxyProvider<Test> for ProxyPalletProvider {
 		let (proxy_definitions, reserve_amount) = pallet_proxy::Proxies::<Test>::get(futurepass);
 		// get proxy_definitions length + 1 (cost of upcoming insertion); cost to reserve
 		let new_reserve = pallet_proxy::Pallet::<Test>::deposit(proxy_definitions.len() as u32 + 1);
-		let extra_reserve_required = new_reserve - reserve_amount;
+		let extra_reserve_required = new_reserve - reserve_amount + ExistentialDeposit::get();
 		<pallet_balances::Pallet<Test> as Currency<_>>::transfer(
 			funder,
 			futurepass,

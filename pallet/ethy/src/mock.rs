@@ -48,6 +48,7 @@ use std::{
 	sync::Arc,
 	time::{SystemTime, UNIX_EPOCH},
 };
+// use seed_runtime::migrations::{Map, Value};
 
 pub type SessionIndex = u32;
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
@@ -351,6 +352,12 @@ impl MockEthereumRpcClient {
 			timestamp: mock_block.timestamp,
 		};
 		test_storage::BlockResponseAt::insert(block_number, mock_block_response);
+		// put_storage_value::<MockBlockResponse>(
+		// 	b"test",
+		// 	&block_number.encode(),
+		// 	b"",
+		// 	mock_block_response,
+		// );
 	}
 	/// Mock a tx receipt response for a hash
 	pub fn mock_transaction_receipt_for(tx_hash: EthHash, mock_tx_receipt: TransactionReceipt) {
@@ -587,7 +594,7 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let mut ext = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		let mut endowed_accounts: Vec<(AccountId, Balance)> = vec![];
 		if self.endowed_account.is_some() {

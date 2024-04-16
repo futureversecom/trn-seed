@@ -738,8 +738,7 @@ macro_rules! impl_pallet_scheduler_config {
 			type MaxScheduledPerBlock = MaxScheduledPerBlock;
 			type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 			type WeightInfo = ();
-			type PreimageProvider = ();
-			type NoPreimagePostponement = ();
+			type Preimages = ();
 		}
 	};
 }

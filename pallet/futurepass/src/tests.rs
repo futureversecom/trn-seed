@@ -15,23 +15,26 @@
 
 use super::*;
 use crate::mock::*;
-use frame_support::traits::tokens::fungibles::Transfer;
+use frame_support::traits::tokens::{fungibles::Mutate, Preservation};
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
 use seed_runtime::{impls::ProxyType, Inspect};
+use sp_runtime::traits::Hash;
 
 type MockCall = crate::mock::RuntimeCall;
 
-const FP_CREATION_RESERVE: Balance = 148 + 126; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
-const FP_DELEGATE_RESERVE: Balance = 126 * 1; // ProxyDepositFactor * 1(num of delegates)
+// ProxyDepositBase + ProxyDepositFactor * 1(num of delegates) + 1 for Existential deposit
+// + 1 for KeepAlive rules
+const FP_CREATION_RESERVE: Balance = 148 + 126 + 2;
+const FP_DELEGATE_RESERVE: Balance = 126 * 1 + 2; // ProxyDepositFactor * 1(num of delegates)
 
 fn transfer_funds(asset_id: AssetId, source: &AccountId, destination: &AccountId, amount: Balance) {
-	assert_ok!(<AssetsExt as Transfer<AccountId>>::transfer(
+	assert_ok!(<AssetsExt as Mutate<AccountId>>::transfer(
 		asset_id,
 		&source,
 		&destination,
 		amount,
-		false
+		Preservation::Expendable
 	));
 }
 
@@ -54,7 +57,7 @@ fn create_futurepass_by_owner() {
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
 			assert_noop!(
 				Futurepass::create(RuntimeOrigin::signed(owner), owner),
-				pallet_balances::Error::<Test>::InsufficientBalance
+				TokenError::FundsUnavailable
 			);
 
 			// fund owner
@@ -118,7 +121,7 @@ fn create_futurepass_by_other() {
 			assert_eq!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), owner);
 
 			// check that FP_CREATION_RESERVE is paid by the caller(other)
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 0);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 1);
 		});
 }
 
@@ -153,7 +156,7 @@ fn register_delegate_by_owner_works() {
 			// register delegate
 			// owner needs another FP_DELEGATE_RESERVE for this
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELEGATE_RESERVE);
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE + 1);
 
 			let signature = signer
 				.sign_prehashed(
@@ -426,7 +429,7 @@ fn register_delegate_failures_common() {
 					deadline,
 					signature,
 				),
-				pallet_balances::Error::<Test>::InsufficientBalance
+				TokenError::FundsUnavailable
 			);
 
 			// fund the owner and other
@@ -522,7 +525,7 @@ fn unregister_delegate_by_owner_works() {
 			));
 			assert!(<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(proxy_type)));
 
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 2);
 			// unregister_delegate
 			assert_ok!(Futurepass::unregister_delegate(
 				RuntimeOrigin::signed(owner),
@@ -607,7 +610,10 @@ fn unregister_delegate_by_the_delegate_works() {
 				Event::<Test>::DelegateUnregistered { futurepass, delegate }.into(),
 			);
 			// check the reserved amount has been received by the caller. i.e the delegate
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate), FP_DELEGATE_RESERVE);
+			assert_eq!(
+				AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate),
+				FP_DELEGATE_RESERVE - 2
+			);
 
 			// check delegate is not a proxy of futurepass
 			assert_eq!(
@@ -867,7 +873,7 @@ fn transfer_futurepass_to_address_works() {
 			// fund owner since it requires FP_DELEGATE_RESERVE to add new owner
 			// the owner will get back the old reserve amount
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELEGATE_RESERVE);
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE + 2);
 			assert_ok!(Futurepass::transfer_futurepass(
 				RuntimeOrigin::signed(owner),
 				owner,
@@ -900,7 +906,10 @@ fn transfer_futurepass_to_address_works() {
 				false,
 			);
 			// caller(the owner) should receive the reserved balance diff
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 2 * FP_DELEGATE_RESERVE);
+			assert_eq!(
+				AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner),
+				2 * FP_DELEGATE_RESERVE - 1
+			);
 		});
 }
 
@@ -962,7 +971,7 @@ fn transfer_futurepass_to_none_works() {
 			// transfer the ownership to none
 			// fund owner since it requires FP_DELEGATE_RESERVE to add new owner
 			// the owner will get back the old reserve amount
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 2);
 			assert_ok!(Futurepass::transfer_futurepass(RuntimeOrigin::signed(owner), owner, None));
 			// assert event
 			System::assert_has_event(
@@ -984,7 +993,7 @@ fn transfer_futurepass_to_none_works() {
 				false
 			);
 			// caller(the owner) should receive the reserved balance diff
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 400);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 402);
 		});
 }
 
@@ -1113,10 +1122,7 @@ fn proxy_extrinsic_simple_transfer_works() {
 			// fund futurepass with some tokens
 			let fund_amount: Balance = 1000;
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, fund_amount);
-			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
-				fund_amount
-			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &futurepass), fund_amount + 2);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 0);
 
 			// transfer other via proxy_extrinsic
@@ -1139,8 +1145,8 @@ fn proxy_extrinsic_simple_transfer_works() {
 			);
 			// check balances
 			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
-				fund_amount - transfer_amount
+				AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &futurepass),
+				fund_amount - transfer_amount + 2
 			);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), transfer_amount);
 			// owner's(i.e caller's) balance not changed
@@ -1157,8 +1163,8 @@ fn proxy_extrinsic_simple_transfer_works() {
 			));
 			//check balances
 			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
-				fund_amount - 2 * transfer_amount
+				AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &futurepass),
+				fund_amount - 2 * transfer_amount + 2
 			);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 2 * transfer_amount);
 			// delegate's(i.e caller's) balance not changed
@@ -1219,11 +1225,10 @@ fn proxy_extrinsic_non_transfer_call_works() {
 			let fund_amount: Balance = 1_500_000;
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, fund_amount);
 
-			let asset_id = 5;
-			let inner_call = Box::new(MockCall::Assets(pallet_assets::Call::create {
-				id: asset_id,
-				admin: futurepass,
-				min_balance: 1,
+			let asset_id = 2;
+			let remark = b"Mischief Managed";
+			let inner_call = Box::new(MockCall::System(frame_system::Call::remark_with_event {
+				remark: remark.to_vec(),
 			}));
 			// call proxy_extrinsic
 			assert_ok!(Futurepass::proxy_extrinsic(
@@ -1233,10 +1238,9 @@ fn proxy_extrinsic_non_transfer_call_works() {
 			));
 			// assert event (asset creation)
 			System::assert_has_event(
-				pallet_assets::Event::<Test>::Created {
-					asset_id,
-					creator: futurepass,
-					owner: futurepass,
+				frame_system::Event::<Test>::Remarked {
+					sender: futurepass,
+					hash: <Test as frame_system::Config>::Hashing::hash(remark),
 				}
 				.into(),
 			);
@@ -1295,10 +1299,7 @@ fn proxy_extrinsic_by_non_delegate_fails() {
 			// fund futurepass with some tokens
 			let fund_amount: Balance = 1000;
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, fund_amount);
-			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
-				fund_amount
-			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &futurepass), fund_amount + 2);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 0);
 
 			let transfer_amount: Balance = 100;
@@ -1318,10 +1319,7 @@ fn proxy_extrinsic_by_non_delegate_fails() {
 				pallet_proxy::Error::<Test>::NotProxy
 			);
 			//check balances
-			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
-				fund_amount
-			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &futurepass), fund_amount + 2);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 0);
 		});
 }
@@ -1378,10 +1376,7 @@ fn proxy_extrinsic_to_futurepass_non_whitelist_fails() {
 			// fund futurepass with some tokens
 			let fund_amount: Balance = 1000;
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, fund_amount);
-			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
-				fund_amount
-			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &futurepass), fund_amount + 2);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 0);
 
 			// pallet_futurepass calls other than the whitelist can not be called via
@@ -1461,10 +1456,7 @@ fn proxy_extrinsic_to_proxy_pallet_fails() {
 			// fund futurepass with some tokens
 			let fund_amount: Balance = 1000;
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, fund_amount);
-			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
-				fund_amount
-			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &futurepass), fund_amount + 2);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 0);
 
 			// pallet_proxy calls can not be called via proxy_extrinsic
@@ -1546,10 +1538,7 @@ fn proxy_extrinsic_failures_common() {
 			// fund futurepass with some tokens
 			let fund_amount: Balance = 1000;
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, fund_amount);
-			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
-				fund_amount
-			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &futurepass), fund_amount + 2);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 0);
 
 			let transfer_amount: Balance = 100;
@@ -1570,8 +1559,7 @@ fn proxy_extrinsic_failures_common() {
 
 			// proxy_extrinsic does not care about wrapped internal call failure. It's task is to
 			// only dispatch the internal call
-			let futurpass_balance: Balance =
-				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false);
+			let futurpass_balance: Balance = AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &futurepass);
 			let inner_call = Box::new(MockCall::Balances(pallet_balances::Call::transfer {
 				dest: other,
 				value: futurpass_balance + 1,
@@ -1590,7 +1578,7 @@ fn proxy_extrinsic_failures_common() {
 			// assert event pallet_proxy::ProxyExecuted with the error
 			System::assert_has_event(
 				pallet_proxy::Event::<Test>::ProxyExecuted {
-					result: Err(pallet_balances::Error::<Test>::InsufficientBalance.into()),
+					result: Err(TokenError::FundsUnavailable.into()),
 				}
 				.into(),
 			);
@@ -1621,10 +1609,7 @@ fn whitelist_works() {
 			// fund futurepass with some tokens
 			let fund_amount: Balance = 1000;
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, fund_amount);
-			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
-				fund_amount
-			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &futurepass), fund_amount + 1);
 
 			let signature = signer
 				.sign_prehashed(
@@ -1771,10 +1756,7 @@ fn delegate_can_not_call_whitelist_via_proxy_extrinsic() {
 			// fund futurepass with some tokens
 			let fund_amount: Balance = 1000;
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, fund_amount);
-			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
-				fund_amount
-			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &futurepass), fund_amount + 1);
 
 			let signature = signer
 				.sign_prehashed(

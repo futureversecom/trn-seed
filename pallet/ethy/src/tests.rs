@@ -487,7 +487,7 @@ fn handle_event_notarization_valid_claims() {
 			// When the yay_count reaches over the NotarizationThreshold of 66% the storage should
 			// be updated
 			for i in 0..9 {
-				if Percent::from_rational(yay_count, notary_count) >=
+				if Percent::from_rational(yay_count as u64, notary_count as u64) >=
 					<Test as Config>::NotarizationThreshold::get()
 				{
 					// Any further notarizations should return InvalidClaim error
@@ -508,7 +508,7 @@ fn handle_event_notarization_valid_claims() {
 				}
 				yay_count += 1;
 
-				if Percent::from_rational(yay_count, notary_count) >=
+				if Percent::from_rational(yay_count as u64, notary_count as u64) >=
 					<Test as Config>::NotarizationThreshold::get()
 				{
 					// Over threshold, storage should be updated
@@ -562,7 +562,7 @@ fn process_valid_challenged_event() {
 		.build()
 		.execute_with(|| {
 			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
-			assert_eq!(AssetsExt::reducible_balance(ROOT_ASSET_ID, &relayer.into(), false), 0);
+			assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &relayer.into()), 0);
 			assert_eq!(RelayerPaidBond::<Test>::get(AccountId::from(relayer)), RelayerBond::get());
 
 			let process_at = System::block_number() + ChallengePeriod::<Test>::get();
@@ -609,10 +609,7 @@ fn process_valid_challenged_event() {
 				RelayerBond::get()
 			);
 			assert_eq!(RelayerPaidBond::<Test>::get(AccountId::from(relayer)), RelayerBond::get());
-			assert_eq!(
-				AssetsExt::reducible_balance(ROOT_ASSET_ID, &relayer.into(), false),
-				ChallengerBond::get()
-			);
+			assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &relayer.into()), ChallengerBond::get());
 
 			// Check claim remains in storage so it can still be processed
 			assert_eq!(
@@ -794,7 +791,7 @@ fn handle_event_notarization_invalid_claims() {
 			// When the nay_count reaches over 100 - NotarizationThreshold (33%) the storage should
 			// be updated
 			for i in 0..9 {
-				if Percent::from_rational(nay_count, notary_count) >
+				if Percent::from_rational(nay_count as u64, notary_count as u64) >
 					(Percent::from_parts(
 						100_u8 - <Test as Config>::NotarizationThreshold::get().deconstruct(),
 					)) {
@@ -816,7 +813,7 @@ fn handle_event_notarization_invalid_claims() {
 				}
 				nay_count += 1;
 
-				if Percent::from_rational(nay_count, notary_count) >
+				if Percent::from_rational(nay_count as u64, notary_count as u64) >
 					(Percent::from_parts(
 						100_u8 - <Test as Config>::NotarizationThreshold::get().deconstruct(),
 					)) {

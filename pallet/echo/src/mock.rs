@@ -33,6 +33,49 @@ impl_frame_system_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_balance_config!(Test);
 
+pub use test_storage::*;
+
+// Pallet to provide the version, used to test runtime upgrade version changes
+#[frame_support::pallet]
+pub mod test_storage {
+	use super::*;
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		//type RuntimeEvent: From<Event<Self>> + IsType<<Self as
+		// frame_system::Config>::RuntimeEvent>;
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {}
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::storage]
+	pub type TestVal<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	// #[pallet::event]
+	// #[pallet::generate_deposit(pub(super) fn deposit_event)]
+	// pub enum Event<T: Config> {
+	// 	// XCMP
+	// 	/// Some XCM was executed OK.
+	// 	VersionChanged,
+	// }
+
+	impl<T: Config> Pallet<T> {
+		pub fn set_test_val(new_val: bool) {
+			TestVal::<T>::put(new_val);
+		}
+	}
+}
+
+impl test_storage::Config for Test {
+	//type RuntimeEvent = RuntimeEvent;
+}
+
 parameter_types! {
 	pub const MockEchoPalletId: PalletId = PalletId(*b"pingpong");
 }

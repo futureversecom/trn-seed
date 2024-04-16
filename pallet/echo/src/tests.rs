@@ -15,7 +15,7 @@
 
 #![cfg(test)]
 use super::*;
-use crate::mock::{Echo, MockEthereumEventRouter, System, Test};
+use crate::mock::{Echo, MockEthereumEventRouter, System, Test, TestStorage};
 use seed_pallet_common::test_prelude::*;
 use sp_runtime::traits::AccountIdConversion;
 
