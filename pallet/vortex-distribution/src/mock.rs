@@ -20,6 +20,7 @@ use sp_runtime::{
 	testing::{Header, TestXt},
 	BuildStorage,
 };
+use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;
@@ -78,22 +79,25 @@ impl pallet_staking::Config for Test {
 	type Currency = Balances;
 	type CurrencyBalance = Balance;
 	type UnixTime = pallet_timestamp::Pallet<Self>;
-	type CurrencyToVote = frame_support::traits::SaturatingCurrencyToVote;
+	type CurrencyToVote = SaturatingCurrencyToVote;
 	type RewardRemainder = ();
 	type RuntimeEvent = RuntimeEvent;
 	type Slash = ();
 	type Reward = ();
 	type SessionsPerEra = ();
 	type SlashDeferDuration = ();
-	type SlashCancelOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BondingDuration = BondingDuration;
 	type SessionInterface = ();
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type NextNewSession = ();
 	type MaxNominatorRewardedPerValidator = ConstU32<64>;
 	type OffendingValidatorsThreshold = ();
-	type ElectionProvider =
-		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking)>;
+	type ElectionProvider = frame_election_provider_support::NoElection<(
+		AccountId,
+		BlockNumber,
+		Staking,
+		ConstU32<10>,
+	)>;
 	type GenesisElectionProvider = Self::ElectionProvider;
 	// type VoterList = pallet_bags_list::Pallet<Self>;
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
@@ -101,9 +105,10 @@ impl pallet_staking::Config for Test {
 	// type OnStakerSlash = Pools;
 	type HistoryDepth = HistoryDepth;
 	type TargetList = pallet_staking::UseValidatorsMap<Test>;
-	type OnStakerSlash = ();
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type EventListeners = ();
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test

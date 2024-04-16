@@ -780,6 +780,9 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 			_keep_live: bool,
 		) -> DispatchResult {
+			if amount == Zero::zero() {
+				return Ok(())
+			}
 			let transfer_result = T::MultiCurrency::transfer(
 				asset_id,
 				source,
