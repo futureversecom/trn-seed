@@ -43,6 +43,7 @@ impl_pallet_assets_ext_config!(Test);
 impl pallet_sudo::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type WeightInfo = ();
 }
 
 impl pallet_maintenance_mode::Config for Test {
