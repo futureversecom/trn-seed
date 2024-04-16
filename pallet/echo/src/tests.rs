@@ -15,8 +15,7 @@
 
 #![cfg(test)]
 use super::*;
-use crate::mock::{test_storage::NextEventProofId, Echo, MockEthereumEventRouter, System, Test};
-use frame_support::storage::StorageValue;
+use crate::mock::{Echo, MockEthereumEventRouter, System, Test};
 use seed_pallet_common::test_prelude::*;
 use sp_runtime::traits::AccountIdConversion;
 
@@ -25,9 +24,7 @@ fn ping_works_from_runtime() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let caller = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PalletId::get().into_account_truncating();
-		// let destination = H160::from_low_u64_be(124);
 		let next_session_id = Echo::next_session_id();
-		let next_event_proof_id = NextEventProofId::get();
 
 		assert_ok!(Echo::ping(Some(AccountId::from(caller)).into(), destination));
 
@@ -40,7 +37,7 @@ fn ping_works_from_runtime() {
 				session_id: next_session_id,
 				source: caller,
 				destination,
-				event_proof_id: next_event_proof_id,
+				event_proof_id: 123,
 			}
 			.into(),
 		);
@@ -67,9 +64,7 @@ fn ping_works_from_ethereum() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let caller = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PalletId::get().into_account_truncating();
-		// let destination = H160::from_low_u64_be(124);
 		let next_session_id = Echo::next_session_id();
-		let next_event_proof_id = NextEventProofId::get();
 
 		let data = ethabi::encode(&[
 			Token::Uint(PONG.into()),
@@ -90,7 +85,7 @@ fn ping_works_from_ethereum() {
 				session_id: next_session_id,
 				source: caller,
 				destination,
-				event_proof_id: next_event_proof_id,
+				event_proof_id: 123,
 			}
 			.into(),
 		);
