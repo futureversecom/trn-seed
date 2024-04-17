@@ -225,18 +225,13 @@ where
 				authority_id: authority_id.clone(),
 				signature,
 			};
-			let broadcast_witness = witness.encode();
 
 			metric_inc!(self, ethy_witness_sent);
-			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 
 			// process the witness
 			self.witness_record.note_event_metadata(event_id, data, block, chain_id);
 			self.handle_witness(witness.clone());
-
-			// broadcast the witness
-			self.gossip_engine.gossip_message(topic::<B>(), broadcast_witness, false);
-			debug!(target: "ethy", "💎 gossiped witness for event: {:?}", witness.event_id);
+			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 		}
 	}
 
@@ -329,9 +324,14 @@ where
 			return
 		}
 
-		self.gossip_engine.gossip_message(topic::<B>(), witness.encode(), false);
-		// after processing `witness` there may now be enough info to make a proof
-		self.try_make_proof(witness.event_id);
+		// process and gossip only if we have event metadata
+		if self.witness_record.event_metadata(witness.event_id.clone()).is_some() {
+			self.try_make_proof(witness.event_id.clone());
+			trace!(target: "ethy", "💎 gossiping witness: {:?}", witness.event_id);
+			self.gossip_engine.gossip_message(topic::<B>(), witness.encode(), false);
+		} else {
+			debug!(target: "ethy", "💎 missing event metadata: {:?}, can't make proof yet", witness.event_id);
+		}
 	}
 
 	/// Try to make an event proof
@@ -344,12 +344,10 @@ where
 	/// 2) Store proof in DB
 	/// 3) Notify listeners of the new proof
 	fn try_make_proof(&mut self, event_id: EventProofId) {
-		{
-			let event_metadata = self.witness_record.event_metadata(event_id);
-			if event_metadata.is_none() {
-				debug!(target: "ethy", "💎 missing event metadata: {:?}, can't make proof yet", event_id);
-				return
-			}
+		let event_metadata = self.witness_record.event_metadata(event_id);
+		if event_metadata.is_none() {
+			debug!(target: "ethy", "💎 missing event metadata: {:?}, can't make proof yet", event_id);
+			return
 		}
 
 		// process any unverified witnesses, received before event metadata was known

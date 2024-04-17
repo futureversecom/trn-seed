@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use codec::Decode;
-use log::{error, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use sc_network::PeerId;
 use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
@@ -37,10 +37,13 @@ where
 }
 
 /// Number of recent complete events to keep in memory
-const MAX_COMPLETE_EVENT_CACHE: usize = 30;
+const MAX_COMPLETE_EVENT_CACHE: usize = 500;
 
 // Timeout for rebroadcasting messages.
 const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 5);
+
+// Event ids below this number will be discarded.
+const EVENT_INVALID_BELOW: u64 = 5674;
 
 /// ETHY gossip validator
 ///
@@ -155,6 +158,12 @@ where
 				}
 
 				trace!(target: "ethy", "💎 valid witness: {:?}, event: {:?}", &authority_id, event_id);
+				if event_id < EVENT_INVALID_BELOW {
+					info!(target: "ethy", "💎 witness: {:?}, event: {:?} sender: {:?} out of valid window. marked as discard.", &authority_id, event_id, sender);
+					self.mark_complete(event_id);
+					return ValidationResult::Discard
+				}
+
 				return ValidationResult::ProcessAndKeep(self.topic)
 			} else {
 				// TODO: decrease peer reputation
@@ -174,7 +183,13 @@ where
 				Err(_) => return true,
 			};
 
-			let expired = complete_events.binary_search(&witness.event_id).is_ok();
+			if witness.event_id < EVENT_INVALID_BELOW {
+				debug!(target: "ethy", "💎 Message for event #{} is out of valid window. marked as expired: {}", witness.event_id, true);
+				self.mark_complete(witness.event_id);
+				return true
+			}
+
+			let expired = complete_events.binary_search(&witness.event_id).is_ok(); // spk
 			trace!(target: "ethy", "💎 Message for event #{} expired: {}", witness.event_id, expired);
 
 			expired
@@ -204,9 +219,14 @@ where
 
 			let witness = match Witness::decode(&mut data) {
 				Ok(w) => w,
-				Err(_) => return true,
+				Err(_) => return false,
 			};
 
+			if witness.event_id < EVENT_INVALID_BELOW {
+				debug!(target: "ethy", "💎 Message for event #{} is out of valid window. marked as allowed: {}", witness.event_id, false);
+				self.mark_complete(witness.event_id);
+				return false
+			}
 			// Check if message is incomplete
 			let allowed = complete_events.binary_search(&witness.event_id).is_err();
 
