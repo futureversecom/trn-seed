@@ -43,7 +43,10 @@ const MAX_COMPLETE_EVENT_CACHE: usize = 500;
 const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 5);
 
 // Event ids below this number will be discarded.
+#[cfg(not(test))]
 const EVENT_INVALID_BELOW: u64 = 5683;
+#[cfg(test)]
+const EVENT_INVALID_BELOW: u64 = 2;
 
 /// ETHY gossip validator
 ///
@@ -349,5 +352,31 @@ mod tests {
 		assert_eq!(gv.complete_events.read()[0], 3_u64);
 
 		assert_eq!(gv.complete_events.read().len(), MAX_COMPLETE_EVENT_CACHE);
+	}
+
+	#[test]
+	fn witness_old_are_discarded() {
+		let validators = mock_signers();
+		let alice = &validators[0];
+		let bob = &validators[1];
+		let gv =
+			GossipValidator::<Block>::new(validators.iter().map(|x| x.public().clone()).collect());
+
+		let event_id = 1;
+		let message = b"hello world";
+		let witness = Witness {
+			digest: keccak_256(message),
+			chain_id: EthyChainId::Ethereum,
+			event_id,
+			validator_set_id: 123,
+			authority_id: alice.public(),
+			signature: bob.sign(message), // signed by bob
+		}
+		.encode();
+
+		// check the witness, not a validator, discard
+		let result = gv.validate(&mut NoopContext {}, &PeerId::random(), witness.as_ref());
+		assert_validation_result!(ValidationResult::Discard, result);
+		assert!(!gv.is_tracking_event(&event_id));
 	}
 }
