@@ -43,7 +43,7 @@ const MAX_COMPLETE_EVENT_CACHE: usize = 500;
 const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 5);
 
 // Event ids below this number will be discarded.
-const EVENT_INVALID_BELOW: u64 = 5674;
+const EVENT_INVALID_BELOW: u64 = 5683;
 
 /// ETHY gossip validator
 ///
@@ -159,7 +159,7 @@ where
 
 				trace!(target: "ethy", "💎 valid witness: {:?}, event: {:?}", &authority_id, event_id);
 				if event_id < EVENT_INVALID_BELOW {
-					info!(target: "ethy", "💎 witness: {:?}, event: {:?} sender: {:?} out of valid window. marked as discard.", &authority_id, event_id, sender);
+					info!(target: "ethy", "💎 witness: {:?}, event: {:?} sender: {:?} is marked as discard.", &authority_id, event_id, sender);
 					self.mark_complete(event_id);
 					return ValidationResult::Discard
 				}
@@ -184,7 +184,7 @@ where
 			};
 
 			if witness.event_id < EVENT_INVALID_BELOW {
-				debug!(target: "ethy", "💎 Message for event #{} is out of valid window. marked as expired: {}", witness.event_id, true);
+				debug!(target: "ethy", "💎 Message for event #{} is marked as expired: {}", witness.event_id, true);
 				self.mark_complete(witness.event_id);
 				return true
 			}
@@ -223,7 +223,7 @@ where
 			};
 
 			if witness.event_id < EVENT_INVALID_BELOW {
-				debug!(target: "ethy", "💎 Message for event #{} is out of valid window. marked as allowed: {}", witness.event_id, false);
+				debug!(target: "ethy", "💎 Message for event #{} is marked as allowed: {}", witness.event_id, false);
 				self.mark_complete(witness.event_id);
 				return false
 			}
