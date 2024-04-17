@@ -726,6 +726,7 @@ macro_rules! impl_pallet_scheduler_config {
 	($test:ident) => {
 		parameter_types! {
 			pub const MaxScheduledPerBlock: u32 = 50;
+			pub const MaximumWeight: Weight = Weight::from_parts(9_000_000_000_000, 9_000_000_000_000);
 		}
 
 		impl pallet_scheduler::Config for Test {
@@ -733,7 +734,7 @@ macro_rules! impl_pallet_scheduler_config {
 			type RuntimeOrigin = RuntimeOrigin;
 			type PalletsOrigin = OriginCaller;
 			type RuntimeCall = RuntimeCall;
-			type MaximumWeight = ();
+			type MaximumWeight = MaximumWeight;
 			type ScheduleOrigin = EnsureRoot<AccountId>;
 			type MaxScheduledPerBlock = MaxScheduledPerBlock;
 			type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;

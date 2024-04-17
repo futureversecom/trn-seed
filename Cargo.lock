@@ -5556,6 +5556,7 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
+ "seed-runtime",
  "serde",
  "serde_json",
  "sp-application-crypto",

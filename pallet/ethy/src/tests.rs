@@ -42,6 +42,7 @@ use seed_primitives::{
 	},
 	xrpl::XrplAccountId,
 };
+use seed_runtime::migrations::Value;
 use sp_core::{bounded::WeakBoundedVec, ByteArray};
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::{
@@ -282,7 +283,7 @@ fn deposit_relayer_bond_no_balance_should_fail() {
 		// Subsequent deposits should fail
 		assert_noop!(
 			EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer.into())),
-			pallet_balances::Error::<Test>::InsufficientBalance
+			ArithmeticError::Underflow
 		);
 	});
 }
@@ -406,7 +407,7 @@ fn submit_challenge_no_balance_should_fail() {
 		// Submit challenge with no balance should fail
 		assert_noop!(
 			EthBridge::submit_challenge(RuntimeOrigin::signed(challenger.into()), event_id),
-			pallet_balances::Error::<Test>::InsufficientBalance
+			TokenError::FundsUnavailable
 		);
 	});
 }
@@ -1219,7 +1220,7 @@ fn force_new_era_with_scheduled_authority_change_works() {
 		assert!(NextAuthorityChange::<Test>::get().is_none());
 
 		// Simulate force new era
-		test_storage::Forcing::put(true);
+		Value::unsafe_storage_put::<bool>(b"Test", b"Forcing", true);
 
 		// Add a validator to the next_keys, simulating a change in validator during the last
 		// session
@@ -2253,7 +2254,7 @@ fn set_bridge_paused_not_root_should_fail() {
 #[test]
 fn set_challenge_period_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		let new_challenge_period: <Test as frame_system::Config>::BlockNumber = 12345;
+		let new_challenge_period: BlockNumber = 12345;
 
 		assert_ok!(EthBridge::set_challenge_period(
 			frame_system::RawOrigin::Root.into(),
