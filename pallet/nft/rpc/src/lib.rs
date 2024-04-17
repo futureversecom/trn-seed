@@ -22,13 +22,14 @@ use jsonrpsee::{
 	core::{Error as RpcError, RpcResult},
 	proc_macros::rpc,
 };
-use pallet_nft::Config;
+use pallet_nft::{Config, CrossChainCompatibility};
 use seed_primitives::types::{BlockNumber, CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT, Permill};
 
 pub use pallet_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi};
+use seed_primitives::OriginChain;
 
 /// NFT RPC methods.
 #[rpc(client, server, namespace = "nft")]
@@ -44,6 +45,22 @@ pub trait NftApi<AccountId> {
 
 	#[method(name = "tokenUri")]
 	fn token_uri(&self, token_id: TokenId) -> RpcResult<Vec<u8>>;
+
+	#[method(name = "collectionDetails")]
+	fn collection_details(
+		&self,
+		collection_id: CollectionUuid,
+	) -> RpcResult<(
+		AccountId,
+		Vec<u8>,
+		Vec<u8>,
+		Option<Vec<(AccountId, Permill)>>,
+		Option<TokenCount>,
+		SerialNumber,
+		TokenCount,
+		CrossChainCompatibility,
+		OriginChain,
+	)>;
 }
 
 /// An implementation of NFT specific RPC methods.
@@ -86,5 +103,26 @@ where
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
 		api.token_uri(&at, token_id).map_err(|e| RpcError::to_call_error(e))
+	}
+
+	fn collection_details(
+		&self,
+		collection_id: CollectionUuid,
+	) -> RpcResult<(
+		AccountId,
+		Vec<u8>,
+		Vec<u8>,
+		Option<Vec<(AccountId, Permill)>>,
+		Option<TokenCount>,
+		SerialNumber,
+		TokenCount,
+		CrossChainCompatibility,
+		OriginChain,
+	)> {
+		let api = self.client.runtime_api();
+		let best = self.client.info().best_hash;
+		let at = BlockId::hash(best);
+		api.collection_details(&at, collection_id)
+			.map_err(|e| RpcError::to_call_error(e))
 	}
 }
