@@ -24,7 +24,8 @@ that the gas fees associated with an evm call are calculated outside of the weig
 itself. So in this case, the gas fees are calculated through `get_fee_preferences_data` (based on the
 gas_limit and max_fee_per_gas).
 
-## EVM based Multicurrency
+## EVM based Multicurrency - DEPRECATED; documentation requires update
+
 Multicurrency is also enabled for calls directly through our EVM. This is possible by wrapping an abi encoded input
 and setting the target to `FEE_PROXY_ADDRESS`. This is made possible by intercepting the implementation of `Runner` 
 defined in pallet_evm. By creating our own implementation with `FeePreferencesRunner` we are able to check the target 
