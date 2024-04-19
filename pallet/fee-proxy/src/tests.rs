@@ -12,20 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
-#![allow(deprecated)]
 
 use super::*;
 use crate::{
 	mock::{FeeProxy, Futurepass, Runner, RuntimeOrigin, System, Test},
 	runner::*,
-};
-use ethabi::Token;
-use hex_literal::hex;
-use precompile_utils::{
-	constants::{
-		ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR, FEE_FUNCTION_SELECTOR_DEPRECATED,
-	},
-	ErcIdConversion,
 };
 use seed_pallet_common::test_prelude::*;
 
@@ -179,45 +170,6 @@ mod decode_input {
 	use super::*;
 
 	#[test]
-	fn decode_input_works() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			// Abi generated from below parameters using the following function name:
-			// callWithFeePreferences
-			// abi can be easily generated here https://abi.hashex.org/
-			let exp_payment_asset = 16000_u32;
-			let exp_max_payment = 123_456_789 as Balance;
-			let exp_target = H160::from_slice(&hex!("cCccccCc00003E80000000000000000000000000"));
-			let exp_input: Vec<u8> =
-				hex!("a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b"
-			).to_vec();
-			let mut input = FEE_FUNCTION_SELECTOR_DEPRECATED.to_vec();
-			input.append(&mut ethabi::encode(&[
-				Token::Address(Test::runtime_id_to_evm_id(exp_payment_asset, ERC20_PRECOMPILE_ADDRESS_PREFIX).0),
-				Token::Uint(exp_max_payment.into()),
-				Token::Address(exp_target),
-				Token::Bytes(exp_input.clone())],
-			));
-
-			assert_eq!(
-				Runner::decode_input(input),
-				Ok((exp_payment_asset, exp_target, exp_input.clone()))
-			);
-
-			let mut input = FEE_FUNCTION_SELECTOR.to_vec();
-			input.append(&mut ethabi::encode(&[
-				Token::Address(Test::runtime_id_to_evm_id(exp_payment_asset, ERC20_PRECOMPILE_ADDRESS_PREFIX).0),
-				Token::Address(exp_target),
-				Token::Bytes(exp_input.clone())],
-			));
-
-			assert_eq!(
-				Runner::decode_input(input),
-				Ok((exp_payment_asset, exp_target, exp_input))
-			);
-		});
-	}
-
-	#[test]
 	fn invalid_function_selector_should_fail() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let bad_selector_input = vec![0x01, 0x02, 0x03, 0x04];
@@ -234,66 +186,6 @@ mod decode_input {
 			assert_noop!(
 				Runner::decode_input(Default::default()),
 				FeePreferencesError::InvalidInputArguments
-			);
-		});
-	}
-
-	#[test]
-	fn invalid_input_args_should_fail() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let mut input = FEE_FUNCTION_SELECTOR_DEPRECATED.to_vec();
-			input.append(&mut ethabi::encode(&[
-				Token::Bytes(vec![1_u8, 2, 3, 4, 5]),
-				Token::Array(vec![
-					Token::Uint(1u64.into()),
-					Token::Uint(2u64.into()),
-					Token::Uint(3u64.into()),
-					Token::Uint(4u64.into()),
-					Token::Uint(5u64.into()),
-				]),
-			]));
-			assert_noop!(Runner::decode_input(input), FeePreferencesError::FailedToDecodeInput);
-
-			let mut input = FEE_FUNCTION_SELECTOR.to_vec();
-			input.append(&mut ethabi::encode(&[
-				Token::Bytes(vec![1_u8, 2, 3, 4, 5]),
-				Token::Array(vec![
-					Token::Uint(1u64.into()),
-					Token::Uint(2u64.into()),
-					Token::Uint(3u64.into()),
-					Token::Uint(4u64.into()),
-					Token::Uint(5u64.into()),
-				]),
-			]));
-			assert_noop!(Runner::decode_input(input), FeePreferencesError::FailedToDecodeInput);
-		});
-	}
-
-	#[test]
-	fn zero_payment_asset_should_fail() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let mut input = FEE_FUNCTION_SELECTOR_DEPRECATED.to_vec();
-			input.append(&mut ethabi::encode(&[
-				Token::Address(H160::zero()),
-				Token::Uint(5u64.into()),
-				Token::Address(H160::default()),
-				Token::Bytes(vec![1_u8, 2, 3, 4, 5]),
-			]));
-			assert_noop!(
-				Runner::decode_input(input.to_vec()),
-				FeePreferencesError::InvalidPaymentAsset
-			);
-
-			let mut input = FEE_FUNCTION_SELECTOR.to_vec();
-			input.append(&mut ethabi::encode(&[
-				Token::Address(H160::zero()),
-				Token::Uint(5u64.into()),
-				Token::Address(H160::default()),
-				Token::Bytes(vec![1_u8, 2, 3, 4, 5]),
-			]));
-			assert_noop!(
-				Runner::decode_input(input.to_vec()),
-				FeePreferencesError::InvalidPaymentAsset
 			);
 		});
 	}
