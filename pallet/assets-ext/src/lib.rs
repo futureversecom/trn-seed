@@ -527,7 +527,8 @@ impl<T: Config> TransferExt for Pallet<T> {
 			Error::<T>::BalanceLow
 		);
 
-		for (payee, amount) in transfers.into_iter() {
+		// Skip zero transfers, these will error within the transfer function
+		for (payee, amount) in transfers.into_iter().filter(|(_, b)| !b.is_zero()) {
 			<Self as Mutate<T::AccountId>>::transfer(
 				asset_id,
 				who,
