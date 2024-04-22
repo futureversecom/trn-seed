@@ -45,7 +45,8 @@ std = [
     "scale-info/std",
     "sp-core/std",
     "ethabi/std",
-    "pallet-nft/std"
+    "pallet-nft/std",
+    "frame-benchmarking?/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]

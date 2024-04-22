@@ -130,13 +130,6 @@ pub mod pallet {
 
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
-
-		#[cfg(feature = "runtime-benchmarks")]
-		/// Handles a multi-currency fungible asset system for benchmarking.
-		type MultiCurrency: frame_support::traits::fungibles::Inspect<
-				Self::AccountId,
-				AssetId = seed_primitives::AssetId,
-			> + frame_support::traits::fungibles::Mutate<Self::AccountId>;
 	}
 
 	#[pallet::type_value]

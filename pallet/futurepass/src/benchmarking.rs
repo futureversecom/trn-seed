@@ -38,7 +38,7 @@ where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
 	let root_asset_id: u32 = 1;
-	assert_ok!(T::MultiCurrency::mint_into(root_asset_id.into(), &account, 1_000_000u32.into()));
+	assert_ok!(AssetsExt::mint_into(root_asset_id.into(), &account, 1_000_000u32.into()));
 }
 
 pub fn add_delegates<T: Config>(

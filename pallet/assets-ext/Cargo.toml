@@ -46,7 +46,8 @@ std = [
 	"sp-std/std",
 	"seed-pallet-common/std",
 	"seed-primitives/std",
-	"precompile-utils/std"
+	"precompile-utils/std",
+	"frame-benchmarking?/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]

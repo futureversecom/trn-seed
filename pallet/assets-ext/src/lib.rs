@@ -24,7 +24,6 @@
 //! It provides a minimal API for authorising holds on asset amounts e.g locking bidder funds of an
 //! NFT auction This is similar to 'reserve' which is not implemented for pallet-assets within
 //! substrate at this time
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
@@ -216,7 +215,7 @@ pub mod pallet {
 		/// Note, this does not change the deposit when calling create within the assets pallet
 		/// However that call is filtered
 		#[pallet::call_index(0)]
-		#[pallet::weight(< T as Config >::WeightInfo::set_asset_deposit())]
+		#[pallet::weight(<T as Config>::WeightInfo::set_asset_deposit())]
 		pub fn set_asset_deposit(
 			origin: OriginFor<T>,
 			asset_deposit: DepositBalanceOf<T>,
@@ -231,7 +230,7 @@ pub mod pallet {
 		/// Decimals cannot be higher than 18 due to a restriction in the conversion function
 		/// scale_wei_to_correct_decimals
 		#[pallet::call_index(1)]
-		#[pallet::weight(< T as Config >::WeightInfo::create_asset())]
+		#[pallet::weight(<T as Config>::WeightInfo::create_asset())]
 		#[transactional]
 		pub fn create_asset(
 			origin: OriginFor<T>,

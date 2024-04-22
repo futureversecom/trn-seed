@@ -50,6 +50,7 @@ std = [
 	"frame-system/std",
 	"scale-info/std",
 	"precompile-utils/std",
+	"frame-benchmarking?/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]

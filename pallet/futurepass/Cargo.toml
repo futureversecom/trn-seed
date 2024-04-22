@@ -75,6 +75,7 @@ std = [
 	"pallet-balances/std",
 	"precompile-utils/std",
 	"fp-evm/std",
+	"frame-benchmarking?/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
 runtime-benchmarks = ["frame-benchmarking", "seed-runtime/runtime-benchmarks"]
