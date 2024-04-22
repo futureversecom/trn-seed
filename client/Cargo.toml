@@ -52,6 +52,7 @@ sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polka
 sp-transaction-storage-proof = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate" , branch = "polkadot-v1.0.0" }
+sc-offchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 
 # Frontier
 fc-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
@@ -64,7 +65,7 @@ fp-rpc = { default-features = false, git = "https://github.com/futureversecom/fr
 fp-storage = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
 
 # These dependencies are used for the node template's RPCs
-jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
+jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }

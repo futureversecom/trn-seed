@@ -28,7 +28,7 @@ use sc_client_api::{
 	client::BlockchainEvents,
 };
 use sc_consensus_epochs::SharedEpochChanges;
-use sc_finality_grandpa::{
+use sc_consensus_grandpa::{
 	FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
 };
 use sc_network::NetworkService;
@@ -189,7 +189,7 @@ where
 	use pallet_sft_rpc::{Sft, SftApiServer};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use sc_consensus_babe_rpc::{Babe, BabeApiServer};
-	use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
+	use sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
 
 	let mut io = RpcModule::new(());

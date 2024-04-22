@@ -66,6 +66,7 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: EthyApi<B>,
 	C: Client<B, BE>,
+	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	client: Arc<C>,
 	backend: Arc<BE>,
