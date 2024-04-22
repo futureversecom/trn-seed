@@ -173,8 +173,13 @@ fn testnet_genesis(
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
 			code: wasm_binary.to_vec(),
+			..Default::default()
 		},
-		babe: BabeConfig { authorities: vec![], epoch_config: Some(BABE_GENESIS_EPOCH_CONFIG) },
+		babe: BabeConfig {
+			authorities: vec![],
+			epoch_config: Some(BABE_GENESIS_EPOCH_CONFIG),
+			..Default::default()
+		},
 		balances: BalancesConfig { balances: endowed_balances },
 		// babe & grandpa initialization handled by session
 		//  otherwise causes: Thread 'main' panicked at 'Authorities are already initialized!'
@@ -217,8 +222,8 @@ fn testnet_genesis(
 			// Assign network admin rights.
 			key: Some(root_key),
 		},
-		ethereum: seed_runtime::EthereumConfig {},
-		evm: seed_runtime::EVMConfig { accounts: Default::default() },
+		ethereum: seed_runtime::EthereumConfig { ..Default::default() },
+		evm: seed_runtime::EVMConfig { accounts: Default::default(), ..Default::default() },
 		xrpl_bridge: XRPLBridgeConfig { xrp_relayers },
 	}
 }

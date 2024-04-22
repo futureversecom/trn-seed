@@ -122,7 +122,7 @@ where
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: EthyApi<B>,
-	N: GossipNetwork<B> + Clone + SyncOracle + Send + 'static,
+	N: GossipNetwork<B> + Clone + Send + 'static,
 	S: Syncing<B> + Send + Clone + 'static,
 {
 	/// ETHY client
@@ -156,7 +156,7 @@ where
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: EthyApi<B>,
-	N: GossipNetwork<B> + Clone + SyncOracle + Sync + Send + 'static,
+	N: GossipNetwork<B> + Clone + Sync + Send + 'static,
 	S: Syncing<B> + Send + Clone + 'static,
 {
 	let EthyParams {
@@ -172,7 +172,7 @@ where
 		_phantom: std::marker::PhantomData,
 	} = ethy_params;
 
-	let sync_oracle = network.clone();
+	let sync_oracle = sync_service.clone();
 	let gossip_validator = Arc::new(gossip::GossipValidator::new(Default::default()));
 	let gossip_engine =
 		GossipEngine::new(network, sync_service, protocol_name, gossip_validator.clone(), None);
