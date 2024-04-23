@@ -594,7 +594,7 @@ fn set_pool_rollover_fails_if_not_provisioning() {
 			// Try to set rollover preference when pool is not provisioning
 			assert_noop!(
 				LiquidityPools::set_pool_rollover(Origin::signed(user), pool_id, true),
-				Error::<Test>::PoolNotActive
+				Error::<Test>::PoolNotOpen
 			);
 		});
 }
@@ -798,7 +798,7 @@ fn cannot_enter_pool_after_lock_end_block() {
 
 			assert_noop!(
 				LiquidityPools::enter_pool(Origin::signed(create_account(1)), pool_id, 10),
-				Error::<Test>::PoolNotActive
+				Error::<Test>::PoolNotOpen
 			);
 		});
 }
@@ -1036,7 +1036,7 @@ fn cannot_exit_pool_with_wrong_pool_status() {
 
 			assert_noop!(
 				LiquidityPools::exit_pool(Origin::signed(create_account(1)), pool_id),
-				Error::<Test>::PoolNotActive
+				Error::<Test>::PoolNotOpen
 			);
 		});
 }
@@ -1477,7 +1477,7 @@ fn should_not_update_when_pool_closed() {
 
 			assert_noop!(
 				LiquidityPools::set_pool_rollover(Origin::signed(user), pool_id, false),
-				Error::<Test>::PoolNotActive
+				Error::<Test>::PoolNotOpen
 			);
 		});
 }
@@ -1887,7 +1887,7 @@ fn cannot_enter_pool_when_not_provisioning() {
 
 			assert_noop!(
 				LiquidityPools::enter_pool(Origin::signed(create_account(1)), pool_id, amount),
-				Error::<Test>::PoolNotActive
+				Error::<Test>::PoolNotOpen
 			);
 		});
 }
