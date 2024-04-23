@@ -154,7 +154,7 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: EthyApi<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Sync + Send + 'static,
-	<<B as BlockT>::Header as HeaderT>::Number: Into<u32>,
+	<<B as BlockT>::Header as HeaderT>::Number: Into<u64>,
 {
 	let EthyParams {
 		client,

@@ -337,6 +337,7 @@ pub(crate) mod test {
 			validator_set_id: 5_u64,
 			authority_id: validator.public(),
 			signature: keystore.sign_prehashed(&validator.public(), &digest).unwrap(),
+			block_number: 0,
 		}
 	}
 

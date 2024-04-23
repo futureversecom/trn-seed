@@ -20,7 +20,7 @@ use sc_client_api::Backend;
 use sc_network::PeerId;
 use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
 use sp_api::{BlockT, HeaderT};
-use sp_blockchain::{Backend as SPBackend, HeaderBackend};
+use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block, Hash, Header};
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -52,7 +52,7 @@ const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 3);
 // Window size in blocks within which we expect the request to reach terminal state.
 // We take the WINDOW_SIZE approximately as 6 mins. This gives at-least another rebroadcast before
 // going out of live window.
-const WINDOW_SIZE: u32 = 90;
+const WINDOW_SIZE: u64 = 90;
 
 /// ETHY gossip validator
 ///
@@ -127,7 +127,7 @@ impl<B, BE> Validator<B> for GossipValidator<B, BE>
 where
 	B: Block,
 	BE: Backend<B>,
-	<<B as BlockT>::Header as HeaderT>::Number: Into<u32>,
+	<<B as BlockT>::Header as HeaderT>::Number: Into<u64>,
 {
 	fn validate(
 		&self,
@@ -181,9 +181,8 @@ where
 				}
 
 				trace!(target: "ethy", "💎 valid witness: {:?}, event: {:?}", &authority_id, event_id);
-				let backend = self.backend.read();
-				if block_number < backend.blockchain().info().finalized_number.into() - WINDOW_SIZE
-				{
+				let finalized_number = self.backend.read().blockchain().info().finalized_number;
+				if block_number < finalized_number.into().saturating_sub(WINDOW_SIZE) {
 					info!(target: "ethy", "💎 witness: {:?}, event: {:?} sender: {:?} out of live window. mark as discard.", &authority_id, event_id, sender);
 					return ValidationResult::Discard
 				}
@@ -209,7 +208,7 @@ where
 
 			let backend = self.backend.read();
 			if witness.block_number <
-				backend.blockchain().info().finalized_number.into() - WINDOW_SIZE
+				backend.blockchain().info().finalized_number.into().saturating_sub(WINDOW_SIZE)
 			{
 				debug!(target: "ethy", "💎 Message for event #{} is out of live window. marked as expired: {}", witness.event_id, true);
 				return true
@@ -250,7 +249,7 @@ where
 
 			let backend = self.backend.read();
 			if witness.block_number <
-				backend.blockchain().info().finalized_number.into() - WINDOW_SIZE
+				backend.blockchain().info().finalized_number.into().saturating_sub(WINDOW_SIZE)
 			{
 				debug!(target: "ethy", "💎 Message for event #{} is out of live window. marked as allowed: {}", witness.event_id, false);
 				return false
@@ -270,13 +269,13 @@ mod tests {
 	use codec::Encode;
 	use sc_network::PeerId;
 	use sc_network_gossip::{ValidationResult, Validator, ValidatorContext};
-	use sc_network_test::{Block, Hash};
+	use sc_network_test::{Block, Hash, TestNetFactory};
 	use sp_core::keccak_256;
 
 	use seed_primitives::ethy::{EthyChainId, Witness};
 
 	use super::{GossipValidator, MAX_COMPLETE_EVENT_CACHE};
-	use crate::{assert_validation_result, testing::Keyring};
+	use crate::{assert_validation_result, testing::Keyring, tests::EthyTestNet};
 
 	#[macro_export]
 	/// sc_network_gossip::ValidationResult is missing Eq impl
@@ -308,7 +307,9 @@ mod tests {
 		let alice = &validators[0];
 		let mut context = NoopContext {};
 		let sender_peer_id = PeerId::random();
-		let gv = GossipValidator::<Block>::new(vec![]);
+		let mut net = EthyTestNet::new(1, 0);
+		let backend = net.peer(0).client().as_backend();
+		let gv = GossipValidator::new(vec![], backend);
 
 		let event_id = 5;
 		let message = b"hello world";
@@ -321,6 +322,7 @@ mod tests {
 			// 	fn sign(&self, message: &[u8]) -> Signature {
 			// self.sign_prehashed(&blake2_256(message))
 			signature: alice.sign(message),
+			block_number: 0,
 		}
 		.encode();
 
@@ -344,8 +346,10 @@ mod tests {
 		let validators = mock_signers();
 		let alice = &validators[0];
 		let bob = &validators[1];
+		let mut net = EthyTestNet::new(1, 0);
+		let backend = net.peer(0).client().as_backend();
 		let gv =
-			GossipValidator::<Block>::new(validators.iter().map(|x| x.public().clone()).collect());
+			GossipValidator::new(validators.iter().map(|x| x.public().clone()).collect(), backend);
 
 		let event_id = 5;
 		let message = b"hello world";
@@ -356,6 +360,7 @@ mod tests {
 			validator_set_id: 123,
 			authority_id: alice.public(),
 			signature: bob.sign(message), // signed by bob
+			block_number: 0,
 		}
 		.encode();
 
@@ -367,7 +372,9 @@ mod tests {
 
 	#[test]
 	fn keeps_most_recent_events() {
-		let gv = GossipValidator::<Block>::new(vec![]);
+		let mut net = EthyTestNet::new(1, 0);
+		let backend = net.peer(0).client().as_backend();
+		let gv = GossipValidator::new(vec![], backend);
 		for event_id in 1..=MAX_COMPLETE_EVENT_CACHE {
 			gv.mark_complete(event_id as u64);
 		}

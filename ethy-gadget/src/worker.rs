@@ -558,7 +558,8 @@ pub(crate) mod test {
 		let api = Arc::new(TestApi {});
 		let network = peer.network_service().clone();
 		let sync_oracle = network.clone();
-		let gossip_validator = Arc::new(crate::gossip::GossipValidator::new(validators));
+		let gossip_validator =
+			Arc::new(crate::gossip::GossipValidator::new(validators, peer.client().as_backend()));
 		let gossip_engine =
 			GossipEngine::new(network, ETHY_PROTOCOL_NAME, gossip_validator.clone(), None);
 		let (sender, _receiver) = NotificationStream::<_, EthyEventProofTracingKey>::channel();
