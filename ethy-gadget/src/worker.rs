@@ -224,6 +224,7 @@ where
 				event_id,
 				authority_id: authority_id.clone(),
 				signature,
+				block_number: (*notification.header.number()).try_into().unwrap_or_default(),
 			};
 			let broadcast_witness = witness.encode();
 
