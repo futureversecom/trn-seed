@@ -226,18 +226,13 @@ where
 				signature,
 				block_number: (*notification.header.number()).try_into().unwrap_or_default(),
 			};
-			let broadcast_witness = witness.encode();
 
 			metric_inc!(self, ethy_witness_sent);
-			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 
 			// process the witness
 			self.witness_record.note_event_metadata(event_id, data, block, chain_id);
 			self.handle_witness(witness.clone());
-
-			// broadcast the witness
-			self.gossip_engine.gossip_message(topic::<B>(), broadcast_witness, false);
-			debug!(target: "ethy", "💎 gossiped witness for event: {:?}", witness.event_id);
+			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 		}
 	}
 
