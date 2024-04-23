@@ -35,6 +35,7 @@ use frame_system::{
 #[cfg(feature = "runtime-benchmarks")]
 use seed_pallet_common::{CreateExt, Hold};
 use seed_primitives::{AccountId, AssetId, Balance, BlockNumber};
+use sp_arithmetic::helpers_128bit::multiply_by_rational_with_rounding;
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, Zero};
 use sp_std::prelude::*;
@@ -212,10 +213,12 @@ pub mod pallet {
 		SuccessorPoolSizeShouldBeGreaterThanPredecessor,
 		/// Successor pool size should be locked after predecessor
 		SuccessorPoolSizeShouldBeLockedAfterPredecessor,
+		/// Rollover pools should be the same asset
+		RolloverPoolsShouldBeTheSameAsset,
 		/// Cannot exit pool, no tokens staked
 		NoTokensStaked,
-		/// Reward pool is not active
-		PoolNotActive,
+		/// Reward pool is not open
+		PoolNotOpen,
 		/// Reward pool is not ready for reward
 		NotReadyForClaimingReward,
 		/// Exceeds max pool id
@@ -228,6 +231,8 @@ pub mod pallet {
 		OffchainErrTooEarly,
 		/// Offchain error on submitting transaction
 		OffchainErrSubmitTransaction,
+		/// Offchain error wrong transaction source
+		OffchainErrWrongTransactionSource,
 		/// Pivot string too long
 		PivotStringTooLong,
 	}
@@ -367,6 +372,10 @@ pub mod pallet {
 				successor_pool.lock_start_block > predecessor_pool.lock_end_block,
 				Error::<T>::SuccessorPoolSizeShouldBeLockedAfterPredecessor
 			);
+			ensure!(
+				successor_pool.asset_id == predecessor_pool.asset_id,
+				Error::<T>::RolloverPoolsShouldBeTheSameAsset
+			);
 
 			<PoolRelationships<T>>::insert(
 				&predecessor_pool_id,
@@ -404,7 +413,7 @@ pub mod pallet {
 
 			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
-			ensure!(pool.pool_status == PoolStatus::Open, Error::<T>::PoolNotActive);
+			ensure!(pool.pool_status == PoolStatus::Open, Error::<T>::PoolNotOpen);
 
 			PoolUsers::<T>::try_mutate(id, who, |pool_user| -> DispatchResult {
 				let pool_user = pool_user.as_mut().ok_or(Error::<T>::NoTokensStaked)?;
@@ -431,7 +440,7 @@ pub mod pallet {
 		/// - `id`: The ID of the pool being closed.
 		///
 		/// Restrictions:
-		/// - The pool identified by `id` must exist and be active.
+		/// - The pool identified by `id` must exist.
 		///
 		/// Emits `PoolClosed` event when the pool is successfully closed.
 		#[pallet::weight(T::WeightInfo::close_pool())]
@@ -503,7 +512,7 @@ pub mod pallet {
 
 			let pool = Pools::<T>::get(pool_id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
-			ensure!(pool.pool_status == PoolStatus::Open, Error::<T>::PoolNotActive);
+			ensure!(pool.pool_status == PoolStatus::Open, Error::<T>::PoolNotOpen);
 
 			ensure!(
 				pool.locked_amount + amount <= pool.max_tokens,
@@ -549,7 +558,7 @@ pub mod pallet {
 
 			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
-			ensure!(pool.pool_status == PoolStatus::Open, Error::<T>::PoolNotActive);
+			ensure!(pool.pool_status == PoolStatus::Open, Error::<T>::PoolNotOpen);
 
 			let user_info = PoolUsers::<T>::get(id, &who).ok_or(Error::<T>::NoTokensStaked)?;
 			ensure!(user_info.amount > Zero::zero(), Error::<T>::NoTokensStaked);
@@ -790,6 +799,8 @@ pub mod pallet {
 				return Weight::zero()
 			}
 
+			let mut pool_updates = Vec::new();
+
 			for (id, pool_info) in Pools::<T>::iter() {
 				match pool_info.pool_status {
 					PoolStatus::Open =>
@@ -802,19 +813,13 @@ pub mod pallet {
 
 							cost_weight =
 								cost_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
-							Pools::<T>::mutate(id, |pool| {
-								*pool = Some(PoolInfo {
-									pool_status: PoolStatus::Started,
-									last_updated: now,
-									..pool_info
-								});
-							});
-							Self::deposit_event(Event::PoolStarted { pool_id: id });
+
+							pool_updates.push((id, PoolStatus::Started, now));
 						},
 					PoolStatus::Started => {
 						if pool_info.lock_end_block <= now {
 							if remaining_weight.all_lte(
-								cost_weight.saturating_add(T::DbWeight::get().reads_writes(1, 2)),
+								cost_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1)),
 							) {
 								return cost_weight
 							}
@@ -828,29 +833,35 @@ pub mod pallet {
 							let successor_id =
 								PoolRelationships::<T>::get(id).unwrap_or_default().successor_id;
 							if successor_id.is_some() {
-								Pools::<T>::mutate(id, |pool| {
-									*pool = Some(PoolInfo {
-										pool_status: PoolStatus::Renewing,
-										last_updated: now,
-										..pool_info
-									});
-								});
-								Self::deposit_event(Event::PoolRenewing { pool_id: id });
+								pool_updates.push((id, PoolStatus::Renewing, now));
 							} else {
-								// if no successor, set pool done
-								Pools::<T>::mutate(id, |pool| {
-									*pool = Some(PoolInfo {
-										pool_status: PoolStatus::Matured,
-										last_updated: now,
-										..pool_info
-									});
-								});
-								Self::deposit_event(Event::PoolMatured { pool_id: id });
+								pool_updates.push((id, PoolStatus::Matured, now));
 							}
 						}
 					},
 					_ => continue,
 				}
+			}
+
+			for (id, status, last_updated) in pool_updates {
+				Pools::<T>::mutate(id, |pool| {
+					if let Some(pool_info) = pool {
+						*pool = Some(PoolInfo {
+							pool_status: status,
+							last_updated,
+							..pool_info.to_owned()
+						});
+						match status {
+							PoolStatus::Started =>
+								Self::deposit_event(Event::PoolStarted { pool_id: id }),
+							PoolStatus::Renewing =>
+								Self::deposit_event(Event::PoolRenewing { pool_id: id }),
+							PoolStatus::Matured =>
+								Self::deposit_event(Event::PoolMatured { pool_id: id }),
+							_ => {},
+						}
+					}
+				});
 			}
 
 			cost_weight
@@ -879,9 +890,16 @@ pub mod pallet {
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			match call {
 				Call::rollover_unsigned { id, current_block } => {
+					if !matches!(source, TransactionSource::Local) {
+						return InvalidTransaction::Custom(
+							ValidateError::WrongTransactionSource as u8,
+						)
+						.into()
+					}
+
 					let block_number = <frame_system::Pallet<T>>::block_number();
 					if &block_number < current_block {
 						return InvalidTransaction::Future.into()
@@ -896,6 +914,10 @@ pub mod pallet {
 				_ => InvalidTransaction::Call.into(),
 			}
 		}
+	}
+
+	enum ValidateError {
+		WrongTransactionSource,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -931,9 +953,13 @@ pub mod pallet {
 			native_decimals: u8,
 		) -> Balance {
 			// Calculate reward in asset token
-			let mut reward = user_joined_amount
-				.saturating_mul(interest_rate.into())
-				.saturating_div(interest_rate_base_point.into());
+			let mut reward = multiply_by_rational_with_rounding(
+				user_joined_amount,
+				interest_rate.into(),
+				interest_rate_base_point.into(),
+				sp_runtime::Rounding::Down,
+			)
+			.expect("reward calculation should not overflow");
 			// Remaining rewards
 			reward = reward.saturating_sub(reward_debt);
 
