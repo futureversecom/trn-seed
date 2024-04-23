@@ -662,28 +662,6 @@ macro_rules! impl_pallet_futurepass_config {
 			}
 		}
 
-		pub struct MockMigrationProvider;
-		impl<T: frame_system::Config> pallet_futurepass::FuturepassMigrator<T>
-			for MockMigrationProvider
-		where
-			<T as frame_system::Config>::AccountId: From<sp_core::H160>,
-		{
-			fn transfer_asset(
-				asset_id: u32,
-				current_owner: &T::AccountId,
-				new_owner: &T::AccountId,
-			) -> DispatchResult {
-				Ok(())
-			}
-			fn transfer_nfts(
-				collection_id: u32,
-				current_owner: &T::AccountId,
-				new_owner: &T::AccountId,
-			) -> DispatchResult {
-				Ok(())
-			}
-		}
-
 		pub struct MockFuturepassCallValidator;
 		impl seed_pallet_common::ExtrinsicChecker for MockFuturepassCallValidator {
 			type Call = RuntimeCall;
@@ -701,7 +679,6 @@ macro_rules! impl_pallet_futurepass_config {
 			type ProxyType = ProxyType;
 			type WeightInfo = ();
 
-			type FuturepassMigrator = MockMigrationProvider;
 			#[cfg(feature = "runtime-benchmarks")]
 			type MultiCurrency = pallet_assets_ext::Pallet<Test>;
 		}
