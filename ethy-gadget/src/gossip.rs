@@ -44,7 +44,12 @@ where
 const MAX_COMPLETE_EVENT_CACHE: usize = 30;
 
 // Timeout for rebroadcasting messages.
-const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 5);
+const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 3);
+
+// Window size in blocks within which we expect the request to reach terminal state.
+// We take the WINDOW_SIZE approximately as 6 mins. This gives at-least another rebroadcast before
+// going out of live window.
+const WINDOW_SIZE: u32 = 90;
 
 /// ETHY gossip validator
 ///
@@ -115,9 +120,11 @@ where
 	}
 }
 
-impl<B> Validator<B> for GossipValidator<B>
+impl<B, BE> Validator<B> for GossipValidator<B, BE>
 where
 	B: Block,
+	BE: Backend<B>,
+	<<B as BlockT>::Header as HeaderT>::Number: Into<u32>,
 {
 	fn validate(
 		&self,
@@ -125,8 +132,15 @@ where
 		sender: &PeerId,
 		mut data: &[u8],
 	) -> ValidationResult<B::Hash> {
-		if let Ok(Witness { authority_id, event_id, validator_set_id, digest, signature, .. }) =
-			Witness::decode(&mut data)
+		if let Ok(Witness {
+			authority_id,
+			event_id,
+			validator_set_id,
+			digest,
+			signature,
+			block_number,
+			..
+		}) = Witness::decode(&mut data)
 		{
 			trace!(target: "ethy", "💎 witness from: {:?}, validator set: {:?}, event: {:?}", authority_id, validator_set_id, event_id);
 
@@ -164,6 +178,13 @@ where
 				}
 
 				trace!(target: "ethy", "💎 valid witness: {:?}, event: {:?}", &authority_id, event_id);
+				let backend = self.backend.read();
+				if block_number < backend.blockchain().info().finalized_number.into() - WINDOW_SIZE
+				{
+					info!(target: "ethy", "💎 witness: {:?}, event: {:?} sender: {:?} out of live window. mark as discard.", &authority_id, event_id, sender);
+					return ValidationResult::Discard
+				}
+
 				return ValidationResult::ProcessAndKeep(self.topic)
 			} else {
 				// TODO: decrease peer reputation
@@ -183,7 +204,15 @@ where
 				Err(_) => return true,
 			};
 
-			let expired = complete_events.binary_search(&witness.event_id).is_ok();
+			let backend = self.backend.read();
+			if witness.block_number <
+				backend.blockchain().info().finalized_number.into() - WINDOW_SIZE
+			{
+				debug!(target: "ethy", "💎 Message for event #{} is out of live window. marked as expired: {}", witness.event_id, true);
+				return true
+			}
+
+			let expired = complete_events.binary_search(&witness.event_id).is_ok(); // spk
 			trace!(target: "ethy", "💎 Message for event #{} expired: {}", witness.event_id, expired);
 
 			expired
@@ -213,9 +242,16 @@ where
 
 			let witness = match Witness::decode(&mut data) {
 				Ok(w) => w,
-				Err(_) => return true,
+				Err(_) => return false,
 			};
 
+			let backend = self.backend.read();
+			if witness.block_number <
+				backend.blockchain().info().finalized_number.into() - WINDOW_SIZE
+			{
+				debug!(target: "ethy", "💎 Message for event #{} is out of live window. marked as allowed: {}", witness.event_id, false);
+				return false
+			}
 			// Check if message is incomplete
 			let allowed = complete_events.binary_search(&witness.event_id).is_err();
 

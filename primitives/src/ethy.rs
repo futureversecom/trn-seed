@@ -160,7 +160,7 @@ pub struct Witness {
 	/// ECDSA signature over `digest`
 	pub signature: AuthoritySignature,
 	/// proof requested block number
-	pub block_number: u32
+	pub block_number: u32,
 }
 
 /// An Ethy event proof with validator signatures.

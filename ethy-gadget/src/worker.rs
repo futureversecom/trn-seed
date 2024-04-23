@@ -46,6 +46,7 @@ use crate::{
 pub(crate) struct WorkerParams<B, BE, C, R, SO>
 where
 	B: Block,
+	BE: Backend<B>,
 {
 	pub client: Arc<C>,
 	pub backend: Arc<BE>,
@@ -53,7 +54,7 @@ where
 	pub key_store: EthyKeystore,
 	pub event_proof_sender: notification::EthyEventProofSender,
 	pub gossip_engine: GossipEngine<B>,
-	pub gossip_validator: Arc<GossipValidator<B>>,
+	pub gossip_validator: Arc<GossipValidator<B, BE>>,
 	pub metrics: Option<Metrics>,
 	pub sync_oracle: SO,
 }
@@ -73,7 +74,7 @@ where
 	key_store: EthyKeystore,
 	event_proof_sender: notification::EthyEventProofSender,
 	gossip_engine: GossipEngine<B>,
-	gossip_validator: Arc<GossipValidator<B>>,
+	gossip_validator: Arc<GossipValidator<B, BE>>,
 	metrics: Option<Metrics>,
 	/// Tracks on-going witnesses
 	witness_record: WitnessRecord,
@@ -345,12 +346,10 @@ where
 	/// 2) Store proof in DB
 	/// 3) Notify listeners of the new proof
 	fn try_make_proof(&mut self, event_id: EventProofId) {
-		{
-			let event_metadata = self.witness_record.event_metadata(event_id);
-			if event_metadata.is_none() {
-				debug!(target: "ethy", "💎 missing event metadata: {:?}, can't make proof yet", event_id);
-				return
-			}
+		let event_metadata = self.witness_record.event_metadata(event_id);
+		if event_metadata.is_none() {
+			debug!(target: "ethy", "💎 missing event metadata: {:?}, can't make proof yet", event_id);
+			return
 		}
 
 		// process any unverified witnesses, received before event metadata was known
