@@ -325,9 +325,14 @@ where
 			return
 		}
 
+		// gossip the witness. will gossip even if we don't have event metadata yet. This would
+		// increase the network activity, but gives more room for validator Witnesses to spread
+		// across the network.
+		trace!(target: "ethy", "💎 gossiping witness: {:?}", witness.event_id);
 		self.gossip_engine.gossip_message(topic::<B>(), witness.encode(), false);
-		// after processing `witness` there may now be enough info to make a proof
-		self.try_make_proof(witness.event_id);
+
+		// Try to make proof
+		self.try_make_proof(witness.event_id.clone());
 	}
 
 	/// Try to make an event proof
