@@ -73,7 +73,7 @@ where
 	/// Scheduled time for re-broadcasting event witnesses
 	next_rebroadcast: Mutex<Instant>,
 	/// client backend
-	backend: RwLock<Arc<BE>>,
+	backend: Arc<BE>,
 }
 
 impl<B, BE> GossipValidator<B, BE>
@@ -88,7 +88,7 @@ where
 			active_validators: RwLock::new(active_validators),
 			complete_events: RwLock::new(Default::default()),
 			next_rebroadcast: Mutex::new(Instant::now() + REBROADCAST_AFTER),
-			backend: RwLock::new(backend),
+			backend,
 		}
 	}
 
@@ -181,7 +181,7 @@ where
 				}
 
 				trace!(target: "ethy", "💎 valid witness: {:?}, event: {:?}", &authority_id, event_id);
-				let finalized_number = self.backend.read().blockchain().info().finalized_number;
+				let finalized_number = self.backend.blockchain().info().finalized_number;
 				if block_number < finalized_number.into().saturating_sub(WINDOW_SIZE) {
 					info!(target: "ethy", "💎 witness: {:?}, event: {:?} sender: {:?} out of live window. mark as discard.", &authority_id, event_id, sender);
 					return ValidationResult::Discard
@@ -206,10 +206,8 @@ where
 				Err(_) => return true,
 			};
 
-			let backend = self.backend.read();
-			if witness.block_number <
-				backend.blockchain().info().finalized_number.into().saturating_sub(WINDOW_SIZE)
-			{
+			let finalized_number = self.backend.blockchain().info().finalized_number;
+			if witness.block_number < finalized_number.into().saturating_sub(WINDOW_SIZE) {
 				debug!(target: "ethy", "💎 Message for event #{} is out of live window. marked as expired: {}", witness.event_id, true);
 				return true
 			}
@@ -247,10 +245,8 @@ where
 				Err(_) => return false,
 			};
 
-			let backend = self.backend.read();
-			if witness.block_number <
-				backend.blockchain().info().finalized_number.into().saturating_sub(WINDOW_SIZE)
-			{
+			let finalized_number = self.backend.blockchain().info().finalized_number;
+			if witness.block_number < finalized_number.into().saturating_sub(WINDOW_SIZE) {
 				debug!(target: "ethy", "💎 Message for event #{} is out of live window. marked as allowed: {}", witness.event_id, false);
 				return false
 			}
