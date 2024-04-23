@@ -14,13 +14,17 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use codec::Decode;
-use log::{error, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
+use sc_client_api::Backend;
 use sc_network::PeerId;
 use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
+use sp_api::{BlockT, HeaderT};
+use sp_blockchain::{Backend as SPBackend, HeaderBackend};
 use sp_runtime::traits::{Block, Hash, Header};
 use std::{
 	collections::{BTreeMap, VecDeque},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
@@ -47,9 +51,10 @@ const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 5);
 /// Validate ETHY gossip messages
 ///
 /// All messaging is handled in a single ETHY global topic.
-pub(crate) struct GossipValidator<B>
+pub(crate) struct GossipValidator<B, BE>
 where
 	B: Block,
+	BE: Backend<B>,
 {
 	topic: B::Hash,
 	known_votes: RwLock<BTreeMap<EventProofId, Vec<Public>>>,
@@ -59,19 +64,23 @@ where
 	active_validators: RwLock<Vec<Public>>,
 	/// Scheduled time for re-broadcasting event witnesses
 	next_rebroadcast: Mutex<Instant>,
+	/// client backend
+	backend: RwLock<Arc<BE>>,
 }
 
-impl<B> GossipValidator<B>
+impl<B, BE> GossipValidator<B, BE>
 where
 	B: Block,
+	BE: Backend<B>,
 {
-	pub fn new(active_validators: Vec<Public>) -> GossipValidator<B> {
+	pub fn new(active_validators: Vec<Public>, backend: Arc<BE>) -> GossipValidator<B, BE> {
 		GossipValidator {
 			topic: topic::<B>(),
 			known_votes: RwLock::new(BTreeMap::new()),
 			active_validators: RwLock::new(active_validators),
 			complete_events: RwLock::new(Default::default()),
 			next_rebroadcast: Mutex::new(Instant::now() + REBROADCAST_AFTER),
+			backend: RwLock::new(backend),
 		}
 	}
 
