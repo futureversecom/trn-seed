@@ -41,7 +41,10 @@ where
 }
 
 /// Number of recent complete events to keep in memory
-const MAX_COMPLETE_EVENT_CACHE: usize = 30;
+// Theoretically This buffer should hold completed events until they go out of live window.
+// rough theoretical value of 2520 is suitable at the expense of increased search time. Should not
+// be problematic. can change as the network grows if required.
+const MAX_COMPLETE_EVENT_CACHE: usize = 500;
 
 // Timeout for rebroadcasting messages.
 const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 3);
