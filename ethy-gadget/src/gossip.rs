@@ -52,7 +52,10 @@ const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 3);
 // Window size in blocks within which we expect the request to reach terminal state.
 // We take the WINDOW_SIZE approximately as 6 mins. This gives at-least another rebroadcast before
 // going out of live window.
+#[cfg(not(test))]
 const WINDOW_SIZE: u64 = 90;
+#[cfg(test)]
+const WINDOW_SIZE: u64 = 5;
 
 /// ETHY gossip validator
 ///
@@ -264,14 +267,15 @@ where
 mod tests {
 	use codec::Encode;
 	use sc_network::PeerId;
-	use sc_network_gossip::{ValidationResult, Validator, ValidatorContext};
+	use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
 	use sc_network_test::{Block, Hash, TestNetFactory};
 	use sp_core::keccak_256;
+	use sp_runtime::generic::BlockId;
 
 	use seed_primitives::ethy::{EthyChainId, Witness};
 
 	use super::{GossipValidator, MAX_COMPLETE_EVENT_CACHE};
-	use crate::{assert_validation_result, testing::Keyring, tests::EthyTestNet};
+	use crate::{assert_validation_result, gossip::topic, testing::Keyring, tests::EthyTestNet};
 
 	#[macro_export]
 	/// sc_network_gossip::ValidationResult is missing Eq impl
@@ -380,5 +384,165 @@ mod tests {
 		assert_eq!(gv.complete_events.read()[0], 3_u64);
 
 		assert_eq!(gv.complete_events.read().len(), MAX_COMPLETE_EVENT_CACHE);
+	}
+
+	#[test]
+	fn witness_validate_events_outside_live_window_discarded() {
+		let validators = mock_signers();
+		let alice = &validators[0];
+		let mut context = NoopContext {};
+		let sender_peer_id = PeerId::random();
+		let mut net = EthyTestNet::new(1, 0);
+		let backend = net.peer(0).client().as_backend();
+		let gv = GossipValidator::new(vec![], backend);
+
+		let event_id = 5;
+		let message = b"hello world";
+		let mut witness = Witness {
+			digest: sp_core::keccak_256(message),
+			chain_id: EthyChainId::Ethereum,
+			event_id,
+			validator_set_id: 123,
+			authority_id: alice.public(),
+			signature: alice.sign(message),
+			block_number: 0,
+		};
+
+		// set validtors
+		gv.set_active_validators(validators.into_iter().map(|x| x.public()).collect());
+
+		// finalized number is 0 atm. validate now, should pass
+		let result = gv.validate(&mut context, &sender_peer_id, witness.clone().encode().as_ref());
+		assert_validation_result!(ValidationResult::ProcessAndKeep(_), result);
+		assert!(gv.is_tracking_event(&event_id));
+
+		// set the finalized block number to 6. try to validate now. should fail since out of live
+		// window. i.e. WINDOW_SIZE = 5
+		net.peer(0).push_blocks(6, false);
+		net.block_until_sync();
+		assert_eq!(net.peer(0).client().justifications(&BlockId::Number(10)).unwrap(), None);
+		let just = (*b"FRNK", Vec::new());
+		net.peer(0)
+			.client()
+			.finalize_block(BlockId::Number(6), Some(just.clone()), true)
+			.unwrap();
+		assert_eq!(
+			net.peer(0).client().info().finalized_number,
+			6,
+			"Peer #{} finalized block number is not 6",
+			0
+		);
+
+		// modify the event_id to avoid duplicate check
+		witness.event_id += 1;
+		// now validate, should fail since out of live window.
+		let result = gv.validate(&mut context, &sender_peer_id, witness.clone().encode().as_ref());
+		assert_validation_result!(ValidationResult::Discard, result);
+	}
+
+	#[test]
+	fn witness_expired_events_outside_live_window_discarded() {
+		let validators = mock_signers();
+		let alice = &validators[0];
+		let mut net = EthyTestNet::new(1, 0);
+		let backend = net.peer(0).client().as_backend();
+		let gv = GossipValidator::new(vec![], backend);
+
+		let event_id = 5;
+		let message = b"hello world";
+		let mut witness = Witness {
+			digest: sp_core::keccak_256(message),
+			chain_id: EthyChainId::Ethereum,
+			event_id,
+			validator_set_id: 123,
+			authority_id: alice.public(),
+			signature: alice.sign(message),
+			block_number: 0,
+		};
+
+		// finalized number is 0 atm. check now, should give false
+		let result = gv.message_expired()(topic::<Block>(), witness.clone().encode().as_ref());
+		assert_eq!(result, false);
+
+		// set the finalized block number to 6. try to validate now. should fail since out of live
+		// window. i.e. WINDOW_SIZE = 5
+		net.peer(0).push_blocks(6, false);
+		net.block_until_sync();
+		assert_eq!(net.peer(0).client().justifications(&BlockId::Number(10)).unwrap(), None);
+		let just = (*b"FRNK", Vec::new());
+		net.peer(0)
+			.client()
+			.finalize_block(BlockId::Number(6), Some(just.clone()), true)
+			.unwrap();
+		assert_eq!(
+			net.peer(0).client().info().finalized_number,
+			6,
+			"Peer #{} finalized block number is not 6",
+			0
+		);
+
+		// modify the event_id to avoid duplicate check
+		witness.event_id += 1;
+		// check now, should give true since out of live window.
+		let result = gv.message_expired()(topic::<Block>(), witness.clone().encode().as_ref());
+		assert_eq!(result, true);
+	}
+
+	#[test]
+	fn witness_allowed_events_outside_live_window_discarded() {
+		let validators = mock_signers();
+		let alice = &validators[0];
+		let mut net = EthyTestNet::new(1, 0);
+		let backend = net.peer(0).client().as_backend();
+		let gv = GossipValidator::new(vec![], backend);
+
+		let event_id = 5;
+		let message = b"hello world";
+		let mut witness = Witness {
+			digest: sp_core::keccak_256(message),
+			chain_id: EthyChainId::Ethereum,
+			event_id,
+			validator_set_id: 123,
+			authority_id: alice.public(),
+			signature: alice.sign(message),
+			block_number: 0,
+		};
+
+		// finalized number is 0 atm. check now, should give true
+		let result = gv.message_allowed()(
+			&PeerId::random(),
+			MessageIntent::Broadcast,
+			&topic::<Block>(),
+			witness.clone().encode().as_ref(),
+		);
+		assert_eq!(result, true);
+
+		// set the finalized block number to 6. try to validate now. should fail since out of live
+		// window. i.e. WINDOW_SIZE = 5
+		net.peer(0).push_blocks(6, false);
+		net.block_until_sync();
+		assert_eq!(net.peer(0).client().justifications(&BlockId::Number(10)).unwrap(), None);
+		let just = (*b"FRNK", Vec::new());
+		net.peer(0)
+			.client()
+			.finalize_block(BlockId::Number(6), Some(just.clone()), true)
+			.unwrap();
+		assert_eq!(
+			net.peer(0).client().info().finalized_number,
+			6,
+			"Peer #{} finalized block number is not 6",
+			0
+		);
+
+		// modify the event_id to avoid duplicate check
+		witness.event_id += 1;
+		// check now, should give false since out of live window.
+		let result = gv.message_allowed()(
+			&PeerId::random(),
+			MessageIntent::Broadcast,
+			&topic::<Block>(),
+			witness.clone().encode().as_ref(),
+		);
+		assert_eq!(result, false);
 	}
 }
