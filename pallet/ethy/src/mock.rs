@@ -15,7 +15,9 @@
 
 use crate::{
 	self as pallet_ethy,
-	sp_api_hidden_includes_decl_storage::hidden_include::{IterableStorageMap, StorageMap},
+	mock::sp_api_hidden_includes_construct_runtime::hidden_include::{
+		IterableStorageMap, StorageMap,
+	},
 	types::{
 		BridgeEthereumRpcApi, BridgeRpcError, CheckedEthCallRequest, CheckedEthCallResult,
 		EthAddress, EthBlock, EthCallId, EthHash, LatestOrNumber, Log, TransactionReceipt,
@@ -35,7 +37,7 @@ use seed_primitives::{
 	AssetId, Balance, Signature,
 };
 use sp_application_crypto::RuntimeAppPublic;
-use sp_core::ByteArray;
+use sp_core::{ByteArray, Get};
 use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
 use sp_runtime::{
 	testing::{Header, TestXt},
@@ -57,7 +59,7 @@ construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system,
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+		EthBridge: pallet_ethy,
 		Balances: pallet_balances,
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
@@ -80,6 +82,11 @@ parameter_types! {
 	pub const MaxXrplKeys: u8 = 8;
 	pub const MaxNewSigners: u8 = 20;
 	pub const AuthorityChangeDelay: BlockNumber = 75;
+	pub const MaxAuthorities: u32 = 1000;
+	pub const MaxEthData: u32 = 1024;
+	pub const MaxChallenges: u32 = 100;
+	pub const MaxMessagesPerBlock: u32 = 1000;
+	pub const MaxCallRequests: u32 = 1000;
 }
 impl Config for Test {
 	type AuthorityChangeDelay = AuthorityChangeDelay;
@@ -104,6 +111,11 @@ impl Config for Test {
 	type PalletsOrigin = OriginCaller;
 	type MaxNewSigners = MaxNewSigners;
 	type XrplBridgeAdapter = MockXrplBridgeAdapter;
+	type MaxAuthorities = MaxAuthorities;
+	type MaxEthData = MaxEthData;
+	type MaxChallenges = MaxChallenges;
+	type MaxMessagesPerBlock = MaxMessagesPerBlock;
+	type MaxCallRequests = MaxCallRequests;
 }
 
 pub struct MockXrplBridgeAdapter;
@@ -257,12 +269,11 @@ pub(crate) mod test_storage {
 
 	use seed_pallet_common::EthCallFailure;
 
+	use super::{AccountId, MockBlockResponse, MockReceiptResponse};
 	use crate::{
 		types::{CheckedEthCallResult, EthAddress, EthCallId, EthHash},
 		Config,
 	};
-
-	use super::{AccountId, MockBlockResponse, MockReceiptResponse};
 
 	pub struct Module<T>(sp_std::marker::PhantomData<T>);
 	decl_storage! {
@@ -293,19 +304,20 @@ pub fn now() -> u64 {
 }
 
 /// Builder for `CheckedEthCallRequest`
-pub struct CheckedEthCallRequestBuilder(CheckedEthCallRequest);
+pub struct CheckedEthCallRequestBuilder<MaxEthData: Get<u32>>(CheckedEthCallRequest<MaxEthData>);
 
-impl CheckedEthCallRequestBuilder {
+impl<MaxEthData: Get<u32>> CheckedEthCallRequestBuilder<MaxEthData> {
 	pub fn new() -> Self {
 		Self(CheckedEthCallRequest {
 			max_block_look_behind: 3_u64,
 			target: EthAddress::from_low_u64_be(1),
 			timestamp: now(),
 			check_timestamp: now() + 3 * 5, // 3 blocks
-			..Default::default()
+			try_block_number: 0,
+			input: BoundedVec::truncate_from(vec![]),
 		})
 	}
-	pub fn build(self) -> CheckedEthCallRequest {
+	pub fn build(self) -> CheckedEthCallRequest<MaxEthData> {
 		self.0
 	}
 	pub fn target(mut self, target: EthAddress) -> Self {

@@ -978,6 +978,11 @@ parameter_types! {
 	pub const MaxNewSigners: u8 = 20;
 	/// 75 blocks is 5 minutes before the end of the era
 	pub const AuthorityChangeDelay: BlockNumber = 75_u32;
+
+	pub const MaxEthData: u32 = 3200;
+	pub const MaxChallenges: u32 = 100;
+	pub const MaxMessagesPerBlock: u32 = 1000;
+	pub const MaxCallRequests: u32 = 1000;
 }
 
 impl pallet_ethy::Config for Runtime {
@@ -1024,6 +1029,11 @@ impl pallet_ethy::Config for Runtime {
 	type MaxXrplKeys = MaxXrplKeys;
 	/// Xrpl-bridge adapter
 	type XrplBridgeAdapter = XRPLBridge;
+	type MaxAuthorities = MaxAuthorities;
+	type MaxEthData = MaxEthData;
+	type MaxChallenges = MaxChallenges;
+	type MaxMessagesPerBlock = MaxMessagesPerBlock;
+	type MaxCallRequests = MaxCallRequests;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -1136,6 +1146,10 @@ impl fp_rpc::ConvertTransaction<sp_runtime::OpaqueExtrinsic> for TransactionConv
 parameter_types! {
 	/// The ERC20 peg address
 	pub const PegPalletId: PalletId = PalletId(*b"erc20peg");
+	/// Limit that determines max delays stored simultaneously in a single block
+	pub const MaxDelaysPerBlock: u32 = 10_000;
+	/// Needs to be large enough to handle the maximum number of blocks that can be ready at once
+	pub const MaxReadyBlocks: u32 = 100_000;
 }
 
 impl pallet_erc20_peg::Config for Runtime {
@@ -1149,6 +1163,9 @@ impl pallet_erc20_peg::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_erc20_peg::WeightInfo<Runtime>;
 	type NativeAssetId = RootAssetId;
+	type StringLimit = AssetsStringLimit;
+	type MaxDelaysPerBlock = MaxDelaysPerBlock;
+	type MaxReadyBlocks = MaxReadyBlocks;
 }
 
 parameter_types! {
@@ -1242,7 +1259,6 @@ impl pallet_futurepass::Config for Runtime {
 	type BlacklistedCallValidator = impls::FuturepassCallValidator;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
-	type FuturepassMigrator = impls::FuturepassMigrationProvider;
 	type WeightInfo = weights::pallet_futurepass::WeightInfo<Self>;
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1378,7 +1394,7 @@ construct_runtime! {
 		Ethereum: pallet_ethereum = 26,
 		EVM: pallet_evm = 27,
 		EVMChainId: pallet_evm_chain_id = 41,
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 25,
+		EthBridge: pallet_ethy = 25,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
 		NftPeg: pallet_nft_peg = 30,
 
@@ -1839,11 +1855,11 @@ impl_runtime_apis! {
 			EthBridge::validator_set()
 		}
 		fn xrpl_signers() -> ValidatorSet<EthBridgeId> {
-			let door_signers = EthBridge::notary_xrpl_keys();
+			let door_signers = pallet_ethy::NotaryXrplKeys::<Runtime>::get().into_inner();
 			ValidatorSet {
 				proof_threshold: door_signers.len().saturating_sub(1) as u32, // tolerate 1 missing witness
 				validators: door_signers,
-				id: EthBridge::notary_set_id(), // the set Id is the same as the overall Ethy set Id
+				id: pallet_ethy::NotarySetId::<Runtime>::get(), // the set Id is the same as the overall Ethy set Id
 			}
 		}
 	}
