@@ -13,8 +13,8 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod crowdsale;
 mod futurepass;
+mod nft;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
@@ -33,21 +33,21 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-		let v1 = crowdsale::Upgrade::pre_upgrade()?;
-		let v2 = futurepass::Upgrade::pre_upgrade()?;
+		let v1 = futurepass::Upgrade::pre_upgrade()?;
+		let v2 = nft::Upgrade::pre_upgrade()?;
 		Ok(v1.into_iter().chain(v2.into_iter()).collect())
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let w1 = crowdsale::Upgrade::on_runtime_upgrade();
-		let w2 = futurepass::Upgrade::on_runtime_upgrade();
+		let w1 = futurepass::Upgrade::on_runtime_upgrade();
+		let w2 = nft::Upgrade::on_runtime_upgrade();
 		w1.saturating_add(w2)
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), &'static str> {
-		let _ = crowdsale::Upgrade::post_upgrade(state.clone())?;
-		let _ = futurepass::Upgrade::post_upgrade(state)?;
+		let _ = futurepass::Upgrade::post_upgrade(state.clone())?;
+		let _ = nft::Upgrade::post_upgrade(state)?;
 		Ok(())
 	}
 }
