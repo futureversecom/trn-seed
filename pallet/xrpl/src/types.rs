@@ -128,12 +128,13 @@ impl XRPLTransaction {
 				let public = ed25519::Public::from_raw(pub_key);
 				Ok(XrplPublicKey::ED25519(public))
 			},
-			_ => {
+			"02" | "03" => {
 				let pub_key: [u8; 33] =
 					pub_key.try_into().map_err(|_| "Invalid length of decoded bytes")?;
 				let public = ecdsa::Public::from_raw(pub_key);
 				Ok(XrplPublicKey::ECDSA(public))
 			},
+			_ => Err("Unsupported public key type"),
 		}
 	}
 
@@ -378,6 +379,15 @@ mod tests {
 	}
 
 	#[test]
+	fn xrpl_invalid_public_key() {
+		let tx = XRPLTransaction {
+			signing_pub_key: "some unsupported public key".into(),
+			..Default::default()
+		};
+		assert_eq!("Error decoding hex string", tx.get_public_key().unwrap_err());
+	}
+
+	#[test]
 	fn xrpl_public_key_ed25519() {
 		let tx = XRPLTransaction {
 			signing_pub_key: "EDFB2A3A850B43E24D2700532EF1F9CCB2475DFF4F62B634B0C58845F23C263965"
@@ -417,6 +427,17 @@ mod tests {
 			"02A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A".to_string(),
 			hex::encode(pub_key.as_ref()).to_uppercase(),
 		);
+	}
+
+	#[test]
+	fn xrpl_unsupported_public_key() {
+		// 0x04 prefix is not supported
+		let tx = XRPLTransaction {
+			signing_pub_key: "04A6934E87988466B98B51F2EB09E5BC4C09E46EB5F1FE08723DF8AD23D5BB9C6A"
+				.into(),
+			..Default::default()
+		};
+		assert_eq!("Unsupported public key type", tx.get_public_key().unwrap_err());
 	}
 
 	#[test]
