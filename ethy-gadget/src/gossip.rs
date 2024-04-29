@@ -14,13 +14,17 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use codec::Decode;
-use log::{error, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
+use sc_client_api::Backend;
 use sc_network::PeerId;
 use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
+use sp_api::{BlockT, HeaderT};
+use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block, Hash, Header};
 use std::{
 	collections::{BTreeMap, VecDeque},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
@@ -37,19 +41,31 @@ where
 }
 
 /// Number of recent complete events to keep in memory
-const MAX_COMPLETE_EVENT_CACHE: usize = 30;
+// Theoretically This buffer should hold completed events until they go out of live window.
+// rough theoretical value of 2520 is suitable at the expense of increased search time. Should not
+// be problematic. can change as the network grows if required.
+const MAX_COMPLETE_EVENT_CACHE: usize = 500;
 
 // Timeout for rebroadcasting messages.
-const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 5);
+const REBROADCAST_AFTER: Duration = Duration::from_secs(60 * 3);
+
+// Window size in blocks within which we expect the request to reach terminal state.
+// We take the WINDOW_SIZE approximately as 6 mins. This gives at-least another rebroadcast before
+// going out of live window.
+#[cfg(not(test))]
+const WINDOW_SIZE: u64 = 90;
+#[cfg(test)]
+const WINDOW_SIZE: u64 = 5;
 
 /// ETHY gossip validator
 ///
 /// Validate ETHY gossip messages
 ///
 /// All messaging is handled in a single ETHY global topic.
-pub(crate) struct GossipValidator<B>
+pub(crate) struct GossipValidator<B, BE>
 where
 	B: Block,
+	BE: Backend<B>,
 {
 	topic: B::Hash,
 	known_votes: RwLock<BTreeMap<EventProofId, Vec<Public>>>,
@@ -59,19 +75,23 @@ where
 	active_validators: RwLock<Vec<Public>>,
 	/// Scheduled time for re-broadcasting event witnesses
 	next_rebroadcast: Mutex<Instant>,
+	/// client backend
+	backend: Arc<BE>,
 }
 
-impl<B> GossipValidator<B>
+impl<B, BE> GossipValidator<B, BE>
 where
 	B: Block,
+	BE: Backend<B>,
 {
-	pub fn new(active_validators: Vec<Public>) -> GossipValidator<B> {
+	pub fn new(active_validators: Vec<Public>, backend: Arc<BE>) -> GossipValidator<B, BE> {
 		GossipValidator {
 			topic: topic::<B>(),
 			known_votes: RwLock::new(BTreeMap::new()),
 			active_validators: RwLock::new(active_validators),
 			complete_events: RwLock::new(Default::default()),
 			next_rebroadcast: Mutex::new(Instant::now() + REBROADCAST_AFTER),
+			backend,
 		}
 	}
 
@@ -106,9 +126,11 @@ where
 	}
 }
 
-impl<B> Validator<B> for GossipValidator<B>
+impl<B, BE> Validator<B> for GossipValidator<B, BE>
 where
 	B: Block,
+	BE: Backend<B>,
+	<<B as BlockT>::Header as HeaderT>::Number: Into<u64>,
 {
 	fn validate(
 		&self,
@@ -116,8 +138,15 @@ where
 		sender: &PeerId,
 		mut data: &[u8],
 	) -> ValidationResult<B::Hash> {
-		if let Ok(Witness { authority_id, event_id, validator_set_id, digest, signature, .. }) =
-			Witness::decode(&mut data)
+		if let Ok(Witness {
+			authority_id,
+			event_id,
+			validator_set_id,
+			digest,
+			signature,
+			block_number,
+			..
+		}) = Witness::decode(&mut data)
 		{
 			trace!(target: "ethy", "💎 witness from: {:?}, validator set: {:?}, event: {:?}", authority_id, validator_set_id, event_id);
 
@@ -155,6 +184,12 @@ where
 				}
 
 				trace!(target: "ethy", "💎 valid witness: {:?}, event: {:?}", &authority_id, event_id);
+				let finalized_number = self.backend.blockchain().info().finalized_number;
+				if block_number < finalized_number.into().saturating_sub(WINDOW_SIZE) {
+					info!(target: "ethy", "💎 witness: {:?}, event: {:?} sender: {:?} out of live window. mark as discard.", &authority_id, event_id, sender);
+					return ValidationResult::Discard
+				}
+
 				return ValidationResult::ProcessAndKeep(self.topic)
 			} else {
 				// TODO: decrease peer reputation
@@ -174,7 +209,13 @@ where
 				Err(_) => return true,
 			};
 
-			let expired = complete_events.binary_search(&witness.event_id).is_ok();
+			let finalized_number = self.backend.blockchain().info().finalized_number;
+			if witness.block_number < finalized_number.into().saturating_sub(WINDOW_SIZE) {
+				debug!(target: "ethy", "💎 Message for event #{} is out of live window. marked as expired: {}", witness.event_id, true);
+				return true
+			}
+
+			let expired = complete_events.binary_search(&witness.event_id).is_ok(); // spk
 			trace!(target: "ethy", "💎 Message for event #{} expired: {}", witness.event_id, expired);
 
 			expired
@@ -204,9 +245,14 @@ where
 
 			let witness = match Witness::decode(&mut data) {
 				Ok(w) => w,
-				Err(_) => return true,
+				Err(_) => return false,
 			};
 
+			let finalized_number = self.backend.blockchain().info().finalized_number;
+			if witness.block_number < finalized_number.into().saturating_sub(WINDOW_SIZE) {
+				debug!(target: "ethy", "💎 Message for event #{} is out of live window. marked as allowed: {}", witness.event_id, false);
+				return false
+			}
 			// Check if message is incomplete
 			let allowed = complete_events.binary_search(&witness.event_id).is_err();
 
@@ -221,14 +267,15 @@ where
 mod tests {
 	use codec::Encode;
 	use sc_network::PeerId;
-	use sc_network_gossip::{ValidationResult, Validator, ValidatorContext};
-	use sc_network_test::{Block, Hash};
+	use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
+	use sc_network_test::{Block, Hash, TestNetFactory};
 	use sp_core::keccak_256;
+	use sp_runtime::generic::BlockId;
 
 	use seed_primitives::ethy::{EthyChainId, Witness};
 
 	use super::{GossipValidator, MAX_COMPLETE_EVENT_CACHE};
-	use crate::{assert_validation_result, testing::Keyring};
+	use crate::{assert_validation_result, gossip::topic, testing::Keyring, tests::EthyTestNet};
 
 	#[macro_export]
 	/// sc_network_gossip::ValidationResult is missing Eq impl
@@ -260,7 +307,9 @@ mod tests {
 		let alice = &validators[0];
 		let mut context = NoopContext {};
 		let sender_peer_id = PeerId::random();
-		let gv = GossipValidator::<Block>::new(vec![]);
+		let mut net = EthyTestNet::new(1, 0);
+		let backend = net.peer(0).client().as_backend();
+		let gv = GossipValidator::new(vec![], backend);
 
 		let event_id = 5;
 		let message = b"hello world";
@@ -273,6 +322,7 @@ mod tests {
 			// 	fn sign(&self, message: &[u8]) -> Signature {
 			// self.sign_prehashed(&blake2_256(message))
 			signature: alice.sign(message),
+			block_number: 0,
 		}
 		.encode();
 
@@ -296,8 +346,10 @@ mod tests {
 		let validators = mock_signers();
 		let alice = &validators[0];
 		let bob = &validators[1];
+		let mut net = EthyTestNet::new(1, 0);
+		let backend = net.peer(0).client().as_backend();
 		let gv =
-			GossipValidator::<Block>::new(validators.iter().map(|x| x.public().clone()).collect());
+			GossipValidator::new(validators.iter().map(|x| x.public().clone()).collect(), backend);
 
 		let event_id = 5;
 		let message = b"hello world";
@@ -308,6 +360,7 @@ mod tests {
 			validator_set_id: 123,
 			authority_id: alice.public(),
 			signature: bob.sign(message), // signed by bob
+			block_number: 0,
 		}
 		.encode();
 
@@ -319,7 +372,9 @@ mod tests {
 
 	#[test]
 	fn keeps_most_recent_events() {
-		let gv = GossipValidator::<Block>::new(vec![]);
+		let mut net = EthyTestNet::new(1, 0);
+		let backend = net.peer(0).client().as_backend();
+		let gv = GossipValidator::new(vec![], backend);
 		for event_id in 1..=MAX_COMPLETE_EVENT_CACHE {
 			gv.mark_complete(event_id as u64);
 		}
@@ -329,5 +384,165 @@ mod tests {
 		assert_eq!(gv.complete_events.read()[0], 3_u64);
 
 		assert_eq!(gv.complete_events.read().len(), MAX_COMPLETE_EVENT_CACHE);
+	}
+
+	#[test]
+	fn witness_validate_events_outside_live_window_discarded() {
+		let validators = mock_signers();
+		let alice = &validators[0];
+		let mut context = NoopContext {};
+		let sender_peer_id = PeerId::random();
+		let mut net = EthyTestNet::new(1, 0);
+		let backend = net.peer(0).client().as_backend();
+		let gv = GossipValidator::new(vec![], backend);
+
+		let event_id = 5;
+		let message = b"hello world";
+		let mut witness = Witness {
+			digest: sp_core::keccak_256(message),
+			chain_id: EthyChainId::Ethereum,
+			event_id,
+			validator_set_id: 123,
+			authority_id: alice.public(),
+			signature: alice.sign(message),
+			block_number: 0,
+		};
+
+		// set validtors
+		gv.set_active_validators(validators.into_iter().map(|x| x.public()).collect());
+
+		// finalized number is 0 atm. validate now, should pass
+		let result = gv.validate(&mut context, &sender_peer_id, witness.clone().encode().as_ref());
+		assert_validation_result!(ValidationResult::ProcessAndKeep(_), result);
+		assert!(gv.is_tracking_event(&event_id));
+
+		// set the finalized block number to 6. try to validate now. should fail since out of live
+		// window. i.e. WINDOW_SIZE = 5
+		net.peer(0).push_blocks(6, false);
+		net.block_until_sync();
+		assert_eq!(net.peer(0).client().justifications(&BlockId::Number(10)).unwrap(), None);
+		let just = (*b"FRNK", Vec::new());
+		net.peer(0)
+			.client()
+			.finalize_block(BlockId::Number(6), Some(just.clone()), true)
+			.unwrap();
+		assert_eq!(
+			net.peer(0).client().info().finalized_number,
+			6,
+			"Peer #{} finalized block number is not 6",
+			0
+		);
+
+		// modify the event_id to avoid duplicate check
+		witness.event_id += 1;
+		// now validate, should fail since out of live window.
+		let result = gv.validate(&mut context, &sender_peer_id, witness.clone().encode().as_ref());
+		assert_validation_result!(ValidationResult::Discard, result);
+	}
+
+	#[test]
+	fn witness_expired_events_outside_live_window_discarded() {
+		let validators = mock_signers();
+		let alice = &validators[0];
+		let mut net = EthyTestNet::new(1, 0);
+		let backend = net.peer(0).client().as_backend();
+		let gv = GossipValidator::new(vec![], backend);
+
+		let event_id = 5;
+		let message = b"hello world";
+		let mut witness = Witness {
+			digest: sp_core::keccak_256(message),
+			chain_id: EthyChainId::Ethereum,
+			event_id,
+			validator_set_id: 123,
+			authority_id: alice.public(),
+			signature: alice.sign(message),
+			block_number: 0,
+		};
+
+		// finalized number is 0 atm. check now, should give false
+		let result = gv.message_expired()(topic::<Block>(), witness.clone().encode().as_ref());
+		assert_eq!(result, false);
+
+		// set the finalized block number to 6. try to validate now. should fail since out of live
+		// window. i.e. WINDOW_SIZE = 5
+		net.peer(0).push_blocks(6, false);
+		net.block_until_sync();
+		assert_eq!(net.peer(0).client().justifications(&BlockId::Number(10)).unwrap(), None);
+		let just = (*b"FRNK", Vec::new());
+		net.peer(0)
+			.client()
+			.finalize_block(BlockId::Number(6), Some(just.clone()), true)
+			.unwrap();
+		assert_eq!(
+			net.peer(0).client().info().finalized_number,
+			6,
+			"Peer #{} finalized block number is not 6",
+			0
+		);
+
+		// modify the event_id to avoid duplicate check
+		witness.event_id += 1;
+		// check now, should give true since out of live window.
+		let result = gv.message_expired()(topic::<Block>(), witness.clone().encode().as_ref());
+		assert_eq!(result, true);
+	}
+
+	#[test]
+	fn witness_allowed_events_outside_live_window_discarded() {
+		let validators = mock_signers();
+		let alice = &validators[0];
+		let mut net = EthyTestNet::new(1, 0);
+		let backend = net.peer(0).client().as_backend();
+		let gv = GossipValidator::new(vec![], backend);
+
+		let event_id = 5;
+		let message = b"hello world";
+		let mut witness = Witness {
+			digest: sp_core::keccak_256(message),
+			chain_id: EthyChainId::Ethereum,
+			event_id,
+			validator_set_id: 123,
+			authority_id: alice.public(),
+			signature: alice.sign(message),
+			block_number: 0,
+		};
+
+		// finalized number is 0 atm. check now, should give true
+		let result = gv.message_allowed()(
+			&PeerId::random(),
+			MessageIntent::Broadcast,
+			&topic::<Block>(),
+			witness.clone().encode().as_ref(),
+		);
+		assert_eq!(result, true);
+
+		// set the finalized block number to 6. try to validate now. should fail since out of live
+		// window. i.e. WINDOW_SIZE = 5
+		net.peer(0).push_blocks(6, false);
+		net.block_until_sync();
+		assert_eq!(net.peer(0).client().justifications(&BlockId::Number(10)).unwrap(), None);
+		let just = (*b"FRNK", Vec::new());
+		net.peer(0)
+			.client()
+			.finalize_block(BlockId::Number(6), Some(just.clone()), true)
+			.unwrap();
+		assert_eq!(
+			net.peer(0).client().info().finalized_number,
+			6,
+			"Peer #{} finalized block number is not 6",
+			0
+		);
+
+		// modify the event_id to avoid duplicate check
+		witness.event_id += 1;
+		// check now, should give false since out of live window.
+		let result = gv.message_allowed()(
+			&PeerId::random(),
+			MessageIntent::Broadcast,
+			&topic::<Block>(),
+			witness.clone().encode().as_ref(),
+		);
+		assert_eq!(result, false);
 	}
 }
