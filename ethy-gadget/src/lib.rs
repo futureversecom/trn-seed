@@ -31,7 +31,7 @@ use prometheus::Registry;
 
 use sc_client_api::{Backend, BlockchainEvents, Finalizer};
 use sc_network::ProtocolName;
-use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing};
+use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
 use seed_primitives::ethy::EthyApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -123,7 +123,7 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: EthyApi<B>,
 	N: GossipNetwork<B> + Clone + Send + 'static,
-	S: Syncing<B> + Send + Clone + 'static,
+	S: GossipSyncing<B> + SyncOracle + Send + Clone + 'static,
 {
 	/// ETHY client
 	pub client: Arc<C>,
@@ -157,7 +157,7 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: EthyApi<B>,
 	N: GossipNetwork<B> + Clone + Sync + Send + 'static,
-	S: Syncing<B> + Send + Clone + 'static,
+	S: GossipSyncing<B> + SyncOracle + Send + Clone + 'static,
 {
 	let EthyParams {
 		client,
