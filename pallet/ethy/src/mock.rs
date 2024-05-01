@@ -116,6 +116,7 @@ impl Config for Test {
 	type MaxChallenges = MaxChallenges;
 	type MaxMessagesPerBlock = MaxMessagesPerBlock;
 	type MaxCallRequests = MaxCallRequests;
+	type WeightInfo = ();
 }
 
 pub struct MockXrplBridgeAdapter;

@@ -1034,6 +1034,7 @@ impl pallet_ethy::Config for Runtime {
 	type MaxChallenges = MaxChallenges;
 	type MaxMessagesPerBlock = MaxMessagesPerBlock;
 	type MaxCallRequests = MaxCallRequests;
+	type WeightInfo = weights::pallet_ethy::WeightInfo<Runtime>;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {

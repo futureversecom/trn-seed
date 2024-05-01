@@ -483,15 +483,14 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		// Claim is invalid (nays > (100% - NotarizationThreshold))
 		if Percent::from_rational(nay_count, notary_count) >
 			(Percent::from_parts(100_u8 - T::NotarizationThreshold::get().deconstruct()))
 		{
+			// Claim is invalid (nays > (100% - NotarizationThreshold))
 			Self::handle_invalid_claim(event_claim_id)?;
-		}
-
-		// Claim is valid
-		if Percent::from_rational(yay_count, notary_count) >= T::NotarizationThreshold::get() {
+		} else if Percent::from_rational(yay_count, notary_count) >= T::NotarizationThreshold::get()
+		{
+			// Claim is valid
 			Self::handle_valid_claim(event_claim_id)?;
 		}
 

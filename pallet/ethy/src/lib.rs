@@ -41,7 +41,7 @@ use ethabi::{ParamType, Token};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungibles::Transfer,
+		fungibles::{Mutate, Transfer},
 		schedule::{Anon, DispatchTime},
 		UnixTime, ValidatorSet as ValidatorSetT,
 	},
@@ -74,9 +74,12 @@ mod impls;
 mod mock;
 #[cfg(test)]
 mod tests;
-mod types;
 
+mod types;
 use types::*;
+
+pub mod weights;
+pub use weights::WeightInfo;
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
@@ -177,7 +180,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxNewSigners: Get<u8>;
 		/// Handles a multi-currency fungible asset system
-		type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
+		type MultiCurrency: Transfer<Self::AccountId>
+			+ Hold<AccountId = Self::AccountId>
+			+ Mutate<Self::AccountId, AssetId = AssetId, Balance = Balance>;
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
 		type NativeAssetId: Get<AssetId>;
@@ -213,6 +218,8 @@ pub mod pallet {
 		/// Maximum number of Eth Call Requests
 		#[pallet::constant]
 		type MaxCallRequests: Get<u32>;
+		/// Provides the public call to weight mapping
+		type WeightInfo: WeightInfo;
 	}
 
 	/// Flag to indicate whether authorities have been changed during the current era
@@ -650,7 +657,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Set new XRPL door signers
-		#[pallet::weight(DbWeight::get().writes(new_signers.len() as u64).saturating_add(DbWeight::get().reads_writes(4, 3)))]
+		#[pallet::weight(T::WeightInfo::set_xrpl_door_signers(new_signers.len() as u32))]
 		pub fn set_xrpl_door_signers(
 			origin: OriginFor<T>,
 			new_signers: Vec<(T::EthyId, bool)>,
@@ -671,7 +678,7 @@ pub mod pallet {
 		}
 
 		/// Set the relayer address
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_relayer())]
 		pub fn set_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
 			// Ensure relayer has bonded more than relayer bond amount
@@ -685,7 +692,7 @@ pub mod pallet {
 		}
 
 		/// Submit bond for relayer account
-		#[pallet::weight(DbWeight::get().reads_writes(5, 6))]
+		#[pallet::weight(T::WeightInfo::deposit_relayer_bond())]
 		pub fn deposit_relayer_bond(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -709,7 +716,7 @@ pub mod pallet {
 		}
 
 		/// Withdraw relayer bond amount
-		#[pallet::weight(DbWeight::get().reads_writes(3, 3))]
+		#[pallet::weight(T::WeightInfo::withdraw_relayer_bond())]
 		pub fn withdraw_relayer_bond(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -738,7 +745,7 @@ pub mod pallet {
 
 		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to
 		/// be notarized by Seed
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_event_block_confirmations())]
 		pub fn set_event_block_confirmations(
 			origin: OriginFor<T>,
 			confirmations: u64,
@@ -749,7 +756,7 @@ pub mod pallet {
 		}
 
 		/// Set max number of delayed events that can be processed per block
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_delayed_event_proofs_per_block())]
 		pub fn set_delayed_event_proofs_per_block(
 			origin: OriginFor<T>,
 			count: u8,
@@ -761,7 +768,7 @@ pub mod pallet {
 
 		/// Set challenge period, this is the window in which an event can be challenged before
 		/// processing
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_challenge_period())]
 		pub fn set_challenge_period(
 			origin: OriginFor<T>,
 			blocks: T::BlockNumber,
@@ -772,7 +779,7 @@ pub mod pallet {
 		}
 
 		/// Set the bridge contract address on Ethereum (requires governance)
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_contract_address())]
 		pub fn set_contract_address(
 			origin: OriginFor<T>,
 			contract_address: EthAddress,
@@ -784,7 +791,7 @@ pub mod pallet {
 		}
 
 		/// Pause or unpause the bridge (requires governance)
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_bridge_paused())]
 		pub fn set_bridge_paused(origin: OriginFor<T>, paused: bool) -> DispatchResult {
 			ensure_root(origin)?;
 			match paused {
@@ -796,7 +803,7 @@ pub mod pallet {
 
 		/// Finalise authority changes, unpauses bridge and sets new notary keys
 		/// Called internally after force new era
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::finalise_authorities_change())]
 		pub fn finalise_authorities_change(
 			origin: OriginFor<T>,
 			next_notary_keys: WeakBoundedVec<T::EthyId, T::MaxAuthorities>,
@@ -809,7 +816,7 @@ pub mod pallet {
 		/// Submit ABI encoded event data from the Ethereum bridge contract
 		/// - tx_hash The Ethereum transaction hash which triggered the event
 		/// - event ABI encoded bridge event
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::submit_event())]
 		pub fn submit_event(origin: OriginFor<T>, tx_hash: H256, event: Vec<u8>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -884,7 +891,7 @@ pub mod pallet {
 		/// Submit a challenge for an event
 		/// Challenged events won't be processed until verified by validators
 		/// An event can only be challenged once
-		#[pallet::weight(DbWeight::get().writes(1) + DbWeight::get().reads(2))]
+		#[pallet::weight(T::WeightInfo::submit_challenge())]
 		#[transactional]
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
@@ -923,7 +930,7 @@ pub mod pallet {
 
 		/// Internal only
 		/// Validators will submit inherents with their notarization vote for a given claim
-		#[pallet::weight(1_000_000)]
+		#[pallet::weight(T::WeightInfo::submit_notarization())]
 		#[transactional]
 		pub fn submit_notarization(
 			origin: OriginFor<T>,
