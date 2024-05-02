@@ -45,6 +45,7 @@ use std::{
 };
 
 use fc_db::{kv::DatabaseSettings, DatabaseSource};
+use sc_consensus_babe::BabeWorkerHandle;
 use sc_network_sync::SyncingService;
 use seed_primitives::{ethy::ETH_HTTP_URI, opaque::Block, XRP_HTTP_URI};
 use seed_runtime::{self, RuntimeApi};
@@ -99,7 +100,7 @@ pub fn frontier_database_dir(config: &Configuration, path: &str) -> std::path::P
 pub fn open_frontier_backend<C, BE>(
 	client: Arc<C>,
 	config: &Configuration,
-) -> Result<Arc<fc_db::Backend<Block>>, String>
+) -> Result<fc_db::Backend<Block>, String>
 where
 	C: ProvideRuntimeApi<Block> + StorageProvider<Block, BE> + AuxStore,
 	C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError>,
@@ -108,7 +109,7 @@ where
 	BE: Backend<Block> + 'static,
 	BE::State: StateBackend<BlakeTwo256>,
 {
-	Ok(Arc::new(fc_db::Backend::KeyValue(fc_db::kv::Backend::<Block>::new(
+	Ok(fc_db::Backend::KeyValue(fc_db::kv::Backend::<Block>::new(
 		client,
 		&fc_db::kv::DatabaseSettings {
 			source: match config.database {
@@ -127,7 +128,7 @@ where
 					return Err("Supported db sources: `rocksdb` | `paritydb` | `auto`".to_string()),
 			},
 		},
-	)?)))
+	)?))
 }
 
 pub fn new_partial(
@@ -143,9 +144,10 @@ pub fn new_partial(
 		(
 			Option<Telemetry>,
 			ImportSetup,
-			Arc<FrontierBackend<Block>>,
+			FrontierBackend<Block>,
 			Option<FilterPool>,
 			(FeeHistoryCache, FeeHistoryCacheLimit),
+			BabeWorkerHandle<Block>,
 		),
 	>,
 	ServiceError,
@@ -253,6 +255,7 @@ pub fn new_partial(
 			frontier_backend,
 			filter_pool,
 			(fee_history_cache, fee_history_cache_limit),
+			babe_worker_handle,
 		),
 	})
 }
@@ -281,6 +284,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 				frontier_backend,
 				filter_pool,
 				(fee_history_cache, fee_history_cache_limit),
+				babe_worker_handle,
 			),
 	} = new_partial(&config, cli)?;
 
@@ -378,12 +382,18 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		prometheus_registry.clone(),
 	));
 
+	let pubsub_notification_sinks: fc_mapping_sync::EthereumBlockNotificationSinks<
+		fc_mapping_sync::EthereumBlockNotification<Block>,
+	> = Default::default();
+	let pubsub_notification_sinks = Arc::new(pubsub_notification_sinks);
+
 	let (event_proof_sender, event_proof_stream) =
 		ethy_gadget::notification::EthyEventProofStream::channel();
 
 	let (block_import, grandpa_link, babe_link) = import_setup;
 	let rpc_extensions_builder = {
 		let client = client.clone();
+		let backend = backend.clone();
 		let pool = transaction_pool.clone();
 		let select_chain = select_chain.clone();
 		let keystore = keystore_container.keystore();
@@ -397,6 +407,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		let max_past_logs = cli.run.max_past_logs;
 		let babe_config = babe_link.config().clone();
 		let shared_epoch_changes = babe_link.epoch_changes().clone();
+		let pubsub_notification_sinks = pubsub_notification_sinks.clone();
 
 		let justification_stream = grandpa_link.justification_stream();
 		let shared_authority_set = grandpa_link.shared_authority_set().clone();
@@ -408,7 +419,11 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 
 		move |deny_unsafe, subscription_task_executor: sc_rpc::SubscriptionTaskExecutor| {
 			let deps = crate::rpc::FullDeps {
-				backend: frontier_backend.clone(),
+				backend: backend.clone(),
+				frontier_backend: match frontier_backend.clone() {
+					fc_db::Backend::KeyValue(b) => Arc::new(b),
+					fc_db::Backend::Sql(b) => Arc::new(b),
+				},
 				block_data_cache: block_data_cache.clone(),
 				client: client.clone(),
 				fee_history_cache: fee_history_cache.clone(),
@@ -423,8 +438,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 				pool: pool.clone(),
 				deny_unsafe,
 				babe: crate::rpc::BabeDeps {
-					babe_config: babe_config.clone(),
-					shared_epoch_changes: shared_epoch_changes.clone(),
+					babe_worker_handle: babe_worker_handle.clone(),
 					keystore: keystore.clone(),
 				},
 				ethy: crate::rpc::EthyDeps {
@@ -438,8 +452,17 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 					subscription_executor: subscription_task_executor.clone(),
 					finality_provider: finality_proof_provider.clone(),
 				},
+				syncing_service: sync_service.clone(),
+				eth_forced_parent_hashes: None, // TODO - check again
 			};
-			crate::rpc::create_full(deps, subscription_task_executor).map_err(Into::into)
+
+			crate::rpc::create_full(
+				deps,
+				subscription_task_executor,
+				pubsub_notification_sinks.clone(),
+				Box::new(()), // TODO - check again
+			)
+			.map_err(Into::into)
 		}
 	};
 
@@ -458,28 +481,24 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		tx_handler_controller,
 	})?;
 
-	let pubsub_notification_sinks: fc_mapping_sync::EthereumBlockNotificationSinks<
-		fc_mapping_sync::EthereumBlockNotification<Block>,
-	> = Default::default();
-
 	spawn_frontier_tasks(
 		&task_manager,
 		client.clone(),
 		backend.clone(),
-		frontier_backend,
+		frontier_backend.clone(),
 		filter_pool,
 		overrides,
 		fee_history_cache,
 		fee_history_cache_limit,
 		sync_service.clone(),
-		Arc::new(pubsub_notification_sinks),
+		pubsub_notification_sinks.clone(),
 	);
 
 	if role.is_authority() {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
-			transaction_pool,
+			transaction_pool.clone(),
 			prometheus_registry.as_ref(),
 			telemetry.as_ref().map(|x| x.handle()),
 		);
@@ -602,7 +621,7 @@ fn spawn_frontier_tasks(
 	task_manager: &TaskManager,
 	client: Arc<FullClient>,
 	backend: Arc<FullBackend>,
-	frontier_backend: Arc<FrontierBackend<Block>>,
+	frontier_backend: FrontierBackend<Block>,
 	filter_pool: Option<FilterPool>,
 	overrides: Arc<OverrideHandle<Block>>,
 	fee_history_cache: FeeHistoryCache,
@@ -615,7 +634,7 @@ fn spawn_frontier_tasks(
 	>,
 ) {
 	// Maps emulated ethereum data to substrate native data.
-	match *frontier_backend {
+	match frontier_backend {
 		fc_db::Backend::KeyValue(b) => {
 			task_manager.spawn_essential_handle().spawn(
 				"frontier-mapping-sync-worker",
