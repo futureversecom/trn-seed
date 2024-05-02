@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 use codec::Codec;
 use jsonrpsee::{
-	core::{Error as RpcError, RpcResult},
+	core::{async_trait, Error as RpcError, RpcResult},
 	proc_macros::rpc,
 };
 use pallet_nft::Config;
@@ -59,6 +59,7 @@ impl<C, Block, T: Config> Nft<C, Block, T> {
 	}
 }
 
+#[async_trait]
 impl<C, Block, AccountId, T> NftApiServer<AccountId> for Nft<C, Block, T>
 where
 	Block: BlockT,

@@ -17,7 +17,7 @@
 use std::sync::Arc;
 
 use jsonrpsee::{
-	core::{Error as RpcError, RpcResult},
+	core::{async_trait, Error as RpcError, RpcResult},
 	proc_macros::rpc,
 };
 use pallet_dex::{types::WrappedBalance, Config, TradingPairStatus};
@@ -93,6 +93,7 @@ where
 	}
 }
 
+#[async_trait]
 impl<C, Block, T> DexApiServer for Dex<C, Block, T>
 where
 	Block: BlockT,

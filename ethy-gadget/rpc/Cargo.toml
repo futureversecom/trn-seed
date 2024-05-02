@@ -8,7 +8,7 @@ license = "Apache-2.0"
 [dependencies]
 codec = { version = "3.0.0", package = "parity-scale-codec", features = ["derive"] }
 futures = { version = "0.3.24" }
-jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
+jsonrpsee = { version = "0.16.3", features = ["server", "macros"] }
 libsecp256k1 = { version = "0.6.0" }
 log = "0.4"
 serde = { version = "1.0.131", features = ["derive"] }
