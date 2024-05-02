@@ -32,17 +32,12 @@ pub struct RunCmd {
 	pub fee_history_limit: u64,
 
 	/// Ethereum JSON-RPC client endpoint
-	#[clap(
-		parse(try_from_str = parse_uri),
-		long = "eth-http",
-	)]
+	#[clap(long = "eth-http")]
 	pub eth_http: Option<String>,
 
 	/// XRP JSON-RPC client endpoint
-	#[clap(
-		parse(try_from_str = parse_uri),
-		long = "xrp-http",
-	)]
+	// NOTE - check flags works as expected.
+	#[clap(long = "xrp-http")]
 	pub xrp_http: Option<String>,
 }
 

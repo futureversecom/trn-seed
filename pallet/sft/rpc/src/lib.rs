@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use jsonrpsee::{
-	core::{Error as RpcError, RpcResult},
+	core::{async_trait, Error as RpcError, RpcResult},
 	proc_macros::rpc,
 };
 use pallet_sft::Config;
@@ -45,6 +45,7 @@ impl<C, Block, T: Config> Sft<C, Block, T> {
 	}
 }
 
+#[async_trait]
 impl<C, Block, T> SftApiServer for Sft<C, Block, T>
 where
 	Block: BlockT,

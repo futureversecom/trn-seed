@@ -20,7 +20,10 @@
 use codec::Decode;
 use futures::{FutureExt, StreamExt};
 use jsonrpsee::{
-	core::RpcResult, proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSink,
+	core::{async_trait, RpcResult},
+	proc_macros::rpc,
+	types::SubscriptionEmptyError,
+	SubscriptionSink,
 };
 use log::warn;
 use sc_client_api::backend::AuxStore;
@@ -98,6 +101,7 @@ where
 	}
 }
 
+#[async_trait]
 impl<C, R, B> EthyApiServer<EthEventProofResponse> for EthyRpcHandler<C, R, B>
 where
 	B: Block<Hash = H256>,

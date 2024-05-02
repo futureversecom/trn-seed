@@ -19,10 +19,12 @@
 //! capabilities that are specific to this project's runtime configuration.
 
 #![warn(missing_docs)]
-use std::sync::Arc;
+
+use std::{collections::BTreeMap, sync::Arc};
 
 use jsonrpsee::RpcModule;
 // Substrate
+use core::time::Duration;
 use sc_client_api::{
 	backend::{AuxStore, Backend, StateBackend, StorageProvider},
 	client::BlockchainEvents,
@@ -36,18 +38,25 @@ use sc_rpc::SubscriptionTaskExecutor;
 use sc_rpc_api::DenyUnsafe;
 use sc_service::TransactionPool;
 use sc_transaction_pool::{ChainApi, Pool};
-use sp_api::ProvideRuntimeApi;
+use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{
 	Backend as BlockchainBackend, Error as BlockChainError, HeaderBackend, HeaderMetadata,
 };
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
+use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::BlakeTwo256;
+
 // Frontier
-use fc_rpc::{EthBlockDataCacheTask, OverrideHandle, RuntimeApiStorageOverride};
+use fc_rpc::{
+	pending::ConsensusDataProvider, EthBlockDataCacheTask, OverrideHandle,
+	RuntimeApiStorageOverride,
+};
 use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
+use sc_network_sync::SyncingService;
+use sp_core::H256;
 
 // Runtime
 use ethy_gadget::notification::EthyEventProofStream;
@@ -65,10 +74,8 @@ pub struct EthyDeps {
 
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
-	/// BABE protocol config.
-	pub babe_config: sc_consensus_babe::BabeConfiguration,
-	/// BABE pending epoch changes.
-	pub shared_epoch_changes: SharedEpochChanges<Block, sc_consensus_babe::Epoch>,
+	/// A handle to the BABE worker for issuing requests.
+	pub babe_worker_handle: sc_consensus_babe::BabeWorkerHandle<Block>,
 	/// The keystore that manages the keys of the node.
 	pub keystore: KeystorePtr,
 }
@@ -105,8 +112,10 @@ pub struct FullDeps<C, P, A: ChainApi, BE, SC> {
 	pub network: Arc<NetworkService<Block, Hash>>,
 	/// EthFilterApi pool.
 	pub filter_pool: Option<FilterPool>,
+	/// Frontier Backend.
+	pub frontier_backend: Arc<dyn fc_db::BackendReader<Block> + Send + Sync>,
 	/// Backend.
-	pub backend: Arc<fc_db::Backend<Block>>,
+	pub backend: Arc<BE>,
 	/// Maximum number of logs in a query.
 	pub max_past_logs: u32,
 	/// Fee history cache.
@@ -123,6 +132,10 @@ pub struct FullDeps<C, P, A: ChainApi, BE, SC> {
 	pub babe: BabeDeps,
 	/// GRANDPA specific dependencies.
 	pub grandpa: GrandpaDeps<BE>,
+	/// Chain syncing service
+	pub syncing_service: Arc<SyncingService<Block>>,
+	/// Mandated parent hashes for a given block hash.
+	pub eth_forced_parent_hashes: Option<BTreeMap<H256, H256>>,
 }
 
 pub fn overrides_handle<C, BE>(client: Arc<C>) -> Arc<OverrideHandle<Block>>
@@ -155,6 +168,12 @@ where
 pub fn create_full<C, P, A, BE, SC>(
 	deps: FullDeps<C, P, A, BE, SC>,
 	subscription_task_executor: SubscriptionTaskExecutor,
+	pubsub_notification_sinks: Arc<
+		fc_mapping_sync::EthereumBlockNotificationSinks<
+			fc_mapping_sync::EthereumBlockNotification<Block>,
+		>,
+	>,
+	pending_consenus_data_provider: Box<dyn ConsensusDataProvider<Block>>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
 	A: ChainApi<Block = Block> + 'static,
@@ -165,6 +184,7 @@ where
 	C: BlockchainEvents<Block>,
 	C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError>,
 	C: Send + Sync + 'static,
+	C: CallApiAt<Block>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
@@ -202,6 +222,7 @@ where
 		deny_unsafe,
 		network,
 		filter_pool,
+		frontier_backend,
 		backend,
 		max_past_logs,
 		fee_history_cache,
@@ -211,9 +232,12 @@ where
 		ethy,
 		babe,
 		grandpa,
+		syncing_service,
+		eth_forced_parent_hashes,
 	} = deps;
 
-	let BabeDeps { keystore, babe_config, shared_epoch_changes } = babe;
+	// let BabeDeps { keystore, babe_config, shared_epoch_changes } = babe;
+	let BabeDeps { babe_worker_handle, keystore } = babe;
 	let GrandpaDeps {
 		shared_voter_state,
 		shared_authority_set,
@@ -235,15 +259,8 @@ where
 		.into_rpc(),
 	)?;
 	io.merge(
-		Babe::new(
-			client.clone(),
-			shared_epoch_changes.clone(),
-			keystore,
-			babe_config,
-			select_chain,
-			deny_unsafe,
-		)
-		.into_rpc(),
+		Babe::new(client.clone(), babe_worker_handle.clone(), keystore, select_chain, deny_unsafe)
+			.into_rpc(),
 	)?;
 	io.merge(
 		Grandpa::new(
@@ -262,22 +279,31 @@ where
 	io.merge(Sft::new(client.clone()).into_rpc())?;
 	io.merge(AssetsExt::new(client.clone()).into_rpc())?;
 
+	// NOTE - check
+	let pending_create_inherent_data_providers = move |_, _| async move {
+		let idp = sp_timestamp::InherentDataProvider::from_system_time();
+		Ok(idp)
+	};
+
 	// Ethereum compatible RPCs
 	io.merge(
 		Eth::new(
 			client.clone(),
 			pool.clone(),
-			graph,
+			graph.clone(),
 			Some(seed_runtime::TransactionConverter),
-			network.clone(),
+			syncing_service.clone(),
 			Default::default(), // signers
 			overrides.clone(),
-			backend.clone(),
+			frontier_backend.clone(),
 			is_authority,
 			block_data_cache.clone(),
 			fee_history_cache,
 			fee_history_cache_limit,
 			10,
+			eth_forced_parent_hashes,
+			pending_create_inherent_data_providers,
+			Some(pending_consenus_data_provider),
 		)
 		.into_rpc(),
 	)?;
@@ -286,7 +312,8 @@ where
 		io.merge(
 			EthFilter::new(
 				client.clone(),
-				backend,
+				frontier_backend,
+				graph.clone(),
 				filter_pool,
 				500_usize, // max stored filters
 				max_past_logs,
@@ -300,9 +327,10 @@ where
 		EthPubSub::new(
 			pool,
 			client.clone(),
-			network.clone(),
+			syncing_service.clone(),
 			subscription_task_executor,
 			overrides,
+			pubsub_notification_sinks,
 		)
 		.into_rpc(),
 	)?;
