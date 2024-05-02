@@ -196,6 +196,10 @@ pub mod pallet {
 		type Scheduler: Anon<Self::BlockNumber, <Self as Config>::RuntimeCall, Self::PalletsOrigin>;
 		/// Overarching type of all pallets origins.
 		type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+		/// Maximum number of processed message Ids that will we keep as a buffer to prevent
+		/// replays.
+		#[pallet::constant]
+		type ProcessedMessageIdBuffer: Get<u32>;
 		/// Returns the block timestamp
 		type UnixTime: UnixTime;
 		/// Max Xrpl notary (validator) public keys
@@ -568,7 +572,7 @@ pub mod pallet {
 				PendingClaimStatus::<T>::remove(message_id);
 			}
 			if !processed_message_ids.is_empty() {
-				impls::prune_claim_ids(&mut processed_message_ids);
+				Self::prune_claim_ids(&mut processed_message_ids);
 				ProcessedMessageIds::<T>::put(processed_message_ids);
 			}
 
@@ -844,10 +848,11 @@ pub mod pallet {
 					!PendingEventClaims::<T>::contains_key(event_id),
 					Error::<T>::EventReplayPending
 				);
-				if !ProcessedMessageIds::<T>::get().is_empty() {
+				let processed_message_ids: Vec<EventClaimId> = ProcessedMessageIds::<T>::get();
+				if !processed_message_ids.is_empty() {
 					ensure!(
-						event_id > ProcessedMessageIds::<T>::get()[0] &&
-							ProcessedMessageIds::<T>::get().binary_search(&event_id).is_err(),
+						event_id > processed_message_ids[0] &&
+							processed_message_ids.binary_search(&event_id).is_err(),
 						Error::<T>::EventReplayProcessed
 					);
 				}

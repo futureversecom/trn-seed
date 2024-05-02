@@ -15,7 +15,6 @@
 
 #![cfg(test)]
 use crate::{
-	impls::prune_claim_ids,
 	mock::*,
 	types::{
 		CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock, EthHash,
@@ -2278,33 +2277,49 @@ fn handle_call_notarization_aborts_no_consensus() {
 fn test_prune_claim_ids() {
 	{
 		let mut test_vec = vec![1, 2, 3, 4, 6, 7];
-		prune_claim_ids(&mut test_vec);
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![4, 6, 7]);
 	}
 	{
 		let mut test_vec = vec![4, 5, 6, 7];
-		prune_claim_ids(&mut test_vec);
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![7]);
 	}
 	{
 		let mut test_vec: Vec<EventClaimId> = vec![];
-		prune_claim_ids(&mut test_vec);
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![] as Vec<EventClaimId>);
 	}
 	{
 		let mut test_vec = vec![5];
-		prune_claim_ids(&mut test_vec);
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![5]);
 	}
 	{
 		let mut test_vec = vec![0, 0, 0]; // event_id will be unique. Hence not applicable
-		prune_claim_ids(&mut test_vec);
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![0, 0, 0]);
 	}
 	{
 		let mut test_vec = vec![5, 2, 0, 1, 1]; // event_id will be unique. Hence not applicable
-		prune_claim_ids(&mut test_vec);
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![1, 1, 2, 5]);
+	}
+	{
+		let mut test_vec = vec![2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26];
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
+		// Keeps a maximum of ProcessedMessageIdBuffer (10 in mock)
+		assert_eq!(test_vec, vec![8, 10, 12, 14, 16, 18, 20, 22, 24, 26]);
+	}
+	{
+		let mut test_vec = vec![1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![12]);
+	}
+	{
+		let mut test_vec = vec![1, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13];
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![6, 8, 9, 10, 11, 12, 13]);
 	}
 }
 

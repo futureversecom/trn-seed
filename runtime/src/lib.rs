@@ -983,6 +983,7 @@ parameter_types! {
 	pub const MaxChallenges: u32 = 100;
 	pub const MaxMessagesPerBlock: u32 = 1000;
 	pub const MaxCallRequests: u32 = 1000;
+	pub const ProcessedMessageIdBuffer: u32 = 500;
 }
 
 impl pallet_ethy::Config for Runtime {
@@ -998,14 +999,14 @@ impl pallet_ethy::Config for Runtime {
 	type ChallengeBond = ChallengeBond;
 	// The duration in blocks of one epoch
 	type EpochDuration = EpochDuration;
-	/// The runtime event type.
-	type RuntimeEvent = RuntimeEvent;
 	/// Subscribers to completed 'eth_call' jobs
 	type EthCallSubscribers = ();
-	/// Subscribers to completed event
-	type EventRouter = EthereumEventRouter;
 	/// Provides Ethereum JSON-RPC client to the pallet (OCW friendly)
 	type EthereumRpcClient = pallet_ethy::EthereumRpcClient;
+	/// The runtime event type.
+	type RuntimeEvent = RuntimeEvent;
+	/// Subscribers to completed event
+	type EventRouter = EthereumEventRouter;
 	/// The identifier type for Ethy notaries
 	type EthyId = EthBridgeId;
 	/// Reports final session status of an era
@@ -1021,10 +1022,11 @@ impl pallet_ethy::Config for Runtime {
 	type RelayerBond = RelayerBond;
 	/// The pallet handling scheduled Runtime calls
 	type Scheduler = Scheduler;
-	/// Timestamp provider
-	type UnixTime = Timestamp;
 	/// Pallets origin type
 	type PalletsOrigin = OriginCaller;
+	type ProcessedMessageIdBuffer = ProcessedMessageIdBuffer;
+	/// Timestamp provider
+	type UnixTime = Timestamp;
 	/// Max Xrpl notary (validator) public keys
 	type MaxXrplKeys = MaxXrplKeys;
 	/// Xrpl-bridge adapter
