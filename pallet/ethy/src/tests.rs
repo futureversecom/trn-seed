@@ -23,11 +23,11 @@ use crate::{
 	},
 	AuthoritiesChangedThisEra, BridgePaused, ChallengePeriod, ChallengerAccount, Config,
 	ContractAddress, DelayedEventProofsPerBlock, Error, EthCallNotarizationsAggregated,
-	EthCallRequestInfo, Event, EventClaimStatus, MessagesValidAt, NextAuthorityChange,
-	NextEventProofId, NextNotaryKeys, NotaryKeys, NotarySetId, NotarySetProofId, NotaryXrplKeys,
-	Pallet, PendingClaimChallenges, PendingClaimStatus, PendingEventClaims, PendingEventProofs,
-	ProcessedMessageIds, Relayer, RelayerPaidBond, XrplDoorSigners, XrplNotarySetProofId,
-	ETHY_ENGINE_ID, SUBMIT_BRIDGE_EVENT_SELECTOR,
+	EthCallRequestInfo, Event, EventClaimStatus, MessagesValidAt, MissedMessageIds,
+	NextAuthorityChange, NextEventProofId, NextNotaryKeys, NotaryKeys, NotarySetId,
+	NotarySetProofId, NotaryXrplKeys, Pallet, PendingClaimChallenges, PendingClaimStatus,
+	PendingEventClaims, PendingEventProofs, ProcessedMessageIds, Relayer, RelayerPaidBond,
+	XrplDoorSigners, XrplNotarySetProofId, ETHY_ENGINE_ID, SUBMIT_BRIDGE_EVENT_SELECTOR,
 };
 use codec::Encode;
 use ethabi::Token;
@@ -225,6 +225,180 @@ fn submit_event_tracks_completed() {
 			EthBridge::submit_event(RuntimeOrigin::signed(relayer.into()), tx_hash, event_data),
 			Error::<Test>::EventReplayProcessed
 		);
+	});
+}
+
+#[test]
+fn submit_missing_event_id_works() {
+	let relayer = H160::from_low_u64_be(123);
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		let missed_event_id: u64 = 3;
+		// Setup storage to simulate missed_event_id being invalid but stored in Missing
+		ProcessedMessageIds::<Test>::put(vec![missed_event_id + 1]);
+		MissedMessageIds::<Test>::put(vec![missed_event_id]);
+		let tx_hash = EthHash::from_low_u64_be(33);
+		let (source, destination, message) =
+			(H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+		let event_item_data = encode_event_message(missed_event_id, source, destination, message);
+
+		// Submit event should fail due to replay protection
+		assert_noop!(
+			EthBridge::submit_event(
+				RuntimeOrigin::signed(relayer.into()),
+				tx_hash.clone(),
+				event_item_data.clone(),
+			),
+			Error::<Test>::EventReplayProcessed
+		);
+
+		// Submit missing event should work as event id is stored within MissedMessageIds
+		assert_ok!(EthBridge::submit_missing_event(
+			RuntimeOrigin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_item_data.clone(),
+		));
+
+		assert_eq!(
+			PendingEventClaims::<Test>::get(missed_event_id),
+			Some(EventClaim {
+				tx_hash,
+				source,
+				destination,
+				data: BoundedVec::truncate_from(message.to_vec())
+			})
+		);
+
+		let process_at = System::block_number() + ChallengePeriod::<Test>::get();
+		EthBridge::on_initialize(process_at);
+		// ProcessedMessageIds should be unchanged (As it was before the lowest
+		assert_eq!(ProcessedMessageIds::<Test>::get(), vec![missed_event_id + 1]);
+		assert!(MissedMessageIds::<Test>::get().is_empty());
+
+		// Submit missing event should now not work as the event is processed
+		assert_noop!(
+			EthBridge::submit_missing_event(
+				RuntimeOrigin::signed(relayer.into()),
+				tx_hash.clone(),
+				event_item_data.clone(),
+			),
+			Error::<Test>::EventReplayProcessed
+		);
+	});
+}
+
+#[test]
+fn submit_missing_event_id_prevents_replay() {
+	let relayer = H160::from_low_u64_be(123);
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		let missed_event_id: u64 = 3;
+		// Setup storage to simulate missed_event_id being invalid but stored in Missing
+		ProcessedMessageIds::<Test>::put(vec![missed_event_id + 1]);
+		MissedMessageIds::<Test>::put(vec![missed_event_id]);
+		let tx_hash = EthHash::from_low_u64_be(33);
+		let (source, destination, message) =
+			(H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+		let event_item_data = encode_event_message(missed_event_id, source, destination, message);
+
+		// Submit missing event should work as event id is stored within MissedMessageIds
+		assert_ok!(EthBridge::submit_missing_event(
+			RuntimeOrigin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_item_data.clone(),
+		));
+
+		// Submit missing event should now not work as the event is pending
+		assert_noop!(
+			EthBridge::submit_missing_event(
+				RuntimeOrigin::signed(relayer.into()),
+				tx_hash.clone(),
+				event_item_data.clone(),
+			),
+			Error::<Test>::EventReplayPending
+		);
+	});
+}
+
+#[test]
+fn submit_missing_event_id_fails_if_not_in_missing() {
+	let relayer = H160::from_low_u64_be(123);
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		let missed_event_id: u64 = 3;
+		// Setup storage to simulate missed_event_id not in missing (i.e. processed
+		ProcessedMessageIds::<Test>::put(vec![5]);
+		MissedMessageIds::<Test>::put(vec![2, 4]);
+		let tx_hash = EthHash::from_low_u64_be(33);
+		let (source, destination, message) =
+			(H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+		let event_item_data = encode_event_message(missed_event_id, source, destination, message);
+
+		// Submit missing event should not work as it is not in MissedMessageIds
+		assert_noop!(
+			EthBridge::submit_missing_event(
+				RuntimeOrigin::signed(relayer.into()),
+				tx_hash.clone(),
+				event_item_data.clone(),
+			),
+			Error::<Test>::EventReplayProcessed
+		);
+
+		assert_noop!(
+			EthBridge::submit_event(
+				RuntimeOrigin::signed(relayer.into()),
+				tx_hash.clone(),
+				event_item_data.clone(),
+			),
+			Error::<Test>::EventReplayProcessed
+		);
+	});
+}
+
+#[test]
+fn remove_missing_event_id_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let event_ids = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+		MissedMessageIds::<Test>::put(event_ids);
+
+		let range = (3, 6);
+		assert_ok!(EthBridge::remove_missing_event_id(RuntimeOrigin::root(), range));
+		let event_ids = vec![1, 2, 7, 8, 9];
+		assert_eq!(MissedMessageIds::<Test>::get(), event_ids);
+	});
+}
+
+#[test]
+fn remove_missing_event_id_single_id() {
+	ExtBuilder::default().build().execute_with(|| {
+		let event_ids = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+		MissedMessageIds::<Test>::put(event_ids);
+
+		let range = (3, 3); // Remove one ID
+		assert_ok!(EthBridge::remove_missing_event_id(RuntimeOrigin::root(), range));
+		let event_ids = vec![1, 2, 4, 5, 6, 7, 8, 9];
+		assert_eq!(MissedMessageIds::<Test>::get(), event_ids);
+	});
+}
+
+#[test]
+fn remove_missing_event_id_outside_range() {
+	ExtBuilder::default().build().execute_with(|| {
+		let event_ids = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+		MissedMessageIds::<Test>::put(&event_ids);
+
+		let range = (10, 1000000000); // Outside range is noop
+		assert_ok!(EthBridge::remove_missing_event_id(RuntimeOrigin::root(), range));
+		assert_eq!(MissedMessageIds::<Test>::get(), event_ids);
+	});
+}
+
+#[test]
+fn remove_missing_event_id_full_range() {
+	ExtBuilder::default().build().execute_with(|| {
+		let event_ids = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+		MissedMessageIds::<Test>::put(&event_ids);
+
+		let range = (1, 9); // Full range of ids
+		assert_ok!(EthBridge::remove_missing_event_id(RuntimeOrigin::root(), range));
+		assert!(MissedMessageIds::<Test>::get().is_empty());
 	});
 }
 
@@ -2301,26 +2475,52 @@ fn test_prune_claim_ids() {
 		assert_eq!(test_vec, vec![0, 0, 0]);
 	}
 	{
-		let mut test_vec = vec![5, 2, 0, 1, 1]; // event_id will be unique. Hence not applicable
+		let mut test_vec = vec![0, 1, 1, 2, 5]; // event_id will be unique. Hence not applicable
 		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![1, 1, 2, 5]);
 	}
-	{
-		let mut test_vec = vec![2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26];
-		Pallet::<Test>::prune_claim_ids(&mut test_vec);
-		// Keeps a maximum of ProcessedMessageIdBuffer (10 in mock)
-		assert_eq!(test_vec, vec![8, 10, 12, 14, 16, 18, 20, 22, 24, 26]);
-	}
-	{
+}
+
+#[test]
+fn prune_claim_ids_keeps_missed() {
+	ExtBuilder::default().build().execute_with(|| {
 		let mut test_vec = vec![1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![12]);
-	}
-	{
-		let mut test_vec = vec![1, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13];
+		assert_eq!(MissedMessageIds::<Test>::get(), vec![2]);
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let mut test_vec = vec![2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26];
 		Pallet::<Test>::prune_claim_ids(&mut test_vec);
-		assert_eq!(test_vec, vec![6, 8, 9, 10, 11, 12, 13]);
-	}
+		assert_eq!(test_vec, vec![8, 10, 12, 14, 16, 18, 20, 22, 24, 26]);
+		assert_eq!(MissedMessageIds::<Test>::get(), vec![3, 5, 7]);
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let mut test_vec = vec![1, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14];
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![6, 8, 9, 10, 11, 12, 13, 14]);
+		assert_eq!(MissedMessageIds::<Test>::get(), vec![2, 3]);
+	});
+}
+
+#[test]
+fn on_initialize_doesnt_prune_if_not_needed() {
+	ExtBuilder::default().build().execute_with(|| {
+		// These ids will be pruned if the pruning function gets called in on_initialise
+		// However there is nothing to process so it doesn't prune
+		// This prevents pruning happening when no changes are made
+		let event_ids = vec![1, 2, 3, 4, 5];
+		ProcessedMessageIds::<Test>::put(&event_ids);
+
+		// Call on_initialise with nothing to prune
+		let consumed_weight = EthBridge::on_initialize(25);
+		assert_eq!(consumed_weight, DbWeight::get().reads(3u64));
+
+		// ProcessedMessageIds unchanged
+		assert_eq!(ProcessedMessageIds::<Test>::get(), event_ids)
+	});
 }
 
 #[test]

@@ -100,11 +100,28 @@ impl<T: Config> Pallet<T> {
 		if let 0..=1 = claim_ids.len() {
 			return
 		}
-		// sort first
-		claim_ids.sort();
-		// Take the last 100 elements in the list
-		claim_ids
+
+		// Take the last ProcessedMessageIdBuffer elements in the list
+		let removed = claim_ids
 			.drain(..claim_ids.len().saturating_sub(T::ProcessedMessageIdBuffer::get() as usize));
+		let removed: Vec<EventClaimId> = removed.collect();
+
+		// Check if we are aggressively pruning and event_ids that have not been processed
+		if !removed.is_empty() {
+			let mut missing_ids = MissedMessageIds::<T>::get();
+			// Add all missing ids from removed to missing
+			for id in removed[0]..claim_ids[0] {
+				if removed.contains(&id) {
+					continue
+				}
+				// Insert the missing ID from the removed list into the missing_ids list
+				if let Err(idx) = missing_ids.binary_search(&id) {
+					missing_ids.insert(idx, id);
+				}
+			}
+			MissedMessageIds::<T>::put(missing_ids);
+		}
+
 		// get the index of the fist element that's non contiguous.
 		let first_noncontinuous_idx = claim_ids.iter().enumerate().position(|(i, &x)| {
 			if i > 0 {
@@ -119,6 +136,67 @@ impl<T: Config> Pallet<T> {
 			Some(idx) => claim_ids.drain(..idx - 1),
 			None => claim_ids.drain(..claim_ids.len() - 1), // we need the last element to remain
 		};
+	}
+
+	/// Decode event data into it's respective parts.
+	pub fn decode_event_data(
+		tx_hash: H256,
+		event_data: Vec<u8>,
+	) -> Result<(EventClaimId, EventClaim<T::MaxEthData>), DispatchError> {
+		// event SendMessage(uint256 messageId, address source, address destination, bytes
+		// message, uint256 fee);
+		if let [Token::Uint(event_id), Token::Address(source), Token::Address(destination), Token::Bytes(data), Token::Uint(_fee)] =
+			ethabi::decode(
+				&[
+					ParamType::Uint(64),
+					ParamType::Address,
+					ParamType::Address,
+					ParamType::Bytes,
+					ParamType::Uint(64),
+				],
+				event_data.as_slice(),
+			)
+			.map_err(|_| Error::<T>::InvalidClaim)?
+			.as_slice()
+		{
+			let event_id: EventClaimId = (*event_id).saturated_into();
+			let data = BoundedVec::try_from(data.as_slice().to_vec())
+				.map_err(|_| Error::<T>::InvalidClaim)?;
+			let event_claim = EventClaim {
+				tx_hash,
+				source: *source,
+				destination: *destination,
+				data: data.clone(),
+			};
+			return Ok((event_id, event_claim))
+		}
+		Err(Error::<T>::InvalidClaim.into())
+	}
+
+	// Store an event claim in the pallet to be processed after the ChallengePeriod
+	// Ensures the event is not already contained within PendingEventClaims
+	// Note. This function does not contain any replay protection logic
+	pub(crate) fn do_submit_event(
+		event_id: EventClaimId,
+		event_claim: EventClaim<T::MaxEthData>,
+	) -> DispatchResult {
+		ensure!(!PendingEventClaims::<T>::contains_key(event_id), Error::<T>::EventReplayPending);
+
+		let process_at: T::BlockNumber =
+			<frame_system::Pallet<T>>::block_number() + ChallengePeriod::<T>::get();
+		MessagesValidAt::<T>::try_mutate(process_at.clone(), |v| -> DispatchResult {
+			v.try_push(event_id).map_err(|_| Error::<T>::MessageTooLarge)?;
+			Ok(())
+		})?;
+
+		PendingEventClaims::<T>::insert(event_id, &event_claim);
+		PendingClaimStatus::<T>::insert(event_id, EventClaimStatus::Pending);
+		Self::deposit_event(Event::<T>::EventSubmit {
+			event_claim_id: event_id,
+			event_claim,
+			process_at,
+		});
+		Ok(())
 	}
 
 	pub fn update_xrpl_notary_keys(validator_list: &WeakBoundedVec<T::EthyId, T::MaxAuthorities>) {

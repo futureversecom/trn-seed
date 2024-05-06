@@ -37,7 +37,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
-use ethabi::{ParamType, Token};
+use ethabi::ParamType;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -59,7 +59,7 @@ use seed_primitives::{AssetId, Balance};
 use sp_core::bounded::WeakBoundedVec;
 use sp_runtime::{
 	offchain as rt_offchain,
-	traits::{MaybeSerializeDeserialize, Member, SaturatedConversion},
+	traits::{MaybeSerializeDeserialize, Member},
 	Percent, RuntimeAppPublic,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -348,6 +348,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ProcessedMessageIds<T> = StorageValue<_, Vec<EventClaimId>, ValueQuery>;
 
+	/// Tracks message Ids that are outside of the MessageId buffer and were not processed
+	/// These message Ids can be either processed or cleared by the relayer
+	#[pallet::storage]
+	pub type MissedMessageIds<T> = StorageValue<_, Vec<EventClaimId>, ValueQuery>;
+
 	/// The block in which we process the next authority change
 	#[pallet::storage]
 	pub type NextAuthorityChange<T: Config> = StorageValue<_, T::BlockNumber, OptionQuery>;
@@ -520,6 +525,7 @@ pub mod pallet {
 			// 2) Process validated messages
 			// Removed message_id from MessagesValidAt and processes
 			let mut processed_message_ids = ProcessedMessageIds::<T>::get();
+			let mut message_processed: bool = false;
 			for message_id in MessagesValidAt::<T>::take(block_number) {
 				if PendingClaimStatus::<T>::get(message_id) == Some(EventClaimStatus::Challenged) {
 					// We are still waiting on the challenge to be processed, push out by challenge
@@ -564,14 +570,29 @@ pub mod pallet {
 						},
 					}
 				}
-				// mark as processed
-				if let Err(idx) = processed_message_ids.binary_search(&message_id) {
-					processed_message_ids.insert(idx, message_id);
+
+				let first_processed = processed_message_ids.first().cloned().unwrap_or_default();
+				// Is this message_id within the ProcessedMessageIdBuffer?
+				if message_id >= first_processed {
+					// mark as processed
+					if let Err(idx) = processed_message_ids.binary_search(&message_id) {
+						processed_message_ids.insert(idx, message_id);
+					}
+				} else {
+					// REMOVE event_id to MissedMessageIds
+					MissedMessageIds::<T>::mutate(|missed_message_ids| {
+						if let Ok(idx) = missed_message_ids.binary_search(&message_id) {
+							missed_message_ids.remove(idx);
+						}
+					});
 				}
+
 				// Tidy up status check
 				PendingClaimStatus::<T>::remove(message_id);
+				message_processed = true;
 			}
-			if !processed_message_ids.is_empty() {
+
+			if message_processed && !processed_message_ids.is_empty() {
 				Self::prune_claim_ids(&mut processed_message_ids);
 				ProcessedMessageIds::<T>::put(processed_message_ids);
 			}
@@ -817,79 +838,74 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Admin function to manually remove an event_id from MissedMessageIds
+		/// This should only be used if the event_id is confirmed to be invalid
+		/// event_id_range is the lower and upper event_ids to clear (Both Inclusive)
+		#[pallet::weight(T::WeightInfo::submit_notarization())]
+		pub fn remove_missing_event_id(
+			origin: OriginFor<T>,
+			event_id_range: (EventClaimId, EventClaimId),
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let mut missed_message_ids = MissedMessageIds::<T>::get();
+			missed_message_ids = missed_message_ids
+				.into_iter()
+				.filter(|id| *id < event_id_range.0 || *id > event_id_range.1)
+				.collect::<Vec<_>>();
+			MissedMessageIds::<T>::put(missed_message_ids);
+			Ok(())
+		}
+
+		/// Submit ABI encoded event data from the Ethereum bridge contract
+		/// Used to recover events that were pruned but not handled by the pruning algorithn,
+		/// Only events contained within MissedMessageIds can be processed here
+		/// - tx_hash The Ethereum transaction hash which triggered the event
+		/// - event ABI encoded bridge event
+		#[pallet::weight(T::WeightInfo::submit_notarization())]
+		#[transactional]
+		pub fn submit_missing_event(
+			origin: OriginFor<T>,
+			tx_hash: H256,
+			event: Vec<u8>,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Some(origin) == Relayer::<T>::get(), Error::<T>::NoPermission);
+
+			let (event_id, event_claim) = Self::decode_event_data(tx_hash, event)?;
+
+			// Ensure the message Id is contained within missed message ids
+			// This is to handle the case where a message ID was pruned but not processed
+			let missed_message_ids: Vec<EventClaimId> = MissedMessageIds::<T>::get();
+			ensure!(
+				missed_message_ids.binary_search(&event_id).is_ok(),
+				Error::<T>::EventReplayProcessed
+			);
+
+			Self::do_submit_event(event_id, event_claim)?;
+			Ok(())
+		}
+
 		/// Submit ABI encoded event data from the Ethereum bridge contract
 		/// - tx_hash The Ethereum transaction hash which triggered the event
 		/// - event ABI encoded bridge event
 		#[pallet::weight(T::WeightInfo::submit_event())]
 		pub fn submit_event(origin: OriginFor<T>, tx_hash: H256, event: Vec<u8>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-
 			ensure!(Some(origin) == Relayer::<T>::get(), Error::<T>::NoPermission);
 
-			// TODO: place some limit on `data` length (it should match on contract side)
-			// event SendMessage(uint256 messageId, address source, address destination, bytes
-			// message, uint256 fee);
-			if let [Token::Uint(event_id), Token::Address(source), Token::Address(destination), Token::Bytes(data), Token::Uint(_fee)] =
-				ethabi::decode(
-					&[
-						ParamType::Uint(64),
-						ParamType::Address,
-						ParamType::Address,
-						ethabi::ParamType::Bytes,
-						ParamType::Uint(64),
-					],
-					event.as_slice(),
-				)
-				.map_err(|_| Error::<T>::InvalidClaim)?
-				.as_slice()
-			{
-				let event_id: EventClaimId = (*event_id).saturated_into();
+			let (event_id, event_claim) = Self::decode_event_data(tx_hash, event)?;
+
+			// Verify that the event_id is not contained within ProcessedMessageIds
+			// to prevent replay
+			let processed_message_ids: Vec<EventClaimId> = ProcessedMessageIds::<T>::get();
+			if !processed_message_ids.is_empty() {
 				ensure!(
-					!PendingEventClaims::<T>::contains_key(event_id),
-					Error::<T>::EventReplayPending
+					event_id > processed_message_ids[0] &&
+						processed_message_ids.binary_search(&event_id).is_err(),
+					Error::<T>::EventReplayProcessed
 				);
-				let processed_message_ids: Vec<EventClaimId> = ProcessedMessageIds::<T>::get();
-				if !processed_message_ids.is_empty() {
-					ensure!(
-						event_id > processed_message_ids[0] &&
-							processed_message_ids.binary_search(&event_id).is_err(),
-						Error::<T>::EventReplayProcessed
-					);
-				}
-				let data = BoundedVec::try_from(data.as_slice().to_vec())
-					.map_err(|_| Error::<T>::InvalidClaim)?;
-				let event_claim = EventClaim {
-					tx_hash,
-					source: *source,
-					destination: *destination,
-					data: data.clone(),
-				};
-
-				PendingEventClaims::<T>::insert(event_id, &event_claim);
-				PendingClaimStatus::<T>::insert(event_id, EventClaimStatus::Pending);
-
-				// TODO: there should be some limit per block
-				let process_at: T::BlockNumber =
-					<frame_system::Pallet<T>>::block_number() + ChallengePeriod::<T>::get();
-				MessagesValidAt::<T>::mutate(process_at.clone(), |v| {
-					let mut message_ids = v.clone().into_inner();
-					message_ids.push(event_id);
-					let message_ids_bounded = WeakBoundedVec::force_from(
-						message_ids,
-						Some(
-							"Warning: There are more MessagesValidAt than expected. \
-								A runtime configuration adjustment may be needed.",
-						),
-					);
-					*v = message_ids_bounded;
-				});
-
-				Self::deposit_event(Event::<T>::EventSubmit {
-					event_claim_id: event_id,
-					event_claim,
-					process_at,
-				});
 			}
+			Self::do_submit_event(event_id, event_claim)?;
 			Ok(())
 		}
 

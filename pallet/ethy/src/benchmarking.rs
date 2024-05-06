@@ -15,6 +15,7 @@
 
 use super::*;
 
+use ethabi::Token;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, traits::fungibles::Mutate};
 use frame_system::RawOrigin;
