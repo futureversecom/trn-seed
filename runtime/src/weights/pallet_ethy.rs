@@ -109,6 +109,23 @@ impl<T: frame_system::Config> pallet_ethy::WeightInfo for WeightInfo<T> {
             .saturating_add(T::DbWeight::get().reads(3 as u64))
             .saturating_add(T::DbWeight::get().writes(6 as u64))
     }
+    // Storage: EthBridge MissedMessageIds (r:1 w:1)
+    fn remove_missing_event_id() -> Weight {
+        Weight::from_ref_time(7_003_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(1 as u64))
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
+    // Storage: EthBridge Relayer (r:1 w:0)
+    // Storage: EthBridge MissedMessageIds (r:1 w:0)
+    // Storage: EthBridge PendingEventClaims (r:1 w:1)
+    // Storage: EthBridge ChallengePeriod (r:1 w:0)
+    // Storage: EthBridge MessagesValidAt (r:1 w:1)
+    // Storage: EthBridge PendingClaimStatus (r:0 w:1)
+    fn submit_missing_event() -> Weight {
+        Weight::from_ref_time(23_405_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(5 as u64))
+            .saturating_add(T::DbWeight::get().writes(3 as u64))
+    }
     // Storage: EthBridge Relayer (r:1 w:0)
     // Storage: EthBridge PendingEventClaims (r:1 w:1)
     // Storage: EthBridge ProcessedMessageIds (r:1 w:0)

@@ -57,6 +57,8 @@ pub trait WeightInfo {
     fn set_contract_address() -> Weight;
     fn set_bridge_paused() -> Weight;
     fn finalise_authorities_change() -> Weight;
+    fn remove_missing_event_id() -> Weight;
+    fn submit_missing_event() -> Weight;
     fn submit_event() -> Weight;
     fn submit_challenge() -> Weight;
     fn submit_notarization() -> Weight;
@@ -141,6 +143,23 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
         Weight::from_ref_time(15_600_000 as u64)
             .saturating_add(T::DbWeight::get().reads(3 as u64))
             .saturating_add(T::DbWeight::get().writes(6 as u64))
+    }
+    // Storage: EthBridge MissedMessageIds (r:1 w:1)
+    fn remove_missing_event_id() -> Weight {
+        Weight::from_ref_time(7_003_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(1 as u64))
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
+    // Storage: EthBridge Relayer (r:1 w:0)
+    // Storage: EthBridge MissedMessageIds (r:1 w:0)
+    // Storage: EthBridge PendingEventClaims (r:1 w:1)
+    // Storage: EthBridge ChallengePeriod (r:1 w:0)
+    // Storage: EthBridge MessagesValidAt (r:1 w:1)
+    // Storage: EthBridge PendingClaimStatus (r:0 w:1)
+    fn submit_missing_event() -> Weight {
+        Weight::from_ref_time(23_405_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(5 as u64))
+            .saturating_add(T::DbWeight::get().writes(3 as u64))
     }
     // Storage: EthBridge Relayer (r:1 w:0)
     // Storage: EthBridge PendingEventClaims (r:1 w:1)
@@ -263,6 +282,23 @@ impl WeightInfo for () {
         Weight::from_ref_time(15_600_000 as u64)
             .saturating_add(RocksDbWeight::get().reads(3 as u64))
             .saturating_add(RocksDbWeight::get().writes(6 as u64))
+    }
+    // Storage: EthBridge MissedMessageIds (r:1 w:1)
+    fn remove_missing_event_id() -> Weight {
+        Weight::from_ref_time(7_003_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: EthBridge Relayer (r:1 w:0)
+    // Storage: EthBridge MissedMessageIds (r:1 w:0)
+    // Storage: EthBridge PendingEventClaims (r:1 w:1)
+    // Storage: EthBridge ChallengePeriod (r:1 w:0)
+    // Storage: EthBridge MessagesValidAt (r:1 w:1)
+    // Storage: EthBridge PendingClaimStatus (r:0 w:1)
+    fn submit_missing_event() -> Weight {
+        Weight::from_ref_time(23_405_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(5 as u64))
+            .saturating_add(RocksDbWeight::get().writes(3 as u64))
     }
     // Storage: EthBridge Relayer (r:1 w:0)
     // Storage: EthBridge PendingEventClaims (r:1 w:1)

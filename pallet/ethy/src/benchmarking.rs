@@ -142,10 +142,31 @@ benchmarks! {
 		assert_eq!(NotaryKeys::<T>::get(), next_notary_keys);
 	}
 
+	remove_missing_event_id {
+		let range = (2,5);
+		MissedMessageIds::<T>::put(vec![1,2,3,4,5,6]);
+	}: _(RawOrigin::Root, range)
+	verify {
+		assert_eq!(MissedMessageIds::<T>::get(), vec![1,6]);
+	}
+
+	submit_missing_event {
+		let relayer = account::<T>("//Alice");
+		Relayer::<T>::put(&relayer);
+		let tx_hash: H256 = EthHash::from_low_u64_be(33);
+		let (event_id, source, destination, message) =
+			(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+		let event_data = encode_event_message(event_id, source, destination, message);
+		MissedMessageIds::<T>::put(vec![1]);
+	}: _(origin::<T>(&relayer), tx_hash, event_data)
+	verify {
+		let process_at = <frame_system::Pallet<T>>::block_number() + ChallengePeriod::<T>::get();
+		assert_eq!(MessagesValidAt::<T>::get(process_at).into_inner(), [event_id]);
+	}
+
 	submit_event {
 		let relayer = account::<T>("//Alice");
 		Relayer::<T>::put(&relayer);
-
 		let tx_hash: H256 = EthHash::from_low_u64_be(33);
 		let (event_id, source, destination, message) =
 			(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
