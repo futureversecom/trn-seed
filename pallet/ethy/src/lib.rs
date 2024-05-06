@@ -457,6 +457,14 @@ pub mod pallet {
 		SetContractAddress { address: EthAddress },
 		/// Xrpl authority set change request failed
 		XrplAuthoritySetChangeRequestFailed { error: DispatchError },
+		/// Ethereum event confirmations were set
+		EventBlockConfirmationsSet { confirmations: u64 },
+		/// DelayedEventProofsPerBlock was set
+		DelayedEventProofsPerBlockSet { count: u8 },
+		/// A new challenge period was set
+		ChallengePeriodSet { period: T::BlockNumber },
+		/// The bridge has been manually paused or unpaused
+		BridgeManualPause { paused: bool },
 	}
 
 	#[pallet::error]
@@ -845,7 +853,7 @@ pub mod pallet {
 		/// Admin function to manually remove an event_id from MissedMessageIds
 		/// This should only be used if the event_id is confirmed to be invalid
 		/// event_id_range is the lower and upper event_ids to clear (Both Inclusive)
-		#[pallet::weight(T::WeightInfo::submit_notarization())]
+		#[pallet::weight(T::WeightInfo::remove_missing_event_id())]
 		pub fn remove_missing_event_id(
 			origin: OriginFor<T>,
 			event_id_range: (EventClaimId, EventClaimId),
@@ -865,7 +873,7 @@ pub mod pallet {
 		/// Only events contained within MissedMessageIds can be processed here
 		/// - tx_hash The Ethereum transaction hash which triggered the event
 		/// - event ABI encoded bridge event
-		#[pallet::weight(T::WeightInfo::submit_notarization())]
+		#[pallet::weight(T::WeightInfo::submit_missing_event())]
 		#[transactional]
 		pub fn submit_missing_event(
 			origin: OriginFor<T>,
