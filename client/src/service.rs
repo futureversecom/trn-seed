@@ -438,6 +438,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 				pool: pool.clone(),
 				deny_unsafe,
 				babe: crate::rpc::BabeDeps {
+					babe_config: babe_config.clone(),
 					babe_worker_handle: babe_worker_handle.clone(),
 					keystore: keystore.clone(),
 				},
