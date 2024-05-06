@@ -1789,13 +1789,13 @@ dependencies = [
 
 [[package]]
 name = "ethy-gadget"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "ethabi",
  "futures",
  "futures-timer",
  "hex",
- "hex-literal 0.4.1",
+ "hex-literal",
  "libsecp256k1 0.6.0",
  "log",
  "parity-scale-codec",
@@ -2962,12 +2962,6 @@ name = "hex-literal"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ebdb29d2ea9ed0083cd8cece49bbd968021bd99b0849edb4a9a7ee0fdf6a4e0"
-
-[[package]]
-name = "hex-literal"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fe2267d4ed49bc07b63801559be28c718ea06c4738b7a03c94df7386d2cde46"
 
 [[package]]
 name = "hex_fmt"
@@ -5170,7 +5164,7 @@ dependencies = [
  "frame-executive",
  "frame-support",
  "frame-system",
- "hex-literal 0.3.4",
+ "hex-literal",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -5256,7 +5250,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal 0.3.4",
+ "hex-literal",
  "log",
  "pallet-assets",
  "pallet-assets-ext",
@@ -5310,7 +5304,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
- "hex-literal 0.3.4",
+ "hex-literal",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -5644,7 +5638,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal 0.3.4",
+ "hex-literal",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -5674,7 +5668,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
- "hex-literal 0.3.4",
+ "hex-literal",
  "log",
  "pallet-assets",
  "pallet-assets-ext",
@@ -5846,7 +5840,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal 0.3.4",
+ "hex-literal",
  "log",
  "pallet-assets",
  "pallet-assets-ext",
@@ -6158,7 +6152,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal 0.3.4",
+ "hex-literal",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6340,7 +6334,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal 0.3.4",
+ "hex-literal",
  "log",
  "pallet-assets",
  "pallet-assets-ext",
@@ -6747,7 +6741,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
- "hex-literal 0.3.4",
+ "hex-literal",
  "impl-trait-for-tuples",
  "log",
  "num_enum",
@@ -8760,7 +8754,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "5.0.0"
+version = "7.0.0"
 dependencies = [
  "clap",
  "ethy-gadget",
@@ -8779,7 +8773,7 @@ dependencies = [
  "frame-try-runtime",
  "futures",
  "hex",
- "hex-literal 0.3.4",
+ "hex-literal",
  "jsonrpsee",
  "libsecp256k1 0.6.0",
  "log",
@@ -8853,7 +8847,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
- "hex-literal 0.3.4",
+ "hex-literal",
  "impl-serde 0.4.0",
  "libsecp256k1 0.7.1",
  "log",
@@ -8894,7 +8888,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex",
- "hex-literal 0.3.4",
+ "hex-literal",
  "log",
  "pallet-assets",
  "pallet-assets-ext",

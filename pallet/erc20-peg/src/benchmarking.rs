@@ -34,41 +34,41 @@ benchmarks! {
 	activate_deposits {
 		let activate = true;
 		// Sanity check
-		assert_eq!(DepositsActive::get(), !activate);
+		assert_eq!(DepositsActive::<T>::get(), !activate);
 
 	}: _(RawOrigin::Root, activate)
 	verify {
-		assert_eq!(DepositsActive::get(), activate);
+		assert_eq!(DepositsActive::<T>::get(), activate);
 	}
 
 	activate_withdrawals {
 		let activate = true;
 		// Sanity check
-		assert_eq!(WithdrawalsActive::get(), !activate);
+		assert_eq!(WithdrawalsActive::<T>::get(), !activate);
 
 	}: _(RawOrigin::Root, activate)
 	verify {
-		assert_eq!(WithdrawalsActive::get(), activate);
+		assert_eq!(WithdrawalsActive::<T>::get(), activate);
 	}
 
 	activate_deposits_delay {
 		let activate = false;
 		// Sanity check
-		assert_eq!(DepositsDelayActive::get(), !activate);
+		assert_eq!(DepositsDelayActive::<T>::get(), !activate);
 
 	}: _(RawOrigin::Root, activate)
 	verify {
-		assert_eq!(DepositsDelayActive::get(), activate);
+		assert_eq!(DepositsDelayActive::<T>::get(), activate);
 	}
 
 	activate_withdrawals_delay {
 		let activate = false;
 		// Sanity check
-		assert_eq!(WithdrawalsDelayActive::get(), !activate);
+		assert_eq!(WithdrawalsDelayActive::<T>::get(), !activate);
 
 	}: _(RawOrigin::Root, activate)
 	verify {
-		assert_eq!(WithdrawalsDelayActive::get(), activate);
+		assert_eq!(WithdrawalsDelayActive::<T>::get(), activate);
 	}
 
 	withdraw {
@@ -86,7 +86,7 @@ benchmarks! {
 		assert_ok!(Erc20Peg::<T>::on_event(&source, &data));
 
 		// This is a hack. Getting the generated AssetId is pretty hard so this is a workaround.
-		let asset_id = AssetIdToErc20::iter_keys().next().unwrap();
+		let asset_id = AssetIdToErc20::<T>::iter_keys().next().unwrap();
 		assert_ok!(T::MultiCurrency::mint_into(asset_id, &alice, alice_balance));
 
 		let withdraw_amount: Balance = 100u32.into();
@@ -102,43 +102,43 @@ benchmarks! {
 	set_erc20_peg_address {
 		let alice: EthAddress = account::<T>("Alice").into();
 		// Sanity check
-		assert_ne!(Erc20Peg::<T>::contract_address(), alice);
+		assert_ne!(ContractAddress::<T>::get(), alice);
 
 	}: _(RawOrigin::Root, alice)
 	verify {
-		assert_eq!(Erc20Peg::<T>::contract_address(), alice);
+		assert_eq!(ContractAddress::<T>::get(), alice);
 	}
 
 	set_root_peg_address {
 		let alice: EthAddress = account::<T>("Alice").into();
 		// Sanity check
-		assert_ne!(Erc20Peg::<T>::root_peg_contract_address(), alice);
+		assert_ne!(RootPegContractAddress::<T>::get(), alice);
 	}: _(RawOrigin::Root, alice)
 	verify {
-		assert_eq!(Erc20Peg::<T>::root_peg_contract_address(), alice);
+		assert_eq!(RootPegContractAddress::<T>::get(), alice);
 	}
 
 	set_erc20_asset_map {
 		let asset_id: AssetId = 12;
 		let token_address: H160 = H160::from_low_u64_be(13);
 		// Sanity check
-		assert!(Erc20Peg::<T>::erc20_to_asset(token_address).is_none());
-		assert!(Erc20Peg::<T>::asset_to_erc20(asset_id).is_none());
+		assert!(Erc20ToAssetId::<T>::get(token_address).is_none());
+		assert!(AssetIdToErc20::<T>::get(asset_id).is_none());
 	}: _(RawOrigin::Root, asset_id, token_address)
 	verify {
-		assert_eq!(Erc20Peg::<T>::erc20_to_asset(token_address).unwrap(), asset_id);
-		assert_eq!(Erc20Peg::<T>::asset_to_erc20(asset_id).unwrap(), token_address);
+		assert_eq!(Erc20ToAssetId::<T>::get(token_address).unwrap(), asset_id);
+		assert_eq!(AssetIdToErc20::<T>::get(asset_id).unwrap(), token_address);
 	}
 
 	set_erc20_meta {
 		let alice: EthAddress = account::<T>("Alice").into();
-		let details: Vec<(EthAddress, Vec<u8>, u8)> = vec![(alice, vec![0], 100)];
+		let details: Vec<(EthAddress, BoundedVec<u8, T::StringLimit>, u8)> = vec![(alice, BoundedVec::truncate_from(vec![0]), 100)];
 		// Sanity check
-		assert_eq!(Erc20Meta::get(details[0].0.clone()), None);
+		assert_eq!(Erc20Meta::<T>::get(details[0].0.clone()), None);
 
 	}: _(RawOrigin::Root, details.clone())
 	verify {
-		assert_eq!(Erc20Meta::get(details[0].0.clone()), Some((details[0].1.clone(), details[0].2)));
+		assert_eq!(Erc20Meta::<T>::get(details[0].0.clone()), Some((details[0].1.clone(), details[0].2)));
 	}
 
 	set_payment_delay {

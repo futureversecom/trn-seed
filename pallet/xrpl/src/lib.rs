@@ -52,7 +52,7 @@ use sp_runtime::{
 	FixedPointOperand,
 };
 
-use crate::types::{ExtrinsicMemoData, XRPLTransaction};
+use crate::types::{ExtrinsicMemoData, XRPLTransaction, XrplPublicKey};
 
 /// The logging target for this pallet
 #[allow(dead_code)]
@@ -185,13 +185,13 @@ impl<T> Call<T>
 			let who: T::AccountId = (tx_origin).clone().into();
 			let account = frame_system::Account::<T>::get(who);
 			let mut builder = ValidTransactionBuilder::default()
-				.and_provides((tx_origin, nonce))
+				.and_provides((tx_origin.clone(), nonce))
 				.priority(priority);
 
 			// in the context of the pool, a transaction with too high a nonce is still considered valid
 			if nonce > account.nonce.into() {
 				if let Some(prev_nonce) = nonce.checked_sub(1) {
-					builder = builder.and_requires((origin, prev_nonce))
+					builder = builder.and_requires((tx_origin, prev_nonce))
 				}
 			}
 
@@ -396,7 +396,7 @@ pub mod pallet {
 	{
 		/// XRPL transaction with encoded extrinsic executed
 		XRPLExtrinsicExecuted {
-			public_key: [u8; 33],
+			public_key: XrplPublicKey,
 			caller: T::AccountId,
 			r_address: String,
 			call: <T as pallet::Config>::RuntimeCall,
@@ -450,8 +450,8 @@ pub mod pallet {
 			let public_key = tx.get_public_key().map_err(|e| {
 				log!(
 					info,
-					"⛔️ failed to extract public key from memo data: {:?}, err: {:?}",
-					tx.memos,
+					"⛔️ failed to extract public key from tx data: {:?}, err: {:?}",
+					tx.signing_pub_key,
 					e
 				);
 				Error::<T>::XRPLTransactionAccount

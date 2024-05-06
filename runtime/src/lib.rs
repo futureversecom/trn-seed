@@ -153,10 +153,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 52,
+	spec_version: 53,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 7,
+	transaction_version: 8,
 	state_version: 0,
 };
 
@@ -979,11 +979,11 @@ parameter_types! {
 	/// 75 blocks is 5 minutes before the end of the era
 	pub const AuthorityChangeDelay: BlockNumber = 75_u32;
 
-	pub const MaxEthData: u32 = 1024;
+	pub const MaxEthData: u32 = 3200;
 	pub const MaxChallenges: u32 = 100;
 	pub const MaxMessagesPerBlock: u32 = 1000;
 	pub const MaxCallRequests: u32 = 1000;
-	pub const ProcessedMessageIdBuffer: u32 = 500;
+	pub const ProcessedMessageIdBuffer: u32 = 1000;
 }
 
 impl pallet_ethy::Config for Runtime {
@@ -1149,6 +1149,10 @@ impl fp_rpc::ConvertTransaction<sp_runtime::OpaqueExtrinsic> for TransactionConv
 parameter_types! {
 	/// The ERC20 peg address
 	pub const PegPalletId: PalletId = PalletId(*b"erc20peg");
+	/// Limit that determines max delays stored simultaneously in a single block
+	pub const MaxDelaysPerBlock: u32 = 10_000;
+	/// Needs to be large enough to handle the maximum number of blocks that can be ready at once
+	pub const MaxReadyBlocks: u32 = 100_000;
 }
 
 impl pallet_erc20_peg::Config for Runtime {
@@ -1162,6 +1166,9 @@ impl pallet_erc20_peg::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_erc20_peg::WeightInfo<Runtime>;
 	type NativeAssetId = RootAssetId;
+	type StringLimit = AssetsStringLimit;
+	type MaxDelaysPerBlock = MaxDelaysPerBlock;
+	type MaxReadyBlocks = MaxReadyBlocks;
 }
 
 parameter_types! {
@@ -1255,7 +1262,6 @@ impl pallet_futurepass::Config for Runtime {
 	type BlacklistedCallValidator = impls::FuturepassCallValidator;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
-	type FuturepassMigrator = impls::FuturepassMigrationProvider;
 	type WeightInfo = weights::pallet_futurepass::WeightInfo<Self>;
 
 	#[cfg(feature = "runtime-benchmarks")]

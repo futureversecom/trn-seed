@@ -33,7 +33,7 @@ use sc_client_api::{Backend, BlockchainEvents, Finalizer};
 use sc_network::ProtocolName;
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
 use seed_primitives::ethy::EthyApi;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{BlockT, HeaderT, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_keystore::SyncCryptoStorePtr;
@@ -149,11 +149,12 @@ where
 pub async fn start_ethy_gadget<B, BE, C, R, N>(ethy_params: EthyParams<B, BE, C, R, N>)
 where
 	B: Block,
-	BE: Backend<B>,
+	BE: Backend<B> + 'static,
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: EthyApi<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Sync + Send + 'static,
+	<<B as BlockT>::Header as HeaderT>::Number: Into<u64>,
 {
 	let EthyParams {
 		client,
@@ -168,7 +169,8 @@ where
 	} = ethy_params;
 
 	let sync_oracle = network.clone();
-	let gossip_validator = Arc::new(gossip::GossipValidator::new(Default::default()));
+	let gossip_validator =
+		Arc::new(gossip::GossipValidator::new(Default::default(), backend.clone()));
 	let gossip_engine = GossipEngine::new(network, protocol_name, gossip_validator.clone(), None);
 
 	let metrics =

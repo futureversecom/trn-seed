@@ -46,6 +46,7 @@ use crate::{
 pub(crate) struct WorkerParams<B, BE, C, R, SO>
 where
 	B: Block,
+	BE: Backend<B>,
 {
 	pub client: Arc<C>,
 	pub backend: Arc<BE>,
@@ -53,7 +54,7 @@ where
 	pub key_store: EthyKeystore,
 	pub event_proof_sender: notification::EthyEventProofSender,
 	pub gossip_engine: GossipEngine<B>,
-	pub gossip_validator: Arc<GossipValidator<B>>,
+	pub gossip_validator: Arc<GossipValidator<B, BE>>,
 	pub metrics: Option<Metrics>,
 	pub sync_oracle: SO,
 }
@@ -73,7 +74,7 @@ where
 	key_store: EthyKeystore,
 	event_proof_sender: notification::EthyEventProofSender,
 	gossip_engine: GossipEngine<B>,
-	gossip_validator: Arc<GossipValidator<B>>,
+	gossip_validator: Arc<GossipValidator<B, BE>>,
 	metrics: Option<Metrics>,
 	/// Tracks on-going witnesses
 	witness_record: WitnessRecord,
@@ -224,19 +225,15 @@ where
 				event_id,
 				authority_id: authority_id.clone(),
 				signature,
+				block_number: (*notification.header.number()).try_into().unwrap_or_default(),
 			};
-			let broadcast_witness = witness.encode();
 
 			metric_inc!(self, ethy_witness_sent);
-			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 
 			// process the witness
 			self.witness_record.note_event_metadata(event_id, data, block, chain_id);
 			self.handle_witness(witness.clone());
-
-			// broadcast the witness
-			self.gossip_engine.gossip_message(topic::<B>(), broadcast_witness, false);
-			debug!(target: "ethy", "💎 gossiped witness for event: {:?}", witness.event_id);
+			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 		}
 	}
 
@@ -329,9 +326,14 @@ where
 			return
 		}
 
+		// gossip the witness. will gossip even if we don't have event metadata yet. This would
+		// increase the network activity, but gives more room for validator Witnesses to spread
+		// across the network.
+		trace!(target: "ethy", "💎 gossiping witness: {:?}", witness.event_id);
 		self.gossip_engine.gossip_message(topic::<B>(), witness.encode(), false);
-		// after processing `witness` there may now be enough info to make a proof
-		self.try_make_proof(witness.event_id);
+
+		// Try to make proof
+		self.try_make_proof(witness.event_id.clone());
 	}
 
 	/// Try to make an event proof
@@ -344,12 +346,10 @@ where
 	/// 2) Store proof in DB
 	/// 3) Notify listeners of the new proof
 	fn try_make_proof(&mut self, event_id: EventProofId) {
-		{
-			let event_metadata = self.witness_record.event_metadata(event_id);
-			if event_metadata.is_none() {
-				debug!(target: "ethy", "💎 missing event metadata: {:?}, can't make proof yet", event_id);
-				return
-			}
+		let event_metadata = self.witness_record.event_metadata(event_id);
+		if event_metadata.is_none() {
+			debug!(target: "ethy", "💎 missing event metadata: {:?}, can't make proof yet", event_id);
+			return
 		}
 
 		// process any unverified witnesses, received before event metadata was known
@@ -558,7 +558,8 @@ pub(crate) mod test {
 		let api = Arc::new(TestApi {});
 		let network = peer.network_service().clone();
 		let sync_oracle = network.clone();
-		let gossip_validator = Arc::new(crate::gossip::GossipValidator::new(validators));
+		let gossip_validator =
+			Arc::new(crate::gossip::GossipValidator::new(validators, peer.client().as_backend()));
 		let gossip_engine =
 			GossipEngine::new(network, ETHY_PROTOCOL_NAME, gossip_validator.clone(), None);
 		let (sender, _receiver) = NotificationStream::<_, EthyEventProofTracingKey>::channel();
