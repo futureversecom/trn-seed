@@ -175,7 +175,7 @@ pub fn create_full<C, P, A, BE, SC>(
 			fc_mapping_sync::EthereumBlockNotification<Block>,
 		>,
 	>,
-	pending_consenus_data_provider: Box<dyn ConsensusDataProvider<Block>>,
+	pending_consensus_data_provider: Box<dyn ConsensusDataProvider<Block>>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
 	A: ChainApi<Block = Block> + 'static,
@@ -256,6 +256,7 @@ where
 					slot_duration,
 				);
 
+			// NOTE - check if we can remove this
 			let storage_proof = sp_transaction_storage_proof::registration::new_data_provider(
 				&*client_clone.clone(),
 				&parent,
@@ -324,7 +325,7 @@ where
 			10,
 			eth_forced_parent_hashes,
 			pending_create_inherent_data_providers,
-			Some(pending_consenus_data_provider),
+			Some(pending_consensus_data_provider),
 		)
 		.into_rpc(),
 	)?;
