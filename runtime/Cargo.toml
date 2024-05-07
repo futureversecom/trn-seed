@@ -129,7 +129,7 @@ pallet-election-provider-support-benchmarking = { git = "https://github.com/pari
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 
 [dev-dependencies]
-ethereum = { version = "0.14.0", features = ["with-codec"] }
+ethereum = { version = "0.14.0", features = ["with-codec"]  }
 seed-client = { path = "../client" }
 ethabi = { version = "18.0.0" }
 frame-remote-externalities = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
@@ -322,6 +322,7 @@ runtime-benchmarks = [
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
+	"pallet-ethereum/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	# Local
 	"pallet-nft/runtime-benchmarks",

@@ -412,7 +412,7 @@ impl pallet_assets::Config for Runtime {
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type CallbackHandle = ();
 	pallet_assets::runtime_benchmarks_enabled! {
-		type BenchmarkHelper = BenchmarkHelper;
+		type BenchmarkHelper = ();
 	}
 }
 

@@ -208,6 +208,9 @@ macro_rules! impl_pallet_assets_config {
 			type AssetIdParameter = AssetId;
 			type CreateOrigin = frame_system::EnsureNever<AccountId>;
 			type CallbackHandle = ();
+			pallet_assets::runtime_benchmarks_enabled! {
+				type BenchmarkHelper = ();
+			}
 		}
 	};
 }
