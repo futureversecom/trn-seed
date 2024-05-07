@@ -53,7 +53,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_runtime::traits::BlakeTwo256;
 
-use crate::cli::Cli;
+use crate::{cli::Cli, consensus_data_providers::BabeConsensusDataProvider};
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -438,6 +438,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 				pool: pool.clone(),
 				deny_unsafe,
 				babe: crate::rpc::BabeDeps {
+					babe_config: babe_config.clone(),
 					babe_worker_handle: babe_worker_handle.clone(),
 					keystore: keystore.clone(),
 				},
@@ -453,14 +454,14 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 					finality_provider: finality_proof_provider.clone(),
 				},
 				syncing_service: sync_service.clone(),
-				eth_forced_parent_hashes: None, // TODO - check again
+				eth_forced_parent_hashes: None,
 			};
 
 			crate::rpc::create_full(
 				deps,
 				subscription_task_executor,
 				pubsub_notification_sinks.clone(),
-				Box::new(()), // TODO - check again
+				Box::new(BabeConsensusDataProvider::new()),
 			)
 			.map_err(Into::into)
 		}
@@ -524,6 +525,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 							slot_duration,
 						);
 
+					// NOTE - check if we can remove this
 					let storage_proof =
 						sp_transaction_storage_proof::registration::new_data_provider(
 							&*client_clone,

@@ -9090,6 +9090,7 @@ dependencies = [
  "sp-transaction-storage-proof",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
+ "thiserror",
  "try-runtime-cli",
  "url",
 ]

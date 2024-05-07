@@ -22,6 +22,7 @@ mod service;
 mod benchmarking;
 mod cli;
 mod command;
+mod consensus_data_providers;
 mod custom_commands;
 mod rpc;
 

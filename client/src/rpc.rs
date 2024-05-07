@@ -45,7 +45,6 @@ use sp_blockchain::{
 };
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
-use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::BlakeTwo256;
 
@@ -57,6 +56,7 @@ use fc_rpc::{
 use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use sc_network_sync::SyncingService;
 use sp_core::H256;
+use sp_transaction_storage_proof::IndexedBody;
 
 // Runtime
 use ethy_gadget::notification::EthyEventProofStream;
@@ -74,6 +74,8 @@ pub struct EthyDeps {
 
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
+	/// BABE protocol config.
+	pub babe_config: sc_consensus_babe::BabeConfiguration,
 	/// A handle to the BABE worker for issuing requests.
 	pub babe_worker_handle: sc_consensus_babe::BabeWorkerHandle<Block>,
 	/// The keystore that manages the keys of the node.
@@ -173,7 +175,7 @@ pub fn create_full<C, P, A, BE, SC>(
 			fc_mapping_sync::EthereumBlockNotification<Block>,
 		>,
 	>,
-	pending_consenus_data_provider: Box<dyn ConsensusDataProvider<Block>>,
+	pending_consensus_data_provider: Box<dyn ConsensusDataProvider<Block>>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
 	A: ChainApi<Block = Block> + 'static,
@@ -185,6 +187,7 @@ where
 	C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError>,
 	C: Send + Sync + 'static,
 	C: CallApiAt<Block>,
+	C: IndexedBody<Block>,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
@@ -237,7 +240,32 @@ where
 	} = deps;
 
 	// let BabeDeps { keystore, babe_config, shared_epoch_changes } = babe;
-	let BabeDeps { babe_worker_handle, keystore } = babe;
+	let BabeDeps { babe_config, babe_worker_handle, keystore } = babe;
+
+	let client_clone = client.clone();
+	let slot_duration = babe_config.slot_duration();
+
+	let pending_create_inherent_data_providers = move |parent, _| {
+		let client_clone = client_clone.clone();
+		async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
+			let slot =
+				sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+					*timestamp,
+					slot_duration,
+				);
+
+			// NOTE - check if we can remove this
+			let storage_proof = sp_transaction_storage_proof::registration::new_data_provider(
+				&*client_clone.clone(),
+				&parent,
+			)?;
+
+			Ok((slot, timestamp, storage_proof))
+		}
+	};
+
 	let GrandpaDeps {
 		shared_voter_state,
 		shared_authority_set,
@@ -279,12 +307,6 @@ where
 	io.merge(Sft::new(client.clone()).into_rpc())?;
 	io.merge(AssetsExt::new(client.clone()).into_rpc())?;
 
-	// NOTE - check
-	let pending_create_inherent_data_providers = move |_, _| async move {
-		let idp = sp_timestamp::InherentDataProvider::from_system_time();
-		Ok(idp)
-	};
-
 	// Ethereum compatible RPCs
 	io.merge(
 		Eth::new(
@@ -303,7 +325,7 @@ where
 			10,
 			eth_forced_parent_hashes,
 			pending_create_inherent_data_providers,
-			Some(pending_consenus_data_provider),
+			Some(pending_consensus_data_provider),
 		)
 		.into_rpc(),
 	)?;
