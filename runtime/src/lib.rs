@@ -64,7 +64,6 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
-use frame_support::traits::{AsEnsureOriginWithArg, EitherOf};
 pub use frame_support::{
 	construct_runtime,
 	dispatch::{DispatchClass, GetDispatchInfo},
@@ -78,6 +77,10 @@ pub use frame_support::{
 		ConstantMultiplier, IdentityFee, Weight,
 	},
 	PalletId, StorageValue,
+};
+use frame_support::{
+	pallet_prelude::Hooks,
+	traits::{AsEnsureOriginWithArg, EitherOf},
 };
 
 use frame_system::{
@@ -682,13 +685,14 @@ parameter_types! {
 	pub const MaxAuthorities: u32 = 4_096;
 	// Equivocation constants.
 	pub const ReportLongevity: u64 = BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
+	pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
 }
 impl pallet_grandpa::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
-	type MaxSetIdSessionEntries = ReportLongevity;
+	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	type EquivocationReportSystem =
 		pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }
@@ -895,7 +899,7 @@ impl pallet_staking::Config for Runtime {
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
-	type AdminOrigin = EnsureRoot<Self::AccountId>; // TODO - check if we want this to be something else
+	type AdminOrigin = EnsureRoot<Self::AccountId>; // Keeping this as root for now.
 	type SessionInterface = Self;
 	type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
 	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
@@ -1875,7 +1879,7 @@ impl_runtime_apis! {
 				let _ = Executive::apply_extrinsic(ext);
 			}
 
-			// Ethereum::on_finalize(System::block_number() + 1); // TODO - check if we can enable this or remove it completely
+			Ethereum::on_finalize(System::block_number() + 1);
 			(
 				pallet_ethereum::CurrentBlock::<Runtime>::get(),
 				pallet_ethereum::CurrentTransactionStatuses::<Runtime>::get()

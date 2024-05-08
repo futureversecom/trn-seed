@@ -18,6 +18,7 @@ use sc_cli::{Error, Result};
 
 #[allow(missing_docs)]
 #[derive(Debug, clap::Parser)]
+#[group(skip)]
 pub struct RunCmd {
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -53,6 +54,7 @@ pub struct Cli {
 	#[clap(subcommand)]
 	pub subcommand: Option<Subcommand>,
 
+	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub run: RunCmd,
 }
