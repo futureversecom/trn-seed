@@ -271,6 +271,7 @@ try-runtime = [
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-ethereum/try-runtime",
+	"fp-self-contained/try-runtime",
 	# "pallet-base-fee/try-runtime",
 	# Local
 	"pallet-assets-ext/try-runtime",
