@@ -24,9 +24,8 @@ use sp_runtime::traits::Hash;
 type MockCall = crate::mock::RuntimeCall;
 
 // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates) + 1 for Existential deposit
-// + 1 for KeepAlive rules
-const FP_CREATION_RESERVE: Balance = 148 + 126 + 2;
-const FP_DELEGATE_RESERVE: Balance = 126 * 1 + 2; // ProxyDepositFactor * 1(num of delegates)
+const FP_CREATION_RESERVE: Balance = 148 + 126 + 1;
+const FP_DELEGATE_RESERVE: Balance = 126 * 1 + 1; // ProxyDepositFactor * 1(num of delegates)
 
 fn transfer_funds(asset_id: AssetId, source: &AccountId, destination: &AccountId, amount: Balance) {
 	assert_ok!(<AssetsExt as Mutate<AccountId>>::transfer(
@@ -61,8 +60,8 @@ fn create_futurepass_by_owner() {
 			);
 
 			// fund owner
-			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_CREATION_RESERVE);
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_CREATION_RESERVE);
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_CREATION_RESERVE + 1);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_CREATION_RESERVE + 1);
 
 			let futurepass_addr = AccountId::from(hex!("ffffffff00000000000000000000000000000001"));
 			assert_eq!(<Test as Config>::Proxy::owner(&futurepass_addr), None);
@@ -121,7 +120,7 @@ fn create_futurepass_by_other() {
 			assert_eq!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), owner);
 
 			// check that FP_CREATION_RESERVE is paid by the caller(other)
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 1);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 0);
 		});
 }
 
@@ -156,7 +155,7 @@ fn register_delegate_by_owner_works() {
 			// register delegate
 			// owner needs another FP_DELEGATE_RESERVE for this
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELEGATE_RESERVE);
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE + 1);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE);
 
 			let signature = signer
 				.sign_prehashed(
@@ -525,7 +524,7 @@ fn unregister_delegate_by_owner_works() {
 			));
 			assert!(<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(proxy_type)));
 
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 2);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
 			// unregister_delegate
 			assert_ok!(Futurepass::unregister_delegate(
 				RuntimeOrigin::signed(owner),
@@ -610,10 +609,7 @@ fn unregister_delegate_by_the_delegate_works() {
 				Event::<Test>::DelegateUnregistered { futurepass, delegate }.into(),
 			);
 			// check the reserved amount has been received by the caller. i.e the delegate
-			assert_eq!(
-				AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate),
-				FP_DELEGATE_RESERVE - 2
-			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate), FP_DELEGATE_RESERVE);
 
 			// check delegate is not a proxy of futurepass
 			assert_eq!(
@@ -873,7 +869,7 @@ fn transfer_futurepass_to_address_works() {
 			// fund owner since it requires FP_DELEGATE_RESERVE to add new owner
 			// the owner will get back the old reserve amount
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELEGATE_RESERVE);
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE + 2);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE);
 			assert_ok!(Futurepass::transfer_futurepass(
 				RuntimeOrigin::signed(owner),
 				owner,
@@ -971,7 +967,7 @@ fn transfer_futurepass_to_none_works() {
 			// transfer the ownership to none
 			// fund owner since it requires FP_DELEGATE_RESERVE to add new owner
 			// the owner will get back the old reserve amount
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 2);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
 			assert_ok!(Futurepass::transfer_futurepass(RuntimeOrigin::signed(owner), owner, None));
 			// assert event
 			System::assert_has_event(
@@ -993,7 +989,7 @@ fn transfer_futurepass_to_none_works() {
 				false
 			);
 			// caller(the owner) should receive the reserved balance diff
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 402);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 400);
 		});
 }
 

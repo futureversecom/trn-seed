@@ -138,7 +138,7 @@ impl ProxyProvider<Test> for ProxyPalletProvider {
 			funder,
 			futurepass,
 			extra_reserve_required,
-			ExistenceRequirement::KeepAlive,
+			ExistenceRequirement::AllowDeath,
 		)?;
 		let proxy_type = ProxyType::try_from(*proxy_type)?;
 
