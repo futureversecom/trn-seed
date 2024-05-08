@@ -79,7 +79,7 @@ pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrat
 
 # These dependencies are used for runtime benchmarking
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", optional = true, branch = "polkadot-v1.0.0" }
-frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", features = ["default", "rocksdb"] }
 
 # Local Dependencies
 ethy-gadget = { path = "../ethy-gadget" }
@@ -104,7 +104,8 @@ try-runtime-cli = { git = "https://github.com/paritytech/substrate", optional = 
 substrate-build-script-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 
 [features]
-default = []
+default = ["rocksdb"]
+rocksdb = ["fc-db/rocksdb"]
 runtime-benchmarks = ["frame-benchmarking", "seed-runtime/runtime-benchmarks",  "sc-service/runtime-benchmarks"]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
