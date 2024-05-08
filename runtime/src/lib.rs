@@ -682,13 +682,14 @@ parameter_types! {
 	pub const MaxAuthorities: u32 = 4_096;
 	// Equivocation constants.
 	pub const ReportLongevity: u64 = BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
+	pub const MaxSetIdSessionEntries: u32 = BondingDuration::get() * SessionsPerEra::get();
 }
 impl pallet_grandpa::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type KeyOwnerProof = <Historical as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 	type WeightInfo = ();
 	type MaxAuthorities = MaxAuthorities;
-	type MaxSetIdSessionEntries = ReportLongevity;
+	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 	type EquivocationReportSystem =
 		pallet_grandpa::EquivocationReportSystem<Self, Offences, Historical, ReportLongevity>;
 }

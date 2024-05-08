@@ -109,6 +109,7 @@ where
 	BE: Backend<Block> + 'static,
 	BE::State: StateBackend<BlakeTwo256>,
 {
+	// TODO - take cli arg for frontier-backend-type and create accordingly.
 	Ok(fc_db::Backend::KeyValue(fc_db::kv::Backend::<Block>::new(
 		client,
 		&fc_db::kv::DatabaseSettings {
