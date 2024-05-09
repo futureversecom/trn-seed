@@ -167,6 +167,15 @@ where
 		value: Self::Balance,
 		req: ExistenceRequirement,
 	) -> DispatchResult {
+		// After the Substrate v1.0 update, transactions that are attempting to transfer 0 will
+		// fail if the destination account does not exist.
+		// This is due to the amount being less than the existential deposit returning an error
+		// In all EVM transactions, even if the value is set to 0, a transfer of that amount
+		// will be initiated by the executor which will fail.
+		// A workaround is to simply return Ok() if the value is 0, bypassing the actual transfer
+		if value == Self::Balance::default() {
+			return Ok(())
+		}
 		C::transfer(from, to, scale_wei_to_6dp(value), req)
 	}
 	fn ensure_can_withdraw(
