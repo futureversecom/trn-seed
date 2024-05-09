@@ -537,7 +537,10 @@ fn unregister_delegate_by_owner_works() {
 			);
 
 			// check the reserved amount has been received by the caller. i.e the owner
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE);
+			assert_eq!(
+				AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner),
+				FP_DELEGATE_RESERVE - ExistentialDeposit::get()
+			);
 
 			// check delegate is not a proxy of futurepass
 			assert_eq!(
@@ -609,7 +612,10 @@ fn unregister_delegate_by_the_delegate_works() {
 				Event::<Test>::DelegateUnregistered { futurepass, delegate }.into(),
 			);
 			// check the reserved amount has been received by the caller. i.e the delegate
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate), FP_DELEGATE_RESERVE);
+			assert_eq!(
+				AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate),
+				FP_DELEGATE_RESERVE - ExistentialDeposit::get()
+			);
 
 			// check delegate is not a proxy of futurepass
 			assert_eq!(
@@ -904,7 +910,7 @@ fn transfer_futurepass_to_address_works() {
 			// caller(the owner) should receive the reserved balance diff
 			assert_eq!(
 				AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner),
-				2 * FP_DELEGATE_RESERVE - 1
+				2 * FP_DELEGATE_RESERVE - 2 * ExistentialDeposit::get()
 			);
 		});
 }
@@ -1221,7 +1227,6 @@ fn proxy_extrinsic_non_transfer_call_works() {
 			let fund_amount: Balance = 1_500_000;
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, fund_amount);
 
-			let asset_id = 2;
 			let remark = b"Mischief Managed";
 			let inner_call = Box::new(MockCall::System(frame_system::Call::remark_with_event {
 				remark: remark.to_vec(),

@@ -810,7 +810,6 @@ mod filtered_calls {
 
 			// RuntimeCall with RewardDestination::Staked gets filtered
 			let call = pallet_staking::Call::<Runtime>::bond {
-				controller: Default::default(),
 				value: Default::default(),
 				payee: RewardDestination::Staked,
 			};
@@ -822,7 +821,6 @@ mod filtered_calls {
 
 			// RuntimeCall with RewardDestination::Controller succeeds
 			let call = pallet_staking::Call::<Runtime>::bond {
-				controller: Default::default(),
 				value: 12,
 				payee: RewardDestination::Controller,
 			};

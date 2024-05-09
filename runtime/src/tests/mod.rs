@@ -39,6 +39,7 @@ use crate::{
 };
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
 use seed_primitives::{AccountId, AccountId20, Balance, Index};
+use sp_runtime::BuildStorage;
 
 /// Base gas used for an EVM transaction
 pub const BASE_TX_GAS_COST: u128 = 21000;
@@ -105,7 +106,7 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		// balances + asset setup
 		let metadata = vec![
@@ -294,11 +295,11 @@ fn fund_authorities_and_accounts() {
 
 		// Alice, Bob staked
 		assert_eq!(
-			AssetsExt::reducible_balance(ROOT_ASSET_ID, &alice(), false),
+			AssetsExt::balance(ROOT_ASSET_ID, &alice()),
 			INITIAL_ROOT_BALANCE - VALIDATOR_BOND
 		);
 		assert_eq!(
-			AssetsExt::reducible_balance(ROOT_ASSET_ID, &bob(), false),
+			AssetsExt::balance(ROOT_ASSET_ID, &bob()),
 			INITIAL_ROOT_BALANCE - VALIDATOR_BOND
 		);
 	});

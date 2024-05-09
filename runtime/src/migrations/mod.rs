@@ -47,9 +47,10 @@ impl OnRuntimeUpgrade for AllMigrations {
 #[cfg(test)]
 mod tests {
 	use crate::{Runtime, System};
+	use sp_runtime::BuildStorage;
 
 	pub fn new_test_ext() -> sp_io::TestExternalities {
-		let t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
@@ -589,7 +590,7 @@ mod value_tests {
 mod remote_tests {
 	use super::*;
 	use crate::{migrations::AllMigrations, Block};
-	use remote_externalities::{Builder, Mode, OfflineConfig};
+	use frame_remote_externalities::{Builder, Mode, OfflineConfig};
 	use std::env::var;
 
 	#[tokio::test]

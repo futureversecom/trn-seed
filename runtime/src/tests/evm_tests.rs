@@ -138,7 +138,7 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		));
 
 		// Check Bob's initial balance is 0
-		assert_eq!(AssetsExt::reducible_balance(payment_asset, &bob(), false), 0);
+		assert_eq!(AssetsExt::balance(payment_asset, &bob()), 0);
 
 		// Mint these assets into Alice and new_account
 		assert_ok!(Assets::mint(
@@ -223,7 +223,7 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		));
 
 		// Check Bob has been transferred the correct amount
-		assert_eq!(AssetsExt::reducible_balance(payment_asset, &bob(), false), transfer_amount);
+		assert_eq!(AssetsExt::balance(payment_asset, &bob()), transfer_amount);
 	});
 }
 
