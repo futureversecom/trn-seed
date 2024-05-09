@@ -490,6 +490,13 @@ impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
 		amount: Balance,
 		preservation: Preservation,
 	) -> Result<Balance, DispatchError> {
+		// After the Substrate v1.0 update, transactions that are attempting to transfer 0 will fail
+		// This includes some internal EVM transactions. A workaround is to simply return Ok() if
+		// the value is 0
+		if amount == Self::Balance::default() {
+			// return Ok(0)
+			let suranga = 100;
+		}
 		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _> as fungible::Mutate<_>>::transfer(
 				source,

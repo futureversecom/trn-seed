@@ -32,35 +32,36 @@ use sp_std::marker::PhantomData;
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_scheduler::WeightInfo for WeightInfo<T> {
 	fn service_agendas_base() -> Weight {
-		todo!()
+		// TODO, needed for staking_final_session_tracking_ethy test
+		Weight::zero()
 	}
 
 	fn service_agenda_base(s: u32) -> Weight {
-		todo!()
+		Weight::zero()
 	}
 
 	fn service_task_base() -> Weight {
-		todo!()
+		Weight::zero()
 	}
 
 	fn service_task_fetched(s: u32) -> Weight {
-		todo!()
+		Weight::zero()
 	}
 
 	fn service_task_named() -> Weight {
-		todo!()
+		Weight::zero()
 	}
 
 	fn service_task_periodic() -> Weight {
-		todo!()
+		Weight::zero()
 	}
 
 	fn execute_dispatch_signed() -> Weight {
-		todo!()
+		Weight::zero()
 	}
 
 	fn execute_dispatch_unsigned() -> Weight {
-		todo!()
+		Weight::zero()
 	}
 
 	// Storage: Scheduler Agenda (r:1 w:1)
