@@ -14,10 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{self as pallet_futurepass, *};
-use frame_support::traits::{
-	tokens::{fungibles::Mutate, Preservation},
-	Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency,
-};
+use frame_support::traits::{Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency};
 use seed_pallet_common::test_prelude::*;
 use seed_runtime::{
 	impls::{ProxyPalletProvider, ProxyType},

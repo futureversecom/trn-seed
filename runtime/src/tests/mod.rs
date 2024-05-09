@@ -24,7 +24,11 @@ mod maintenance_mode;
 mod multiplier;
 mod staker_payouts;
 
-use frame_support::traits::{fungibles::Inspect as _, GenesisBuild, Get};
+use frame_support::traits::{
+	fungibles::Inspect as _,
+	tokens::{Fortitude, Preservation},
+	GenesisBuild, Get,
+};
 use sp_core::{
 	ecdsa,
 	offchain::{testing, OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
@@ -295,11 +299,21 @@ fn fund_authorities_and_accounts() {
 
 		// Alice, Bob staked
 		assert_eq!(
-			AssetsExt::balance(ROOT_ASSET_ID, &alice()),
+			AssetsExt::reducible_balance(
+				ROOT_ASSET_ID,
+				&alice(),
+				Preservation::Preserve,
+				Fortitude::Polite
+			),
 			INITIAL_ROOT_BALANCE - VALIDATOR_BOND
 		);
 		assert_eq!(
-			AssetsExt::balance(ROOT_ASSET_ID, &bob()),
+			AssetsExt::reducible_balance(
+				ROOT_ASSET_ID,
+				&bob(),
+				Preservation::Preserve,
+				Fortitude::Polite
+			),
 			INITIAL_ROOT_BALANCE - VALIDATOR_BOND
 		);
 	});
