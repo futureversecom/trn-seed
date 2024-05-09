@@ -128,6 +128,10 @@ impl TestNetFactory for EthyTestNet {
 		&self.peers
 	}
 
+	fn peers_mut(&mut self) -> &mut Vec<EthyPeer> {
+		&mut self.peers
+	}
+
 	fn mut_peers<F: FnOnce(&mut Vec<EthyPeer>)>(&mut self, closure: F) {
 		closure(&mut self.peers);
 	}

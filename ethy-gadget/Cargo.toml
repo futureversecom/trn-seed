@@ -20,6 +20,7 @@ sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "pol
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sc-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sc-network-sync = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sc-network-gossip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sc-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
