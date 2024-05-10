@@ -24,6 +24,7 @@ use frame_support::{
 	weights::Weight,
 	ReversibleStorageHasher,
 };
+#[cfg(feature = "try-runtime")]
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
 
@@ -39,7 +40,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(state: Vec<u8>) -> Result<(), DispatchError> {
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), DispatchError> {
 		Ok(())
 	}
 }

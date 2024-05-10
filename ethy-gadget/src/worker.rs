@@ -18,7 +18,7 @@ use futures::StreamExt;
 use log::{debug, error, info, trace, warn};
 use sc_client_api::{Backend, FinalityNotification};
 use sc_network_gossip::GossipEngine;
-use sp_api::{BlockId, ProvideRuntimeApi};
+use sp_api::{ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_runtime::{
@@ -505,14 +505,14 @@ pub(crate) mod test {
 		},
 		witness_record::test::create_witness,
 	};
-	use sc_client_api::{AuxStore, FinalizeSummary, UnpinHandle};
+	use sc_client_api::{AuxStore, FinalizeSummary};
 	use sc_network_sync::service::chain_sync::SyncingService;
 	use sc_network_test::{PeersFullClient, TestNetFactory};
 	use sc_utils::{mpsc::tracing_unbounded, notification::NotificationStream};
 	use seed_primitives::ethy::{crypto::AuthorityId, EthyChainId, ValidatorSet};
 	use sp_api::HeaderT;
 	use substrate_test_runtime_client::{
-		runtime::{Block, Digest, DigestItem, Header, H256},
+		runtime::{Block, Digest, DigestItem, Header},
 		Backend,
 	};
 

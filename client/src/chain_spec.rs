@@ -22,9 +22,9 @@ use seed_runtime::{
 		XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	keys::*,
-	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, EthBridgeConfig, GenesisConfig,
-	SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-	XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
+	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, EthBridgeConfig,
+	RuntimeGenesisConfig, SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig,
+	SudoConfig, SystemConfig, XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
 };
 use sp_core::{ecdsa, Pair, Public};
 use sp_runtime::{
@@ -36,7 +36,7 @@ use sp_runtime::{
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
+pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig>;
 
 /// Type alias for the stash, controller + session key types tuple used by validators
 pub type AuthorityKeys = (AccountId, BabeId, ImOnlineId, GrandpaId, EthBridgeId);
@@ -145,7 +145,7 @@ fn testnet_genesis(
 	xrp_relayers: Vec<AccountId>,
 	xrp_door_signers: Vec<EthBridgeId>,
 	_enable_println: bool,
-) -> GenesisConfig {
+) -> RuntimeGenesisConfig {
 	let metadata = vec![
 		(
 			ROOT_ASSET_ID,
@@ -169,7 +169,7 @@ fn testnet_genesis(
 	}
 	const VALIDATOR_BOND: Balance = 100_000 * ONE_ROOT;
 
-	GenesisConfig {
+	RuntimeGenesisConfig {
 		system: SystemConfig {
 			// Add Wasm runtime to storage.
 			code: wasm_binary.to_vec(),

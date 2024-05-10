@@ -42,7 +42,6 @@ sc-consensus-grandpa = { opt-level = 3 }
 # end substrate packages
 aes = { opt-level = 3 }
 blake2 = { opt-level = 3 }
-blake2-rfc = { opt-level = 3 }
 blake2b_simd = { opt-level = 3 }
 blake2s_simd = { opt-level = 3 }
 chacha20poly1305 = { opt-level = 3 }
@@ -60,7 +59,6 @@ hmac = { opt-level = 3 }
 httparse = { opt-level = 3 }
 integer-sqrt = { opt-level = 3 }
 keccak = { opt-level = 3 }
-libm = { opt-level = 3 }
 librocksdb-sys = { opt-level = 3 }
 libsecp256k1 = { opt-level = 3 }
 libz-sys = { opt-level = 3 }
@@ -79,7 +77,6 @@ smallvec = { opt-level = 3 }
 snow = { opt-level = 3 }
 twox-hash = { opt-level = 3 }
 uint = { opt-level = 3 }
-wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 yamux = { opt-level = 3 }
 zeroize = { opt-level = 3 }

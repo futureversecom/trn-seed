@@ -64,7 +64,6 @@ pub mod mock_pallet {
 		use frame_support::pallet_prelude::*;
 		use frame_system::pallet_prelude::*;
 		#[pallet::pallet]
-		#[pallet::generate_store(pub(super) trait Store)]
 		pub struct Pallet<T>(_);
 
 		#[pallet::config]

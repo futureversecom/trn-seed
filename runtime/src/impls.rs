@@ -16,14 +16,13 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use core::ops::Mul;
-use evm::backend::Basic as Account;
+
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
 use frame_support::{
 	dispatch::{EncodeLike, RawOrigin},
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
-		fungibles,
 		tokens::{DepositConsequence, WithdrawConsequence},
 		CallMetadata, Currency, ExistenceRequirement, FindAuthor, GetCallMetadata, Imbalance,
 		InstanceFilter, OnUnbalanced, ReservableCurrency, SignedImbalance, WithdrawReasons,

@@ -36,7 +36,7 @@ impl<T: frame_system::Config> pallet_scheduler::WeightInfo for WeightInfo<T> {
 		Weight::zero()
 	}
 
-	fn service_agenda_base(s: u32) -> Weight {
+	fn service_agenda_base(_s: u32) -> Weight {
 		Weight::zero()
 	}
 
@@ -44,7 +44,7 @@ impl<T: frame_system::Config> pallet_scheduler::WeightInfo for WeightInfo<T> {
 		Weight::zero()
 	}
 
-	fn service_task_fetched(s: u32) -> Weight {
+	fn service_task_fetched(_s: u32) -> Weight {
 		Weight::zero()
 	}
 

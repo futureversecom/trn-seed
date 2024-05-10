@@ -21,7 +21,6 @@ use fc_mapping_sync::{kv::MappingSyncWorker, SyncStrategy};
 use fc_rpc::{EthTask, OverrideHandle};
 use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use futures::{future, StreamExt};
-use sc_cli::SubstrateCli;
 use sc_client_api::{
 	AuxStore, Backend, BlockBackend, BlockchainEvents, StateBackend, StorageProvider,
 };
@@ -30,9 +29,7 @@ use sc_consensus_grandpa::SharedVoterState;
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_keystore::LocalKeystore;
 use sc_network_sync::SyncingService;
-use sc_service::{
-	error::Error as ServiceError, BasePath, Configuration, TaskManager, WarpSyncParams,
-};
+use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncParams};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
@@ -40,7 +37,6 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_runtime::{offchain::OffchainStorage, traits::BlakeTwo256};
 use std::{
 	collections::BTreeMap,
-	path::PathBuf,
 	sync::{Arc, Mutex},
 	time::Duration,
 };

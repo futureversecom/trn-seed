@@ -22,10 +22,10 @@ use jsonrpsee::{
 };
 use pallet_dex::{types::WrappedBalance, Config, TradingPairStatus};
 pub use pallet_dex_rpc_runtime_api::{self as runtime_api, DexApi as DexRuntimeApi};
-use seed_primitives::types::{AssetId, Balance, BlockNumber};
+use seed_primitives::types::{AssetId, Balance};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
+use sp_runtime::{traits::Block as BlockT, DispatchError};
 
 /// Dex RPC methods.
 #[rpc(client, server, namespace = "dex")]

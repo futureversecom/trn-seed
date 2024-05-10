@@ -39,7 +39,7 @@ use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use seed_pallet_common::MaintenanceCheck;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, ConstU16, ConstU64, OpaqueMetadata, H160, H256, U256};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
 	create_runtime_str, generic,
 	traits::{
@@ -78,10 +78,7 @@ pub use frame_support::{
 	},
 	PalletId, StorageValue,
 };
-use frame_support::{
-	pallet_prelude::Hooks,
-	traits::{AsEnsureOriginWithArg, EitherOf},
-};
+use frame_support::{pallet_prelude::Hooks, traits::AsEnsureOriginWithArg};
 
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
@@ -870,7 +867,6 @@ parameter_types! {
 	/// Holds XRP transaction fees for distribution to validators according to stake & undistributed reward remainders
 	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
 }
-type SlashCancelOrigin = EnsureRoot<AccountId>;
 
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;

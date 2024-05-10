@@ -15,7 +15,7 @@
 
 use codec::{alloc::string::ToString, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use sp_core::{ecdsa, H160};
 use sp_io::hashing::{blake2_256, keccak_256};
 use sp_std::vec::Vec;
