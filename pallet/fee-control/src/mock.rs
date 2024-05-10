@@ -27,10 +27,7 @@ use sp_runtime::ConsensusEngineId;
 pub const MOCK_PAYMENT_ASSET_ID: AssetId = 100;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	pub enum Test
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -40,6 +37,7 @@ construct_runtime!(
 		FeeProxy: pallet_fee_proxy,
 		Dex: pallet_dex,
 		Evm: pallet_evm,
+		Timestamp: pallet_timestamp,
 		Futurepass: pallet_futurepass,
 		MockPallet: mock_pallet::pallet,
 		FeeControl: pallet_fee_control,
@@ -66,7 +64,6 @@ pub mod mock_pallet {
 		use frame_support::pallet_prelude::*;
 		use frame_system::pallet_prelude::*;
 		#[pallet::pallet]
-		#[pallet::generate_store(pub(super) trait Store)]
 		pub struct Pallet<T>(_);
 
 		#[pallet::config]

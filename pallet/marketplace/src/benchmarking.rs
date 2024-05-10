@@ -18,7 +18,14 @@ use super::*;
 use crate::{Marketplace as RegisteredMarketplace, Pallet as Marketplace};
 use codec::Encode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
-use frame_support::{assert_ok, BoundedVec};
+use frame_support::{
+	assert_ok,
+	traits::{
+		fungibles::Inspect,
+		tokens::{Fortitude, Preservation},
+	},
+	BoundedVec,
+};
 use frame_system::RawOrigin;
 use pallet_nft::{CrossChainCompatibility, Pallet as Nft};
 use pallet_sft::Pallet as Sft;
@@ -88,9 +95,25 @@ pub fn build_sft_token<T: Config + pallet_nft::Config + pallet_sft::Config>(
 pub fn build_asset<T: Config>(owner: &T::AccountId) -> AssetId {
 	let asset_id = T::MultiCurrency::create(&owner, None).unwrap();
 	assert_ok!(T::MultiCurrency::mint_into(asset_id, &owner, 1_000_000_000u32.into()));
+	assert_eq!(
+		T::MultiCurrency::reducible_balance(
+			asset_id,
+			&owner,
+			Preservation::Expendable,
+			Fortitude::Polite
+		),
+		1_000_000_000u32.into()
+	);
+	assert_eq!(T::MultiCurrency::minimum_balance(asset_id), 1u32.into());
 
-	let beneficiary = vec![(account::<T>("Bob"), 1_000u32.into())];
-	assert_ok!(T::MultiCurrency::split_transfer(&owner, asset_id, &beneficiary));
+	let beneficiary = account::<T>("Bob");
+	assert_ok!(T::MultiCurrency::transfer(
+		asset_id,
+		&owner,
+		&beneficiary,
+		1_000_000u32.into(),
+		Preservation::Expendable
+	));
 	asset_id
 }
 
@@ -120,7 +143,7 @@ pub fn listing_builder<T: Config>(
 			serial_numbers,
 			None,
 			asset_id.clone(),
-			Balance::from(100u128),
+			Balance::from(0u128),
 			Some(100u32.into()),
 			None
 		));
@@ -208,6 +231,15 @@ benchmarks! {
 	buy {
 		let collection_id = build_collection::<T>(None);
 		let (asset_id, listing_id) = listing_builder::<T>(collection_id, false);
+		assert_eq!(
+		<T as Config>::MultiCurrency::reducible_balance(
+			asset_id,
+			&account::<T>("Bob"),
+			Preservation::Expendable,
+			Fortitude::Polite
+		),
+		1_000_000u32.into()
+	);
 	}: _(origin::<T>(&account::<T>("Bob")), listing_id)
 
 	buy_multi {

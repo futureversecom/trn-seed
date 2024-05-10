@@ -58,7 +58,6 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::genesis_config]

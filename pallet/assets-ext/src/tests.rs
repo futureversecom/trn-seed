@@ -17,12 +17,9 @@ use crate::{
 	mock::{test_ext, AssetsExt, AssetsExtPalletId, Balances, NativeAssetId, System, Test},
 	AssetDeposit, Config, Error, Holds, NextAssetId,
 };
-use frame_support::{
-	macro_magic::__private::syn::token::For,
-	traits::{
-		fungibles::{metadata::Inspect as InspectMetadata, Inspect, Mutate},
-		tokens::{Fortitude, Preservation},
-	},
+use frame_support::traits::{
+	fungibles::{metadata::Inspect as InspectMetadata, Inspect, Mutate},
+	tokens::{Fortitude, Preservation},
 };
 use seed_pallet_common::{test_prelude::*, CreateExt, Hold, TransferExt};
 use sp_runtime::traits::{AccountIdConversion, Zero};
@@ -115,13 +112,13 @@ fn transfer_extrinsic_low_balance() {
 			// native token transfer with insufficient balance
 			assert_noop!(
 				AssetsExt::transfer(Some(alice()).into(), NativeAssetId::get(), bob(), 100, false,),
-				pallet_balances::Error::<Test>::InsufficientBalance
+				ArithmeticError::Underflow
 			);
 
 			// XRP transfer with insufficient balance
 			assert_noop!(
 				AssetsExt::transfer(Some(alice()).into(), XRP_ASSET_ID, bob(), 100, false,),
-				pallet_assets::Error::<Test>::BalanceLow
+				ArithmeticError::Underflow
 			);
 		});
 }
@@ -199,7 +196,7 @@ fn transfer_extrinsic_keep_alive_above_min_should_fail() {
 					initial_balance,
 					true
 				),
-				pallet_assets::Error::<Test>::BalanceLow
+				TokenError::NotExpendable
 			);
 		});
 }
@@ -358,7 +355,7 @@ fn transfer_insufficient_funds() {
 					initial_balance + 1,
 					Preservation::Preserve
 				),
-				pallet_balances::Error::<Test>::InsufficientBalance
+				ArithmeticError::Underflow,
 			);
 			assert_noop!(
 				<AssetsExt as Mutate<AccountId>>::transfer(
@@ -368,7 +365,7 @@ fn transfer_insufficient_funds() {
 					initial_balance + 1,
 					Preservation::Preserve
 				),
-				pallet_assets::Error::<Test>::BalanceLow
+				ArithmeticError::Underflow
 			);
 		});
 }
@@ -397,7 +394,7 @@ fn transfer_held_funds() {
 					hold_amount,
 					Preservation::Preserve
 				),
-				pallet_balances::Error::<Test>::InsufficientBalance
+				TokenError::FundsUnavailable
 			);
 
 			let hold_amount = initial_balance - AssetsExt::minimum_balance(XRP_ASSET_ID);
@@ -415,7 +412,7 @@ fn transfer_held_funds() {
 					hold_amount,
 					Preservation::Preserve
 				),
-				pallet_assets::Error::<Test>::BalanceLow
+				TokenError::FundsUnavailable
 			);
 		});
 }
@@ -482,7 +479,7 @@ fn place_hold_insufficient_funds() {
 					NativeAssetId::get(),
 					initial_balance + 1
 				),
-				pallet_balances::Error::<Test>::InsufficientBalance
+				ArithmeticError::Underflow
 			);
 			assert_noop!(
 				<AssetsExt as Hold>::place_hold(
@@ -491,7 +488,7 @@ fn place_hold_insufficient_funds() {
 					XRP_ASSET_ID,
 					initial_balance + 1
 				),
-				pallet_assets::Error::<Test>::BalanceLow
+				ArithmeticError::Underflow
 			);
 		});
 }
@@ -516,6 +513,17 @@ fn release_hold() {
 				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice(), &NativeAssetId::get()),
 				hold_amount
 			);
+			assert_eq!(
+				AssetsExt::balance(NativeAssetId::get(), &alice()),
+				initial_balance - hold_amount
+			);
+			assert_eq!(
+				AssetsExt::balance(
+					NativeAssetId::get(),
+					&AssetsExtPalletId::get().into_account_truncating()
+				),
+				hold_amount
+			);
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				TEST_PALLET_ID,
 				&alice(),
@@ -535,6 +543,14 @@ fn release_hold() {
 			));
 			assert_eq!(
 				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice(), &XRP_ASSET_ID),
+				hold_amount
+			);
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &alice()), initial_balance - hold_amount);
+			assert_eq!(
+				AssetsExt::balance(
+					XRP_ASSET_ID,
+					&AssetsExtPalletId::get().into_account_truncating()
+				),
 				hold_amount
 			);
 			assert_ok!(<AssetsExt as Hold>::release_hold(
@@ -1054,7 +1070,7 @@ fn place_hold_asset_does_not_exist() {
 				NativeAssetId::get() + 1,
 				100
 			),
-			pallet_assets::Error::<Test>::Unknown,
+			TokenError::UnknownAsset,
 		);
 	});
 }
@@ -1070,7 +1086,7 @@ fn transfer_asset_does_not_exist() {
 				100,
 				Preservation::Preserve,
 			),
-			pallet_assets::Error::<Test>::Unknown,
+			TokenError::UnknownAsset,
 		);
 	});
 }
@@ -1302,12 +1318,7 @@ fn set_asset_deposit_reserves_the_correct_amount() {
 			));
 
 			// Alice balance should now be reduced by deposit amount
-			let alice_balance = AssetsExt::reducible_balance(
-				NativeAssetId::get(),
-				&alice(),
-				Preservation::Expendable,
-				Fortitude::Polite,
-			);
+			let alice_balance = AssetsExt::balance(NativeAssetId::get(), &alice());
 			assert_eq!(alice_balance, initial_balance - deposit);
 
 			// The deposit should be reserved

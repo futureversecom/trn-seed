@@ -99,7 +99,6 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
@@ -923,7 +922,7 @@ pub mod pallet {
 		/// Internal only
 		/// Validators will submit inherents with their notarization vote for a given claim
 		#[pallet::call_index(12)]
-		#[pallet::weight(1_000_000)]
+		#[pallet::weight(DbWeight::get().writes(3) + DbWeight::get().reads(2))]
 		#[transactional]
 		pub fn submit_notarization(
 			origin: OriginFor<T>,

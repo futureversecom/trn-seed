@@ -45,7 +45,6 @@ pub mod pallet {
 	use seed_primitives::EthAddress;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]

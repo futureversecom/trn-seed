@@ -199,11 +199,11 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 		todo!()
 	}
 
-	fn destroy_accounts(c: u32) -> Weight {
+	fn destroy_accounts(_c: u32) -> Weight {
 		todo!()
 	}
 
-	fn destroy_approvals(a: u32) -> Weight {
+	fn destroy_approvals(_a: u32) -> Weight {
 		todo!()
 	}
 

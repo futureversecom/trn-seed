@@ -26,7 +26,7 @@ use jsonrpsee::{
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::{traits::Block as BlockT};
 
 pub use pallet_assets_ext_rpc_runtime_api::{
 	self as runtime_api, AssetsExtApi as AssetsExtRuntimeApi,

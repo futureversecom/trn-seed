@@ -25,10 +25,7 @@ use sp_core::{ecdsa, Pair};
 pub const MOCK_NATIVE_ASSET_ID: AssetId = ROOT_ASSET_ID;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	pub enum Test
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -133,12 +130,12 @@ impl ProxyProvider<Test> for ProxyPalletProvider {
 		let (proxy_definitions, reserve_amount) = pallet_proxy::Proxies::<Test>::get(futurepass);
 		// get proxy_definitions length + 1 (cost of upcoming insertion); cost to reserve
 		let new_reserve = pallet_proxy::Pallet::<Test>::deposit(proxy_definitions.len() as u32 + 1);
-		let extra_reserve_required = new_reserve - reserve_amount;
+		let extra_reserve_required = new_reserve - reserve_amount + ExistentialDeposit::get();
 		<pallet_balances::Pallet<Test> as Currency<_>>::transfer(
 			funder,
 			futurepass,
 			extra_reserve_required,
-			ExistenceRequirement::KeepAlive,
+			ExistenceRequirement::AllowDeath,
 		)?;
 		let proxy_type = ProxyType::try_from(*proxy_type)?;
 

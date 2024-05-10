@@ -15,8 +15,8 @@
 
 use super::*;
 use crate::{
-	AdjustmentVariable, MinimumMultiplier, Multiplier, RuntimeBlockWeights, TargetBlockFullness,
-	TargetedFeeAdjustment, Weight,
+	AdjustmentVariable, MaximumMultiplier, MinimumMultiplier, Multiplier, RuntimeBlockWeights,
+	TargetBlockFullness, TargetedFeeAdjustment, Weight,
 };
 use frame_support::dispatch::DispatchClass;
 use sp_runtime::{
@@ -24,6 +24,7 @@ use sp_runtime::{
 	traits::{Convert, One, Zero},
 	FixedPointNumber,
 };
+use std::ops::Add;
 
 fn max_normal() -> Weight {
 	RuntimeBlockWeights::get()
@@ -43,11 +44,12 @@ fn target() -> Weight {
 // update based on runtime impl.
 fn runtime_multiplier_update(fm: Multiplier) -> Multiplier {
 	TargetedFeeAdjustment::<
-			Runtime,
-			TargetBlockFullness,
-			AdjustmentVariable,
-			MinimumMultiplier,
-		>::convert(fm)
+		Runtime,
+		TargetBlockFullness,
+		AdjustmentVariable,
+		MinimumMultiplier,
+		MaximumMultiplier,
+	>::convert(fm)
 }
 
 // update based on reference impl.
@@ -78,8 +80,8 @@ fn run_with_system_weight<F>(w: Weight, mut assertions: F)
 where
 	F: FnMut() -> (),
 {
-	let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::default()
-		.build_storage::<Runtime>()
+	let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::<Runtime>::default()
+		.build_storage()
 		.unwrap()
 		.into();
 	t.execute_with(|| {
@@ -114,10 +116,16 @@ fn truth_value_update_poc_works() {
 #[test]
 fn multiplier_can_grow_from_zero() {
 	// if the min is too small, then this will not change, and we are doomed forever.
-	// the weight is 1/100th bigger than target.
-	run_with_system_weight(target() * 101 / 100, || {
+	// the block ref time is 1/100th bigger than target.
+	run_with_system_weight(target().set_ref_time(target().ref_time() * 101 / 100), || {
 		let next = runtime_multiplier_update(min_multiplier());
-		assert!(next > min_multiplier(), "{:?} !>= {:?}", next, min_multiplier());
+		assert!(next > min_multiplier(), "{:?} !> {:?}", next, min_multiplier());
+	});
+
+	// the block proof size is 1/100th bigger than target.
+	run_with_system_weight(target().set_proof_size((target().proof_size() / 100) * 101), || {
+		let next = runtime_multiplier_update(min_multiplier());
+		assert!(next > min_multiplier(), "{:?} !> {:?}", next, min_multiplier());
 	})
 }
 
@@ -200,11 +208,13 @@ fn weight_to_fee_should_not_overflow_on_large_weights() {
 
 	// Some values that are all above the target and will cause an increase.
 	let t = target();
-	vec![t.add(100u64), t.mul(2u64), t.mul(4u64)].into_iter().for_each(|i| {
-		run_with_system_weight(i, || {
-			let fm = runtime_multiplier_update(max_fm);
-			// won't grow. The convert saturates everything.
-			assert_eq!(fm, max_fm);
-		})
-	});
+	vec![t.add(Weight::from_all(100u64)), t.mul(2u64), t.mul(4u64)]
+		.into_iter()
+		.for_each(|i| {
+			run_with_system_weight(i, || {
+				let fm = runtime_multiplier_update(max_fm);
+				// won't grow. The convert saturates everything.
+				assert_eq!(fm, max_fm);
+			})
+		});
 }

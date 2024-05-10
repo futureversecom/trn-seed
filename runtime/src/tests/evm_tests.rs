@@ -29,7 +29,11 @@ use ethabi::Token;
 use frame_support::{
 	assert_ok,
 	dispatch::{GetDispatchInfo, RawOrigin},
-	traits::{fungible::Inspect, fungibles::Inspect as Inspects},
+	traits::{
+		fungible::Inspect,
+		fungibles::Inspect as Inspects,
+		tokens::{Fortitude, Preservation},
+	},
 };
 use frame_system::RawOrigin::Root;
 use hex_literal::hex;
@@ -138,7 +142,7 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		));
 
 		// Check Bob's initial balance is 0
-		assert_eq!(AssetsExt::reducible_balance(payment_asset, &bob(), false), 0);
+		assert_eq!(AssetsExt::balance(payment_asset, &bob()), 0);
 
 		// Mint these assets into Alice and new_account
 		assert_ok!(Assets::mint(
@@ -223,7 +227,7 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		));
 
 		// Check Bob has been transferred the correct amount
-		assert_eq!(AssetsExt::reducible_balance(payment_asset, &bob(), false), transfer_amount);
+		assert_eq!(AssetsExt::balance(payment_asset, &bob()), transfer_amount);
 	});
 }
 
@@ -252,7 +256,7 @@ fn call_with_fee_preferences_futurepass_proxy_extrinsic() {
 			RawOrigin::Signed(alice()).into(),
 			payment_asset,
 			alice(),
-			10_000_000_000_000_000
+			20_000_000_000_000_000
 		));
 
 		// add liquidity to the dex, this will allow for exchange internally when the call is made
@@ -323,7 +327,8 @@ fn call_with_fee_preferences_futurepass_proxy_extrinsic() {
 		// get balances of new account and futurepass after feeproxy calls - for comparison
 		let caller_xrp_balance_after = XrpCurrency::balance(&new_account);
 		let caller_token_balance_after = AssetsExt::balance(payment_asset, &new_account);
-		let futurepass_xrp_balance_after = XrpCurrency::balance(&futurepass);
+		let futurepass_xrp_balance_after =
+			XrpCurrency::reducible_balance(&futurepass, Preservation::Preserve, Fortitude::Polite);
 		let futurepass_token_balance_after = AssetsExt::balance(payment_asset, &futurepass);
 
 		// vaidate futurepass should only have paid in tokens

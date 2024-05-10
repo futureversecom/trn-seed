@@ -55,7 +55,7 @@ std = [
 	"pallet-assets/std",
 	"pallet-balances/std",
 	"pallet-transaction-payment/std",
-	"frame-benchmarking/std",
+	"frame-benchmarking?/std",
 	"seed-pallet-common/std",
 	"seed-primitives/std",
 	"doughnut-rs/std",

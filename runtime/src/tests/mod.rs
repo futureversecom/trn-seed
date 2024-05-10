@@ -24,7 +24,11 @@ mod maintenance_mode;
 mod multiplier;
 mod staker_payouts;
 
-use frame_support::traits::{fungibles::Inspect as _, GenesisBuild, Get};
+use frame_support::traits::{
+	fungibles::Inspect as _,
+	tokens::{Fortitude, Preservation},
+	Get,
+};
 use sp_core::{
 	ecdsa,
 	offchain::{testing, OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
@@ -39,6 +43,7 @@ use crate::{
 };
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
 use seed_primitives::{AccountId, AccountId20, Balance, Index};
+use sp_runtime::BuildStorage;
 
 /// Base gas used for an EVM transaction
 pub const BASE_TX_GAS_COST: u128 = 21000;
@@ -105,7 +110,7 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		// balances + asset setup
 		let metadata = vec![
@@ -294,11 +299,21 @@ fn fund_authorities_and_accounts() {
 
 		// Alice, Bob staked
 		assert_eq!(
-			AssetsExt::reducible_balance(ROOT_ASSET_ID, &alice(), false),
+			AssetsExt::reducible_balance(
+				ROOT_ASSET_ID,
+				&alice(),
+				Preservation::Preserve,
+				Fortitude::Polite
+			),
 			INITIAL_ROOT_BALANCE - VALIDATOR_BOND
 		);
 		assert_eq!(
-			AssetsExt::reducible_balance(ROOT_ASSET_ID, &bob(), false),
+			AssetsExt::reducible_balance(
+				ROOT_ASSET_ID,
+				&bob(),
+				Preservation::Preserve,
+				Fortitude::Polite
+			),
 			INITIAL_ROOT_BALANCE - VALIDATOR_BOND
 		);
 	});

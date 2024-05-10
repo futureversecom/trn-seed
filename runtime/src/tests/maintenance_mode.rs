@@ -104,58 +104,61 @@ mod enable_maintenance_mode {
 
 	#[test]
 	fn maintenance_mode_works_with_evm() {
-		ExtBuilder::default().build().execute_with(|| {
-			let signer = alice();
-			let payment_asset: AssetId = 2;
-			let target: H160 = <Runtime as ErcIdConversion<AssetId>>::runtime_id_to_evm_id(
-				payment_asset,
-				ERC20_PRECOMPILE_ADDRESS_PREFIX,
-			)
-			.into();
+		let payment_asset: AssetId = 2;
+		let target: H160 = <Runtime as ErcIdConversion<AssetId>>::runtime_id_to_evm_id(
+			payment_asset,
+			ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		)
+		.into();
+		ExtBuilder::default()
+			.accounts_to_fund(&[target.into()])
+			.build()
+			.execute_with(|| {
+				let signer = alice();
 
-			// Setup input for an erc20 approve
-			let mut input: Vec<u8> = [0x09, 0x5e, 0xa7, 0xb3].to_vec();
-			let approve_amount: Balance = 12345;
-			input.append(&mut ethabi::encode(&[
-				Token::Address(bob().into()),
-				Token::Uint(approve_amount.into()),
-			]));
+				// Setup input for an erc20 approve
+				let mut input: Vec<u8> = [0x09, 0x5e, 0xa7, 0xb3].to_vec();
+				let approve_amount: Balance = 12345;
+				input.append(&mut ethabi::encode(&[
+					Token::Address(bob().into()),
+					Token::Uint(approve_amount.into()),
+				]));
 
-			// Setup inner EVM.call call
-			let access_list: Vec<(H160, Vec<H256>)> = vec![];
-			let call = crate::RuntimeCall::EVM(pallet_evm::Call::call {
-				source: signer.into(),
-				target,
-				input,
-				value: U256::default(),
-				gas_limit: 50_000,
-				max_fee_per_gas: U256::from(1_600_000_000_000_000_u64),
-				max_priority_fee_per_gas: None,
-				nonce: None,
-				access_list,
+				// Setup inner EVM.call call
+				let access_list: Vec<(H160, Vec<H256>)> = vec![];
+				let call = crate::RuntimeCall::EVM(pallet_evm::Call::call {
+					source: signer.into(),
+					target,
+					input,
+					value: U256::zero(),
+					gas_limit: 50_000,
+					max_fee_per_gas: U256::from(1_600_000_000_000_000_u64),
+					max_priority_fee_per_gas: None,
+					nonce: None,
+					access_list,
+				});
+
+				// Enable maintenance mode
+				assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), true));
+
+				// EVM call should fail
+				assert_eq!(
+					call.clone().dispatch(Some(signer).into()).unwrap_err().error,
+					pallet_evm::Error::<Runtime>::WithdrawFailed.into()
+				);
+				// The storage should not have been updated in TokenApprovals pallet
+				assert_eq!(ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()), None);
+
+				// Disable maintenance mode
+				assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), false));
+
+				// EVM call should now work
+				assert_ok!(call.dispatch(Some(signer).into()));
+				assert_eq!(
+					ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()),
+					Some(approve_amount)
+				);
 			});
-
-			// Enable maintenance mode
-			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), true));
-
-			// EVM call should fail
-			assert_eq!(
-				call.clone().dispatch(Some(signer).into()).unwrap_err().error,
-				pallet_evm::Error::<Runtime>::WithdrawFailed.into()
-			);
-			// The storage should not have been updated in TokenApprovals pallet
-			assert_eq!(ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()), None);
-
-			// Disable maintenance mode
-			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), false));
-
-			// EVM call should now work
-			assert_ok!(call.dispatch(Some(signer).into()));
-			assert_eq!(
-				ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()),
-				Some(approve_amount)
-			);
-		});
 	}
 }
 
@@ -810,7 +813,6 @@ mod filtered_calls {
 
 			// RuntimeCall with RewardDestination::Staked gets filtered
 			let call = pallet_staking::Call::<Runtime>::bond {
-				controller: Default::default(),
 				value: Default::default(),
 				payee: RewardDestination::Staked,
 			};
@@ -822,7 +824,6 @@ mod filtered_calls {
 
 			// RuntimeCall with RewardDestination::Controller succeeds
 			let call = pallet_staking::Call::<Runtime>::bond {
-				controller: Default::default(),
 				value: 12,
 				payee: RewardDestination::Controller,
 			};

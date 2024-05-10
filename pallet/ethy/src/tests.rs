@@ -42,6 +42,7 @@ use seed_primitives::{
 	},
 	xrpl::XrplAccountId,
 };
+use seed_runtime::migrations::Value;
 use sp_core::{bounded::WeakBoundedVec, ByteArray};
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::{
@@ -282,7 +283,7 @@ fn deposit_relayer_bond_no_balance_should_fail() {
 		// Subsequent deposits should fail
 		assert_noop!(
 			EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer.into())),
-			pallet_balances::Error::<Test>::InsufficientBalance
+			ArithmeticError::Underflow
 		);
 	});
 }
@@ -406,7 +407,7 @@ fn submit_challenge_no_balance_should_fail() {
 		// Submit challenge with no balance should fail
 		assert_noop!(
 			EthBridge::submit_challenge(RuntimeOrigin::signed(challenger.into()), event_id),
-			pallet_balances::Error::<Test>::InsufficientBalance
+			TokenError::FundsUnavailable
 		);
 	});
 }
@@ -487,7 +488,7 @@ fn handle_event_notarization_valid_claims() {
 			// When the yay_count reaches over the NotarizationThreshold of 66% the storage should
 			// be updated
 			for i in 0..9 {
-				if Percent::from_rational(yay_count, notary_count) >=
+				if Percent::from_rational(yay_count as u64, notary_count as u64) >=
 					<Test as Config>::NotarizationThreshold::get()
 				{
 					// Any further notarizations should return InvalidClaim error
@@ -508,7 +509,7 @@ fn handle_event_notarization_valid_claims() {
 				}
 				yay_count += 1;
 
-				if Percent::from_rational(yay_count, notary_count) >=
+				if Percent::from_rational(yay_count as u64, notary_count as u64) >=
 					<Test as Config>::NotarizationThreshold::get()
 				{
 					// Over threshold, storage should be updated
@@ -562,7 +563,7 @@ fn process_valid_challenged_event() {
 		.build()
 		.execute_with(|| {
 			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
-			assert_eq!(AssetsExt::reducible_balance(ROOT_ASSET_ID, &relayer.into(), false), 0);
+			assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &relayer.into()), 0);
 			assert_eq!(RelayerPaidBond::<Test>::get(AccountId::from(relayer)), RelayerBond::get());
 
 			let process_at = System::block_number() + ChallengePeriod::<Test>::get();
@@ -609,10 +610,7 @@ fn process_valid_challenged_event() {
 				RelayerBond::get()
 			);
 			assert_eq!(RelayerPaidBond::<Test>::get(AccountId::from(relayer)), RelayerBond::get());
-			assert_eq!(
-				AssetsExt::reducible_balance(ROOT_ASSET_ID, &relayer.into(), false),
-				ChallengerBond::get()
-			);
+			assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &relayer.into()), ChallengerBond::get());
 
 			// Check claim remains in storage so it can still be processed
 			assert_eq!(
@@ -794,7 +792,7 @@ fn handle_event_notarization_invalid_claims() {
 			// When the nay_count reaches over 100 - NotarizationThreshold (33%) the storage should
 			// be updated
 			for i in 0..9 {
-				if Percent::from_rational(nay_count, notary_count) >
+				if Percent::from_rational(nay_count as u64, notary_count as u64) >
 					(Percent::from_parts(
 						100_u8 - <Test as Config>::NotarizationThreshold::get().deconstruct(),
 					)) {
@@ -816,7 +814,7 @@ fn handle_event_notarization_invalid_claims() {
 				}
 				nay_count += 1;
 
-				if Percent::from_rational(nay_count, notary_count) >
+				if Percent::from_rational(nay_count as u64, notary_count as u64) >
 					(Percent::from_parts(
 						100_u8 - <Test as Config>::NotarizationThreshold::get().deconstruct(),
 					)) {
@@ -1222,7 +1220,7 @@ fn force_new_era_with_scheduled_authority_change_works() {
 		assert!(NextAuthorityChange::<Test>::get().is_none());
 
 		// Simulate force new era
-		test_storage::Forcing::put(true);
+		Value::unsafe_storage_put::<bool>(b"Test", b"Forcing", true);
 
 		// Add a validator to the next_keys, simulating a change in validator during the last
 		// session
@@ -2256,7 +2254,7 @@ fn set_bridge_paused_not_root_should_fail() {
 #[test]
 fn set_challenge_period_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		let new_challenge_period: <Test as frame_system::Config>::BlockNumber = 12345;
+		let new_challenge_period: BlockNumber = 12345;
 
 		assert_ok!(EthBridge::set_challenge_period(
 			frame_system::RawOrigin::Root.into(),

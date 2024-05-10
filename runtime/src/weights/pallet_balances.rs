@@ -68,7 +68,7 @@ impl<T: frame_system::Config> pallet_balances::WeightInfo for WeightInfo<T> {
 		todo!()
 	}
 
-	fn upgrade_accounts(u: u32) -> Weight {
+	fn upgrade_accounts(_u: u32) -> Weight {
 		todo!()
 	}
 }

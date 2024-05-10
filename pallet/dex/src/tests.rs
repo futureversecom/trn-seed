@@ -19,7 +19,6 @@ use hex::encode;
 use mock::{Dex, RuntimeEvent as MockEvent, RuntimeOrigin, System, Test, TestExt};
 use seed_pallet_common::test_prelude::*;
 use sp_arithmetic::helpers_128bit::sqrt;
-use sp_runtime::ArithmeticError;
 use std::str::FromStr;
 
 /// x * 10e18
@@ -1009,7 +1008,7 @@ fn swap_with_exact_supply() {
 				None,
 				None,
 			),
-			pallet_assets::Error::<Test>::NoAccount
+			TokenError::FundsUnavailable
 		);
 
 		// mint weth for 2nd user and allow them to perform swap against usdc
@@ -1249,7 +1248,7 @@ fn swap_with_exact_target() {
 				None,
 				None,
 			),
-			pallet_assets::Error::<Test>::NoAccount
+			TokenError::FundsUnavailable
 		);
 
 		// mint weth for 2nd user and allow them to perform swap against usdc
@@ -1527,7 +1526,7 @@ fn multiple_swaps_with_multiple_lp() {
 				None,
 				None,
 			),
-			Error::<Test>::InsufficientLiquidityBurnt
+			TokenError::BelowMinimum
 		);
 
 		assert_eq!(AssetsExt::balance(lp_usdc_weth, &charlie), 2_482_001_869_909_090_520_u128);

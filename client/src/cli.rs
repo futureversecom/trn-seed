@@ -14,7 +14,6 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::custom_commands::VerifyProofSigSubCommand;
-use sc_cli::{Error, Result};
 
 #[allow(missing_docs)]
 #[derive(Debug, clap::Parser)]
@@ -40,13 +39,6 @@ pub struct RunCmd {
 	// NOTE - check flags works as expected.
 	#[clap(long = "xrp-http")]
 	pub xrp_http: Option<String>,
-}
-
-/// Parse HTTP `uri`
-fn parse_uri(uri: &str) -> Result<String> {
-	let _ = url::Url::parse(uri)
-		.map_err(|_| Error::Input("Invalid external HTTP URI provided".into()))?;
-	Ok(uri.into())
 }
 
 #[derive(Debug, clap::Parser)]

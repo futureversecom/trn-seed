@@ -49,6 +49,7 @@ std = [
 	"scale-info/std",
 	"pallet-nft/std",
 	"precompile-utils/std",
+	"frame-benchmarking?/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]

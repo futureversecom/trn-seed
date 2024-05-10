@@ -18,10 +18,10 @@ use jsonrpsee::{
 	proc_macros::rpc,
 };
 use pallet_sft::Config;
-use seed_primitives::types::{BlockNumber, TokenId};
+use seed_primitives::types::{TokenId};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::{traits::Block as BlockT};
 
 pub use pallet_sft_rpc_runtime_api::{self as runtime_api, SftApi as SftRuntimeApi};
 
