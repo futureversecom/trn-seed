@@ -16,10 +16,7 @@
 use crate as pallet_vortex;
 use frame_support::traits::{ConstU32, Hooks};
 use seed_pallet_common::test_prelude::*;
-use sp_runtime::{
-	testing::{TestXt},
-	BuildStorage,
-};
+use sp_runtime::{testing::TestXt, BuildStorage};
 use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;

@@ -18,7 +18,7 @@ use futures::StreamExt;
 use log::{debug, error, info, trace, warn};
 use sc_client_api::{Backend, FinalityNotification};
 use sc_network_gossip::GossipEngine;
-use sp_api::{ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_runtime::{

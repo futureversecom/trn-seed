@@ -26,7 +26,7 @@ use pallet_nft::Config;
 use seed_primitives::types::{CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 
 pub use pallet_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi};
 
