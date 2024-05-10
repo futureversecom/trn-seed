@@ -29,7 +29,11 @@ use ethabi::Token;
 use frame_support::{
 	assert_ok,
 	dispatch::{GetDispatchInfo, RawOrigin},
-	traits::{fungible::Inspect, fungibles::Inspect as Inspects},
+	traits::{
+		fungible::Inspect,
+		fungibles::Inspect as Inspects,
+		tokens::{Fortitude, Preservation},
+	},
 };
 use frame_system::RawOrigin::Root;
 use hex_literal::hex;
@@ -252,7 +256,7 @@ fn call_with_fee_preferences_futurepass_proxy_extrinsic() {
 			RawOrigin::Signed(alice()).into(),
 			payment_asset,
 			alice(),
-			10_000_000_000_000_000
+			20_000_000_000_000_000
 		));
 
 		// add liquidity to the dex, this will allow for exchange internally when the call is made
@@ -323,7 +327,8 @@ fn call_with_fee_preferences_futurepass_proxy_extrinsic() {
 		// get balances of new account and futurepass after feeproxy calls - for comparison
 		let caller_xrp_balance_after = XrpCurrency::balance(&new_account);
 		let caller_token_balance_after = AssetsExt::balance(payment_asset, &new_account);
-		let futurepass_xrp_balance_after = XrpCurrency::balance(&futurepass);
+		let futurepass_xrp_balance_after =
+			XrpCurrency::reducible_balance(&futurepass, Preservation::Preserve, Fortitude::Polite);
 		let futurepass_token_balance_after = AssetsExt::balance(payment_asset, &futurepass);
 
 		// vaidate futurepass should only have paid in tokens
