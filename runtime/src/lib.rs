@@ -97,7 +97,6 @@ pub use sp_runtime::BuildStorage;
 // Export for chain_specs
 #[cfg(feature = "std")]
 pub use pallet_staking::{Forcing, StakerStatus};
-use sp_runtime::traits::Scale;
 
 pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};

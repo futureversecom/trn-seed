@@ -15,28 +15,29 @@
 
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use futures::{future, StreamExt};
-
 use fc_consensus::FrontierBlockImport;
-use fc_db::Backend as FrontierBackend;
+use fc_db::{Backend as FrontierBackend, DatabaseSource};
 use fc_mapping_sync::{kv::MappingSyncWorker, SyncStrategy};
 use fc_rpc::{EthTask, OverrideHandle};
 use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
+use futures::{future, StreamExt};
 use sc_cli::SubstrateCli;
 use sc_client_api::{
 	AuxStore, Backend, BlockBackend, BlockchainEvents, StateBackend, StorageProvider,
 };
-use sc_consensus_babe::{self, SlotProportion};
+use sc_consensus_babe::{self, BabeWorkerHandle, SlotProportion};
 use sc_consensus_grandpa::SharedVoterState;
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_keystore::LocalKeystore;
+use sc_network_sync::SyncingService;
 use sc_service::{
 	error::Error as ServiceError, BasePath, Configuration, TaskManager, WarpSyncParams,
 };
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_runtime::offchain::OffchainStorage;
-
+use sp_api::ProvideRuntimeApi;
+use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
+use sp_runtime::{offchain::OffchainStorage, traits::BlakeTwo256};
 use std::{
 	collections::BTreeMap,
 	path::PathBuf,
@@ -44,14 +45,8 @@ use std::{
 	time::Duration,
 };
 
-use fc_db::{kv::DatabaseSettings, DatabaseSource};
-use sc_consensus_babe::BabeWorkerHandle;
-use sc_network_sync::SyncingService;
 use seed_primitives::{ethy::ETH_HTTP_URI, opaque::Block, XRP_HTTP_URI};
 use seed_runtime::{self, RuntimeApi};
-use sp_api::ProvideRuntimeApi;
-use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
-use sp_runtime::traits::BlakeTwo256;
 
 use crate::{cli::Cli, consensus_data_providers::BabeConsensusDataProvider};
 
@@ -261,6 +256,7 @@ pub fn new_partial(
 	})
 }
 
+#[allow(dead_code)]
 fn remote_keystore(_url: &String) -> Result<Arc<LocalKeystore>, &'static str> {
 	// FIXME: here would the concrete keystore be built,
 	//        must return a concrete type (NOT `LocalKeystore`) that
@@ -269,13 +265,13 @@ fn remote_keystore(_url: &String) -> Result<Arc<LocalKeystore>, &'static str> {
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, ServiceError> {
+pub fn new_full(config: Configuration, cli: &Cli) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
 		backend,
 		mut task_manager,
 		import_queue,
-		mut keystore_container,
+		keystore_container,
 		select_chain,
 		transaction_pool,
 		other:
@@ -407,7 +403,6 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		let fee_history_cache = fee_history_cache.clone();
 		let max_past_logs = cli.run.max_past_logs;
 		let babe_config = babe_link.config().clone();
-		let shared_epoch_changes = babe_link.epoch_changes().clone();
 		let pubsub_notification_sinks = pubsub_notification_sinks.clone();
 
 		let justification_stream = grandpa_link.justification_stream();

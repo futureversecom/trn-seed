@@ -54,7 +54,7 @@ use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, MaintenanceCheck, OnNewAssetSubscriber,
 };
-use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
+use seed_primitives::{AccountId, Balance, Index, Signature};
 
 use crate::{
 	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
@@ -114,7 +114,7 @@ impl<C: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 	/// to users coming from Ethereum (Following POLA principles)
 	fn reducible_balance(
 		who: &AccountId,
-		preservation: Preservation,
+		_preservation: Preservation,
 		force: Fortitude,
 	) -> Self::Balance {
 		// Careful for overflow!
@@ -149,8 +149,11 @@ where
 	type PositiveImbalance = C::PositiveImbalance;
 	type NegativeImbalance = C::NegativeImbalance;
 
-	fn free_balance(who: &AccountId) -> Self::Balance {
-		C::free_balance(who)
+	fn total_balance(who: &AccountId) -> Self::Balance {
+		C::total_balance(who)
+	}
+	fn can_slash(_who: &AccountId, _value: Self::Balance) -> bool {
+		false
 	}
 	fn total_issuance() -> Self::Balance {
 		C::total_issuance()
@@ -158,8 +161,22 @@ where
 	fn minimum_balance() -> Self::Balance {
 		C::minimum_balance()
 	}
-	fn total_balance(who: &AccountId) -> Self::Balance {
-		C::total_balance(who)
+	fn burn(amount: Self::Balance) -> Self::PositiveImbalance {
+		C::burn(scale_wei_to_6dp(amount))
+	}
+	fn issue(amount: Self::Balance) -> Self::NegativeImbalance {
+		C::issue(scale_wei_to_6dp(amount))
+	}
+	fn free_balance(who: &AccountId) -> Self::Balance {
+		C::free_balance(who)
+	}
+	fn ensure_can_withdraw(
+		who: &AccountId,
+		amount: Self::Balance,
+		reasons: WithdrawReasons,
+		new_balance: Self::Balance,
+	) -> DispatchResult {
+		C::ensure_can_withdraw(who, scale_wei_to_6dp(amount), reasons, new_balance)
 	}
 	fn transfer(
 		from: &AccountId,
@@ -178,21 +195,8 @@ where
 		}
 		C::transfer(from, to, scale_wei_to_6dp(value), req)
 	}
-	fn ensure_can_withdraw(
-		who: &AccountId,
-		amount: Self::Balance,
-		reasons: WithdrawReasons,
-		new_balance: Self::Balance,
-	) -> DispatchResult {
-		C::ensure_can_withdraw(who, scale_wei_to_6dp(amount), reasons, new_balance)
-	}
-	fn withdraw(
-		who: &AccountId,
-		value: Self::Balance,
-		reasons: WithdrawReasons,
-		req: ExistenceRequirement,
-	) -> Result<Self::NegativeImbalance, DispatchError> {
-		C::withdraw(who, scale_wei_to_6dp(value), reasons, req)
+	fn slash(who: &AccountId, value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
+		C::slash(who, scale_wei_to_6dp(value))
 	}
 	fn deposit_into_existing(
 		who: &AccountId,
@@ -203,23 +207,19 @@ where
 	fn deposit_creating(who: &AccountId, value: Self::Balance) -> Self::PositiveImbalance {
 		C::deposit_creating(who, scale_wei_to_6dp(value))
 	}
+	fn withdraw(
+		who: &AccountId,
+		value: Self::Balance,
+		reasons: WithdrawReasons,
+		req: ExistenceRequirement,
+	) -> Result<Self::NegativeImbalance, DispatchError> {
+		C::withdraw(who, scale_wei_to_6dp(value), reasons, req)
+	}
 	fn make_free_balance_be(
 		who: &AccountId,
 		balance: Self::Balance,
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
 		C::make_free_balance_be(who, scale_wei_to_6dp(balance))
-	}
-	fn can_slash(_who: &AccountId, _value: Self::Balance) -> bool {
-		false
-	}
-	fn slash(who: &AccountId, value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
-		C::slash(who, scale_wei_to_6dp(value))
-	}
-	fn burn(amount: Self::Balance) -> Self::PositiveImbalance {
-		C::burn(scale_wei_to_6dp(amount))
-	}
-	fn issue(amount: Self::Balance) -> Self::NegativeImbalance {
-		C::issue(scale_wei_to_6dp(amount))
 	}
 }
 

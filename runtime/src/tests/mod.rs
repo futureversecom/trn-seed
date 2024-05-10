@@ -27,7 +27,7 @@ mod staker_payouts;
 use frame_support::traits::{
 	fungibles::Inspect as _,
 	tokens::{Fortitude, Preservation},
-	GenesisBuild, Get,
+	BuildGenesisConfig, Get,
 };
 use sp_core::{
 	ecdsa,

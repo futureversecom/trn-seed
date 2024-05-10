@@ -19,7 +19,7 @@ use crate::{
 	service,
 };
 use frame_benchmarking::frame_support::sp_io;
-use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
+use sc_cli::SubstrateCli;
 use sc_executor::{sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch};
 use sc_service::PartialComponents;
 use seed_runtime::Block;

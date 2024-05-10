@@ -135,7 +135,9 @@ where
 			// This is due to the preservation rules of the withdraw call made within
 			// <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee
 			let account_balance = pallet_assets_ext::Pallet::<T>::balance(native_asset, &who);
-			let minimum_balance = pallet_assets_ext::Pallet::<T>::minimum_balance(native_asset);
+			// Minium balance is hardcoded to 1
+			// pallet_assets_ext::Pallet::<T>::minimum_balance(native_asset);
+			let minimum_balance = 1;
 			if account_balance < minimum_balance {
 				total_fee = total_fee.saturating_add(minimum_balance);
 			}

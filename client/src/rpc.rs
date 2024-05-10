@@ -24,12 +24,10 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use jsonrpsee::RpcModule;
 // Substrate
-use core::time::Duration;
 use sc_client_api::{
 	backend::{AuxStore, Backend, StateBackend, StorageProvider},
 	client::BlockchainEvents,
 };
-use sc_consensus_epochs::SharedEpochChanges;
 use sc_consensus_grandpa::{
 	FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
 };
@@ -226,7 +224,7 @@ where
 		network,
 		filter_pool,
 		frontier_backend,
-		backend,
+		backend: _,
 		max_past_logs,
 		fee_history_cache,
 		fee_history_cache_limit,

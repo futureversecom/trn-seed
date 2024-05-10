@@ -21,9 +21,7 @@ use crate::{
 	CheckedExtrinsic, Executive, MaintenanceMode, Runtime, RuntimeCall,
 };
 use ethabi::Token;
-use frame_support::{
-	assert_err, assert_noop, assert_ok, dispatch::RawOrigin, traits::fungibles::Inspect,
-};
+use frame_support::{assert_err, assert_noop, assert_ok, dispatch::RawOrigin};
 use pallet_maintenance_mode::MaintenanceModeActive;
 use pallet_token_approvals::ERC20Approvals;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, ErcIdConversion};
