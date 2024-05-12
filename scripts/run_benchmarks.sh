@@ -60,7 +60,7 @@ benchmark_runtime() {
     echo "[+][runtime] Benchmarking $PALLET";
 
     WEIGHT_FILENAME=$(echo $2 | tr '-' '_');
-    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$OUTPUT_FOLDER/$WEIGHT_FILENAME" $1 2>&1 )
+    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --wasm-execution=compiled --heap-pages=4096 --output "$OUTPUT_FOLDER/$WEIGHT_FILENAME" $1 2>&1 )
     if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"
         echo "[-][runtime] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
@@ -73,7 +73,7 @@ benchmark_pallet() {
     # remove the 'pallet-' prefix
     PALLET_FOLDER="./pallet/$(echo ${PALLET#pallet-})/src"
 
-    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$PALLET_FOLDER/weights.rs" $1 2>&1 )
+    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --wasm-execution=compiled --heap-pages=4096 --output "$PALLET_FOLDER/weights.rs" $1 2>&1 )
     if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"
         echo "[-][pallet] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
@@ -117,8 +117,8 @@ populate_pallet_list() {
         "pallet_im_online"
 
         # RUNTIME WEIGHT FAILURES
-        "pallet_session"
-        "pallet_staking"
+        #"pallet_session"
+        #"pallet_staking"
     )
     
     CUSTOM_PALLETS=()
