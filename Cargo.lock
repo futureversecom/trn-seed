@@ -5737,23 +5737,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-maintenance-mode"
+name = "pallet-liquidity-pools"
 version = "1.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex",
+ "hex-literal",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
- "pallet-ethy",
- "pallet-im-online",
- "pallet-sudo",
- "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -8952,6 +8951,7 @@ dependencies = [
  "pallet-futurepass",
  "pallet-grandpa",
  "pallet-im-online",
+ "pallet-liquidity-pools",
  "pallet-maintenance-mode",
  "pallet-marketplace",
  "pallet-multisig",
