@@ -983,7 +983,7 @@ parameter_types! {
 	pub const MaxChallenges: u32 = 100;
 	pub const MaxMessagesPerBlock: u32 = 1000;
 	pub const MaxCallRequests: u32 = 1000;
-	pub const ProcessedMessageIdBuffer: u32 = 1000;
+	pub const MaxProcessedMessageIds: u32 = 1000;
 }
 
 impl pallet_ethy::Config for Runtime {
@@ -1024,7 +1024,7 @@ impl pallet_ethy::Config for Runtime {
 	type Scheduler = Scheduler;
 	/// Pallets origin type
 	type PalletsOrigin = OriginCaller;
-	type ProcessedMessageIdBuffer = ProcessedMessageIdBuffer;
+	type MaxProcessedMessageIds = MaxProcessedMessageIds;
 	/// Timestamp provider
 	type UnixTime = Timestamp;
 	/// Max Xrpl notary (validator) public keys

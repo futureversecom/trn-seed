@@ -87,7 +87,7 @@ parameter_types! {
 	pub const MaxChallenges: u32 = 100;
 	pub const MaxMessagesPerBlock: u32 = 1000;
 	pub const MaxCallRequests: u32 = 1000;
-	pub const ProcessedMessageIdBuffer: u32 = 10;
+	pub const MaxProcessedMessageIds: u32 = 10;
 }
 impl Config for Test {
 	type AuthorityChangeDelay = AuthorityChangeDelay;
@@ -118,7 +118,7 @@ impl Config for Test {
 	type MaxMessagesPerBlock = MaxMessagesPerBlock;
 	type MaxCallRequests = MaxCallRequests;
 	type WeightInfo = ();
-	type ProcessedMessageIdBuffer = ProcessedMessageIdBuffer;
+	type MaxProcessedMessageIds = MaxProcessedMessageIds;
 }
 
 pub struct MockXrplBridgeAdapter;

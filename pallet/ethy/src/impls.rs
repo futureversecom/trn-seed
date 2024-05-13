@@ -102,9 +102,9 @@ impl<T: Config> Pallet<T> {
 			return used_weight
 		}
 
-		// Keep the last ProcessedMessageIdBuffer elements in the list
+		// Keep the last MaxProcessedMessageIds elements in the list
 		let removed = claim_ids
-			.drain(..claim_ids.len().saturating_sub(T::ProcessedMessageIdBuffer::get() as usize));
+			.drain(..claim_ids.len().saturating_sub(T::MaxProcessedMessageIds::get() as usize));
 		let removed: Vec<EventClaimId> = removed.collect();
 
 		// Check if we are aggressively pruning and event_ids that have not been processed

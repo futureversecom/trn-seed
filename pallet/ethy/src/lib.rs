@@ -199,7 +199,7 @@ pub mod pallet {
 		/// Maximum number of processed message Ids that will we keep as a buffer to prevent
 		/// replays.
 		#[pallet::constant]
-		type ProcessedMessageIdBuffer: Get<u32>;
+		type MaxProcessedMessageIds: Get<u32>;
 		/// Returns the block timestamp
 		type UnixTime: UnixTime;
 		/// Max Xrpl notary (validator) public keys
@@ -346,7 +346,8 @@ pub mod pallet {
 	/// Tracks processed message Ids (prevent replay)
 	/// Must remain unbounded as this list will grow indefinitely
 	#[pallet::storage]
-	pub type ProcessedMessageIds<T> = StorageValue<_, Vec<EventClaimId>, ValueQuery>;
+	pub type ProcessedMessageIds<T: Config> =
+		StorageValue<_, BoundedVec<EventClaimId, T::MaxProcessedMessageIds>, ValueQuery>;
 
 	/// Tracks message Ids that are outside of the MessageId buffer and were not processed
 	/// These message Ids can be either processed or cleared by the relayer
@@ -535,7 +536,7 @@ pub mod pallet {
 
 			// 2) Process validated messages
 			// Removed message_id from MessagesValidAt and processes
-			let mut processed_message_ids = ProcessedMessageIds::<T>::get();
+			let mut processed_message_ids = ProcessedMessageIds::<T>::get().into_inner();
 			let mut message_processed: bool = false;
 			for message_id in MessagesValidAt::<T>::take(block_number) {
 				// reads: PendingClaimStatus, PendingEventClaims
@@ -590,7 +591,7 @@ pub mod pallet {
 				}
 
 				let first_processed = processed_message_ids.first().cloned().unwrap_or_default();
-				// Is this message_id within the ProcessedMessageIdBuffer?
+				// Is this message_id within the MaxProcessedMessageIds?
 				if message_id >= first_processed {
 					// mark as processed
 					if let Err(idx) = processed_message_ids.binary_search(&message_id) {
@@ -618,6 +619,8 @@ pub mod pallet {
 				consumed_weight = consumed_weight.saturating_add(DbWeight::get().writes(1_u64));
 				let prune_weight = Self::prune_claim_ids(&mut processed_message_ids);
 				consumed_weight = consumed_weight.saturating_add(prune_weight);
+				// Truncate is safe as the length is asserted within prune_claim_ids
+				let processed_message_ids = BoundedVec::truncate_from(processed_message_ids);
 				ProcessedMessageIds::<T>::put(processed_message_ids);
 			}
 
@@ -926,7 +929,8 @@ pub mod pallet {
 
 			// Verify that the event_id is not contained within ProcessedMessageIds
 			// to prevent replay
-			let processed_message_ids: Vec<EventClaimId> = ProcessedMessageIds::<T>::get();
+			let processed_message_ids: Vec<EventClaimId> =
+				ProcessedMessageIds::<T>::get().into_inner();
 			if !processed_message_ids.is_empty() {
 				ensure!(
 					event_id > processed_message_ids[0] &&

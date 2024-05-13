@@ -234,7 +234,7 @@ fn submit_missing_event_id_works() {
 	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
 		let missed_event_id: u64 = 3;
 		// Setup storage to simulate missed_event_id being invalid but stored in Missing
-		ProcessedMessageIds::<Test>::put(vec![missed_event_id + 1]);
+		ProcessedMessageIds::<Test>::put(BoundedVec::truncate_from(vec![missed_event_id + 1]));
 		MissedMessageIds::<Test>::put(vec![missed_event_id]);
 		let tx_hash = EthHash::from_low_u64_be(33);
 		let (source, destination, message) =
@@ -271,7 +271,7 @@ fn submit_missing_event_id_works() {
 		let process_at = System::block_number() + ChallengePeriod::<Test>::get();
 		EthBridge::on_initialize(process_at);
 		// ProcessedMessageIds should be unchanged (As it was before the lowest
-		assert_eq!(ProcessedMessageIds::<Test>::get(), vec![missed_event_id + 1]);
+		assert_eq!(ProcessedMessageIds::<Test>::get().into_inner(), vec![missed_event_id + 1]);
 		assert!(MissedMessageIds::<Test>::get().is_empty());
 
 		// Submit missing event should now not work as the event is processed
@@ -292,7 +292,7 @@ fn submit_missing_event_id_prevents_replay() {
 	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
 		let missed_event_id: u64 = 3;
 		// Setup storage to simulate missed_event_id being invalid but stored in Missing
-		ProcessedMessageIds::<Test>::put(vec![missed_event_id + 1]);
+		ProcessedMessageIds::<Test>::put(BoundedVec::truncate_from(vec![missed_event_id + 1]));
 		MissedMessageIds::<Test>::put(vec![missed_event_id]);
 		let tx_hash = EthHash::from_low_u64_be(33);
 		let (source, destination, message) =
@@ -324,7 +324,7 @@ fn submit_missing_event_id_fails_if_not_in_missing() {
 	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
 		let missed_event_id: u64 = 3;
 		// Setup storage to simulate missed_event_id not in missing (i.e. processed
-		ProcessedMessageIds::<Test>::put(vec![5]);
+		ProcessedMessageIds::<Test>::put(BoundedVec::truncate_from(vec![5]));
 		MissedMessageIds::<Test>::put(vec![2, 4]);
 		let tx_hash = EthHash::from_low_u64_be(33);
 		let (source, destination, message) =
@@ -815,7 +815,7 @@ fn process_valid_challenged_event() {
 			assert!(PendingClaimStatus::<Test>::get(event_id_1).is_none());
 			assert!(MessagesValidAt::<Test>::get(process_at).is_empty());
 			// The event is processed!
-			assert_eq!(ProcessedMessageIds::<Test>::get(), vec![event_id_1]);
+			assert_eq!(ProcessedMessageIds::<Test>::get().into_inner(), vec![event_id_1]);
 		});
 }
 
@@ -910,7 +910,7 @@ fn process_valid_challenged_event_delayed() {
 			assert!(PendingClaimStatus::<Test>::get(event_id_1).is_none());
 			assert!(MessagesValidAt::<Test>::get(process_at_extended).is_empty());
 			// The event is processed!
-			assert_eq!(ProcessedMessageIds::<Test>::get(), vec![event_id_1]);
+			assert_eq!(ProcessedMessageIds::<Test>::get().into_inner(), vec![event_id_1]);
 		});
 }
 
@@ -1170,7 +1170,7 @@ fn on_new_session_updates_keys() {
 
 		let event_proof_id = NextEventProofId::<Test>::get();
 		let next_validator_set_id = NotarySetId::<Test>::get() + 1;
-		// Now call on_initialise with the expected block to check it gets processed correctly
+		// Now call on_initialize with the expected block to check it gets processed correctly
 		EthBridge::on_initialize(expected_block.into());
 
 		// Storage updated
@@ -2507,18 +2507,67 @@ fn prune_claim_ids_keeps_missed() {
 #[test]
 fn on_initialize_doesnt_prune_if_not_needed() {
 	ExtBuilder::default().build().execute_with(|| {
-		// These ids will be pruned if the pruning function gets called in on_initialise
+		// These ids will be pruned if the pruning function gets called in on_initialize
 		// However there is nothing to process so it doesn't prune
 		// This prevents pruning happening when no changes are made
 		let event_ids = vec![1, 2, 3, 4, 5];
-		ProcessedMessageIds::<Test>::put(&event_ids);
+		ProcessedMessageIds::<Test>::put(BoundedVec::truncate_from(event_ids.clone()));
 
-		// Call on_initialise with nothing to prune
+		// Call on_initialize with nothing to prune
 		let consumed_weight = EthBridge::on_initialize(25);
 		assert_eq!(consumed_weight, DbWeight::get().reads(3u64));
 
 		// ProcessedMessageIds unchanged
-		assert_eq!(ProcessedMessageIds::<Test>::get(), event_ids)
+		assert_eq!(ProcessedMessageIds::<Test>::get().into_inner(), event_ids)
+	});
+}
+
+#[test]
+fn on_initialize_moves_missed_to_vec() {
+	let relayer = H160::from_low_u64_be(123);
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		// Setup data for even ids up to 26
+		let event_ids = vec![1, 10, 12, 14, 16, 18, 20, 22, 24, 26];
+		ProcessedMessageIds::<Test>::put(BoundedVec::truncate_from(event_ids.clone()));
+
+		// submit event 28 and 30
+		let event_data = encode_event_message(
+			28 as u64,
+			H160::from_low_u64_be(555),
+			H160::from_low_u64_be(555),
+			&[2, 3, 4, 5],
+		);
+		let tx_hash = EthHash::from_low_u64_be(33);
+		assert_ok!(EthBridge::submit_event(
+			RuntimeOrigin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_data.clone(),
+		));
+		let event_data = encode_event_message(
+			30 as u64,
+			H160::from_low_u64_be(555),
+			H160::from_low_u64_be(555),
+			&[2, 3, 4, 5],
+		);
+		let tx_hash = EthHash::from_low_u64_be(33);
+		assert_ok!(EthBridge::submit_event(
+			RuntimeOrigin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_data.clone(),
+		));
+
+		// Process the messages
+		let process_at = System::block_number() + ChallengePeriod::<Test>::get();
+		EthBridge::on_initialize(process_at);
+
+		// ProcessedMessageIds updated with new id and pruned old ids
+		assert_eq!(
+			ProcessedMessageIds::<Test>::get().into_inner(),
+			vec![12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
+		);
+
+		// MissedMessageIds contains pruned ids
+		assert_eq!(MissedMessageIds::<Test>::get(), vec![2, 3, 4, 5, 6, 7, 8, 9, 11]);
 	});
 }
 
@@ -2553,7 +2602,7 @@ fn test_submit_event_replay_check() {
 		let process_at = System::block_number() + ChallengePeriod::<Test>::get();
 		EthBridge::on_initialize(process_at);
 		// check the processed_message_ids has [1, 3]
-		assert_eq!(ProcessedMessageIds::<Test>::get(), vec![1, 3]);
+		assert_eq!(ProcessedMessageIds::<Test>::get().into_inner(), vec![1, 3]);
 		// try to resubmit claim 0 again.
 		assert_noop!(
 			EthBridge::submit_event(
@@ -2575,7 +2624,7 @@ fn test_submit_event_replay_check() {
 		EthBridge::on_initialize(process_at2);
 
 		// check the processed_message_ids has [3]
-		assert_eq!(ProcessedMessageIds::<Test>::get(), vec![3]);
+		assert_eq!(ProcessedMessageIds::<Test>::get().into_inner(), vec![3]);
 	});
 }
 
