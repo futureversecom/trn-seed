@@ -74,6 +74,11 @@ benchmark_pallet() {
     # remove the 'pallet-' prefix
     PALLET_FOLDER="./pallet/$(echo ${PALLET#pallet-})/src"
 
+    # Add exception to pallet-vortex non standard directory naming for now
+    if [ "$PALLET" == "pallet-vortex" ]; then
+        PALLET_FOLDER="./pallet/vortex-distribution/src"
+    fi
+
     OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --wasm-execution=compiled --heap-pages=4096 --output "$PALLET_FOLDER/weights.rs" $1 2>&1 )
     if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"
