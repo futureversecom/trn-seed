@@ -22,6 +22,7 @@ inputs_arguments() {
 
 run_benchmark() {
     echo "Pallets: ${PALLETS[@]}"
+    echo "Custom Pallets: ${CUSTOM_PALLETS[@]}"
     echo "Steps: $STEPS, Repeat: $REPEAT"
     
     if [ "$LIST_PALLET" = 1 ]; then
@@ -103,22 +104,22 @@ populate_pallet_list() {
     # Manually exclude some pallets.
     EXCLUDED_PALLETS=(
         # Helper pallets
-        "pallet_election_provider_support_benchmarking"
+        "pallet-election-provider-support-benchmarking"
         # Pallets without automatic benchmarking
-        "pallet_babe"
-        "pallet_grandpa"
-        "pallet_mmr"
-        "pallet_offences"
-        "frame_benchmarking"
+        "pallet-babe"
+        "pallet-grandpa"
+        "pallet-mmr"
+        "pallet-offences"
+        "frame-benchmarking"
 
         # TODO: fix this; pallet bench taking too long!
-        "pallet_assets"
-        "pallet_election_provider_multi_phase"
-        "pallet_im_online"
+        "pallet-assets"
+        "pallet-election-provider-multi-phase"
+        "pallet-im-online"
 
         # RUNTIME WEIGHT FAILURES
-        #"pallet_session"
-        #"pallet_staking"
+        #"pallet-session"
+        #"pallet-staking"
     )
     
     CUSTOM_PALLETS=()
@@ -131,7 +132,7 @@ populate_pallet_list() {
         PALLETS=($PALLETS)
     fi
     if [ "$LIST_PALLET" = "1" ] || [ "$PALLETS" = "*" ]; then
-        PALLETS=($($BINARY_LOCATION benchmark pallet --list --chain=dev | tail -n+2 | cut -d',' -f1 | sort | uniq ))
+        PALLETS=($($BINARY_LOCATION benchmark pallet --list --chain=dev | tail -n+2 | cut -d',' -f1 | sort | uniq| tr _ - ))
     fi
     if [ "$JUST_CUSTOM_PALLETS" = "1" ]; then
         PALLETS=("${CUSTOM_PALLETS[@]}")
