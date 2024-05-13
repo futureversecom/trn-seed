@@ -95,13 +95,14 @@ impl<T: Config> XrplBridgeToEthyAdapter<T::EthyId> for Pallet<T> {
 
 impl<T: Config> Pallet<T> {
 	/// Prunes claim ids that are less than the max contiguous claim id.
-	pub(crate) fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) {
+	pub(crate) fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) -> Weight {
+		let mut used_weight = Weight::zero();
 		// if < 1 element, nothing to do
 		if let 0..=1 = claim_ids.len() {
-			return
+			return used_weight
 		}
 
-		// Take the last ProcessedMessageIdBuffer elements in the list
+		// Keep the last ProcessedMessageIdBuffer elements in the list
 		let removed = claim_ids
 			.drain(..claim_ids.len().saturating_sub(T::ProcessedMessageIdBuffer::get() as usize));
 		let removed: Vec<EventClaimId> = removed.collect();
@@ -120,6 +121,7 @@ impl<T: Config> Pallet<T> {
 				}
 			}
 			MissedMessageIds::<T>::put(missing_ids);
+			used_weight += DbWeight::get().reads_writes(1, 1);
 		}
 
 		// get the index of the fist element that's non contiguous.
@@ -136,6 +138,8 @@ impl<T: Config> Pallet<T> {
 			Some(idx) => claim_ids.drain(..idx - 1),
 			None => claim_ids.drain(..claim_ids.len() - 1), // we need the last element to remain
 		};
+
+		used_weight
 	}
 
 	/// Decode event data into it's respective parts.

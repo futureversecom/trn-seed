@@ -230,6 +230,31 @@ benchmarks! {
 	verify {
 		assert_eq!(PendingClaimChallenges::<T>::get(), vec![]);
 	}
+
+	handle_authorities_change {
+		let notary_key = T::EthyId::from_slice(
+				hex!("03e2161ca58ac2f2fa7dfd9f6980fdda1059b467e375ee78cdd5749dc058c0b2c9")
+					.as_slice(),
+			).unwrap();
+		let notary_keys = vec![notary_key.clone()];
+		let notary_keys = WeakBoundedVec::try_from(notary_keys.clone()).unwrap();
+		NotaryKeys::<T>::put(notary_keys);
+
+		let next_notary_key = T::EthyId::from_slice(
+				hex!("04e2161ca58ac2f2fa7dfd9f6980fdda1059b467e375ee78cdd5749dc058c0b2c0")
+					.as_slice(),
+			).unwrap();
+		let next_notary_keys = vec![next_notary_key.clone()];
+		let next_notary_keys = WeakBoundedVec::try_from(next_notary_keys.clone()).unwrap();
+		NextNotaryKeys::<T>::put(next_notary_keys);
+
+		NextAuthorityChange::<T>::put(T::BlockNumber::default());
+		BridgePaused::<T>::put(false);
+	}: {crate::Pallet::<T>::handle_authorities_change()}
+	verify {
+		assert!(BridgePaused::<T>::get());
+		assert_eq!(NextAuthorityChange::<T>::get(), None);
+	}
 }
 
 impl_benchmark_test_suite!(

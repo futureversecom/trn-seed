@@ -465,6 +465,8 @@ pub mod pallet {
 		ChallengePeriodSet { period: T::BlockNumber },
 		/// The bridge has been manually paused or unpaused
 		BridgeManualPause { paused: bool },
+		/// A range of missing event Ids were removed
+		MissingEventIdsRemoved { range: (EventClaimId, EventClaimId) },
 	}
 
 	#[pallet::error]
@@ -526,8 +528,9 @@ pub mod pallet {
 			if Some(block_number) == NextAuthorityChange::<T>::get() {
 				// Change authority keys, we are 5 minutes before the next epoch
 				log!(trace, "💎 Epoch ends in 5 minutes, changing authorities");
-				// TODO Benchmark this function
 				Self::handle_authorities_change();
+				consumed_weight =
+					consumed_weight.saturating_add(T::WeightInfo::handle_authorities_change());
 			}
 
 			// 2) Process validated messages
@@ -535,10 +538,17 @@ pub mod pallet {
 			let mut processed_message_ids = ProcessedMessageIds::<T>::get();
 			let mut message_processed: bool = false;
 			for message_id in MessagesValidAt::<T>::take(block_number) {
+				// reads: PendingClaimStatus, PendingEventClaims
+				// writes: PendingClaimStatus, PendingEventClaims
+				consumed_weight =
+					consumed_weight.saturating_add(DbWeight::get().reads_writes(2_u64, 2_u64));
 				if PendingClaimStatus::<T>::get(message_id) == Some(EventClaimStatus::Challenged) {
 					// We are still waiting on the challenge to be processed, push out by challenge
 					// period
 					let new_process_at = block_number + ChallengePeriod::<T>::get();
+					// read + write: MessagesValidAt
+					consumed_weight =
+						consumed_weight.saturating_add(DbWeight::get().reads_writes(1_u64, 1_u64));
 					MessagesValidAt::<T>::mutate(new_process_at.clone(), |v| {
 						let mut message_ids = v.clone().into_inner();
 						message_ids.push(message_id);
@@ -588,6 +598,9 @@ pub mod pallet {
 					}
 				} else {
 					// REMOVE event_id to MissedMessageIds
+					// read + write: MissedMessageIds
+					consumed_weight =
+						consumed_weight.saturating_add(DbWeight::get().reads_writes(1_u64, 1_u64));
 					MissedMessageIds::<T>::mutate(|missed_message_ids| {
 						if let Ok(idx) = missed_message_ids.binary_search(&message_id) {
 							missed_message_ids.remove(idx);
@@ -601,7 +614,10 @@ pub mod pallet {
 			}
 
 			if message_processed && !processed_message_ids.is_empty() {
-				Self::prune_claim_ids(&mut processed_message_ids);
+				// write: ProcessedMessageIds
+				consumed_weight = consumed_weight.saturating_add(DbWeight::get().writes(1_u64));
+				let prune_weight = Self::prune_claim_ids(&mut processed_message_ids);
+				consumed_weight = consumed_weight.saturating_add(prune_weight);
 				ProcessedMessageIds::<T>::put(processed_message_ids);
 			}
 
@@ -865,6 +881,7 @@ pub mod pallet {
 				.filter(|id| *id < event_id_range.0 || *id > event_id_range.1)
 				.collect::<Vec<_>>();
 			MissedMessageIds::<T>::put(missed_message_ids);
+			Self::deposit_event(Event::<T>::MissingEventIdsRemoved { range: event_id_range });
 			Ok(())
 		}
 

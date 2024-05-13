@@ -804,10 +804,9 @@ fn process_valid_challenged_event() {
 			assert_eq!(MessagesValidAt::<Test>::get(process_at), vec![event_id_1]);
 
 			// Weight returned should include the 1000 that we specified in MockEventRouter
-			assert_eq!(
-				EthBridge::on_initialize(process_at),
-				DbWeight::get().reads(3u64) + Weight::from_ref_time(1000u64)
-			);
+			let expected_weight =
+				DbWeight::get().reads_writes(5u64, 3u64) + Weight::from_ref_time(1000u64);
+			assert_eq!(EthBridge::on_initialize(process_at), expected_weight);
 
 			// Storage should now be fully cleared
 			assert!(PendingClaimChallenges::<Test>::get().is_empty());
@@ -868,7 +867,8 @@ fn process_valid_challenged_event_delayed() {
 
 			// Weight returned should not include the 1000 that we specified in MockEventRouter as a
 			// consensus has not been reached
-			assert_eq!(EthBridge::on_initialize(process_at), DbWeight::get().reads(3u64));
+			let expected_weight = DbWeight::get().reads_writes(6u64, 3u64);
+			assert_eq!(EthBridge::on_initialize(process_at), expected_weight);
 
 			assert_eq!(MessagesValidAt::<Test>::get(process_at_extended), vec![event_id_1]);
 			assert!(MessagesValidAt::<Test>::get(process_at).is_empty());
@@ -899,10 +899,9 @@ fn process_valid_challenged_event_delayed() {
 			assert_eq!(MessagesValidAt::<Test>::get(process_at_extended), vec![event_id_1]);
 
 			// Weight returned should include the 1000 that we specified in MockEventRouter
-			assert_eq!(
-				EthBridge::on_initialize(process_at_extended),
-				DbWeight::get().reads(3u64) + Weight::from_ref_time(1000u64)
-			);
+			let expected_weight =
+				DbWeight::get().reads_writes(5u64, 3u64) + Weight::from_ref_time(1000u64);
+			assert_eq!(EthBridge::on_initialize(process_at_extended), expected_weight);
 
 			// Storage should now be fully cleared
 			assert!(PendingClaimChallenges::<Test>::get().is_empty());

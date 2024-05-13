@@ -167,4 +167,22 @@ impl<T: frame_system::Config> pallet_ethy::WeightInfo for WeightInfo<T> {
             .saturating_add(T::DbWeight::get().reads(14 as u64))
             .saturating_add(T::DbWeight::get().writes(9 as u64))
     }
+    // Storage: EthBridge NextNotaryKeys (r:1 w:0)
+    // Storage: EthBridge NotarySetId (r:1 w:0)
+    // Storage: EthBridge ContractAddress (r:1 w:0)
+    // Storage: EthBridge NextEventProofId (r:1 w:1)
+    // Storage: EthBridge NotaryKeys (r:1 w:0)
+    // Storage: EthBridge BridgePaused (r:1 w:1)
+    // Storage: System Digest (r:1 w:1)
+    // Storage: EthBridge XrplDoorSigners (r:1 w:0)
+    // Storage: EthBridge NotaryXrplKeys (r:1 w:0)
+    // Storage: XRPLBridge DoorAddress (r:1 w:0)
+    // Storage: EthBridge NextAuthorityChange (r:0 w:1)
+    // Storage: EthBridge AuthoritiesChangedThisEra (r:0 w:1)
+    // Storage: EthBridge NotarySetProofId (r:0 w:1)
+    fn handle_authorities_change() -> Weight {
+        Weight::from_ref_time(41_599_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(10 as u64))
+            .saturating_add(T::DbWeight::get().writes(6 as u64))
+    }
 }
