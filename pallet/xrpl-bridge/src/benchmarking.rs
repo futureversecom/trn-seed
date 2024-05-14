@@ -122,6 +122,16 @@ benchmarks! {
 		assert_eq!(DoorTxFee::<T>::get(), tx_fee);
 	}
 
+	set_xrp_source_tag {
+		let source_tag = 100;
+		// Sanity check
+		assert_ne!(SourceTag::<T>::get(), source_tag);
+
+	}: _(RawOrigin::Root, source_tag)
+	verify {
+		assert_eq!(SourceTag::<T>::get(), source_tag);
+	}
+
 	set_door_address {
 		let door_address: XrplAccountId = [1u8; 20].into();
 		// Sanity check
