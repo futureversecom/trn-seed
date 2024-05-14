@@ -42,7 +42,6 @@ use seed_primitives::{
 	},
 	xrpl::XrplAccountId,
 };
-use seed_runtime::migrations::Value;
 use sp_core::{bounded::WeakBoundedVec, ByteArray};
 use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::{
@@ -1220,7 +1219,7 @@ fn force_new_era_with_scheduled_authority_change_works() {
 		assert!(NextAuthorityChange::<Test>::get().is_none());
 
 		// Simulate force new era
-		Value::unsafe_storage_put::<bool>(b"Test", b"Forcing", true);
+		Forcing::<Test>::put(true);
 
 		// Add a validator to the next_keys, simulating a change in validator during the last
 		// session
