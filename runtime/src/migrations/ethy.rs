@@ -44,10 +44,10 @@ impl OnRuntimeUpgrade for Upgrade {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
 		log::info!(target: "Migration", "Ethy: Upgrade to v1 Pre Upgrade.");
-		let onchain = Ethy::on_chain_storage_version();
+		let onchain = EthBridge::on_chain_storage_version();
 		// Return OK(()) if upgrade has already been done
 		if onchain == 1 {
-			return Ok(())
+			return Ok(Vec::new())
 		}
 		assert_eq!(onchain, 0);
 
@@ -57,8 +57,8 @@ impl OnRuntimeUpgrade for Upgrade {
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
 		log::info!(target: "Migration", "Ethy: Upgrade to v1 Post Upgrade.");
-		let current = Ethy::current_storage_version();
-		let onchain = Ethy::on_chain_storage_version();
+		let current = EthBridge::current_storage_version();
+		let onchain = EthBridge::on_chain_storage_version();
 		assert_eq!(current, 1);
 		assert_eq!(onchain, 1);
 		Ok(())
