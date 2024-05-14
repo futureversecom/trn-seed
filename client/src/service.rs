@@ -411,7 +411,6 @@ pub fn new_full(config: Configuration, cli: &Cli) -> Result<TaskManager, Service
 
 		move |deny_unsafe, subscription_task_executor: sc_rpc::SubscriptionTaskExecutor| {
 			let deps = crate::rpc::FullDeps {
-				backend: backend.clone(),
 				frontier_backend: match frontier_backend.clone() {
 					fc_db::Backend::KeyValue(b) => Arc::new(b),
 					fc_db::Backend::Sql(b) => Arc::new(b),

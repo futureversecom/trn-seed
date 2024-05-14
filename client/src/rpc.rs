@@ -114,8 +114,6 @@ pub struct FullDeps<C, P, A: ChainApi, BE, SC> {
 	pub filter_pool: Option<FilterPool>,
 	/// Frontier Backend.
 	pub frontier_backend: Arc<dyn fc_db::BackendReader<Block> + Send + Sync>,
-	/// Backend.
-	pub backend: Arc<BE>,
 	/// Maximum number of logs in a query.
 	pub max_past_logs: u32,
 	/// Fee history cache.
@@ -224,7 +222,6 @@ where
 		network,
 		filter_pool,
 		frontier_backend,
-		backend: _,
 		max_past_logs,
 		fee_history_cache,
 		fee_history_cache_limit,

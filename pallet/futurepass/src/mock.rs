@@ -18,7 +18,8 @@ use frame_support::traits::{Currency, ExistenceRequirement, InstanceFilter, Rese
 use seed_pallet_common::test_prelude::*;
 use seed_runtime::{
 	impls::{ProxyPalletProvider, ProxyType},
-	AnnouncementDepositBase, AnnouncementDepositFactor, ProxyDepositBase, ProxyDepositFactor,
+	AnnouncementDepositBase, AnnouncementDepositFactor, Inspect, ProxyDepositBase,
+	ProxyDepositFactor,
 };
 use sp_core::{ecdsa, Pair};
 
@@ -130,12 +131,19 @@ impl ProxyProvider<Test> for ProxyPalletProvider {
 		let (proxy_definitions, reserve_amount) = pallet_proxy::Proxies::<Test>::get(futurepass);
 		// get proxy_definitions length + 1 (cost of upcoming insertion); cost to reserve
 		let new_reserve = pallet_proxy::Pallet::<Test>::deposit(proxy_definitions.len() as u32 + 1);
-		let extra_reserve_required = new_reserve - reserve_amount + ExistentialDeposit::get();
+		let mut extra_reserve_required = new_reserve - reserve_amount;
+
+		let account_balance =
+			pallet_assets_ext::Pallet::<Test>::balance(MOCK_NATIVE_ASSET_ID, &futurepass);
+		let minimum_balance = ExistentialDeposit::get();
+		if account_balance < minimum_balance {
+			extra_reserve_required = extra_reserve_required.saturating_add(minimum_balance);
+		}
 		<pallet_balances::Pallet<Test> as Currency<_>>::transfer(
 			funder,
 			futurepass,
 			extra_reserve_required,
-			ExistenceRequirement::AllowDeath,
+			ExistenceRequirement::KeepAlive,
 		)?;
 		let proxy_type = ProxyType::try_from(*proxy_type)?;
 
