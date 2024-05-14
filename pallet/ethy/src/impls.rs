@@ -95,7 +95,7 @@ impl<T: Config> XrplBridgeToEthyAdapter<T::EthyId> for Pallet<T> {
 
 impl<T: Config> Pallet<T> {
 	/// Prunes claim ids that are less than the max contiguous claim id.
-	pub(crate) fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) -> Weight {
+	pub fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) -> Weight {
 		let mut used_weight = Weight::zero();
 		// if < 1 element, nothing to do
 		if let 0..=1 = claim_ids.len() {

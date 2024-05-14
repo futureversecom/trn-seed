@@ -13,8 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod futurepass;
-mod nft;
+mod ethy;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
@@ -33,22 +32,16 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-		let v1 = futurepass::Upgrade::pre_upgrade()?;
-		let v2 = nft::Upgrade::pre_upgrade()?;
-		Ok(v1.into_iter().chain(v2.into_iter()).collect())
+		ethy::Upgrade::pre_upgrade()
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let w1 = futurepass::Upgrade::on_runtime_upgrade();
-		let w2 = nft::Upgrade::on_runtime_upgrade();
-		w1.saturating_add(w2)
+		ethy::Upgrade::on_runtime_upgrade()
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), &'static str> {
-		let _ = futurepass::Upgrade::post_upgrade(state.clone())?;
-		let _ = nft::Upgrade::post_upgrade(state)?;
-		Ok(())
+		ethy::Upgrade::post_upgrade(state)
 	}
 }
 
