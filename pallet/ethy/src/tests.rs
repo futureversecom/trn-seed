@@ -14,7 +14,6 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg(test)]
-
 use crate::{
 	impls::prune_claim_ids,
 	mock::*,
@@ -23,9 +22,13 @@ use crate::{
 		EthHash, EthereumEventInfo, EthySigningRequest, EventClaim, EventClaimResult, EventProofId,
 		TransactionReceipt,
 	},
-	BridgePaused, Config, Error, EthCallRequestInfo, Event, EventClaimStatus, Module,
-	NextNotaryKeys, NotaryKeys, NotaryXrplKeys, XrplDoorSigners, ETHY_ENGINE_ID,
-	SUBMIT_BRIDGE_EVENT_SELECTOR,
+	AuthoritiesChangedThisEra, BridgePaused, ChallengePeriod, ChallengerAccount, Config,
+	ContractAddress, DelayedEventProofsPerBlock, Error, EthCallNotarizationsAggregated,
+	EthCallRequestInfo, Event, EventClaimStatus, MessagesValidAt, NextAuthorityChange,
+	NextEventProofId, NextNotaryKeys, NotaryKeys, NotarySetId, NotarySetProofId, NotaryXrplKeys,
+	Pallet, PendingClaimChallenges, PendingClaimStatus, PendingEventClaims, PendingEventProofs,
+	ProcessedMessageIds, Relayer, RelayerPaidBond, XrplDoorSigners, XrplNotarySetProofId,
+	ETHY_ENGINE_ID, SUBMIT_BRIDGE_EVENT_SELECTOR,
 };
 use codec::Encode;
 use ethabi::Token;
@@ -39,7 +42,7 @@ use seed_primitives::{
 	},
 	xrpl::XrplAccountId,
 };
-use sp_core::ByteArray;
+use sp_core::{bounded::WeakBoundedVec, ByteArray};
 use sp_keystore::{testing::KeyStore, SyncCryptoStore};
 use sp_runtime::{
 	generic::DigestItem,
@@ -129,12 +132,17 @@ fn submit_event() {
 			event_data.clone(),
 		));
 
-		let process_at = System::block_number() + EthBridge::challenge_period();
+		let process_at = System::block_number() + ChallengePeriod::<Test>::get();
 		assert_eq!(
-			EthBridge::pending_event_claims(event_id),
-			Some(EventClaim { tx_hash, source, destination, data: message.to_vec() })
+			PendingEventClaims::<Test>::get(event_id),
+			Some(EventClaim {
+				tx_hash,
+				source,
+				destination,
+				data: BoundedVec::truncate_from(message.to_vec())
+			})
 		);
-		assert_eq!(EthBridge::messages_valid_at(process_at), [event_id],);
+		assert_eq!(MessagesValidAt::<Test>::get(process_at).into_inner(), [event_id],);
 	});
 }
 
@@ -211,7 +219,7 @@ fn submit_event_tracks_completed() {
 		));
 
 		// Process the message
-		let process_at = System::block_number() + EthBridge::challenge_period();
+		let process_at = System::block_number() + ChallengePeriod::<Test>::get();
 		EthBridge::on_initialize(process_at);
 
 		assert_noop!(
@@ -262,8 +270,8 @@ fn deposit_relayer_bond_works() {
 			);
 
 			// Check storage
-			assert_eq!(EthBridge::relayer_paid_bond(AccountId::from(relayer)), RelayerBond::get());
-			assert_eq!(EthBridge::relayer(), Some(relayer.into()));
+			assert_eq!(RelayerPaidBond::<Test>::get(AccountId::from(relayer)), RelayerBond::get());
+			assert_eq!(Relayer::<Test>::get(), Some(relayer.into()));
 		});
 }
 
@@ -294,13 +302,13 @@ fn withdraw_relayer_bond_works() {
 
 			// Submit bond
 			assert_ok!(EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer.into())));
-			assert_eq!(EthBridge::relayer_paid_bond(AccountId::from(relayer)), RelayerBond::get());
+			assert_eq!(RelayerPaidBond::<Test>::get(AccountId::from(relayer)), RelayerBond::get());
 
 			// Withdraw bond
 			assert_ok!(EthBridge::withdraw_relayer_bond(RuntimeOrigin::signed(relayer.into())));
 
 			// Check storage
-			assert_eq!(EthBridge::relayer_paid_bond(AccountId::from(relayer)), 0);
+			assert_eq!(RelayerPaidBond::<Test>::get(AccountId::from(relayer)), 0);
 		});
 }
 
@@ -360,13 +368,13 @@ fn submit_challenge() {
 				RuntimeOrigin::signed(challenger.into()),
 				event_id
 			));
-			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id]);
+			assert_eq!(PendingClaimChallenges::<Test>::get(), vec![event_id]);
 			assert_eq!(
-				EthBridge::challenger_account(event_id),
+				ChallengerAccount::<Test>::get(event_id),
 				Some((AccountId::from(challenger), ChallengerBond::get()))
 			);
 			assert_eq!(
-				EthBridge::pending_claim_status(event_id),
+				PendingClaimStatus::<Test>::get(event_id),
 				Some(EventClaimStatus::Challenged)
 			);
 
@@ -429,7 +437,7 @@ fn handle_event_notarization_valid_claims() {
 		.build()
 		.execute_with(|| {
 			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
-			let process_at = System::block_number() + EthBridge::challenge_period();
+			let process_at = System::block_number() + ChallengePeriod::<Test>::get();
 
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
@@ -438,7 +446,7 @@ fn handle_event_notarization_valid_claims() {
 				event_data_1.clone(),
 			));
 			assert_eq!(
-				EthBridge::pending_claim_status(event_id_1),
+				PendingClaimStatus::<Test>::get(event_id_1),
 				Some(EventClaimStatus::Pending)
 			);
 			// Submit Event 2
@@ -448,7 +456,7 @@ fn handle_event_notarization_valid_claims() {
 				event_data_2.clone(),
 			));
 			assert_eq!(
-				EthBridge::pending_claim_status(event_id_2),
+				PendingClaimStatus::<Test>::get(event_id_2),
 				Some(EventClaimStatus::Pending)
 			);
 
@@ -463,13 +471,13 @@ fn handle_event_notarization_valid_claims() {
 				event_id_2
 			));
 			// Check storage
-			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1, event_id_2]);
+			assert_eq!(PendingClaimChallenges::<Test>::get(), vec![event_id_1, event_id_2]);
 			assert_eq!(
-				EthBridge::pending_claim_status(event_id_1),
+				PendingClaimStatus::<Test>::get(event_id_1),
 				Some(EventClaimStatus::Challenged)
 			);
 			assert_eq!(
-				EthBridge::pending_claim_status(event_id_2),
+				PendingClaimStatus::<Test>::get(event_id_2),
 				Some(EventClaimStatus::Challenged)
 			);
 
@@ -504,16 +512,16 @@ fn handle_event_notarization_valid_claims() {
 					<Test as Config>::NotarizationThreshold::get()
 				{
 					// Over threshold, storage should be updated
-					assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
+					assert_eq!(PendingClaimChallenges::<Test>::get(), vec![event_id_1]);
 					assert_eq!(
-						EthBridge::pending_claim_status(event_id_2),
+						PendingClaimStatus::<Test>::get(event_id_2),
 						Some(EventClaimStatus::ProvenValid)
 					);
 				} else {
 					// Under threshold, storage not updated
-					assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1, event_id_2]);
+					assert_eq!(PendingClaimChallenges::<Test>::get(), vec![event_id_1, event_id_2]);
 					assert_eq!(
-						EthBridge::pending_claim_status(event_id_2),
+						PendingClaimStatus::<Test>::get(event_id_2),
 						Some(EventClaimStatus::Challenged)
 					);
 				}
@@ -521,15 +529,15 @@ fn handle_event_notarization_valid_claims() {
 
 			// Check claim remains in storage so it can still be processed
 			assert_eq!(
-				EthBridge::pending_event_claims(event_id_2),
+				PendingEventClaims::<Test>::get(event_id_2),
 				Some(EventClaim {
 					source: source_2,
 					destination: destination_2,
 					tx_hash: tx_hash_2,
-					data: message_2.to_vec()
+					data: BoundedVec::truncate_from(message_2.to_vec())
 				})
 			);
-			assert_eq!(EthBridge::messages_valid_at(process_at), vec![event_id_1, event_id_2]);
+			assert_eq!(MessagesValidAt::<Test>::get(process_at), vec![event_id_1, event_id_2]);
 		});
 }
 
@@ -555,9 +563,9 @@ fn process_valid_challenged_event() {
 		.execute_with(|| {
 			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
 			assert_eq!(AssetsExt::reducible_balance(ROOT_ASSET_ID, &relayer.into(), false), 0);
-			assert_eq!(EthBridge::relayer_paid_bond(AccountId::from(relayer)), RelayerBond::get());
+			assert_eq!(RelayerPaidBond::<Test>::get(AccountId::from(relayer)), RelayerBond::get());
 
-			let process_at = System::block_number() + EthBridge::challenge_period();
+			let process_at = System::block_number() + ChallengePeriod::<Test>::get();
 
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
@@ -572,7 +580,7 @@ fn process_valid_challenged_event() {
 				event_id_1
 			));
 			assert_eq!(
-				EthBridge::challenger_account(event_id_1),
+				ChallengerAccount::<Test>::get(event_id_1),
 				Some((AccountId::from(challenger), ChallengerBond::get()))
 			);
 
@@ -593,14 +601,14 @@ fn process_valid_challenged_event() {
 				0
 			);
 			assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &challenger.into()), 0);
-			assert!(EthBridge::challenger_account(event_id_1).is_none());
+			assert!(ChallengerAccount::<Test>::get(event_id_1).is_none());
 
 			// Relayer should still have bond and challenger bond as balance
 			assert_eq!(
 				AssetsExt::hold_balance(&BridgePalletId::get(), &relayer.into(), &ROOT_ASSET_ID),
 				RelayerBond::get()
 			);
-			assert_eq!(EthBridge::relayer_paid_bond(AccountId::from(relayer)), RelayerBond::get());
+			assert_eq!(RelayerPaidBond::<Test>::get(AccountId::from(relayer)), RelayerBond::get());
 			assert_eq!(
 				AssetsExt::reducible_balance(ROOT_ASSET_ID, &relayer.into(), false),
 				ChallengerBond::get()
@@ -608,19 +616,19 @@ fn process_valid_challenged_event() {
 
 			// Check claim remains in storage so it can still be processed
 			assert_eq!(
-				EthBridge::pending_claim_status(event_id_1),
+				PendingClaimStatus::<Test>::get(event_id_1),
 				Some(EventClaimStatus::ProvenValid)
 			);
 			assert_eq!(
-				EthBridge::pending_event_claims(event_id_1),
+				PendingEventClaims::<Test>::get(event_id_1),
 				Some(EventClaim {
 					source: source_1,
 					destination: destination_1,
 					tx_hash: tx_hash_1,
-					data: message_1.to_vec()
+					data: BoundedVec::truncate_from(message_1.to_vec())
 				})
 			);
-			assert_eq!(EthBridge::messages_valid_at(process_at), vec![event_id_1]);
+			assert_eq!(MessagesValidAt::<Test>::get(process_at), vec![event_id_1]);
 
 			// Weight returned should include the 1000 that we specified in our mock
 			assert_eq!(
@@ -629,13 +637,13 @@ fn process_valid_challenged_event() {
 			);
 
 			// Storage should now be fully cleared
-			assert!(EthBridge::pending_claim_challenges().is_empty());
-			assert!(EthBridge::challenger_account(event_id_1).is_none());
-			assert!(EthBridge::pending_event_claims(event_id_1).is_none());
-			assert!(EthBridge::pending_claim_status(event_id_1).is_none());
-			assert!(EthBridge::messages_valid_at(process_at).is_empty());
+			assert!(PendingClaimChallenges::<Test>::get().is_empty());
+			assert!(ChallengerAccount::<Test>::get(event_id_1).is_none());
+			assert!(PendingEventClaims::<Test>::get(event_id_1).is_none());
+			assert!(PendingClaimStatus::<Test>::get(event_id_1).is_none());
+			assert!(MessagesValidAt::<Test>::get(process_at).is_empty());
 			// The event is processed!
-			assert_eq!(EthBridge::processed_message_ids(), vec![event_id_1]);
+			assert_eq!(ProcessedMessageIds::<Test>::get(), vec![event_id_1]);
 		});
 }
 
@@ -662,9 +670,9 @@ fn process_valid_challenged_event_delayed() {
 		.execute_with(|| {
 			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
 			// The block it should be processed at
-			let process_at = System::block_number() + EthBridge::challenge_period();
+			let process_at = System::block_number() + ChallengePeriod::<Test>::get();
 			// The actual block it will be processed at
-			let process_at_extended = process_at + EthBridge::challenge_period();
+			let process_at_extended = process_at + ChallengePeriod::<Test>::get();
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
 				RuntimeOrigin::signed(relayer.into()),
@@ -679,18 +687,18 @@ fn process_valid_challenged_event_delayed() {
 			));
 
 			assert_eq!(
-				EthBridge::pending_claim_status(event_id_1),
+				PendingClaimStatus::<Test>::get(event_id_1),
 				Some(EventClaimStatus::Challenged)
 			);
 
-			assert_eq!(EthBridge::messages_valid_at(process_at), vec![event_id_1]);
+			assert_eq!(MessagesValidAt::<Test>::get(process_at), vec![event_id_1]);
 
 			// Weight returned should not include the 1000 that we specified in our mock as a
 			// consensus has not been reached
 			assert_eq!(EthBridge::on_initialize(process_at), DbWeight::get().reads(2u64));
 
-			assert_eq!(EthBridge::messages_valid_at(process_at_extended), vec![event_id_1]);
-			assert!(EthBridge::messages_valid_at(process_at).is_empty());
+			assert_eq!(MessagesValidAt::<Test>::get(process_at_extended), vec![event_id_1]);
+			assert!(MessagesValidAt::<Test>::get(process_at).is_empty());
 
 			// Submit valid notarization for all 9 validators
 			for i in 0..mock_notary_keys.len() {
@@ -703,19 +711,19 @@ fn process_valid_challenged_event_delayed() {
 
 			// Check claim remains in storage
 			assert_eq!(
-				EthBridge::pending_claim_status(event_id_1),
+				PendingClaimStatus::<Test>::get(event_id_1),
 				Some(EventClaimStatus::ProvenValid)
 			);
 			assert_eq!(
-				EthBridge::pending_event_claims(event_id_1),
+				PendingEventClaims::<Test>::get(event_id_1),
 				Some(EventClaim {
 					source: source_1,
 					destination: destination_1,
 					tx_hash: tx_hash_1,
-					data: message_1.to_vec()
+					data: BoundedVec::truncate_from(message_1.to_vec())
 				})
 			);
-			assert_eq!(EthBridge::messages_valid_at(process_at_extended), vec![event_id_1]);
+			assert_eq!(MessagesValidAt::<Test>::get(process_at_extended), vec![event_id_1]);
 
 			// Weight returned should include the 1000 that we specified in our mock
 			assert_eq!(
@@ -724,13 +732,13 @@ fn process_valid_challenged_event_delayed() {
 			);
 
 			// Storage should now be fully cleared
-			assert!(EthBridge::pending_claim_challenges().is_empty());
-			assert!(EthBridge::challenger_account(event_id_1).is_none());
-			assert!(EthBridge::pending_event_claims(event_id_1).is_none());
-			assert!(EthBridge::pending_claim_status(event_id_1).is_none());
-			assert!(EthBridge::messages_valid_at(process_at_extended).is_empty());
+			assert!(PendingClaimChallenges::<Test>::get().is_empty());
+			assert!(ChallengerAccount::<Test>::get(event_id_1).is_none());
+			assert!(PendingEventClaims::<Test>::get(event_id_1).is_none());
+			assert!(PendingClaimStatus::<Test>::get(event_id_1).is_none());
+			assert!(MessagesValidAt::<Test>::get(process_at_extended).is_empty());
 			// The event is processed!
-			assert_eq!(EthBridge::processed_message_ids(), vec![event_id_1]);
+			assert_eq!(ProcessedMessageIds::<Test>::get(), vec![event_id_1]);
 		});
 }
 
@@ -754,7 +762,7 @@ fn handle_event_notarization_invalid_claims() {
 		.build()
 		.execute_with(|| {
 			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
-			let process_at = System::block_number() + EthBridge::challenge_period();
+			let process_at = System::block_number() + ChallengePeriod::<Test>::get();
 
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
@@ -763,7 +771,7 @@ fn handle_event_notarization_invalid_claims() {
 				event_data_1.clone(),
 			));
 			assert_eq!(
-				EthBridge::pending_claim_status(event_id_1),
+				PendingClaimStatus::<Test>::get(event_id_1),
 				Some(EventClaimStatus::Pending)
 			);
 
@@ -774,9 +782,9 @@ fn handle_event_notarization_invalid_claims() {
 			));
 
 			// Check storage
-			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
+			assert_eq!(PendingClaimChallenges::<Test>::get(), vec![event_id_1]);
 			assert_eq!(
-				EthBridge::pending_claim_status(event_id_1),
+				PendingClaimStatus::<Test>::get(event_id_1),
 				Some(EventClaimStatus::Challenged)
 			);
 
@@ -813,33 +821,33 @@ fn handle_event_notarization_invalid_claims() {
 						100_u8 - <Test as Config>::NotarizationThreshold::get().deconstruct(),
 					)) {
 					// Over threshold, storage should be removed
-					assert!(EthBridge::pending_claim_challenges().is_empty());
-					assert_eq!(EthBridge::pending_claim_status(event_id_1), None);
+					assert!(PendingClaimChallenges::<Test>::get().is_empty());
+					assert_eq!(PendingClaimStatus::<Test>::get(event_id_1), None);
 				} else {
 					// Under threshold, storage not updated
-					assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
+					assert_eq!(PendingClaimChallenges::<Test>::get(), vec![event_id_1]);
 					assert_eq!(
-						EthBridge::pending_claim_status(event_id_1),
+						PendingClaimStatus::<Test>::get(event_id_1),
 						Some(EventClaimStatus::Challenged)
 					);
 				}
 			}
 
 			// Check claim removed from storage
-			assert!(EthBridge::pending_event_claims(event_id_1).is_none());
-			assert_eq!(EthBridge::messages_valid_at(process_at), vec![event_id_1]);
+			assert!(PendingEventClaims::<Test>::get(event_id_1).is_none());
+			assert_eq!(MessagesValidAt::<Test>::get(process_at), vec![event_id_1]);
 
 			// Check balances of relayer and challenger
 			// Relayer should have no funds and no bond
 			assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &relayer.into()), 0);
-			assert_eq!(EthBridge::relayer_paid_bond(AccountId::from(relayer)), 0);
+			assert_eq!(RelayerPaidBond::<Test>::get(AccountId::from(relayer)), 0);
 
 			// Challenger should have balance of relayer bond + challenger bond
 			assert_eq!(
 				AssetsExt::balance(ROOT_ASSET_ID, &challenger.into()),
 				RelayerBond::get() + ChallengerBond::get()
 			);
-			assert!(EthBridge::challenger_account(event_id_1).is_none());
+			assert!(ChallengerAccount::<Test>::get(event_id_1).is_none());
 		});
 }
 
@@ -872,7 +880,7 @@ fn do_event_notarization_ocw_doesnt_change_storage() {
 				event_id_1
 			));
 			// Check storage
-			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
+			assert_eq!(PendingClaimChallenges::<Test>::get(), vec![event_id_1]);
 
 			// Generate public key using same authority id and seed as the mock
 			let keystore = KeyStore::new();
@@ -881,7 +889,7 @@ fn do_event_notarization_ocw_doesnt_change_storage() {
 				.get(0)
 				.unwrap()
 				.clone();
-			let current_set_id = EthBridge::notary_set_id();
+			let current_set_id = NotarySetId::<Test>::get();
 
 			// Check no storage is changed
 			assert_storage_noop!(EthBridge::do_event_notarization_ocw(
@@ -906,10 +914,10 @@ fn pre_last_session_change() {
 			)
 			.unwrap(),
 		];
-		let event_proof_id = EthBridge::next_event_proof_id();
-		_ = EthBridge::notary_set_id() + 1;
+		let event_proof_id = NextEventProofId::<Test>::get();
+		_ = NotarySetId::<Test>::get() + 1;
 		// Manually insert next keys
-		NextNotaryKeys::<Test>::put(next_keys.clone());
+		NextNotaryKeys::<Test>::put(WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 
 		// Manually call handle_authorities_change to simulate 5 minutes before the next epoch
 		EthBridge::handle_authorities_change();
@@ -921,8 +929,8 @@ fn pre_last_session_change() {
 			event_proof_id,
 			validator_set_id: 0,
 			source: BridgePalletId::get().into_account_truncating(),
-			destination: EthBridge::contract_address(),
-			message: new_validator_set_message.to_vec(),
+			destination: ContractAddress::<Test>::get(),
+			message: BoundedVec::truncate_from(new_validator_set_message.to_vec()),
 		});
 
 		System::assert_has_event(
@@ -942,9 +950,9 @@ fn pre_last_session_change() {
 			),
 		);
 
-		assert_eq!(EthBridge::next_notary_keys(), next_keys);
-		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
-		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys);
+		assert_eq!(NotarySetProofId::<Test>::get(), event_proof_id);
+		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
 	});
 }
 
@@ -970,10 +978,10 @@ fn on_new_session_updates_keys() {
 		);
 		// Storage remains unchanged
 		assert_eq!(
-			EthBridge::next_notary_keys(),
+			NextNotaryKeys::<Test>::get(),
 			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
 		);
-		assert!(EthBridge::next_authority_change().is_none());
+		assert!(NextAuthorityChange::<Test>::get().is_none());
 
 		let block_number: BlockNumber = 100;
 		System::set_block_number(block_number.into());
@@ -985,31 +993,33 @@ fn on_new_session_updates_keys() {
 		);
 		let epoch_duration: BlockNumber = EpochDuration::get().saturated_into();
 		let expected_block: BlockNumber = block_number + epoch_duration - 75_u64;
-		assert_eq!(EthBridge::next_authority_change(), Some(expected_block as u64));
-		assert_eq!(EthBridge::next_notary_keys(), next_keys.clone());
+		assert_eq!(NextAuthorityChange::<Test>::get(), Some(expected_block as u64));
+		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys.clone());
 
-		let event_proof_id = EthBridge::next_event_proof_id();
-		let next_validator_set_id = EthBridge::notary_set_id() + 1;
+		let event_proof_id = NextEventProofId::<Test>::get();
+		let next_validator_set_id = NotarySetId::<Test>::get() + 1;
 		// Now call on_initialise with the expected block to check it gets processed correctly
 		EthBridge::on_initialize(expected_block.into());
 
 		// Storage updated
-		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
-		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
-		assert!(EthBridge::next_authority_change().is_none());
-		assert!(EthBridge::authorities_changed_this_era());
+		assert_eq!(NotarySetProofId::<Test>::get(), event_proof_id);
+		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
+		assert!(NextAuthorityChange::<Test>::get().is_none());
+		assert!(AuthoritiesChangedThisEra::<Test>::get());
 		// only one log is deposited when the next_authority_change is executed - this is the
 		// Ethereum proof request. Xrpl proof request is not made since no change in xrpl notary
 		// keys. Also no ConsensusLog::AuthoritiesChange yet
 		assert_eq!(System::digest().logs.len(), 1);
 		// signing request to prove validator change on Ethereum chain
 		let new_validator_set_message = encode_validator_set_message(&next_keys, 1_u64);
+		let new_validator_set_message: BoundedVec<u8, MaxEthData> =
+			BoundedVec::truncate_from(new_validator_set_message.to_vec());
 		let signing_request = EthySigningRequest::Ethereum(EthereumEventInfo {
 			event_proof_id,
 			validator_set_id: 0,
 			source: BridgePalletId::get().into_account_truncating(),
-			destination: EthBridge::contract_address(),
-			message: new_validator_set_message.to_vec(),
+			destination: ContractAddress::<Test>::get(),
+			message: new_validator_set_message,
 		});
 		assert_eq!(
 			System::digest().logs[0],
@@ -1027,7 +1037,7 @@ fn on_new_session_updates_keys() {
 		// Calling on_before_session_ending should NOT call handle_authorities_change again,
 		// but do_finalise_authorities_change() will add ConsensusLog::AuthoritiesChange
 		// notification log to the header
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		assert_eq!(System::digest().logs.len(), 2); // previous one + new
 		assert_eq!(
 			System::digest().logs[1],
@@ -1041,11 +1051,11 @@ fn on_new_session_updates_keys() {
 				.encode(),
 			),
 		);
-		assert!(!EthBridge::bridge_paused());
+		assert!(!BridgePaused::<Test>::get());
 		// Next_notary_keys hasn't been cleared
-		assert_eq!(EthBridge::next_notary_keys(), next_keys);
-		assert_eq!(EthBridge::notary_keys(), next_keys);
-		assert!(!EthBridge::authorities_changed_this_era());
+		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys);
+		assert_eq!(NotaryKeys::<Test>::get(), next_keys);
+		assert!(!AuthoritiesChangedThisEra::<Test>::get());
 	});
 }
 
@@ -1075,11 +1085,11 @@ fn on_before_session_ending_handles_authorities() {
 		);
 		// next notary keys queued up
 		assert_eq!(
-			EthBridge::next_notary_keys(),
+			NextNotaryKeys::<Test>::get(),
 			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
 		);
 		// Next authority change not scheduled, not final session
-		assert!(EthBridge::next_authority_change().is_none());
+		assert!(NextAuthorityChange::<Test>::get().is_none());
 
 		let block_number: BlockNumber = 100;
 		System::set_block_number(block_number.into());
@@ -1091,23 +1101,23 @@ fn on_before_session_ending_handles_authorities() {
 		);
 		let epoch_duration: BlockNumber = EpochDuration::get().saturated_into();
 		let expected_block: BlockNumber = block_number + epoch_duration - 75_u64;
-		assert_eq!(EthBridge::next_authority_change(), Some(expected_block as u64));
-		assert_eq!(EthBridge::next_notary_keys(), next_keys.clone());
+		assert_eq!(NextAuthorityChange::<Test>::get(), Some(expected_block as u64));
+		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys.clone());
 
-		let event_proof_id = EthBridge::next_event_proof_id();
-		let next_validator_set_id = EthBridge::notary_set_id() + 1;
+		let event_proof_id = NextEventProofId::<Test>::get();
+		let next_validator_set_id = NotarySetId::<Test>::get() + 1;
 
 		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
 		// changed in on_initialize
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 
 		// Storage should represent the storage before the authorities are finalized
-		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
-		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
-		assert!(EthBridge::next_authority_change().is_none());
-		assert_eq!(EthBridge::next_notary_keys(), next_keys);
-		assert!(EthBridge::notary_keys().is_empty());
-		assert!(EthBridge::bridge_paused());
+		assert_eq!(NotarySetProofId::<Test>::get(), event_proof_id);
+		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
+		assert!(NextAuthorityChange::<Test>::get().is_none());
+		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys);
+		assert!(NotaryKeys::<Test>::get().is_empty());
+		assert!(BridgePaused::<Test>::get());
 
 		// Item should be scheduled
 		let scheduled_block: BlockNumber = block_number + 75_u64;
@@ -1129,13 +1139,13 @@ fn on_before_session_ending_handles_authorities() {
 		);
 
 		// This should update all the storage items
-		assert!(!EthBridge::bridge_paused());
-		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
-		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
-		assert!(EthBridge::next_authority_change().is_none());
+		assert!(!BridgePaused::<Test>::get());
+		assert_eq!(NotarySetProofId::<Test>::get(), event_proof_id);
+		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
+		assert!(NextAuthorityChange::<Test>::get().is_none());
 		// Next_notary_keys hasn't been cleared
-		assert_eq!(EthBridge::next_notary_keys(), next_keys);
-		assert_eq!(EthBridge::notary_keys(), next_keys);
+		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys);
+		assert_eq!(NotaryKeys::<Test>::get(), next_keys);
 	});
 }
 
@@ -1159,11 +1169,11 @@ fn on_before_session_ending_handles_authorities_without_on_new_session() {
 		);
 		// next notary keys queued up
 		assert_eq!(
-			EthBridge::next_notary_keys(),
+			NextNotaryKeys::<Test>::get(),
 			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
 		);
 		// Next authority change not scheduled, not final session
-		assert!(EthBridge::next_authority_change().is_none());
+		assert!(NextAuthorityChange::<Test>::get().is_none());
 
 		// Block number as 2 triggers is_active_session_final = true
 		let block_number: BlockNumber = 100;
@@ -1171,19 +1181,19 @@ fn on_before_session_ending_handles_authorities_without_on_new_session() {
 
 		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
 		// changed in on_initialize
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 
 		// Item should be scheduled and bridge still paused
-		assert!(EthBridge::bridge_paused());
+		assert!(BridgePaused::<Test>::get());
 		let scheduled_block: BlockNumber = block_number + 75_u64;
 
 		// Block before scheduled should not unpause bridge
 		Scheduler::on_initialize((scheduled_block - 1_u64).into());
-		assert!(EthBridge::bridge_paused());
+		assert!(BridgePaused::<Test>::get());
 
 		// Scheduler unpauses bridge
 		Scheduler::on_initialize(scheduled_block.into());
-		assert!(!EthBridge::bridge_paused());
+		assert!(!BridgePaused::<Test>::get());
 	});
 }
 
@@ -1265,11 +1275,11 @@ fn force_new_era_with_scheduled_authority_change_works() {
 		);
 		// next notary keys queued up
 		assert_eq!(
-			EthBridge::next_notary_keys(),
+			NextNotaryKeys::<Test>::get(),
 			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
 		);
 		// Next authority change not scheduled, not final session
-		assert!(EthBridge::next_authority_change().is_none());
+		assert!(NextAuthorityChange::<Test>::get().is_none());
 
 		// Simulate force new era
 		test_storage::Forcing::put(true);
@@ -1289,9 +1299,9 @@ fn force_new_era_with_scheduled_authority_change_works() {
 
 		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
 		// changed in on_initialize
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		// Item should be scheduled and bridge still paused
-		assert!(EthBridge::bridge_paused());
+		assert!(BridgePaused::<Test>::get());
 
 		// Call on_new_session while is_active_session_final is true due to force
 		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
@@ -1301,7 +1311,7 @@ fn force_new_era_with_scheduled_authority_change_works() {
 		);
 		// next notary keys now the expanded keys
 		assert_eq!(
-			EthBridge::next_notary_keys(),
+			NextNotaryKeys::<Test>::get(),
 			next_keys_expanded.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
 		);
 
@@ -1311,11 +1321,11 @@ fn force_new_era_with_scheduled_authority_change_works() {
 
 		// Scheduler unpauses bridge
 		Scheduler::on_initialize(scheduled_block.into());
-		assert!(!EthBridge::bridge_paused());
+		assert!(!BridgePaused::<Test>::get());
 
 		// Keys updated with the correct value
 		assert_eq!(
-			EthBridge::notary_keys(),
+			NotaryKeys::<Test>::get(),
 			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
 		);
 	});
@@ -1324,14 +1334,14 @@ fn force_new_era_with_scheduled_authority_change_works() {
 #[test]
 fn last_session_change() {
 	ExtBuilder::default().active_session_final().build().execute_with(|| {
-		let current_set_id = EthBridge::notary_set_id();
+		let current_set_id = NotarySetId::<Test>::get();
 
 		// setup storage
 		let current_keys = vec![
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 		];
-		NotaryKeys::<Test>::put(&current_keys);
+		NotaryKeys::<Test>::put(WeakBoundedVec::try_from(current_keys.clone()).unwrap());
 		assert_eq!(
 			EthBridge::validator_set(),
 			ValidatorSet {
@@ -1348,15 +1358,15 @@ fn last_session_change() {
 			AuthorityId::from_slice(&[6_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[7_u8; 33]).unwrap(),
 		];
-		NextNotaryKeys::<Test>::put(&next_keys);
+		NextNotaryKeys::<Test>::put(WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 
 		// current session is last in era: starting
 		EthBridge::handle_authorities_change();
-		assert!(EthBridge::bridge_paused());
+		assert!(BridgePaused::<Test>::get());
 		// current session is last in era: finishing
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
-		assert_eq!(EthBridge::notary_keys(), next_keys);
-		assert_eq!(EthBridge::notary_set_id(), current_set_id + 1);
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		assert_eq!(NotaryKeys::<Test>::get(), next_keys);
+		assert_eq!(NotarySetId::<Test>::get(), current_set_id + 1);
 		assert_eq!(
 			EthBridge::validator_set(),
 			ValidatorSet {
@@ -1365,7 +1375,7 @@ fn last_session_change() {
 				proof_threshold: 4 // ceil(5 * 0.66)
 			}
 		);
-		assert!(!EthBridge::bridge_paused());
+		assert!(!BridgePaused::<Test>::get());
 	});
 }
 
@@ -1376,13 +1386,13 @@ fn send_event() {
 		let source = H160::from_low_u64_be(444);
 		let destination = H160::from_low_u64_be(555);
 		let message = &b"hello world"[..];
-		let event_proof_id = EthBridge::next_event_proof_id();
+		let event_proof_id = NextEventProofId::<Test>::get();
 
 		// Generate event proof
 		assert_ok!(EthBridge::send_event(&source, &destination, &message));
 		// Ensure event has not been added to delayed queue
-		assert_eq!(EthBridge::pending_event_proofs(event_proof_id), None);
-		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+		assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), None);
+		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
 		// On initialize does up to 2 reads to check for delayed proofs
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
@@ -1394,15 +1404,17 @@ fn send_event() {
 #[test]
 fn xrpl_tx_signing_request() {
 	ExtBuilder::default().build().execute_with(|| {
-		let event_proof_id = EthBridge::next_event_proof_id();
+		let event_proof_id = NextEventProofId::<Test>::get();
 
 		// Request tx signing
 		assert_ok!(EthBridge::sign_xrpl_transaction("hello world".as_bytes()), event_proof_id);
 		// Ensure request has not been added to queue
-		assert_eq!(EthBridge::pending_event_proofs(event_proof_id), None);
-		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+		assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), None);
+		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
 
-		let signing_request = EthySigningRequest::XrplTx("hello world".as_bytes().to_vec());
+		let signing_request = EthySigningRequest::XrplTx(BoundedVec::truncate_from(
+			"hello world".as_bytes().to_vec(),
+		));
 		System::assert_has_event(
 			Event::<Test>::EventSend { event_proof_id, signing_request: signing_request.clone() }
 				.into(),
@@ -1424,11 +1436,15 @@ fn xrpl_tx_signing_request() {
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), true));
 		assert_ok!(EthBridge::sign_xrpl_transaction("hello world".as_bytes()), event_proof_id + 1);
 		assert_eq!(
-			EthBridge::pending_event_proofs(event_proof_id + 1),
-			Some(EthySigningRequest::XrplTx("hello world".as_bytes().to_vec()))
+			PendingEventProofs::<Test>::get(event_proof_id + 1),
+			Some(EthySigningRequest::XrplTx(BoundedVec::truncate_from(
+				"hello world".as_bytes().to_vec()
+			)))
 		);
 
-		System::assert_has_event(Event::<Test>::ProofDelayed(event_proof_id + 1).into());
+		System::assert_has_event(
+			Event::<Test>::ProofDelayed { event_proof_id: event_proof_id + 1 }.into(),
+		);
 	});
 }
 
@@ -1455,11 +1471,11 @@ fn delayed_event_proof() {
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), true));
 		assert_eq!(EthBridge::bridge_paused(), true);
 
-		let event_proof_id = EthBridge::next_event_proof_id();
+		let event_proof_id = NextEventProofId::<Test>::get();
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
 			destination: destination.clone(),
-			message: message.to_vec(),
+			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: EthBridge::validator_set().id,
 			event_proof_id,
 		});
@@ -1467,19 +1483,22 @@ fn delayed_event_proof() {
 		// Generate event proof
 		assert_ok!(EthBridge::send_event(&source, &destination, &message));
 		// Ensure event has been added to delayed claims
-		assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof_info));
-		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+		assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
+		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
 
 		// Re-enable bridge
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), false));
 		// initialize pallet and initiate event proof
 		let expected_weight: Weight = DbWeight::get().reads(3u64) + DbWeight::get().writes(2u64);
+		let max_delayed_events = DelayedEventProofsPerBlock::<Test>::get() as u64;
+		let expected_weight: Weight =
+			DbWeight::get().reads(3u64) + DbWeight::get().writes(2u64) * max_delayed_events;
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
 			expected_weight
 		);
 		// Ensure event has been removed from delayed claims
-		assert!(EthBridge::pending_event_proofs(event_proof_id).is_none());
+		assert!(PendingEventProofs::<Test>::get(event_proof_id).is_none());
 	});
 }
 
@@ -1661,17 +1680,17 @@ fn multiple_delayed_event_proof() {
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), true));
 		assert_eq!(EthBridge::bridge_paused(), true);
 
-		let max_delayed_events = EthBridge::delayed_event_proofs_per_block();
+		let max_delayed_events = DelayedEventProofsPerBlock::<Test>::get();
 		let event_count: u8 = max_delayed_events * 2;
 		let mut event_ids: Vec<EventProofId> = vec![];
 		let mut events_for_proving = vec![];
 		for _ in 0..event_count {
-			let event_proof_id = EthBridge::next_event_proof_id();
+			let event_proof_id = NextEventProofId::<Test>::get();
 			event_ids.push(event_proof_id);
 			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 				source,
 				destination: destination.clone(),
-				message: message.to_vec(),
+				message: BoundedVec::truncate_from(message.to_vec()),
 				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
 			});
@@ -1679,8 +1698,8 @@ fn multiple_delayed_event_proof() {
 			// Generate event proof
 			assert_ok!(EthBridge::send_event(&source, &destination, &message));
 			// Ensure event has been added to delayed claims
-			assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof_info));
-			assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+			assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
+			assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
 		}
 
 		// Re-enable bridge
@@ -1694,11 +1713,11 @@ fn multiple_delayed_event_proof() {
 		let mut removed_count = 0;
 		for i in 0..event_count {
 			// Ensure event has been removed from delayed claims
-			if EthBridge::pending_event_proofs(event_ids[i as usize]).is_none() {
+			if PendingEventProofs::<Test>::get(event_ids[i as usize]).is_none() {
 				removed_count += 1;
 			} else {
 				assert_eq!(
-					EthBridge::pending_event_proofs(event_ids[i as usize]),
+					PendingEventProofs::<Test>::get(event_ids[i as usize]),
 					Some(events_for_proving[i as usize].clone())
 				)
 			}
@@ -1715,7 +1734,7 @@ fn multiple_delayed_event_proof() {
 		let mut removed_count = 0;
 		for i in 0..event_count {
 			// Ensure event has been removed from delayed claims
-			if EthBridge::pending_event_proofs(event_ids[i as usize]).is_none() {
+			if PendingEventProofs::<Test>::get(event_ids[i as usize]).is_none() {
 				removed_count += 1;
 			}
 		}
@@ -1728,13 +1747,13 @@ fn multiple_delayed_event_proof() {
 fn set_delayed_event_proofs_per_block() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Check that it starts as default value
-		assert_eq!(EthBridge::delayed_event_proofs_per_block(), 5);
+		assert_eq!(DelayedEventProofsPerBlock::<Test>::get(), 5);
 		let new_max_delayed_events: u8 = 10;
 		assert_ok!(EthBridge::set_delayed_event_proofs_per_block(
 			frame_system::RawOrigin::Root.into(),
 			new_max_delayed_events
 		));
-		assert_eq!(EthBridge::delayed_event_proofs_per_block(), new_max_delayed_events);
+		assert_eq!(DelayedEventProofsPerBlock::<Test>::get(), new_max_delayed_events);
 
 		let message = &b"hello world"[..];
 		let source = H160::from_low_u64_be(444);
@@ -1743,20 +1762,20 @@ fn set_delayed_event_proofs_per_block() {
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), true));
 
 		for _ in 0..new_max_delayed_events {
-			let event_proof_id = EthBridge::next_event_proof_id();
+			let event_proof_id = NextEventProofId::<Test>::get();
 			event_ids.push(event_proof_id);
 			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 				source,
 				destination: destination.clone(),
-				message: message.to_vec(),
+				message: BoundedVec::truncate_from(message.to_vec()),
 				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
 			});
 			// Generate event proof
 			assert_ok!(EthBridge::send_event(&source, &destination, &message));
 			// Ensure event has been added to delayed claims
-			assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof_info));
-			assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+			assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
+			assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
 		}
 
 		// Re-enable bridge
@@ -1770,7 +1789,7 @@ fn set_delayed_event_proofs_per_block() {
 
 		for i in 0..new_max_delayed_events {
 			// Ensure event has been removed from delayed claims
-			assert!(EthBridge::pending_event_proofs(event_ids[i as usize]).is_none());
+			assert!(PendingEventProofs::<Test>::get(event_ids[i as usize]).is_none());
 		}
 	});
 }
@@ -1779,7 +1798,7 @@ fn set_delayed_event_proofs_per_block() {
 fn set_delayed_event_proofs_per_block_not_root_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Check that it starts as default value
-		assert_eq!(EthBridge::delayed_event_proofs_per_block(), 5);
+		assert_eq!(DelayedEventProofsPerBlock::<Test>::get(), 5);
 		let new_value: u8 = 10;
 		assert_noop!(
 			EthBridge::set_delayed_event_proofs_per_block(
@@ -1788,7 +1807,7 @@ fn set_delayed_event_proofs_per_block_not_root_should_fail() {
 			),
 			DispatchError::BadOrigin
 		);
-		assert_eq!(EthBridge::delayed_event_proofs_per_block(), 5);
+		assert_eq!(DelayedEventProofsPerBlock::<Test>::get(), 5);
 	});
 }
 
@@ -1810,7 +1829,7 @@ fn offchain_try_notarize_event() {
 		let _mock_block_1 = mock_block_response(block_number, timestamp);
 		let _mock_block_2 = mock_block_response(block_number + 5, timestamp);
 		let mock_log = MockLogBuilder::new()
-			.address(EthBridge::contract_address())
+			.address(ContractAddress::<Test>::get())
 			.data(event_data.as_slice())
 			.topics(vec![SUBMIT_BRIDGE_EVENT_SELECTOR.into()])
 			.transaction_hash(tx_hash)
@@ -1818,7 +1837,8 @@ fn offchain_try_notarize_event() {
 		let _mock_tx_receipt =
 			create_transaction_receipt_mock(block_number, tx_hash, source, vec![mock_log]);
 
-		let event_claim = EventClaim { tx_hash, source, destination, data: message };
+		let event_claim =
+			EventClaim { tx_hash, source, destination, data: BoundedVec::truncate_from(message) };
 		assert_eq!(
 			EthBridge::offchain_try_notarize_event(event_id, event_claim),
 			EventClaimResult::Valid
@@ -1832,7 +1852,8 @@ fn offchain_try_notarize_event_no_tx_receipt_should_fail() {
 		let event_claim = EventClaim {
 			tx_hash: H256::from_low_u64_be(222),
 			source: H160::from_low_u64_be(333),
-			..Default::default()
+			destination: EthAddress::default(),
+			data: BoundedVec::truncate_from(vec![]),
 		};
 		let event_id = 1;
 		assert_eq!(
@@ -1857,7 +1878,12 @@ fn offchain_try_notarize_event_no_status_should_fail() {
 		// Create mock info for transaction receipt
 		MockEthereumRpcClient::mock_transaction_receipt_for(tx_hash, mock_tx_receipt.clone());
 
-		let event_claim = EventClaim { tx_hash, source, ..Default::default() };
+		let event_claim = EventClaim {
+			tx_hash,
+			source,
+			destination: EthAddress::default(),
+			data: BoundedVec::truncate_from(vec![]),
+		};
 		let event_id = 1;
 		assert_eq!(
 			EthBridge::offchain_try_notarize_event(event_id, event_claim),
@@ -1880,8 +1906,12 @@ fn offchain_try_notarize_event_unexpected_source_address_should_fail() {
 			create_transaction_receipt_mock(block_number, tx_hash, source, vec![mock_log]);
 
 		// Create event claim where event is emitted by a different address to the tx_receipt 'to'
-		let event_claim =
-			EventClaim { tx_hash, source: H160::from_low_u64_be(444), ..Default::default() };
+		let event_claim = EventClaim {
+			tx_hash,
+			source: H160::from_low_u64_be(444),
+			destination: EthAddress::default(),
+			data: BoundedVec::truncate_from(vec![]),
+		};
 		let event_id = 1;
 
 		assert_eq!(
@@ -1904,7 +1934,7 @@ fn offchain_try_notarize_event_no_block_number_should_fail() {
 		// Create mock info for transaction receipt
 		let event_data = encode_event_message(event_id, source, destination, Default::default());
 		let mock_log = MockLogBuilder::new()
-			.address(EthBridge::contract_address())
+			.address(ContractAddress::<Test>::get())
 			.topics(vec![SUBMIT_BRIDGE_EVENT_SELECTOR.into()])
 			.data(event_data.as_slice())
 			.transaction_hash(tx_hash)
@@ -1912,7 +1942,8 @@ fn offchain_try_notarize_event_no_block_number_should_fail() {
 		let _mock_tx_receipt =
 			create_transaction_receipt_mock(block_number, tx_hash, source, vec![mock_log]);
 
-		let event_claim = EventClaim { tx_hash, source, destination, ..Default::default() };
+		let event_claim =
+			EventClaim { tx_hash, source, destination, data: BoundedVec::truncate_from(vec![]) };
 
 		assert_eq!(
 			EthBridge::offchain_try_notarize_event(event_id, event_claim),
@@ -1938,7 +1969,7 @@ fn offchain_try_notarize_event_no_confirmations_should_fail() {
 		let _mock_block_2 = mock_block_response(block_number, timestamp);
 		let event_data = encode_event_message(event_id, source, destination, Default::default());
 		let mock_log = MockLogBuilder::new()
-			.address(EthBridge::contract_address())
+			.address(ContractAddress::<Test>::get())
 			.topics(vec![SUBMIT_BRIDGE_EVENT_SELECTOR.into()])
 			.data(event_data.as_slice())
 			.transaction_hash(tx_hash)
@@ -1946,7 +1977,8 @@ fn offchain_try_notarize_event_no_confirmations_should_fail() {
 		let _mock_tx_receipt =
 			create_transaction_receipt_mock(block_number, tx_hash, source, vec![mock_log]);
 
-		let event_claim = EventClaim { tx_hash, source, destination, ..Default::default() };
+		let event_claim =
+			EventClaim { tx_hash, source, destination, data: BoundedVec::truncate_from(vec![]) };
 
 		assert_eq!(
 			EthBridge::offchain_try_notarize_event(event_id, event_claim),
@@ -1971,13 +2003,14 @@ fn offchain_try_notarize_event_no_observed_should_fail() {
 		let _mock_block_1 = mock_block_response(block_number, timestamp);
 		let event_data = encode_event_message(event_id, source, destination, Default::default());
 		let mock_log = MockLogBuilder::new()
-			.address(EthBridge::contract_address())
+			.address(ContractAddress::<Test>::get())
 			.data(event_data.as_slice())
 			.transaction_hash(tx_hash)
 			.build();
 		let _mock_tx_receipt =
 			create_transaction_receipt_mock(block_number + 1, tx_hash, source, vec![mock_log]);
-		let event_claim = EventClaim { tx_hash, source, destination, ..Default::default() };
+		let event_claim =
+			EventClaim { tx_hash, source, destination, data: BoundedVec::truncate_from(vec![]) };
 
 		// Set event confirmations to 0 so it doesn't fail early
 		let _ = EthBridge::set_event_block_confirmations(frame_system::RawOrigin::Root.into(), 0);
@@ -2189,7 +2222,15 @@ fn handle_call_notarization_success() {
 		.collect();
 	ExtBuilder::default().build().execute_with(|| {
 		let call_id = 1_u64;
-		EthCallRequestInfo::insert(call_id, CheckedEthCallRequest::default());
+		let eth_call_request = CheckedEthCallRequest {
+			input: BoundedVec::truncate_from(vec![]),
+			target: EthAddress::default(),
+			timestamp: 0,
+			max_block_look_behind: 0,
+			try_block_number: 0,
+			check_timestamp: 0,
+		};
+		EthCallRequestInfo::<Test>::insert(call_id, eth_call_request);
 		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
 
 		let block = 555_u64;
@@ -2229,7 +2270,7 @@ fn handle_call_notarization_success() {
 
 			// assert notarization progress
 			let aggregated_notarizations =
-				EthBridge::eth_call_notarizations_aggregated(call_id).unwrap_or_default();
+				EthCallNotarizationsAggregated::<Test>::get(call_id).unwrap_or_default();
 			println!("{:?}", aggregated_notarizations);
 			assert_eq!(aggregated_notarizations.get(&notary_result).map(|x| *x), aggregation);
 		}
@@ -2251,7 +2292,15 @@ fn handle_call_notarization_aborts_no_consensus() {
 		.collect();
 	ExtBuilder::default().build().execute_with(|| {
 		let call_id = 1_u64;
-		EthCallRequestInfo::insert(call_id, CheckedEthCallRequest::default());
+		let eth_call_request = CheckedEthCallRequest {
+			input: BoundedVec::truncate_from(vec![]),
+			target: EthAddress::default(),
+			timestamp: 0,
+			max_block_look_behind: 0,
+			try_block_number: 0,
+			check_timestamp: 0,
+		};
+		EthCallRequestInfo::<Test>::insert(call_id, eth_call_request);
 		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
 		let block = 555_u64;
 		let timestamp = now();
@@ -2303,7 +2352,7 @@ fn handle_call_notarization_aborts_no_consensus() {
 
 			// assert notarization progress
 			let aggregated_notarizations =
-				EthBridge::eth_call_notarizations_aggregated(call_id).unwrap_or_default();
+				EthCallNotarizationsAggregated::<Test>::get(call_id).unwrap_or_default();
 			println!("{:?}", aggregated_notarizations);
 			assert_eq!(aggregated_notarizations.get(&notary_result).map(|x| *x), aggregation);
 		}
@@ -2378,10 +2427,10 @@ fn test_submit_event_replay_check() {
 			}
 		}
 		// Process the messages
-		let process_at = System::block_number() + EthBridge::challenge_period();
+		let process_at = System::block_number() + ChallengePeriod::<Test>::get();
 		EthBridge::on_initialize(process_at);
 		// check the processed_message_ids has [1, 3]
-		assert_eq!(EthBridge::processed_message_ids(), vec![1, 3]);
+		assert_eq!(ProcessedMessageIds::<Test>::get(), vec![1, 3]);
 		// try to resubmit claim 0 again.
 		assert_noop!(
 			EthBridge::submit_event(
@@ -2399,11 +2448,11 @@ fn test_submit_event_replay_check() {
 			event_data[2].clone(),
 		));
 		// Process the messages
-		let process_at2 = System::block_number() + EthBridge::challenge_period();
+		let process_at2 = System::block_number() + ChallengePeriod::<Test>::get();
 		EthBridge::on_initialize(process_at2);
 
 		// check the processed_message_ids has [3]
-		assert_eq!(EthBridge::processed_message_ids(), vec![3]);
+		assert_eq!(ProcessedMessageIds::<Test>::get(), vec![3]);
 	});
 }
 
@@ -2411,14 +2460,14 @@ fn test_submit_event_replay_check() {
 fn pause_bridge_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Check initial state
-		assert_eq!(EthBridge::bridge_paused(), false);
+		assert_eq!(BridgePaused::<Test>::get(), false);
 
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), true));
-		assert_eq!(EthBridge::bridge_paused(), true);
+		assert_eq!(BridgePaused::<Test>::get(), true);
 
 		// And unpause again
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), false));
-		assert_eq!(EthBridge::bridge_paused(), false);
+		assert_eq!(BridgePaused::<Test>::get(), false);
 	});
 }
 
@@ -2444,7 +2493,7 @@ fn set_challenge_period_works() {
 			new_challenge_period
 		));
 		// Check storage updated
-		assert_eq!(EthBridge::challenge_period(), new_challenge_period);
+		assert_eq!(ChallengePeriod::<Test>::get(), new_challenge_period);
 	});
 }
 
@@ -2459,7 +2508,7 @@ fn set_contract_address_works() {
 			new_bridge_address
 		));
 		// Check storage updated
-		assert_eq!(EthBridge::contract_address(), new_bridge_address);
+		assert_eq!(ContractAddress::<Test>::get(), new_bridge_address);
 	});
 }
 
@@ -2508,11 +2557,11 @@ fn set_door_signers() {
 fn genesis_xrp_door_signers_works() {
 	ExtBuilder::default().xrp_door_signers([1_u8; 33]).build().execute_with(|| {
 		assert_eq!(
-			EthBridge::xrpl_door_signers(AuthorityId::from_slice(&[1_u8; 33]).unwrap()),
+			XrplDoorSigners::<Test>::get(AuthorityId::from_slice(&[1_u8; 33]).unwrap()),
 			true
 		);
 		assert_eq!(
-			EthBridge::xrpl_door_signers(AuthorityId::from_slice(&[2_u8; 33]).unwrap()),
+			XrplDoorSigners::<Test>::get(AuthorityId::from_slice(&[2_u8; 33]).unwrap()),
 			false
 		);
 	});
@@ -2521,15 +2570,15 @@ fn genesis_xrp_door_signers_works() {
 #[test]
 fn notary_xrpl_keys_unchanged_do_not_request_for_xrpl_proof() {
 	ExtBuilder::default().active_session_final().build().execute_with(|| {
-		let current_set_id = EthBridge::notary_set_id();
+		let current_set_id = NotarySetId::<Test>::get();
 
 		// setup storage
 		let current_keys = vec![
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 		];
-		NotaryKeys::<Test>::put(&current_keys);
-		NotaryXrplKeys::<Test>::put(&current_keys);
+		NotaryKeys::<Test>::put(WeakBoundedVec::try_from(current_keys.clone()).unwrap());
+		NotaryXrplKeys::<Test>::put(WeakBoundedVec::try_from(current_keys.clone()).unwrap());
 		for door_signer in current_keys.iter() {
 			XrplDoorSigners::<Test>::insert(door_signer, true);
 		}
@@ -2542,25 +2591,25 @@ fn notary_xrpl_keys_unchanged_do_not_request_for_xrpl_proof() {
 				proof_threshold: 2 // ceil(2 * 0.66)
 			}
 		);
-		assert_eq!(EthBridge::notary_xrpl_keys(), current_keys.clone());
+		assert_eq!(NotaryXrplKeys::<Test>::get(), current_keys.clone());
 
 		let next_keys = current_keys.clone();
-		NextNotaryKeys::<Test>::put(&next_keys);
+		NextNotaryKeys::<Test>::put(WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0);
-		let eth_proof_id = EthBridge::next_event_proof_id();
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0);
+		let eth_proof_id = NextEventProofId::<Test>::get();
 		// current session is last in era: starting
 		EthBridge::handle_authorities_change();
-		assert!(EthBridge::bridge_paused());
-		assert_eq!(EthBridge::notary_set_proof_id(), eth_proof_id);
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
+		assert!(BridgePaused::<Test>::get());
+		assert_eq!(NotarySetProofId::<Test>::get(), eth_proof_id);
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
 
 		// current session is last in era: finishing
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
-		assert_eq!(EthBridge::notary_keys(), next_keys);
-		assert_eq!(EthBridge::notary_set_id(), current_set_id + 1);
-		assert_eq!(EthBridge::notary_xrpl_keys(), next_keys);
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0);
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		assert_eq!(NotaryKeys::<Test>::get(), next_keys);
+		assert_eq!(NotarySetId::<Test>::get(), current_set_id + 1);
+		assert_eq!(NotaryXrplKeys::<Test>::get(), next_keys);
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0);
 
 		assert_eq!(
 			EthBridge::validator_set(),
@@ -2570,24 +2619,24 @@ fn notary_xrpl_keys_unchanged_do_not_request_for_xrpl_proof() {
 				proof_threshold: 2 // ceil(2 * 0.66)
 			}
 		);
-		assert_eq!(EthBridge::notary_xrpl_keys(), current_keys.clone());
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
-		assert!(!EthBridge::bridge_paused());
+		assert_eq!(NotaryXrplKeys::<Test>::get(), current_keys.clone());
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
+		assert!(!BridgePaused::<Test>::get());
 	});
 }
 
 #[test]
 fn notary_xrpl_keys_same_set_shuffled_do_not_request_for_xrpl_proof() {
 	ExtBuilder::default().active_session_final().build().execute_with(|| {
-		let current_set_id = EthBridge::notary_set_id();
+		let current_set_id = NotarySetId::<Test>::get();
 
 		// setup storage
 		let current_keys = vec![
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 		];
-		NotaryKeys::<Test>::put(&current_keys);
-		NotaryXrplKeys::<Test>::put(&current_keys);
+		NotaryKeys::<Test>::put(WeakBoundedVec::try_from(current_keys.clone()).unwrap());
+		NotaryXrplKeys::<Test>::put(WeakBoundedVec::try_from(current_keys.clone()).unwrap());
 		for door_signer in current_keys.iter() {
 			XrplDoorSigners::<Test>::insert(door_signer, true);
 		}
@@ -2600,28 +2649,28 @@ fn notary_xrpl_keys_same_set_shuffled_do_not_request_for_xrpl_proof() {
 				proof_threshold: 2 // ceil(2 * 0.66)
 			}
 		);
-		assert_eq!(EthBridge::notary_xrpl_keys(), current_keys.clone());
+		assert_eq!(NotaryXrplKeys::<Test>::get(), current_keys.clone());
 
 		let next_keys = vec![
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 		];
-		NextNotaryKeys::<Test>::put(&next_keys);
+		NextNotaryKeys::<Test>::put(WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0);
-		let eth_proof_id = EthBridge::next_event_proof_id();
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0);
+		let eth_proof_id = NextEventProofId::<Test>::get();
 		// current session is last in era: starting
 		EthBridge::handle_authorities_change();
-		assert!(EthBridge::bridge_paused());
-		assert_eq!(EthBridge::notary_set_proof_id(), eth_proof_id);
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
+		assert!(BridgePaused::<Test>::get());
+		assert_eq!(NotarySetProofId::<Test>::get(), eth_proof_id);
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
 
 		// current session is last in era: finishing
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
-		assert_eq!(EthBridge::notary_keys(), next_keys);
-		assert_eq!(EthBridge::notary_set_id(), current_set_id + 1);
-		assert_eq!(EthBridge::notary_xrpl_keys(), next_keys);
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0);
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		assert_eq!(NotaryKeys::<Test>::get(), next_keys);
+		assert_eq!(NotarySetId::<Test>::get(), current_set_id + 1);
+		assert_eq!(NotaryXrplKeys::<Test>::get(), next_keys);
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0);
 
 		assert_eq!(
 			EthBridge::validator_set(),
@@ -2631,24 +2680,24 @@ fn notary_xrpl_keys_same_set_shuffled_do_not_request_for_xrpl_proof() {
 				proof_threshold: 2 // ceil(2 * 0.66)
 			}
 		);
-		assert_eq!(EthBridge::notary_xrpl_keys(), next_keys.clone());
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
-		assert!(!EthBridge::bridge_paused());
+		assert_eq!(NotaryXrplKeys::<Test>::get(), next_keys.clone());
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
+		assert!(!BridgePaused::<Test>::get());
 	});
 }
 
 #[test]
 fn notary_xrpl_keys_changed_request_for_xrpl_proof() {
 	ExtBuilder::default().active_session_final().build().execute_with(|| {
-		let current_set_id = EthBridge::notary_set_id();
+		let current_set_id = NotarySetId::<Test>::get();
 
 		// setup storage
 		let current_keys = vec![
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 		];
-		NotaryKeys::<Test>::put(&current_keys);
-		NotaryXrplKeys::<Test>::put(&current_keys);
+		NotaryKeys::<Test>::put(WeakBoundedVec::try_from(current_keys.clone()).unwrap());
+		NotaryXrplKeys::<Test>::put(WeakBoundedVec::try_from(current_keys.clone()).unwrap());
 		for door_signer in current_keys.iter() {
 			XrplDoorSigners::<Test>::insert(door_signer, true);
 		}
@@ -2661,34 +2710,34 @@ fn notary_xrpl_keys_changed_request_for_xrpl_proof() {
 				proof_threshold: 2 // ceil(2 * 0.66)
 			}
 		);
-		assert_eq!(EthBridge::notary_xrpl_keys(), current_keys.clone());
+		assert_eq!(NotaryXrplKeys::<Test>::get(), current_keys.clone());
 
 		let next_keys = vec![
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
 		];
-		NextNotaryKeys::<Test>::put(&next_keys);
+		NextNotaryKeys::<Test>::put(WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 		for door_signer in next_keys.iter() {
 			XrplDoorSigners::<Test>::insert(door_signer, true);
 		}
 
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0);
-		let eth_proof_id = EthBridge::next_event_proof_id();
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0);
+		let eth_proof_id = NextEventProofId::<Test>::get();
 		// current session is last in era: starting
 		EthBridge::handle_authorities_change();
-		assert!(EthBridge::bridge_paused());
-		assert_eq!(EthBridge::notary_set_proof_id(), eth_proof_id);
+		assert!(BridgePaused::<Test>::get());
+		assert_eq!(NotarySetProofId::<Test>::get(), eth_proof_id);
 		// Requested for xrpl proof since NotaryXrplKeys changed, XrplNotarySetProofId is
 		// (eth_proof_id + 1)
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), eth_proof_id + 1);
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), eth_proof_id + 1);
 
 		// current session is last in era: finishing
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
-		assert_eq!(EthBridge::notary_keys(), next_keys);
-		assert_eq!(EthBridge::notary_set_id(), current_set_id + 1);
-		assert_eq!(EthBridge::notary_xrpl_keys(), next_keys);
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), eth_proof_id + 1);
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		assert_eq!(NotaryKeys::<Test>::get(), next_keys);
+		assert_eq!(NotarySetId::<Test>::get(), current_set_id + 1);
+		assert_eq!(NotaryXrplKeys::<Test>::get(), next_keys);
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), eth_proof_id + 1);
 
 		assert_eq!(
 			EthBridge::validator_set(),
@@ -2698,24 +2747,24 @@ fn notary_xrpl_keys_changed_request_for_xrpl_proof() {
 				proof_threshold: 2 // ceil(2 * 0.66)
 			}
 		);
-		assert_eq!(EthBridge::notary_xrpl_keys(), next_keys.clone());
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), eth_proof_id + 1);
-		assert!(!EthBridge::bridge_paused());
+		assert_eq!(NotaryXrplKeys::<Test>::get(), next_keys.clone());
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), eth_proof_id + 1);
+		assert!(!BridgePaused::<Test>::get());
 	});
 }
 
 #[test]
 fn notary_xrpl_keys_removed_request_for_xrpl_proof() {
 	ExtBuilder::default().active_session_final().build().execute_with(|| {
-		let current_set_id = EthBridge::notary_set_id();
+		let current_set_id = NotarySetId::<Test>::get();
 
 		// setup storage
 		let current_keys = vec![
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 		];
-		NotaryKeys::<Test>::put(&current_keys);
-		NotaryXrplKeys::<Test>::put(&current_keys);
+		NotaryKeys::<Test>::put(WeakBoundedVec::try_from(current_keys.clone()).unwrap());
+		NotaryXrplKeys::<Test>::put(WeakBoundedVec::try_from(current_keys.clone()).unwrap());
 		for door_signer in current_keys.iter() {
 			XrplDoorSigners::<Test>::insert(door_signer, true);
 		}
@@ -2728,14 +2777,14 @@ fn notary_xrpl_keys_removed_request_for_xrpl_proof() {
 				proof_threshold: 2 // ceil(2 * 0.66)
 			}
 		);
-		assert_eq!(EthBridge::notary_xrpl_keys(), current_keys.clone());
+		assert_eq!(NotaryXrplKeys::<Test>::get(), current_keys.clone());
 
 		let next_keys = vec![
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
 		];
-		NextNotaryKeys::<Test>::put(&next_keys);
+		NextNotaryKeys::<Test>::put(WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 
 		assert_ok!(EthBridge::set_xrpl_door_signers(
 			RuntimeOrigin::root(),
@@ -2746,30 +2795,30 @@ fn notary_xrpl_keys_removed_request_for_xrpl_proof() {
 			],
 		));
 		assert_eq!(
-			EthBridge::notary_xrpl_keys(),
+			NotaryXrplKeys::<Test>::get(),
 			vec![AuthorityId::from_slice(&[1_u8; 33]).unwrap()]
 		);
 
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0);
-		let eth_proof_id = EthBridge::next_event_proof_id();
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0);
+		let eth_proof_id = NextEventProofId::<Test>::get();
 		// current session is last in era: starting
 		EthBridge::handle_authorities_change();
-		assert!(EthBridge::bridge_paused());
-		assert_eq!(EthBridge::notary_set_proof_id(), eth_proof_id);
+		assert!(BridgePaused::<Test>::get());
+		assert_eq!(NotarySetProofId::<Test>::get(), eth_proof_id);
 		// Requested for xrpl proof since NotaryXrplKeys changed, XrplNotarySetProofId is
 		// (eth_proof_id + 1)
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), eth_proof_id + 1);
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), eth_proof_id + 1);
 
 		// current session is last in era: finishing
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
-		assert_eq!(EthBridge::notary_keys(), next_keys);
-		assert_eq!(EthBridge::notary_set_id(), current_set_id + 1);
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		assert_eq!(NotaryKeys::<Test>::get(), next_keys);
+		assert_eq!(NotarySetId::<Test>::get(), current_set_id + 1);
 		let keys_filtered = vec![
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
 		];
-		assert_eq!(EthBridge::notary_xrpl_keys(), keys_filtered);
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), eth_proof_id + 1);
+		assert_eq!(NotaryXrplKeys::<Test>::get(), keys_filtered);
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), eth_proof_id + 1);
 
 		assert_eq!(
 			EthBridge::validator_set(),
@@ -2779,8 +2828,8 @@ fn notary_xrpl_keys_removed_request_for_xrpl_proof() {
 				proof_threshold: 2 // ceil(2 * 0.66)
 			}
 		);
-		assert_eq!(EthBridge::notary_xrpl_keys(), keys_filtered.clone());
-		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), eth_proof_id + 1);
-		assert!(!EthBridge::bridge_paused());
+		assert_eq!(NotaryXrplKeys::<Test>::get(), keys_filtered.clone());
+		assert_eq!(XrplNotarySetProofId::<Test>::get(), eth_proof_id + 1);
+		assert!(!BridgePaused::<Test>::get());
 	});
 }

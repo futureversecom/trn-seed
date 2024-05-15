@@ -15,7 +15,7 @@
 
 use codec::{alloc::string::ToString, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_core::{ecdsa, H160};
+use sp_core::{ecdsa, ed25519, H160};
 use sp_io::hashing::{blake2_256, keccak_256};
 use sp_std::vec::Vec;
 
@@ -74,6 +74,16 @@ impl TryFrom<ecdsa::Public> for AccountId20 {
 		let mut m = [0u8; 64];
 		m.copy_from_slice(&decompressed[1..65]);
 		let account = H160(keccak_256(&m)[12..].try_into().map_err(|_| "Invalid account id")?);
+		Ok(Self(account.0))
+	}
+}
+
+impl TryFrom<ed25519::Public> for AccountId20 {
+	type Error = &'static str;
+
+	fn try_from(public: ed25519::Public) -> Result<Self, Self::Error> {
+		let account =
+			H160(keccak_256(&public.0)[12..].try_into().map_err(|_| "Invalid account id")?);
 		Ok(Self(account.0))
 	}
 }
@@ -277,6 +287,16 @@ mod tests {
 		let signature: EthereumSignature = ecdsa::Signature(signature_raw).into();
 		let message = "Testing";
 		assert!(signature.verify(message.as_ref(), &address.into_account()));
+	}
+
+	#[test]
+	fn ed25519_to_ethereum() {
+		let public_key = "FB2A3A850B43E24D2700532EF1F9CCB2475DFF4F62B634B0C58845F23C263965";
+		let public_key_bytes = hex::decode(public_key).unwrap();
+		let public = ed25519::Public::from_raw(public_key_bytes.try_into().unwrap());
+		let account: AccountId20 = public.try_into().unwrap();
+
+		assert_eq!(hex!("83a6dd17b5db4f87b9d877a38e172f3bff0cde46"), account.0);
 	}
 
 	#[test]

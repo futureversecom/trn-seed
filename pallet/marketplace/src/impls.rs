@@ -478,6 +478,7 @@ impl<T: Config> Pallet<T> {
 		let Some((winner, hammer_price)) = winning_bid else {
 			// normal closure, no acceptable bids
 			// listing metadata is removed by now.
+			let _ = listing.tokens.unlock_tokens(&listing.seller);
 			Self::deposit_event(Event::<T>::AuctionClose {
 				tokens: listing.tokens,
 				listing_id,

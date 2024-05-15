@@ -84,7 +84,6 @@ impl Xls20MintRequest for MockXls20MintRequest {
 
 parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
-	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxOffers: u32 = 10;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const MintLimit: u32 = 5000;
@@ -94,6 +93,7 @@ parameter_types! {
 
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
 	type OnTransferSubscription = MockTransferSubscriber;
