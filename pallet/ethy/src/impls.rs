@@ -94,6 +94,12 @@ impl<T: Config> XrplBridgeToEthyAdapter<T::EthyId> for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	// Is the bridge paused?
+	pub fn bridge_paused() -> bool {
+		let paused_status = BridgePaused::<T>::get();
+		paused_status.manual_pause || paused_status.authorities_change
+	}
+
 	/// Prunes claim ids that are less than the max contiguous claim id.
 	pub fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) -> Weight {
 		let mut used_weight = Weight::zero();
@@ -259,7 +265,7 @@ impl<T: Config> Pallet<T> {
 	/// Receives the node's local notary session key and index in the set
 	pub(crate) fn do_event_notarization_ocw(active_key: &T::EthyId, authority_index: u16) {
 		// do not try to notarize events while the bridge is paused
-		if BridgePaused::<T>::get() {
+		if Self::bridge_paused() {
 			return
 		}
 
@@ -867,7 +873,7 @@ impl<T: Config> Pallet<T> {
 		if notary_xrpl_keys == next_notary_xrpl_keys {
 			info!(target: "ethy-pallet", "💎 notary xrpl keys unchanged {:?}", next_notary_xrpl_keys);
 			// Pause the bridge
-			BridgePaused::<T>::put(true);
+			BridgePaused::<T>::mutate(|p| p.authorities_change = true);
 			<NextAuthorityChange<T>>::kill();
 			return
 		}
@@ -899,7 +905,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Pause the bridge
-		BridgePaused::<T>::put(true);
+		BridgePaused::<T>::mutate(|p| p.authorities_change = true);
 		<NextAuthorityChange<T>>::kill();
 	}
 
@@ -924,7 +930,7 @@ impl<T: Config> Pallet<T> {
 		<frame_system::Pallet<T>>::deposit_log(log);
 
 		// Unpause the bridge
-		BridgePaused::<T>::kill();
+		BridgePaused::<T>::mutate(|p| p.authorities_change = false);
 		// A proof should've been generated now so we can reactivate the bridge with the new
 		// validator set
 		AuthoritiesChangedThisEra::<T>::kill();
@@ -942,12 +948,27 @@ impl<T: Config> Pallet<T> {
 	) {
 		// if bridge is paused (e.g transitioning authority set at the end of an era)
 		// delay proofs until it is ready again
-		if BridgePaused::<T>::get() {
+		if Self::bridge_paused() {
 			PendingEventProofs::<T>::insert(event_proof_id, request);
 			Self::deposit_event(Event::<T>::ProofDelayed { event_proof_id });
 			return
 		}
 
+		// check if validator set id is different from the one that is active
+		// If it is, reset the request id to the current one.
+		let mut request = request;
+		if let EthySigningRequest::Ethereum(ethereum_event_info) = &request {
+			let validator_set_id = NotarySetId::<T>::get();
+			if validator_set_id > ethereum_event_info.validator_set_id {
+				request = EthySigningRequest::Ethereum(EthereumEventInfo {
+					source: ethereum_event_info.source,
+					destination: ethereum_event_info.destination,
+					message: ethereum_event_info.message.clone(),
+					validator_set_id,
+					event_proof_id: ethereum_event_info.event_proof_id,
+				});
+			}
+		}
 		let log: DigestItem = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
 			ConsensusLog::<T::AccountId>::OpaqueSigningRequest {

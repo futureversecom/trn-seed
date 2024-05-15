@@ -72,10 +72,12 @@ pub mod v1 {
 	use crate::migrations::{Map, Value};
 	use codec::{Decode, Encode, MaxEncodedLen};
 	use frame_support::{
-		sp_runtime::RuntimeDebug, storage_alias, weights::Weight, BoundedVec, StorageHasher,
-		Twox64Concat,
+		sp_runtime::RuntimeDebug,
+		storage_alias,
+		weights::{constants::RocksDbWeight, Weight},
+		BoundedVec, StorageHasher, Twox64Concat,
 	};
-	use pallet_ethy::ProcessedMessageIds;
+	use pallet_ethy::{BridgePauseStatus, BridgePaused, ProcessedMessageIds};
 	use scale_info::TypeInfo;
 	use seed_primitives::ethy::EventClaimId;
 	use sp_core::{Get, H160};
@@ -87,7 +89,7 @@ pub mod v1 {
 		AccountId: From<H160>,
 	{
 		log::info!(target: "Migration", "Ethy: migrating ProcessedMessageIds");
-		let mut weight = Weight::zero();
+		let mut weight: Weight = RocksDbWeight::get().reads_writes(1, 1);
 
 		let mut processed_message_ids =
 			Value::unsafe_storage_get::<Vec<EventClaimId>>(b"EthBridge", b"ProcessedMessageIds")
@@ -97,7 +99,17 @@ pub mod v1 {
 		let message_ids = BoundedVec::truncate_from(processed_message_ids);
 		ProcessedMessageIds::<T>::put(message_ids);
 
-		log::info!(target: "Migration", "Ethy: successfully migrated ProcessedMessageIds");
+		log::info!(target: "Migration", "Ethy: migrating BridgePaused");
+		weight = weight.saturating_add(RocksDbWeight::get().reads_writes(1, 1));
+
+		let bridge_paused =
+			Value::unsafe_storage_get::<bool>(b"EthBridge", b"BridgePaused").unwrap_or_default();
+
+		let paused_status =
+			BridgePauseStatus { manual_pause: bridge_paused, authorities_change: false };
+		BridgePaused::<T>::put(paused_status);
+
+		log::info!(target: "Migration", "Ethy: successfully migrated BridgePaused and ProcessedMessageIds");
 
 		weight
 	}
@@ -170,6 +182,48 @@ pub mod v1 {
 				let missed_ids = MissedMessageIds::<Runtime>::get();
 				assert_eq!(missed_ids.len(), max as usize);
 				assert_eq!(missed_ids, expected_missed_ids);
+			});
+		}
+
+		#[test]
+		fn migration_test_bridge_paused_1() {
+			new_test_ext().execute_with(|| {
+				// Setup storage
+				StorageVersion::new(0).put::<EthBridge>();
+
+				// token locks with no listings
+				Value::unsafe_storage_put::<bool>(b"EthBridge", b"BridgePaused", false);
+
+				// Do runtime upgrade
+				Upgrade::on_runtime_upgrade();
+				assert_eq!(EthBridge::on_chain_storage_version(), 1);
+
+				let pause_status = BridgePaused::<Runtime>::get();
+				assert_eq!(
+					pause_status,
+					BridgePauseStatus { manual_pause: false, authorities_change: false }
+				);
+			});
+		}
+
+		#[test]
+		fn migration_test_bridge_paused_2() {
+			new_test_ext().execute_with(|| {
+				// Setup storage
+				StorageVersion::new(0).put::<EthBridge>();
+
+				// token locks with no listings
+				Value::unsafe_storage_put::<bool>(b"EthBridge", b"BridgePaused", true);
+
+				// Do runtime upgrade
+				Upgrade::on_runtime_upgrade();
+				assert_eq!(EthBridge::on_chain_storage_version(), 1);
+
+				let pause_status = BridgePaused::<Runtime>::get();
+				assert_eq!(
+					pause_status,
+					BridgePauseStatus { manual_pause: true, authorities_change: false }
+				);
 			});
 		}
 	}

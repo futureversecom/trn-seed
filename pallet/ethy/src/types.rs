@@ -97,6 +97,15 @@ pub type EthAddress = seed_primitives::EthAddress;
 /// The ethereum transaction hash type
 pub type EthHash = H256;
 
+#[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
+// Whether the bridge is paused
+pub struct BridgePauseStatus {
+	/// The bridge has been manually paused
+	pub manual_pause: bool,
+	/// The bridge has been paused to allow for an authorities set change
+	pub authorities_change: bool,
+}
+
 #[derive(
 	RuntimeDebugNoBound,
 	Default,

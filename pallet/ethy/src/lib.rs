@@ -76,7 +76,7 @@ mod mock;
 mod tests;
 
 mod types;
-use types::*;
+pub use types::*;
 
 pub mod weights;
 pub use weights::WeightInfo;
@@ -232,7 +232,7 @@ pub mod pallet {
 
 	/// Whether the bridge is paused (e.g. during validator transitions or by governance)
 	#[pallet::storage]
-	pub type BridgePaused<T> = StorageValue<_, bool, ValueQuery>;
+	pub type BridgePaused<T> = StorageValue<_, BridgePauseStatus, ValueQuery>;
 
 	/// Maps from event claim id to challenger and bond amount paid
 	#[pallet::storage]
@@ -645,7 +645,7 @@ pub mod pallet {
 			}
 
 			// Don't do anything if the bridge is paused
-			if BridgePaused::<T>::get() {
+			if Self::bridge_paused() {
 				return DbWeight::get().reads(1u64)
 			}
 
@@ -849,10 +849,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_bridge_paused())]
 		pub fn set_bridge_paused(origin: OriginFor<T>, paused: bool) -> DispatchResult {
 			ensure_root(origin)?;
-			match paused {
-				true => BridgePaused::<T>::put(true),
-				false => BridgePaused::<T>::kill(),
-			};
+			BridgePaused::<T>::mutate(|p| p.manual_pause = paused);
 			Self::deposit_event(Event::<T>::BridgeManualPause { paused });
 			Ok(())
 		}
