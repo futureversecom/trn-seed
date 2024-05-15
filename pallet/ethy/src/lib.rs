@@ -73,7 +73,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 mod types;
-use types::*;
+pub use types::*;
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
@@ -218,7 +218,7 @@ pub mod pallet {
 
 	/// Whether the bridge is paused (e.g. during validator transitions or by governance)
 	#[pallet::storage]
-	pub type BridgePaused<T> = StorageValue<_, bool, ValueQuery>;
+	pub type BridgePaused<T> = StorageValue<_, BridgePauseStatus, ValueQuery>;
 
 	/// Maps from event claim id to challenger and bond amount paid
 	#[pallet::storage]
@@ -570,7 +570,7 @@ pub mod pallet {
 
 			// 3) Try process delayed proofs
 			consumed_weight += DbWeight::get().reads(2u64);
-			if PendingEventProofs::<T>::iter().next().is_some() && !BridgePaused::<T>::get() {
+			if !Self::bridge_paused() && PendingEventProofs::<T>::iter().next().is_some() {
 				let max_delayed_events = DelayedEventProofsPerBlock::<T>::get();
 				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1u64));
 				consumed_weight = consumed_weight
@@ -766,10 +766,7 @@ pub mod pallet {
 		#[pallet::weight(DbWeight::get().writes(1))]
 		pub fn set_bridge_paused(origin: OriginFor<T>, paused: bool) -> DispatchResult {
 			ensure_root(origin)?;
-			match paused {
-				true => BridgePaused::<T>::put(true),
-				false => BridgePaused::<T>::kill(),
-			};
+			BridgePaused::<T>::mutate(|p| p.manual_pause = paused);
 			Self::deposit_event(Event::<T>::BridgeManualPause { paused });
 			Ok(())
 		}
