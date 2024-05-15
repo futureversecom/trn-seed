@@ -77,7 +77,7 @@ pub mod v1 {
 		weights::{constants::RocksDbWeight, Weight},
 		BoundedVec, StorageHasher, Twox64Concat,
 	};
-	use pallet_ethy::{BridgePauseStatus, BridgePaused};
+	use pallet_ethy::{BridgePauseStatus, BridgePaused, ProcessedMessageIds};
 	use scale_info::TypeInfo;
 	use seed_primitives::ethy::EventClaimId;
 	use sp_core::{Get, H160};
@@ -88,8 +88,19 @@ pub mod v1 {
 	where
 		AccountId: From<H160>,
 	{
+		log::info!(target: "Migration", "Ethy: migrating ProcessedMessageIds");
+		let mut weight: Weight = RocksDbWeight::get().reads_writes(1, 1);
+
+		let mut processed_message_ids =
+			Value::unsafe_storage_get::<Vec<EventClaimId>>(b"EthBridge", b"ProcessedMessageIds")
+				.unwrap_or_default();
+		let prune_weight = pallet_ethy::Pallet::<T>::prune_claim_ids(&mut processed_message_ids);
+		weight = weight.saturating_add(prune_weight);
+		let message_ids = BoundedVec::truncate_from(processed_message_ids);
+		ProcessedMessageIds::<T>::put(message_ids);
+
 		log::info!(target: "Migration", "Ethy: migrating BridgePaused");
-		let weight: Weight = RocksDbWeight::get().reads_writes(1, 1);
+		weight = weight.saturating_add(RocksDbWeight::get().reads_writes(1, 1));
 
 		let bridge_paused =
 			Value::unsafe_storage_get::<bool>(b"EthBridge", b"BridgePaused").unwrap_or_default();
@@ -98,7 +109,7 @@ pub mod v1 {
 			BridgePauseStatus { manual_pause: bridge_paused, authorities_change: false };
 		BridgePaused::<T>::put(paused_status);
 
-		log::info!(target: "Migration", "Ethy: successfully migrated BridgePaused");
+		log::info!(target: "Migration", "Ethy: successfully migrated BridgePaused and ProcessedMessageIds");
 
 		weight
 	}
@@ -106,7 +117,73 @@ pub mod v1 {
 	#[cfg(test)]
 	mod tests {
 		use super::*;
-		use crate::migrations::tests::new_test_ext;
+		use crate::{migrations::tests::new_test_ext, MaxProcessedMessageIds};
+		use pallet_ethy::MissedMessageIds;
+
+		#[test]
+		fn migration_test_1() {
+			new_test_ext().execute_with(|| {
+				// Setup storage
+				StorageVersion::new(0).put::<EthBridge>();
+
+				// token locks with no listings
+				let event_ids: Vec<EventClaimId> = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+				Value::unsafe_storage_put::<Vec<EventClaimId>>(
+					b"EthBridge",
+					b"ProcessedMessageIds",
+					event_ids,
+				);
+
+				// Do runtime upgrade
+				Upgrade::on_runtime_upgrade();
+				assert_eq!(EthBridge::on_chain_storage_version(), 1);
+
+				let event_ids = ProcessedMessageIds::<Runtime>::get();
+				assert_eq!(event_ids.into_inner(), vec![10]);
+				let missed_ids = MissedMessageIds::<Runtime>::get();
+				assert!(missed_ids.is_empty());
+			});
+		}
+
+		#[test]
+		fn migration_test_2() {
+			new_test_ext().execute_with(|| {
+				// Setup storage
+				StorageVersion::new(0).put::<EthBridge>();
+
+				// Create false data with all even numbers between 0 and 4000
+				let max = MaxProcessedMessageIds::get() as u64;
+				let event_ids: Vec<EventClaimId> =
+					(0u64..max * 2).into_iter().map(|x| x * 2).collect();
+
+				assert_eq!(event_ids.len(), (max * 2) as usize);
+				Value::unsafe_storage_put::<Vec<EventClaimId>>(
+					b"EthBridge",
+					b"ProcessedMessageIds",
+					event_ids,
+				);
+
+				// Do runtime upgrade
+				Upgrade::on_runtime_upgrade();
+				assert_eq!(EthBridge::on_chain_storage_version(), 1);
+
+				// ProcessedMessageIds should be the second half of the original list
+				// i.e. all even numbers between 2000 and 4000
+				let expected_event_ids: Vec<EventClaimId> =
+					(max..max * 2).into_iter().map(|x| x * 2).collect();
+				let event_ids = ProcessedMessageIds::<Runtime>::get();
+				assert_eq!(event_ids.len(), max as usize);
+				assert_eq!(event_ids.into_inner(), expected_event_ids);
+
+				// MissedMessageIds should be all the odd message Ids in the first half of the
+				// original list. i.e. 1,3,5,7
+				let expected_missed_ids: Vec<EventClaimId> =
+					(0..max).into_iter().map(|x| x * 2 + 1).collect();
+				let missed_ids = MissedMessageIds::<Runtime>::get();
+				assert_eq!(missed_ids.len(), max as usize);
+				assert_eq!(missed_ids, expected_missed_ids);
+			});
+		}
 
 		#[test]
 		fn migration_test_bridge_paused_1() {

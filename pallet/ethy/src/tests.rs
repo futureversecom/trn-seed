@@ -15,7 +15,6 @@
 
 #![cfg(test)]
 use crate::{
-	impls::prune_claim_ids,
 	mock::*,
 	types::{
 		BridgePauseStatus, CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock,
@@ -24,15 +23,15 @@ use crate::{
 	},
 	AuthoritiesChangedThisEra, BridgePaused, ChallengePeriod, ChallengerAccount, Config,
 	ContractAddress, DelayedEventProofsPerBlock, Error, EthCallNotarizationsAggregated,
-	EthCallRequestInfo, Event, EventClaimStatus, MessagesValidAt, NextAuthorityChange,
-	NextEventProofId, NextNotaryKeys, NotaryKeys, NotarySetId, NotarySetProofId, NotaryXrplKeys,
-	Pallet, PendingClaimChallenges, PendingClaimStatus, PendingEventClaims, PendingEventProofs,
-	ProcessedMessageIds, Relayer, RelayerPaidBond, XrplDoorSigners, XrplNotarySetProofId,
-	ETHY_ENGINE_ID, SUBMIT_BRIDGE_EVENT_SELECTOR,
+	EthCallRequestInfo, Event, EventClaimStatus, MessagesValidAt, MissedMessageIds,
+	NextAuthorityChange, NextEventProofId, NextNotaryKeys, NotaryKeys, NotarySetId,
+	NotarySetProofId, NotaryXrplKeys, Pallet, PendingClaimChallenges, PendingClaimStatus,
+	PendingEventClaims, PendingEventProofs, ProcessedMessageIds, Relayer, RelayerPaidBond,
+	XrplDoorSigners, XrplNotarySetProofId, ETHY_ENGINE_ID, SUBMIT_BRIDGE_EVENT_SELECTOR,
 };
 use codec::Encode;
 use ethabi::Token;
-use frame_support::traits::{fungibles::Inspect, OnInitialize, OneSessionHandler, UnixTime};
+use frame_support::traits::{fungibles::Inspect, Hooks, OneSessionHandler, UnixTime};
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{
@@ -226,6 +225,180 @@ fn submit_event_tracks_completed() {
 			EthBridge::submit_event(RuntimeOrigin::signed(relayer.into()), tx_hash, event_data),
 			Error::<Test>::EventReplayProcessed
 		);
+	});
+}
+
+#[test]
+fn submit_missing_event_id_works() {
+	let relayer = H160::from_low_u64_be(123);
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		let missed_event_id: u64 = 3;
+		// Setup storage to simulate missed_event_id being invalid but stored in Missing
+		ProcessedMessageIds::<Test>::put(BoundedVec::truncate_from(vec![missed_event_id + 1]));
+		MissedMessageIds::<Test>::put(vec![missed_event_id]);
+		let tx_hash = EthHash::from_low_u64_be(33);
+		let (source, destination, message) =
+			(H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+		let event_item_data = encode_event_message(missed_event_id, source, destination, message);
+
+		// Submit event should fail due to replay protection
+		assert_noop!(
+			EthBridge::submit_event(
+				RuntimeOrigin::signed(relayer.into()),
+				tx_hash.clone(),
+				event_item_data.clone(),
+			),
+			Error::<Test>::EventReplayProcessed
+		);
+
+		// Submit missing event should work as event id is stored within MissedMessageIds
+		assert_ok!(EthBridge::submit_missing_event(
+			RuntimeOrigin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_item_data.clone(),
+		));
+
+		assert_eq!(
+			PendingEventClaims::<Test>::get(missed_event_id),
+			Some(EventClaim {
+				tx_hash,
+				source,
+				destination,
+				data: BoundedVec::truncate_from(message.to_vec())
+			})
+		);
+
+		let process_at = System::block_number() + ChallengePeriod::<Test>::get();
+		EthBridge::on_initialize(process_at);
+		// ProcessedMessageIds should be unchanged (As it was before the lowest
+		assert_eq!(ProcessedMessageIds::<Test>::get().into_inner(), vec![missed_event_id + 1]);
+		assert!(MissedMessageIds::<Test>::get().is_empty());
+
+		// Submit missing event should now not work as the event is processed
+		assert_noop!(
+			EthBridge::submit_missing_event(
+				RuntimeOrigin::signed(relayer.into()),
+				tx_hash.clone(),
+				event_item_data.clone(),
+			),
+			Error::<Test>::EventReplayProcessed
+		);
+	});
+}
+
+#[test]
+fn submit_missing_event_id_prevents_replay() {
+	let relayer = H160::from_low_u64_be(123);
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		let missed_event_id: u64 = 3;
+		// Setup storage to simulate missed_event_id being invalid but stored in Missing
+		ProcessedMessageIds::<Test>::put(BoundedVec::truncate_from(vec![missed_event_id + 1]));
+		MissedMessageIds::<Test>::put(vec![missed_event_id]);
+		let tx_hash = EthHash::from_low_u64_be(33);
+		let (source, destination, message) =
+			(H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+		let event_item_data = encode_event_message(missed_event_id, source, destination, message);
+
+		// Submit missing event should work as event id is stored within MissedMessageIds
+		assert_ok!(EthBridge::submit_missing_event(
+			RuntimeOrigin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_item_data.clone(),
+		));
+
+		// Submit missing event should now not work as the event is pending
+		assert_noop!(
+			EthBridge::submit_missing_event(
+				RuntimeOrigin::signed(relayer.into()),
+				tx_hash.clone(),
+				event_item_data.clone(),
+			),
+			Error::<Test>::EventReplayPending
+		);
+	});
+}
+
+#[test]
+fn submit_missing_event_id_fails_if_not_in_missing() {
+	let relayer = H160::from_low_u64_be(123);
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		let missed_event_id: u64 = 3;
+		// Setup storage to simulate missed_event_id not in missing (i.e. processed
+		ProcessedMessageIds::<Test>::put(BoundedVec::truncate_from(vec![5]));
+		MissedMessageIds::<Test>::put(vec![2, 4]);
+		let tx_hash = EthHash::from_low_u64_be(33);
+		let (source, destination, message) =
+			(H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+		let event_item_data = encode_event_message(missed_event_id, source, destination, message);
+
+		// Submit missing event should not work as it is not in MissedMessageIds
+		assert_noop!(
+			EthBridge::submit_missing_event(
+				RuntimeOrigin::signed(relayer.into()),
+				tx_hash.clone(),
+				event_item_data.clone(),
+			),
+			Error::<Test>::EventReplayProcessed
+		);
+
+		assert_noop!(
+			EthBridge::submit_event(
+				RuntimeOrigin::signed(relayer.into()),
+				tx_hash.clone(),
+				event_item_data.clone(),
+			),
+			Error::<Test>::EventReplayProcessed
+		);
+	});
+}
+
+#[test]
+fn remove_missing_event_id_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let event_ids = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+		MissedMessageIds::<Test>::put(event_ids);
+
+		let range = (3, 6);
+		assert_ok!(EthBridge::remove_missing_event_id(RuntimeOrigin::root(), range));
+		let event_ids = vec![1, 2, 7, 8, 9];
+		assert_eq!(MissedMessageIds::<Test>::get(), event_ids);
+	});
+}
+
+#[test]
+fn remove_missing_event_id_single_id() {
+	ExtBuilder::default().build().execute_with(|| {
+		let event_ids = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+		MissedMessageIds::<Test>::put(event_ids);
+
+		let range = (3, 3); // Remove one ID
+		assert_ok!(EthBridge::remove_missing_event_id(RuntimeOrigin::root(), range));
+		let event_ids = vec![1, 2, 4, 5, 6, 7, 8, 9];
+		assert_eq!(MissedMessageIds::<Test>::get(), event_ids);
+	});
+}
+
+#[test]
+fn remove_missing_event_id_outside_range() {
+	ExtBuilder::default().build().execute_with(|| {
+		let event_ids = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+		MissedMessageIds::<Test>::put(&event_ids);
+
+		let range = (10, 1000000000); // Outside range is noop
+		assert_ok!(EthBridge::remove_missing_event_id(RuntimeOrigin::root(), range));
+		assert_eq!(MissedMessageIds::<Test>::get(), event_ids);
+	});
+}
+
+#[test]
+fn remove_missing_event_id_full_range() {
+	ExtBuilder::default().build().execute_with(|| {
+		let event_ids = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+		MissedMessageIds::<Test>::put(&event_ids);
+
+		let range = (1, 9); // Full range of ids
+		assert_ok!(EthBridge::remove_missing_event_id(RuntimeOrigin::root(), range));
+		assert!(MissedMessageIds::<Test>::get().is_empty());
 	});
 }
 
@@ -630,11 +803,10 @@ fn process_valid_challenged_event() {
 			);
 			assert_eq!(MessagesValidAt::<Test>::get(process_at), vec![event_id_1]);
 
-			// Weight returned should include the 1000 that we specified in our mock
-			assert_eq!(
-				EthBridge::on_initialize(process_at),
-				DbWeight::get().reads(2u64) + Weight::from_ref_time(1000u64)
-			);
+			// Weight returned should include the 1000 that we specified in MockEventRouter
+			let expected_weight =
+				DbWeight::get().reads_writes(5u64, 3u64) + Weight::from_ref_time(1000u64);
+			assert_eq!(EthBridge::on_initialize(process_at), expected_weight);
 
 			// Storage should now be fully cleared
 			assert!(PendingClaimChallenges::<Test>::get().is_empty());
@@ -643,7 +815,7 @@ fn process_valid_challenged_event() {
 			assert!(PendingClaimStatus::<Test>::get(event_id_1).is_none());
 			assert!(MessagesValidAt::<Test>::get(process_at).is_empty());
 			// The event is processed!
-			assert_eq!(ProcessedMessageIds::<Test>::get(), vec![event_id_1]);
+			assert_eq!(ProcessedMessageIds::<Test>::get().into_inner(), vec![event_id_1]);
 		});
 }
 
@@ -693,9 +865,10 @@ fn process_valid_challenged_event_delayed() {
 
 			assert_eq!(MessagesValidAt::<Test>::get(process_at), vec![event_id_1]);
 
-			// Weight returned should not include the 1000 that we specified in our mock as a
+			// Weight returned should not include the 1000 that we specified in MockEventRouter as a
 			// consensus has not been reached
-			assert_eq!(EthBridge::on_initialize(process_at), DbWeight::get().reads(2u64));
+			let expected_weight = DbWeight::get().reads_writes(6u64, 3u64);
+			assert_eq!(EthBridge::on_initialize(process_at), expected_weight);
 
 			assert_eq!(MessagesValidAt::<Test>::get(process_at_extended), vec![event_id_1]);
 			assert!(MessagesValidAt::<Test>::get(process_at).is_empty());
@@ -725,11 +898,10 @@ fn process_valid_challenged_event_delayed() {
 			);
 			assert_eq!(MessagesValidAt::<Test>::get(process_at_extended), vec![event_id_1]);
 
-			// Weight returned should include the 1000 that we specified in our mock
-			assert_eq!(
-				EthBridge::on_initialize(process_at_extended),
-				DbWeight::get().reads(2u64) + Weight::from_ref_time(1000u64)
-			);
+			// Weight returned should include the 1000 that we specified in MockEventRouter
+			let expected_weight =
+				DbWeight::get().reads_writes(5u64, 3u64) + Weight::from_ref_time(1000u64);
+			assert_eq!(EthBridge::on_initialize(process_at_extended), expected_weight);
 
 			// Storage should now be fully cleared
 			assert!(PendingClaimChallenges::<Test>::get().is_empty());
@@ -738,7 +910,7 @@ fn process_valid_challenged_event_delayed() {
 			assert!(PendingClaimStatus::<Test>::get(event_id_1).is_none());
 			assert!(MessagesValidAt::<Test>::get(process_at_extended).is_empty());
 			// The event is processed!
-			assert_eq!(ProcessedMessageIds::<Test>::get(), vec![event_id_1]);
+			assert_eq!(ProcessedMessageIds::<Test>::get().into_inner(), vec![event_id_1]);
 		});
 }
 
@@ -998,7 +1170,7 @@ fn on_new_session_updates_keys() {
 
 		let event_proof_id = NextEventProofId::<Test>::get();
 		let next_validator_set_id = NotarySetId::<Test>::get() + 1;
-		// Now call on_initialise with the expected block to check it gets processed correctly
+		// Now call on_initialize with the expected block to check it gets processed correctly
 		EthBridge::on_initialize(expected_block.into());
 
 		// Storage updated
@@ -1396,7 +1568,7 @@ fn send_event() {
 		// On initialize does up to 2 reads to check for delayed proofs
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
-			DbWeight::get().reads(2u64)
+			DbWeight::get().reads(3u64)
 		);
 	});
 }
@@ -1489,12 +1661,13 @@ fn delayed_event_proof() {
 		// Re-enable bridge
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), false));
 		// initialize pallet and initiate event proof
-		let expected_weight: Weight = DbWeight::get().reads(3u64) + DbWeight::get().writes(2u64);
-		let max_delayed_events = DelayedEventProofsPerBlock::<Test>::get() as u64;
 		let expected_weight: Weight =
-			DbWeight::get().reads(3u64) + DbWeight::get().writes(2u64) * max_delayed_events;
+			DbWeight::get().reads(3u64) + DbWeight::get().reads_writes(2, 2);
 		assert_eq!(
-			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
+			EthBridge::on_idle(
+				frame_system::Pallet::<Test>::block_number() + 1,
+				Weight::from_ref_time(1_000_000_000_000)
+			),
 			expected_weight
 		);
 		// Ensure event has been removed from delayed claims
@@ -1561,8 +1734,11 @@ fn delayed_event_proof_updates_validator_set_id_on_last_minute_authorities_chang
 		assert_eq!(NotarySetId::<Test>::get(), next_validator_set_id);
 		assert!(!EthBridge::bridge_paused());
 
-		// initialize pallet and initiate event proof
-		EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1);
+		// Call on_idle and initiate event proof
+		EthBridge::on_idle(
+			frame_system::Pallet::<Test>::block_number() + 1,
+			Weight::from_ref_time(1_000_000_000_000),
+		);
 		// Ensure event has been removed from delayed claims
 		assert!(PendingEventProofs::<Test>::get(event_proof_id).is_none());
 
@@ -1609,7 +1785,6 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 		);
 		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys.clone());
 
-		let event_proof_id = NextEventProofId::<Test>::get();
 		// Now call on_initialise with the expected block to check it gets processed correctly
 		let expected_block: BlockNumber = NextAuthorityChange::<Test>::get().unwrap();
 		EthBridge::on_initialize(expected_block.into());
@@ -1643,8 +1818,11 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 		assert!(!EthBridge::bridge_paused());
 		assert_eq!(NotarySetId::<Test>::get(), next_validator_set_id);
 
-		// initialize pallet and initiate event proof
-		EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1);
+		// call on_idle and initiate event proof
+		EthBridge::on_idle(
+			frame_system::Pallet::<Test>::block_number() + 1,
+			Weight::from_ref_time(1_000_000_000_000),
+		);
 		// Ensure event has been removed from delayed claims
 		assert!(PendingEventProofs::<Test>::get(event_proof_id).is_none());
 
@@ -1696,10 +1874,15 @@ fn multiple_delayed_event_proof() {
 
 		// Re-enable bridge
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), false));
-		// initialize pallet and initiate event proof
+		// Call on_idle to process half of the pending event proofs
+		let expected_weight: Weight = DbWeight::get().reads(3u64) +
+			DbWeight::get().reads_writes(2, 2) * max_delayed_events as u64;
 		assert_eq!(
-			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
-			DbWeight::get().reads(3u64) + DbWeight::get().writes(2u64) * max_delayed_events as u64
+			EthBridge::on_idle(
+				frame_system::Pallet::<Test>::block_number() + 1,
+				Weight::from_ref_time(1_000_000_000_000)
+			),
+			expected_weight
 		);
 
 		let mut removed_count = 0;
@@ -1717,10 +1900,65 @@ fn multiple_delayed_event_proof() {
 		// Should have only processed max amount
 		assert_eq!(removed_count, max_delayed_events);
 
-		// Now initialize next block and process the rest
+		// Calling on_idle should process the rest
 		assert_eq!(
-			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 2),
-			DbWeight::get().reads(3u64) + DbWeight::get().writes(2u64) * max_delayed_events as u64
+			EthBridge::on_idle(
+				frame_system::Pallet::<Test>::block_number() + 1,
+				Weight::from_ref_time(1_000_000_000_000)
+			),
+			expected_weight
+		);
+
+		// All events should have now been processed
+		for i in 0..event_count {
+			assert!(PendingEventProofs::<Test>::get(event_ids[i as usize]).is_none());
+		}
+	});
+}
+
+#[test]
+fn on_idle_limits_processing() {
+	ExtBuilder::default().build().execute_with(|| {
+		let message = &b"hello world"[..];
+		let source = H160::from_low_u64_be(444);
+		let destination = H160::from_low_u64_be(555);
+		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), true));
+
+		let max_delayed_events = DelayedEventProofsPerBlock::<Test>::get();
+		let event_count: u8 = max_delayed_events;
+		let mut event_ids: Vec<EventProofId> = vec![];
+		let mut events_for_proving = vec![];
+		for _ in 0..event_count {
+			let event_proof_id = NextEventProofId::<Test>::get();
+			event_ids.push(event_proof_id);
+			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
+				source,
+				destination: destination.clone(),
+				message: BoundedVec::truncate_from(message.to_vec()),
+				validator_set_id: EthBridge::validator_set().id,
+				event_proof_id,
+			});
+			events_for_proving.push(event_proof_info.clone());
+			// Generate event proof
+			assert_ok!(EthBridge::send_event(&source, &destination, &message));
+			// Ensure event has been added to delayed claims
+			assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
+			assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
+		}
+
+		// Re-enable bridge
+		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), false));
+
+		// Call on_idle with only enough weight to process 2 claims
+		let claims_to_process = 2;
+		let expected_weight: Weight = DbWeight::get().reads(3u64) +
+			DbWeight::get().reads_writes(2, 2) * claims_to_process as u64;
+		assert_eq!(
+			EthBridge::on_idle(
+				frame_system::Pallet::<Test>::block_number() + 1,
+				expected_weight + Weight::from_ref_time(1)
+			),
+			expected_weight
 		);
 
 		let mut removed_count = 0;
@@ -1728,10 +1966,79 @@ fn multiple_delayed_event_proof() {
 			// Ensure event has been removed from delayed claims
 			if PendingEventProofs::<Test>::get(event_ids[i as usize]).is_none() {
 				removed_count += 1;
+			} else {
+				assert_eq!(
+					PendingEventProofs::<Test>::get(event_ids[i as usize]),
+					Some(events_for_proving[i as usize].clone())
+				)
 			}
 		}
+		// Should have only processed max amount
+		assert_eq!(removed_count, claims_to_process);
+
+		// Call on_idle with enough weight to process the rest
+		let claims_to_process = event_count - claims_to_process;
+		let expected_weight: Weight = DbWeight::get().reads(3u64) +
+			DbWeight::get().reads_writes(2, 2) * claims_to_process as u64;
+		assert_eq!(
+			EthBridge::on_idle(
+				frame_system::Pallet::<Test>::block_number() + 1,
+				Weight::from_ref_time(1_000_000_000_000)
+			),
+			expected_weight
+		);
+
 		// All events should have now been processed
-		assert_eq!(removed_count, event_count);
+		for i in 0..event_count {
+			assert!(PendingEventProofs::<Test>::get(event_ids[i as usize]).is_none());
+		}
+	});
+}
+
+#[test]
+fn on_idle_no_remaining_weight_is_noop() {
+	ExtBuilder::default().build().execute_with(|| {
+		let message = &b"hello world"[..];
+		let source = H160::from_low_u64_be(444);
+		let destination = H160::from_low_u64_be(555);
+		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), true));
+
+		let max_delayed_events = DelayedEventProofsPerBlock::<Test>::get();
+		let event_count: u8 = max_delayed_events * 2;
+		let mut event_ids: Vec<EventProofId> = vec![];
+		let mut events_for_proving = vec![];
+		for _ in 0..event_count {
+			let event_proof_id = NextEventProofId::<Test>::get();
+			event_ids.push(event_proof_id);
+			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
+				source,
+				destination: destination.clone(),
+				message: BoundedVec::truncate_from(message.to_vec()),
+				validator_set_id: EthBridge::validator_set().id,
+				event_proof_id,
+			});
+			events_for_proving.push(event_proof_info.clone());
+			// Generate event proof
+			assert_ok!(EthBridge::send_event(&source, &destination, &message));
+			// Ensure event has been added to delayed claims
+			assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
+			assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
+		}
+
+		// Re-enable bridge
+		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), false));
+		// Calling on_idle with not enough weight to process one claim should do nothing
+		let minimum_weight: Weight =
+			DbWeight::get().reads(3u64) + DbWeight::get().reads_writes(2, 2);
+		assert_eq!(
+			EthBridge::on_idle(frame_system::Pallet::<Test>::block_number() + 1, minimum_weight),
+			Weight::from_ref_time(0)
+		);
+
+		// All PendingEventProofs should still be present
+		for i in 0..event_count {
+			assert!(PendingEventProofs::<Test>::get(event_ids[i as usize]).is_some());
+		}
 	});
 }
 
@@ -1772,11 +2079,15 @@ fn set_delayed_event_proofs_per_block() {
 
 		// Re-enable bridge
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), false));
-		// initialize pallet and initiate event proof
+		// call on_idle for pallet and initiate event proof
+		let expected_weight: Weight = DbWeight::get().reads(3u64) +
+			DbWeight::get().reads_writes(2, 2) * new_max_delayed_events as u64;
 		assert_eq!(
-			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
-			DbWeight::get().reads(3u64) +
-				DbWeight::get().writes(2u64) * new_max_delayed_events as u64
+			EthBridge::on_idle(
+				frame_system::Pallet::<Test>::block_number() + 1,
+				Weight::from_ref_time(1_000_000_000_000)
+			),
+			expected_weight
 		);
 
 		for i in 0..new_max_delayed_events {
@@ -2361,34 +2672,125 @@ fn handle_call_notarization_aborts_no_consensus() {
 fn test_prune_claim_ids() {
 	{
 		let mut test_vec = vec![1, 2, 3, 4, 6, 7];
-		prune_claim_ids(&mut test_vec);
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![4, 6, 7]);
 	}
 	{
 		let mut test_vec = vec![4, 5, 6, 7];
-		prune_claim_ids(&mut test_vec);
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![7]);
 	}
 	{
 		let mut test_vec: Vec<EventClaimId> = vec![];
-		prune_claim_ids(&mut test_vec);
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![] as Vec<EventClaimId>);
 	}
 	{
 		let mut test_vec = vec![5];
-		prune_claim_ids(&mut test_vec);
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![5]);
 	}
 	{
 		let mut test_vec = vec![0, 0, 0]; // event_id will be unique. Hence not applicable
-		prune_claim_ids(&mut test_vec);
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![0, 0, 0]);
 	}
 	{
-		let mut test_vec = vec![5, 2, 0, 1, 1]; // event_id will be unique. Hence not applicable
-		prune_claim_ids(&mut test_vec);
+		let mut test_vec = vec![0, 1, 1, 2, 5]; // event_id will be unique. Hence not applicable
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![1, 1, 2, 5]);
 	}
+}
+
+#[test]
+fn prune_claim_ids_keeps_missed() {
+	ExtBuilder::default().build().execute_with(|| {
+		let mut test_vec = vec![1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![12]);
+		assert_eq!(MissedMessageIds::<Test>::get(), vec![2]);
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let mut test_vec = vec![2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26];
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![8, 10, 12, 14, 16, 18, 20, 22, 24, 26]);
+		assert_eq!(MissedMessageIds::<Test>::get(), vec![3, 5, 7]);
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		let mut test_vec = vec![1, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14];
+		Pallet::<Test>::prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![6, 8, 9, 10, 11, 12, 13, 14]);
+		assert_eq!(MissedMessageIds::<Test>::get(), vec![2, 3]);
+	});
+}
+
+#[test]
+fn on_initialize_doesnt_prune_if_not_needed() {
+	ExtBuilder::default().build().execute_with(|| {
+		// These ids will be pruned if the pruning function gets called in on_initialize
+		// However there is nothing to process so it doesn't prune
+		// This prevents pruning happening when no changes are made
+		let event_ids = vec![1, 2, 3, 4, 5];
+		ProcessedMessageIds::<Test>::put(BoundedVec::truncate_from(event_ids.clone()));
+
+		// Call on_initialize with nothing to prune
+		let consumed_weight = EthBridge::on_initialize(25);
+		assert_eq!(consumed_weight, DbWeight::get().reads(3u64));
+
+		// ProcessedMessageIds unchanged
+		assert_eq!(ProcessedMessageIds::<Test>::get().into_inner(), event_ids)
+	});
+}
+
+#[test]
+fn on_initialize_moves_missed_to_vec() {
+	let relayer = H160::from_low_u64_be(123);
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		// Setup data for even ids up to 26
+		let event_ids = vec![1, 10, 12, 14, 16, 18, 20, 22, 24, 26];
+		ProcessedMessageIds::<Test>::put(BoundedVec::truncate_from(event_ids.clone()));
+
+		// submit event 28 and 30
+		let event_data = encode_event_message(
+			28 as u64,
+			H160::from_low_u64_be(555),
+			H160::from_low_u64_be(555),
+			&[2, 3, 4, 5],
+		);
+		let tx_hash = EthHash::from_low_u64_be(33);
+		assert_ok!(EthBridge::submit_event(
+			RuntimeOrigin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_data.clone(),
+		));
+		let event_data = encode_event_message(
+			30 as u64,
+			H160::from_low_u64_be(555),
+			H160::from_low_u64_be(555),
+			&[2, 3, 4, 5],
+		);
+		let tx_hash = EthHash::from_low_u64_be(33);
+		assert_ok!(EthBridge::submit_event(
+			RuntimeOrigin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_data.clone(),
+		));
+
+		// Process the messages
+		let process_at = System::block_number() + ChallengePeriod::<Test>::get();
+		EthBridge::on_initialize(process_at);
+
+		// ProcessedMessageIds updated with new id and pruned old ids
+		assert_eq!(
+			ProcessedMessageIds::<Test>::get().into_inner(),
+			vec![12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
+		);
+
+		// MissedMessageIds contains pruned ids
+		assert_eq!(MissedMessageIds::<Test>::get(), vec![2, 3, 4, 5, 6, 7, 8, 9, 11]);
+	});
 }
 
 #[test]
@@ -2422,7 +2824,7 @@ fn test_submit_event_replay_check() {
 		let process_at = System::block_number() + ChallengePeriod::<Test>::get();
 		EthBridge::on_initialize(process_at);
 		// check the processed_message_ids has [1, 3]
-		assert_eq!(ProcessedMessageIds::<Test>::get(), vec![1, 3]);
+		assert_eq!(ProcessedMessageIds::<Test>::get().into_inner(), vec![1, 3]);
 		// try to resubmit claim 0 again.
 		assert_noop!(
 			EthBridge::submit_event(
@@ -2444,7 +2846,7 @@ fn test_submit_event_replay_check() {
 		EthBridge::on_initialize(process_at2);
 
 		// check the processed_message_ids has [3]
-		assert_eq!(ProcessedMessageIds::<Test>::get(), vec![3]);
+		assert_eq!(ProcessedMessageIds::<Test>::get().into_inner(), vec![3]);
 	});
 }
 

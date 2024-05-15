@@ -37,11 +37,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
-use ethabi::{ParamType, Token};
+use ethabi::ParamType;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungibles::Transfer,
+		fungibles::{Mutate, Transfer},
 		schedule::{Anon, DispatchTime},
 		UnixTime, ValidatorSet as ValidatorSetT,
 	},
@@ -59,7 +59,7 @@ use seed_primitives::{AssetId, Balance};
 use sp_core::bounded::WeakBoundedVec;
 use sp_runtime::{
 	offchain as rt_offchain,
-	traits::{MaybeSerializeDeserialize, Member, SaturatedConversion},
+	traits::{MaybeSerializeDeserialize, Member},
 	Percent, RuntimeAppPublic,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -67,13 +67,19 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 mod ethereum_http_cli;
 pub use ethereum_http_cli::EthereumRpcClient;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 mod impls;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+
 mod types;
 pub use types::*;
+
+pub mod weights;
+pub use weights::WeightInfo;
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
@@ -174,7 +180,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxNewSigners: Get<u8>;
 		/// Handles a multi-currency fungible asset system
-		type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
+		type MultiCurrency: Transfer<Self::AccountId>
+			+ Hold<AccountId = Self::AccountId>
+			+ Mutate<Self::AccountId, AssetId = AssetId, Balance = Balance>;
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
 		type NativeAssetId: Get<AssetId>;
@@ -188,6 +196,10 @@ pub mod pallet {
 		type Scheduler: Anon<Self::BlockNumber, <Self as Config>::RuntimeCall, Self::PalletsOrigin>;
 		/// Overarching type of all pallets origins.
 		type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+		/// Maximum number of processed message Ids that will we keep as a buffer to prevent
+		/// replays.
+		#[pallet::constant]
+		type MaxProcessedMessageIds: Get<u32>;
 		/// Returns the block timestamp
 		type UnixTime: UnixTime;
 		/// Max Xrpl notary (validator) public keys
@@ -210,6 +222,8 @@ pub mod pallet {
 		/// Maximum number of Eth Call Requests
 		#[pallet::constant]
 		type MaxCallRequests: Get<u32>;
+		/// Provides the public call to weight mapping
+		type WeightInfo: WeightInfo;
 	}
 
 	/// Flag to indicate whether authorities have been changed during the current era
@@ -332,7 +346,13 @@ pub mod pallet {
 	/// Tracks processed message Ids (prevent replay)
 	/// Must remain unbounded as this list will grow indefinitely
 	#[pallet::storage]
-	pub type ProcessedMessageIds<T> = StorageValue<_, Vec<EventClaimId>, ValueQuery>;
+	pub type ProcessedMessageIds<T: Config> =
+		StorageValue<_, BoundedVec<EventClaimId, T::MaxProcessedMessageIds>, ValueQuery>;
+
+	/// Tracks message Ids that are outside of the MessageId buffer and were not processed
+	/// These message Ids can be either processed or cleared by the relayer
+	#[pallet::storage]
+	pub type MissedMessageIds<T> = StorageValue<_, Vec<EventClaimId>, ValueQuery>;
 
 	/// The block in which we process the next authority change
 	#[pallet::storage]
@@ -446,6 +466,8 @@ pub mod pallet {
 		ChallengePeriodSet { period: T::BlockNumber },
 		/// The bridge has been manually paused or unpaused
 		BridgeManualPause { paused: bool },
+		/// A range of missing event Ids were removed
+		MissingEventIdsRemoved { range: (EventClaimId, EventClaimId) },
 	}
 
 	#[pallet::error]
@@ -500,23 +522,34 @@ pub mod pallet {
 		/// 3) Process any deferred event proofs that were submitted while the bridge was paused
 		/// (should only happen on the first few blocks in a new era) (outgoing)
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
-			let mut consumed_weight = Weight::zero();
+			// Reads: NextAuthorityChange, MessagesValidAt, ProcessedMessageIds
+			let mut consumed_weight = DbWeight::get().reads(3u64);
 
 			// 1) Handle authority change
 			if Some(block_number) == NextAuthorityChange::<T>::get() {
 				// Change authority keys, we are 5 minutes before the next epoch
 				log!(trace, "💎 Epoch ends in 5 minutes, changing authorities");
 				Self::handle_authorities_change();
+				consumed_weight =
+					consumed_weight.saturating_add(T::WeightInfo::handle_authorities_change());
 			}
 
 			// 2) Process validated messages
 			// Removed message_id from MessagesValidAt and processes
-			let mut processed_message_ids = ProcessedMessageIds::<T>::get();
+			let mut processed_message_ids = ProcessedMessageIds::<T>::get().into_inner();
+			let mut message_processed: bool = false;
 			for message_id in MessagesValidAt::<T>::take(block_number) {
+				// reads: PendingClaimStatus, PendingEventClaims
+				// writes: PendingClaimStatus, PendingEventClaims
+				consumed_weight =
+					consumed_weight.saturating_add(DbWeight::get().reads_writes(2_u64, 2_u64));
 				if PendingClaimStatus::<T>::get(message_id) == Some(EventClaimStatus::Challenged) {
 					// We are still waiting on the challenge to be processed, push out by challenge
 					// period
 					let new_process_at = block_number + ChallengePeriod::<T>::get();
+					// read + write: MessagesValidAt
+					consumed_weight =
+						consumed_weight.saturating_add(DbWeight::get().reads_writes(1_u64, 1_u64));
 					MessagesValidAt::<T>::mutate(new_process_at.clone(), |v| {
 						let mut message_ids = v.clone().into_inner();
 						message_ids.push(message_id);
@@ -556,31 +589,81 @@ pub mod pallet {
 						},
 					}
 				}
-				// mark as processed
-				if let Err(idx) = processed_message_ids.binary_search(&message_id) {
-					processed_message_ids.insert(idx, message_id);
+
+				let first_processed = processed_message_ids.first().cloned().unwrap_or_default();
+				// Is this message_id within the MaxProcessedMessageIds?
+				if message_id >= first_processed {
+					// mark as processed
+					if let Err(idx) = processed_message_ids.binary_search(&message_id) {
+						processed_message_ids.insert(idx, message_id);
+					}
+				} else {
+					// REMOVE event_id to MissedMessageIds
+					// read + write: MissedMessageIds
+					consumed_weight =
+						consumed_weight.saturating_add(DbWeight::get().reads_writes(1_u64, 1_u64));
+					MissedMessageIds::<T>::mutate(|missed_message_ids| {
+						if let Ok(idx) = missed_message_ids.binary_search(&message_id) {
+							missed_message_ids.remove(idx);
+						}
+					});
 				}
+
 				// Tidy up status check
 				PendingClaimStatus::<T>::remove(message_id);
+				message_processed = true;
 			}
-			if !processed_message_ids.is_empty() {
-				impls::prune_claim_ids(&mut processed_message_ids);
+
+			if message_processed && !processed_message_ids.is_empty() {
+				// write: ProcessedMessageIds
+				consumed_weight = consumed_weight.saturating_add(DbWeight::get().writes(1_u64));
+				let prune_weight = Self::prune_claim_ids(&mut processed_message_ids);
+				consumed_weight = consumed_weight.saturating_add(prune_weight);
+				// Truncate is safe as the length is asserted within prune_claim_ids
+				let processed_message_ids = BoundedVec::truncate_from(processed_message_ids);
 				ProcessedMessageIds::<T>::put(processed_message_ids);
 			}
 
-			// 3) Try process delayed proofs
-			consumed_weight += DbWeight::get().reads(2u64);
-			if !Self::bridge_paused() && PendingEventProofs::<T>::iter().next().is_some() {
-				let max_delayed_events = DelayedEventProofsPerBlock::<T>::get();
-				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1u64));
-				consumed_weight = consumed_weight
-					.saturating_add(DbWeight::get().writes(2u64).mul(max_delayed_events as u64));
-				for (event_proof_id, signing_request) in
-					PendingEventProofs::<T>::iter().take(max_delayed_events as usize)
-				{
-					Self::do_request_event_proof(event_proof_id, signing_request);
-					PendingEventProofs::<T>::remove(event_proof_id);
+			consumed_weight
+		}
+
+		fn on_idle(_n: T::BlockNumber, remaining_weight: Weight) -> Weight {
+			// Minimum weight to read the initial values:
+			// - BridgePaused, PendingEventProofs, DelayedEventProofsPerBlock
+			let base_weight = DbWeight::get().reads(3u64);
+
+			// do_request_proof weight:
+			// reads - BridgePaused
+			// writes - PendingEventProofs || frame_system::Digest
+			// loop weight:
+			// reads_writes - PendingEventProofs
+			let weight_per_proof = DbWeight::get().reads_writes(2, 2);
+
+			// Do we have enough weight to process one proof?
+			if remaining_weight.all_lte(base_weight + weight_per_proof) {
+				return Weight::zero()
+			}
+
+			// Don't do anything if the bridge is paused
+			if Self::bridge_paused() {
+				return DbWeight::get().reads(1u64)
+			}
+
+			let mut consumed_weight = base_weight;
+			let mut pending_event_proofs = PendingEventProofs::<T>::drain();
+			let max_delayed_events = DelayedEventProofsPerBlock::<T>::get();
+
+			for _ in 0..max_delayed_events {
+				// Check if we have enough weight to process this iteration
+				let new_consumed_weight = consumed_weight.saturating_add(weight_per_proof);
+				if remaining_weight.all_lte(new_consumed_weight) {
+					break
 				}
+				let Some((event_proof_id, signing_request)) = pending_event_proofs.next() else {
+					break
+				};
+				consumed_weight = new_consumed_weight;
+				Self::do_request_event_proof(event_proof_id, signing_request);
 			}
 
 			consumed_weight
@@ -626,7 +709,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Set new XRPL door signers
-		#[pallet::weight(DbWeight::get().writes(new_signers.len() as u64).saturating_add(DbWeight::get().reads_writes(4, 3)))]
+		#[pallet::weight(T::WeightInfo::set_xrpl_door_signers(new_signers.len() as u32))]
 		pub fn set_xrpl_door_signers(
 			origin: OriginFor<T>,
 			new_signers: Vec<(T::EthyId, bool)>,
@@ -647,7 +730,7 @@ pub mod pallet {
 		}
 
 		/// Set the relayer address
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_relayer())]
 		pub fn set_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
 			// Ensure relayer has bonded more than relayer bond amount
@@ -661,7 +744,7 @@ pub mod pallet {
 		}
 
 		/// Submit bond for relayer account
-		#[pallet::weight(DbWeight::get().reads_writes(5, 6))]
+		#[pallet::weight(T::WeightInfo::deposit_relayer_bond())]
 		pub fn deposit_relayer_bond(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -685,7 +768,7 @@ pub mod pallet {
 		}
 
 		/// Withdraw relayer bond amount
-		#[pallet::weight(DbWeight::get().reads_writes(3, 3))]
+		#[pallet::weight(T::WeightInfo::withdraw_relayer_bond())]
 		pub fn withdraw_relayer_bond(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -714,7 +797,7 @@ pub mod pallet {
 
 		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to
 		/// be notarized by Seed
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_event_block_confirmations())]
 		pub fn set_event_block_confirmations(
 			origin: OriginFor<T>,
 			confirmations: u64,
@@ -726,7 +809,7 @@ pub mod pallet {
 		}
 
 		/// Set max number of delayed events that can be processed per block
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_delayed_event_proofs_per_block())]
 		pub fn set_delayed_event_proofs_per_block(
 			origin: OriginFor<T>,
 			count: u8,
@@ -739,7 +822,7 @@ pub mod pallet {
 
 		/// Set challenge period, this is the window in which an event can be challenged before
 		/// processing
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_challenge_period())]
 		pub fn set_challenge_period(
 			origin: OriginFor<T>,
 			blocks: T::BlockNumber,
@@ -751,7 +834,7 @@ pub mod pallet {
 		}
 
 		/// Set the bridge contract address on Ethereum (requires governance)
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_contract_address())]
 		pub fn set_contract_address(
 			origin: OriginFor<T>,
 			contract_address: EthAddress,
@@ -763,7 +846,7 @@ pub mod pallet {
 		}
 
 		/// Pause or unpause the bridge (requires governance)
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_bridge_paused())]
 		pub fn set_bridge_paused(origin: OriginFor<T>, paused: bool) -> DispatchResult {
 			ensure_root(origin)?;
 			BridgePaused::<T>::mutate(|p| p.manual_pause = paused);
@@ -773,7 +856,7 @@ pub mod pallet {
 
 		/// Finalise authority changes, unpauses bridge and sets new notary keys
 		/// Called internally after force new era
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::finalise_authorities_change())]
 		pub fn finalise_authorities_change(
 			origin: OriginFor<T>,
 			next_notary_keys: WeakBoundedVec<T::EthyId, T::MaxAuthorities>,
@@ -783,85 +866,83 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Admin function to manually remove an event_id from MissedMessageIds
+		/// This should only be used if the event_id is confirmed to be invalid
+		/// event_id_range is the lower and upper event_ids to clear (Both Inclusive)
+		#[pallet::weight(T::WeightInfo::remove_missing_event_id())]
+		pub fn remove_missing_event_id(
+			origin: OriginFor<T>,
+			event_id_range: (EventClaimId, EventClaimId),
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let mut missed_message_ids = MissedMessageIds::<T>::get();
+			missed_message_ids = missed_message_ids
+				.into_iter()
+				.filter(|id| *id < event_id_range.0 || *id > event_id_range.1)
+				.collect::<Vec<_>>();
+			MissedMessageIds::<T>::put(missed_message_ids);
+			Self::deposit_event(Event::<T>::MissingEventIdsRemoved { range: event_id_range });
+			Ok(())
+		}
+
+		/// Submit ABI encoded event data from the Ethereum bridge contract
+		/// Used to recover events that were pruned but not handled by the pruning algorithn,
+		/// Only events contained within MissedMessageIds can be processed here
+		/// - tx_hash The Ethereum transaction hash which triggered the event
+		/// - event ABI encoded bridge event
+		#[pallet::weight(T::WeightInfo::submit_missing_event())]
+		#[transactional]
+		pub fn submit_missing_event(
+			origin: OriginFor<T>,
+			tx_hash: H256,
+			event: Vec<u8>,
+		) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(Some(origin) == Relayer::<T>::get(), Error::<T>::NoPermission);
+
+			let (event_id, event_claim) = Self::decode_event_data(tx_hash, event)?;
+
+			// Ensure the message Id is contained within missed message ids
+			// This is to handle the case where a message ID was pruned but not processed
+			let missed_message_ids: Vec<EventClaimId> = MissedMessageIds::<T>::get();
+			ensure!(
+				missed_message_ids.binary_search(&event_id).is_ok(),
+				Error::<T>::EventReplayProcessed
+			);
+
+			Self::do_submit_event(event_id, event_claim)?;
+			Ok(())
+		}
+
 		/// Submit ABI encoded event data from the Ethereum bridge contract
 		/// - tx_hash The Ethereum transaction hash which triggered the event
 		/// - event ABI encoded bridge event
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::submit_event())]
 		pub fn submit_event(origin: OriginFor<T>, tx_hash: H256, event: Vec<u8>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-
 			ensure!(Some(origin) == Relayer::<T>::get(), Error::<T>::NoPermission);
 
-			// TODO: place some limit on `data` length (it should match on contract side)
-			// event SendMessage(uint256 messageId, address source, address destination, bytes
-			// message, uint256 fee);
-			if let [Token::Uint(event_id), Token::Address(source), Token::Address(destination), Token::Bytes(data), Token::Uint(_fee)] =
-				ethabi::decode(
-					&[
-						ParamType::Uint(64),
-						ParamType::Address,
-						ParamType::Address,
-						ethabi::ParamType::Bytes,
-						ParamType::Uint(64),
-					],
-					event.as_slice(),
-				)
-				.map_err(|_| Error::<T>::InvalidClaim)?
-				.as_slice()
-			{
-				let event_id: EventClaimId = (*event_id).saturated_into();
+			let (event_id, event_claim) = Self::decode_event_data(tx_hash, event)?;
+
+			// Verify that the event_id is not contained within ProcessedMessageIds
+			// to prevent replay
+			let processed_message_ids: Vec<EventClaimId> =
+				ProcessedMessageIds::<T>::get().into_inner();
+			if !processed_message_ids.is_empty() {
 				ensure!(
-					!PendingEventClaims::<T>::contains_key(event_id),
-					Error::<T>::EventReplayPending
+					event_id > processed_message_ids[0] &&
+						processed_message_ids.binary_search(&event_id).is_err(),
+					Error::<T>::EventReplayProcessed
 				);
-				if !ProcessedMessageIds::<T>::get().is_empty() {
-					ensure!(
-						event_id > ProcessedMessageIds::<T>::get()[0] &&
-							ProcessedMessageIds::<T>::get().binary_search(&event_id).is_err(),
-						Error::<T>::EventReplayProcessed
-					);
-				}
-				let data = BoundedVec::try_from(data.as_slice().to_vec())
-					.map_err(|_| Error::<T>::InvalidClaim)?;
-				let event_claim = EventClaim {
-					tx_hash,
-					source: *source,
-					destination: *destination,
-					data: data.clone(),
-				};
-
-				PendingEventClaims::<T>::insert(event_id, &event_claim);
-				PendingClaimStatus::<T>::insert(event_id, EventClaimStatus::Pending);
-
-				// TODO: there should be some limit per block
-				let process_at: T::BlockNumber =
-					<frame_system::Pallet<T>>::block_number() + ChallengePeriod::<T>::get();
-				MessagesValidAt::<T>::mutate(process_at.clone(), |v| {
-					let mut message_ids = v.clone().into_inner();
-					message_ids.push(event_id);
-					let message_ids_bounded = WeakBoundedVec::force_from(
-						message_ids,
-						Some(
-							"Warning: There are more MessagesValidAt than expected. \
-								A runtime configuration adjustment may be needed.",
-						),
-					);
-					*v = message_ids_bounded;
-				});
-
-				Self::deposit_event(Event::<T>::EventSubmit {
-					event_claim_id: event_id,
-					event_claim,
-					process_at,
-				});
 			}
+			Self::do_submit_event(event_id, event_claim)?;
 			Ok(())
 		}
 
 		/// Submit a challenge for an event
 		/// Challenged events won't be processed until verified by validators
 		/// An event can only be challenged once
-		#[pallet::weight(DbWeight::get().writes(1) + DbWeight::get().reads(2))]
+		#[pallet::weight(T::WeightInfo::submit_challenge())]
 		#[transactional]
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
@@ -900,7 +981,7 @@ pub mod pallet {
 
 		/// Internal only
 		/// Validators will submit inherents with their notarization vote for a given claim
-		#[pallet::weight(1_000_000)]
+		#[pallet::weight(T::WeightInfo::submit_notarization())]
 		#[transactional]
 		pub fn submit_notarization(
 			origin: OriginFor<T>,
