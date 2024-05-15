@@ -1051,7 +1051,7 @@ fn on_new_session_updates_keys() {
 				.encode(),
 			),
 		);
-		assert!(!BridgePaused::<Test>::get());
+		assert!(!EthBridge::bridge_paused());
 		// Next_notary_keys hasn't been cleared
 		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys);
 		assert_eq!(NotaryKeys::<Test>::get(), next_keys);
@@ -1117,7 +1117,7 @@ fn on_before_session_ending_handles_authorities() {
 		assert!(NextAuthorityChange::<Test>::get().is_none());
 		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys);
 		assert!(NotaryKeys::<Test>::get().is_empty());
-		assert!(BridgePaused::<Test>::get());
+		assert!(EthBridge::bridge_paused());
 
 		// Item should be scheduled
 		let scheduled_block: BlockNumber = block_number + 75_u64;
@@ -1139,7 +1139,7 @@ fn on_before_session_ending_handles_authorities() {
 		);
 
 		// This should update all the storage items
-		assert!(!BridgePaused::<Test>::get());
+		assert!(!EthBridge::bridge_paused());
 		assert_eq!(NotarySetProofId::<Test>::get(), event_proof_id);
 		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
 		assert!(NextAuthorityChange::<Test>::get().is_none());
@@ -1184,16 +1184,16 @@ fn on_before_session_ending_handles_authorities_without_on_new_session() {
 		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 
 		// Item should be scheduled and bridge still paused
-		assert!(BridgePaused::<Test>::get());
+		assert!(EthBridge::bridge_paused());
 		let scheduled_block: BlockNumber = block_number + 75_u64;
 
 		// Block before scheduled should not unpause bridge
 		Scheduler::on_initialize((scheduled_block - 1_u64).into());
-		assert!(BridgePaused::<Test>::get());
+		assert!(EthBridge::bridge_paused());
 
 		// Scheduler unpauses bridge
 		Scheduler::on_initialize(scheduled_block.into());
-		assert!(!BridgePaused::<Test>::get());
+		assert!(!EthBridge::bridge_paused());
 	});
 }
 
@@ -1211,7 +1211,7 @@ fn scheduled_authorities_change_keeps_bridge_paused_if_manually_paused() {
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), true));
 		assert!(EthBridge::bridge_paused());
 		assert_eq!(
-			BridgePaused::get(),
+			BridgePaused::<Test>::get(),
 			BridgePauseStatus { manual_pause: true, authorities_change: false }
 		);
 
@@ -1222,7 +1222,7 @@ fn scheduled_authorities_change_keeps_bridge_paused_if_manually_paused() {
 			next_keys_iter.clone(),
 		);
 		// Next authority change not scheduled, not final session
-		assert!(EthBridge::next_authority_change().is_none());
+		assert!(NextAuthorityChange::<Test>::get().is_none());
 
 		// Block number as 2 triggers is_active_session_final = true
 		let block_number: BlockNumber = 100;
@@ -1230,12 +1230,12 @@ fn scheduled_authorities_change_keeps_bridge_paused_if_manually_paused() {
 
 		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
 		// changed in on_initialize
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 
 		// Item should be scheduled and bridge still paused with both manual and authorities change
 		assert!(EthBridge::bridge_paused());
 		assert_eq!(
-			BridgePaused::get(),
+			BridgePaused::<Test>::get(),
 			BridgePauseStatus { manual_pause: true, authorities_change: true }
 		);
 		let scheduled_block: BlockNumber = block_number + 75_u64;
@@ -1249,7 +1249,7 @@ fn scheduled_authorities_change_keeps_bridge_paused_if_manually_paused() {
 		// Bridge still paused due to manual pause
 		assert!(EthBridge::bridge_paused());
 		assert_eq!(
-			BridgePaused::get(),
+			BridgePaused::<Test>::get(),
 			BridgePauseStatus { manual_pause: true, authorities_change: false }
 		);
 	});
@@ -1301,7 +1301,7 @@ fn force_new_era_with_scheduled_authority_change_works() {
 		// changed in on_initialize
 		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		// Item should be scheduled and bridge still paused
-		assert!(BridgePaused::<Test>::get());
+		assert!(EthBridge::bridge_paused());
 
 		// Call on_new_session while is_active_session_final is true due to force
 		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
@@ -1321,7 +1321,7 @@ fn force_new_era_with_scheduled_authority_change_works() {
 
 		// Scheduler unpauses bridge
 		Scheduler::on_initialize(scheduled_block.into());
-		assert!(!BridgePaused::<Test>::get());
+		assert!(!EthBridge::bridge_paused());
 
 		// Keys updated with the correct value
 		assert_eq!(
@@ -1362,7 +1362,7 @@ fn last_session_change() {
 
 		// current session is last in era: starting
 		EthBridge::handle_authorities_change();
-		assert!(BridgePaused::<Test>::get());
+		assert!(EthBridge::bridge_paused());
 		// current session is last in era: finishing
 		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		assert_eq!(NotaryKeys::<Test>::get(), next_keys);
@@ -1375,7 +1375,7 @@ fn last_session_change() {
 				proof_threshold: 4 // ceil(5 * 0.66)
 			}
 		);
-		assert!(!BridgePaused::<Test>::get());
+		assert!(!EthBridge::bridge_paused());
 	});
 }
 
@@ -1524,24 +1524,24 @@ fn delayed_event_proof_updates_validator_set_id_on_last_minute_authorities_chang
 			next_keys_iter.clone(),
 			next_keys_iter.clone(),
 		);
-		let next_validator_set_id = EthBridge::notary_set_id() + 1;
+		let next_validator_set_id = NotarySetId::<Test>::get() + 1;
 
 		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
 		// changed in on_initialize
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 
 		// Bridge paused due to authorities change
 		assert!(EthBridge::bridge_paused());
 		assert_eq!(
-			BridgePaused::get(),
+			BridgePaused::<Test>::get(),
 			BridgePauseStatus { manual_pause: false, authorities_change: true }
 		);
 
-		let event_proof_id = EthBridge::next_event_proof_id();
+		let event_proof_id = NextEventProofId::<Test>::get();
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
 			destination: destination.clone(),
-			message: message.to_vec(),
+			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: EthBridge::validator_set().id,
 			event_proof_id,
 		});
@@ -1549,8 +1549,8 @@ fn delayed_event_proof_updates_validator_set_id_on_last_minute_authorities_chang
 		// Generate event proof
 		assert_ok!(EthBridge::send_event(&source, &destination, &message));
 		// Ensure event has been added to delayed claims
-		assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof_info));
-		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+		assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
+		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
 
 		// Finalise authorities change by calling scheduled block
 		let block_number = frame_system::Pallet::<Test>::block_number();
@@ -1558,23 +1558,19 @@ fn delayed_event_proof_updates_validator_set_id_on_last_minute_authorities_chang
 		Scheduler::on_initialize(scheduled_block.into());
 
 		// validator_set_id now updated
-		assert_eq!(EthBridge::notary_set_id(), next_validator_set_id);
+		assert_eq!(NotarySetId::<Test>::get(), next_validator_set_id);
 		assert!(!EthBridge::bridge_paused());
 
 		// initialize pallet and initiate event proof
-		let expected_weight: Weight = DbWeight::get().reads(3u64) + DbWeight::get().writes(2u64);
-		assert_eq!(
-			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
-			expected_weight
-		);
+		EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1);
 		// Ensure event has been removed from delayed claims
-		assert!(EthBridge::pending_event_proofs(event_proof_id).is_none());
+		assert!(PendingEventProofs::<Test>::get(event_proof_id).is_none());
 
 		// check event is thrown with the correct validator_set_id
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
 			destination: destination.clone(),
-			message: message.to_vec(),
+			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: next_validator_set_id, // Updated validator set id
 			event_proof_id,
 		});
@@ -1601,7 +1597,7 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 			(&default_account, AuthorityId::from_slice(&[4_u8; 33]).unwrap()),
 		]
 		.into_iter();
-		let next_validator_set_id = EthBridge::notary_set_id() + 1;
+		let next_validator_set_id = NotarySetId::<Test>::get() + 1;
 
 		let block_number: BlockNumber = 100;
 		System::set_block_number(block_number.into());
@@ -1611,25 +1607,25 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 			next_keys_iter.clone(),
 			next_keys_iter.clone(),
 		);
-		assert_eq!(EthBridge::next_notary_keys(), next_keys.clone());
+		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys.clone());
 
-		let event_proof_id = EthBridge::next_event_proof_id();
+		let event_proof_id = NextEventProofId::<Test>::get();
 		// Now call on_initialise with the expected block to check it gets processed correctly
-		let expected_block: BlockNumber = EthBridge::next_authority_change().unwrap();
+		let expected_block: BlockNumber = NextAuthorityChange::<Test>::get().unwrap();
 		EthBridge::on_initialize(expected_block.into());
 
 		// Bridge paused due to authorities change
 		assert!(EthBridge::bridge_paused());
 		assert_eq!(
-			BridgePaused::get(),
+			BridgePaused::<Test>::get(),
 			BridgePauseStatus { manual_pause: false, authorities_change: true }
 		);
 
-		let event_proof_id = EthBridge::next_event_proof_id();
+		let event_proof_id = NextEventProofId::<Test>::get();
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
 			destination: destination.clone(),
-			message: message.to_vec(),
+			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: EthBridge::validator_set().id,
 			event_proof_id,
 		});
@@ -1637,30 +1633,26 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 		// Generate event proof
 		assert_ok!(EthBridge::send_event(&source, &destination, &message));
 		// Ensure event has been added to delayed claims
-		assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof_info));
-		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+		assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
+		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
 
 		// Calling on_before_session_ending should now finalise authorities change
-		<Module<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 
 		// validator_set_id now updated
 		assert!(!EthBridge::bridge_paused());
-		assert_eq!(EthBridge::notary_set_id(), next_validator_set_id);
+		assert_eq!(NotarySetId::<Test>::get(), next_validator_set_id);
 
 		// initialize pallet and initiate event proof
-		let expected_weight: Weight = DbWeight::get().reads(3u64) + DbWeight::get().writes(2u64);
-		assert_eq!(
-			EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1),
-			expected_weight
-		);
+		EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1);
 		// Ensure event has been removed from delayed claims
-		assert!(EthBridge::pending_event_proofs(event_proof_id).is_none());
+		assert!(PendingEventProofs::<Test>::get(event_proof_id).is_none());
 
 		// check event is thrown with the correct validator_set_id
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
 			destination: destination.clone(),
-			message: message.to_vec(),
+			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: next_validator_set_id, // Updated validator set id
 			event_proof_id,
 		});
@@ -2460,14 +2452,14 @@ fn test_submit_event_replay_check() {
 fn pause_bridge_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Check initial state
-		assert_eq!(BridgePaused::<Test>::get(), false);
+		assert!(!EthBridge::bridge_paused());
 
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), true));
-		assert_eq!(BridgePaused::<Test>::get(), true);
+		assert!(EthBridge::bridge_paused());
 
 		// And unpause again
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), false));
-		assert_eq!(BridgePaused::<Test>::get(), false);
+		assert!(!EthBridge::bridge_paused());
 	});
 }
 
@@ -2600,7 +2592,7 @@ fn notary_xrpl_keys_unchanged_do_not_request_for_xrpl_proof() {
 		let eth_proof_id = NextEventProofId::<Test>::get();
 		// current session is last in era: starting
 		EthBridge::handle_authorities_change();
-		assert!(BridgePaused::<Test>::get());
+		assert!(EthBridge::bridge_paused());
 		assert_eq!(NotarySetProofId::<Test>::get(), eth_proof_id);
 		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
 
@@ -2621,7 +2613,7 @@ fn notary_xrpl_keys_unchanged_do_not_request_for_xrpl_proof() {
 		);
 		assert_eq!(NotaryXrplKeys::<Test>::get(), current_keys.clone());
 		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
-		assert!(!BridgePaused::<Test>::get());
+		assert!(!EthBridge::bridge_paused());
 	});
 }
 
@@ -2661,7 +2653,7 @@ fn notary_xrpl_keys_same_set_shuffled_do_not_request_for_xrpl_proof() {
 		let eth_proof_id = NextEventProofId::<Test>::get();
 		// current session is last in era: starting
 		EthBridge::handle_authorities_change();
-		assert!(BridgePaused::<Test>::get());
+		assert!(EthBridge::bridge_paused());
 		assert_eq!(NotarySetProofId::<Test>::get(), eth_proof_id);
 		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
 
@@ -2682,7 +2674,7 @@ fn notary_xrpl_keys_same_set_shuffled_do_not_request_for_xrpl_proof() {
 		);
 		assert_eq!(NotaryXrplKeys::<Test>::get(), next_keys.clone());
 		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
-		assert!(!BridgePaused::<Test>::get());
+		assert!(!EthBridge::bridge_paused());
 	});
 }
 
@@ -2726,7 +2718,7 @@ fn notary_xrpl_keys_changed_request_for_xrpl_proof() {
 		let eth_proof_id = NextEventProofId::<Test>::get();
 		// current session is last in era: starting
 		EthBridge::handle_authorities_change();
-		assert!(BridgePaused::<Test>::get());
+		assert!(EthBridge::bridge_paused());
 		assert_eq!(NotarySetProofId::<Test>::get(), eth_proof_id);
 		// Requested for xrpl proof since NotaryXrplKeys changed, XrplNotarySetProofId is
 		// (eth_proof_id + 1)
@@ -2749,7 +2741,7 @@ fn notary_xrpl_keys_changed_request_for_xrpl_proof() {
 		);
 		assert_eq!(NotaryXrplKeys::<Test>::get(), next_keys.clone());
 		assert_eq!(XrplNotarySetProofId::<Test>::get(), eth_proof_id + 1);
-		assert!(!BridgePaused::<Test>::get());
+		assert!(!EthBridge::bridge_paused());
 	});
 }
 
@@ -2803,7 +2795,7 @@ fn notary_xrpl_keys_removed_request_for_xrpl_proof() {
 		let eth_proof_id = NextEventProofId::<Test>::get();
 		// current session is last in era: starting
 		EthBridge::handle_authorities_change();
-		assert!(BridgePaused::<Test>::get());
+		assert!(EthBridge::bridge_paused());
 		assert_eq!(NotarySetProofId::<Test>::get(), eth_proof_id);
 		// Requested for xrpl proof since NotaryXrplKeys changed, XrplNotarySetProofId is
 		// (eth_proof_id + 1)
@@ -2830,6 +2822,6 @@ fn notary_xrpl_keys_removed_request_for_xrpl_proof() {
 		);
 		assert_eq!(NotaryXrplKeys::<Test>::get(), keys_filtered.clone());
 		assert_eq!(XrplNotarySetProofId::<Test>::get(), eth_proof_id + 1);
-		assert!(!BridgePaused::<Test>::get());
+		assert!(!EthBridge::bridge_paused());
 	});
 }

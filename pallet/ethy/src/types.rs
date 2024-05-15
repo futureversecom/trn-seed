@@ -106,13 +106,6 @@ pub struct BridgePauseStatus {
 	pub authorities_change: bool,
 }
 
-impl BridgePauseStatus {
-	/// Whether the bridge is paused
-	pub fn is_paused(&self) -> bool {
-		self.manual_pause || self.authorities_change
-	}
-}
-
 #[derive(
 	RuntimeDebugNoBound,
 	Default,

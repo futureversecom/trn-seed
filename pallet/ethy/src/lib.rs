@@ -766,7 +766,7 @@ pub mod pallet {
 		#[pallet::weight(DbWeight::get().writes(1))]
 		pub fn set_bridge_paused(origin: OriginFor<T>, paused: bool) -> DispatchResult {
 			ensure_root(origin)?;
-			BridgePaused::mutate(|p| p.manual_pause = paused);
+			BridgePaused::<T>::mutate(|p| p.manual_pause = paused);
 			Self::deposit_event(Event::<T>::BridgeManualPause { paused });
 			Ok(())
 		}
