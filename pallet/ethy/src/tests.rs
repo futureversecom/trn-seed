@@ -1663,9 +1663,6 @@ fn delayed_event_proof() {
 		// initialize pallet and initiate event proof
 		let expected_weight: Weight =
 			DbWeight::get().reads(3u64) + DbWeight::get().reads_writes(2, 2);
-		let max_delayed_events = DelayedEventProofsPerBlock::<Test>::get() as u64;
-		let expected_weight: Weight =
-			DbWeight::get().reads(3u64) + DbWeight::get().reads_writes(2, 2);
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
@@ -1737,8 +1734,11 @@ fn delayed_event_proof_updates_validator_set_id_on_last_minute_authorities_chang
 		assert_eq!(NotarySetId::<Test>::get(), next_validator_set_id);
 		assert!(!EthBridge::bridge_paused());
 
-		// initialize pallet and initiate event proof
-		EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1);
+		// Call on_idle and initiate event proof
+		EthBridge::on_idle(
+			frame_system::Pallet::<Test>::block_number() + 1,
+			Weight::from_ref_time(1_000_000_000_000),
+		);
 		// Ensure event has been removed from delayed claims
 		assert!(PendingEventProofs::<Test>::get(event_proof_id).is_none());
 
@@ -1785,7 +1785,6 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 		);
 		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys.clone());
 
-		let event_proof_id = NextEventProofId::<Test>::get();
 		// Now call on_initialise with the expected block to check it gets processed correctly
 		let expected_block: BlockNumber = NextAuthorityChange::<Test>::get().unwrap();
 		EthBridge::on_initialize(expected_block.into());
@@ -1819,8 +1818,11 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 		assert!(!EthBridge::bridge_paused());
 		assert_eq!(NotarySetId::<Test>::get(), next_validator_set_id);
 
-		// initialize pallet and initiate event proof
-		EthBridge::on_initialize(frame_system::Pallet::<Test>::block_number() + 1);
+		// call on_idle and initiate event proof
+		EthBridge::on_idle(
+			frame_system::Pallet::<Test>::block_number() + 1,
+			Weight::from_ref_time(1_000_000_000_000),
+		);
 		// Ensure event has been removed from delayed claims
 		assert!(PendingEventProofs::<Test>::get(event_proof_id).is_none());
 
@@ -1920,8 +1922,7 @@ fn on_idle_limits_processing() {
 		let message = &b"hello world"[..];
 		let source = H160::from_low_u64_be(444);
 		let destination = H160::from_low_u64_be(555);
-		BridgePaused::<Test>::put(true);
-		assert_eq!(BridgePaused::<Test>::get(), true);
+		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), true));
 
 		let max_delayed_events = DelayedEventProofsPerBlock::<Test>::get();
 		let event_count: u8 = max_delayed_events;
@@ -1946,7 +1947,7 @@ fn on_idle_limits_processing() {
 		}
 
 		// Re-enable bridge
-		BridgePaused::<Test>::kill();
+		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), false));
 
 		// Call on_idle with only enough weight to process 2 claims
 		let claims_to_process = 2;
@@ -2000,8 +2001,7 @@ fn on_idle_no_remaining_weight_is_noop() {
 		let message = &b"hello world"[..];
 		let source = H160::from_low_u64_be(444);
 		let destination = H160::from_low_u64_be(555);
-		BridgePaused::<Test>::put(true);
-		assert_eq!(BridgePaused::<Test>::get(), true);
+		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), true));
 
 		let max_delayed_events = DelayedEventProofsPerBlock::<Test>::get();
 		let event_count: u8 = max_delayed_events * 2;
@@ -2026,7 +2026,7 @@ fn on_idle_no_remaining_weight_is_noop() {
 		}
 
 		// Re-enable bridge
-		BridgePaused::<Test>::kill();
+		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), false));
 		// Calling on_idle with not enough weight to process one claim should do nothing
 		let minimum_weight: Weight =
 			DbWeight::get().reads(3u64) + DbWeight::get().reads_writes(2, 2);

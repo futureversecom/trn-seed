@@ -123,10 +123,10 @@ benchmarks! {
 	set_bridge_paused {
 		let paused = true;
 		// Sanity check
-		assert_eq!(BridgePaused::<T>::get(), !paused);
+		assert!(!EthBridge::<T>::bridge_paused());
 	}: _(RawOrigin::Root, paused)
 	verify {
-		assert_eq!(BridgePaused::<T>::get(), paused);
+		assert!(EthBridge::<T>::bridge_paused());
 	}
 
 	finalise_authorities_change {
@@ -249,10 +249,9 @@ benchmarks! {
 		NextNotaryKeys::<T>::put(next_notary_keys);
 
 		NextAuthorityChange::<T>::put(T::BlockNumber::default());
-		BridgePaused::<T>::put(false);
 	}: {crate::Pallet::<T>::handle_authorities_change()}
 	verify {
-		assert!(BridgePaused::<T>::get());
+		assert!(EthBridge::<T>::bridge_paused());
 		assert_eq!(NextAuthorityChange::<T>::get(), None);
 	}
 }
