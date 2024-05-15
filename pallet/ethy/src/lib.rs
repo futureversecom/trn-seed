@@ -73,7 +73,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 mod types;
-use types::*;
+pub use types::*;
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
