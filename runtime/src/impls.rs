@@ -590,9 +590,8 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		// Check if the futurepass account has balance less than the existential deposit
 		// If it does, fund with the ED to allow the Futurepass to reserve balance while still
 		// keeping the account alive
-		let account_balance =
-			pallet_assets_ext::Pallet::<Test>::balance(MOCK_NATIVE_ASSET_ID, &futurepass);
-		let minimum_balance = ExistentialDeposit::get();
+		let account_balance = pallet_balances::Pallet::<Runtime>::balance(&futurepass);
+		let minimum_balance = crate::ExistentialDeposit::get();
 		if account_balance < minimum_balance {
 			extra_reserve_required = extra_reserve_required.saturating_add(minimum_balance);
 		}

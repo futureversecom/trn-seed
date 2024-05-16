@@ -32,6 +32,17 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_vortex`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_vortex::WeightInfo for WeightInfo<T> {
+	/// Storage: `VortexDistribution::AdminAccount` (r:0 w:1)
+	/// Proof: `VortexDistribution::AdminAccount` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
+	fn set_admin() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 7_314_000 picoseconds.
+		Weight::from_parts(7_775_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// Storage: `VortexDistribution::NextVortexId` (r:1 w:1)
 	/// Proof: `VortexDistribution::NextVortexId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `VortexDistribution::VtxDistStatuses` (r:0 w:1)
