@@ -256,9 +256,6 @@ const OWNABLE_ABI = [
   "function transferOwnership(address owner)",
 ];
 
-export const FEE_PROXY_ABI_DEPRECATED = [
-  "function callWithFeePreferences(address asset, uint128 maxPayment, address target, bytes input)",
-];
 export const FEE_PROXY_ABI = ["function callWithFeePreferences(address asset, address target, bytes input)"];
 
 export const ERC20_ABI = [
