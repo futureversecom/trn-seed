@@ -129,7 +129,7 @@ impl WitnessRecord {
 		}
 		.unwrap_or(0_usize);
 
-		trace!(target: "ethy", "💎 event {:?}, has # support: {:?}", event_id, witness_count);
+		trace!(target: "ethy", "💎 event {:?}, has # support: {:?}, proof threshold: {:?}", event_id, witness_count, proof_threshold);
 		witness_count >= proof_threshold
 	}
 
@@ -291,7 +291,7 @@ fn compact_sequence(completed_events: &mut [EventProofId]) -> &[EventProofId] {
 			watermark_idx = i + 1;
 			continue
 		} else {
-			break
+			break // Note - fix the algo
 		}
 	}
 
@@ -337,6 +337,7 @@ pub(crate) mod test {
 			validator_set_id: 5_u64,
 			authority_id: validator.public(),
 			signature: keystore.sign_prehashed(&validator.public(), &digest).unwrap(),
+			block_number: 0,
 		}
 	}
 

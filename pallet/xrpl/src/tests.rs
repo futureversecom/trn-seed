@@ -18,6 +18,7 @@ use crate::{mock::*, types::*};
 use frame_support::{assert_noop, assert_ok, error::BadOrigin, traits::fungibles::Mutate};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::AccountId20;
+use sp_core::{ecdsa, ed25519};
 
 mod self_contained_call {
 	use super::*;
@@ -178,7 +179,7 @@ mod self_contained_call {
 	// TODO Fix this once e2e tests are building
 	#[ignore]
 	#[test]
-	fn system_remark_extrinsic_from_message_success() {
+	fn ecdsa_system_remark_extrinsic_from_message_success() {
 		TestExt::<Test>::default()
 			.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), 0)]) // create XRP asset
 			.build()
@@ -219,9 +220,83 @@ mod self_contained_call {
 				// verify the event was emitted for successful extrinsic with nested system remark call
 				System::assert_has_event(
 					Event::XRPLExtrinsicExecuted {
-						public_key: [2,80,149,64,145,159,170,207,154,181,33,70,201,170,64,219,104,23,45,131,119,114,80,178,142,70,121,23,110,73,204,221,159],
+						public_key: XrplPublicKey::ECDSA(ecdsa::Public([2,80,149,64,145,159,170,207,154,181,33,70,201,170,64,219,104,23,45,131,119,114,80,178,142,70,121,23,110,73,204,221,159])),
 						caller,
 						r_address: "rDyqBotBNJeXv8PBHY18ABjyw6FQuWXQnu".to_string(),
+						call: mock::RuntimeCall::System(frame_system::Call::remark { remark: b"Mischief Managed".to_vec() }),
+					}.into(),
+				);
+
+				// verify extrinsic success event
+				System::assert_last_event(mock::RuntimeEvent::System(
+					frame_system::Event::ExtrinsicSuccess {
+						dispatch_info: DispatchInfo {
+							weight: Weight::from_all(311_960_000),
+							class: DispatchClass::Normal,
+							pays_fee: Pays::Yes,
+						},
+					},
+				));
+
+				// validate account nonce is incremented
+				assert_eq!(System::account_nonce(&caller), 1);
+
+				// validate account balance is decremented
+				assert!(Assets::balance(XRP_ASSET_ID, &caller) < balance_before);
+
+				// validate the same extrinsic will fail (nonce mismatch) - preventing replays
+				assert_err!(
+					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
+					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
+				);
+  		});
+	}
+
+	#[test]
+	fn ed25519_system_remark_extrinsic_from_message_success() {
+		TestExt::<Test>::default()
+			.with_asset(XRP_ASSET_ID, "XRP", &[(alice(), 0)]) // create XRP asset
+			.build()
+			.execute_with(|| {
+				let call = mock::RuntimeCall::System(frame_system::Call::remark { remark: b"Mischief Managed".to_vec() });
+
+      	// encoded call for: genesis_hash = 0x0, nonce = 0, max_block_number = 5, tip = 0, extrinsic = System::remark
+				let tx_bytes = hex::decode("5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C25807321EDFB2A3A850B43E24D2700532EF1F9CCB2475DFF4F62B634B0C58845F23C26396581145116224CEF7355137BEBBA8E277A9BE18E0596E7F9EA7C0965787472696E7369637D87303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303A303A353A303A33623832663037383031653632636437383966316233636333353936383236313436613163353136666165613766633633333263643362323563646666316331E1F1").unwrap();
+				let signature = hex::decode("7B1FBDAC5A646259451329E9D57DD4C1D5AF5970F46232E893408001E762E9DB68E30E9E9D023229EAA290ACB6AFF1D527025161C7649DC61366C0574AC07A02").unwrap();
+
+				// fund the user with XRP (to pay for tx fees)
+				let tx = XRPLTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
+				let caller: AccountId20 = tx.get_account().unwrap().into();
+				assert_ok!(AssetsExt::mint_into(2, &caller, 2_000_000));
+
+				let balance_before = Assets::balance(XRP_ASSET_ID, &caller);
+
+				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::transact {
+					encoded_msg: BoundedVec::truncate_from(tx_bytes.clone()),
+					signature: BoundedVec::truncate_from(signature.clone()),
+					call: Box::new(call.clone()),
+				}));
+
+				// validate self contained extrinsic fails if block_number is exceeded
+				System::set_block_number(10);
+				assert_err!(
+					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
+					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
+				);
+
+				// reset block number, extrinsic validation should pass now
+				System::set_block_number(1);
+				assert_ok!(Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()));
+
+				// execute the extrinsic with the provided signed extras
+				assert_ok!(Executive::apply_extrinsic(xt.clone()));
+
+				// verify the event was emitted for successful extrinsic with nested system remark call
+				System::assert_has_event(
+					Event::XRPLExtrinsicExecuted {
+						public_key: XrplPublicKey::ED25519(ed25519::Public([251,42,58,133,11,67,226,77,39,0,83,46,241,249,204,178,71,93,255,79,98,182,52,176,197,136,69,242,60,38,57,101])),
+						caller,
+						r_address: "r3PkESDrGaZHHPNLzJP1Uhki1yq94XTBSr".to_string(),
 						call: mock::RuntimeCall::System(frame_system::Call::remark { remark: b"Mischief Managed".to_vec() }),
 					}.into(),
 				);

@@ -39,7 +39,7 @@ impl_pallet_sft_config!(Test);
 
 parameter_types! {
 	pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
-	pub const DefaultListingDuration: u64 = 5;
+	pub const DefaultListingDuration: u64 = 100;
 	pub const MaxOffers: u32 = 10;
 	pub const MaxTokensPerListing: u32 = 100;
 	pub const MaxListingsPerMultiBuy: u32 = 100;
