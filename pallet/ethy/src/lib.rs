@@ -178,7 +178,8 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxNewSigners: Get<u8>;
 		/// Handles a multi-currency fungible asset system
-		type MultiCurrency: Mutate<Self::AccountId> + Hold<AccountId = Self::AccountId>;
+		type MultiCurrency: Mutate<Self::AccountId, Balance = Balance, AssetId = AssetId>
+			+ Hold<AccountId = Self::AccountId>;
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
 		type NativeAssetId: Get<AssetId>;
@@ -627,7 +628,7 @@ pub mod pallet {
 			consumed_weight
 		}
 
-		fn on_idle(_n: T::BlockNumber, remaining_weight: Weight) -> Weight {
+		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			// Minimum weight to read the initial values:
 			// - BridgePaused, PendingEventProofs, DelayedEventProofsPerBlock
 			let base_weight = DbWeight::get().reads(3u64);

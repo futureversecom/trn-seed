@@ -192,7 +192,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		ensure!(!PendingEventClaims::<T>::contains_key(event_id), Error::<T>::EventReplayPending);
 
-		let process_at: T::BlockNumber =
+		let process_at: BlockNumberFor<T> =
 			<frame_system::Pallet<T>>::block_number() + ChallengePeriod::<T>::get();
 		MessagesValidAt::<T>::try_mutate(process_at.clone(), |v| -> DispatchResult {
 			v.try_push(event_id).map_err(|_| Error::<T>::MessageTooLarge)?;

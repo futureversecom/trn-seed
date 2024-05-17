@@ -1662,7 +1662,7 @@ fn delayed_event_proof() {
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
-				Weight::from_ref_time(1_000_000_000_000)
+				Weight::from_all(1_000_000_000_000)
 			),
 			expected_weight
 		);
@@ -1733,7 +1733,7 @@ fn delayed_event_proof_updates_validator_set_id_on_last_minute_authorities_chang
 		// Call on_idle and initiate event proof
 		EthBridge::on_idle(
 			frame_system::Pallet::<Test>::block_number() + 1,
-			Weight::from_ref_time(1_000_000_000_000),
+			Weight::from_all(1_000_000_000_000),
 		);
 		// Ensure event has been removed from delayed claims
 		assert!(PendingEventProofs::<Test>::get(event_proof_id).is_none());
@@ -1817,7 +1817,7 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 		// call on_idle and initiate event proof
 		EthBridge::on_idle(
 			frame_system::Pallet::<Test>::block_number() + 1,
-			Weight::from_ref_time(1_000_000_000_000),
+			Weight::from_all(1_000_000_000_000),
 		);
 		// Ensure event has been removed from delayed claims
 		assert!(PendingEventProofs::<Test>::get(event_proof_id).is_none());
@@ -1876,7 +1876,7 @@ fn multiple_delayed_event_proof() {
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
-				Weight::from_ref_time(1_000_000_000_000)
+				Weight::from_all(1_000_000_000_000)
 			),
 			expected_weight
 		);
@@ -1900,7 +1900,7 @@ fn multiple_delayed_event_proof() {
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
-				Weight::from_ref_time(1_000_000_000_000)
+				Weight::from_all(1_000_000_000_000)
 			),
 			expected_weight
 		);
@@ -1952,7 +1952,7 @@ fn on_idle_limits_processing() {
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
-				expected_weight + Weight::from_ref_time(1)
+				expected_weight + Weight::from_all(1)
 			),
 			expected_weight
 		);
@@ -1979,7 +1979,7 @@ fn on_idle_limits_processing() {
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
-				Weight::from_ref_time(1_000_000_000_000)
+				Weight::from_all(1_000_000_000_000)
 			),
 			expected_weight
 		);
@@ -2028,7 +2028,7 @@ fn on_idle_no_remaining_weight_is_noop() {
 			DbWeight::get().reads(3u64) + DbWeight::get().reads_writes(2, 2);
 		assert_eq!(
 			EthBridge::on_idle(frame_system::Pallet::<Test>::block_number() + 1, minimum_weight),
-			Weight::from_ref_time(0)
+			Weight::from_all(0)
 		);
 
 		// All PendingEventProofs should still be present
@@ -2081,7 +2081,7 @@ fn set_delayed_event_proofs_per_block() {
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
-				Weight::from_ref_time(1_000_000_000_000)
+				Weight::from_all(1_000_000_000_000)
 			),
 			expected_weight
 		);

@@ -1889,13 +1889,13 @@ dependencies = [
 
 [[package]]
 name = "ethy-gadget"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "ethabi",
  "futures",
  "futures-timer",
  "hex",
- "hex-literal 0.4.1",
+ "hex-literal 0.3.4",
  "libsecp256k1 0.6.0",
  "log",
  "parity-scale-codec",
@@ -5601,6 +5601,7 @@ version = "1.0.1"
 dependencies = [
  "ethabi",
  "ethereum-types 0.14.1",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
@@ -9026,7 +9027,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "5.0.0"
+version = "7.0.0"
 dependencies = [
  "clap",
  "ethy-gadget",
