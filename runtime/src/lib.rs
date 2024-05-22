@@ -29,6 +29,7 @@ use codec::{Decode, Encode};
 use core::ops::Mul;
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
+use frame_support::{ord_parameter_types, traits::EitherOfDiverse};
 use pallet_dex::TradingPairStatus;
 use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
@@ -80,7 +81,7 @@ pub use frame_support::{
 
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot,
+	EnsureRoot, EnsureSignedBy,
 };
 pub use pallet_grandpa::AuthorityId as GrandpaId;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
@@ -429,6 +430,33 @@ impl pallet_nft::Config for Runtime {
 	type StringLimit = CollectionNameStringLimit;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
+}
+
+ord_parameter_types! {
+	pub const ApproveAdmin: AccountId = AccountId::from(hex_literal::hex!("E5B42cb91a16C8f8a0F4e04E8017d0be6EC5e3DA"));
+}
+parameter_types! {
+	pub const LiquidityPoolsPalletId: PalletId = PalletId(*b"lqdpools");
+	pub const LiquidityPoolsUnsignedInterval: BlockNumber = MINUTES / 2;
+	/// How many users to rollover at a block time
+	pub const RolloverBatchSize: u32 = 99;
+	pub const InterestRateBasePoint: u32 = 1_000_000;
+}
+impl pallet_liquidity_pools::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PoolId = u32;
+	type ApproveOrigin =
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<ApproveAdmin, AccountId>>;
+	type Currency = Balances;
+	type Assets = AssetsExt;
+	type ApproveAdmin = ApproveAdmin;
+	type NativeAssetId = RootAssetId;
+	type PalletId = LiquidityPoolsPalletId;
+	type UnsignedInterval = LiquidityPoolsUnsignedInterval;
+	type RolloverBatchSize = RolloverBatchSize;
+	type MaxStringLength = MaxStringLength;
+	type InterestRateBasePoint = InterestRateBasePoint;
+	type WeightInfo = weights::pallet_liquidity_pools::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1387,6 +1415,7 @@ construct_runtime! {
 		Doughnut: pallet_doughnut = 48,
 		MaintenanceMode: pallet_maintenance_mode = 47,
 		Crowdsale: pallet_crowdsale = 49,
+		LiquidityPools: pallet_liquidity_pools = 50,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -2176,6 +2205,8 @@ mod benches {
 		[pallet_futurepass, Futurepass]
 		[pallet_vortex, VortexDistribution]
 		[pallet_dex, Dex]
+		[pallet_maintenance_mode, MaintenanceMode]
+		[pallet_liquidity_pools, LiquidityPools]
 		[pallet_marketplace, Marketplace]
 		[pallet_doughnut, Doughnut]
 		[pallet_maintenance_mode, MaintenanceMode]

@@ -30,6 +30,7 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions for `pallet_marketplace`.
 pub struct WeightInfo<T>(PhantomData<T>);
+
 impl<T: frame_system::Config> pallet_marketplace::WeightInfo for WeightInfo<T> {
 	// Storage: Marketplace NextMarketplaceId (r:1 w:1)
 	// Storage: Marketplace RegisteredMarketplaces (r:0 w:1)
