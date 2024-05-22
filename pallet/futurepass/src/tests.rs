@@ -24,10 +24,10 @@ use sp_runtime::traits::Hash;
 type MockCall = crate::mock::RuntimeCall;
 
 // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
-// + 1 for Existential deposit of funder
+// + 1 for Existential deposit of the Futurepass
 const FP_CREATION_RESERVE: Balance = 148 + 126 + 1;
-// ProxyDepositFactor * 1(num of delegates) + Existential Deposit
-const FP_DELEGATE_RESERVE: Balance = 126 * 1 + 1;
+// ProxyDepositFactor * 1(num of delegates)
+const FP_DELEGATE_RESERVE: Balance = 126 * 1;
 
 fn transfer_funds(asset_id: AssetId, source: &AccountId, destination: &AccountId, amount: Balance) {
 	assert_ok!(<AssetsExt as Mutate<AccountId>>::transfer(
@@ -64,6 +64,15 @@ fn create_futurepass_by_owner() {
 			// fund owner
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_CREATION_RESERVE + 1);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_CREATION_RESERVE + 1);
+			assert_eq!(
+				AssetsExt::reducible_balance(
+					MOCK_NATIVE_ASSET_ID,
+					&owner,
+					Preservation::Preserve,
+					Fortitude::Polite
+				),
+				FP_CREATION_RESERVE
+			);
 
 			let futurepass_addr = AccountId::from(hex!("ffffffff00000000000000000000000000000001"));
 			assert_eq!(<Test as Config>::Proxy::owner(&futurepass_addr), None);
@@ -79,6 +88,28 @@ fn create_futurepass_by_owner() {
 			let futurepass = Holders::<Test>::get(&owner).unwrap();
 			assert!(<Test as Config>::Proxy::exists(&futurepass, &owner, Some(ProxyType::Owner)));
 			assert_eq!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), owner);
+
+			// balances check
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 1); // only the extra ED
+			assert_eq!(
+				AssetsExt::reducible_balance(
+					MOCK_NATIVE_ASSET_ID,
+					&owner,
+					Preservation::Preserve,
+					Fortitude::Polite
+				),
+				0
+			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &futurepass), 1); // only the extra ED component in FP_CREATION_RESERVE
+			assert_eq!(
+				AssetsExt::reducible_balance(
+					MOCK_NATIVE_ASSET_ID,
+					&futurepass,
+					Preservation::Preserve,
+					Fortitude::Polite
+				),
+				0
+			);
 
 			// try to create futurepass for the owner again should result error
 			assert_noop!(
@@ -511,7 +542,7 @@ fn unregister_delegate_by_owner_works() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE + 1, // extra 1 is for the ED of owner
 			);
 			// create FP
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
@@ -562,7 +593,16 @@ fn unregister_delegate_by_owner_works() {
 			);
 
 			// check the reserved amount has been received by the caller. i.e the owner
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE + 1);
+			assert_eq!(
+				AssetsExt::reducible_balance(
+					MOCK_NATIVE_ASSET_ID,
+					&owner,
+					Preservation::Preserve,
+					Fortitude::Polite
+				),
+				FP_DELEGATE_RESERVE
+			);
 
 			// check delegate is not a proxy of futurepass
 			assert_eq!(
@@ -592,7 +632,7 @@ fn unregister_delegate_by_the_delegate_works() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE + 1,
 			);
 			// create FP
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
@@ -634,10 +674,7 @@ fn unregister_delegate_by_the_delegate_works() {
 				Event::<Test>::DelegateUnregistered { futurepass, delegate }.into(),
 			);
 			// check the reserved amount has been received by the caller. i.e the delegate
-			assert_eq!(
-				AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate),
-				FP_DELEGATE_RESERVE - ExistentialDeposit::get()
-			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate), FP_DELEGATE_RESERVE);
 
 			// check delegate is not a proxy of futurepass
 			assert_eq!(
@@ -670,7 +707,7 @@ fn unregister_delegate_by_not_permissioned_fails() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + 2 * FP_DELEGATE_RESERVE,
+				FP_CREATION_RESERVE + 2 * FP_DELEGATE_RESERVE + 1, // extra ED is for the owner
 			);
 			// create FP
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
@@ -788,7 +825,7 @@ fn unregister_delegate_failures_common() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE + 1,
 			);
 			// create FP
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
@@ -862,7 +899,7 @@ fn transfer_futurepass_to_address_works() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE + 1,
 			);
 			// create FP
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
@@ -938,7 +975,15 @@ fn transfer_futurepass_to_address_works() {
 				false,
 			);
 			// caller(the owner) should receive the reserved balance diff
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 2 * FP_DELEGATE_RESERVE);
+			assert_eq!(
+				AssetsExt::reducible_balance(
+					MOCK_NATIVE_ASSET_ID,
+					&owner,
+					Preservation::Preserve,
+					Fortitude::Polite
+				),
+				2 * FP_DELEGATE_RESERVE
+			);
 		});
 }
 
@@ -962,10 +1007,15 @@ fn transfer_futurepass_to_none_works() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE + 1,
 			);
 			assert_eq!(
-				AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner),
+				AssetsExt::reducible_balance(
+					MOCK_NATIVE_ASSET_ID,
+					&owner,
+					Preservation::Preserve,
+					Fortitude::Polite
+				),
 				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE
 			);
 
@@ -1037,7 +1087,8 @@ fn transfer_futurepass_to_none_works() {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				),
-				400
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE - 1 /* ED from the futurepass will not
+				                                               * be received. */
 			);
 		});
 }
@@ -1063,7 +1114,7 @@ fn transfer_futurepass_failures() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE + 1,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
@@ -1136,7 +1187,7 @@ fn proxy_extrinsic_simple_transfer_works() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE + 1,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
@@ -1256,7 +1307,7 @@ fn proxy_extrinsic_non_transfer_call_works() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE + 1,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
@@ -1330,7 +1381,7 @@ fn proxy_extrinsic_by_non_delegate_fails() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE + 1,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
@@ -1423,7 +1474,7 @@ fn proxy_extrinsic_to_futurepass_non_whitelist_fails() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE + 1,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
@@ -1511,7 +1562,7 @@ fn proxy_extrinsic_to_proxy_pallet_fails() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE + 1,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
@@ -1601,7 +1652,7 @@ fn proxy_extrinsic_failures_common() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE + 1,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
