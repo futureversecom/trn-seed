@@ -4,126 +4,29 @@ import axios from "axios";
 import { expect } from "chai";
 import { utils } from "ethers";
 
-import { ALITH_PRIVATE_KEY, GAS_TOKEN_ID, NodeProcess, startNode, typedefs } from "../../common";
-
-const TOKEN_ID = 1124;
-
-export const rpc = {
-  dex: {
-    quote: {
-      description: "Returns the amount of output token that can be obtained by swapping an amount of input token",
-      params: [
-        {
-          name: "amountIn",
-          type: "u128",
-        },
-        {
-          name: "reserveIn",
-          type: "u128",
-        },
-        {
-          name: "reserveOut",
-          type: "u128",
-        },
-      ],
-      type: "Json",
-    },
-    getAmountsOut: {
-      description: "Returns the amount of output tokens that can be obtained by swapping an amount of inputs token",
-      params: [
-        {
-          name: "amountIn",
-          type: "Balance",
-        },
-        {
-          name: "path",
-          type: "Vec<AssetId>",
-        },
-      ],
-      type: "Json",
-    },
-    getAmountsIn: {
-      description: "Returns the amount of input tokens that can be obtained by swapping an amount of output token",
-      params: [
-        {
-          name: "amountOut",
-          type: "Balance",
-        },
-        {
-          name: "path",
-          type: "Vec<AssetId>",
-        },
-      ],
-      type: "Json",
-    },
-    getLPTokenID: {
-      description: "Returns the LP token ID from the given trading pair",
-      params: [
-        {
-          name: "assetIdA",
-          type: "AssetId",
-        },
-        {
-          name: "assetIdB",
-          type: "AssetId",
-        },
-      ],
-      type: "Json",
-    },
-    getLiquidity: {
-      description: "Returns the liquidity balances of the given trading pair",
-      params: [
-        {
-          name: "assetIdA",
-          type: "AssetId",
-        },
-        {
-          name: "assetIdB",
-          type: "AssetId",
-        },
-      ],
-      type: "Json",
-    },
-    getTradingPairStatus: {
-      description: "Returns the status of the given trading pair",
-      params: [
-        {
-          name: "assetIdA",
-          type: "AssetId",
-        },
-        {
-          name: "assetIdB",
-          type: "AssetId",
-        },
-      ],
-      type: "Json",
-    },
-  },
-};
+import { ALITH_PRIVATE_KEY, GAS_TOKEN_ID, NodeProcess, finalizeTx, getNextAssetId, rpcs, startNode, typedefs } from "../../common";
 
 describe("DexRPC", () => {
   let node: NodeProcess;
   let api: ApiPromise;
+  let tokenId: number;
 
   before(async () => {
     node = await startNode();
 
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
-    api = await ApiPromise.create({
-      provider: wsProvider,
-      types: typedefs,
-      rpc,
-    });
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
 
     const keyring = new Keyring({ type: "ethereum" });
     const alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
 
+    tokenId = await getNextAssetId(api);
     const txs = [
       api.tx.assetsExt.createAsset("test", "TEST", 18, 1, alith.address), // create asset
-      api.tx.assets.mint(TOKEN_ID, alith.address, utils.parseEther("1000000").toString()),
+      api.tx.assets.mint(tokenId, alith.address, utils.parseEther("1000000").toString()),
       api.tx.dex.addLiquidity(
         // provide liquidity
-        TOKEN_ID,
+        tokenId,
         GAS_TOKEN_ID,
         utils.parseEther("1000").toString(),
         250_000_000,
@@ -134,25 +37,13 @@ describe("DexRPC", () => {
       ),
     ];
 
-    await new Promise<void>((resolve, reject) => {
-      api.tx.utility
-        .batch(txs)
-        .signAndSend(alith, ({ status }) => {
-          if (status.isInBlock) {
-            console.log(`setup block hash: ${status.asInBlock}`);
-            resolve();
-          }
-        })
-        .catch((err) => reject(err));
-    });
-
-    console.log("done setting up dex liquidity.");
+    await finalizeTx(alith, api.tx.utility.batch(txs));
   });
 
   after(async () => node.stop());
 
   it("quote rpc works [http - axios]", async () => {
-    const httpResult = await axios.post(`http://localhost:${node.httpPort}`, {
+    const httpResult = await axios.post(`http://127.0.0.1:${node.rpcPort}`, {
       id: 1,
       jsonrpc: "2.0",
       method: "dex_quote",
@@ -171,11 +62,11 @@ describe("DexRPC", () => {
   });
 
   it("getAmountsOut rpc works [http - axios]", async () => {
-    const httpResult = await axios.post(`http://localhost:${node.httpPort}`, {
+    const httpResult = await axios.post(`http://127.0.0.1:${node.rpcPort}`, {
       id: 1,
       jsonrpc: "2.0",
       method: "dex_getAmountsOut",
-      params: [100, [GAS_TOKEN_ID, TOKEN_ID]],
+      params: [100, [GAS_TOKEN_ID, tokenId]],
     });
     expect(httpResult.status).to.eql(200);
     expect(httpResult.data).to.haveOwnProperty("result");
@@ -184,17 +75,17 @@ describe("DexRPC", () => {
   });
 
   it("getAmountsOut rpc works [library]", async () => {
-    const result = await (api.rpc as any).dex.getAmountsOut(100, [GAS_TOKEN_ID, TOKEN_ID]);
+    const result = await (api.rpc as any).dex.getAmountsOut(100, [GAS_TOKEN_ID, tokenId]);
     expect(result).to.haveOwnProperty("Ok");
     expect(result.Ok).to.eqls([100, 398799840958623]);
   });
 
   it("getAmountsIn rpc works [http - axios]", async () => {
-    const httpResult = await axios.post(`http://localhost:${node.httpPort}`, {
+    const httpResult = await axios.post(`http://127.0.0.1:${node.rpcPort}`, {
       id: 1,
       jsonrpc: "2.0",
       method: "dex_getAmountsIn",
-      params: [100, [TOKEN_ID, GAS_TOKEN_ID]],
+      params: [100, [tokenId, GAS_TOKEN_ID]],
     });
     expect(httpResult.status).to.eql(200);
     expect(httpResult.data).to.haveOwnProperty("result");
@@ -203,55 +94,51 @@ describe("DexRPC", () => {
   });
 
   it("getAmountsIn rpc works [library]", async () => {
-    const result = await (api.rpc as any).dex.getAmountsIn(100, [TOKEN_ID, GAS_TOKEN_ID]);
+    const result = await (api.rpc as any).dex.getAmountsIn(100, [tokenId, GAS_TOKEN_ID]);
     expect(result).to.haveOwnProperty("Ok");
     expect(result.Ok).to.eqls([401203771314007, 100]);
   });
 
   it("getLPTokenID rpc works [http - axios]", async () => {
-    const httpResult = await axios.post(`http://localhost:${node.httpPort}`, {
+    const httpResult = await axios.post(`http://127.0.0.1:${node.rpcPort}`, {
       id: 1,
       jsonrpc: "2.0",
       method: "dex_getLPTokenID",
-      params: [TOKEN_ID, GAS_TOKEN_ID],
+      params: [tokenId, GAS_TOKEN_ID],
     });
     expect(httpResult.status).to.eql(200);
     expect(httpResult.data).to.haveOwnProperty("result");
     expect(httpResult.data.result).to.haveOwnProperty("Ok");
-    expect(httpResult.data.result.Ok).to.eqls(2148);
   });
 
   it("getLPTokenID rpc works [library]", async () => {
-    const result = await (api.rpc as any).dex.getLPTokenID(TOKEN_ID, GAS_TOKEN_ID);
+    const result = await (api.rpc as any).dex.getLPTokenID(tokenId, GAS_TOKEN_ID);
     expect(result).to.haveOwnProperty("Ok");
-    expect(result.Ok).to.eqls(2148);
   });
 
   it("getLPTokenID with reversed trading pair rpc works [http - axios]", async () => {
-    const httpResult = await axios.post(`http://localhost:${node.httpPort}`, {
+    const httpResult = await axios.post(`http://127.0.0.1:${node.rpcPort}`, {
       id: 1,
       jsonrpc: "2.0",
       method: "dex_getLPTokenID",
-      params: [GAS_TOKEN_ID, TOKEN_ID],
+      params: [GAS_TOKEN_ID, tokenId],
     });
     expect(httpResult.status).to.eql(200);
     expect(httpResult.data).to.haveOwnProperty("result");
     expect(httpResult.data.result).to.haveOwnProperty("Ok");
-    expect(httpResult.data.result.Ok).to.eqls(2148);
   });
 
   it("getLPTokenID with reversed trading pair rpc works [library]", async () => {
-    const result = await (api.rpc as any).dex.getLPTokenID(GAS_TOKEN_ID, TOKEN_ID);
+    const result = await (api.rpc as any).dex.getLPTokenID(GAS_TOKEN_ID, tokenId);
     expect(result).to.haveOwnProperty("Ok");
-    expect(result.Ok).to.eqls(2148);
   });
 
   it("getLiquidity rpc works [http - axios]", async () => {
-    const httpResult = await axios.post(`http://localhost:${node.httpPort}`, {
+    const httpResult = await axios.post(`http://127.0.0.1:${node.rpcPort}`, {
       id: 1,
       jsonrpc: "2.0",
       method: "dex_getLiquidity",
-      params: [TOKEN_ID, GAS_TOKEN_ID],
+      params: [tokenId, GAS_TOKEN_ID],
     });
     expect(httpResult.status).to.eql(200);
     expect(httpResult.data).to.haveOwnProperty("result");
@@ -259,7 +146,7 @@ describe("DexRPC", () => {
   });
 
   it("getLiquidity rpc works [library]", async () => {
-    const result = await (api.rpc as any).dex.getLiquidity(TOKEN_ID, GAS_TOKEN_ID);
+    const result = await (api.rpc as any).dex.getLiquidity(tokenId, GAS_TOKEN_ID);
     expect(result).to.eqls(
       new Map<string, number>([
         ["0", 1000000000000000000000],
@@ -269,11 +156,11 @@ describe("DexRPC", () => {
   });
 
   it("getLiquidity with reversed trading pair rpc works [http - axios]", async () => {
-    const httpResult = await axios.post(`http://localhost:${node.httpPort}`, {
+    const httpResult = await axios.post(`http://127.0.0.1:${node.rpcPort}`, {
       id: 1,
       jsonrpc: "2.0",
       method: "dex_getLiquidity",
-      params: [GAS_TOKEN_ID, TOKEN_ID],
+      params: [GAS_TOKEN_ID, tokenId],
     });
     expect(httpResult.status).to.eql(200);
     expect(httpResult.data).to.haveOwnProperty("result");
@@ -281,7 +168,7 @@ describe("DexRPC", () => {
   });
 
   it("getLiquidity with reversed trading pair rpc works [library]", async () => {
-    const result = await (api.rpc as any).dex.getLiquidity(GAS_TOKEN_ID, TOKEN_ID);
+    const result = await (api.rpc as any).dex.getLiquidity(GAS_TOKEN_ID, tokenId);
     expect(result).to.eqls(
       new Map<string, number>([
         ["0", 250000000],
@@ -291,11 +178,11 @@ describe("DexRPC", () => {
   });
 
   it("getTradingPairStatus rpc works [http - axios]", async () => {
-    const httpResult = await axios.post(`http://localhost:${node.httpPort}`, {
+    const httpResult = await axios.post(`http://127.0.0.1:${node.rpcPort}`, {
       id: 1,
       jsonrpc: "2.0",
       method: "dex_getTradingPairStatus",
-      params: [TOKEN_ID, GAS_TOKEN_ID],
+      params: [tokenId, GAS_TOKEN_ID],
     });
     expect(httpResult.status).to.eql(200);
     expect(httpResult.data).to.haveOwnProperty("result");
@@ -303,26 +190,16 @@ describe("DexRPC", () => {
   });
 
   it("getTradingPairStatus rpc works [library]", async () => {
-    const result = await (api.rpc as any).dex.getTradingPairStatus(TOKEN_ID, GAS_TOKEN_ID);
-    expect(result).to.eqls(
-      new Map<string, string>([
-        ["0", "E"],
-        ["1", "n"],
-        ["2", "a"],
-        ["3", "b"],
-        ["4", "l"],
-        ["5", "e"],
-        ["6", "d"],
-      ]),
-    );
+    const result = await (api.rpc as any).dex.getTradingPairStatus(tokenId, GAS_TOKEN_ID);
+    expect(result.toString()).to.eql("Enabled");
   });
 
   it("getTradingPairStatus with reversed trading pair rpc works [http - axios]", async () => {
-    const httpResult = await axios.post(`http://localhost:${node.httpPort}`, {
+    const httpResult = await axios.post(`http://127.0.0.1:${node.rpcPort}`, {
       id: 1,
       jsonrpc: "2.0",
       method: "dex_getTradingPairStatus",
-      params: [GAS_TOKEN_ID, TOKEN_ID],
+      params: [GAS_TOKEN_ID, tokenId],
     });
     expect(httpResult.status).to.eql(200);
     expect(httpResult.data).to.haveOwnProperty("result");
@@ -330,17 +207,7 @@ describe("DexRPC", () => {
   });
 
   it("getTradingPairStatus with reversed trading pair rpc works [library]", async () => {
-    const result = await (api.rpc as any).dex.getTradingPairStatus(GAS_TOKEN_ID, TOKEN_ID);
-    expect(result).to.eqls(
-      new Map<string, string>([
-        ["0", "E"],
-        ["1", "n"],
-        ["2", "a"],
-        ["3", "b"],
-        ["4", "l"],
-        ["5", "e"],
-        ["6", "d"],
-      ]),
-    );
+    const result = await (api.rpc as any).dex.getTradingPairStatus(GAS_TOKEN_ID, tokenId);
+    expect(result.toString()).to.eql("Enabled");
   });
 });
