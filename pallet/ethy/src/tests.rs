@@ -1952,7 +1952,7 @@ fn on_idle_limits_processing() {
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
-				expected_weight + Weight::from_all(1)
+				expected_weight + Weight::from_parts(1, 1)
 			),
 			expected_weight
 		);
