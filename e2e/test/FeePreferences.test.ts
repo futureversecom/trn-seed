@@ -22,19 +22,19 @@ import {
   XRP_PRECOMPILE_ADDRESS,
   assetIdToERC20ContractAddress,
   finalizeTx,
+  getNextAssetId,
   rpcs,
   startNode,
   typedefs,
-} from "../../common";
-import { ERC20 } from "../../typechain-types";
-
-const FEE_TOKEN_ASSET_ID = 1124;
+} from "../common";
+import { ERC20 } from "../typechain-types";
 
 // Call an EVM transaction with fee preferences for an account that has zero native token balance,
 // ensuring that the preferred asset with liquidity is spent instead
 describe("Fee Preferences", function () {
   let node: NodeProcess;
 
+  let feeTokenAssetId: number;
   let api: ApiPromise;
   let alith: KeyringPair;
   let bob: KeyringPair;
@@ -47,25 +47,26 @@ describe("Fee Preferences", function () {
     node = await startNode();
 
     // Setup PolkadotJS rpc provider
-    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
     const keyring = new Keyring({ type: "ethereum" });
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
     bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
 
     // Setup JSON RPC provider
-    provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
+    feeTokenAssetId = await getNextAssetId(api);
+    provider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
     emptyAccountSigner = Wallet.createRandom().connect(provider);
     xrpERC20Precompile = new Contract(XRP_PRECOMPILE_ADDRESS, ERC20_ABI, emptyAccountSigner);
-    feeToken = new Contract(assetIdToERC20ContractAddress(FEE_TOKEN_ASSET_ID), ERC20_ABI, emptyAccountSigner) as ERC20;
+    feeToken = new Contract(assetIdToERC20ContractAddress(feeTokenAssetId), ERC20_ABI, emptyAccountSigner) as ERC20;
 
     // add liquidity for XRP<->token
-    const txes = [
+    const txs = [
       api.tx.assetsExt.createAsset("test", "TEST", 18, 1, alith.address),
-      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, alith.address, 2_000_000_000_000_000),
-      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, emptyAccountSigner.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(feeTokenAssetId, alith.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(feeTokenAssetId, emptyAccountSigner.address, 2_000_000_000_000_000),
       api.tx.dex.addLiquidity(
-        FEE_TOKEN_ASSET_ID,
+        feeTokenAssetId,
         GAS_TOKEN_ID,
         100_000_000_000,
         100_000_000_000,
@@ -75,7 +76,7 @@ describe("Fee Preferences", function () {
         null,
       ),
     ];
-    await finalizeTx(alith, api.tx.utility.batch(txes));
+    await finalizeTx(alith, api.tx.utility.batch(txs));
   });
 
   after(async () => await node.stop());
@@ -145,7 +146,7 @@ describe("Fee Preferences", function () {
     const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
     const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI_DEPRECATED, emptyAccountSigner);
     const gasEstimate = await feeToken.estimateGas.transfer(bob.address, transferAmount);
-    const { tokenCost, gasOverrides } = await calcPaymentAmounts(provider, FEE_TOKEN_ASSET_ID, gasEstimate); // default to min payment
+    const { tokenCost, gasOverrides } = await calcPaymentAmounts(provider, feeTokenAssetId, gasEstimate); // default to min payment
     const tx = await feeProxy
       .connect(emptyAccountSigner)
       .callWithFeePreferences(feeToken.address, 0, feeToken.address, transferInput, gasOverrides);
@@ -182,7 +183,7 @@ describe("Fee Preferences", function () {
     const gasEstimate = await feeToken.estimateGas.transfer(bob.address, transferAmount);
     const { tokenCost, gasOverrides } = await calcPaymentAmounts(
       provider,
-      FEE_TOKEN_ASSET_ID,
+      feeTokenAssetId,
       gasEstimate,
       fees.maxFeePerGas!, // adding priority fee to maxFeePerGas
     );
@@ -222,7 +223,7 @@ describe("Fee Preferences", function () {
     const gasEstimate = await feeToken.estimateGas.transfer(bob.address, transferAmount);
     const { tokenCost, gasOverrides } = await calcPaymentAmounts(
       provider,
-      FEE_TOKEN_ASSET_ID,
+      feeTokenAssetId,
       gasEstimate,
       fees.lastBaseFeePerGas!.add(1), // adding priority fee to maxFeePerGas
     );
@@ -261,7 +262,7 @@ describe("Fee Preferences", function () {
     const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
     const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
     const gasEstimate = await feeToken.estimateGas.transfer(bob.address, transferAmount);
-    const { tokenCost, gasOverrides } = await calcPaymentAmounts(provider, FEE_TOKEN_ASSET_ID, gasEstimate); // default to min payment
+    const { tokenCost, gasOverrides } = await calcPaymentAmounts(provider, feeTokenAssetId, gasEstimate); // default to min payment
     const tx = await feeProxy
       .connect(emptyAccountSigner)
       .callWithFeePreferences(feeToken.address, feeToken.address, transferInput, gasOverrides);
@@ -298,7 +299,7 @@ describe("Fee Preferences", function () {
     const gasEstimate = await feeToken.estimateGas.transfer(bob.address, transferAmount);
     const { tokenCost, gasOverrides } = await calcPaymentAmounts(
       provider,
-      FEE_TOKEN_ASSET_ID,
+      feeTokenAssetId,
       gasEstimate,
       fees.maxFeePerGas!, // adding priority fee to maxFeePerGas
     );
@@ -338,7 +339,7 @@ describe("Fee Preferences", function () {
     const gasEstimate = await feeToken.estimateGas.transfer(bob.address, transferAmount);
     const { tokenCost, gasOverrides } = await calcPaymentAmounts(
       provider,
-      FEE_TOKEN_ASSET_ID,
+      feeTokenAssetId,
       gasEstimate,
       fees.lastBaseFeePerGas!.add(1), // adding priority fee to maxFeePerGas
     );
@@ -379,7 +380,7 @@ describe("Fee Preferences", function () {
     const gasEstimate = await feeToken.estimateGas.transfer(bob.address, transferAmount);
     const { tokenCost, gasOverrides } = await calcPaymentAmounts(
       provider,
-      FEE_TOKEN_ASSET_ID,
+      feeTokenAssetId,
       gasEstimate,
       fees.lastBaseFeePerGas!.add(500_000), // adding priority fee to maxFeePerGas
       BigNumber.from(500_000),
@@ -416,7 +417,7 @@ describe("Fee Preferences", function () {
 
     const { gasOverrides } = await calcPaymentAmounts(
       provider,
-      FEE_TOKEN_ASSET_ID,
+      feeTokenAssetId,
       gasEstimate,
       fees.lastBaseFeePerGas!.add(500_000), // adding priority fee to maxFeePerGas
       BigNumber.from(600_000), // (base + priority fee) exceeds maxFeePerGas
@@ -449,7 +450,7 @@ describe("Fee Preferences", function () {
 
     const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, newAccount);
     const gasEstimate = await feeToken.estimateGas.transfer(bob.address, transferAmount);
-    const { gasOverrides } = await calcPaymentAmounts(provider, FEE_TOKEN_ASSET_ID, gasEstimate); // default to min payment
+    const { gasOverrides } = await calcPaymentAmounts(provider, feeTokenAssetId, gasEstimate); // default to min payment
     const unsignedTx = {
       type: 2,
       from: newAccount.address,
@@ -458,6 +459,46 @@ describe("Fee Preferences", function () {
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
         feeToken.address,
         feeToken.address,
+        transferInput,
+      ]),
+      ...gasOverrides,
+    };
+
+    const error = await newAccount.sendTransaction(unsignedTx).catch((e) => e);
+    expect(error.code).to.be.eq("INSUFFICIENT_FUNDS");
+    expect(error.reason).to.be.eq("insufficient funds for intrinsic transaction cost");
+  });
+
+  it("Fails to pay fees in non-native token if insufficient liquidity", async () => {
+    // this is a new account which has no token balance
+    const newAccount = Wallet.createRandom().connect(provider);
+
+    const paymentAssetId = await getNextAssetId(api);
+    const txs = [
+      api.tx.assetsExt.createAsset("test", "TEST", 18, 1, alith.address),
+      api.tx.assets.mint(paymentAssetId, alith.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(paymentAssetId, newAccount.address, 2_000_000_000_000_000),
+      api.tx.dex.addLiquidity(paymentAssetId, GAS_TOKEN_ID, 100_000, 100_000, 100_000, 100_000, null, null),
+    ];
+    await finalizeTx(alith, api.tx.utility.batch(txs));
+
+    const paymentToken = new Contract(assetIdToERC20ContractAddress(paymentAssetId), ERC20_ABI, newAccount) as ERC20;
+
+    const transferAmount = 1;
+    const iface = new utils.Interface(ERC20_ABI);
+    const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
+
+    const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, newAccount);
+    const gasEstimate = await paymentToken.estimateGas.transfer(bob.address, transferAmount);
+    const { gasOverrides } = await calcPaymentAmounts(provider, feeTokenAssetId, gasEstimate); // default to min payment
+    const unsignedTx = {
+      type: 2,
+      from: newAccount.address,
+      to: FEE_PROXY_ADDRESS,
+      nonce: await newAccount.getTransactionCount(),
+      data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
+        paymentToken.address,
+        paymentToken.address,
         transferInput,
       ]),
       ...gasOverrides,
@@ -516,8 +557,8 @@ describe("Fee Preferences", function () {
     await finalizeTx(
       alith,
       api.tx.utility.batch([
-        api.tx.assets.mint(FEE_TOKEN_ASSET_ID, owner.address, 2_000_000_000),
-        api.tx.assets.mint(FEE_TOKEN_ASSET_ID, futurepass.address, 1),
+        api.tx.assets.mint(feeTokenAssetId, owner.address, 2_000_000_000),
+        api.tx.assets.mint(feeTokenAssetId, futurepass.address, 1),
       ]),
     );
 
@@ -551,7 +592,7 @@ describe("Fee Preferences", function () {
       .connect(owner)
       .estimateGas.proxyCall(callTxType, feeToken.address, ethers.constants.Zero, transferCallData);
 
-    const { tokenCost, gasOverrides } = await calcPaymentAmounts(provider, FEE_TOKEN_ASSET_ID, gasEstimate); // default to min payment
+    const { tokenCost, gasOverrides } = await calcPaymentAmounts(provider, feeTokenAssetId, gasEstimate); // default to min payment
 
     tx = await feeProxy
       .connect(owner)
@@ -600,7 +641,7 @@ describe("Fee Preferences", function () {
 
     const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
     const gasEstimate = await feeToken.estimateGas.transfer(bob.address, transferAmount);
-    const { tokenCost, gasOverrides } = await calcPaymentAmounts(provider, FEE_TOKEN_ASSET_ID, gasEstimate); // default to min payment
+    const { tokenCost, gasOverrides } = await calcPaymentAmounts(provider, feeTokenAssetId, gasEstimate); // default to min payment
 
     const nonce = await emptyAccountSigner.getTransactionCount();
     const unsignedTx = {
@@ -643,37 +684,37 @@ describe("Fee Preferences", function () {
     const futurepassAddress = (await api.query.futurepass.holders(user.address)).toString();
 
     // mint fee tokens to futurepass
-    await finalizeTx(alith, api.tx.assets.mint(FEE_TOKEN_ASSET_ID, futurepassAddress, 2_000_000_000_000));
+    await finalizeTx(alith, api.tx.assets.mint(feeTokenAssetId, futurepassAddress, 2_000_000_000_000));
 
     const eoaXRPBalanceBefore =
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     const eoaTokenBalanceBefore =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, user.address)).toJSON() as any)?.balance ?? 0;
     const fpXRPBalanceBefore =
       ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
     const fpTokenBalanceBefore =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, futurepassAddress)).toJSON() as any)?.balance ?? 0;
 
     // console.table({ eoaXRPBalanceBefore, eoaTokenBalanceBefore, fpXRPBalanceBefore, fpTokenBalanceBefore });
 
     const innerCall = api.tx.system.remark("sup");
     const proxyExtrinsic = api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall);
-    const feeproxiedCall = api.tx.feeProxy.callWithFeePreferences(FEE_TOKEN_ASSET_ID, 1000000, proxyExtrinsic);
+    const feeproxiedCall = api.tx.feeProxy.callWithFeePreferences(feeTokenAssetId, 1000000, proxyExtrinsic);
     await finalizeTx(userKeyring, feeproxiedCall);
 
     const eoaXRPBalanceAfter =
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     const eoaTokenBalanceAfter =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, user.address)).toJSON() as any)?.balance ?? 0;
     const fpXRPBalanceAfter =
       ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
     const fpTokenBalanceAfter =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, futurepassAddress)).toJSON() as any)?.balance ?? 0;
 
     // futurepass should only fee lose tokens
     expect(eoaXRPBalanceBefore).to.be.eq(eoaXRPBalanceAfter);
     expect(eoaTokenBalanceBefore).to.be.eq(eoaTokenBalanceAfter);
-    expect(fpXRPBalanceBefore).to.be.eq(fpXRPBalanceAfter);
+    expect(fpXRPBalanceBefore + 1).to.be.eq(fpXRPBalanceAfter); // 1 existential deposit
     expect(fpTokenBalanceAfter).to.be.lessThan(fpTokenBalanceBefore);
   });
 
@@ -685,19 +726,19 @@ describe("Fee Preferences", function () {
     const futurepassAddress = (await api.query.futurepass.holders(user.address)).toString();
 
     // mint fee tokens to futurepass
-    await finalizeTx(alith, api.tx.assets.mint(FEE_TOKEN_ASSET_ID, futurepassAddress, 2_000_000_000_000));
+    await finalizeTx(alith, api.tx.assets.mint(feeTokenAssetId, futurepassAddress, 2_000_000_000_000));
 
     const eoaXRPBalanceBefore =
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     const eoaTokenBalanceBefore =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, user.address)).toJSON() as any)?.balance ?? 0;
     const fpXRPBalanceBefore =
       ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
     const fpTokenBalanceBefore =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, futurepassAddress)).toJSON() as any)?.balance ?? 0;
 
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
-    const erc20PrecompileAddress = assetIdToERC20ContractAddress(FEE_TOKEN_ASSET_ID);
+    const erc20PrecompileAddress = assetIdToERC20ContractAddress(feeTokenAssetId);
     const sender = futurepassAddress;
     const value = 0; //eth
     const gasLimit = 42953;
@@ -722,7 +763,7 @@ describe("Fee Preferences", function () {
 
     // record bob's token balance
     const bobTokenBalanceBefore =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, bob.address)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, bob.address)).toJSON() as any)?.balance ?? 0;
 
     const evmCallGasEstimate = await evmCall.paymentInfo(sender);
     const evmCallGasEstimateinXRP = evmCallGasEstimate.partialFee;
@@ -732,7 +773,7 @@ describe("Fee Preferences", function () {
     // Find estimate cost for feeProxy call
     const extrinsicInfo = await api.tx.feeProxy
       .callWithFeePreferences(
-        FEE_TOKEN_ASSET_ID,
+        feeTokenAssetId,
         utils.parseEther("1").toString(), // 10e18
         proxyExtrinsic,
       )
@@ -742,14 +783,14 @@ describe("Fee Preferences", function () {
     // cost for fee proxy with proxy_extrinsic + cost for evm call, but the actual cost will be lesser than this value.
     const estimatedTotalGasCost = evmCallGasEstimateinXRP.toNumber() + feeProxyGasEstimateinXRP.toNumber();
 
-    // convert estimatedTotalGasCost to FEE_TOKEN_ASSET_ID amount
+    // convert estimatedTotalGasCost to feeTokenAssetId amount
     const {
       Ok: [estimatedTokenTxCost],
-    } = await (api.rpc as any).dex.getAmountsIn(estimatedTotalGasCost, [FEE_TOKEN_ASSET_ID, GAS_TOKEN_ID]);
+    } = await (api.rpc as any).dex.getAmountsIn(estimatedTotalGasCost, [feeTokenAssetId, GAS_TOKEN_ID]);
 
     // Now call the callWithFeePreferences with sufficient max_payment of estimatedTokenTxCost
     const feeproxiedCall = api.tx.feeProxy.callWithFeePreferences(
-      FEE_TOKEN_ASSET_ID,
+      feeTokenAssetId,
       estimatedTokenTxCost,
       proxyExtrinsic,
     );
@@ -758,13 +799,13 @@ describe("Fee Preferences", function () {
     const eoaXRPBalanceAfter =
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     const eoaTokenBalanceAfter =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, user.address)).toJSON() as any)?.balance ?? 0;
     const fpXRPBalanceAfter =
       ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
     const fpTokenBalanceAfter =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, futurepassAddress)).toJSON() as any)?.balance ?? 0;
     const bobTokenBalanceAfter =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, bob.address)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, bob.address)).toJSON() as any)?.balance ?? 0;
 
     // eoa token and XRP balance should remain untouched.
     expect(eoaXRPBalanceBefore).to.be.eq(eoaXRPBalanceAfter);
@@ -778,7 +819,7 @@ describe("Fee Preferences", function () {
   });
 
   it("Pays fees in non-native token with extrinsic - check maxPayment works fine", async () => {
-    const erc20PrecompileAddress = assetIdToERC20ContractAddress(FEE_TOKEN_ASSET_ID);
+    const erc20PrecompileAddress = assetIdToERC20ContractAddress(feeTokenAssetId);
     const sender = alith.address;
     const value = 0; //eth
     const gasLimit = 22953;
@@ -809,7 +850,7 @@ describe("Fee Preferences", function () {
     // Find estimate cost for feeProxy call
     const extrinsicInfo = await api.tx.feeProxy
       .callWithFeePreferences(
-        FEE_TOKEN_ASSET_ID,
+        feeTokenAssetId,
         utils.parseEther("1").toString(), // 10e18
         api.createType("Call", evmCall).toHex(),
       )
@@ -821,12 +862,12 @@ describe("Fee Preferences", function () {
 
     const {
       Ok: [estimatedTokenTxCost],
-    } = await (api.rpc as any).dex.getAmountsIn(estimatedTotalGasCost, [FEE_TOKEN_ASSET_ID, GAS_TOKEN_ID]);
+    } = await (api.rpc as any).dex.getAmountsIn(estimatedTotalGasCost, [feeTokenAssetId, GAS_TOKEN_ID]);
 
     const eventData = await new Promise<Codec[] & IEventData>((resolve, reject) => {
       api.tx.feeProxy
         .callWithFeePreferences(
-          FEE_TOKEN_ASSET_ID,
+          feeTokenAssetId,
           estimatedTokenTxCost.toString(),
           api.createType("Call", evmCall).toHex(),
         )
@@ -843,7 +884,7 @@ describe("Fee Preferences", function () {
     });
     expect(eventData).to.exist;
     const [from, paymentAsset, maxPayment] = eventData;
-    expect(paymentAsset.toString()).to.equal(FEE_TOKEN_ASSET_ID.toString());
+    expect(paymentAsset.toString()).to.equal(feeTokenAssetId.toString());
     expect(from.toString()).to.equal(alith.address.toString());
     expect(maxPayment.toString()).to.equal(estimatedTokenTxCost.toString());
   });
