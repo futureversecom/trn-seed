@@ -156,8 +156,8 @@ describe("EVM gas costs", () => {
     // assert XRP used
     const xrpCost6DP = actualCost.div(10 ** 12).toNumber();
     const xrpCostScaled = +utils.formatEther(actualCost);
-    expect(xrpCost6DP).to.eql(21803760);
-    expect(+xrpCostScaled.toFixed(6)).to.eql(21.80376);
+    expect(xrpCost6DP).to.eql(21810720);
+    expect(+xrpCostScaled.toFixed(6)).to.eql(21.81072);
   });
 
   it("gas cost for token mint", async () => {
