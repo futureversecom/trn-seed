@@ -439,8 +439,8 @@ describe("XRPL pallet", () => {
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
     expect(xrpBalanceBefore - xrpBalanceAfter)
-      .to.be.greaterThan(865_000)
-      .and.lessThan(880_000);
+      .to.be.greaterThan(870_000)
+      .and.lessThan(885_000);
   });
 
   it("can submit fee-proxy extrinsic", async () => {
@@ -586,7 +586,7 @@ describe("XRPL pallet", () => {
     // user xrp balance should not change since tx fees paid in asset
     const xrpUserBalanceAfter =
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
-    expect(xrpUserBalanceAfter).to.be.eq(xrpUserBalanceBefore);
+    expect(xrpUserBalanceAfter).to.be.eq(xrpUserBalanceBefore + 1); // 1 is existential deposit
 
     // assert token balance after < balance before (tx fee must be paid in asset)
     const assetUserBalanceAfter = BigNumber.from(
@@ -714,8 +714,8 @@ describe("XRPL pallet", () => {
       ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
     expect(xrpFPBalanceAfter).to.be.lessThan(xrpFPBalanceBefore);
     expect(xrpFPBalanceBefore - xrpFPBalanceAfter)
-      .to.be.greaterThan(920_000)
-      .and.lessThan(935_000);
+      .to.be.greaterThan(925_000)
+      .and.lessThan(940_000);
   });
 
   it("can submit futurepass fee-proxy proxy-extrinsic", async () => {
@@ -728,13 +728,13 @@ describe("XRPL pallet", () => {
     const futurepassAddress = (await api.query.futurepass.holders(user.address)).toString();
 
     // add liquidity for XRP<->token; fund the futurepass account with tokens
-    const FEE_TOKEN_ASSET_ID = 1124;
+    const paymentToken = await getNextAssetId(api);
     const txs = [
       api.tx.assetsExt.createAsset("test", "TEST", 18, 1, alith.address),
-      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, alith.address, 2_000_000_000_000_000),
-      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, futurepassAddress, 2_000_000_000_000_000),
+      api.tx.assets.mint(paymentToken, alith.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(paymentToken, futurepassAddress, 2_000_000_000_000_000),
       api.tx.dex.addLiquidity(
-        FEE_TOKEN_ASSET_ID,
+        paymentToken,
         GAS_TOKEN_ID,
         100_000_000_000,
         100_000_000_000,
@@ -750,7 +750,7 @@ describe("XRPL pallet", () => {
     const innerCall = api.tx.system.remark("sup");
     const futurepassCall = api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall);
     const maxTokenPayment = 5_000_000;
-    const extrinsic = api.tx.feeProxy.callWithFeePreferences(FEE_TOKEN_ASSET_ID, maxTokenPayment, futurepassCall);
+    const extrinsic = api.tx.feeProxy.callWithFeePreferences(paymentToken, maxTokenPayment, futurepassCall);
     const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
     const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
@@ -760,10 +760,10 @@ describe("XRPL pallet", () => {
     const xrpFPBalanceBefore =
       ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
     const assetUserBalanceBefore = BigNumber.from(
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0,
+      ((await api.query.assets.account(paymentToken, user.address)).toJSON() as any)?.balance ?? 0,
     );
     const assetFPBalanceBefore = BigNumber.from(
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0,
+      ((await api.query.assets.account(paymentToken, futurepassAddress)).toJSON() as any)?.balance ?? 0,
     );
 
     const xamanJsonTx = {
