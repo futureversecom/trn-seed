@@ -18,9 +18,7 @@
 //! # SFT Module
 
 use frame_support::{traits::tokens::fungibles::Mutate, transactional, PalletId};
-use seed_pallet_common::{
-	CreateExt, Hold, NFTExt, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
-};
+use seed_pallet_common::{NFTExt, OnNewAssetSubscriber, OnTransferSubscriber};
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
 	SerialNumber, TokenId,
@@ -65,10 +63,8 @@ pub mod pallet {
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Handles a multi-currency fungible asset system
-		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
-			+ Hold<AccountId = Self::AccountId>
-			+ Mutate<Self::AccountId, AssetId = AssetId, Balance = Balance>
-			+ CreateExt<AccountId = Self::AccountId>;
+		type MultiCurrency: Mutate<Self::AccountId, AssetId = AssetId, Balance = Balance>;
+
 		/// NFT Extension, used to retrieve nextCollectionUuid
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
 		/// Handler for when an SFT has been transferred
