@@ -919,7 +919,7 @@ describe("Futurepass Precompile", function () {
     // fund the FP, FP_DELEGATE_RESERVE amount of Root for the delegate reserve
     await fundAccount(api, alithKeyring, futurepassPrecompile.address, FP_DELEGATE_RESERVE);
     const fpBalance: any = (await api.query.system.account(futurepassPrecompile.address)).toJSON();
-    expect(fpBalance.data.free).to.equal(FP_DELEGATE_RESERVE);
+    expect(fpBalance.data.free).to.equal(FP_DELEGATE_RESERVE + 1); // 1 existential deposit
 
     const deadline = (await provider.getBlockNumber()) + 20;
     const message = ethers.utils
@@ -957,7 +957,7 @@ describe("Futurepass Precompile", function () {
     // fund the FP, FP_DELEGATE_RESERVE amount of Root for the delegate reserve
     await fundAccount(api, alithKeyring, futurepassPrecompile.address, FP_DELEGATE_RESERVE);
     const fpBalance: any = (await api.query.system.account(futurepassPrecompile.address)).toJSON();
-    expect(fpBalance.data.free).to.equal(FP_DELEGATE_RESERVE);
+    expect(fpBalance.data.free).to.equal(FP_DELEGATE_RESERVE + 1); // 1 existential deposit
 
     const deadline = (await provider.getBlockNumber()) + 20;
     const message = ethers.utils
@@ -1007,7 +1007,7 @@ describe("Futurepass Precompile", function () {
     // fund the FP, FP_DELEGATE_RESERVE amount of Root for the delegate reserve
     await fundAccount(api, alithKeyring, futurepassPrecompile.address, FP_DELEGATE_RESERVE);
     const fpBalance: any = (await api.query.system.account(futurepassPrecompile.address)).toJSON();
-    expect(fpBalance.data.free).to.equal(FP_DELEGATE_RESERVE);
+    expect(fpBalance.data.free).to.equal(FP_DELEGATE_RESERVE + 1); // 1 existential deposit
 
     const deadline = (await provider.getBlockNumber()) + 20;
     const message = ethers.utils
@@ -1049,7 +1049,7 @@ describe("Futurepass Precompile", function () {
     // fund the FP, FP_DELEGATE_RESERVE amount of Root for the delegate reserve
     await fundAccount(api, alithKeyring, futurepassPrecompile.address, FP_DELEGATE_RESERVE);
     const fpBalance: any = (await api.query.system.account(futurepassPrecompile.address)).toJSON();
-    expect(fpBalance.data.free).to.equal(FP_DELEGATE_RESERVE);
+    expect(fpBalance.data.free).to.equal(FP_DELEGATE_RESERVE + 1); // 1 existential deposit
 
     // create() not allowed
     let callData = futurepassRegistrar.interface.encodeFunctionData("create", [other.address]);
