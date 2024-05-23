@@ -74,4 +74,3 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 	}
 }
-

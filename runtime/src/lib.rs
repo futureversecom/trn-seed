@@ -155,10 +155,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 52,
+	spec_version: 55,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 7,
+	transaction_version: 10,
 	state_version: 0,
 };
 
@@ -995,6 +995,7 @@ parameter_types! {
 	pub const MaxChallenges: u32 = 100;
 	pub const MaxMessagesPerBlock: u32 = 1000;
 	pub const MaxCallRequests: u32 = 1000;
+	pub const MaxProcessedMessageIds: u32 = 1000;
 }
 
 impl pallet_ethy::Config for Runtime {
@@ -1010,14 +1011,14 @@ impl pallet_ethy::Config for Runtime {
 	type ChallengeBond = ChallengeBond;
 	// The duration in blocks of one epoch
 	type EpochDuration = EpochDuration;
-	/// The runtime event type.
-	type RuntimeEvent = RuntimeEvent;
 	/// Subscribers to completed 'eth_call' jobs
 	type EthCallSubscribers = ();
-	/// Subscribers to completed event
-	type EventRouter = EthereumEventRouter;
 	/// Provides Ethereum JSON-RPC client to the pallet (OCW friendly)
 	type EthereumRpcClient = pallet_ethy::EthereumRpcClient;
+	/// The runtime event type.
+	type RuntimeEvent = RuntimeEvent;
+	/// Subscribers to completed event
+	type EventRouter = EthereumEventRouter;
 	/// The identifier type for Ethy notaries
 	type EthyId = EthBridgeId;
 	/// Reports final session status of an era
@@ -1033,10 +1034,11 @@ impl pallet_ethy::Config for Runtime {
 	type RelayerBond = RelayerBond;
 	/// The pallet handling scheduled Runtime calls
 	type Scheduler = Scheduler;
-	/// Timestamp provider
-	type UnixTime = Timestamp;
 	/// Pallets origin type
 	type PalletsOrigin = OriginCaller;
+	type MaxProcessedMessageIds = MaxProcessedMessageIds;
+	/// Timestamp provider
+	type UnixTime = Timestamp;
 	/// Max Xrpl notary (validator) public keys
 	type MaxXrplKeys = MaxXrplKeys;
 	/// Xrpl-bridge adapter
@@ -1046,6 +1048,7 @@ impl pallet_ethy::Config for Runtime {
 	type MaxChallenges = MaxChallenges;
 	type MaxMessagesPerBlock = MaxMessagesPerBlock;
 	type MaxCallRequests = MaxCallRequests;
+	type WeightInfo = weights::pallet_ethy::WeightInfo<Runtime>;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -1463,7 +1466,20 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	migrations::AllMigrations,
+	(
+		pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
+		pallet_preimage::migration::v1::Migration<Runtime>,
+		pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
+		pallet_assets::migration::v1::MigrateToV1<Runtime>,
+		pallet_balances::migration::MigrateToTrackInactive<Runtime, ()>,
+		pallet_scheduler::migration::v4::CleanupAgendas<Runtime>,
+		pallet_staking::migrations::v13::MigrateToV13<Runtime>,
+		pallet_grandpa::migrations::CleanupSetIdSessionMap<Runtime>,
+		pallet_offences::migration::v1::MigrateToV1<Runtime>,
+		pallet_im_online::migration::v1::Migration<Runtime>,
+		pallet_election_provider_multi_phase::migrations::v1::MigrateToV1<Runtime>,
+		migrations::AllMigrations,
+	),
 >;
 
 impl_runtime_apis! {
@@ -2227,6 +2243,7 @@ mod benches {
 		[pallet_xrpl_bridge, XRPLBridge]
 		[pallet_xrpl, Xrpl]
 		[pallet_erc20_peg, Erc20Peg]
+		[pallet_ethy, EthBridge]
 		[pallet_echo, Echo]
 		[pallet_assets_ext, AssetsExt]
 		[pallet_evm_chain_id, EVMChainId]

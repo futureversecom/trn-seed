@@ -347,6 +347,8 @@ pub mod pallet {
 		///   purchase vouchers; Note: this does not take into account asset decimals or voucher
 		///   decimals
 		/// - `sale_duration`: How many blocks will the sale last once enabled
+		/// - `voucher_name`: [optional] name for the created voucher asset
+		/// - `voucher_symbol`: [optional] symbol for the created voucher asset
 		///
 		/// Emits `CrowdsaleCreated` event when successful.
 		#[pallet::call_index(0)]

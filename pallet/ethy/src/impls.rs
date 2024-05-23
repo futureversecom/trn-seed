@@ -94,6 +94,121 @@ impl<T: Config> XrplBridgeToEthyAdapter<T::EthyId> for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
+	// Is the bridge paused?
+	pub fn bridge_paused() -> bool {
+		let paused_status = BridgePaused::<T>::get();
+		paused_status.manual_pause || paused_status.authorities_change
+	}
+
+	/// Prunes claim ids that are less than the max contiguous claim id.
+	pub fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) -> Weight {
+		let mut used_weight = Weight::zero();
+		// if < 1 element, nothing to do
+		if let 0..=1 = claim_ids.len() {
+			return used_weight
+		}
+
+		// Keep the last MaxProcessedMessageIds elements in the list
+		let removed = claim_ids
+			.drain(..claim_ids.len().saturating_sub(T::MaxProcessedMessageIds::get() as usize));
+		let removed: Vec<EventClaimId> = removed.collect();
+
+		// Check if we are aggressively pruning and event_ids that have not been processed
+		if !removed.is_empty() {
+			let mut missing_ids = MissedMessageIds::<T>::get();
+			// Add all missing ids from removed to missing
+			for id in removed[0]..claim_ids[0] {
+				if removed.contains(&id) {
+					continue
+				}
+				// Insert the missing ID from the removed list into the missing_ids list
+				if let Err(idx) = missing_ids.binary_search(&id) {
+					missing_ids.insert(idx, id);
+				}
+			}
+			MissedMessageIds::<T>::put(missing_ids);
+			used_weight += DbWeight::get().reads_writes(1, 1);
+		}
+
+		// get the index of the fist element that's non contiguous.
+		let first_noncontinuous_idx = claim_ids.iter().enumerate().position(|(i, &x)| {
+			if i > 0 {
+				x != claim_ids[i - 1] + 1
+			} else {
+				false
+			}
+		});
+		// drain the array from start to (first_noncontinuous_idx - 1) since we need the max
+		// contiguous element in the pruned vector.
+		match first_noncontinuous_idx {
+			Some(idx) => claim_ids.drain(..idx - 1),
+			None => claim_ids.drain(..claim_ids.len() - 1), // we need the last element to remain
+		};
+
+		used_weight
+	}
+
+	/// Decode event data into it's respective parts.
+	pub fn decode_event_data(
+		tx_hash: H256,
+		event_data: Vec<u8>,
+	) -> Result<(EventClaimId, EventClaim<T::MaxEthData>), DispatchError> {
+		// event SendMessage(uint256 messageId, address source, address destination, bytes
+		// message, uint256 fee);
+		if let [Token::Uint(event_id), Token::Address(source), Token::Address(destination), Token::Bytes(data), Token::Uint(_fee)] =
+			ethabi::decode(
+				&[
+					ParamType::Uint(64),
+					ParamType::Address,
+					ParamType::Address,
+					ParamType::Bytes,
+					ParamType::Uint(64),
+				],
+				event_data.as_slice(),
+			)
+			.map_err(|_| Error::<T>::InvalidClaim)?
+			.as_slice()
+		{
+			let event_id: EventClaimId = (*event_id).saturated_into();
+			let data = BoundedVec::try_from(data.as_slice().to_vec())
+				.map_err(|_| Error::<T>::InvalidClaim)?;
+			let event_claim = EventClaim {
+				tx_hash,
+				source: *source,
+				destination: *destination,
+				data: data.clone(),
+			};
+			return Ok((event_id, event_claim))
+		}
+		Err(Error::<T>::InvalidClaim.into())
+	}
+
+	// Store an event claim in the pallet to be processed after the ChallengePeriod
+	// Ensures the event is not already contained within PendingEventClaims
+	// Note. This function does not contain any replay protection logic
+	pub(crate) fn do_submit_event(
+		event_id: EventClaimId,
+		event_claim: EventClaim<T::MaxEthData>,
+	) -> DispatchResult {
+		ensure!(!PendingEventClaims::<T>::contains_key(event_id), Error::<T>::EventReplayPending);
+
+		let process_at: BlockNumberFor<T> =
+			<frame_system::Pallet<T>>::block_number() + ChallengePeriod::<T>::get();
+		MessagesValidAt::<T>::try_mutate(process_at.clone(), |v| -> DispatchResult {
+			v.try_push(event_id).map_err(|_| Error::<T>::MessageTooLarge)?;
+			Ok(())
+		})?;
+
+		PendingEventClaims::<T>::insert(event_id, &event_claim);
+		PendingClaimStatus::<T>::insert(event_id, EventClaimStatus::Pending);
+		Self::deposit_event(Event::<T>::EventSubmit {
+			event_claim_id: event_id,
+			event_claim,
+			process_at,
+		});
+		Ok(())
+	}
+
 	pub fn update_xrpl_notary_keys(validator_list: &WeakBoundedVec<T::EthyId, T::MaxAuthorities>) {
 		let validators = Self::get_xrpl_notary_keys(&validator_list.clone().into_inner());
 		<NotaryXrplKeys<T>>::put(WeakBoundedVec::force_from(
@@ -150,7 +265,7 @@ impl<T: Config> Pallet<T> {
 	/// Receives the node's local notary session key and index in the set
 	pub(crate) fn do_event_notarization_ocw(active_key: &T::EthyId, authority_index: u16) {
 		// do not try to notarize events while the bridge is paused
-		if BridgePaused::<T>::get() {
+		if Self::bridge_paused() {
 			return
 		}
 
@@ -483,15 +598,14 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		// Claim is invalid (nays > (100% - NotarizationThreshold))
 		if Percent::from_rational(nay_count, notary_count) >
 			(Percent::from_parts(100_u8 - T::NotarizationThreshold::get().deconstruct()))
 		{
+			// Claim is invalid (nays > (100% - NotarizationThreshold))
 			Self::handle_invalid_claim(event_claim_id)?;
-		}
-
-		// Claim is valid
-		if Percent::from_rational(yay_count, notary_count) >= T::NotarizationThreshold::get() {
+		} else if Percent::from_rational(yay_count, notary_count) >= T::NotarizationThreshold::get()
+		{
+			// Claim is valid
 			Self::handle_valid_claim(event_claim_id)?;
 		}
 
@@ -759,7 +873,7 @@ impl<T: Config> Pallet<T> {
 		if notary_xrpl_keys == next_notary_xrpl_keys {
 			info!(target: "ethy-pallet", "💎 notary xrpl keys unchanged {:?}", next_notary_xrpl_keys);
 			// Pause the bridge
-			BridgePaused::<T>::put(true);
+			BridgePaused::<T>::mutate(|p| p.authorities_change = true);
 			<NextAuthorityChange<T>>::kill();
 			return
 		}
@@ -791,7 +905,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Pause the bridge
-		BridgePaused::<T>::put(true);
+		BridgePaused::<T>::mutate(|p| p.authorities_change = true);
 		<NextAuthorityChange<T>>::kill();
 	}
 
@@ -816,7 +930,7 @@ impl<T: Config> Pallet<T> {
 		<frame_system::Pallet<T>>::deposit_log(log);
 
 		// Unpause the bridge
-		BridgePaused::<T>::kill();
+		BridgePaused::<T>::mutate(|p| p.authorities_change = false);
 		// A proof should've been generated now so we can reactivate the bridge with the new
 		// validator set
 		AuthoritiesChangedThisEra::<T>::kill();
@@ -834,12 +948,27 @@ impl<T: Config> Pallet<T> {
 	) {
 		// if bridge is paused (e.g transitioning authority set at the end of an era)
 		// delay proofs until it is ready again
-		if BridgePaused::<T>::get() {
+		if Self::bridge_paused() {
 			PendingEventProofs::<T>::insert(event_proof_id, request);
 			Self::deposit_event(Event::<T>::ProofDelayed { event_proof_id });
 			return
 		}
 
+		// check if validator set id is different from the one that is active
+		// If it is, reset the request id to the current one.
+		let mut request = request;
+		if let EthySigningRequest::Ethereum(ethereum_event_info) = &request {
+			let validator_set_id = NotarySetId::<T>::get();
+			if validator_set_id > ethereum_event_info.validator_set_id {
+				request = EthySigningRequest::Ethereum(EthereumEventInfo {
+					source: ethereum_event_info.source,
+					destination: ethereum_event_info.destination,
+					message: ethereum_event_info.message.clone(),
+					validator_set_id,
+					event_proof_id: ethereum_event_info.event_proof_id,
+				});
+			}
+		}
 		let log: DigestItem = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
 			ConsensusLog::<T::AccountId>::OpaqueSigningRequest {
@@ -1037,28 +1166,4 @@ impl<T: Config> EthCallOracle for Pallet<T> {
 
 		call_id
 	}
-}
-
-/// Prunes claim ids that are less than the max contiguous claim id.
-pub(crate) fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) {
-	// if < 1 element, nothing to do
-	if let 0..=1 = claim_ids.len() {
-		return
-	}
-	// sort first
-	claim_ids.sort();
-	// get the index of the fist element that's non contiguous.
-	let first_noncontinuous_idx = claim_ids.iter().enumerate().position(|(i, &x)| {
-		if i > 0 {
-			x != claim_ids[i - 1] + 1
-		} else {
-			false
-		}
-	});
-	// drain the array from start to (first_noncontinuous_idx - 1) since we need the max contiguous
-	// element in the pruned vector.
-	match first_noncontinuous_idx {
-		Some(idx) => claim_ids.drain(..idx - 1),
-		None => claim_ids.drain(..claim_ids.len() - 1), // we need the last element to remain
-	};
 }

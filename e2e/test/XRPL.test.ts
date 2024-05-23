@@ -5,9 +5,11 @@ import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { blake256 } from "codechain-primitives";
 import { BigNumber, Wallet } from "ethers";
-import { computePublicKey } from "ethers/lib/utils";
+import { computePublicKey, keccak256 } from "ethers/lib/utils";
 import { encode, encodeForSigning } from "ripple-binary-codec";
 import { deriveAddress, sign } from "ripple-keypairs";
+import Web3 from "web3";
+import * as AccountLib from "xrpl-accountlib";
 
 import { ALITH_PRIVATE_KEY, GAS_TOKEN_ID, NodeProcess, finalizeTx, startNode, stringToHex, typedefs } from "../common";
 
@@ -68,7 +70,7 @@ describe("XRPL pallet", () => {
     console.log("signature", signature);
   });
 
-  it("can submit system remark extrinsic", async () => {
+  it("can submit system remark extrinsic - using ecdsa signature", async () => {
     const user = Wallet.createRandom();
     const publicKey = computePublicKey(user.publicKey, true);
 
@@ -128,7 +130,7 @@ describe("XRPL pallet", () => {
     index += 1;
     expect(events[index].event.section).to.equal("xrpl");
     expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
-    expect(events[index].event.data[0].toString()).to.equal(publicKey);
+    expect(events[index].event.data[0].toJSON()).to.deep.equal({ ecdsa: publicKey });
     expect(events[index].event.data[1].toString()).to.equal(user.address);
     expect(events[index].event.data[2].toString()).to.equal(xamanJsonTx.Account);
 
@@ -158,6 +160,97 @@ describe("XRPL pallet", () => {
     // assert user nonce is updated (1 tx)
     const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
     expect(nonce).to.equal(1);
+  });
+
+  it("can submit system remark extrinsic - using ed25519 signature", async () => {
+    const importedAccount = AccountLib.derive.familySeed("sEdS4rAgVysUtD5Zmm9F8i8uJBGik4K");
+    const signerInstance = AccountLib.derive.privatekey(importedAccount.keypair.privateKey!);
+    const publicKey = computePublicKey(`0x${signerInstance.keypair.publicKey!}`, true);
+    const eoa = Web3.utils.toChecksumAddress(
+      // remove "ED" prefix from public key to compute EOA
+      // keccak hash produces 32 bytes (64 chars) - take last 20 bytes (40 chars)
+      // remove "0x" prefix from keccak hash output (2 chars)
+      // get last 20 bytes of the keccak hash output (12 bytes - 24 chars)
+      "0x" + keccak256(hexToU8a(`0x${publicKey.slice(4)}`)).slice(26),
+    );
+
+    await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, eoa, 2_000_000));
+
+    const extrinsic = api.tx.system.remark("hi");
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
+    const nonce = ((await api.query.system.account(eoa)).toJSON() as any)?.nonce;
+
+    const xrpBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, eoa)).toJSON() as any)?.balance ?? 0;
+
+    const xamanJsonTx = {
+      AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
+      SigningPubKey: publicKey.slice(2),
+      Account: deriveAddress(publicKey.slice(2)),
+      Memos: [
+        {
+          Memo: {
+            MemoType: stringToHex("extrinsic"),
+            // remove `0x` from extrinsic hex string
+            MemoData: stringToHex(`${genesisHash}:${nonce}:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
+          },
+        },
+      ],
+    };
+
+    // sign xaman tx
+    const message = encode(xamanJsonTx);
+    const encodedSigningMessage = encodeForSigning(xamanJsonTx);
+    const signature = sign(encodedSigningMessage, signerInstance.keypair.privateKey);
+
+    // execute xaman tx extrinsic
+    const events = await new Promise<any[]>(async (resolve) => {
+      await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).send(({ events = [], status }) => {
+        if (status.isInBlock) resolve(events);
+      });
+    });
+
+    // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+
+    // assert events
+    expect(events.length).to.equal(5);
+    let index = 0;
+
+    // assetsExt InternalWithdraw [2,"0x8800043D76AFd08b019F3db2016b9573041C1B59",560011]
+    expect(events[index].event.section).to.equal("assetsExt");
+    expect(events[index].event.method).to.equal("InternalWithdraw");
+    expect(events[index].event.data[0]).to.equal(GAS_TOKEN_ID);
+    expect(events[index].event.data[1].toString()).to.equal(eoa);
+
+    // xrpl XRPLExtrinsicExecuted ["0x023b7f0df4d92da1ebe88be92fd59b2becfa4a60875b97c295c7a2524b03c487fc", "0x27Fd5891543A45aB8a0B7A387285bdd4A6562B51",0,{"callIndex":"0x0001","args":{"remark":"0x68656c6c6f20776f726c64"}}]
+    index += 1;
+    expect(events[index].event.section).to.equal("xrpl");
+    expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
+    expect(events[index].event.data[0].toJSON()).to.deep.equal({ ed25519: `0x${publicKey.slice(4)}` });
+    expect(events[index].event.data[1].toString()).to.equal(eoa);
+    expect(events[index].event.data[2].toString()).to.equal(xamanJsonTx.Account);
+
+    // assetsExt InternalDeposit [2,"0x6D6F646c7478666565706F740000000000000000",557511]
+    index += 1;
+    expect(events[index].event.section).to.equal("assetsExt");
+    expect(events[index].event.method).to.equal("InternalDeposit");
+
+    // transactionPayment TransactionFeePaid ["0xe8d9B65B4D1daA328b4980405393a9563FecC592",557511,0]
+    index += 1;
+    expect(events[index].event.section).to.equal("transactionPayment");
+    expect(events[index].event.method).to.equal("TransactionFeePaid");
+
+    // system ExtrinsicSuccess [{"weight":86298000,"class":"Normal","paysFee":"Yes"}]
+    index += 1;
+    expect(events[index].event.section).to.equal("system");
+    expect(events[index].event.method).to.equal("ExtrinsicSuccess");
+
+    // assert balance after < balance before (tx fee must be paid)
+    const xrpBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, eoa)).toJSON() as any)?.balance ?? 0;
+    expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
+    expect(xrpBalanceBefore - xrpBalanceAfter)
+      .to.greaterThan(800_000)
+      .and.lessThan(815_000);
   });
 
   it("can submit system remark extrinsic with tip", async () => {
@@ -220,7 +313,7 @@ describe("XRPL pallet", () => {
     index += 1;
     expect(events[index].event.section).to.equal("xrpl");
     expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
-    expect(events[index].event.data[0].toString()).to.equal(publicKey);
+    expect(events[index].event.data[0].toJSON()).to.deep.equal({ ecdsa: publicKey });
     expect(events[index].event.data[1].toString()).to.equal(user.address);
     expect(events[index].event.data[2].toString()).to.equal(xamanJsonTx.Account);
 
@@ -320,7 +413,7 @@ describe("XRPL pallet", () => {
     index += 1;
     expect(events[index].event.section).to.equal("xrpl");
     expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
-    expect(events[index].event.data[0].toString()).to.equal(publicKey);
+    expect(events[index].event.data[0].toJSON()).to.deep.equal({ ecdsa: publicKey });
     expect(events[index].event.data[1].toString()).to.equal(user.address);
     expect(events[index].event.data[2].toString()).to.equal(xamanJsonTx.Account);
 
@@ -469,7 +562,7 @@ describe("XRPL pallet", () => {
     index += 1;
     expect(events[index].event.section).to.equal("xrpl");
     expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
-    expect(events[index].event.data[0].toString()).to.equal(publicKey);
+    expect(events[index].event.data[0].toJSON()).to.deep.equal({ ecdsa: publicKey });
     expect(events[index].event.data[1].toString()).to.equal(user.address);
     expect(events[index].event.data[2].toString()).to.equal(xamanJsonTx.Account);
 
@@ -591,7 +684,7 @@ describe("XRPL pallet", () => {
     index += 1;
     expect(events[index].event.section).to.equal("xrpl");
     expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
-    expect(events[index].event.data[0].toString()).to.equal(publicKey);
+    expect(events[index].event.data[0].toJSON()).to.deep.equal({ ecdsa: publicKey });
     expect(events[index].event.data[1].toString()).to.equal(user.address);
     expect(events[index].event.data[2].toString()).to.equal(xamanJsonTx.Account);
 
@@ -766,7 +859,7 @@ describe("XRPL pallet", () => {
     index += 1;
     expect(events[index].event.section).to.equal("xrpl");
     expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
-    expect(events[index].event.data[0].toString()).to.equal(publicKey);
+    expect(events[index].event.data[0].toJSON()).to.deep.equal({ ecdsa: publicKey });
     expect(events[index].event.data[1].toString()).to.equal(user.address);
     expect(events[index].event.data[2].toString()).to.equal(xamanJsonTx.Account);
 

@@ -1505,6 +1505,65 @@ fn auction_bundle() {
 }
 
 #[test]
+fn auction_bundle_no_bids() {
+	let buyer = create_account(5);
+	let price = 1_000;
+	TestExt::<Test>::default()
+		.with_balances(&[(buyer, price)])
+		.build()
+		.execute_with(|| {
+			let collection_owner = create_account(1);
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let quantity = 5;
+
+			assert_ok!(Nft::create_collection(
+				Some(collection_owner).into(),
+				bounded_string("test-collection"),
+				quantity,
+				None,
+				None,
+				MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
+				None,
+				CrossChainCompatibility::default(),
+			));
+			assert_eq!(Nft::token_balance_of(&collection_owner, collection_id), 5);
+
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+				BoundedVec::try_from(vec![1, 3, 4]).unwrap();
+			let listing_id = Marketplace::next_listing_id();
+
+			assert_ok!(Marketplace::auction_nft(
+				Some(collection_owner).into(),
+				collection_id,
+				serial_numbers.clone(),
+				NativeAssetId::get(),
+				price,
+				None, //Some(1),
+				None,
+			));
+
+			assert!(Marketplace::open_collection_listings(collection_id, listing_id).unwrap());
+			for serial_number in serial_numbers.iter() {
+				assert_eq!(
+					TokenLocks::<Test>::get((collection_id, serial_number)).unwrap(),
+					TokenLockReason::Listed(listing_id)
+				);
+			}
+
+			// end auction with no bids
+			let end_block = System::block_number() + DefaultListingDuration::get();
+			let _ = Marketplace::on_initialize(end_block);
+
+			// Listing should be successfully removed
+			assert!(!OpenCollectionListings::<Test>::contains_key(collection_id, listing_id));
+			// Token locks should be removed
+			for serial_number in serial_numbers.iter() {
+				assert_eq!(TokenLocks::<Test>::get((collection_id, serial_number)), None);
+			}
+		})
+}
+
+#[test]
 fn auction_bundle_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(1);
