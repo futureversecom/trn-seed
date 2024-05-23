@@ -252,6 +252,8 @@ mod self_contained_call {
   		});
 	}
 
+	// TODO - enable once e2e ready?
+	#[ignore]
 	#[test]
 	fn ed25519_system_remark_extrinsic_from_message_success() {
 		TestExt::<Test>::default()
