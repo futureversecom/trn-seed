@@ -37,14 +37,14 @@ describe("Marketplace Precompile", function () {
   before(async () => {
     node = await startNode();
 
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
 
     // Setup Root api instance and keyring
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     const keyring = new Keyring({ type: "ethereum" });
     const bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
 
-    const provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
+    const provider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
 

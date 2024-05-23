@@ -50,7 +50,7 @@ describe("Futurepass Precompile", function () {
     node = await startNode();
 
     // Substrate variables
-    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -60,7 +60,7 @@ describe("Futurepass Precompile", function () {
     alithKeyring = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
 
     // Ethereum variables
-    provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
+    provider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider);
 
     futurepassRegistrar = new Contract(

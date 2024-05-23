@@ -34,7 +34,7 @@ describe("Doughnuts", () => {
   before(async () => {
     node = await startNode();
 
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
 
     keyring = new Keyring({ type: "ethereum" });

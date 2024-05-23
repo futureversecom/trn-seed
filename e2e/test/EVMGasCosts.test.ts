@@ -32,7 +32,7 @@ describe("EVM gas costs", () => {
     node = await startNode();
 
     // Substrate variables
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -53,7 +53,7 @@ describe("EVM gas costs", () => {
     console.log("Created and minted asset:", FIRST_ASSET_ID);
 
     // EVM variables
-    provider = new JsonRpcProvider(`http://localhost:${node.httpPort}`);
+    provider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider);
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
   });

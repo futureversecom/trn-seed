@@ -50,8 +50,8 @@ describe("DEX Precompile", function () {
     /// substrate setup
     ///
 
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
-    trnJsonProvider = new JsonRpcProvider(`http://localhost:${node.httpPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
+    trnJsonProvider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     alith = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(trnJsonProvider);

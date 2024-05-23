@@ -16,7 +16,7 @@ describe("RPC", () => {
     node = await startNode();
 
     await node.wait(); // wait for the node to be ready
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
     alith = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
     const tx1 = api.tx.assets.mint(2, "0x6D1eFDE1BbF146EF88c360AF255D9d54A5D39408", mintAmount);
