@@ -50,7 +50,7 @@ jobs:
           SKIP_EXCLUDE_CHECK=""
           if [ ${{ github.event.inputs.skip-exclude-check }} ]
           then
-            SKIP_EXCLUDE_CHECK = "-e"
+            SKIP_EXCLUDE_CHECK="-e"
           fi
           
           if [ -z "$PALLET_INPUT" ]
