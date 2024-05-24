@@ -11,7 +11,17 @@ import { deriveAddress, sign } from "ripple-keypairs";
 import Web3 from "web3";
 import * as AccountLib from "xrpl-accountlib";
 
-import { ALITH_PRIVATE_KEY, GAS_TOKEN_ID, NodeProcess, finalizeTx, getNextAssetId, poolAddress, startNode, stringToHex, typedefs } from "../common";
+import {
+  ALITH_PRIVATE_KEY,
+  GAS_TOKEN_ID,
+  NodeProcess,
+  finalizeTx,
+  getNextAssetId,
+  poolAddress,
+  startNode,
+  stringToHex,
+  typedefs,
+} from "../common";
 
 describe("XRPL pallet", () => {
   let node: NodeProcess;

@@ -1,7 +1,7 @@
 import "@nomicfoundation/hardhat-toolbox";
 import * as dotenv from "dotenv";
 import { utils } from "ethers";
-import { HardhatUserConfig, task } from "hardhat/config";
+import { HardhatUserConfig } from "hardhat/config";
 
 import { ALITH_PRIVATE_KEY, BOB_PRIVATE_KEY } from "./common";
 

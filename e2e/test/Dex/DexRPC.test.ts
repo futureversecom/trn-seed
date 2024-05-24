@@ -4,7 +4,16 @@ import axios from "axios";
 import { expect } from "chai";
 import { utils } from "ethers";
 
-import { ALITH_PRIVATE_KEY, GAS_TOKEN_ID, NodeProcess, finalizeTx, getNextAssetId, rpcs, startNode, typedefs } from "../../common";
+import {
+  ALITH_PRIVATE_KEY,
+  GAS_TOKEN_ID,
+  NodeProcess,
+  finalizeTx,
+  getNextAssetId,
+  rpcs,
+  startNode,
+  typedefs,
+} from "../../common";
 
 describe("DexRPC", () => {
   let node: NodeProcess;

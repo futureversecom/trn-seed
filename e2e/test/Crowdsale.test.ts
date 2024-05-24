@@ -157,7 +157,9 @@ describe("Crowdsale pallet", () => {
 
     const txs = [
       // fund participants - 50 ROOT per participant to participate
-      ...participants.map((user) => api.tx.sudo.sudo(api.tx.balances.setBalanceDeprecated(user.address, 50_000_000, 0))),
+      ...participants.map((user) =>
+        api.tx.sudo.sudo(api.tx.balances.setBalanceDeprecated(user.address, 50_000_000, 0)),
+      ),
 
       // fund participants - 2 XRP (GAS) per participant
       ...participants.map((user) => api.tx.assets.mint(GAS_TOKEN_ID, user.address, 2_000_000)),
@@ -389,7 +391,7 @@ describe("Crowdsale pallet", () => {
         })
         .catch((err) => reject(err));
     });
-    expect((dispatchError.toJSON() as any).token).to.equal("FundsUnavailable" );
+    expect((dispatchError.toJSON() as any).token).to.equal("FundsUnavailable");
 
     // transfer vouchers from one user to another (to make whole)
     await finalizeTx(
