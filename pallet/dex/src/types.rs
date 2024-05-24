@@ -44,7 +44,8 @@ impl TradingPair {
 
 	/// Returns the pool address for this trading pair
 	/// Spec:
-	/// `0xdddddddd` + <4-byte-asset_a-padded> + <4-byte-asset_b-padded> + `0000000000000000` (8 bytes)
+	/// `0xdddddddd` + <4-byte-asset_a-padded> + <4-byte-asset_b-padded> + `0000000000000000` (8
+	/// bytes)
 	pub fn pool_address<AccountId: From<H160>>(&self) -> AccountId {
 		let asset_a_bytes = self.0.to_be_bytes();
 		let asset_b_bytes = self.1.to_be_bytes();
