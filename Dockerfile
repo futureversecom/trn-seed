@@ -19,6 +19,6 @@ LABEL maintainer="The Root Network Team"
 LABEL org.opencontainers.image.source=https://github.com/futureversecom/trn-seed
 COPY --from=0 /workdir/target/release/seed /usr/bin/
 
-EXPOSE 30333 9933 9944
+EXPOSE 30333 9944
 VOLUME ["/node-data"]
 ENTRYPOINT ["/usr/bin/seed"]

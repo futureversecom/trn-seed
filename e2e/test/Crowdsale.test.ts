@@ -28,7 +28,7 @@ describe("Crowdsale pallet", () => {
     node = await startNode();
 
     // substrate variables
-    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     alith = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
   });
@@ -157,7 +157,9 @@ describe("Crowdsale pallet", () => {
 
     const txs = [
       // fund participants - 50 ROOT per participant to participate
-      ...participants.map((user) => api.tx.sudo.sudo(api.tx.balances.setBalance(user.address, 50_000_000, 0))),
+      ...participants.map((user) =>
+        api.tx.sudo.sudo(api.tx.balances.setBalanceDeprecated(user.address, 50_000_000, 0)),
+      ),
 
       // fund participants - 2 XRP (GAS) per participant
       ...participants.map((user) => api.tx.assets.mint(GAS_TOKEN_ID, user.address, 2_000_000)),
@@ -389,9 +391,7 @@ describe("Crowdsale pallet", () => {
         })
         .catch((err) => reject(err));
     });
-    const { section, name } = dispatchError.registry.findMetaError(dispatchError.asModule);
-    expect(section).to.equal("assets");
-    expect(name).to.equal("BalanceLow");
+    expect((dispatchError.toJSON() as any).token).to.equal("FundsUnavailable");
 
     // transfer vouchers from one user to another (to make whole)
     await finalizeTx(
