@@ -641,7 +641,7 @@ pub mod pallet {
 			let weight_per_proof = DbWeight::get().reads_writes(2, 2);
 
 			// Do we have enough weight to process one proof?
-			if remaining_weight.all_lte(base_weight + weight_per_proof) {
+			if remaining_weight.ref_time() <= (base_weight + weight_per_proof).ref_time() {
 				return Weight::zero()
 			}
 
@@ -657,7 +657,7 @@ pub mod pallet {
 			for _ in 0..max_delayed_events {
 				// Check if we have enough weight to process this iteration
 				let new_consumed_weight = consumed_weight.saturating_add(weight_per_proof);
-				if remaining_weight.all_lte(new_consumed_weight) {
+				if remaining_weight.ref_time() <= new_consumed_weight.ref_time() {
 					break
 				}
 				let Some((event_proof_id, signing_request)) = pending_event_proofs.next() else {

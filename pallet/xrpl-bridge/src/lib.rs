@@ -767,7 +767,7 @@ impl<T: Config> Pallet<T> {
 			weight_per_tx.saturating_add(DbWeight::get().reads_writes(2u64, 2u64));
 
 		// Ensure we have enough weight to perform the initial reads + process at least one tx
-		if remaining_weight.all_lte(base_process_weight + min_weight_per_tx) {
+		if remaining_weight.ref_time() <= (base_process_weight + min_weight_per_tx).ref_time() {
 			return Weight::zero()
 		}
 
@@ -788,11 +788,12 @@ impl<T: Config> Pallet<T> {
 		// delayed payments to process
 		while new_highest <= block_limit {
 			// Check if we have enough remaining to mutate storage this block
-			if remaining_weight.all_lte(
+			if remaining_weight.ref_time() <=
 				used_weight
 					.saturating_add(DbWeight::get().reads_writes(1, 2))
-					.saturating_add(weight_per_tx),
-			) {
+					.saturating_add(weight_per_tx)
+					.ref_time()
+			{
 				break
 			}
 
@@ -864,7 +865,7 @@ impl<T: Config> Pallet<T> {
 		let min_weight_per_index = DbWeight::get().reads_writes(1, 3);
 
 		// Ensure we have enough weight to perform the initial reads + at least one clear
-		if remaining_weight.all_lte(base_pruning_weight + min_weight_per_index) {
+		if remaining_weight.ref_time() <= (base_pruning_weight + min_weight_per_index).ref_time() {
 			return Weight::zero()
 		}
 
@@ -894,8 +895,8 @@ impl<T: Config> Pallet<T> {
 
 		for ledger_index in settled_txs_to_clear {
 			// Check if we have enough remaining to mutate storage this index
-			if remaining_weight
-				.all_lte(used_weight.saturating_add(DbWeight::get().reads_writes(1, 2)))
+			if remaining_weight.ref_time() <=
+				used_weight.saturating_add(DbWeight::get().reads_writes(1, 2)).ref_time()
 			{
 				break
 			}

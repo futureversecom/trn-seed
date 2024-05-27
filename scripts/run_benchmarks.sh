@@ -18,6 +18,7 @@ inputs_arguments() {
     flag    LIST_PALLET         -l                                                          -- "List all pallets that can be benchmarked"
     disp    :usage  -h --help
     disp    VERSION    --version
+    flag    SKIP_EXCLUDED_CHECK  -e  --skip-exculded-check
 }
 
 run_benchmark() {
@@ -33,7 +34,7 @@ run_benchmark() {
     mkdir -p "$OUTPUT_FOLDER"
     
     for PALLET in "${PALLETS[@]}"; do
-        if is_pallet_excluded; then
+        if [ ! "$SKIP_EXCLUDED_CHECK" = "1" ] && is_pallet_excluded; then
             echo -e "[ ] Skipping pallet $PALLET\n";
             continue
         fi
@@ -117,14 +118,10 @@ populate_pallet_list() {
         "pallet-offences"
         "frame-benchmarking"
 
-        # TODO: fix this; pallet bench taking too long!
+        # pallet bench taking too long - use SKIP_EXCLUDED_CHECK flag to run these
         "pallet-assets"
         "pallet-election-provider-multi-phase"
         "pallet-im-online"
-
-        # RUNTIME WEIGHT FAILURES
-        #"pallet-session"
-        #"pallet-staking"
     )
     
     CUSTOM_PALLETS=()

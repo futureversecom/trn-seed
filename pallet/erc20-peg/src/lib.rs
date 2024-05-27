@@ -264,7 +264,7 @@ pub mod pallet {
 		fn on_idle(_now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			let initial_read_cost = DbWeight::get().reads(1u64);
 			// Ensure we have enough weight to perform the initial read
-			if remaining_weight.all_lte(initial_read_cost) {
+			if remaining_weight.ref_time() <= initial_read_cost.ref_time() {
 				return Weight::zero()
 			}
 			// Check that there are blocks in ready_blocks
