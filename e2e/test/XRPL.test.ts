@@ -823,7 +823,9 @@ describe("XRPL pallet", () => {
     expect(events[index].event.section).to.equal("assets");
     expect(events[index].event.method).to.equal("Transferred");
     expect(events[index].event.data[0]).to.equal(GAS_TOKEN_ID);
-    expect(events[index].event.data[1].toString().toLowerCase()).to.equal(poolAddress(paymentToken, GAS_TOKEN_ID).toLocaleLowerCase());
+    expect(events[index].event.data[1].toString().toLowerCase()).to.equal(
+      poolAddress(paymentToken, GAS_TOKEN_ID).toLocaleLowerCase(),
+    );
     expect(events[index].event.data[2].toString()).to.equal(futurepassAddress);
 
     // assets Issued [2148,"0x6D6F646c7478666565706F740000000000000000",181]
