@@ -1105,6 +1105,67 @@ fn buy() {
 }
 
 #[test]
+fn buy_with_xrp() {
+	let buyer = create_account(5);
+	let price = 1_000;
+
+	TestExt::<Test>::default()
+		.with_asset(XRP_ASSET_ID, "XRP", &[(buyer, price)])
+		.build()
+		.execute_with(|| {
+			let (collection_id, token_id, token_owner) = setup_nft_token();
+			let buyer = create_account(5);
+
+			let listing_id = Marketplace::next_listing_id();
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+				BoundedVec::try_from(vec![token_id.1]).unwrap();
+			assert_ok!(Marketplace::sell_nft(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers,
+				Some(buyer),
+				XRP_ASSET_ID,
+				price,
+				None,
+				None
+			));
+
+			assert_ok!(Marketplace::buy(Some(buyer).into(), listing_id));
+			// no royalties, all proceeds to token owner minus network fee
+			assert_eq!(
+				AssetsExt::balance(XRP_ASSET_ID, &token_owner),
+				price - MarketplaceNetworkFeePercentage::get().mul(price)
+			);
+			// Buyer balance should be 0
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &buyer), 0);
+
+			// listing removed
+			assert!(Listings::<Test>::get(listing_id).is_none());
+			assert!(Marketplace::listing_end_schedule(
+				System::block_number() + <Test as Config>::DefaultListingDuration::get(),
+				listing_id
+			)
+			.is_none());
+
+			// ownership changed
+			assert!(TokenLocks::<Test>::get(&token_id).is_none());
+			assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
+			assert_eq!(
+				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
+				(0_u32, 1, vec![token_id.1])
+			);
+
+			// assert network fees accumulated
+			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+
+			assert_eq!(
+				AssetsExt::balance(XRP_ASSET_ID, &fee_pot_account),
+				5, // 0.5% of 1000
+			);
+		});
+}
+
+#[test]
 fn buy_with_royalties() {
 	let buyer = create_account(5);
 	let sale_price = 1_000_008;
@@ -1624,6 +1685,95 @@ fn auction() {
 				listing_id,
 				marketplace_id: None,
 				payment_asset: NativeAssetId::get(),
+				hammer_price: winning_bid,
+				winner: bidder_2,
+			}));
+		});
+}
+
+#[test]
+fn auction_with_xrp_asset() {
+	let bidder_1 = create_account(5);
+	let bidder_2 = create_account(6);
+	let reserve_price = 100_000;
+	let winning_bid = reserve_price + 1;
+
+	TestExt::<Test>::default()
+		.with_asset(XRP_ASSET_ID, "XRP", &[(bidder_1, reserve_price), (bidder_2, winning_bid)])
+		.build()
+		.execute_with(|| {
+			let (collection_id, token_id, token_owner) = setup_nft_token();
+
+			let listing_id = Marketplace::next_listing_id();
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+				BoundedVec::try_from(vec![token_id.1]).unwrap();
+			assert_ok!(Marketplace::auction_nft(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers.clone(),
+				XRP_ASSET_ID,
+				reserve_price,
+				Some(1),
+				None,
+			));
+			assert_eq!(
+				TokenLocks::<Test>::get(&token_id).unwrap(),
+				TokenLockReason::Listed(listing_id)
+			);
+			assert_eq!(Marketplace::next_listing_id(), listing_id + 1);
+			assert!(Marketplace::open_collection_listings(collection_id, listing_id).unwrap());
+
+			// first bidder at reserve price
+			assert_ok!(Marketplace::bid(Some(bidder_1).into(), listing_id, reserve_price,));
+			assert_eq!(
+				AssetsExt::hold_balance(&MarketplacePalletId::get(), &bidder_1, &XRP_ASSET_ID),
+				reserve_price
+			);
+
+			// second bidder raises bid
+			assert_ok!(Marketplace::bid(Some(bidder_2).into(), listing_id, winning_bid,));
+			assert_eq!(
+				AssetsExt::hold_balance(&MarketplacePalletId::get(), &bidder_2, &XRP_ASSET_ID),
+				winning_bid
+			);
+			assert!(AssetsExt::hold_balance(&MarketplacePalletId::get(), &bidder_1, &XRP_ASSET_ID)
+				.is_zero());
+
+			// end auction
+			let _ = Marketplace::on_initialize(
+				System::block_number() + AUCTION_EXTENSION_PERIOD as u64,
+			);
+
+			// no royalties, all proceeds to token owner minus network fees
+			assert_eq!(
+				AssetsExt::balance(XRP_ASSET_ID, &token_owner),
+				winning_bid - MarketplaceNetworkFeePercentage::get().mul(winning_bid)
+			);
+			// bidder2 funds should be all gone (unreserved and transferred)
+			assert!(AssetsExt::balance(XRP_ASSET_ID, &bidder_2).is_zero());
+			assert!(AssetsExt::hold_balance(&MarketplacePalletId::get(), &bidder_2, &XRP_ASSET_ID)
+				.is_zero());
+			// listing metadata removed
+			assert!(Listings::<Test>::get(listing_id).is_none());
+			assert!(
+				Marketplace::listing_end_schedule(System::block_number() + 1, listing_id).is_none()
+			);
+
+			// ownership changed
+			assert!(TokenLocks::<Test>::get(&token_id).is_none());
+			assert_eq!(
+				Nft::owned_tokens(collection_id, &bidder_2, 0, 1000),
+				(0_u32, 1, vec![token_id.1])
+			);
+			assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
+
+			// event logged
+			let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
+			System::assert_last_event(MockEvent::Marketplace(Event::<Test>::AuctionSold {
+				tokens,
+				listing_id,
+				marketplace_id: None,
+				payment_asset: XRP_ASSET_ID,
 				hammer_price: winning_bid,
 				winner: bidder_2,
 			}));
@@ -2908,6 +3058,96 @@ mod buy_sft {
 						marketplace_id: None,
 						price,
 						payment_asset: NativeAssetId::get(),
+						seller: token_owner,
+						buyer,
+					},
+				));
+
+				System::assert_has_event(
+					pallet_sft::Event::<Test>::Transfer {
+						previous_owner: token_owner,
+						collection_id,
+						serial_numbers: BoundedVec::truncate_from(vec![token_id.1]),
+						balances: BoundedVec::truncate_from(vec![sell_quantity]),
+						new_owner: buyer,
+					}
+					.into(),
+				);
+			});
+	}
+
+	#[test]
+	fn buy_sft_with_xrp() {
+		let buyer = create_account(5);
+		let price = 1_000;
+
+		TestExt::<Test>::default()
+			.with_asset(XRP_ASSET_ID, "XRP", &[(buyer, price)])
+			.build()
+			.execute_with(|| {
+				let initial_issuance = 100;
+				let (collection_id, token_id, token_owner) = setup_sft_token(initial_issuance);
+				let buyer = create_account(5);
+
+				let listing_id = Marketplace::next_listing_id();
+				let sell_quantity = 60;
+				let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
+					BoundedVec::truncate_from(vec![(token_id.1, sell_quantity)]);
+				let sft_token = ListingTokens::Sft(SftListing {
+					collection_id,
+					serial_numbers: serial_numbers.clone(),
+				});
+				assert_ok!(Marketplace::sell(
+					Some(token_owner).into(),
+					sft_token.clone(),
+					None,
+					XRP_ASSET_ID,
+					price,
+					None,
+					None,
+				));
+
+				assert_ok!(Marketplace::buy(Some(buyer).into(), listing_id));
+				// no royalties, all proceeds to token owner minus network fee
+				assert_eq!(
+					AssetsExt::balance(XRP_ASSET_ID, &token_owner),
+					price - MarketplaceNetworkFeePercentage::get().mul(price)
+				);
+				// Buyer balance should be zero
+				assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &buyer), 0);
+
+				// listing removed
+				assert!(Listings::<Test>::get(listing_id).is_none());
+				assert!(Marketplace::listing_end_schedule(
+					System::block_number() + <Test as Config>::DefaultListingDuration::get(),
+					listing_id
+				)
+				.is_none());
+				assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
+
+				// Check SFT balances of both seller and buyer
+				let seller_balance = sft_balance_of(token_id, &token_owner);
+				assert_eq!(seller_balance.free_balance, initial_issuance - sell_quantity);
+				assert_eq!(seller_balance.reserved_balance, 0);
+
+				let buyer_balance = sft_balance_of(token_id, &buyer);
+				assert_eq!(buyer_balance.free_balance, sell_quantity);
+				assert_eq!(buyer_balance.reserved_balance, 0);
+
+				// assert network fees accumulated
+				let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+				assert_eq!(
+					AssetsExt::balance(XRP_ASSET_ID, &fee_pot_account),
+					5, // 0.5% of 1000
+				);
+
+				System::assert_has_event(MockEvent::Marketplace(
+					Event::<Test>::FixedPriceSaleComplete {
+						tokens: sft_token.clone(),
+						listing_id,
+						marketplace_id: None,
+						price,
+						payment_asset: XRP_ASSET_ID,
 						seller: token_owner,
 						buyer,
 					},

@@ -39,7 +39,6 @@ pallet-assets-ext = { path = "../assets-ext" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 pallet-scheduler = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-seed-runtime = { path = "../../runtime" }
 
 [features]
 default = ["std"]

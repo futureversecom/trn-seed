@@ -347,12 +347,11 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(1000)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_admin())]
 		pub fn set_admin(origin: OriginFor<T>, new: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_root(origin)?;
 
 			let new = T::Lookup::lookup(new)?;
-
 			AdminAccount::<T>::put(&new);
 			Self::deposit_event(Event::AdminAccountChanged {
 				old_key: AdminAccount::<T>::get(),

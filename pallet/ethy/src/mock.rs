@@ -24,8 +24,10 @@ use crate::{
 use codec::{Decode, Encode};
 use ethereum_types::U64;
 use frame_support::{
+	pallet_prelude::{OptionQuery, ValueQuery},
+	storage_alias,
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
-	StorageHasher, Twox64Concat,
+	Identity, Twox64Concat,
 };
 use scale_info::TypeInfo;
 use seed_pallet_common::test_prelude::*;
@@ -33,7 +35,6 @@ use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
 	Signature,
 };
-use seed_runtime::migrations::{Map, Value};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{ByteArray, Get};
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
@@ -261,9 +262,38 @@ impl MockReceiptBuilder {
 	}
 }
 
+#[storage_alias]
+pub type BlockResponseAt<Test: Config> =
+	StorageMap<crate::Pallet<Test>, Identity, u64, MockBlockResponse>;
+
+#[storage_alias]
+pub type TransactionReceiptFor<Test: Config> =
+	StorageMap<crate::Pallet<Test>, Twox64Concat, EthHash, MockReceiptResponse>;
+
+#[storage_alias]
+pub type CallAt<Test: Config> =
+	StorageDoubleMap<crate::Pallet<Test>, Twox64Concat, u64, Twox64Concat, EthAddress, Vec<u8>>;
+
+#[storage_alias]
+pub type Forcing<Test: Config> = StorageValue<crate::Pallet<Test>, bool, ValueQuery>;
+
+#[storage_alias]
+pub type Validators<Test: Config> = StorageValue<crate::Pallet<Test>, Vec<AccountId>, ValueQuery>;
+
+#[storage_alias]
+pub type Timestamp<Test: Config> = StorageValue<crate::Pallet<Test>, u64, OptionQuery>;
+
+#[storage_alias]
+pub type LastCallResult<Test: Config> =
+	StorageValue<crate::Pallet<Test>, (EthCallId, CheckedEthCallResult), OptionQuery>;
+
+#[storage_alias]
+pub type LastCallFailure<Test: Config> =
+	StorageValue<crate::Pallet<Test>, (EthCallId, EthCallFailure), OptionQuery>;
+
 /// set the block timestamp
 pub fn mock_timestamp(now: u64) {
-	Value::unsafe_storage_put::<u64>(b"Test", b"Timestamp", now)
+	Timestamp::<Test>::put(now)
 }
 
 // get the system unix timestamp in seconds
@@ -324,12 +354,7 @@ impl MockEthereumRpcClient {
 			block_number: mock_block.number.unwrap().as_u64(),
 			timestamp: mock_block.timestamp,
 		};
-		Map::unsafe_storage_put::<MockBlockResponse>(
-			b"Test",
-			b"BlockResponseAt",
-			&Twox64Concat::hash(&block_number.encode()),
-			mock_block_response,
-		);
+		BlockResponseAt::<Test>::insert(block_number, mock_block_response)
 	}
 	/// Mock a tx receipt response for a hash
 	pub fn mock_transaction_receipt_for(tx_hash: EthHash, mock_tx_receipt: TransactionReceipt) {
@@ -341,20 +366,11 @@ impl MockEthereumRpcClient {
 			to: mock_tx_receipt.to,
 			logs: mock_tx_receipt.logs.into_iter().map(From::from).collect(),
 		};
-		Map::unsafe_storage_put::<MockReceiptResponse>(
-			b"Test",
-			b"TransactionReceiptFor",
-			&Twox64Concat::hash(&tx_hash.encode()),
-			mock_receipt_response,
-		);
+		TransactionReceiptFor::<Test>::insert(tx_hash, mock_receipt_response);
 	}
 	/// setup a mock returndata for an `eth_call` at `block` and `contract` address
 	pub fn mock_call_at(block_number: u64, contract: H160, return_data: &[u8]) {
-		let mut key = Twox64Concat::hash(&block_number.encode());
-		let key_2 = Twox64Concat::hash(&contract.encode());
-		key.extend_from_slice(&key_2);
-		println!("mock_call_at: {:?} : {:?}", block_number, key);
-		Map::unsafe_storage_put::<Vec<u8>>(b"Test", b"CallAt", &key, return_data.to_vec());
+		CallAt::<Test>::insert(block_number, contract, return_data.to_vec())
 	}
 }
 
@@ -364,28 +380,8 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 		block_number: LatestOrNumber,
 	) -> Result<Option<EthBlock>, BridgeRpcError> {
 		let mock_block_response = match block_number {
-			LatestOrNumber::Latest => {
-				let mut response: Vec<BlockNumber> = Map::unsafe_keys_get::<
-					BlockNumber,
-					MockBlockResponse,
-					Twox64Concat,
-				>(b"Test", b"BlockResponseAt");
-				if response.is_empty() {
-					return Ok(None)
-				}
-				response.sort();
-				let last_key = response.iter().last().unwrap();
-				Map::unsafe_storage_get::<MockBlockResponse>(
-					b"Test",
-					b"BlockResponseAt",
-					&Twox64Concat::hash(&last_key.encode()),
-				)
-			},
-			LatestOrNumber::Number(block) => Map::unsafe_storage_get::<MockBlockResponse>(
-				b"Test",
-				b"BlockResponseAt",
-				&Twox64Concat::hash(&block.encode()),
-			),
+			LatestOrNumber::Latest => BlockResponseAt::<Test>::iter().last().map(|x| x.1).or(None),
+			LatestOrNumber::Number(block) => BlockResponseAt::<Test>::get(block),
 		};
 		if mock_block_response.is_none() {
 			return Ok(None)
@@ -404,11 +400,7 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	fn get_transaction_receipt(
 		hash: EthHash,
 	) -> Result<Option<TransactionReceipt>, BridgeRpcError> {
-		let mock_receipt = Map::unsafe_storage_get::<MockReceiptResponse>(
-			b"Test",
-			b"TransactionReceiptFor",
-			&Twox64Concat::hash(&hash.encode()),
-		);
+		let mock_receipt = TransactionReceiptFor::<Test>::get(hash);
 		if mock_receipt.is_none() {
 			return Ok(None)
 		}
@@ -432,28 +424,10 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	) -> Result<Vec<u8>, BridgeRpcError> {
 		let block_number = match at_block {
 			LatestOrNumber::Number(n) => n,
-			LatestOrNumber::Latest => {
-				let mut response = Map::unsafe_keys_get::<
-					BlockNumber,
-					MockBlockResponse,
-					Twox64Concat,
-				>(b"Test", b"BlockResponseAt");
-				response.sort();
-				let last_key = response.iter().last().unwrap();
-				Map::unsafe_storage_get::<MockBlockResponse>(
-					b"Test",
-					b"BlockResponseAt",
-					&Twox64Concat::hash(&last_key.encode()),
-				)
-				.unwrap()
-				.block_number
-			},
+			LatestOrNumber::Latest =>
+				BlockResponseAt::<Test>::iter().last().unwrap().1.block_number,
 		};
-		let mut key = Twox64Concat::hash(&block_number.encode());
-		let key_2 = Twox64Concat::hash(&target.encode());
-		key.extend_from_slice(&key_2);
-		Map::unsafe_storage_get::<Vec<u8>>(b"Test", b"CallAt", &key)
-			.ok_or(BridgeRpcError::HttpFetch)
+		CallAt::<Test>::get(block_number, target).ok_or(BridgeRpcError::HttpFetch)
 	}
 }
 
@@ -474,7 +448,7 @@ impl ValidatorSetT<AccountId> for MockValidatorSet {
 	}
 	/// Returns the active set of validators.
 	fn validators() -> Vec<Self::ValidatorId> {
-		Value::unsafe_storage_get::<Vec<AccountId>>(b"Test", b"Validators").unwrap_or_default()
+		Validators::<Test>::get()
 	}
 }
 impl MockValidatorSet {
@@ -482,7 +456,7 @@ impl MockValidatorSet {
 	pub fn mock_n_validators(n: u8) {
 		let validators: Vec<AccountId> =
 			(1..=n as u64).map(|i| H160::from_low_u64_be(i).into()).collect();
-		Value::unsafe_storage_put::<Vec<AccountId>>(b"Test", b"Validators", validators);
+		Validators::<Test>::put(validators);
 	}
 }
 
@@ -504,31 +478,26 @@ impl EthCallOracleSubscriber for MockEthCallSubscriber {
 		block_number: u64,
 		block_timestamp: u64,
 	) {
-		Value::unsafe_storage_put::<(EthCallId, CheckedEthCallResult)>(
-			b"Test",
-			b"LastCallResult",
-			(call_id, CheckedEthCallResult::Ok(*return_data, block_number, block_timestamp)),
-		);
+		LastCallResult::<Test>::put((
+			call_id,
+			CheckedEthCallResult::Ok(*return_data, block_number, block_timestamp),
+		));
 	}
 	/// Stores the failed call info
 	/// Available via `Self::failed_call_for()`
 	fn on_eth_call_failed(call_id: Self::CallId, reason: EthCallFailure) {
-		Value::unsafe_storage_put::<(EthCallId, EthCallFailure)>(
-			b"Test",
-			b"LastCallFailure",
-			(call_id, reason),
-		);
+		LastCallFailure::<Test>::put((call_id, reason))
 	}
 }
 
 impl MockEthCallSubscriber {
 	/// Returns last known successful call, if any
 	pub fn success_result() -> Option<(EthCallId, CheckedEthCallResult)> {
-		Value::unsafe_storage_get::<(EthCallId, CheckedEthCallResult)>(b"Test", b"LastCallResult")
+		LastCallResult::<Test>::get()
 	}
 	/// Returns last known failed call, if any
 	pub fn failed_result() -> Option<(EthCallId, EthCallFailure)> {
-		Value::unsafe_storage_get::<(EthCallId, EthCallFailure)>(b"Test", b"LastCallFailure")
+		LastCallFailure::<Test>::get()
 	}
 }
 
@@ -537,8 +506,7 @@ pub struct MockFinalSessionTracker;
 impl FinalSessionTracker for MockFinalSessionTracker {
 	fn is_active_session_final() -> bool {
 		// at block 100, or if we are forcing, the active session is final
-		let forcing: bool =
-			Value::unsafe_storage_get::<bool>(b"Test", b"Forcing").unwrap_or_default();
+		let forcing: bool = Forcing::<Test>::get();
 		frame_system::Pallet::<Test>::block_number() == 100 || forcing
 	}
 }
@@ -547,7 +515,7 @@ impl FinalSessionTracker for MockFinalSessionTracker {
 pub struct MockUnixTime;
 impl UnixTime for MockUnixTime {
 	fn now() -> core::time::Duration {
-		match Value::unsafe_storage_get::<u64>(b"Test", b"Timestamp") {
+		match Timestamp::<Test>::get() {
 			// Use configured value for tests requiring precise timestamps
 			Some(s) => core::time::Duration::new(s, 0),
 			// fallback, use block number to derive timestamp for tests that only care abut block
