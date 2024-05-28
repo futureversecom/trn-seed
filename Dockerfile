@@ -6,7 +6,7 @@ ADD . ./workdir
 WORKDIR "/workdir"
 
 # This installs all dependencies that we need.
-RUN apt update -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true -o Acquire::AllowUnauthenticated=true -y && \
+RUN apt update -y && \
     apt install build-essential git clang curl libssl-dev llvm libudev-dev make cmake protobuf-compiler pkg-config -y
 
 # Install the right toolchain and build the node
