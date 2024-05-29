@@ -79,7 +79,7 @@ pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrat
 
 # These dependencies are used for runtime benchmarking
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", features = ["default", "rocksdb"] }
+frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 
 # Local Dependencies
 ethy-gadget = { path = "../ethy-gadget" }

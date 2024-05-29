@@ -27,7 +27,6 @@ use sc_client_api::{
 use sc_consensus_babe::{self, BabeWorkerHandle, SlotProportion};
 use sc_consensus_grandpa::SharedVoterState;
 pub use sc_executor::NativeElseWasmExecutor;
-use sc_keystore::LocalKeystore;
 use sc_network_sync::SyncingService;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncParams};
 use sc_telemetry::{Telemetry, TelemetryWorker};
@@ -250,14 +249,6 @@ pub fn new_partial(
 			babe_worker_handle,
 		),
 	})
-}
-
-#[allow(dead_code)]
-fn remote_keystore(_url: &String) -> Result<Arc<LocalKeystore>, &'static str> {
-	// FIXME: here would the concrete keystore be built,
-	//        must return a concrete type (NOT `LocalKeystore`) that
-	//        implements `Keystore`
-	Err("Remote Keystore not supported.")
 }
 
 /// Builds a new service for a full client.
