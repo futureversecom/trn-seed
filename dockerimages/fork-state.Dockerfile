@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 docker.io/library/rust:1.67.0-bullseye as builder
+FROM --platform=linux/amd64 docker.io/library/rust:1.71.0-bullseye as builder
 
 RUN apt update -y && apt install -y \
 	build-essential \
