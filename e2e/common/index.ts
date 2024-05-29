@@ -482,6 +482,7 @@ export const futurepassAddress = (nextId: number | string): string => {
   return web3.utils.toChecksumAddress(`0xFFFFFFFF${fpIdHex}`);
 };
 
+// Retrieve the dex liquidity pool address for a given pair of assets
 // `0xdddddddd` + <4-byte-asset_a-padded> + <4-byte-asset_b-padded> + `0000000000000000` (8 bytes)
 export const poolAddress = (assetA: number | string, assetB: number | string): string => {
   const assetAHex = (+assetA).toString(16).padStart(8, "0");
