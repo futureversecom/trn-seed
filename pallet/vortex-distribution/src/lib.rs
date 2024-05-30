@@ -282,7 +282,7 @@ pub mod pallet {
 			if let Err(e) = Self::vtx_dist_offchain_worker(now) {
 				log::info!(
 				  target: "vtx-dist",
-				  "error happened in offchain worker at {:?}: {:?}",
+				  "offchain worker not triggered at {:?}: {:?}",
 				  now,
 				  e,
 				);

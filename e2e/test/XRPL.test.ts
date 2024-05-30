@@ -186,7 +186,7 @@ describe("XRPL pallet", () => {
 
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, eoa, 2_000_000));
 
-    const extrinsic = api.tx.system.remark("hi");
+    const extrinsic = api.tx.system.remark("Mischief Managed");
     const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
     const nonce = ((await api.query.system.account(eoa)).toJSON() as any)?.nonce;
@@ -212,6 +212,9 @@ describe("XRPL pallet", () => {
     const message = encode(xamanJsonTx);
     const encodedSigningMessage = encodeForSigning(xamanJsonTx);
     const signature = sign(encodedSigningMessage, signerInstance.keypair.privateKey);
+
+    console.log("message", message);
+    console.log("signature", signature);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
