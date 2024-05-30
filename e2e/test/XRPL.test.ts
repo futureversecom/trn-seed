@@ -43,7 +43,7 @@ describe("XRPL pallet", () => {
   after(async () => await node.stop());
 
   // NOTE: use this test to generate a valid xaman tx (msg + signature) for mock runtime tests
-  it.skip("debug tx message and signature", async () => {
+  it.skip("debug ECDSA tx message and signature", async () => {
     // const user = Wallet.createRandom();
     const publicKey = computePublicKey(alith.publicKey, true);
     // console.log(hexToU8a(publicKey));
@@ -75,6 +75,51 @@ describe("XRPL pallet", () => {
     const message = encode(xamanJsonTx);
     const encodedSigningMessage = encodeForSigning(xamanJsonTx);
     const signature = sign(encodedSigningMessage, ALITH_PRIVATE_KEY.slice(2));
+
+    console.log("message", message);
+    console.log("signature", signature);
+  });
+
+  // NOTE: use this test to generate a valid xaman tx (msg + signature) for mock runtime tests
+  it.skip("debug ED25519 tx message and signature", async () => {
+    // const user = Wallet.createRandom();
+    // const publicKey = computePublicKey(alith.publicKey, true);
+    const importedAccount = AccountLib.derive.familySeed("sEdS4rAgVysUtD5Zmm9F8i8uJBGik4K");
+    const signerInstance = AccountLib.derive.privatekey(importedAccount.keypair.privateKey!);
+    const publicKey = computePublicKey(`0x${signerInstance.keypair.publicKey!}`, true);
+    const eoa = Web3.utils.toChecksumAddress(
+        // remove "ED" prefix from public key to compute EOA
+        // keccak hash produces 32 bytes (64 chars) - take last 20 bytes (40 chars)
+        // remove "0x" prefix from keccak hash output (2 chars)
+        // get last 20 bytes of the keccak hash output (12 bytes - 24 chars)
+        "0x" + keccak256(hexToU8a(`0x${publicKey.slice(4)}`)).slice(26),
+    );
+
+    await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, eoa, 2_000_000));
+
+    genesisHash = "0000000000000000000000000000000000000000000000000000000000000000";
+    const extrinsic = api.tx.system.remark("Mischief Managed");
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+
+    const xamanJsonTx = {
+      AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
+      SigningPubKey: publicKey.slice(2),
+      Account: deriveAddress(publicKey.slice(2)),
+      Memos: [
+        {
+          Memo: {
+            MemoType: stringToHex("extrinsic"),
+            // remove `0x` from extrinsic hex string
+            MemoData: stringToHex(`${genesisHash}:0:5:0:${hashedExtrinsicWithoutPrefix}`),
+          },
+        },
+      ],
+    };
+
+    // sign xaman tx
+    const message = encode(xamanJsonTx);
+    const encodedSigningMessage = encodeForSigning(xamanJsonTx);
+    const signature = sign(encodedSigningMessage, signerInstance.keypair.privateKey);
 
     console.log("message", message);
     console.log("signature", signature);
@@ -212,9 +257,6 @@ describe("XRPL pallet", () => {
     const message = encode(xamanJsonTx);
     const encodedSigningMessage = encodeForSigning(xamanJsonTx);
     const signature = sign(encodedSigningMessage, signerInstance.keypair.privateKey);
-
-    console.log("message", message);
-    console.log("signature", signature);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
