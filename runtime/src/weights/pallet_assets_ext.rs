@@ -32,6 +32,17 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_assets_ext`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_assets_ext::WeightInfo for WeightInfo<T> {
+	/// Storage: `AssetsExt::AssetDeposit` (r:0 w:1)
+	/// Proof: `AssetsExt::AssetDeposit` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	fn set_asset_deposit() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(11_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// Storage: `AssetsExt::AssetDeposit` (r:1 w:0)
 	/// Proof: `AssetsExt::AssetDeposit` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	/// Storage: `AssetsExt::NextAssetId` (r:1 w:1)
@@ -58,15 +69,50 @@ impl<T: frame_system::Config> pallet_assets_ext::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
-	/// Storage: `AssetsExt::AssetDeposit` (r:0 w:1)
-	/// Proof: `AssetsExt::AssetDeposit` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
-	fn set_asset_deposit() -> Weight {
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:1 w:1)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
+	fn mint() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 24_017_000 picoseconds.
-		Weight::from_parts(24_326_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			.saturating_add(T::DbWeight::get().writes(1))
+		//  Measured:  `781`
+		//  Estimated: `3627`
+		// Minimum execution time: 45_000_000 picoseconds.
+		Weight::from_parts(47_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3627))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:2 w:2)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
+	fn transfer() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `639`
+		//  Estimated: `6172`
+		// Minimum execution time: 82_000_000 picoseconds.
+		Weight::from_parts(89_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6172))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(5))
+	}
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:1 w:1)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
+	fn burn_from() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `437`
+		//  Estimated: `3627`
+		// Minimum execution time: 46_000_000 picoseconds.
+		Weight::from_parts(47_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3627))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 }
