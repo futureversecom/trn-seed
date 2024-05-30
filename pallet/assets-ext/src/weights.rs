@@ -19,8 +19,8 @@
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2024-05-30, STEPS: `50`, REPEAT: 20, LOW RANGE: `[]`, HIGH RANGE: `[]`
-//! HOSTNAME: `ip-172-31-101-56`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
-//! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
+//! HOSTNAME: `ip-172-31-102-147`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
+//! EXECUTION: , WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
 // ./target/release/seed
@@ -60,7 +60,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `AssetsExt::AssetDeposit` (r:0 w:1)
 	// Proof: `AssetsExt::AssetDeposit` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	fn set_asset_deposit() -> Weight {
-		Weight::from_all(11_000_000 as u64)
+		Weight::from_all(26_074_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: `AssetsExt::AssetDeposit` (r:1 w:0)
@@ -80,7 +80,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `EVM::AccountCodesMetadata` (r:0 w:1)
 	// Proof: `EVM::AccountCodesMetadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn create_asset() -> Weight {
-		Weight::from_all(81_000_000 as u64)
+		Weight::from_all(154_448_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(7 as u64))
 			.saturating_add(T::DbWeight::get().writes(6 as u64))
 	}
@@ -91,7 +91,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn mint() -> Weight {
-		Weight::from_all(45_000_000 as u64)
+		Weight::from_all(86_232_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
@@ -102,7 +102,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn transfer() -> Weight {
-		Weight::from_all(84_000_000 as u64)
+		Weight::from_all(144_392_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 			.saturating_add(T::DbWeight::get().writes(5 as u64))
 	}
@@ -111,7 +111,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Assets::Account` (r:1 w:1)
 	// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
 	fn burn_from() -> Weight {
-		Weight::from_all(45_000_000 as u64)
+		Weight::from_all(82_739_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
@@ -122,7 +122,7 @@ impl WeightInfo for () {
 	// Storage: `AssetsExt::AssetDeposit` (r:0 w:1)
 	// Proof: `AssetsExt::AssetDeposit` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	fn set_asset_deposit() -> Weight {
-		Weight::from_all(11_000_000 as u64)
+		Weight::from_all(26_074_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: `AssetsExt::AssetDeposit` (r:1 w:0)
@@ -142,7 +142,7 @@ impl WeightInfo for () {
 	// Storage: `EVM::AccountCodesMetadata` (r:0 w:1)
 	// Proof: `EVM::AccountCodesMetadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn create_asset() -> Weight {
-		Weight::from_all(81_000_000 as u64)
+		Weight::from_all(154_448_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(7 as u64))
 			.saturating_add(RocksDbWeight::get().writes(6 as u64))
 	}
@@ -153,7 +153,7 @@ impl WeightInfo for () {
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn mint() -> Weight {
-		Weight::from_all(45_000_000 as u64)
+		Weight::from_all(86_232_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}
@@ -164,7 +164,7 @@ impl WeightInfo for () {
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn transfer() -> Weight {
-		Weight::from_all(84_000_000 as u64)
+		Weight::from_all(144_392_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(5 as u64))
 			.saturating_add(RocksDbWeight::get().writes(5 as u64))
 	}
@@ -173,7 +173,7 @@ impl WeightInfo for () {
 	// Storage: `Assets::Account` (r:1 w:1)
 	// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
 	fn burn_from() -> Weight {
-		Weight::from_all(45_000_000 as u64)
+		Weight::from_all(82_739_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
