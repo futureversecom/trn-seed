@@ -132,7 +132,7 @@ mod staking;
 
 use staking::OnChainAccuracy;
 
-pub mod migrations;
+mod migrations;
 mod weights;
 
 use crate::impls::{

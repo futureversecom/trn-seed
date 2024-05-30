@@ -256,7 +256,7 @@ fn call_with_fee_preferences_futurepass_proxy_extrinsic() {
 			RawOrigin::Signed(alice()).into(),
 			payment_asset,
 			alice(),
-			20_000_000_000_000_000
+			10_000_000_000_000_000
 		));
 
 		// add liquidity to the dex, this will allow for exchange internally when the call is made

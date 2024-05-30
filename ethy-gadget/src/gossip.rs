@@ -415,7 +415,7 @@ mod tests {
 		assert_validation_result!(ValidationResult::ProcessAndKeep(_), result);
 		assert!(gv.is_tracking_event(&event_id));
 
-		// set the finalized block number to 6. try to validate now. should fail since out of live
+		// set the finalized block number to 7. try to validate now. should fail since out of live
 		// window. i.e. WINDOW_SIZE = 5
 		let block_hashes = net.peer(0).push_blocks(7, false);
 		net.run_until_sync().await;
@@ -464,7 +464,7 @@ mod tests {
 		let result = gv.message_expired()(topic::<Block>(), witness.clone().encode().as_ref());
 		assert_eq!(result, false);
 
-		// set the finalized block number to 6. try to validate now. should fail since out of live
+		// set the finalized block number to 7. try to validate now. should fail since out of live
 		// window. i.e. WINDOW_SIZE = 5
 		let block_hashes = net.peer(0).push_blocks(7, false);
 		net.run_until_sync().await;
@@ -518,7 +518,7 @@ mod tests {
 		);
 		assert_eq!(result, true);
 
-		// set the finalized block number to 6. try to validate now. should fail since out of live
+		// set the finalized block number to 7. try to validate now. should fail since out of live
 		// window. i.e. WINDOW_SIZE = 5
 		let block_hashes = net.peer(0).push_blocks(7, false);
 		net.run_until_sync().await;
