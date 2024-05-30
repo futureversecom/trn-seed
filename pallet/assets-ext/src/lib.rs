@@ -41,7 +41,6 @@ use frame_support::{
 	transactional, PalletId,
 };
 use frame_system::pallet_prelude::*;
-use pallet_assets::WeightInfo as AssetsWeightInfo;
 use precompile_utils::constants::ERC20_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	utils::next_asset_uuid, CreateExt, Hold, InspectExt, OnNewAssetSubscriber, TransferExt,
@@ -252,7 +251,7 @@ pub mod pallet {
 		/// Mints an asset to an account if the caller is the asset owner
 		/// Attempting to mint ROOT token will throw an error
 		#[pallet::call_index(2)]
-		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::mint())]
+		#[pallet::weight(<T as Config>::WeightInfo::mint())]
 		pub fn mint(
 			origin: OriginFor<T>,
 			asset_id: AssetId,
@@ -270,7 +269,7 @@ pub mod pallet {
 
 		/// Transfers either ROOT or an asset
 		#[pallet::call_index(3)]
-		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::transfer())]
+		#[pallet::weight(<T as Config>::WeightInfo::transfer())]
 		pub fn transfer(
 			origin: OriginFor<T>,
 			asset_id: AssetId,
@@ -296,7 +295,7 @@ pub mod pallet {
 		/// Burns an asset from an account. Caller must be the asset owner
 		/// Attempting to burn ROOT token will throw an error
 		#[pallet::call_index(4)]
-		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::burn())]
+		#[pallet::weight(<T as Config>::WeightInfo::burn_from())]
 		pub fn burn_from(
 			origin: OriginFor<T>,
 			asset_id: AssetId,
