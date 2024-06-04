@@ -234,7 +234,6 @@ where
 		eth_forced_parent_hashes,
 	} = deps;
 
-	// let BabeDeps { keystore, babe_config, shared_epoch_changes } = babe;
 	let BabeDeps { babe_config, babe_worker_handle, keystore } = babe;
 
 	let client_clone = client.clone();
