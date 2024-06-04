@@ -448,7 +448,7 @@ where
 					None, // handled by EVM
 					alloc::vec![],
 					false,
-					false, // TODO: check why this is not true
+					true,
 					// TODO: adjust accordingly
 					None,
 					None,
@@ -495,7 +495,7 @@ where
 					None, // handled by EVM
 					alloc::vec![],
 					false,
-					false, // TODO: check why this is not true
+					true,
 					// TODO: adjust accordingly
 					None,
 					None,

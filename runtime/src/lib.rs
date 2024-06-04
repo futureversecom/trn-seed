@@ -1796,7 +1796,7 @@ impl_runtime_apis! {
 				nonce,
 				access_list.unwrap_or_default(),
 				false,
-				false, // TODO: check why this is not true
+				true,
 				// TODO: adjust accordingly
 				None,
 				None,
