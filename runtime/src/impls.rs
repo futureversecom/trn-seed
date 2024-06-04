@@ -23,7 +23,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
-		tokens::{DepositConsequence, WithdrawConsequence},
+		tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
 		CallMetadata, Currency, ExistenceRequirement, FindAuthor, GetCallMetadata, Imbalance,
 		InstanceFilter, OnUnbalanced, ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
@@ -34,8 +34,8 @@ use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	traits::{
-		AccountIdConversion, Extrinsic, LookupError, SaturatedConversion, StaticLookup, Verify,
-		Zero,
+		AccountIdConversion, Dispatchable, Extrinsic, LookupError, SaturatedConversion, Saturating,
+		StaticLookup, UniqueSaturatedInto, Verify, Zero,
 	},
 	ConsensusEngineId, Permill,
 };
@@ -60,8 +60,6 @@ use crate::{
 	UncheckedExtrinsic, EVM,
 };
 use doughnut_rs::Topping;
-use frame_support::traits::tokens::{Fortitude, Preservation, Provenance};
-use sp_runtime::traits::{Dispatchable, Saturating, UniqueSaturatedInto};
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);

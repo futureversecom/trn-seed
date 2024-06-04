@@ -41,23 +41,21 @@ use seed_pallet_common::MaintenanceCheck;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
-	create_runtime_str, generic,
+	create_runtime_str, generic, impl_opaque_keys,
 	traits::{
-		Block as BlockT, DispatchInfoOf, Dispatchable, IdentityLookup, PostDispatchInfoOf, Verify,
+		Block as BlockT, Bounded, DispatchInfoOf, Dispatchable, IdentityLookup, NumberFor,
+		PostDispatchInfoOf, Verify,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError,
 	},
-	ApplyExtrinsicResult, FixedPointNumber, Percent, Perquintill,
+	ApplyExtrinsicResult, FixedPointNumber, Perbill, Percent, Permill, Perquintill,
 };
-pub use sp_runtime::{impl_opaque_keys, traits::NumberFor, Perbill, Permill};
 use sp_std::prelude::*;
 
-use frame_support::traits::tokens::{Fortitude, Preservation};
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
-pub use sp_runtime::traits::Bounded;
 
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -67,10 +65,14 @@ use sp_version::RuntimeVersion;
 pub use frame_support::{
 	construct_runtime,
 	dispatch::{DispatchClass, GetDispatchInfo},
-	ensure, parameter_types,
+	ensure,
+	pallet_prelude::Hooks,
+	parameter_types,
 	traits::{
 		fungibles::{metadata::Inspect as InspectMetadata, Inspect},
-		ConstU128, ConstU32, Everything, Get, IsInVec, KeyOwnerProofSystem, Randomness,
+		tokens::{Fortitude, Preservation},
+		AsEnsureOriginWithArg, ConstU128, ConstU32, Everything, Get, IsInVec, KeyOwnerProofSystem,
+		Randomness,
 	},
 	weights::{
 		constants::{ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
@@ -78,7 +80,6 @@ pub use frame_support::{
 	},
 	PalletId, StorageValue,
 };
-use frame_support::{pallet_prelude::Hooks, traits::AsEnsureOriginWithArg};
 
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
@@ -102,8 +103,8 @@ pub mod keys {
 pub use seed_pallet_common::FeeConfig;
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
-	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
-	SerialNumber, Signature, TokenCount, TokenId,
+	AccountId, Address, AssetId, BabeId, Balance, BlakeTwo256Hash, BlockNumber, CollectionUuid,
+	Hash, Index, SerialNumber, Signature, TokenCount, TokenId,
 };
 
 mod bag_thresholds;
@@ -119,7 +120,9 @@ use constants::{
 pub mod impls;
 
 use impls::{
-	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler, HandleTxValidation,
+	AddressMapping, DoughnutCallValidator, DoughnutFuturepassLookup, EthereumEventRouter,
+	EthereumFindAuthor, EvmCurrencyScaler, FutureverseEVMCurrencyAdapter,
+	FutureverseEnsureAddressSame, HandleTxValidation, OnNewAssetSubscription,
 	SlashImbalanceHandler, StakingSessionTracker,
 };
 use pallet_fee_proxy::{get_fee_preferences_data, FeePreferencesData, FeePreferencesRunner};
@@ -135,13 +138,7 @@ use staking::OnChainAccuracy;
 pub mod migrations;
 mod weights;
 
-use crate::impls::{
-	DoughnutCallValidator, DoughnutFuturepassLookup, FutureverseEVMCurrencyAdapter,
-	FutureverseEnsureAddressSame, OnNewAssetSubscription,
-};
-
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
-use seed_primitives::BlakeTwo256Hash;
 
 #[cfg(test)]
 mod tests;
@@ -388,6 +385,7 @@ parameter_types! {
 	// https://github.com/paritytech/substrate/blob/069917b/frame/assets/src/lib.rs#L257L271
 	pub const MetadataDepositBase: Balance = 1 * 68;
 	pub const MetadataDepositPerByte: Balance = 1;
+	pub const RemoveItemsLimit: u32 = 100;
 }
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
@@ -406,7 +404,7 @@ impl pallet_assets::Config for Runtime {
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets::WeightInfo<Runtime>;
 	type AssetAccountDeposit = AssetAccountDeposit;
-	type RemoveItemsLimit = ConstU32<100>;
+	type RemoveItemsLimit = RemoveItemsLimit;
 	type AssetIdParameter = AssetId;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type CallbackHandle = ();
@@ -1135,13 +1133,14 @@ impl pallet_evm::Config for Runtime {
 
 parameter_types! {
 	pub const PostBlockAndTxnHashes: PostLogContent = PostLogContent::BlockAndTxnHashes;
+	pub const ExtraDataLength: u32 = 30;
 }
 
 impl pallet_ethereum::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type StateRoot = pallet_ethereum::IntermediateStateRoot<Runtime>;
 	type PostLogContent = PostBlockAndTxnHashes;
-	type ExtraDataLength = ConstU32<30>;
+	type ExtraDataLength = ExtraDataLength;
 	type HandleTxValidation = HandleTxValidation<InvalidTransactionWrapper>;
 }
 
