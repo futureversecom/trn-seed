@@ -42,7 +42,7 @@ use crate::{
 	UncheckedExtrinsic, H256, U256,
 };
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
-use seed_primitives::{AccountId, AccountId20, Balance, Index};
+use seed_primitives::{AccountId, AccountId20, Balance, Nonce};
 use sp_runtime::BuildStorage;
 
 /// Base gas used for an EVM transaction
@@ -227,7 +227,7 @@ pub fn charlie() -> AccountId {
 }
 
 /// Constructs transaction `SignedExtra` payload.
-pub fn signed_extra(nonce: Index, tip: Balance) -> SignedExtra {
+pub fn signed_extra(nonce: Nonce, tip: Balance) -> SignedExtra {
 	(
 		frame_system::CheckNonZeroSender::new(),
 		frame_system::CheckSpecVersion::new(),

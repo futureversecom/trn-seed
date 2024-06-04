@@ -59,7 +59,7 @@ use sp_transaction_storage_proof::IndexedBody;
 // Runtime
 use ethy_gadget::notification::EthyEventProofStream;
 use ethy_gadget_rpc::{EthyApiServer, EthyRpcHandler};
-use seed_primitives::{ethy::EthyApi, opaque::Block, AccountId, Balance, BlockNumber, Hash, Index};
+use seed_primitives::{ethy::EthyApi, opaque::Block, AccountId, Balance, BlockNumber, Hash, Nonce};
 use seed_runtime::Runtime;
 
 /// Extra RPC deps for Ethy
@@ -184,7 +184,7 @@ where
 	C: Send + Sync + 'static,
 	C: CallApiAt<Block>,
 	C: IndexedBody<Block>,
-	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
+	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
 	C::Api: EthyApi<Block>,
