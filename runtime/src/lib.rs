@@ -965,7 +965,7 @@ impl pallet_babe::Config for Runtime {
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type WeightInfo = (); // TODO - set correct weights
+	type WeightInfo = weights::pallet_sudo::WeightInfo<Runtime>;
 }
 
 impl pallet_tx_fee_pot::Config for Runtime {
@@ -2234,6 +2234,7 @@ mod benches {
 		[pallet_recovery, Recovery]
 		[pallet_proxy, Proxy]
 		[pallet_preimage, Preimage]
+		[pallet_sudo, Sudo]
 		// Local
 		[pallet_nft, Nft]
 		[pallet_sft, Sft]
