@@ -577,6 +577,8 @@ parameter_types! {
 	pub const DepositBase: Balance = deposit(1, 88);
 	// Additional storage item size of 32 bytes.
 	pub const DepositFactor: Balance = deposit(0, 32);
+	// The maximum amount of signatories allowed in the multisig
+	pub const MaxSignatories: u32 = 100;
 }
 
 impl pallet_multisig::Config for Runtime {
@@ -585,7 +587,7 @@ impl pallet_multisig::Config for Runtime {
 	type Currency = Balances;
 	type DepositBase = DepositBase;
 	type DepositFactor = DepositFactor;
-	type MaxSignatories = ConstU32<100>;
+	type MaxSignatories = MaxSignatories;
 	type WeightInfo = weights::pallet_multisig::WeightInfo<Runtime>;
 }
 
@@ -864,6 +866,8 @@ parameter_types! {
 	pub const SlashPotId: PalletId = PalletId(*b"slashpot");
 	/// Holds XRP transaction fees for distribution to validators according to stake & undistributed reward remainders
 	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
+	pub const MaxUnlockingChunks: u32 = 32;
+	pub const HistoryDepth: u32 = 84;
 }
 
 impl pallet_staking::Config for Runtime {
@@ -901,10 +905,10 @@ impl pallet_staking::Config for Runtime {
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
 	type VoterList = VoterList;
 	type TargetList = pallet_staking::UseValidatorsMap<Runtime>;
-	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
+	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type BenchmarkingConfig = staking::StakingBenchmarkConfig;
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
-	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type HistoryDepth = HistoryDepth;
 	type EventListeners = ();
 }
 
@@ -1260,6 +1264,8 @@ parameter_types! {
 	// - 32 bytes Hasher (Blake2256)
 	// - 4 bytes BlockNumber (u32)
 	pub AnnouncementDepositFactor: Balance = deposit(0, 56);
+	pub const MaxProxies: u32 = 32;
+	pub const MaxPending: u32 = 32;
 }
 
 impl pallet_proxy::Config for Runtime {
@@ -1270,8 +1276,8 @@ impl pallet_proxy::Config for Runtime {
 	type ProxyType = impls::ProxyType;
 	type ProxyDepositBase = ProxyDepositBase;
 	type ProxyDepositFactor = ProxyDepositFactor;
-	type MaxProxies = ConstU32<32>;
-	type MaxPending = ConstU32<32>;
+	type MaxProxies = MaxProxies;
+	type MaxPending = MaxPending;
 	type CallHasher = BlakeTwo256Hash;
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
@@ -1297,7 +1303,6 @@ parameter_types! {
 	pub const VtxTxFeePotId: PalletId = PalletId(*b"vtx/fpot");
 	pub const UnsignedInterval: BlockNumber =  MINUTES / 2;
 	pub const PayoutBatchSize: u32 =  99;
-	pub const HistoryDepth: u32 = 84;
 	pub const VortexAssetId: AssetId = VTX_ASSET_ID;
 	pub const MaxAssetPrices: u32 = 500;
 	pub const MaxRewards: u32 = 500;
