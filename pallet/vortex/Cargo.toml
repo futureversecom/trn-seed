@@ -1,5 +1,5 @@
 [package]
-name = "pallet-vortex"
+name = "pallet-vortex-distribution"
 version = "2.1.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
