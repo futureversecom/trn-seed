@@ -34,7 +34,9 @@ use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, PostLogContent, Transaction as EthereumTransaction,
 	TransactionAction,
 };
-use pallet_evm::{Account as EVMAccount, EnsureAddressNever, FeeCalculator, Runner as RunnerT};
+use pallet_evm::{
+	Account as EVMAccount, EnsureAddressNever, FeeCalculator, GasWeightMapping, Runner as RunnerT,
+};
 use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use seed_pallet_common::MaintenanceCheck;
@@ -95,6 +97,7 @@ pub use sp_runtime::BuildStorage;
 // Export for chain_specs
 #[cfg(feature = "std")]
 pub use pallet_staking::{Forcing, StakerStatus};
+use sp_runtime::traits::UniqueSaturatedInto;
 
 pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
@@ -1789,22 +1792,60 @@ impl_runtime_apis! {
 				None
 			};
 
+			let is_transactional = false;
+			let validate = true;
+			let evm_config = config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config());
+
+			// TODO: refactor the code once we are on polkadot-v1.1.0, ref - https://github.com/polkadot-evm/frontier/pull/1121
+			let mut estimated_transaction_len = data.len() +
+				20 + // to
+				20 + // from
+				32 + // value
+				32 + // gas_limit
+				32 + // nonce
+				1 + // TransactionAction
+				8 + // chain id
+				65; // signature
+
+			if max_fee_per_gas.is_some() {
+				estimated_transaction_len += 32;
+			}
+			if max_priority_fee_per_gas.is_some() {
+				estimated_transaction_len += 32;
+			}
+			if access_list.is_some() {
+				estimated_transaction_len += access_list.encoded_size();
+			}
+
+			let gas_limit = gas_limit.min(u64::MAX.into()).low_u64();
+			let without_base_extrinsic_weight = true;
+
+			let (weight_limit, proof_size_base_cost) =
+				match <Runtime as pallet_evm::Config>::GasWeightMapping::gas_to_weight(
+					gas_limit,
+					without_base_extrinsic_weight
+				) {
+					weight_limit if weight_limit.proof_size() > 0 => {
+						(Some(weight_limit), Some(estimated_transaction_len as u64))
+					}
+					_ => (None, None),
+				};
+
 			<Runtime as pallet_evm::Config>::Runner::call(
 				from,
 				to,
 				data,
 				value,
-				gas_limit.low_u64(),
+				gas_limit.unique_saturated_into(),
 				max_fee_per_gas,
 				max_priority_fee_per_gas,
 				nonce,
 				access_list.unwrap_or_default(),
-				false,
-				true,
-				// TODO: adjust accordingly
-				None,
-				None,
-				config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
+				is_transactional,
+				validate,
+				weight_limit,
+				proof_size_base_cost,
+				evm_config,
 			).map_err(|err| err.error.into())
 		}
 
@@ -1827,21 +1868,62 @@ impl_runtime_apis! {
 				None
 			};
 
+			let is_transactional = false;
+			let validate = true;
+			let evm_config = config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config());
+
+			// TODO: refactor the code once we are on polkadot-v1.1.0, ref - https://github.com/polkadot-evm/frontier/pull/1121
+			let mut estimated_transaction_len = data.len() +
+				20 + // from
+				32 + // value
+				32 + // gas_limit
+				32 + // nonce
+				1 + // TransactionAction
+				8 + // chain id
+				65; // signature
+
+			if max_fee_per_gas.is_some() {
+				estimated_transaction_len += 32;
+			}
+			if max_priority_fee_per_gas.is_some() {
+				estimated_transaction_len += 32;
+			}
+			if access_list.is_some() {
+				estimated_transaction_len += access_list.encoded_size();
+			}
+
+			let gas_limit = if gas_limit > U256::from(u64::MAX) {
+				u64::MAX
+			} else {
+				gas_limit.low_u64()
+			};
+			let without_base_extrinsic_weight = true;
+
+			let (weight_limit, proof_size_base_cost) =
+				match <Runtime as pallet_evm::Config>::GasWeightMapping::gas_to_weight(
+					gas_limit,
+					without_base_extrinsic_weight
+				) {
+					weight_limit if weight_limit.proof_size() > 0 => {
+						(Some(weight_limit), Some(estimated_transaction_len as u64))
+					}
+					_ => (None, None),
+				};
+
 			<Runtime as pallet_evm::Config>::Runner::create(
 				from,
 				data,
 				value,
-				gas_limit.low_u64(),
+				gas_limit.unique_saturated_into(),
 				max_fee_per_gas,
 				max_priority_fee_per_gas,
 				nonce,
 				access_list.unwrap_or_default(),
-				false,
-				false, // TODO: check why this is not true
-				// TODO: adjust accordingly
-				None,
-				None,
-				config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
+				is_transactional,
+				validate,
+				weight_limit,
+				proof_size_base_cost,
+				evm_config,
 			).map_err(|err| err.error.into())
 		}
 
