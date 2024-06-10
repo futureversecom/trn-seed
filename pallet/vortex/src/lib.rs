@@ -149,7 +149,7 @@ pub mod pallet {
 
 		/// History depth
 		#[pallet::constant]
-		type HistoryDepth: Get<u32>; //TODO: need to set to same value as pallet_staking
+		type HistoryDepth: Get<u32>;
 	}
 
 	#[pallet::pallet]
