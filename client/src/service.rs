@@ -20,7 +20,7 @@ use fc_db::{Backend as FrontierBackend, DatabaseSource};
 use fc_mapping_sync::{kv::MappingSyncWorker, SyncStrategy};
 use fc_rpc::{EthTask, OverrideHandle};
 use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
-use futures::{future, StreamExt};
+use futures::{future, FutureExt, StreamExt};
 use sc_client_api::{
 	AuxStore, Backend, BlockBackend, BlockchainEvents, StateBackend, StorageProvider,
 };
@@ -328,8 +328,6 @@ pub fn new_full(config: Configuration, cli: &Cli) -> Result<TaskManager, Service
 		})?;
 
 	if config.offchain_worker.enabled {
-		use futures::FutureExt;
-
 		task_manager.spawn_handle().spawn(
 			"offchain-workers-runner",
 			"offchain-work",

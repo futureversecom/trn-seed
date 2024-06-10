@@ -23,7 +23,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
-		tokens::{DepositConsequence, WithdrawConsequence},
+		tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
 		CallMetadata, Currency, ExistenceRequirement, FindAuthor, GetCallMetadata, Imbalance,
 		InstanceFilter, OnUnbalanced, ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
@@ -34,8 +34,8 @@ use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	traits::{
-		AccountIdConversion, Extrinsic, LookupError, SaturatedConversion, StaticLookup, Verify,
-		Zero,
+		AccountIdConversion, Dispatchable, Extrinsic, LookupError, SaturatedConversion, Saturating,
+		StaticLookup, UniqueSaturatedInto, Verify, Zero,
 	},
 	ConsensusEngineId, Permill,
 };
@@ -53,15 +53,13 @@ use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, MaintenanceCheck, OnNewAssetSubscriber,
 };
-use seed_primitives::{AccountId, Balance, Index, Signature};
+use seed_primitives::{AccountId, Balance, Nonce, Signature};
 
 use crate::{
 	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
 	UncheckedExtrinsic, EVM,
 };
 use doughnut_rs::Topping;
-use frame_support::traits::tokens::{Fortitude, Preservation, Provenance};
-use sp_runtime::traits::{Dispatchable, Saturating, UniqueSaturatedInto};
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -322,7 +320,7 @@ where
 		call: RuntimeCall,
 		public: <Signature as Verify>::Signer,
 		account: AccountId,
-		nonce: Index,
+		nonce: Nonce,
 	) -> Option<(RuntimeCall, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
 		let tip = 0;
 		// take the biggest period possible.

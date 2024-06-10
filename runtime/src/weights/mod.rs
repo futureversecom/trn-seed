@@ -1,3 +1,4 @@
+pub mod frame_election_provider_support;
 pub mod frame_system;
 pub mod pallet_assets;
 pub mod pallet_assets_ext;
@@ -24,6 +25,7 @@ pub mod pallet_scheduler;
 pub mod pallet_session;
 pub mod pallet_sft;
 pub mod pallet_staking;
+pub mod pallet_sudo;
 pub mod pallet_timestamp;
 pub mod pallet_token_approvals;
 pub mod pallet_utility;

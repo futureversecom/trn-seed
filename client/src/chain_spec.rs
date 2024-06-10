@@ -223,7 +223,7 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		ethereum: seed_runtime::EthereumConfig { ..Default::default() },
-		evm: seed_runtime::EVMConfig { accounts: Default::default(), ..Default::default() },
+		evm: seed_runtime::EVMConfig { ..Default::default() },
 		xrpl_bridge: XRPLBridgeConfig { xrp_relayers },
 	}
 }

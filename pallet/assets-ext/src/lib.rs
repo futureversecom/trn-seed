@@ -508,8 +508,6 @@ impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
 			)
 		}
 	}
-
-	// TODO - implement callback functions?
 }
 
 impl<T: Config> TransferExt for Pallet<T> {
