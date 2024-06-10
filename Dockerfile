@@ -1,5 +1,5 @@
 # Stage 1 - Build node
-FROM docker.io/library/rust:1.71.0-alpine AS builder
+FROM docker.io/library/rust:1.71.0-slim-bookworm AS builder
 
 # Copy local files to workdir
 ADD . ./workdir
