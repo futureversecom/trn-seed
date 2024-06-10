@@ -124,17 +124,17 @@ where
 	}
 
 	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
-		let extra_cost = RuntimeHelper::<Runtime>::db_read_gas_cost();
 		if let Some(asset_id) =
 			Runtime::evm_id_to_runtime_id(Address(address), ERC20_PRECOMPILE_ADDRESS_PREFIX)
 		{
+			let extra_cost = RuntimeHelper::<Runtime>::db_read_gas_cost();
 			// Check if the asset exists
 			IsPrecompileResult::Answer {
 				is_precompile: <pallet_assets_ext::Pallet<Runtime>>::asset_exists(asset_id),
-				extra_cost
+				extra_cost,
 			}
 		} else {
-			IsPrecompileResult::Answer { is_precompile: false, extra_cost }
+			IsPrecompileResult::Answer { is_precompile: false, extra_cost: 0 }
 		}
 	}
 }
