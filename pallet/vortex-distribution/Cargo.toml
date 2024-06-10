@@ -1,0 +1,54 @@
+[package]
+name = "pallet-vortex-distribution"
+version = "2.1.0"
+description = "Vortex distribution pallet"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+codec = { workspace = true }
+scale-info = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+sp-staking = { workspace = true }
+
+pallet-staking = { workspace = true }
+seed-primitives = { workspace = true }
+seed-pallet-common = { workspace = true }
+
+[dev-dependencies]
+pallet-timestamp = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-assets-ext = { workspace = true, default-features = true }
+frame-election-provider-support = { workspace = true }
+pallet-session = { workspace = true }
+pallet-bags-list = { workspace = true }
+pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"seed-primitives/std",
+	"seed-pallet-common/std",
+	"codec/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-staking/std",
+	"pallet-staking/std",
+	"frame-support/std",
+	"frame-system/std",
+	"scale-info/std",
+	"frame-benchmarking?/std",
+]
+try-runtime = ["frame-support/try-runtime"]
+runtime-benchmarks = ["frame-benchmarking"]
