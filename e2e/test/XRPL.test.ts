@@ -88,11 +88,11 @@ describe("XRPL pallet", () => {
     const signerInstance = AccountLib.derive.privatekey(importedAccount.keypair.privateKey!);
     const publicKey = computePublicKey(`0x${signerInstance.keypair.publicKey!}`, true);
     const eoa = Web3.utils.toChecksumAddress(
-        // remove "ED" prefix from public key to compute EOA
-        // keccak hash produces 32 bytes (64 chars) - take last 20 bytes (40 chars)
-        // remove "0x" prefix from keccak hash output (2 chars)
-        // get last 20 bytes of the keccak hash output (12 bytes - 24 chars)
-        "0x" + keccak256(hexToU8a(`0x${publicKey.slice(4)}`)).slice(26),
+      // remove "ED" prefix from public key to compute EOA
+      // keccak hash produces 32 bytes (64 chars) - take last 20 bytes (40 chars)
+      // remove "0x" prefix from keccak hash output (2 chars)
+      // get last 20 bytes of the keccak hash output (12 bytes - 24 chars)
+      "0x" + keccak256(hexToU8a(`0x${publicKey.slice(4)}`)).slice(26),
     );
 
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, eoa, 2_000_000));

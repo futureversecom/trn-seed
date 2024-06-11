@@ -1,7 +1,7 @@
 ## Generated tx costs(Gas) for Dex Precompiles
 
 | Function Call            | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |
-|:-------------------------|:------------:|:--------------:|:-------------------------:|
+| :----------------------- | :----------: | :------------: | :-----------------------: |
 | addLiquidity             |    217853    |     122103     |           28027           |
 | removeLiquidity          |    183441    |     86009      |           23350           |
 | swapExactTokensForTokens |    150598    |     70507      |           23345           |
@@ -11,11 +11,10 @@
 | getAmountsOut            |    43843     |     42619      |             0             |
 | getAmountsIn             |    44058     |     42611      |             0             |
 
-
 ## Generated tx costs(fees) for ERC20 Precompiles
 
 | Function Call            | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
-|:-------------------------|:---------------------:|:-----------------------:|:----------------------:|
+| :----------------------- | :-------------------: | :---------------------: | :--------------------: |
 | addLiquidity             |        2968616        |         1807995         |         420415         |
 | removeLiquidity          |        2365301        |         1260861         |         350263         |
 | swapExactTokensForTokens |        2185298        |         985238          |         350186         |

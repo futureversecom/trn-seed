@@ -1,7 +1,7 @@
 ## Generated tx costs(Gas) for Marketplace Precompiles
 
 | Function Call       | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |
-|:--------------------|:------------:|:--------------:|:-------------------------:|
+| :------------------ | :----------: | :------------: | :-----------------------: |
 | registerMarketplace |      0       |     32307      |           20003           |
 | sellNft             |      0       |     55445      |           27175           |
 | auctionNft          |      0       |     55709      |           23675           |
@@ -13,11 +13,10 @@
 | acceptOffer         |      0       |     74959      |           17174           |
 | cancelOffer         |      0       |     56308      |           17169           |
 
-
 ## Generated tx costs(fees) for Marketplace Precompiles
 
 | Function Call       | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
-|:--------------------|:---------------------:|:-----------------------:|:----------------------:|
+| :------------------ | :-------------------: | :---------------------: | :--------------------: |
 | registerMarketplace |           0           |         466921          |         300049         |
 | sellNft             |           0           |         816231          |         407639         |
 | auctionNft          |           0           |         821662          |         355139         |

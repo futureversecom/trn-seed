@@ -1,7 +1,7 @@
 ## Generated tx costs(Gas) for ERC1155 Precompiles
 
 | Function Call         | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |
-|:----------------------|:------------:|:--------------:|:-------------------------:|
+| :-------------------- | :----------: | :------------: | :-----------------------: |
 | uri                   |    27560     |     22400      |             0             |
 | balanceOf             |    25957     |     22433      |             0             |
 | balanceOfBatch        |    32585     |     24106      |             0             |
@@ -14,11 +14,10 @@
 | burn                  |    32581     |     27608      |           20002           |
 | burnBatch             |    38043     |     31828      |           23335           |
 
-
 ## Generated tx costs(fees) for ERC1155 Precompiles
 
 | Function Call         | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
-|:----------------------|:---------------------:|:-----------------------:|:----------------------:|
+| :-------------------- | :-------------------: | :---------------------: | :--------------------: |
 | safeTransferFrom      |        880468         |         462181          |         350038         |
 | safeBatchTransferFrom |        728112         |         535973          |         400055         |
 | mint                  |        493954         |         464911          |         352545         |

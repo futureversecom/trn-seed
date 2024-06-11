@@ -1,7 +1,7 @@
 ## Generated tx costs(Gas) for ERC721 Precompiles
 
 | Function Call     | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |
-|:------------------|:------------:|:--------------:|:-------------------------:|
+| :---------------- | :----------: | :------------: | :-----------------------: |
 | balanceOf         |    25895     |     23274      |             0             |
 | ownerOf           |    25847     |     23242      |             0             |
 | getApproved       |    27395     |     23242      |             0             |
@@ -19,11 +19,10 @@
 | transferOwnership |    29147     |     28498      |           19835           |
 | renounceOwnership |    30272     |     28372      |           19835           |
 
-
 ## Generated tx costs(fees) for ERC721 Precompiles
 
 | Function Call     | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
-|:------------------|:---------------------:|:-----------------------:|:----------------------:|
+| :---------------- | :-------------------: | :---------------------: | :--------------------: |
 | mint              |        791884         |         448454          |         260041         |
 | burn              |        490684         |         533648          |         257553         |
 | approve           |        739543         |         430633          |         357539         |
