@@ -51,7 +51,7 @@ jobs:
       - name: Build 🛠 & Publish 🐳
         run: |
           INPUT="${{ steps.input-check.outputs.branchOrCommitSHA }}"
-          docker builder prune
+          docker builder prune --all -f 
           # Check if the INPUT is a valid branch or commit hash
           if git rev-parse --verify "$INPUT" >/dev/null 2>&1; then
             COMMIT_HASH=$(git rev-parse --short HEAD)
