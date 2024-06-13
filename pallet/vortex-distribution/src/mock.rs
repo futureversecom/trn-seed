@@ -23,10 +23,6 @@ pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 
-pub fn to_eth(amount: u128) -> u128 {
-	amount * 1_000_000_000_000_000_000_u128
-}
-
 pub const BLOCK_TIME: u64 = 1000;
 pub fn run_to_block(n: u64) {
 	while System::block_number() < n {
@@ -117,6 +113,7 @@ where
 }
 
 parameter_types! {
+	pub const VtxHeldPotId: PalletId = PalletId(*b"vtx/hpot");
 	pub const VtxVortexPotId: PalletId = PalletId(*b"vtx/vpot");
 	pub const VtxRootPotId: PalletId = PalletId(*b"vtx/rpot");
 	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
@@ -133,6 +130,7 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type NativeAssetId = RootAssetId;
 	type VtxAssetId = VortexAssetId;
+	type VtxHeldPotId = VtxHeldPotId;
 	type VtxDistPotId = VtxVortexPotId;
 	type RootPotId = VtxRootPotId;
 	type TxFeePotId = TxFeePotId;
