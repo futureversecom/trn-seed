@@ -73,6 +73,39 @@ benchmarks! {
 		let fee_vault = account::<T>("fee_vault");
 		let asset_id = mint_asset::<T>();
 		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
+		let start_era = 1u32;
+		let end_era = 2u32;
+		assert_ok!(VortexDistribution::<T>::set_vtx_dist_eras(RawOrigin::Root.into(), vortex_dist_id.clone(), start_era, end_era));
+		let balance = <T as pallet_staking::Config>::CurrencyBalance::one();
+		let asset_ids = BoundedVec::try_from(vec![asset_id]).unwrap();
+		assert_ok!(VortexDistribution::<T>::set_assets_list(RawOrigin::Root.into(), asset_ids, vortex_dist_id.clone()));
+		let root_price = balance;
+		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into())]).unwrap();
+		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), root_price, asset_prices, vortex_dist_id));
+
+		let vault_account = VortexDistribution::<T>::get_vtx_vault_account();
+		let root_vault = VortexDistribution::<T>::get_root_vault_account();
+		let fee_vault = VortexDistribution::<T>::get_fee_vault_account();
+
+		let mint_amount = <T as pallet_staking::Config>::CurrencyBalance::one();
+		assert_ok!(T::MultiCurrency::mint_into(asset_id, &fee_vault, mint_amount.into()));
+		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get(), &root_vault, mint_amount));
+		assert_ok!(T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vault_account, mint_amount));
+
+		let balances = BoundedVec::try_from(vec![(account::<T>("test"), 100u32.into())]).unwrap();
+		let points = BoundedVec::try_from(vec![(account::<T>("test"), 10u32.into())]).unwrap();
+		let rates = BoundedVec::try_from(vec![(account::<T>("test"), 1u32.into())]).unwrap();
+
+		for era in start_era..=end_era {
+			assert_ok!(VortexDistribution::<T>::register_eff_bal_n_wk_pts(
+				RawOrigin::Root.into(),
+				vortex_dist_id.clone(),
+				era,
+				balances.clone(),
+				points.clone(),
+				rates.clone(),
+			));
+		}
 		assert_ok!(VortexDistribution::<T>::trigger_vtx_distribution(RawOrigin::Root.into(), vortex_dist_id));
 	}: _(RawOrigin::Root, vortex_dist_id)
 	verify {
@@ -89,21 +122,42 @@ benchmarks! {
 		assert_eq!(VtxDistEras::<T>::get(vortex_dist_id), (start_era, end_era));
 	}
 
+	set_assets_list {
+		let b in 1..500;
+
+		let mut asset_ids_vec = vec![];
+		for _ in 0..b {
+			let asset_id = mint_asset::<T>();
+			asset_ids_vec.push(asset_id);
+		}
+		let asset_ids = BoundedVec::try_from(asset_ids_vec).unwrap();
+		let vortex_dist_id = NextVortexId::<T>::get();
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
+	}: _(RawOrigin::Root, asset_ids.clone(), vortex_dist_id)
+	verify {
+			assert_eq!(AssetsList::<T>::get(vortex_dist_id), asset_ids);
+	}
+
 	set_asset_prices {
 		let b in 1..500;
 
 		let balance =  <T as pallet_staking::Config>::CurrencyBalance::one();
 
 		let mut asset_prices_vec = vec![];
+		let mut asset_ids_vec = vec![];
 		for i in 0..b {
 			let asset_id = mint_asset::<T>();
 			asset_prices_vec.push((asset_id, balance.into()));
+			asset_ids_vec.push(asset_id);
 		}
 
 		let asset_prices = BoundedVec::try_from(asset_prices_vec).unwrap();
+		let asset_ids = BoundedVec::try_from(asset_ids_vec).unwrap();
+		let root_price = balance.into();
 		let vortex_dist_id = NextVortexId::<T>::get();
 		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
-	}: _(RawOrigin::Root, asset_prices.clone(), vortex_dist_id)
+		assert_ok!(VortexDistribution::<T>::set_assets_list(RawOrigin::Root.into(), asset_ids, vortex_dist_id.clone()));
+	}: _(RawOrigin::Root, root_price, asset_prices.clone(), vortex_dist_id)
 	verify {
 		for (asset_id, _) in asset_prices.into_iter() {
 			assert_eq!(AssetPrices::<T>::get(vortex_dist_id, asset_id), balance);
@@ -120,13 +174,46 @@ benchmarks! {
 		assert_eq!(reward, (100u32.into(), false));
 	}
 
+	register_eff_bal_n_wk_pts {
+		let vortex_dist_id = NextVortexId::<T>::get();
+		let asset_id = mint_asset::<T>();
+		let start_era = 1u32;
+		let end_era = 2u32;
+		assert_ok!(VortexDistribution::<T>::set_vtx_dist_eras(RawOrigin::Root.into(), vortex_dist_id.clone(), start_era, end_era));
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
+		let balance = <T as pallet_staking::Config>::CurrencyBalance::one();
+		let asset_ids = BoundedVec::try_from(vec![asset_id]).unwrap();
+		assert_ok!(VortexDistribution::<T>::set_assets_list(RawOrigin::Root.into(), asset_ids, vortex_dist_id.clone()));
+		let root_price = balance;
+		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into())]).unwrap();
+		let end_block: u32 = 500;
+		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), root_price, asset_prices, vortex_dist_id));
+		let vault_account = VortexDistribution::<T>::get_vtx_vault_account();
+		let root_vault = VortexDistribution::<T>::get_root_vault_account();
+		let fee_vault = VortexDistribution::<T>::get_fee_vault_account();
+		let mint_amount = <T as pallet_staking::Config>::CurrencyBalance::one();
+		assert_ok!(T::MultiCurrency::mint_into(asset_id, &fee_vault, mint_amount.into()));
+		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get(), &root_vault, mint_amount));
+		assert_ok!(T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vault_account, mint_amount));
+		let balances = BoundedVec::try_from(vec![(account::<T>("test"), 100u32.into())]).unwrap();
+		let points = BoundedVec::try_from(vec![(account::<T>("test"), 10u32.into())]).unwrap();
+		let rates = BoundedVec::try_from(vec![(account::<T>("test"), 1u32.into())]).unwrap();
+	}: _(RawOrigin::Root, vortex_dist_id, start_era, balances, points, rates)
+	verify {
+		let work_point = EffectiveBalancesWorkPoints::<T>::get((vortex_dist_id, start_era, account::<T>("test")));
+		assert_eq!(work_point, (100u32.into(), 10u32.into(), 1u32.into()));
+	}
+
 	trigger_vtx_distribution {
 		let vortex_dist_id = NextVortexId::<T>::get();
 		let asset_id = mint_asset::<T>();
 		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
 		let balance = <T as pallet_staking::Config>::CurrencyBalance::one();
+		let asset_ids = BoundedVec::try_from(vec![asset_id]).unwrap();
+		assert_ok!(VortexDistribution::<T>::set_assets_list(RawOrigin::Root.into(), asset_ids, vortex_dist_id.clone()));
+		let root_price = balance;
 		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into())]).unwrap();
-		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), asset_prices, vortex_dist_id));
+		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), root_price, asset_prices, vortex_dist_id));
 
 		let vault_account = VortexDistribution::<T>::get_vtx_vault_account();
 		let root_vault = VortexDistribution::<T>::get_root_vault_account();
@@ -146,13 +233,37 @@ benchmarks! {
 	redeem_tokens_from_vault {
 		let vortex_dist_id = NextVortexId::<T>::get();
 		let asset_id = mint_asset::<T>();
+		let start_era = 1u32;
+		let end_era = 2u32;
+		assert_ok!(VortexDistribution::<T>::set_vtx_dist_eras(RawOrigin::Root.into(), vortex_dist_id.clone(), start_era, end_era));
 		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
 		let balance = <T as pallet_staking::Config>::CurrencyBalance::one();
+		let asset_ids = BoundedVec::try_from(vec![asset_id]).unwrap();
+		assert_ok!(VortexDistribution::<T>::set_assets_list(RawOrigin::Root.into(), asset_ids, vortex_dist_id.clone()));
+		let root_price = balance;
 		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into())]).unwrap();
 		let end_block: u32 = 500;
-		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), asset_prices, vortex_dist_id));
-		let rewards = BoundedVec::try_from(vec![(account::<T>("test"), 2u32.into())]).unwrap();
-		assert_ok!(VortexDistribution::<T>::register_rewards(RawOrigin::Root.into(), vortex_dist_id, rewards));
+		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), root_price, asset_prices, vortex_dist_id));
+		let vault_account = VortexDistribution::<T>::get_vtx_vault_account();
+		let root_vault = VortexDistribution::<T>::get_root_vault_account();
+		let fee_vault = VortexDistribution::<T>::get_fee_vault_account();
+		let mint_amount = <T as pallet_staking::Config>::CurrencyBalance::one();
+		assert_ok!(T::MultiCurrency::mint_into(asset_id, &fee_vault, mint_amount.into()));
+		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get(), &root_vault, mint_amount));
+		assert_ok!(T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vault_account, mint_amount));
+		let balances = BoundedVec::try_from(vec![(account::<T>("test"), 100u32.into())]).unwrap();
+		let points = BoundedVec::try_from(vec![(account::<T>("test"), 10u32.into())]).unwrap();
+		let rates = BoundedVec::try_from(vec![(account::<T>("test"), 1u32.into())]).unwrap();
+		for era in start_era..=end_era {
+			assert_ok!(VortexDistribution::<T>::register_eff_bal_n_wk_pts(
+				RawOrigin::Root.into(),
+				vortex_dist_id.clone(),
+				era,
+				balances.clone(),
+				points.clone(),
+				rates.clone(),
+			));
+		}
 		assert_ok!(VortexDistribution::<T>::trigger_vtx_distribution(RawOrigin::Root.into(), vortex_dist_id));
 		assert_ok!(VortexDistribution::<T>::start_vtx_dist(RawOrigin::Root.into(), vortex_dist_id));
 		System::<T>::set_block_number(end_block.into());
@@ -175,12 +286,36 @@ benchmarks! {
 		let vortex_dist_id = NextVortexId::<T>::get();
 		let asset_id = mint_asset::<T>();
 		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
+		let start_era = 1u32;
+		let end_era = 2u32;
+		assert_ok!(VortexDistribution::<T>::set_vtx_dist_eras(RawOrigin::Root.into(), vortex_dist_id.clone(), start_era, end_era));
 		let balance = <T as pallet_staking::Config>::CurrencyBalance::one();
+		let asset_ids = BoundedVec::try_from(vec![asset_id]).unwrap();
+		assert_ok!(VortexDistribution::<T>::set_assets_list(RawOrigin::Root.into(), asset_ids, vortex_dist_id.clone()));
+		let root_price = balance;
 		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into())]).unwrap();
 		let end_block: u32 = 500;
-		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), asset_prices, vortex_dist_id));
-		let rewards = BoundedVec::try_from(vec![(account::<T>("test"), 2u32.into())]).unwrap();
-		assert_ok!(VortexDistribution::<T>::register_rewards(RawOrigin::Root.into(), vortex_dist_id, rewards));
+		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), root_price, asset_prices, vortex_dist_id));
+		let vault_account = VortexDistribution::<T>::get_vtx_vault_account();
+		let root_vault = VortexDistribution::<T>::get_root_vault_account();
+		let fee_vault = VortexDistribution::<T>::get_fee_vault_account();
+		let mint_amount = <T as pallet_staking::Config>::CurrencyBalance::one();
+		assert_ok!(T::MultiCurrency::mint_into(asset_id, &fee_vault, mint_amount.into()));
+		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get(), &root_vault, mint_amount));
+		assert_ok!(T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vault_account, mint_amount));
+		let balances = BoundedVec::try_from(vec![(account::<T>("test"), 100u32.into())]).unwrap();
+		let points = BoundedVec::try_from(vec![(account::<T>("test"), 10u32.into())]).unwrap();
+		let rates = BoundedVec::try_from(vec![(account::<T>("test"), 1u32.into())]).unwrap();
+		for era in start_era..=end_era {
+			assert_ok!(VortexDistribution::<T>::register_eff_bal_n_wk_pts(
+				RawOrigin::Root.into(),
+				vortex_dist_id.clone(),
+				era,
+				balances.clone(),
+				points.clone(),
+				rates.clone(),
+			));
+		}
 		assert_ok!(VortexDistribution::<T>::trigger_vtx_distribution(RawOrigin::Root.into(), vortex_dist_id));
 		assert_ok!(VortexDistribution::<T>::start_vtx_dist(RawOrigin::Root.into(), vortex_dist_id));
 		System::<T>::set_block_number(end_block.into());
