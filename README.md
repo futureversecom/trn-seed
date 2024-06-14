@@ -79,7 +79,7 @@ rustup show
 ### Run Unit Tests
 
 ```bash
-cargo test
+cargo test --all --all-features
 ```
 ### Run E2E Tests
 
@@ -87,7 +87,7 @@ Refer to the instruction [here](./e2e)
 
 ### Formatting & Linting
 ```
-cargo fmt
+cargo fmt --all
 ```
 
 ### Benchmarks
