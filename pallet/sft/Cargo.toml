@@ -1,55 +1,53 @@
 [package]
 name = "pallet-sft"
 version = "2.0.1"
-authors = ["Centrality Developers <support@centrality.ai>"]
-edition = "2021"
-license = "Apache-2.0"
-repository = "https://github.com/futureversecom/seed"
 description = "Root Network SFT pallet"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.145", default-features = false, features = ["derive"], optional = true }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v1.0.0" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+log = { workspace = true }
 
-seed-primitives = { path = "../../primitives", default-features = false }
-seed-pallet-common = { path = "../common", default-features = false }
-pallet-nft = { path = "../nft", default-features = false }
-log = { default-features = false, version = "0.4.14"}
-precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+codec = { workspace = true }
+scale-info = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+pallet-nft = { workspace = true }
+precompile-utils = { workspace = true }
+seed-primitives = { workspace = true }
+seed-pallet-common = { workspace = true }
 
 [dev-dependencies]
-serde_json = "1.0"
-pallet-assets-ext = { path = "../assets-ext" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+pallet-assets-ext = { workspace = true, default-features = true }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-evm = { workspace = true }
+pallet-timestamp = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
-	"seed-primitives/std",
-	"seed-pallet-common/std",
+	"frame-benchmarking?/std",
+	"frame-support/std",
+	"frame-system/std",
 	"codec/std",
-	"serde",
+	"scale-info/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"frame-support/std",
-	"frame-system/std",
-	"scale-info/std",
 	"pallet-nft/std",
 	"precompile-utils/std",
-	"frame-benchmarking?/std",
+	"seed-primitives/std",
+	"seed-pallet-common/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]
