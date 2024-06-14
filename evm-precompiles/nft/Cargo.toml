@@ -1,27 +1,27 @@
 [package]
 name = "pallet-evm-precompiles-nft"
 version = "2.0.0"
-authors = ["The Root Network Team"]
-edition = "2021"
-repository = "https://github.com/cennznet/cennznet"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
 
 [dependencies]
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
-precompile-utils = { path = "../utils", default-features = false }
-num_enum = { version = "0.5.3", default-features = false }
-seed-primitives = { path = "../../primitives", default-features = false }
-pallet-nft = { path = "../../pallet/nft", default-features = false }
+scale-info = { workspace = true }
+precompile-utils = { workspace = true }
+num_enum = { workspace = true }
+seed-primitives = { workspace = true }
+pallet-nft = { workspace = true }
 
 # Substrate
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+frame-system = { workspace = true }
+frame-support = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 
 # Frontier
-fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
-pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
+fp-evm = { workspace = true }
+pallet-evm = { workspace = true }
 
 [features]
 default = ["std"]
