@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::custom_commands::VerifyProofSigSubCommand;
+use clap::ArgAction;
 
 #[allow(missing_docs)]
 #[derive(Debug, clap::Parser)]
@@ -39,6 +40,16 @@ pub struct RunCmd {
 	// NOTE - check flags works as expected.
 	#[clap(long = "xrp-http")]
 	pub xrp_http: Option<String>,
+
+	/// Option to disable the ethy p2p protocol
+	/// p2p protocol is enabled by default
+	#[clap(
+		long = "ethy-p2p",
+		default_missing_value("true"),
+		default_value("true"),
+		action = ArgAction::Set,
+	)]
+	pub ethy_p2p: bool,
 }
 
 #[derive(Debug, clap::Parser)]
