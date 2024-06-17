@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::custom_commands::VerifyProofSigSubCommand;
+use clap::ArgAction;
 
 #[allow(missing_docs)]
 #[derive(Debug, clap::Parser)]
@@ -42,8 +43,15 @@ pub struct RunCmd {
 
 	/// Option to disable the eth p2p protocol
 	/// p2p protocol is enabled by default
-	#[clap(long = "disable-eth-p2p")]
-	pub disable_eth_p2p: bool,
+	#[clap(
+		long = "eth-p2p",
+		default_missing_value("true"),
+		default_value("true"),
+		num_args(0..=1),
+		require_equals(false),
+		action = ArgAction::Set,
+	)]
+	pub eth_p2p: bool,
 }
 
 #[derive(Debug, clap::Parser)]

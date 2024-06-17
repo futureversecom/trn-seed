@@ -305,7 +305,7 @@ pub fn new_full(config: Configuration, cli: &Cli) -> Result<TaskManager, Service
 	// register ethy p2p protocol
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 	let ethy_protocol_name = ethy_gadget::protocol_standard_name(&genesis_hash, &config.chain_spec);
-	if !cli.run.disable_eth_p2p {
+	if cli.run.eth_p2p {
 		net_config.add_notification_protocol(ethy_gadget::ethy_peers_set_config(
 			ethy_protocol_name.clone(),
 		));
@@ -538,7 +538,7 @@ pub fn new_full(config: Configuration, cli: &Cli) -> Result<TaskManager, Service
 	// need a keystore, regardless of which protocol we use below.
 	let keystore = if role.is_authority() { Some(keystore_container.keystore()) } else { None };
 
-	if !cli.run.disable_eth_p2p {
+	if cli.run.eth_p2p {
 		let ethy_params = ethy_gadget::EthyParams {
 			client: client.clone(),
 			backend,
