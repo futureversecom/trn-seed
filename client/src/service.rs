@@ -306,8 +306,11 @@ pub fn new_full(config: Configuration, cli: &Cli) -> Result<TaskManager, Service
 	// TODO - add a command line option to toggle ethy p2p
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 	let ethy_protocol_name = ethy_gadget::protocol_standard_name(&genesis_hash, &config.chain_spec);
-	net_config
-		.add_notification_protocol(ethy_gadget::ethy_peers_set_config(ethy_protocol_name.clone()));
+	if !cli.run.disable_eth_p2p {
+		net_config.add_notification_protocol(ethy_gadget::ethy_peers_set_config(
+			ethy_protocol_name.clone(),
+		));
+	}
 
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
@@ -536,25 +539,27 @@ pub fn new_full(config: Configuration, cli: &Cli) -> Result<TaskManager, Service
 	// need a keystore, regardless of which protocol we use below.
 	let keystore = if role.is_authority() { Some(keystore_container.keystore()) } else { None };
 
-	let ethy_params = ethy_gadget::EthyParams {
-		client: client.clone(),
-		backend,
-		runtime: client.clone(),
-		key_store: keystore.clone(),
-		network: network.clone(),
-		event_proof_sender,
-		prometheus_registry: prometheus_registry.clone(),
-		protocol_name: ethy_protocol_name,
-		sync_service: sync_service.clone(),
-		_phantom: std::marker::PhantomData,
-	};
+	if !cli.run.disable_eth_p2p {
+		let ethy_params = ethy_gadget::EthyParams {
+			client: client.clone(),
+			backend,
+			runtime: client.clone(),
+			key_store: keystore.clone(),
+			network: network.clone(),
+			event_proof_sender,
+			prometheus_registry: prometheus_registry.clone(),
+			protocol_name: ethy_protocol_name,
+			sync_service: sync_service.clone(),
+			_phantom: std::marker::PhantomData,
+		};
 
-	// Start the ETHY bridge gadget.
-	task_manager.spawn_essential_handle().spawn_blocking(
-		"ethy-gadget",
-		None,
-		ethy_gadget::start_ethy_gadget::<_, _, _, _, _, _>(ethy_params),
-	);
+		// Start the ETHY bridge gadget.
+		task_manager.spawn_essential_handle().spawn_blocking(
+			"ethy-gadget",
+			None,
+			ethy_gadget::start_ethy_gadget::<_, _, _, _, _, _>(ethy_params),
+		);
+	}
 
 	let grandpa_config = sc_consensus_grandpa::Config {
 		gossip_duration: Duration::from_millis(333),

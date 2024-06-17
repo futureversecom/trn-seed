@@ -39,6 +39,11 @@ pub struct RunCmd {
 	// NOTE - check flags works as expected.
 	#[clap(long = "xrp-http")]
 	pub xrp_http: Option<String>,
+
+	/// Option to disable the eth p2p protocol
+	/// p2p protocol is enabled by default
+	#[clap(long = "disable-eth-p2p")]
+	pub disable_eth_p2p: bool,
 }
 
 #[derive(Debug, clap::Parser)]
