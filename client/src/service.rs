@@ -303,7 +303,6 @@ pub fn new_full(config: Configuration, cli: &Cli) -> Result<TaskManager, Service
 	));
 
 	// register ethy p2p protocol
-	// TODO - add a command line option to toggle ethy p2p
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 	let ethy_protocol_name = ethy_gadget::protocol_standard_name(&genesis_hash, &config.chain_spec);
 	if !cli.run.disable_eth_p2p {
