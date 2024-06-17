@@ -55,7 +55,7 @@ describe("XRPL pallet", () => {
     // genesis hash for mock runtime tests
     genesisHash = "0000000000000000000000000000000000000000000000000000000000000000";
     const extrinsic = api.tx.system.remark("Mischief Managed");
-    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
 
     const xamanJsonTx = {
       AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
@@ -100,7 +100,7 @@ describe("XRPL pallet", () => {
 
     genesisHash = "0000000000000000000000000000000000000000000000000000000000000000";
     const extrinsic = api.tx.system.remark("Mischief Managed");
-    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
 
     const xamanJsonTx = {
       AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
@@ -134,7 +134,7 @@ describe("XRPL pallet", () => {
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 1_000_000));
 
     const extrinsic = api.tx.system.remark("hello world");
-    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
     const xrpBalanceBefore =
@@ -233,7 +233,7 @@ describe("XRPL pallet", () => {
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, eoa, 2_000_000));
 
     const extrinsic = api.tx.system.remark("Mischief Managed");
-    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
     const nonce = ((await api.query.system.account(eoa)).toJSON() as any)?.nonce;
 
@@ -317,7 +317,7 @@ describe("XRPL pallet", () => {
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 2_000_000));
 
     const extrinsic = api.tx.system.remark("hello world");
-    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
     const xrpBalanceBefore =
@@ -409,7 +409,7 @@ describe("XRPL pallet", () => {
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 10_000_000));
 
     const extrinsic = api.tx.assets.transfer(GAS_TOKEN_ID, alith.address, 1000);
-    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
     const xrpBalanceBefore =
@@ -526,7 +526,7 @@ describe("XRPL pallet", () => {
     const innerCall = api.tx.system.remark("sup");
     const maxTokenPayment = 2_000_000;
     const extrinsic = api.tx.feeProxy.callWithFeePreferences(FEE_TOKEN_ASSET_ID, maxTokenPayment, innerCall);
-    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
     const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
@@ -666,7 +666,7 @@ describe("XRPL pallet", () => {
     // futurepass balance transfer back to alice - in xaman encoded extrinsic
     const innerCall = api.tx.assets.transfer(GAS_TOKEN_ID, alith.address, 1000);
     const extrinsic = api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall);
-    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
     const xrpUserBalanceBefore =
@@ -807,7 +807,7 @@ describe("XRPL pallet", () => {
     const futurepassCall = api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall);
     const maxTokenPayment = 5_000_000;
     const extrinsic = api.tx.feeProxy.callWithFeePreferences(paymentToken, maxTokenPayment, futurepassCall);
-    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
     const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
@@ -976,7 +976,7 @@ describe("XRPL pallet", () => {
     );
 
     const extrinsic = api.tx.system.remark("hello world");
-    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
 
     // try remark with maintenance mode pallet blocked
     {
@@ -1076,7 +1076,7 @@ describe("XRPL pallet", () => {
 
     const innerCall = api.tx.system.remark("hello world");
     const extrinsic = api.tx.futurepass.proxyExtrinsic(user.address, innerCall);
-    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
     const xamanJsonTx = {
@@ -1120,7 +1120,7 @@ describe("XRPL pallet", () => {
 
     const innerCall = api.tx.system.remark("hello world");
     const extrinsic = api.tx.xrpl.transact(`0x00000000`, `0x00000000`, innerCall);
-    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(6)).toString();
+    const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
 
     const xamanJsonTx = {
