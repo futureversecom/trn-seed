@@ -26,7 +26,7 @@ extern crate alloc;
 
 use alloc::string::String;
 use codec::{Decode, Encode};
-use core::ops::Mul;
+use fp_evm::weight_per_gas;
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
 use pallet_dex::TradingPairStatus;
@@ -77,7 +77,10 @@ pub use frame_support::{
 		Randomness,
 	},
 	weights::{
-		constants::{ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
+		constants::{
+			ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_MILLIS,
+			WEIGHT_REF_TIME_PER_SECOND,
+		},
 		ConstantMultiplier, IdentityFee, Weight,
 	},
 	PalletId, StorageValue,
@@ -190,8 +193,10 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-/// We allow for 1 seconds of compute with a 4 second average block time.
-const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, u64::MAX);
+/// We allow for 1 seconds of compute with a 4 seconds average block time.
+pub const WEIGHT_MILLISECS_PER_BLOCK: u64 = 1000;
+pub const MAXIMUM_BLOCK_WEIGHT: Weight =
+	Weight::from_parts(WEIGHT_MILLISECS_PER_BLOCK * WEIGHT_REF_TIME_PER_MILLIS, u64::MAX);
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;
@@ -1105,18 +1110,21 @@ impl pallet_evm::GasWeightMapping for FutureverseGasWeightMapping {
 	}
 }
 
+const BLOCK_GAS_LIMIT: u64 = 75_000_000;
+// Default value from Frontier
+const MAX_POV_SIZE: u64 = 5 * 1024 * 1024;
+
 parameter_types! {
-	pub BlockGasLimit: U256
-		= U256::from(NORMAL_DISPATCH_RATIO.mul(MAXIMUM_BLOCK_WEIGHT.ref_time()) / WEIGHT_PER_GAS);
+	pub BlockGasLimit: U256 = U256::from(BLOCK_GAS_LIMIT);
+	// https://github.com/polkadot-evm/frontier/pull/1039#issuecomment-1600291912
+	pub const GasLimitPovSizeRatio: u64 = BLOCK_GAS_LIMIT.saturating_div(MAX_POV_SIZE);
 	pub PrecompilesValue: FutureversePrecompiles<Runtime> = FutureversePrecompiles::<_>::new();
-	pub WeightPerGas: Weight = Weight::from_all(WEIGHT_PER_GAS);
-	// TRN is a solo chain. Otherwise -> https://github.com/polkadot-evm/frontier/pull/1039
-	pub GasLimitPovSizeRatio: u64 = 0;
+	pub WeightPerGas: Weight = Weight::from_parts(weight_per_gas(BLOCK_GAS_LIMIT, NORMAL_DISPATCH_RATIO, WEIGHT_MILLISECS_PER_BLOCK), 0);
 }
 
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = FeeControl;
-	type GasWeightMapping = FutureverseGasWeightMapping;
+	type GasWeightMapping = pallet_evm::FixedGasWeightMapping<Self>;
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
 	type CallOrigin = FutureverseEnsureAddressSame<AccountId>;
 	type WithdrawOrigin = EnsureAddressNever<AccountId>;
