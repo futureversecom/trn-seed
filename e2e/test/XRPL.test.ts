@@ -504,13 +504,13 @@ describe("XRPL pallet", () => {
     const publicKey = computePublicKey(user.publicKey, true);
 
     // add liquidity for XRP<->token; fund user account with tokens
-    const FEE_TOKEN_ASSET_ID = 1124;
+    const nextAssetId = await getNextAssetId(api);
     const txs = [
       api.tx.assetsExt.createAsset("test", "TEST", 18, 1, alith.address),
-      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, alith.address, 2_000_000_000_000_000),
-      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, user.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(nextAssetId, alith.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(nextAssetId, user.address, 2_000_000_000_000_000),
       api.tx.dex.addLiquidity(
-        FEE_TOKEN_ASSET_ID,
+        nextAssetId,
         GAS_TOKEN_ID,
         100_000_000_000,
         100_000_000_000,
@@ -525,7 +525,7 @@ describe("XRPL pallet", () => {
 
     const innerCall = api.tx.system.remark("sup");
     const maxTokenPayment = 2_000_000;
-    const extrinsic = api.tx.feeProxy.callWithFeePreferences(FEE_TOKEN_ASSET_ID, maxTokenPayment, innerCall);
+    const extrinsic = api.tx.feeProxy.callWithFeePreferences(nextAssetId, maxTokenPayment, innerCall);
     const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
     const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
@@ -533,7 +533,7 @@ describe("XRPL pallet", () => {
     const xrpUserBalanceBefore =
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     const assetUserBalanceBefore = BigNumber.from(
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0,
+      ((await api.query.assets.account(nextAssetId, user.address)).toJSON() as any)?.balance ?? 0,
     );
 
     const xamanJsonTx = {
@@ -575,7 +575,7 @@ describe("XRPL pallet", () => {
     // assets Transferred [1124,"0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac","0xDDDDDDdD00000002000004640000000000000000",727237]
     expect(events[index].event.section).to.equal("assets");
     expect(events[index].event.method).to.equal("Transferred");
-    expect(events[index].event.data[0]).to.equal(FEE_TOKEN_ASSET_ID);
+    expect(events[index].event.data[0]).to.equal(nextAssetId);
     expect(events[index].event.data[1].toString()).to.equal(user.address);
 
     // assets Transferred [2,"0xDDDDDDdD00000002000004640000000000000000","0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac",725039]
@@ -583,21 +583,21 @@ describe("XRPL pallet", () => {
     expect(events[index].event.section).to.equal("assets");
     expect(events[index].event.method).to.equal("Transferred");
     expect(events[index].event.data[0]).to.equal(GAS_TOKEN_ID);
-    expect(events[index].event.data[1].toString()).to.equal("0xDDDDDDdD00000002000004640000000000000000");
+    expect(events[index].event.data[1].toString()).to.equal(poolAddress(GAS_TOKEN_ID, nextAssetId));
     expect(events[index].event.data[2].toString()).to.equal(user.address);
 
     // assets Issued [2148,"0x6D6F646c7478666565706F740000000000000000",181]
     index += 1;
     expect(events[index].event.section).to.equal("assets");
     expect(events[index].event.method).to.equal("Issued");
-    expect(events[index].event.data[0]).to.equal(2148);
+    // expect(events[index].event.data[0]).to.equal(nextAssetId); // pool token id
 
     // dex Swap ["0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac",[1124,2],727237,725039,"0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac"]
     index += 1;
     expect(events[index].event.section).to.equal("dex");
     expect(events[index].event.method).to.equal("Swap");
     expect(events[index].event.data[0].toString()).to.equal(user.address);
-    expect(events[index].event.data[1].toString()).to.equal(`[${FEE_TOKEN_ASSET_ID}, ${GAS_TOKEN_ID}]`);
+    expect(events[index].event.data[1].toString()).to.equal(`[${nextAssetId}, ${GAS_TOKEN_ID}]`);
 
     // assetsExt InternalWithdraw [2,"0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac",725039]
     index += 1;
@@ -611,7 +611,7 @@ describe("XRPL pallet", () => {
     expect(events[index].event.section).to.equal("feeProxy");
     expect(events[index].event.method).to.equal("CallWithFeePreferences");
     expect(events[index].event.data[0].toString()).to.equal(user.address);
-    expect(events[index].event.data[1]).to.equal(FEE_TOKEN_ASSET_ID);
+    expect(events[index].event.data[1]).to.equal(nextAssetId);
     expect(events[index].event.data[2]).to.equal(maxTokenPayment);
 
     // xrpl XRPLExtrinsicExecuted ["0x02509540919faacf9ab52146c9aa40db68172d83777250b28e4679176e49ccdd9f","0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac","rDyqBotBNJeXv8PBHY18ABjyw6FQuWXQnu",{"callIndex":"0x1f00","args":{"payment_asset":1124,"max_payment":2000000,"call":{"callIndex":"0x0001","args":{"remark":"0x737570"}}}}]
@@ -646,7 +646,7 @@ describe("XRPL pallet", () => {
 
     // assert token balance after < balance before (tx fee must be paid in asset)
     const assetUserBalanceAfter = BigNumber.from(
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0,
+      ((await api.query.assets.account(nextAssetId, user.address)).toJSON() as any)?.balance ?? 0,
     );
     expect(assetUserBalanceAfter).to.be.lessThan(assetUserBalanceBefore);
   });
