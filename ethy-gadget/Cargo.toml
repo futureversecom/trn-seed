@@ -1,7 +1,7 @@
 [package]
 name = "ethy-gadget"
 version = "0.1.2"
-authors.workspace = true
+authors = ["Parity Technologies <admin@parity.io>", "The Root Network Team"]
 edition.workspace = true
 license.workspace = true
 
