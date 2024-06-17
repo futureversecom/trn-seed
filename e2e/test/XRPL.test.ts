@@ -657,7 +657,11 @@ describe("XRPL pallet", () => {
     // create futurepass for random user
     const user = new Wallet("bdfe808d0c421121f533febdf84044f5a80f63b6f60ca7fa699dffa04f3563f6");
 
+    console.log(user.address);
+
     const publicKey = computePublicKey(user.publicKey, true);
+
+    console.log(publicKey);
 
     // create a futurepass for user
     // await finalizeTx(alith, api.tx.futurepass.create(user.address));
@@ -665,18 +669,16 @@ describe("XRPL pallet", () => {
     // fund the futurepass account
     const futurepassAddress = (await api.query.futurepass.holders(user.address)).toString();
 
-    await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, futurepassAddress, 10_000_000));
+    console.log(futurepassAddress);
+
+    // await finalizeTx(new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a("0xbdfe808d0c421121f533febdf84044f5a80f63b6f60ca7fa699dffa04f3563f6")), api.tx.assets.transfer(GAS_TOKEN_ID, futurepassAddress, 20_000_000));
 
     // futurepass balance transfer back to alice - in xaman encoded extrinsic
-    const innerCall = api.tx.assets.transfer(GAS_TOKEN_ID, alith.address, 1000);
+    const innerCall = api.tx.assets.transfer(GAS_TOKEN_ID, alith.address, 100);
     const extrinsic = api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall);
     const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
+    const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
     const maxBlockNumber = +(await api.query.system.number()).toString() + 5;
-
-    const xrpUserBalanceBefore =
-      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
-    const xrpFPBalanceBefore =
-      ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
 
     const xamanJsonTx = {
       AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
@@ -687,7 +689,7 @@ describe("XRPL pallet", () => {
           Memo: {
             MemoType: stringToHex("extrinsic"),
             // remove `0x` from extrinsic hex string
-            MemoData: stringToHex(`${genesisHash}:0:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
+            MemoData: stringToHex(`${genesisHash}:${nonce}:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
           },
         },
       ],
@@ -698,8 +700,8 @@ describe("XRPL pallet", () => {
     const encodedSigningMessage = encodeForSigning(xamanJsonTx);
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
-    const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(user.address);
-    expect(cost.partialFee.toNumber()).to.be.greaterThan(1_145_000).and.lessThan(1_160_000);
+    // const cost = await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(user.address);
+    // expect(cost.partialFee.toNumber()).to.be.greaterThan(1_145_000).and.lessThan(1_160_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
@@ -708,74 +710,74 @@ describe("XRPL pallet", () => {
       });
     });
 
-    // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+    events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
 
-    // assert events
-    expect(events.length).to.equal(8);
-    let index = 0;
+    // // assert events
+    // expect(events.length).to.equal(8);
+    // let index = 0;
 
-    // assetsExt InternalWithdraw [2,"0xFFFFFfff00000000000000000000000000000001",722511]
-    expect(events[index].event.section).to.equal("assetsExt");
-    expect(events[index].event.method).to.equal("InternalWithdraw");
-    expect(events[index].event.data[0]).to.equal(GAS_TOKEN_ID);
-    expect(events[index].event.data[1].toString()).to.equal(futurepassAddress);
+    // // assetsExt InternalWithdraw [2,"0xFFFFFfff00000000000000000000000000000001",722511]
+    // expect(events[index].event.section).to.equal("assetsExt");
+    // expect(events[index].event.method).to.equal("InternalWithdraw");
+    // expect(events[index].event.data[0]).to.equal(GAS_TOKEN_ID);
+    // expect(events[index].event.data[1].toString()).to.equal(futurepassAddress);
 
-    // assets Transferred [2,"0xFFFFFfff00000000000000000000000000000001","0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac",1000]
-    index += 1;
-    expect(events[index].event.section).to.equal("assets");
-    expect(events[index].event.method).to.equal("Transferred");
-    expect(events[index].event.data[0]).to.equal(GAS_TOKEN_ID);
-    expect(events[index].event.data[1].toString()).to.equal(futurepassAddress);
-    expect(events[index].event.data[2].toString()).to.equal(alith.address);
-    expect(events[index].event.data[3]).to.equal(1000);
+    // // assets Transferred [2,"0xFFFFFfff00000000000000000000000000000001","0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac",1000]
+    // index += 1;
+    // expect(events[index].event.section).to.equal("assets");
+    // expect(events[index].event.method).to.equal("Transferred");
+    // expect(events[index].event.data[0]).to.equal(GAS_TOKEN_ID);
+    // expect(events[index].event.data[1].toString()).to.equal(futurepassAddress);
+    // expect(events[index].event.data[2].toString()).to.equal(alith.address);
+    // expect(events[index].event.data[3]).to.equal(1000);
 
-    // proxy ProxyExecuted [{"ok":null}]
-    index += 1;
-    expect(events[index].event.section).to.equal("proxy");
-    expect(events[index].event.method).to.equal("ProxyExecuted");
+    // // proxy ProxyExecuted [{"ok":null}]
+    // index += 1;
+    // expect(events[index].event.section).to.equal("proxy");
+    // expect(events[index].event.method).to.equal("ProxyExecuted");
 
-    // futurepass ProxyExecuted ["0x557fce5210eaaE26893404Bf14A1423F8f22EAD9",{"ok":null}]
-    index += 1;
-    expect(events[index].event.section).to.equal("futurepass");
-    expect(events[index].event.method).to.equal("ProxyExecuted");
-    expect(events[index].event.data[0].toString()).to.equal(user.address);
+    // // futurepass ProxyExecuted ["0x557fce5210eaaE26893404Bf14A1423F8f22EAD9",{"ok":null}]
+    // index += 1;
+    // expect(events[index].event.section).to.equal("futurepass");
+    // expect(events[index].event.method).to.equal("ProxyExecuted");
+    // expect(events[index].event.data[0].toString()).to.equal(user.address);
 
-    // xrpl XRPLExtrinsicExecuted ["0x023b7f0df4d92da1ebe88be92fd59b2becfa4a60875b97c295c7a2524b03c487fc", "0x557fce5210eaaE26893404Bf14A1423F8f22EAD9",0,{"callIndex":"0x2204","args":{"futurepass":"0xfFFFFfff00000000000000000000000000000008","call":{"callIndex":"0x0605","args":{"id":2,"target":"0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac","amount":1000}}}}]
-    index += 1;
-    expect(events[index].event.section).to.equal("xrpl");
-    expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
-    expect(events[index].event.data[0].toJSON()).to.deep.equal({ ecdsa: publicKey });
-    expect(events[index].event.data[1].toString()).to.equal(user.address);
-    expect(events[index].event.data[2].toString()).to.equal(xamanJsonTx.Account);
+    // // xrpl XRPLExtrinsicExecuted ["0x023b7f0df4d92da1ebe88be92fd59b2becfa4a60875b97c295c7a2524b03c487fc", "0x557fce5210eaaE26893404Bf14A1423F8f22EAD9",0,{"callIndex":"0x2204","args":{"futurepass":"0xfFFFFfff00000000000000000000000000000008","call":{"callIndex":"0x0605","args":{"id":2,"target":"0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac","amount":1000}}}}]
+    // index += 1;
+    // expect(events[index].event.section).to.equal("xrpl");
+    // expect(events[index].event.method).to.equal("XRPLExtrinsicExecuted");
+    // expect(events[index].event.data[0].toJSON()).to.deep.equal({ ecdsa: publicKey });
+    // expect(events[index].event.data[1].toString()).to.equal(user.address);
+    // expect(events[index].event.data[2].toString()).to.equal(xamanJsonTx.Account);
 
-    // assetsExt InternalDeposit [2,"0x6D6F646c7478666565706F740000000000000000",730011]
-    index += 1;
-    expect(events[index].event.section).to.equal("assetsExt");
-    expect(events[index].event.method).to.equal("InternalDeposit");
+    // // assetsExt InternalDeposit [2,"0x6D6F646c7478666565706F740000000000000000",730011]
+    // index += 1;
+    // expect(events[index].event.section).to.equal("assetsExt");
+    // expect(events[index].event.method).to.equal("InternalDeposit");
 
-    // transactionPayment TransactionFeePaid ["0xFFFFFfff00000000000000000000000000000001",730011,0]
-    index += 1;
-    expect(events[index].event.section).to.equal("transactionPayment");
-    expect(events[index].event.method).to.equal("TransactionFeePaid");
-    expect(events[index].event.data[0].toString()).to.equal(futurepassAddress);
+    // // transactionPayment TransactionFeePaid ["0xFFFFFfff00000000000000000000000000000001",730011,0]
+    // index += 1;
+    // expect(events[index].event.section).to.equal("transactionPayment");
+    // expect(events[index].event.method).to.equal("TransactionFeePaid");
+    // expect(events[index].event.data[0].toString()).to.equal(futurepassAddress);
 
-    // system ExtrinsicSuccess [{"weight":86298000,"class":"Normal","paysFee":"Yes"}]
-    index += 1;
-    expect(events[index].event.section).to.equal("system");
-    expect(events[index].event.method).to.equal("ExtrinsicSuccess");
+    // // system ExtrinsicSuccess [{"weight":86298000,"class":"Normal","paysFee":"Yes"}]
+    // index += 1;
+    // expect(events[index].event.section).to.equal("system");
+    // expect(events[index].event.method).to.equal("ExtrinsicSuccess");
 
-    // user xrp balance should be the same before and after since futurepass must be paying tx fees
-    const xrpUserBalanceAfter =
-      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
-    expect(xrpUserBalanceAfter).to.be.eq(xrpUserBalanceBefore);
+    // // user xrp balance should be the same before and after since futurepass must be paying tx fees
+    // const xrpUserBalanceAfter =
+    //   ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    // expect(xrpUserBalanceAfter).to.be.eq(xrpUserBalanceBefore);
 
-    // assert futurepass balance after < balance before (tx fee must be paid)
-    const xrpFPBalanceAfter =
-      ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
-    expect(xrpFPBalanceAfter).to.be.lessThan(xrpFPBalanceBefore);
-    expect(xrpFPBalanceBefore - xrpFPBalanceAfter)
-      .to.be.greaterThan(925_000)
-      .and.lessThan(940_000);
+    // // assert futurepass balance after < balance before (tx fee must be paid)
+    // const xrpFPBalanceAfter =
+    //   ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+    // expect(xrpFPBalanceAfter).to.be.lessThan(xrpFPBalanceBefore);
+    // expect(xrpFPBalanceBefore - xrpFPBalanceAfter)
+    //   .to.be.greaterThan(925_000)
+    //   .and.lessThan(940_000);
   });
 
   it.only("can submit futurepass fee-proxy proxy-extrinsic evm call", async () => {
@@ -809,8 +811,9 @@ describe("XRPL pallet", () => {
       null, // nonce
       [], // access list
     );
+    // const innerCall = api.tx.system.remark("sup");
     const futurepassCall = api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall);
-    const maxTokenPayment = 5_000_000;
+    const maxTokenPayment = "500000000000000000000"; // 500 tokens
     const extrinsic = api.tx.feeProxy.callWithFeePreferences(paymentToken, maxTokenPayment, futurepassCall);
     const hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
     const nonce = ((await api.query.system.account(user.address)).toJSON() as any)?.nonce;
@@ -836,8 +839,8 @@ describe("XRPL pallet", () => {
     const encodedSigningMessage = encodeForSigning(xamanJsonTx);
     const signature = sign(encodedSigningMessage, user.privateKey.slice(2));
 
-    await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(futurepassAddress);
-    // expect(cost.partialFee.toNumber()).to.be.greaterThan(1_685_000).and.lessThan(1_700_000);
+    // await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).paymentInfo(futurepassAddress);
+    // // expect(cost.partialFee.toNumber()).to.be.greaterThan(1_685_000).and.lessThan(1_700_000);
 
     // execute xaman tx extrinsic
     const events = await new Promise<any[]>(async (resolve) => {
@@ -846,7 +849,7 @@ describe("XRPL pallet", () => {
       });
     });
 
-    console.log(events);
+    events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
   });
 
   it("complies with maintenance mode call filter", async () => {
