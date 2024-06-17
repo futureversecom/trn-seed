@@ -1075,7 +1075,7 @@ impl pallet_evm_chain_id::Config for Runtime {
 }
 
 // Start frontier/EVM stuff
-const BLOCK_GAS_LIMIT: u64 = 75_000_000;
+const BLOCK_GAS_LIMIT: u64 = 150_000_000;
 // Default value from Frontier
 const MAX_POV_SIZE: u64 = 5 * 1024 * 1024;
 
