@@ -1075,41 +1075,6 @@ impl pallet_evm_chain_id::Config for Runtime {
 }
 
 // Start frontier/EVM stuff
-
-/// Current approximation of the gas/s consumption considering
-/// EVM execution over compiled WASM (on 4.4Ghz CPU).
-/// Given the 500ms Weight, from which 75% only are used for transactions,
-// TODO: optimize for the correct value for block gas limit(i.e correct value for 11_250_000 * 2) or
-// WEIGHT_PER_GAS
-/// the total EVM execution gas limit is: GAS_PER_SECOND * 1 * 0.75 ~= 11_250_000 * 2.
-pub const GAS_PER_SECOND: u64 = 30_000_000;
-
-/// Approximate ratio of the amount of Weight per Gas.
-/// u64 works for approximations because Weight is a very small unit compared to gas.
-pub const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
-
-pub struct FutureverseGasWeightMapping;
-
-impl pallet_evm::GasWeightMapping for FutureverseGasWeightMapping {
-	fn gas_to_weight(gas: u64, without_base_weight: bool) -> Weight {
-		let mut weight = gas.saturating_mul(WEIGHT_PER_GAS);
-
-		if without_base_weight {
-			weight = weight.saturating_sub(
-				<Runtime as frame_system::Config>::BlockWeights::get()
-					.get(frame_support::dispatch::DispatchClass::Normal)
-					.base_extrinsic
-					.ref_time(),
-			);
-		}
-
-		Weight::from_all(weight)
-	}
-	fn weight_to_gas(weight: Weight) -> u64 {
-		weight.div(WEIGHT_PER_GAS).ref_time()
-	}
-}
-
 const BLOCK_GAS_LIMIT: u64 = 75_000_000;
 // Default value from Frontier
 const MAX_POV_SIZE: u64 = 5 * 1024 * 1024;
