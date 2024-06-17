@@ -2343,5 +2343,6 @@ mod benches {
 		[pallet_doughnut, Doughnut]
 		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_crowdsale, Crowdsale]
+		[pallet_evm, EVM]
 	);
 }
