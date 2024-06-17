@@ -47,8 +47,6 @@ pub struct RunCmd {
 		long = "eth-p2p",
 		default_missing_value("true"),
 		default_value("true"),
-		num_args(0..=1),
-		require_equals(false),
 		action = ArgAction::Set,
 	)]
 	pub eth_p2p: bool,
