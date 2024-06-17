@@ -305,8 +305,8 @@ describe("XRPL pallet", () => {
     const xrpBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, eoa)).toJSON() as any)?.balance ?? 0;
     expect(xrpBalanceAfter).to.be.lessThan(xrpBalanceBefore);
     expect(xrpBalanceBefore - xrpBalanceAfter)
-      .to.greaterThan(800_000)
-      .and.lessThan(815_000);
+      .to.greaterThan(835_000)
+      .and.lessThan(850_000);
   });
 
   it("can submit system remark extrinsic with tip", async () => {
