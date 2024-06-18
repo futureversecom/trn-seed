@@ -129,12 +129,12 @@ pallet-election-provider-support-benchmarking = { git = "https://github.com/pari
 substrate-wasm-builder = { workspace = true, default-features = true }
 
 [dev-dependencies]
-ethereum = { version = "0.14.0", default-features = true }
-seed-client = { workspace = true, default-features = true }
-ethabi = { workspace = true, default-features = true }
-frame-remote-externalities = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = true }
-tokio = { workspace = true, default-features = true, features = ["macros"] }
-substrate-test-runtime-client = { workspace = true, default-features = true }
+seed-client = { workspace = true }
+ethabi = { workspace = true }
+substrate-test-runtime-client = { workspace = true }
+tokio = { workspace = true }
+ethereum = { version = "0.14.0", default-features = false }
+frame-remote-externalities = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 sp-externalities  = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 
 [features]
