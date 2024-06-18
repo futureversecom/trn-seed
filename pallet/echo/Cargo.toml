@@ -1,31 +1,32 @@
 [package]
 name = "pallet-echo"
 version = "1.0.0"
-authors = ["The Root Network Team"]
-edition = "2021"
-license = "Apache-2.0"
-repository = "https://github.com/futureversecom/seed"
 description = "Root Network Echo pallet"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
-seed-primitives = { path = "../../primitives", default-features = false }
-seed-pallet-common = { path = "../common", default-features = false }
+codec = { workspace = true }
+ethabi = { workspace = true }
+scale-info = { workspace = true }
 
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-ethabi = { version = "18.0.0", default-features = false}
 
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", optional = true, default-features = false }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-std = { workspace = true }
+
+seed-primitives = { workspace = true }
+seed-pallet-common = { workspace = true }
 
 [dev-dependencies]
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-runtime = { workspace = true }
+sp-io = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
 
 [features]
 default = ["std"]

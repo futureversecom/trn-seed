@@ -1312,9 +1312,9 @@ parameter_types! {
 	pub const MaxStringLength: u32 = 1_000;
 }
 
-impl pallet_vortex::Config for Runtime {
+impl pallet_vortex_distribution::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = weights::pallet_vortex::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_vortex_distribution::WeightInfo<Runtime>;
 	type NativeAssetId = RootAssetId;
 	type VtxAssetId = VortexAssetId;
 	type VtxDistPotId = VtxVortexPotId;
@@ -1404,7 +1404,7 @@ construct_runtime!(
 		Echo: pallet_echo = 21,
 		Marketplace: pallet_marketplace = 44,
 		Preimage: pallet_preimage = 45,
-		VortexDistribution: pallet_vortex = 46,
+		VortexDistribution: pallet_vortex_distribution = 46,
 		FeeProxy: pallet_fee_proxy = 31,
 		FeeControl: pallet_fee_control = 40,
 		Xls20: pallet_xls20 = 42,
@@ -2337,7 +2337,7 @@ mod benches {
 		[pallet_token_approvals, TokenApprovals]
 		[pallet_xls20, Xls20]
 		[pallet_futurepass, Futurepass]
-		[pallet_vortex, VortexDistribution]
+		[pallet_vortex_distribution, VortexDistribution]
 		[pallet_dex, Dex]
 		[pallet_marketplace, Marketplace]
 		[pallet_doughnut, Doughnut]

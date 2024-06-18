@@ -1,33 +1,30 @@
 [package]
 name = "pallet-token-approvals"
 version = "2.0.1"
-authors = ["The Root Network Team"]
-edition = "2021"
-repository = "https://github.com/futureversecom/seed"
 description = "Seed Token Approvals module"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
 
 [dependencies]
-seed-primitives = { path = "../../primitives", default-features = false }
-seed-pallet-common = { path = "../common", default-features = false }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.145", optional = true, default-features = false }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
+codec = { workspace = true }
+scale-info = { workspace = true }
+sp-std = { workspace = true }
+sp-runtime = { workspace = true }
+sp-core = { workspace = true }
 
-# Substrate
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false  }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false  }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false, optional = true }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false  }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false  }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+seed-primitives = { workspace = true }
+seed-pallet-common = { workspace = true }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-hex-literal = { version = "0.3.4" }
-pallet-assets-ext = { path = "../assets-ext" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-nft = { path = "../nft" }
+sp-io = { workspace = true }
+pallet-assets-ext = { workspace = true, default-features = true }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-nft = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -35,7 +32,6 @@ std = [
     "seed-primitives/std",
     "seed-pallet-common/std",
     "codec/std",
-    "serde",
     "sp-runtime/std",
     "sp-std/std",
     "frame-support/std",

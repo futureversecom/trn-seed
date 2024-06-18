@@ -11,7 +11,8 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-use sha3::{Digest, Keccak256};
+use sha3::{digest::generic_array::GenericArray, Digest, Keccak256};
+use typenum::U32;
 
 #[precompile_utils_macro::generate_function_selector]
 pub enum Action {
@@ -21,14 +22,17 @@ pub enum Action {
 
 #[test]
 fn test_keccak256() {
-	assert_eq!(&precompile_utils_macro::keccak256!(""), Keccak256::digest(b"").as_ref(),);
+	assert_eq!(
+		&precompile_utils_macro::keccak256!(""),
+		<GenericArray<u8, U32> as AsRef<[u8]>>::as_ref(&Keccak256::digest(b"")),
+	);
 	assert_eq!(
 		&precompile_utils_macro::keccak256!("toto()"),
-		Keccak256::digest(b"toto()").as_ref(),
+		<GenericArray<u8, U32> as AsRef<[u8]>>::as_ref(&Keccak256::digest(b"toto()")),
 	);
 	assert_ne!(
 		&precompile_utils_macro::keccak256!("toto()"),
-		Keccak256::digest(b"tata()").as_ref(),
+		<GenericArray<u8, U32> as AsRef<[u8]>>::as_ref(&Keccak256::digest(b"tata()")),
 	);
 }
 
