@@ -1775,10 +1775,7 @@ checksum = "7413c5f74cc903ea37386a8965a936cbeb334bd270862fdece542c1b2dcbc898"
 dependencies = [
  "ethereum-types 0.14.1",
  "hex",
- "once_cell",
- "regex",
  "serde",
- "serde_json",
  "sha3",
  "thiserror",
  "uint",
@@ -1808,7 +1805,7 @@ dependencies = [
  "fixed-hash 0.8.0",
  "impl-codec",
  "impl-rlp",
- "impl-serde 0.4.0",
+ "impl-serde",
  "scale-info",
  "tiny-keccak",
 ]
@@ -1875,7 +1872,7 @@ dependencies = [
  "fixed-hash 0.8.0",
  "impl-codec",
  "impl-rlp",
- "impl-serde 0.4.0",
+ "impl-serde",
  "primitive-types 0.12.2",
  "scale-info",
  "uint",
@@ -2452,7 +2449,7 @@ version = "1.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v1.0.0-TRN#50660c0741fad8c76f68a20ec6fc7f9c5727715c"
 dependencies = [
  "hex",
- "impl-serde 0.4.0",
+ "impl-serde",
  "libsecp256k1",
  "log",
  "parity-scale-codec",
@@ -3480,15 +3477,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f28220f89297a075ddc7245cd538076ee98b01f2a9c23a53a4f1105d5a322808"
 dependencies = [
  "rlp",
-]
-
-[[package]]
-name = "impl-serde"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4551f042f3438e64dbd6226b20527fc84a6e1fe65688b58746a2f53623f25f5c"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -7018,7 +7006,6 @@ dependencies = [
  "fixed-hash 0.7.0",
  "impl-codec",
  "impl-rlp",
- "impl-serde 0.3.2",
  "scale-info",
  "uint",
 ]
@@ -7032,7 +7019,7 @@ dependencies = [
  "fixed-hash 0.8.0",
  "impl-codec",
  "impl-rlp",
- "impl-serde 0.4.0",
+ "impl-serde",
  "scale-info",
  "uint",
 ]
@@ -9051,7 +9038,7 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal 0.3.4",
- "impl-serde 0.4.0",
+ "impl-serde",
  "libsecp256k1",
  "log",
  "pallet-assets",
@@ -9163,7 +9150,6 @@ dependencies = [
  "pallet-xrpl-bridge",
  "parity-scale-codec",
  "precompile-utils",
- "primitive-types 0.11.1",
  "rustc-hex",
  "scale-info",
  "seed-client",
@@ -9680,7 +9666,7 @@ dependencies = [
  "futures",
  "hash-db 0.16.0",
  "hash256-std-hasher",
- "impl-serde 0.4.0",
+ "impl-serde",
  "lazy_static",
  "libsecp256k1",
  "log",
@@ -10018,7 +10004,7 @@ name = "sp-storage"
 version = "13.0.0"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v1.0.0#948fbd2fd1233dc26dbb9f9bbc1d2cca2c03945d"
 dependencies = [
- "impl-serde 0.4.0",
+ "impl-serde",
  "parity-scale-codec",
  "ref-cast",
  "serde",
@@ -10103,7 +10089,7 @@ name = "sp-version"
 version = "22.0.0"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v1.0.0#948fbd2fd1233dc26dbb9f9bbc1d2cca2c03945d"
 dependencies = [
- "impl-serde 0.4.0",
+ "impl-serde",
  "parity-scale-codec",
  "parity-wasm",
  "scale-info",

@@ -113,7 +113,6 @@ hex-literal = { workspace = true }
 rustc-hex = { workspace = true }
 doughnut-rs = { workspace = true }
 trn-pact = { version = "0.2.1", default-features = false }
-primitive-types = {version = "0.11.1", default-features = false, features = ["impl-codec", "impl-serde"] }
 
 # Try-runtime
 frame-try-runtime = { workspace = true, optional = true }
@@ -206,7 +205,6 @@ std = [
 	"pallet-maintenance-mode/std",
 	"pallet-crowdsale/std",
 	"seed-primitives/std",
-	"primitive-types/std",
 	"fp-rpc/std",
 	"fp-self-contained/std",
 	"pallet-base-fee/std",
