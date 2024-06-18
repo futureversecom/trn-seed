@@ -311,6 +311,78 @@ describe("XRPL pallet", () => {
       .and.lessThan(850_000);
   });
 
+  it("can submit system remark extrinsic of differing lengths", async () => {
+    const publicKey = computePublicKey(alith.publicKey, true);
+
+    let extrinsic = api.tx.system.remark("z".repeat(59)); // length = 63; encoded length = 64
+    expect(extrinsic.length).to.equal(63);
+    expect(extrinsic.encodedLength).to.equal(64);
+    expect(getPrefixLength(extrinsic)).to.equal(6);
+    let hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
+    let maxBlockNumber = +(await api.query.system.number()).toString() + 5;
+    let nonce = ((await api.query.system.account(alith.address)).toJSON() as any)?.nonce;
+    let xamanJsonTx = {
+      AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
+      SigningPubKey: publicKey.slice(2),
+      Account: deriveAddress(publicKey.slice(2)),
+      Memos: [
+        {
+          Memo: {
+            MemoType: stringToHex("extrinsic"),
+            // remove `0x` from extrinsic hex string
+            MemoData: stringToHex(`${genesisHash}:${nonce}:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
+          },
+        },
+      ],
+    };
+
+    // sign xaman tx
+    let message = encode(xamanJsonTx);
+    let encodedSigningMessage = encodeForSigning(xamanJsonTx);
+    let signature = sign(encodedSigningMessage, ALITH_PRIVATE_KEY.slice(2));
+    // execute xaman tx extrinsic
+    await new Promise<any[]>(async (resolve) => {
+      await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).send(({ events = [], status }) => {
+        if (status.isInBlock) resolve(events);
+      });
+    });
+
+    extrinsic = api.tx.system.remark("z".repeat(60)); // length = 64; encoded length = 66
+    expect(extrinsic.length).to.equal(64);
+    expect(extrinsic.encodedLength).to.equal(66);
+    expect(getPrefixLength(extrinsic)).to.equal(8);
+    hashedExtrinsicWithoutPrefix = blake256(extrinsic.toHex().slice(getPrefixLength(extrinsic))).toString();
+    maxBlockNumber = +(await api.query.system.number()).toString() + 5;
+    nonce = ((await api.query.system.account(alith.address)).toJSON() as any)?.nonce;
+    xamanJsonTx = {
+      AccountTxnID: "16969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C2580",
+      SigningPubKey: publicKey.slice(2),
+      Account: deriveAddress(publicKey.slice(2)),
+      Memos: [
+        {
+          Memo: {
+            MemoType: stringToHex("extrinsic"),
+            // remove `0x` from extrinsic hex string
+            MemoData: stringToHex(`${genesisHash}:${nonce}:${maxBlockNumber}:0:${hashedExtrinsicWithoutPrefix}`),
+          },
+        },
+      ],
+    };
+
+    // sign xaman tx
+    message = encode(xamanJsonTx);
+    encodedSigningMessage = encodeForSigning(xamanJsonTx);
+    signature = sign(encodedSigningMessage, ALITH_PRIVATE_KEY.slice(2));
+    // execute xaman tx extrinsic
+    const events = await new Promise<any[]>(async (resolve) => {
+      await api.tx.xrpl.transact(`0x${message}`, `0x${signature}`, extrinsic).send(({ events = [], status }) => {
+        if (status.isInBlock) resolve(events);
+      });
+    });
+    // events.forEach(({ event: { data, method, section } }) => console.log(`${section}\t${method}\t${data}`));
+    expect(events.length).to.equal(5);
+  });
+
   it("can submit system remark extrinsic with tip", async () => {
     const user = Wallet.createRandom();
     const publicKey = computePublicKey(user.publicKey, true);
