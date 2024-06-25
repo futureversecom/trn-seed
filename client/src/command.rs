@@ -71,33 +71,37 @@ pub fn run() -> sc_cli::Result<()> {
 		},
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
+			let rpc_config = cli.run.new_rpc_config();
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, import_queue, .. } =
-					service::new_partial(&config, &cli)?;
+					service::new_partial(&config, &cli, &rpc_config)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
+			let rpc_config = cli.run.new_rpc_config();
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, .. } =
-					service::new_partial(&config, &cli)?;
+					service::new_partial(&config, &cli, &rpc_config)?;
 				Ok((cmd.run(client, config.database), task_manager))
 			})
 		},
 		Some(Subcommand::ExportState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
+			let rpc_config = cli.run.new_rpc_config();
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, .. } =
-					service::new_partial(&config, &cli)?;
+					service::new_partial(&config, &cli, &rpc_config)?;
 				Ok((cmd.run(client, config.chain_spec), task_manager))
 			})
 		},
 		Some(Subcommand::ImportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
+			let rpc_config = cli.run.new_rpc_config();
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, import_queue, .. } =
-					service::new_partial(&config, &cli)?;
+					service::new_partial(&config, &cli, &rpc_config)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
 		},
@@ -107,9 +111,10 @@ pub fn run() -> sc_cli::Result<()> {
 		},
 		Some(Subcommand::Revert(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
+			let rpc_config = cli.run.new_rpc_config();
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, backend, .. } =
-					service::new_partial(&config, &cli)?;
+					service::new_partial(&config, &cli, &rpc_config)?;
 				let aux_revert = Box::new(|client, _, blocks| {
 					sc_consensus_grandpa::revert(client, blocks)?;
 					Ok(())
@@ -143,7 +148,9 @@ pub fn run() -> sc_cli::Result<()> {
 						cmd.run::<Block, ()>(config)
 					},
 					BenchmarkCmd::Block(cmd) => {
-						let PartialComponents { client, .. } = service::new_partial(&config, &cli)?;
+						let rpc_config = cli.run.new_rpc_config();
+						let PartialComponents { client, .. } =
+							service::new_partial(&config, &cli, &rpc_config)?;
 						cmd.run(client)
 					},
 					#[cfg(not(feature = "runtime-benchmarks"))]
@@ -153,15 +160,18 @@ pub fn run() -> sc_cli::Result<()> {
 					),
 					#[cfg(feature = "runtime-benchmarks")]
 					BenchmarkCmd::Storage(cmd) => {
+						let rpc_config = cli.run.new_rpc_config();
 						let PartialComponents { client, backend, .. } =
-							service::new_partial(&config, &cli)?;
+							service::new_partial(&config, &cli, &rpc_config)?;
 						let db = backend.expose_db();
 						let storage = backend.expose_storage();
 
 						cmd.run(config, client, db, storage)
 					},
 					BenchmarkCmd::Overhead(cmd) => {
-						let PartialComponents { client, .. } = service::new_partial(&config, &cli)?;
+						let rpc_config = cli.run.new_rpc_config();
+						let PartialComponents { client, .. } =
+							service::new_partial(&config, &cli, &rpc_config)?;
 						let ext_builder = RemarkBuilder::new(client.clone());
 
 						cmd.run(
@@ -173,7 +183,9 @@ pub fn run() -> sc_cli::Result<()> {
 						)
 					},
 					BenchmarkCmd::Extrinsic(cmd) => {
-						let PartialComponents { client, .. } = service::new_partial(&config, &cli)?;
+						let rpc_config = cli.run.new_rpc_config();
+						let PartialComponents { client, .. } =
+							service::new_partial(&config, &cli, &rpc_config)?;
 						// Register the *Remark* and *TKA* builders.
 						let alice: sp_core::ecdsa::Pair =
 							sp_core::ecdsa::Pair::from_string("//Alice", None).unwrap().into();
@@ -232,7 +244,8 @@ pub fn run() -> sc_cli::Result<()> {
 		None => {
 			let runner = cli.create_runner(&cli.run.base)?;
 			runner.run_node_until_exit(|config| async move {
-				service::new_full(config, &cli).map_err(sc_cli::Error::Service)
+				let rpc_config = cli.run.new_rpc_config();
+				service::new_full(config, &cli, &rpc_config).map_err(sc_cli::Error::Service)
 			})
 		},
 	}

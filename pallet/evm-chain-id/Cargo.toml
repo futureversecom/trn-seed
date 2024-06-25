@@ -1,45 +1,36 @@
 [package]
 name = "pallet-evm-chain-id"
 version = "1.0.0-dev"
-authors = ["The Root Network Team"]
-edition = "2021"
-license = "Apache-2.0"
 description = "EVM chain id storage pallet"
-repository = "https://github.com/futureversecom/seed"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-serde = { version = "1.0.145", features = ["derive"], optional = true }
+codec = { workspace = true }
+scale-info = { workspace = true }
 
-# Parity
-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
-
-# Substrate FRAME
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-
-# Benchmarking
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", optional = true, default-features = false }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-std = { workspace = true }
 
 [dev-dependencies]
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-seed-pallet-common = { path = "../common" }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+pallet-balances = { workspace = true }
+seed-pallet-common = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
-	"serde",
-	# Parity
 	"codec/std",
 	"scale-info/std",
-	# Substrate FRAME
 	"frame-support/std",
 	"frame-system/std",
 	"sp-std/std",

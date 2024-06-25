@@ -29,7 +29,7 @@ pub mod pallet_sudo;
 pub mod pallet_timestamp;
 pub mod pallet_token_approvals;
 pub mod pallet_utility;
-pub mod pallet_vortex;
+pub mod pallet_vortex_distribution;
 pub mod pallet_xls20;
 pub mod pallet_xrpl;
 pub mod pallet_xrpl_bridge;
