@@ -36,6 +36,7 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_runtime::{offchain::OffchainStorage, traits::BlakeTwo256};
 use std::{
 	collections::BTreeMap,
+	path::Path,
 	sync::{Arc, Mutex},
 	time::Duration,
 };
@@ -43,7 +44,11 @@ use std::{
 use seed_primitives::{ethy::ETH_HTTP_URI, opaque::Block, XRP_HTTP_URI};
 use seed_runtime::{self, RuntimeApi};
 
-use crate::{cli::Cli, consensus_data_providers::BabeConsensusDataProvider};
+use crate::{
+	cli::Cli,
+	cli_opt::{FrontierBackendConfig, RpcConfig},
+	consensus_data_providers::BabeConsensusDataProvider,
+};
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -90,6 +95,7 @@ pub fn frontier_database_dir(config: &Configuration, path: &str) -> std::path::P
 pub fn open_frontier_backend<C, BE>(
 	client: Arc<C>,
 	config: &Configuration,
+	rpc_config: &RpcConfig,
 ) -> Result<fc_db::Backend<Block>, String>
 where
 	C: ProvideRuntimeApi<Block> + StorageProvider<Block, BE> + AuxStore,
@@ -99,32 +105,61 @@ where
 	BE: Backend<Block> + 'static,
 	BE::State: StateBackend<BlakeTwo256>,
 {
-	// TODO - take cli arg for frontier-backend-type and create accordingly.
-	Ok(fc_db::Backend::KeyValue(fc_db::kv::Backend::<Block>::new(
-		client,
-		&fc_db::kv::DatabaseSettings {
-			source: match config.database {
-				DatabaseSource::RocksDb { .. } => DatabaseSource::RocksDb {
-					path: frontier_database_dir(config, "db"),
-					cache_size: 0,
+	let frontier_backend = match rpc_config.frontier_backend_config {
+		FrontierBackendConfig::KeyValue =>
+			fc_db::Backend::KeyValue(fc_db::kv::Backend::<Block>::new(
+				client,
+				&fc_db::kv::DatabaseSettings {
+					source: match config.database {
+						DatabaseSource::RocksDb { .. } => DatabaseSource::RocksDb {
+							path: frontier_database_dir(config, "db"),
+							cache_size: 0,
+						},
+						DatabaseSource::ParityDb { .. } => DatabaseSource::ParityDb {
+							path: frontier_database_dir(config, "paritydb"),
+						},
+						DatabaseSource::Auto { .. } => DatabaseSource::Auto {
+							rocksdb_path: frontier_database_dir(config, "db"),
+							paritydb_path: frontier_database_dir(config, "paritydb"),
+							cache_size: 0,
+						},
+						_ =>
+							return Err(
+								"Supported db sources: `rocksdb` | `paritydb` | `auto`".to_string()
+							),
+					},
 				},
-				DatabaseSource::ParityDb { .. } =>
-					DatabaseSource::ParityDb { path: frontier_database_dir(config, "paritydb") },
-				DatabaseSource::Auto { .. } => DatabaseSource::Auto {
-					rocksdb_path: frontier_database_dir(config, "db"),
-					paritydb_path: frontier_database_dir(config, "paritydb"),
-					cache_size: 0,
-				},
-				_ =>
-					return Err("Supported db sources: `rocksdb` | `paritydb` | `auto`".to_string()),
-			},
+			)?),
+		FrontierBackendConfig::Sql { pool_size, num_ops_timeout, thread_count, cache_size } => {
+			let overrides = crate::rpc::overrides_handle(client.clone());
+			let sqlite_db_path = frontier_database_dir(config, "sql");
+			std::fs::create_dir_all(&sqlite_db_path).expect("failed creating sql db directory");
+			let backend = futures::executor::block_on(fc_db::sql::Backend::new(
+				fc_db::sql::BackendConfig::Sqlite(fc_db::sql::SqliteBackendConfig {
+					path: Path::new("sqlite:///")
+						.join(sqlite_db_path)
+						.join("frontier.db3")
+						.to_str()
+						.expect("frontier sql path error"),
+					create_if_missing: true,
+					thread_count,
+					cache_size,
+				}),
+				pool_size,
+				std::num::NonZeroU32::new(num_ops_timeout),
+				overrides.clone(),
+			))
+			.unwrap_or_else(|err| panic!("failed creating sql backend: {:?}", err));
+			fc_db::Backend::Sql(backend)
 		},
-	)?))
+	};
+	Ok(frontier_backend)
 }
 
 pub fn new_partial(
 	config: &Configuration,
 	cli: &Cli,
+	rpc_config: &RpcConfig,
 ) -> Result<
 	sc_service::PartialComponents<
 		FullClient,
@@ -183,7 +218,7 @@ pub fn new_partial(
 		client.clone(),
 	);
 
-	let frontier_backend = open_frontier_backend(client.clone(), config)?;
+	let frontier_backend = open_frontier_backend(client.clone(), config, rpc_config)?;
 
 	let filter_pool: Option<FilterPool> = Some(Arc::new(Mutex::new(BTreeMap::new())));
 	let fee_history_cache: FeeHistoryCache = Arc::new(Mutex::new(BTreeMap::new()));
@@ -252,7 +287,11 @@ pub fn new_partial(
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(config: Configuration, cli: &Cli) -> Result<TaskManager, ServiceError> {
+pub fn new_full(
+	config: Configuration,
+	cli: &Cli,
+	rpc_config: &RpcConfig,
+) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -270,7 +309,7 @@ pub fn new_full(config: Configuration, cli: &Cli) -> Result<TaskManager, Service
 				(fee_history_cache, fee_history_cache_limit),
 				babe_worker_handle,
 			),
-	} = new_partial(&config, cli)?;
+	} = new_partial(&config, cli, rpc_config)?;
 
 	// Set eth http bridge config
 	// the config is stored into the offchain context where it can
