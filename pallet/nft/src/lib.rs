@@ -73,7 +73,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use seed_pallet_common::utils::PublicMintInformation;
+	use seed_pallet_common::{utils::PublicMintInformation, MetaStorageRequest};
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
@@ -130,6 +130,8 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		/// Interface for sending XLS20 mint requests
 		type Xls20MintRequest: Xls20MintRequest<AccountId = Self::AccountId>;
+		/// Interface for requesting extra meta storage items
+		type MetaStorageRequest: MetaStorageRequest<AccountId = Self::AccountId>;
 	}
 
 	/// Map from collection to its information
@@ -530,11 +532,18 @@ pub mod pallet {
 				// Pay XLS20 mint fee and send requests
 				let _ = T::Xls20MintRequest::request_xls20_mint(
 					&who,
-					collection_id,
+					collection_id.clone(),
 					serial_numbers.clone().into_inner(),
 					metadata_scheme,
 				)?;
 			}
+
+			// Request some meta storage
+			let _ = T::MetaStorageRequest::request_meta_storage(
+				&who,
+				collection_id.clone(),
+				serial_numbers.clone().into_inner(),
+			)?;
 
 			// throw event, listing starting and endpoint token ids (sequential mint)
 			Self::deposit_event(Event::<T>::Mint {

@@ -362,6 +362,16 @@ pub trait Xls20MintRequest {
 	) -> DispatchResult;
 }
 
+pub trait MetaStorageRequest {
+	type AccountId;
+
+	fn request_meta_storage(
+		who: &Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: Vec<SerialNumber>,
+	) -> DispatchResult;
+}
+
 pub trait FeeConfig {
 	fn evm_base_fee_per_gas() -> U256;
 	fn weight_multiplier() -> Perbill;

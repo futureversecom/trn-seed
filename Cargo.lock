@@ -6089,6 +6089,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-meta-storage"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-nft",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-multisig"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v1.0.0#948fbd2fd1233dc26dbb9f9bbc1d2cca2c03945d"
@@ -9204,6 +9225,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-maintenance-mode",
  "pallet-marketplace",
+ "pallet-meta-storage",
  "pallet-multisig",
  "pallet-nft",
  "pallet-nft-peg",
