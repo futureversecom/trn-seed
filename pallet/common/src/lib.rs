@@ -371,15 +371,16 @@ pub trait FeeConfig {
 impl FeeConfig for () {
 	fn evm_base_fee_per_gas() -> U256 {
 		// Floor network base fee per gas
-		// 0.000015 XRP per gas, 15000 GWEI
-		U256::from(15_000_000_000_000u128)
+		// set the same values as the mainnet. 7,500 GWEI.
+		// This will result a transfer tx costs 0.0000075*21000 = 0.1575 XRP
+		U256::from(7_500_000_000_000u128)
 	}
 	fn weight_multiplier() -> Perbill {
-		Perbill::from_parts(125)
-	}
+		Perbill::from_parts(100_000)
+	} // 0.01%
 
 	fn length_multiplier() -> Balance {
-		Balance::from(2_500u32)
+		Balance::from(350u32)
 	}
 }
 
