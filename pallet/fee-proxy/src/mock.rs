@@ -27,10 +27,7 @@ use sp_runtime::ConsensusEngineId;
 pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Test, XrpAssetId>;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	pub enum Test
 	{
 		System: frame_system,
 		FeeProxy: pallet_fee_proxy,
@@ -40,7 +37,7 @@ construct_runtime!(
 		Assets: pallet_assets,
 		TransactionPayment: pallet_transaction_payment,
 		EVM: pallet_evm,
-		TimestampPallet: pallet_timestamp,
+		Timestamp: pallet_timestamp,
 		Futurepass: pallet_futurepass,
 		FeeControl: pallet_fee_control,
 	}

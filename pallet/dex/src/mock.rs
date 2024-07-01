@@ -20,11 +20,7 @@ use crate::{self as pallet_dex};
 use seed_pallet_common::test_prelude::*;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
-	{
+	pub enum Test {
 		System: frame_system,
 		Balances: pallet_balances,
 		Assets: pallet_assets,
@@ -62,7 +58,7 @@ pub struct TestExt;
 
 impl TestExt {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		let mut ext: sp_io::TestExternalities = storage.into();
 		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));

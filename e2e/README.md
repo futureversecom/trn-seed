@@ -28,7 +28,7 @@ cp .env.example .env
 - Run node locally
 
 ```sh
-cargo run -- --dev --unsafe-ws-external --unsafe-rpc-external --rpc-cors=all
+cargo run -- --dev --unsafe-rpc-external --rpc-port=9944 --rpc-cors=all
 ```
 
 - Note: You need to run specific test files, since the suite will not handle startup and shutdown of local node (state

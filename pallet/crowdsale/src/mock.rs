@@ -20,11 +20,7 @@ use sp_runtime::testing::TestXt;
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
-	{
+	pub enum Test {
 		System: frame_system,
 		Balances: pallet_balances,
 		Assets: pallet_assets,

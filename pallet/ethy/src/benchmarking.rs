@@ -107,7 +107,7 @@ benchmarks! {
 	}
 
 	set_challenge_period {
-		let blocks: T::BlockNumber = T::BlockNumber::from(100_u32);
+		let blocks: BlockNumberFor<T> = 100_u32.into();
 	}: _(RawOrigin::Root, blocks)
 	verify {
 		assert_eq!(ChallengePeriod::<T>::get(), blocks);
@@ -248,7 +248,8 @@ benchmarks! {
 		let next_notary_keys = WeakBoundedVec::try_from(next_notary_keys.clone()).unwrap();
 		NextNotaryKeys::<T>::put(next_notary_keys);
 
-		NextAuthorityChange::<T>::put(T::BlockNumber::default());
+		let next_change: BlockNumberFor<T> = 1_u32.into();
+		NextAuthorityChange::<T>::put(next_change);
 	}: {crate::Pallet::<T>::handle_authorities_change()}
 	verify {
 		assert!(EthBridge::<T>::bridge_paused());

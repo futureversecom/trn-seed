@@ -25,7 +25,7 @@ jobs:
         ref: ${{ github.ref_name }}
         fetch-depth: 0
 
-    - uses: dtolnay/rust-toolchain@1.69
+    - uses: dtolnay/rust-toolchain@1.71
       with:
         toolchain: nightly
         targets: wasm32-unknown-unknown

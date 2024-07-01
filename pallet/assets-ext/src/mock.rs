@@ -15,24 +15,21 @@
 
 //! A mock runtime for integration testing common runtime functionality
 use crate::{self as pallet_assets_ext};
-use frame_support::traits::FindAuthor;
+use frame_support::{pallet_prelude::BuildGenesisConfig, traits::FindAuthor};
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, GasWeightMapping};
 use seed_pallet_common::test_prelude::*;
 use sp_runtime::ConsensusEngineId;
 use std::marker::PhantomData;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	pub enum Test
 	{
 		System: frame_system,
 		Balances: pallet_balances,
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
 		EVM: pallet_evm,
-		TimestampPallet: pallet_timestamp,
+		Timestamp: pallet_timestamp,
 		FeeControl: pallet_fee_control,
 	}
 );
@@ -100,7 +97,7 @@ impl TestExt {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		if !self.assets.is_empty() {
 			let mut metadata = Vec::with_capacity(self.assets.len());

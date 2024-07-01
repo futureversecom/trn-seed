@@ -21,10 +21,7 @@ use sp_runtime::ConsensusEngineId;
 use std::marker::PhantomData;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	pub enum Test
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -32,7 +29,7 @@ construct_runtime!(
 		AssetsExt: pallet_assets_ext,
 		Nft: pallet_nft,
 		EVM: pallet_evm,
-		TimestampPallet: pallet_timestamp,
+		Timestamp: pallet_timestamp,
 		FeeControl: pallet_fee_control,
 	}
 );

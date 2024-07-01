@@ -1,44 +1,42 @@
 [package]
 name = "pallet-ethy"
 version = "1.0.1"
-edition = "2021"
-authors = ["The Root Network Team"]
 description = "Pallet for bridging Ethereum events"
-license = "Apache-2.0"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
 
 [dependencies]
-codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
-ethabi = { version = "17.1.0", default-features = false}
-ethereum-types = { version = "0.13.1", default-features = false, features = ["serialize", "codec"] }
-hex = { version = "0.4.3", default-features = false }
-hex-literal = { version = "0.3.4", default-features = false }
-rustc-hex = { version = "2.1.0", default-features = false }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.145", default-features = false, features = ["derive"] }
-serde_json = { version = "1.0.87", default-features = false, features = ["alloc"] }
-
-seed-primitives = { path = "../../primitives", default-features = false }
-seed-pallet-common = { path = "../common", default-features = false }
+codec = { workspace = true }
+ethabi = { workspace = true }
+ethereum-types = { workspace = true }
+hex-literal = { workspace = true }
+rustc-hex = { workspace = true }
+scale-info = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 # Substrate packages
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", optional = true, default-features = false }
-sp-application-crypto = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-application-crypto = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+seed-primitives = { workspace = true }
+seed-pallet-common = { workspace = true }
 
 [dev-dependencies]
-hex-literal = "0.3"
-parking_lot = "0.12.1"
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-assets-ext = { path = "../assets-ext" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-scheduler = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+parking_lot = { workspace = true }
+sp-core = { workspace = true }
+sp-keystore = { workspace = true }
+pallet-assets-ext = { workspace = true, default-features = true }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-scheduler = { workspace = true }
 
 [features]
 default = ["std"]

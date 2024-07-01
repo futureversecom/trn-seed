@@ -25,11 +25,7 @@ pub type UncheckedExtrinsicT =
 pub type BlockT = generic::Block<Header, UncheckedExtrinsicT>;
 
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = BlockT,
-		NodeBlock = BlockT,
-		UncheckedExtrinsic = UncheckedExtrinsicT,
-	{
+	pub enum Test {
 		System: frame_system,
 		Balances: pallet_balances,
 		Assets: pallet_assets,
@@ -40,11 +36,40 @@ frame_support::construct_runtime!(
 	}
 );
 
-impl_frame_system_config!(Test);
 impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 impl_pallet_fee_control_config!(Test);
+
+parameter_types! {
+	pub const BlockHashCount: u64 = 250;
+}
+
+impl frame_system::Config for Test {
+	type Block = BlockT;
+	type BlockWeights = ();
+	type BlockLength = ();
+	type BaseCallFilter = frame_support::traits::Everything;
+	type RuntimeOrigin = RuntimeOrigin;
+	type Nonce = u32;
+	type RuntimeCall = RuntimeCall;
+	type Hash = H256;
+	type Hashing = BlakeTwo256;
+	type AccountId = AccountId;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type BlockHashCount = BlockHashCount;
+	type RuntimeEvent = RuntimeEvent;
+	type DbWeight = ();
+	type Version = ();
+	type PalletInfo = PalletInfo;
+	type AccountData = pallet_balances::AccountData<Balance>;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type SystemWeightInfo = ();
+	type SS58Prefix = ();
+	type OnSetCode = ();
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
+}
 
 pub struct FeeControlWeightToFee;
 impl WeightToFee for FeeControlWeightToFee {

@@ -1,17 +1,17 @@
 [package]
 name = "pallet-sft-rpc-runtime-api"
 version = "2.2.0"
-authors = ["The Root Network Team"]
-edition = "2021"
-license = "Apache-2.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
-codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
-sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-pallet-sft = { path = "../../../sft", default-features = false }
-seed-primitives = { path = "../../../../primitives", default-features = false}
+codec = { workspace = true }
+sp-api = { workspace = true }
+sp-std = { workspace = true }
+sp-runtime = { workspace = true }
+pallet-sft = { workspace = true }
+seed-primitives = { workspace = true }
 
 [features]
 default = ["std"]

@@ -21,12 +21,12 @@ use std::sync::Arc;
 
 use codec::Codec;
 use jsonrpsee::{
-	core::{Error as RpcError, RpcResult},
+	core::{async_trait, Error as RpcError, RpcResult},
 	proc_macros::rpc,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 
 pub use pallet_assets_ext_rpc_runtime_api::{
 	self as runtime_api, AssetsExtApi as AssetsExtRuntimeApi,
@@ -53,6 +53,7 @@ impl<C, Block> AssetsExt<C, Block> {
 	}
 }
 
+#[async_trait]
 impl<C, Block, AccountId> AssetsExtApiServer<AccountId> for AssetsExt<C, Block>
 where
 	Block: BlockT,
@@ -63,8 +64,7 @@ where
 	fn free_balance(&self, asset_id: AssetId, who: AccountId) -> RpcResult<String> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
-		let at = BlockId::hash(best);
-		api.free_balance(&at, asset_id, who, false)
+		api.free_balance(best, asset_id, who, false)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 }

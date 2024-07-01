@@ -77,13 +77,13 @@ impl<T> Call<T>
 	where
 		T: Send + Sync + Config,
 		<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-		<T as frame_system::Config>::Index: Into<u32>,
+		<T as frame_system::Config>::Nonce: Into<u32>,
 		T::AccountId: From<H160>,
 		T: pallet_transaction_payment::Config,
 		<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance: Send + Sync + FixedPointOperand + From<u64>,
 		<T as frame_system::Config>::RuntimeCall: From<<T as Config>::RuntimeCall>,
 		PostDispatchInfo: From<<<T as Config>::RuntimeCall as Dispatchable>::PostInfo>,
-		<T as frame_system::Config>::Index: From<u32>,
+		<T as frame_system::Config>::Nonce: From<u32>,
 {
 
 	pub fn is_self_contained(&self) -> bool {
@@ -287,7 +287,7 @@ where
 		})?;
 
 	// check if genesis hash matches chain genesis hash
-	if <frame_system::Pallet<T>>::block_hash(T::BlockNumber::zero()).as_ref() !=
+	if <frame_system::Pallet<T>>::block_hash(BlockNumberFor::<T>::zero()).as_ref() !=
 		genesis_hash.as_ref()
 	{
 		return Err("⛔️ genesis hash mismatch".into())
@@ -404,7 +404,7 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> where
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> where
 		<T as frame_system::Config>::AccountId: From<H160>
 	{
 	}
@@ -423,6 +423,7 @@ pub mod pallet {
 		/// - `signature`: The signature of the XRPL transaction; ignored since it's verified in
 		///   self-contained call trait impl.
 		/// - `call`: The call to dispatch by the XRPL transaction signer (pubkey).
+		#[pallet::call_index(0)]
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			T::WeightInfo::transact().saturating_add(dispatch_info.weight)

@@ -42,7 +42,7 @@ use seed_primitives::{
 	xrpl::XrplAccountId,
 };
 use sp_core::{bounded::WeakBoundedVec, ByteArray};
-use sp_keystore::{testing::KeyStore, SyncCryptoStore};
+use sp_keystore::{testing::MemoryKeystore, Keystore};
 use sp_runtime::{
 	generic::DigestItem,
 	traits::{AccountIdConversion, Convert},
@@ -455,7 +455,7 @@ fn deposit_relayer_bond_no_balance_should_fail() {
 		// Subsequent deposits should fail
 		assert_noop!(
 			EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer.into())),
-			pallet_balances::Error::<Test>::InsufficientBalance
+			ArithmeticError::Underflow
 		);
 	});
 }
@@ -579,7 +579,7 @@ fn submit_challenge_no_balance_should_fail() {
 		// Submit challenge with no balance should fail
 		assert_noop!(
 			EthBridge::submit_challenge(RuntimeOrigin::signed(challenger.into()), event_id),
-			pallet_balances::Error::<Test>::InsufficientBalance
+			TokenError::FundsUnavailable
 		);
 	});
 }
@@ -660,7 +660,7 @@ fn handle_event_notarization_valid_claims() {
 			// When the yay_count reaches over the NotarizationThreshold of 66% the storage should
 			// be updated
 			for i in 0..9 {
-				if Percent::from_rational(yay_count, notary_count) >=
+				if Percent::from_rational(yay_count as u64, notary_count as u64) >=
 					<Test as Config>::NotarizationThreshold::get()
 				{
 					// Any further notarizations should return InvalidClaim error
@@ -681,7 +681,7 @@ fn handle_event_notarization_valid_claims() {
 				}
 				yay_count += 1;
 
-				if Percent::from_rational(yay_count, notary_count) >=
+				if Percent::from_rational(yay_count as u64, notary_count as u64) >=
 					<Test as Config>::NotarizationThreshold::get()
 				{
 					// Over threshold, storage should be updated
@@ -735,7 +735,7 @@ fn process_valid_challenged_event() {
 		.build()
 		.execute_with(|| {
 			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
-			assert_eq!(AssetsExt::reducible_balance(ROOT_ASSET_ID, &relayer.into(), false), 0);
+			assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &relayer.into()), 0);
 			assert_eq!(RelayerPaidBond::<Test>::get(AccountId::from(relayer)), RelayerBond::get());
 
 			let process_at = System::block_number() + ChallengePeriod::<Test>::get();
@@ -782,10 +782,7 @@ fn process_valid_challenged_event() {
 				RelayerBond::get()
 			);
 			assert_eq!(RelayerPaidBond::<Test>::get(AccountId::from(relayer)), RelayerBond::get());
-			assert_eq!(
-				AssetsExt::reducible_balance(ROOT_ASSET_ID, &relayer.into(), false),
-				ChallengerBond::get()
-			);
+			assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &relayer.into()), ChallengerBond::get());
 
 			// Check claim remains in storage so it can still be processed
 			assert_eq!(
@@ -805,7 +802,7 @@ fn process_valid_challenged_event() {
 
 			// Weight returned should include the 1000 that we specified in MockEventRouter
 			let expected_weight =
-				DbWeight::get().reads_writes(5u64, 3u64) + Weight::from_ref_time(1000u64);
+				DbWeight::get().reads_writes(5u64, 3u64) + Weight::from_all(1000u64);
 			assert_eq!(EthBridge::on_initialize(process_at), expected_weight);
 
 			// Storage should now be fully cleared
@@ -900,7 +897,7 @@ fn process_valid_challenged_event_delayed() {
 
 			// Weight returned should include the 1000 that we specified in MockEventRouter
 			let expected_weight =
-				DbWeight::get().reads_writes(5u64, 3u64) + Weight::from_ref_time(1000u64);
+				DbWeight::get().reads_writes(5u64, 3u64) + Weight::from_all(1000u64);
 			assert_eq!(EthBridge::on_initialize(process_at_extended), expected_weight);
 
 			// Storage should now be fully cleared
@@ -966,7 +963,7 @@ fn handle_event_notarization_invalid_claims() {
 			// When the nay_count reaches over 100 - NotarizationThreshold (33%) the storage should
 			// be updated
 			for i in 0..9 {
-				if Percent::from_rational(nay_count, notary_count) >
+				if Percent::from_rational(nay_count as u64, notary_count as u64) >
 					(Percent::from_parts(
 						100_u8 - <Test as Config>::NotarizationThreshold::get().deconstruct(),
 					)) {
@@ -988,7 +985,7 @@ fn handle_event_notarization_invalid_claims() {
 				}
 				nay_count += 1;
 
-				if Percent::from_rational(nay_count, notary_count) >
+				if Percent::from_rational(nay_count as u64, notary_count as u64) >
 					(Percent::from_parts(
 						100_u8 - <Test as Config>::NotarizationThreshold::get().deconstruct(),
 					)) {
@@ -1055,12 +1052,10 @@ fn do_event_notarization_ocw_doesnt_change_storage() {
 			assert_eq!(PendingClaimChallenges::<Test>::get(), vec![event_id_1]);
 
 			// Generate public key using same authority id and seed as the mock
-			let keystore = KeyStore::new();
-			SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
-			let public_key = SyncCryptoStore::ecdsa_public_keys(&keystore, AuthorityId::ID)
-				.get(0)
-				.unwrap()
-				.clone();
+			let keystore = MemoryKeystore::new();
+			Keystore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
+			let public_key =
+				Keystore::ecdsa_public_keys(&keystore, AuthorityId::ID).get(0).unwrap().clone();
 			let current_set_id = NotarySetId::<Test>::get();
 
 			// Check no storage is changed
@@ -1454,7 +1449,7 @@ fn force_new_era_with_scheduled_authority_change_works() {
 		assert!(NextAuthorityChange::<Test>::get().is_none());
 
 		// Simulate force new era
-		test_storage::Forcing::put(true);
+		Forcing::<Test>::put(true);
 
 		// Add a validator to the next_keys, simulating a change in validator during the last
 		// session
@@ -1666,7 +1661,7 @@ fn delayed_event_proof() {
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
-				Weight::from_ref_time(1_000_000_000_000)
+				Weight::from_all(1_000_000_000_000)
 			),
 			expected_weight
 		);
@@ -1737,7 +1732,7 @@ fn delayed_event_proof_updates_validator_set_id_on_last_minute_authorities_chang
 		// Call on_idle and initiate event proof
 		EthBridge::on_idle(
 			frame_system::Pallet::<Test>::block_number() + 1,
-			Weight::from_ref_time(1_000_000_000_000),
+			Weight::from_all(1_000_000_000_000),
 		);
 		// Ensure event has been removed from delayed claims
 		assert!(PendingEventProofs::<Test>::get(event_proof_id).is_none());
@@ -1821,7 +1816,7 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 		// call on_idle and initiate event proof
 		EthBridge::on_idle(
 			frame_system::Pallet::<Test>::block_number() + 1,
-			Weight::from_ref_time(1_000_000_000_000),
+			Weight::from_all(1_000_000_000_000),
 		);
 		// Ensure event has been removed from delayed claims
 		assert!(PendingEventProofs::<Test>::get(event_proof_id).is_none());
@@ -1880,7 +1875,7 @@ fn multiple_delayed_event_proof() {
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
-				Weight::from_ref_time(1_000_000_000_000)
+				Weight::from_all(1_000_000_000_000)
 			),
 			expected_weight
 		);
@@ -1904,7 +1899,7 @@ fn multiple_delayed_event_proof() {
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
-				Weight::from_ref_time(1_000_000_000_000)
+				Weight::from_all(1_000_000_000_000)
 			),
 			expected_weight
 		);
@@ -1956,7 +1951,7 @@ fn on_idle_limits_processing() {
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
-				expected_weight + Weight::from_ref_time(1)
+				expected_weight + Weight::from_parts(1, 1)
 			),
 			expected_weight
 		);
@@ -1983,7 +1978,7 @@ fn on_idle_limits_processing() {
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
-				Weight::from_ref_time(1_000_000_000_000)
+				Weight::from_all(1_000_000_000_000)
 			),
 			expected_weight
 		);
@@ -2032,7 +2027,7 @@ fn on_idle_no_remaining_weight_is_noop() {
 			DbWeight::get().reads(3u64) + DbWeight::get().reads_writes(2, 2);
 		assert_eq!(
 			EthBridge::on_idle(frame_system::Pallet::<Test>::block_number() + 1, minimum_weight),
-			Weight::from_ref_time(0)
+			Weight::from_all(0)
 		);
 
 		// All PendingEventProofs should still be present
@@ -2085,7 +2080,7 @@ fn set_delayed_event_proofs_per_block() {
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
-				Weight::from_ref_time(1_000_000_000_000)
+				Weight::from_all(1_000_000_000_000)
 			),
 			expected_weight
 		);
@@ -2880,7 +2875,7 @@ fn set_bridge_paused_not_root_should_fail() {
 #[test]
 fn set_challenge_period_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		let new_challenge_period: <Test as frame_system::Config>::BlockNumber = 12345;
+		let new_challenge_period: BlockNumber = 12345;
 
 		assert_ok!(EthBridge::set_challenge_period(
 			frame_system::RawOrigin::Root.into(),

@@ -18,7 +18,7 @@ use std::sync::Arc;
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair as _PairT;
 use sp_core::{ecdsa, keccak_256};
-use sp_keystore::SyncCryptoStorePtr;
+use sp_keystore::KeystorePtr;
 
 use seed_primitives::ethy::crypto::{
 	AuthorityId as Public, AuthorityPair as Pair, AuthoritySignature as Signature,
@@ -73,6 +73,6 @@ impl From<Keyring> for ecdsa::Pair {
 	}
 }
 
-pub fn keystore() -> SyncCryptoStorePtr {
+pub fn keystore() -> KeystorePtr {
 	Arc::new(LocalKeystore::in_memory())
 }

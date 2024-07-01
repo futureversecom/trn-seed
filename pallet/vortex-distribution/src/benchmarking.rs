@@ -41,6 +41,15 @@ fn mint_asset<T: Config>() -> AssetId {
 }
 
 benchmarks! {
+	set_admin {
+		let new_account = account::<T>("Admin");
+		let account_lookup = T::Lookup::unlookup(new_account.clone());
+		let vortex_dist_id = NextVortexId::<T>::get();
+	}: _(RawOrigin::Root, account_lookup)
+	verify {
+		assert_eq!(AdminAccount::<T>::get().unwrap(), new_account);
+	}
+
 	create_vtx_dist {
 		let vortex_dist_id = NextVortexId::<T>::get();
 	}: _(RawOrigin::Root)

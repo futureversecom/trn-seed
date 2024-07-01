@@ -19,7 +19,7 @@ describe("TestCall", () => {
 
     await node.wait(); // wait for the node to be ready
 
-    provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
+    provider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider);
 
     const TestFactory = await ethers.getContractFactory("TestCall");

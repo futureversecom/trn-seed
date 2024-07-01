@@ -38,7 +38,7 @@ Returns the free balance of asset and user.
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"id":1, "jsonrpc":"2.0", "method":"assetsExt_freeBalance", "params":[2, "0x25451A4de12dcCc2D166922fA938E900fCc4ED24"]}' \
-  http://localhost:9933
+  http://127.0.0.1:9944
 ```
 
 **_Response (successful)_**
@@ -57,7 +57,7 @@ For ROOT
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"id":1, "jsonrpc":"2.0", "method":"assetsExt_freeBalance", "params":[1, "0xE04CC55ebEE1cBCE552f250e85c57B70B2E2625b"]}' \
-  http://localhost:9933
+  http://127.0.0.1:9944
 ```
 
 **_Response (successful)_**

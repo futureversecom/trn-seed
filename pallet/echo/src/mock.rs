@@ -13,18 +13,14 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{self as pallet_echo, Config, Weight, PING};
+use crate::{self as pallet_echo, Config as EchoConfig, Weight, PING};
 use ethabi::{ParamType, Token};
-use frame_support::storage::StorageValue;
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::ethy::EventProofId;
 use sp_runtime::SaturatedConversion;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	pub enum Test
 	{
 		System: frame_system,
 		Assets: pallet_assets,
@@ -40,25 +36,11 @@ impl_pallet_balance_config!(Test);
 parameter_types! {
 	pub const MockEchoPalletId: PalletId = PalletId(*b"pingpong");
 }
-impl Config for Test {
+impl EchoConfig for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type EthereumBridge = MockBridge;
 	type PalletId = MockEchoPalletId;
 	type WeightInfo = ();
-}
-
-pub(crate) mod test_storage {
-	//! storage used by tests to store mock EthBlocks and TransactionReceipts
-	use crate::Config;
-	use frame_support::decl_storage;
-	use seed_primitives::ethy::EventProofId;
-
-	pub struct Module<T>(sp_std::marker::PhantomData<T>);
-	decl_storage! {
-		trait Store for Module<T: Config> as EthBridgeTest {
-			pub NextEventProofId: EventProofId;
-		}
-	}
 }
 
 pub struct MockBridge;
@@ -69,8 +51,7 @@ impl EthereumBridge for MockBridge {
 		destination: &H160,
 		event: &[u8],
 	) -> Result<EventProofId, DispatchError> {
-		let event_proof_id = test_storage::NextEventProofId::get();
-		test_storage::NextEventProofId::put(event_proof_id.wrapping_add(1));
+		let event_proof_id = 123;
 		match ethabi::decode(&[ParamType::Uint(64), ParamType::Uint(64), ParamType::Address], event)
 		{
 			Ok(abi) => {

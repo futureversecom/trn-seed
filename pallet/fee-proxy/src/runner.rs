@@ -15,7 +15,9 @@
 
 use crate::Config;
 use ethabi::{ParamType, Token};
-use frame_support::{dispatch::Weight, ensure, traits::fungibles::InspectMetadata};
+use frame_support::{
+	dispatch::Weight, ensure, traits::fungibles::metadata::Inspect as InspectMetadata,
+};
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator,
 	Runner as RunnerT, RunnerError,
@@ -110,7 +112,7 @@ where
 
 	let gas_token_asset_id = <T as Config>::FeeAssetId::get();
 	let decimals =
-		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(&gas_token_asset_id);
+		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(gas_token_asset_id);
 	let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
 	let max_fee_scaled = scale_wei_to_correct_decimals(max_fee, decimals);
 
@@ -236,6 +238,8 @@ where
 		nonce: Option<U256>,
 		access_list: Vec<(H160, Vec<H256>)>,
 		is_transactional: bool,
+		weight_limit: Option<Weight>,
+		proof_size_base_cost: Option<u64>,
 		evm_config: &EvmConfig,
 	) -> Result<(), RunnerError<Self::Error>> {
 		<Runner<T> as RunnerT<T>>::validate(
@@ -249,6 +253,8 @@ where
 			nonce,
 			access_list,
 			is_transactional,
+			weight_limit,
+			proof_size_base_cost,
 			evm_config,
 		)
 	}
@@ -265,6 +271,8 @@ where
 		access_list: Vec<(H160, Vec<H256>)>,
 		is_transactional: bool,
 		validate: bool,
+		weight_limit: Option<Weight>,
+		proof_size_base_cost: Option<u64>,
 		config: &EvmConfig,
 	) -> Result<CallInfo, RunnerError<Self::Error>> {
 		// Futurepass v2 code, should not have any impact
@@ -369,6 +377,8 @@ where
 			access_list,
 			is_transactional,
 			validate,
+			weight_limit,
+			proof_size_base_cost,
 			config,
 		)
 	}
@@ -384,6 +394,8 @@ where
 		access_list: Vec<(H160, Vec<H256>)>,
 		is_transactional: bool,
 		validate: bool,
+		weight_limit: Option<Weight>,
+		proof_size_base_cost: Option<u64>,
 		config: &EvmConfig,
 	) -> Result<CreateInfo, RunnerError<Self::Error>> {
 		// @todo check source, proxy request if needed
@@ -408,6 +420,8 @@ where
 			access_list,
 			is_transactional,
 			validate,
+			weight_limit,
+			proof_size_base_cost,
 			config,
 		)
 	}
@@ -424,6 +438,8 @@ where
 		access_list: Vec<(H160, Vec<H256>)>,
 		is_transactional: bool,
 		validate: bool,
+		weight_limit: Option<Weight>,
+		proof_size_base_cost: Option<u64>,
 		config: &EvmConfig,
 	) -> Result<CreateInfo, RunnerError<Self::Error>> {
 		// @todo check source, proxy request if needed
@@ -449,6 +465,8 @@ where
 			access_list,
 			is_transactional,
 			validate,
+			weight_limit,
+			proof_size_base_cost,
 			config,
 		)
 	}

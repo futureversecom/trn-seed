@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{Call::call_with_fee_preferences, *};
-use frame_support::traits::IsSubType;
+use frame_support::traits::{fungibles::Inspect, IsSubType};
 use pallet_futurepass::ProxyProvider;
 use pallet_transaction_payment::OnChargeTransaction;
 use precompile_utils::{Address, ErcIdConversion};
@@ -130,6 +130,18 @@ where
 				add_evm_gas_cost(gas_limit, max_fee_per_gas, max_priority_fee_per_gas);
 			}
 
+			// If the account has less balance than the minimum_deposit, we need to add
+			// the minimum deposit onto the total_fee.
+			// This is due to the preservation rules of the withdraw call made within
+			// <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee
+			let account_balance =
+				pallet_assets_ext::Pallet::<T>::balance(native_asset.clone(), &who);
+			// Minium balance is hardcoded to 1
+			// pallet_assets_ext::Pallet::<T>::minimum_balance(native_asset);
+			let minimum_balance = pallet_assets_ext::Pallet::<T>::minimum_balance(native_asset);
+			if account_balance < minimum_balance {
+				total_fee = total_fee.saturating_add(minimum_balance);
+			}
 			let path: &[AssetId] = &[*payment_asset, native_asset];
 			pallet_dex::Pallet::<T>::do_swap_with_exact_target(
 				who,

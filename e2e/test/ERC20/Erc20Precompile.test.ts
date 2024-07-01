@@ -23,7 +23,7 @@ describe("ERC20 Precompile", function () {
     await node.wait(); // wait for the node to be ready
 
     // Setup JSON RPC
-    jsonProvider = new JsonRpcProvider(`http://localhost:${node.httpPort}`);
+    jsonProvider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
     seedSigner = new Wallet(BOB_PRIVATE_KEY).connect(jsonProvider); // 'development' seed
     xrpToken = new Contract(xrpTokenAddress, ERC20_ABI, seedSigner);
 
@@ -52,7 +52,7 @@ describe("ERC20 Precompile", function () {
 
     expect(await xrpToken.balanceOf(receiverAddress)).to.be.equal(transferAmount);
     // Account should be decremented by the sent amount + fees
-    expect(await xrpToken.balanceOf(seedSigner.address)).to.be.lessThan(startingAmount - transferAmount);
+    expect(await xrpToken.balanceOf(seedSigner.address)).to.be.lessThan(startingAmount.sub(transferAmount));
   });
 
   it("XRP transfer amounts via EVM", async () => {

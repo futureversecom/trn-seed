@@ -2227,7 +2227,7 @@ mod public_minting {
 				);
 
 				// Check minter was charged the correct amount
-				let minter_balance = AssetsExt::reducible_balance(payment_asset, &minter, false);
+				let minter_balance = AssetsExt::balance(payment_asset, &minter);
 				assert_eq!(minter_balance, initial_balance - payment_amount);
 			});
 	}
@@ -2314,7 +2314,7 @@ mod public_minting {
 				}
 
 				// Check minter was charged the correct amount
-				let minter_balance = AssetsExt::reducible_balance(payment_asset, &minter, false);
+				let minter_balance = AssetsExt::balance(payment_asset, &minter);
 				assert_eq!(minter_balance, initial_balance - total_fee_paid);
 			});
 	}
@@ -2374,7 +2374,7 @@ mod public_minting {
 				assert_eq!(token_info.free_balance_of(&minter), 0);
 
 				// Check minter was charged the correct amount
-				let minter_balance = AssetsExt::reducible_balance(payment_asset, &minter, false);
+				let minter_balance = AssetsExt::balance(payment_asset, &minter);
 				assert_eq!(minter_balance, initial_balance);
 			});
 	}
@@ -2426,7 +2426,7 @@ mod public_minting {
 						bounded_combined(vec![serial_number], vec![quantity]),
 						None,
 					),
-					pallet_assets::Error::<Test>::BalanceLow
+					ArithmeticError::Underflow
 				);
 			});
 	}
@@ -2439,8 +2439,7 @@ mod public_minting {
 			let quantity = 1;
 			let mint_price = 100000000;
 			let payment_asset = XRP_ASSET_ID;
-			let owner_balance_before =
-				AssetsExt::reducible_balance(payment_asset, &collection_owner, false);
+			let owner_balance_before = AssetsExt::balance(payment_asset, &collection_owner);
 
 			// Set up pricing details
 			let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
@@ -2485,8 +2484,7 @@ mod public_minting {
 				None,
 			));
 
-			let owner_balance_after =
-				AssetsExt::reducible_balance(payment_asset, &collection_owner, false);
+			let owner_balance_after = AssetsExt::balance(payment_asset, &collection_owner);
 
 			// Should not have been charged
 			assert_eq!(owner_balance_before, owner_balance_after);
@@ -2509,8 +2507,7 @@ mod public_minting {
 				let mint_price = 200;
 				let payment_asset = XRP_ASSET_ID;
 
-				let token_owner_balance_before =
-					AssetsExt::reducible_balance(payment_asset, &token_owner, false);
+				let token_owner_balance_before = AssetsExt::balance(payment_asset, &token_owner);
 
 				// Set up pricing details
 				let pricing_details: (AssetId, Balance) = (payment_asset, mint_price);
@@ -2583,12 +2580,11 @@ mod public_minting {
 				);
 
 				// Check minter was charged the correct amount
-				let minter_balance = AssetsExt::reducible_balance(payment_asset, &minter, false);
+				let minter_balance = AssetsExt::balance(payment_asset, &minter);
 				assert_eq!(minter_balance, initial_balance - payment_amount);
 
 				// Token owner should not have been charged
-				let token_owner_balance_after =
-					AssetsExt::reducible_balance(payment_asset, &token_owner, false);
+				let token_owner_balance_after = AssetsExt::balance(payment_asset, &token_owner);
 				assert_eq!(token_owner_balance_before, token_owner_balance_after);
 			});
 	}

@@ -83,7 +83,7 @@ jobs:
       - name: Fetch the service status
         uses: nev7n/wait_for_response@v1
         with:
-          url: "https://devnet.cicd.rootnet.app:9933/"
+          url: "https://devnet.cicd.rootnet.app:9944/"
           responseCode: 405
           timeout: 300
           interval: 20

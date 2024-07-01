@@ -8,8 +8,7 @@ dotenv.config();
 export type ConnectionType = "local" | "binary" | "docker";
 
 interface NodeOpts {
-  httpPort: number;
-  wsPort: number;
+  rpcPort: number;
   dockerOpts: {
     image: string;
     pull: boolean;
@@ -20,8 +19,7 @@ interface NodeOpts {
 }
 
 const defaultOpts: NodeOpts = {
-  httpPort: 9933,
-  wsPort: 9944,
+  rpcPort: 9944,
   dockerOpts: {
     // image: "ghcr.io/futureversecom/seed:latest",
     image: "seed/pr",
@@ -35,8 +33,7 @@ const defaultOpts: NodeOpts = {
 export interface NodeProcess {
   id: string;
   wait: () => Promise<void>;
-  httpPort: string;
-  wsPort: string;
+  rpcPort: string;
   stop: () => Promise<unknown>;
 }
 
@@ -57,13 +54,12 @@ export function startNode(
 
   if (type === "local") {
     // connect to an already running node
-    const wsPortStr = nodeOptions.wsPort.toString() ?? "9944";
+    const rpcPort = nodeOptions.rpcPort.toString() ?? "9944";
     return Promise.resolve({
       id: "connect",
-      httpPort: nodeOptions.httpPort.toString() ?? "9933",
-      wsPort: wsPortStr,
+      rpcPort: rpcPort,
       wait: async () => {
-        await ApiPromise.create({ provider: new WsProvider(`ws://127.0.0.1:${wsPortStr}`) });
+        await ApiPromise.create({ provider: new WsProvider(`ws://127.0.0.1:${rpcPort}`) });
       },
       stop: () => Promise.resolve(),
     });
@@ -75,7 +71,7 @@ export function startNode(
   }
   if (type === "binary") {
     // TODO integrate startStandaloneNode; path param may be required
-    // return startBinaryNode(httpPort, wsPort);
+    // return startBinaryNode(rpcPort);
     throw new Error(`Unsupported connection type: ${type}`);
   }
 
@@ -86,7 +82,6 @@ interface DockerInspect {
   NetworkSettings: {
     Ports: {
       "9944/tcp": { HostPort: string }[];
-      "9933/tcp": { HostPort: string }[];
     };
   };
 }
@@ -97,15 +92,13 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
     "--rm",
     "-d", // '-it',
     "-p",
-    nodeOpts.httpPort.toString(),
-    "-p",
-    nodeOpts.wsPort.toString(),
+    nodeOpts.rpcPort.toString(),
     "--pull", // image built locally; no need to pull
     "never",
     nodeOpts.dockerOpts.image,
     "--dev",
-    "--unsafe-ws-external",
     "--unsafe-rpc-external",
+    "--rpc-port=9944",
     "--rpc-cors=all",
   ];
 
@@ -124,7 +117,7 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
     });
   }
 
-  // docker run --platform linux/amd64 --rm -d -p 9933 -p 9944 ghcr.io/futureversecom/seed:latest --dev --tmp --unsafe-ws-external --unsafe-rpc-external --rpc-cors=all
+  // docker run --platform linux/amd64 --rm -d -p 9944 ghcr.io/futureversecom/seed:latest --dev --tmp --unsafe-rpc-external --rpc-port=9944 --rpc-cors=all
   console.info("starting docker node...\n", "docker", args.join(" "));
   const proc = child.spawn("docker", args);
 
@@ -141,7 +134,7 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
   });
 
   // get docker ports - poll at 100ms delay
-  const { httpPort, wsPort } = await new Promise<{ httpPort: string; wsPort: string }>((resolve, reject) => {
+  const { rpcPort } = await new Promise<{ rpcPort: string }>((resolve, reject) => {
     // let pollCount = 0;
     const interval = setInterval(async () => {
       // console.info(`getting ports for ${id} (${++pollCount})...`);
@@ -152,13 +145,13 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
         }
         const inspect: DockerInspect[] = JSON.parse(stdout);
         const ports = inspect[0].NetworkSettings.Ports;
-        if (ports["9933/tcp"].length > 0 && ports["9944/tcp"].length > 0) {
-          return resolve({ httpPort: ports["9933/tcp"][0].HostPort, wsPort: ports["9944/tcp"][0].HostPort });
+        if (ports["9944/tcp"].length > 0) {
+          return resolve({ rpcPort: ports["9944/tcp"][0].HostPort });
         }
       });
     }, 100);
   });
-  // console.info(`Docker node started: ${id} - http: ${httpPort} - ws: ${wsPort}`);
+  // console.info(`Docker node started: ${id} - rpc: ${rpcPort}`);
 
   const stop = () =>
     new Promise((resolve, reject) => {
@@ -175,10 +168,9 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
 
   return {
     id,
-    httpPort,
-    wsPort,
+    rpcPort,
     wait: async () => {
-      await ApiPromise.create({ provider: new WsProvider(`ws://127.0.0.1:${wsPort}`) });
+      await ApiPromise.create({ provider: new WsProvider(`ws://127.0.0.1:${rpcPort}`) });
     },
     stop,
   };

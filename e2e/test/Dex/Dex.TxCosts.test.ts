@@ -53,12 +53,12 @@ describe("Dex Gas Estimation", function () {
     node = await startNode();
 
     // prepare works for precompile and extrinsic calls
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     alith = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
 
     // setup JSON RPC
-    jsonProvider = new JsonRpcProvider(`http://localhost:${node.httpPort}`);
+    jsonProvider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(jsonProvider);
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(jsonProvider);
     owner = Wallet.createRandom().connect(jsonProvider);

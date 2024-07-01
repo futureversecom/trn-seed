@@ -24,7 +24,7 @@
 
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
-	traits::fungibles::{Mutate, Transfer},
+	traits::fungibles::Mutate,
 	transactional, PalletId,
 };
 pub use pallet::*;
@@ -57,7 +57,6 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
@@ -66,7 +65,6 @@ pub mod pallet {
 		_phantom: sp_std::marker::PhantomData<T>,
 	}
 
-	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
 			GenesisConfig { _phantom: Default::default() }
@@ -74,7 +72,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			NextMarketplaceId::<T>::put(1 as MarketplaceId);
 			NextListingId::<T>::put(1 as ListingId);
@@ -90,7 +88,7 @@ pub mod pallet {
 			+ GetDispatchInfo;
 		/// Default auction / sale length in blocks
 		#[pallet::constant]
-		type DefaultListingDuration: Get<Self::BlockNumber>;
+		type DefaultListingDuration: Get<BlockNumberFor<Self>>;
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The default account which collects network fees from marketplace sales
@@ -99,9 +97,8 @@ pub mod pallet {
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
 			+ Hold<AccountId = Self::AccountId>
-			+ Mutate<Self::AccountId, AssetId = AssetId>
-			+ CreateExt<AccountId = Self::AccountId>
-			+ Transfer<Self::AccountId, Balance = Balance>;
+			+ Mutate<Self::AccountId, AssetId = AssetId, Balance = Balance>
+			+ CreateExt<AccountId = Self::AccountId>;
 		/// NFT Extension
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
 		/// SFT Extension
@@ -163,7 +160,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn listing_end_schedule)]
 	pub type ListingEndSchedule<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, T::BlockNumber, Twox64Concat, ListingId, bool>;
+		StorageDoubleMap<_, Twox64Concat, BlockNumberFor<T>, Twox64Concat, ListingId, bool>;
 
 	/// Map from offer_id to the information related to the offer
 	#[pallet::storage]
@@ -196,7 +193,7 @@ pub mod pallet {
 			price: Balance,
 			payment_asset: AssetId,
 			seller: T::AccountId,
-			close: T::BlockNumber,
+			close: BlockNumberFor<T>,
 		},
 		/// A fixed price sale has completed
 		FixedPriceSaleComplete {
@@ -230,7 +227,7 @@ pub mod pallet {
 			payment_asset: AssetId,
 			reserve_price: Balance,
 			seller: T::AccountId,
-			close: T::BlockNumber,
+			close: BlockNumberFor<T>,
 		},
 		/// An auction has sold
 		AuctionSold {
@@ -333,7 +330,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Check and close all expired listings
-		fn on_initialize(now: T::BlockNumber) -> Weight {
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			// TODO: this is unbounded and could become costly
 			// https://github.com/cennznet/cennznet/issues/444
 			let removed_count = Self::close_listings_at(now);
@@ -349,6 +346,7 @@ pub mod pallet {
 		/// `marketplace_account` - if specified, this account will be registered
 		/// `entitlement` - Permill, percentage of sales to go to the marketplace
 		/// If no marketplace is specified the caller will be registered
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::register_marketplace())]
 		pub fn register_marketplace(
 			origin: OriginFor<T>,
@@ -370,6 +368,7 @@ pub mod pallet {
 		/// `fixed_price` ask price
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
+		#[pallet::call_index(1)]
 		#[pallet::weight({
 			T::WeightInfo::sell_nft(serial_numbers.len() as u32)
 		})]
@@ -380,7 +379,7 @@ pub mod pallet {
 			buyer: Option<T::AccountId>,
 			payment_asset: AssetId,
 			fixed_price: Balance,
-			duration: Option<T::BlockNumber>,
+			duration: Option<BlockNumberFor<T>>,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -406,6 +405,7 @@ pub mod pallet {
 		/// `fixed_price` ask price
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
+		#[pallet::call_index(2)]
 		#[pallet::weight({
 			match &tokens {
 				ListingTokens::Nft(nft) => T::WeightInfo::sell_nft(nft.serial_numbers.len() as u32),
@@ -418,7 +418,7 @@ pub mod pallet {
 			buyer: Option<T::AccountId>,
 			payment_asset: AssetId,
 			fixed_price: Balance,
-			duration: Option<T::BlockNumber>,
+			duration: Option<BlockNumberFor<T>>,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -439,6 +439,7 @@ pub mod pallet {
 		/// `listing_id` id of the fixed price listing
 		/// `new_price` new fixed price
 		/// Caller must be the token owner
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::update_fixed_price())]
 		pub fn update_fixed_price(
 			origin: OriginFor<T>,
@@ -450,6 +451,7 @@ pub mod pallet {
 		}
 
 		/// Buy a token listing for its specified price
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::buy())]
 		#[transactional]
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
@@ -459,6 +461,7 @@ pub mod pallet {
 		}
 
 		/// Buy multiple listings, each for their respective price
+		#[pallet::call_index(5)]
 		#[pallet::weight({
 			T::WeightInfo::buy_multi(listing_ids.len() as u32)
 		})]
@@ -483,6 +486,7 @@ pub mod pallet {
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
 		/// Caller must be the token owner
+		#[pallet::call_index(6)]
 		#[pallet::weight({
 			T::WeightInfo::auction_nft(serial_numbers.len() as u32)
 		})]
@@ -492,7 +496,7 @@ pub mod pallet {
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing>,
 			payment_asset: AssetId,
 			reserve_price: Balance,
-			duration: Option<T::BlockNumber>,
+			duration: Option<BlockNumberFor<T>>,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -509,6 +513,7 @@ pub mod pallet {
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
+		#[pallet::call_index(7)]
 		#[pallet::weight({
 			match &tokens {
 				ListingTokens::Nft(nft) => T::WeightInfo::auction_nft(nft.serial_numbers.len() as u32),
@@ -520,7 +525,7 @@ pub mod pallet {
 			tokens: ListingTokens<T>,
 			payment_asset: AssetId,
 			reserve_price: Balance,
-			duration: Option<T::BlockNumber>,
+			duration: Option<BlockNumberFor<T>>,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -530,6 +535,7 @@ pub mod pallet {
 
 		/// Place a bid on an open auction
 		/// - `amount` to bid (in the seller's requested payment asset)
+		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::bid())]
 		#[transactional]
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
@@ -540,6 +546,7 @@ pub mod pallet {
 		/// Close a sale or auction returning tokens
 		/// Requires no successful bids have been made for an auction.
 		/// Caller must be the listed seller
+		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::cancel_sale())]
 		#[transactional]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
@@ -552,6 +559,7 @@ pub mod pallet {
 		/// An offer can't be made on a token currently in an auction
 		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
 		/// offer)
+		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::make_simple_offer())]
 		#[transactional]
 		pub fn make_simple_offer(
@@ -568,6 +576,7 @@ pub mod pallet {
 
 		/// Cancels an offer on a token
 		/// Caller must be the offer buyer
+		#[pallet::call_index(11)]
 		#[pallet::weight(T::WeightInfo::cancel_offer())]
 		pub fn cancel_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -576,6 +585,7 @@ pub mod pallet {
 
 		/// Accepts an offer on a token
 		/// Caller must be token owner
+		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::accept_offer())]
 		#[transactional]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
@@ -585,6 +595,7 @@ pub mod pallet {
 
 		/// Set the `FeeTo` account
 		/// This operation requires root access
+		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::set_fee_to())]
 		pub fn set_fee_to(origin: OriginFor<T>, fee_to: Option<T::AccountId>) -> DispatchResult {
 			ensure_root(origin)?;
