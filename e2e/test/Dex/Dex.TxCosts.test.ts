@@ -216,7 +216,7 @@ describe("Dex Gas Estimation", function () {
 
   after(async () => {
     saveTxGas(allCosts, "Dex/TxCosts.md", "Dex Precompiles");
-    saveTxFees(allTxFeeCosts, "Dex/TxCosts.md", "ERC20 Precompiles");
+    saveTxFees(allTxFeeCosts, "Dex/TxCosts.md", "Dex Precompiles");
     await node.stop();
   });
 

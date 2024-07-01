@@ -2,26 +2,26 @@
 
 | Function Call         | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |
 |:----------------------|:------------:|:--------------:|:-------------------------:|
-| uri                   |    27560     |     22400      |             0             |
-| balanceOf             |    25957     |     22433      |             0             |
-| balanceOfBatch        |    32585     |     24106      |             0             |
-| setApprovalForAll     |    47025     |     27501      |             0             |
-| isApprovedForAll      |    26076     |     23184      |             0             |
-| safeTransferFrom      |    59163     |     32160      |           10552           |
-| safeBatchTransferFrom |    50205     |     35812      |           13298           |
-| mint                  |    33152     |     32245      |           11374           |
-| mintBatch             |    42210     |     32633      |           12307           |
-| burn                  |    32581     |     27608      |           9631            |
-| burnBatch             |    38043     |     31828      |           10564           |
+| uri                   |    27560     |     22376      |             0             |
+| balanceOf             |    25957     |     22408      |             0             |
+| balanceOfBatch        |    32585     |     23721      |             0             |
+| setApprovalForAll     |    47025     |     26235      |             0             |
+| isApprovedForAll      |    26076     |     22432      |             0             |
+| safeTransferFrom      |    74307     |     28882      |           10552           |
+| safeBatchTransferFrom |    75516     |     32822      |           13297           |
+| mint                  |    74473     |     28572      |           11373           |
+| mintBatch             |    75540     |     29371      |           12306           |
+| burn                  |    32581     |     26141      |           9630            |
+| burnBatch             |    38043     |     28466      |           10563           |
 
 
 ## Generated tx costs(fees) for ERC1155 Precompiles
 
 | Function Call         | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
 |:----------------------|:---------------------:|:-----------------------:|:----------------------:|
-| safeTransferFrom      |        440278         |         231113          |         79145          |
-| safeBatchTransferFrom |        364092         |         268013          |         99741          |
-| mint                  |        247001         |         232478          |         85307          |
-| mintBatch             |        294958         |         238690          |         92307          |
-| burn                  |        237850         |         203613          |         72233          |
-| burnBatch             |        284644         |         225810          |         79233          |
+| safeTransferFrom      |        440278         |         215285          |         79140          |
+| safeBatchTransferFrom |        364092         |         241713          |         99732          |
+| mint                  |        247001         |         214100          |         85301          |
+| mintBatch             |        294958         |         220311          |         92301          |
+| burn                  |        237850         |         189637          |         72228          |
+| burnBatch             |        284644         |         211834          |         79228          |
