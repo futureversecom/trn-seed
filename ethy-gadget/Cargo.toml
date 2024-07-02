@@ -16,7 +16,7 @@ log = { workspace = true }
 thiserror = { workspace = true }
 codec = { workspace = true }
 libsecp256k1 = { workspace = true }
-prometheus = { package = "substrate-prometheus-endpoint", git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN", version = "0.10.0-dev", default-features = false }
+substrate-prometheus-endpoint = { workspace = true }
 sc-chain-spec = { workspace = true }
 sc-client-api = { workspace = true }
 sc-keystore = { workspace = true }
@@ -45,7 +45,7 @@ serde = { workspace = true }
 tokio = { workspace = true }
 sc-consensus = { workspace = true }
 sc-service = { workspace = true }
-sc-network-test = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN", default-features = false }
+sc-network-test = { workspace = true }
 sc-block-builder = { workspace = true }
 sp-consensus-grandpa = { workspace = true }
 sp-keyring = { workspace = true }
