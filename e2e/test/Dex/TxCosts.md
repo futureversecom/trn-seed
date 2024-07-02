@@ -2,21 +2,21 @@
 
 | Function Call            | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |
 |:-------------------------|:------------:|:--------------:|:-------------------------:|
-| addLiquidity             |    197723    |     89078      |           52145           |
-| removeLiquidity          |    170713    |     68838      |           34641           |
-| swapExactTokensForTokens |    133986    |     52401      |           26421           |
-| swapTokensForExactTokens |    134130    |     53006      |           27404           |
+| addLiquidity             |    198248    |     89797      |           52139           |
+| removeLiquidity          |    171138    |     69284      |           34620           |
+| swapExactTokensForTokens |    134389    |     52657      |           26392           |
+| swapTokensForExactTokens |    134532    |     53269      |           27375           |
 | quote                    |    44688     |     22377      |             0             |
 | getAmountOut             |    44688     |     22423      |             0             |
-| getAmountsOut            |    120661    |     34806      |             0             |
-| getAmountsIn             |    120661    |     34799      |             0             |
+| getAmountsOut            |    120661    |     34893      |             0             |
+| getAmountsIn             |    120661    |     34886      |             0             |
 
 
 ## Generated tx costs(fees) for Dex Precompiles
 
 | Function Call            | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
 |:-------------------------|:---------------------:|:-----------------------:|:----------------------:|
-| addLiquidity             |        1338027        |         657776          |         391089         |
-| removeLiquidity          |        1072046        |         477830          |         259813         |
-| swapExactTokensForTokens |        968038         |         387534          |         198163         |
-| swapTokensForExactTokens |        969201         |         393986          |         205532         |
+| addLiquidity             |        1341853        |         664167          |         391047         |
+| removeLiquidity          |        1074942        |         481791          |         259655         |
+| swapExactTokensForTokens |        971294         |         390258          |         197944         |
+| swapTokensForExactTokens |        972456         |         396791          |         205317         |

@@ -2,32 +2,32 @@
 
 | Function Call     | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |
 |:------------------|:------------:|:--------------:|:-------------------------:|
-| balanceOf         |    25895     |     23238      |             0             |
-| ownerOf           |    25847     |     23206      |             0             |
-| getApproved       |    27395     |     23206      |             0             |
-| isApprovedForAll  |    26082     |     23733      |             0             |
-| mint              |    81095     |     27732      |           9216            |
-| burn              |    37870     |     32429      |           10522           |
-| approve           |    50740     |     27473      |           10851           |
-| setApprovalForAll |    47011     |     26130      |           9700            |
-| safetransferFrom  |    77443     |     32611      |             0             |
-| transferFrom      |    66839     |     32381      |           11584           |
-| name              |    25932     |     22364      |             0             |
-| symbol            |    25938     |     22364      |             0             |
-| tokenURI          |    25964     |     23206      |             0             |
-| owner             |    23728     |     22364      |             0             |
-| transferOwnership |    29147     |     27419      |           9501            |
-| renounceOwnership |    30272     |     26402      |           9454            |
+| balanceOf         |    25895     |     23239      |             0             |
+| ownerOf           |    25847     |     23207      |             0             |
+| getApproved       |    27395     |     23207      |             0             |
+| isApprovedForAll  |    26082     |     23734      |             0             |
+| mint              |    81095     |     27752      |           9216            |
+| burn              |    37870     |     32480      |           10524           |
+| approve           |    50740     |     27489      |           10852           |
+| setApprovalForAll |    47011     |     26139      |           9700            |
+| safetransferFrom  |    77443     |     32663      |             0             |
+| transferFrom      |    66839     |     32429      |           11585           |
+| name              |    25932     |     22365      |             0             |
+| symbol            |    25938     |     22365      |             0             |
+| tokenURI          |    25964     |     23207      |             0             |
+| owner             |    23728     |     22365      |             0             |
+| transferOwnership |    29147     |     27434      |           9501            |
+| renounceOwnership |    30272     |     26415      |           9455            |
 
 
 ## Generated tx costs(fees) for ERC721 Precompiles
 
 | Function Call     | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
 |:------------------|:---------------------:|:-----------------------:|:----------------------:|
-| mint              |        395981         |         206426          |         69121          |
-| burn              |        245366         |         235419          |         78921          |
-| approve           |        369808         |         200507          |         81389          |
-| setApprovalForAll |        349839         |         189360          |         72751          |
-| transferFrom      |        442288         |         234646          |         86885          |
-| transferOwnership |        218098         |         199277          |         71258          |
-| renounceOwnership |        176172         |         196606          |         70908          |
+| mint              |        395981         |         206891          |         69126          |
+| burn              |        245366         |         236244          |         78930          |
+| approve           |        369808         |         200890          |         81394          |
+| setApprovalForAll |        349839         |         189592          |         72754          |
+| transferFrom      |        442288         |         235419          |         86894          |
+| transferOwnership |        218098         |         199622          |         71263          |
+| renounceOwnership |        176172         |         196951          |         70913          |

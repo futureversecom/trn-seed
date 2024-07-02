@@ -2,19 +2,19 @@
 
 | Function Call                 | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |
 |:------------------------------|:------------:|:--------------:|:-------------------------:|
-| create                        |      0       |     36968      |           16352           |
-| registerDelegateWithSignature |      0       |     38388      |           20188           |
-| unregisterDelegate            |      0       |     35481      |           16200           |
-| transferOwnership             |      0       |     43720      |           20407           |
-| proxyCall                     |      0       |     65259      |           21152           |
+| create                        |      0       |     37068      |           16355           |
+| registerDelegateWithSignature |      0       |     38495      |           20191           |
+| unregisterDelegate            |      0       |     35566      |           16203           |
+| transferOwnership             |      0       |     43883      |           20410           |
+| proxyCall                     |      0       |     65272      |           21155           |
 
 
 ## Generated tx costs(fees) for Futurepass Precompiles
 
 | Function Call                 | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
 |:------------------------------|:---------------------:|:-----------------------:|:----------------------:|
-| create                        |           0           |         274734          |         122645         |
-| registerDelegateWithSignature |           0           |         286864          |         151414         |
-| unregisterDelegate            |           0           |         263205          |         121506         |
-| transferOwnership             |           0           |         312227          |         153054         |
-| proxyCall                     |           0           |         446016          |         158642         |
+| create                        |           0           |         276130          |         122664         |
+| registerDelegateWithSignature |           0           |         288305          |         151433         |
+| unregisterDelegate            |           0           |         264442          |         121524         |
+| transferOwnership             |           0           |         314095          |         153081         |
+| proxyCall                     |           0           |         446121          |         158669         |
