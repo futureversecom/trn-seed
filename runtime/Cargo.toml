@@ -120,9 +120,9 @@ try-runtime-cli = { workspace = true, optional = true }
 
 # Benchmark dependencies
 frame-benchmarking  = { workspace = true, optional = true }
-frame-system-benchmarking  = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false, optional = true }
-pallet-session-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false, optional = true }
-pallet-election-provider-support-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false, optional = true }
+frame-system-benchmarking  = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN", default-features = false, optional = true }
+pallet-session-benchmarking = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN", default-features = false, optional = true }
+pallet-election-provider-support-benchmarking = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN", default-features = false, optional = true }
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, default-features = true }
@@ -133,8 +133,8 @@ ethabi = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 tokio = { workspace = true }
 ethereum = { version = "0.14.0", default-features = false }
-frame-remote-externalities = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-sp-externalities  = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+frame-remote-externalities = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN", default-features = false }
+sp-externalities  = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN", default-features = false }
 
 [features]
 default = [ "std" ]

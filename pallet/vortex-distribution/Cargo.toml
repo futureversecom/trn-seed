@@ -31,7 +31,7 @@ pallet-assets-ext = { workspace = true, default-features = true }
 frame-election-provider-support = { workspace = true }
 pallet-session = { workspace = true }
 pallet-bags-list = { workspace = true }
-pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+pallet-staking-reward-curve = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN", default-features = false }
 
 [features]
 default = ["std"]
