@@ -11,7 +11,7 @@
 | safeBatchTransferFrom |    75516     |     32865      |           13298           |
 | mint                  |    74473     |     28847      |           11374           |
 | mintBatch             |    75540     |     31515      |           12307           |
-| burn                  |    32581     |     26154      |           9631            |
+| burn                  |    32581     |     26154      |           9630            |
 | burnBatch             |    38043     |     28483      |           10564           |
 
 
@@ -19,9 +19,9 @@
 
 | Function Call         | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
 |:----------------------|:---------------------:|:-----------------------:|:----------------------:|
-| safeTransferFrom      |        440278         |         215698          |         79145          |
-| safeBatchTransferFrom |        364092         |         242395          |         99741          |
-| mint                  |        247001         |         214572          |         85308          |
-| mintBatch             |        294958         |         220784          |         92308          |
-| burn                  |        237850         |         189997          |         72233          |
-| burnBatch             |        284644         |         212194          |         79233          |
+| safeTransferFrom      |        440278         |         215698          |         79144          |
+| safeBatchTransferFrom |        364092         |         242395          |         99740          |
+| mint                  |        247001         |         214572          |         85306          |
+| mintBatch             |        294958         |         220784          |         92306          |
+| burn                  |        237850         |         189997          |         72232          |
+| burnBatch             |        284644         |         212194          |         79232          |
