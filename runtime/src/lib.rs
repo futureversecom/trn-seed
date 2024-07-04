@@ -26,7 +26,7 @@ extern crate alloc;
 
 use alloc::string::String;
 use codec::{Decode, Encode};
-use core::ops::Mul;
+use fp_evm::weight_per_gas;
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
 use pallet_dex::TradingPairStatus;
@@ -77,7 +77,10 @@ pub use frame_support::{
 		Randomness,
 	},
 	weights::{
-		constants::{ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
+		constants::{
+			ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_MILLIS,
+			WEIGHT_REF_TIME_PER_SECOND,
+		},
 		ConstantMultiplier, IdentityFee, Weight,
 	},
 	PalletId, StorageValue,
@@ -190,8 +193,10 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-/// We allow for 1 seconds of compute with a 4 second average block time.
-const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, u64::MAX);
+/// We allow for 1 seconds of compute with a 4 seconds average block time.
+pub const WEIGHT_MILLISECS_PER_BLOCK: u64 = 1000;
+pub const MAXIMUM_BLOCK_WEIGHT: Weight =
+	Weight::from_parts(WEIGHT_MILLISECS_PER_BLOCK * WEIGHT_REF_TIME_PER_MILLIS, u64::MAX);
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;
@@ -1070,53 +1075,22 @@ impl pallet_evm_chain_id::Config for Runtime {
 }
 
 // Start frontier/EVM stuff
-
-/// Current approximation of the gas/s consumption considering
-/// EVM execution over compiled WASM (on 4.4Ghz CPU).
-/// Given the 500ms Weight, from which 75% only are used for transactions,
-// TODO: optimize for the correct value for block gas limit(i.e correct value for 11_250_000 * 2) or
-// WEIGHT_PER_GAS
-/// the total EVM execution gas limit is: GAS_PER_SECOND * 1 * 0.75 ~= 11_250_000 * 2.
-pub const GAS_PER_SECOND: u64 = 30_000_000;
-
-/// Approximate ratio of the amount of Weight per Gas.
-/// u64 works for approximations because Weight is a very small unit compared to gas.
-pub const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
-
-pub struct FutureverseGasWeightMapping;
-
-impl pallet_evm::GasWeightMapping for FutureverseGasWeightMapping {
-	fn gas_to_weight(gas: u64, without_base_weight: bool) -> Weight {
-		let mut weight = gas.saturating_mul(WEIGHT_PER_GAS);
-
-		if without_base_weight {
-			weight = weight.saturating_sub(
-				<Runtime as frame_system::Config>::BlockWeights::get()
-					.get(frame_support::dispatch::DispatchClass::Normal)
-					.base_extrinsic
-					.ref_time(),
-			);
-		}
-
-		Weight::from_all(weight)
-	}
-	fn weight_to_gas(weight: Weight) -> u64 {
-		weight.div(WEIGHT_PER_GAS).ref_time()
-	}
-}
+// Number suitable for TRN, based on the gas benchmarks on current standard spec.
+const BLOCK_GAS_LIMIT: u64 = 15_000_000;
+// Default value from Frontier
+const MAX_POV_SIZE: u64 = 5 * 1024 * 1024;
 
 parameter_types! {
-	pub BlockGasLimit: U256
-		= U256::from(NORMAL_DISPATCH_RATIO.mul(MAXIMUM_BLOCK_WEIGHT.ref_time()) / WEIGHT_PER_GAS);
+	pub BlockGasLimit: U256 = U256::from(BLOCK_GAS_LIMIT);
+	// https://github.com/polkadot-evm/frontier/pull/1039#issuecomment-1600291912
+	pub const GasLimitPovSizeRatio: u64 = BLOCK_GAS_LIMIT.saturating_div(MAX_POV_SIZE);
 	pub PrecompilesValue: FutureversePrecompiles<Runtime> = FutureversePrecompiles::<_>::new();
-	pub WeightPerGas: Weight = Weight::from_all(WEIGHT_PER_GAS);
-	// TRN is a solo chain. Otherwise -> https://github.com/polkadot-evm/frontier/pull/1039
-	pub GasLimitPovSizeRatio: u64 = 0;
+	pub WeightPerGas: Weight = Weight::from_parts(weight_per_gas(BLOCK_GAS_LIMIT, NORMAL_DISPATCH_RATIO, WEIGHT_MILLISECS_PER_BLOCK), 0);
 }
 
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = FeeControl;
-	type GasWeightMapping = FutureverseGasWeightMapping;
+	type GasWeightMapping = pallet_evm::FixedGasWeightMapping<Self>;
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
 	type CallOrigin = FutureverseEnsureAddressSame<AccountId>;
 	type WithdrawOrigin = EnsureAddressNever<AccountId>;
@@ -2343,5 +2317,6 @@ mod benches {
 		[pallet_doughnut, Doughnut]
 		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_crowdsale, Crowdsale]
+		[pallet_evm, EVM]
 	);
 }
