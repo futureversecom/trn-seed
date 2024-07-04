@@ -14,7 +14,7 @@
     "lint": "eslint --config ./.eslintrc.yml --ignore-path ./.eslintignore --ext .js,.ts . --quiet",
     "test": "hardhat test",
     "test:parallel": "hardhat test --parallel",
-    "test:txcosts": "hardhat test test/MarketPlace/Marketplace.TxCosts.test.ts test/Dex/Dex.TxCosts.test.ts test/ERC20/Erc20.TxCosts.test.ts test/ERC721/Erc721.TxCosts.test.ts test/ERC1155/ERC1155.TxCosts.test.ts test/Futurepass/Futurepass.TxCosts.test.ts ",
+    "test:txcosts": "hardhat test test/*/*.TxCosts.test.ts",
     "seed": "docker-compose up && docker-compose rm -fsv"
   },
   "devDependencies": {
