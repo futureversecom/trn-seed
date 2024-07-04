@@ -22,6 +22,8 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use fp_rpc::EthereumRuntimeRPCApi;
+
 use jsonrpsee::RpcModule;
 // Substrate
 use sc_client_api::{
@@ -44,7 +46,7 @@ use sp_blockchain::{
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::BlakeTwo256;
+use sp_runtime::traits::Block as BlockT;
 
 // Frontier
 use fc_rpc::{
@@ -136,16 +138,13 @@ pub struct FullDeps<C, P, A: ChainApi, BE, SC> {
 	pub eth_forced_parent_hashes: Option<BTreeMap<H256, H256>>,
 }
 
-pub fn overrides_handle<C, BE>(client: Arc<C>) -> Arc<OverrideHandle<Block>>
+pub fn overrides_handle<B, C, BE>(client: Arc<C>) -> Arc<OverrideHandle<B>>
 where
-	C: ProvideRuntimeApi<Block> + StorageProvider<Block, BE> + AuxStore,
-	C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError>,
-	C: Send + Sync + 'static,
-	C::Api: sp_api::ApiExt<Block>
-		+ fp_rpc::EthereumRuntimeRPCApi<Block>
-		+ fp_rpc::ConvertTransactionRuntimeApi<Block>,
-	BE: Backend<Block> + 'static,
-	BE::State: StateBackend<BlakeTwo256>,
+	B: BlockT,
+	C: ProvideRuntimeApi<B>,
+	C::Api: EthereumRuntimeRPCApi<B>,
+	C: HeaderBackend<B> + StorageProvider<B, BE> + 'static,
+	BE: Backend<B> + 'static,
 {
 	// NB: the following is used to redefine storage schema after certain blocks
 	// on live chains

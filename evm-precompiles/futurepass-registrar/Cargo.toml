@@ -1,5 +1,5 @@
 [package]
-name = "pallet-evm-precompiles-futurepass"
+name = "pallet-evm-precompiles-futurepass-registrar"
 version = "2.0.0"
 authors.workspace = true
 edition.workspace = true
@@ -8,21 +8,21 @@ repository.workspace = true
 [dependencies]
 scale-info = { workspace = true }
 precompile-utils = { workspace = true }
-num_enum =  { workspace = true }
-seed-primitives =  { workspace = true }
-pallet-futurepass =  { workspace = true }
+num_enum = { workspace = true }
+seed-primitives = { workspace = true }
+pallet-futurepass = { workspace = true }
 
 # Substrate
-frame-system =  { workspace = true }
-frame-support =  { workspace = true }
-sp-core =  { workspace = true }
-sp-runtime =  { workspace = true }
-sp-std =  { workspace = true }
-pallet-proxy =  { workspace = true }
+frame-system = { workspace = true }
+frame-support = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+pallet-proxy = { workspace = true }
 
 # Frontier
-fp-evm =  { workspace = true }
-pallet-evm =  { workspace = true }
+fp-evm = { workspace = true }
+pallet-evm = { workspace = true }
 
 [features]
 default = ["std"]

@@ -1,18 +1,19 @@
 [package]
 name = "pallet-dex-rpc-runtime-api"
 version = "0.0.1"
-authors = ["The Root Network Team"]
-edition = "2021"
-license = "Apache-2.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
-sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-pallet-dex = { path = "../../", default-features = false }
-seed-primitives = { path = "../../../../primitives", default-features = false}
+sp-api = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+pallet-dex = { workspace = true }
+seed-primitives = { workspace = true }
 
 [features]
 default = ["std"]

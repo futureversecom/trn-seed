@@ -1,48 +1,46 @@
 [package]
 name = "pallet-fee-control"
 version = "1.0.0"
-authors = ["The Root Network Team"]
-edition = "2021"
-repository = "https://github.com/futureversecom/seed"
 description = "Static and dynamic fee setting through a pallet"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+codec = { workspace = true }
+scale-info = { workspace = true }
 
-# Substrate
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-frame-benchmarking = { git = 'https://github.com/paritytech/substrate', branch = "polkadot-v1.0.0", default-features = false, optional = true }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-balances = { workspace = true }
+sp-std = { workspace = true }
+sp-runtime = { workspace = true }
+sp-core = { workspace = true }
 
-# Frontier
-fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
+fp-evm = { workspace = true }
 
-seed-primitives = { path = "../../primitives", default-features = false }
-seed-pallet-common = { path = "../common", default-features = false }
-precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
+seed-primitives = { workspace = true }
+seed-pallet-common = { workspace = true }
+precompile-utils = { workspace = true }
 
 [dev-dependencies]
-pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
+pallet-evm = { workspace = true }
 
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-pallet-fee-proxy = { path = "../fee-proxy" }
-pallet-dex = { path = "../dex" }
-pallet-assets-ext = { path = "../assets-ext" }
-seed-pallet-common= { path = "../common" }
-pallet-futurepass = { path = "../futurepass" }
+sp-io = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+pallet-fee-proxy = { workspace = true, default-features = true }
+pallet-dex = { workspace = true }
+pallet-assets-ext = { workspace = true }
+pallet-futurepass = { workspace = true }
+seed-pallet-common= { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

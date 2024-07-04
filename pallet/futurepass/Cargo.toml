@@ -1,81 +1,69 @@
 [package]
 name = "pallet-futurepass"
 version = "1.0.0-dev"
-authors = ["The Root Network Team"]
-edition = "2021"
-license = "Apache-2.0"
 description = "FuturePass"
-repository = "https://github.com/futureversecom/trn-seed"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-# Parity
-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+hex = { workspace = true }
+hex-literal = { workspace = true, optional = true }
+codec = { workspace = true }
+log = { workspace = true }
+scale-info = { workspace = true }
 
 # Substrate FRAME
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-std = { workspace = true }
+sp-runtime = { workspace = true }
 
-# Benchmarking
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", optional = true, default-features = false }
-
-# Custom
-log = "0.4"
-serde = { version = "1.0.145", features = ["derive"], optional = true }
-hex = { version = "0.4.3", default-features = false }
-hex-literal = { version = "0.3.4", default-features = false }
-seed-pallet-common = { path = "../common", default-features = false }
-seed-primitives = { path = "../../primitives", default-features = false }
-precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
+precompile-utils = { workspace = true }
+seed-pallet-common = { workspace = true }
+seed-primitives = { workspace = true }
 
 [dev-dependencies]
-fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
-seed-runtime = { path = "../../runtime" }
-
-seed-pallet-common= { path = "../common" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-proxy = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-assets-ext = { path = "../assets-ext" }
-pallet-fee-control = { path = "../fee-control" }
-pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-fee-proxy = { path = "../fee-proxy" }
-pallet-dex = { path = "../dex" }
-pallet-nft = { path = "../nft" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN" }
-hex-literal = { version = "0.3.4" }
-
+fp-evm = { workspace = true }
+seed-runtime = { workspace = true, default-features = true }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-proxy = { workspace = true }
+pallet-assets-ext = { workspace = true }
+pallet-fee-control = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+pallet-fee-proxy = { workspace = true, default-features = true }
+pallet-dex = { workspace = true }
+pallet-nft = { workspace = true }
+pallet-timestamp = { workspace = true }
+pallet-evm = { workspace = true }
+seed-pallet-common= { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
-	"serde",
 	# Parity
+	"hex/std",
 	"codec/std",
 	"scale-info/std",
 	# Substrate FRAME
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"sp-core/std",
 	"sp-std/std",
 	"sp-runtime/std",
 	# Custom
-	"hex/std",
 	"seed-pallet-common/std",
 	"seed-primitives/std",
-	"pallet-assets/std",
-	"pallet-balances/std",
 	"precompile-utils/std",
-	"fp-evm/std",
-	"frame-benchmarking?/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
-runtime-benchmarks = ["frame-benchmarking", "seed-runtime/runtime-benchmarks"]
+runtime-benchmarks = ["frame-benchmarking", "hex-literal", "seed-runtime/runtime-benchmarks"]
