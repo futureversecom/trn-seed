@@ -14,6 +14,7 @@
     "lint": "eslint --config ./.eslintrc.yml --ignore-path ./.eslintignore --ext .js,.ts . --quiet",
     "test": "hardhat test",
     "test:parallel": "hardhat test --parallel",
+    "test:txcosts": "hardhat test test/*/*.TxCosts.test.ts",
     "seed": "docker-compose up && docker-compose rm -fsv"
   },
   "devDependencies": {

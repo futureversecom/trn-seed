@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use hex_literal::hex;
+use pallet_transaction_payment::Multiplier;
 use sc_service::ChainType;
 use seed_runtime::{
 	constants::{
@@ -24,7 +25,8 @@ use seed_runtime::{
 	keys::*,
 	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, EthBridgeConfig,
 	RuntimeGenesisConfig, SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig,
-	SudoConfig, SystemConfig, XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
+	SudoConfig, SystemConfig, TransactionPaymentConfig, XRPLBridgeConfig,
+	BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
 };
 use sp_core::{ecdsa, Pair, Public};
 use sp_runtime::{
@@ -168,6 +170,7 @@ fn testnet_genesis(
 		endowed_balances.push((account, 1_000_000 * ONE_ROOT));
 	}
 	const VALIDATOR_BOND: Balance = 100_000 * ONE_ROOT;
+	let multiplier: Multiplier = Multiplier::from_rational(1_u128, 1_000_000_000_u128);
 
 	RuntimeGenesisConfig {
 		system: SystemConfig {
@@ -189,7 +192,7 @@ fn testnet_genesis(
 		im_online: Default::default(),
 		nft: Default::default(),
 		marketplace: Default::default(),
-		transaction_payment: Default::default(),
+		transaction_payment: TransactionPaymentConfig { multiplier, ..Default::default() },
 		// NOTE(surangap): keeping xrpl stuff inside the eth bridge isn't elegant. Refactor this to
 		// validator-set pallet in the future.
 		eth_bridge: EthBridgeConfig { xrp_door_signers },
