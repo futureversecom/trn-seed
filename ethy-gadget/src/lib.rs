@@ -27,7 +27,7 @@
 use std::sync::Arc;
 
 use log::debug;
-use prometheus::Registry;
+use substrate_prometheus_endpoint::Registry;
 
 use sc_client_api::{Backend, BlockchainEvents, Finalizer};
 use sc_network::ProtocolName;
