@@ -10,7 +10,6 @@ description = "Root Network Meta Storage pallet"
 [dependencies]
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
-pallet-nft = { path = "../nft", default-features = false }
 
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 
@@ -26,6 +25,8 @@ scale-info = { version = "2.3.0", default-features = false, features = ["derive"
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 pallet-assets-ext = { path = "../assets-ext" }
+pallet-nft = { path = "../nft" }
+pallet-sft = { path = "../sft" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 
@@ -36,7 +37,6 @@ std = [
     "scale-info/std",
     "seed-primitives/std",
     "seed-pallet-common/std",
-    "pallet-nft/std",
     "sp-std/std",
     "sp-runtime/std",
     "frame-support/std",

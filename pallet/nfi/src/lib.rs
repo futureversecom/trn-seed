@@ -31,6 +31,11 @@ pub use pallet::*;
 mod types;
 use types::*;
 
+#[cfg(test)]
+pub mod mock;
+#[cfg(test)]
+mod tests;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -79,7 +84,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	pub type NFIEnabled<T> = StorageDoubleMap<
+	pub type NfiEnabled<T> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		CollectionUuid,
@@ -99,21 +104,30 @@ pub mod pallet {
 		/// The network fee receiver address has been updated
 		FeeToSet { account: Option<T::AccountId> },
 		/// Request sent to NFI Relayer
-		NFIDataRequest { collection_id: CollectionUuid, serial_numbers: Vec<SerialNumber> },
+		DataRequest {
+			sub_type: NFISubType,
+			collection_id: CollectionUuid,
+			serial_numbers: Vec<SerialNumber>,
+		},
 		/// A new relayer has been set
 		RelayerSet { account: T::AccountId },
-		/// A new Mint Fee has been set
-		MintFeeSet { sub_type: NFISubType, fee_details: Option<FeeDetails<T::AccountId>> },
-		/// A new Meta Storage item has been set
-		NfiStorageSet {
-			token_id: TokenId,
+		/// New Fee details have been set
+		FeeDetailsSet { sub_type: NFISubType, fee_details: Option<FeeDetails<T::AccountId>> },
+		/// A new NFI storage item has been set
+		DataSet {
 			sub_type: NFISubType,
+			token_id: TokenId,
 			data_item: NFIDataType<T::MaxDataLength>,
 		},
 		/// NFI compatibility enabled for a collection
-		NFIEnabled { collection_id: CollectionUuid, sub_type: NFISubType },
+		NfiEnabled { sub_type: NFISubType, collection_id: CollectionUuid },
 		/// Additional mint fee for Meta Storage creation has been paid to the receiver address
-		MintFeePaid { who: T::AccountId, asset_id: AssetId, total_fee: Balance },
+		MintFeePaid {
+			sub_type: NFISubType,
+			who: T::AccountId,
+			asset_id: AssetId,
+			total_fee: Balance,
+		},
 	}
 
 	#[pallet::error]
@@ -126,6 +140,8 @@ pub mod pallet {
 		NotRelayer,
 		/// No the owner of the collection
 		NotCollectionOwner,
+		/// The caller is not the owner of the token
+		NotTokenOwner,
 	}
 
 	#[pallet::call]
@@ -141,9 +157,23 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Set the `FeeTo` account
+		/// This operation requires root access
+		#[pallet::call_index(1)]
+		#[pallet::weight(0)]
+		pub fn set_fee_to(origin: OriginFor<T>, fee_to: Option<T::AccountId>) -> DispatchResult {
+			ensure_root(origin)?;
+			match fee_to.clone() {
+				None => FeeTo::<T>::kill(),
+				Some(account) => FeeTo::<T>::put(account),
+			}
+			Self::deposit_event(Event::FeeToSet { account: fee_to });
+			Ok(())
+		}
+
 		/// Set the NFI mint fee which is paid per token by the minter
 		/// Setting fee_details to None removes the mint fee
-		#[pallet::call_index(1)]
+		#[pallet::call_index(2)]
 		#[pallet::weight(0)]
 		pub fn set_fee_details(
 			origin: OriginFor<T>,
@@ -158,13 +188,13 @@ pub mod pallet {
 				},
 				None => <MintFee<T>>::remove(sub_type),
 			}
-			Self::deposit_event(Event::<T>::MintFeeSet { sub_type, fee_details });
+			Self::deposit_event(Event::<T>::FeeDetailsSet { sub_type, fee_details });
 			Ok(())
 		}
 
 		/// Enables NFI compatibility on a collection
 		///  - Caller must be collection owner
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[pallet::weight(0)]
 		pub fn enable_nfi(
 			origin: OriginFor<T>,
@@ -173,16 +203,17 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(Self::is_collection_owner(collection_id, &who), Error::<T>::NotCollectionOwner);
-			<NFIEnabled<T>>::insert(collection_id, sub_type, true);
-			Self::deposit_event(Event::<T>::NFIEnabled { collection_id, sub_type });
+			<NfiEnabled<T>>::insert(collection_id, sub_type, true);
+			Self::deposit_event(Event::<T>::NfiEnabled { sub_type, collection_id });
 			Ok(())
 		}
 
 		/// Users can manually request NFI data if it does not already exist on a token.
 		/// This can be used to manually request data for pre-existing tokens in a collection
 		/// that has had nfi enabled
+		/// Caller must be the owner of the token
 		/// Note. the mint fee will need to be paid for any manual request
-		#[pallet::call_index(3)]
+		#[pallet::call_index(4)]
 		#[pallet::weight(0)]
 		pub fn manual_data_request(
 			origin: OriginFor<T>,
@@ -190,16 +221,17 @@ pub mod pallet {
 			sub_type: NFISubType,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(NFIEnabled::<T>::get(token_id.0, sub_type), Error::<T>::NotEnabled);
+			ensure!(NfiEnabled::<T>::get(token_id.0, sub_type), Error::<T>::NotEnabled);
+			ensure!(Self::is_token_owner(token_id.clone(), &who), Error::<T>::NotTokenOwner);
 			Self::pay_mint_fee(&who, 1, sub_type)?;
-			Self::send_data_request(token_id.0, vec![token_id.1]);
+			Self::send_data_request(sub_type, token_id.0, vec![token_id.1]);
 			Ok(())
 		}
 
 		/// submit NFI data to the chain
 		/// Caller must be the relayer
 		/// NFI must be enabled for the collection
-		#[pallet::call_index(4)]
+		#[pallet::call_index(5)]
 		#[pallet::weight(0)]
 		pub fn submit_nfi_data(
 			origin: OriginFor<T>,
@@ -209,23 +241,9 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(Some(who) == Relayer::<T>::get(), Error::<T>::NotRelayer);
 			let sub_type = NFISubType::from(data_item.clone());
-			ensure!(NFIEnabled::<T>::get(token_id.0, sub_type), Error::<T>::NotEnabled);
+			ensure!(NfiEnabled::<T>::get(token_id.0, sub_type), Error::<T>::NotEnabled);
 			NfiData::<T>::insert(token_id.clone(), sub_type.clone(), data_item.clone());
-			Self::deposit_event(Event::<T>::NfiStorageSet { token_id, sub_type, data_item });
-			Ok(())
-		}
-
-		/// Set the `FeeTo` account
-		/// This operation requires root access
-		#[pallet::call_index(5)]
-		#[pallet::weight(0)]
-		pub fn set_fee_to(origin: OriginFor<T>, fee_to: Option<T::AccountId>) -> DispatchResult {
-			ensure_root(origin)?;
-			match fee_to.clone() {
-				None => FeeTo::<T>::kill(),
-				Some(account) => FeeTo::<T>::put(account),
-			}
-			Self::deposit_event(Event::FeeToSet { account: fee_to });
+			Self::deposit_event(Event::<T>::DataSet { sub_type, token_id, data_item });
 			Ok(())
 		}
 	}
@@ -270,6 +288,7 @@ impl<T: Config> Pallet<T> {
 
 		// Deposit event with total fee paid
 		Self::deposit_event(Event::<T>::MintFeePaid {
+			sub_type,
 			who: who.clone(),
 			asset_id: fee_details.asset_id,
 			total_fee,
@@ -279,19 +298,37 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Emits an event to display which tokens need NFI data to be created off-chain
-	pub fn send_data_request(collection_id: CollectionUuid, serial_numbers: Vec<SerialNumber>) {
+	pub fn send_data_request(
+		sub_type: NFISubType,
+		collection_id: CollectionUuid,
+		serial_numbers: Vec<SerialNumber>,
+	) {
 		// Deposit event containing collection_id and all serial numbers
-		Self::deposit_event(Event::<T>::NFIDataRequest { collection_id, serial_numbers });
+		Self::deposit_event(Event::<T>::DataRequest { sub_type, collection_id, serial_numbers });
 	}
 
-	/// Returns true if the owner is the owner of the collection.
+	/// Returns true if who is the owner of the collection.
 	/// Checks both NFT and SFT pallet
-	fn is_collection_owner(collection_id: CollectionUuid, owner: &T::AccountId) -> bool {
+	fn is_collection_owner(collection_id: CollectionUuid, who: &T::AccountId) -> bool {
 		if let Ok(nft_owner) = T::NFTExt::get_collection_owner(collection_id) {
-			return owner == &nft_owner
+			return who == &nft_owner
 		}
 		if let Ok(sft_owner) = T::SFTExt::get_collection_owner(collection_id) {
-			return owner == &sft_owner
+			return who == &sft_owner
+		}
+		false
+	}
+
+	// Returns true if who is the owner of the token for an NFT,
+	// For SFT it checks whether who is the owner of the collection
+	// This is due to SFT tokens being owned by the collection owner, where users can have some
+	// balance of the token
+	fn is_token_owner(token_id: TokenId, who: &T::AccountId) -> bool {
+		if let Some(nft_owner) = T::NFTExt::get_token_owner(&token_id) {
+			return who == &nft_owner
+		}
+		if let Ok(sft_owner) = T::SFTExt::get_collection_owner(token_id.0) {
+			return who == &sft_owner
 		}
 		false
 	}
@@ -310,12 +347,12 @@ impl<T: Config> NFIRequest for Pallet<T> {
 	) -> DispatchResult {
 		let sub_type = NFISubType::NFI;
 		// Check if NFI is enabled for this collection. If not, we don't need to do anything
-		if !NFIEnabled::<T>::get(collection_id, sub_type) {
+		if !NfiEnabled::<T>::get(collection_id, sub_type) {
 			return Ok(())
 		}
 		// Pay the mint fee for the NFI storage, return an error if this is not possible
 		Self::pay_mint_fee(who, serial_numbers.len() as TokenCount, sub_type)?;
-		Self::send_data_request(collection_id, serial_numbers);
+		Self::send_data_request(sub_type, collection_id, serial_numbers);
 		Ok(())
 	}
 }

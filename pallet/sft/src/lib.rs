@@ -30,6 +30,8 @@ use sp_std::prelude::*;
 
 #[cfg(test)]
 pub mod mock;
+#[cfg(feature = "std")]
+pub mod test_utils;
 #[cfg(test)]
 mod tests;
 
