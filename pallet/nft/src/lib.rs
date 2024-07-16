@@ -73,7 +73,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use seed_pallet_common::{utils::PublicMintInformation, MetaStorageRequest};
+	use seed_pallet_common::{utils::PublicMintInformation, NFIRequest};
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
@@ -131,7 +131,7 @@ pub mod pallet {
 		/// Interface for sending XLS20 mint requests
 		type Xls20MintRequest: Xls20MintRequest<AccountId = Self::AccountId>;
 		/// Interface for requesting extra meta storage items
-		type MetaStorageRequest: MetaStorageRequest<AccountId = Self::AccountId>;
+		type NFIRequest: NFIRequest<AccountId = Self::AccountId>;
 	}
 
 	/// Map from collection to its information
@@ -539,7 +539,7 @@ pub mod pallet {
 			}
 
 			// Request some meta storage
-			let _ = T::MetaStorageRequest::request_meta_storage(
+			let _ = T::NFIRequest::request(
 				&who,
 				collection_id.clone(),
 				serial_numbers.clone().into_inner(),

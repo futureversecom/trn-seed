@@ -103,7 +103,7 @@ pallet-erc20-peg = { path = "../pallet/erc20-peg", default-features = false }
 pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
 pallet-fee-control = { path = "../pallet/fee-control", default-features = false }
 pallet-xls20 = { path = "../pallet/xls20", default-features = false }
-pallet-meta-storage = { path = "../pallet/meta-storage", default-features = false }
+pallet-nfi = { path = "../pallet/nfi", default-features = false }
 pallet-futurepass = { path = "../pallet/futurepass", default-features = false }
 pallet-marketplace = { path = "../pallet/marketplace", default-features = false }
 pallet-vortex = { path = "../pallet/vortex", default-features = false }
@@ -202,7 +202,7 @@ std = [
 	"pallet-tx-fee-pot/std",
 	"pallet-token-approvals/std",
 	"pallet-xls20/std",
-	"pallet-meta-storage/std",
+	"pallet-nfi/std",
 	"pallet-futurepass/std",
 	"pallet-marketplace/std",
 	"pallet-vortex/std",
@@ -289,7 +289,7 @@ try-runtime = [
 	"pallet-erc20-peg/try-runtime",
 	"pallet-nft-peg/try-runtime",
 	"pallet-xls20/try-runtime",
-	"pallet-meta-storage/try-runtime",
+	"pallet-nfi/try-runtime",
 	"pallet-futurepass/try-runtime",
 	"pallet-marketplace/try-runtime",
 	"pallet-vortex/try-runtime",
@@ -344,7 +344,7 @@ runtime-benchmarks = [
 	"pallet-evm-chain-id/runtime-benchmarks",
 	"pallet-token-approvals/runtime-benchmarks",
 	"pallet-xls20/runtime-benchmarks",
-	"pallet-meta-storage/runtime-benchmarks",
+	"pallet-nfi/runtime-benchmarks",
 	"pallet-futurepass/runtime-benchmarks",
 	"pallet-marketplace/runtime-benchmarks",
 	"pallet-vortex/runtime-benchmarks",
