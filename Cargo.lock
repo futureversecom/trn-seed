@@ -6115,6 +6115,7 @@ dependencies = [
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-nft",
+ "pallet-sft",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",

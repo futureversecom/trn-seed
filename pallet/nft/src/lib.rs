@@ -49,8 +49,11 @@ use sp_std::prelude::*;
 mod benchmarking;
 #[cfg(test)]
 pub mod mock;
+#[cfg(feature = "std")]
+pub mod test_utils;
 #[cfg(test)]
 mod tests;
+
 pub mod weights;
 
 pub use weights::WeightInfo;

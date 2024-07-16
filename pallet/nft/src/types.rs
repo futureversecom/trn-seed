@@ -18,9 +18,46 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use seed_primitives::{MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount};
+use seed_primitives::{
+	AccountId, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
+	TokenCount,
+};
 use sp_runtime::BoundedVec;
 use sp_std::{fmt::Debug, prelude::*};
+
+// #[cfg(any(feature = "std", test))]
+// pub struct NftBuilder {
+// 	pub owner: AccountId,
+// }
+//
+// #[cfg(any(feature = "std", test))]
+// impl NftBuilder {
+// 	pub fn new(owner: AccountId) -> Self {
+// 		Self { owner }
+// 	}
+//
+// 	// pub fn name(&mut self, name: &str) {
+// 	// 	self.name = name;
+// 	// }
+//
+// 	pub fn build(self) -> CollectionUuid {
+// 		let collection_id = 5; //crate::pallet::next_collection_uuid().unwrap();
+// 					   // let name: &str = "test-collection";
+// 					   // let collection_name = BoundedVec::truncate_from(name.as_bytes().to_vec());
+// 					   // let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
+// 					   // assert_ok!(Nft::create_collection(
+// 					   // 	Some(self.owner).into(),
+// 					   // 	collection_name,
+// 					   // 	0,
+// 					   // 	None,
+// 					   // 	None,
+// 					   // 	metadata_scheme,
+// 					   // 	None,
+// 					   // 	CrossChainCompatibility::default(),
+// 					   // ));
+// 		collection_id
+// 	}
+// }
 
 #[derive(Decode, Encode, Debug, Clone, Copy, PartialEq, TypeInfo)]
 pub enum TokenOwnershipError {

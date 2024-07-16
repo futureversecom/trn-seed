@@ -30,8 +30,8 @@ use frame_system::Config;
 use scale_info::TypeInfo;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
-	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-	TokenCount, TokenId, TokenLockReason,
+	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule,
+	SerialNumber, TokenCount, TokenId, TokenLockReason,
 };
 use sp_core::{bounded::BoundedVec, H160, U256};
 use sp_std::{fmt::Debug, vec::Vec};
@@ -370,6 +370,18 @@ pub trait NFIRequest {
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
 	) -> DispatchResult;
+}
+
+impl NFIRequest for () {
+	type AccountId = AccountId;
+
+	fn request(
+		_who: &Self::AccountId,
+		_collection_id: CollectionUuid,
+		_serial_numbers: Vec<SerialNumber>,
+	) -> DispatchResult {
+		Ok(())
+	}
 }
 
 pub trait FeeConfig {
