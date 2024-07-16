@@ -654,6 +654,14 @@ impl<T: Config> NFTExt for Pallet<T> {
 	fn remove_token_lock(token_id: TokenId) {
 		<TokenLocks<T>>::remove(token_id);
 	}
+
+	fn get_collection_owner(
+		collection_id: CollectionUuid,
+	) -> Result<Self::AccountId, DispatchError> {
+		let collection_info =
+			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		Ok(collection_info.owner)
+	}
 }
 
 impl<T: Config> NFTCollectionInfo for Pallet<T> {

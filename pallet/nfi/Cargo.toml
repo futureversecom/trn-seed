@@ -1,5 +1,5 @@
 [package]
-name = "pallet-meta-storage"
+name = "pallet-nfi"
 version = "1.0.0"
 authors = ["The Root Network Team"]
 edition = "2021"
@@ -14,6 +14,7 @@ pallet-nft = { path = "../nft", default-features = false }
 
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 
+sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
 frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }

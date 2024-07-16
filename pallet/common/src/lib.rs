@@ -362,10 +362,10 @@ pub trait Xls20MintRequest {
 	) -> DispatchResult;
 }
 
-pub trait MetaStorageRequest {
+pub trait NFIRequest {
 	type AccountId;
 
-	fn request_meta_storage(
+	fn request(
 		who: &Self::AccountId,
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
@@ -517,6 +517,10 @@ pub trait NFTExt {
 
 	/// Remove a token lock without performing checks
 	fn remove_token_lock(token_id: TokenId);
+
+	fn get_collection_owner(
+		collection_id: CollectionUuid,
+	) -> Result<Self::AccountId, DispatchError>;
 }
 
 pub trait SFTExt {
@@ -541,4 +545,8 @@ pub trait SFTExt {
 	fn get_royalties_schedule(
 		collection_id: CollectionUuid,
 	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError>;
+
+	fn get_collection_owner(
+		collection_id: CollectionUuid,
+	) -> Result<Self::AccountId, DispatchError>;
 }

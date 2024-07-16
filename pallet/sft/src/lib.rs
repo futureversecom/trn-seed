@@ -17,12 +17,9 @@
 #![recursion_limit = "256"]
 //! # SFT Module
 
-use frame_support::{
-	traits::tokens::fungibles::{Mutate, Transfer},
-	transactional, PalletId,
-};
+use frame_support::{traits::tokens::fungibles::{Mutate, Transfer}, transactional, PalletId};
 use seed_pallet_common::{
-	CreateExt, Hold, NFTExt, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
+	CreateExt, Hold, utils::PublicMintInformation, NFIRequest, NFTExt, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
 };
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
@@ -54,7 +51,6 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use seed_pallet_common::utils::PublicMintInformation;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -99,6 +95,8 @@ pub mod pallet {
 		/// Max unique owners that can own an SFT token
 		#[pallet::constant]
 		type MaxOwnersPerSftToken: Get<u32>;
+		/// Interface for requesting extra meta storage items
+		type NFIRequest: NFIRequest<AccountId = Self::AccountId>;
 	}
 
 	/// Map from collection to its information
