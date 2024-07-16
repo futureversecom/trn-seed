@@ -18,7 +18,10 @@ use seed_pallet_common::test_prelude::*;
 use seed_primitives::MetadataScheme;
 
 construct_runtime!(
-	pub enum Test
+	pub enum Test where
+		Block = Block<Test>,
+		NodeBlock = Block<Test>,
+		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
 	{
 		System: frame_system,
 		Balances: pallet_balances,

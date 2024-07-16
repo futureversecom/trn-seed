@@ -44,6 +44,7 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
+	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
@@ -148,7 +149,6 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Set the relayer address
 		/// This address is able to submit the NFI data back to the chain
-		#[pallet::call_index(0)]
 		#[pallet::weight(0)]
 		pub fn set_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
@@ -159,7 +159,6 @@ pub mod pallet {
 
 		/// Set the `FeeTo` account
 		/// This operation requires root access
-		#[pallet::call_index(1)]
 		#[pallet::weight(0)]
 		pub fn set_fee_to(origin: OriginFor<T>, fee_to: Option<T::AccountId>) -> DispatchResult {
 			ensure_root(origin)?;
@@ -173,7 +172,6 @@ pub mod pallet {
 
 		/// Set the NFI mint fee which is paid per token by the minter
 		/// Setting fee_details to None removes the mint fee
-		#[pallet::call_index(2)]
 		#[pallet::weight(0)]
 		pub fn set_fee_details(
 			origin: OriginFor<T>,
@@ -194,7 +192,6 @@ pub mod pallet {
 
 		/// Enables NFI compatibility on a collection
 		///  - Caller must be collection owner
-		#[pallet::call_index(3)]
 		#[pallet::weight(0)]
 		pub fn enable_nfi(
 			origin: OriginFor<T>,
@@ -213,7 +210,6 @@ pub mod pallet {
 		/// that has had nfi enabled
 		/// Caller must be the owner of the token
 		/// Note. the mint fee will need to be paid for any manual request
-		#[pallet::call_index(4)]
 		#[pallet::weight(0)]
 		pub fn manual_data_request(
 			origin: OriginFor<T>,
@@ -231,7 +227,6 @@ pub mod pallet {
 		/// submit NFI data to the chain
 		/// Caller must be the relayer
 		/// NFI must be enabled for the collection
-		#[pallet::call_index(5)]
 		#[pallet::weight(0)]
 		pub fn submit_nfi_data(
 			origin: OriginFor<T>,
