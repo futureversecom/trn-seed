@@ -1,0 +1,10 @@
+scrape_configs:
+  - job_name: 'trn'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['bootnode:9615']
+
+  - job_name: 'node-exporter'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['node-exporter:9100']

@@ -1,0 +1,77 @@
+version: '3'
+services:
+
+  # seed --chain=dev --name=bootnode --validator --alice --tmp --max-parallel-downloads=3 --prometheus-external --rpc-max-connections=500 --unsafe-rpc-external --rpc-cors=all --rpc-port=9944
+  bootnode:
+    # image: "ghcr.io/futureversecom/seed:latest"
+    # image: "ghcr.io/futureversecom/seed:e8c571280-feat-substrate-v1-0-0"
+    image: "ghcr.io/futureversecom/seed:31a3dd226"
+    # platform: linux/amd64
+    restart: unless-stopped
+    command:
+      # - "--chain=dev"
+      # - "--validator"
+      # - "--alice"
+      # - "--tmp"
+      - "--dev"
+      - "--name=bootnode"
+      - "--max-parallel-downloads=30"
+      - "--prometheus-external"
+      - "--rpc-max-connections=500"
+      - "--unsafe-rpc-external"
+      - "--rpc-cors=all"
+      - "--rpc-port=9944"
+      - "--max-runtime-instances=128"
+      - "--node-key=0000000000000000000000000000000000000000000000000000000000000001"
+    ports:
+      - "9944:9944"
+      - "9615:9615"
+      - "30333:30333"
+      - "30334:30334"
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.25"
+          memory: "512M"
+        limits:
+          cpus: "4"
+          memory: "8G"
+
+  node-exporter:
+    image: prom/node-exporter
+    restart: unless-stopped
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - --collector.filesystem.ignored-mount-points
+      - "^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    ports:
+      - "9100:9100"
+    depends_on:
+      - bootnode
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    command: --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus --web.console.libraries=/usr/share/prometheus/console_libraries --web.console.templates=/usr/share/prometheus/consoles --web.enable-remote-write-receiver --enable-feature=otlp-write-receiver
+    volumes:
+      - ${PWD}/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - bootnode
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    volumes:
+      - ${PWD}/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ${PWD}/grafana.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
