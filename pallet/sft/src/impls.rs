@@ -16,7 +16,7 @@
 use crate::*;
 use frame_support::ensure;
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
-use seed_pallet_common::{utils::PublicMintInformation, SFTExt};
+use seed_pallet_common::{utils::PublicMintInformation, NFIRequest, SFTExt};
 use seed_primitives::{CollectionUuid, MAX_COLLECTION_ENTITLEMENTS};
 use sp_runtime::{traits::Zero, DispatchError};
 
@@ -105,7 +105,7 @@ impl<T: Config> Pallet<T> {
 		existing_collection.next_serial_number =
 			next_serial_number.checked_add(1).ok_or(Error::<T>::Overflow)?;
 
-		let token_owner = token_owner.unwrap_or(who);
+		let token_owner = token_owner.unwrap_or(who.clone());
 		let owned_tokens = if initial_issuance > Zero::zero() {
 			let initial_balance: SftTokenBalance = SftTokenBalance::new(initial_issuance, 0);
 			BoundedVec::truncate_from(vec![(token_owner.clone(), initial_balance)])
@@ -118,6 +118,9 @@ impl<T: Config> Pallet<T> {
 			token_issuance: initial_issuance,
 			owned_tokens,
 		};
+
+		// Request NFI data for the minted tokens
+		let _ = T::NFIRequest::request(&who, collection_id, vec![next_serial_number])?;
 
 		TokenInfo::<T>::insert((collection_id, next_serial_number), new_sft);
 		SftCollectionInfo::<T>::insert(collection_id, existing_collection);
@@ -513,5 +516,13 @@ impl<T: Config> SFTExt for Pallet<T> {
 		let collection_info =
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok(collection_info.royalties_schedule)
+	}
+
+	fn get_collection_owner(
+		collection_id: CollectionUuid,
+	) -> Result<Self::AccountId, DispatchError> {
+		let collection_info =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		Ok(collection_info.collection_owner)
 	}
 }

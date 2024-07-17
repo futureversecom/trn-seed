@@ -288,6 +288,7 @@ macro_rules! impl_pallet_nft_config {
 			type Xls20MintRequest = MockXls20MintRequest;
 			type WeightInfo = ();
 			type StringLimit = StringLimit;
+			type NFIRequest = ();
 		}
 	};
 }
@@ -323,6 +324,7 @@ macro_rules! impl_pallet_sft_config {
 			type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 			type MaxSerialsPerMint = MaxSerialsPerSftMint;
 			type MaxOwnersPerSftToken = MaxOwnersPerSftToken;
+			type NFIRequest = ();
 		}
 	};
 }

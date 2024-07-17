@@ -22,7 +22,7 @@ use crate::mock::{
 use core::ops::Mul;
 use frame_support::traits::{fungibles::Inspect, OnInitialize};
 use pallet_nft::{CrossChainCompatibility, TokenLocks};
-use pallet_sft::{types::SftTokenBalance, TokenInfo};
+use pallet_sft::{test_utils::sft_balance_of, types::SftTokenBalance, TokenInfo};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{MetadataScheme, RoyaltiesSchedule, TokenCount};
 use sp_runtime::traits::{AccountIdConversion, Zero};
@@ -130,17 +130,6 @@ fn setup_nft_token() -> (CollectionUuid, TokenId, AccountId) {
 	assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner)));
 
 	(collection_id, token_id, token_owner)
-}
-
-// Returns the SftTokenBalance of an account which includes free and reserved balance
-fn sft_balance_of(token_id: TokenId, who: &AccountId) -> SftTokenBalance {
-	let token_info = TokenInfo::<Test>::get(token_id).unwrap();
-	token_info
-		.owned_tokens
-		.into_iter()
-		.find(|(account, _)| account == who)
-		.map(|(_, token_balance)| token_balance)
-		.unwrap_or_default()
 }
 
 /// Setup a token, return collection id, token id, token owner
@@ -2620,7 +2609,7 @@ mod sell_sft {
 				true
 			);
 			// Check the SFT reserved and free balance
-			let token_balance = sft_balance_of(token_id, &token_owner);
+			let token_balance = sft_balance_of::<Test>(token_id, &token_owner);
 			assert_eq!(token_balance.free_balance, 0);
 			assert_eq!(token_balance.reserved_balance, balance);
 		});
@@ -2816,7 +2805,7 @@ mod sell_sft {
 			}));
 
 			// Check the SFT reserved and free balance
-			let token_balance = sft_balance_of(token_id, &token_owner);
+			let token_balance = sft_balance_of::<Test>(token_id, &token_owner);
 			assert_eq!(token_balance.free_balance, 10);
 			assert_eq!(token_balance.reserved_balance, 90); // 50 + 30 + 10
 		});
@@ -2913,11 +2902,11 @@ mod buy_sft {
 				assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
 
 				// Check SFT balances of both seller and buyer
-				let seller_balance = sft_balance_of(token_id, &token_owner);
+				let seller_balance = sft_balance_of::<Test>(token_id, &token_owner);
 				assert_eq!(seller_balance.free_balance, initial_issuance - sell_quantity);
 				assert_eq!(seller_balance.reserved_balance, 0);
 
-				let buyer_balance = sft_balance_of(token_id, &buyer);
+				let buyer_balance = sft_balance_of::<Test>(token_id, &buyer);
 				assert_eq!(buyer_balance.free_balance, sell_quantity);
 				assert_eq!(buyer_balance.reserved_balance, 0);
 
@@ -3064,11 +3053,11 @@ mod buy_sft {
 				.is_none());
 
 				// ownership changed
-				let seller_balance = sft_balance_of(token_id, &token_owner);
+				let seller_balance = sft_balance_of::<Test>(token_id, &token_owner);
 				assert_eq!(seller_balance.free_balance, initial_issuance - sell_quantity);
 				assert_eq!(seller_balance.reserved_balance, 0);
 
-				let buyer_balance = sft_balance_of(token_id, &buyer);
+				let buyer_balance = sft_balance_of::<Test>(token_id, &buyer);
 				assert_eq!(buyer_balance.free_balance, sell_quantity);
 				assert_eq!(buyer_balance.reserved_balance, 0);
 			});
@@ -3180,7 +3169,7 @@ mod auction_sft {
 				true
 			);
 			// Check the SFT reserved and free balance
-			let token_balance = sft_balance_of(token_id, &token_owner);
+			let token_balance = sft_balance_of::<Test>(token_id, &token_owner);
 			assert_eq!(token_balance.free_balance, 0);
 			assert_eq!(token_balance.reserved_balance, balance);
 		});
@@ -3358,7 +3347,7 @@ mod auction_sft {
 			));
 
 			// Check the SFT reserved and free balance
-			let token_balance = sft_balance_of(token_id, &token_owner);
+			let token_balance = sft_balance_of::<Test>(token_id, &token_owner);
 			assert_eq!(token_balance.free_balance, 10);
 			assert_eq!(token_balance.reserved_balance, 90); // 50 + 30 + 10
 		});
@@ -3576,7 +3565,7 @@ mod listing_tokens {
 			assert_ok!(tokens.lock_tokens(&token_owner, 1));
 
 			// Sanity check
-			let sft_balance_owner = sft_balance_of(token_id, &token_owner);
+			let sft_balance_owner = sft_balance_of::<Test>(token_id, &token_owner);
 			assert_eq!(sft_balance_owner.free_balance, 40);
 			assert_eq!(sft_balance_owner.reserved_balance, 60);
 
@@ -3589,7 +3578,7 @@ mod listing_tokens {
 			// Unlock tokens unlocks all tokens
 			assert_ok!(tokens.unlock_tokens(&token_owner));
 
-			let sft_balance_owner = sft_balance_of(token_id, &token_owner);
+			let sft_balance_owner = sft_balance_of::<Test>(token_id, &token_owner);
 			assert_eq!(sft_balance_owner.free_balance, 100);
 			assert_eq!(sft_balance_owner.reserved_balance, 0);
 
@@ -3688,7 +3677,7 @@ mod listing_tokens {
 			assert_ok!(tokens.lock_tokens(&token_owner, 1));
 
 			// Sanity check
-			let sft_balance_owner = sft_balance_of(token_id, &token_owner);
+			let sft_balance_owner = sft_balance_of::<Test>(token_id, &token_owner);
 			assert_eq!(sft_balance_owner.free_balance, 0);
 			assert_eq!(sft_balance_owner.reserved_balance, balance);
 
@@ -3696,12 +3685,12 @@ mod listing_tokens {
 			let recipient = create_account(1123);
 			assert_ok!(tokens.unlock_and_transfer(&token_owner, &recipient));
 
-			let sft_balance_owner = sft_balance_of(token_id, &token_owner);
+			let sft_balance_owner = sft_balance_of::<Test>(token_id, &token_owner);
 			assert_eq!(sft_balance_owner.free_balance, 0);
 			assert_eq!(sft_balance_owner.reserved_balance, 0);
 
 			// Verify owner of token is recipient
-			let sft_balance_recipient = sft_balance_of(token_id, &recipient);
+			let sft_balance_recipient = sft_balance_of::<Test>(token_id, &recipient);
 			assert_eq!(sft_balance_recipient.free_balance, balance);
 			assert_eq!(sft_balance_recipient.reserved_balance, 0);
 		});
@@ -3739,7 +3728,7 @@ mod listing_tokens {
 			// Sanity check
 			for serial_number in serial_numbers.clone() {
 				let token_id = (collection_id, serial_number);
-				let sft_balance_owner = sft_balance_of(token_id, &token_owner);
+				let sft_balance_owner = sft_balance_of::<Test>(token_id, &token_owner);
 				assert_eq!(sft_balance_owner.free_balance, 0);
 				assert_eq!(sft_balance_owner.reserved_balance, balance);
 			}
@@ -3750,11 +3739,11 @@ mod listing_tokens {
 
 			for serial_number in serial_numbers.clone() {
 				let token_id = (collection_id, serial_number);
-				let sft_balance_owner = sft_balance_of(token_id, &token_owner);
+				let sft_balance_owner = sft_balance_of::<Test>(token_id, &token_owner);
 				assert_eq!(sft_balance_owner.free_balance, 0);
 				assert_eq!(sft_balance_owner.reserved_balance, 0);
 
-				let sft_balance_owner = sft_balance_of(token_id, &recipient);
+				let sft_balance_owner = sft_balance_of::<Test>(token_id, &recipient);
 				assert_eq!(sft_balance_owner.free_balance, balance);
 				assert_eq!(sft_balance_owner.reserved_balance, 0);
 			}
@@ -3886,10 +3875,10 @@ mod buy_multi {
 				));
 
 				// Check the SFT free balance of owner and buyer
-				let sft_balance_owner = sft_balance_of(token_id2, &token_owner2);
+				let sft_balance_owner = sft_balance_of::<Test>(token_id2, &token_owner2);
 				assert_eq!(sft_balance_owner.free_balance, 0);
 				assert_eq!(sft_balance_owner.reserved_balance, 0);
-				let sft_balance_buyer = sft_balance_of(token_id2, &buyer);
+				let sft_balance_buyer = sft_balance_of::<Test>(token_id2, &buyer);
 				assert_eq!(sft_balance_buyer.free_balance, 1000);
 
 				// Check NFT ownership

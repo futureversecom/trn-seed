@@ -104,4 +104,5 @@ impl crate::Config for Test {
 	type StringLimit = StringLimit;
 	type WeightInfo = ();
 	type Xls20MintRequest = MockXls20MintRequest;
+	type NFIRequest = ();
 }

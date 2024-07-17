@@ -410,6 +410,20 @@ impl pallet_assets_ext::Config for Runtime {
 }
 
 parameter_types! {
+	pub const MaxDataLength: u32 = 100;
+	pub const NFINetworkFeePercentage: Permill = Permill::from_perthousand(5);
+}
+
+impl pallet_nfi::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
+	type SFTExt = Sft;
+	type NetworkFeePercentage = NFINetworkFeePercentage;
+	type MaxDataLength = MaxDataLength;
+}
+
+parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const CollectionNameStringLimit: u32 = 50;
 	pub const WorldId: seed_primitives::ParachainId = 100;
@@ -429,6 +443,7 @@ impl pallet_nft::Config for Runtime {
 	type StringLimit = CollectionNameStringLimit;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
+	type NFIRequest = Nfi;
 }
 
 parameter_types! {
@@ -476,6 +491,7 @@ impl pallet_sft::Config for Runtime {
 	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 	type MaxSerialsPerMint = MaxSerialsPerMint;
 	type MaxOwnersPerSftToken = MaxOwnersPerSftCollection;
+	type NFIRequest = Nfi;
 }
 
 parameter_types! {
@@ -1387,6 +1403,7 @@ construct_runtime! {
 		Doughnut: pallet_doughnut = 48,
 		MaintenanceMode: pallet_maintenance_mode = 47,
 		Crowdsale: pallet_crowdsale = 49,
+		Nfi: pallet_nfi = 50,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
