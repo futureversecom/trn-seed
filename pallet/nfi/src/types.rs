@@ -60,8 +60,8 @@ impl<MaxDataLength: Get<u32>> From<NFIDataType<MaxDataLength>> for NFISubType {
 )]
 #[scale_info(skip_type_params(MaxDataLength))]
 pub struct NFIMatrix<MaxDataLength: Get<u32>> {
-	metadata_link: BoundedVec<u8, MaxDataLength>,
-	verification_hash: H256,
+	pub metadata_link: BoundedVec<u8, MaxDataLength>,
+	pub verification_hash: H256,
 }
 
 #[derive(Decode, Encode, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]

@@ -18,10 +18,7 @@
 use frame_support::{
 	ensure,
 	pallet_prelude::*,
-	traits::{
-		fungibles::{Mutate, Transfer},
-		Get,
-	},
+	traits::{fungibles::Transfer, Get},
 };
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::{NFIRequest, NFTExt, SFTExt};
@@ -105,33 +102,33 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The network fee receiver address has been updated
-		FeeToSet { account: Option<T::AccountId> },
-		/// Request sent to NFI Relayer
+		/// Request for new NFI data creation
 		DataRequest {
 			sub_type: NFISubType,
 			collection_id: CollectionUuid,
 			serial_numbers: Vec<SerialNumber>,
 		},
-		/// A new relayer has been set
-		RelayerSet { account: T::AccountId },
-		/// New Fee details have been set
-		FeeDetailsSet { sub_type: NFISubType, fee_details: Option<FeeDetails<T::AccountId>> },
 		/// A new NFI storage item has been set
 		DataSet {
 			sub_type: NFISubType,
 			token_id: TokenId,
 			data_item: NFIDataType<T::MaxDataLength>,
 		},
-		/// NFI compatibility enabled for a collection
-		NfiEnabled { sub_type: NFISubType, collection_id: CollectionUuid },
-		/// Additional mint fee for Meta Storage creation has been paid to the receiver address
+		/// New Fee details have been set
+		FeeDetailsSet { sub_type: NFISubType, fee_details: Option<FeeDetails<T::AccountId>> },
+		/// The network fee receiver address has been updated
+		FeeToSet { account: Option<T::AccountId> },
+		/// Additional mint fee has been paid to the receiver address
 		MintFeePaid {
 			sub_type: NFISubType,
 			who: T::AccountId,
 			asset_id: AssetId,
 			total_fee: Balance,
 		},
+		/// NFI compatibility enabled for a collection
+		NfiEnabled { sub_type: NFISubType, collection_id: CollectionUuid },
+		/// A new relayer has been set
+		RelayerSet { account: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -146,6 +143,8 @@ pub mod pallet {
 		NotCollectionOwner,
 		/// The caller is not the owner of the token
 		NotTokenOwner,
+		/// The token does not exist
+		NoToken,
 	}
 
 	#[pallet::call]
@@ -221,6 +220,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(NfiEnabled::<T>::get(token_id.0, sub_type), Error::<T>::NotEnabled);
+			// TODO maybe go for token owner or collection owner
 			ensure!(Self::is_token_owner(token_id.clone(), &who), Error::<T>::NotTokenOwner);
 			Self::pay_mint_fee(&who, 1, sub_type)?;
 			Self::send_data_request(sub_type, token_id.0, vec![token_id.1]);
@@ -240,6 +240,7 @@ pub mod pallet {
 			ensure!(Some(who) == Relayer::<T>::get(), Error::<T>::NotRelayer);
 			let sub_type = NFISubType::from(data_item.clone());
 			ensure!(NfiEnabled::<T>::get(token_id.0, sub_type), Error::<T>::NotEnabled);
+			ensure!(Self::token_exists(token_id.clone()), Error::<T>::NoToken);
 			NfiData::<T>::insert(token_id.clone(), sub_type.clone(), data_item.clone());
 			Self::deposit_event(Event::<T>::DataSet { sub_type, token_id, data_item });
 			Ok(())
@@ -329,6 +330,14 @@ impl<T: Config> Pallet<T> {
 			return who == &sft_owner
 		}
 		false
+	}
+
+	// Check whether a token exists or not
+	fn token_exists(token_id: TokenId) -> bool {
+		if T::NFTExt::get_token_owner(&token_id).is_some() {
+			return true
+		}
+		T::SFTExt::token_exists(token_id)
 	}
 }
 

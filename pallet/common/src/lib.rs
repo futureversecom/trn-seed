@@ -147,6 +147,10 @@ pub trait OnTransferSubscriber {
 	fn on_nft_transfer(token_id: &TokenId);
 }
 
+impl OnTransferSubscriber for () {
+	fn on_nft_transfer(_token_id: &TokenId) {}
+}
+
 /// Subscriber for when a new asset or nft is created
 pub trait OnNewAssetSubscriber<RuntimeId> {
 	/// The nft with the given token_id was transferred.
@@ -362,6 +366,18 @@ pub trait Xls20MintRequest {
 	) -> DispatchResult;
 }
 
+impl Xls20MintRequest for () {
+	type AccountId = AccountId;
+	fn request_xls20_mint(
+		_who: &Self::AccountId,
+		_collection_id: CollectionUuid,
+		_serial_numbers: Vec<SerialNumber>,
+		_metadata_scheme: MetadataScheme,
+	) -> DispatchResult {
+		Ok(())
+	}
+}
+
 pub trait NFIRequest {
 	type AccountId;
 
@@ -561,4 +577,6 @@ pub trait SFTExt {
 	fn get_collection_owner(
 		collection_id: CollectionUuid,
 	) -> Result<Self::AccountId, DispatchError>;
+
+	fn token_exists(token_id: TokenId) -> bool;
 }

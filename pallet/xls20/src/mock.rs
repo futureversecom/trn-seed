@@ -74,6 +74,7 @@ impl pallet_nft::Config for Test {
 	type StringLimit = StringLimit;
 	type WeightInfo = ();
 	type Xls20MintRequest = Xls20;
+	type NFIRequest = ();
 }
 
 parameter_types! {

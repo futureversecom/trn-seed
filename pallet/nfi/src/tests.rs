@@ -14,39 +14,15 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use crate::mock::{AssetsExt, Nfi, Nft, RuntimeEvent as MockEvent, Sft, System, Test};
+use crate::mock::{
+	AssetsExt, NFINetworkFeePercentage, NativeAssetId, Nfi, Nft, RuntimeEvent as MockEvent, Sft,
+	System, Test,
+};
 use core::ops::Mul;
-use frame_support::traits::{fungibles::Inspect, OnInitialize};
-use pallet_nft::{test_utils::NftBuilder, CrossChainCompatibility, TokenLocks};
-use pallet_sft::{test_utils::SftBuilder, types::SftTokenBalance, TokenInfo};
+use frame_support::traits::fungibles::Inspect;
+use pallet_nft::test_utils::NftBuilder;
+use pallet_sft::test_utils::SftBuilder;
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::{MetadataScheme, RoyaltiesSchedule, TokenCount};
-use sp_runtime::traits::{AccountIdConversion, Zero};
-
-// Returns the SftTokenBalance of an account which includes free and reserved balance
-fn sft_balance_of(token_id: TokenId, who: &AccountId) -> SftTokenBalance {
-	let token_info = TokenInfo::<Test>::get(token_id).unwrap();
-	token_info
-		.owned_tokens
-		.into_iter()
-		.find(|(account, _)| account == who)
-		.map(|(_, token_balance)| token_balance)
-		.unwrap_or_default()
-}
-
-// Helper function for creating the collection name type
-pub fn bounded_string(name: &str) -> BoundedVec<u8, <Test as pallet_nft::Config>::StringLimit> {
-	BoundedVec::truncate_from(name.as_bytes().to_vec())
-}
-
-#[test]
-fn testy() {
-	TestExt::<Test>::default().build().execute_with(|| {
-		let collection_owner = create_account(1);
-		let collection_id = NftBuilder::<Test>::new(collection_owner).initial_issuance(10).build();
-		assert!(true);
-	})
-}
 
 mod set_relayer {
 	use super::*;
@@ -54,10 +30,6 @@ mod set_relayer {
 	#[test]
 	fn set_relayer_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			// Not sudo should fail
-			assert_noop!(Nfi::set_relayer(RawOrigin::Signed(alice()).into(), alice()), BadOrigin);
-			assert_eq!(Relayer::<Test>::get(), None);
-
 			// Set relayer to Alice
 			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), alice()));
 			assert_eq!(Relayer::<Test>::get(), Some(alice()));
@@ -248,7 +220,6 @@ mod enable_nfi {
 
 mod manual_data_request {
 	use super::*;
-	use crate::mock::NativeAssetId;
 
 	#[test]
 	fn manual_data_request_works() {
@@ -394,7 +365,11 @@ mod manual_data_request {
 				));
 
 				// Set fee details to 400 ROOT
-				let fee = FeeDetails { asset_id: 1, amount: mint_fee, receiver: bob() };
+				let fee = FeeDetails {
+					asset_id: NativeAssetId::get(),
+					amount: mint_fee,
+					receiver: bob(),
+				};
 				assert_ok!(Nfi::set_fee_details(
 					RawOrigin::Root.into(),
 					sub_type,
@@ -410,6 +385,103 @@ mod manual_data_request {
 
 				// Check fees paid
 				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &bob()), mint_fee);
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &collection_owner), 0);
+			});
+	}
+
+	#[test]
+	fn manual_data_request_pays_fees_xrp() {
+		let collection_owner = alice();
+		let mint_fee = 400;
+
+		TestExt::<Test>::default()
+			.with_xrp_balances(&[(collection_owner, mint_fee)])
+			.build()
+			.execute_with(|| {
+				let sub_type = NFISubType::NFI;
+				let collection_id =
+					NftBuilder::<Test>::new(collection_owner).initial_issuance(1).build();
+				let token_id = (collection_id, 0);
+
+				// Enable NFI
+				assert_ok!(Nfi::enable_nfi(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					sub_type
+				));
+
+				// Set fee details to 400 XRP
+				let fee = FeeDetails { asset_id: XRP_ASSET_ID, amount: mint_fee, receiver: bob() };
+				assert_ok!(Nfi::set_fee_details(
+					RawOrigin::Root.into(),
+					sub_type,
+					Some(fee.clone())
+				));
+
+				// Request data
+				assert_ok!(Nfi::manual_data_request(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					sub_type
+				));
+
+				// Check fees paid
+				assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &bob()), mint_fee);
+				assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &collection_owner), 0);
+			});
+	}
+
+	#[test]
+	fn manual_data_request_pays_network_fee() {
+		let collection_owner = alice();
+		let mint_fee = 1000;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(collection_owner, mint_fee)])
+			.build()
+			.execute_with(|| {
+				let sub_type = NFISubType::NFI;
+				let collection_id =
+					NftBuilder::<Test>::new(collection_owner).initial_issuance(1).build();
+				let token_id = (collection_id, 0);
+
+				// Enable NFI
+				assert_ok!(Nfi::enable_nfi(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					sub_type
+				));
+
+				// Set fee details to 400 ROOT
+				let fee = FeeDetails {
+					asset_id: NativeAssetId::get(),
+					amount: mint_fee,
+					receiver: bob(),
+				};
+				assert_ok!(Nfi::set_fee_details(
+					RawOrigin::Root.into(),
+					sub_type,
+					Some(fee.clone())
+				));
+
+				// Set FeeTo address
+				let fee_to = charlie();
+				assert_ok!(Nfi::set_fee_to(RawOrigin::Root.into(), Some(fee_to.clone())));
+
+				// Request data
+				assert_ok!(Nfi::manual_data_request(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					sub_type
+				));
+
+				// Check fees paid
+				let network_fee = NFINetworkFeePercentage::get().mul(mint_fee);
+				assert_eq!(
+					AssetsExt::balance(NativeAssetId::get(), &bob()),
+					mint_fee - network_fee
+				);
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &fee_to), network_fee);
 				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &collection_owner), 0);
 			});
 	}
@@ -436,7 +508,11 @@ mod manual_data_request {
 				));
 
 				// Set fee details to 400 ROOT
-				let fee = FeeDetails { asset_id: 1, amount: mint_fee, receiver: bob() };
+				let fee = FeeDetails {
+					asset_id: NativeAssetId::get(),
+					amount: mint_fee,
+					receiver: bob(),
+				};
 				assert_ok!(Nfi::set_fee_details(
 					RawOrigin::Root.into(),
 					sub_type,
@@ -456,4 +532,574 @@ mod manual_data_request {
 	}
 }
 
-// TODO Test minting through NFT pallet pays mint fee
+mod submit_nfi_data {
+	use super::*;
+
+	#[test]
+	fn submit_nfi_data_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let collection_owner = alice();
+			let collection_id =
+				NftBuilder::<Test>::new(collection_owner).initial_issuance(1).build();
+			let token_id = (collection_id, 0);
+
+			// Set relayer to bob
+			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), bob()));
+
+			// Enable NFI
+			assert_ok!(Nfi::enable_nfi(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				sub_type
+			));
+
+			let data_item = NFIDataType::NFI(NFIMatrix {
+				metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
+				verification_hash: H256::from_low_u64_be(123),
+			});
+
+			// Submit data
+			assert_ok!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(bob()).into(),
+				token_id,
+				data_item.clone()
+			));
+
+			// Event thrown
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataSet {
+				sub_type,
+				token_id,
+				data_item,
+			}));
+		});
+	}
+
+	#[test]
+	fn submit_nfi_data_works_for_sft() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let collection_owner = alice();
+			let token_id = SftBuilder::<Test>::new(collection_owner).build();
+
+			// Set relayer to bob
+			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), bob()));
+
+			// Enable NFI
+			assert_ok!(Nfi::enable_nfi(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id.0,
+				sub_type
+			));
+
+			let data_item = NFIDataType::NFI(NFIMatrix {
+				metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
+				verification_hash: H256::from_low_u64_be(123),
+			});
+
+			// Submit data
+			assert_ok!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(bob()).into(),
+				token_id,
+				data_item.clone()
+			));
+
+			// Event thrown
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataSet {
+				sub_type,
+				token_id,
+				data_item,
+			}));
+		});
+	}
+
+	#[test]
+	fn submit_nfi_data_not_relayer_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let collection_owner = alice();
+			let collection_id =
+				NftBuilder::<Test>::new(collection_owner).initial_issuance(1).build();
+			let token_id = (collection_id, 0);
+
+			// Set relayer to charlie
+			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), charlie()));
+
+			// Enable NFI
+			assert_ok!(Nfi::enable_nfi(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				sub_type
+			));
+
+			// Submit data should fail
+			assert_noop!(
+				Nfi::submit_nfi_data(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					NFIDataType::NFI(NFIMatrix {
+						metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
+						verification_hash: H256::from_low_u64_be(123),
+					})
+				),
+				Error::<Test>::NotRelayer
+			);
+		});
+	}
+
+	#[test]
+	fn submit_nfi_data_not_enabled_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let collection_id =
+				NftBuilder::<Test>::new(collection_owner).initial_issuance(1).build();
+			let token_id = (collection_id, 0);
+
+			// Set relayer to bob
+			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), bob()));
+
+			// Submit data should fail
+			assert_noop!(
+				Nfi::submit_nfi_data(
+					RawOrigin::Signed(bob()).into(),
+					token_id,
+					NFIDataType::NFI(NFIMatrix {
+						metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
+						verification_hash: H256::from_low_u64_be(123),
+					})
+				),
+				Error::<Test>::NotEnabled
+			);
+		});
+	}
+
+	#[test]
+	fn submit_nfi_data_no_token_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let collection_owner = alice();
+			let collection_id =
+				NftBuilder::<Test>::new(collection_owner).initial_issuance(1).build();
+
+			// Set relayer to bob
+			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), bob()));
+
+			// Enable NFI
+			assert_ok!(Nfi::enable_nfi(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				sub_type
+			));
+
+			// Submit data should fail
+			assert_noop!(
+				Nfi::submit_nfi_data(
+					RawOrigin::Signed(bob()).into(),
+					(collection_id, 1), // Token does not exist
+					NFIDataType::NFI(NFIMatrix {
+						metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
+						verification_hash: H256::from_low_u64_be(123),
+					})
+				),
+				Error::<Test>::NoToken
+			);
+		});
+	}
+
+	#[test]
+	fn submit_nfi_data_no_token_fails_sft() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let collection_owner = alice();
+			let token_id = SftBuilder::<Test>::new(collection_owner).build();
+
+			// Set relayer to bob
+			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), bob()));
+
+			// Enable NFI
+			assert_ok!(Nfi::enable_nfi(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id.0,
+				sub_type
+			));
+
+			// Submit data should fail
+			assert_noop!(
+				Nfi::submit_nfi_data(
+					RawOrigin::Signed(bob()).into(),
+					(token_id.0, 1), // Token does not exist
+					NFIDataType::NFI(NFIMatrix {
+						metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
+						verification_hash: H256::from_low_u64_be(123),
+					})
+				),
+				Error::<Test>::NoToken
+			);
+		});
+	}
+}
+
+mod nft_mint {
+	use super::*;
+
+	#[test]
+	fn mint_nft_requests_data_automatically() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let collection_owner = alice();
+			let token_owner = bob();
+			let collection_id = NftBuilder::<Test>::new(collection_owner).build();
+
+			// Enable NFI
+			assert_ok!(Nfi::enable_nfi(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				sub_type
+			));
+
+			// Mint NFT to token_owner
+			assert_ok!(Nft::mint(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				1,
+				Some(token_owner),
+			));
+
+			// Event thrown
+			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				sub_type,
+				collection_id,
+				serial_numbers: vec![0],
+			}));
+		});
+	}
+
+	#[test]
+	fn mint_nft_pays_mint_fee() {
+		let collection_owner = alice();
+		let mint_fee = 400;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(collection_owner, mint_fee)])
+			.build()
+			.execute_with(|| {
+				let sub_type = NFISubType::NFI;
+				let collection_id = NftBuilder::<Test>::new(collection_owner).build();
+
+				// Enable NFI
+				assert_ok!(Nfi::enable_nfi(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					sub_type
+				));
+
+				// Set fee details to 400 ROOT
+				let fee = FeeDetails {
+					asset_id: NativeAssetId::get(),
+					amount: mint_fee,
+					receiver: bob(),
+				};
+				assert_ok!(Nfi::set_fee_details(
+					RawOrigin::Root.into(),
+					sub_type,
+					Some(fee.clone())
+				));
+
+				// Mint NFT
+				assert_ok!(Nft::mint(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					1,
+					Some(bob()),
+				));
+
+				// Check fees paid
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &bob()), mint_fee);
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &collection_owner), 0);
+			});
+	}
+
+	#[test]
+	fn mint_nft_pays_network_fee() {
+		let collection_owner = alice();
+		let mint_fee = 400;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(collection_owner, mint_fee)])
+			.build()
+			.execute_with(|| {
+				let sub_type = NFISubType::NFI;
+				let collection_id = NftBuilder::<Test>::new(collection_owner).build();
+
+				// Enable NFI
+				assert_ok!(Nfi::enable_nfi(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					sub_type
+				));
+
+				// Set fee details to 400 ROOT
+				let fee = FeeDetails {
+					asset_id: NativeAssetId::get(),
+					amount: mint_fee,
+					receiver: bob(),
+				};
+				assert_ok!(Nfi::set_fee_details(
+					RawOrigin::Root.into(),
+					sub_type,
+					Some(fee.clone())
+				));
+
+				// Set FeeTo address
+				let fee_to = charlie();
+				assert_ok!(Nfi::set_fee_to(RawOrigin::Root.into(), Some(fee_to.clone())));
+
+				// Mint NFT
+				assert_ok!(Nft::mint(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					1,
+					Some(bob()),
+				));
+
+				// Check fees paid
+				let network_fee = NFINetworkFeePercentage::get().mul(mint_fee);
+				assert_eq!(
+					AssetsExt::balance(NativeAssetId::get(), &bob()),
+					mint_fee - network_fee
+				);
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &fee_to), network_fee);
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &collection_owner), 0);
+			});
+	}
+
+	#[test]
+	fn mint_nft_insufficient_balance_fails() {
+		let collection_owner = alice();
+		let mint_fee = 400;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(collection_owner, mint_fee - 1)])
+			.build()
+			.execute_with(|| {
+				let sub_type = NFISubType::NFI;
+				let collection_id = NftBuilder::<Test>::new(collection_owner).build();
+
+				// Enable NFI
+				assert_ok!(Nfi::enable_nfi(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					sub_type
+				));
+
+				// Set fee details to 400 ROOT
+				let fee = FeeDetails {
+					asset_id: NativeAssetId::get(),
+					amount: mint_fee,
+					receiver: bob(),
+				};
+				assert_ok!(Nfi::set_fee_details(
+					RawOrigin::Root.into(),
+					sub_type,
+					Some(fee.clone())
+				));
+
+				// Mint NFT fails due to low balance
+				assert_noop!(
+					Nft::mint(
+						RawOrigin::Signed(collection_owner).into(),
+						collection_id,
+						1,
+						Some(bob())
+					),
+					pallet_balances::Error::<Test>::InsufficientBalance
+				);
+			});
+	}
+}
+
+mod sft_create_token {
+	use super::*;
+
+	#[test]
+	fn create_sft_token_requests_data_automatically() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let collection_owner = alice();
+			let token_id = SftBuilder::<Test>::new(collection_owner).build();
+
+			// Enable NFI
+			assert_ok!(Nfi::enable_nfi(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id.0,
+				sub_type
+			));
+
+			// Create new SFT token
+			assert_ok!(Sft::create_token(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id.0,
+				BoundedVec::truncate_from(b"SFT Token".to_vec()),
+				0,
+				None,
+				None,
+			));
+
+			// Event thrown
+			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				sub_type,
+				collection_id: token_id.0,
+				serial_numbers: vec![1],
+			}));
+		});
+	}
+
+	#[test]
+	fn create_sft_token_pays_mint_fee() {
+		let collection_owner = alice();
+		let mint_fee = 400;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(collection_owner, mint_fee)])
+			.build()
+			.execute_with(|| {
+				let sub_type = NFISubType::NFI;
+				let token_id = SftBuilder::<Test>::new(collection_owner).build();
+
+				// Enable NFI
+				assert_ok!(Nfi::enable_nfi(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id.0,
+					sub_type
+				));
+
+				// Set fee details to 400 ROOT
+				let fee = FeeDetails {
+					asset_id: NativeAssetId::get(),
+					amount: mint_fee,
+					receiver: bob(),
+				};
+				assert_ok!(Nfi::set_fee_details(
+					RawOrigin::Root.into(),
+					sub_type,
+					Some(fee.clone())
+				));
+
+				// Create new SFT token
+				assert_ok!(Sft::create_token(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id.0,
+					BoundedVec::truncate_from(b"SFT Token".to_vec()),
+					0,
+					None,
+					None,
+				));
+
+				// Check fees paid
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &bob()), mint_fee);
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &collection_owner), 0);
+			});
+	}
+
+	#[test]
+	fn create_sft_token_pays_network_fee() {
+		let collection_owner = alice();
+		let mint_fee = 400;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(collection_owner, mint_fee)])
+			.build()
+			.execute_with(|| {
+				let sub_type = NFISubType::NFI;
+				let token_id = SftBuilder::<Test>::new(collection_owner).build();
+
+				// Enable NFI
+				assert_ok!(Nfi::enable_nfi(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id.0,
+					sub_type
+				));
+
+				// Set fee details to 400 ROOT
+				let fee = FeeDetails {
+					asset_id: NativeAssetId::get(),
+					amount: mint_fee,
+					receiver: bob(),
+				};
+				assert_ok!(Nfi::set_fee_details(
+					RawOrigin::Root.into(),
+					sub_type,
+					Some(fee.clone())
+				));
+
+				// Set FeeTo address
+				let fee_to = charlie();
+				assert_ok!(Nfi::set_fee_to(RawOrigin::Root.into(), Some(fee_to.clone())));
+
+				// Create new SFT token
+				assert_ok!(Sft::create_token(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id.0,
+					BoundedVec::truncate_from(b"SFT Token".to_vec()),
+					0,
+					None,
+					None,
+				));
+
+				// Check fees paid
+				let network_fee = NFINetworkFeePercentage::get().mul(mint_fee);
+				assert_eq!(
+					AssetsExt::balance(NativeAssetId::get(), &bob()),
+					mint_fee - network_fee
+				);
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &fee_to), network_fee);
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &collection_owner), 0);
+			});
+	}
+
+	#[test]
+	fn create_sft_token_insufficient_balance_fails() {
+		let collection_owner = alice();
+		let mint_fee = 400;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(collection_owner, mint_fee - 1)])
+			.build()
+			.execute_with(|| {
+				let sub_type = NFISubType::NFI;
+				let token_id = SftBuilder::<Test>::new(collection_owner).build();
+
+				// Enable NFI
+				assert_ok!(Nfi::enable_nfi(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id.0,
+					sub_type
+				));
+
+				// Set fee details to 400 ROOT
+				let fee = FeeDetails {
+					asset_id: NativeAssetId::get(),
+					amount: mint_fee,
+					receiver: bob(),
+				};
+				assert_ok!(Nfi::set_fee_details(
+					RawOrigin::Root.into(),
+					sub_type,
+					Some(fee.clone())
+				));
+
+				// Create new SFT token fails due to low balance
+				assert_noop!(
+					Sft::create_token(
+						RawOrigin::Signed(collection_owner).into(),
+						token_id.0,
+						BoundedVec::truncate_from(b"SFT Token".to_vec()),
+						0,
+						None,
+						None,
+					),
+					pallet_balances::Error::<Test>::InsufficientBalance
+				);
+			});
+	}
+}

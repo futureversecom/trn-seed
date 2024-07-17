@@ -15,7 +15,6 @@
 
 use crate as pallet_nfi;
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::MetadataScheme;
 
 construct_runtime!(
 	pub enum Test where
@@ -37,8 +36,56 @@ impl_frame_system_config!(Test);
 impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
-impl_pallet_nft_config!(Test);
-impl_pallet_sft_config!(Test);
+
+parameter_types! {
+	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
+	pub const MaxTokensPerCollection: u32 = 10_000;
+	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
+	pub const MintLimit: u32 = 100;
+	pub const StringLimit: u32 = 50;
+	pub const FeePotId: PalletId = PalletId(*b"txfeepot");
+	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
+	pub const DefaultFeeTo: Option<PalletId> = None;
+}
+
+impl pallet_nft::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type MaxTokensPerCollection = MaxTokensPerCollection;
+	type MintLimit = MintLimit;
+	type OnTransferSubscription = ();
+	type OnNewAssetSubscription = ();
+	type MultiCurrency = AssetsExt;
+	type PalletId = NftPalletId;
+	type ParachainId = TestParachainId;
+	type StringLimit = StringLimit;
+	type WeightInfo = ();
+	type Xls20MintRequest = ();
+	type NFIRequest = Nfi;
+}
+
+parameter_types! {
+	pub const SftPalletId: PalletId = PalletId(*b"sftokens");
+	pub const MaxTokensPerSftCollection: u32 = 10_000;
+	pub const MaxSerialsPerSftMint: u32 = 100;
+	pub const MaxOwnersPerSftToken: u32 = 100;
+}
+
+impl pallet_sft::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
+	type OnTransferSubscription = ();
+	type OnNewAssetSubscription = ();
+	type PalletId = SftPalletId;
+	type ParachainId = TestParachainId;
+	type StringLimit = StringLimit;
+	type WeightInfo = ();
+	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
+	type MaxSerialsPerMint = MaxSerialsPerSftMint;
+	type MaxOwnersPerSftToken = MaxOwnersPerSftToken;
+	type NFIRequest = Nfi;
+}
 
 parameter_types! {
 	pub const MaxDataLength: u32 = 100;

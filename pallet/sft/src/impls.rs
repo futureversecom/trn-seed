@@ -525,4 +525,8 @@ impl<T: Config> SFTExt for Pallet<T> {
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok(collection_info.collection_owner)
 	}
+
+	fn token_exists(token_id: TokenId) -> bool {
+		Self::token_exists(token_id)
+	}
 }
