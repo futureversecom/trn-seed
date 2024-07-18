@@ -199,7 +199,11 @@ impl WitnessRecord {
 		// didn't sign a different message) store `witness` as unconfirmed for verification later
 		if let Some(metadata) = self.event_metadata(witness.event_id) {
 			// verify the signature against locally found digest info from metadata
-			let Some(digest) = data_to_digest(metadata.chain_id, metadata.digest_data.clone(), EthyEcdsaToPublicKey::convert(witness.authority_id.clone())) else {
+			let Some(digest) = data_to_digest(
+				metadata.chain_id,
+				metadata.digest_data.clone(),
+				EthyEcdsaToPublicKey::convert(witness.authority_id.clone()),
+			) else {
 				error!(target: "ethy", "💎 error creating digest");
 				return Err(WitnessError::DigestCreationFailed)
 			};

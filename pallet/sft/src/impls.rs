@@ -447,17 +447,13 @@ impl<T: Config> Pallet<T> {
 
 	// Returns the balance of who of a token_id
 	pub fn balance_of(who: &T::AccountId, token_id: TokenId) -> Balance {
-		let Some(token_info) = TokenInfo::<T>::get(token_id) else {
-			return Balance::zero()
-		};
+		let Some(token_info) = TokenInfo::<T>::get(token_id) else { return Balance::zero() };
 		token_info.free_balance_of(who)
 	}
 
 	/// Returns the total supply of a specified token_id
 	pub fn total_supply(token_id: TokenId) -> Balance {
-		let Some(token_info) = TokenInfo::<T>::get(token_id) else {
-			return Balance::zero()
-		};
+		let Some(token_info) = TokenInfo::<T>::get(token_id) else { return Balance::zero() };
 		token_info.token_issuance
 	}
 

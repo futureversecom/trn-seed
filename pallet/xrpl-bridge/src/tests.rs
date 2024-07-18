@@ -1721,7 +1721,7 @@ fn process_delayed_payments_nothing_to_process_works() {
 		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 		assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
 		let delayed_payment_block_limit = DelayedPaymentBlockLimit::get(); // 1000
-																   // Set next process block to 0
+																	 // Set next process block to 0
 		NextDelayProcessBlock::<Test>::put(0);
 		// Call process delayed payments with enough weight to process 1000 blocks
 		let weight_used = XRPLBridge::process_delayed_payments(
@@ -1753,7 +1753,7 @@ fn process_delayed_payments_does_not_exceed_max_delayed_payments() {
 		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 		assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
 		let delayed_payment_block_limit = DelayedPaymentBlockLimit::get(); // 1000
-																   // Set next process block to 0
+																	 // Set next process block to 0
 		NextDelayProcessBlock::<Test>::put(0);
 		// Call process delayed payments with more than max_payments_per_block
 		let weight_used = XRPLBridge::process_delayed_payments(

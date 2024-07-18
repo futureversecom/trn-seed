@@ -592,8 +592,8 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId> {
 		let Some(collection) = CollectionInfo::<T>::get(token_id.0) else {
-            return None;
-        };
+			return None;
+		};
 		collection.get_token_owner(token_id.1)
 	}
 

@@ -430,9 +430,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn close_listings_at(now: BlockNumberFor<T>) -> u32 {
 		let mut removed = 0_u32;
 		for (listing_id, _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
-			let Some(listing_outer) = Listings::<T>::get(listing_id) else {
-				continue
-			};
+			let Some(listing_outer) = Listings::<T>::get(listing_id) else { continue };
 			match listing_outer.clone() {
 				Listing::FixedPrice(listing) => {
 					Self::remove_listing(listing_outer, listing_id);

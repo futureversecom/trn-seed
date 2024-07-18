@@ -3261,7 +3261,8 @@ mod buy_sft {
 				assert_eq!(
 					AssetsExt::balance(NativeAssetId::get(), &token_owner),
 					initial_balance_seller + sale_price -
-						royalties - network_fee - marketplace_royalties
+						royalties - network_fee -
+						marketplace_royalties
 				);
 				assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 

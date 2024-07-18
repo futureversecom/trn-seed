@@ -428,7 +428,9 @@ pub mod pallet {
 			ensure_none(origin)?;
 
 			// run doughnut common validations
-			let Doughnut::V1(doughnut_v1) = Self::run_doughnut_common_validations(doughnut.clone())? else {
+			let Doughnut::V1(doughnut_v1) =
+				Self::run_doughnut_common_validations(doughnut.clone())?
+			else {
 				return Err(Error::<T>::UnsupportedDoughnutVersion)?;
 			};
 
@@ -487,7 +489,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 			// run doughnut common validations
-			let Ok(Doughnut::V1(doughnut_v1)) = Self::run_doughnut_common_validations(doughnut.clone()) else {
+			let Ok(Doughnut::V1(doughnut_v1)) =
+				Self::run_doughnut_common_validations(doughnut.clone())
+			else {
 				return Err(Error::<T>::UnsupportedDoughnutVersion)?;
 			};
 			// Only the issuer of the doughnut can revoke the doughnut
@@ -566,7 +570,7 @@ where
 
 		// only supports v1 for now
 		let Doughnut::V1(_) = doughnut_decoded.clone() else {
-			log!(info,"🍩 unsupported doughnut version");
+			log!(info, "🍩 unsupported doughnut version");
 			return Err(Error::<T>::UnsupportedDoughnutVersion)?;
 		};
 
