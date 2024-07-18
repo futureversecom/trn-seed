@@ -47,7 +47,7 @@ use sp_runtime::BuildStorage;
 
 /// Base gas used for an EVM transaction
 pub const BASE_TX_GAS_COST: u128 = 21000;
-pub const MINIMUM_XRP_TX_COST: u128 = 315_000;
+pub const MINIMUM_XRP_TX_COST: u128 = 157_500;
 
 /// Default gas params in ethers
 pub const MAX_PRIORITY_FEE_PER_GAS: u128 = 1_500_000_000;
