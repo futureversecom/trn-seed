@@ -458,10 +458,10 @@ pub mod pallet {
 			);
 
 			// permission domain - topping validations
-			let Some(topping_payload) = doughnut_v1.get_topping(TRN_PERMISSION_DOMAIN) else {
+			let Some(mut topping_payload) = doughnut_v1.get_topping(TRN_PERMISSION_DOMAIN) else {
 				return Err(Error::<T>::TRNDomainNotfound)?
 			};
-			let topping = Topping::decode(&mut topping_payload.clone())
+			let topping = Topping::decode(&mut topping_payload)
 				.map_err(|_| Error::<T>::ToppingDecodeFailed)?;
 
 			// check topping permissions

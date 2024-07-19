@@ -125,7 +125,7 @@ impl<T: Config> OnUnbalanced<FeeNegativeImbalanceOf<T>> for Pallet<T> {
 		// this amount was burnt from caller when tx fees were paid (incl. tip), move the funds into
 		// the pot
 		let note_amount = amount.peek();
-		T::FeeCurrency::deposit_creating(&Self::account_id(), note_amount);
+		let _ = T::FeeCurrency::deposit_creating(&Self::account_id(), note_amount);
 
 		Self::accrue_era_tx_fees(note_amount);
 	}
@@ -160,7 +160,7 @@ impl<T: Config> OnUnbalanced<StakeNegativeImbalanceOf<T>> for Pallet<T> {
 		let note_amount = amount.peek();
 
 		// mint `note_amount` (offsets `amount` imbalance)
-		T::StakeCurrency::deposit_creating(&Self::account_id(), note_amount);
+		let _ = T::StakeCurrency::deposit_creating(&Self::account_id(), note_amount);
 	}
 }
 

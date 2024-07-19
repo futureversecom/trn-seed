@@ -18,7 +18,7 @@ use sp_std::prelude::*;
 
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string::ToString;
-#[cfg(std)]
+#[cfg(feature = "std")]
 use std::string::ToString;
 
 use seed_pallet_common::log;

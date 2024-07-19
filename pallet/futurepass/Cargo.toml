@@ -12,7 +12,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 hex = { workspace = true }
-hex-literal = { workspace = true, optional = true }
+hex-literal = { workspace = true }
 codec = { workspace = true }
 log = { workspace = true }
 scale-info = { workspace = true }
@@ -66,4 +66,4 @@ std = [
 	"precompile-utils/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
-runtime-benchmarks = ["frame-benchmarking", "hex-literal", "seed-runtime/runtime-benchmarks"]
+runtime-benchmarks = ["frame-benchmarking", "seed-runtime/runtime-benchmarks"]
