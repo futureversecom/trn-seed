@@ -4,6 +4,9 @@
   "description": "Integration tests for the Root network",
   "author": "Futureverse Devs",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "clean": "hardhat clean && rm -rf ./cache && hardhat typechain",
     "format": "prettier --check --config ./.prettierrc.yml \"**/*.{js,json,ts}\"",
@@ -11,6 +14,7 @@
     "lint": "eslint --config ./.eslintrc.yml --ignore-path ./.eslintignore --ext .js,.ts . --quiet",
     "test": "hardhat test",
     "test:parallel": "hardhat test --parallel",
+    "test:txcosts": "hardhat test test/*/*.TxCosts.test.ts",
     "seed": "docker-compose up && docker-compose rm -fsv"
   },
   "devDependencies": {
@@ -19,9 +23,9 @@
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
     "@nomiclabs/hardhat-ethers": "^2.2.1",
     "@nomiclabs/hardhat-etherscan": "^3.1.2",
-    "@polkadot/api": "^9.6.1",
-    "@polkadot/types": "^9.6.1",
-    "@polkadot/util": "^10.1.11",
+    "@polkadot/api": "^11.0.3",
+    "@polkadot/types": "^11.0.3",
+    "@polkadot/util": "^12.6.2",
     "@therootnetwork/doughnut-nodejs": "^0.1.2",
     "@therootnetwork/pact-nodejs": "^0.0.3",
     "@trivago/prettier-plugin-sort-imports": "^4.0.0",

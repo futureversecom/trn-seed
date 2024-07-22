@@ -28,11 +28,8 @@ describe("TxFeePot fees accruel", () => {
     node = await startNode();
 
     // Substrate variables
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
-    api = await ApiPromise.create({
-      provider: wsProvider,
-      types: typedefs,
-    });
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     const keyring = new Keyring({ type: "ethereum" });
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
 
@@ -44,7 +41,7 @@ describe("TxFeePot fees accruel", () => {
     });
 
     // EVM variables
-    provider = new JsonRpcProvider(`http://localhost:${node.httpPort}`);
+    provider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider);
 
     xrpInitialIssuance = +(await api.query.balances.totalIssuance()).toString();

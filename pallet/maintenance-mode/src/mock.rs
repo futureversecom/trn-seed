@@ -16,14 +16,8 @@
 use crate as pallet_maintenance_mode;
 use seed_pallet_common::test_prelude::*;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
-
-frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
+construct_runtime!(
+	pub enum Test
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -43,6 +37,7 @@ impl_pallet_assets_ext_config!(Test);
 impl pallet_sudo::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type WeightInfo = ();
 }
 
 impl pallet_maintenance_mode::Config for Test {

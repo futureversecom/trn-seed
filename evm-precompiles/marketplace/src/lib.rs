@@ -932,8 +932,12 @@ where
 			revert("Marketplace: Expected marketplace id <= 2^32")
 		);
 		let marketplace_id: MarketplaceId = marketplace_id.saturated_into();
-		let Some(marketplace_account) = pallet_marketplace::RegisteredMarketplaces::<Runtime>::get(marketplace_id) else {
-			return Err(revert("Marketplace: The account_id hasn't been registered as a marketplace"));
+		let Some(marketplace_account) =
+			pallet_marketplace::RegisteredMarketplaces::<Runtime>::get(marketplace_id)
+		else {
+			return Err(revert(
+				"Marketplace: The account_id hasn't been registered as a marketplace",
+			));
 		};
 		let marketplace_account_h160: H160 = marketplace_account.account.into();
 		Ok(succeed(EvmDataWriter::new().write(Address::from(marketplace_account_h160)).build()))

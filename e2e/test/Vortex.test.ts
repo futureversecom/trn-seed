@@ -35,7 +35,7 @@ describe("Vortex Distribution", () => {
   before(async () => {
     node = await startNode();
 
-    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
     // const wsProvider = new WsProvider(`wss://archive.morel.micklelab.xyz/ws`);
     api = await ApiPromise.create({
       provider: wsProvider,

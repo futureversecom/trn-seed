@@ -28,11 +28,11 @@ Docker images are published for every tagged release, you can quickly have a nod
 
 ```bash
 # Root chainspec
-docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --chain=root
+docker run -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --chain=root
 # Porcini chainspec
-docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --chain=porcini
+docker run -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --chain=porcini
 # Dev chainspec
-docker run -p 9933:9933 -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --dev --unsafe-rpc-external --unsafe-ws-external --rpc-cors=all
+docker run -p 9944:9944 -p 30333:30333 ghcr.io/futureversecom/seed:latest --dev --unsafe-rpc-external --rpc-port=9944 --rpc-cors=all
 ```
 
 ### Run using source code
@@ -63,7 +63,7 @@ After building the source code, run the following commands to start the node.
 # Porcini chainspec
 ./target/release/seed --chain=porcini
 # Dev chainspec
-./target/release/seed --dev --unsafe-rpc-external --unsafe-ws-external --rpc-cors=all
+./target/release/seed --dev --unsafe-rpc-external --rpc-port=9944 --rpc-cors=all
 ```
 
 ## 🚧 Development
@@ -79,7 +79,7 @@ rustup show
 ### Run Unit Tests
 
 ```bash
-cargo test
+cargo test --all --all-features
 ```
 ### Run E2E Tests
 
@@ -87,7 +87,7 @@ Refer to the instruction [here](./e2e)
 
 ### Formatting & Linting
 ```
-cargo fmt
+cargo fmt --all
 ```
 
 ### Benchmarks

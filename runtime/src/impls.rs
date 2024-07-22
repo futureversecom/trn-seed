@@ -16,14 +16,14 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use core::ops::Mul;
-use evm::backend::Basic as Account;
+
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
 use frame_support::{
 	dispatch::{EncodeLike, RawOrigin},
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
-		tokens::{DepositConsequence, WithdrawConsequence},
+		tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
 		CallMetadata, Currency, ExistenceRequirement, FindAuthor, GetCallMetadata, Imbalance,
 		InstanceFilter, OnUnbalanced, ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
@@ -34,8 +34,8 @@ use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	traits::{
-		AccountIdConversion, Extrinsic, LookupError, SaturatedConversion, StaticLookup, Verify,
-		Zero,
+		AccountIdConversion, Dispatchable, Extrinsic, LookupError, SaturatedConversion, Saturating,
+		StaticLookup, UniqueSaturatedInto, Verify, Zero,
 	},
 	ConsensusEngineId, Permill,
 };
@@ -53,14 +53,13 @@ use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, MaintenanceCheck, OnNewAssetSubscriber,
 };
-use seed_primitives::{AccountId, Balance, Index, Signature};
+use seed_primitives::{AccountId, Balance, Nonce, Signature};
 
 use crate::{
 	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
 	UncheckedExtrinsic, EVM,
 };
 use doughnut_rs::Topping;
-use sp_runtime::traits::{Dispatchable, Saturating, UniqueSaturatedInto};
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -95,25 +94,38 @@ impl<C: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 		<C as Inspect<AccountId>>::minimum_balance()
 	}
 
+	/// The total blance of `who`
+	fn total_balance(who: &AccountId) -> Self::Balance {
+		<C as Inspect<AccountId>>::total_balance(who)
+	}
+
 	/// Get the balance of `who`.
 	/// Scaled up so values match expectations of an 18dp asset
 	fn balance(who: &AccountId) -> Self::Balance {
-		Self::reducible_balance(who, false)
+		Self::reducible_balance(who, Preservation::Expendable, Fortitude::Polite)
 	}
 
 	/// Get the maximum amount that `who` can withdraw/transfer successfully.
 	/// Scaled up so values match expectations of an 18dp asset
-	/// keep_alive has been hardcoded to false to provide a similar experience to users coming
-	/// from Ethereum (Following POLA principles)
-	fn reducible_balance(who: &AccountId, _keep_alive: bool) -> Self::Balance {
+	/// preservation has been hardcoded to Preservation::Expendable to provide a similar experience
+	/// to users coming from Ethereum (Following POLA principles)
+	fn reducible_balance(
+		who: &AccountId,
+		_preservation: Preservation,
+		force: Fortitude,
+	) -> Self::Balance {
 		// Careful for overflow!
-		let raw = C::reducible_balance(who, false);
+		let raw = C::reducible_balance(who, Preservation::Expendable, force);
 		U256::from(raw).saturating_mul(U256::from(XRP_UNIT_VALUE)).saturated_into()
 	}
 
 	/// Returns `true` if the balance of `who` may be increased by `amount`.
-	fn can_deposit(who: &AccountId, amount: Self::Balance, mint: bool) -> DepositConsequence {
-		C::can_deposit(who, amount, mint)
+	fn can_deposit(
+		who: &AccountId,
+		amount: Self::Balance,
+		provenance: Provenance,
+	) -> DepositConsequence {
+		C::can_deposit(who, amount, provenance)
 	}
 
 	/// Returns `Failed` if the balance of `who` may not be decreased by `amount`, otherwise
@@ -134,8 +146,11 @@ where
 	type PositiveImbalance = C::PositiveImbalance;
 	type NegativeImbalance = C::NegativeImbalance;
 
-	fn free_balance(who: &AccountId) -> Self::Balance {
-		C::free_balance(who)
+	fn total_balance(who: &AccountId) -> Self::Balance {
+		C::total_balance(who)
+	}
+	fn can_slash(_who: &AccountId, _value: Self::Balance) -> bool {
+		false
 	}
 	fn total_issuance() -> Self::Balance {
 		C::total_issuance()
@@ -143,16 +158,14 @@ where
 	fn minimum_balance() -> Self::Balance {
 		C::minimum_balance()
 	}
-	fn total_balance(who: &AccountId) -> Self::Balance {
-		C::total_balance(who)
+	fn burn(amount: Self::Balance) -> Self::PositiveImbalance {
+		C::burn(scale_wei_to_6dp(amount))
 	}
-	fn transfer(
-		from: &AccountId,
-		to: &AccountId,
-		value: Self::Balance,
-		req: ExistenceRequirement,
-	) -> DispatchResult {
-		C::transfer(from, to, scale_wei_to_6dp(value), req)
+	fn issue(amount: Self::Balance) -> Self::NegativeImbalance {
+		C::issue(scale_wei_to_6dp(amount))
+	}
+	fn free_balance(who: &AccountId) -> Self::Balance {
+		C::free_balance(who)
 	}
 	fn ensure_can_withdraw(
 		who: &AccountId,
@@ -162,13 +175,25 @@ where
 	) -> DispatchResult {
 		C::ensure_can_withdraw(who, scale_wei_to_6dp(amount), reasons, new_balance)
 	}
-	fn withdraw(
-		who: &AccountId,
+	fn transfer(
+		from: &AccountId,
+		to: &AccountId,
 		value: Self::Balance,
-		reasons: WithdrawReasons,
 		req: ExistenceRequirement,
-	) -> Result<Self::NegativeImbalance, DispatchError> {
-		C::withdraw(who, scale_wei_to_6dp(value), reasons, req)
+	) -> DispatchResult {
+		// After the Substrate v1.0 update, transactions that are attempting to transfer 0 will
+		// fail if the destination account does not exist.
+		// This is due to the amount being less than the existential deposit returning an error
+		// In all EVM transactions, even if the value is set to 0, a transfer of that amount
+		// will be initiated by the executor which will fail.
+		// A workaround is to simply return Ok() if the value is 0, bypassing the actual transfer
+		if value == Self::Balance::default() {
+			return Ok(())
+		}
+		C::transfer(from, to, scale_wei_to_6dp(value), req)
+	}
+	fn slash(who: &AccountId, value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
+		C::slash(who, scale_wei_to_6dp(value))
 	}
 	fn deposit_into_existing(
 		who: &AccountId,
@@ -179,23 +204,19 @@ where
 	fn deposit_creating(who: &AccountId, value: Self::Balance) -> Self::PositiveImbalance {
 		C::deposit_creating(who, scale_wei_to_6dp(value))
 	}
+	fn withdraw(
+		who: &AccountId,
+		value: Self::Balance,
+		reasons: WithdrawReasons,
+		req: ExistenceRequirement,
+	) -> Result<Self::NegativeImbalance, DispatchError> {
+		C::withdraw(who, scale_wei_to_6dp(value), reasons, req)
+	}
 	fn make_free_balance_be(
 		who: &AccountId,
 		balance: Self::Balance,
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
 		C::make_free_balance_be(who, scale_wei_to_6dp(balance))
-	}
-	fn can_slash(_who: &AccountId, _value: Self::Balance) -> bool {
-		false
-	}
-	fn slash(who: &AccountId, value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
-		C::slash(who, scale_wei_to_6dp(value))
-	}
-	fn burn(amount: Self::Balance) -> Self::PositiveImbalance {
-		C::burn(scale_wei_to_6dp(amount))
-	}
-	fn issue(amount: Self::Balance) -> Self::NegativeImbalance {
-		C::issue(scale_wei_to_6dp(amount))
 	}
 }
 
@@ -299,7 +320,7 @@ where
 		call: RuntimeCall,
 		public: <Signature as Verify>::Signer,
 		account: AccountId,
-		nonce: Index,
+		nonce: Nonce,
 	) -> Option<(RuntimeCall, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
 		let tip = 0;
 		// take the biggest period possible.
@@ -432,7 +453,10 @@ where
 pub struct HandleTxValidation<E: From<InvalidEvmTransactionError>>(PhantomData<E>);
 
 impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for HandleTxValidation<E> {
-	fn with_balance_for(evm_config: &CheckEvmTransaction<E>, who: &Account) -> Result<(), E> {
+	fn with_balance_for(
+		evm_config: &CheckEvmTransaction<E>,
+		who: &fp_evm::Account,
+	) -> Result<(), E> {
 		let decoded_override_destination = H160::from_low_u64_be(FEE_PROXY_ADDRESS);
 		// If we are not overriding with a fee preference, proceed with calculating a fee
 		if evm_config.transaction.to != Some(decoded_override_destination) {
@@ -559,7 +583,16 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		// get proxy_definitions length + 1 (cost of upcoming insertion); cost to reserve
 		let new_reserve =
 			pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 + 1);
-		let extra_reserve_required = new_reserve - reserve_amount;
+		let mut extra_reserve_required = new_reserve - reserve_amount;
+
+		// Check if the futurepass account has balance less than the existential deposit
+		// If it does, fund with the ED to allow the Futurepass to reserve balance while still
+		// keeping the account alive
+		let account_balance = pallet_balances::Pallet::<Runtime>::balance(&futurepass);
+		let minimum_balance = crate::ExistentialDeposit::get();
+		if account_balance < minimum_balance {
+			extra_reserve_required = extra_reserve_required.saturating_add(minimum_balance);
+		}
 		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
 			funder,
 			futurepass,

@@ -34,7 +34,7 @@ describe("Doughnuts", () => {
   before(async () => {
     node = await startNode();
 
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
 
     keyring = new Keyring({ type: "ethereum" });
@@ -800,11 +800,11 @@ describe("Doughnuts", () => {
     expect(eventData[index].event.data[1].toString()).to.equal("0xDDDDDDdD00000002000004640000000000000000");
     expect(eventData[index].event.data[2].toString()).to.equal(futurepassAddress);
 
-    // assets	Issued	[2148,"0x6D6F646c7478666565706F740000000000000000",226]
+    // assets	Issued	[7268,"0x6D6F646c7478666565706F740000000000000000",226]
     index += 1;
     expect(eventData[index].event.section).to.equal("assets");
     expect(eventData[index].event.method).to.equal("Issued");
-    expect(eventData[index].event.data[0]).to.equal(2148);
+    expect(eventData[index].event.data[0]).to.equal(7268);
 
     // dex	Swap	["0xFfFFFFff00000000000000000000000000000001",[1124,2],907864,905132,"0xFfFFFFff00000000000000000000000000000001"]
     index += 1;
@@ -881,7 +881,7 @@ describe("Doughnuts", () => {
     expect(userAAssetBalanceAfter).to.be.eq(userAAssetBalanceBefore);
 
     // futurepass xrp balance should not be changed since gas was paid using another asset
-    expect(futurepassXRPBalanceAfter).to.be.eq(futurepassXRPBalanceBefore);
+    expect(futurepassXRPBalanceAfter).to.be.eq(futurepassXRPBalanceBefore + 1); // 1 existential deposit
     // futurepass asset balance should be lesser since gas is paid
     expect(futurepassAssetBalanceAfter).to.be.lessThan(futurepassAssetBalanceBefore);
 
@@ -1021,11 +1021,11 @@ describe("Doughnuts", () => {
     expect(eventData[index].event.data[1].toString()).to.equal("0xDDDDDDdD00000002000004640000000000000000");
     expect(eventData[index].event.data[2].toString()).to.equal(userA.address);
 
-    // assets	Issued	[2148,"0x6D6F646c7478666565706F740000000000000000",213]
+    // assets	Issued	[7268,"0x6D6F646c7478666565706F740000000000000000",213]
     index += 1;
     expect(eventData[index].event.section).to.equal("assets");
     expect(eventData[index].event.method).to.equal("Issued");
-    expect(eventData[index].event.data[0]).to.equal(2148);
+    expect(eventData[index].event.data[0]).to.equal(7268);
 
     // dex	Swap	["0x3fAc4E88185Add21c375653b3204c1EF7fff9dE9",[1124,2],852669,850089,"0x3fAc4E88185Add21c375653b3204c1EF7fff9dE9"]
     index += 1;
@@ -1082,7 +1082,7 @@ describe("Doughnuts", () => {
       ((await api.query.assets.account(GAS_TOKEN_ID, holder.address)).toJSON() as any)?.balance ?? 0;
 
     // userA xrp balance should be unchanged since the gas was paid using a different asset
-    expect(userAXRPBalanceAfter).to.be.eq(userAXRPBalanceBefore);
+    expect(userAXRPBalanceAfter).to.be.eq(userAXRPBalanceBefore + 1); // 1 existential deposit
     // userA asset balance should be lesser since gas is paid
     expect(userAAssetBalanceAfter).to.be.lessThan(userAAssetBalanceBefore);
 

@@ -2,50 +2,52 @@
 name = "ethy-gadget"
 version = "0.1.2"
 authors = ["Parity Technologies <admin@parity.io>", "The Root Network Team"]
-edition = "2021"
-license = "Apache-2.0"
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
-ethabi = { version = "17.1.0" }
-futures = "0.3.25"
-futures-timer = "3.0.1"
-hex = "0.4"
-log = "0.4"
-parking_lot = "0.12.1"
-thiserror = "1.0"
-codec = { version = "3.0.0", package = "parity-scale-codec", features = ["derive"] }
-libsecp256k1 = { version = "0.6.0" }
-prometheus = { package = "substrate-prometheus-endpoint", git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", version = "0.10.0-dev"}
-sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sc-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sc-network = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sc-network-gossip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sc-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-application-crypto = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sc-network-common = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+futures-timer = { version = "3.0.1", default-features = false }
+parking_lot = { workspace = true }
 
-seed-primitives = { path = "../primitives" }
-xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", version = "0.1.2" }
+ethabi = { workspace = true }
+futures = { workspace = true }
+hex = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }
+codec = { workspace = true }
+libsecp256k1 = { workspace = true }
+substrate-prometheus-endpoint = { workspace = true }
+sc-chain-spec = { workspace = true }
+sc-client-api = { workspace = true }
+sc-keystore = { workspace = true }
+sc-network = { workspace = true }
+sc-network-sync = { workspace = true }
+sc-network-gossip = { workspace = true }
+sc-utils = { workspace = true }
+sp-api = { workspace = true }
+sp-application-crypto = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-blockchain = { workspace = true }
+sp-consensus = { workspace = true }
+sp-core = { workspace = true }
+sp-keystore = { workspace = true }
+sp-runtime = { workspace = true }
+sc-network-common = { workspace = true }
+
+seed-primitives = { workspace = true, default-features = true }
+xrpl-codec = { workspace = true }
 
 [dev-dependencies]
-hex-literal = "*"
-serde = "1.0.136"
-strum = { version = "0.24", features = ["derive"] }
-tempfile = "3.1.0"
-tokio = "1.17.0"
-sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sc-service = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sc-network-test = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sc-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-tracing = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+strum = { version = "0.24", default-features = false }
+tempfile = { version = "3.1.0", default-features = false }
+hex-literal = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+sc-consensus = { workspace = true }
+sc-service = { workspace = true }
+sc-network-test = { workspace = true }
+sc-block-builder = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
+sp-keyring = { workspace = true }
+sp-tracing = { workspace = true }
+substrate-test-runtime-client = { workspace = true }

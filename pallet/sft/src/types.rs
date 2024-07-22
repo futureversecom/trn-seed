@@ -113,7 +113,9 @@ where
 		who: &AccountId,
 		amount: Balance,
 	) -> Result<(), TokenBalanceError> {
-		let Some((_, existing_balance)) = self.owned_tokens.iter_mut().find(|(account, _)| account == who) else {
+		let Some((_, existing_balance)) =
+			self.owned_tokens.iter_mut().find(|(account, _)| account == who)
+		else {
 			return Err(TokenBalanceError::InsufficientBalance.into());
 		};
 

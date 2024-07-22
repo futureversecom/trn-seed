@@ -88,7 +88,7 @@ pub type EventProofId = u64;
 pub type ValidatorSetId = u64;
 
 /// A set of ETHY authorities, a.k.a. validators.
-#[derive(Decode, Encode, Debug, PartialEq, Clone)]
+#[derive(Decode, Encode, Debug, PartialEq, Clone, TypeInfo)]
 pub struct ValidatorSet<AuthorityId> {
 	/// Public keys of the validator set elements
 	pub validators: Vec<AuthorityId>,

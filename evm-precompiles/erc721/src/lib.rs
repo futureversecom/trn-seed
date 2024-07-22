@@ -17,7 +17,7 @@
 extern crate alloc;
 
 use core::convert::TryFrom;
-use fp_evm::{PrecompileHandle, PrecompileOutput};
+use fp_evm::{IsPrecompileResult, PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::OriginTrait,
@@ -226,14 +226,18 @@ where
 		None
 	}
 
-	fn is_precompile(&self, address: H160) -> bool {
+	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
 		if let Some(collection_id) =
 			Runtime::evm_id_to_runtime_id(Address(address), ERC721_PRECOMPILE_ADDRESS_PREFIX)
 		{
+			let extra_cost = RuntimeHelper::<Runtime>::db_read_gas_cost();
 			// Check whether the collection exists
-			pallet_nft::Pallet::<Runtime>::collection_exists(collection_id)
+			IsPrecompileResult::Answer {
+				is_precompile: pallet_nft::Pallet::<Runtime>::collection_exists(collection_id),
+				extra_cost,
+			}
 		} else {
-			false
+			IsPrecompileResult::Answer { is_precompile: false, extra_cost: 0 }
 		}
 	}
 }
@@ -445,7 +449,7 @@ where
 		// Check that caller is not a smart contract s.t. no code is inserted into
 		// pallet_evm::AccountCodes except if the caller is another precompile i.e. CallPermit
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let caller_code = pallet_evm::Pallet::<Runtime>::account_codes(to);
+		let caller_code = pallet_evm::AccountCodes::<Runtime>::get(to);
 		if !(caller_code.is_empty()) {
 			// Setup input for onErc721Received call
 			let sub_context = Context {

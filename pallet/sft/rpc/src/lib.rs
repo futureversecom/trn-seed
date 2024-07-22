@@ -14,14 +14,14 @@
 use std::sync::Arc;
 
 use jsonrpsee::{
-	core::{Error as RpcError, RpcResult},
+	core::{async_trait, Error as RpcError, RpcResult},
 	proc_macros::rpc,
 };
 use pallet_sft::Config;
-use seed_primitives::types::{BlockNumber, TokenId};
+use seed_primitives::types::TokenId;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 
 pub use pallet_sft_rpc_runtime_api::{self as runtime_api, SftApi as SftRuntimeApi};
 
@@ -45,17 +45,17 @@ impl<C, Block, T: Config> Sft<C, Block, T> {
 	}
 }
 
+#[async_trait]
 impl<C, Block, T> SftApiServer for Sft<C, Block, T>
 where
 	Block: BlockT,
-	T: Config<BlockNumber = BlockNumber> + Send + Sync,
+	T: Config + Send + Sync,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: SftRuntimeApi<Block, T>,
 {
 	fn token_uri(&self, token_id: TokenId) -> RpcResult<Vec<u8>> {
 		let api = self.client.runtime_api();
-		let best = self.client.info().best_hash;
-		let at = BlockId::hash(best);
-		api.token_uri(&at, token_id).map_err(|e| RpcError::to_call_error(e))
+		api.token_uri(self.client.info().best_hash, token_id)
+			.map_err(|e| RpcError::to_call_error(e))
 	}
 }

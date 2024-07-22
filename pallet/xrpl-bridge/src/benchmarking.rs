@@ -60,7 +60,7 @@ benchmarks! {
 	}
 
 	set_payment_delay {
-		let payment_delay: (u128, T::BlockNumber) = (100, T::BlockNumber::from(1000u32));
+		let payment_delay: (u128, BlockNumberFor<T>) = (100, BlockNumberFor::<T>::from(1000u32));
 	}: _(RawOrigin::Root, Some(payment_delay))
 	verify {
 		assert_eq!(PaymentDelay::<T>::get(), Some(payment_delay));
@@ -120,6 +120,16 @@ benchmarks! {
 	}: _(RawOrigin::Root, tx_fee)
 	verify {
 		assert_eq!(DoorTxFee::<T>::get(), tx_fee);
+	}
+
+	set_xrp_source_tag {
+		let source_tag = 100;
+		// Sanity check
+		assert_ne!(SourceTag::<T>::get(), source_tag);
+
+	}: _(RawOrigin::Root, source_tag)
+	verify {
+		assert_eq!(SourceTag::<T>::get(), source_tag);
 	}
 
 	set_door_address {

@@ -19,7 +19,6 @@ use hex::encode;
 use mock::{Dex, RuntimeEvent as MockEvent, RuntimeOrigin, System, Test, TestExt};
 use seed_pallet_common::test_prelude::*;
 use sp_arithmetic::helpers_128bit::sqrt;
-use sp_runtime::ArithmeticError;
 use std::str::FromStr;
 
 /// x * 10e18
@@ -214,8 +213,8 @@ fn create_lp_token() {
 		assert_eq!(usdc, 1124);
 		assert_eq!(weth, 2148);
 
-		let usdc_symbol_bytes = AssetsExt::symbol(&usdc);
-		let weth_symbol_bytes = AssetsExt::symbol(&weth);
+		let usdc_symbol_bytes = AssetsExt::symbol(usdc);
+		let weth_symbol_bytes = AssetsExt::symbol(weth);
 		let usdc_symbol = sp_std::str::from_utf8(&usdc_symbol_bytes).unwrap();
 		let weth_symbol = sp_std::str::from_utf8(&weth_symbol_bytes).unwrap();
 
@@ -228,10 +227,10 @@ fn create_lp_token() {
 		assert_eq!(lp_token, 3172);
 
 		let lp_token_name_bytes =
-			<AssetsExt as frame_support::traits::fungibles::InspectMetadata<AccountId>>::name(
-				&lp_token,
+			<AssetsExt as frame_support::traits::fungibles::metadata::Inspect<AccountId>>::name(
+				lp_token,
 			);
-		let lp_token_symbol_bytes = AssetsExt::symbol(&lp_token);
+		let lp_token_symbol_bytes = AssetsExt::symbol(lp_token);
 		let lp_token_name = sp_std::str::from_utf8(&lp_token_name_bytes).unwrap();
 		let lp_token_symbol = sp_std::str::from_utf8(&lp_token_symbol_bytes).unwrap();
 
@@ -265,8 +264,8 @@ fn create_lp_token_long_symbol() {
 		assert_eq!(usdc, 1124);
 		assert_eq!(weth, 2148);
 
-		let usdc_symbol_bytes = AssetsExt::symbol(&usdc);
-		let weth_symbol_bytes = AssetsExt::symbol(&weth);
+		let usdc_symbol_bytes = AssetsExt::symbol(usdc);
+		let weth_symbol_bytes = AssetsExt::symbol(weth);
 		let usdc_symbol = sp_std::str::from_utf8(&usdc_symbol_bytes).unwrap();
 		let weth_symbol = sp_std::str::from_utf8(&weth_symbol_bytes).unwrap();
 
@@ -279,10 +278,10 @@ fn create_lp_token_long_symbol() {
 		assert_eq!(lp_token, 3172);
 
 		let lp_token_name_bytes =
-			<AssetsExt as frame_support::traits::fungibles::InspectMetadata<AccountId>>::name(
-				&lp_token,
+			<AssetsExt as frame_support::traits::fungibles::metadata::Inspect<AccountId>>::name(
+				lp_token,
 			);
-		let lp_token_symbol_bytes = AssetsExt::symbol(&lp_token);
+		let lp_token_symbol_bytes = AssetsExt::symbol(lp_token);
 		let lp_token_name = sp_std::str::from_utf8(&lp_token_name_bytes).unwrap();
 		let lp_token_symbol = sp_std::str::from_utf8(&lp_token_symbol_bytes).unwrap();
 
@@ -1009,7 +1008,7 @@ fn swap_with_exact_supply() {
 				None,
 				None,
 			),
-			pallet_assets::Error::<Test>::NoAccount
+			TokenError::FundsUnavailable
 		);
 
 		// mint weth for 2nd user and allow them to perform swap against usdc
@@ -1204,8 +1203,9 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 		let alice_c = AssetsExt::balance(c, &alice);
 		assert_eq!(alice_a, to_eth(100) - 100_000_000u128 - 50_000u128); // Initial minted - liquidity added - swap a for c
 		assert_eq!(alice_b, to_eth(100) - 200_000_000u128); // Initial minted - liquidity added ( in pool [a-b] & [b-c]
-		assert_eq!(alice_c, to_eth(100) - 100_000_000u128 + 49_650u128); // Initial minted - liquidity added
-		                                                         // + swap a for c
+		assert_eq!(alice_c, to_eth(100) - 100_000_000u128 + 49_650u128); // Initial minted - liquidity
+		                                                           // added
+		                                                           // + swap a for c
 	});
 }
 
@@ -1249,7 +1249,7 @@ fn swap_with_exact_target() {
 				None,
 				None,
 			),
-			pallet_assets::Error::<Test>::NoAccount
+			TokenError::FundsUnavailable
 		);
 
 		// mint weth for 2nd user and allow them to perform swap against usdc
@@ -1527,7 +1527,7 @@ fn multiple_swaps_with_multiple_lp() {
 				None,
 				None,
 			),
-			Error::<Test>::InsufficientLiquidityBurnt
+			TokenError::BelowMinimum
 		);
 
 		assert_eq!(AssetsExt::balance(lp_usdc_weth, &charlie), 2_482_001_869_909_090_520_u128);

@@ -15,6 +15,7 @@
 
 use codec::{alloc::string::ToString, Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_core::{ecdsa, ed25519, H160};
 use sp_io::hashing::{blake2_256, keccak_256};
 use sp_std::vec::Vec;
@@ -24,7 +25,6 @@ use sp_std::vec::Vec;
 )]
 pub struct AccountId20(pub [u8; 20]);
 
-#[cfg(feature = "std")]
 impl_serde::impl_fixed_hash_serde!(AccountId20, 20);
 
 #[cfg(feature = "std")]
@@ -102,8 +102,9 @@ impl std::str::FromStr for AccountId20 {
 	}
 }
 
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Eq, PartialEq, Clone, Encode, Decode, sp_core::RuntimeDebug, TypeInfo)]
+#[derive(
+	Eq, PartialEq, Clone, Encode, Decode, sp_core::RuntimeDebug, TypeInfo, Serialize, Deserialize,
+)]
 pub struct EthereumSignature(pub ecdsa::Signature);
 
 impl From<ecdsa::Signature> for EthereumSignature {

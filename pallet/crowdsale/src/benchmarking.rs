@@ -40,7 +40,7 @@ fn initialize_crowdsale<T: Config>(owner: T::AccountId) -> (SaleId, AssetId, Col
 	let collection_id = build_collection::<T>(owner.clone());
 
 	let soft_cap_price = 50_000_000;
-	let sale_duration: T::BlockNumber = 1000_u32.into();
+	let sale_duration: BlockNumberFor<T> = 1000_u32.into();
 
 	let sale_id = NextSaleId::<T>::get();
 	let voucher_max_len_data =
@@ -60,16 +60,15 @@ fn initialize_crowdsale<T: Config>(owner: T::AccountId) -> (SaleId, AssetId, Col
 }
 
 benchmarks! {
-
 	initialize {
 		let acc: T::AccountId = account("acc", 0, 0);
 		let payment_asset_id = T::MultiCurrency::create(&acc, None).unwrap();
 		let collection_id = build_collection::<T>(acc.clone());
 		let soft_cap_price = 50_000_000;
-		let sale_duration: T::BlockNumber = 1000_u32.into();
+		let sale_duration: BlockNumberFor<T> = 1000_u32.into();
 		let voucher_max_len_data = BoundedVec::try_from(vec![0u8; T::StringLimit::get() as usize]).unwrap();
 	}: _(RawOrigin::Signed(acc.clone()), payment_asset_id, collection_id, soft_cap_price, sale_duration, Some(voucher_max_len_data.clone()), Some(voucher_max_len_data))
-  verify {
+	verify {
 		// validate NextSaleId
 		assert_eq!(NextSaleId::<T>::get(), 1);
 		assert_eq!(SaleInfo::<T>::get(0).unwrap().status, SaleStatus::Pending(1_u32.into()));
@@ -81,7 +80,7 @@ benchmarks! {
 		let collection_id = build_collection::<T>(acc.clone());
 
 		let soft_cap_price = 50_000_000;
-		let sale_duration: T::BlockNumber = 1000_u32.into();
+		let sale_duration: BlockNumberFor<T> = 1000_u32.into();
 		CrowdSale::<T>::initialize(RawOrigin::Signed(acc.clone()).into(), payment_asset_id, collection_id, soft_cap_price, sale_duration, None, None).unwrap();
 
 		let sale_id = 0;

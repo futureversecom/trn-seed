@@ -11,6 +11,7 @@
 
 use crate::*;
 use frame_support::{ensure, traits::Get, transactional};
+use frame_system::pallet_prelude::BlockNumberFor;
 use seed_pallet_common::{log, Hold, NFTExt, TransferExt};
 use seed_primitives::{AssetId, Balance, RoyaltiesSchedule, SerialNumber, TokenId};
 use sp_runtime::{
@@ -54,7 +55,7 @@ impl<T: Config> Pallet<T> {
 		buyer: Option<T::AccountId>,
 		payment_asset: AssetId,
 		fixed_price: Balance,
-		duration: Option<T::BlockNumber>,
+		duration: Option<BlockNumberFor<T>>,
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<ListingId, DispatchError> {
 		// Validate tokens
@@ -176,7 +177,7 @@ impl<T: Config> Pallet<T> {
 		tokens: ListingTokens<T>,
 		payment_asset: AssetId,
 		reserve_price: Balance,
-		duration: Option<T::BlockNumber>,
+		duration: Option<BlockNumberFor<T>>,
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<ListingId, DispatchError> {
 		// Validate tokens and get collection_id
@@ -251,8 +252,8 @@ impl<T: Config> Pallet<T> {
 		let listing_end_block = listing.close;
 		let current_block = <frame_system::Pallet<T>>::block_number();
 		let blocks_till_close = listing_end_block - current_block;
-		let new_closing_block = current_block + T::BlockNumber::from(AUCTION_EXTENSION_PERIOD);
-		if blocks_till_close <= T::BlockNumber::from(AUCTION_EXTENSION_PERIOD) {
+		let new_closing_block = current_block + BlockNumberFor::<T>::from(AUCTION_EXTENSION_PERIOD);
+		if blocks_till_close <= BlockNumberFor::<T>::from(AUCTION_EXTENSION_PERIOD).into() {
 			ListingEndSchedule::<T>::remove(listing_end_block, listing_id);
 			ListingEndSchedule::<T>::insert(new_closing_block, listing_id, true);
 			listing.close = new_closing_block;
@@ -426,12 +427,10 @@ impl<T: Config> Pallet<T> {
 	/// Close all listings scheduled to close at this block `now`, ensuring payments and ownerships
 	/// changes are made for winning bids Metadata for listings will be removed from storage
 	/// Returns the number of listings removed
-	pub(crate) fn close_listings_at(now: T::BlockNumber) -> u32 {
+	pub(crate) fn close_listings_at(now: BlockNumberFor<T>) -> u32 {
 		let mut removed = 0_u32;
 		for (listing_id, _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
-			let Some(listing_outer) = Listings::<T>::get(listing_id) else {
-				continue
-			};
+			let Some(listing_outer) = Listings::<T>::get(listing_id) else { continue };
 			match listing_outer.clone() {
 				Listing::FixedPrice(listing) => {
 					Self::remove_listing(listing_outer, listing_id);

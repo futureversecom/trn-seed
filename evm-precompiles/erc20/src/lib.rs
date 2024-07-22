@@ -16,11 +16,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-use fp_evm::{PrecompileHandle, PrecompileOutput};
+use fp_evm::{IsPrecompileResult, PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::{
-		fungibles::{Inspect, InspectMetadata},
+		fungibles::{metadata::Inspect as InspectMetadata, Inspect},
+		tokens::{Fortitude, Preservation},
 		OriginTrait,
 	},
 };
@@ -122,14 +123,18 @@ where
 		None
 	}
 
-	fn is_precompile(&self, address: H160) -> bool {
+	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
 		if let Some(asset_id) =
 			Runtime::evm_id_to_runtime_id(Address(address), ERC20_PRECOMPILE_ADDRESS_PREFIX)
 		{
+			let extra_cost = RuntimeHelper::<Runtime>::db_read_gas_cost();
 			// Check if the asset exists
-			<pallet_assets_ext::Pallet<Runtime>>::asset_exists(asset_id)
+			IsPrecompileResult::Answer {
+				is_precompile: <pallet_assets_ext::Pallet<Runtime>>::asset_exists(asset_id),
+				extra_cost,
+			}
 		} else {
-			false
+			IsPrecompileResult::Answer { is_precompile: false, extra_cost: 0 }
 		}
 	}
 }
@@ -189,7 +194,8 @@ where
 			<pallet_assets_ext::Pallet<Runtime> as Inspect<Runtime::AccountId>>::reducible_balance(
 				asset_id,
 				&owner.into(),
-				false,
+				Preservation::Expendable,
+				Fortitude::Polite,
 			)
 			.into();
 
@@ -365,7 +371,7 @@ where
 					.write::<Bytes>(
 						<pallet_assets_ext::Pallet<Runtime> as InspectMetadata<
 							Runtime::AccountId,
-						>>::name(&asset_id)
+						>>::name(asset_id)
 						.as_slice()
 						.into(),
 					)
@@ -387,7 +393,7 @@ where
 					.write::<Bytes>(
 						<pallet_assets_ext::Pallet<Runtime> as InspectMetadata<
 							Runtime::AccountId,
-						>>::symbol(&asset_id)
+						>>::symbol(asset_id)
 						.as_slice()
 						.into(),
 					)
@@ -407,7 +413,7 @@ where
 			EvmDataWriter::new()
 				.write::<u8>(<pallet_assets_ext::Pallet<Runtime> as InspectMetadata<
 					Runtime::AccountId,
-				>>::decimals(&asset_id))
+				>>::decimals(asset_id))
 				.build(),
 		))
 	}

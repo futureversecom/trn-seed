@@ -1,26 +1,26 @@
 [package]
 name = "ethy-gadget-rpc"
 version = "0.1.0"
-authors = ["Parity Technologies <admin@parity.io>", "The Root Network Team"]
-edition = "2021"
-license = "Apache-2.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
-codec = { version = "3.0.0", package = "parity-scale-codec", features = ["derive"] }
-futures = { version = "0.3.24" }
-jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
-libsecp256k1 = { version = "0.6.0" }
-log = "0.4"
-serde = { version = "1.0.131", features = ["derive"] }
-serde_json = "1.0.64"
-rustc-hex = { version = "2.1.0", default-features = false }
+codec = { workspace = true }
+futures = { workspace = true }
+jsonrpsee = { workspace = true }
+libsecp256k1 = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rustc-hex = { workspace = true }
 
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sc-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+sc-client-api = { workspace = true }
+sc-rpc = { workspace = true }
+sc-utils = { workspace = true }
+sp-api = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
 
-ethy-gadget = { path = "../." }
-seed-primitives = { path = "../../primitives" }
+ethy-gadget = { workspace = true }
+seed-primitives = { workspace = true }

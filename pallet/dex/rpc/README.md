@@ -46,7 +46,7 @@ Returns the amount of output token that can be obtained by swapping an amount of
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"id":1, "jsonrpc":"2.0", "method":"dex_quote", "params":[ 1, 5, 10 ]}' \
-  http://localhost:9933
+  http://127.0.0.1:9944
 ```
 
 **_Response (successful)_**
@@ -95,7 +95,7 @@ Returns the amount of output tokens that you would receive if you sent an amount
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"id":1, "jsonrpc":"2.0", "method": "dex_getAmountsOut", "params": [1000000000000, [2, 1124]]}' \
-  http://localhost:9933
+  http://127.0.0.1:9944
 ```
 
 **_Response (error)_**
@@ -152,7 +152,7 @@ Returns the amount of input token that you would need to send to the DEX in orde
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"id":1, "jsonrpc":"2.0", "method": "dex_getAmountsIn", "params": [1000000000000, [2, 1124]]}' \
-  http://localhost:9933
+  http://127.0.0.1:9944
 ```
 
 **_Response (error)_**
@@ -207,7 +207,7 @@ Returns the LP token ID from the given trading pair.
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"id":1, "jsonrpc":"2.0", "method": "dex_getLPTokenID", "params": [2, 1124]}' \
-  http://localhost:9933
+  http://127.0.0.1:9944
 ```
 
 **_Response (successful)_**
@@ -254,7 +254,7 @@ Returns the liquidity balances of the given trading pair.
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"id":1, "jsonrpc":"2.0", "method": "dex_getLiquidity", "params": [2, 1124]}' \
-  http://localhost:9933
+  http://127.0.0.1:9944
 ```
 
 **_Response (successful)_**
@@ -301,7 +301,7 @@ Returns the status of the given trading pair.
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"id":1, "jsonrpc":"2.0", "method": "dex_getTradingPairStatus", "params": [2, 1124]}' \
-  http://localhost:9933
+  http://127.0.0.1:9944
 ```
 
 **_Response (successful)_**

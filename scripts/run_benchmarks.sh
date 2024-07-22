@@ -18,10 +18,12 @@ inputs_arguments() {
     flag    LIST_PALLET         -l                                                          -- "List all pallets that can be benchmarked"
     disp    :usage  -h --help
     disp    VERSION    --version
+    flag    SKIP_EXCLUDED_CHECK  -e  --skip-exculded-check
 }
 
 run_benchmark() {
     echo "Pallets: ${PALLETS[@]}"
+    echo "Custom Pallets: ${CUSTOM_PALLETS[@]}"
     echo "Steps: $STEPS, Repeat: $REPEAT"
     
     if [ "$LIST_PALLET" = 1 ]; then
@@ -32,7 +34,7 @@ run_benchmark() {
     mkdir -p "$OUTPUT_FOLDER"
     
     for PALLET in "${PALLETS[@]}"; do
-        if is_pallet_excluded; then
+        if [ ! "$SKIP_EXCLUDED_CHECK" = "1" ] && is_pallet_excluded; then
             echo -e "[ ] Skipping pallet $PALLET\n";
             continue
         fi
@@ -60,7 +62,7 @@ benchmark_runtime() {
     echo "[+][runtime] Benchmarking $PALLET";
 
     WEIGHT_FILENAME=$(echo $2 | tr '-' '_');
-    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$OUTPUT_FOLDER/$WEIGHT_FILENAME" $1 2>&1 )
+    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --wasm-execution=compiled --heap-pages=4096 --output "$OUTPUT_FOLDER/$WEIGHT_FILENAME" $1 2>&1 )
     if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"
         echo "[-][runtime] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
@@ -73,7 +75,7 @@ benchmark_pallet() {
     # remove the 'pallet-' prefix
     PALLET_FOLDER="./pallet/$(echo ${PALLET#pallet-})/src"
 
-    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$PALLET_FOLDER/weights.rs" $1 2>&1 )
+    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --wasm-execution=compiled --heap-pages=4096 --output "$PALLET_FOLDER/weights.rs" $1 2>&1 )
     if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"
         echo "[-][pallet] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
@@ -103,22 +105,18 @@ populate_pallet_list() {
     # Manually exclude some pallets.
     EXCLUDED_PALLETS=(
         # Helper pallets
-        "pallet_election_provider_support_benchmarking"
+        "pallet-election-provider-support-benchmarking"
         # Pallets without automatic benchmarking
-        "pallet_babe"
-        "pallet_grandpa"
-        "pallet_mmr"
-        "pallet_offences"
-        "frame_benchmarking"
+        "pallet-babe"
+        "pallet-grandpa"
+        "pallet-mmr"
+        "pallet-offences"
+        "frame-benchmarking"
 
-        # TODO: fix this; pallet bench taking too long!
-        "pallet_assets"
-        "pallet_election_provider_multi_phase"
-        "pallet_im_online"
-
-        # RUNTIME WEIGHT FAILURES
-        "pallet_session"
-        "pallet_staking"
+        # pallet bench taking too long - use SKIP_EXCLUDED_CHECK flag to run these
+        "pallet-assets"
+        "pallet-election-provider-multi-phase"
+        "pallet-im-online"
     )
     
     CUSTOM_PALLETS=()
@@ -131,7 +129,7 @@ populate_pallet_list() {
         PALLETS=($PALLETS)
     fi
     if [ "$LIST_PALLET" = "1" ] || [ "$PALLETS" = "*" ]; then
-        PALLETS=($($BINARY_LOCATION benchmark pallet --list --chain=dev | tail -n+2 | cut -d',' -f1 | sort | uniq ))
+        PALLETS=($($BINARY_LOCATION benchmark pallet --list --chain=dev | tail -n+2 | cut -d',' -f1 | sort | uniq| tr _ - ))
     fi
     if [ "$JUST_CUSTOM_PALLETS" = "1" ]; then
         PALLETS=("${CUSTOM_PALLETS[@]}")

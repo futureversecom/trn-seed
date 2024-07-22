@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::*;
-use frame_support::ensure;
+use frame_support::{ensure, traits::tokens::Preservation};
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{utils::PublicMintInformation, SFTExt};
 use seed_primitives::{CollectionUuid, MAX_COLLECTION_ENTITLEMENTS};
@@ -147,7 +147,13 @@ impl<T: Config> Pallet<T> {
 		};
 		// Charge the fee if there is a fee set
 		if let Some((asset, total_fee)) = total_fee {
-			T::MultiCurrency::transfer(asset, who, &collection_owner, total_fee, false)?;
+			T::MultiCurrency::transfer(
+				asset,
+				who,
+				&collection_owner,
+				total_fee,
+				Preservation::Expendable,
+			)?;
 			// Deposit event
 			Self::deposit_event(Event::<T>::MintFeePaid {
 				who: who.clone(),
@@ -441,17 +447,13 @@ impl<T: Config> Pallet<T> {
 
 	// Returns the balance of who of a token_id
 	pub fn balance_of(who: &T::AccountId, token_id: TokenId) -> Balance {
-		let Some(token_info) = TokenInfo::<T>::get(token_id) else {
-			return Balance::zero()
-		};
+		let Some(token_info) = TokenInfo::<T>::get(token_id) else { return Balance::zero() };
 		token_info.free_balance_of(who)
 	}
 
 	/// Returns the total supply of a specified token_id
 	pub fn total_supply(token_id: TokenId) -> Balance {
-		let Some(token_info) = TokenInfo::<T>::get(token_id) else {
-			return Balance::zero()
-		};
+		let Some(token_info) = TokenInfo::<T>::get(token_id) else { return Balance::zero() };
 		token_info.token_issuance
 	}
 
