@@ -21,6 +21,9 @@ frame-support = { git = "https://github.com/paritytech/substrate", default-featu
 frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", optional = true, default-features = false }
 
+pallet-nft = { path = "../nft", default-features = false, optional = true }
+pallet-sft = { path = "../sft", default-features = false, optional = true }
+
 [dev-dependencies]
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
@@ -37,11 +40,13 @@ std = [
     "scale-info/std",
     "seed-primitives/std",
     "seed-pallet-common/std",
+    "pallet-nft/std",
+    "pallet-sft/std",
     "sp-std/std",
     "sp-runtime/std",
     "frame-support/std",
     "frame-system/std",
     "frame-benchmarking?/std",
 ]
-runtime-benchmarks = ["frame-benchmarking"]
+runtime-benchmarks = ["frame-benchmarking", "pallet-nft/runtime-benchmarks", "pallet-sft/runtime-benchmarks"]
 try-runtime = ["frame-support/try-runtime"]

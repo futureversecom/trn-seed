@@ -242,13 +242,14 @@ mod manual_data_request {
 
 			// Request data
 			assert_ok!(Nfi::manual_data_request(
-				RawOrigin::Signed(token_owner).into(),
+				RawOrigin::Signed(token_owner.clone()).into(),
 				token_id,
 				sub_type
 			));
 
 			// Event thrown
 			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				caller: token_owner,
 				sub_type,
 				collection_id,
 				serial_numbers: vec![0],
@@ -272,13 +273,14 @@ mod manual_data_request {
 
 			// Request data
 			assert_ok!(Nfi::manual_data_request(
-				RawOrigin::Signed(collection_owner).into(),
+				RawOrigin::Signed(collection_owner.clone()).into(),
 				token_id,
 				sub_type
 			));
 
 			// Event thrown
 			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				caller: collection_owner,
 				sub_type,
 				collection_id: token_id.0,
 				serial_numbers: vec![0],
@@ -759,7 +761,7 @@ mod nft_mint {
 
 			// Mint NFT to token_owner
 			assert_ok!(Nft::mint(
-				RawOrigin::Signed(collection_owner).into(),
+				RawOrigin::Signed(collection_owner.clone()).into(),
 				collection_id,
 				1,
 				Some(token_owner),
@@ -767,6 +769,7 @@ mod nft_mint {
 
 			// Event thrown
 			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				caller: collection_owner,
 				sub_type,
 				collection_id,
 				serial_numbers: vec![0],
@@ -937,7 +940,7 @@ mod sft_create_token {
 
 			// Create new SFT token
 			assert_ok!(Sft::create_token(
-				RawOrigin::Signed(collection_owner).into(),
+				RawOrigin::Signed(collection_owner.clone()).into(),
 				token_id.0,
 				BoundedVec::truncate_from(b"SFT Token".to_vec()),
 				0,
@@ -947,6 +950,7 @@ mod sft_create_token {
 
 			// Event thrown
 			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				caller: collection_owner,
 				sub_type,
 				collection_id: token_id.0,
 				serial_numbers: vec![1],

@@ -2178,6 +2178,7 @@ mod benches {
 		[pallet_preimage, Preimage]
 		// Local
 		[pallet_nft, Nft]
+		[pallet_nfi, Nfi]
 		[pallet_sft, Sft]
 		[pallet_fee_control, FeeControl]
 		[pallet_nft_peg, NftPeg]

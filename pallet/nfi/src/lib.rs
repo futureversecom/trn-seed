@@ -31,6 +31,8 @@ pub use pallet::*;
 mod types;
 use types::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 pub mod mock;
 #[cfg(test)]
@@ -105,6 +107,7 @@ pub mod pallet {
 		/// Request for new NFI data creation
 		DataRequest {
 			sub_type: NFISubType,
+			caller: T::AccountId,
 			collection_id: CollectionUuid,
 			serial_numbers: Vec<SerialNumber>,
 		},
@@ -220,10 +223,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(NfiEnabled::<T>::get(token_id.0, sub_type), Error::<T>::NotEnabled);
-			// TODO maybe go for token owner or collection owner
+			// TODO maybe go for token owner or collection owner. Leni to confirm
 			ensure!(Self::is_token_owner(token_id.clone(), &who), Error::<T>::NotTokenOwner);
 			Self::pay_mint_fee(&who, 1, sub_type)?;
-			Self::send_data_request(sub_type, token_id.0, vec![token_id.1]);
+			Self::send_data_request(who, sub_type, token_id.0, vec![token_id.1]);
 			Ok(())
 		}
 
@@ -298,12 +301,18 @@ impl<T: Config> Pallet<T> {
 
 	/// Emits an event to display which tokens need NFI data to be created off-chain
 	pub fn send_data_request(
+		caller: T::AccountId,
 		sub_type: NFISubType,
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
 	) {
 		// Deposit event containing collection_id and all serial numbers
-		Self::deposit_event(Event::<T>::DataRequest { sub_type, collection_id, serial_numbers });
+		Self::deposit_event(Event::<T>::DataRequest {
+			caller,
+			sub_type,
+			collection_id,
+			serial_numbers,
+		});
 	}
 
 	/// Returns true if who is the owner of the collection.
@@ -359,7 +368,7 @@ impl<T: Config> NFIRequest for Pallet<T> {
 		}
 		// Pay the mint fee for the NFI storage, return an error if this is not possible
 		Self::pay_mint_fee(who, serial_numbers.len() as TokenCount, sub_type)?;
-		Self::send_data_request(sub_type, collection_id, serial_numbers);
+		Self::send_data_request(who.clone(), sub_type, collection_id, serial_numbers);
 		Ok(())
 	}
 }
