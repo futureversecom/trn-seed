@@ -13,7 +13,10 @@ use crate::*;
 use alloc::format;
 use frame_support::{
 	sp_runtime::traits::{BlakeTwo256, Hash},
-	traits::fungibles::Inspect,
+	traits::{
+		fungibles::Inspect,
+		tokens::{Fortitude, Preservation},
+	},
 };
 use sp_core::U256;
 
@@ -97,7 +100,7 @@ impl<T: Config> Pallet<T> {
 	// Transfers vouchers from the vault account into a users wallet and returns the amount minted.
 	pub fn transfer_user_vouchers(
 		who: T::AccountId,
-		sale_info: &SaleInformation<T::AccountId, T::BlockNumber>,
+		sale_info: &SaleInformation<T::AccountId, BlockNumberFor<T>>,
 		contribution: Balance,
 		voucher_max_supply: Balance,
 	) -> Result<Balance, DispatchError> {
@@ -113,7 +116,8 @@ impl<T: Config> Pallet<T> {
 		let vault_balance = T::MultiCurrency::reducible_balance(
 			sale_info.voucher_asset_id,
 			&sale_info.vault,
-			false,
+			Preservation::Expendable,
+			Fortitude::Polite,
 		);
 		let vouchers = u128::min(vault_balance, claimable_vouchers);
 
@@ -123,14 +127,14 @@ impl<T: Config> Pallet<T> {
 			&sale_info.vault,
 			&who,
 			vouchers,
-			false,
+			Preservation::Expendable,
 		)?;
 
 		Ok(claimable_vouchers)
 	}
 
 	/// Close all crowdsales that are scheduled to end this block.
-	pub(crate) fn close_sales_at(now: T::BlockNumber) -> Result<u32, &'static str> {
+	pub(crate) fn close_sales_at(now: BlockNumberFor<T>) -> Result<u32, &'static str> {
 		let mut removed = 0_u32;
 
 		let Some(sales_to_close) = SaleEndBlocks::<T>::take(now) else {
@@ -153,7 +157,7 @@ impl<T: Config> Pallet<T> {
 					&sale_info.vault,
 					&sale_info.admin,
 					sale_info.funds_raised,
-					false,
+					Preservation::Expendable,
 				)?;
 
 				let collection_max_issuance =
@@ -184,7 +188,7 @@ impl<T: Config> Pallet<T> {
 						&sale_info.vault,
 						&sale_info.admin,
 						refunded_vouchers,
-						false,
+						Preservation::Expendable,
 					)?;
 				}
 

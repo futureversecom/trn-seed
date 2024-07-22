@@ -32,7 +32,7 @@ describe("EVM gas costs", () => {
     node = await startNode();
 
     // Substrate variables
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -53,7 +53,7 @@ describe("EVM gas costs", () => {
     console.log("Created and minted asset:", FIRST_ASSET_ID);
 
     // EVM variables
-    provider = new JsonRpcProvider(`http://localhost:${node.httpPort}`);
+    provider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider);
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
   });
@@ -156,8 +156,8 @@ describe("EVM gas costs", () => {
     // assert XRP used
     const xrpCost6DP = actualCost.div(10 ** 12).toNumber();
     const xrpCostScaled = +utils.formatEther(actualCost);
-    expect(xrpCost6DP).to.eql(21803760);
-    expect(+xrpCostScaled.toFixed(6)).to.eql(21.80376);
+    expect(xrpCost6DP).to.eql(21810720);
+    expect(+xrpCostScaled.toFixed(6)).to.eql(21.81072);
   });
 
   it("gas cost for token mint", async () => {

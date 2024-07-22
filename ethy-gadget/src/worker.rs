@@ -18,7 +18,7 @@ use futures::StreamExt;
 use log::{debug, error, info, trace, warn};
 use sc_client_api::{Backend, FinalityNotification};
 use sc_network_gossip::GossipEngine;
-use sp_api::{BlockId, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_runtime::{
@@ -67,6 +67,7 @@ where
 	R: ProvideRuntimeApi<B>,
 	R::Api: EthyApi<B>,
 	C: Client<B, BE>,
+	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	client: Arc<C>,
 	backend: Arc<BE>,
@@ -115,7 +116,7 @@ where
 		} = worker_params;
 
 		let last_finalized_header = client
-			.expect_header(BlockId::number(client.info().finalized_number))
+			.expect_header(client.info().finalized_hash)
 			.expect("latest block always has header available; qed.");
 
 		EthyWorker {
@@ -151,8 +152,7 @@ where
 	/// Such a failure is usually an indication that the Ethy pallet has not been deployed (yet).
 	fn validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
 		// queries the Ethy pallet to get the active validator set public keys
-		let at = BlockId::hash(header.hash());
-		let validator_set = self.runtime.runtime_api().validator_set(&at).ok();
+		let validator_set = self.runtime.runtime_api().validator_set(header.hash()).ok();
 
 		info!(target: "ethy", "💎 active validator set: {:?}", validator_set);
 		validator_set
@@ -165,8 +165,7 @@ where
 	///
 	/// Always query the chain state incase the authorized list changed
 	fn xrpl_validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
-		let at = BlockId::hash(header.hash());
-		let xrpl_signers = self.runtime.runtime_api().xrpl_signers(&at).ok();
+		let xrpl_signers = self.runtime.runtime_api().xrpl_signers(header.hash()).ok();
 		info!(target: "ethy", "💎 xrpl validator set: {:?}", xrpl_signers);
 
 		xrpl_signers
@@ -254,15 +253,14 @@ where
 		// block by ethy and the new finalized block notification
 		if number > *self.best_grandpa_block_header.number() + One::one() {
 			debug!(target: "ethy", "💎 finality notification for non-sequential future block #{:?}", number);
-			match self.backend.blockchain().header(BlockId::Number(number - One::one())) {
+			match self.backend.blockchain().header(*new_header.parent_hash()) {
 				Ok(Some(parent_header)) => {
-					let n = FinalityNotification {
-						hash: parent_header.hash(),
-						header: parent_header.clone(),
-						// these fields are unused by ethy
-						tree_route: Arc::new([]),
-						stale_heads: Arc::new([]),
-					};
+					let mut n = notification.clone();
+					n.hash = parent_header.hash();
+					n.header = parent_header.clone();
+					n.tree_route = Arc::new([]);
+					n.stale_heads = Arc::new([]);
+
 					self.handle_finality_notification(n);
 				},
 				Ok(None) => {
@@ -507,27 +505,21 @@ pub(crate) mod test {
 		},
 		witness_record::test::create_witness,
 	};
-	use sc_client_api::AuxStore;
-	use sc_network::NetworkService;
+	use sc_client_api::{AuxStore, FinalizeSummary};
+	use sc_network_sync::service::chain_sync::SyncingService;
 	use sc_network_test::{PeersFullClient, TestNetFactory};
-	use sc_utils::notification::NotificationStream;
+	use sc_utils::{mpsc::tracing_unbounded, notification::NotificationStream};
 	use seed_primitives::ethy::{crypto::AuthorityId, EthyChainId, ValidatorSet};
 	use sp_api::HeaderT;
 	use substrate_test_runtime_client::{
-		runtime::{Block, Digest, DigestItem, Header, H256},
+		runtime::{Block, Digest, DigestItem, Header},
 		Backend,
 	};
 
 	fn get_proof(
 		event_id: EventProofId,
 		chain_id: EthyChainId,
-		worker: &EthyWorker<
-			Block,
-			PeersFullClient,
-			Backend,
-			TestApi,
-			Arc<NetworkService<Block, H256>>,
-		>,
+		worker: &EthyWorker<Block, PeersFullClient, Backend, TestApi, Arc<SyncingService<Block>>>,
 	) -> Option<EventProof> {
 		if let Ok(maybe_encoded_proof) = worker.client.get_aux(
 			[
@@ -553,15 +545,20 @@ pub(crate) mod test {
 		peer: &EthyPeer,
 		key: &Keyring,
 		validators: Vec<AuthorityId>,
-	) -> EthyWorker<Block, PeersFullClient, Backend, TestApi, Arc<NetworkService<Block, H256>>> {
+	) -> EthyWorker<Block, PeersFullClient, Backend, TestApi, Arc<SyncingService<Block>>> {
 		let keystore = create_ethy_keystore(*key);
 		let api = Arc::new(TestApi {});
 		let network = peer.network_service().clone();
-		let sync_oracle = network.clone();
+		let sync_oracle = peer.sync_service().clone();
 		let gossip_validator =
 			Arc::new(crate::gossip::GossipValidator::new(validators, peer.client().as_backend()));
-		let gossip_engine =
-			GossipEngine::new(network, ETHY_PROTOCOL_NAME, gossip_validator.clone(), None);
+		let gossip_engine = GossipEngine::new(
+			network,
+			sync_oracle.clone(),
+			ETHY_PROTOCOL_NAME,
+			gossip_validator.clone(),
+			None,
+		);
 		let (sender, _receiver) = NotificationStream::<_, EthyEventProofTracingKey>::channel();
 
 		let worker_params = crate::worker::WorkerParams {
@@ -578,8 +575,8 @@ pub(crate) mod test {
 		EthyWorker::<_, _, _, _, _>::new(worker_params)
 	}
 
-	#[test]
-	fn handle_witness_works() {
+	#[tokio::test]
+	async fn handle_witness_works() {
 		let keys = &[Keyring::Alice, Keyring::Bob];
 		let validators = make_ethy_ids(keys);
 		let mut net = EthyTestNet::new(1, 0);
@@ -619,8 +616,8 @@ pub(crate) mod test {
 		assert_eq!(proof.unwrap().event_id, event_id);
 	}
 
-	#[test]
-	fn handle_witness_first_two_events() {
+	#[tokio::test]
+	async fn handle_witness_first_two_events() {
 		let keys = &[Keyring::Alice, Keyring::Bob];
 		let validators = make_ethy_ids(keys);
 		let mut net = EthyTestNet::new(1, 0);
@@ -728,8 +725,8 @@ pub(crate) mod test {
 		assert_eq!(extracted, Some(validator_set));
 	}
 
-	#[test]
-	fn extract_validators_from_the_runtime_and_not_from_header() {
+	#[tokio::test]
+	async fn extract_validators_from_the_runtime_and_not_from_header() {
 		let keys = &[Keyring::Alice, Keyring::Bob];
 		let runtime_validators = make_ethy_ids(keys);
 		let header_validators = make_ethy_ids(&[Keyring::Alice, Keyring::Bob, Keyring::Charlie]);
@@ -749,13 +746,14 @@ pub(crate) mod test {
 			ETHY_ENGINE_ID,
 			ConsensusLog::<Public>::AuthoritiesChange(header_validator_set.clone()).encode(),
 		));
-		let finality_notification = FinalityNotification {
-			hash: Default::default(),
+		let (sink, _stream) = tracing_unbounded("test_sink", 100_000);
+		let summary = FinalizeSummary {
 			header: header.clone(),
-			// these fields are unused by ethy
-			tree_route: Arc::new([]),
-			stale_heads: Arc::new([]),
+			finalized: vec![header.hash()],
+			stale_heads: vec![],
 		};
+		let finality_notification = FinalityNotification::from_summary(summary, sink);
+
 		worker.handle_finality_notification(finality_notification);
 
 		// stored validator set should be extracted from runtime. not from the block header. i.e

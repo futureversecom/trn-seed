@@ -15,7 +15,7 @@
 
 //! ETHY Prometheus metrics definition
 
-use prometheus::{register, Counter, Gauge, PrometheusError, Registry, U64};
+use substrate_prometheus_endpoint::{register, Counter, Gauge, PrometheusError, Registry, U64};
 
 /// ETHY metrics exposed through Prometheus
 pub(crate) struct Metrics {

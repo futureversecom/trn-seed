@@ -123,6 +123,18 @@ impl PrecompileHandle for MockHandle {
 		}
 	}
 
+	fn record_external_cost(
+		&mut self,
+		_ref_time: Option<u64>,
+		_proof_size: Option<u64>,
+	) -> Result<(), ExitError> {
+		todo!()
+	}
+
+	fn refund_external_cost(&mut self, _ref_time: Option<u64>, _proof_size: Option<u64>) {
+		todo!();
+	}
+
 	fn remaining_gas(&self) -> u64 {
 		self.gas_limit - self.gas_used
 	}

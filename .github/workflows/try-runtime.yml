@@ -20,7 +20,7 @@ jobs:
       run: mkdir -p output
 
     - name: Build image
-      run: podman build -t tchain -f ./dockerimages/rust-1.65.0.Dockerfile .
+      run: podman build -t tchain -f ./dockerimages/rust-1.71.0.Dockerfile .
 
     - name: Run try-runtime
       run: podman run --rm -v ./output:/output -t tchain /bin/bash ./ci-scripts/try-runtime.sh

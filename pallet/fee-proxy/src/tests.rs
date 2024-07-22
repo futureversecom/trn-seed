@@ -124,12 +124,12 @@ mod call_with_fee_preferences {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
-			let call = mock::RuntimeCall::System(frame_system::Call::fill_block {
-				ratio: Default::default(),
+			let call = mock::RuntimeCall::System(frame_system::Call::set_heap_pages {
+				pages: Default::default(),
 			});
 
 			// Test that the error returned is the error from the inner call. In this case it is
-			// BadOrigin as fill_block requires root. This is the easiest example to use without
+			// BadOrigin as set_heap_pages requires root. This is the easiest example to use without
 			// pulling in more dev dependencies
 			assert_noop!(
 				FeeProxy::call_with_fee_preferences(

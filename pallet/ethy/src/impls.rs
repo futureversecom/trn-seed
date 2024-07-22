@@ -192,7 +192,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		ensure!(!PendingEventClaims::<T>::contains_key(event_id), Error::<T>::EventReplayPending);
 
-		let process_at: T::BlockNumber =
+		let process_at: BlockNumberFor<T> =
 			<frame_system::Pallet<T>>::block_number() + ChallengePeriod::<T>::get();
 		MessagesValidAt::<T>::try_mutate(process_at.clone(), |v| -> DispatchResult {
 			v.try_push(event_id).map_err(|_| Error::<T>::MessageTooLarge)?;
@@ -1072,8 +1072,8 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			// Next authority change is 5 minutes before this session ends
 			// (Just before the start of the next epoch)
 			// next_block = current_block + epoch_duration - AuthorityChangeDelay
-			let epoch_duration: T::BlockNumber = T::EpochDuration::get().saturated_into();
-			let next_block: T::BlockNumber = <frame_system::Pallet<T>>::block_number()
+			let epoch_duration: BlockNumberFor<T> = T::EpochDuration::get().saturated_into();
+			let next_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number()
 				.saturating_add(epoch_duration.saturating_sub(T::AuthorityChangeDelay::get()));
 			<NextAuthorityChange<T>>::put(next_block);
 		}

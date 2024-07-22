@@ -55,7 +55,6 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -103,6 +102,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Ping extrinsic sends an event to the bridge containing a message
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::ping())]
 		pub fn ping(origin: OriginFor<T>, destination: H160) -> DispatchResult {
 			let source: H160 = ensure_signed(origin)?.into();

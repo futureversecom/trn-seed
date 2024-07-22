@@ -1,5 +1,5 @@
 # Stage 1 - Build node
-FROM docker.io/library/rust:1.69.0-bookworm AS builder
+FROM docker.io/library/rust:1.71.0-bookworm AS builder
 
 # Copy local files to workdir
 ADD . ./workdir
@@ -19,6 +19,6 @@ LABEL maintainer="The Root Network Team"
 LABEL org.opencontainers.image.source=https://github.com/futureversecom/trn-seed
 COPY --from=0 /workdir/target/release/seed /usr/bin/
 
-EXPOSE 30333 9933 9944
+EXPOSE 30333 9944
 VOLUME ["/node-data"]
 ENTRYPOINT ["/usr/bin/seed"]

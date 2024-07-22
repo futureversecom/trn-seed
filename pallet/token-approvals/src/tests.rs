@@ -22,6 +22,7 @@ pub fn create_account(seed: u64) -> AccountId {
 	AccountId::from(H160::from_low_u64_be(seed))
 }
 
+#[allow(dead_code)]
 pub struct TestData {
 	pub coll_owner: AccountId,
 	pub coll_id: CollectionUuid,

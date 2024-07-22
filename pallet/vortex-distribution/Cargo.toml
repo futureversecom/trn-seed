@@ -1,45 +1,43 @@
 [package]
-name = "pallet-vortex"
+name = "pallet-vortex-distribution"
 version = "2.1.0"
-authors = ["Centrality Developers <support@centrality.ai>"]
-edition = "2021"
-license = "Apache-2.0"
-repository = "https://github.com/futureversecom/seed"
 description = "Vortex distribution pallet"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
-serde = { version = "1.0.136", optional = true }
-scale-info = { version = "2.1", default-features = false, features = ["derive"] }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-staking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-pallet-staking = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.30" }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+codec = { workspace = true }
+scale-info = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+sp-staking = { workspace = true }
 
-seed-primitives = { path = "../../primitives", default-features = false }
-seed-pallet-common = { path = "../common", default-features = false }
+pallet-staking = { workspace = true }
+seed-primitives = { workspace = true }
+seed-pallet-common = { workspace = true }
 
 [dev-dependencies]
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-assets-ext = { path = "../assets-ext" }
-frame-election-provider-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-session = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-bags-list = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+pallet-timestamp = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-assets-ext = { workspace = true, default-features = true }
+frame-election-provider-support = { workspace = true }
+pallet-session = { workspace = true }
+pallet-bags-list = { workspace = true }
+pallet-staking-reward-curve = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
 	"seed-primitives/std",
 	"seed-pallet-common/std",
-	"serde",
 	"codec/std",
 	"sp-core/std",
 	"sp-io/std",
@@ -50,6 +48,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
+	"frame-benchmarking?/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
 runtime-benchmarks = ["frame-benchmarking"]

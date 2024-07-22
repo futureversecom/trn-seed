@@ -1,37 +1,37 @@
 [package]
 name = "precompile-utils"
-authors = ["The Root Network Team"]
 description = "Utils to write EVM precompiles."
-edition = "2021"
 version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 affix = "0.1.2"
-hex = { version = "0.4.3", default-features = false }
-impl-trait-for-tuples = "0.2.2"
-log = "0.4"
-num_enum = { version = "0.5.3", default-features = false }
-sha3 = { version = "0.10", default-features = false }
 similar-asserts = { version = "1.1.0", optional = true }
+impl-trait-for-tuples = { workspace = true }
+hex = { workspace = true }
+log = { workspace = true }
+num_enum = { workspace = true }
+sha3 = { workspace = true }
 
 # Moonbeam
-precompile-utils-macro = { path = "macro" }
+precompile-utils-macro = { workspace = true }
 
 # Substrate
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.30" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.30" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.30" }
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.30" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.30" }
+codec = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-std = { workspace = true }
 
 # Frontier
-evm = { version = "0.36.0", default-features = false, features = ["with-codec"] }
-fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
-pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
+evm = { workspace = true }
+fp-evm = { workspace = true }
+pallet-evm = { workspace = true }
 
 [dev-dependencies]
-hex-literal = "0.3.4"
+hex-literal = { workspace = true }
 
 [features]
 default = [ "std" ]

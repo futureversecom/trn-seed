@@ -270,7 +270,6 @@ mod tests {
 	use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
 	use sc_network_test::{Block, Hash, TestNetFactory};
 	use sp_core::keccak_256;
-	use sp_runtime::generic::BlockId;
 
 	use seed_primitives::ethy::{EthyChainId, Witness};
 
@@ -301,8 +300,8 @@ mod tests {
 		vec![Keyring::Alice, Keyring::Bob, Keyring::Charlie]
 	}
 
-	#[test]
-	fn verify_event_witness() {
+	#[tokio::test]
+	async fn verify_event_witness() {
 		let validators = mock_signers();
 		let alice = &validators[0];
 		let mut context = NoopContext {};
@@ -341,8 +340,8 @@ mod tests {
 		assert_validation_result!(ValidationResult::Discard, result);
 	}
 
-	#[test]
-	fn witness_bad_signature_discarded() {
+	#[tokio::test]
+	async fn witness_bad_signature_discarded() {
 		let validators = mock_signers();
 		let alice = &validators[0];
 		let bob = &validators[1];
@@ -370,8 +369,8 @@ mod tests {
 		assert!(!gv.is_tracking_event(&event_id));
 	}
 
-	#[test]
-	fn keeps_most_recent_events() {
+	#[tokio::test]
+	async fn keeps_most_recent_events() {
 		let mut net = EthyTestNet::new(1, 0);
 		let backend = net.peer(0).client().as_backend();
 		let gv = GossipValidator::new(vec![], backend);
@@ -386,8 +385,8 @@ mod tests {
 		assert_eq!(gv.complete_events.read().len(), MAX_COMPLETE_EVENT_CACHE);
 	}
 
-	#[test]
-	fn witness_validate_events_outside_live_window_discarded() {
+	#[tokio::test]
+	async fn witness_validate_events_outside_live_window_discarded() {
 		let validators = mock_signers();
 		let alice = &validators[0];
 		let mut context = NoopContext {};
@@ -416,20 +415,21 @@ mod tests {
 		assert_validation_result!(ValidationResult::ProcessAndKeep(_), result);
 		assert!(gv.is_tracking_event(&event_id));
 
-		// set the finalized block number to 6. try to validate now. should fail since out of live
+		// set the finalized block number to 7. try to validate now. should fail since out of live
 		// window. i.e. WINDOW_SIZE = 5
-		net.peer(0).push_blocks(6, false);
-		net.block_until_sync();
-		assert_eq!(net.peer(0).client().justifications(&BlockId::Number(10)).unwrap(), None);
+		let block_hashes = net.peer(0).push_blocks(7, false);
+		net.run_until_sync().await;
+
+		assert_eq!(net.peer(0).client().justifications(block_hashes[6]).unwrap(), None);
 		let just = (*b"FRNK", Vec::new());
 		net.peer(0)
 			.client()
-			.finalize_block(BlockId::Number(6), Some(just.clone()), true)
+			.finalize_block(block_hashes[6], Some(just.clone()), true)
 			.unwrap();
 		assert_eq!(
 			net.peer(0).client().info().finalized_number,
-			6,
-			"Peer #{} finalized block number is not 6",
+			7,
+			"Peer #{} finalized block number is not 7",
 			0
 		);
 
@@ -440,8 +440,8 @@ mod tests {
 		assert_validation_result!(ValidationResult::Discard, result);
 	}
 
-	#[test]
-	fn witness_expired_events_outside_live_window_discarded() {
+	#[tokio::test]
+	async fn witness_expired_events_outside_live_window_discarded() {
 		let validators = mock_signers();
 		let alice = &validators[0];
 		let mut net = EthyTestNet::new(1, 0);
@@ -464,20 +464,21 @@ mod tests {
 		let result = gv.message_expired()(topic::<Block>(), witness.clone().encode().as_ref());
 		assert_eq!(result, false);
 
-		// set the finalized block number to 6. try to validate now. should fail since out of live
+		// set the finalized block number to 7. try to validate now. should fail since out of live
 		// window. i.e. WINDOW_SIZE = 5
-		net.peer(0).push_blocks(6, false);
-		net.block_until_sync();
-		assert_eq!(net.peer(0).client().justifications(&BlockId::Number(10)).unwrap(), None);
+		let block_hashes = net.peer(0).push_blocks(7, false);
+		net.run_until_sync().await;
+
+		assert_eq!(net.peer(0).client().justifications(block_hashes[6]).unwrap(), None);
 		let just = (*b"FRNK", Vec::new());
 		net.peer(0)
 			.client()
-			.finalize_block(BlockId::Number(6), Some(just.clone()), true)
+			.finalize_block(block_hashes[6], Some(just.clone()), true)
 			.unwrap();
 		assert_eq!(
 			net.peer(0).client().info().finalized_number,
-			6,
-			"Peer #{} finalized block number is not 6",
+			7,
+			"Peer #{} finalized block number is not 7",
 			0
 		);
 
@@ -488,8 +489,8 @@ mod tests {
 		assert_eq!(result, true);
 	}
 
-	#[test]
-	fn witness_allowed_events_outside_live_window_discarded() {
+	#[tokio::test]
+	async fn witness_allowed_events_outside_live_window_discarded() {
 		let validators = mock_signers();
 		let alice = &validators[0];
 		let mut net = EthyTestNet::new(1, 0);
@@ -517,20 +518,20 @@ mod tests {
 		);
 		assert_eq!(result, true);
 
-		// set the finalized block number to 6. try to validate now. should fail since out of live
+		// set the finalized block number to 7. try to validate now. should fail since out of live
 		// window. i.e. WINDOW_SIZE = 5
-		net.peer(0).push_blocks(6, false);
-		net.block_until_sync();
-		assert_eq!(net.peer(0).client().justifications(&BlockId::Number(10)).unwrap(), None);
+		let block_hashes = net.peer(0).push_blocks(7, false);
+		net.run_until_sync().await;
+		assert_eq!(net.peer(0).client().justifications(block_hashes[6]).unwrap(), None);
 		let just = (*b"FRNK", Vec::new());
 		net.peer(0)
 			.client()
-			.finalize_block(BlockId::Number(6), Some(just.clone()), true)
+			.finalize_block(block_hashes[6], Some(just.clone()), true)
 			.unwrap();
 		assert_eq!(
 			net.peer(0).client().info().finalized_number,
-			6,
-			"Peer #{} finalized block number is not 6",
+			7,
+			"Peer #{} finalized block number is not 7",
 			0
 		);
 
