@@ -445,6 +445,7 @@ impl pallet_nfi::Config for Runtime {
 	type SFTExt = Sft;
 	type NetworkFeePercentage = NFINetworkFeePercentage;
 	type MaxDataLength = MaxDataLength;
+	type WeightInfo = weights::pallet_nfi::WeightInfo<Runtime>;
 }
 
 parameter_types! {

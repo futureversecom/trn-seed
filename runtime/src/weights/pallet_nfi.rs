@@ -27,22 +27,11 @@
 #![allow(unused_imports)]
 
 use frame_support::{traits::Get, weights::Weight};
-use frame_support::weights::constants::RocksDbWeight;
 use sp_std::marker::PhantomData;
 
-/// Weight functions needed for pallet_nft.
-pub trait WeightInfo {
-    fn set_relayer() -> Weight;
-    fn set_fee_to() -> Weight;
-    fn set_fee_details() -> Weight;
-    fn enable_nfi() -> Weight;
-    fn manual_data_request() -> Weight;
-    fn submit_nfi_data() -> Weight;
-}
-
 /// Weight functions for `pallet_nfi`.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+pub struct WeightInfo<T>(PhantomData<T>);
+impl<T: frame_system::Config> pallet_nfi::WeightInfo for WeightInfo<T> {
     // Storage: Nfi Relayer (r:0 w:1)
     fn set_relayer() -> Weight {
         Weight::from_all(10_189_000 as u64)
@@ -80,46 +69,5 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
         Weight::from_all(20_548_000 as u64)
             .saturating_add(T::DbWeight::get().reads(3 as u64))
             .saturating_add(T::DbWeight::get().writes(1 as u64))
-    }
-}
-
-impl WeightInfo for () {
-    // Storage: Nfi Relayer (r:0 w:1)
-    fn set_relayer() -> Weight {
-        Weight::from_all(10_189_000 as u64)
-            .saturating_add(RocksDbWeight::get().writes(1 as u64))
-    }
-    // Storage: Nfi FeeTo (r:0 w:1)
-    fn set_fee_to() -> Weight {
-        Weight::from_all(10_329_000 as u64)
-            .saturating_add(RocksDbWeight::get().writes(1 as u64))
-    }
-    // Storage: Nfi MintFee (r:0 w:1)
-    fn set_fee_details() -> Weight {
-        Weight::from_all(10_610_000 as u64)
-            .saturating_add(RocksDbWeight::get().writes(1 as u64))
-    }
-    // Storage: Nft CollectionInfo (r:1 w:0)
-    // Storage: Nfi NfiEnabled (r:0 w:1)
-    fn enable_nfi() -> Weight {
-        Weight::from_all(15_359_000 as u64)
-            .saturating_add(RocksDbWeight::get().reads(1 as u64))
-            .saturating_add(RocksDbWeight::get().writes(1 as u64))
-    }
-    // Storage: Nfi NfiEnabled (r:1 w:0)
-    // Storage: Nft CollectionInfo (r:1 w:0)
-    // Storage: Nfi MintFee (r:1 w:0)
-    fn manual_data_request() -> Weight {
-        Weight::from_all(18_365_000 as u64)
-            .saturating_add(RocksDbWeight::get().reads(3 as u64))
-    }
-    // Storage: Nfi Relayer (r:1 w:0)
-    // Storage: Nfi NfiEnabled (r:1 w:0)
-    // Storage: Nft CollectionInfo (r:1 w:0)
-    // Storage: Nfi NfiData (r:0 w:1)
-    fn submit_nfi_data() -> Weight {
-        Weight::from_all(20_548_000 as u64)
-            .saturating_add(RocksDbWeight::get().reads(3 as u64))
-            .saturating_add(RocksDbWeight::get().writes(1 as u64))
     }
 }

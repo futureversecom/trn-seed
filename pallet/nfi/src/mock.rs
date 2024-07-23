@@ -17,10 +17,7 @@ use crate as pallet_nfi;
 use seed_pallet_common::test_prelude::*;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	pub enum Test
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -99,4 +96,5 @@ impl crate::Config for Test {
 	type SFTExt = Sft;
 	type NetworkFeePercentage = NFINetworkFeePercentage;
 	type MaxDataLength = MaxDataLength;
+	type WeightInfo = ();
 }

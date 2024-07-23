@@ -23,6 +23,7 @@ use frame_support::traits::fungibles::Inspect;
 use pallet_nft::test_utils::NftBuilder;
 use pallet_sft::test_utils::SftBuilder;
 use seed_pallet_common::test_prelude::*;
+use sp_runtime::ArithmeticError;
 
 mod set_relayer {
 	use super::*;
@@ -528,7 +529,7 @@ mod manual_data_request {
 						token_id,
 						sub_type
 					),
-					pallet_balances::Error::<Test>::InsufficientBalance
+					ArithmeticError::Underflow
 				);
 			});
 	}
@@ -915,7 +916,7 @@ mod nft_mint {
 						1,
 						Some(bob())
 					),
-					pallet_balances::Error::<Test>::InsufficientBalance
+					ArithmeticError::Underflow
 				);
 			});
 	}
@@ -1102,7 +1103,7 @@ mod sft_create_token {
 						None,
 						None,
 					),
-					pallet_balances::Error::<Test>::InsufficientBalance
+					ArithmeticError::Underflow
 				);
 			});
 	}

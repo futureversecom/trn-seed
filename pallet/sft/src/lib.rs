@@ -18,7 +18,9 @@
 //! # SFT Module
 
 use frame_support::{traits::tokens::fungibles::Mutate, transactional, PalletId};
-use seed_pallet_common::{NFIRequest, NFTExt, OnNewAssetSubscriber, OnTransferSubscriber};
+use seed_pallet_common::{
+	utils::PublicMintInformation, NFIRequest, NFTExt, OnNewAssetSubscriber, OnTransferSubscriber,
+};
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
 	SerialNumber, TokenId,

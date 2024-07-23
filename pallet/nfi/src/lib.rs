@@ -18,7 +18,7 @@
 use frame_support::{
 	ensure,
 	pallet_prelude::*,
-	traits::{fungibles::Transfer, Get},
+	traits::{fungibles::Mutate, tokens::Preservation, Get},
 };
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::{NFIRequest, NFTExt, SFTExt};
@@ -48,7 +48,6 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
@@ -57,7 +56,7 @@ pub mod pallet {
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Handles a multi-currency fungible asset system
-		type MultiCurrency: Transfer<Self::AccountId, Balance = Balance, AssetId = AssetId>;
+		type MultiCurrency: Mutate<Self::AccountId, Balance = Balance, AssetId = AssetId>;
 		/// NFT Extension
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
 		/// SFT Extension
@@ -68,6 +67,8 @@ pub mod pallet {
 		/// Max length of data stored per token
 		#[pallet::constant]
 		type MaxDataLength: Get<u32>;
+		/// Provides the public call to weight mapping
+		type WeightInfo: WeightInfo;
 	}
 
 	/// The permission enabled relayer
@@ -156,7 +157,8 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Set the relayer address
 		/// This address is able to submit the NFI data back to the chain
-		#[pallet::weight(0)]
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::set_relayer())]
 		pub fn set_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
 			<Relayer<T>>::put(&relayer);
@@ -166,7 +168,8 @@ pub mod pallet {
 
 		/// Set the `FeeTo` account
 		/// This operation requires root access
-		#[pallet::weight(0)]
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::set_fee_to())]
 		pub fn set_fee_to(origin: OriginFor<T>, fee_to: Option<T::AccountId>) -> DispatchResult {
 			ensure_root(origin)?;
 			match fee_to.clone() {
@@ -179,7 +182,8 @@ pub mod pallet {
 
 		/// Set the NFI mint fee which is paid per token by the minter
 		/// Setting fee_details to None removes the mint fee
-		#[pallet::weight(0)]
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::set_fee_details())]
 		pub fn set_fee_details(
 			origin: OriginFor<T>,
 			sub_type: NFISubType,
@@ -199,7 +203,8 @@ pub mod pallet {
 
 		/// Enables NFI compatibility on a collection
 		///  - Caller must be collection owner
-		#[pallet::weight(0)]
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::enable_nfi())]
 		pub fn enable_nfi(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -217,7 +222,8 @@ pub mod pallet {
 		/// that has had nfi enabled
 		/// Caller must be the owner of the token
 		/// Note. the mint fee will need to be paid for any manual request
-		#[pallet::weight(0)]
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::manual_data_request())]
 		pub fn manual_data_request(
 			origin: OriginFor<T>,
 			token_id: TokenId,
@@ -235,7 +241,8 @@ pub mod pallet {
 		/// submit NFI data to the chain
 		/// Caller must be the relayer
 		/// NFI must be enabled for the collection
-		#[pallet::weight(0)]
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::submit_nfi_data())]
 		pub fn submit_nfi_data(
 			origin: OriginFor<T>,
 			token_id: TokenId,
@@ -260,9 +267,7 @@ impl<T: Config> Pallet<T> {
 		token_count: TokenCount,
 		sub_type: NFISubType,
 	) -> DispatchResult {
-		let Some(fee_details) = MintFee::<T>::get(sub_type) else {
-			return Ok(())
-		};
+		let Some(fee_details) = MintFee::<T>::get(sub_type) else { return Ok(()) };
 		// Fee is per token minted
 		let total_fee: Balance = (token_count as u128).saturating_mul(fee_details.amount);
 		let mut total_fee_adjusted = total_fee;
@@ -277,7 +282,7 @@ impl<T: Config> Pallet<T> {
 				who,
 				&tx_fee_pot_id,
 				network_amount,
-				false,
+				Preservation::Expendable,
 			)?;
 		}
 
@@ -287,7 +292,7 @@ impl<T: Config> Pallet<T> {
 			who,
 			&fee_details.receiver,
 			total_fee_adjusted,
-			false,
+			Preservation::Expendable,
 		)?;
 
 		// Deposit event with total fee paid
