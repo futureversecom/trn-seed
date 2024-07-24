@@ -4,8 +4,7 @@ services:
   # seed --chain=dev --name=bootnode --validator --alice --tmp --max-parallel-downloads=3 --prometheus-external --rpc-max-connections=500 --unsafe-rpc-external --rpc-cors=all --rpc-port=9944
   bootnode:
     # image: "ghcr.io/futureversecom/seed:latest"
-    # image: "ghcr.io/futureversecom/seed:e8c571280-feat-substrate-v1-0-0"
-    image: "ghcr.io/futureversecom/seed:31a3dd226"
+    image: "ghcr.io/futureversecom/seed:8.55.0"
     # platform: linux/amd64
     restart: unless-stopped
     command:
@@ -64,13 +63,23 @@ services:
       - "9090:9090"
     depends_on:
       - bootnode
+  
+  # alertmanager:
+  #   image: prom/alertmanager:latest
+  #   restart: unless-stopped
+  #   # volumes:
+  #   #   - ${PWD}/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+  #   ports:
+  #     - "9093:9093"
+  #   depends_on:
+  #     - prometheus
 
   grafana:
     image: grafana/grafana:latest
     restart: unless-stopped
     volumes:
-      - ${PWD}/grafana.ini:/etc/grafana/grafana.ini:ro
-      - ${PWD}/grafana.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ${PWD}/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ${PWD}/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
     ports:
       - "3000:3000"
     depends_on:
