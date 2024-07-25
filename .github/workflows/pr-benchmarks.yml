@@ -73,7 +73,7 @@ jobs:
       #   uses: actions-rs/toolchain@v1
       #   with:
       #     profile: minimal
-      #     toolchain: nightly-2023-04-15
+      #     toolchain: nightly-2024-06-17
       #     components: rustfmq
       #     target: wasm32-unknown-unknown
       #     default: true
