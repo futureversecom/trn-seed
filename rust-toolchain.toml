@@ -1,4 +1,4 @@
 [toolchain]
 profile = "default" # include rustfmt, clippy
-channel = "stable-2024-07-21"
+channel = "1.80.0"
 targets = ["wasm32-unknown-unknown"]
