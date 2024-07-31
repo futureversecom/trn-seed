@@ -22,12 +22,11 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v3
-      - name: Install toolchain
-        run: |
-          rustup install stable 1.80.0
-          rustup override set stable
-          rustup target add wasm32-unknown-unknown
-          rustup show
+      - uses: dtolnay/rust-toolchain@1.80
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+          components: rustfmt
       - name: Format
         run: |
           cargo -V
