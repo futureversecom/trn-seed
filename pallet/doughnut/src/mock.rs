@@ -144,8 +144,9 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<TransactionValidity> {
 		match self {
-			RuntimeCall::Doughnut(ref call) =>
-				call.validate_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::Doughnut(ref call) => {
+				call.validate_self_contained(signed_info, dispatch_info, len)
+			},
 			_ => None,
 		}
 	}
@@ -157,8 +158,9 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
 		match self {
-			RuntimeCall::Doughnut(ref call) =>
-				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::Doughnut(ref call) => {
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len)
+			},
 			_ => None,
 		}
 	}

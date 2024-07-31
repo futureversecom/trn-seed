@@ -17,8 +17,8 @@ log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
-xrpl_binary_codec = { git = "https://github.com/futureversecom/xrpl-sdk-rust", branch = "once-cell-support", default-features = false, features = ["json"] }
-xrpl_types = { git = "https://github.com/futureversecom/xrpl-sdk-rust", branch = "once-cell-support", default-features = false }
+xrpl_binary_codec = { git = "https://github.com/futureversecom/xrpl-sdk-rust", default-features = false, features = ["json"] }
+xrpl_types = { git = "https://github.com/futureversecom/xrpl-sdk-rust", default-features = false }
 
 frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }

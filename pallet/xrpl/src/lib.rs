@@ -287,31 +287,31 @@ where
 		})?;
 
 	// check if genesis hash matches chain genesis hash
-	if <frame_system::Pallet<T>>::block_hash(BlockNumberFor::<T>::zero()).as_ref() !=
-		genesis_hash.as_ref()
+	if <frame_system::Pallet<T>>::block_hash(BlockNumberFor::<T>::zero()).as_ref()
+		!= genesis_hash.as_ref()
 	{
-		return Err("⛔️ genesis hash mismatch".into())
+		return Err("⛔️ genesis hash mismatch".into());
 	}
 
 	// check the call against hex encoded hashed (blake256) call
 	if sp_io::hashing::blake2_256(&call.encode()) != hashed_call {
-		return Err("⛔️ hashed call mismatch".into())
+		return Err("⛔️ hashed call mismatch".into());
 	}
 
 	// ensure inner nested call is not the same call
 	if let Some(Call::transact { .. }) = call.is_sub_type() {
-		return Err("⛔️ cannot nest transact call".into())
+		return Err("⛔️ cannot nest transact call".into());
 	}
 
 	if <frame_system::Pallet<T>>::block_number() > max_block_number.into() {
-		return Err("⛔️ max block number too low".into())
+		return Err("⛔️ max block number too low".into());
 	}
 
 	let success = tx
 		.verify_transaction(&signature)
 		.map_err(|e| alloc::format!("⛔️ failed to verify transaction: {:?}", e))?;
 	if !success {
-		return Err("⛔️ transaction verification unsuccessful".into())
+		return Err("⛔️ transaction verification unsuccessful".into());
 	}
 	Ok((nonce, tip))
 }
@@ -439,7 +439,7 @@ pub mod pallet {
 
 			// validate the inner call
 			if !T::CallValidator::check_extrinsic(&call, &()) {
-				return Err(Error::<T>::CallFiltered.into())
+				return Err(Error::<T>::CallFiltered.into());
 			}
 
 			let tx: XRPLTransaction = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())

@@ -188,7 +188,7 @@ where
 		// will be initiated by the executor which will fail.
 		// A workaround is to simply return Ok() if the value is 0, bypassing the actual transfer
 		if value == Self::Balance::default() {
-			return Ok(())
+			return Ok(());
 		}
 		C::transfer(from, to, scale_wei_to_6dp(value), req)
 	}
@@ -229,7 +229,7 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 	{
 		if let Some(author_index) = F::find_author(digests) {
 			if let Some(stash) = Session::validators().get(author_index as usize) {
-				return Some(Into::<H160>::into(*stash))
+				return Some(Into::<H160>::into(*stash));
 			}
 		}
 		None
@@ -251,7 +251,7 @@ where
 		if let Some(futurepass) =
 			pallet_futurepass::DefaultProxy::<Runtime>::get::<AccountId>(address.into())
 		{
-			return futurepass.into()
+			return futurepass.into();
 		}
 		address.into()
 	}
@@ -366,11 +366,11 @@ impl FinalSessionTracker for StakingSessionTracker {
 		// active era is one behind (i.e. in the *last session of the active era*, or *first session
 		// of the new current era*, depending on how you look at it).
 		if let Some(era_start_session_index) = Staking::eras_start_session_index(active_era) {
-			if Session::current_index() ==
-				era_start_session_index + SessionsPerEra::get().saturating_sub(1)
+			if Session::current_index()
+				== era_start_session_index + SessionsPerEra::get().saturating_sub(1)
 			{
 				// natural era rotation
-				return true
+				return true;
 			}
 		}
 
@@ -378,7 +378,7 @@ impl FinalSessionTracker for StakingSessionTracker {
 		return match Staking::force_era() {
 			Forcing::ForceNew | Forcing::ForceAlways => true,
 			Forcing::NotForcing | Forcing::ForceNone => false,
-		}
+		};
 	}
 }
 
@@ -395,15 +395,15 @@ impl EthereumEventRouterT for EthereumEventRouter {
 		if destination == &<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::address() {
 			<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::process_event(source, data)
 				.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
-		} else if destination ==
-			&<pallet_erc20_peg::Pallet<Runtime> as EthereumEventSubscriber>::address()
+		} else if destination
+			== &<pallet_erc20_peg::Pallet<Runtime> as EthereumEventSubscriber>::address()
 		{
 			<pallet_erc20_peg::Pallet<Runtime> as EthereumEventSubscriber>::process_event(
 				source, data,
 			)
 			.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
-		} else if destination ==
-			&<pallet_nft_peg::Pallet<Runtime> as EthereumEventSubscriber>::address()
+		} else if destination
+			== &<pallet_nft_peg::Pallet<Runtime> as EthereumEventSubscriber>::address()
 		{
 			<pallet_nft_peg::Pallet<Runtime> as EthereumEventSubscriber>::process_event(
 				source, data,
@@ -488,6 +488,8 @@ where
 pub struct MaintenanceModeCallValidator;
 impl seed_pallet_common::ExtrinsicChecker for MaintenanceModeCallValidator {
 	type Call = RuntimeCall;
+	type Extra = ();
+	type Result = bool;
 	fn check_extrinsic(call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
 		!pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(&call)
 	}
@@ -517,6 +519,8 @@ impl StaticLookup for FuturepassLookup {
 }
 impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {
 	type Call = <Runtime as frame_system::Config>::RuntimeCall;
+	type Extra = ();
+	type Result = bool;
 	fn check_extrinsic(call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
 		match call {
 			// Check for direct Futurepass proxy_extrinsic call
@@ -538,6 +542,8 @@ impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {
 pub struct FuturepassCallValidator;
 impl seed_pallet_common::ExtrinsicChecker for FuturepassCallValidator {
 	type Call = <Runtime as frame_system::Config>::RuntimeCall;
+	type Extra = ();
+	type Result = bool;
 	fn check_extrinsic(call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
 		matches!(call, RuntimeCall::Xrpl(pallet_xrpl::Call::transact { .. }))
 	}
@@ -731,19 +737,19 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 		call: &pallet_evm_precompiles_futurepass::EvmSubCall,
 		_recipient_has_code: bool,
 	) -> bool {
-		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_REGISTRAR_PRECOMPILE) ||
-			call.to.0.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX)
+		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_REGISTRAR_PRECOMPILE)
+			|| call.to.0.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX)
 		{
 			// Whitelist for precompile side
 			let sub_call_selector = &call.call_data.inner[..4];
-			if sub_call_selector ==
-				&keccak256!("registerDelegateWithSignature(address,uint8,uint32,bytes)")[..4] ||
-				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4] ||
-				sub_call_selector == &keccak256!("transferOwnership(address)")[..4]
+			if sub_call_selector
+				== &keccak256!("registerDelegateWithSignature(address,uint8,uint32,bytes)")[..4]
+				|| sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4]
+				|| sub_call_selector == &keccak256!("transferOwnership(address)")[..4]
 			{
-				return true
+				return true;
 			}
-			return false
+			return false;
 		}
 		match self {
 			ProxyType::Owner => true,
@@ -773,10 +779,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				c,
 				RuntimeCall::Futurepass(
 					pallet_futurepass::Call::register_delegate_with_signature { .. }
-				) | RuntimeCall::Futurepass(pallet_futurepass::Call::unregister_delegate { .. }) |
-					RuntimeCall::Futurepass(pallet_futurepass::Call::transfer_futurepass { .. })
+				) | RuntimeCall::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
+					| RuntimeCall::Futurepass(pallet_futurepass::Call::transfer_futurepass { .. })
 			) {
-				return false
+				return false;
 			}
 		}
 		match self {
@@ -828,7 +834,7 @@ where
 
 	fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
 		if fee.is_zero() {
-			return Ok(None)
+			return Ok(None);
 		}
 		let account_id = T::AddressMapping::into_account_id(*who);
 		let imbalance = C::withdraw(
@@ -869,9 +875,9 @@ where
 			// https://github.com/paritytech/substrate/issues/10117
 			// If we tried to refund something, the account still empty and the ED is set to 0,
 			// we call `make_free_balance_be` with the refunded amount.
-			let refund_imbalance = if C::minimum_balance().is_zero() &&
-				refund_amount > C::Balance::zero() &&
-				C::total_balance(&account_id).is_zero()
+			let refund_imbalance = if C::minimum_balance().is_zero()
+				&& refund_amount > C::Balance::zero()
+				&& C::total_balance(&account_id).is_zero()
 			{
 				// Known bug: Substrate tried to refund to a zeroed AccountData, but
 				// interpreted the account to not exist.
@@ -897,7 +903,7 @@ where
 			let (base_fee, tip) = adjusted_paid.split(base_fee_6dp);
 			// Handle base fee. Can be either burned, rationed, etc ...
 			OU::on_unbalanced(base_fee); // base_fee here is in 6DP
-			return Some(tip) // tip here is in 6DP
+			return Some(tip); // tip here is in 6DP
 		}
 		None
 	}
@@ -944,7 +950,7 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 		};
 
 		if pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(&actual_call) {
-			return Err(frame_system::Error::<Runtime>::CallFiltered.into())
+			return Err(frame_system::Error::<Runtime>::CallFiltered.into());
 		}
 
 		let CallMetadata { function_name, pallet_name } = actual_call.get_call_metadata();
@@ -1086,7 +1092,9 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutFuturepassLookup {
 				inner_call.as_ref(),
 				RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. })
 			) =>
-				Ok(()),
+			{
+				Ok(())
+			},
 			// All other cases
 			_ => Err(pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied.into()),
 		}
@@ -1102,7 +1110,7 @@ impl seed_pallet_common::ExtrinsicChecker for CrowdsaleProxyVaultValidator {
 	fn check_extrinsic(call: &Self::Call, _permission_object: &Self::Extra) -> Self::Result {
 		// check maintenance mode
 		if pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(&call) {
-			return Err(frame_system::Error::<Runtime>::CallFiltered.into())
+			return Err(frame_system::Error::<Runtime>::CallFiltered.into());
 		}
 
 		match call {

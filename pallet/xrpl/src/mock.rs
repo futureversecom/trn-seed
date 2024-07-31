@@ -112,6 +112,8 @@ impl StaticLookup for FuturepassIdentityLookup {
 }
 impl seed_pallet_common::ExtrinsicChecker for FuturepassIdentityLookup {
 	type Call = RuntimeCall;
+	type Extra = ();
+	type Result = bool;
 	fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
 		false
 	}
@@ -120,6 +122,8 @@ impl seed_pallet_common::ExtrinsicChecker for FuturepassIdentityLookup {
 pub struct ValidatedCall;
 impl seed_pallet_common::ExtrinsicChecker for ValidatedCall {
 	type Call = RuntimeCall;
+	type Extra = ();
+	type Result = bool;
 	fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
 		true
 	}
@@ -164,8 +168,9 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<TransactionValidity> {
 		match self {
-			RuntimeCall::Xrpl(ref call) =>
-				call.validate_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::Xrpl(ref call) => {
+				call.validate_self_contained(signed_info, dispatch_info, len)
+			},
 			_ => None,
 		}
 	}
@@ -177,8 +182,9 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
 		match self {
-			RuntimeCall::Xrpl(ref call) =>
-				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::Xrpl(ref call) => {
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len)
+			},
 			_ => None,
 		}
 	}

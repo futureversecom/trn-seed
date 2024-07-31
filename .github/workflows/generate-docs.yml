@@ -25,9 +25,9 @@ jobs:
         ref: ${{ github.ref_name }}
         fetch-depth: 0
 
-    - uses: dtolnay/rust-toolchain@1.81
+    - uses: dtolnay/rust-toolchain@1.80
       with:
-        toolchain: nightly
+        toolchain: stable
         targets: wasm32-unknown-unknown
 
     - name: Generate Documentation
