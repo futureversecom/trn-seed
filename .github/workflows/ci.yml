@@ -26,6 +26,7 @@ jobs:
         run: |
           rustup install stable 1.80.0
           rustup override set stable
+          rustup target add wasm32-unknown-unknown
           rustup show
       - name: Format
         run: |
