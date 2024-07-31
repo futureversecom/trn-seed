@@ -260,7 +260,7 @@ impl<T: Config> Pallet<T> {
 	pub fn pay_xls20_fee(who: &T::AccountId, token_count: TokenCount) -> DispatchResult {
 		let xls20_mint_fee = Xls20MintFee::<T>::get();
 		if xls20_mint_fee.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 		if let Some(relayer) = Relayer::<T>::get() {
 			// Fee is per token minted

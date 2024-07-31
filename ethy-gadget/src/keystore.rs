@@ -42,7 +42,7 @@ impl EthyKeystore {
 
 		for key in keys {
 			if Keystore::has_keys(&*store, &[(key.to_raw_vec(), ETHY_KEY_TYPE)]) {
-				return Some(key.clone())
+				return Some(key.clone());
 			}
 		}
 

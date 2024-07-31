@@ -77,7 +77,7 @@ where
 			};
 
 			if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
-				return Err(err.into())
+				return Err(err.into());
 			}
 
 			match selector {
@@ -85,7 +85,7 @@ where
 				Action::Erc721Withdraw => Self::erc721_withdraw(handle),
 			}
 		};
-		return result
+		return result;
 	}
 }
 
@@ -128,7 +128,7 @@ where
 		.ok_or_else(|| revert("PEG: Invalid asset address"))?;
 		// Parse balance
 		if amount > Balance::MAX.into() {
-			return Err(revert("PEG: Expected balance <= 2^128").into())
+			return Err(revert("PEG: Expected balance <= 2^128").into());
 		}
 		let amount: Balance = amount.saturated_into();
 
@@ -252,7 +252,7 @@ where
 				alloc::format!("PEG: Erc721Withdraw failed {:?}", err.stripped())
 					.as_bytes()
 					.to_vec(),
-			))
+			));
 		};
 		let event_proof_id = maybe_event_proof_id.unwrap();
 
@@ -282,7 +282,7 @@ where
 			.into_iter()
 			.map(|serial_number| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("PEG: Expected serial_number <= 2^128").into())
+					return Err(revert("PEG: Expected serial_number <= 2^128").into());
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				Ok(serial_number)

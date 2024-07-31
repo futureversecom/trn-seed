@@ -74,18 +74,18 @@ pub type XRPLValidations<T> = (
 pub type EOANonceValidation<T> = (CheckNonce<T>,);
 
 impl<T> Call<T>
-	where
-		T: Send + Sync + Config,
-		<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-		<T as frame_system::Config>::Nonce: Into<u32>,
-		T::AccountId: From<H160>,
-		T: pallet_transaction_payment::Config,
-		<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance: Send + Sync + FixedPointOperand + From<u64>,
-		<T as frame_system::Config>::RuntimeCall: From<<T as Config>::RuntimeCall>,
-		PostDispatchInfo: From<<<T as Config>::RuntimeCall as Dispatchable>::PostInfo>,
-		<T as frame_system::Config>::Nonce: From<u32>,
+where
+	T: Send + Sync + Config,
+	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	<T as frame_system::Config>::Nonce: Into<u32>,
+	T::AccountId: From<H160>,
+	T: pallet_transaction_payment::Config,
+	<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance:
+		Send + Sync + FixedPointOperand + From<u64>,
+	<T as frame_system::Config>::RuntimeCall: From<<T as Config>::RuntimeCall>,
+	PostDispatchInfo: From<<<T as Config>::RuntimeCall as Dispatchable>::PostInfo>,
+	<T as frame_system::Config>::Nonce: From<u32>,
 {
-
 	pub fn is_self_contained(&self) -> bool {
 		matches!(self, Call::transact { .. })
 	}
@@ -96,11 +96,10 @@ impl<T> Call<T>
 	pub fn check_self_contained(&self) -> Option<Result<H160, TransactionValidityError>> {
 		if let Call::transact { encoded_msg, call, .. } = self {
 			let check = || {
-				let tx: XRPLTransaction = XRPLTransaction::try_from(encoded_msg.as_bytes_ref())
-					.map_err(|e| {
-						log!(info, "⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
-						InvalidTransaction::Call
-					})?;
+				let tx: XRPLTransaction = XRPLTransaction::try_from(encoded_msg.as_bytes_ref()).map_err(|e| {
+					log!(info, "⛔️ failed to convert encoded_msg to XRPLTransaction: {:?}", e);
+					InvalidTransaction::Call
+				})?;
 				let origin = tx.get_account().map_err(|e| {
 					log!(info, "⛔️ failed to extract account from memo data: {:?}, err: {:?}", tx.account, e);
 					InvalidTransaction::Call
@@ -184,9 +183,8 @@ impl<T> Call<T>
 			let priority = ChargeTransactionPayment::<T>::get_priority(&dispatch_info, len, tip.into(), 0.into());
 			let who: T::AccountId = (tx_origin).clone().into();
 			let account = frame_system::Account::<T>::get(who);
-			let mut builder = ValidTransactionBuilder::default()
-				.and_provides((tx_origin.clone(), nonce))
-				.priority(priority);
+			let mut builder =
+				ValidTransactionBuilder::default().and_provides((tx_origin.clone(), nonce)).priority(priority);
 
 			// in the context of the pool, a transaction with too high a nonce is still considered valid
 			if nonce > account.nonce.into() {
@@ -229,7 +227,9 @@ impl<T> Call<T>
 			let mut tx_origin = T::AccountId::from(*info);
 
 			// Pre Dispatch - execute signed extensions with inner call
-			let pre = SignedExtension::pre_dispatch(validations, &tx_origin, &(*call.clone()).into(), dispatch_info, len).ok()?;
+			let pre =
+				SignedExtension::pre_dispatch(validations, &tx_origin, &(*call.clone()).into(), dispatch_info, len)
+					.ok()?;
 
 			// Pre Dispatch - execute signed extensions with EOA - for futurepass based transactions
 			if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call, &()) {
@@ -257,9 +257,10 @@ impl<T> Call<T>
 				&post_info.into(),
 				len,
 				&res.map(|_| ()).map_err(|e| e.error),
-			).ok()?;
+			)
+			.ok()?;
 
-			return Some(res)
+			return Some(res);
 		}
 		None
 	}

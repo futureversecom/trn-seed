@@ -529,10 +529,12 @@ impl seed_pallet_common::ExtrinsicChecker for FuturepassLookup {
 			RuntimeCall::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
 				call: inner_call,
 				..
-			}) => matches!(
-				inner_call.as_ref(),
-				RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. })
-			),
+			}) => {
+				matches!(
+					inner_call.as_ref(),
+					RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic { .. })
+				)
+			},
 			// All other cases
 			_ => false,
 		}

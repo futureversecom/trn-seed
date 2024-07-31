@@ -67,7 +67,7 @@ where
 				Action::Create => FunctionModifier::NonPayable,
 				Action::FuturepassOf => FunctionModifier::View,
 			}) {
-				return Err(err.into())
+				return Err(err.into());
 			}
 
 			match selector {
@@ -75,7 +75,7 @@ where
 				Action::Create => Self::create_futurepass(handle),
 			}
 		};
-		return result
+		return result;
 	}
 }
 

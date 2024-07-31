@@ -42,7 +42,7 @@ pub const SELECTOR_LOG_SWAP: [u8; 32] =
 /// Saturated conversion from EVM uint256 to Balance
 fn saturated_convert_balance(input: U256) -> Result<Balance, PrecompileFailure> {
 	if input > Balance::MAX.into() {
-		return Err(revert("DEX: Input number exceeds the Balance type boundary (2^128)").into())
+		return Err(revert("DEX: Input number exceeds the Balance type boundary (2^128)").into());
 	}
 	Ok(input.saturated_into())
 }
@@ -50,7 +50,7 @@ fn saturated_convert_balance(input: U256) -> Result<Balance, PrecompileFailure> 
 /// Saturated conversion from EVM uint256 to Blocknumber
 fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileFailure> {
 	if input > BlockNumber::MAX.into() {
-		return Err(revert("DEX: Input number exceeds the BlockNumber type boundary (2^32)").into())
+		return Err(revert("DEX: Input number exceeds the BlockNumber type boundary (2^32)").into());
 	}
 	Ok(input.saturated_into())
 }
@@ -106,19 +106,19 @@ where
 			};
 
 			if let Err(err) = handle.check_function_modifier(match selector {
-				Action::AddLiquidity |
-				Action::RemoveLiquidity |
-				Action::RemoveLiquidityETH |
-				Action::SwapExactTokensForTokens |
-				Action::SwapTokensForExactTokens |
-				Action::SwapTokensForExactETH |
-				Action::SwapExactTokensForETH => FunctionModifier::NonPayable,
-				Action::AddLiquidityETH |
-				Action::SwapExactETHForTokens |
-				Action::SwapETHForExactTokens => FunctionModifier::Payable,
+				Action::AddLiquidity
+				| Action::RemoveLiquidity
+				| Action::RemoveLiquidityETH
+				| Action::SwapExactTokensForTokens
+				| Action::SwapTokensForExactTokens
+				| Action::SwapTokensForExactETH
+				| Action::SwapExactTokensForETH => FunctionModifier::NonPayable,
+				Action::AddLiquidityETH
+				| Action::SwapExactETHForTokens
+				| Action::SwapETHForExactTokens => FunctionModifier::Payable,
 				_ => FunctionModifier::View,
 			}) {
-				return Err(err.into())
+				return Err(err.into());
 			}
 
 			match selector {
@@ -139,7 +139,7 @@ where
 				Action::GetAmountsOut => Self::get_amounts_out(handle),
 			}
 		};
-		return result
+		return result;
 	}
 }
 

@@ -95,7 +95,7 @@ impl<T: Config> ListingTokens<T> {
 	/// Throws an error if owner does not own all tokens
 	pub fn lock_tokens(&self, owner: &T::AccountId, listing_id: ListingId) -> DispatchResult {
 		match self {
-			ListingTokens::Nft(nfts) =>
+			ListingTokens::Nft(nfts) => {
 				for serial_number in nfts.serial_numbers.iter() {
 					let token_id = (nfts.collection_id, *serial_number);
 					T::NFTExt::set_token_lock(
@@ -103,12 +103,14 @@ impl<T: Config> ListingTokens<T> {
 						TokenLockReason::Listed(listing_id),
 						*owner,
 					)?;
-				},
-			ListingTokens::Sft(sfts) =>
+				}
+			},
+			ListingTokens::Sft(sfts) => {
 				for (serial_number, balance) in sfts.serial_numbers.iter() {
 					let token_id = (sfts.collection_id, *serial_number);
 					T::SFTExt::reserve_balance(token_id, *balance, owner)?;
-				},
+				}
+			},
 		}
 		Ok(())
 	}
@@ -116,16 +118,18 @@ impl<T: Config> ListingTokens<T> {
 	/// Removes all token locks and reservations for tokens included in a listing
 	pub fn unlock_tokens(&self, owner: &T::AccountId) -> DispatchResult {
 		match self {
-			ListingTokens::Nft(nfts) =>
+			ListingTokens::Nft(nfts) => {
 				for serial_number in nfts.serial_numbers.iter() {
 					let token_id = (nfts.collection_id, *serial_number);
 					T::NFTExt::remove_token_lock(token_id);
-				},
-			ListingTokens::Sft(sfts) =>
+				}
+			},
+			ListingTokens::Sft(sfts) => {
 				for (serial_number, balance) in sfts.serial_numbers.iter() {
 					let token_id = (sfts.collection_id, *serial_number);
 					T::SFTExt::free_reserved_balance(token_id, *balance, owner)?;
-				},
+				}
+			},
 		}
 		Ok(())
 	}

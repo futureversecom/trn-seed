@@ -269,19 +269,19 @@ impl<T: Config> Pallet<T> {
 	/// These will be checked in the call filter to allow these pallet calls to be executed
 	fn is_pallet_blockable(pallet_name: &str) -> bool {
 		if pallet_name == <Self as PalletInfoAccess>::name().to_ascii_lowercase() {
-			return false
+			return false;
 		}
 		if pallet_name == T::SudoPallet::name().to_ascii_lowercase() {
-			return false
+			return false;
 		}
 		if pallet_name == T::TimestampPallet::name().to_ascii_lowercase() {
-			return false
+			return false;
 		}
 		if pallet_name == T::ImOnlinePallet::name().to_ascii_lowercase() {
-			return false
+			return false;
 		}
 		if pallet_name == T::EthyPallet::name().to_ascii_lowercase() {
-			return false
+			return false;
 		}
 		true
 	}
@@ -306,7 +306,7 @@ where
 
 		// Ensure this pallet is not part of the excluded pallets specified in Config
 		if !Pallet::<T>::is_pallet_blockable(&pallet_name.to_ascii_lowercase()) {
-			return false
+			return false;
 		}
 
 		let pallet_name = BoundedVec::truncate_from(pallet_name.as_bytes().to_ascii_lowercase());
@@ -315,15 +315,15 @@ where
 
 		// Check whether call is blocked
 		if BlockedCalls::<T>::contains_key((pallet_name.clone(), function_name)) {
-			return true
+			return true;
 		}
 
 		// Check whether pallet is blocked
 		if BlockedPallets::<T>::contains_key(pallet_name) {
-			return true
+			return true;
 		}
 
-		return false
+		return false;
 	}
 }
 
@@ -331,26 +331,26 @@ impl<T: frame_system::Config + Config> MaintenanceCheckEVM<T> for MaintenanceChe
 	fn validate_evm_call(signer: &<T as frame_system::Config>::AccountId, target: &H160) -> bool {
 		// Check if we are in maintenance mode
 		if MaintenanceModeActive::<T>::get() {
-			return false
+			return false;
 		}
 		if BlockedAccounts::<T>::contains_key(signer) {
-			return false
+			return false;
 		}
 		if BlockedEVMAddresses::<T>::contains_key(target) {
-			return false
+			return false;
 		}
-		return true
+		return true;
 	}
 
 	fn validate_evm_create(signer: &<T as frame_system::Config>::AccountId) -> bool {
 		// Check if we are in maintenance mode
 		if MaintenanceModeActive::<T>::get() {
-			return false
+			return false;
 		}
 		if BlockedAccounts::<T>::contains_key(signer) {
-			return false
+			return false;
 		}
-		return true
+		return true;
 	}
 }
 
@@ -381,16 +381,16 @@ where
 
 		// Ensure this pallet is not part of the excluded pallets specified in Config
 		if !Pallet::<T>::is_pallet_blockable(&pallet_name) {
-			return Ok(ValidTransaction::default())
+			return Ok(ValidTransaction::default());
 		}
 
 		// Check if we are in maintenance mode
 		if <MaintenanceModeActive<T>>::get() {
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(1)))
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(1)));
 		}
 
 		if BlockedAccounts::<T>::contains_key(who) {
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(2)))
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(2)));
 		}
 
 		Ok(ValidTransaction::default())

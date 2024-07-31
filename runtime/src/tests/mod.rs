@@ -260,8 +260,9 @@ pub fn sign_xt(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
 
 			fp_self_contained::UncheckedExtrinsic::new_signed(func, signed, signature.into(), extra)
 		},
-		fp_self_contained::CheckedSignature::Unsigned =>
-			fp_self_contained::UncheckedExtrinsic::new_unsigned(xt.function),
+		fp_self_contained::CheckedSignature::Unsigned => {
+			fp_self_contained::UncheckedExtrinsic::new_unsigned(xt.function)
+		},
 		_ => unimplemented!(),
 	}
 }
@@ -354,8 +355,8 @@ impl TxBuilder {
 			chain_id: EVMChainId::get(),
 			nonce: U256::zero(),
 			max_priority_fee_per_gas: U256::from(MAX_PRIORITY_FEE_PER_GAS),
-			max_fee_per_gas: FeeControl::base_fee_per_gas() * 2 +
-				U256::from(MAX_PRIORITY_FEE_PER_GAS),
+			max_fee_per_gas: FeeControl::base_fee_per_gas() * 2
+				+ U256::from(MAX_PRIORITY_FEE_PER_GAS),
 			gas_limit: U256::from(BASE_TX_GAS_COST),
 			action,
 			value: U256::zero(),

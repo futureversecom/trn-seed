@@ -159,23 +159,23 @@ where
 					};
 
 					if let Err(err) = handle.check_function_modifier(match selector {
-						Action::Approve |
-						Action::SafeTransferFrom |
-						Action::TransferFrom |
-						Action::SafeTransferFromCallData |
-						Action::SetApprovalForAll |
-						Action::SetMaxSupply |
-						Action::RenounceOwnership |
-						Action::TransferOwnership |
-						Action::SetBaseURI |
-						Action::EnableXls20Compatibility |
-						Action::ReRequestXls20Mint |
-						Action::TogglePublicMint |
-						Action::SetMintFee |
-						Action::Mint => FunctionModifier::NonPayable,
+						Action::Approve
+						| Action::SafeTransferFrom
+						| Action::TransferFrom
+						| Action::SafeTransferFromCallData
+						| Action::SetApprovalForAll
+						| Action::SetMaxSupply
+						| Action::RenounceOwnership
+						| Action::TransferOwnership
+						| Action::SetBaseURI
+						| Action::EnableXls20Compatibility
+						| Action::ReRequestXls20Mint
+						| Action::TogglePublicMint
+						| Action::SetMintFee
+						| Action::Mint => FunctionModifier::NonPayable,
 						_ => FunctionModifier::View,
 					}) {
-						return Some(Err(err.into()))
+						return Some(Err(err.into()));
 					}
 
 					match selector {
@@ -186,22 +186,27 @@ where
 						Action::GetApproved => Self::get_approved(collection_id, handle),
 						Action::TransferFrom => Self::transfer_from(collection_id, handle),
 						Action::SafeTransferFrom => Self::safe_transfer_from(collection_id, handle),
-						Action::SafeTransferFromCallData =>
-							Self::safe_transfer_from_call_data(collection_id, handle),
-						Action::IsApprovedForAll =>
-							Self::is_approved_for_all(collection_id, handle),
-						Action::SetApprovalForAll =>
-							Self::set_approval_for_all(collection_id, handle),
+						Action::SafeTransferFromCallData => {
+							Self::safe_transfer_from_call_data(collection_id, handle)
+						},
+						Action::IsApprovedForAll => {
+							Self::is_approved_for_all(collection_id, handle)
+						},
+						Action::SetApprovalForAll => {
+							Self::set_approval_for_all(collection_id, handle)
+						},
 						// ERC721-Metadata
 						Action::Name => Self::name(collection_id, handle),
 						Action::Symbol => Self::symbol(collection_id, handle),
 						Action::TokenURI => Self::token_uri(collection_id, handle),
 						// Ownable
 						Action::Owner => Self::owner(collection_id, handle),
-						Action::RenounceOwnership =>
-							Self::renounce_ownership(collection_id, handle),
-						Action::TransferOwnership =>
-							Self::transfer_ownership(collection_id, handle),
+						Action::RenounceOwnership => {
+							Self::renounce_ownership(collection_id, handle)
+						},
+						Action::TransferOwnership => {
+							Self::transfer_ownership(collection_id, handle)
+						},
 						// Burnable
 						Action::Burn => Self::burn(collection_id, handle),
 						// The Root Network extensions
@@ -213,14 +218,16 @@ where
 						Action::TogglePublicMint => Self::toggle_public_mint(collection_id, handle),
 						Action::SetMintFee => Self::set_mint_fee(collection_id, handle),
 						// XLS-20 extensions
-						Action::EnableXls20Compatibility =>
-							Self::enable_xls20_compatibility(collection_id, handle),
-						Action::ReRequestXls20Mint =>
-							Self::re_request_xls20_mint(collection_id, handle),
+						Action::EnableXls20Compatibility => {
+							Self::enable_xls20_compatibility(collection_id, handle)
+						},
+						Action::ReRequestXls20Mint => {
+							Self::re_request_xls20_mint(collection_id, handle)
+						},
 						_ => return Some(Err(revert("ERC721: Function not implemented").into())),
 					}
 				};
-				return Some(result)
+				return Some(result);
 			}
 		}
 		None
@@ -281,7 +288,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -341,7 +348,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -367,7 +374,7 @@ where
 				},
 			)?;
 		} else {
-			return Err(revert("ERC721: Caller not approved").into())
+			return Err(revert("ERC721: Caller not approved").into());
 		}
 
 		let serial_number = H256::from_low_u64_be(serial_number as u64);
@@ -431,7 +438,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		let token_id: TokenId = (collection_id, serial_number);
@@ -442,7 +449,7 @@ where
 			token_id,
 			Runtime::AccountId::from(handle.context().caller),
 		) {
-			return Err(revert("ERC721: Caller not approved").into())
+			return Err(revert("ERC721: Caller not approved").into());
 		}
 
 		// Check that target implements onERC721Received
@@ -471,11 +478,12 @@ where
 					if output[..4] != ON_ERC721_RECEIVED_FUNCTION_SELECTOR.to_vec() {
 						return Err(
 							revert("ERC721: transfer to non ERC721Receiver implementer").into()
-						)
+						);
 					}
 				},
-				_ =>
-					return Err(revert("ERC721: transfer to non ERC721Receiver implementer").into()),
+				_ => {
+					return Err(revert("ERC721: transfer to non ERC721Receiver implementer").into())
+				},
 			};
 		}
 
@@ -524,7 +532,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -567,7 +575,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -651,8 +659,9 @@ where
 					.write::<Bytes>(collection_info.name.as_slice().into())
 					.build(),
 			)),
-			None =>
-				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec())),
+			None => {
+				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec()))
+			},
 		}
 	}
 
@@ -670,8 +679,9 @@ where
 					.write::<Bytes>(collection_info.name.as_slice().into())
 					.build(),
 			)),
-			None =>
-				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec())),
+			None => {
+				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec()))
+			},
 		}
 	}
 
@@ -686,7 +696,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -715,8 +725,9 @@ where
 					.write::<U256>(collection_info.collection_issuance.into())
 					.build(),
 			)),
-			None =>
-				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec())),
+			None => {
+				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec()))
+			},
 		}
 	}
 
@@ -738,7 +749,7 @@ where
 
 		// Parse quantity
 		if quantity > TokenCount::MAX.into() {
-			return Err(revert("ERC721: Expected quantity <= 2^32").into())
+			return Err(revert("ERC721: Expected quantity <= 2^32").into());
 		}
 		let quantity: TokenCount = quantity.saturated_into();
 		let origin = handle.context().caller;
@@ -790,7 +801,7 @@ where
 
 		// Parse max_supply
 		if max_supply > TokenCount::MAX.into() {
-			return Err(revert("ERC721: Expected max_supply <= 2^32").into())
+			return Err(revert("ERC721: Expected max_supply <= 2^32").into());
 		}
 		let max_issuance: TokenCount = max_supply.saturated_into();
 		let origin = handle.context().caller;
@@ -854,11 +865,11 @@ where
 		// Parse inputs
 		let owner: H160 = owner.into();
 		if limit > u16::MAX.into() {
-			return Err(revert("ERC721: Expected limit <= 2^32").into())
+			return Err(revert("ERC721: Expected limit <= 2^32").into());
 		}
 		let limit: u16 = limit.saturated_into();
 		if cursor > SerialNumber::MAX.into() {
-			return Err(revert("ERC721: Expected cursor <= 2^32").into())
+			return Err(revert("ERC721: Expected cursor <= 2^32").into());
 		}
 		let cursor: SerialNumber = cursor.saturated_into();
 
@@ -921,7 +932,7 @@ where
 		)
 		.ok_or_else(|| revert("ERC721: Invalid payment asset address"))?;
 		if mint_fee > Balance::MAX.into() {
-			return Err(revert("ERC721: Expected mint_fee <= 2^128").into())
+			return Err(revert("ERC721: Expected mint_fee <= 2^128").into());
 		}
 		let fee: Balance = mint_fee.saturated_into();
 		// If the mint fee is 0, we can assume this means no mint fee
@@ -963,8 +974,9 @@ where
 					.write(Address::from(Into::<H160>::into(collection_info.owner)))
 					.build(),
 			)),
-			None =>
-				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec())),
+			None => {
+				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec()))
+			},
 		}
 	}
 
@@ -1039,7 +1051,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		let token_id: TokenId = (collection_id, serial_number);
@@ -1051,7 +1063,7 @@ where
 			token_id,
 			Runtime::AccountId::from(origin),
 		) {
-			return Err(revert("ERC721: Caller not approved").into())
+			return Err(revert("ERC721: Caller not approved").into());
 		}
 
 		// Get token owner and call burn from the owner address
@@ -1119,7 +1131,7 @@ where
 		let mut serial_numbers_unbounded: Vec<SerialNumber> = vec![];
 		for serial_number in serial_numbers {
 			if serial_number > u32::MAX.into() {
-				return Err(revert("XLS20: Expected serial_number <= 2^32").into())
+				return Err(revert("XLS20: Expected serial_number <= 2^32").into());
 			}
 			serial_numbers_unbounded.push(serial_number.saturated_into())
 		}

@@ -69,9 +69,9 @@ fn deposit_max_tokens(owner: AccountId) {
 		}
 
 		let token_ids =
-		    BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::truncate_from(
-			    vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::truncate_from(token_ids)],
-		    );
+			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::truncate_from(vec![
+				BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::truncate_from(token_ids),
+			]);
 
 		let token_information = GroupedTokenInfo::new(token_ids, token_addresses.clone(), owner);
 

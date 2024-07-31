@@ -73,14 +73,14 @@ where
 			};
 
 			if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
-				return Err(err.into())
+				return Err(err.into());
 			}
 
 			match selector {
 				Action::InitializeCollection => Self::initialize_collection(handle),
 			}
 		};
-		return result
+		return result;
 	}
 }
 
@@ -133,7 +133,7 @@ where
 		if royalty_addresses.len() != royalty_entitlements.len() {
 			return Err(
 				revert("SFT: Royalty addresses and entitlements must be the same length").into()
-			)
+			);
 		}
 		let royalty_entitlements = royalty_entitlements.into_iter().map(|entitlement| {
 			let entitlement: u32 = entitlement.saturated_into();
