@@ -23,7 +23,9 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3
       - name: Install toolchain
-        run: rustup show
+        run: |
+          rustup override set stable
+          rustup show
       - name: Format
         run: |
           cargo -V
