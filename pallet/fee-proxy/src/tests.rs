@@ -335,7 +335,7 @@ mod get_fee_preferences_data {
 				Ok(FeePreferencesData {
 					total_fee_scaled: expected_fee_scaled,
 					path: expected_path,
-					max_fee_scaled,
+					max_fee_scaled
 				})
 			);
 		});

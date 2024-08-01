@@ -90,20 +90,20 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	/// - not overcommitted (> 100%)
 	/// - < MAX_ENTITLEMENTS
 	pub fn validate(&self) -> bool {
-		!self.entitlements.is_empty() &&
-			self.entitlements.len() <= MAX_ENTITLEMENTS as usize &&
-			self.entitlements
+		!self.entitlements.is_empty()
+			&& self.entitlements.len() <= MAX_ENTITLEMENTS as usize
+			&& self
+				.entitlements
 				.iter()
 				.map(|(_who, share)| share.deconstruct() as u32)
-				.sum::<u32>() <=
-				Permill::ACCURACY
+				.sum::<u32>() <= Permill::ACCURACY
 	}
 	/// Calculate the total % entitled for royalties
 	/// It will return `0` if the `entitlements` are overcommitted
 	pub fn calculate_total_entitlement(&self) -> Permill {
 		// if royalties are in a strange state
 		if !self.validate() {
-			return Permill::zero()
+			return Permill::zero();
 		}
 		Permill::from_parts(
 			self.entitlements.iter().map(|(_who, share)| share.deconstruct()).sum::<u32>(),

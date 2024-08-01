@@ -272,7 +272,7 @@ impl<T: Config> Pallet<T> {
 		// Check if spender is owner
 		let token_owner = T::NFTExt::get_token_owner(&token_id);
 		if Some(spender.clone()) == token_owner {
-			return true
+			return true;
 		}
 
 		// Check approvalForAll
@@ -280,7 +280,7 @@ impl<T: Config> Pallet<T> {
 			if Self::erc721_approvals_for_all(owner, (token_id.0, spender.clone()))
 				.unwrap_or_default()
 			{
-				return true
+				return true;
 			}
 		}
 

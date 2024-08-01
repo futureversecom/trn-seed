@@ -41,8 +41,9 @@ pub fn is_precompile<P: PrecompileSet>(
 ) -> EvmResult<bool> {
 	match precompile_set.is_precompile(address, remaining_gas) {
 		IsPrecompileResult::Answer { is_precompile, .. } => Ok(is_precompile),
-		IsPrecompileResult::OutOfGas =>
-			Err(PrecompileFailure::Error { exit_status: ExitError::OutOfGas }),
+		IsPrecompileResult::OutOfGas => {
+			Err(PrecompileFailure::Error { exit_status: ExitError::OutOfGas })
+		},
 	}
 }
 
@@ -164,12 +165,12 @@ where
 
 		// Check if this is the address of the precompile.
 		if A::get() != code_address {
-			return None
+			return None;
 		}
 
 		// Check DELEGATECALL config.
 		if !D::allow_delegate_call() && code_address != handle.context().address {
-			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE")))
+			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE")));
 		}
 
 		// Check and increase recursion level if needed.
@@ -177,9 +178,9 @@ where
 			match self.current_recursion_level.try_borrow_mut() {
 				Ok(mut recursion_level) => {
 					if *recursion_level > max_recursion_level {
-						return Some(
-							Err(revert("Precompile is called with too high nesting").into()),
-						)
+						return Some(Err(
+							revert("Precompile is called with too high nesting").into()
+						));
 					}
 
 					*recursion_level += 1;
@@ -251,12 +252,12 @@ where
 
 		// Check if this is the address of the precompile.
 		if A::get() != code_address {
-			return None
+			return None;
 		}
 
 		// Check DELEGATECALL config.
 		if !D::allow_delegate_call() && code_address != handle.context().address {
-			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE").into()))
+			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE").into()));
 		}
 
 		// Check and increase recursion level if needed.
@@ -264,9 +265,9 @@ where
 			match self.current_recursion_level.try_borrow_mut() {
 				Ok(mut recursion_level) => {
 					if *recursion_level > max_recursion_level {
-						return Some(
-							Err(revert("Precompile is called with too high nesting").into()),
-						)
+						return Some(Err(
+							revert("Precompile is called with too high nesting").into()
+						));
 					}
 
 					*recursion_level += 1;
@@ -337,12 +338,12 @@ where
 		let code_address = handle.code_address();
 
 		if !is_precompile(&self.precompile_set, code_address, handle.remaining_gas()).ok()? {
-			return None
+			return None;
 		}
 
 		// Check DELEGATECALL config.
 		if !D::allow_delegate_call() && code_address != handle.context().address {
-			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE")))
+			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE")));
 		}
 
 		// Check and increase recursion level if needed.
@@ -352,7 +353,7 @@ where
 					let recursion_level = recursion_level_map.entry(code_address).or_insert(0);
 
 					if *recursion_level > max_recursion_level {
-						return Some(Err(revert("Precompile is called with too high nesting")))
+						return Some(Err(revert("Precompile is called with too high nesting")));
 					}
 
 					*recursion_level += 1;

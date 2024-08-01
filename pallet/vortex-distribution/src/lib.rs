@@ -442,7 +442,7 @@ pub mod pallet {
 				while let Some((who, entry)) = map_iterator.next() {
 					// if the user is already paid out, skip
 					if entry.1 {
-						continue
+						continue;
 					}
 
 					let share = entry.0;
@@ -466,7 +466,7 @@ pub mod pallet {
 					});
 					count += 1;
 					if count > T::PayoutBatchSize::get() {
-						break
+						break;
 					}
 				}
 				let current_last_raw_key: BoundedVec<u8, T::MaxStringLength> =
@@ -599,8 +599,8 @@ pub mod pallet {
 			let vortex_balance = vortex_token_amount;
 			ensure!(total_vortex > Zero::zero(), Error::<T>::NoVtxAssetMinted);
 			ensure!(
-				vortex_balance > Zero::zero() &&
-					vortex_balance <= T::MultiCurrency::balance(T::VtxAssetId::get(), &who),
+				vortex_balance > Zero::zero()
+					&& vortex_balance <= T::MultiCurrency::balance(T::VtxAssetId::get(), &who),
 				Error::<T>::InvalidAmount
 			);
 			ensure!(
@@ -640,7 +640,7 @@ pub mod pallet {
 					// Let's make sure to reject transactions from the future.
 					let _current_block = <frame_system::Pallet<T>>::block_number();
 					if &_current_block < current_block {
-						return InvalidTransaction::Future.into()
+						return InvalidTransaction::Future.into();
 					}
 					ValidTransaction::with_tag_prefix("VtxDistChainWorker")
 						.priority(VTX_DIST_UNSIGNED_PRIORITY)
@@ -748,11 +748,11 @@ pub mod pallet {
 		/// offchain worker for unsigned tx
 		fn vtx_dist_offchain_worker(now: BlockNumberFor<T>) -> Result<(), OffchainErr> {
 			if !sp_io::offchain::is_validator() {
-				return Err(OffchainErr::NotAValidator)
+				return Err(OffchainErr::NotAValidator);
 			}
 			let next_unsigned_at = <NextUnsignedAt<T>>::get();
 			if next_unsigned_at > now {
-				return Err(OffchainErr::TooEarly)
+				return Err(OffchainErr::TooEarly);
 			}
 
 			for (id, vtx_dist_status) in VtxDistStatuses::<T>::iter() {
@@ -779,7 +779,7 @@ pub mod pallet {
 			_keep_live: bool,
 		) -> DispatchResult {
 			if amount == Zero::zero() {
-				return Ok(())
+				return Ok(());
 			}
 			let transfer_result = T::MultiCurrency::transfer(
 				asset_id,

@@ -112,7 +112,11 @@ impl<T: Config> OnUnbalanced<FeePositiveImbalanceOf<T>> for Pallet<T> {
 		) {
 			// tx fee pot did not have enough to reward the amount, this should not happen...
 			// there's no way to error out here, just log it
-			log!(error, "💸 era payout was underfunded, please open an issue at https://github.com/futureversecom/seed: {:?}", total_rewarded.peek())
+			log!(
+				error,
+				"💸 era payout was underfunded, please open an issue at https://github.com/futureversecom/seed: {:?}",
+				total_rewarded.peek()
+			)
 		}
 	}
 }
@@ -146,7 +150,11 @@ impl<T: Config> OnUnbalanced<StakePositiveImbalanceOf<T>> for Pallet<T> {
 		) {
 			// tx fee pot did not have enough to reward the amount, this should not happen...
 			// there's no way to error out here, just log it
-			log!(error, "💸 era payout was underfunded, please open an issue at https://github.com/futureversecom/seed: {:?}", total_rewarded.peek())
+			log!(
+				error,
+				"💸 era payout was underfunded, please open an issue at https://github.com/futureversecom/seed: {:?}",
+				total_rewarded.peek()
+			)
 		}
 	}
 }

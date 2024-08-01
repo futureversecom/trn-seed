@@ -58,10 +58,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				c,
 				RuntimeCall::Futurepass(
 					pallet_futurepass::Call::register_delegate_with_signature { .. }
-				) | RuntimeCall::Futurepass(pallet_futurepass::Call::unregister_delegate { .. }) |
-					RuntimeCall::Futurepass(pallet_futurepass::Call::transfer_futurepass { .. })
+				) | RuntimeCall::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
+					| RuntimeCall::Futurepass(pallet_futurepass::Call::transfer_futurepass { .. })
 			) {
-				return false
+				return false;
 			}
 		}
 		match self {
@@ -223,6 +223,8 @@ parameter_types! {
 pub struct MockFuturepassCallValidator;
 impl seed_pallet_common::ExtrinsicChecker for MockFuturepassCallValidator {
 	type Call = RuntimeCall;
+	type Extra = ();
+	type Result = bool;
 	fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
 		false
 	}

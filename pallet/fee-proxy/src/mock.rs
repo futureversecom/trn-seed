@@ -67,7 +67,7 @@ where
 	) -> Option<RuntimeId> {
 		if H160::from(evm_id) == H160::from_low_u64_be(16000) {
 			// Our expected value for the test
-			return Some(RuntimeId::from(16000))
+			return Some(RuntimeId::from(16000));
 		}
 		None
 	}

@@ -660,8 +660,8 @@ fn handle_event_notarization_valid_claims() {
 			// When the yay_count reaches over the NotarizationThreshold of 66% the storage should
 			// be updated
 			for i in 0..9 {
-				if Percent::from_rational(yay_count as u64, notary_count as u64) >=
-					<Test as Config>::NotarizationThreshold::get()
+				if Percent::from_rational(yay_count as u64, notary_count as u64)
+					>= <Test as Config>::NotarizationThreshold::get()
 				{
 					// Any further notarizations should return InvalidClaim error
 					assert_noop!(
@@ -681,8 +681,8 @@ fn handle_event_notarization_valid_claims() {
 				}
 				yay_count += 1;
 
-				if Percent::from_rational(yay_count as u64, notary_count as u64) >=
-					<Test as Config>::NotarizationThreshold::get()
+				if Percent::from_rational(yay_count as u64, notary_count as u64)
+					>= <Test as Config>::NotarizationThreshold::get()
 				{
 					// Over threshold, storage should be updated
 					assert_eq!(PendingClaimChallenges::<Test>::get(), vec![event_id_1]);
@@ -963,8 +963,8 @@ fn handle_event_notarization_invalid_claims() {
 			// When the nay_count reaches over 100 - NotarizationThreshold (33%) the storage should
 			// be updated
 			for i in 0..9 {
-				if Percent::from_rational(nay_count as u64, notary_count as u64) >
-					(Percent::from_parts(
+				if Percent::from_rational(nay_count as u64, notary_count as u64)
+					> (Percent::from_parts(
 						100_u8 - <Test as Config>::NotarizationThreshold::get().deconstruct(),
 					)) {
 					// further notarizations should return InvalidClaim error
@@ -985,8 +985,8 @@ fn handle_event_notarization_invalid_claims() {
 				}
 				nay_count += 1;
 
-				if Percent::from_rational(nay_count as u64, notary_count as u64) >
-					(Percent::from_parts(
+				if Percent::from_rational(nay_count as u64, notary_count as u64)
+					> (Percent::from_parts(
 						100_u8 - <Test as Config>::NotarizationThreshold::get().deconstruct(),
 					)) {
 					// Over threshold, storage should be removed
@@ -1870,8 +1870,8 @@ fn multiple_delayed_event_proof() {
 		// Re-enable bridge
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), false));
 		// Call on_idle to process half of the pending event proofs
-		let expected_weight: Weight = DbWeight::get().reads(3u64) +
-			DbWeight::get().reads_writes(2, 2) * max_delayed_events as u64;
+		let expected_weight: Weight = DbWeight::get().reads(3u64)
+			+ DbWeight::get().reads_writes(2, 2) * max_delayed_events as u64;
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
@@ -1946,8 +1946,8 @@ fn on_idle_limits_processing() {
 
 		// Call on_idle with only enough weight to process 2 claims
 		let claims_to_process = 2;
-		let expected_weight: Weight = DbWeight::get().reads(3u64) +
-			DbWeight::get().reads_writes(2, 2) * claims_to_process as u64;
+		let expected_weight: Weight = DbWeight::get().reads(3u64)
+			+ DbWeight::get().reads_writes(2, 2) * claims_to_process as u64;
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
@@ -1973,8 +1973,8 @@ fn on_idle_limits_processing() {
 
 		// Call on_idle with enough weight to process the rest
 		let claims_to_process = event_count - claims_to_process;
-		let expected_weight: Weight = DbWeight::get().reads(3u64) +
-			DbWeight::get().reads_writes(2, 2) * claims_to_process as u64;
+		let expected_weight: Weight = DbWeight::get().reads(3u64)
+			+ DbWeight::get().reads_writes(2, 2) * claims_to_process as u64;
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,
@@ -2075,8 +2075,8 @@ fn set_delayed_event_proofs_per_block() {
 		// Re-enable bridge
 		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), false));
 		// call on_idle for pallet and initiate event proof
-		let expected_weight: Weight = DbWeight::get().reads(3u64) +
-			DbWeight::get().reads_writes(2, 2) * new_max_delayed_events as u64;
+		let expected_weight: Weight = DbWeight::get().reads(3u64)
+			+ DbWeight::get().reads_writes(2, 2) * new_max_delayed_events as u64;
 		assert_eq!(
 			EthBridge::on_idle(
 				frame_system::Pallet::<Test>::block_number() + 1,

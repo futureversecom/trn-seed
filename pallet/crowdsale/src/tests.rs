@@ -91,7 +91,7 @@ fn initialize_crowdsale_with_soft_cap(
 		voucher_asset_id: next_asset_id,
 		duration,
 	};
-	return (sale_id, sale_info)
+	return (sale_id, sale_info);
 }
 
 // Helper function for creating the collection name type

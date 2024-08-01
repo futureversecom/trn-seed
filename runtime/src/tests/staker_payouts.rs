@@ -149,9 +149,9 @@ fn era_payout_redistributes_era_tx_fees() {
 		// Tx fees are taken from the user and added to the 'tx fee pot'
 		let tx_fee_pot_era0_balance = TxFeePot::era_pot_balance();
 		assert!(
-			tx_fee_pot_era0_balance > 0 &&
-				XrpCurrency::balance(&charlie()) + tx_fee_pot_era0_balance ==
-					charlie_initial_balance
+			tx_fee_pot_era0_balance > 0
+				&& XrpCurrency::balance(&charlie()) + tx_fee_pot_era0_balance
+					== charlie_initial_balance
 		);
 		// after tx fee paid, issuance ok
 		assert_eq!(genesis_xrp_issuance, XrpCurrency::total_issuance());
@@ -268,7 +268,7 @@ fn staking_final_session_tracking_ethy() {
 		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
 
 		advance_session(); // era 3 starts (forced) and keys contain the updated key
-					 // Call on_initialize for scheduler to update keys and unpause bridge
+				   // Call on_initialize for scheduler to update keys and unpause bridge
 		let scheduled_block: BlockNumber = System::block_number() + 75_u32;
 		Scheduler::on_initialize(scheduled_block.into());
 		assert!(pallet_ethy::NotaryKeys::<Runtime>::get()

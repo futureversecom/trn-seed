@@ -464,7 +464,7 @@ macro_rules! impl_pallet_fee_proxy_config {
 			) -> Option<RuntimeId> {
 				if H160::from(evm_id) == H160::from_low_u64_be(16000) {
 					// Our expected value for the test
-					return Some(RuntimeId::from(16000))
+					return Some(RuntimeId::from(16000));
 				}
 				None
 			}
@@ -665,6 +665,8 @@ macro_rules! impl_pallet_futurepass_config {
 		pub struct MockFuturepassCallValidator;
 		impl seed_pallet_common::ExtrinsicChecker for MockFuturepassCallValidator {
 			type Call = RuntimeCall;
+			type Extra = ();
+			type Result = bool;
 			fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
 				false
 			}

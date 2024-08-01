@@ -424,8 +424,8 @@ fn add_liquidity() {
 
 		// bob should have more LP tokens than Alice as Bob provisioned more liquidity
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice) <
-				AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &bob),
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice)
+				< AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &bob),
 			true
 		);
 
@@ -1204,8 +1204,8 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 		assert_eq!(alice_a, to_eth(100) - 100_000_000u128 - 50_000u128); // Initial minted - liquidity added - swap a for c
 		assert_eq!(alice_b, to_eth(100) - 200_000_000u128); // Initial minted - liquidity added ( in pool [a-b] & [b-c]
 		assert_eq!(alice_c, to_eth(100) - 100_000_000u128 + 49_650u128); // Initial minted - liquidity
-		                                                           // added
-		                                                           // + swap a for c
+		                                                         // added
+		                                                         // + swap a for c
 	});
 }
 

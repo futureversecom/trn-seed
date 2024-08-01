@@ -204,14 +204,14 @@ where
 				Some(d) => d,
 				None => {
 					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
-					continue
+					continue;
 				},
 			};
 			let signature = match self.key_store.sign_prehashed(&authority_id, &digest) {
 				Ok(sig) => sig,
 				Err(err) => {
 					error!(target: "ethy", "💎 error signing witness: {:?}", err);
-					continue
+					continue;
 				},
 			};
 
@@ -245,7 +245,7 @@ where
 		// On start-up ignore old finality notifications that we're not interested in.
 		if number <= *self.best_grandpa_block_header.number() {
 			debug!(target: "ethy", "💎 unexpected finality for old block #{:?}", number);
-			return
+			return;
 		}
 
 		// block finality notifications are un-reliable and may skip block numbers but ethy requires
@@ -278,8 +278,8 @@ where
 				Some(active) => {
 					// if the validator set id is different or equal to the GENESIS_AUTHORITY_SET_ID
 					// and local validator set is empty
-					if active.id != self.validator_set.id ||
-						(active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.is_empty())
+					if active.id != self.validator_set.id
+						|| (active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.is_empty())
 					{
 						info!(target: "ethy", "💎 new active validator set: {:?}", active);
 						info!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
@@ -321,7 +321,7 @@ where
 		// only share if it's the first time witnessing the event
 		if let Err(err) = self.witness_record.note_event_witness(&witness) {
 			warn!(target: "ethy", "💎 failed to note witness: {:?}, {:?}", witness, err);
-			return
+			return;
 		}
 
 		// gossip the witness. will gossip even if we don't have event metadata yet. This would
@@ -347,7 +347,7 @@ where
 		let event_metadata = self.witness_record.event_metadata(event_id);
 		if event_metadata.is_none() {
 			debug!(target: "ethy", "💎 missing event metadata: {:?}, can't make proof yet", event_id);
-			return
+			return;
 		}
 
 		// process any unverified witnesses, received before event metadata was known
@@ -362,7 +362,7 @@ where
 			// Anyway EventProof.digest is not used by any other part of the code
 			let Some(digest) = data_to_digest(*chain_id, digest_data.clone(), [0_u8; 33]) else {
 				error!(target: "ethy", "💎 error creating digest");
-				return
+				return;
 			};
 			let event_proof = EventProof {
 				digest,

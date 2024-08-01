@@ -384,7 +384,7 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 			LatestOrNumber::Number(block) => BlockResponseAt::<Test>::get(block),
 		};
 		if mock_block_response.is_none() {
-			return Ok(None)
+			return Ok(None);
 		}
 		let mock_block_response = mock_block_response.unwrap();
 
@@ -402,7 +402,7 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	) -> Result<Option<TransactionReceipt>, BridgeRpcError> {
 		let mock_receipt = TransactionReceiptFor::<Test>::get(hash);
 		if mock_receipt.is_none() {
-			return Ok(None)
+			return Ok(None);
 		}
 		let mock_receipt = mock_receipt.unwrap();
 		let transaction_receipt = TransactionReceipt {
@@ -424,8 +424,9 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	) -> Result<Vec<u8>, BridgeRpcError> {
 		let block_number = match at_block {
 			LatestOrNumber::Number(n) => n,
-			LatestOrNumber::Latest =>
-				BlockResponseAt::<Test>::iter().last().unwrap().1.block_number,
+			LatestOrNumber::Latest => {
+				BlockResponseAt::<Test>::iter().last().unwrap().1.block_number
+			},
 		};
 		CallAt::<Test>::get(block_number, target).ok_or(BridgeRpcError::HttpFetch)
 	}

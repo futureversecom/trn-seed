@@ -337,7 +337,7 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 
 				let next_unsigned_at = NextUnsignedAt::<Test>::get();
 				if next_unsigned_at > System::block_number() {
-					continue
+					continue;
 				}
 
 				assert_ok!(Vortex::pay_unsigned(

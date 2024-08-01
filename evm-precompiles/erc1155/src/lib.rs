@@ -156,31 +156,34 @@ where
 					};
 
 					if let Err(err) = handle.check_function_modifier(match selector {
-						Action::SetApprovalForAll |
-						Action::SafeTransferFrom |
-						Action::SafeBatchTransferFrom |
-						Action::Burn |
-						Action::BurnBatch |
-						Action::Mint |
-						Action::TogglePublicMint |
-						Action::SetMintFee |
-						Action::MintBatch => FunctionModifier::NonPayable,
+						Action::SetApprovalForAll
+						| Action::SafeTransferFrom
+						| Action::SafeBatchTransferFrom
+						| Action::Burn
+						| Action::BurnBatch
+						| Action::Mint
+						| Action::TogglePublicMint
+						| Action::SetMintFee
+						| Action::MintBatch => FunctionModifier::NonPayable,
 						_ => FunctionModifier::View,
 					}) {
-						return Some(Err(err.into()))
+						return Some(Err(err.into()));
 					}
 
 					match selector {
 						// Core ERC1155
 						Action::BalanceOf => Self::balance_of(collection_id, handle),
 						Action::BalanceOfBatch => Self::balance_of_batch(collection_id, handle),
-						Action::SetApprovalForAll =>
-							Self::set_approval_for_all(collection_id, handle),
-						Action::IsApprovedForAll =>
-							Self::is_approved_for_all(collection_id, handle),
+						Action::SetApprovalForAll => {
+							Self::set_approval_for_all(collection_id, handle)
+						},
+						Action::IsApprovedForAll => {
+							Self::is_approved_for_all(collection_id, handle)
+						},
 						Action::SafeTransferFrom => Self::safe_transfer_from(collection_id, handle),
-						Action::SafeBatchTransferFrom =>
-							Self::safe_batch_transfer_from(collection_id, handle),
+						Action::SafeBatchTransferFrom => {
+							Self::safe_batch_transfer_from(collection_id, handle)
+						},
 						// Burnable
 						Action::Burn => Self::burn(collection_id, handle),
 						Action::BurnBatch => Self::burn_batch(collection_id, handle),
@@ -191,10 +194,12 @@ where
 						Action::Uri => Self::uri(collection_id, handle),
 						// Ownable
 						Action::Owner => Self::owner(collection_id, handle),
-						Action::RenounceOwnership =>
-							Self::renounce_ownership(collection_id, handle),
-						Action::TransferOwnership =>
-							Self::transfer_ownership(collection_id, handle),
+						Action::RenounceOwnership => {
+							Self::renounce_ownership(collection_id, handle)
+						},
+						Action::TransferOwnership => {
+							Self::transfer_ownership(collection_id, handle)
+						},
 						// TRN
 						Action::CreateToken => Self::create_token(collection_id, handle),
 						Action::Mint => Self::mint(collection_id, handle),
@@ -206,7 +211,7 @@ where
 						_ => return Some(Err(revert("ERC1155: Function not implemented").into())),
 					}
 				};
-				return Some(result)
+				return Some(result);
 			}
 		}
 		None
@@ -283,7 +288,7 @@ where
 			.into_iter()
 			.map(|id| {
 				if id > u32::MAX.into() {
-					return Err(revert("ERC1155: Expected token id <= 2^32").into())
+					return Err(revert("ERC1155: Expected token id <= 2^32").into());
 				}
 				Ok(id.saturated_into())
 			})
@@ -439,11 +444,14 @@ where
 			match reason {
 				ExitReason::Succeed(_) => {
 					if output[..4] != ON_ERC1155_RECEIVED_FUNCTION_SELECTOR.to_vec() {
-						return Err(revert("ERC1155: ERC1155Receiver rejected tokens").into())
+						return Err(revert("ERC1155: ERC1155Receiver rejected tokens").into());
 					}
 				},
-				_ =>
-					return Err(revert("ERC1155: transfer to non-ERC1155Receiver implementer").into()),
+				_ => {
+					return Err(
+						revert("ERC1155: transfer to non-ERC1155Receiver implementer").into()
+					)
+				},
 			};
 		}
 		Ok(())
@@ -544,11 +552,14 @@ where
 			match reason {
 				ExitReason::Succeed(_) => {
 					if output[..4] != ON_ERC1155_BATCH_RECEIVED_FUNCTION_SELECTOR.to_vec() {
-						return Err(revert("ERC1155: ERC1155Receiver rejected tokens").into())
+						return Err(revert("ERC1155: ERC1155Receiver rejected tokens").into());
 					}
 				},
-				_ =>
-					return Err(revert("ERC1155: transfer to non-ERC1155Receiver implementer").into()),
+				_ => {
+					return Err(
+						revert("ERC1155: transfer to non-ERC1155Receiver implementer").into()
+					)
+				},
 			};
 		}
 		Ok(())
@@ -1026,7 +1037,7 @@ where
 
 		// Parse max_supply
 		if max_supply > Balance::MAX.into() {
-			return Err(revert("ERC1155: Expected max_supply <= 2^128").into())
+			return Err(revert("ERC1155: Expected max_supply <= 2^128").into());
 		}
 		let max_issuance: Balance = max_supply.saturated_into();
 		let origin = handle.context().caller;
@@ -1136,7 +1147,7 @@ where
 		)
 		.ok_or_else(|| revert("ERC1155: Invalid payment asset address"))?;
 		if mint_fee > Balance::MAX.into() {
-			return Err(revert("ERC1155: Expected mint_fee <= 2^128").into())
+			return Err(revert("ERC1155: Expected mint_fee <= 2^128").into());
 		}
 		let fee: Balance = mint_fee.saturated_into();
 		// If the mint fee is 0, we can assume this means no mint fee

@@ -521,8 +521,8 @@ impl<T: Config> TransferExt for Pallet<T> {
 		let total = transfers.iter().map(|x| x.1).sum::<Balance>();
 		// This check will fail before making any transfers to restrict partial transfers
 		ensure!(
-			Self::reducible_balance(asset_id, who, Preservation::Expendable, Fortitude::Polite) >=
-				total,
+			Self::reducible_balance(asset_id, who, Preservation::Expendable, Fortitude::Polite)
+				>= total,
 			Error::<T>::BalanceLow
 		);
 

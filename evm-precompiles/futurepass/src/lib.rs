@@ -155,7 +155,7 @@ where
 						// This is the default receive function for the futurepass
 						Action::Default
 					} else {
-						return Some(Err(e.into()))
+						return Some(Err(e.into()));
 					}
 				},
 			};
@@ -163,8 +163,9 @@ where
 			match selector {
 				Action::Default => Self::receive(handle),
 				Action::DelegateType => Self::delegate_type(handle),
-				Action::RegisterDelegateWithSignature =>
-					Self::register_delegate_with_signature(handle),
+				Action::RegisterDelegateWithSignature => {
+					Self::register_delegate_with_signature(handle)
+				},
 				Action::UnRegisterDelegate => Self::unregister_delegate(handle),
 				Action::ProxyCall => Self::proxy_call(handle),
 				// Ownable
@@ -173,7 +174,7 @@ where
 				Action::TransferOwnership => Self::transfer_ownership(handle),
 			}
 		};
-		return Some(result)
+		return Some(result);
 	}
 
 	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
@@ -313,16 +314,16 @@ where
 		// restrict delegate access to whitelist
 		if call_to.0.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX) {
 			let sub_call_selector = &call_data.inner[..4];
-			if sub_call_selector ==
-				&keccak256!("registerDelegateWithSignature(address,uint8,uint32,bytes)")[..4] ||
-				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4] ||
-				sub_call_selector == &keccak256!("transferOwnership(address)")[..4]
+			if sub_call_selector
+				== &keccak256!("registerDelegateWithSignature(address,uint8,uint32,bytes)")[..4]
+				|| sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4]
+				|| sub_call_selector == &keccak256!("transferOwnership(address)")[..4]
 			{
 				let futurepass: H160 = handle.code_address();
 				let caller: H160 = handle.context().caller;
 				ensure!(
-					pallet_futurepass::Holders::<Runtime>::get(&Runtime::AccountId::from(caller)) ==
-						Some(futurepass.into()),
+					pallet_futurepass::Holders::<Runtime>::get(&Runtime::AccountId::from(caller))
+						== Some(futurepass.into()),
 					revert("Futurepass: NotFuturepassOwner")
 				);
 			}
@@ -460,8 +461,9 @@ where
 						gas_limit,
 						without_base_extrinsic_weight,
 					) {
-						weight_limit if weight_limit.proof_size() > 0 =>
-							(Some(weight_limit), Some(estimated_transaction_len as u64)),
+						weight_limit if weight_limit.proof_size() > 0 => {
+							(Some(weight_limit), Some(estimated_transaction_len as u64))
+						},
 						_ => (None, None),
 					};
 				let execution_info = <Runtime as pallet_evm::Config>::Runner::create(
@@ -531,8 +533,9 @@ where
 						gas_limit,
 						without_base_extrinsic_weight,
 					) {
-						weight_limit if weight_limit.proof_size() > 0 =>
-							(Some(weight_limit), Some(estimated_transaction_len as u64)),
+						weight_limit if weight_limit.proof_size() > 0 => {
+							(Some(weight_limit), Some(estimated_transaction_len as u64))
+						},
 						_ => (None, None),
 					};
 
@@ -567,15 +570,17 @@ where
 
 				(execution_info.exit_reason, execution_info.value.to_fixed_bytes().to_vec())
 			},
-			CallType::DelegateCall =>
-				Err(RevertReason::custom("Futurepass: call type not supported"))?,
+			CallType::DelegateCall => {
+				Err(RevertReason::custom("Futurepass: call type not supported"))?
+			},
 		};
 
 		// Return subcall result
 		match reason {
 			ExitReason::Fatal(exit_status) => Err(PrecompileFailure::Fatal { exit_status }),
-			ExitReason::Revert(exit_status) =>
-				Err(PrecompileFailure::Revert { exit_status, output }),
+			ExitReason::Revert(exit_status) => {
+				Err(PrecompileFailure::Revert { exit_status, output })
+			},
 			ExitReason::Error(exit_status) => Err(PrecompileFailure::Error { exit_status }),
 			ExitReason::Succeed(_) => Ok(succeed(output)),
 		}

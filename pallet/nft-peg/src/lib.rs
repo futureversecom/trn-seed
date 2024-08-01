@@ -385,7 +385,7 @@ where
 
 					weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
 
-					return Err((weight, err))
+					return Err((weight, err));
 				},
 			}
 
@@ -523,7 +523,7 @@ where
 				MessageDestination::Other => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
 			}
 		} else {
-			return Err((weight, Error::<T>::InvalidAbiPrefix.into()))
+			return Err((weight, Error::<T>::InvalidAbiPrefix.into()));
 		}
 	}
 }

@@ -196,7 +196,7 @@ impl XRPLTransaction {
 					max_block_number,
 					tip,
 					hashed_call,
-				})
+				});
 			}
 		}
 		Err("no extrinsic call found in memos")

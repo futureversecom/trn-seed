@@ -1362,8 +1362,8 @@ fn tip_increase_priority() {
 
 			// check the priority now.
 			assert!(
-				transaction_validity_1.unwrap().priority <
-					transaction_validity_2.clone().unwrap().priority
+				transaction_validity_1.unwrap().priority
+					< transaction_validity_2.clone().unwrap().priority
 			);
 			assert!(
 				transaction_validity_2.unwrap().priority < transaction_validity_3.unwrap().priority
