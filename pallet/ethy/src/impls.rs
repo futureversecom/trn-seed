@@ -34,7 +34,7 @@ use sp_std::prelude::*;
 
 use seed_pallet_common::{
 	log, logger::debug, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge,
-	FinalSessionTracker as FinalSessionTrackerT, XrplBridgeToEthyAdapter,
+	FinalSessionTracker as FinalSessionTrackerT, NextSessionKeys, XrplBridgeToEthyAdapter,
 };
 use seed_primitives::ethy::{EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId};
 
@@ -1053,7 +1053,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		}
 	}
 
-	fn on_new_session<'a, I: 'a>(_changed: bool, _validators: I, queued_validators: I)
+	fn on_new_session<'a, I: 'a>(changed: bool, _validators: I, queued_validators: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
@@ -1068,55 +1068,27 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		);
 		<NextNotaryKeys<T>>::put(next_bounded_authorities);
 
-		if T::FinalSessionTracker::is_active_session_final() {
-			// Next authority change is 5 minutes before this session ends
-			// (Just before the start of the next epoch)
-			// next_block = current_block + epoch_duration - AuthorityChangeDelay
-			let epoch_duration: BlockNumberFor<T> = T::EpochDuration::get().saturated_into();
-			let next_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number()
-				.saturating_add(epoch_duration.saturating_sub(T::AuthorityChangeDelay::get()));
-			<NextAuthorityChange<T>>::put(next_block);
-		}
-	}
+		if changed {
+			Self::handle_authorities_change();
 
-	/// A notification for end of the session.
-	///
-	/// Note it is triggered before any [`SessionManager::end_session`] handlers,
-	/// so we can still affect the validator set.
-	fn on_before_session_ending() {
-		// Re-activate the bridge, allowing claims & proofs again
-		if T::FinalSessionTracker::is_active_session_final() {
-			// Get the next_notary_keys for the next era
-			let next_notary_keys = NextNotaryKeys::<T>::get();
-
-			if !AuthoritiesChangedThisEra::<T>::get() {
-				// The authorities haven't been changed yet
-				// This could be due to a new era being forced before the final session
-				Self::handle_authorities_change();
-
-				// Schedule an un-pausing of the bridge to give the relayer time to relay the
-				// authority set change.
-				let scheduled_block =
-					<frame_system::Pallet<T>>::block_number() + T::AuthorityChangeDelay::get();
-				if T::Scheduler::schedule(
-					DispatchTime::At(scheduled_block),
-					None,
-					SCHEDULER_PRIORITY,
-					frame_system::RawOrigin::None.into(),
-					Call::finalise_authorities_change { next_notary_keys }.into(),
-				)
-				.is_err()
-				{
-					// The scheduler failed for some reason, throw a log and event
-					Self::deposit_event(Event::<T>::FinaliseScheduleFail { scheduled_block });
-					log!(warn, "💎 Unpause bridge schedule failed");
-				}
-			} else {
-				// Authorities have been changed, finalise those changes immediately
-				Self::do_finalise_authorities_change(next_notary_keys);
+			let scheduled_block =
+				<frame_system::Pallet<T>>::block_number() + T::AuthorityChangeDelay::get();
+			if T::Scheduler::schedule(
+				DispatchTime::At(scheduled_block),
+				None,
+				SCHEDULER_PRIORITY,
+				frame_system::RawOrigin::None.into(),
+				Call::finalise_authorities_change { next_notary_keys }.into(),
+			)
+			.is_err()
+			{
+				// The scheduler failed for some reason, throw a log and event
+				Self::deposit_event(Event::<T>::FinaliseScheduleFail { scheduled_block });
+				log!(warn, "💎 Unpause bridge schedule failed");
 			}
 		}
 	}
+
 	fn on_disabled(_i: u32) {}
 }
 
