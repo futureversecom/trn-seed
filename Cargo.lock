@@ -3864,6 +3864,9 @@ name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
+dependencies = [
+ "spin 0.9.8",
+]
 
 [[package]]
 name = "lazycell"
@@ -5606,7 +5609,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-bn128"
 version = "2.0.0-dev"
-source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#c3c874fff9d23261ae5c2f40d086fa1924a79bcd"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v1.0.0-TRN#50660c0741fad8c76f68a20ec6fc7f9c5727715c"
 dependencies = [
  "fp-evm",
  "sp-core",
