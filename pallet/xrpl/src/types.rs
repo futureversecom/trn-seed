@@ -196,7 +196,7 @@ impl XRPLTransaction {
 					max_block_number,
 					tip,
 					hashed_call,
-				})
+				});
 			}
 		}
 		Err("no extrinsic call found in memos")
@@ -240,7 +240,7 @@ impl TryFrom<&[u8]> for XRPLTransaction {
 	type Error = &'static str;
 
 	fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-		let deserializer = &mut Deserializer::new(value.clone().to_vec(), field_info_lookup());
+		let deserializer = &mut Deserializer::new(value.to_vec(), field_info_lookup());
 		let tx_json = deserializer
 			.to_json(&TypeCode::Object, &value)
 			.map_err(|_e| "failed to convert encoded_msg to json value")?;

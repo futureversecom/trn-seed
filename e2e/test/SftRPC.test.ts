@@ -28,7 +28,7 @@ describe("SftRPC", () => {
   before(async () => {
     node = await startNode();
 
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -72,7 +72,7 @@ describe("SftRPC", () => {
   after(async () => node.stop());
 
   it("token_uri rpc works [http - axios]", async () => {
-    const httpResult = await axios.post(`http://localhost:${node.httpPort}`, {
+    const httpResult = await axios.post(`http://127.0.0.1:${node.rpcPort}`, {
       id: 1,
       jsonrpc: "2.0",
       method: "sft_tokenUri",

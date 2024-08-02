@@ -34,7 +34,8 @@ use frame_support::{
 		SaturatedConversion, Saturating,
 	},
 	traits::{
-		fungibles::{self, Inspect, Mutate, Transfer},
+		fungibles::{self, Inspect, Mutate},
+		tokens::{Fortitude, Precision, Preservation},
 		IsSubType,
 	},
 	transactional, PalletId,
@@ -76,7 +77,6 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
@@ -111,10 +111,9 @@ pub mod pallet {
 		/// Currency implementation to deal with assets.
 		type MultiCurrency: InspectExt
 			+ CreateExt<AccountId = Self::AccountId>
-			+ fungibles::Transfer<Self::AccountId, Balance = Balance>
 			+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
-			+ fungibles::InspectMetadata<Self::AccountId>
-			+ fungibles::Mutate<Self::AccountId>;
+			+ fungibles::metadata::Inspect<Self::AccountId>
+			+ fungibles::Mutate<Self::AccountId, Balance = Balance>;
 
 		/// NFT Extension, used to retrieve collection data
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
@@ -133,11 +132,11 @@ pub mod pallet {
 
 		/// The maximum duration of a sale
 		#[pallet::constant]
-		type MaxSaleDuration: Get<Self::BlockNumber>;
+		type MaxSaleDuration: Get<BlockNumberFor<Self>>;
 
 		/// Unsigned transaction interval
 		#[pallet::constant]
-		type UnsignedInterval: Get<Self::BlockNumber>;
+		type UnsignedInterval: Get<BlockNumberFor<Self>>;
 
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
@@ -150,7 +149,7 @@ pub mod pallet {
 	/// Map from sale id to its information
 	#[pallet::storage]
 	pub type SaleInfo<T: Config> =
-		StorageMap<_, Twox64Concat, SaleId, SaleInformation<T::AccountId, T::BlockNumber>>;
+		StorageMap<_, Twox64Concat, SaleId, SaleInformation<T::AccountId, BlockNumberFor<T>>>;
 
 	/// User participation in the sale
 	/// sale_id -> user -> payment_asset contribution amount
@@ -164,7 +163,7 @@ pub mod pallet {
 	pub type SaleEndBlocks<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
-		T::BlockNumber,
+		BlockNumberFor<T>,
 		BoundedVec<SaleId, T::MaxSalesPerBlock>,
 		OptionQuery,
 	>;
@@ -176,13 +175,13 @@ pub mod pallet {
 
 	/// Stores next unsigned tx block number
 	#[pallet::storage]
-	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Crowdsale created
-		CrowdsaleCreated { sale_id: SaleId, info: SaleInformation<T::AccountId, T::BlockNumber> },
+		CrowdsaleCreated { sale_id: SaleId, info: SaleInformation<T::AccountId, BlockNumberFor<T>> },
 		/// Call proxied
 		VaultCallProxied {
 			sale_id: SaleId,
@@ -193,8 +192,8 @@ pub mod pallet {
 		/// Crowdsale enabled
 		CrowdsaleEnabled {
 			sale_id: SaleId,
-			info: SaleInformation<T::AccountId, T::BlockNumber>,
-			end_block: T::BlockNumber,
+			info: SaleInformation<T::AccountId, BlockNumberFor<T>>,
+			end_block: BlockNumberFor<T>,
 		},
 		/// Crowdsale participated
 		CrowdsaleParticipated {
@@ -211,11 +210,11 @@ pub mod pallet {
 			quantity: TokenCount,
 		},
 		/// Crowdsale closed
-		CrowdsaleClosed { sale_id: SaleId, info: SaleInformation<T::AccountId, T::BlockNumber> },
+		CrowdsaleClosed { sale_id: SaleId, info: SaleInformation<T::AccountId, BlockNumberFor<T>> },
 		/// Crowdsale distribution was manually triggered
 		CrowdsaleManualDistribution {
 			sale_id: SaleId,
-			info: SaleInformation<T::AccountId, T::BlockNumber>,
+			info: SaleInformation<T::AccountId, BlockNumberFor<T>>,
 			who: T::AccountId,
 		},
 		/// Crowdsale vouchers claimed
@@ -271,7 +270,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Check and close all expired listings
-		fn on_initialize(now: T::BlockNumber) -> Weight {
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			let total_closed: u32 = match Self::close_sales_at(now) {
 				Ok(total_closed) => total_closed,
 				Err(e) => {
@@ -289,7 +288,7 @@ pub mod pallet {
 		}
 
 		/// Offchain worker processes closed sales to distribute voucher rewards to participants
-		fn offchain_worker(now: T::BlockNumber) {
+		fn offchain_worker(now: BlockNumberFor<T>) {
 			if !sp_io::offchain::is_validator() {
 				log!(
 					error,
@@ -300,7 +299,7 @@ pub mod pallet {
 			}
 
 			if <NextUnsignedAt<T>>::get() > now {
-				return
+				return;
 			}
 			if !SaleDistribution::<T>::get().is_empty() {
 				log!(info, "⭐️ distributing rewards for crowdsales");
@@ -320,7 +319,7 @@ pub mod pallet {
 					// reject crowdsale distribution tx which have already been processed
 					let now = <frame_system::Pallet<T>>::block_number();
 					if SaleDistribution::<T>::get().is_empty() {
-						return InvalidTransaction::Stale.into()
+						return InvalidTransaction::Stale.into();
 					}
 					ValidTransaction::with_tag_prefix("CrowdsaleDistOffchainWorker")
 						.priority(CROWDSALE_DIST_UNSIGNED_PRIORITY)
@@ -352,6 +351,7 @@ pub mod pallet {
 		/// - `voucher_symbol`: [optional] symbol for the created voucher asset
 		///
 		/// Emits `CrowdsaleCreated` event when successful.
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::initialize())]
 		#[transactional]
 		pub fn initialize(
@@ -359,7 +359,7 @@ pub mod pallet {
 			payment_asset_id: AssetId,
 			collection_id: CollectionUuid,
 			soft_cap_price: Balance,
-			sale_duration: T::BlockNumber,
+			sale_duration: BlockNumberFor<T>,
 			voucher_name: Option<BoundedVec<u8, T::StringLimit>>,
 			voucher_symbol: Option<BoundedVec<u8, T::StringLimit>>,
 		) -> DispatchResult {
@@ -374,7 +374,7 @@ pub mod pallet {
 
 			// ensure the asset exists
 			if !T::MultiCurrency::exists(payment_asset_id) {
-				return Err(Error::<T>::InvalidAsset.into())
+				return Err(Error::<T>::InvalidAsset.into());
 			}
 
 			// ensure soft_cap_price is not zero - prevent future div by zero
@@ -411,7 +411,7 @@ pub mod pallet {
 			)?;
 
 			// store the sale information
-			let sale_info = SaleInformation::<T::AccountId, T::BlockNumber> {
+			let sale_info = SaleInformation::<T::AccountId, BlockNumberFor<T>> {
 				status: SaleStatus::Pending(<frame_system::Pallet<T>>::block_number()),
 				admin: who.clone(),
 				vault,
@@ -439,6 +439,7 @@ pub mod pallet {
 		/// - `sale_id`: The id of the sale to enable
 		///
 		/// Emits `CrowdsaleEnabled` event when successful.
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::enable())]
 		#[transactional]
 		pub fn enable(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
@@ -495,6 +496,7 @@ pub mod pallet {
 		/// - `amount`: The amount of tokens to participate with
 		///
 		/// Emits `CrowdsaleParticipated` event when successful.
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::participate())]
 		#[transactional]
 		pub fn participate(
@@ -521,7 +523,7 @@ pub mod pallet {
 					&who,
 					&sale_info.vault,
 					amount,
-					false,
+					Preservation::Expendable,
 				)?;
 
 				// update the sale funds
@@ -563,6 +565,7 @@ pub mod pallet {
 		///
 		/// Emits `CrowdsaleVouchersDistributed` event when successful.
 		// TODO: update weight based on participants processable
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::distribute_crowdsale_rewards())]
 		#[transactional]
 		pub fn distribute_crowdsale_rewards(origin: OriginFor<T>) -> DispatchResult {
@@ -625,7 +628,8 @@ pub mod pallet {
 				let vault_balance = T::MultiCurrency::reducible_balance(
 					sale_info.voucher_asset_id,
 					&sale_info.vault,
-					false,
+					Preservation::Expendable,
+					Fortitude::Polite,
 				);
 				if vault_balance > 0 {
 					let _ = T::MultiCurrency::transfer(
@@ -633,7 +637,7 @@ pub mod pallet {
 						&sale_info.vault,
 						&sale_info.admin,
 						vault_balance,
-						false,
+						Preservation::Expendable,
 					);
 				}
 				sale_info.status = SaleStatus::Ended(block_number);
@@ -663,6 +667,7 @@ pub mod pallet {
 		/// - `sale_id`: The id of the sale to claim the vouchers from
 		///
 		/// Emits `CrowdsaleVouchersClaimed` event when successful.
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::claim_voucher())]
 		#[transactional]
 		pub fn claim_voucher(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
@@ -712,7 +717,8 @@ pub mod pallet {
 					let vault_balance = T::MultiCurrency::reducible_balance(
 						sale_info.voucher_asset_id,
 						&sale_info.vault,
-						false,
+						Preservation::Expendable,
+						Fortitude::Polite,
 					);
 					if vault_balance > 0 {
 						let _ = T::MultiCurrency::transfer(
@@ -720,7 +726,7 @@ pub mod pallet {
 							&sale_info.vault,
 							&sale_info.admin,
 							vault_balance,
-							false,
+							Preservation::Expendable,
 						);
 					}
 					sale_info.status = SaleStatus::Ended(block_number);
@@ -760,6 +766,7 @@ pub mod pallet {
 		/// - `quantity`: The amount of NFT(s) to redeem
 		///
 		/// Emits `CrowdsaleNFTRedeemed` event when successful.
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::redeem_voucher())]
 		#[transactional]
 		pub fn redeem_voucher(
@@ -774,8 +781,8 @@ pub mod pallet {
 
 			// ensure the sale has concluded and is being distributed or has been distributed
 			ensure!(
-				matches!(sale_info.status, SaleStatus::Distributing(_, _)) ||
-					matches!(sale_info.status, SaleStatus::Ended(_)),
+				matches!(sale_info.status, SaleStatus::Distributing(_, _))
+					|| matches!(sale_info.status, SaleStatus::Ended(_)),
 				Error::<T>::InvalidCrowdsaleStatus
 			);
 
@@ -783,7 +790,13 @@ pub mod pallet {
 			// vouchers since 1:1 mapping between vouchers and NFTs, we can use the quantity
 			// * decimals as the amount burned
 			let voucher_amount = quantity.saturating_mul(10u32.pow(VOUCHER_DECIMALS as u32));
-			T::MultiCurrency::burn_from(sale_info.voucher_asset_id, &who, voucher_amount.into())?;
+			T::MultiCurrency::burn_from(
+				sale_info.voucher_asset_id,
+				&who,
+				voucher_amount.into(),
+				Precision::Exact,
+				Fortitude::Polite,
+			)?;
 
 			// mint the NFT(s) to the user
 			T::NFTExt::do_mint(
@@ -812,6 +825,7 @@ pub mod pallet {
 		/// - `call`: The call to be proxied
 		///
 		/// Emits `VaultCallProxied` event when successful.
+		#[pallet::call_index(6)]
 		#[pallet::weight({
 			let call_weight = call.get_dispatch_info().weight;
 			T::WeightInfo::proxy_vault_call().saturating_add(call_weight)
@@ -848,6 +862,7 @@ pub mod pallet {
 		/// In the very unlikely case that a sale was blocked from automatic distribution within
 		/// the on_initialise step. This function allows a manual trigger of distribution
 		/// callable by anyone to kickstart the sale distribution process.
+		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::try_force_distribution())]
 		pub fn try_force_distribution(origin: OriginFor<T>, sale_id: SaleId) -> DispatchResult {
 			let who = ensure_signed(origin)?;

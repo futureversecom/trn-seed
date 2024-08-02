@@ -18,17 +18,15 @@ use frame_support::traits::{Currency, ExistenceRequirement, InstanceFilter, Rese
 use seed_pallet_common::test_prelude::*;
 use seed_runtime::{
 	impls::{ProxyPalletProvider, ProxyType},
-	AnnouncementDepositBase, AnnouncementDepositFactor, ProxyDepositBase, ProxyDepositFactor,
+	AnnouncementDepositBase, AnnouncementDepositFactor, Inspect, ProxyDepositBase,
+	ProxyDepositFactor,
 };
 use sp_core::{ecdsa, Pair};
 
 pub const MOCK_NATIVE_ASSET_ID: AssetId = ROOT_ASSET_ID;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	pub enum Test
 	{
 		System: frame_system,
 		Balances: pallet_balances,
@@ -60,10 +58,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				c,
 				RuntimeCall::Futurepass(
 					pallet_futurepass::Call::register_delegate_with_signature { .. }
-				) | RuntimeCall::Futurepass(pallet_futurepass::Call::unregister_delegate { .. }) |
-					RuntimeCall::Futurepass(pallet_futurepass::Call::transfer_futurepass { .. })
+				) | RuntimeCall::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
+					| RuntimeCall::Futurepass(pallet_futurepass::Call::transfer_futurepass { .. })
 			) {
-				return false
+				return false;
 			}
 		}
 		match self {
@@ -133,7 +131,14 @@ impl ProxyProvider<Test> for ProxyPalletProvider {
 		let (proxy_definitions, reserve_amount) = pallet_proxy::Proxies::<Test>::get(futurepass);
 		// get proxy_definitions length + 1 (cost of upcoming insertion); cost to reserve
 		let new_reserve = pallet_proxy::Pallet::<Test>::deposit(proxy_definitions.len() as u32 + 1);
-		let extra_reserve_required = new_reserve - reserve_amount;
+		let mut extra_reserve_required = new_reserve - reserve_amount;
+
+		let account_balance =
+			pallet_assets_ext::Pallet::<Test>::balance(MOCK_NATIVE_ASSET_ID, &futurepass);
+		let minimum_balance = ExistentialDeposit::get();
+		if account_balance < minimum_balance {
+			extra_reserve_required = extra_reserve_required.saturating_add(minimum_balance);
+		}
 		<pallet_balances::Pallet<Test> as Currency<_>>::transfer(
 			funder,
 			futurepass,
@@ -218,6 +223,8 @@ parameter_types! {
 pub struct MockFuturepassCallValidator;
 impl seed_pallet_common::ExtrinsicChecker for MockFuturepassCallValidator {
 	type Call = RuntimeCall;
+	type Extra = ();
+	type Result = bool;
 	fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
 		false
 	}

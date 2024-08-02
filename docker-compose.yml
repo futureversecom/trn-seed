@@ -10,9 +10,9 @@ services:
       - "--validator"
       - "--alice"
       - "--tmp"
-      - "--unsafe-ws-external"
       - "--unsafe-rpc-external"
       - "--rpc-cors=all"
+      - "--rpc-port=9944"
       - "--node-key=0000000000000000000000000000000000000000000000000000000000000001"
     deploy:
       resources:
@@ -23,24 +23,16 @@ services:
           cpus: "1"
           memory: "2512M"
     labels:
-      # WS config
-      # - "traefik.http.routers.bootnode-ws.rule=(Host(`localhost`) || Host(`devnet.cicd.rootnet.app`)) && PathPrefix(`/`)"
-      - "traefik.http.routers.bootnode-ws.rule=Host(`devnet.cicd.rootnet.app`) && Path(`/`)"
-      - "traefik.http.routers.bootnode-ws.entrypoints=substrate-ws"
-      - "traefik.http.routers.bootnode-ws.service=node-ws-svc"
-      - "traefik.http.services.node-ws-svc.loadbalancer.server.port=9944"
-      - "traefik.http.middlewares.bootnode-ws.headers.customrequestheaders.Upgrade=websocket"
-      - "traefik.http.middlewares.bootnode-ws.headers.customrequestheaders.Connection=Upgrade"
-      - "traefik.http.routers.bootnode-ws.tls=true"
-      - "traefik.http.routers.bootnode-ws.tls.certresolver=myresolver"
-      # HTTP config
-      # - "traefik.http.routers.bootnode-http.rule=(Host(`localhost`) || Host(`devnet.cicd.rootnet.app`)) && Path(`/http`)"
-      - "traefik.http.routers.bootnode-http.rule=Host(`devnet.cicd.rootnet.app`) && Path(`/`)"
-      - "traefik.http.routers.bootnode-http.entrypoints=substrate-http"
-      - "traefik.http.routers.bootnode-http.service=bootnode-http-svc"
-      - "traefik.http.services.bootnode-http-svc.loadbalancer.server.port=9933"
-      - "traefik.http.routers.bootnode-http.tls=true"
-      - "traefik.http.routers.bootnode-http.tls.certresolver=myresolver"
+      # RPC config
+      # - "traefik.http.routers.bootnode-rpc.rule=(Host(`127.0.0.1`) || Host(`devnet.cicd.rootnet.app`)) && PathPrefix(`/`)"
+      - "traefik.http.routers.bootnode-rpc.rule=Host(`devnet.cicd.rootnet.app`) && Path(`/`)"
+      - "traefik.http.routers.bootnode-rpc.entrypoints=substrate-rpc"
+      - "traefik.http.routers.bootnode-rpc.service=node-rpc-svc"
+      - "traefik.http.services.node-rpc-svc.loadbalancer.server.port=9944"
+      - "traefik.http.middlewares.bootnode-rpc.headers.customrequestheaders.Upgrade=websocket"
+      - "traefik.http.middlewares.bootnode-rpc.headers.customrequestheaders.Connection=Upgrade"
+      - "traefik.http.routers.bootnode-rpc.tls=true"
+      - "traefik.http.routers.bootnode-rpc.tls.certresolver=myresolver"
 
   validator1:
     image: "ghcr.io/futureversecom/fork-release-state-${NETWORK:-root}"
@@ -52,9 +44,9 @@ services:
       - "--validator"
       - "--bob"
       - "--tmp"
-      - "--unsafe-ws-external"
       - "--unsafe-rpc-external"
       - "--rpc-cors=all"
+      - "--rpc-port=9944"
       - "--bootnodes=/dns/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp"
     deploy:
       resources:
@@ -67,24 +59,16 @@ services:
     depends_on:
       - bootnode
     labels:
-      # WS config
-      # - "traefik.http.routers.validator-1-ws.rule=(Host(`localhost`) || Host(`devnet.cicd.rootnet.app`)) && PathPrefix(`/`)"
-      - "traefik.http.routers.validator-1-ws.rule=Host(`devnet.cicd.rootnet.app`) && Path(`/`)"
-      - "traefik.http.routers.validator-1-ws.entrypoints=substrate-ws"
-      - "traefik.http.routers.validator-1-ws.service=node-ws-svc"
-      - "traefik.http.services.node-ws-svc.loadbalancer.server.port=9944"
-      - "traefik.http.middlewares.validator-1-ws.headers.customrequestheaders.Upgrade=websocket"
-      - "traefik.http.middlewares.validator-1-ws.headers.customrequestheaders.Connection=Upgrade"
-      - "traefik.http.routers.validator-1-ws.tls=true"
-      - "traefik.http.routers.validator-1-ws.tls.certresolver=myresolver"
-      # HTTP config
-      # - "traefik.http.routers.validator-1-http.rule=(Host(`localhost`) || Host(`devnet.cicd.rootnet.app`)) && Path(`/http`)"
-      - "traefik.http.routers.validator-1-http.rule=Host(`devnet.cicd.rootnet.app`) && Path(`/`)"
-      - "traefik.http.routers.validator-1-http.entrypoints=substrate-http"
-      - "traefik.http.routers.validator-1-http.service=node-http-svc"
-      - "traefik.http.services.node-http-svc.loadbalancer.server.port=9933"
-      - "traefik.http.routers.validator-1-http.tls=true"
-      - "traefik.http.routers.validator-1-http.tls.certresolver=myresolver"
+      # RPC config
+      # - "traefik.http.routers.validator-1-rpc.rule=(Host(`127.0.0.1`) || Host(`devnet.cicd.rootnet.app`)) && PathPrefix(`/`)"
+      - "traefik.http.routers.validator-1-rpc.rule=Host(`devnet.cicd.rootnet.app`) && Path(`/`)"
+      - "traefik.http.routers.validator-1-rpc.entrypoints=substrate-rpc"
+      - "traefik.http.routers.validator-1-rpc.service=node-rpc-svc"
+      - "traefik.http.services.node-rpc-svc.loadbalancer.server.port=9944"
+      - "traefik.http.middlewares.validator-1-rpc.headers.customrequestheaders.Upgrade=websocket"
+      - "traefik.http.middlewares.validator-1-rpc.headers.customrequestheaders.Connection=Upgrade"
+      - "traefik.http.routers.validator-1-rpc.tls=true"
+      - "traefik.http.routers.validator-1-rpc.tls.certresolver=myresolver"
   
   validator2:
     image: "ghcr.io/futureversecom/fork-release-state-${NETWORK:-root}"
@@ -96,9 +80,9 @@ services:
       - "--validator"
       - "--charlie"
       - "--tmp"
-      - "--unsafe-ws-external"
       - "--unsafe-rpc-external"
       - "--rpc-cors=all"
+      - "--rpc-port=9944"
       - "--bootnodes=/dns/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp"
     deploy:
       resources:
@@ -111,24 +95,16 @@ services:
     depends_on:
       - bootnode
     labels:
-      # WS config
-      # - "traefik.http.routers.validator-2-ws.rule=(Host(`localhost`) || Host(`devnet.cicd.rootnet.app`)) && PathPrefix(`/`)"
-      - "traefik.http.routers.validator-2-ws.rule=Host(`devnet.cicd.rootnet.app`) && Path(`/`)"
-      - "traefik.http.routers.validator-2-ws.entrypoints=substrate-ws"
-      - "traefik.http.routers.validator-2-ws.service=node-ws-svc"
-      - "traefik.http.services.node-ws-svc.loadbalancer.server.port=9944"
-      - "traefik.http.middlewares.validator-2-ws.headers.customrequestheaders.Upgrade=websocket"
-      - "traefik.http.middlewares.validator-2-ws.headers.customrequestheaders.Connection=Upgrade"
-      - "traefik.http.routers.validator-2-ws.tls=true"
-      - "traefik.http.routers.validator-2-ws.tls.certresolver=myresolver"
-      # HTTP config
-      # - "traefik.http.routers.validator-2-http.rule=(Host(`localhost`) || Host(`devnet.cicd.rootnet.app`)) && Path(`/http`)"
-      - "traefik.http.routers.validator-2-http.rule=Host(`devnet.cicd.rootnet.app`) && Path(`/`)"
-      - "traefik.http.routers.validator-2-http.entrypoints=substrate-http"
-      - "traefik.http.routers.validator-2-http.service=node-http-svc"
-      - "traefik.http.services.node-http-svc.loadbalancer.server.port=9933"
-      - "traefik.http.routers.validator-2-http.tls=true"
-      - "traefik.http.routers.validator-2-http.tls.certresolver=myresolver"
+      # RPC config
+      # - "traefik.http.routers.validator-2-rpc.rule=(Host(`127.0.0.1`) || Host(`devnet.cicd.rootnet.app`)) && PathPrefix(`/`)"
+      - "traefik.http.routers.validator-2-rpc.rule=Host(`devnet.cicd.rootnet.app`) && Path(`/`)"
+      - "traefik.http.routers.validator-2-rpc.entrypoints=substrate-rpc"
+      - "traefik.http.routers.validator-2-rpc.service=node-rpc-svc"
+      - "traefik.http.services.node-rpc-svc.loadbalancer.server.port=9944"
+      - "traefik.http.middlewares.validator-2-rpc.headers.customrequestheaders.Upgrade=websocket"
+      - "traefik.http.middlewares.validator-2-rpc.headers.customrequestheaders.Connection=Upgrade"
+      - "traefik.http.routers.validator-2-rpc.tls=true"
+      - "traefik.http.routers.validator-2-rpc.tls.certresolver=myresolver"
 
 # network already exists - attach to existing traefik network
 networks:

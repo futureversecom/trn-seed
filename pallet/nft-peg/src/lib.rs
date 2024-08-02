@@ -45,7 +45,6 @@ pub mod pallet {
 	use seed_primitives::EthAddress;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -53,7 +52,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type PalletId: Get<PalletId>;
 		#[pallet::constant]
-		type DelayLength: Get<Self::BlockNumber>;
+		type DelayLength: Get<BlockNumberFor<Self>>;
 		type MaxAddresses: Get<u32>;
 		type MaxTokensPerMint: Get<u32>;
 		type EthBridge: EthereumBridge;
@@ -150,6 +149,7 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	{
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::NftPegWeightInfo::set_contract_address())]
 		pub fn set_contract_address(origin: OriginFor<T>, contract: H160) -> DispatchResult {
 			ensure_root(origin)?;
@@ -158,6 +158,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::NftPegWeightInfo::withdraw())]
 		#[transactional]
 		pub fn withdraw(
@@ -175,6 +176,7 @@ pub mod pallet {
 		}
 
 		/// Withdraw blocked tokens, must be called by the destination defined in `BlockedTokens`
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::NftPegWeightInfo::reclaim_blocked_nfts())]
 		#[transactional]
 		pub fn reclaim_blocked_nfts(
@@ -383,7 +385,7 @@ where
 
 					weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
 
-					return Err((weight, err))
+					return Err((weight, err));
 				},
 			}
 
@@ -521,7 +523,7 @@ where
 				MessageDestination::Other => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
 			}
 		} else {
-			return Err((weight, Error::<T>::InvalidAbiPrefix.into()))
+			return Err((weight, Error::<T>::InvalidAbiPrefix.into()));
 		}
 	}
 }

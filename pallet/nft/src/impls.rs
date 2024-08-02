@@ -14,7 +14,11 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{traits::NFTCollectionInfo, *};
-use frame_support::{ensure, traits::Get, weights::Weight};
+use frame_support::{
+	ensure,
+	traits::{tokens::Preservation, Get},
+	weights::Weight,
+};
 use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
@@ -70,7 +74,7 @@ impl<T: Config> Pallet<T> {
 		if collection_info.is_none() {
 			// should not happen
 			log!(warn, "🃏 Unexpected empty metadata scheme: {:?}", token_id);
-			return Default::default()
+			return Default::default();
 		}
 
 		let collection_info = collection_info.unwrap();
@@ -131,7 +135,7 @@ impl<T: Config> Pallet<T> {
 		serial_numbers: Vec<SerialNumber>,
 	) -> Result<Weight, (Weight, DispatchError)> {
 		if serial_numbers.is_empty() {
-			return Ok(Weight::zero())
+			return Ok(Weight::zero());
 		};
 
 		let collection_info = match <CollectionInfo<T>>::get(collection_id) {
@@ -164,7 +168,7 @@ impl<T: Config> Pallet<T> {
 			})
 			.collect::<Vec<SerialNumber>>();
 
-		let serial_numbers: Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, ()> =
+		let serial_numbers: Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, Vec<_>> =
 			BoundedVec::try_from(serial_numbers_trimmed);
 		match serial_numbers {
 			Ok(serial_numbers) => {
@@ -211,8 +215,8 @@ impl<T: Config> Pallet<T> {
 		);
 		// Check we don't exceed the token limit
 		ensure!(
-			collection_info.collection_issuance.saturating_add(quantity) <
-				T::MaxTokensPerCollection::get(),
+			collection_info.collection_issuance.saturating_add(quantity)
+				< T::MaxTokensPerCollection::get(),
 			Error::<T>::TokenLimitExceeded
 		);
 		// Cannot mint for a token that was bridged from Ethereum
@@ -258,7 +262,13 @@ impl<T: Config> Pallet<T> {
 		};
 		// Charge the fee if there is a fee set
 		if let Some((asset, total_fee)) = total_fee {
-			T::MultiCurrency::transfer(asset, who, &collection_owner, total_fee, false)?;
+			T::MultiCurrency::transfer(
+				asset,
+				who,
+				&collection_owner,
+				total_fee,
+				Preservation::Expendable,
+			)?;
 			// Deposit event
 			Self::deposit_event(Event::<T>::MintFeePaid {
 				who: who.clone(),
@@ -582,8 +592,8 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId> {
 		let Some(collection) = CollectionInfo::<T>::get(token_id.0) else {
-            return None;
-        };
+			return None;
+		};
 		collection.get_token_owner(token_id.1)
 	}
 

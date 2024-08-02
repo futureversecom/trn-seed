@@ -41,7 +41,6 @@ pub mod pallet {
 	use frame_support::pallet_prelude::{ValueQuery, *};
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -113,7 +112,11 @@ impl<T: Config> OnUnbalanced<FeePositiveImbalanceOf<T>> for Pallet<T> {
 		) {
 			// tx fee pot did not have enough to reward the amount, this should not happen...
 			// there's no way to error out here, just log it
-			log!(error, "💸 era payout was underfunded, please open an issue at https://github.com/futureversecom/seed: {:?}", total_rewarded.peek())
+			log!(
+				error,
+				"💸 era payout was underfunded, please open an issue at https://github.com/futureversecom/seed: {:?}",
+				total_rewarded.peek()
+			)
 		}
 	}
 }
@@ -126,7 +129,7 @@ impl<T: Config> OnUnbalanced<FeeNegativeImbalanceOf<T>> for Pallet<T> {
 		// this amount was burnt from caller when tx fees were paid (incl. tip), move the funds into
 		// the pot
 		let note_amount = amount.peek();
-		T::FeeCurrency::deposit_creating(&Self::account_id(), note_amount);
+		let _ = T::FeeCurrency::deposit_creating(&Self::account_id(), note_amount);
 
 		Self::accrue_era_tx_fees(note_amount);
 	}
@@ -147,7 +150,11 @@ impl<T: Config> OnUnbalanced<StakePositiveImbalanceOf<T>> for Pallet<T> {
 		) {
 			// tx fee pot did not have enough to reward the amount, this should not happen...
 			// there's no way to error out here, just log it
-			log!(error, "💸 era payout was underfunded, please open an issue at https://github.com/futureversecom/seed: {:?}", total_rewarded.peek())
+			log!(
+				error,
+				"💸 era payout was underfunded, please open an issue at https://github.com/futureversecom/seed: {:?}",
+				total_rewarded.peek()
+			)
 		}
 	}
 }
@@ -161,7 +168,7 @@ impl<T: Config> OnUnbalanced<StakeNegativeImbalanceOf<T>> for Pallet<T> {
 		let note_amount = amount.peek();
 
 		// mint `note_amount` (offsets `amount` imbalance)
-		T::StakeCurrency::deposit_creating(&Self::account_id(), note_amount);
+		let _ = T::StakeCurrency::deposit_creating(&Self::account_id(), note_amount);
 	}
 }
 

@@ -34,7 +34,7 @@ use frame_support::{
 	log,
 	pallet_prelude::*,
 	traits::{
-		tokens::fungibles::{self, Inspect, Mutate, Transfer},
+		tokens::fungibles::{self, Inspect, Mutate},
 		Get,
 	},
 	PalletId,
@@ -77,8 +77,10 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 
 #[frame_support::pallet]
 pub mod pallet {
-
-	use frame_support::transactional;
+	use frame_support::{
+		traits::tokens::{Fortitude, Precision, Preservation},
+		transactional,
+	};
 	use sp_runtime::traits::AtLeast32BitUnsigned;
 
 	use super::*;
@@ -95,10 +97,9 @@ pub mod pallet {
 
 		/// Multi currency
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
-			+ fungibles::Transfer<Self::AccountId, Balance = BalanceOf<Self>>
 			+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
-			+ fungibles::InspectMetadata<Self::AccountId>
-			+ fungibles::Mutate<Self::AccountId>;
+			+ fungibles::metadata::Inspect<Self::AccountId>
+			+ fungibles::Mutate<Self::AccountId, Balance = BalanceOf<Self>>;
 
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
@@ -122,7 +123,7 @@ pub mod pallet {
 
 		/// Unsigned transaction interval
 		#[pallet::constant]
-		type UnsignedInterval: Get<Self::BlockNumber>;
+		type UnsignedInterval: Get<BlockNumberFor<Self>>;
 
 		/// Payout batch size
 		#[pallet::constant]
@@ -148,11 +149,10 @@ pub mod pallet {
 
 		/// History depth
 		#[pallet::constant]
-		type HistoryDepth: Get<u32>; //TODO: need to set to same value as pallet_staking
+		type HistoryDepth: Get<u32>;
 	}
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
@@ -223,7 +223,7 @@ pub mod pallet {
 
 	/// Stores next unsigned tx block number
 	#[pallet::storage]
-	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+	pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// Stores payout pivot block for each vortex distribution
 	#[pallet::storage]
@@ -276,13 +276,13 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		// incentive calculation
-		fn offchain_worker(now: T::BlockNumber) {
+		fn offchain_worker(now: BlockNumberFor<T>) {
 			if let Err(e) = Self::vtx_dist_offchain_worker(now) {
 				log::info!(
 				  target: "vtx-dist",
-				  "error happened in offchain worker at {:?}: {:?}",
+				  "offchain worker not triggered at {:?}: {:?}",
 				  now,
 				  e,
 				);
@@ -346,12 +346,12 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(1000)]
+		#[pallet::call_index(0)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_admin())]
 		pub fn set_admin(origin: OriginFor<T>, new: AccountIdLookupOf<T>) -> DispatchResult {
 			ensure_root(origin)?;
 
 			let new = T::Lookup::lookup(new)?;
-
 			AdminAccount::<T>::put(&new);
 			Self::deposit_event(Event::AdminAccountChanged {
 				old_key: AdminAccount::<T>::get(),
@@ -361,6 +361,7 @@ pub mod pallet {
 		}
 
 		/// List a vortex distribution
+		#[pallet::call_index(1)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::create_vtx_dist())]
 		#[transactional]
 		pub fn create_vtx_dist(origin: OriginFor<T>) -> DispatchResult {
@@ -381,6 +382,7 @@ pub mod pallet {
 		/// Disable a distribution
 		///
 		/// `id` - The distribution id
+		#[pallet::call_index(2)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::disable_vtx_dist())]
 		#[transactional]
 		pub fn disable_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
@@ -397,6 +399,7 @@ pub mod pallet {
 		/// Start distributing vortex
 		///
 		/// `id` - The distribution id
+		#[pallet::call_index(3)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::start_vtx_dist())]
 		#[transactional]
 		pub fn start_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
@@ -415,12 +418,13 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `current_block` - Current block number
+		#[pallet::call_index(4)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::pay_unsigned().saturating_mul(T::PayoutBatchSize::get().into()))]
 		#[transactional]
 		pub fn pay_unsigned(
 			origin: OriginFor<T>,
 			id: T::VtxDistIdentifier,
-			_current_block: T::BlockNumber,
+			_current_block: BlockNumberFor<T>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 			if let VtxDistStatus::Paying = VtxDistStatuses::<T>::get(id) {
@@ -438,7 +442,7 @@ pub mod pallet {
 				while let Some((who, entry)) = map_iterator.next() {
 					// if the user is already paid out, skip
 					if entry.1 {
-						continue
+						continue;
 					}
 
 					let share = entry.0;
@@ -462,7 +466,7 @@ pub mod pallet {
 					});
 					count += 1;
 					if count > T::PayoutBatchSize::get() {
-						break
+						break;
 					}
 				}
 				let current_last_raw_key: BoundedVec<u8, T::MaxStringLength> =
@@ -490,6 +494,7 @@ pub mod pallet {
 		/// `id` - The distribution id
 		/// `start_era` - Start era
 		/// `end_era` - End era
+		#[pallet::call_index(5)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_vtx_dist_eras())]
 		#[transactional]
 		pub fn set_vtx_dist_eras(
@@ -510,6 +515,7 @@ pub mod pallet {
 		///
 		/// `asset_prices` - List of asset prices
 		/// `id` - The distribution id
+		#[pallet::call_index(6)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_asset_prices(asset_prices.len() as u32))]
 		#[transactional]
 		pub fn set_asset_prices(
@@ -525,6 +531,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `rewards` - Rewards list
+		#[pallet::call_index(7)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
 		pub fn register_rewards(
 			origin: OriginFor<T>,
@@ -557,6 +564,7 @@ pub mod pallet {
 		/// Trigger distribution
 		///
 		/// `id` - The distribution id
+		#[pallet::call_index(8)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution())]
 		#[transactional]
 		pub fn trigger_vtx_distribution(
@@ -577,6 +585,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `vortex_token_amount` - Amount of vortex to redeem
+		#[pallet::call_index(9)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::redeem_tokens_from_vault())]
 		#[transactional]
 		pub fn redeem_tokens_from_vault(
@@ -590,8 +599,8 @@ pub mod pallet {
 			let vortex_balance = vortex_token_amount;
 			ensure!(total_vortex > Zero::zero(), Error::<T>::NoVtxAssetMinted);
 			ensure!(
-				vortex_balance > Zero::zero() &&
-					vortex_balance <= T::MultiCurrency::balance(T::VtxAssetId::get(), &who),
+				vortex_balance > Zero::zero()
+					&& vortex_balance <= T::MultiCurrency::balance(T::VtxAssetId::get(), &who),
 				Error::<T>::InvalidAmount
 			);
 			ensure!(
@@ -610,7 +619,13 @@ pub mod pallet {
 			}
 
 			// Burn the vortex token
-			T::MultiCurrency::burn_from(T::VtxAssetId::get(), &who, vortex_token_amount)?;
+			T::MultiCurrency::burn_from(
+				T::VtxAssetId::get(),
+				&who,
+				vortex_token_amount,
+				Precision::Exact,
+				Fortitude::Polite,
+			)?;
 			Ok(())
 		}
 	}
@@ -625,7 +640,7 @@ pub mod pallet {
 					// Let's make sure to reject transactions from the future.
 					let _current_block = <frame_system::Pallet<T>>::block_number();
 					if &_current_block < current_block {
-						return InvalidTransaction::Future.into()
+						return InvalidTransaction::Future.into();
 					}
 					ValidTransaction::with_tag_prefix("VtxDistChainWorker")
 						.priority(VTX_DIST_UNSIGNED_PRIORITY)
@@ -731,13 +746,13 @@ pub mod pallet {
 		}
 
 		/// offchain worker for unsigned tx
-		fn vtx_dist_offchain_worker(now: T::BlockNumber) -> Result<(), OffchainErr> {
+		fn vtx_dist_offchain_worker(now: BlockNumberFor<T>) -> Result<(), OffchainErr> {
 			if !sp_io::offchain::is_validator() {
-				return Err(OffchainErr::NotAValidator)
+				return Err(OffchainErr::NotAValidator);
 			}
 			let next_unsigned_at = <NextUnsignedAt<T>>::get();
 			if next_unsigned_at > now {
-				return Err(OffchainErr::TooEarly)
+				return Err(OffchainErr::TooEarly);
 			}
 
 			for (id, vtx_dist_status) in VtxDistStatuses::<T>::iter() {
@@ -763,8 +778,16 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 			_keep_live: bool,
 		) -> DispatchResult {
-			let transfer_result =
-				T::MultiCurrency::transfer(asset_id, source, dest, amount, false)?;
+			if amount == Zero::zero() {
+				return Ok(());
+			}
+			let transfer_result = T::MultiCurrency::transfer(
+				asset_id,
+				source,
+				dest,
+				amount,
+				Preservation::Expendable,
+			)?;
 			ensure!(transfer_result == amount, Error::<T>::InvalidAmount);
 			Ok(())
 		}

@@ -184,12 +184,10 @@ fn xls20_mint_with_fee() {
 
 			// Check balances are correct after fees are paid.
 			let payment_amount = new_fee * quantity as u128; // 500
-			let balance_owner =
-				AssetsExt::reducible_balance(Xls20PaymentAsset::get(), &collection_owner, false);
+			let balance_owner = AssetsExt::balance(Xls20PaymentAsset::get(), &collection_owner);
 			assert_eq!(balance_owner, initial_balance - payment_amount);
 
-			let balance_relayer =
-				AssetsExt::reducible_balance(Xls20PaymentAsset::get(), &relayer, false);
+			let balance_relayer = AssetsExt::balance(Xls20PaymentAsset::get(), &relayer);
 			assert_eq!(balance_relayer, payment_amount);
 		});
 }
@@ -219,7 +217,7 @@ fn xls20_mint_with_fee_no_balance_fails() {
 			// Mint tokens with correct fee works
 			assert_noop!(
 				Nft::mint(Some(collection_owner).into(), collection_id, quantity, None,),
-				pallet_assets::Error::<Test>::BalanceLow
+				ArithmeticError::Underflow
 			);
 		});
 }
@@ -260,12 +258,10 @@ fn re_request_xls20_mint_works() {
 
 			// Check balances are correct after fees are paid.
 			// Note the min fee will be paid, rather than the specified fee (599)
-			let balance_owner =
-				AssetsExt::reducible_balance(Xls20PaymentAsset::get(), &collection_owner, false);
+			let balance_owner = AssetsExt::balance(Xls20PaymentAsset::get(), &collection_owner);
 			assert_eq!(balance_owner, initial_balance - specified_fee);
 
-			let balance_relayer =
-				AssetsExt::reducible_balance(Xls20PaymentAsset::get(), &relayer, false);
+			let balance_relayer = AssetsExt::balance(Xls20PaymentAsset::get(), &relayer);
 			assert_eq!(balance_relayer, specified_fee);
 
 			// Check event is thrown with all serial numbers and token_uris

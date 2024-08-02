@@ -15,9 +15,6 @@
 
 use crate::{
 	self as pallet_ethy,
-	mock::sp_api_hidden_includes_construct_runtime::hidden_include::{
-		IterableStorageMap, StorageMap,
-	},
 	types::{
 		BridgeEthereumRpcApi, BridgeRpcError, CheckedEthCallRequest, CheckedEthCallResult,
 		EthAddress, EthBlock, EthCallId, EthHash, LatestOrNumber, Log, TransactionReceipt,
@@ -27,21 +24,23 @@ use crate::{
 use codec::{Decode, Encode};
 use ethereum_types::U64;
 use frame_support::{
-	storage::StorageDoubleMap,
+	pallet_prelude::{OptionQuery, ValueQuery},
+	storage_alias,
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
+	Identity, Twox64Concat,
 };
 use scale_info::TypeInfo;
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
-	AssetId, Balance, Signature,
+	Signature,
 };
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{ByteArray, Get};
-use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
+use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use sp_runtime::{
-	testing::{Header, TestXt},
-	traits::{BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentityLookup, Verify},
+	testing::TestXt,
+	traits::{Convert, Extrinsic as ExtrinsicT, Verify},
 	Percent,
 };
 use std::{
@@ -53,10 +52,7 @@ pub type SessionIndex = u32;
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	pub enum Test
 	{
 		System: frame_system,
 		EthBridge: pallet_ethy,
@@ -266,36 +262,38 @@ impl MockReceiptBuilder {
 	}
 }
 
-pub(crate) mod test_storage {
-	//! storage used by tests to store mock EthBlocks and TransactionReceipts
-	use frame_support::decl_storage;
+#[storage_alias]
+pub type BlockResponseAt<Test: Config> =
+	StorageMap<crate::Pallet<Test>, Identity, u64, MockBlockResponse>;
 
-	use seed_pallet_common::EthCallFailure;
+#[storage_alias]
+pub type TransactionReceiptFor<Test: Config> =
+	StorageMap<crate::Pallet<Test>, Twox64Concat, EthHash, MockReceiptResponse>;
 
-	use super::{AccountId, MockBlockResponse, MockReceiptResponse};
-	use crate::{
-		types::{CheckedEthCallResult, EthAddress, EthCallId, EthHash},
-		Config,
-	};
+#[storage_alias]
+pub type CallAt<Test: Config> =
+	StorageDoubleMap<crate::Pallet<Test>, Twox64Concat, u64, Twox64Concat, EthAddress, Vec<u8>>;
 
-	pub struct Module<T>(sp_std::marker::PhantomData<T>);
-	decl_storage! {
-		trait Store for Module<T: Config> as EthBridgeTest {
-			pub BlockResponseAt: map hasher(identity) u64 => Option<MockBlockResponse>;
-			pub CallAt: double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) EthAddress => Option<Vec<u8>>;
-			pub TransactionReceiptFor: map hasher(twox_64_concat) EthHash => Option<MockReceiptResponse>;
-			pub Timestamp: Option<u64>;
-			pub Validators: Vec<AccountId>;
-			pub LastCallResult: Option<(EthCallId, CheckedEthCallResult)>;
-			pub LastCallFailure: Option<(EthCallId, EthCallFailure)>;
-			pub Forcing: bool;
-		}
-	}
-}
+#[storage_alias]
+pub type Forcing<Test: Config> = StorageValue<crate::Pallet<Test>, bool, ValueQuery>;
+
+#[storage_alias]
+pub type Validators<Test: Config> = StorageValue<crate::Pallet<Test>, Vec<AccountId>, ValueQuery>;
+
+#[storage_alias]
+pub type Timestamp<Test: Config> = StorageValue<crate::Pallet<Test>, u64, OptionQuery>;
+
+#[storage_alias]
+pub type LastCallResult<Test: Config> =
+	StorageValue<crate::Pallet<Test>, (EthCallId, CheckedEthCallResult), OptionQuery>;
+
+#[storage_alias]
+pub type LastCallFailure<Test: Config> =
+	StorageValue<crate::Pallet<Test>, (EthCallId, EthCallFailure), OptionQuery>;
 
 /// set the block timestamp
 pub fn mock_timestamp(now: u64) {
-	test_storage::Timestamp::put(now);
+	Timestamp::<Test>::put(now)
 }
 
 // get the system unix timestamp in seconds
@@ -356,7 +354,7 @@ impl MockEthereumRpcClient {
 			block_number: mock_block.number.unwrap().as_u64(),
 			timestamp: mock_block.timestamp,
 		};
-		test_storage::BlockResponseAt::insert(block_number, mock_block_response);
+		BlockResponseAt::<Test>::insert(block_number, mock_block_response)
 	}
 	/// Mock a tx receipt response for a hash
 	pub fn mock_transaction_receipt_for(tx_hash: EthHash, mock_tx_receipt: TransactionReceipt) {
@@ -368,11 +366,11 @@ impl MockEthereumRpcClient {
 			to: mock_tx_receipt.to,
 			logs: mock_tx_receipt.logs.into_iter().map(From::from).collect(),
 		};
-		test_storage::TransactionReceiptFor::insert(tx_hash, mock_receipt_response);
+		TransactionReceiptFor::<Test>::insert(tx_hash, mock_receipt_response);
 	}
 	/// setup a mock returndata for an `eth_call` at `block` and `contract` address
 	pub fn mock_call_at(block_number: u64, contract: H160, return_data: &[u8]) {
-		test_storage::CallAt::insert(block_number, contract, return_data.to_vec())
+		CallAt::<Test>::insert(block_number, contract, return_data.to_vec())
 	}
 }
 
@@ -382,13 +380,11 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 		block_number: LatestOrNumber,
 	) -> Result<Option<EthBlock>, BridgeRpcError> {
 		let mock_block_response = match block_number {
-			LatestOrNumber::Latest =>
-				test_storage::BlockResponseAt::iter().last().map(|x| x.1).or(None),
-			LatestOrNumber::Number(block) => test_storage::BlockResponseAt::get(block),
+			LatestOrNumber::Latest => BlockResponseAt::<Test>::iter().last().map(|x| x.1).or(None),
+			LatestOrNumber::Number(block) => BlockResponseAt::<Test>::get(block),
 		};
-		println!("get_block_by_number at: {:?}", mock_block_response);
 		if mock_block_response.is_none() {
-			return Ok(None)
+			return Ok(None);
 		}
 		let mock_block_response = mock_block_response.unwrap();
 
@@ -404,10 +400,9 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	fn get_transaction_receipt(
 		hash: EthHash,
 	) -> Result<Option<TransactionReceipt>, BridgeRpcError> {
-		let mock_receipt: Option<MockReceiptResponse> =
-			test_storage::TransactionReceiptFor::get(hash);
+		let mock_receipt = TransactionReceiptFor::<Test>::get(hash);
 		if mock_receipt.is_none() {
-			return Ok(None)
+			return Ok(None);
 		}
 		let mock_receipt = mock_receipt.unwrap();
 		let transaction_receipt = TransactionReceipt {
@@ -429,11 +424,11 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	) -> Result<Vec<u8>, BridgeRpcError> {
 		let block_number = match at_block {
 			LatestOrNumber::Number(n) => n,
-			LatestOrNumber::Latest =>
-				test_storage::BlockResponseAt::iter().last().unwrap().1.block_number,
+			LatestOrNumber::Latest => {
+				BlockResponseAt::<Test>::iter().last().unwrap().1.block_number
+			},
 		};
-		println!("eth_call at: {:?}", block_number);
-		test_storage::CallAt::get(block_number, target).ok_or(BridgeRpcError::HttpFetch)
+		CallAt::<Test>::get(block_number, target).ok_or(BridgeRpcError::HttpFetch)
 	}
 }
 
@@ -454,7 +449,7 @@ impl ValidatorSetT<AccountId> for MockValidatorSet {
 	}
 	/// Returns the active set of validators.
 	fn validators() -> Vec<Self::ValidatorId> {
-		test_storage::Validators::get()
+		Validators::<Test>::get()
 	}
 }
 impl MockValidatorSet {
@@ -462,14 +457,14 @@ impl MockValidatorSet {
 	pub fn mock_n_validators(n: u8) {
 		let validators: Vec<AccountId> =
 			(1..=n as u64).map(|i| H160::from_low_u64_be(i).into()).collect();
-		test_storage::Validators::put(validators);
+		Validators::<Test>::put(validators);
 	}
 }
 
 pub struct MockEventRouter;
 impl EthereumEventRouter for MockEventRouter {
 	fn route(_source: &H160, _destination: &H160, _data: &[u8]) -> EventRouterResult {
-		Ok(Weight::from_ref_time(1000))
+		Ok(Weight::from_all(1000))
 	}
 }
 
@@ -484,7 +479,7 @@ impl EthCallOracleSubscriber for MockEthCallSubscriber {
 		block_number: u64,
 		block_timestamp: u64,
 	) {
-		test_storage::LastCallResult::put((
+		LastCallResult::<Test>::put((
 			call_id,
 			CheckedEthCallResult::Ok(*return_data, block_number, block_timestamp),
 		));
@@ -492,18 +487,18 @@ impl EthCallOracleSubscriber for MockEthCallSubscriber {
 	/// Stores the failed call info
 	/// Available via `Self::failed_call_for()`
 	fn on_eth_call_failed(call_id: Self::CallId, reason: EthCallFailure) {
-		test_storage::LastCallFailure::put((call_id, reason));
+		LastCallFailure::<Test>::put((call_id, reason))
 	}
 }
 
 impl MockEthCallSubscriber {
 	/// Returns last known successful call, if any
 	pub fn success_result() -> Option<(EthCallId, CheckedEthCallResult)> {
-		test_storage::LastCallResult::get()
+		LastCallResult::<Test>::get()
 	}
 	/// Returns last known failed call, if any
 	pub fn failed_result() -> Option<(EthCallId, EthCallFailure)> {
-		test_storage::LastCallFailure::get()
+		LastCallFailure::<Test>::get()
 	}
 }
 
@@ -512,7 +507,8 @@ pub struct MockFinalSessionTracker;
 impl FinalSessionTracker for MockFinalSessionTracker {
 	fn is_active_session_final() -> bool {
 		// at block 100, or if we are forcing, the active session is final
-		frame_system::Pallet::<Test>::block_number() == 100 || test_storage::Forcing::get()
+		let forcing: bool = Forcing::<Test>::get();
+		frame_system::Pallet::<Test>::block_number() == 100 || forcing
 	}
 }
 
@@ -520,7 +516,7 @@ impl FinalSessionTracker for MockFinalSessionTracker {
 pub struct MockUnixTime;
 impl UnixTime for MockUnixTime {
 	fn now() -> core::time::Duration {
-		match test_storage::Timestamp::get() {
+		match Timestamp::<Test>::get() {
 			// Use configured value for tests requiring precise timestamps
 			Some(s) => core::time::Duration::new(s, 0),
 			// fallback, use block number to derive timestamp for tests that only care abut block
@@ -593,7 +589,7 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let mut ext = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		let mut endowed_accounts: Vec<(AccountId, Balance)> = vec![];
 		if self.endowed_account.is_some() {
@@ -633,8 +629,8 @@ impl ExtBuilder {
 		}
 
 		if self.with_keystore {
-			let keystore = KeyStore::new();
-			SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
+			let keystore = MemoryKeystore::new();
+			Keystore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
 			ext.register_extension(KeystoreExt(Arc::new(keystore)));
 		}
 

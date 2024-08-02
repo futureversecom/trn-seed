@@ -704,7 +704,7 @@ fn read_complex_solidity_function() {
 		reader.read::<MultiLocation>().unwrap(),
 		MultiLocation {
 			parents: 1,
-			interior: vec![Bytes::from(&hex!("00000003e8")[..]), Bytes::from(&hex!("0403")[..]),],
+			interior: vec![Bytes::from(&hex!("00000003e8")[..]), Bytes::from(&hex!("0403")[..]),]
 		}
 	);
 

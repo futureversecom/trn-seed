@@ -27,16 +27,16 @@
 use std::sync::Arc;
 
 use log::debug;
-use prometheus::Registry;
+use substrate_prometheus_endpoint::Registry;
 
 use sc_client_api::{Backend, BlockchainEvents, Finalizer};
 use sc_network::ProtocolName;
-use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
+use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
 use seed_primitives::ethy::EthyApi;
 use sp_api::{BlockT, HeaderT, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
-use sp_keystore::SyncCryptoStorePtr;
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block;
 
 mod error;
@@ -81,8 +81,8 @@ pub(crate) mod ethy_protocol_name {
 /// [`sc_network::config::NetworkConfiguration::extra_sets`].
 pub fn ethy_peers_set_config(
 	protocol_name: ProtocolName,
-) -> sc_network_common::config::NonDefaultSetConfig {
-	let mut cfg = sc_network_common::config::NonDefaultSetConfig::new(protocol_name, 1024 * 1024);
+) -> sc_network::config::NonDefaultSetConfig {
+	let mut cfg = sc_network::config::NonDefaultSetConfig::new(protocol_name, 1024 * 1024);
 	cfg.allow_non_reserved(25, 25);
 	cfg
 }
@@ -115,14 +115,15 @@ where
 }
 
 /// ETHY gadget initialization parameters.
-pub struct EthyParams<B, BE, C, R, N>
+pub struct EthyParams<B, BE, C, R, N, S>
 where
 	B: Block,
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: EthyApi<B>,
-	N: GossipNetwork<B> + Clone + SyncOracle + Send + 'static,
+	N: GossipNetwork<B> + Clone + Send + 'static,
+	S: GossipSyncing<B> + SyncOracle + Send + Clone + 'static,
 {
 	/// ETHY client
 	pub client: Arc<C>,
@@ -131,9 +132,11 @@ where
 	/// Runtime
 	pub runtime: Arc<R>,
 	/// Local key store
-	pub key_store: Option<SyncCryptoStorePtr>,
+	pub key_store: Option<KeystorePtr>,
 	/// Gossip network
 	pub network: N,
+	/// Gossip network
+	pub sync_service: S,
 	/// ETHY signed witness sender
 	pub event_proof_sender: notification::EthyEventProofSender,
 	/// Prometheus metric registry
@@ -146,14 +149,15 @@ where
 /// Start the ETHY gadget.
 ///
 /// This is a thin shim around running and awaiting a ETHY worker.
-pub async fn start_ethy_gadget<B, BE, C, R, N>(ethy_params: EthyParams<B, BE, C, R, N>)
+pub async fn start_ethy_gadget<B, BE, C, R, N, S>(ethy_params: EthyParams<B, BE, C, R, N, S>)
 where
 	B: Block,
 	BE: Backend<B> + 'static,
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
 	R::Api: EthyApi<B>,
-	N: GossipNetwork<B> + Clone + SyncOracle + Sync + Send + 'static,
+	N: GossipNetwork<B> + Clone + Sync + Send + 'static,
+	S: GossipSyncing<B> + SyncOracle + Send + Clone + 'static,
 	<<B as BlockT>::Header as HeaderT>::Number: Into<u64>,
 {
 	let EthyParams {
@@ -162,16 +166,18 @@ where
 		runtime,
 		key_store,
 		network,
+		sync_service,
 		event_proof_sender,
 		prometheus_registry,
 		protocol_name,
 		_phantom: std::marker::PhantomData,
 	} = ethy_params;
 
-	let sync_oracle = network.clone();
+	let sync_oracle = sync_service.clone();
 	let gossip_validator =
 		Arc::new(gossip::GossipValidator::new(Default::default(), backend.clone()));
-	let gossip_engine = GossipEngine::new(network, protocol_name, gossip_validator.clone(), None);
+	let gossip_engine =
+		GossipEngine::new(network, sync_service, protocol_name, gossip_validator.clone(), None);
 
 	let metrics =
 		prometheus_registry.as_ref().map(metrics::Metrics::register).and_then(

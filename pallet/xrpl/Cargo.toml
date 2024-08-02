@@ -1,53 +1,48 @@
 [package]
 name = "pallet-xrpl"
 version = "1.0.0-dev"
-authors = ["The Root Network Team"]
-edition = "2021"
-license = "GPL-3.0"
 description = "XRPL Pallet"
-repository = "https://github.com/futureversecom/trn-seed"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-# Parity
-codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+hex = { workspace = true }
+libsecp256k1 = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+xrpl_binary_codec = { git = "https://github.com/futureversecom/xrpl-sdk-rust", default-features = false, features = ["json"] }
+xrpl_types = { git = "https://github.com/futureversecom/xrpl-sdk-rust", default-features = false }
 
-# Substrate FRAME
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
+frame-benchmarking = { workspace = true, optional = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+codec = { workspace = true }
+scale-info = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-std = { workspace = true }
+sp-runtime = { workspace = true }
+pallet-transaction-payment = { workspace = true }
 
-# Benchmarking
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", optional = true, default-features = false }
-
-# Custom
-log = "0.4"
-hex = { version = "0.4.3", default-features = false }
-sha2 = { version = "0.10", default-features = false }
-libsecp256k1 = { version = "0.7", default-features = false, features = [ "hmac" ] }
-serde = { version = "1.0.145", default-features= false, features = ["derive"] }
-serde_json = { version = "1.0.87", default-features = false, features = ["alloc"] }
-xrpl_types = { git = "https://github.com/futureversecom/xrpl-sdk-rust", branch = "once-cell-support", default-features = false }
-xrpl_binary_codec = { git = "https://github.com/futureversecom/xrpl-sdk-rust", branch = "once-cell-support", default-features = false, features = ["json"] }
-seed-pallet-common = { path = "../common", default-features = false }
-seed-primitives = { path = "../../primitives", default-features = false }
-precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
+seed-pallet-common = { workspace = true }
+seed-primitives = { workspace = true }
+precompile-utils = { workspace = true }
 
 [dev-dependencies]
-frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-fp-self-contained = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
-seed-pallet-common= { path = "../common" }
-pallet-assets-ext = { path = "../assets-ext" }
-pallet-fee-control = { path = "../fee-control" }
+frame-executive = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-balances = { workspace = true }
+fp-self-contained = { workspace = true, default-features = true }
+seed-pallet-common= { workspace = true }
+pallet-assets-ext = { workspace = true, default-features = true }
+pallet-fee-control = { workspace = true }
 
 [features]
 default = ["std"]
@@ -70,6 +65,7 @@ std = [
 	"seed-pallet-common/std",
 	"seed-primitives/std",
 	"precompile-utils/std",
+	"frame-benchmarking?/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
 runtime-benchmarks = ["frame-benchmarking"]

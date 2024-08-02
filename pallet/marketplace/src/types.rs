@@ -15,6 +15,7 @@ use crate::{Config, Error};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::DispatchResult, ensure, RuntimeDebugNoBound};
+use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
 use seed_pallet_common::{NFTExt, SFTExt};
 use seed_primitives::{
@@ -94,7 +95,7 @@ impl<T: Config> ListingTokens<T> {
 	/// Throws an error if owner does not own all tokens
 	pub fn lock_tokens(&self, owner: &T::AccountId, listing_id: ListingId) -> DispatchResult {
 		match self {
-			ListingTokens::Nft(nfts) =>
+			ListingTokens::Nft(nfts) => {
 				for serial_number in nfts.serial_numbers.iter() {
 					let token_id = (nfts.collection_id, *serial_number);
 					T::NFTExt::set_token_lock(
@@ -102,12 +103,14 @@ impl<T: Config> ListingTokens<T> {
 						TokenLockReason::Listed(listing_id),
 						*owner,
 					)?;
-				},
-			ListingTokens::Sft(sfts) =>
+				}
+			},
+			ListingTokens::Sft(sfts) => {
 				for (serial_number, balance) in sfts.serial_numbers.iter() {
 					let token_id = (sfts.collection_id, *serial_number);
 					T::SFTExt::reserve_balance(token_id, *balance, owner)?;
-				},
+				}
+			},
 		}
 		Ok(())
 	}
@@ -115,16 +118,18 @@ impl<T: Config> ListingTokens<T> {
 	/// Removes all token locks and reservations for tokens included in a listing
 	pub fn unlock_tokens(&self, owner: &T::AccountId) -> DispatchResult {
 		match self {
-			ListingTokens::Nft(nfts) =>
+			ListingTokens::Nft(nfts) => {
 				for serial_number in nfts.serial_numbers.iter() {
 					let token_id = (nfts.collection_id, *serial_number);
 					T::NFTExt::remove_token_lock(token_id);
-				},
-			ListingTokens::Sft(sfts) =>
+				}
+			},
+			ListingTokens::Sft(sfts) => {
 				for (serial_number, balance) in sfts.serial_numbers.iter() {
 					let token_id = (sfts.collection_id, *serial_number);
 					T::SFTExt::free_reserved_balance(token_id, *balance, owner)?;
-				},
+				}
+			},
 		}
 		Ok(())
 	}
@@ -236,7 +241,7 @@ pub struct AuctionListing<T: Config> {
 	/// The threshold amount for a successful bid
 	pub reserve_price: Balance,
 	/// When the listing closes
-	pub close: T::BlockNumber,
+	pub close: BlockNumberFor<T>,
 	/// The seller of the tokens
 	pub seller: T::AccountId,
 	/// The tokens contained within the listing
@@ -256,7 +261,7 @@ pub struct FixedPriceListing<T: Config> {
 	/// The requested amount for a succesful sale
 	pub fixed_price: Balance,
 	/// When the listing closes
-	pub close: T::BlockNumber,
+	pub close: BlockNumberFor<T>,
 	/// The authorised buyer. If unset, any buyer is authorised
 	pub buyer: Option<T::AccountId>,
 	/// The seller of the tokens

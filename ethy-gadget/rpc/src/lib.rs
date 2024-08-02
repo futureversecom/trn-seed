@@ -20,12 +20,15 @@
 use codec::Decode;
 use futures::{FutureExt, StreamExt};
 use jsonrpsee::{
-	core::RpcResult, proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSink,
+	core::{async_trait, RpcResult},
+	proc_macros::rpc,
+	types::SubscriptionEmptyError,
+	SubscriptionSink,
 };
 use log::warn;
 use sc_client_api::backend::AuxStore;
 use sc_rpc::SubscriptionTaskExecutor;
-use sp_api::{BlockId, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_core::{Bytes, H256};
 use sp_runtime::traits::{Block, Convert};
 use std::{marker::PhantomData, ops::Deref, sync::Arc};
@@ -98,6 +101,7 @@ where
 	}
 }
 
+#[async_trait]
 impl<C, R, B> EthyApiServer<EthEventProofResponse> for EthyRpcHandler<C, R, B>
 where
 	B: Block<Hash = H256>,
@@ -112,7 +116,7 @@ where
 		let runtime_handle = self.runtime.clone();
 		let stream = self
 			.event_proof_stream
-			.subscribe()
+			.subscribe(100_000)
 			.map(move |p| build_event_proof_response::<R, B>(&runtime_handle, p));
 
 		let fut = async move {
@@ -138,7 +142,7 @@ where
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
 					let event_proof_response =
 						build_event_proof_response::<R, B>(&self.runtime, versioned_proof);
-					return Ok(event_proof_response)
+					return Ok(event_proof_response);
 				}
 			}
 		}
@@ -162,7 +166,7 @@ where
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
 					let response =
 						build_xrpl_tx_proof_response::<R, B>(&self.runtime, versioned_proof);
-					return Ok(response)
+					return Ok(response);
 				}
 			}
 		}
@@ -182,10 +186,8 @@ where
 {
 	match versioned_event_proof {
 		VersionedEventProof::V1(event_proof) => {
-			let proof_validator_set = runtime
-				.runtime_api()
-				.validator_set(&BlockId::hash(event_proof.block.into()))
-				.ok()?;
+			let proof_validator_set =
+				runtime.runtime_api().validator_set(event_proof.block.into()).ok()?;
 
 			let validator_addresses: Vec<AccountId20> = proof_validator_set
 				.validators
@@ -222,11 +224,9 @@ where
 {
 	match versioned_event_proof {
 		VersionedEventProof::V1(EventProof { signatures, event_id, block, .. }) => {
-			let xrpl_validator_set =
-				runtime.runtime_api().xrpl_signers(&BlockId::hash(block.into())).ok()?;
+			let xrpl_validator_set = runtime.runtime_api().xrpl_signers(block.into()).ok()?;
 
-			let validator_set =
-				runtime.runtime_api().validator_set(&BlockId::hash(block.into())).ok()?;
+			let validator_set = runtime.runtime_api().validator_set(block.into()).ok()?;
 			let mut xrpl_signer_set: Vec<Bytes> = Default::default();
 
 			Some(XrplEventProofResponse {

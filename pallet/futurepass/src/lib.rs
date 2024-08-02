@@ -212,7 +212,7 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> where
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> where
 		<T as frame_system::Config>::AccountId: From<H160>
 	{
 	}
@@ -229,6 +229,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `account`: The delegated account for the futurepass.
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::create())]
 		#[transactional]
 		pub fn create(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
@@ -261,6 +262,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(1)]
 		#[pallet::weight({
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
 			T::WeightInfo::register_delegate_with_signature(delegate_count)
@@ -298,7 +300,7 @@ pub mod pallet {
 				Error::<T>::DelegateAlreadyExists
 			);
 
-			let deadline_block_number: T::BlockNumber = deadline.into();
+			let deadline_block_number: BlockNumberFor<T> = deadline.into();
 			ensure!(
 				deadline_block_number >= frame_system::Pallet::<T>::block_number(),
 				Error::<T>::ExpiredDeadline
@@ -345,6 +347,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(2)]
 		#[pallet::weight({
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
 			T::WeightInfo::unregister_delegate(delegate_count)
@@ -398,6 +401,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(3)]
 		#[pallet::weight({
 			match Holders::<T>::get(current_owner) {
 				Some(futurepass) => {
@@ -466,6 +470,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(4)]
 		#[pallet::weight({
 			let di = call.get_dispatch_info();
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
@@ -490,9 +495,9 @@ pub mod pallet {
 
 			// restrict delegate access to whitelist
 			match call.is_sub_type() {
-				Some(Call::register_delegate_with_signature { .. }) |
-				Some(Call::unregister_delegate { .. }) |
-				Some(Call::transfer_futurepass { .. }) => {
+				Some(Call::register_delegate_with_signature { .. })
+				| Some(Call::unregister_delegate { .. })
+				| Some(Call::transfer_futurepass { .. }) => {
 					ensure!(
 						Holders::<T>::get(&who.clone()) == Some(futurepass.clone()),
 						Error::<T>::NotFuturepassOwner

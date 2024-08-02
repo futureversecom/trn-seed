@@ -113,7 +113,9 @@ where
 		who: &AccountId,
 		amount: Balance,
 	) -> Result<(), TokenBalanceError> {
-		let Some((_, existing_balance)) = self.owned_tokens.iter_mut().find(|(account, _)| account == who) else {
+		let Some((_, existing_balance)) =
+			self.owned_tokens.iter_mut().find(|(account, _)| account == who)
+		else {
 			return Err(TokenBalanceError::InsufficientBalance.into());
 		};
 
@@ -135,7 +137,7 @@ where
 		amount: Balance,
 	) -> Result<(), TokenBalanceError> {
 		if from == to {
-			return Ok(())
+			return Ok(());
 		}
 		self.remove_balance(from, amount)?;
 		self.add_balance(to, amount)?;
@@ -225,7 +227,7 @@ impl SftTokenBalance {
 	/// Removes some balance from the free balance
 	pub fn remove_free_balance(&mut self, amount: Balance) -> Result<(), TokenBalanceError> {
 		if self.free_balance < amount {
-			return Err(TokenBalanceError::InsufficientBalance)
+			return Err(TokenBalanceError::InsufficientBalance);
 		}
 		self.free_balance -= amount;
 		Ok(())
@@ -242,7 +244,7 @@ impl SftTokenBalance {
 	/// Removes some balance from reserved
 	pub fn remove_reserve(&mut self, amount: Balance) -> Result<(), TokenBalanceError> {
 		if self.reserved_balance < amount {
-			return Err(TokenBalanceError::InsufficientBalance)
+			return Err(TokenBalanceError::InsufficientBalance);
 		}
 		self.reserved_balance -= amount;
 		self.add_free_balance(amount)?;

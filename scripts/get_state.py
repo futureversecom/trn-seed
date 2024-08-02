@@ -117,7 +117,7 @@ def xxh6464(x):
 def list_of_prefixes_to_migrate(substrate):
     # Importing these modules will cause the chain to not work correctly
     skip_modules = ['System', 'Session', 'Babe', 'Grandpa',
-                    'GrandpaFinality', 'FinalityTracker', 'Authorship']
+                    'GrandpaFinality', 'FinalityTracker', 'Authorship', 'Staking']
 
     # We definitely want to keep System.Account data and the Runtime :)
     enabled_prefixes = [
@@ -170,7 +170,7 @@ def populate_dev_chain(substrate, forked_storage, chain_name):
     #     '0x26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8')
 
     # To prevent the validator set from changing mid-test, set Staking.ForceEra to ForceNone ('0x02')
-    base_storage['0x5f3e4907f716ac89b6347d15ececedcaf7dad0317324aecae8744b87fc95f2f3'] = '0x02'
+    # base_storage['0x5f3e4907f716ac89b6347d15ececedcaf7dad0317324aecae8744b87fc95f2f3'] = '0x02'
 
     # Write the updated base chain specification to a file
     with open(FORK_SPEC, 'w') as outfile:

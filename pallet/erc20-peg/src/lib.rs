@@ -22,7 +22,8 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungibles,
-		fungibles::{Mutate, Transfer},
+		fungibles::Mutate,
+		tokens::{Fortitude, Precision, Preservation},
 		Get, IsType,
 	},
 	transactional,
@@ -57,7 +58,6 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::genesis_config]
@@ -66,7 +66,6 @@ pub mod pallet {
 		_phantom: sp_std::marker::PhantomData<T>,
 	}
 
-	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
 			GenesisConfig { erc20s: vec![], _phantom: Default::default() }
@@ -74,7 +73,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			for (address, symbol, decimals) in self.erc20s.iter() {
 				Erc20Meta::<T>::insert(address, (symbol, decimals));
@@ -91,8 +90,7 @@ pub mod pallet {
 		/// Currency functions
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 			+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
-			+ fungibles::Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
-			+ fungibles::Mutate<Self::AccountId>;
+			+ fungibles::Mutate<Self::AccountId, AssetId = AssetId, Balance = Balance>;
 		/// The overarching event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Interface to generate weights
@@ -149,7 +147,7 @@ pub mod pallet {
 	/// Map from asset_id to minimum amount and delay
 	#[pallet::storage]
 	pub type PaymentDelay<T: Config> =
-		StorageMap<_, Twox64Concat, AssetId, (Balance, T::BlockNumber)>;
+		StorageMap<_, Twox64Concat, AssetId, (Balance, BlockNumberFor<T>)>;
 
 	/// Map from DelayedPaymentId to PendingPayment
 	#[pallet::storage]
@@ -161,7 +159,7 @@ pub mod pallet {
 	pub type DelayedPaymentSchedule<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
-		T::BlockNumber,
+		BlockNumberFor<T>,
 		BoundedVec<DelayedPaymentId, T::MaxDelaysPerBlock>,
 		ValueQuery,
 	>;
@@ -169,7 +167,7 @@ pub mod pallet {
 	/// The blocks with payments that are ready to be processed
 	#[pallet::storage]
 	pub type ReadyBlocks<T: Config> =
-		StorageValue<_, BoundedVec<T::BlockNumber, T::MaxReadyBlocks>, ValueQuery>;
+		StorageValue<_, BoundedVec<BlockNumberFor<T>, T::MaxReadyBlocks>, ValueQuery>;
 
 	/// The next available payment id for withdrawals and deposits
 	#[pallet::storage]
@@ -189,7 +187,7 @@ pub mod pallet {
 		/// An erc20 deposit has been delayed.
 		Erc20DepositDelayed {
 			payment_id: DelayedPaymentId,
-			scheduled_block: T::BlockNumber,
+			scheduled_block: BlockNumberFor<T>,
 			amount: Balance,
 			beneficiary: T::AccountId,
 			asset_id: AssetId,
@@ -197,7 +195,7 @@ pub mod pallet {
 		/// A withdrawal has been delayed.
 		Erc20WithdrawalDelayed {
 			payment_id: DelayedPaymentId,
-			scheduled_block: T::BlockNumber,
+			scheduled_block: BlockNumberFor<T>,
 			amount: Balance,
 			beneficiary: EthAddress,
 			asset_id: AssetId,
@@ -206,7 +204,7 @@ pub mod pallet {
 		/// An ERC20 delay has failed due to storage bounds.
 		Erc20DelayFailed {
 			payment_id: DelayedPaymentId,
-			scheduled_block: T::BlockNumber,
+			scheduled_block: BlockNumberFor<T>,
 			asset_id: AssetId,
 			source: T::AccountId,
 		},
@@ -225,7 +223,7 @@ pub mod pallet {
 		/// The ROOT peg contract address has been set.
 		SetRootPegContract { address: EthAddress },
 		/// A delay was added for an asset_id.
-		PaymentDelaySet { asset_id: AssetId, min_balance: Balance, delay: T::BlockNumber },
+		PaymentDelaySet { asset_id: AssetId, min_balance: Balance, delay: BlockNumberFor<T> },
 		/// There are no more payment ids available, they've been exhausted.
 		NoAvailableDelayedPaymentIds,
 		/// Toggle deposit delay.
@@ -263,27 +261,27 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Check and process outstanding payments
-		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
+		fn on_idle(_now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			let initial_read_cost = DbWeight::get().reads(1u64);
 			// Ensure we have enough weight to perform the initial read
-			if remaining_weight.all_lte(initial_read_cost) {
-				return Weight::zero()
+			if remaining_weight.ref_time() <= initial_read_cost.ref_time() {
+				return Weight::zero();
 			}
 			// Check that there are blocks in ready_blocks
 			let ready_blocks_length = ReadyBlocks::<T>::decode_len();
 			if ready_blocks_length.is_none() || ready_blocks_length == Some(0) {
-				return Weight::zero()
+				return Weight::zero();
 			}
 
 			// Process as many payments as we can
 			let weight_each: Weight =
 				DbWeight::get().reads(8u64).saturating_add(DbWeight::get().writes(10u64));
 			let max_payments = remaining_weight
-				.sub(initial_read_cost.ref_time())
+				.sub_ref_time(initial_read_cost.ref_time())
 				.div(weight_each.ref_time())
 				.ref_time()
 				.saturated_into::<u8>();
-			let ready_blocks: Vec<T::BlockNumber> = ReadyBlocks::<T>::get().into_inner();
+			let ready_blocks: Vec<BlockNumberFor<T>> = ReadyBlocks::<T>::get().into_inner();
 			// Total payments processed in this block
 			let mut processed_payment_count: u8 = 0;
 			// Count of blocks where all payments have been processed
@@ -307,18 +305,19 @@ pub mod pallet {
 					Self::process_delayed_payment(payment_id);
 				}
 				if processed_payment_count >= max_payments {
-					break
+					break;
 				}
 			}
 
 			let ready_blocks =
 				BoundedVec::truncate_from(ready_blocks[processed_block_count as usize..].to_vec());
 			ReadyBlocks::<T>::put(ready_blocks);
-			initial_read_cost.add(weight_each.mul(processed_payment_count as u64).ref_time())
+			initial_read_cost
+				.add_ref_time(weight_each.mul(processed_payment_count as u64).ref_time())
 		}
 
 		/// Check and process outstanding payments
-		fn on_initialize(now: T::BlockNumber) -> Weight {
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			let mut weight: Weight = DbWeight::get().reads(1u64);
 			if DelayedPaymentSchedule::<T>::contains_key(now) {
 				let _ = ReadyBlocks::<T>::try_append(now).map_err(|_| {
@@ -333,6 +332,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Activate/deactivate deposits (root only)
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::activate_deposits())]
 		pub fn activate_deposits(origin: OriginFor<T>, activate: bool) -> DispatchResult {
 			ensure_root(origin)?;
@@ -342,6 +342,7 @@ pub mod pallet {
 		}
 
 		/// Activate/deactivate withdrawals (root only)
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::activate_withdrawals())]
 		pub fn activate_withdrawals(origin: OriginFor<T>, activate: bool) -> DispatchResult {
 			ensure_root(origin)?;
@@ -351,6 +352,7 @@ pub mod pallet {
 		}
 
 		/// Activate/deactivate delay deposits (root only)
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::activate_deposits_delay())]
 		pub fn activate_deposits_delay(origin: OriginFor<T>, activate: bool) -> DispatchResult {
 			ensure_root(origin)?;
@@ -360,6 +362,7 @@ pub mod pallet {
 		}
 
 		/// Activate/deactivate withdrawals (root only)
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::activate_withdrawals_delay())]
 		pub fn activate_withdrawals_delay(origin: OriginFor<T>, activate: bool) -> DispatchResult {
 			ensure_root(origin)?;
@@ -368,6 +371,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::withdraw())]
 		/// Tokens will be transferred to peg account and a proof generated to allow redemption of
 		/// tokens on Ethereum
@@ -389,6 +393,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::set_erc20_peg_address())]
 		/// Set the ERC20 peg contract address on Ethereum (requires governance)
 		pub fn set_erc20_peg_address(
@@ -401,6 +406,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::set_root_peg_address())]
 		/// Set the ROOT peg contract address on Ethereum (requires governance)
 		pub fn set_root_peg_address(
@@ -413,6 +419,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::set_erc20_meta())]
 		/// Set the metadata details for a given ERC20 address (requires governance)
 		/// details: `[(contract address, symbol, decimals)]`
@@ -427,6 +434,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::set_erc20_asset_map())]
 		/// Sets the mapping for an asset to an ERC20 address (requires governance)
 		/// Sets both Erc20ToAssetId and AssetIdToErc20
@@ -441,13 +449,14 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::set_payment_delay())]
 		/// Sets the payment delay for a given AssetId
 		pub fn set_payment_delay(
 			origin: OriginFor<T>,
 			asset_id: AssetId,
 			min_balance: Balance,
-			delay: T::BlockNumber,
+			delay: BlockNumberFor<T>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			PaymentDelay::<T>::insert(asset_id, (min_balance, delay));
@@ -481,7 +490,7 @@ impl<T: Config> Pallet<T> {
 		let message = WithdrawMessage { token_address, amount: amount.into(), beneficiary };
 
 		// Check if there is a delay on the asset
-		let payment_delay: Option<(Balance, T::BlockNumber)> = PaymentDelay::<T>::get(asset_id);
+		let payment_delay: Option<(Balance, BlockNumberFor<T>)> = PaymentDelay::<T>::get(asset_id);
 		if WithdrawalsDelayActive::<T>::get() {
 			if let Some((min_amount, delay)) = payment_delay {
 				if min_amount <= amount {
@@ -501,7 +510,7 @@ impl<T: Config> Pallet<T> {
 							// EVM payment delays are not supported
 							Err(Error::<T>::EvmWithdrawalFailed.into())
 						},
-					}
+					};
 				}
 			};
 		}
@@ -520,10 +529,22 @@ impl<T: Config> Pallet<T> {
 		if asset_id == T::NativeAssetId::get() {
 			// transfer all ROOT tokens to the peg address
 			let pallet_address: T::AccountId = T::PegPalletId::get().into_account_truncating();
-			T::MultiCurrency::transfer(asset_id, origin, &pallet_address, amount, false)?;
+			T::MultiCurrency::transfer(
+				asset_id,
+				origin,
+				&pallet_address,
+				amount,
+				Preservation::Expendable,
+			)?;
 		} else {
 			// burn all other tokens
-			T::MultiCurrency::burn_from(asset_id, origin, amount)?;
+			T::MultiCurrency::burn_from(
+				asset_id,
+				origin,
+				amount,
+				Precision::Exact,
+				Fortitude::Polite,
+			)?;
 		}
 		Ok(())
 	}
@@ -594,7 +615,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Delay a withdrawal or deposit until a later block
 	pub fn delay_payment(
-		delay: T::BlockNumber,
+		delay: BlockNumberFor<T>,
 		pending_payment: PendingPayment,
 		asset_id: AssetId,
 		source: T::AccountId,
@@ -602,7 +623,7 @@ impl<T: Config> Pallet<T> {
 		let payment_id = NextDelayedPaymentId::<T>::get();
 		if !payment_id.checked_add(One::one()).is_some() {
 			Self::deposit_event(Event::<T>::NoAvailableDelayedPaymentIds);
-			return
+			return;
 		}
 		let payment_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
 		DelayedPayments::<T>::insert(payment_id, &pending_payment);
@@ -669,7 +690,8 @@ impl<T: Config> Pallet<T> {
 				ensure!(source == &ContractAddress::<T>::get(), Error::<T>::InvalidSourceAddress);
 			}
 			// Asset exists, check if there are delays on this deposit
-			let payment_delay: Option<(Balance, T::BlockNumber)> = PaymentDelay::<T>::get(asset_id);
+			let payment_delay: Option<(Balance, BlockNumberFor<T>)> =
+				PaymentDelay::<T>::get(asset_id);
 			if DepositsDelayActive::<T>::get() {
 				if let Some((min_amount, delay)) = payment_delay {
 					if U256::from(min_amount) <= deposit_event.amount {
@@ -679,7 +701,7 @@ impl<T: Config> Pallet<T> {
 							asset_id,
 							(*source).into(),
 						);
-						return Ok(())
+						return Ok(());
 					}
 				};
 			}
@@ -740,7 +762,13 @@ impl<T: Config> Pallet<T> {
 		if asset_id == T::NativeAssetId::get() {
 			// Transfer all ROOT tokens from the peg address
 			let pallet_address: T::AccountId = T::PegPalletId::get().into_account_truncating();
-			T::MultiCurrency::transfer(asset_id, &pallet_address, beneficiary, amount, false)?;
+			T::MultiCurrency::transfer(
+				asset_id,
+				&pallet_address,
+				beneficiary,
+				amount,
+				Preservation::Expendable,
+			)?;
 		} else {
 			// Mint all other tokens
 			T::MultiCurrency::mint_into(asset_id, beneficiary, amount)?;

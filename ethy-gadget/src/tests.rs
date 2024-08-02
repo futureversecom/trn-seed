@@ -26,7 +26,7 @@ use sc_network_test::{
 use seed_primitives::ethy::{crypto::AuthorityId, EthyApi, ValidatorSet, ETHY_KEY_TYPE};
 use serde::{Deserialize, Serialize};
 use sp_api::{ApiRef, ProvideRuntimeApi};
-use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
+use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::{BuildStorage, Storage};
 use std::sync::Arc;
 
@@ -128,6 +128,10 @@ impl TestNetFactory for EthyTestNet {
 		&self.peers
 	}
 
+	fn peers_mut(&mut self) -> &mut Vec<EthyPeer> {
+		&mut self.peers
+	}
+
 	fn mut_peers<F: FnOnce(&mut Vec<EthyPeer>)>(&mut self, closure: F) {
 		closure(&mut self.peers);
 	}
@@ -190,9 +194,9 @@ pub(crate) fn make_ethy_ids(keys: &[EthyKeyring]) -> Vec<AuthorityId> {
 	keys.iter().map(|key| key.clone().public().into()).collect()
 }
 
-pub(crate) fn create_ethy_keystore(authority: EthyKeyring) -> SyncCryptoStorePtr {
+pub(crate) fn create_ethy_keystore(authority: EthyKeyring) -> KeystorePtr {
 	let keystore = Arc::new(LocalKeystore::in_memory());
-	SyncCryptoStore::ecdsa_generate_new(&*keystore, ETHY_KEY_TYPE, Some(&authority.to_seed()))
+	Keystore::ecdsa_generate_new(&*keystore, ETHY_KEY_TYPE, Some(&authority.to_seed()))
 		.expect("Creates authority key");
 	keystore
 }

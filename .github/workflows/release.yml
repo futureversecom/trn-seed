@@ -54,8 +54,10 @@ jobs:
           body_path: CHANGELOG.md
 
       ### build the wasm runtime for publishing
-      - name: Install toolchain
-        run: rustup show
+      - uses: dtolnay/rust-toolchain@1.80.0
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
       - name: Build wasm (again)
         run: cargo build
       - name: Publish runtime wasm
@@ -64,7 +66,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./target/debug/wbuild/seed-runtime/seed_runtime.compact.compressed.wasm
+          asset_path: ./target/release/wbuild/seed-runtime/seed_runtime.compact.compressed.wasm
           asset_name: seed_runtime-${{ steps.find_spec_version.outputs.spec_version }}.compact.compressed.wasm
           asset_content_type: application/wasm
   # TODO: Slack notification on release

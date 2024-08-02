@@ -66,7 +66,7 @@ pub fn succeed(output: impl AsRef<[u8]>) -> PrecompileOutput {
 /// returns the first four bytes or zero if less than four bytes
 pub fn get_selector(call_data: &[u8]) -> [u8; 4] {
 	if call_data.len() < 4 {
-		return [0_u8; 4]
+		return [0_u8; 4];
 	}
 
 	call_data[0..4].try_into().unwrap_or_default()

@@ -18,10 +18,7 @@ use frame_support::pallet_prelude::*;
 use seed_pallet_common::test_prelude::*;
 
 construct_runtime!(
-	pub enum Test where
-		Block = Block<Test>,
-		NodeBlock = Block<Test>,
-		UncheckedExtrinsic = UncheckedExtrinsic<Test>,
+	pub enum Test
 	{
 		System: frame_system,
 		AssetsExt: pallet_assets_ext,
@@ -91,7 +88,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 		// Setup XRP asset
 		let metadata = vec![(XRP_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), 6)];

@@ -18,7 +18,10 @@
 //! default and must be disabled explicely throught type annotations.
 
 use crate::{revert, StatefulPrecompile};
-use fp_evm::{Precompile, PrecompileHandle, PrecompileResult, PrecompileSet};
+use fp_evm::{
+	ExitError, IsPrecompileResult, Precompile, PrecompileFailure, PrecompileHandle,
+	PrecompileResult, PrecompileSet,
+};
 use frame_support::pallet_prelude::Get;
 use impl_trait_for_tuples::impl_for_tuples;
 use pallet_evm::AddressMapping;
@@ -28,8 +31,23 @@ use sp_std::{
 	vec::Vec,
 };
 
-// CONFIGURATION TYPES
+/// Result returning an EVM precompile error.
+pub type EvmResult<T = ()> = Result<T, PrecompileFailure>;
 
+pub fn is_precompile<P: PrecompileSet>(
+	precompile_set: &P,
+	address: H160,
+	remaining_gas: u64,
+) -> EvmResult<bool> {
+	match precompile_set.is_precompile(address, remaining_gas) {
+		IsPrecompileResult::Answer { is_precompile, .. } => Ok(is_precompile),
+		IsPrecompileResult::OutOfGas => {
+			Err(PrecompileFailure::Error { exit_status: ExitError::OutOfGas })
+		},
+	}
+}
+
+// CONFIGURATION TYPES
 mod sealed {
 	pub trait Sealed {}
 }
@@ -113,7 +131,7 @@ pub trait PrecompileSetFragment {
 	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult>;
 
 	/// Is the provided address a precompile in this fragment?
-	fn is_precompile(&self, address: H160) -> bool;
+	fn is_precompile(&self, address: H160, remaining_gas: u64) -> IsPrecompileResult;
 
 	/// Return the list of addresses covered by this fragment.
 	fn used_addresses(&self) -> Vec<H160>;
@@ -147,12 +165,12 @@ where
 
 		// Check if this is the address of the precompile.
 		if A::get() != code_address {
-			return None
+			return None;
 		}
 
 		// Check DELEGATECALL config.
 		if !D::allow_delegate_call() && code_address != handle.context().address {
-			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE")))
+			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE")));
 		}
 
 		// Check and increase recursion level if needed.
@@ -160,9 +178,9 @@ where
 			match self.current_recursion_level.try_borrow_mut() {
 				Ok(mut recursion_level) => {
 					if *recursion_level > max_recursion_level {
-						return Some(
-							Err(revert("Precompile is called with too high nesting").into()),
-						)
+						return Some(Err(
+							revert("Precompile is called with too high nesting").into()
+						));
 					}
 
 					*recursion_level += 1;
@@ -191,8 +209,8 @@ where
 	}
 
 	#[inline(always)]
-	fn is_precompile(&self, address: H160) -> bool {
-		address == A::get()
+	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
+		IsPrecompileResult::Answer { is_precompile: address == A::get(), extra_cost: 0 }
 	}
 
 	#[inline(always)]
@@ -234,12 +252,12 @@ where
 
 		// Check if this is the address of the precompile.
 		if A::get() != code_address {
-			return None
+			return None;
 		}
 
 		// Check DELEGATECALL config.
 		if !D::allow_delegate_call() && code_address != handle.context().address {
-			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE").into()))
+			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE").into()));
 		}
 
 		// Check and increase recursion level if needed.
@@ -247,9 +265,9 @@ where
 			match self.current_recursion_level.try_borrow_mut() {
 				Ok(mut recursion_level) => {
 					if *recursion_level > max_recursion_level {
-						return Some(
-							Err(revert("Precompile is called with too high nesting").into()),
-						)
+						return Some(Err(
+							revert("Precompile is called with too high nesting").into()
+						));
 					}
 
 					*recursion_level += 1;
@@ -278,8 +296,8 @@ where
 	}
 
 	#[inline(always)]
-	fn is_precompile(&self, address: H160) -> bool {
-		address == A::get()
+	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
+		IsPrecompileResult::Answer { is_precompile: address == A::get(), extra_cost: 0 }
 	}
 
 	#[inline(always)]
@@ -319,13 +337,13 @@ where
 	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
 		let code_address = handle.code_address();
 
-		if !self.is_precompile(code_address) {
-			return None
+		if !is_precompile(&self.precompile_set, code_address, handle.remaining_gas()).ok()? {
+			return None;
 		}
 
 		// Check DELEGATECALL config.
 		if !D::allow_delegate_call() && code_address != handle.context().address {
-			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE")))
+			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE")));
 		}
 
 		// Check and increase recursion level if needed.
@@ -335,7 +353,7 @@ where
 					let recursion_level = recursion_level_map.entry(code_address).or_insert(0);
 
 					if *recursion_level > max_recursion_level {
-						return Some(Err(revert("Precompile is called with too high nesting")))
+						return Some(Err(revert("Precompile is called with too high nesting")));
 					}
 
 					*recursion_level += 1;
@@ -369,8 +387,12 @@ where
 	}
 
 	#[inline(always)]
-	fn is_precompile(&self, address: H160) -> bool {
-		address.as_bytes().starts_with(A::get()) && self.precompile_set.is_precompile(address)
+	fn is_precompile(&self, address: H160, remaining_gas: u64) -> IsPrecompileResult {
+		if address.as_bytes().starts_with(A::get()) {
+			self.precompile_set.is_precompile(address, remaining_gas)
+		} else {
+			IsPrecompileResult::Answer { is_precompile: false, extra_cost: 0 }
+		}
 	}
 
 	#[inline(always)]
@@ -403,8 +425,8 @@ where
 	}
 
 	#[inline(always)]
-	fn is_precompile(&self, address: H160) -> bool {
-		address == A::get()
+	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
+		IsPrecompileResult::Answer { is_precompile: address == A::get(), extra_cost: 0 }
 	}
 
 	#[inline(always)]
@@ -435,14 +457,20 @@ impl PrecompileSetFragment for Tuple {
 	}
 
 	#[inline(always)]
-	fn is_precompile(&self, address: H160) -> bool {
+	fn is_precompile(&self, address: H160, remaining_gas: u64) -> IsPrecompileResult {
 		for_tuples!(#(
-			if self.Tuple.is_precompile(address) {
-				return true;
-			}
+			match self.Tuple.is_precompile(address, remaining_gas) {
+				IsPrecompileResult::Answer {
+					is_precompile: true,
+					..
+				} => return IsPrecompileResult::Answer {
+					is_precompile: true,
+					extra_cost: 0,
+				},
+				_ => {}
+			};
 		)*);
-
-		false
+		IsPrecompileResult::Answer { is_precompile: false, extra_cost: 0 }
 	}
 
 	#[inline(always)]
@@ -488,11 +516,11 @@ where
 		}
 	}
 
-	fn is_precompile(&self, address: H160) -> bool {
+	fn is_precompile(&self, address: H160, remaining_gas: u64) -> IsPrecompileResult {
 		if self.range.contains(&address) {
-			self.inner.is_precompile(address)
+			self.inner.is_precompile(address, remaining_gas)
 		} else {
-			false
+			IsPrecompileResult::Answer { is_precompile: false, extra_cost: 0 }
 		}
 	}
 
@@ -512,8 +540,8 @@ impl<R, P: PrecompileSetFragment> PrecompileSet for PrecompileSetBuilder<R, P> {
 		self.inner.execute(handle)
 	}
 
-	fn is_precompile(&self, address: H160) -> bool {
-		self.inner.is_precompile(address)
+	fn is_precompile(&self, address: H160, remaining_gas: u64) -> IsPrecompileResult {
+		self.inner.is_precompile(address, remaining_gas)
 	}
 }
 

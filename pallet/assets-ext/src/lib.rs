@@ -24,7 +24,6 @@
 //! It provides a minimal API for authorising holds on asset amounts e.g locking bidder funds of an
 //! NFT auction This is similar to 'reserve' which is not implemented for pallet-assets within
 //! substrate at this time
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
@@ -33,8 +32,10 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{self, Inspect as _, Mutate as _},
-		fungibles::{self, roles::Inspect as InspectRole, Inspect, Mutate, Transfer},
-		tokens::{DepositConsequence, WithdrawConsequence},
+		fungibles::{self, roles::Inspect as InspectRole, Dust, Inspect, Mutate, Unbalanced},
+		tokens::{
+			DepositConsequence, Fortitude, Precision, Preservation, Provenance, WithdrawConsequence,
+		},
 		Currency, ReservableCurrency,
 	},
 	transactional, PalletId,
@@ -82,7 +83,6 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::genesis_config]
@@ -90,7 +90,6 @@ pub mod pallet {
 		_phantom: sp_std::marker::PhantomData<T>,
 	}
 
-	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
 			GenesisConfig { _phantom: Default::default() }
@@ -98,7 +97,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			NextAssetId::<T>::put(1_u32);
 		}
@@ -137,7 +136,7 @@ pub mod pallet {
 		AssetId,
 		Blake2_128Concat,
 		T::AccountId,
-		BoundedVec<(PalletIdValue, Balance), T::MaxHolds>,
+		BoundedVec<(PalletIdValue, Balance), <T as Config>::MaxHolds>,
 		ValueQuery,
 	>;
 
@@ -214,7 +213,8 @@ pub mod pallet {
 		/// Sudo call to set the asset deposit for creating assets
 		/// Note, this does not change the deposit when calling create within the assets pallet
 		/// However that call is filtered
-		#[pallet::weight(< T as Config >::WeightInfo::set_asset_deposit())]
+		#[pallet::call_index(0)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_asset_deposit())]
 		pub fn set_asset_deposit(
 			origin: OriginFor<T>,
 			asset_deposit: DepositBalanceOf<T>,
@@ -228,7 +228,8 @@ pub mod pallet {
 		/// Creates a new asset with unique ID according to the network asset id scheme.
 		/// Decimals cannot be higher than 18 due to a restriction in the conversion function
 		/// scale_wei_to_correct_decimals
-		#[pallet::weight(< T as Config >::WeightInfo::create_asset())]
+		#[pallet::call_index(1)]
+		#[pallet::weight(<T as Config>::WeightInfo::create_asset())]
 		#[transactional]
 		pub fn create_asset(
 			origin: OriginFor<T>,
@@ -250,6 +251,7 @@ pub mod pallet {
 
 		/// Mints an asset to an account if the caller is the asset owner
 		/// Attempting to mint ROOT token will throw an error
+		#[pallet::call_index(2)]
 		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::mint())]
 		pub fn mint(
 			origin: OriginFor<T>,
@@ -261,12 +263,13 @@ pub mod pallet {
 				// We do not allow minting of the ROOT token
 				Err(Error::<T>::NoPermission)?;
 			} else {
-				<pallet_assets::Pallet<T>>::mint(origin, asset_id, beneficiary, amount)?;
+				<pallet_assets::Pallet<T>>::mint(origin, asset_id.into(), beneficiary, amount)?;
 			}
 			Ok(())
 		}
 
 		/// Transfers either ROOT or an asset
+		#[pallet::call_index(3)]
 		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::transfer())]
 		pub fn transfer(
 			origin: OriginFor<T>,
@@ -276,18 +279,23 @@ pub mod pallet {
 			keep_alive: bool,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			<Self as Transfer<T::AccountId>>::transfer(
+			let preservation = match keep_alive {
+				true => Preservation::Preserve,
+				false => Preservation::Expendable,
+			};
+			<Self as Mutate<T::AccountId>>::transfer(
 				asset_id,
 				&who,
 				&destination,
 				amount,
-				keep_alive,
+				preservation,
 			)?;
 			Ok(())
 		}
 
 		/// Burns an asset from an account. Caller must be the asset owner
 		/// Attempting to burn ROOT token will throw an error
+		#[pallet::call_index(4)]
 		#[pallet::weight(<T as pallet_assets::Config>::WeightInfo::burn())]
 		pub fn burn_from(
 			origin: OriginFor<T>,
@@ -299,7 +307,7 @@ pub mod pallet {
 				// We do not allow burning of the ROOT token
 				Err(Error::<T>::NoPermission)?;
 			} else {
-				<pallet_assets::Pallet<T>>::burn(origin, asset_id, who, amount)?;
+				<pallet_assets::Pallet<T>>::burn(origin, asset_id.into(), who, amount)?;
 			}
 			Ok(())
 		}
@@ -356,6 +364,14 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 		}
 	}
 
+	fn total_balance(asset_id: Self::AssetId, who: &T::AccountId) -> Self::Balance {
+		if asset_id == T::NativeAssetId::get() {
+			<pallet_balances::Pallet<T, _> as fungible::Inspect<_>>::total_balance(who)
+		} else {
+			<pallet_assets::Pallet<T>>::total_balance(asset_id, who)
+		}
+	}
+
 	fn balance(asset_id: AssetId, who: &T::AccountId) -> Balance {
 		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _>>::balance(who)
@@ -364,14 +380,24 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 		}
 	}
 
-	fn reducible_balance(asset_id: AssetId, who: &T::AccountId, keep_alive: bool) -> Balance {
+	fn reducible_balance(
+		asset_id: AssetId,
+		who: &T::AccountId,
+		preservation: Preservation,
+		force: Fortitude,
+	) -> Balance {
 		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _> as fungible::Inspect<_>>::reducible_balance(
-				who, keep_alive,
+				who,
+				preservation,
+				force,
 			)
 		} else {
 			<pallet_assets::Pallet<T> as fungibles::Inspect<_>>::reducible_balance(
-				asset_id, who, keep_alive,
+				asset_id,
+				who,
+				preservation,
+				force,
 			)
 		}
 	}
@@ -380,12 +406,12 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 		asset_id: AssetId,
 		who: &T::AccountId,
 		amount: Balance,
-		mint: bool,
+		provenance: Provenance,
 	) -> DepositConsequence {
 		if asset_id == T::NativeAssetId::get() {
-			<pallet_balances::Pallet<T, _>>::can_deposit(who, amount, mint)
+			<pallet_balances::Pallet<T, _>>::can_deposit(who, amount, provenance)
 		} else {
-			<pallet_assets::Pallet<T>>::can_deposit(asset_id, who, amount, mint)
+			<pallet_assets::Pallet<T>>::can_deposit(asset_id, who, amount, provenance)
 		}
 	}
 
@@ -400,10 +426,41 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 			<pallet_assets::Pallet<T>>::can_withdraw(asset_id, who, amount)
 		}
 	}
+
+	fn asset_exists(asset: Self::AssetId) -> bool {
+		if asset == T::NativeAssetId::get() {
+			// native token always exists
+			true
+		} else {
+			<pallet_assets::Pallet<T>>::asset_exists(asset)
+		}
+	}
+}
+
+impl<T: Config> Unbalanced<T::AccountId> for Pallet<T> {
+	fn handle_dust(dust: Dust<T::AccountId, Self>) {
+		<pallet_assets::Pallet<T>>::handle_dust(Dust(dust.0, dust.1))
+	}
+
+	fn write_balance(
+		asset: Self::AssetId,
+		who: &T::AccountId,
+		amount: Self::Balance,
+	) -> Result<Option<Self::Balance>, DispatchError> {
+		<pallet_assets::Pallet<T>>::write_balance(asset, who, amount)
+	}
+
+	fn set_total_issuance(asset: Self::AssetId, amount: Self::Balance) {
+		<pallet_assets::Pallet<T>>::set_total_issuance(asset, amount)
+	}
 }
 
 impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
-	fn mint_into(asset_id: AssetId, who: &T::AccountId, amount: Balance) -> DispatchResult {
+	fn mint_into(
+		asset_id: AssetId,
+		who: &T::AccountId,
+		amount: Balance,
+	) -> Result<Self::Balance, DispatchError> {
 		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _>>::mint_into(who, amount)
 		} else {
@@ -415,30 +472,39 @@ impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
 		asset_id: AssetId,
 		who: &T::AccountId,
 		amount: Balance,
+		precision: Precision,
+		force: Fortitude,
 	) -> Result<Balance, DispatchError> {
 		if asset_id == T::NativeAssetId::get() {
-			<pallet_balances::Pallet<T, _>>::burn_from(who, amount)
+			<pallet_balances::Pallet<T, _>>::burn_from(who, amount, precision, force)
 		} else {
-			<pallet_assets::Pallet<T>>::burn_from(asset_id, who, amount)
+			<pallet_assets::Pallet<T>>::burn_from(asset_id, who, amount, precision, force)
 		}
 	}
-}
 
-impl<T: Config> Transfer<T::AccountId> for Pallet<T> {
 	fn transfer(
 		asset_id: AssetId,
 		source: &T::AccountId,
 		dest: &T::AccountId,
 		amount: Balance,
-		keep_alive: bool,
+		preservation: Preservation,
 	) -> Result<Balance, DispatchError> {
 		if asset_id == T::NativeAssetId::get() {
-			<pallet_balances::Pallet<T, _> as fungible::Transfer<_>>::transfer(
-				source, dest, amount, keep_alive,
+			<pallet_balances::Pallet<T, _> as fungible::Mutate<_>>::transfer(
+				source,
+				dest,
+				amount,
+				preservation,
 			)
 		} else {
-			<pallet_assets::Pallet<T> as fungibles::Transfer<T::AccountId>>::transfer(
-				asset_id, source, dest, amount, keep_alive,
+			// Transfers with 0 amount will fail if the destination account does not exist
+			// This is because the transfer value is less than the existential deposit
+			<pallet_assets::Pallet<T> as fungibles::Mutate<T::AccountId>>::transfer(
+				asset_id,
+				source,
+				dest,
+				amount,
+				preservation,
 			)
 		}
 	}
@@ -454,10 +520,21 @@ impl<T: Config> TransferExt for Pallet<T> {
 	) -> DispatchResult {
 		let total = transfers.iter().map(|x| x.1).sum::<Balance>();
 		// This check will fail before making any transfers to restrict partial transfers
-		ensure!(Self::reducible_balance(asset_id, who, false) >= total, Error::<T>::BalanceLow);
+		ensure!(
+			Self::reducible_balance(asset_id, who, Preservation::Expendable, Fortitude::Polite)
+				>= total,
+			Error::<T>::BalanceLow
+		);
 
-		for (payee, amount) in transfers.into_iter() {
-			<Self as Transfer<T::AccountId>>::transfer(asset_id, who, payee, *amount, false)?;
+		// Skip zero transfers, these will error within the transfer function
+		for (payee, amount) in transfers.into_iter().filter(|(_, b)| !b.is_zero()) {
+			<Self as Mutate<T::AccountId>>::transfer(
+				asset_id,
+				who,
+				payee,
+				*amount,
+				Preservation::Expendable,
+			)?;
 		}
 
 		Self::deposit_event(Event::SplitTransfer {
@@ -497,12 +574,12 @@ impl<T: Config> Hold for Pallet<T> {
 			},
 		}
 
-		let _ = <Self as Transfer<T::AccountId>>::transfer(
+		let _ = <Self as Mutate<T::AccountId>>::transfer(
 			asset_id,
 			who,
 			&T::PalletId::get().into_account_truncating(),
 			amount,
-			false,
+			Preservation::Expendable,
 		)?;
 		Holds::<T>::insert(asset_id, who.clone(), holds);
 
@@ -533,12 +610,12 @@ impl<T: Config> Hold for Pallet<T> {
 				holds[index].1 = decreased_hold;
 			}
 
-			let _ = <Self as Transfer<T::AccountId>>::transfer(
+			let _ = <Self as Mutate<T::AccountId>>::transfer(
 				asset_id,
 				&T::PalletId::get().into_account_truncating(),
 				who,
 				amount,
-				false,
+				Preservation::Expendable,
 			)
 			.map(|_| ())?;
 
@@ -659,7 +736,7 @@ impl<T: Config> CreateExt for Pallet<T> {
 		// set metadata for new asset - as root origin
 		<pallet_assets::Pallet<T>>::force_set_metadata(
 			frame_system::RawOrigin::Root.into(),
-			new_asset_id,
+			new_asset_id.into(),
 			name,
 			symbol,
 			decimals,
@@ -669,16 +746,16 @@ impl<T: Config> CreateExt for Pallet<T> {
 	}
 }
 
-impl<T: Config> fungibles::InspectMetadata<T::AccountId> for Pallet<T> {
-	fn name(asset: &Self::AssetId) -> Vec<u8> {
-		<pallet_assets::Pallet<T> as fungibles::InspectMetadata<T::AccountId>>::name(asset)
+impl<T: Config> fungibles::metadata::Inspect<T::AccountId> for Pallet<T> {
+	fn name(asset: Self::AssetId) -> Vec<u8> {
+		<pallet_assets::Pallet<T> as fungibles::metadata::Inspect<T::AccountId>>::name(asset)
 	}
 
-	fn symbol(asset: &Self::AssetId) -> Vec<u8> {
-		<pallet_assets::Pallet<T> as fungibles::InspectMetadata<T::AccountId>>::symbol(asset)
+	fn symbol(asset: Self::AssetId) -> Vec<u8> {
+		<pallet_assets::Pallet<T> as fungibles::metadata::Inspect<T::AccountId>>::symbol(asset)
 	}
 
-	fn decimals(asset: &Self::AssetId) -> u8 {
-		<pallet_assets::Pallet<T> as fungibles::InspectMetadata<T::AccountId>>::decimals(asset)
+	fn decimals(asset: Self::AssetId) -> u8 {
+		<pallet_assets::Pallet<T> as fungibles::metadata::Inspect<T::AccountId>>::decimals(asset)
 	}
 }

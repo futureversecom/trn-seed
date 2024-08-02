@@ -22,7 +22,7 @@ use crate::{
 	},
 	Pallet,
 };
-use frame_support::traits::fungibles::{Inspect, InspectMetadata};
+use frame_support::traits::fungibles::{metadata::Inspect as InspectMetadata, Inspect};
 use pallet_nft::{traits::NFTCollectionInfo, CrossChainCompatibility};
 use seed_pallet_common::test_prelude::{BlockNumber, *};
 use seed_primitives::TokenCount;
@@ -91,7 +91,7 @@ fn initialize_crowdsale_with_soft_cap(
 		voucher_asset_id: next_asset_id,
 		duration,
 	};
-	return (sale_id, sale_info)
+	return (sale_id, sale_info);
 }
 
 // Helper function for creating the collection name type
@@ -424,8 +424,7 @@ mod initialize {
 			assert_eq!(token_issuance, add_decimals(max_issuance.into(), VOUCHER_DECIMALS));
 
 			// Check voucher balance
-			let vault_balance =
-				AssetsExt::reducible_balance(sale_info.voucher_asset_id, &sale_info.vault, false);
+			let vault_balance = AssetsExt::balance(sale_info.voucher_asset_id, &sale_info.vault);
 			assert_eq!(vault_balance, token_issuance);
 
 			// Check all relevant events thrown
@@ -479,15 +478,15 @@ mod initialize {
 
 			// Check voucher metadata
 			assert_eq!(
-				<AssetsExt as InspectMetadata<AccountId>>::name(&next_asset_id),
+				<AssetsExt as InspectMetadata<AccountId>>::name(next_asset_id),
 				voucher_name.as_bytes().to_vec()
 			);
 			assert_eq!(
-				<AssetsExt as InspectMetadata<AccountId>>::symbol(&next_asset_id),
+				<AssetsExt as InspectMetadata<AccountId>>::symbol(next_asset_id),
 				voucher_symbol.as_bytes().to_vec()
 			);
 			assert_eq!(
-				<AssetsExt as InspectMetadata<AccountId>>::decimals(&next_asset_id),
+				<AssetsExt as InspectMetadata<AccountId>>::decimals(next_asset_id),
 				VOUCHER_DECIMALS
 			);
 		});
@@ -920,11 +919,11 @@ mod participate {
 				let asset_id = sale_info.payment_asset_id;
 
 				// Vault account should have the contributed amount
-				let vault_balance = AssetsExt::reducible_balance(asset_id, &vault, false);
+				let vault_balance = AssetsExt::balance(asset_id, &vault);
 				assert_eq!(vault_balance, amount);
 
 				// Bobs balance should be decreased
-				let bob_balance = AssetsExt::reducible_balance(asset_id, &bob(), false);
+				let bob_balance = AssetsExt::balance(asset_id, &bob());
 				assert_eq!(bob_balance, initial_balance - amount);
 
 				// Contribution should be stored
@@ -983,12 +982,12 @@ mod participate {
 				let asset_id = sale_info.payment_asset_id;
 
 				// Vault account should have the contributed amount
-				let vault_balance = AssetsExt::reducible_balance(asset_id, &vault, false);
+				let vault_balance = AssetsExt::balance(asset_id, &vault);
 				let expected_vault_balance = bob_total + charlie_total;
 				assert_eq!(vault_balance, expected_vault_balance);
 
 				// Bobs balance should be decreased
-				let bob_balance = AssetsExt::reducible_balance(asset_id, &bob(), false);
+				let bob_balance = AssetsExt::balance(asset_id, &bob());
 				let expected_bob_balance = initial_balance - bob_total;
 				assert_eq!(bob_balance, expected_bob_balance);
 
@@ -1016,7 +1015,7 @@ mod participate {
 
 		TestExt::<Test>::default().with_balances(&accounts).build().execute_with(|| {
 			let max_issuance = 1000;
-			let (sale_id, _sale_info) = initialize_crowdsale(max_issuance);
+			let (sale_id, _) = initialize_crowdsale(max_issuance);
 			assert_ok!(Crowdsale::enable(Some(alice()).into(), sale_id));
 
 			// Participate for each account
@@ -1136,11 +1135,11 @@ mod participate {
 				let asset_id = sale_info.payment_asset_id;
 
 				// Vault account should have the contributed amount
-				let vault_balance = AssetsExt::reducible_balance(asset_id, &vault, false);
+				let vault_balance = AssetsExt::balance(asset_id, &vault);
 				assert_eq!(vault_balance, amount);
 
 				// Bobs balance should be decreased
-				let bob_balance = AssetsExt::reducible_balance(asset_id, &bob(), false);
+				let bob_balance = AssetsExt::balance(asset_id, &bob());
 				assert_eq!(bob_balance, initial_balance - amount);
 
 				// Contribution should be stored
@@ -1171,8 +1170,7 @@ mod on_initialize {
 				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 
-				let vault_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
 				assert_eq!(vault_balance, add_decimals(max_issuance, VOUCHER_DECIMALS));
 
 				// Enable crowdsale
@@ -1199,10 +1197,8 @@ mod on_initialize {
 
 				// Check vouchers are refunded to admin
 				let voucher_asset_id = sale_info.voucher_asset_id;
-				let vault_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
-				let admin_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.admin, false);
+				let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
+				let admin_balance = AssetsExt::balance(voucher_asset_id, &sale_info.admin);
 
 				// Vault account should have the vouchers that are to be paid out
 				let vault_expected =
@@ -1231,8 +1227,7 @@ mod on_initialize {
 				let (sale_id, sale_info) = initialize_crowdsale(max_issuance);
 				let voucher_asset_id = sale_info.voucher_asset_id;
 
-				let vault_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
 				assert_eq!(vault_balance, add_decimals(max_issuance, VOUCHER_DECIMALS));
 
 				// Enable crowdsale
@@ -1259,10 +1254,8 @@ mod on_initialize {
 
 				// Check no vouchers are refunded to admin
 				let voucher_asset_id = sale_info.voucher_asset_id;
-				let vault_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
-				let admin_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.admin, false);
+				let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
+				let admin_balance = AssetsExt::balance(voucher_asset_id, &sale_info.admin);
 
 				// Vault account has the entire voucher supply
 				assert_eq!(vault_balance, add_decimals(max_issuance, VOUCHER_DECIMALS));
@@ -1311,10 +1304,8 @@ mod on_initialize {
 
 				// Check no vouchers are refunded to admin
 				let voucher_asset_id = sale_info.voucher_asset_id;
-				let vault_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
-				let admin_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.admin, false);
+				let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
+				let admin_balance = AssetsExt::balance(voucher_asset_id, &sale_info.admin);
 
 				// Vault account should have the vouchers that are to be paid out
 				let vault_expected =
@@ -1403,10 +1394,8 @@ mod on_initialize {
 
 				// Check vouchers are refunded to admin
 				let voucher_asset_id = sale_info.voucher_asset_id;
-				let vault_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
-				let admin_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.admin, false);
+				let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
+				let admin_balance = AssetsExt::balance(voucher_asset_id, &sale_info.admin);
 
 				// Vault account should have the vouchers that are to be paid out
 				let vault_expected =
@@ -1448,7 +1437,7 @@ mod claim_voucher {
 				Crowdsale::on_initialize(end_block);
 
 				// Sanity check, should have no vouchers
-				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &bob());
 				assert_eq!(voucher_balance, 0);
 				assert_eq!(
 					SaleParticipation::<Test>::get(sale_id, bob()),
@@ -1462,14 +1451,13 @@ mod claim_voucher {
 				assert_eq!(SaleParticipation::<Test>::get(sale_id, bob()), None);
 
 				// Check balance
-				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &bob());
 				let expected_balance =
 					add_decimals(participation_amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
 				assert_eq!(voucher_balance, expected_balance);
 
 				// Check vault balance is 0 (All vouchers redeemed)
-				let vault_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
 				assert_eq!(vault_balance, 0);
 
 				// Check sale_info.status updated to Ended
@@ -1522,7 +1510,7 @@ mod claim_voucher {
 				assert_eq!(SaleDistribution::<Test>::get().into_inner(), vec![sale_id]);
 
 				// Check Bob balance
-				let bob_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let bob_balance = AssetsExt::balance(voucher_asset_id, &bob());
 				let bob_expected =
 					add_decimals(b_amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
 				assert_eq!(bob_balance, bob_expected);
@@ -1536,8 +1524,7 @@ mod claim_voucher {
 				assert_eq!(SaleParticipation::<Test>::get(sale_id, charlie()), None);
 
 				// Check Charlie balance
-				let charlie_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &charlie(), false);
+				let charlie_balance = AssetsExt::balance(voucher_asset_id, &charlie());
 				let charlie_expected =
 					add_decimals(c_amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
 				assert_eq!(charlie_balance, charlie_expected);
@@ -1587,16 +1574,14 @@ mod claim_voucher {
 
 				// Sanity check, all accounts should have no vouchers
 				for (account, _) in participations.clone() {
-					let voucher_balance =
-						AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+					let voucher_balance = AssetsExt::balance(voucher_asset_id, &account);
 					assert_eq!(voucher_balance, 0);
 				}
 
 				// Manual claim for each
 				for (account, amount) in participations {
 					assert_ok!(Crowdsale::claim_voucher(Some(account).into(), sale_id));
-					let voucher_balance =
-						AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+					let voucher_balance = AssetsExt::balance(voucher_asset_id, &account);
 					let expected_balance =
 						add_decimals(amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
 					assert_eq!(voucher_balance, expected_balance);
@@ -1618,8 +1603,7 @@ mod claim_voucher {
 				assert_eq!(sale_info.status, SaleStatus::Ended(end_block));
 
 				// Check vault balance is 0 (All vouchers redeemed)
-				let vault_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
 				assert_eq!(vault_balance, 0);
 			});
 	}
@@ -1758,7 +1742,7 @@ mod redeem_voucher {
 
 				// Manual claim
 				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
-				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &bob());
 				let quantity = voucher_balance / 10u128.pow(VOUCHER_DECIMALS as u32);
 
 				// Redeem voucher
@@ -1772,7 +1756,7 @@ mod redeem_voucher {
 				);
 
 				// Check voucher burned
-				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &bob());
 				assert_eq!(voucher_balance, 0);
 
 				// Check NFT ownership
@@ -1821,7 +1805,7 @@ mod redeem_voucher {
 
 				// Manual claim
 				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
-				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &bob());
 				// Quantity = 105 / 10 = 10.5, rounded to 10
 				let quantity = voucher_balance / 10u128.pow(VOUCHER_DECIMALS as u32);
 
@@ -1829,7 +1813,7 @@ mod redeem_voucher {
 				assert_ok!(Crowdsale::redeem_voucher(Some(bob()).into(), sale_id, quantity as u32));
 
 				// Check voucher burned and no remainder
-				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &bob());
 				assert_eq!(voucher_balance, 500_000);
 
 				// Check NFT ownership
@@ -1867,7 +1851,7 @@ mod redeem_voucher {
 
 				// Manual claim
 				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
-				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &bob());
 				// Quantity = 105 / 10 = 10.5, rounded to 10
 				let quantity = voucher_balance / 10u128.pow(VOUCHER_DECIMALS as u32);
 				let redeem_quantity = quantity as u32 - 1;
@@ -1876,7 +1860,7 @@ mod redeem_voucher {
 				assert_ok!(Crowdsale::redeem_voucher(Some(bob()).into(), sale_id, redeem_quantity));
 
 				// Check voucher burned but remainder is kept
-				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &bob());
 				assert_eq!(voucher_balance, 1_000_000);
 
 				// Check NFT ownership
@@ -1889,7 +1873,7 @@ mod redeem_voucher {
 				assert_ok!(Crowdsale::redeem_voucher(Some(bob()).into(), sale_id, 1));
 
 				// Check voucher burned but remainder is kept
-				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &bob());
 				assert_eq!(voucher_balance, 0);
 
 				// Check NFT ownership
@@ -1972,14 +1956,14 @@ mod redeem_voucher {
 
 				// Manual claim
 				assert_ok!(Crowdsale::claim_voucher(Some(bob()).into(), sale_id));
-				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &bob());
 				let quantity = voucher_balance / 10u128.pow(VOUCHER_DECIMALS as u32);
 
 				// Redeem more vouchers than allocated
 				let redeem_quantity = quantity as u32 + 1;
 				assert_noop!(
 					Crowdsale::redeem_voucher(Some(bob()).into(), sale_id, redeem_quantity),
-					pallet_assets::Error::<Test>::BalanceLow
+					sp_runtime::TokenError::FundsUnavailable
 				);
 			});
 	}
@@ -2272,14 +2256,13 @@ mod automatic_distribution {
 				assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
 
 				// Check storage updated
-				let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &bob(), false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &bob());
 				let expected_balance =
 					add_decimals(participation_amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
 				assert_eq!(voucher_balance, expected_balance);
 
 				// Check vault balance is 0 (All vouchers redeemed)
-				let vault_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
 				assert_eq!(vault_balance, 0);
 
 				// Check other storage values
@@ -2359,8 +2342,7 @@ mod automatic_distribution {
 
 			// Check status of each individual account
 			for (account, amount) in accounts.into_iter() {
-				let voucher_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &account);
 				let expected_balance =
 					add_decimals(amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
 				assert_eq!(voucher_balance, expected_balance);
@@ -2368,8 +2350,7 @@ mod automatic_distribution {
 			}
 
 			// Check vault balance is 0 (All vouchers redeemed)
-			let vault_balance =
-				AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+			let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
 			assert_eq!(vault_balance, 0);
 
 			// total supply remains the max issuance
@@ -2417,8 +2398,7 @@ mod automatic_distribution {
 			Crowdsale::on_initialize(end_block);
 
 			// Check admin balance has 0 at this stage as we are over committed
-			let admin_balance =
-				AssetsExt::reducible_balance(voucher_asset_id, &sale_info.admin, false);
+			let admin_balance = AssetsExt::balance(voucher_asset_id, &sale_info.admin);
 			assert_eq!(admin_balance, 0);
 
 			// Call auto distribute until we have finished distribution
@@ -2429,20 +2409,17 @@ mod automatic_distribution {
 			// Check status of each individual account. Each account should have some voucher
 			// balance
 			for (account, _) in accounts.into_iter() {
-				let voucher_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &account);
 				assert!(voucher_balance > 0);
 				assert!(SaleParticipation::<Test>::get(sale_id, account).is_none());
 			}
 
 			// Check vault balance is 0 (All vouchers redeemed)
-			let vault_balance =
-				AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+			let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
 			assert_eq!(vault_balance, 0);
 
 			// Check admin balance has 10 remainder, paid out due to rounding errors
-			let admin_balance =
-				AssetsExt::reducible_balance(voucher_asset_id, &sale_info.admin, false);
+			let admin_balance = AssetsExt::balance(voucher_asset_id, &sale_info.admin);
 			assert_eq!(admin_balance, 10);
 
 			// total supply remains the max issuance
@@ -2503,15 +2480,13 @@ mod automatic_distribution {
 				// Check status of each individual account. Each account should have some voucher
 				// balance
 				for (account, _) in accounts.into_iter() {
-					let voucher_balance =
-						AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+					let voucher_balance = AssetsExt::balance(voucher_asset_id, &account);
 					assert!(voucher_balance > 0);
 					assert!(SaleParticipation::<Test>::get(sale_id, account).is_none());
 				}
 
 				// Check vault balance is 0 (All vouchers redeemed)
-				let vault_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
 				assert_eq!(vault_balance, 0);
 
 				// total supply remains the max issuance
@@ -2570,15 +2545,13 @@ mod automatic_distribution {
 				// Check status of each individual account. Each account should have some voucher
 				// balance
 				for (account, _) in accounts.into_iter() {
-					let voucher_balance =
-						AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+					let voucher_balance = AssetsExt::balance(voucher_asset_id, &account);
 					assert!(voucher_balance > 0);
 					assert!(SaleParticipation::<Test>::get(sale_id, account).is_none());
 				}
 
 				// Check vault balance is 0 (All vouchers redeemed)
-				let vault_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+				let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
 				assert_eq!(vault_balance, 0);
 
 				// total supply remains the max issuance
@@ -2639,7 +2612,7 @@ mod automatic_distribution {
 			let (account, contribution) =
 				SaleParticipation::<Test>::iter_prefix(sale_id).next().unwrap();
 			assert_ok!(Crowdsale::claim_voucher(Some(account).into(), sale_id));
-			let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+			let voucher_balance = AssetsExt::balance(voucher_asset_id, &account);
 			let expected_balance =
 				add_decimals(contribution, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
 			assert_eq!(voucher_balance, expected_balance);
@@ -2655,13 +2628,12 @@ mod automatic_distribution {
 			assert_ok!(Crowdsale::distribute_crowdsale_rewards(None.into()));
 
 			// Assert account has the same balance since it manually redeemed
-			let voucher_balance = AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+			let voucher_balance = AssetsExt::balance(voucher_asset_id, &account);
 			assert_eq!(voucher_balance, expected_balance);
 
 			// Check status of each individual account
 			for (account, amount) in accounts.into_iter() {
-				let voucher_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &account);
 				let expected_balance =
 					add_decimals(amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
 				assert_eq!(voucher_balance, expected_balance);
@@ -2669,8 +2641,7 @@ mod automatic_distribution {
 			}
 
 			// Check vault balance is 0 (All vouchers redeemed)
-			let vault_balance =
-				AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+			let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
 			assert_eq!(vault_balance, 0);
 
 			// total supply remains the max issuance
@@ -2724,8 +2695,7 @@ mod automatic_distribution {
 
 			// Check status of each individual account
 			for (account, amount) in accounts.into_iter() {
-				let voucher_balance =
-					AssetsExt::reducible_balance(voucher_asset_id, &account, false);
+				let voucher_balance = AssetsExt::balance(voucher_asset_id, &account);
 				let expected_balance =
 					add_decimals(amount, VOUCHER_DECIMALS) / sale_info.soft_cap_price;
 				assert_eq!(voucher_balance, expected_balance);
@@ -2733,8 +2703,7 @@ mod automatic_distribution {
 			}
 
 			// Check vault balance is 0 (All vouchers redeemed)
-			let vault_balance =
-				AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+			let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
 			assert_eq!(vault_balance, 0);
 
 			// total supply remains the max issuance
@@ -2791,8 +2760,7 @@ mod automatic_distribution {
 			}
 
 			// Check vault balance is 0 (All vouchers redeemed)
-			let vault_balance =
-				AssetsExt::reducible_balance(voucher_asset_id, &sale_info.vault, false);
+			let vault_balance = AssetsExt::balance(voucher_asset_id, &sale_info.vault);
 			assert_eq!(vault_balance, 0);
 
 			// total supply remains the max issuance

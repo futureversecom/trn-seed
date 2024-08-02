@@ -15,6 +15,11 @@ on:
       pallets:
         description: 'Space-separated list of pallet names; e.g. `pallet-futurepass pallet-dex`; runs all if left empty'
         required: false
+      skip-exclude-check:
+        type: boolean
+        description: 'Skip excluded pallet check. Useful with long running pallet benchmarking'
+        required: false
+        default: false
 
 jobs:
   benchmarks:
@@ -30,28 +35,36 @@ jobs:
       #   uses: actions-rs/toolchain@v1
       #   with:
       #     profile: minimal
-      #     toolchain: nightly-2023-04-15
+      #     toolchain: stable-2024-07-21
       #     components: rustfmq
       #     target: wasm32-unknown-unknown
       #     default: true
 
       # Rust required to run benchmarks; use from CI machine
-      - name: Install toolchain
-        run: rustup show
+      - uses: dtolnay/rust-toolchain@1.80.0
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
 
       - name: Run benchmarks
         run: |
           PALLET_INPUT=${{ github.event.inputs.pallets }}
+          SKIP_EXCLUDE_CHECK=""
+          if [ ${{ github.event.inputs.skip-exclude-check }} ]
+          then
+            SKIP_EXCLUDE_CHECK="-e"
+          fi
+          
           if [ -z "$PALLET_INPUT" ]
           then
-            ./scripts/run_benchmarks.sh
+            ./scripts/run_benchmarks.sh $SKIP_EXCLUDE_CHECK
           else
             IFS=' ' read -ra PALLET_ARRAY <<< "$PALLET_INPUT"
             PALLET_ARGS=""
             for i in "${PALLET_ARRAY[@]}"; do
               PALLET_ARGS+="-p $i "
             done
-            ./scripts/run_benchmarks.sh $PALLET_ARGS
+            ./scripts/run_benchmarks.sh $PALLET_ARGS $SKIP_EXCLUDE_CHECK
           fi
 
       - name: Check for Benchmarking Errors

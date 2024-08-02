@@ -1,33 +1,33 @@
 [package]
 name = "pallet-evm-precompiles-erc1155"
 version = "2.0.0"
-authors = ["The Root Network Team"]
-edition = "2018"
-repository = "https://github.com/futureversecom/seed"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
 
 [dependencies]
-pallet-sft = { path = "../../pallet/sft", default-features = false }
-pallet-nft = { path = "../../pallet/nft", default-features = false }
-pallet-token-approvals = { path = "../../pallet/token-approvals", default-features = false }
-seed-pallet-common = { path = "../../pallet/common", default-features = false }
-seed-primitives = { path = "../../primitives", default-features = false }
+pallet-sft = { workspace = true }
+pallet-nft = { workspace = true }
+pallet-token-approvals = { workspace = true }
+seed-pallet-common = { workspace = true }
+seed-primitives = { workspace = true }
+precompile-utils = { workspace = true }
 
-codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
-num_enum = { version = "0.5.3", default-features = false }
-precompile-utils = { path = "../utils", default-features = false }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
-ethereum-types = { version = "0.13.1", default-features = false, features = ["serialize", "codec"] }
+codec = { workspace = true }
+num_enum = { workspace = true }
+scale-info = { workspace = true }
+ethereum-types = { workspace = true }
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 
 # Frontier
-fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
-pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.30-TRN" }
+fp-evm = { workspace = true }
+pallet-evm = { workspace = true }
 
 [features]
 default = ["std"]

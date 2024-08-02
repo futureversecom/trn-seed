@@ -73,17 +73,18 @@ pub type DoughnutSenderValidations<T> = (
 );
 
 impl<T> Call<T>
-	where
-		T: Send + Sync + Config,
-		<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-		<T as frame_system::Config>::Index : Into<u32>,
-		T::AccountId: From<H160> + Into<H160>,
-		T: pallet_transaction_payment::Config,
-		<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance: Send + Sync + FixedPointOperand + From<u64>,
-		<T as frame_system::Config>::RuntimeCall: From<<T as Config>::RuntimeCall>,
-		PostDispatchInfo: From<<<T as Config>::RuntimeCall as Dispatchable>::PostInfo>,
-		<T as frame_system::Config>::Index: From<u32>,
-		<T as Config>::RuntimeCall: GetCallMetadata,
+where
+	T: Send + Sync + Config,
+	<T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+	<T as frame_system::Config>::Nonce: Into<u32>,
+	T::AccountId: From<H160> + Into<H160>,
+	T: pallet_transaction_payment::Config,
+	<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance:
+		Send + Sync + FixedPointOperand + From<u64>,
+	<T as frame_system::Config>::RuntimeCall: From<<T as Config>::RuntimeCall>,
+	PostDispatchInfo: From<<<T as Config>::RuntimeCall as Dispatchable>::PostInfo>,
+	<T as frame_system::Config>::Nonce: From<u32>,
+	<T as Config>::RuntimeCall: GetCallMetadata,
 {
 	pub fn is_self_contained(&self) -> bool {
 		matches!(self, Call::transact { .. })
@@ -93,26 +94,27 @@ impl<T> Call<T>
 		if let Call::transact { call, doughnut, nonce, genesis_hash, tip, signature } = self {
 			let check = || {
 				// run doughnut common validations
-				let Ok(Doughnut::V1(doughnut_v1)) = Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
-					return Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof))
+				let Ok(Doughnut::V1(doughnut_v1)) = Pallet::<T>::run_doughnut_common_validations(doughnut.clone())
+				else {
+					return Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof));
 				};
 
 				// Validate doughnut - expiry
 				doughnut_v1.validate(doughnut_v1.holder, frame_system::Pallet::<T>::block_number()).map_err(|e| {
-					log!(info,"🍩 failed to validate doughnut expiry: {:?}", e);
+					log!(info, "🍩 failed to validate doughnut expiry: {:?}", e);
 					TransactionValidityError::Invalid(InvalidTransaction::BadProof)
 				})?;
 
 				// Verify doughnut signature
 				doughnut_v1.verify().map_err(|e| {
-					log!(info,"🍩 failed to verify doughnut signature: {:?}", e);
+					log!(info, "🍩 failed to verify doughnut signature: {:?}", e);
 					TransactionValidityError::Invalid(InvalidTransaction::BadProof)
 				})?;
 
 				// Retrieve holder address
 				let Ok(holder_address) = crate::Pallet::<T>::get_address(doughnut_v1.holder) else {
-					log!(info,"🍩 failed to get holder address: {:?}", doughnut_v1.holder);
-					return Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
+					log!(info, "🍩 failed to get holder address: {:?}", doughnut_v1.holder);
+					return Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner));
 				};
 
 				// Verify outer signature against holder address
@@ -125,11 +127,16 @@ impl<T> Call<T>
 					signature: Vec::<u8>::new(),
 				};
 
-				verify_signature(SignatureVersion::EIP191 as u8, &signature, &doughnut_v1.holder(), &outer_call.encode().as_slice())
-					.map_err(|e| {
-						log!(info,"🍩 failed to verify outer signature: {:?}", e);
-						TransactionValidityError::Invalid(InvalidTransaction::BadProof)
-					})?;
+				verify_signature(
+					SignatureVersion::EIP191 as u8,
+					&signature,
+					&doughnut_v1.holder(),
+					&outer_call.encode().as_slice(),
+				)
+				.map_err(|e| {
+					log!(info, "🍩 failed to verify outer signature: {:?}", e);
+					TransactionValidityError::Invalid(InvalidTransaction::BadProof)
+				})?;
 
 				// Resolve to holder address
 				Ok(holder_address.into())
@@ -166,26 +173,35 @@ impl<T> Call<T>
 			let sender_address = T::AccountId::from(*origin);
 
 			// construct the validation instances
-			let validations_fee_payer: DoughnutFeePayerValidations<T> = (
-				ChargeTransactionPayment::<T>::from((*tip).into()),
-			);
-			let validations_sender: DoughnutSenderValidations<T> = (
-				CheckNonZeroSender::new(),
-				CheckNonce::from(nonce.clone().into()),
-				CheckWeight::new(),
-			);
+			let validations_fee_payer: DoughnutFeePayerValidations<T> =
+				(ChargeTransactionPayment::<T>::from((*tip).into()),);
+			let validations_sender: DoughnutSenderValidations<T> =
+				(CheckNonZeroSender::new(), CheckNonce::from(nonce.clone().into()), CheckWeight::new());
 
-			SignedExtension::validate(&validations_sender, &sender_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
-			SignedExtension::validate(&validations_fee_payer, &fee_payer_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
+			SignedExtension::validate(
+				&validations_sender,
+				&sender_address,
+				&(**inner_call).clone().into(),
+				dispatch_info,
+				len,
+			)
+			.ok()?;
+			SignedExtension::validate(
+				&validations_fee_payer,
+				&fee_payer_address,
+				&(**inner_call).clone().into(),
+				dispatch_info,
+				len,
+			)
+			.ok()?;
 
 			// priority is based on the provided tip in the doughnut transaction data
 			let priority = ChargeTransactionPayment::<T>::get_priority(&dispatch_info, len, (*tip).into(), 0.into());
 			let who: T::AccountId = (*origin).into();
 			let account = frame_system::Account::<T>::get(who.clone());
 			let transaction_nonce = *nonce as u32;
-			let mut builder = ValidTransactionBuilder::default()
-				.and_provides((origin, transaction_nonce))
-				.priority(priority);
+			let mut builder =
+				ValidTransactionBuilder::default().and_provides((origin, transaction_nonce)).priority(priority);
 
 			// In the context of the pool, a transaction with
 			// too high a nonce is still considered valid
@@ -213,17 +229,27 @@ impl<T> Call<T>
 
 			// Pre dispatch
 			// Create the validation instances for this extrinsic
-			let validations_fee_payer: DoughnutFeePayerValidations<T> = (
-				ChargeTransactionPayment::<T>::from((*tip).into()),
-			);
-			let validations_sender: DoughnutSenderValidations<T> = (
-				CheckNonZeroSender::new(),
-				CheckNonce::from(nonce.clone().into()),
-				CheckWeight::new(),
-			);
+			let validations_fee_payer: DoughnutFeePayerValidations<T> =
+				(ChargeTransactionPayment::<T>::from((*tip).into()),);
+			let validations_sender: DoughnutSenderValidations<T> =
+				(CheckNonZeroSender::new(), CheckNonce::from(nonce.clone().into()), CheckWeight::new());
 
-			let pre_sender = SignedExtension::pre_dispatch(validations_sender, &sender_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
-			let pre_issuer = SignedExtension::pre_dispatch(validations_fee_payer, &fee_payer_address, &(**inner_call).clone().into(), dispatch_info, len).ok()?;
+			let pre_sender = SignedExtension::pre_dispatch(
+				validations_sender,
+				&sender_address,
+				&(**inner_call).clone().into(),
+				dispatch_info,
+				len,
+			)
+			.ok()?;
+			let pre_issuer = SignedExtension::pre_dispatch(
+				validations_fee_payer,
+				&fee_payer_address,
+				&(**inner_call).clone().into(),
+				dispatch_info,
+				len,
+			)
+			.ok()?;
 
 			// Dispatch the outer call. i.e Doughnut::transact() with None as the origin
 			let res = call.dispatch(frame_system::RawOrigin::None.into());
@@ -239,16 +265,18 @@ impl<T> Call<T>
 				&post_info.into(),
 				len,
 				&res.map(|_| ()).map_err(|e| e.error),
-			).ok()?;
+			)
+			.ok()?;
 			<DoughnutSenderValidations<T> as SignedExtension>::post_dispatch(
 				Some(pre_sender),
 				dispatch_info,
 				&post_info.into(),
 				len,
 				&res.map(|_| ()).map_err(|e| e.error),
-			).ok()?;
+			)
+			.ok()?;
 
-			return Some(res)
+			return Some(res);
 		}
 		None
 	}
@@ -259,28 +287,29 @@ impl<T> Call<T>
 		call: &<T as Config>::RuntimeCall,
 	) -> Result<T::AccountId, String> {
 		// Genesis hash check
-		let genesis_hash_onchain: T::Hash = frame_system::Pallet::<T>::block_hash(T::BlockNumber::zero());
+		let genesis_hash_onchain: T::Hash = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
 		if *genesis_hash != genesis_hash_onchain {
-			log!(info,"🍩 genesis hash mismatch: {:?}", genesis_hash);
-			return Err("🍩 genesis hash mismatch".into())
+			log!(info, "🍩 genesis hash mismatch: {:?}", genesis_hash);
+			return Err("🍩 genesis hash mismatch".into());
 		}
 
 		// Doughnut work
 		// run doughnut common validations
-		let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone()) else {
-			return Err("🍩 Doughnut validation failed.".into())
+		let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone())
+		else {
+			return Err("🍩 Doughnut validation failed.".into());
 		};
 		// No need to do the doughnut verification again since already did in check_self_contained()
 		let Ok(fee_payer_doughnut) = crate::Pallet::<T>::get_address(doughnut_v1.fee_payer()) else {
-			log!(info,"🍩 failed to get fee payer address: {:?}", doughnut_v1.fee_payer());
-			return Err("🍩 failed to get fee payer address".into())
+			log!(info, "🍩 failed to get fee payer address: {:?}", doughnut_v1.fee_payer());
+			return Err("🍩 failed to get fee payer address".into());
 		};
 		let mut fee_payer_address = fee_payer_doughnut;
 		// Futurepass check
 		if <T as Config>::FuturepassLookup::check_extrinsic(call, &()).is_ok() {
 			let Ok(futurepass) = <T as Config>::FuturepassLookup::lookup(fee_payer_address.clone().into()) else {
-				log!(info,"🍩 failed to retrieve futurepass address for the address: {:?}", fee_payer_address);
-				return Err("🍩 failed to retrieve futurepass address for the address".into())
+				log!(info, "🍩 failed to retrieve futurepass address for the address: {:?}", fee_payer_address);
+				return Err("🍩 failed to retrieve futurepass address for the address".into());
 			};
 			fee_payer_address = futurepass.into();
 		}
@@ -296,7 +325,6 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(PhantomData<T>);
 
@@ -401,7 +429,7 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> where
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> where
 		<T as frame_system::Config>::AccountId: From<H160>
 	{
 	}
@@ -412,6 +440,7 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<H160>,
 		<T as Config>::RuntimeCall: GetCallMetadata,
 	{
+		#[pallet::call_index(0)]
 		#[pallet::weight({
 			let call_weight = call.get_dispatch_info().weight;
 			T::WeightInfo::transact().saturating_add(call_weight)
@@ -428,7 +457,9 @@ pub mod pallet {
 			ensure_none(origin)?;
 
 			// run doughnut common validations
-			let Doughnut::V1(doughnut_v1) = Self::run_doughnut_common_validations(doughnut.clone())? else {
+			let Doughnut::V1(doughnut_v1) =
+				Self::run_doughnut_common_validations(doughnut.clone())?
+			else {
 				return Err(Error::<T>::UnsupportedDoughnutVersion)?;
 			};
 
@@ -456,10 +487,10 @@ pub mod pallet {
 			);
 
 			// permission domain - topping validations
-			let Some(topping_payload) = doughnut_v1.get_topping(TRN_PERMISSION_DOMAIN) else {
-				return Err(Error::<T>::TRNDomainNotfound)?
+			let Some(mut topping_payload) = doughnut_v1.get_topping(TRN_PERMISSION_DOMAIN) else {
+				return Err(Error::<T>::TRNDomainNotfound)?;
 			};
-			let topping = Topping::decode(&mut topping_payload.clone())
+			let topping = Topping::decode(&mut topping_payload)
 				.map_err(|_| Error::<T>::ToppingDecodeFailed)?;
 
 			// check topping permissions
@@ -478,6 +509,7 @@ pub mod pallet {
 		}
 
 		/// Block a specific doughnut to be used
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::revoke_doughnut())]
 		pub fn revoke_doughnut(
 			origin: OriginFor<T>,
@@ -486,7 +518,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 			// run doughnut common validations
-			let Ok(Doughnut::V1(doughnut_v1)) = Self::run_doughnut_common_validations(doughnut.clone()) else {
+			let Ok(Doughnut::V1(doughnut_v1)) =
+				Self::run_doughnut_common_validations(doughnut.clone())
+			else {
 				return Err(Error::<T>::UnsupportedDoughnutVersion)?;
 			};
 			// Only the issuer of the doughnut can revoke the doughnut
@@ -504,6 +538,7 @@ pub mod pallet {
 		}
 
 		/// Block a holder from executing any doughnuts from a specific issuer
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::revoke_holder())]
 		pub fn revoke_holder(
 			origin: OriginFor<T>,
@@ -525,6 +560,7 @@ pub mod pallet {
 
 		/// Update whitelisted holders list
 		// Note: this is for temporary purpose. Might change in the future
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::update_whitelisted_holders())]
 		pub fn update_whitelisted_holders(
 			origin: OriginFor<T>,
@@ -563,7 +599,7 @@ where
 
 		// only supports v1 for now
 		let Doughnut::V1(_) = doughnut_decoded.clone() else {
-			log!(info,"🍩 unsupported doughnut version");
+			log!(info, "🍩 unsupported doughnut version");
 			return Err(Error::<T>::UnsupportedDoughnutVersion)?;
 		};
 

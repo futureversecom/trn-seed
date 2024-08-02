@@ -13,8 +13,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod ethy;
-
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
@@ -26,31 +24,34 @@ use frame_support::{
 	weights::Weight,
 	ReversibleStorageHasher,
 };
+#[cfg(feature = "try-runtime")]
+use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
 
 pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-		ethy::Upgrade::pre_upgrade()
+	fn pre_upgrade() -> Result<Vec<u8>, DispatchError> {
+		Ok(Vec::new())
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		ethy::Upgrade::on_runtime_upgrade()
+		Weight::zero()
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(state: Vec<u8>) -> Result<(), &'static str> {
-		ethy::Upgrade::post_upgrade(state)
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), DispatchError> {
+		Ok(())
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use crate::{Runtime, System};
+	use sp_runtime::BuildStorage;
 
 	pub fn new_test_ext() -> sp_io::TestExternalities {
-		let t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| System::set_block_number(1));
@@ -118,7 +119,7 @@ impl Value {
 		Storage: frame_support::storage::StorageValue<T>,
 	{
 		if !Self::exists::<Storage, T>() {
-			return Err(())
+			return Err(());
 		}
 
 		Storage::try_get()
@@ -250,7 +251,7 @@ impl Value {
 		new_pallet_name: &[u8],
 	) -> bool {
 		if !Self::unsafe_exists(old_pallet_name, storage_name) {
-			return false
+			return false;
 		}
 
 		move_storage_from_pallet(storage_name, old_pallet_name, new_pallet_name);
@@ -275,7 +276,7 @@ impl Value {
 	#[allow(dead_code)]
 	pub fn unsafe_clear(module: &[u8], item: &[u8]) -> bool {
 		if !Self::unsafe_exists(module, item) {
-			return false
+			return false;
 		}
 
 		clear_storage_prefix(module, item, b"", None, None).maybe_cursor.is_none()
@@ -312,7 +313,7 @@ impl Map {
 		H: ReversibleStorageHasher,
 	{
 		if !Self::unsafe_exists::<K, T, H>(module, old_item) {
-			return false
+			return false;
 		}
 
 		let from = storage_prefix(module, old_item);
@@ -334,7 +335,7 @@ impl Map {
 		H: ReversibleStorageHasher,
 	{
 		if !Self::unsafe_exists::<K, T, H>(old_pallet_name, storage_name) {
-			return false
+			return false;
 		}
 
 		move_storage_from_pallet(storage_name, old_pallet_name, new_pallet_name);
@@ -590,7 +591,7 @@ mod value_tests {
 mod remote_tests {
 	use super::*;
 	use crate::{migrations::AllMigrations, Block};
-	use remote_externalities::{Builder, Mode, OfflineConfig};
+	use frame_remote_externalities::{Builder, Mode, OfflineConfig};
 	use std::env::var;
 
 	#[tokio::test]

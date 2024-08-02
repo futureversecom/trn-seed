@@ -24,7 +24,11 @@ mod maintenance_mode;
 mod multiplier;
 mod staker_payouts;
 
-use frame_support::traits::{fungibles::Inspect as _, GenesisBuild, Get};
+use frame_support::traits::{
+	fungibles::Inspect as _,
+	tokens::{Fortitude, Preservation},
+	Get,
+};
 use sp_core::{
 	ecdsa,
 	offchain::{testing, OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
@@ -38,11 +42,12 @@ use crate::{
 	UncheckedExtrinsic, H256, U256,
 };
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
-use seed_primitives::{AccountId, AccountId20, Balance, Index};
+use seed_primitives::{AccountId, AccountId20, Balance, Nonce};
+use sp_runtime::BuildStorage;
 
 /// Base gas used for an EVM transaction
 pub const BASE_TX_GAS_COST: u128 = 21000;
-pub const MINIMUM_XRP_TX_COST: u128 = 315_000;
+pub const MINIMUM_XRP_TX_COST: u128 = 157_500;
 
 /// Default gas params in ethers
 pub const MAX_PRIORITY_FEE_PER_GAS: u128 = 1_500_000_000;
@@ -105,7 +110,7 @@ impl ExtBuilder {
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
 		// balances + asset setup
 		let metadata = vec![
@@ -222,7 +227,7 @@ pub fn charlie() -> AccountId {
 }
 
 /// Constructs transaction `SignedExtra` payload.
-pub fn signed_extra(nonce: Index, tip: Balance) -> SignedExtra {
+pub fn signed_extra(nonce: Nonce, tip: Balance) -> SignedExtra {
 	(
 		frame_system::CheckNonZeroSender::new(),
 		frame_system::CheckSpecVersion::new(),
@@ -255,8 +260,9 @@ pub fn sign_xt(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
 
 			fp_self_contained::UncheckedExtrinsic::new_signed(func, signed, signature.into(), extra)
 		},
-		fp_self_contained::CheckedSignature::Unsigned =>
-			fp_self_contained::UncheckedExtrinsic::new_unsigned(xt.function),
+		fp_self_contained::CheckedSignature::Unsigned => {
+			fp_self_contained::UncheckedExtrinsic::new_unsigned(xt.function)
+		},
 		_ => unimplemented!(),
 	}
 }
@@ -294,11 +300,21 @@ fn fund_authorities_and_accounts() {
 
 		// Alice, Bob staked
 		assert_eq!(
-			AssetsExt::reducible_balance(ROOT_ASSET_ID, &alice(), false),
+			AssetsExt::reducible_balance(
+				ROOT_ASSET_ID,
+				&alice(),
+				Preservation::Preserve,
+				Fortitude::Polite
+			),
 			INITIAL_ROOT_BALANCE - VALIDATOR_BOND
 		);
 		assert_eq!(
-			AssetsExt::reducible_balance(ROOT_ASSET_ID, &bob(), false),
+			AssetsExt::reducible_balance(
+				ROOT_ASSET_ID,
+				&bob(),
+				Preservation::Preserve,
+				Fortitude::Polite
+			),
 			INITIAL_ROOT_BALANCE - VALIDATOR_BOND
 		);
 	});
@@ -339,8 +355,8 @@ impl TxBuilder {
 			chain_id: EVMChainId::get(),
 			nonce: U256::zero(),
 			max_priority_fee_per_gas: U256::from(MAX_PRIORITY_FEE_PER_GAS),
-			max_fee_per_gas: FeeControl::base_fee_per_gas() * 2 +
-				U256::from(MAX_PRIORITY_FEE_PER_GAS),
+			max_fee_per_gas: FeeControl::base_fee_per_gas() * 2
+				+ U256::from(MAX_PRIORITY_FEE_PER_GAS),
 			gas_limit: U256::from(BASE_TX_GAS_COST),
 			action,
 			value: U256::zero(),

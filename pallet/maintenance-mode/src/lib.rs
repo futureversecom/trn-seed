@@ -45,7 +45,6 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -145,6 +144,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Enable maintenance mode which prevents all non sudo calls
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::enable_maintenance_mode())]
 		pub fn enable_maintenance_mode(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
 			ensure_root(origin)?;
@@ -156,6 +156,7 @@ pub mod pallet {
 		}
 
 		/// Blocks an account from transacting on the network
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::block_account())]
 		pub fn block_account(
 			origin: OriginFor<T>,
@@ -176,6 +177,7 @@ pub mod pallet {
 
 		/// Blocks an account from transacting on the network
 		/// Can be used to block individual precompile addresses or contracts
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::block_evm_target())]
 		pub fn block_evm_target(
 			origin: OriginFor<T>,
@@ -198,6 +200,7 @@ pub mod pallet {
 		/// pallet_name: The name of the pallet as per the runtime file. i.e. FeeProxy
 		/// call_name: The snake_case name for the call. i.e. set_fee
 		/// Both pallet and call names are not case sensitive
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::block_call())]
 		pub fn block_call(
 			origin: OriginFor<T>,
@@ -232,6 +235,7 @@ pub mod pallet {
 		/// Blocks an entire pallets calls from being executed
 		/// pallet_name: The name of the pallet as per the runtime file. i.e. FeeProxy
 		/// Pallet names are not case sensitive
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::block_pallet())]
 		pub fn block_pallet(
 			origin: OriginFor<T>,
@@ -265,19 +269,19 @@ impl<T: Config> Pallet<T> {
 	/// These will be checked in the call filter to allow these pallet calls to be executed
 	fn is_pallet_blockable(pallet_name: &str) -> bool {
 		if pallet_name == <Self as PalletInfoAccess>::name().to_ascii_lowercase() {
-			return false
+			return false;
 		}
 		if pallet_name == T::SudoPallet::name().to_ascii_lowercase() {
-			return false
+			return false;
 		}
 		if pallet_name == T::TimestampPallet::name().to_ascii_lowercase() {
-			return false
+			return false;
 		}
 		if pallet_name == T::ImOnlinePallet::name().to_ascii_lowercase() {
-			return false
+			return false;
 		}
 		if pallet_name == T::EthyPallet::name().to_ascii_lowercase() {
-			return false
+			return false;
 		}
 		true
 	}
@@ -302,7 +306,7 @@ where
 
 		// Ensure this pallet is not part of the excluded pallets specified in Config
 		if !Pallet::<T>::is_pallet_blockable(&pallet_name.to_ascii_lowercase()) {
-			return false
+			return false;
 		}
 
 		let pallet_name = BoundedVec::truncate_from(pallet_name.as_bytes().to_ascii_lowercase());
@@ -311,15 +315,15 @@ where
 
 		// Check whether call is blocked
 		if BlockedCalls::<T>::contains_key((pallet_name.clone(), function_name)) {
-			return true
+			return true;
 		}
 
 		// Check whether pallet is blocked
 		if BlockedPallets::<T>::contains_key(pallet_name) {
-			return true
+			return true;
 		}
 
-		return false
+		return false;
 	}
 }
 
@@ -327,26 +331,26 @@ impl<T: frame_system::Config + Config> MaintenanceCheckEVM<T> for MaintenanceChe
 	fn validate_evm_call(signer: &<T as frame_system::Config>::AccountId, target: &H160) -> bool {
 		// Check if we are in maintenance mode
 		if MaintenanceModeActive::<T>::get() {
-			return false
+			return false;
 		}
 		if BlockedAccounts::<T>::contains_key(signer) {
-			return false
+			return false;
 		}
 		if BlockedEVMAddresses::<T>::contains_key(target) {
-			return false
+			return false;
 		}
-		return true
+		return true;
 	}
 
 	fn validate_evm_create(signer: &<T as frame_system::Config>::AccountId) -> bool {
 		// Check if we are in maintenance mode
 		if MaintenanceModeActive::<T>::get() {
-			return false
+			return false;
 		}
 		if BlockedAccounts::<T>::contains_key(signer) {
-			return false
+			return false;
 		}
-		return true
+		return true;
 	}
 }
 
@@ -377,16 +381,16 @@ where
 
 		// Ensure this pallet is not part of the excluded pallets specified in Config
 		if !Pallet::<T>::is_pallet_blockable(&pallet_name) {
-			return Ok(ValidTransaction::default())
+			return Ok(ValidTransaction::default());
 		}
 
 		// Check if we are in maintenance mode
 		if <MaintenanceModeActive<T>>::get() {
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(1)))
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(1)));
 		}
 
 		if BlockedAccounts::<T>::contains_key(who) {
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(2)))
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(2)));
 		}
 
 		Ok(ValidTransaction::default())

@@ -105,7 +105,7 @@ impl<T: Config> Pallet<T> {
 		let mut used_weight = Weight::zero();
 		// if < 1 element, nothing to do
 		if let 0..=1 = claim_ids.len() {
-			return used_weight
+			return used_weight;
 		}
 
 		// Keep the last MaxProcessedMessageIds elements in the list
@@ -119,7 +119,7 @@ impl<T: Config> Pallet<T> {
 			// Add all missing ids from removed to missing
 			for id in removed[0]..claim_ids[0] {
 				if removed.contains(&id) {
-					continue
+					continue;
 				}
 				// Insert the missing ID from the removed list into the missing_ids list
 				if let Err(idx) = missing_ids.binary_search(&id) {
@@ -178,7 +178,7 @@ impl<T: Config> Pallet<T> {
 				destination: *destination,
 				data: data.clone(),
 			};
-			return Ok((event_id, event_claim))
+			return Ok((event_id, event_claim));
 		}
 		Err(Error::<T>::InvalidClaim.into())
 	}
@@ -192,7 +192,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		ensure!(!PendingEventClaims::<T>::contains_key(event_id), Error::<T>::EventReplayPending);
 
-		let process_at: T::BlockNumber =
+		let process_at: BlockNumberFor<T> =
 			<frame_system::Pallet<T>>::block_number() + ChallengePeriod::<T>::get();
 		MessagesValidAt::<T>::try_mutate(process_at.clone(), |v| -> DispatchResult {
 			v.try_push(event_id).map_err(|_| Error::<T>::MessageTooLarge)?;
@@ -241,7 +241,7 @@ impl<T: Config> Pallet<T> {
 				"💎 no signing keys for: {:?}, cannot participate in notarization!",
 				T::EthyId::ID
 			);
-			return None
+			return None;
 		};
 
 		let mut maybe_active_key: Option<(T::EthyId, usize)> = None;
@@ -249,14 +249,14 @@ impl<T: Config> Pallet<T> {
 		for key in local_keys {
 			if let Some(active_key_index) = NotaryKeys::<T>::get().iter().position(|k| k == &key) {
 				maybe_active_key = Some((key, active_key_index));
-				break
+				break;
 			}
 		}
 
 		// check if locally known keys are in the active validator set
 		if maybe_active_key.is_none() {
 			log!(error, "💎 no active ethy keys, exiting");
-			return None
+			return None;
 		}
 		maybe_active_key.map(|(key, idx)| (key, idx as u16))
 	}
@@ -266,7 +266,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn do_event_notarization_ocw(active_key: &T::EthyId, authority_index: u16) {
 		// do not try to notarize events while the bridge is paused
 		if Self::bridge_paused() {
-			return
+			return;
 		}
 
 		// check all pending claims we have _yet_ to notarize and try to notarize them
@@ -278,7 +278,7 @@ impl<T: Config> Pallet<T> {
 			if event_claim.is_none() {
 				// This shouldn't happen
 				log!(error, "💎 notarization failed, event claim: {:?} not found", event_claim_id);
-				continue
+				continue;
 			};
 
 			// skip if we've notarized it previously
@@ -287,7 +287,7 @@ impl<T: Config> Pallet<T> {
 				active_key.clone(),
 			) {
 				log!(trace, "💎 already notarized claim: {:?}, ignoring...", event_claim_id);
-				continue
+				continue;
 			}
 
 			let result = Self::offchain_try_notarize_event(*event_claim_id, event_claim.unwrap());
@@ -332,7 +332,7 @@ impl<T: Config> Pallet<T> {
 		let result = T::EthereumRpcClient::get_transaction_receipt(tx_hash);
 		if let Err(err) = result {
 			log!(error, "💎 eth_getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
-			return EventClaimResult::DataProviderErr
+			return EventClaimResult::DataProviderErr;
 		}
 
 		let maybe_tx_receipt = result.unwrap(); // error handled above qed.
@@ -342,7 +342,7 @@ impl<T: Config> Pallet<T> {
 		};
 		let status = tx_receipt.status.unwrap_or_default();
 		if status.is_zero() {
-			return EventClaimResult::TxStatusFailed
+			return EventClaimResult::TxStatusFailed;
 		}
 
 		// this may be overly restrictive
@@ -350,13 +350,13 @@ impl<T: Config> Pallet<T> {
 		// example 1: contract A -> bridge contract, ok
 		// example 2: contract A -> contract B -> bridge contract, fails
 		if tx_receipt.to != Some(source) {
-			return EventClaimResult::UnexpectedSource
+			return EventClaimResult::UnexpectedSource;
 		}
 
 		// search for a bridge deposit event in this tx receipt
 		let matching_log = tx_receipt.logs.iter().find(|log| {
-			log.transaction_hash == Some(tx_hash) &&
-				log.topics.contains(&SUBMIT_BRIDGE_EVENT_SELECTOR.into())
+			log.transaction_hash == Some(tx_hash)
+				&& log.topics.contains(&SUBMIT_BRIDGE_EVENT_SELECTOR.into())
 		});
 
 		let submitted_event_data = ethabi::encode(&[
@@ -375,13 +375,13 @@ impl<T: Config> Pallet<T> {
 					submitted_event_data,
 					log.data,
 				);
-				return EventClaimResult::UnexpectedData
+				return EventClaimResult::UnexpectedData;
 			}
 			if log.address != ContractAddress::<T>::get() {
-				return EventClaimResult::UnexpectedContractAddress
+				return EventClaimResult::UnexpectedContractAddress;
 			}
 		} else {
-			return EventClaimResult::NoTxLogs
+			return EventClaimResult::NoTxLogs;
 		}
 
 		//  have we got enough block confirmations to be re-org safe?
@@ -393,14 +393,14 @@ impl<T: Config> Pallet<T> {
 				Ok(Some(block)) => block,
 				Err(err) => {
 					log!(error, "💎 eth_getBlockByNumber latest failed: {:?}", err);
-					return EventClaimResult::DataProviderErr
+					return EventClaimResult::DataProviderErr;
 				},
 			};
 
 		let latest_block_number = latest_block.number.unwrap_or_default().as_u64();
 		let block_confirmations = latest_block_number.saturating_sub(observed_block_number);
 		if block_confirmations < EventBlockConfirmations::<T>::get() {
-			return EventClaimResult::NotEnoughConfirmations
+			return EventClaimResult::NotEnoughConfirmations;
 		}
 
 		EventClaimResult::Valid
@@ -418,7 +418,7 @@ impl<T: Config> Pallet<T> {
 				active_key.clone(),
 			) {
 				log!(trace, "💎 already notarized call: {:?}, ignoring...", call_id);
-				continue
+				continue;
 			}
 
 			if let Some(request) = EthCallRequestInfo::<T>::get(call_id) {
@@ -465,23 +465,23 @@ impl<T: Config> Pallet<T> {
 				Ok(Some(block)) => block,
 				Err(err) => {
 					log!(error, "💎 eth_getBlockByNumber latest failed: {:?}", err);
-					return CheckedEthCallResult::DataProviderErr
+					return CheckedEthCallResult::DataProviderErr;
 				},
 			};
 		// some future proofing/protections if timestamps or block numbers are de-synced, stuck, or
 		// missing this protocol should vote to abort
 		let latest_eth_block_timestamp: u64 = latest_block.timestamp.saturated_into();
 		if latest_eth_block_timestamp == u64::max_value() {
-			return CheckedEthCallResult::InvalidTimestamp
+			return CheckedEthCallResult::InvalidTimestamp;
 		}
 		// latest ethereum block timestamp should be after the request
 		if latest_eth_block_timestamp < request.timestamp {
-			return CheckedEthCallResult::InvalidTimestamp
+			return CheckedEthCallResult::InvalidTimestamp;
 		}
 		let latest_eth_block_number = match latest_block.number {
 			Some(number) => {
 				if number.is_zero() || number.low_u64() == u64::max_value() {
-					return CheckedEthCallResult::InvalidEthBlock
+					return CheckedEthCallResult::InvalidEthBlock;
 				}
 				number.low_u64()
 			},
@@ -502,8 +502,8 @@ impl<T: Config> Pallet<T> {
 			.saturating_sub(request.max_block_look_behind)
 			.saturating_sub(extra_look_behind);
 
-		if request.try_block_number >= oldest_acceptable_eth_block &&
-			request.try_block_number < latest_eth_block_number
+		if request.try_block_number >= oldest_acceptable_eth_block
+			&& request.try_block_number < latest_eth_block_number
 		{
 			let target_block: EthBlock = match T::EthereumRpcClient::get_block_by_number(
 				LatestOrNumber::Number(request.try_block_number),
@@ -512,7 +512,7 @@ impl<T: Config> Pallet<T> {
 				Ok(Some(block)) => block,
 				Err(err) => {
 					log!(error, "💎 eth_getBlockByNumber latest failed: {:?}", err);
-					return CheckedEthCallResult::DataProviderErr
+					return CheckedEthCallResult::DataProviderErr;
 				},
 			};
 			target_block_number = request.try_block_number;
@@ -524,15 +524,16 @@ impl<T: Config> Pallet<T> {
 			&request.input,
 			LatestOrNumber::Number(target_block_number),
 		) {
-			Ok(data) =>
+			Ok(data) => {
 				if data.is_empty() {
-					return CheckedEthCallResult::ReturnDataEmpty
+					return CheckedEthCallResult::ReturnDataEmpty;
 				} else {
 					data
-				},
+				}
+			},
 			Err(err) => {
 				log!(error, "💎 eth_call at: {:?}, failed: {:?}", target_block_number, err);
-				return CheckedEthCallResult::DataProviderErr
+				return CheckedEthCallResult::DataProviderErr;
 			},
 		};
 
@@ -598,8 +599,8 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		if Percent::from_rational(nay_count, notary_count) >
-			(Percent::from_parts(100_u8 - T::NotarizationThreshold::get().deconstruct()))
+		if Percent::from_rational(nay_count, notary_count)
+			> (Percent::from_parts(100_u8 - T::NotarizationThreshold::get().deconstruct()))
 		{
 			// Claim is invalid (nays > (100% - NotarizationThreshold))
 			Self::handle_invalid_claim(event_claim_id)?;
@@ -625,7 +626,7 @@ impl<T: Config> Pallet<T> {
 		.maybe_cursor
 		{
 			log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
-			return Err(Error::<T>::Internal.into())
+			return Err(Error::<T>::Internal.into());
 		}
 		PendingClaimChallenges::<T>::mutate(|event_ids| {
 			event_ids
@@ -666,10 +667,10 @@ impl<T: Config> Pallet<T> {
 				log!(error, "💎 unexpected missing challenger account");
 			}
 			Self::deposit_event(Event::<T>::Invalid { event_claim_id });
-			return Ok(())
+			return Ok(());
 		} else {
 			log!(error, "💎 unexpected empty claim");
-			return Err(Error::<T>::InvalidClaim.into())
+			return Err(Error::<T>::InvalidClaim.into());
 		}
 	}
 
@@ -685,7 +686,7 @@ impl<T: Config> Pallet<T> {
 		.maybe_cursor
 		{
 			log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
-			return Err(Error::<T>::Internal.into())
+			return Err(Error::<T>::Internal.into());
 		}
 		// Remove the claim from pending_claim_challenges
 		PendingClaimChallenges::<T>::mutate(|event_ids| {
@@ -719,7 +720,7 @@ impl<T: Config> Pallet<T> {
 			}
 		} else {
 			log!(error, "💎 unexpected empty claim");
-			return Err(Error::<T>::InvalidClaim.into())
+			return Err(Error::<T>::InvalidClaim.into());
 		}
 		Ok(())
 	}
@@ -732,7 +733,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		if !EthCallRequestInfo::<T>::contains_key(call_id) {
 			// there's no claim active
-			return Err(Error::<T>::InvalidClaim.into())
+			return Err(Error::<T>::InvalidClaim.into());
 		}
 
 		// Record the notarization (ensures the validator won't resubmit it)
@@ -745,22 +746,24 @@ impl<T: Config> Pallet<T> {
 		// notify subscribers of a notarized eth_call outcome and clean upstate
 		let do_callback_and_clean_up = |result: CheckedEthCallResult| {
 			match result {
-				CheckedEthCallResult::Ok(return_data, block, timestamp) =>
+				CheckedEthCallResult::Ok(return_data, block, timestamp) => {
 					T::EthCallSubscribers::on_eth_call_complete(
 						call_id,
 						&return_data,
 						block,
 						timestamp,
-					),
+					)
+				},
 				CheckedEthCallResult::ReturnDataEmpty => T::EthCallSubscribers::on_eth_call_failed(
 					call_id,
 					EthCallFailure::ReturnDataEmpty,
 				),
-				CheckedEthCallResult::ReturnDataExceedsLimit =>
+				CheckedEthCallResult::ReturnDataExceedsLimit => {
 					T::EthCallSubscribers::on_eth_call_failed(
 						call_id,
 						EthCallFailure::ReturnDataExceedsLimit,
-					),
+					)
+				},
 				_ => T::EthCallSubscribers::on_eth_call_failed(call_id, EthCallFailure::Internal),
 			}
 			if let Some(cursor) = <EthCallNotarizations<T>>::clear_prefix(
@@ -771,7 +774,7 @@ impl<T: Config> Pallet<T> {
 			.maybe_cursor
 			{
 				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
-				return Err(Error::<T>::Internal.into())
+				return Err(Error::<T>::Internal.into());
 			};
 			EthCallNotarizationsAggregated::<T>::remove(call_id);
 			EthCallRequestInfo::<T>::remove(call_id);
@@ -793,19 +796,19 @@ impl<T: Config> Pallet<T> {
 		for (result, count) in notarizations.iter() {
 			// is there consensus on `result`?
 			if Percent::from_rational(*count, notary_count) >= notarization_threshold {
-				return do_callback_and_clean_up(*result)
+				return do_callback_and_clean_up(*result);
 			}
 			total_count += count;
 		}
 
 		let outstanding_count = notary_count.saturating_sub(total_count);
 		let can_reach_consensus = notarizations.iter().any(|(_, count)| {
-			Percent::from_rational(count + outstanding_count, notary_count) >=
-				notarization_threshold
+			Percent::from_rational(count + outstanding_count, notary_count)
+				>= notarization_threshold
 		});
 		// cannot or will not reach consensus based on current notarizations
 		if total_count == notary_count || !can_reach_consensus {
-			return do_callback_and_clean_up(result)
+			return do_callback_and_clean_up(result);
 		}
 
 		// update counts
@@ -875,7 +878,7 @@ impl<T: Config> Pallet<T> {
 			// Pause the bridge
 			BridgePaused::<T>::mutate(|p| p.authorities_change = true);
 			<NextAuthorityChange<T>>::kill();
-			return
+			return;
 		}
 
 		let signer_entries = next_notary_xrpl_keys
@@ -951,7 +954,7 @@ impl<T: Config> Pallet<T> {
 		if Self::bridge_paused() {
 			PendingEventProofs::<T>::insert(event_proof_id, request);
 			Self::deposit_event(Event::<T>::ProofDelayed { event_proof_id });
-			return
+			return;
 		}
 
 		// check if validator set id is different from the one that is active
@@ -1002,11 +1005,11 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 					notary_public_key,
 					payload.payload_id()
 				);
-				return InvalidTransaction::BadProof.into()
+				return InvalidTransaction::BadProof.into();
 			}
 			// notarization is signed correctly
 			if !(notary_public_key.verify(&payload.encode(), signature)) {
-				return InvalidTransaction::BadProof.into()
+				return InvalidTransaction::BadProof.into();
 			}
 			ValidTransaction::with_tag_prefix("eth-bridge")
 				.priority(UNSIGNED_TXS_PRIORITY)
@@ -1072,8 +1075,8 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			// Next authority change is 5 minutes before this session ends
 			// (Just before the start of the next epoch)
 			// next_block = current_block + epoch_duration - AuthorityChangeDelay
-			let epoch_duration: T::BlockNumber = T::EpochDuration::get().saturated_into();
-			let next_block: T::BlockNumber = <frame_system::Pallet<T>>::block_number()
+			let epoch_duration: BlockNumberFor<T> = T::EpochDuration::get().saturated_into();
+			let next_block: BlockNumberFor<T> = <frame_system::Pallet<T>>::block_number()
 				.saturating_add(epoch_duration.saturating_sub(T::AuthorityChangeDelay::get()));
 			<NextAuthorityChange<T>>::put(next_block);
 		}

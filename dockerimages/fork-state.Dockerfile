@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 docker.io/library/rust:1.67.0-bullseye as builder
+FROM --platform=linux/amd64 docker.io/library/rust:1.80.0-bullseye as builder
 
 RUN apt update -y && apt install -y \
 	build-essential \
@@ -44,6 +44,6 @@ RUN apt update -y && apt install curl -y
 
 COPY --from=0 /workdir/output /output
 WORKDIR /output
-EXPOSE 30333 9933 9944
+EXPOSE 30333 9944
 
-CMD /output/binary --chain=/output/fork.json --alice --tmp --unsafe-ws-external --unsafe-rpc-external --rpc-cors=all
+CMD /output/binary --chain=/output/fork.json --alice --tmp --unsafe-rpc-external --rpc-port=9944 --rpc-cors=all

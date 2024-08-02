@@ -32,7 +32,7 @@ where
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
-// fund account with ROOT & XRP
+// fund account with ROOT
 pub fn fund<T: Config>(account: &T::AccountId)
 where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,

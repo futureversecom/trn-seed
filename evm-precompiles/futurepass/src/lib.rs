@@ -17,12 +17,14 @@
 #![allow(dead_code)]
 extern crate alloc;
 
-use fp_evm::{Context, PrecompileHandle, PrecompileOutput, PrecompileResult, Transfer};
+use fp_evm::{
+	Context, IsPrecompileResult, PrecompileHandle, PrecompileOutput, PrecompileResult, Transfer,
+};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	ensure,
 };
-use pallet_evm::{ExitReason, PrecompileFailure, PrecompileSet, Runner};
+use pallet_evm::{ExitReason, GasWeightMapping, PrecompileFailure, PrecompileSet, Runner};
 use pallet_futurepass::ProxyProvider;
 use precompile_utils::{
 	constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, data::Bytes32PostPad, get_selector, prelude::*,
@@ -153,7 +155,7 @@ where
 						// This is the default receive function for the futurepass
 						Action::Default
 					} else {
-						return Some(Err(e.into()))
+						return Some(Err(e.into()));
 					}
 				},
 			};
@@ -161,8 +163,9 @@ where
 			match selector {
 				Action::Default => Self::receive(handle),
 				Action::DelegateType => Self::delegate_type(handle),
-				Action::RegisterDelegateWithSignature =>
-					Self::register_delegate_with_signature(handle),
+				Action::RegisterDelegateWithSignature => {
+					Self::register_delegate_with_signature(handle)
+				},
 				Action::UnRegisterDelegate => Self::unregister_delegate(handle),
 				Action::ProxyCall => Self::proxy_call(handle),
 				// Ownable
@@ -171,12 +174,15 @@ where
 				Action::TransferOwnership => Self::transfer_ownership(handle),
 			}
 		};
-		return Some(result)
+		return Some(result);
 	}
 
-	fn is_precompile(&self, address: H160) -> bool {
+	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
 		// check if the address starts with futurepass precompile prefix
-		address.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX)
+		IsPrecompileResult::Answer {
+			is_precompile: address.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX),
+			extra_cost: 0,
+		}
 	}
 }
 
@@ -308,16 +314,16 @@ where
 		// restrict delegate access to whitelist
 		if call_to.0.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX) {
 			let sub_call_selector = &call_data.inner[..4];
-			if sub_call_selector ==
-				&keccak256!("registerDelegateWithSignature(address,uint8,uint32,bytes)")[..4] ||
-				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4] ||
-				sub_call_selector == &keccak256!("transferOwnership(address)")[..4]
+			if sub_call_selector
+				== &keccak256!("registerDelegateWithSignature(address,uint8,uint32,bytes)")[..4]
+				|| sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4]
+				|| sub_call_selector == &keccak256!("transferOwnership(address)")[..4]
 			{
 				let futurepass: H160 = handle.code_address();
 				let caller: H160 = handle.context().caller;
 				ensure!(
-					pallet_futurepass::Holders::<Runtime>::get(&Runtime::AccountId::from(caller)) ==
-						Some(futurepass.into()),
+					pallet_futurepass::Holders::<Runtime>::get(&Runtime::AccountId::from(caller))
+						== Some(futurepass.into()),
 					revert("Futurepass: NotFuturepassOwner")
 				);
 			}
@@ -433,18 +439,47 @@ where
 			},
 			CallType::Create => {
 				handle.record_log_costs_manual(4, 32)?;
+
+				let is_transactional = false;
+				let validate = true;
+				let evm_config = <Runtime as pallet_evm::Config>::config();
+				// TODO: refactor the code once we are on polkadot-v1.1.0, ref - https://github.com/polkadot-evm/frontier/pull/1121
+				let estimated_transaction_len = call_data.inner.len() +
+					20 + // from
+					32 + // value
+					32 + // gas_limit
+					32 + // nonce
+					1 + // TransactionAction
+					8 + // chain id
+					65; // signature
+
+				let gas_limit = handle.remaining_gas().min(u64::MAX.into());
+				let without_base_extrinsic_weight = true;
+
+				let (weight_limit, proof_size_base_cost) =
+					match <Runtime as pallet_evm::Config>::GasWeightMapping::gas_to_weight(
+						gas_limit,
+						without_base_extrinsic_weight,
+					) {
+						weight_limit if weight_limit.proof_size() > 0 => {
+							(Some(weight_limit), Some(estimated_transaction_len as u64))
+						},
+						_ => (None, None),
+					};
 				let execution_info = <Runtime as pallet_evm::Config>::Runner::create(
 					futurepass.into(),
 					call_data.into_vec(),
 					value,
-					handle.remaining_gas(),
+					gas_limit,
 					None,
 					None,
 					None, // handled by EVM
 					alloc::vec![],
-					false,
-					false,
-					<Runtime as pallet_evm::Config>::config(),
+					is_transactional,
+					validate,
+					weight_limit,
+					proof_size_base_cost,
+					evm_config,
 				)
 				.map_err(|_| RevertReason::custom("Futurepass: create failed"))?;
 
@@ -476,6 +511,34 @@ where
 					.collect::<alloc::vec::Vec<u8>>();
 				let salt = H256::from_slice(&salt);
 
+				let is_transactional = false;
+				let validate = true;
+				let evm_config = <Runtime as pallet_evm::Config>::config();
+				// TODO: refactor the code once we are on polkadot-v1.1.0, ref - https://github.com/polkadot-evm/frontier/pull/1121
+				let estimated_transaction_len = call_data_vec.len() +
+					20 + // from
+					32 + // salt
+					32 + // value
+					32 + // gas_limit
+					32 + // nonce
+					1 + // TransactionAction
+					8 + // chain id
+					65; // signature
+
+				let gas_limit = handle.remaining_gas().min(u64::MAX.into());
+				let without_base_extrinsic_weight = true;
+
+				let (weight_limit, proof_size_base_cost) =
+					match <Runtime as pallet_evm::Config>::GasWeightMapping::gas_to_weight(
+						gas_limit,
+						without_base_extrinsic_weight,
+					) {
+						weight_limit if weight_limit.proof_size() > 0 => {
+							(Some(weight_limit), Some(estimated_transaction_len as u64))
+						},
+						_ => (None, None),
+					};
+
 				let execution_info = <Runtime as pallet_evm::Config>::Runner::create2(
 					futurepass.into(),
 					call_data_vec, // reuse the vector here
@@ -486,9 +549,11 @@ where
 					None,
 					None, // handled by EVM
 					alloc::vec![],
-					false,
-					false,
-					<Runtime as pallet_evm::Config>::config(),
+					is_transactional,
+					validate,
+					weight_limit,
+					proof_size_base_cost,
+					evm_config,
 				)
 				.map_err(|_| RevertReason::custom("Futurepass: create2 failed"))?;
 
@@ -505,15 +570,17 @@ where
 
 				(execution_info.exit_reason, execution_info.value.to_fixed_bytes().to_vec())
 			},
-			CallType::DelegateCall =>
-				Err(RevertReason::custom("Futurepass: call type not supported"))?,
+			CallType::DelegateCall => {
+				Err(RevertReason::custom("Futurepass: call type not supported"))?
+			},
 		};
 
 		// Return subcall result
 		match reason {
 			ExitReason::Fatal(exit_status) => Err(PrecompileFailure::Fatal { exit_status }),
-			ExitReason::Revert(exit_status) =>
-				Err(PrecompileFailure::Revert { exit_status, output }),
+			ExitReason::Revert(exit_status) => {
+				Err(PrecompileFailure::Revert { exit_status, output })
+			},
 			ExitReason::Error(exit_status) => Err(PrecompileFailure::Error { exit_status }),
 			ExitReason::Succeed(_) => Ok(succeed(output)),
 		}

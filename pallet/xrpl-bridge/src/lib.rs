@@ -23,7 +23,8 @@ use frame_support::{
 	fail,
 	pallet_prelude::*,
 	traits::{
-		fungibles::{Inspect, Mutate, Transfer},
+		fungibles::{Inspect, Mutate},
+		tokens::{Fortitude, Precision},
 		UnixTime,
 	},
 	transactional,
@@ -78,9 +79,8 @@ pub mod pallet {
 		type EthyAdapter: XrplBridgeToEthyAdapter<AuthorityId>;
 
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
-			+ Transfer<Self::AccountId, Balance = Balance>
 			+ Inspect<Self::AccountId, AssetId = AssetId>
-			+ Mutate<Self::AccountId>;
+			+ Mutate<Self::AccountId, Balance = Balance>;
 
 		/// Allowed origins to add/remove the relayers
 		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -106,7 +106,7 @@ pub mod pallet {
 
 		/// Upper limit to the number of blocks we can check per block for delayed payments
 		#[pallet::constant]
-		type DelayedPaymentBlockLimit: Get<Self::BlockNumber>;
+		type DelayedPaymentBlockLimit: Get<BlockNumberFor<Self>>;
 
 		/// Unix time
 		type UnixTime: UnixTime;
@@ -170,7 +170,7 @@ pub mod pallet {
 		/// The payment delay was set
 		PaymentDelaySet {
 			payment_threshold: Balance,
-			delay: T::BlockNumber,
+			delay: BlockNumberFor<T>,
 		},
 		/// The payment delay was removed
 		PaymentDelayRemoved,
@@ -193,7 +193,7 @@ pub mod pallet {
 			amount: Balance,
 			destination: XrplAccountId,
 			delayed_payment_id: DelayedPaymentId,
-			payment_block: T::BlockNumber,
+			payment_block: BlockNumberFor<T>,
 		},
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
@@ -215,15 +215,15 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T>
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
-		fn on_initialize(n: T::BlockNumber) -> Weight {
+		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			Self::process_xrp_tx(n)
 		}
 
-		fn on_idle(now: T::BlockNumber, remaining_weight: Weight) -> Weight {
+		fn on_idle(now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			let delay_weight = Self::process_delayed_payments(now, remaining_weight);
 			let prune_weight = Self::clear_storages(remaining_weight.saturating_sub(delay_weight));
 			delay_weight.saturating_add(prune_weight)
@@ -231,7 +231,6 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(PhantomData<T>);
 
@@ -243,8 +242,12 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction)]
 	/// Temporary storage to set the transactions ready to be processed at specified block number
-	pub type ProcessXRPTransaction<T: Config> =
-		StorageMap<_, Twox64Concat, T::BlockNumber, BoundedVec<XrplTxHash, T::XRPTransactionLimit>>;
+	pub type ProcessXRPTransaction<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		BlockNumberFor<T>,
+		BoundedVec<XrplTxHash, T::XRPTransactionLimit>,
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction_details)]
@@ -290,7 +293,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Payment delay for any withdraw over the specified Balance threshold
-	pub type PaymentDelay<T: Config> = StorageValue<_, (Balance, T::BlockNumber), OptionQuery>;
+	pub type PaymentDelay<T: Config> = StorageValue<_, (Balance, BlockNumberFor<T>), OptionQuery>;
 
 	#[pallet::storage]
 	/// Map from DelayedPaymentId to (sender, WithdrawTx)
@@ -302,13 +305,13 @@ pub mod pallet {
 	pub type DelayedPaymentSchedule<T: Config> = StorageMap<
 		_,
 		Identity,
-		T::BlockNumber,
+		BlockNumberFor<T>,
 		BoundedVec<DelayedPaymentId, T::MaxDelayedPaymentsPerBlock>,
 	>;
 
 	#[pallet::storage]
 	/// The highest block number that has had all delayed payments processed
-	pub type NextDelayProcessBlock<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+	pub type NextDelayProcessBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::storage]
 	/// The next available delayedPaymentId
@@ -374,7 +377,6 @@ pub mod pallet {
 		pub xrp_relayers: Vec<T::AccountId>,
 	}
 
-	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
 			Self { xrp_relayers: vec![] }
@@ -382,7 +384,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			Pallet::<T>::initialize_relayer(&self.xrp_relayers);
 		}
@@ -391,6 +393,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Submit xrp transaction
+		#[pallet::call_index(0)]
 		#[pallet::weight((T::WeightInfo::submit_transaction(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn submit_transaction(
@@ -420,6 +423,7 @@ pub mod pallet {
 		}
 
 		/// Submit xrp transaction challenge
+		#[pallet::call_index(1)]
 		#[pallet::weight((T::WeightInfo::submit_challenge(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn submit_challenge(
@@ -433,10 +437,11 @@ pub mod pallet {
 
 		/// Sets the payment delay
 		/// payment_delay is a tuple of payment_threshold and delay in blocks
+		#[pallet::call_index(2)]
 		#[pallet::weight((T::WeightInfo::set_payment_delay(), DispatchClass::Operational))]
 		pub fn set_payment_delay(
 			origin: OriginFor<T>,
-			payment_delay: Option<(Balance, T::BlockNumber)>,
+			payment_delay: Option<(Balance, BlockNumberFor<T>)>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			match payment_delay {
@@ -453,6 +458,7 @@ pub mod pallet {
 		}
 
 		/// Withdraw xrp transaction
+		#[pallet::call_index(3)]
 		#[pallet::weight((T::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn withdraw_xrp(
@@ -465,6 +471,7 @@ pub mod pallet {
 		}
 
 		/// Withdraw xrp transaction
+		#[pallet::call_index(4)]
 		#[pallet::weight((T::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn withdraw_xrp_with_destination_tag(
@@ -478,6 +485,7 @@ pub mod pallet {
 		}
 
 		/// add a relayer
+		#[pallet::call_index(5)]
 		#[pallet::weight((T::WeightInfo::add_relayer(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn add_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
@@ -488,6 +496,7 @@ pub mod pallet {
 		}
 
 		/// remove a relayer
+		#[pallet::call_index(6)]
 		#[pallet::weight((T::WeightInfo::remove_relayer(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn remove_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
@@ -502,6 +511,7 @@ pub mod pallet {
 		}
 
 		/// Set the door tx fee amount
+		#[pallet::call_index(7)]
 		#[pallet::weight((<T as Config>::WeightInfo::set_door_tx_fee(), DispatchClass::Operational))]
 		pub fn set_door_tx_fee(origin: OriginFor<T>, fee: u64) -> DispatchResult {
 			ensure_root(origin)?;
@@ -510,6 +520,7 @@ pub mod pallet {
 		}
 
 		/// Set the xrp source tag
+		#[pallet::call_index(8)]
 		#[pallet::weight((<T as Config>::WeightInfo::set_xrp_source_tag(), DispatchClass::Operational))]
 		pub fn set_xrp_source_tag(origin: OriginFor<T>, source_tag: u32) -> DispatchResult {
 			ensure_root(origin)?;
@@ -518,6 +529,7 @@ pub mod pallet {
 		}
 
 		/// Set XRPL door address managed by this pallet
+		#[pallet::call_index(9)]
 		#[pallet::weight((T::WeightInfo::set_door_address(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn set_door_address(
@@ -531,6 +543,7 @@ pub mod pallet {
 		}
 
 		/// Set the door account ticket sequence params for the next allocation
+		#[pallet::call_index(10)]
 		#[pallet::weight((T::WeightInfo::set_ticket_sequence_next_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_next_allocation(
 			origin: OriginFor<T>,
@@ -544,9 +557,9 @@ pub mod pallet {
 			let current_ticket_sequence = Self::door_ticket_sequence();
 			let current_params = Self::door_ticket_sequence_params();
 
-			if start_ticket_sequence < current_ticket_sequence ||
-				start_ticket_sequence < current_params.start_sequence ||
-				ticket_bucket_size == 0
+			if start_ticket_sequence < current_ticket_sequence
+				|| start_ticket_sequence < current_params.start_sequence
+				|| ticket_bucket_size == 0
 			{
 				fail!(Error::<T>::NextTicketSequenceParamsInvalid);
 			}
@@ -562,6 +575,7 @@ pub mod pallet {
 		}
 
 		/// Set the door account current ticket sequence params for current allocation - force set
+		#[pallet::call_index(11)]
 		#[pallet::weight((T::WeightInfo::set_ticket_sequence_current_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_current_allocation(
 			origin: OriginFor<T>,
@@ -573,9 +587,9 @@ pub mod pallet {
 			let current_ticket_sequence = Self::door_ticket_sequence();
 			let current_params = Self::door_ticket_sequence_params();
 
-			if ticket_sequence < current_ticket_sequence ||
-				start_ticket_sequence < current_params.start_sequence ||
-				ticket_bucket_size == 0
+			if ticket_sequence < current_ticket_sequence
+				|| start_ticket_sequence < current_params.start_sequence
+				|| ticket_bucket_size == 0
 			{
 				fail!(Error::<T>::TicketSequenceParamsInvalid);
 			}
@@ -594,6 +608,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::reset_settled_xrpl_tx_data(settled_tx_data.as_ref().unwrap_or(&vec![]).len() as u32))]
 		#[transactional]
 		pub fn reset_settled_xrpl_tx_data(
@@ -606,8 +621,8 @@ pub mod pallet {
 			ensure_root(origin)?;
 			if let Some(highest_pruned_ledger_index) = highest_pruned_ledger_index {
 				ensure!(
-					highest_pruned_ledger_index <=
-						highest_settled_ledger_index.saturating_sub(submission_window_width),
+					highest_pruned_ledger_index
+						<= highest_settled_ledger_index.saturating_sub(submission_window_width),
 					Error::<T>::InvalidHighestPrunedIndex
 				);
 				HighestPrunedLedgerIndex::<T>::put(highest_pruned_ledger_index);
@@ -630,6 +645,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(13)]
 		#[pallet::weight({
 			let ledger_count = SettledXRPTransactionDetails::<T>::get(ledger_index).unwrap_or_default().len() as u32;
 			(T::WeightInfo::prune_settled_ledger_index(ledger_count), DispatchClass::Operational)
@@ -667,7 +683,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	pub fn process_xrp_tx(n: T::BlockNumber) -> Weight
+	pub fn process_xrp_tx(n: BlockNumberFor<T>) -> Weight
 	where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
@@ -704,7 +720,7 @@ impl<T: Config> Pallet<T> {
 				},
 				_ => {
 					Self::deposit_event(Event::NotSupportedTransaction);
-					continue
+					continue;
 				},
 			}
 
@@ -733,7 +749,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Process any transactions that have been delayed due to the min_payment threshold
 	pub fn process_delayed_payments(
-		block_number: T::BlockNumber,
+		block_number: BlockNumberFor<T>,
 		remaining_weight: Weight,
 	) -> Weight {
 		// Initial reads for the following:
@@ -751,8 +767,8 @@ impl<T: Config> Pallet<T> {
 			weight_per_tx.saturating_add(DbWeight::get().reads_writes(2u64, 2u64));
 
 		// Ensure we have enough weight to perform the initial reads + process at least one tx
-		if remaining_weight.all_lte(base_process_weight + min_weight_per_tx) {
-			return Weight::zero()
+		if remaining_weight.ref_time() <= (base_process_weight + min_weight_per_tx).ref_time() {
+			return Weight::zero();
 		}
 
 		let mut used_weight = base_process_weight;
@@ -772,19 +788,20 @@ impl<T: Config> Pallet<T> {
 		// delayed payments to process
 		while new_highest <= block_limit {
 			// Check if we have enough remaining to mutate storage this block
-			if remaining_weight.all_lte(
-				used_weight
+			if remaining_weight.ref_time()
+				<= used_weight
 					.saturating_add(DbWeight::get().reads_writes(1, 2))
-					.saturating_add(weight_per_tx),
-			) {
-				break
+					.saturating_add(weight_per_tx)
+					.ref_time()
+			{
+				break;
 			}
 
 			// Add weight for reading DelayedPaymentSchedule
 			used_weight = used_weight.saturating_add(DbWeight::get().reads(1));
 			let Some(delayed_payment_ids) = <DelayedPaymentSchedule<T>>::get(new_highest) else {
 				// No delayed payments to process for this block
-				new_highest = new_highest.saturating_add(T::BlockNumber::one());
+				new_highest = new_highest.saturating_add(BlockNumberFor::<T>::one());
 				continue;
 			};
 			// Add weight for writing DelayedPaymentSchedule
@@ -818,10 +835,10 @@ impl<T: Config> Pallet<T> {
 				let remaining_payment_ids = delayed_payment_ids[max_to_clear..].to_vec();
 				let remaining_payment_ids = BoundedVec::truncate_from(remaining_payment_ids);
 				<DelayedPaymentSchedule<T>>::insert(new_highest, remaining_payment_ids);
-				break
+				break;
 			} else {
 				<DelayedPaymentSchedule<T>>::remove(new_highest);
-				new_highest = new_highest.saturating_add(T::BlockNumber::one());
+				new_highest = new_highest.saturating_add(BlockNumberFor::<T>::one());
 			}
 		}
 
@@ -848,8 +865,8 @@ impl<T: Config> Pallet<T> {
 		let min_weight_per_index = DbWeight::get().reads_writes(1, 3);
 
 		// Ensure we have enough weight to perform the initial reads + at least one clear
-		if remaining_weight.all_lte(base_pruning_weight + min_weight_per_index) {
-			return Weight::zero()
+		if remaining_weight.ref_time() <= (base_pruning_weight + min_weight_per_index).ref_time() {
+			return Weight::zero();
 		}
 
 		// Add the cost of the initial reads and read the data
@@ -869,7 +886,7 @@ impl<T: Config> Pallet<T> {
 		let settled_txs_to_clear = (highest_pruned_index..current_end).collect::<Vec<u32>>();
 
 		if settled_txs_to_clear.len() == 0 {
-			return used_weight
+			return used_weight;
 		}
 
 		// Add the write cost for HighestPrunedLedgerIndex if we have txs to clear
@@ -878,10 +895,10 @@ impl<T: Config> Pallet<T> {
 
 		for ledger_index in settled_txs_to_clear {
 			// Check if we have enough remaining to mutate storage this index
-			if remaining_weight
-				.all_lte(used_weight.saturating_add(DbWeight::get().reads_writes(1, 2)))
+			if remaining_weight.ref_time()
+				<= used_weight.saturating_add(DbWeight::get().reads_writes(1, 2)).ref_time()
 			{
-				break
+				break;
 			}
 
 			// Add weight for reading SettledXRPTransactionDetails
@@ -914,7 +931,7 @@ impl<T: Config> Pallet<T> {
 				let remaining_tx_hashes = tx_hashes[max_to_clear..].to_vec();
 				let remaining_tx_hashes = BoundedVec::truncate_from(remaining_tx_hashes);
 				<SettledXRPTransactionDetails<T>>::insert(ledger_index, remaining_tx_hashes);
-				break
+				break;
 			} else {
 				new_highest = new_highest.saturating_add(1);
 				<SettledXRPTransactionDetails<T>>::remove(ledger_index);
@@ -975,8 +992,13 @@ impl<T: Config> Pallet<T> {
 
 		// the door address pays the tx fee on XRPL. Therefore the withdrawn amount must include the
 		// tx fee to maintain an accurate door balance
-		let _ =
-			T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount + tx_fee as Balance)?;
+		let _ = T::MultiCurrency::burn_from(
+			T::XrpAssetId::get(),
+			&who,
+			amount + tx_fee as Balance,
+			Precision::Exact,
+			Fortitude::Polite,
+		)?;
 
 		let ticket_sequence = Self::get_door_ticket_sequence()?;
 		let tx_data = XrpWithdrawTransaction {
@@ -991,7 +1013,7 @@ impl<T: Config> Pallet<T> {
 		if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get() {
 			if amount >= payment_threshold {
 				Self::delay_payment(delay, who.clone(), tx_data, destination_tag)?;
-				return Ok(())
+				return Ok(());
 			}
 		}
 
@@ -1003,7 +1025,7 @@ impl<T: Config> Pallet<T> {
 	/// Delay a withdrawal until a later block. Called if the withdrawal amount is over the
 	/// PaymentDelay threshold
 	fn delay_payment(
-		delay: T::BlockNumber,
+		delay: BlockNumberFor<T>,
 		sender: T::AccountId,
 		withdrawal: XrpWithdrawTransaction,
 		destination_tag: Option<u32>,
@@ -1031,7 +1053,7 @@ impl<T: Config> Pallet<T> {
 			delayed_payment_id,
 			payment_block,
 		});
-		return Ok(())
+		return Ok(());
 	}
 
 	/// Construct an XRPL payment transaction and submit for signing
@@ -1087,12 +1109,12 @@ impl<T: Config> Pallet<T> {
 
 		// check if TicketSequenceThreshold reached. notify by emitting
 		// TicketSequenceThresholdReached
-		if ticket_params.bucket_size != 0 &&
-			Percent::from_rational(
+		if ticket_params.bucket_size != 0
+			&& Percent::from_rational(
 				current_sequence - ticket_params.start_sequence + 1,
 				ticket_params.bucket_size,
-			) >= T::TicketSequenceThreshold::get() &&
-			!Self::ticket_sequence_threshold_reached_emitted()
+			) >= T::TicketSequenceThreshold::get()
+			&& !Self::ticket_sequence_threshold_reached_emitted()
 		{
 			Self::deposit_event(Event::<T>::TicketSequenceThresholdReached(current_sequence));
 			TicketSequenceThresholdReachedEmitted::<T>::put(true);
@@ -1107,10 +1129,10 @@ impl<T: Config> Pallet<T> {
 		if current_sequence >= last_sequence {
 			// we ran out current bucket, check the next_start_sequence
 			let next_ticket_params = Self::door_ticket_sequence_params_next();
-			if next_ticket_params == XrplTicketSequenceParams::default() ||
-				next_ticket_params.start_sequence == ticket_params.start_sequence
+			if next_ticket_params == XrplTicketSequenceParams::default()
+				|| next_ticket_params.start_sequence == ticket_params.start_sequence
 			{
-				return Err(Error::<T>::NextTicketSequenceParamsNotSet.into())
+				return Err(Error::<T>::NextTicketSequenceParamsNotSet.into());
 			} else {
 				// update next to current and clear next
 				DoorTicketSequenceParams::<T>::set(next_ticket_params.clone());

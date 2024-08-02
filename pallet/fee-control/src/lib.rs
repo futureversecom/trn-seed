@@ -52,7 +52,6 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
@@ -91,6 +90,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_evm_base_fee())]
 		pub fn set_evm_base_fee(origin: OriginFor<T>, value: U256) -> DispatchResult {
 			ensure_root(origin)?;
@@ -102,6 +102,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_weight_multiplier())]
 		pub fn set_weight_multiplier(origin: OriginFor<T>, value: Perbill) -> DispatchResult {
 			ensure_root(origin)?;
@@ -113,6 +114,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_weight_multiplier())]
 		pub fn set_length_multiplier(origin: OriginFor<T>, value: Balance) -> DispatchResult {
 			ensure_root(origin)?;

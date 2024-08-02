@@ -14,7 +14,6 @@
 // You may obtain a copy of the License at the root of this project source code
 
 //! shared pallet types and traits
-#![feature(associated_type_defaults)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
@@ -22,7 +21,7 @@ pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult, GetCallMetadata},
 	sp_runtime::{traits::AccountIdConversion, Perbill},
-	traits::{fungibles::Transfer, Get},
+	traits::{fungibles::Mutate, Get},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	PalletId,
 };
@@ -55,7 +54,7 @@ macro_rules! log {
 }
 
 /// Extended transfer functionality for assets
-pub trait TransferExt: Transfer<Self::AccountId> {
+pub trait TransferExt: Mutate<Self::AccountId> {
 	/// The ID type for an account in the system
 	type AccountId;
 	/// Perform a split transfer from `source` to many destinations
@@ -371,15 +370,16 @@ pub trait FeeConfig {
 impl FeeConfig for () {
 	fn evm_base_fee_per_gas() -> U256 {
 		// Floor network base fee per gas
-		// 0.000015 XRP per gas, 15000 GWEI
-		U256::from(15_000_000_000_000u128)
+		// set the same values as the mainnet. 7,500 GWEI.
+		// This will result a transfer tx costs 0.0000075*21000 = 0.1575 XRP
+		U256::from(7_500_000_000_000u128)
 	}
 	fn weight_multiplier() -> Perbill {
-		Perbill::from_parts(125)
-	}
+		Perbill::from_parts(100_000)
+	} // 0.01%
 
 	fn length_multiplier() -> Balance {
-		Balance::from(2_500u32)
+		Balance::from(350u32)
 	}
 }
 
@@ -418,8 +418,8 @@ impl<T: frame_system::Config> MaintenanceCheckEVM<T> for () {
 /// Generic trait to validate extrinsics satisfy some condition
 pub trait ExtrinsicChecker {
 	type Call;
-	type Extra = ();
-	type Result = bool;
+	type Extra;
+	type Result;
 	fn check_extrinsic(call: &Self::Call, extra: &Self::Extra) -> Self::Result;
 }
 
