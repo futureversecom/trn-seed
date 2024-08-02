@@ -15,6 +15,7 @@
 
 use frame_support::parameter_types;
 use pallet_evm_precompile_blake2::Blake2F;
+use pallet_evm_precompile_bn128::{Bn128Add, Bn128Mul, Bn128Pairing};
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
@@ -65,6 +66,9 @@ pub type FutureversePrecompiles<R> = PrecompileSetBuilder<
 				PrecompileAt<AddressU64<3>, Ripemd160, ForbidRecursion, AllowDelegateCall>,
 				PrecompileAt<AddressU64<4>, Identity, ForbidRecursion, AllowDelegateCall>,
 				PrecompileAt<AddressU64<5>, Modexp, ForbidRecursion, AllowDelegateCall>,
+				PrecompileAt<AddressU64<6>, Bn128Add, ForbidRecursion, AllowDelegateCall>,
+				PrecompileAt<AddressU64<7>, Bn128Mul, ForbidRecursion, AllowDelegateCall>,
+				PrecompileAt<AddressU64<8>, Bn128Pairing, ForbidRecursion, AllowDelegateCall>,
 				PrecompileAt<AddressU64<9>, Blake2F, ForbidRecursion, AllowDelegateCall>,
 				// Non-Futureverse specific nor Ethereum precompiles :
 				PrecompileAt<AddressU64<1024>, Sha3FIPS256>,
