@@ -18,6 +18,7 @@ pub mod pallet_im_online;
 pub mod pallet_maintenance_mode;
 pub mod pallet_marketplace;
 pub mod pallet_multisig;
+pub mod pallet_nfi;
 pub mod pallet_nft;
 pub mod pallet_nft_peg;
 pub mod pallet_preimage;

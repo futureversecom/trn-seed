@@ -13,7 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate as pallet_xls20;
+use crate as pallet_nfi;
 use seed_pallet_common::test_prelude::*;
 
 construct_runtime!(
@@ -24,7 +24,8 @@ construct_runtime!(
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
 		Nft: pallet_nft,
-		Xls20: pallet_xls20
+		Sft: pallet_sft,
+		Nfi: pallet_nfi,
 	}
 );
 
@@ -32,20 +33,6 @@ impl_frame_system_config!(Test);
 impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
-
-pub struct MockTransferSubscriber;
-impl OnTransferSubscriber for MockTransferSubscriber {
-	fn on_nft_transfer(_token_id: &TokenId) {}
-}
-
-pub struct MockNewAssetSubscription;
-
-impl<RuntimeId> OnNewAssetSubscriber<RuntimeId> for MockNewAssetSubscription
-where
-	RuntimeId: From<u32> + Into<u32>,
-{
-	fn on_asset_create(_runtime_id: RuntimeId, _precompile_address_prefix: &[u8; 4]) {}
-}
 
 parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
@@ -63,26 +50,51 @@ impl pallet_nft::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
-	type OnTransferSubscription = MockTransferSubscriber;
-	type OnNewAssetSubscription = MockNewAssetSubscription;
+	type OnTransferSubscription = ();
+	type OnNewAssetSubscription = ();
 	type MultiCurrency = AssetsExt;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;
 	type WeightInfo = ();
-	type Xls20MintRequest = Xls20;
-	type NFIRequest = ();
+	type Xls20MintRequest = ();
+	type NFIRequest = Nfi;
 }
 
 parameter_types! {
-	pub const MaxTokensPerXls20Mint: u32 = 1000;
+	pub const SftPalletId: PalletId = PalletId(*b"sftokens");
+	pub const MaxTokensPerSftCollection: u32 = 10_000;
+	pub const MaxSerialsPerSftMint: u32 = 100;
+	pub const MaxOwnersPerSftToken: u32 = 100;
 }
+
+impl pallet_sft::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
+	type OnTransferSubscription = ();
+	type OnNewAssetSubscription = ();
+	type PalletId = SftPalletId;
+	type ParachainId = TestParachainId;
+	type StringLimit = StringLimit;
+	type WeightInfo = ();
+	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
+	type MaxSerialsPerMint = MaxSerialsPerSftMint;
+	type MaxOwnersPerSftToken = MaxOwnersPerSftToken;
+	type NFIRequest = Nfi;
+}
+
+parameter_types! {
+	pub const MaxDataLength: u32 = 100;
+	pub const NFINetworkFeePercentage: Permill = Permill::from_perthousand(5);
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type MaxTokensPerXls20Mint = MaxTokensPerXls20Mint;
 	type MultiCurrency = AssetsExt;
-	type WeightInfo = ();
 	type NFTExt = Nft;
-	type NFTCollectionInfo = Nft;
-	type Xls20PaymentAsset = Xls20PaymentAsset;
+	type SFTExt = Sft;
+	type NetworkFeePercentage = NFINetworkFeePercentage;
+	type MaxDataLength = MaxDataLength;
+	type WeightInfo = ();
 }
