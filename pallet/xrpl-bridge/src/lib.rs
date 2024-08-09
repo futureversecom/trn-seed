@@ -718,6 +718,20 @@ impl<T: Config> Pallet<T> {
 						));
 					}
 				},
+				XrplTxData::CurrencyPayment { amount, address, currency_id } => {
+					let bytes = currency_id.as_bytes();
+					let u32_currency = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+
+					if let Err(e) =
+						T::MultiCurrency::mint_into(u32_currency, &address.into(), amount)
+					{
+						Self::deposit_event(Event::ProcessingFailed(
+							ledger_index,
+							transaction_hash.clone(),
+							e,
+						));
+					}
+				},
 				_ => {
 					Self::deposit_event(Event::NotSupportedTransaction);
 					continue;
