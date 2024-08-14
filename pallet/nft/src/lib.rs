@@ -34,7 +34,9 @@ use frame_support::{
 	traits::{fungibles::Mutate, Get},
 	transactional, PalletId,
 };
-use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest};
+use seed_pallet_common::{
+	utils::CollectionUtilityFlags, OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest,
+};
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
 	SerialNumber, TokenCount, TokenId, TokenLockReason, MAX_COLLECTION_ENTITLEMENTS,
@@ -153,6 +155,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TokenLocks<T> = StorageMap<_, Twox64Concat, TokenId, TokenLockReason>;
 
+	/// Map from a collection to additional utility flags
+	#[pallet::storage]
+	pub type UtilityFlags<T> =
+		StorageMap<_, Twox64Concat, CollectionUuid, CollectionUtilityFlags, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -221,6 +228,8 @@ pub mod pallet {
 		Burn { collection_id: CollectionUuid, serial_number: SerialNumber },
 		/// Collection has been claimed
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
+		/// Utility flags were set for a collection
+		UtilityFlagsSet { collection_id: CollectionUuid, utility_flags: CollectionUtilityFlags },
 	}
 
 	#[pallet::error]
@@ -268,6 +277,12 @@ pub mod pallet {
 		CollectionIssuanceNotZero,
 		/// Token(s) blocked from minting during the bridging process
 		BlockedMint,
+		/// Minting has been disabled for tokens within this collection
+		MintUtilityBlocked,
+		/// Transfer has been disabled for tokens within this collection
+		TransferUtilityBlocked,
+		/// Burning has been disabled for tokens within this collection
+		BurnUtilityBlocked,
 	}
 
 	#[pallet::call]
@@ -492,6 +507,8 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(quantity <= T::MintLimit::get(), Error::<T>::MintLimitExceeded);
+			// minting flag must be enabled on the collection
+			ensure!(<UtilityFlags<T>>::get(collection_id).mintable, Error::<T>::MintUtilityBlocked);
 
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
@@ -629,6 +646,33 @@ pub mod pallet {
 				collection_id,
 				royalties_schedule,
 			});
+			Ok(())
+		}
+
+		/// Set utility flags of a collection. This allows restricting certain operations on a
+		/// collection such as transfer, burn or mint
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::transfer())]
+		#[transactional]
+		pub fn set_utility_flags(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			utility_flags: CollectionUtilityFlags,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			if utility_flags == CollectionUtilityFlags::default() {
+				// If the utility flags are default, remove the storage entry
+				<UtilityFlags<T>>::remove(collection_id);
+			} else {
+				// Otherwise, update the storage
+				<UtilityFlags<T>>::insert(collection_id, utility_flags);
+			}
+
+			Self::deposit_event(Event::<T>::UtilityFlagsSet { collection_id, utility_flags });
 			Ok(())
 		}
 	}
