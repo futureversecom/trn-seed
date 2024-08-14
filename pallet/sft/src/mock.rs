@@ -35,6 +35,12 @@ impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 impl_pallet_nft_config!(Test);
 
+pub struct MockTransferSubscriber;
+
+impl OnTransferSubscriber for MockTransferSubscriber {
+	fn on_nft_transfer(_token_id: &TokenId) {}
+}
+
 pub struct MockNewAssetSubscription;
 
 impl<RuntimeId> OnNewAssetSubscriber<RuntimeId> for MockNewAssetSubscription
@@ -64,4 +70,5 @@ impl Config for Test {
 	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 	type MaxSerialsPerMint = MaxSerialsPerMint;
 	type MaxOwnersPerSftToken = MaxOwnersPerSftToken;
+	type NFIRequest = ();
 }

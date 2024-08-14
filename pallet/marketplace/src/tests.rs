@@ -22,7 +22,7 @@ use crate::mock::{
 use core::ops::Mul;
 use frame_support::traits::{fungibles::Inspect, OnInitialize};
 use pallet_nft::{CrossChainCompatibility, TokenLocks};
-use pallet_sft::{test_utils::sft_balance_of, types::SftTokenBalance, TokenInfo};
+use pallet_sft::{test_utils::sft_balance_of, TokenInfo};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{MetadataScheme, RoyaltiesSchedule, TokenCount};
 use sp_runtime::traits::{AccountIdConversion, Zero};
@@ -3115,11 +3115,11 @@ mod buy_sft {
 				assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
 
 				// Check SFT balances of both seller and buyer
-				let seller_balance = sft_balance_of(token_id, &token_owner);
+				let seller_balance = sft_balance_of::<Test>(token_id, &token_owner);
 				assert_eq!(seller_balance.free_balance, initial_issuance - sell_quantity);
 				assert_eq!(seller_balance.reserved_balance, 0);
 
-				let buyer_balance = sft_balance_of(token_id, &buyer);
+				let buyer_balance = sft_balance_of::<Test>(token_id, &buyer);
 				assert_eq!(buyer_balance.free_balance, sell_quantity);
 				assert_eq!(buyer_balance.reserved_balance, 0);
 

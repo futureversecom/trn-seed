@@ -15,7 +15,6 @@
 
 use crate as pallet_marketplace;
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::MetadataScheme;
 
 construct_runtime!(
 	pub enum Test
