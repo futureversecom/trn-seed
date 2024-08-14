@@ -34,7 +34,7 @@ use sp_std::prelude::*;
 
 use seed_pallet_common::{
 	log, logger::debug, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge,
-	FinalSessionTracker as FinalSessionTrackerT, NextSessionKeys, XrplBridgeToEthyAdapter,
+	FinalSessionTracker as FinalSessionTrackerT, XrplBridgeToEthyAdapter,
 };
 use seed_primitives::ethy::{EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId};
 
@@ -819,7 +819,9 @@ impl<T: Config> Pallet<T> {
 	/// This could be called when validators rotate their keys, we don't want to
 	/// change this until the era has changed to avoid generating proofs for small set changes or
 	/// too frequently
-	pub(crate) fn handle_authorities_change() {
+	pub(crate) fn handle_authorities_change(
+		next_keys: &WeakBoundedVec<T::EthyId, T::MaxAuthorities>,
+	) {
 		// ### Session life cycle
 		//  rotate_session
 		//    end_session (end just been)
@@ -828,7 +830,6 @@ impl<T: Config> Pallet<T> {
 		// 	  -> block on_initialize if NextAuthorityChange(n) <- this function is CALLED here
 		//    new_session (start now + 1)
 		debug!(target: "ethy-pallet", "💎 handling authority set change..");
-		let next_keys = &NextNotaryKeys::<T>::get();
 		let next_validator_set_id = NotarySetId::<T>::get().wrapping_add(1);
 
 		// TODO: probably don't need both consensus logs...
@@ -857,8 +858,6 @@ impl<T: Config> Pallet<T> {
 				validator_set_id: next_validator_set_id,
 			});
 			NotarySetProofId::<T>::put(event_proof_id);
-			// Indicate that the authorities have been changed
-			AuthoritiesChangedThisEra::<T>::put(true);
 		}
 
 		// request for proof xrpl - SignerListSet
@@ -874,7 +873,6 @@ impl<T: Config> Pallet<T> {
 			info!(target: "ethy-pallet", "💎 notary xrpl keys unchanged {:?}", next_notary_xrpl_keys);
 			// Pause the bridge
 			BridgePaused::<T>::mutate(|p| p.authorities_change = true);
-			<NextAuthorityChange<T>>::kill();
 			return
 		}
 
@@ -906,7 +904,6 @@ impl<T: Config> Pallet<T> {
 
 		// Pause the bridge
 		BridgePaused::<T>::mutate(|p| p.authorities_change = true);
-		<NextAuthorityChange<T>>::kill();
 	}
 
 	/// Finalize authority changes, set new notary keys, unpause bridge and increase set id
@@ -933,7 +930,6 @@ impl<T: Config> Pallet<T> {
 		BridgePaused::<T>::mutate(|p| p.authorities_change = false);
 		// A proof should've been generated now so we can reactivate the bridge with the new
 		// validator set
-		AuthoritiesChangedThisEra::<T>::kill();
 		// Store the new keys and increment the validator set id
 		// Next notary keys should be unset, until populated by new session logic
 		NotaryKeys::<T>::put(&next_notary_keys);
@@ -1053,24 +1049,25 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		}
 	}
 
-	fn on_new_session<'a, I: 'a>(changed: bool, _validators: I, queued_validators: I)
+	fn on_new_session<'a, I: 'a>(changed: bool, validators: I, _queued_validators: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
 		// Store the keys for usage next session
-		let next_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
-		let next_bounded_authorities = WeakBoundedVec::<_, T::MaxAuthorities>::force_from(
-			next_authorities,
+		let authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
+		let next_notary_keys = WeakBoundedVec::<_, T::MaxAuthorities>::force_from(
+			authorities,
 			Some(
 				"Warning: The session has more validators than expected. \
 				A runtime configuration adjustment may be needed.",
 			),
 		);
-		<NextNotaryKeys<T>>::put(next_bounded_authorities);
 
 		if changed {
-			Self::handle_authorities_change();
+			Self::handle_authorities_change(&next_notary_keys);
 
+			// Schedule an un-pausing of the bridge to give the relayer time to relay the
+			// authority set change.
 			let scheduled_block =
 				<frame_system::Pallet<T>>::block_number() + T::AuthorityChangeDelay::get();
 			if T::Scheduler::schedule(

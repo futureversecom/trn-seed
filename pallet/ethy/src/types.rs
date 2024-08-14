@@ -46,6 +46,7 @@ pub use seed_primitives::{
 	BlockNumber,
 };
 
+// TODO Increase priority. We can't miss this scheduled task
 pub const SCHEDULER_PRIORITY: u8 = 63;
 
 /// An EthCallOracle call Id

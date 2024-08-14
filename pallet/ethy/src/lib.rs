@@ -227,10 +227,6 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
-	/// Flag to indicate whether authorities have been changed during the current era
-	#[pallet::storage]
-	pub type AuthoritiesChangedThisEra<T> = StorageValue<_, bool, ValueQuery>;
-
 	/// Whether the bridge is paused (e.g. during validator transitions or by governance)
 	#[pallet::storage]
 	pub type BridgePaused<T> = StorageValue<_, BridgePauseStatus, ValueQuery>;
@@ -291,11 +287,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextEventProofId<T> = StorageValue<_, EventProofId, ValueQuery>;
 
-	/// Scheduled notary (validator) public keys for the next session
-	#[pallet::storage]
-	pub type NextNotaryKeys<T: Config> =
-		StorageValue<_, WeakBoundedVec<T::EthyId, T::MaxAuthorities>, ValueQuery>;
-
 	/// Active notary (validator) public keys
 	#[pallet::storage]
 	pub type NotaryKeys<T: Config> =
@@ -354,10 +345,6 @@ pub mod pallet {
 	/// These message Ids can be either processed or cleared by the relayer
 	#[pallet::storage]
 	pub type MissedMessageIds<T> = StorageValue<_, Vec<EventClaimId>, ValueQuery>;
-
-	/// The block in which we process the next authority change
-	#[pallet::storage]
-	pub type NextAuthorityChange<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
 
 	/// Map from block number to list of EventClaims that will be considered valid and should be
 	/// forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
@@ -523,17 +510,8 @@ pub mod pallet {
 		/// 3) Process any deferred event proofs that were submitted while the bridge was paused
 		/// (should only happen on the first few blocks in a new era) (outgoing)
 		fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
-			// Reads: NextAuthorityChange, MessagesValidAt, ProcessedMessageIds
-			let mut consumed_weight = DbWeight::get().reads(3u64);
-
-			// 1) Handle authority change
-			if Some(block_number) == NextAuthorityChange::<T>::get() {
-				// Change authority keys, we are 5 minutes before the next epoch
-				log!(trace, "💎 Epoch ends in 5 minutes, changing authorities");
-				Self::handle_authorities_change();
-				consumed_weight =
-					consumed_weight.saturating_add(T::WeightInfo::handle_authorities_change());
-			}
+			// Reads: MessagesValidAt, ProcessedMessageIds
+			let mut consumed_weight = DbWeight::get().reads(2u64);
 
 			// 2) Process validated messages
 			// Removed message_id from MessagesValidAt and processes

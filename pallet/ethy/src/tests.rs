@@ -21,10 +21,9 @@ use crate::{
 		EthHash, EthereumEventInfo, EthySigningRequest, EventClaim, EventClaimResult, EventProofId,
 		TransactionReceipt,
 	},
-	AuthoritiesChangedThisEra, BridgePaused, ChallengePeriod, ChallengerAccount, Config,
-	ContractAddress, DelayedEventProofsPerBlock, Error, EthCallNotarizationsAggregated,
-	EthCallRequestInfo, Event, EventClaimStatus, MessagesValidAt, MissedMessageIds,
-	NextAuthorityChange, NextEventProofId, NextNotaryKeys, NotaryKeys, NotarySetId,
+	BridgePaused, ChallengePeriod, ChallengerAccount, Config, ContractAddress,
+	DelayedEventProofsPerBlock, Error, EthCallNotarizationsAggregated, EthCallRequestInfo, Event,
+	EventClaimStatus, MessagesValidAt, MissedMessageIds, NextEventProofId, NotaryKeys, NotarySetId,
 	NotarySetProofId, NotaryXrplKeys, Pallet, PendingClaimChallenges, PendingClaimStatus,
 	PendingEventClaims, PendingEventProofs, ProcessedMessageIds, Relayer, RelayerPaidBond,
 	XrplDoorSigners, XrplNotarySetProofId, ETHY_ENGINE_ID, SUBMIT_BRIDGE_EVENT_SELECTOR,
@@ -1083,11 +1082,9 @@ fn pre_last_session_change() {
 		];
 		let event_proof_id = NextEventProofId::<Test>::get();
 		_ = NotarySetId::<Test>::get() + 1;
-		// Manually insert next keys
-		NextNotaryKeys::<Test>::put(WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 
 		// Manually call handle_authorities_change to simulate 5 minutes before the next epoch
-		EthBridge::handle_authorities_change();
+		EthBridge::handle_authorities_change(&WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 
 		// signing request to prove validator change on other chain
 		let new_validator_set_message = encode_validator_set_message(&next_keys, 1_u64);
@@ -1117,14 +1114,13 @@ fn pre_last_session_change() {
 			),
 		);
 
-		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys);
 		assert_eq!(NotarySetProofId::<Test>::get(), event_proof_id);
 		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
 	});
 }
 
 #[test]
-fn on_new_session_updates_keys() {
+fn on_new_session_triggers_authorities_change() {
 	ExtBuilder::default().next_session_final().build().execute_with(|| {
 		let default_account = AccountId::default();
 		let next_keys = vec![
@@ -1136,153 +1132,28 @@ fn on_new_session_updates_keys() {
 			(&default_account, AuthorityId::from_slice(&[4_u8; 33]).unwrap()),
 		]
 		.into_iter();
-
-		// Call on_new_session but is_active_session_final is false
-		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
-			true,
-			next_keys_iter.clone(),
-			next_keys_iter.clone(),
-		);
-		// Storage remains unchanged
-		assert_eq!(
-			NextNotaryKeys::<Test>::get(),
-			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
-		);
-		assert!(NextAuthorityChange::<Test>::get().is_none());
-
 		let block_number: BlockNumber = 100;
 		System::set_block_number(block_number.into());
-		// Call on_new_session where is_active_session_final is true, should change storage
-		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
-			true,
-			next_keys_iter.clone(),
-			next_keys_iter.clone(),
-		);
-		let epoch_duration: BlockNumber = EpochDuration::get().saturated_into();
-		let expected_block: BlockNumber = block_number + epoch_duration - 75_u64;
-		assert_eq!(NextAuthorityChange::<Test>::get(), Some(expected_block as u64));
-		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys.clone());
-
-		let event_proof_id = NextEventProofId::<Test>::get();
-		let next_validator_set_id = NotarySetId::<Test>::get() + 1;
-		// Now call on_initialize with the expected block to check it gets processed correctly
-		EthBridge::on_initialize(expected_block.into());
-
-		// Storage updated
-		assert_eq!(NotarySetProofId::<Test>::get(), event_proof_id);
-		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
-		assert!(NextAuthorityChange::<Test>::get().is_none());
-		assert!(AuthoritiesChangedThisEra::<Test>::get());
-		// only one log is deposited when the next_authority_change is executed - this is the
-		// Ethereum proof request. Xrpl proof request is not made since no change in xrpl notary
-		// keys. Also no ConsensusLog::AuthoritiesChange yet
-		assert_eq!(System::digest().logs.len(), 1);
-		// signing request to prove validator change on Ethereum chain
-		let new_validator_set_message = encode_validator_set_message(&next_keys, 1_u64);
-		let new_validator_set_message: BoundedVec<u8, MaxEthData> =
-			BoundedVec::truncate_from(new_validator_set_message.to_vec());
-		let signing_request = EthySigningRequest::Ethereum(EthereumEventInfo {
-			event_proof_id,
-			validator_set_id: 0,
-			source: BridgePalletId::get().into_account_truncating(),
-			destination: ContractAddress::<Test>::get(),
-			message: new_validator_set_message,
-		});
-		assert_eq!(
-			System::digest().logs[0],
-			DigestItem::Consensus(
-				ETHY_ENGINE_ID,
-				ConsensusLog::OpaqueSigningRequest::<AuthorityId> {
-					chain_id: EthyChainId::Ethereum,
-					event_proof_id,
-					data: signing_request.data(),
-				}
-				.encode(),
-			),
-		);
-
-		// Calling on_before_session_ending should NOT call handle_authorities_change again,
-		// but do_finalise_authorities_change() will add ConsensusLog::AuthoritiesChange
-		// notification log to the header
-		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
-		assert_eq!(System::digest().logs.len(), 2); // previous one + new
-		assert_eq!(
-			System::digest().logs[1],
-			DigestItem::Consensus(
-				ETHY_ENGINE_ID,
-				ConsensusLog::AuthoritiesChange(ValidatorSet {
-					validators: next_keys.to_vec(),
-					id: next_validator_set_id,
-					proof_threshold: 2,
-				})
-				.encode(),
-			),
-		);
-		assert!(!EthBridge::bridge_paused());
-		// Next_notary_keys hasn't been cleared
-		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys);
-		assert_eq!(NotaryKeys::<Test>::get(), next_keys);
-		assert!(!AuthoritiesChangedThisEra::<Test>::get());
-	});
-}
-
-#[test]
-/// This test ensures that authorities are changed in the event that the 5 minute window was missed
-/// This will quickly change the authorities right before the session ending.
-/// This can happen in the case of a forced era, if it does happen, the bridge will be scheduled to
-/// unpause after 5 minutes.
-fn on_before_session_ending_handles_authorities() {
-	ExtBuilder::default().next_session_final().build().execute_with(|| {
-		let default_account = AccountId::default();
-		let next_keys = vec![
-			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
-			AuthorityId::from_slice(&[4_u8; 33]).unwrap(),
-		];
-		let next_keys_iter = vec![
-			(&default_account, AuthorityId::from_slice(&[3_u8; 33]).unwrap()),
-			(&default_account, AuthorityId::from_slice(&[4_u8; 33]).unwrap()),
-		]
-		.into_iter();
-
-		// Call on_new_session but is_active_session_final is false
-		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
-			true,
-			next_keys_iter.clone(),
-			next_keys_iter.clone(),
-		);
-		// next notary keys queued up
-		assert_eq!(
-			NextNotaryKeys::<Test>::get(),
-			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
-		);
-		// Next authority change not scheduled, not final session
-		assert!(NextAuthorityChange::<Test>::get().is_none());
-
-		let block_number: BlockNumber = 100;
-		System::set_block_number(block_number.into());
-		// Call on_new_session where is_active_session_final is true, should change storage
-		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
-			true,
-			next_keys_iter.clone(),
-			next_keys_iter.clone(),
-		);
-		let epoch_duration: BlockNumber = EpochDuration::get().saturated_into();
-		let expected_block: BlockNumber = block_number + epoch_duration - 75_u64;
-		assert_eq!(NextAuthorityChange::<Test>::get(), Some(expected_block as u64));
-		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys.clone());
-
-		let event_proof_id = NextEventProofId::<Test>::get();
-		let next_validator_set_id = NotarySetId::<Test>::get() + 1;
-
-		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
-		// changed in on_initialize
-		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 
 		// Storage should represent the storage before the authorities are finalized
+		let event_proof_id = NextEventProofId::<Test>::get();
+		let next_validator_set_id = NotarySetId::<Test>::get() + 1;
+
+		// Call on_new_session with changed as true to trigger authorities change
+		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
+			true,
+			next_keys_iter.clone(),
+			next_keys_iter.clone(),
+		);
+		System::assert_has_event(
+			Event::<Test>::AuthoritySetChange {
+				event_proof_id,
+				validator_set_id: next_validator_set_id,
+			}
+			.into(),
+		);
 		assert_eq!(NotarySetProofId::<Test>::get(), event_proof_id);
 		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
-		assert!(NextAuthorityChange::<Test>::get().is_none());
-		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys);
 		assert!(NotaryKeys::<Test>::get().is_empty());
 		assert!(EthBridge::bridge_paused());
 
@@ -1309,58 +1180,8 @@ fn on_before_session_ending_handles_authorities() {
 		assert!(!EthBridge::bridge_paused());
 		assert_eq!(NotarySetProofId::<Test>::get(), event_proof_id);
 		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
-		assert!(NextAuthorityChange::<Test>::get().is_none());
 		// Next_notary_keys hasn't been cleared
-		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys);
 		assert_eq!(NotaryKeys::<Test>::get(), next_keys);
-	});
-}
-
-#[test]
-/// This test is similar to the one above except NextAuthorityChange is never set so simulates
-/// a new era being forced before the final session
-fn on_before_session_ending_handles_authorities_without_on_new_session() {
-	ExtBuilder::default().next_session_final().build().execute_with(|| {
-		let default_account = AccountId::default();
-		let next_keys_iter = vec![
-			(&default_account, AuthorityId::from_slice(&[3_u8; 33]).unwrap()),
-			(&default_account, AuthorityId::from_slice(&[4_u8; 33]).unwrap()),
-		]
-		.into_iter();
-
-		// Call on_new_session but is_active_session_final is false
-		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
-			true,
-			next_keys_iter.clone(),
-			next_keys_iter.clone(),
-		);
-		// next notary keys queued up
-		assert_eq!(
-			NextNotaryKeys::<Test>::get(),
-			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
-		);
-		// Next authority change not scheduled, not final session
-		assert!(NextAuthorityChange::<Test>::get().is_none());
-
-		// Block number as 2 triggers is_active_session_final = true
-		let block_number: BlockNumber = 100;
-		System::set_block_number(block_number.into());
-
-		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
-		// changed in on_initialize
-		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
-
-		// Item should be scheduled and bridge still paused
-		assert!(EthBridge::bridge_paused());
-		let scheduled_block: BlockNumber = block_number + 75_u64;
-
-		// Block before scheduled should not unpause bridge
-		Scheduler::on_initialize((scheduled_block - 1_u64).into());
-		assert!(EthBridge::bridge_paused());
-
-		// Scheduler unpauses bridge
-		Scheduler::on_initialize(scheduled_block.into());
-		assert!(!EthBridge::bridge_paused());
 	});
 }
 
@@ -1388,8 +1209,6 @@ fn scheduled_authorities_change_keeps_bridge_paused_if_manually_paused() {
 			next_keys_iter.clone(),
 			next_keys_iter.clone(),
 		);
-		// Next authority change not scheduled, not final session
-		assert!(NextAuthorityChange::<Test>::get().is_none());
 
 		// Block number as 2 triggers is_active_session_final = true
 		let block_number: BlockNumber = 100;
@@ -1440,13 +1259,6 @@ fn force_new_era_with_scheduled_authority_change_works() {
 			next_keys_iter.clone(),
 			next_keys_iter.clone(),
 		);
-		// next notary keys queued up
-		assert_eq!(
-			NextNotaryKeys::<Test>::get(),
-			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
-		);
-		// Next authority change not scheduled, not final session
-		assert!(NextAuthorityChange::<Test>::get().is_none());
 
 		// Simulate force new era
 		Forcing::<Test>::put(true);
@@ -1464,9 +1276,6 @@ fn force_new_era_with_scheduled_authority_change_works() {
 		let block_number: BlockNumber = 50;
 		System::set_block_number(block_number.into());
 
-		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
-		// changed in on_initialize
-		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		// Item should be scheduled and bridge still paused
 		assert!(EthBridge::bridge_paused());
 
@@ -1476,12 +1285,6 @@ fn force_new_era_with_scheduled_authority_change_works() {
 			next_keys_expanded.clone(),
 			next_keys_expanded.clone(),
 		);
-		// next notary keys now the expanded keys
-		assert_eq!(
-			NextNotaryKeys::<Test>::get(),
-			next_keys_expanded.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
-		);
-
 		// Even though the next notary keys were updated in the new session,
 		// When we schedule the finalise_authorities_change, we still have the previous keys
 		let scheduled_block: BlockNumber = block_number + 75_u64;
@@ -1493,7 +1296,7 @@ fn force_new_era_with_scheduled_authority_change_works() {
 		// Keys updated with the correct value
 		assert_eq!(
 			NotaryKeys::<Test>::get(),
-			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
+			next_keys_expanded.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
 		);
 	});
 }
@@ -1525,10 +1328,8 @@ fn last_session_change() {
 			AuthorityId::from_slice(&[6_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[7_u8; 33]).unwrap(),
 		];
-		NextNotaryKeys::<Test>::put(WeakBoundedVec::try_from(next_keys.clone()).unwrap());
-
 		// current session is last in era: starting
-		EthBridge::handle_authorities_change();
+		EthBridge::handle_authorities_change(&WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 		assert!(EthBridge::bridge_paused());
 		// current session is last in era: finishing
 		<Pallet<Test> as OneSessionHandler<AccountId>>::on_before_session_ending();
@@ -1778,11 +1579,6 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 			next_keys_iter.clone(),
 			next_keys_iter.clone(),
 		);
-		assert_eq!(NextNotaryKeys::<Test>::get(), next_keys.clone());
-
-		// Now call on_initialise with the expected block to check it gets processed correctly
-		let expected_block: BlockNumber = NextAuthorityChange::<Test>::get().unwrap();
-		EthBridge::on_initialize(expected_block.into());
 
 		// Bridge paused due to authorities change
 		assert!(EthBridge::bridge_paused());
@@ -2983,12 +2779,11 @@ fn notary_xrpl_keys_unchanged_do_not_request_for_xrpl_proof() {
 		assert_eq!(NotaryXrplKeys::<Test>::get(), current_keys.clone());
 
 		let next_keys = current_keys.clone();
-		NextNotaryKeys::<Test>::put(WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 
 		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0);
 		let eth_proof_id = NextEventProofId::<Test>::get();
 		// current session is last in era: starting
-		EthBridge::handle_authorities_change();
+		EthBridge::handle_authorities_change(&WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 		assert!(EthBridge::bridge_paused());
 		assert_eq!(NotarySetProofId::<Test>::get(), eth_proof_id);
 		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
@@ -3044,12 +2839,10 @@ fn notary_xrpl_keys_same_set_shuffled_do_not_request_for_xrpl_proof() {
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 		];
-		NextNotaryKeys::<Test>::put(WeakBoundedVec::try_from(next_keys.clone()).unwrap());
-
 		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0);
 		let eth_proof_id = NextEventProofId::<Test>::get();
 		// current session is last in era: starting
-		EthBridge::handle_authorities_change();
+		EthBridge::handle_authorities_change(&WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 		assert!(EthBridge::bridge_paused());
 		assert_eq!(NotarySetProofId::<Test>::get(), eth_proof_id);
 		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
@@ -3106,7 +2899,6 @@ fn notary_xrpl_keys_changed_request_for_xrpl_proof() {
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
 		];
-		NextNotaryKeys::<Test>::put(WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 		for door_signer in next_keys.iter() {
 			XrplDoorSigners::<Test>::insert(door_signer, true);
 		}
@@ -3114,7 +2906,7 @@ fn notary_xrpl_keys_changed_request_for_xrpl_proof() {
 		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0);
 		let eth_proof_id = NextEventProofId::<Test>::get();
 		// current session is last in era: starting
-		EthBridge::handle_authorities_change();
+		EthBridge::handle_authorities_change(&WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 		assert!(EthBridge::bridge_paused());
 		assert_eq!(NotarySetProofId::<Test>::get(), eth_proof_id);
 		// Requested for xrpl proof since NotaryXrplKeys changed, XrplNotarySetProofId is
@@ -3173,8 +2965,6 @@ fn notary_xrpl_keys_removed_request_for_xrpl_proof() {
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
 		];
-		NextNotaryKeys::<Test>::put(WeakBoundedVec::try_from(next_keys.clone()).unwrap());
-
 		assert_ok!(EthBridge::set_xrpl_door_signers(
 			RuntimeOrigin::root(),
 			vec![
@@ -3191,7 +2981,7 @@ fn notary_xrpl_keys_removed_request_for_xrpl_proof() {
 		assert_eq!(XrplNotarySetProofId::<Test>::get(), 0);
 		let eth_proof_id = NextEventProofId::<Test>::get();
 		// current session is last in era: starting
-		EthBridge::handle_authorities_change();
+		EthBridge::handle_authorities_change(&WeakBoundedVec::try_from(next_keys.clone()).unwrap());
 		assert!(EthBridge::bridge_paused());
 		assert_eq!(NotarySetProofId::<Test>::get(), eth_proof_id);
 		// Requested for xrpl proof since NotaryXrplKeys changed, XrplNotarySetProofId is
