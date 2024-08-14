@@ -58,6 +58,7 @@ pub trait WeightInfo {
 	fn set_door_address() -> Weight;
 	fn set_ticket_sequence_next_allocation() -> Weight;
 	fn set_ticket_sequence_current_allocation() -> Weight;
+	fn set_xrpl_asset_map() -> Weight;
 	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight;
 	fn prune_settled_ledger_index(i: u32, ) -> Weight;
 }
@@ -83,6 +84,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `XRPLBridge::ChallengeXRPTransactionList` (r:0 w:1)
 	// Proof: `XRPLBridge::ChallengeXRPTransactionList` (`max_values`: None, `max_size`: Some(84), added: 2559, mode: `MaxEncodedLen`)
 	fn submit_challenge() -> Weight {
+		Weight::from_all(16_397_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
+	}
+
+	fn set_xrpl_asset_map() -> Weight {
 		Weight::from_all(16_397_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -232,6 +238,11 @@ impl WeightInfo for () {
 		Weight::from_all(69_647_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(5 as u64))
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
+	}
+
+	fn set_xrpl_asset_map() -> Weight {
+		Weight::from_all(16_397_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: `XRPLBridge::ChallengeXRPTransactionList` (r:0 w:1)
 	// Proof: `XRPLBridge::ChallengeXRPTransactionList` (`max_values`: None, `max_size`: Some(84), added: 2559, mode: `MaxEncodedLen`)

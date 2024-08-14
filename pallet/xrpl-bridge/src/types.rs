@@ -16,12 +16,11 @@
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
-use sp_core::{H160, H256};
-
 use seed_primitives::{
 	xrpl::{XrplAccountId, XrplTxHash, XrplTxNonce, XrplTxTicketSequence},
 	Balance,
 };
+use sp_core::H160;
 
 /// Payment id used for distinguishing pending withdrawals/ deposit events
 pub type DelayedPaymentId = u64;
@@ -52,7 +51,7 @@ pub struct XrpWithdrawTransaction {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum XrplTxData {
 	Payment { amount: Balance, address: H160 },
-	CurrencyPayment { amount: Balance, address: H160, currency_id: H256 },
+	CurrencyPayment { amount: Balance, address: H160, currency_id: u32 },
 	Xls20, // Nft
 }
 

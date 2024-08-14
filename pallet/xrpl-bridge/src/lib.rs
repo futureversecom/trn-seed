@@ -121,6 +121,8 @@ pub mod pallet {
 
 		/// Maximum XRPL transactions within a single ledger
 		type XRPLTransactionLimitPerLedger: Get<u32>;
+
+		type XRPSymbolLimit: Get<u8>;
 	}
 
 	#[pallet::error]
@@ -160,6 +162,7 @@ pub mod pallet {
 		OutSideSubmissionWindow,
 		/// Too Many transactions per ledger
 		TooManyTransactionsPerLedger,
+		InvalidSymbolMapping,
 	}
 
 	#[pallet::event]
@@ -212,6 +215,10 @@ pub mod pallet {
 			total_cleared: u32,
 		},
 		TicketSequenceThresholdReached(u32),
+		XrplAssetMapSet {
+			asset_id: AssetId,
+			xrpl_symbol: Vec<u8>,
+		},
 	}
 
 	#[pallet::hooks]
@@ -261,6 +268,17 @@ pub mod pallet {
 	/// Settled xrp transactions stored against XRPL ledger index
 	pub type SettledXRPTransactionDetails<T: Config> =
 		StorageMap<_, Twox64Concat, u32, BoundedVec<XrplTxHash, T::XRPLTransactionLimitPerLedger>>;
+
+	/// Map GA asset Id to ERC20 address
+	#[pallet::storage]
+	#[pallet::getter(fn asset_id_to_xrpl)]
+	pub type AssetIdToXRPL<T: Config> =
+		StorageMap<_, Twox64Concat, AssetId, BoundedVec<u8, T::XRPLTransactionLimitPerLedger>>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn xrpl_to_asset_id)]
+	pub type XRPLToAssetId<T: Config> =
+		StorageMap<_, Twox64Concat, BoundedVec<u8, T::XRPLTransactionLimitPerLedger>, AssetId>;
 
 	#[pallet::storage]
 	/// Highest settled XRPL ledger index
@@ -673,6 +691,27 @@ pub mod pallet {
 			Self::deposit_event(Event::LedgerIndexManualPrune { ledger_index, total_cleared });
 			Ok(())
 		}
+
+		#[pallet::call_index(14)]
+		#[pallet::weight(T::WeightInfo::set_xrpl_asset_map())]
+		/// Sets the mapping for an asset to an xrpl symbol (requires governance)
+		/// Sets both XRPLToAssetId and AssetIdToXRPL
+		pub fn set_xrpl_asset_map(
+			origin: OriginFor<T>,
+			asset_id: AssetId,
+			xrpl_symbol: Vec<u8>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let bounded_xrpl_symbol = BoundedVec::truncate_from(xrpl_symbol);
+			<AssetIdToXRPL<T>>::insert(asset_id.clone(), bounded_xrpl_symbol.clone());
+			<XRPLToAssetId<T>>::insert(bounded_xrpl_symbol.clone(), asset_id.clone());
+			Self::deposit_event(Event::XrplAssetMapSet {
+				asset_id,
+				xrpl_symbol: bounded_xrpl_symbol.to_vec(),
+			});
+			Ok(())
+		}
 	}
 }
 
@@ -719,11 +758,9 @@ impl<T: Config> Pallet<T> {
 					}
 				},
 				XrplTxData::CurrencyPayment { amount, address, currency_id } => {
-					let bytes = currency_id.as_bytes();
-					let u32_currency = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
-
+					// let asset_id = XRPLToAssetId::<T>::get(currency_id).unwrap_or_default() as u32;
 					if let Err(e) =
-						T::MultiCurrency::mint_into(u32_currency, &address.into(), amount)
+						T::MultiCurrency::mint_into(currency_id, &address.into(), amount)
 					{
 						Self::deposit_event(Event::ProcessingFailed(
 							ledger_index,
