@@ -299,7 +299,7 @@ pub mod pallet {
 			}
 
 			if <NextUnsignedAt<T>>::get() > now {
-				return
+				return;
 			}
 			if !SaleDistribution::<T>::get().is_empty() {
 				log!(info, "⭐️ distributing rewards for crowdsales");
@@ -319,7 +319,7 @@ pub mod pallet {
 					// reject crowdsale distribution tx which have already been processed
 					let now = <frame_system::Pallet<T>>::block_number();
 					if SaleDistribution::<T>::get().is_empty() {
-						return InvalidTransaction::Stale.into()
+						return InvalidTransaction::Stale.into();
 					}
 					ValidTransaction::with_tag_prefix("CrowdsaleDistOffchainWorker")
 						.priority(CROWDSALE_DIST_UNSIGNED_PRIORITY)
@@ -374,7 +374,7 @@ pub mod pallet {
 
 			// ensure the asset exists
 			if !T::MultiCurrency::exists(payment_asset_id) {
-				return Err(Error::<T>::InvalidAsset.into())
+				return Err(Error::<T>::InvalidAsset.into());
 			}
 
 			// ensure soft_cap_price is not zero - prevent future div by zero
@@ -781,8 +781,8 @@ pub mod pallet {
 
 			// ensure the sale has concluded and is being distributed or has been distributed
 			ensure!(
-				matches!(sale_info.status, SaleStatus::Distributing(_, _)) ||
-					matches!(sale_info.status, SaleStatus::Ended(_)),
+				matches!(sale_info.status, SaleStatus::Distributing(_, _))
+					|| matches!(sale_info.status, SaleStatus::Ended(_)),
 				Error::<T>::InvalidCrowdsaleStatus
 			);
 

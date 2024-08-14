@@ -557,9 +557,9 @@ pub mod pallet {
 			let current_ticket_sequence = Self::door_ticket_sequence();
 			let current_params = Self::door_ticket_sequence_params();
 
-			if start_ticket_sequence < current_ticket_sequence ||
-				start_ticket_sequence < current_params.start_sequence ||
-				ticket_bucket_size == 0
+			if start_ticket_sequence < current_ticket_sequence
+				|| start_ticket_sequence < current_params.start_sequence
+				|| ticket_bucket_size == 0
 			{
 				fail!(Error::<T>::NextTicketSequenceParamsInvalid);
 			}
@@ -587,9 +587,9 @@ pub mod pallet {
 			let current_ticket_sequence = Self::door_ticket_sequence();
 			let current_params = Self::door_ticket_sequence_params();
 
-			if ticket_sequence < current_ticket_sequence ||
-				start_ticket_sequence < current_params.start_sequence ||
-				ticket_bucket_size == 0
+			if ticket_sequence < current_ticket_sequence
+				|| start_ticket_sequence < current_params.start_sequence
+				|| ticket_bucket_size == 0
 			{
 				fail!(Error::<T>::TicketSequenceParamsInvalid);
 			}
@@ -621,8 +621,8 @@ pub mod pallet {
 			ensure_root(origin)?;
 			if let Some(highest_pruned_ledger_index) = highest_pruned_ledger_index {
 				ensure!(
-					highest_pruned_ledger_index <=
-						highest_settled_ledger_index.saturating_sub(submission_window_width),
+					highest_pruned_ledger_index
+						<= highest_settled_ledger_index.saturating_sub(submission_window_width),
 					Error::<T>::InvalidHighestPrunedIndex
 				);
 				HighestPrunedLedgerIndex::<T>::put(highest_pruned_ledger_index);
@@ -720,7 +720,7 @@ impl<T: Config> Pallet<T> {
 				},
 				_ => {
 					Self::deposit_event(Event::NotSupportedTransaction);
-					continue
+					continue;
 				},
 			}
 
@@ -768,7 +768,7 @@ impl<T: Config> Pallet<T> {
 
 		// Ensure we have enough weight to perform the initial reads + process at least one tx
 		if remaining_weight.ref_time() <= (base_process_weight + min_weight_per_tx).ref_time() {
-			return Weight::zero()
+			return Weight::zero();
 		}
 
 		let mut used_weight = base_process_weight;
@@ -788,13 +788,13 @@ impl<T: Config> Pallet<T> {
 		// delayed payments to process
 		while new_highest <= block_limit {
 			// Check if we have enough remaining to mutate storage this block
-			if remaining_weight.ref_time() <=
-				used_weight
+			if remaining_weight.ref_time()
+				<= used_weight
 					.saturating_add(DbWeight::get().reads_writes(1, 2))
 					.saturating_add(weight_per_tx)
 					.ref_time()
 			{
-				break
+				break;
 			}
 
 			// Add weight for reading DelayedPaymentSchedule
@@ -835,7 +835,7 @@ impl<T: Config> Pallet<T> {
 				let remaining_payment_ids = delayed_payment_ids[max_to_clear..].to_vec();
 				let remaining_payment_ids = BoundedVec::truncate_from(remaining_payment_ids);
 				<DelayedPaymentSchedule<T>>::insert(new_highest, remaining_payment_ids);
-				break
+				break;
 			} else {
 				<DelayedPaymentSchedule<T>>::remove(new_highest);
 				new_highest = new_highest.saturating_add(BlockNumberFor::<T>::one());
@@ -866,7 +866,7 @@ impl<T: Config> Pallet<T> {
 
 		// Ensure we have enough weight to perform the initial reads + at least one clear
 		if remaining_weight.ref_time() <= (base_pruning_weight + min_weight_per_index).ref_time() {
-			return Weight::zero()
+			return Weight::zero();
 		}
 
 		// Add the cost of the initial reads and read the data
@@ -886,7 +886,7 @@ impl<T: Config> Pallet<T> {
 		let settled_txs_to_clear = (highest_pruned_index..current_end).collect::<Vec<u32>>();
 
 		if settled_txs_to_clear.len() == 0 {
-			return used_weight
+			return used_weight;
 		}
 
 		// Add the write cost for HighestPrunedLedgerIndex if we have txs to clear
@@ -895,10 +895,10 @@ impl<T: Config> Pallet<T> {
 
 		for ledger_index in settled_txs_to_clear {
 			// Check if we have enough remaining to mutate storage this index
-			if remaining_weight.ref_time() <=
-				used_weight.saturating_add(DbWeight::get().reads_writes(1, 2)).ref_time()
+			if remaining_weight.ref_time()
+				<= used_weight.saturating_add(DbWeight::get().reads_writes(1, 2)).ref_time()
 			{
-				break
+				break;
 			}
 
 			// Add weight for reading SettledXRPTransactionDetails
@@ -931,7 +931,7 @@ impl<T: Config> Pallet<T> {
 				let remaining_tx_hashes = tx_hashes[max_to_clear..].to_vec();
 				let remaining_tx_hashes = BoundedVec::truncate_from(remaining_tx_hashes);
 				<SettledXRPTransactionDetails<T>>::insert(ledger_index, remaining_tx_hashes);
-				break
+				break;
 			} else {
 				new_highest = new_highest.saturating_add(1);
 				<SettledXRPTransactionDetails<T>>::remove(ledger_index);
@@ -1013,7 +1013,7 @@ impl<T: Config> Pallet<T> {
 		if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get() {
 			if amount >= payment_threshold {
 				Self::delay_payment(delay, who.clone(), tx_data, destination_tag)?;
-				return Ok(())
+				return Ok(());
 			}
 		}
 
@@ -1053,7 +1053,7 @@ impl<T: Config> Pallet<T> {
 			delayed_payment_id,
 			payment_block,
 		});
-		return Ok(())
+		return Ok(());
 	}
 
 	/// Construct an XRPL payment transaction and submit for signing
@@ -1109,12 +1109,12 @@ impl<T: Config> Pallet<T> {
 
 		// check if TicketSequenceThreshold reached. notify by emitting
 		// TicketSequenceThresholdReached
-		if ticket_params.bucket_size != 0 &&
-			Percent::from_rational(
+		if ticket_params.bucket_size != 0
+			&& Percent::from_rational(
 				current_sequence - ticket_params.start_sequence + 1,
 				ticket_params.bucket_size,
-			) >= T::TicketSequenceThreshold::get() &&
-			!Self::ticket_sequence_threshold_reached_emitted()
+			) >= T::TicketSequenceThreshold::get()
+			&& !Self::ticket_sequence_threshold_reached_emitted()
 		{
 			Self::deposit_event(Event::<T>::TicketSequenceThresholdReached(current_sequence));
 			TicketSequenceThresholdReachedEmitted::<T>::put(true);
@@ -1129,10 +1129,10 @@ impl<T: Config> Pallet<T> {
 		if current_sequence >= last_sequence {
 			// we ran out current bucket, check the next_start_sequence
 			let next_ticket_params = Self::door_ticket_sequence_params_next();
-			if next_ticket_params == XrplTicketSequenceParams::default() ||
-				next_ticket_params.start_sequence == ticket_params.start_sequence
+			if next_ticket_params == XrplTicketSequenceParams::default()
+				|| next_ticket_params.start_sequence == ticket_params.start_sequence
 			{
-				return Err(Error::<T>::NextTicketSequenceParamsNotSet.into())
+				return Err(Error::<T>::NextTicketSequenceParamsNotSet.into());
 			} else {
 				// update next to current and clear next
 				DoorTicketSequenceParams::<T>::set(next_ticket_params.clone());

@@ -106,7 +106,7 @@ where
 	BE::State: StateBackend<BlakeTwo256>,
 {
 	let frontier_backend = match rpc_config.frontier_backend_config {
-		FrontierBackendConfig::KeyValue =>
+		FrontierBackendConfig::KeyValue => {
 			fc_db::Backend::KeyValue(fc_db::kv::Backend::<Block>::new(
 				client,
 				&fc_db::kv::DatabaseSettings {
@@ -123,13 +123,15 @@ where
 							paritydb_path: frontier_database_dir(config, "paritydb"),
 							cache_size: 0,
 						},
-						_ =>
+						_ => {
 							return Err(
 								"Supported db sources: `rocksdb` | `paritydb` | `auto`".to_string()
-							),
+							)
+						},
 					},
 				},
-			)?),
+			)?)
+		},
 		FrontierBackendConfig::Sql { pool_size, num_ops_timeout, thread_count, cache_size } => {
 			let overrides = crate::rpc::overrides_handle(client.clone());
 			let sqlite_db_path = frontier_database_dir(config, "sql");
@@ -251,11 +253,10 @@ pub fn new_partial(
 			create_inherent_data_providers: move |_, ()| async move {
 				let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-				let slot =
-					sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-						*timestamp,
-						slot_duration,
-					);
+				let slot = sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+				*timestamp,
+				slot_duration,
+			);
 
 				Ok((slot, timestamp))
 			},
@@ -540,11 +541,10 @@ pub fn new_full(
 				async move {
 					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-					let slot =
-						sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-							*timestamp,
-							slot_duration,
-						);
+					let slot = sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+						*timestamp,
+						slot_duration,
+					);
 
 					// NOTE - check if we can remove this
 					let storage_proof =

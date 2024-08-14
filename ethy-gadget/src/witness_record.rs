@@ -170,7 +170,7 @@ impl WitnessRecord {
 		// Check if the witness is for a completed event, based on the pruned completed_events vec
 		// First check if the event_id is contained within completed_events
 		if self.completed_events.iter().any(|id| id == &witness.event_id) {
-			return Err(WitnessError::CompletedEvent)
+			return Err(WitnessError::CompletedEvent);
 		} else {
 			// If we have only 1 event, and it's not in completed events, that means the
 			// completed_events id is 1 and the new event_id is 0, so comparing with the lowest
@@ -178,7 +178,7 @@ impl WitnessRecord {
 			if self.completed_events.len() > 1 {
 				if let Some(completed_watermark) = self.completed_events.first() {
 					if witness.event_id <= *completed_watermark {
-						return Err(WitnessError::CompletedEvent)
+						return Err(WitnessError::CompletedEvent);
 					}
 				}
 			}
@@ -191,7 +191,7 @@ impl WitnessRecord {
 			.unwrap_or_default()
 		{
 			trace!(target: "ethy", "💎 witness previously seen: {:?}", witness.event_id);
-			return Err(WitnessError::DuplicateWitness)
+			return Err(WitnessError::DuplicateWitness);
 		}
 
 		// witness metadata may not be available at this point
@@ -205,19 +205,19 @@ impl WitnessRecord {
 				EthyEcdsaToPublicKey::convert(witness.authority_id.clone()),
 			) else {
 				error!(target: "ethy", "💎 error creating digest");
-				return Err(WitnessError::DigestCreationFailed)
+				return Err(WitnessError::DigestCreationFailed);
 			};
 			// check if digests match
 			if digest != witness.digest {
 				warn!(target: "ethy", "💎 witness has bad digest: {:?} from {:?}", witness.event_id, witness.authority_id);
 				debug!(target: "ethy", "💎 witness has bad digest: witness: {:?} local digest: {:?}", witness, digest);
-				return Err(WitnessError::MismatchedDigest)
+				return Err(WitnessError::MismatchedDigest);
 			}
 			// signature verify
 			if !EthyKeystore::verify_prehashed(&witness.authority_id, &witness.signature, &digest) {
 				warn!(target: "ethy", "💎 witness digest signature verification failed: {:?} from {:?}", witness.event_id, witness.authority_id);
 				debug!(target: "ethy", "💎 witness digest signature verification failed. witness: {:?}, local digest: {:?} ", witness, digest);
-				return Err(WitnessError::SignatureVerificationFailed)
+				return Err(WitnessError::SignatureVerificationFailed);
 			}
 		} else {
 			// store witness for re-verification later
@@ -226,7 +226,7 @@ impl WitnessRecord {
 				.entry(witness.event_id)
 				.and_modify(|witnesses| witnesses.push(witness.clone()))
 				.or_insert_with(|| vec![witness.clone()]);
-			return Ok(WitnessStatus::DigestUnverified)
+			return Ok(WitnessStatus::DigestUnverified);
 		};
 
 		// Convert authority secp256k1 public key into ordered index
@@ -286,20 +286,20 @@ fn compact_sequence(completed_events: &mut [EventProofId]) -> &[EventProofId] {
 	// Note: (JasonT) We keep at least 2 events in completed events to handle the first two events
 	// (0,1) being processed in the incorrect order
 	if completed_events.len() < 3 {
-		return completed_events
+		return completed_events;
 	}
 
 	let mut watermark_idx = 0;
 	for i in 0..completed_events.len() - 2 {
 		if completed_events[i] + 1 as EventProofId == completed_events[i + 1] {
 			watermark_idx = i + 1;
-			continue
+			continue;
 		} else {
-			break // Note - fix the algo
+			break; // Note - fix the algo
 		}
 	}
 
-	return completed_events.split_at(watermark_idx).1
+	return completed_events.split_at(watermark_idx).1;
 }
 
 #[cfg(test)]

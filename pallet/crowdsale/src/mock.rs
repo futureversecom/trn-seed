@@ -47,6 +47,7 @@ where
 pub struct ValidatedCall;
 impl seed_pallet_common::ExtrinsicChecker for ValidatedCall {
 	type Call = RuntimeCall;
+	type Extra = ();
 	type Result = DispatchResult;
 	fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
 		Ok(())

@@ -202,7 +202,7 @@ impl<T: Config> Pallet<T> {
 					if SaleDistribution::<T>::try_append(sale_id).is_err() {
 						sale_info.status = SaleStatus::DistributionFailed(now);
 						log!(error, "⛔️ failed to mark sale {:?} for distribution", sale_id);
-						return Ok(())
+						return Ok(());
 					}
 					sale_info.status = SaleStatus::Distributing(now, Balance::default());
 				}

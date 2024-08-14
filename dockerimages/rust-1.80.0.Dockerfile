@@ -1,4 +1,4 @@
-FROM docker.io/library/rust:1.71.0-bookworm as builder
+FROM docker.io/library/rust:1.80.0-bookworm as builder
 
 ADD . ./workdir
 WORKDIR "/workdir"

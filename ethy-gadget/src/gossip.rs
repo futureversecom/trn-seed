@@ -154,12 +154,12 @@ where
 			let maybe_known = known_votes.get(&event_id).map(|v| v.binary_search(&authority_id));
 			if let Some(Ok(_)) = maybe_known {
 				trace!(target: "ethy", "💎 witness from: {:?}, event: {:?} is already known", &authority_id, event_id);
-				return ValidationResult::Discard
+				return ValidationResult::Discard;
 			}
 
 			if !self.active_validators.read().iter().any(|v| *v == authority_id) {
 				trace!(target: "ethy", "💎 witness from: {:?}, event: {:?} is not an active authority", &authority_id, event_id);
-				return ValidationResult::Discard
+				return ValidationResult::Discard;
 			}
 
 			// verify witness is a valid signature for `digest`, this does NOT guarantee digest is
@@ -187,10 +187,10 @@ where
 				let finalized_number = self.backend.blockchain().info().finalized_number;
 				if block_number < finalized_number.into().saturating_sub(WINDOW_SIZE) {
 					info!(target: "ethy", "💎 witness: {:?}, event: {:?} sender: {:?} out of live window. mark as discard.", &authority_id, event_id, sender);
-					return ValidationResult::Discard
+					return ValidationResult::Discard;
 				}
 
-				return ValidationResult::ProcessAndKeep(self.topic)
+				return ValidationResult::ProcessAndKeep(self.topic);
 			} else {
 				// TODO: decrease peer reputation
 				warn!(target: "ethy", "💎 bad signature: {:?}, event: {:?}", authority_id, event_id);
@@ -212,7 +212,7 @@ where
 			let finalized_number = self.backend.blockchain().info().finalized_number;
 			if witness.block_number < finalized_number.into().saturating_sub(WINDOW_SIZE) {
 				debug!(target: "ethy", "💎 Message for event #{} is out of live window. marked as expired: {}", witness.event_id, true);
-				return true
+				return true;
 			}
 
 			let expired = complete_events.binary_search(&witness.event_id).is_ok(); // spk
@@ -240,7 +240,7 @@ where
 		let complete_events = self.complete_events.read();
 		Box::new(move |_who, intent, _topic, mut data| {
 			if let MessageIntent::PeriodicRebroadcast = intent {
-				return do_rebroadcast
+				return do_rebroadcast;
 			}
 
 			let witness = match Witness::decode(&mut data) {
@@ -251,7 +251,7 @@ where
 			let finalized_number = self.backend.blockchain().info().finalized_number;
 			if witness.block_number < finalized_number.into().saturating_sub(WINDOW_SIZE) {
 				debug!(target: "ethy", "💎 Message for event #{} is out of live window. marked as allowed: {}", witness.event_id, false);
-				return false
+				return false;
 			}
 			// Check if message is incomplete
 			let allowed = complete_events.binary_search(&witness.event_id).is_err();

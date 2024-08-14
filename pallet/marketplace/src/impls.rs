@@ -484,7 +484,7 @@ impl<T: Config> Pallet<T> {
 				marketplace_id: listing.marketplace_id,
 				reason: AuctionClosureReason::ExpiredNoBids,
 			});
-			return
+			return;
 		};
 
 		// Process the winning bid
@@ -604,7 +604,7 @@ impl<T: Config> Pallet<T> {
 					.try_push((marketplace.account, marketplace.entitlement))
 					.map_err(|_| Error::<T>::RoyaltiesInvalid)?;
 			} else {
-				return Err(Error::<T>::MarketplaceNotRegistered.into())
+				return Err(Error::<T>::MarketplaceNotRegistered.into());
 			}
 		};
 

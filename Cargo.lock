@@ -12146,7 +12146,7 @@ dependencies = [
 [[package]]
 name = "xrpl_binary_codec"
 version = "0.15.0"
-source = "git+https://github.com/futureversecom/xrpl-sdk-rust?branch=once-cell-support#afb40e77a22d5934aeb59e0201d3bf58dcd2be25"
+source = "git+https://github.com/futureversecom/xrpl-sdk-rust#24f9e73ad7343daae7348b14994a9d2ea52917bb"
 dependencies = [
  "bytes",
  "hashbrown 0.14.5",
@@ -12161,7 +12161,7 @@ dependencies = [
 [[package]]
 name = "xrpl_types"
 version = "0.15.0"
-source = "git+https://github.com/futureversecom/xrpl-sdk-rust?branch=once-cell-support#afb40e77a22d5934aeb59e0201d3bf58dcd2be25"
+source = "git+https://github.com/futureversecom/xrpl-sdk-rust#24f9e73ad7343daae7348b14994a9d2ea52917bb"
 dependencies = [
  "ascii",
  "bs58 0.5.1",

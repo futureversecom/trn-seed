@@ -69,9 +69,10 @@ pub const SELECTOR_LOG_OFFER_ACCEPT: [u8; 32] =
 /// Saturated conversion from EVM uint256 to Blocknumber
 fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileFailure> {
 	if input > BlockNumber::MAX.into() {
-		return Err(
-			revert("Marketplace: Input number exceeds the BlockNumber type boundary (2^32)").into()
+		return Err(revert(
+			"Marketplace: Input number exceeds the BlockNumber type boundary (2^32)",
 		)
+		.into());
 	}
 	Ok(input.saturated_into())
 }
@@ -131,22 +132,22 @@ where
 			};
 
 			if let Err(err) = handle.check_function_modifier(match selector {
-				Action::RegisterMarketplace |
-				Action::SellNftWithoutMarketplace |
-				Action::SellNftWithMarketplaceId |
-				Action::UpdateFixedPrice |
-				Action::AuctionNftWithoutMarketplace |
-				Action::AuctionNftWithMarketplaceId |
-				Action::Bid |
-				Action::Buy |
-				Action::CancelSale |
-				Action::MakeSimpleOfferWithoutMarketplace |
-				Action::MakeSimpleOfferWithMarketplaceId |
-				Action::CancelOffer |
-				Action::AcceptOffer => FunctionModifier::NonPayable,
+				Action::RegisterMarketplace
+				| Action::SellNftWithoutMarketplace
+				| Action::SellNftWithMarketplaceId
+				| Action::UpdateFixedPrice
+				| Action::AuctionNftWithoutMarketplace
+				| Action::AuctionNftWithMarketplaceId
+				| Action::Bid
+				| Action::Buy
+				| Action::CancelSale
+				| Action::MakeSimpleOfferWithoutMarketplace
+				| Action::MakeSimpleOfferWithMarketplaceId
+				| Action::CancelOffer
+				| Action::AcceptOffer => FunctionModifier::NonPayable,
 				_ => FunctionModifier::View,
 			}) {
-				return Err(err.into())
+				return Err(err.into());
 			}
 
 			match selector {
@@ -155,16 +156,20 @@ where
 				Action::SellNftWithoutMarketplace => Self::sell_nft_without_marketplace(handle),
 				Action::UpdateFixedPrice => Self::update_fixed_price(handle),
 				Action::Buy => Self::buy(handle),
-				Action::AuctionNftWithMarketplaceId =>
-					Self::auction_nft_with_marketplace_id(handle),
-				Action::AuctionNftWithoutMarketplace =>
-					Self::auction_nft_without_marketplace(handle),
+				Action::AuctionNftWithMarketplaceId => {
+					Self::auction_nft_with_marketplace_id(handle)
+				},
+				Action::AuctionNftWithoutMarketplace => {
+					Self::auction_nft_without_marketplace(handle)
+				},
 				Action::Bid => Self::bid(handle),
 				Action::CancelSale => Self::cancel_sale(handle),
-				Action::MakeSimpleOfferWithMarketplaceId =>
-					Self::make_simple_offer_with_marketplace_id(handle),
-				Action::MakeSimpleOfferWithoutMarketplace =>
-					Self::make_simple_offer_without_marketplace(handle),
+				Action::MakeSimpleOfferWithMarketplaceId => {
+					Self::make_simple_offer_with_marketplace_id(handle)
+				},
+				Action::MakeSimpleOfferWithoutMarketplace => {
+					Self::make_simple_offer_without_marketplace(handle)
+				},
 				Action::CancelOffer => Self::cancel_offer(handle),
 				Action::AcceptOffer => Self::accept_offer(handle),
 				Action::GetMarketplaceAccount => Self::get_marketplace_account(handle),
@@ -172,7 +177,7 @@ where
 				Action::GetOfferFromId => Self::get_offer_from_id(handle),
 			}
 		};
-		return result
+		return result;
 	}
 }
 
@@ -352,7 +357,7 @@ where
 			.into_iter()
 			.map(|serial_number| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("Marketplace: Expected serial_number <= 2^32").into())
+					return Err(revert("Marketplace: Expected serial_number <= 2^32").into());
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				Ok(serial_number)
@@ -590,7 +595,7 @@ where
 			.into_iter()
 			.map(|serial_number| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("Marketplace: Expected serial_number <= 2^32").into())
+					return Err(revert("Marketplace: Expected serial_number <= 2^32").into());
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				Ok(serial_number)
@@ -704,7 +709,7 @@ where
 			Listing::FixedPrice(listing) => Self::split_listing_tokens(listing.tokens),
 			Listing::Auction(listing) => Self::split_listing_tokens(listing.tokens),
 		}) else {
-			return Err(revert("Marketplace: Expected NFT tokens"))
+			return Err(revert("Marketplace: Expected NFT tokens"));
 		};
 
 		RuntimeHelper::<Runtime>::try_dispatch(

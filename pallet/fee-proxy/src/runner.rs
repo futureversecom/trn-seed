@@ -69,16 +69,18 @@ impl From<FeePreferencesError> for TransactionValidityError {
 		match error {
 			// Errors related to improperly designating a call or something "call-like" should all
 			// return an invalid call error
-			FeePreferencesError::InvalidFunctionSelector |
-			FeePreferencesError::InvalidInputArguments |
-			FeePreferencesError::FailedToDecodeInput |
-			FeePreferencesError::InvalidPaymentAsset =>
-				TransactionValidityError::Invalid(InvalidTransaction::Call),
-			FeePreferencesError::WithdrawFailed |
-			FeePreferencesError::GasPriceTooLow |
-			FeePreferencesError::FeeOverflow |
-			FeePreferencesError::FeeExceedsMaxPayment =>
-				TransactionValidityError::Invalid(InvalidTransaction::Payment),
+			FeePreferencesError::InvalidFunctionSelector
+			| FeePreferencesError::InvalidInputArguments
+			| FeePreferencesError::FailedToDecodeInput
+			| FeePreferencesError::InvalidPaymentAsset => {
+				TransactionValidityError::Invalid(InvalidTransaction::Call)
+			},
+			FeePreferencesError::WithdrawFailed
+			| FeePreferencesError::GasPriceTooLow
+			| FeePreferencesError::FeeOverflow
+			| FeePreferencesError::FeeExceedsMaxPayment => {
+				TransactionValidityError::Invalid(InvalidTransaction::Payment)
+			},
 		}
 	}
 }
@@ -144,7 +146,10 @@ where
 		);
 
 		if input[..4] == FEE_FUNCTION_SELECTOR_DEPRECATED {
-			log!(warn, "⚠️ using deprecated fee function selector: call_with_fee_preferences(address,uint128,address,bytes)");
+			log!(
+				warn,
+				"⚠️ using deprecated fee function selector: call_with_fee_preferences(address,uint128,address,bytes)"
+			);
 			let types =
 				[ParamType::Address, ParamType::Uint(128), ParamType::Address, ParamType::Bytes];
 			let tokens = ethabi::decode(&types, &input[4..])
@@ -295,7 +300,7 @@ where
 			return Err(RunnerError {
 				error: Self::Error::WithdrawFailed,
 				weight: Weight::default(),
-			})
+			});
 		}
 
 		// These values may change if we are using the fee_preferences precompile
@@ -406,7 +411,7 @@ where
 			return Err(RunnerError {
 				error: Self::Error::WithdrawFailed,
 				weight: Weight::default(),
-			})
+			});
 		}
 
 		<Runner<T> as RunnerT<T>>::create(
@@ -450,7 +455,7 @@ where
 			return Err(RunnerError {
 				error: Self::Error::WithdrawFailed,
 				weight: Weight::default(),
-			})
+			});
 		}
 
 		<Runner<T> as RunnerT<T>>::create2(

@@ -174,7 +174,7 @@ where
 		{
 			for token_ownership in self.owned_tokens.iter_mut() {
 				if &token_ownership.owner != token_owner {
-					continue
+					continue;
 				}
 				// Add new serial numbers to existing owner
 				for serial_number in serial_numbers.iter() {
@@ -200,11 +200,11 @@ where
 		let mut removing_all_tokens: bool = false;
 		for token_ownership in self.owned_tokens.iter_mut() {
 			if &token_ownership.owner != token_owner {
-				continue
+				continue;
 			}
 			token_ownership.owned_serials.retain(|serial| !serial_numbers.contains(serial));
 			removing_all_tokens = token_ownership.owned_serials.is_empty();
-			break
+			break;
 		}
 		// Check whether the owner has any tokens left, if not remove them from the collection
 		if removing_all_tokens {

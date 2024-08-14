@@ -1627,8 +1627,8 @@ fn process_delayed_payments_multiple_withdrawals() {
 			// Assert weight used is as expected
 			let weight_per_tx = DbWeight::get().reads_writes(3u64, 2u64);
 			let base_weight = DbWeight::get().reads_writes(7u64, 1u64);
-			let total_weight = base_weight +
-				Weight::from_parts(
+			let total_weight = base_weight
+				+ Weight::from_parts(
 					weight_per_tx.ref_time() * withdrawal_count as u64,
 					weight_per_tx.proof_size() * withdrawal_count as u64,
 				);
@@ -1701,8 +1701,8 @@ fn process_delayed_payments_multiple_withdrawals_across_multiple_blocks() {
 			// Assert weight used is as expected
 			let weight_per_tx = DbWeight::get().reads_writes(4u64, 3u64);
 			let base_weight = DbWeight::get().reads_writes(3u64, 1u64);
-			let total_weight = base_weight +
-				Weight::from_parts(
+			let total_weight = base_weight
+				+ Weight::from_parts(
 					weight_per_tx.ref_time() * withdrawal_count as u64,
 					weight_per_tx.proof_size() * withdrawal_count as u64,
 				);
@@ -1721,7 +1721,7 @@ fn process_delayed_payments_nothing_to_process_works() {
 		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 		assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
 		let delayed_payment_block_limit = DelayedPaymentBlockLimit::get(); // 1000
-																	 // Set next process block to 0
+																   // Set next process block to 0
 		NextDelayProcessBlock::<Test>::put(0);
 		// Call process delayed payments with enough weight to process 1000 blocks
 		let weight_used = XRPLBridge::process_delayed_payments(
@@ -1753,7 +1753,7 @@ fn process_delayed_payments_does_not_exceed_max_delayed_payments() {
 		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 		assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
 		let delayed_payment_block_limit = DelayedPaymentBlockLimit::get(); // 1000
-																	 // Set next process block to 0
+																   // Set next process block to 0
 		NextDelayProcessBlock::<Test>::put(0);
 		// Call process delayed payments with more than max_payments_per_block
 		let weight_used = XRPLBridge::process_delayed_payments(

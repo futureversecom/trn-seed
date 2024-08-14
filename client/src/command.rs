@@ -53,8 +53,9 @@ impl SubstrateCli for Cli {
 			"porcini" => Box::new(chain_spec::porcini_config()?),
 			"root" => Box::new(chain_spec::root_config()?),
 			"" => return Err("Please specify which chain you want to run!".into()),
-			path =>
-				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
+			path => {
+				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
+			},
 		})
 	}
 }
@@ -142,7 +143,7 @@ pub fn run() -> sc_cli::Result<()> {
 								"Runtime benchmarking wasn't enabled when building the node. \
 							You can enable it with `--features runtime-benchmarks`."
 									.into(),
-							)
+							);
 						}
 
 						cmd.run::<Block, ()>(config)

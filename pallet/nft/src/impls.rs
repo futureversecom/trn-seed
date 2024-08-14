@@ -74,7 +74,7 @@ impl<T: Config> Pallet<T> {
 		if collection_info.is_none() {
 			// should not happen
 			log!(warn, "🃏 Unexpected empty metadata scheme: {:?}", token_id);
-			return Default::default()
+			return Default::default();
 		}
 
 		let collection_info = collection_info.unwrap();
@@ -135,7 +135,7 @@ impl<T: Config> Pallet<T> {
 		serial_numbers: Vec<SerialNumber>,
 	) -> Result<Weight, (Weight, DispatchError)> {
 		if serial_numbers.is_empty() {
-			return Ok(Weight::zero())
+			return Ok(Weight::zero());
 		};
 
 		let collection_info = match <CollectionInfo<T>>::get(collection_id) {
@@ -215,8 +215,8 @@ impl<T: Config> Pallet<T> {
 		);
 		// Check we don't exceed the token limit
 		ensure!(
-			collection_info.collection_issuance.saturating_add(quantity) <
-				T::MaxTokensPerCollection::get(),
+			collection_info.collection_issuance.saturating_add(quantity)
+				< T::MaxTokensPerCollection::get(),
 			Error::<T>::TokenLimitExceeded
 		);
 		// Cannot mint for a token that was bridged from Ethereum

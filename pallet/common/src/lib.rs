@@ -14,7 +14,6 @@
 // You may obtain a copy of the License at the root of this project source code
 
 //! shared pallet types and traits
-#![feature(associated_type_defaults)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
@@ -457,8 +456,8 @@ impl<T: frame_system::Config> MaintenanceCheckEVM<T> for () {
 /// Generic trait to validate extrinsics satisfy some condition
 pub trait ExtrinsicChecker {
 	type Call;
-	type Extra = ();
-	type Result = bool;
+	type Extra;
+	type Result;
 	fn check_extrinsic(call: &Self::Call, extra: &Self::Extra) -> Self::Result;
 }
 

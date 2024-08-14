@@ -265,12 +265,12 @@ pub mod pallet {
 			let initial_read_cost = DbWeight::get().reads(1u64);
 			// Ensure we have enough weight to perform the initial read
 			if remaining_weight.ref_time() <= initial_read_cost.ref_time() {
-				return Weight::zero()
+				return Weight::zero();
 			}
 			// Check that there are blocks in ready_blocks
 			let ready_blocks_length = ReadyBlocks::<T>::decode_len();
 			if ready_blocks_length.is_none() || ready_blocks_length == Some(0) {
-				return Weight::zero()
+				return Weight::zero();
 			}
 
 			// Process as many payments as we can
@@ -305,7 +305,7 @@ pub mod pallet {
 					Self::process_delayed_payment(payment_id);
 				}
 				if processed_payment_count >= max_payments {
-					break
+					break;
 				}
 			}
 
@@ -510,7 +510,7 @@ impl<T: Config> Pallet<T> {
 							// EVM payment delays are not supported
 							Err(Error::<T>::EvmWithdrawalFailed.into())
 						},
-					}
+					};
 				}
 			};
 		}
@@ -623,7 +623,7 @@ impl<T: Config> Pallet<T> {
 		let payment_id = NextDelayedPaymentId::<T>::get();
 		if !payment_id.checked_add(One::one()).is_some() {
 			Self::deposit_event(Event::<T>::NoAvailableDelayedPaymentIds);
-			return
+			return;
 		}
 		let payment_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
 		DelayedPayments::<T>::insert(payment_id, &pending_payment);
@@ -701,7 +701,7 @@ impl<T: Config> Pallet<T> {
 							asset_id,
 							(*source).into(),
 						);
-						return Ok(())
+						return Ok(());
 					}
 				};
 			}

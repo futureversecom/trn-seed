@@ -3,21 +3,21 @@ hard_tabs = true
 max_width = 100
 use_small_heuristics = "Max"
 # Imports
-imports_granularity = "Crate"
+# imports_granularity = "Crate" # nightly only
 reorder_imports = true
 # Consistency
 newline_style = "Unix"
 # Format comments
-comment_width = 100
-wrap_comments = true
+# comment_width = 100 # nightly only
+# wrap_comments = true # nightly only
 # Misc
 chain_width = 80
-spaces_around_ranges = false
-binop_separator = "Back"
-reorder_impl_items = false
+# spaces_around_ranges = false # nightly only
+# binop_separator = "Back" # nightly only
+# reorder_impl_items = false # nightly only
 match_arm_leading_pipes = "Preserve"
-match_arm_blocks = false
+# match_arm_blocks = false # nightly only
 match_block_trailing_comma = true
-trailing_comma = "Vertical"
-trailing_semicolon = false
+# trailing_comma = "Vertical" # nightly only
+# trailing_semicolon = false # nightly only
 use_field_init_shorthand = true

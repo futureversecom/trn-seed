@@ -119,7 +119,7 @@ impl Value {
 		Storage: frame_support::storage::StorageValue<T>,
 	{
 		if !Self::exists::<Storage, T>() {
-			return Err(())
+			return Err(());
 		}
 
 		Storage::try_get()
@@ -251,7 +251,7 @@ impl Value {
 		new_pallet_name: &[u8],
 	) -> bool {
 		if !Self::unsafe_exists(old_pallet_name, storage_name) {
-			return false
+			return false;
 		}
 
 		move_storage_from_pallet(storage_name, old_pallet_name, new_pallet_name);
@@ -276,7 +276,7 @@ impl Value {
 	#[allow(dead_code)]
 	pub fn unsafe_clear(module: &[u8], item: &[u8]) -> bool {
 		if !Self::unsafe_exists(module, item) {
-			return false
+			return false;
 		}
 
 		clear_storage_prefix(module, item, b"", None, None).maybe_cursor.is_none()
@@ -313,7 +313,7 @@ impl Map {
 		H: ReversibleStorageHasher,
 	{
 		if !Self::unsafe_exists::<K, T, H>(module, old_item) {
-			return false
+			return false;
 		}
 
 		let from = storage_prefix(module, old_item);
@@ -335,7 +335,7 @@ impl Map {
 		H: ReversibleStorageHasher,
 	{
 		if !Self::unsafe_exists::<K, T, H>(old_pallet_name, storage_name) {
-			return false
+			return false;
 		}
 
 		move_storage_from_pallet(storage_name, old_pallet_name, new_pallet_name);

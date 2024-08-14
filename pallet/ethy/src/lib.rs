@@ -567,7 +567,7 @@ pub mod pallet {
 						event_claim_id: message_id,
 						process_at: new_process_at,
 					});
-					continue
+					continue;
 				}
 				// Removed PendingEventClaim from storage and processes
 				if let Some(EventClaim { source, destination, data, .. }) =
@@ -642,12 +642,12 @@ pub mod pallet {
 
 			// Do we have enough weight to process one proof?
 			if remaining_weight.ref_time() <= (base_weight + weight_per_proof).ref_time() {
-				return Weight::zero()
+				return Weight::zero();
 			}
 
 			// Don't do anything if the bridge is paused
 			if Self::bridge_paused() {
-				return DbWeight::get().reads(1u64)
+				return DbWeight::get().reads(1u64);
 			}
 
 			let mut consumed_weight = base_weight;
@@ -658,10 +658,10 @@ pub mod pallet {
 				// Check if we have enough weight to process this iteration
 				let new_consumed_weight = consumed_weight.saturating_add(weight_per_proof);
 				if remaining_weight.ref_time() <= new_consumed_weight.ref_time() {
-					break
+					break;
 				}
 				let Some((event_proof_id, signing_request)) = pending_event_proofs.next() else {
-					break
+					break;
 				};
 				consumed_weight = new_consumed_weight;
 				Self::do_request_event_proof(event_proof_id, signing_request);
@@ -678,7 +678,7 @@ pub mod pallet {
 			// this passes if flag `--validator` set, not necessarily in the active set
 			if !sp_io::offchain::is_validator() {
 				log!(info, "💎 not a validator, exiting");
-				return
+				return;
 			}
 
 			// check a local key exists for a valid bridge notary
@@ -698,7 +698,7 @@ pub mod pallet {
 						supports,
 						needed
 					);
-					return
+					return;
 				}
 				// do some notarizing
 				Self::do_event_notarization_ocw(&active_key, authority_index);
@@ -948,8 +948,8 @@ pub mod pallet {
 				ProcessedMessageIds::<T>::get().into_inner();
 			if !processed_message_ids.is_empty() {
 				ensure!(
-					event_id > processed_message_ids[0] &&
-						processed_message_ids.binary_search(&event_id).is_err(),
+					event_id > processed_message_ids[0]
+						&& processed_message_ids.binary_search(&event_id).is_err(),
 					Error::<T>::EventReplayProcessed
 				);
 			}
@@ -1020,10 +1020,12 @@ pub mod pallet {
 			};
 
 			match payload {
-				NotarizationPayload::Call { call_id, result, .. } =>
-					Self::handle_call_notarization(call_id, result, notary_public_key),
-				NotarizationPayload::Event { event_claim_id, result, .. } =>
-					Self::handle_event_notarization(event_claim_id, result, notary_public_key),
+				NotarizationPayload::Call { call_id, result, .. } => {
+					Self::handle_call_notarization(call_id, result, notary_public_key)
+				},
+				NotarizationPayload::Event { event_claim_id, result, .. } => {
+					Self::handle_event_notarization(event_claim_id, result, notary_public_key)
+				},
 			}
 		}
 	}

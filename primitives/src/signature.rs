@@ -125,13 +125,13 @@ impl sp_runtime::traits::Verify for EthereumSignature {
 		let m = keccak_256(message);
 		// Standard signature
 		if verify_signature(self.0.as_ref(), &m, signer) {
-			return true
+			return true;
 		}
 
 		// Ethereum signed signature
 		let m = keccak_256(ethereum_signed_message(message).as_slice());
 		if verify_signature(self.0.as_ref(), &m, signer) {
-			return true
+			return true;
 		}
 
 		// Try blake2_256 hashing the message, this is to prevent invalid characters showing in

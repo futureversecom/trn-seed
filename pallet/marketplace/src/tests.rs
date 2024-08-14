@@ -618,9 +618,9 @@ fn listing_price_splits_royalties_and_network_fee() {
 			// Owner balance should be 1_000_000 minus 25.5% of 1_000_000
 			assert_eq!(
 				AssetsExt::balance(NativeAssetId::get(), &token_owner),
-				price -
-					entitlement_amount.mul(price) -
-					MarketplaceNetworkFeePercentage::get().mul(price)
+				price
+					- entitlement_amount.mul(price)
+					- MarketplaceNetworkFeePercentage::get().mul(price)
 			);
 
 			// Beneficiary balance should be 25% of 1_000_000
@@ -682,10 +682,10 @@ fn listing_price_splits_multiple_royalties_and_network_fee() {
 
 			assert_eq!(
 				AssetsExt::balance(NativeAssetId::get(), &token_owner),
-				price -
-					(entitlement_amount.mul(price) +
-						entitlement_amount_beneficiary_2.mul(price) +
-						MarketplaceNetworkFeePercentage::get().mul(price))
+				price
+					- (entitlement_amount.mul(price)
+						+ entitlement_amount_beneficiary_2.mul(price)
+						+ MarketplaceNetworkFeePercentage::get().mul(price))
 			);
 
 			assert_eq!(
@@ -744,9 +744,9 @@ fn network_fee_royalties_split_is_respected_xrpl() {
 			assert_ok!(Marketplace::buy(Some(buyer).into(), listing_id));
 			assert_eq!(
 				AssetsExt::balance(asset_used, &token_owner),
-				price -
-					entitlement_amount.mul(price) -
-					MarketplaceNetworkFeePercentage::get().mul(price)
+				price
+					- entitlement_amount.mul(price)
+					- MarketplaceNetworkFeePercentage::get().mul(price)
 			);
 
 			assert_eq!(
@@ -975,10 +975,10 @@ fn buy_with_marketplace_royalties() {
 			// sale_price - (marketplace_royalties + beneficiary_royalties + network_fee)
 			assert_eq!(
 				AssetsExt::balance(NativeAssetId::get(), &token_owner),
-				initial_balance_owner + sale_price -
-					marketplace_entitlement * sale_price -
-					royalties_schedule.clone().entitlements[0].1 * sale_price -
-					MarketplaceNetworkFeePercentage::get().mul(sale_price)
+				initial_balance_owner + sale_price
+					- marketplace_entitlement * sale_price
+					- royalties_schedule.clone().entitlements[0].1 * sale_price
+					- MarketplaceNetworkFeePercentage::get().mul(sale_price)
 			);
 			assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 		});
@@ -3222,8 +3222,8 @@ mod buy_sft {
 				// royalties distributed according to `entitlements` map
 				assert_eq!(
 					AssetsExt::balance(NativeAssetId::get(), &collection_owner),
-					initial_balance_owner +
-						royalties_schedule.clone().entitlements[0].1 * sale_price
+					initial_balance_owner
+						+ royalties_schedule.clone().entitlements[0].1 * sale_price
 				);
 				assert_eq!(
 					AssetsExt::balance(NativeAssetId::get(), &beneficiary_1),
@@ -3249,9 +3249,9 @@ mod buy_sft {
 					.sum::<Balance>();
 				assert_eq!(
 					AssetsExt::balance(NativeAssetId::get(), &token_owner),
-					initial_balance_seller + sale_price -
-						royalties - network_fee -
-						marketplace_royalties
+					initial_balance_seller + sale_price
+						- royalties - network_fee
+						- marketplace_royalties
 				);
 				assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 

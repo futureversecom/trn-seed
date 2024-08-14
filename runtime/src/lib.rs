@@ -158,7 +158,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 55,
+	spec_version: 56,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 10,
@@ -231,7 +231,7 @@ impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 	fn contains(call: &RuntimeCall) -> bool {
 		// Check whether this call has been paused by the maintenance_mode pallet
 		if pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(call) {
-			return false
+			return false;
 		}
 
 		match call {
@@ -245,7 +245,7 @@ impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 			// a dual-currency with pallet-staking context
 			RuntimeCall::Staking(pallet_staking::Call::bond { payee, .. }) => {
 				if let RewardDestination::Staked = payee {
-					return false
+					return false;
 				}
 				true
 			},
@@ -2123,8 +2123,9 @@ fn transaction_asset_check(
 
 	if action == fee_proxy {
 		let (input, gas_limit, max_fee_per_gas, max_priority_fee_per_gas) = match eth_tx {
-			EthereumTransaction::EIP1559(t) =>
-				(t.input, t.gas_limit, t.max_fee_per_gas, t.max_priority_fee_per_gas),
+			EthereumTransaction::EIP1559(t) => {
+				(t.input, t.gas_limit, t.max_fee_per_gas, t.max_priority_fee_per_gas)
+			},
 			_ => Err(TransactionValidityError::Invalid(InvalidTransaction::Call))?,
 		};
 
@@ -2189,12 +2190,15 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<TransactionValidity> {
 		match self {
-			RuntimeCall::Ethereum(ref call) =>
-				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len)),
-			RuntimeCall::Xrpl(ref call) =>
-				call.validate_self_contained(signed_info, dispatch_info, len),
-			RuntimeCall::Doughnut(ref call) =>
-				call.validate_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::Ethereum(ref call) => {
+				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len))
+			},
+			RuntimeCall::Xrpl(ref call) => {
+				call.validate_self_contained(signed_info, dispatch_info, len)
+			},
+			RuntimeCall::Doughnut(ref call) => {
+				call.validate_self_contained(signed_info, dispatch_info, len)
+			},
 			_ => None,
 		}
 	}
@@ -2206,12 +2210,15 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
 		match self {
-			RuntimeCall::Ethereum(call) =>
-				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
-			RuntimeCall::Xrpl(ref call) =>
-				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
-			RuntimeCall::Doughnut(ref call) =>
-				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
+			RuntimeCall::Ethereum(call) => {
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len)
+			},
+			RuntimeCall::Xrpl(ref call) => {
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len)
+			},
+			RuntimeCall::Doughnut(ref call) => {
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len)
+			},
 			_ => None,
 		}
 	}
@@ -2223,10 +2230,11 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 		len: usize,
 	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
 		match self {
-			call @ RuntimeCall::Ethereum(pallet_ethereum::Call::transact { .. }) =>
+			call @ RuntimeCall::Ethereum(pallet_ethereum::Call::transact { .. }) => {
 				Some(call.dispatch(RuntimeOrigin::from(
 					pallet_ethereum::RawOrigin::EthereumTransaction(info),
-				))),
+				)))
+			},
 			RuntimeCall::Xrpl(call) => pallet_xrpl::Call::<Runtime>::apply_self_contained(
 				call.into(),
 				&info,
@@ -2268,8 +2276,9 @@ fn validate_self_contained_inner(
 
 		// Perform tx submitter asset balance checks required for fee proxying
 		match call.clone() {
-			RuntimeCall::Ethereum(pallet_ethereum::Call::transact { transaction }) =>
-				transaction_asset_check(signed_info, transaction, action),
+			RuntimeCall::Ethereum(pallet_ethereum::Call::transact { transaction }) => {
+				transaction_asset_check(signed_info, transaction, action)
+			},
 			_ => Ok(()),
 		}?;
 
