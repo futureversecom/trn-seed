@@ -59,7 +59,7 @@ jobs:
           toolchain: stable
           targets: wasm32-unknown-unknown
       - name: Build wasm (again)
-        run: cargo build
+        run: cargo build --release --locked
       - name: Publish runtime wasm
         uses: actions/upload-release-asset@v1
         env:
