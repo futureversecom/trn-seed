@@ -18,7 +18,9 @@
 //! # SFT Module
 
 use frame_support::{traits::tokens::fungibles::Mutate, transactional, PalletId};
-use seed_pallet_common::{NFTExt, OnNewAssetSubscriber, OnTransferSubscriber};
+use seed_pallet_common::{
+	utils::CollectionUtilityFlags, NFTExt, OnNewAssetSubscriber, OnTransferSubscriber,
+};
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
 	SerialNumber, TokenId,
@@ -105,6 +107,11 @@ pub mod pallet {
 	pub type PublicMintInfo<T: Config> =
 		StorageMap<_, Twox64Concat, TokenId, PublicMintInformation>;
 
+	/// Map from a collection to additional utility flags
+	#[pallet::storage]
+	pub type UtilityFlags<T> =
+		StorageMap<_, Twox64Concat, CollectionUuid, CollectionUtilityFlags, ValueQuery>;
+
 	/// Map from token to its token information, including ownership information
 	#[pallet::storage]
 	pub type TokenInfo<T: Config> = StorageMap<
@@ -185,6 +192,8 @@ pub mod pallet {
 			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			owner: T::AccountId,
 		},
+		/// Utility flags were set for a collection
+		UtilityFlagsSet { collection_id: CollectionUuid, utility_flags: CollectionUtilityFlags },
 	}
 
 	#[pallet::error]
@@ -220,6 +229,12 @@ pub mod pallet {
 		PublicMintDisabled,
 		/// The number of tokens have exceeded the max tokens allowed
 		TokenLimitExceeded,
+		/// Minting has been disabled for tokens within this collection
+		MintUtilityBlocked,
+		/// Transfer has been disabled for tokens within this collection
+		TransferUtilityBlocked,
+		/// Burning has been disabled for tokens within this collection
+		BurnUtilityBlocked,
 	}
 
 	#[pallet::call]
@@ -465,6 +480,33 @@ pub mod pallet {
 			};
 
 			Self::deposit_event(Event::<T>::MintPriceSet { token_id, payment_asset, mint_price });
+			Ok(())
+		}
+
+		/// Set utility flags of a collection. This allows restricting certain operations on a
+		/// collection such as transfer, burn or mint
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::set_mint_fee())]
+		#[transactional]
+		pub fn set_utility_flags(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			utility_flags: CollectionUtilityFlags,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<SftCollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
+
+			if utility_flags == CollectionUtilityFlags::default() {
+				// If the utility flags are default, remove the storage entry
+				<UtilityFlags<T>>::remove(collection_id);
+			} else {
+				// Otherwise, update the storage
+				<UtilityFlags<T>>::insert(collection_id, utility_flags);
+			}
+
+			Self::deposit_event(Event::<T>::UtilityFlagsSet { collection_id, utility_flags });
 			Ok(())
 		}
 	}
