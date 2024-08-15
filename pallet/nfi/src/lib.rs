@@ -326,10 +326,10 @@ impl<T: Config> Pallet<T> {
 	/// Checks both NFT and SFT pallet
 	fn is_collection_owner(collection_id: CollectionUuid, who: &T::AccountId) -> bool {
 		if let Ok(nft_owner) = T::NFTExt::get_collection_owner(collection_id) {
-			return who == &nft_owner
+			return who == &nft_owner;
 		}
 		if let Ok(sft_owner) = T::SFTExt::get_collection_owner(collection_id) {
-			return who == &sft_owner
+			return who == &sft_owner;
 		}
 		false
 	}
@@ -340,10 +340,10 @@ impl<T: Config> Pallet<T> {
 	// balance of the token
 	fn is_token_owner(token_id: TokenId, who: &T::AccountId) -> bool {
 		if let Some(nft_owner) = T::NFTExt::get_token_owner(&token_id) {
-			return who == &nft_owner
+			return who == &nft_owner;
 		}
 		if let Ok(sft_owner) = T::SFTExt::get_collection_owner(token_id.0) {
-			return who == &sft_owner
+			return who == &sft_owner;
 		}
 		false
 	}
@@ -351,7 +351,7 @@ impl<T: Config> Pallet<T> {
 	// Check whether a token exists or not
 	fn token_exists(token_id: TokenId) -> bool {
 		if T::NFTExt::get_token_owner(&token_id).is_some() {
-			return true
+			return true;
 		}
 		T::SFTExt::token_exists(token_id)
 	}
@@ -371,7 +371,7 @@ impl<T: Config> NFIRequest for Pallet<T> {
 		let sub_type = NFISubType::NFI;
 		// Check if NFI is enabled for this collection. If not, we don't need to do anything
 		if !NfiEnabled::<T>::get(collection_id, sub_type) {
-			return Ok(())
+			return Ok(());
 		}
 		// Pay the mint fee for the NFI storage, return an error if this is not possible
 		Self::pay_mint_fee(who, serial_numbers.len() as TokenCount, sub_type)?;
