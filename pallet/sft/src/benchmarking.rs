@@ -235,6 +235,18 @@ benchmarks! {
 		let collection = collection.unwrap();
 		assert_eq!(collection.royalties_schedule, Some(royalties_schedule));
 	}
+
+	set_utility_flags {
+		let collection_id = build_collection::<T>(None);
+		let utility_flags = CollectionUtilityFlags {
+			transferable: false,
+			burnable: false,
+			mintable: false,
+		};
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, utility_flags)
+	verify {
+		assert_eq!(UtilityFlags::<T>::get(collection_id), utility_flags)
+	}
 }
 
 impl_benchmark_test_suite!(

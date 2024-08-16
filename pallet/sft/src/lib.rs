@@ -486,7 +486,7 @@ pub mod pallet {
 		/// Set utility flags of a collection. This allows restricting certain operations on a
 		/// collection such as transfer, burn or mint
 		#[pallet::call_index(12)]
-		#[pallet::weight(T::WeightInfo::set_mint_fee())]
+		#[pallet::weight(T::WeightInfo::set_utility_flags())]
 		#[transactional]
 		pub fn set_utility_flags(
 			origin: OriginFor<T>,

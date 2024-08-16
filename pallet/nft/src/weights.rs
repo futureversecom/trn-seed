@@ -59,6 +59,7 @@ pub trait WeightInfo {
 	fn mint() -> Weight;
 	fn transfer() -> Weight;
 	fn burn() -> Weight;
+	fn set_utility_flags() -> Weight;
 }
 
 /// Weights for pallet_nft using the Substrate node and recommended hardware.
@@ -172,6 +173,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
+	/// Storage: `Nft::CollectionInfo` (r:1 w:0)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::UtilityFlags` (r:0 w:1)
+	/// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
+	fn set_utility_flags() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `298`
+		//  Estimated: `3464`
+		// Minimum execution time: 12_644_000 picoseconds.
+		Weight::from_parts(13_245_000, 0)
+			.saturating_add(Weight::from_parts(0, 3464))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
 
 // For backwards compatibility and tests
@@ -283,6 +298,20 @@ impl WeightInfo for () {
 		Weight::from_all(60_234_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
+	}
+	/// Storage: `Nft::CollectionInfo` (r:1 w:0)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::UtilityFlags` (r:0 w:1)
+	/// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
+	fn set_utility_flags() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `298`
+		//  Estimated: `3464`
+		// Minimum execution time: 12_644_000 picoseconds.
+		Weight::from_parts(13_245_000, 0)
+			.saturating_add(Weight::from_parts(0, 3464))
+			.saturating_add(RocksDbWeight::get().reads(1))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }
 

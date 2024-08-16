@@ -110,6 +110,18 @@ benchmarks! {
 	burn {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), TokenId::from((collection_id, 0)))
+
+	set_utility_flags {
+		let collection_id = build_collection::<T>(None);
+		let utility_flags = CollectionUtilityFlags {
+			transferable: false,
+			burnable: false,
+			mintable: false,
+		};
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, utility_flags)
+	verify {
+		assert_eq!(UtilityFlags::<T>::get(collection_id), utility_flags)
+	}
 }
 
 impl_benchmark_test_suite!(

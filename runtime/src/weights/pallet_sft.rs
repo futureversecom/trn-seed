@@ -202,4 +202,18 @@ impl<T: frame_system::Config> pallet_sft::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Sft::SftCollectionInfo` (r:1 w:0)
+	/// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
+	/// Storage: `Sft::UtilityFlags` (r:0 w:1)
+	/// Proof: `Sft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
+	fn set_utility_flags() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `173`
+		//  Estimated: `3949`
+		// Minimum execution time: 12_083_000 picoseconds.
+		Weight::from_parts(12_624_000, 0)
+			.saturating_add(Weight::from_parts(0, 3949))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }

@@ -59,6 +59,7 @@ pub trait WeightInfo {
 	fn set_base_uri() -> Weight;
 	fn set_name() -> Weight;
 	fn set_royalties_schedule() -> Weight;
+	fn set_utility_flags() -> Weight;
 }
 
 /// Weights for pallet_sft using the Substrate node and recommended hardware.
@@ -173,6 +174,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
+	/// Storage: `Sft::SftCollectionInfo` (r:1 w:0)
+	/// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
+	/// Storage: `Sft::UtilityFlags` (r:0 w:1)
+	/// Proof: `Sft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
+	fn set_utility_flags() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `173`
+		//  Estimated: `3949`
+		// Minimum execution time: 12_083_000 picoseconds.
+		Weight::from_parts(12_624_000, 0)
+			.saturating_add(Weight::from_parts(0, 3949))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
 
 // For backwards compatibility and tests
@@ -285,6 +300,20 @@ impl WeightInfo for () {
 		Weight::from_all(45_628_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+	}
+	/// Storage: `Sft::SftCollectionInfo` (r:1 w:0)
+	/// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
+	/// Storage: `Sft::UtilityFlags` (r:0 w:1)
+	/// Proof: `Sft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
+	fn set_utility_flags() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `173`
+		//  Estimated: `3949`
+		// Minimum execution time: 12_083_000 picoseconds.
+		Weight::from_parts(12_624_000, 0)
+			.saturating_add(Weight::from_parts(0, 3949))
+			.saturating_add(RocksDbWeight::get().reads(1))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }
 
