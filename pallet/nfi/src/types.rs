@@ -25,7 +25,6 @@ use sp_std::default::Default;
 #[derive(Decode, Encode, Copy, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub enum NFISubType {
 	NFI,
-	Jen,
 }
 
 // What data type is stored for each SubType?
@@ -35,14 +34,12 @@ pub enum NFISubType {
 #[scale_info(skip_type_params(MaxDataLength))]
 pub enum NFIDataType<MaxDataLength: Get<u32>> {
 	NFI(NFIMatrix<MaxDataLength>),
-	Jen(u64),
 }
 
 impl<MaxDataLength: Get<u32>> From<NFIDataType<MaxDataLength>> for NFISubType {
 	fn from(data: NFIDataType<MaxDataLength>) -> Self {
 		match data {
 			NFIDataType::NFI(_) => NFISubType::NFI,
-			NFIDataType::Jen(_) => NFISubType::Jen,
 		}
 	}
 }
@@ -59,6 +56,8 @@ impl<MaxDataLength: Get<u32>> From<NFIDataType<MaxDataLength>> for NFISubType {
 	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxDataLength))]
+/// Data type for NFIMatrix, this includes a metadata link to the murmur matrix, as well as a
+/// Verification hash to ensure the data is correct
 pub struct NFIMatrix<MaxDataLength: Get<u32>> {
 	pub metadata_link: BoundedVec<u8, MaxDataLength>,
 	pub verification_hash: H256,
@@ -66,6 +65,7 @@ pub struct NFIMatrix<MaxDataLength: Get<u32>> {
 
 #[derive(Decode, Encode, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
+/// Fee details assosciated with a collections NFI data
 pub struct FeeDetails<AccountId> {
 	pub asset_id: AssetId,
 	pub amount: Balance,
