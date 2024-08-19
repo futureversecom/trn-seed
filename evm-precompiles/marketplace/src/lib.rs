@@ -164,21 +164,21 @@ where
 			};
 
 			if let Err(err) = handle.check_function_modifier(match selector {
-				Action::RegisterMarketplace |
-				Action::SellNft |
-				Action::SellNftWithMarketplaceId |
-				Action::SellSft |
-				Action::UpdateFixedPrice |
-				Action::AuctionNft |
-				Action::AuctionNftWithMarketplaceId |
-				Action::AuctionSft |
-				Action::Bid |
-				Action::Buy |
-				Action::CancelSale |
-				Action::MakeSimpleOffer |
-				Action::MakeSimpleOfferWithMarketplaceId |
-				Action::CancelOffer |
-				Action::AcceptOffer => FunctionModifier::NonPayable,
+				Action::RegisterMarketplace
+				| Action::SellNft
+				| Action::SellNftWithMarketplaceId
+				| Action::SellSft
+				| Action::UpdateFixedPrice
+				| Action::AuctionNft
+				| Action::AuctionNftWithMarketplaceId
+				| Action::AuctionSft
+				| Action::Bid
+				| Action::Buy
+				| Action::CancelSale
+				| Action::MakeSimpleOffer
+				| Action::MakeSimpleOfferWithMarketplaceId
+				| Action::CancelOffer
+				| Action::AcceptOffer => FunctionModifier::NonPayable,
 				_ => FunctionModifier::View,
 			}) {
 				return Err(err.into());
@@ -191,14 +191,16 @@ where
 				Action::SellSft => Self::sell_sft(handle),
 				Action::UpdateFixedPrice => Self::update_fixed_price(handle),
 				Action::Buy => Self::buy(handle),
-				Action::AuctionNftWithMarketplaceId =>
-					Self::auction_nft_with_marketplace_id(handle),
+				Action::AuctionNftWithMarketplaceId => {
+					Self::auction_nft_with_marketplace_id(handle)
+				},
 				Action::AuctionNft => Self::auction_nft_with_marketplace_id(handle),
 				Action::AuctionSft => Self::auction_sft_with_marketplace_id(handle),
 				Action::Bid => Self::bid(handle),
 				Action::CancelSale => Self::cancel_sale(handle),
-				Action::MakeSimpleOfferWithMarketplaceId =>
-					Self::make_simple_offer_with_marketplace_id(handle),
+				Action::MakeSimpleOfferWithMarketplaceId => {
+					Self::make_simple_offer_with_marketplace_id(handle)
+				},
 				Action::MakeSimpleOffer => Self::make_simple_offer_with_marketplace_id(handle),
 				Action::CancelOffer => Self::cancel_offer(handle),
 				Action::AcceptOffer => Self::accept_offer(handle),
@@ -333,7 +335,7 @@ where
 			.into_iter()
 			.map(|serial_number| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("Marketplace NFT: Expected serial_number <= 2^32").into())
+					return Err(revert("Marketplace NFT: Expected serial_number <= 2^32").into());
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				Ok(serial_number)
@@ -437,10 +439,10 @@ where
 			.zip(quantities.clone())
 			.map(|(serial_number, quantity)| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("Marketplace SFT: Expected serial_number <= 2^32").into())
+					return Err(revert("Marketplace SFT: Expected serial_number <= 2^32").into());
 				}
 				if quantity > Balance::MAX.into() {
-					return Err(revert("Marketplace SFT: Expected quantity <= 2^128").into())
+					return Err(revert("Marketplace SFT: Expected quantity <= 2^128").into());
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				let quantity: Balance = quantity.saturated_into();
@@ -645,7 +647,7 @@ where
 			.into_iter()
 			.map(|serial_number| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("Marketplace NFT: Expected serial_number <= 2^32").into())
+					return Err(revert("Marketplace NFT: Expected serial_number <= 2^32").into());
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				Ok(serial_number)
@@ -753,10 +755,10 @@ where
 			.zip(quantities.clone())
 			.map(|(serial_number, quantity)| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("Marketplace: Expected serial_number <= 2^32").into())
+					return Err(revert("Marketplace: Expected serial_number <= 2^32").into());
 				}
 				if quantity > Balance::MAX.into() {
-					return Err(revert("Marketplace: Expected quantity <= 2^128").into())
+					return Err(revert("Marketplace: Expected quantity <= 2^128").into());
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				let quantity: Balance = quantity.saturated_into();
