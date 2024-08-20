@@ -34,7 +34,7 @@ use types::*;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
-pub mod mock;
+mod mock;
 #[cfg(test)]
 mod tests;
 pub mod weights;
