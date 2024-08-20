@@ -3864,6 +3864,9 @@ name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
+dependencies = [
+ "spin 0.9.8",
+]
 
 [[package]]
 name = "lazycell"
@@ -5601,6 +5604,16 @@ version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v1.0.0-TRN#50660c0741fad8c76f68a20ec6fc7f9c5727715c"
 dependencies = [
  "fp-evm",
+]
+
+[[package]]
+name = "pallet-evm-precompile-bn128"
+version = "2.0.0-dev"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v1.0.0-TRN#50660c0741fad8c76f68a20ec6fc7f9c5727715c"
+dependencies = [
+ "fp-evm",
+ "sp-core",
+ "substrate-bn",
 ]
 
 [[package]]
@@ -9124,6 +9137,7 @@ dependencies = [
  "pallet-evm",
  "pallet-evm-chain-id",
  "pallet-evm-precompile-blake2",
+ "pallet-evm-precompile-bn128",
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
@@ -10432,6 +10446,19 @@ dependencies = [
  "schnorrkel 0.11.4",
  "sha2 0.9.9",
  "zeroize",
+]
+
+[[package]]
+name = "substrate-bn"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b5bbfa79abbae15dd642ea8176a21a635ff3c00059961d1ea27ad04e5b441c"
+dependencies = [
+ "byteorder",
+ "crunchy",
+ "lazy_static",
+ "rand 0.8.5",
+ "rustc-hex",
 ]
 
 [[package]]
