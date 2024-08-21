@@ -220,7 +220,7 @@ pub mod pallet {
 		/// Users can manually request NFI data if it does not already exist on a token.
 		/// This can be used to manually request data for pre-existing tokens in a collection
 		/// that has had nfi enabled
-		/// Caller must be the owner of the token
+		/// Caller must be either the token owner or the collection owner
 		/// Note. the mint fee will need to be paid for any manual request
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::manual_data_request())]
@@ -339,17 +339,17 @@ impl<T: Config> Pallet<T> {
 	// This is due to SFT tokens being owned by the collection owner, where users can have some
 	// balance of the token
 	fn check_permissions(token_id: TokenId, who: &T::AccountId) -> bool {
-		if let Some(nft_owner) = T::NFTExt::get_token_owner(&token_id) {
-			if who == &nft_owner {
+		if let Some(nft_token_owner) = T::NFTExt::get_token_owner(&token_id) {
+			if who == &nft_token_owner {
 				return true;
 			}
 			// Not token owner, check if who is the collection owner
-			if let Ok(nft_owner) = T::NFTExt::get_collection_owner(token_id.0) {
-				return who == &nft_owner;
+			if let Ok(nft_collection_owner) = T::NFTExt::get_collection_owner(token_id.0) {
+				return who == &nft_collection_owner;
 			}
 		}
-		if let Ok(sft_owner) = T::SFTExt::get_collection_owner(token_id.0) {
-			return who == &sft_owner;
+		if let Ok(sft_collection_owner) = T::SFTExt::get_collection_owner(token_id.0) {
+			return who == &sft_collection_owner;
 		}
 		false
 	}
