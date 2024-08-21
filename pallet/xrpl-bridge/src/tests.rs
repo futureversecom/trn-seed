@@ -2336,9 +2336,14 @@ fn process_xrp_tx_for_root_bridging_transaction() {
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
 		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
-		let currency =
-			BoundedVec::try_from("524F4F5400000000000000000000000000000000".into_bytes()).unwrap();
-		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), 1_u32, currency));
+
+		let root = "524F4F5400000000000000000000000000000000";
+		let currency = BoundedVec::truncate_from(root.as_bytes().to_vec());
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(
+			RuntimeOrigin::root(),
+			1_u32,
+			root.as_bytes().to_vec()
+		));
 
 		// submit currency payment tx
 		let currency_payment_tx = XrplTxData::CurrencyPayment {
@@ -2357,7 +2362,10 @@ fn process_xrp_tx_for_root_bridging_transaction() {
 		System::reset_events();
 		XRPLBridge::process_xrp_tx(XrpTxChallengePeriod::get() as u64 + 1);
 		System::set_block_number(XrpTxChallengePeriod::get() as u64 + 1);
-		System::assert_has_event(Event::<Test>::ProcessingOk.into());
+		System::assert_has_event(
+			Event::<Test>::ProcessingOk(1_000_000_u64, XrplTxHash::from_slice(transaction_hash))
+				.into(),
+		);
 
 		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, 0);
