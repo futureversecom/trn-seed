@@ -2337,7 +2337,7 @@ fn process_xrp_tx_for_root_bridging_transaction() {
 		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 		let currency =
-			BoundedVec::try_from("524F4F5400000000000000000000000000000000".to_vec()).unwrap();
+			BoundedVec::try_from("524F4F5400000000000000000000000000000000".into_bytes()).unwrap();
 		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), 1_u32, currency));
 
 		// submit currency payment tx
