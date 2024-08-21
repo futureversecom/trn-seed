@@ -53,6 +53,7 @@ parameter_types! {
 	pub const DelayedPaymentBlockLimit: BlockNumber = 1000;
 	pub const XrpAssetId: u32 = XRP_ASSET_ID;
 	pub const SourceTag: u32 = 723456_u32;
+	pub const XRPSymbolLimit: u8 = 100;
 }
 
 impl pallet_xrpl_bridge::Config for Test {
@@ -70,6 +71,7 @@ impl pallet_xrpl_bridge::Config for Test {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPLTransactionLimitPerLedger;
+	type XRPSymbolLimit = XRPSymbolLimit;
 }
 
 pub struct MockEthyAdapter;

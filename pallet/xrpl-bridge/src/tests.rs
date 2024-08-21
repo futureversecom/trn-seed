@@ -2341,7 +2341,7 @@ fn process_xrp_tx_not_supported_transaction() {
 		let currency_payment_tx = XrplTxData::CurrencyPayment {
 			amount: (1 * 1000u64) as Balance,
 			address: account.into(),
-			currency_id: H256::random(),
+			currency_id: ROOT_ASSET_ID, //H256::random(),
 		};
 		assert_ok!(XRPLBridge::submit_transaction(
 			RuntimeOrigin::signed(relayer),
