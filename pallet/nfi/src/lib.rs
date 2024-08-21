@@ -120,6 +120,8 @@ pub mod pallet {
 			token_id: TokenId,
 			data_item: NFIDataType<T::MaxDataLength>,
 		},
+		/// NFI storage has been removed for a token
+		DataRemoved { token_id: TokenId },
 		/// New Fee details have been set
 		FeeDetailsSet { sub_type: NFISubType, fee_details: Option<FeeDetails<T::AccountId>> },
 		/// The network fee receiver address has been updated
@@ -392,5 +394,6 @@ impl<T: Config> NFIRequest for Pallet<T> {
 		let limit: u32 = 10;
 		// Remove all NFI data for this token
 		let _ = NfiData::<T>::clear_prefix(token_id, limit, None);
+		Self::deposit_event(Event::<T>::DataRemoved { token_id });
 	}
 }

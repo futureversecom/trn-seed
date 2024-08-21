@@ -1008,6 +1008,11 @@ mod nft_burn {
 			// Burn NFT
 			assert_ok!(Nft::burn(RawOrigin::Signed(token_owner).into(), token_id_1));
 
+			// Check event thrown
+			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRemoved {
+				token_id: token_id_1,
+			}));
+
 			// Check data cleared
 			assert_eq!(NfiData::<Test>::get(token_id_1, sub_type), None);
 			// Data for token we kept should still be there
