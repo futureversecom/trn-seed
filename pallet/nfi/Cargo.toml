@@ -8,30 +8,30 @@ repository = "https://github.com/futureversecom/seed"
 description = "Root Network NFI pallet"
 
 [dependencies]
-seed-primitives = { path = "../../primitives", default-features = false }
-seed-pallet-common = { path = "../common", default-features = false }
 
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+codec = { workspace = true }
+scale-info = { workspace = true }
 
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", optional = true, default-features = false }
+sp-core = { workspace = true }
+sp-std = { workspace = true }
+sp-runtime = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+frame-benchmarking = { workspace = true, optional = true}
 
-pallet-nft = { path = "../nft", default-features = false, optional = true }
-pallet-sft = { path = "../sft", default-features = false, optional = true }
+pallet-nft = { workspace = true, optional = true }
+pallet-sft = { workspace = true, optional = true }
+seed-primitives = { workspace = true }
+seed-pallet-common = { workspace = true}
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-assets-ext = { path = "../assets-ext" }
-pallet-nft = { path = "../nft" }
-pallet-sft = { path = "../sft" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+pallet-assets-ext = { workspace = true, default-features = true }
+pallet-nft = { workspace = true }
+pallet-sft = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-assets = { workspace = true }
+sp-io = { workspace = true }
+sp-core = { workspace = true }
 
 [features]
 default = ["std"]
