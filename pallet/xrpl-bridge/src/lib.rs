@@ -260,8 +260,12 @@ pub mod pallet {
 	#[pallet::getter(fn process_xrp_transaction_details)]
 	/// Stores submitted transactions from XRPL waiting to be processed
 	/// Transactions will be cleared according to the submission window after processing
-	pub type ProcessXRPTransactionDetails<T: Config> =
-		StorageMap<_, Identity, XrplTxHash, (LedgerIndex, XrpTransaction, T::AccountId)>;
+	pub type ProcessXRPTransactionDetails<T: Config> = StorageMap<
+		_,
+		Identity,
+		XrplTxHash,
+		(LedgerIndex, XrpTransaction<T::XRPLTransactionLimitPerLedger>, T::AccountId),
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn settled_xrp_transaction_details)]
@@ -418,7 +422,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			ledger_index: LedgerIndex,
 			transaction_hash: XrplTxHash,
-			transaction: XrplTxData,
+			transaction: XrplTxData<T::XRPLTransactionLimitPerLedger>,
 			timestamp: Timestamp,
 		) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
@@ -634,7 +638,14 @@ pub mod pallet {
 			highest_settled_ledger_index: u32,
 			submission_window_width: u32,
 			highest_pruned_ledger_index: Option<u32>,
-			settled_tx_data: Option<Vec<(XrplTxHash, u32, XrpTransaction, T::AccountId)>>,
+			settled_tx_data: Option<
+				Vec<(
+					XrplTxHash,
+					u32,
+					XrpTransaction<T::XRPLTransactionLimitPerLedger>,
+					T::AccountId,
+				)>,
+			>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			if let Some(highest_pruned_ledger_index) = highest_pruned_ledger_index {
@@ -745,11 +756,13 @@ impl<T: Config> Pallet<T> {
 		let mut highest_settled_ledger_index = HighestSettledLedgerIndex::<T>::get();
 
 		for (transaction_hash, (ledger_index, ref tx, _relayer)) in tx_details {
-			match tx.transaction {
+			match &tx.transaction {
 				XrplTxData::Payment { amount, address } => {
-					if let Err(e) =
-						T::MultiCurrency::mint_into(T::XrpAssetId::get(), &address.into(), amount)
-					{
+					if let Err(e) = T::MultiCurrency::mint_into(
+						T::XrpAssetId::get(),
+						&(*address).into(),
+						amount.clone(),
+					) {
 						Self::deposit_event(Event::ProcessingFailed(
 							ledger_index,
 							transaction_hash.clone(),
@@ -757,10 +770,10 @@ impl<T: Config> Pallet<T> {
 						));
 					}
 				},
-				XrplTxData::CurrencyPayment { amount, address, currency_id } => {
-					// let asset_id = XRPLToAssetId::<T>::get(currency_id).unwrap_or_default() as u32;
+				XrplTxData::CurrencyPayment { amount, address, currency } => {
+					let asset_id = XRPLToAssetId::<T>::get(currency).unwrap_or_default() as u32;
 					if let Err(e) =
-						T::MultiCurrency::mint_into(currency_id, &address.into(), amount)
+						T::MultiCurrency::mint_into(asset_id, &(*address).into(), amount.clone())
 					{
 						Self::deposit_event(Event::ProcessingFailed(
 							ledger_index,
@@ -1004,7 +1017,7 @@ impl<T: Config> Pallet<T> {
 		relayer: T::AccountId,
 		ledger_index: LedgerIndex,
 		transaction_hash: XrplTxHash,
-		transaction: XrplTxData,
+		transaction: XrplTxData<T::XRPLTransactionLimitPerLedger>,
 		timestamp: Timestamp,
 	) -> DispatchResult {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };

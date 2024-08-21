@@ -2329,19 +2329,22 @@ fn process_xrp_tx_success() {
 }
 
 #[test]
-fn process_xrp_tx_not_supported_transaction() {
+fn process_xrp_tx_for_root_bridging_transaction() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
 		let account = create_account(2);
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
 		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
+		let currency =
+			BoundedVec::try_from("524F4F5400000000000000000000000000000000".to_vec()).unwrap();
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), 1_u32, currency));
 
 		// submit currency payment tx
 		let currency_payment_tx = XrplTxData::CurrencyPayment {
 			amount: (1 * 1000u64) as Balance,
 			address: account.into(),
-			currency_id: ROOT_ASSET_ID, //H256::random(),
+			currency: currency.clone(), //H256::random(),
 		};
 		assert_ok!(XRPLBridge::submit_transaction(
 			RuntimeOrigin::signed(relayer),
@@ -2354,7 +2357,7 @@ fn process_xrp_tx_not_supported_transaction() {
 		System::reset_events();
 		XRPLBridge::process_xrp_tx(XrpTxChallengePeriod::get() as u64 + 1);
 		System::set_block_number(XrpTxChallengePeriod::get() as u64 + 1);
-		System::assert_has_event(Event::<Test>::NotSupportedTransaction.into());
+		System::assert_has_event(Event::<Test>::ProcessingOk.into());
 
 		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, 0);

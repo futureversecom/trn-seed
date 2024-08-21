@@ -25,10 +25,13 @@ use sp_core::H160;
 /// Payment id used for distinguishing pending withdrawals/ deposit events
 pub type DelayedPaymentId = u64;
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct XrpTransaction {
+#[derive(
+	RuntimeDebugNoBound, Eq, CloneNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(XRPLTransactionLimitPerLedger))]
+pub struct XrpTransaction<XRPLTransactionLimitPerLedger: Get<u32>> {
 	pub transaction_hash: XrplTxHash,
-	pub transaction: XrplTxData,
+	pub transaction: XrplTxData<XRPLTransactionLimitPerLedger>,
 	pub timestamp: u64,
 }
 
@@ -48,14 +51,28 @@ pub struct XrpWithdrawTransaction {
 	pub destination: XrplAccountId,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub enum XrplTxData {
-	Payment { amount: Balance, address: H160 },
-	CurrencyPayment { amount: Balance, address: H160, currency_id: u32 },
+#[derive(
+	Eq, CloneNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(XRPLTransactionLimitPerLedger))]
+pub enum XrplTxData<XRPLTransactionLimitPerLedger: Get<u32>> {
+	Payment {
+		amount: Balance,
+		address: H160,
+	},
+	CurrencyPayment {
+		amount: Balance,
+		address: H160,
+		currency: BoundedVec<u8, XRPLTransactionLimitPerLedger>,
+	},
 	Xls20, // Nft
 }
 
-impl Default for XrpTransaction {
+//impl<XRPLTransactionLimitPerLedger: Get<u32>> Default for XrplTxData<XRPLTransactionLimitPerLedger> {
+
+impl<XRPLTransactionLimitPerLedger: Get<u32>> Default
+	for XrpTransaction<XRPLTransactionLimitPerLedger>
+{
 	fn default() -> Self {
 		XrpTransaction {
 			transaction_hash: XrplTxHash::default(),
@@ -77,7 +94,9 @@ impl Default for XrpWithdrawTransaction {
 	}
 }
 
-impl Default for XrplTxData {
+impl<XRPLTransactionLimitPerLedger: Get<u32>> Default
+	for XrplTxData<XRPLTransactionLimitPerLedger>
+{
 	fn default() -> Self {
 		XrplTxData::Payment { amount: 0, address: H160::default() }
 	}
