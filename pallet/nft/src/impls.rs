@@ -480,6 +480,9 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::TokenLocked
 		);
 
+		// Remove any NFI data associated with this token
+		T::NFIRequest::on_burn((collection_id, serial_number));
+
 		CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection_info| -> DispatchResult {
 			let collection_info =
 				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;

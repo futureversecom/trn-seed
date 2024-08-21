@@ -385,6 +385,8 @@ pub trait NFIRequest {
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
 	) -> DispatchResult;
+
+	fn on_burn(token_id: TokenId);
 }
 
 impl NFIRequest for () {
@@ -397,6 +399,8 @@ impl NFIRequest for () {
 	) -> DispatchResult {
 		Ok(())
 	}
+
+	fn on_burn(_token_id: TokenId) {}
 }
 
 pub trait FeeConfig {

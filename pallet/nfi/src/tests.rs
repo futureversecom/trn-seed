@@ -259,6 +259,42 @@ mod manual_data_request {
 	}
 
 	#[test]
+	fn manual_data_request_collection_owner_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let collection_owner = alice();
+			let token_owner = bob();
+			let collection_id = NftBuilder::<Test>::new(collection_owner)
+				.token_owner(token_owner)
+				.initial_issuance(1)
+				.build();
+			let token_id = (collection_id, 0);
+
+			// Enable NFI
+			assert_ok!(Nfi::enable_nfi(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				sub_type
+			));
+
+			// Request data
+			assert_ok!(Nfi::manual_data_request(
+				RawOrigin::Signed(collection_owner.clone()).into(),
+				token_id,
+				sub_type
+			));
+
+			// Event thrown
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				caller: collection_owner,
+				sub_type,
+				collection_id,
+				serial_numbers: vec![0],
+			}));
+		});
+	}
+
+	#[test]
 	fn manual_data_request_works_for_sft() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let sub_type = NFISubType::NFI;
@@ -919,6 +955,64 @@ mod nft_mint {
 					ArithmeticError::Underflow
 				);
 			});
+	}
+}
+
+mod nft_burn {
+	use super::*;
+
+	#[test]
+	fn burn_nft_clears_nfi_data() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let collection_owner = alice();
+			let token_owner = bob();
+			let relayer = charlie();
+			let collection_id = NftBuilder::<Test>::new(collection_owner)
+				.initial_issuance(2)
+				.token_owner(token_owner)
+				.build();
+
+			// Set Relayer
+			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), relayer));
+
+			// Enable NFI
+			assert_ok!(Nfi::enable_nfi(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				sub_type
+			));
+
+			let token_id_1 = (collection_id, 0);
+			let token_id_2 = (collection_id, 1);
+			// Submit some fake data
+			let data = NFIDataType::NFI(NFIMatrix {
+				metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
+				verification_hash: H256::from_low_u64_be(123),
+			});
+			// Data for token we will burn
+			assert_ok!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(relayer).into(),
+				token_id_1,
+				data.clone()
+			));
+			// Data for token we will keep
+			assert_ok!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(relayer).into(),
+				token_id_2,
+				data.clone()
+			));
+			assert_eq!(NfiData::<Test>::get(token_id_1, sub_type), Some(data.clone()));
+			assert_eq!(NfiData::<Test>::get(token_id_2, sub_type), Some(data.clone()));
+
+			// Burn NFT
+			assert_ok!(Nft::burn(RawOrigin::Signed(token_owner).into(), token_id_1));
+
+			// Check data cleared
+			assert_eq!(NfiData::<Test>::get(token_id_1, sub_type), None);
+			// Data for token we kept should still be there
+			assert_eq!(NfiData::<Test>::get(token_id_2, sub_type), Some(data.clone()));
+		});
 	}
 }
 

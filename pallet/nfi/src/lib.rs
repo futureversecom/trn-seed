@@ -231,8 +231,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(NfiEnabled::<T>::get(token_id.0, sub_type), Error::<T>::NotEnabled);
-			// TODO maybe go for token owner or collection owner. Leni to confirm
-			ensure!(Self::is_token_owner(token_id.clone(), &who), Error::<T>::NotTokenOwner);
+			// Check that the caller is the token or collection owner
+			ensure!(Self::check_permissions(token_id.clone(), &who), Error::<T>::NotTokenOwner);
 			Self::pay_mint_fee(&who, 1, sub_type)?;
 			Self::send_data_request(who, sub_type, token_id.0, vec![token_id.1]);
 			Ok(())
@@ -334,13 +334,19 @@ impl<T: Config> Pallet<T> {
 		false
 	}
 
-	// Returns true if who is the owner of the token for an NFT,
-	// For SFT it checks whether who is the owner of the collection
+	// Returns true if who is the owner of the token for an NFT, or the collection owner.
+	// For SFT it only checks whether who is the owner of the collection
 	// This is due to SFT tokens being owned by the collection owner, where users can have some
 	// balance of the token
-	fn is_token_owner(token_id: TokenId, who: &T::AccountId) -> bool {
+	fn check_permissions(token_id: TokenId, who: &T::AccountId) -> bool {
 		if let Some(nft_owner) = T::NFTExt::get_token_owner(&token_id) {
-			return who == &nft_owner;
+			if who == &nft_owner {
+				return true;
+			}
+			// Not token owner, check if who is the collection owner
+			if let Ok(nft_owner) = T::NFTExt::get_collection_owner(token_id.0) {
+				return who == &nft_owner;
+			}
 		}
 		if let Ok(sft_owner) = T::SFTExt::get_collection_owner(token_id.0) {
 			return who == &sft_owner;
@@ -377,5 +383,14 @@ impl<T: Config> NFIRequest for Pallet<T> {
 		Self::pay_mint_fee(who, serial_numbers.len() as TokenCount, sub_type)?;
 		Self::send_data_request(who.clone(), sub_type, collection_id, serial_numbers);
 		Ok(())
+	}
+
+	// A token was burned so we can remove the data assosciated with it to save space in the pallet
+	fn on_burn(token_id: TokenId) {
+		// Limit of tokens to be removed with the clear_prefix call. This should be larger than the
+		// number of enum variants in NFISubType
+		let limit: u32 = 10;
+		// Remove all NFI data for this token
+		let _ = NfiData::<T>::clear_prefix(token_id, limit, None);
 	}
 }
