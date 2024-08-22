@@ -2345,7 +2345,7 @@ fn process_xrp_tx_for_root_bridging_transaction() {
 		let currency_payment_tx = XrplTxData::CurrencyPayment {
 			amount: (1 * 1000u64) as Balance,
 			address: account.into(),
-			currency: currency.clone(), //H256::random(),
+			currency: currency.clone(),
 		};
 		assert_ok!(XRPLBridge::submit_transaction(
 			RuntimeOrigin::signed(relayer),

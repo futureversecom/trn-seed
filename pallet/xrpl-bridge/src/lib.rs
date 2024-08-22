@@ -165,6 +165,7 @@ pub mod pallet {
 		OutSideSubmissionWindow,
 		/// Too Many transactions per ledger
 		TooManyTransactionsPerLedger,
+		/// XRPL symbol to TRN asset id mapping is invalid
 		InvalidSymbolMapping,
 	}
 
