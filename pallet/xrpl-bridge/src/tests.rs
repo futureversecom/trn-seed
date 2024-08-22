@@ -2339,11 +2339,7 @@ fn process_xrp_tx_for_root_bridging_transaction() {
 
 		let root = "524F4F5400000000000000000000000000000000";
 		let currency = BoundedVec::truncate_from(root.as_bytes().to_vec());
-		assert_ok!(XRPLBridge::set_xrpl_asset_map(
-			RuntimeOrigin::root(),
-			1_u32,
-			root.as_bytes().to_vec()
-		));
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), 1_u32, currency.clone()));
 
 		// submit currency payment tx
 		let currency_payment_tx = XrplTxData::CurrencyPayment {

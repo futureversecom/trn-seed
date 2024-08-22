@@ -28,10 +28,10 @@ pub type DelayedPaymentId = u64;
 #[derive(
 	RuntimeDebugNoBound, Eq, CloneNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
-#[scale_info(skip_type_params(XRPLTransactionLimitPerLedger))]
-pub struct XrpTransaction<XRPLTransactionLimitPerLedger: Get<u32>> {
+#[scale_info(skip_type_params(XRPSymbolLimit))]
+pub struct XrpTransaction<XRPSymbolLimit: Get<u32>> {
 	pub transaction_hash: XrplTxHash,
-	pub transaction: XrplTxData<XRPLTransactionLimitPerLedger>,
+	pub transaction: XrplTxData<XRPSymbolLimit>,
 	pub timestamp: u64,
 }
 
@@ -54,25 +54,14 @@ pub struct XrpWithdrawTransaction {
 #[derive(
 	Eq, CloneNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
 )]
-#[scale_info(skip_type_params(XRPLTransactionLimitPerLedger))]
-pub enum XrplTxData<XRPLTransactionLimitPerLedger: Get<u32>> {
-	Payment {
-		amount: Balance,
-		address: H160,
-	},
-	CurrencyPayment {
-		amount: Balance,
-		address: H160,
-		currency: BoundedVec<u8, XRPLTransactionLimitPerLedger>,
-	},
+#[scale_info(skip_type_params(XRPSymbolLimit))]
+pub enum XrplTxData<XRPSymbolLimit: Get<u32>> {
+	Payment { amount: Balance, address: H160 },
+	CurrencyPayment { amount: Balance, address: H160, currency: BoundedVec<u8, XRPSymbolLimit> },
 	Xls20, // Nft
 }
 
-//impl<XRPLTransactionLimitPerLedger: Get<u32>> Default for XrplTxData<XRPLTransactionLimitPerLedger> {
-
-impl<XRPLTransactionLimitPerLedger: Get<u32>> Default
-	for XrpTransaction<XRPLTransactionLimitPerLedger>
-{
+impl<XRPSymbolLimit: Get<u32>> Default for XrpTransaction<XRPSymbolLimit> {
 	fn default() -> Self {
 		XrpTransaction {
 			transaction_hash: XrplTxHash::default(),
@@ -94,9 +83,7 @@ impl Default for XrpWithdrawTransaction {
 	}
 }
 
-impl<XRPLTransactionLimitPerLedger: Get<u32>> Default
-	for XrplTxData<XRPLTransactionLimitPerLedger>
-{
+impl<XRPSymbolLimit: Get<u32>> Default for XrplTxData<XRPSymbolLimit> {
 	fn default() -> Self {
 		XrplTxData::Payment { amount: 0, address: H160::default() }
 	}
