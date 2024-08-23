@@ -1227,6 +1227,45 @@ fn set_payment_delay_not_sudo_fails() {
 }
 
 #[test]
+fn set_xrpl_asset_map_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let asset_id = 1;
+		let root = "524F4F5400000000000000000000000000000000";
+		let xrpl_symbol = BoundedVec::truncate_from(root.as_bytes().to_vec());
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(
+			RuntimeOrigin::root(),
+			asset_id,
+			xrpl_symbol.clone()
+		));
+		let symbol = Some(xrpl_symbol.clone());
+		assert_eq!(AssetIdToXRPL::<Test>::get(asset_id.clone()), symbol);
+		let option_asset_id = Some(asset_id.clone());
+		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_symbol.clone()), option_asset_id);
+		System::assert_has_event(
+			Event::<Test>::XrplAssetMapSet {
+				asset_id: asset_id.clone(),
+				xrpl_symbol: xrpl_symbol.clone(),
+			}
+			.into(),
+		);
+	})
+}
+
+#[test]
+fn set_xrpl_asset_map_not_sudo_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let asset_id = 1;
+		let root = "524F4F5400000000000000000000000000000000";
+		let xrpl_symbol = BoundedVec::truncate_from(root.as_bytes().to_vec());
+		let account: AccountId = [1_u8; 20].into();
+		assert_noop!(
+			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::signed(account), asset_id, xrpl_symbol),
+			BadOrigin
+		);
+	})
+}
+
+#[test]
 fn withdraw_with_payment_delay_works() {
 	let account = create_account(1);
 	let initial_balance = 10000;
