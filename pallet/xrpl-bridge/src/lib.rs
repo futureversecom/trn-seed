@@ -69,6 +69,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use crate::types::{XRPLAsset, XRPLCurrency};
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
@@ -222,6 +223,7 @@ pub mod pallet {
 		XrplAssetMapSet {
 			asset_id: AssetId,
 			xrpl_symbol: BoundedVec<u8, T::XRPSymbolLimit>,
+			issuer: XrplAccountId,
 		},
 	}
 
@@ -280,12 +282,12 @@ pub mod pallet {
 	#[pallet::storage]
 	/// Map TRN asset Id to XRPL symbol, storage to keep mapping between TRN -> XRPL tokens/assets
 	pub type AssetIdToXRPL<T: Config> =
-		StorageMap<_, Twox64Concat, AssetId, BoundedVec<u8, T::XRPSymbolLimit>>;
+		StorageMap<_, Twox64Concat, AssetId, XRPLCurrency<T::XRPSymbolLimit>>;
 
 	#[pallet::storage]
 	/// Map XRPL symbol to TRN asset Id, storage to keep mapping between XRPL -> TRN tokens/assets
 	pub type XRPLToAssetId<T: Config> =
-		StorageMap<_, Twox64Concat, BoundedVec<u8, T::XRPSymbolLimit>, AssetId>;
+		StorageMap<_, Twox64Concat, BoundedVec<u8, T::XRPSymbolLimit>, XRPLAsset>;
 
 	#[pallet::storage]
 	/// Highest settled XRPL ledger index
@@ -709,12 +711,15 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			asset_id: AssetId,
 			xrpl_symbol: BoundedVec<u8, T::XRPSymbolLimit>,
+			issuer: XrplAccountId,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-
-			<AssetIdToXRPL<T>>::insert(asset_id.clone(), xrpl_symbol.clone());
-			<XRPLToAssetId<T>>::insert(xrpl_symbol.clone(), asset_id.clone());
-			Self::deposit_event(Event::XrplAssetMapSet { asset_id, xrpl_symbol });
+			let xrpl_currency =
+				XRPLCurrency { currency: xrpl_symbol.clone(), issuer: issuer.clone() };
+			let xrpl_asset = XRPLAsset { asset_id: asset_id.clone(), issuer: issuer.clone() };
+			<AssetIdToXRPL<T>>::insert(asset_id.clone(), xrpl_currency.clone());
+			<XRPLToAssetId<T>>::insert(xrpl_symbol.clone(), xrpl_asset.clone());
+			Self::deposit_event(Event::XrplAssetMapSet { asset_id, xrpl_symbol, issuer });
 			Ok(())
 		}
 	}
@@ -765,7 +770,8 @@ impl<T: Config> Pallet<T> {
 					}
 				},
 				XrplTxData::CurrencyPayment { amount, address, currency } => {
-					let asset_id = XRPLToAssetId::<T>::get(currency).unwrap_or_default() as u32;
+					let xrpl_asset = XRPLToAssetId::<T>::get(currency).unwrap_or_default();
+					let asset_id = xrpl_asset.asset_id;
 					if let Err(e) =
 						T::MultiCurrency::mint_into(asset_id, &(*address).into(), amount.clone())
 					{

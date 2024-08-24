@@ -18,7 +18,7 @@ use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use seed_primitives::{
 	xrpl::{XrplAccountId, XrplTxHash, XrplTxNonce, XrplTxTicketSequence},
-	Balance,
+	AssetId, Balance,
 };
 use sp_core::H160;
 
@@ -98,5 +98,32 @@ pub struct XrplTicketSequenceParams {
 impl Default for XrplTicketSequenceParams {
 	fn default() -> Self {
 		XrplTicketSequenceParams { start_sequence: 0_u32, bucket_size: 0_u32 }
+	}
+}
+
+#[derive(
+	Eq, CloneNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(XRPSymbolLimit))]
+pub struct XRPLCurrency<XRPSymbolLimit: Get<u32>> {
+	pub currency: BoundedVec<u8, XRPSymbolLimit>,
+	pub issuer: XrplAccountId,
+}
+
+impl<XRPSymbolLimit: Get<u32>> Default for XRPLCurrency<XRPSymbolLimit> {
+	fn default() -> Self {
+		XRPLCurrency { currency: BoundedVec::default(), issuer: Default::default() }
+	}
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct XRPLAsset {
+	pub asset_id: AssetId,
+	pub issuer: XrplAccountId,
+}
+
+impl Default for XRPLAsset {
+	fn default() -> Self {
+		XRPLAsset { asset_id: Default::default(), issuer: Default::default() }
 	}
 }

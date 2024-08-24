@@ -18,6 +18,7 @@ use crate::mock::{
 	AssetsExt, DelayedPaymentBlockLimit, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System,
 	Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod,
 };
+use crate::types::{XRPLAsset, XRPLCurrency};
 use seed_pallet_common::test_prelude::*;
 
 /// Helper function to get the xrp balance of an address
@@ -1231,20 +1232,25 @@ fn set_xrpl_asset_map_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let asset_id = 1;
 		let root = "524F4F5400000000000000000000000000000000";
+		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		let xrpl_symbol = BoundedVec::truncate_from(root.as_bytes().to_vec());
 		assert_ok!(XRPLBridge::set_xrpl_asset_map(
 			RuntimeOrigin::root(),
 			asset_id,
-			xrpl_symbol.clone()
+			xrpl_symbol.clone(),
+			issuer
 		));
-		let symbol = Some(xrpl_symbol.clone());
-		assert_eq!(AssetIdToXRPL::<Test>::get(asset_id.clone()), symbol);
-		let option_asset_id = Some(asset_id.clone());
-		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_symbol.clone()), option_asset_id);
+		let xrpl_currency = XRPLCurrency { currency: xrpl_symbol.clone(), issuer: issuer.clone() };
+		//let symbol = Some(xrpl_symbol.clone());
+		assert_eq!(AssetIdToXRPL::<Test>::get(asset_id.clone()), Some(xrpl_currency));
+		// let option_asset_id = Some(asset_id.clone());
+		let xrpl_asset = XRPLAsset { asset_id: asset_id.clone(), issuer: issuer.clone() };
+		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_symbol.clone()), Some(xrpl_asset));
 		System::assert_has_event(
 			Event::<Test>::XrplAssetMapSet {
 				asset_id: asset_id.clone(),
 				xrpl_symbol: xrpl_symbol.clone(),
+				issuer: issuer.clone(),
 			}
 			.into(),
 		);
@@ -1258,8 +1264,14 @@ fn set_xrpl_asset_map_not_sudo_fails() {
 		let root = "524F4F5400000000000000000000000000000000";
 		let xrpl_symbol = BoundedVec::truncate_from(root.as_bytes().to_vec());
 		let account: AccountId = [1_u8; 20].into();
+		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		assert_noop!(
-			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::signed(account), asset_id, xrpl_symbol),
+			XRPLBridge::set_xrpl_asset_map(
+				RuntimeOrigin::signed(account),
+				asset_id,
+				xrpl_symbol,
+				issuer
+			),
 			BadOrigin
 		);
 	})
@@ -2378,7 +2390,13 @@ fn process_xrp_tx_for_root_bridging_transaction() {
 
 		let root = "524F4F5400000000000000000000000000000000";
 		let currency = BoundedVec::truncate_from(root.as_bytes().to_vec());
-		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), 1_u32, currency.clone()));
+		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(
+			RuntimeOrigin::root(),
+			1_u32,
+			currency.clone(),
+			issuer.clone()
+		));
 
 		// submit currency payment tx
 		let currency_payment_tx = XrplTxData::CurrencyPayment {
