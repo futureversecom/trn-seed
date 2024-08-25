@@ -183,8 +183,10 @@ impl<T: Config> Pallet<T> {
 
 		let sft_collection_info =
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-
 		let owner = token_owner.unwrap_or(who.clone());
+
+		// minting flag must be enabled on the collection
+		ensure!(<UtilityFlags<T>>::get(collection_id).mintable, Error::<T>::MintUtilityBlocked);
 
 		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
@@ -250,6 +252,11 @@ impl<T: Config> Pallet<T> {
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 		// Caller must not be new owner
 		ensure!(who != new_owner, Error::<T>::InvalidNewOwner);
+		// transferable flag must be enabled on the collection
+		ensure!(
+			<UtilityFlags<T>>::get(collection_id).transferable,
+			Error::<T>::TransferUtilityBlocked
+		);
 
 		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
@@ -287,6 +294,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		// Must be some serial numbers to burn
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
+		ensure!(<UtilityFlags<T>>::get(collection_id).burnable, Error::<T>::BurnUtilityBlocked);
 
 		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity

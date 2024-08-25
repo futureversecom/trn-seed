@@ -72,3 +72,17 @@ pub struct PublicMintInformation {
 	/// If pricing_details are set, the user will be charged this amount per token
 	pub pricing_details: Option<(AssetId, Balance)>,
 }
+
+// Additional flags on a collection that determine whether tokens within the collection can be transferred, burned, or minted
+#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
+pub struct CollectionUtilityFlags {
+	pub transferable: bool,
+	pub burnable: bool,
+	pub mintable: bool,
+}
+
+impl Default for CollectionUtilityFlags {
+	fn default() -> Self {
+		Self { transferable: true, burnable: true, mintable: true }
+	}
+}
