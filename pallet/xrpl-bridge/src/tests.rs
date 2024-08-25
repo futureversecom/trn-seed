@@ -1241,9 +1241,7 @@ fn set_xrpl_asset_map_works() {
 			issuer
 		));
 		let xrpl_currency = XRPLCurrency { currency: xrpl_symbol.clone(), issuer: issuer.clone() };
-		//let symbol = Some(xrpl_symbol.clone());
 		assert_eq!(AssetIdToXRPL::<Test>::get(asset_id.clone()), Some(xrpl_currency));
-		// let option_asset_id = Some(asset_id.clone());
 		let xrpl_asset = XRPLAsset { asset_id: asset_id.clone(), issuer: issuer.clone() };
 		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_symbol.clone()), Some(xrpl_asset));
 		System::assert_has_event(
