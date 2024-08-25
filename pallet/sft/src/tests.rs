@@ -15,9 +15,13 @@
 
 use crate::{
 	mock::*, Config, Error, SftCollectionInfo, SftCollectionInformation, SftTokenBalance,
-	SftTokenInformation, TokenInfo,
+	SftTokenInformation, TokenInfo, UtilityFlags,
 };
+use crate::{Event, PublicMintInfo};
 use seed_pallet_common::test_prelude::*;
+use seed_pallet_common::utils::CollectionUtilityFlags;
+use seed_pallet_common::utils::PublicMintInformation;
+use seed_primitives::AssetId;
 use seed_primitives::{OriginChain, RoyaltiesSchedule};
 
 /// Helper function to create a collection used for tests
@@ -1771,9 +1775,6 @@ mod set_royalties_schedule {
 
 mod set_mint_fee {
 	use super::*;
-	use crate::{Event, PublicMintInfo};
-	use seed_pallet_common::utils::PublicMintInformation;
-	use seed_primitives::AssetId;
 
 	#[test]
 	fn set_mint_fee_works() {
@@ -2587,5 +2588,204 @@ mod public_minting {
 				let token_owner_balance_after = AssetsExt::balance(payment_asset, &token_owner);
 				assert_eq!(token_owner_balance_before, token_owner_balance_after);
 			});
+	}
+}
+
+mod set_utility_flags {
+	use super::*;
+
+	#[test]
+	fn set_utility_flags_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let utility_flags =
+				CollectionUtilityFlags { transferable: false, burnable: false, mintable: false };
+
+			assert_ok!(Sft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_eq!(UtilityFlags::<Test>::get(collection_id), utility_flags);
+			System::assert_last_event(
+				Event::<Test>::UtilityFlagsSet { collection_id, utility_flags }.into(),
+			);
+
+			// Remove flags by setting to default
+			let utility_flags = CollectionUtilityFlags::default();
+			assert_ok!(Sft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert!(!UtilityFlags::<Test>::contains_key(collection_id));
+
+			System::assert_last_event(
+				Event::<Test>::UtilityFlagsSet { collection_id, utility_flags }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn set_utility_flags_not_collection_owner_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let utility_flags =
+				CollectionUtilityFlags { transferable: false, burnable: false, mintable: false };
+
+			assert_noop!(
+				Sft::set_utility_flags(
+					RawOrigin::Signed(bob()).into(),
+					collection_id,
+					utility_flags
+				),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_utility_flags_no_collection_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = 1; // No collection
+			let utility_flags =
+				CollectionUtilityFlags { transferable: false, burnable: false, mintable: false };
+
+			assert_noop!(
+				Sft::set_utility_flags(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					utility_flags
+				),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn set_utility_flags_transferrable_stops_transfer() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let (collection_id, serial_number) =
+				create_test_token(collection_owner, collection_owner, 1);
+			let utility_flags =
+				CollectionUtilityFlags { transferable: false, burnable: true, mintable: true };
+
+			// Disable transfer
+			assert_ok!(Sft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_noop!(
+				Sft::transfer(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					BoundedVec::truncate_from(vec![(serial_number, 1)]),
+					bob()
+				),
+				Error::<Test>::TransferUtilityBlocked
+			);
+
+			// Re-enable transfer
+			let utility_flags =
+				CollectionUtilityFlags { transferable: true, burnable: true, mintable: true };
+			assert_ok!(Sft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_ok!(Sft::transfer(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				BoundedVec::truncate_from(vec![(serial_number, 1)]),
+				bob()
+			));
+		});
+	}
+
+	#[test]
+	fn set_utility_flags_burnable_stops_burn() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let (collection_id, serial_number) =
+				create_test_token(collection_owner, collection_owner, 1);
+			let utility_flags =
+				CollectionUtilityFlags { transferable: true, burnable: false, mintable: true };
+
+			// Disable burn
+			assert_ok!(Sft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_noop!(
+				Sft::burn(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					BoundedVec::truncate_from(vec![(serial_number, 1)])
+				),
+				Error::<Test>::BurnUtilityBlocked
+			);
+
+			// Re-enable burn
+			let utility_flags =
+				CollectionUtilityFlags { transferable: true, burnable: true, mintable: true };
+			assert_ok!(Sft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_ok!(Sft::burn(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				BoundedVec::truncate_from(vec![(serial_number, 1)])
+			));
+		});
+	}
+
+	#[test]
+	fn set_utility_flags_mintable_stops_mint() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let (collection_id, serial_number) =
+				create_test_token(collection_owner, collection_owner, 1);
+			let utility_flags =
+				CollectionUtilityFlags { transferable: true, burnable: true, mintable: false };
+
+			// Disable mint
+			assert_ok!(Sft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_noop!(
+				Sft::mint(
+					Some(collection_owner).into(),
+					collection_id,
+					BoundedVec::truncate_from(vec![(serial_number, 1)]),
+					None
+				),
+				Error::<Test>::MintUtilityBlocked
+			);
+
+			// Re-enable mint
+			let utility_flags =
+				CollectionUtilityFlags { transferable: true, burnable: true, mintable: true };
+			assert_ok!(Sft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_ok!(Sft::mint(
+				Some(collection_owner).into(),
+				collection_id,
+				BoundedVec::truncate_from(vec![(serial_number, 1)]),
+				None
+			));
+		});
 	}
 }

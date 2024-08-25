@@ -2679,3 +2679,184 @@ mod public_minting {
 			});
 	}
 }
+
+mod set_utility_flags {
+	use super::*;
+
+	#[test]
+	fn set_utility_flags_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let utility_flags =
+				CollectionUtilityFlags { transferable: false, burnable: false, mintable: false };
+
+			assert_ok!(Nft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_eq!(UtilityFlags::<Test>::get(collection_id), utility_flags);
+			System::assert_last_event(
+				Event::<Test>::UtilityFlagsSet { collection_id, utility_flags }.into(),
+			);
+
+			// Remove flags by setting to default
+			let utility_flags = CollectionUtilityFlags::default();
+			assert_ok!(Nft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert!(!UtilityFlags::<Test>::contains_key(collection_id));
+
+			System::assert_last_event(
+				Event::<Test>::UtilityFlagsSet { collection_id, utility_flags }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn set_utility_flags_not_collection_owner_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let utility_flags =
+				CollectionUtilityFlags { transferable: false, burnable: false, mintable: false };
+
+			assert_noop!(
+				Nft::set_utility_flags(
+					RawOrigin::Signed(bob()).into(),
+					collection_id,
+					utility_flags
+				),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_utility_flags_no_collection_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = 1; // No collection
+			let utility_flags =
+				CollectionUtilityFlags { transferable: false, burnable: false, mintable: false };
+
+			assert_noop!(
+				Nft::set_utility_flags(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					utility_flags
+				),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn set_utility_flags_transferrable_stops_transfer() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let utility_flags =
+				CollectionUtilityFlags { transferable: false, burnable: true, mintable: true };
+			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, None));
+
+			// Disable transfer
+			assert_ok!(Nft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_noop!(
+				Nft::transfer(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					BoundedVec::truncate_from(vec![0]),
+					bob()
+				),
+				Error::<Test>::TransferUtilityBlocked
+			);
+
+			// Re-enable transfer
+			let utility_flags =
+				CollectionUtilityFlags { transferable: true, burnable: true, mintable: true };
+			assert_ok!(Nft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_ok!(Nft::transfer(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				BoundedVec::truncate_from(vec![0]),
+				bob()
+			));
+		});
+	}
+
+	#[test]
+	fn set_utility_flags_burnable_stops_burn() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let utility_flags =
+				CollectionUtilityFlags { transferable: true, burnable: false, mintable: true };
+			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, None));
+			let token_id = (collection_id, 0);
+
+			// Disable burn
+			assert_ok!(Nft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_noop!(
+				Nft::burn(RawOrigin::Signed(collection_owner).into(), token_id),
+				Error::<Test>::BurnUtilityBlocked
+			);
+
+			// Re-enable burn
+			let utility_flags =
+				CollectionUtilityFlags { transferable: true, burnable: true, mintable: true };
+			assert_ok!(Nft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_ok!(Nft::burn(RawOrigin::Signed(collection_owner).into(), token_id));
+		});
+	}
+
+	#[test]
+	fn set_utility_flags_mintable_stops_mint() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let utility_flags =
+				CollectionUtilityFlags { transferable: true, burnable: true, mintable: false };
+
+			// Disable mint
+			assert_ok!(Nft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_noop!(
+				Nft::mint(Some(collection_owner).into(), collection_id, 1, None),
+				Error::<Test>::MintUtilityBlocked
+			);
+
+			// Re-enable mint
+			let utility_flags =
+				CollectionUtilityFlags { transferable: true, burnable: true, mintable: true };
+			assert_ok!(Nft::set_utility_flags(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				utility_flags
+			));
+			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, None));
+		});
+	}
+}

@@ -240,24 +240,6 @@ macro_rules! impl_pallet_assets_ext_config {
 #[macro_export]
 macro_rules! impl_pallet_nft_config {
 	($test:ident) => {
-		pub struct MockXls20MintRequest;
-		impl Xls20MintRequest for MockXls20MintRequest {
-			type AccountId = AccountId;
-			fn request_xls20_mint(
-				_who: &Self::AccountId,
-				_collection_id: CollectionUuid,
-				_serial_numbers: Vec<SerialNumber>,
-				_metadata_scheme: MetadataScheme,
-			) -> DispatchResult {
-				Ok(())
-			}
-		}
-
-		pub struct MockTransferSubscriber;
-		impl OnTransferSubscriber for MockTransferSubscriber {
-			fn on_nft_transfer(_token_id: &TokenId) {}
-		}
-
 		parameter_types! {
 			pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 			pub const MaxTokensPerCollection: u32 = 10_000;
@@ -272,14 +254,15 @@ macro_rules! impl_pallet_nft_config {
 			type RuntimeCall = RuntimeCall;
 			type MaxTokensPerCollection = MaxTokensPerCollection;
 			type MintLimit = MintLimit;
-			type OnTransferSubscription = MockTransferSubscriber;
+			type OnTransferSubscription = ();
 			type OnNewAssetSubscription = ();
 			type MultiCurrency = AssetsExt;
 			type PalletId = NftPalletId;
 			type ParachainId = TestParachainId;
-			type Xls20MintRequest = MockXls20MintRequest;
+			type Xls20MintRequest = ();
 			type WeightInfo = ();
 			type StringLimit = StringLimit;
+			type NFIRequest = ();
 		}
 	};
 }
@@ -287,14 +270,6 @@ macro_rules! impl_pallet_nft_config {
 #[macro_export]
 macro_rules! impl_pallet_sft_config {
 	($test:ident) => {
-		pub struct MockSftNewAssetSubscription;
-		impl<RuntimeId> OnNewAssetSubscriber<RuntimeId> for MockSftNewAssetSubscription
-		where
-			RuntimeId: From<u32> + Into<u32>,
-		{
-			fn on_asset_create(_runtime_id: RuntimeId, _precompile_address_prefix: &[u8; 4]) {}
-		}
-
 		parameter_types! {
 			pub const SftPalletId: PalletId = PalletId(*b"sftokens");
 			pub const MaxTokensPerSftCollection: u32 = 10_000;
@@ -306,8 +281,8 @@ macro_rules! impl_pallet_sft_config {
 			type RuntimeEvent = RuntimeEvent;
 			type MultiCurrency = AssetsExt;
 			type NFTExt = Nft;
-			type OnTransferSubscription = MockTransferSubscriber;
-			type OnNewAssetSubscription = MockSftNewAssetSubscription;
+			type OnTransferSubscription = ();
+			type OnNewAssetSubscription = ();
 			type PalletId = SftPalletId;
 			type ParachainId = TestParachainId;
 			type StringLimit = StringLimit;
@@ -315,6 +290,7 @@ macro_rules! impl_pallet_sft_config {
 			type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 			type MaxSerialsPerMint = MaxSerialsPerSftMint;
 			type MaxOwnersPerSftToken = MaxOwnersPerSftToken;
+			type NFIRequest = ();
 		}
 	};
 }
