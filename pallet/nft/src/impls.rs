@@ -480,6 +480,9 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::TokenLocked
 		);
 
+		// Remove any NFI data associated with this token
+		T::NFIRequest::on_burn((collection_id, serial_number));
+
 		CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection_info| -> DispatchResult {
 			let collection_info =
 				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
@@ -663,6 +666,14 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn remove_token_lock(token_id: TokenId) {
 		<TokenLocks<T>>::remove(token_id);
+	}
+
+	fn get_collection_owner(
+		collection_id: CollectionUuid,
+	) -> Result<Self::AccountId, DispatchError> {
+		let collection_info =
+			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		Ok(collection_info.owner)
 	}
 }
 

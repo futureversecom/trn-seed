@@ -13,7 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-//! NFT benchmarking.
+//! XLS-20 benchmarking.
 
 #![cfg(feature = "runtime-benchmarks")]
 

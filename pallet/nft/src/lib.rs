@@ -34,7 +34,10 @@ use frame_support::{
 	traits::{fungibles::Mutate, Get},
 	transactional, PalletId,
 };
-use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest};
+use seed_pallet_common::{
+	utils::PublicMintInformation, NFIRequest, OnNewAssetSubscriber, OnTransferSubscriber,
+	Xls20MintRequest,
+};
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
 	SerialNumber, TokenCount, TokenId, TokenLockReason, MAX_COLLECTION_ENTITLEMENTS,
@@ -49,6 +52,8 @@ use sp_std::prelude::*;
 mod benchmarking;
 #[cfg(test)]
 pub mod mock;
+#[cfg(feature = "std")]
+pub mod test_utils;
 #[cfg(test)]
 mod tests;
 pub mod weights;
@@ -72,7 +77,6 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use seed_pallet_common::utils::PublicMintInformation;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
@@ -129,6 +133,8 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		/// Interface for sending XLS20 mint requests
 		type Xls20MintRequest: Xls20MintRequest<AccountId = Self::AccountId>;
+		/// Interface for requesting extra meta storage items
+		type NFIRequest: NFIRequest<AccountId = Self::AccountId>;
 	}
 
 	/// Map from collection to its information
@@ -534,6 +540,13 @@ pub mod pallet {
 					metadata_scheme,
 				)?;
 			}
+
+			// Request NFI storage if enabled
+			let _ = T::NFIRequest::request(
+				&who,
+				collection_id.clone(),
+				serial_numbers.clone().into_inner(),
+			)?;
 
 			// throw event, listing starting and endpoint token ids (sequential mint)
 			Self::deposit_event(Event::<T>::Mint {

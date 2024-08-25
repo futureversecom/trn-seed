@@ -85,6 +85,7 @@ pallet-dex-rpc-runtime-api = { workspace = true }
 pallet-echo = { workspace = true }
 pallet-ethy = { workspace = true }
 pallet-fee-proxy = { workspace = true }
+pallet-nfi = { workspace = true }
 pallet-nft = { workspace = true }
 pallet-nft-rpc-runtime-api = { workspace = true }
 pallet-sft = { workspace = true }
@@ -191,6 +192,7 @@ std = [
 	"pallet-dex-rpc-runtime-api/std",
 	"pallet-ethy/std",
 	"pallet-fee-proxy/std",
+	"pallet-nfi/std",
 	"pallet-nft/std",
 	"pallet-nft-rpc-runtime-api/std",
 	"pallet-sft/std",
@@ -275,6 +277,7 @@ try-runtime = [
 	# Local
 	"pallet-assets-ext/try-runtime",
 	"pallet-dex/try-runtime",
+	"pallet-nfi/try-runtime",
 	"pallet-nft/try-runtime",
 	"pallet-sft/try-runtime",
 	"pallet-xrpl-bridge/try-runtime",
@@ -326,6 +329,7 @@ runtime-benchmarks = [
 	"pallet-ethereum/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	# Local
+	"pallet-nfi/runtime-benchmarks",
 	"pallet-nft/runtime-benchmarks",
 	"pallet-sft/runtime-benchmarks",
 	"pallet-xrpl-bridge/runtime-benchmarks",
