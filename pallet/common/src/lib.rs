@@ -29,8 +29,8 @@ use frame_system::Config;
 use scale_info::TypeInfo;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
-	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-	TokenCount, TokenId, TokenLockReason,
+	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule,
+	SerialNumber, TokenCount, TokenId, TokenLockReason,
 };
 use sp_core::{bounded::BoundedVec, H160, U256};
 use sp_std::{fmt::Debug, vec::Vec};
@@ -144,6 +144,10 @@ pub trait InspectExt {
 pub trait OnTransferSubscriber {
 	/// The nft with the given token_id was transferred.
 	fn on_nft_transfer(token_id: &TokenId);
+}
+
+impl OnTransferSubscriber for () {
+	fn on_nft_transfer(_token_id: &TokenId) {}
 }
 
 /// Subscriber for when a new asset or nft is created
@@ -361,6 +365,44 @@ pub trait Xls20MintRequest {
 	) -> DispatchResult;
 }
 
+impl Xls20MintRequest for () {
+	type AccountId = AccountId;
+	fn request_xls20_mint(
+		_who: &Self::AccountId,
+		_collection_id: CollectionUuid,
+		_serial_numbers: Vec<SerialNumber>,
+		_metadata_scheme: MetadataScheme,
+	) -> DispatchResult {
+		Ok(())
+	}
+}
+
+pub trait NFIRequest {
+	type AccountId;
+
+	fn request(
+		who: &Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: Vec<SerialNumber>,
+	) -> DispatchResult;
+
+	fn on_burn(token_id: TokenId);
+}
+
+impl NFIRequest for () {
+	type AccountId = AccountId;
+
+	fn request(
+		_who: &Self::AccountId,
+		_collection_id: CollectionUuid,
+		_serial_numbers: Vec<SerialNumber>,
+	) -> DispatchResult {
+		Ok(())
+	}
+
+	fn on_burn(_token_id: TokenId) {}
+}
+
 pub trait FeeConfig {
 	fn evm_base_fee_per_gas() -> U256;
 	fn weight_multiplier() -> Perbill;
@@ -507,6 +549,10 @@ pub trait NFTExt {
 
 	/// Remove a token lock without performing checks
 	fn remove_token_lock(token_id: TokenId);
+
+	fn get_collection_owner(
+		collection_id: CollectionUuid,
+	) -> Result<Self::AccountId, DispatchError>;
 }
 
 pub trait SFTExt {
@@ -531,4 +577,10 @@ pub trait SFTExt {
 	fn get_royalties_schedule(
 		collection_id: CollectionUuid,
 	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError>;
+
+	fn get_collection_owner(
+		collection_id: CollectionUuid,
+	) -> Result<Self::AccountId, DispatchError>;
+
+	fn token_exists(token_id: TokenId) -> bool;
 }

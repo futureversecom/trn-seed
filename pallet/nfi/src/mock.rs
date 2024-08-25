@@ -13,8 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate as pallet_sft;
-use crate::Config;
+use crate as pallet_nfi;
 use seed_pallet_common::test_prelude::*;
 
 construct_runtime!(
@@ -26,6 +25,7 @@ construct_runtime!(
 		AssetsExt: pallet_assets_ext,
 		Nft: pallet_nft,
 		Sft: pallet_sft,
+		Nfi: pallet_nfi,
 	}
 );
 
@@ -33,16 +33,42 @@ impl_frame_system_config!(Test);
 impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
-impl_pallet_nft_config!(Test);
+
+parameter_types! {
+	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
+	pub const MaxTokensPerCollection: u32 = 10_000;
+	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
+	pub const MintLimit: u32 = 100;
+	pub const StringLimit: u32 = 50;
+	pub const FeePotId: PalletId = PalletId(*b"txfeepot");
+	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
+	pub const DefaultFeeTo: Option<PalletId> = None;
+}
+
+impl pallet_nft::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type MaxTokensPerCollection = MaxTokensPerCollection;
+	type MintLimit = MintLimit;
+	type OnTransferSubscription = ();
+	type OnNewAssetSubscription = ();
+	type MultiCurrency = AssetsExt;
+	type PalletId = NftPalletId;
+	type ParachainId = TestParachainId;
+	type StringLimit = StringLimit;
+	type WeightInfo = ();
+	type Xls20MintRequest = ();
+	type NFIRequest = Nfi;
+}
 
 parameter_types! {
 	pub const SftPalletId: PalletId = PalletId(*b"sftokens");
 	pub const MaxTokensPerSftCollection: u32 = 10_000;
-	pub const MaxSerialsPerMint: u32 = 10;
+	pub const MaxSerialsPerSftMint: u32 = 100;
 	pub const MaxOwnersPerSftToken: u32 = 100;
 }
 
-impl Config for Test {
+impl pallet_sft::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
@@ -53,7 +79,22 @@ impl Config for Test {
 	type StringLimit = StringLimit;
 	type WeightInfo = ();
 	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
-	type MaxSerialsPerMint = MaxSerialsPerMint;
+	type MaxSerialsPerMint = MaxSerialsPerSftMint;
 	type MaxOwnersPerSftToken = MaxOwnersPerSftToken;
-	type NFIRequest = ();
+	type NFIRequest = Nfi;
+}
+
+parameter_types! {
+	pub const MaxDataLength: u32 = 100;
+	pub const NFINetworkFeePercentage: Permill = Permill::from_perthousand(5);
+}
+
+impl crate::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
+	type SFTExt = Sft;
+	type NetworkFeePercentage = NFINetworkFeePercentage;
+	type MaxDataLength = MaxDataLength;
+	type WeightInfo = ();
 }
