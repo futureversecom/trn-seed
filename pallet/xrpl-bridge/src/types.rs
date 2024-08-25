@@ -101,6 +101,7 @@ impl Default for XrplTicketSequenceParams {
 	}
 }
 
+// Currency issued by issuer https://xrpl.org/docs/references/protocol/data-types/currency-formats#token-amounts
 #[derive(
 	Eq, CloneNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
 )]
