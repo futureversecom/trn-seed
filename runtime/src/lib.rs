@@ -608,7 +608,6 @@ parameter_types! {
 	pub const MaxPrunedTransactionsPerBlock: u32 = 5000;
 	pub const MaxDelayedPaymentsPerBlock: u32 = 1000;
 	pub const DelayedPaymentBlockLimit: BlockNumber = 1000;
-	pub const XRPSymbolLimit: u8 = 100;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -626,7 +625,6 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPTransactionLimitPerLedger;
-	type XRPSymbolLimit = XRPSymbolLimit;
 }
 
 parameter_types! {

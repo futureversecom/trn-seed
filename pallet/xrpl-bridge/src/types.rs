@@ -28,10 +28,9 @@ pub type DelayedPaymentId = u64;
 #[derive(
 	RuntimeDebugNoBound, Eq, CloneNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
-#[scale_info(skip_type_params(XRPSymbolLimit))]
-pub struct XrpTransaction<XRPSymbolLimit: Get<u32>> {
+pub struct XrpTransaction {
 	pub transaction_hash: XrplTxHash,
-	pub transaction: XrplTxData<XRPSymbolLimit>,
+	pub transaction: XrplTxData,
 	pub timestamp: u64,
 }
 
@@ -54,14 +53,13 @@ pub struct XrpWithdrawTransaction {
 #[derive(
 	Eq, CloneNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
 )]
-#[scale_info(skip_type_params(XRPSymbolLimit))]
-pub enum XrplTxData<XRPSymbolLimit: Get<u32>> {
+pub enum XrplTxData {
 	Payment { amount: Balance, address: H160 },
-	CurrencyPayment { amount: Balance, address: H160, currency: BoundedVec<u8, XRPSymbolLimit> },
+	CurrencyPayment { amount: Balance, address: H160, currency: H160 },
 	Xls20, // Nft
 }
 
-impl<XRPSymbolLimit: Get<u32>> Default for XrpTransaction<XRPSymbolLimit> {
+impl Default for XrpTransaction {
 	fn default() -> Self {
 		XrpTransaction {
 			transaction_hash: XrplTxHash::default(),
@@ -83,7 +81,7 @@ impl Default for XrpWithdrawTransaction {
 	}
 }
 
-impl<XRPSymbolLimit: Get<u32>> Default for XrplTxData<XRPSymbolLimit> {
+impl Default for XrplTxData {
 	fn default() -> Self {
 		XrplTxData::Payment { amount: 0, address: H160::default() }
 	}
@@ -105,15 +103,14 @@ impl Default for XrplTicketSequenceParams {
 #[derive(
 	Eq, CloneNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
 )]
-#[scale_info(skip_type_params(XRPSymbolLimit))]
-pub struct XRPLCurrency<XRPSymbolLimit: Get<u32>> {
-	pub currency: BoundedVec<u8, XRPSymbolLimit>,
+pub struct XRPLCurrency {
+	pub currency: H160,
 	pub issuer: XrplAccountId,
 }
 
-impl<XRPSymbolLimit: Get<u32>> Default for XRPLCurrency<XRPSymbolLimit> {
+impl Default for XRPLCurrency {
 	fn default() -> Self {
-		XRPLCurrency { currency: BoundedVec::default(), issuer: Default::default() }
+		XRPLCurrency { currency: Default::default(), issuer: Default::default() }
 	}
 }
 

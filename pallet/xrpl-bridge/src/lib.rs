@@ -70,6 +70,7 @@ pub use weights::WeightInfo;
 pub mod pallet {
 	use super::*;
 	use crate::types::{XRPLAsset, XRPLCurrency};
+	use sp_core::H160;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
@@ -122,11 +123,6 @@ pub mod pallet {
 
 		/// Maximum XRPL transactions within a single ledger
 		type XRPLTransactionLimitPerLedger: Get<u32>;
-
-		/// Represents the max limit of XRPL symbol, if not satisfied it throws InvalidSymbolMapping error
-		/// if its within the max limit, emits event XrplAssetMapSet
-		#[pallet::constant]
-		type XRPSymbolLimit: Get<u32>;
 	}
 
 	#[pallet::error]
@@ -222,7 +218,7 @@ pub mod pallet {
 		TicketSequenceThresholdReached(u32),
 		XrplAssetMapSet {
 			asset_id: AssetId,
-			xrpl_symbol: BoundedVec<u8, T::XRPSymbolLimit>,
+			xrpl_symbol: H160,
 			issuer: XrplAccountId,
 		},
 	}
@@ -266,12 +262,8 @@ pub mod pallet {
 	#[pallet::getter(fn process_xrp_transaction_details)]
 	/// Stores submitted transactions from XRPL waiting to be processed
 	/// Transactions will be cleared according to the submission window after processing
-	pub type ProcessXRPTransactionDetails<T: Config> = StorageMap<
-		_,
-		Identity,
-		XrplTxHash,
-		(LedgerIndex, XrpTransaction<T::XRPSymbolLimit>, T::AccountId),
-	>;
+	pub type ProcessXRPTransactionDetails<T: Config> =
+		StorageMap<_, Identity, XrplTxHash, (LedgerIndex, XrpTransaction, T::AccountId)>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn settled_xrp_transaction_details)]
@@ -281,13 +273,11 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Map TRN asset Id to XRPL symbol, storage to keep mapping between TRN -> XRPL tokens/assets
-	pub type AssetIdToXRPL<T: Config> =
-		StorageMap<_, Twox64Concat, AssetId, XRPLCurrency<T::XRPSymbolLimit>>;
+	pub type AssetIdToXRPL<T: Config> = StorageMap<_, Twox64Concat, AssetId, XRPLCurrency>;
 
 	#[pallet::storage]
 	/// Map XRPL symbol to TRN asset Id, storage to keep mapping between XRPL -> TRN tokens/assets
-	pub type XRPLToAssetId<T: Config> =
-		StorageMap<_, Twox64Concat, BoundedVec<u8, T::XRPSymbolLimit>, XRPLAsset>;
+	pub type XRPLToAssetId<T: Config> = StorageMap<_, Twox64Concat, H160, XRPLAsset>;
 
 	#[pallet::storage]
 	/// Highest settled XRPL ledger index
@@ -427,7 +417,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			ledger_index: LedgerIndex,
 			transaction_hash: XrplTxHash,
-			transaction: XrplTxData<T::XRPSymbolLimit>,
+			transaction: XrplTxData,
 			timestamp: Timestamp,
 		) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
@@ -643,9 +633,7 @@ pub mod pallet {
 			highest_settled_ledger_index: u32,
 			submission_window_width: u32,
 			highest_pruned_ledger_index: Option<u32>,
-			settled_tx_data: Option<
-				Vec<(XrplTxHash, u32, XrpTransaction<T::XRPSymbolLimit>, T::AccountId)>,
-			>,
+			settled_tx_data: Option<Vec<(XrplTxHash, u32, XrpTransaction, T::AccountId)>>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			if let Some(highest_pruned_ledger_index) = highest_pruned_ledger_index {
@@ -710,7 +698,7 @@ pub mod pallet {
 		pub fn set_xrpl_asset_map(
 			origin: OriginFor<T>,
 			asset_id: AssetId,
-			xrpl_symbol: BoundedVec<u8, T::XRPSymbolLimit>,
+			xrpl_symbol: H160,
 			issuer: XrplAccountId,
 		) -> DispatchResult {
 			ensure_root(origin)?;
@@ -1017,7 +1005,7 @@ impl<T: Config> Pallet<T> {
 		relayer: T::AccountId,
 		ledger_index: LedgerIndex,
 		transaction_hash: XrplTxHash,
-		transaction: XrplTxData<T::XRPSymbolLimit>,
+		transaction: XrplTxData,
 		timestamp: Timestamp,
 	) -> DispatchResult {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };

@@ -19,6 +19,7 @@ use crate::mock::{
 	Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod,
 };
 use crate::types::{XRPLAsset, XRPLCurrency};
+use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
 
 /// Helper function to get the xrp balance of an address
@@ -1231,9 +1232,8 @@ fn set_payment_delay_not_sudo_fails() {
 fn set_xrpl_asset_map_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let asset_id = 1;
-		let root = "524F4F5400000000000000000000000000000000";
 		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-		let xrpl_symbol = BoundedVec::truncate_from(root.as_bytes().to_vec());
+		let xrpl_symbol = H160::from(hex!("524F4F5400000000000000000000000000000000"));
 		assert_ok!(XRPLBridge::set_xrpl_asset_map(
 			RuntimeOrigin::root(),
 			asset_id,
@@ -1259,8 +1259,7 @@ fn set_xrpl_asset_map_works() {
 fn set_xrpl_asset_map_not_sudo_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let asset_id = 1;
-		let root = "524F4F5400000000000000000000000000000000";
-		let xrpl_symbol = BoundedVec::truncate_from(root.as_bytes().to_vec());
+		let xrpl_symbol = H160::from(hex!("524F4F5400000000000000000000000000000000"));
 		let account: AccountId = [1_u8; 20].into();
 		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		assert_noop!(
@@ -2386,8 +2385,7 @@ fn process_xrp_tx_for_root_bridging_transaction() {
 		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
-		let root = "524F4F5400000000000000000000000000000000";
-		let currency = BoundedVec::truncate_from(root.as_bytes().to_vec());
+		let currency = H160::from(hex!("524F4F5400000000000000000000000000000000"));
 		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		assert_ok!(XRPLBridge::set_xrpl_asset_map(
 			RuntimeOrigin::root(),
