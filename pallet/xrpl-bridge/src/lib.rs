@@ -16,9 +16,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::types::{
-	DelayedPaymentId, DelayedWithdrawal, XrpTransaction, XrpWithdrawTransaction,
-	XrplTicketSequenceParams, XrplTxData,
+	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, WithdrawTransaction,
+	XrpTransaction, XrpWithdrawTransaction, XrplTicketSequenceParams, XrplTxData,
 };
+use frame_support::traits::tokens::Preservation;
 use frame_support::{
 	fail,
 	pallet_prelude::*,
@@ -37,6 +38,7 @@ use seed_primitives::{
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
 	AssetId, Balance, Timestamp,
 };
+use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::{
 	traits::{One, Zero},
 	ArithmeticError, Percent, SaturatedConversion, Saturating,
@@ -70,6 +72,7 @@ pub use weights::WeightInfo;
 pub mod pallet {
 	use super::*;
 	use crate::types::{XRPLAsset, XRPLCurrency};
+	use frame_support::PalletId;
 	use sp_core::H160;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
@@ -93,6 +96,14 @@ pub mod pallet {
 		/// XRP Asset Id set at runtime
 		#[pallet::constant]
 		type XrpAssetId: Get<AssetId>;
+
+		/// ROOT AssetId set at runtime
+		#[pallet::constant]
+		type NativeAssetId: Get<AssetId>;
+
+		/// This pallet's Id, used for deriving a sovereign account ID
+		#[pallet::constant]
+		type PalletId: Get<PalletId>;
 
 		/// Challenge Period to wait for a challenge before processing the transaction
 		#[pallet::constant]
@@ -127,6 +138,8 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// This asset is not supported by the bridge
+		AssetNotSupported,
 		NotPermitted,
 		/// The paymentIds have been exhausted
 		NoAvailablePaymentIds,
@@ -188,12 +201,14 @@ pub mod pallet {
 		WithdrawRequest {
 			proof_id: u64,
 			sender: T::AccountId,
+			asset_id: AssetId,
 			amount: Balance,
 			destination: XrplAccountId,
 		},
 		/// A withdrawal was delayed as it was above the min_payment threshold
 		WithdrawDelayed {
 			sender: T::AccountId,
+			asset_id: AssetId,
 			amount: Balance,
 			destination: XrplAccountId,
 			delayed_payment_id: DelayedPaymentId,
@@ -484,7 +499,7 @@ pub mod pallet {
 			destination: XrplAccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::add_to_withdraw(who, amount, destination, None)
+			Self::add_to_withdraw(who, T::XrpAssetId::get(), amount, destination, None)
 		}
 
 		/// Withdraw xrp transaction
@@ -498,7 +513,28 @@ pub mod pallet {
 			destination_tag: u32,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::add_to_withdraw(who, amount, destination, Some(destination_tag))
+			Self::add_to_withdraw(
+				who,
+				T::XrpAssetId::get(),
+				amount,
+				destination,
+				Some(destination_tag),
+			)
+		}
+
+		/// Withdraw any token to XRPL
+		#[pallet::call_index(15)]
+		#[pallet::weight((T::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
+		#[transactional]
+		pub fn withdraw(
+			origin: OriginFor<T>,
+			asset_id: AssetId,
+			amount: Balance,
+			destination: XrplAccountId,
+			destination_tag: Option<u32>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::add_to_withdraw(who, asset_id, amount, destination, destination_tag)
 		}
 
 		/// add a relayer
@@ -869,10 +905,15 @@ impl<T: Config> Pallet<T> {
 			for i in 0..max_to_clear {
 				let payment_id = delayed_payment_ids[i];
 				if let Some(delayed_withdrawal) = <DelayedPayments<T>>::take(payment_id) {
+					let asset_id = match delayed_withdrawal.withdraw_tx {
+						WithdrawTransaction::XRP(_) => T::XrpAssetId::get(),
+						WithdrawTransaction::Asset(tx) => tx.asset_id,
+					};
 					let _ = Self::submit_withdraw_request(
 						delayed_withdrawal.sender,
 						door_address.into(),
 						delayed_withdrawal.withdraw_tx,
+						asset_id,
 						delayed_withdrawal.destination_tag,
 					);
 				};
@@ -1031,6 +1072,7 @@ impl<T: Config> Pallet<T> {
 	#[transactional]
 	pub fn add_to_withdraw(
 		who: AccountOf<T>,
+		asset_id: AssetId,
 		amount: Balance,
 		destination: XrplAccountId,
 		destination_tag: Option<u32>,
@@ -1042,6 +1084,44 @@ impl<T: Config> Pallet<T> {
 		ensure!(amount.checked_add(tx_fee as Balance).is_some(), Error::<T>::WithdrawInvalidAmount); // xrp amounts are `u64`
 		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
 
+		let tx_data = match asset_id {
+			a if a == T::XrpAssetId::get() => {
+				Self::process_xrp_withdrawal(destination, amount, tx_fee, who.clone())?
+			},
+			a if a == T::NativeAssetId::get() => {
+				Self::process_root_withdrawal(destination, amount, tx_fee, who.clone())?
+			},
+			_ => {
+				Self::process_asset_withdrawal(asset_id, destination, amount, tx_fee, who.clone())?
+			},
+		};
+
+		// Check if there is a payment delay and delay the payment if necessary
+		if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get() {
+			if amount >= payment_threshold {
+				Self::delay_payment(delay, who.clone(), asset_id, tx_data, destination_tag)?;
+				return Ok(());
+			}
+		}
+
+		Self::submit_withdraw_request(
+			who,
+			door_address.into(),
+			tx_data,
+			asset_id,
+			destination_tag,
+		)?;
+
+		Ok(())
+	}
+
+	/// Handles burning of XRP tokens and creating the WithdrawTransaction to send to the bridge
+	fn process_xrp_withdrawal(
+		destination: XrplAccountId,
+		amount: Balance,
+		tx_fee: u64,
+		who: AccountOf<T>,
+	) -> Result<WithdrawTransaction, DispatchError> {
 		// the door address pays the tx fee on XRPL. Therefore the withdrawn amount must include the
 		// tx fee to maintain an accurate door balance
 		let _ = T::MultiCurrency::burn_from(
@@ -1053,25 +1133,99 @@ impl<T: Config> Pallet<T> {
 		)?;
 
 		let ticket_sequence = Self::get_door_ticket_sequence()?;
-		let tx_data = XrpWithdrawTransaction {
+		Ok(WithdrawTransaction::XRP(XrpWithdrawTransaction {
 			tx_nonce: 0_u32, // Sequence = 0 when using TicketSequence
 			tx_fee,
 			amount,
 			destination,
 			tx_ticket_sequence: ticket_sequence,
-		};
+		}))
+	}
 
-		// Check if there is a payment delay and delay the payment if necessary
-		if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get() {
-			if amount >= payment_threshold {
-				Self::delay_payment(delay, who.clone(), tx_data, destination_tag)?;
-				return Ok(());
-			}
-		}
+	/// Handles transferring of Native tokens to the palletId and creating the WithdrawTransaction
+	/// to send to the bridge
+	/// We don't want to burn ROOT tokens as we need to maintain the total supply
+	fn process_root_withdrawal(
+		destination: XrplAccountId,
+		amount: Balance,
+		tx_fee: u64,
+		who: AccountOf<T>,
+	) -> Result<WithdrawTransaction, DispatchError> {
+		let xrpl_currency = AssetIdToXRPL::<T>::get(T::NativeAssetId::get())
+			.ok_or(Error::<T>::AssetNotSupported)?;
+		// the door address pays the tx fee on XRPL. Therefore we must charge the user the tx fee
+		// in XRP alongside their ROOT withdrawal
+		let _ = T::MultiCurrency::burn_from(
+			T::XrpAssetId::get(),
+			&who,
+			tx_fee as Balance,
+			Precision::Exact,
+			Fortitude::Polite,
+		)?;
 
-		Self::submit_withdraw_request(who, door_address.into(), tx_data, destination_tag)?;
+		// Transfer ROOT tokens to the pallet address.
+		let pallet_address: T::AccountId = T::PalletId::get().into_account_truncating();
+		let _ = T::MultiCurrency::transfer(
+			T::NativeAssetId::get(),
+			&who,
+			&pallet_address,
+			amount,
+			Preservation::Expendable,
+		)?;
 
-		Ok(())
+		let ticket_sequence = Self::get_door_ticket_sequence()?;
+		Ok(WithdrawTransaction::Asset(AssetWithdrawTransaction {
+			tx_nonce: 0_u32, // Sequence = 0 when using TicketSequence
+			tx_fee,
+			amount,
+			destination,
+			tx_ticket_sequence: ticket_sequence,
+			asset_id: T::NativeAssetId::get(),
+			currency: xrpl_currency.currency,
+			issuer: xrpl_currency.issuer,
+		}))
+	}
+
+	/// Handles all other assets besides ROOT and XRP and creates the WithdrawTransaction to send to the bridge
+	fn process_asset_withdrawal(
+		asset_id: AssetId,
+		destination: XrplAccountId,
+		amount: Balance,
+		tx_fee: u64,
+		who: AccountOf<T>,
+	) -> Result<WithdrawTransaction, DispatchError> {
+		let xrpl_currency = AssetIdToXRPL::<T>::get(T::NativeAssetId::get())
+			.ok_or(Error::<T>::AssetNotSupported)?;
+		// the door address pays the tx fee on XRPL. Therefore we must charge the user the tx fee
+		// in XRP alongside their asset withdrawal
+		let _ = T::MultiCurrency::burn_from(
+			T::XrpAssetId::get(),
+			&who,
+			tx_fee as Balance,
+			Precision::Exact,
+			Fortitude::Polite,
+		)?;
+
+		// Burn their asset to send to the bridge
+		let _ = T::MultiCurrency::burn_from(
+			asset_id,
+			&who,
+			amount,
+			Precision::Exact,
+			Fortitude::Polite,
+		)?;
+
+		let ticket_sequence = Self::get_door_ticket_sequence()?;
+		Ok(WithdrawTransaction::Asset(AssetWithdrawTransaction {
+			tx_nonce: 0_u32, // Sequence = 0 when using TicketSequence
+			tx_fee,
+			amount,
+			destination,
+			tx_ticket_sequence: ticket_sequence,
+			asset_id,
+			currency: xrpl_currency.currency,
+			issuer: xrpl_currency.issuer,
+		}))
 	}
 
 	/// Delay a withdrawal until a later block. Called if the withdrawal amount is over the
@@ -1079,7 +1233,8 @@ impl<T: Config> Pallet<T> {
 	fn delay_payment(
 		delay: BlockNumberFor<T>,
 		sender: T::AccountId,
-		withdrawal: XrpWithdrawTransaction,
+		asset_id: AssetId,
+		withdrawal: WithdrawTransaction,
 		destination_tag: Option<u32>,
 	) -> DispatchResult {
 		// Get the next payment ID
@@ -1094,14 +1249,19 @@ impl<T: Config> Pallet<T> {
 			.map_err(|_| Error::<T>::DelayScheduleAtCapacity)?;
 		DelayedPayments::<T>::insert(
 			delayed_payment_id,
-			DelayedWithdrawal { sender: sender.clone(), destination_tag, withdraw_tx: withdrawal },
+			DelayedWithdrawal {
+				sender: sender.clone(),
+				destination_tag,
+				withdraw_tx: withdrawal.clone(),
+			},
 		);
 		NextDelayedPaymentId::<T>::put(delayed_payment_id + 1);
 
 		Self::deposit_event(Event::WithdrawDelayed {
 			sender,
-			amount: withdrawal.amount,
-			destination: withdrawal.destination,
+			asset_id,
+			amount: withdrawal.amount(),
+			destination: withdrawal.destination(),
 			delayed_payment_id,
 			payment_block,
 		});
@@ -1113,9 +1273,39 @@ impl<T: Config> Pallet<T> {
 	fn submit_withdraw_request(
 		sender: T::AccountId,
 		door_address: [u8; 20],
-		tx_data: XrpWithdrawTransaction,
+		tx_data: WithdrawTransaction,
+		asset_id: AssetId,
 		destination_tag: Option<u32>,
 	) -> DispatchResult {
+		let amount = tx_data.amount();
+		let destination = tx_data.destination();
+		let tx_blob = match tx_data {
+			WithdrawTransaction::XRP(tx) => {
+				Self::serialize_xrp_tx(tx, door_address, destination_tag)
+			},
+			WithdrawTransaction::Asset(tx) => {
+				Self::serialize_asset_tx(tx, door_address, destination_tag)
+			},
+		};
+
+		let proof_id = T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())?;
+		Self::deposit_event(Event::WithdrawRequest {
+			proof_id,
+			sender,
+			asset_id,
+			amount,
+			destination,
+		});
+
+		Ok(())
+	}
+
+	/// Serialise an XRP tx using the Payment type from the XRPL codec
+	fn serialize_xrp_tx(
+		tx_data: XrpWithdrawTransaction,
+		door_address: [u8; 20],
+		destination_tag: Option<u32>,
+	) -> Vec<u8> {
 		let XrpWithdrawTransaction { tx_fee, tx_nonce, tx_ticket_sequence, amount, destination } =
 			tx_data;
 
@@ -1148,10 +1338,60 @@ impl<T: Config> Pallet<T> {
 			payment.binary_serialize(true)
 		};
 
-		let proof_id = T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())?;
-		Self::deposit_event(Event::WithdrawRequest { proof_id, sender, amount, destination });
+		tx_blob
+	}
 
-		Ok(())
+	/// Serialise an asset tx using the CurrencyPayment type from the XRPL codec
+	fn serialize_asset_tx(
+		_tx_data: AssetWithdrawTransaction,
+		_door_address: [u8; 20],
+		_destination_tag: Option<u32>,
+	) -> Vec<u8> {
+		// let AssetWithdrawTransaction {
+		// 	tx_fee,
+		// 	tx_nonce,
+		// 	tx_ticket_sequence,
+		// 	amount,
+		// 	destination,
+		// 	currency,
+		// 	issuer,
+		// } = tx_data;
+		//
+		// let tx_blob = if destination_tag.is_some() {
+		// 	let payment = CurrencyPaymentWithDestinationTag::new(
+		// 		door_address,
+		// 		destination.into(),
+		// 		amount.saturated_into(),
+		// 		tx_nonce,
+		// 		tx_ticket_sequence,
+		// 		tx_fee,
+		// 		SourceTag::<T>::get(),
+		// 		destination_tag.unwrap(),
+		// 		// omit signer key since this is a 'MultiSigner' tx
+		// 		None,
+		// 		currency,
+		// 		issuer,
+		// 	);
+		// 	payment.binary_serialize(true)
+		// } else {
+		// 	let payment = CurrencyPayment::new(
+		// 		door_address,
+		// 		destination.into(),
+		// 		amount.saturated_into(),
+		// 		tx_nonce,
+		// 		tx_ticket_sequence,
+		// 		tx_fee,
+		// 		SourceTag::<T>::get(),
+		// 		// omit signer key since this is a 'MultiSigner' tx
+		// 		None,
+		// 		currency,
+		// 		issuer,
+		// 	);
+		// 	payment.binary_serialize(true)
+		// };
+		//
+		// tx_blob
+		Vec::new()
 	}
 
 	// Return the current door ticket sequence and increment it in storage

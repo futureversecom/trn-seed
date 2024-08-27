@@ -38,9 +38,32 @@ pub struct XrpTransaction {
 pub struct DelayedWithdrawal<AccountId> {
 	pub sender: AccountId,
 	pub destination_tag: Option<u32>,
-	pub withdraw_tx: XrpWithdrawTransaction,
+	pub withdraw_tx: WithdrawTransaction,
 }
 
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum WithdrawTransaction {
+	XRP(XrpWithdrawTransaction),
+	Asset(AssetWithdrawTransaction),
+}
+
+impl WithdrawTransaction {
+	pub fn amount(&self) -> Balance {
+		match self {
+			WithdrawTransaction::XRP(tx) => tx.amount,
+			WithdrawTransaction::Asset(tx) => tx.amount,
+		}
+	}
+
+	pub fn destination(&self) -> XrplAccountId {
+		match self {
+			WithdrawTransaction::XRP(tx) => tx.destination,
+			WithdrawTransaction::Asset(tx) => tx.destination,
+		}
+	}
+}
+
+/// Withdrawal transaction for the XRP Currency
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
 pub struct XrpWithdrawTransaction {
 	pub tx_fee: u64,
@@ -48,6 +71,19 @@ pub struct XrpWithdrawTransaction {
 	pub tx_ticket_sequence: XrplTxTicketSequence,
 	pub amount: Balance,
 	pub destination: XrplAccountId,
+}
+
+// Withdrawal transaction for all other assets
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
+pub struct AssetWithdrawTransaction {
+	pub tx_fee: u64,
+	pub tx_nonce: XrplTxNonce,
+	pub tx_ticket_sequence: XrplTxTicketSequence,
+	pub amount: Balance,
+	pub destination: XrplAccountId,
+	pub asset_id: AssetId,
+	pub currency: H160,
+	pub issuer: XrplAccountId,
 }
 
 #[derive(
