@@ -608,6 +608,8 @@ parameter_types! {
 	pub const MaxPrunedTransactionsPerBlock: u32 = 5000;
 	pub const MaxDelayedPaymentsPerBlock: u32 = 1000;
 	pub const DelayedPaymentBlockLimit: BlockNumber = 1000;
+	/// The xrpl peg address
+	pub const XrplPalletId: PalletId = PalletId(*b"xrpl-peg");
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -625,6 +627,9 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPTransactionLimitPerLedger;
+	/// PalletId/Account for this module
+	type XrplPalletId = XrplPalletId;
+	type NativeAssetId = RootAssetId;
 }
 
 parameter_types! {

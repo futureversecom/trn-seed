@@ -19,6 +19,7 @@ use crate::types::{
 	DelayedPaymentId, DelayedWithdrawal, XrpTransaction, XrpWithdrawTransaction,
 	XrplTicketSequenceParams, XrplTxData,
 };
+use frame_support::traits::tokens::Preservation;
 use frame_support::{
 	fail,
 	pallet_prelude::*,
@@ -37,6 +38,7 @@ use seed_primitives::{
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
 	AssetId, Balance, Timestamp,
 };
+use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::{
 	traits::{One, Zero},
 	ArithmeticError, Percent, SaturatedConversion, Saturating,
@@ -70,6 +72,7 @@ pub use weights::WeightInfo;
 pub mod pallet {
 	use super::*;
 	use crate::types::{XRPLAsset, XRPLCurrency};
+	use frame_support::PalletId;
 	use sp_core::H160;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
@@ -123,6 +126,12 @@ pub mod pallet {
 
 		/// Maximum XRPL transactions within a single ledger
 		type XRPLTransactionLimitPerLedger: Get<u32>;
+
+		/// The native token asset Id (managed by pallet-balances)
+		#[pallet::constant]
+		type NativeAssetId: Get<AssetId>;
+		/// An onchain address for this pallet
+		type XrplPalletId: Get<PalletId>;
 	}
 
 	#[pallet::error]
@@ -760,14 +769,28 @@ impl<T: Config> Pallet<T> {
 				XrplTxData::CurrencyPayment { amount, address, currency } => {
 					let xrpl_asset = XRPLToAssetId::<T>::get(currency).unwrap_or_default();
 					let asset_id = xrpl_asset.asset_id;
-					if let Err(e) =
-						T::MultiCurrency::mint_into(asset_id, &(*address).into(), amount.clone())
-					{
-						Self::deposit_event(Event::ProcessingFailed(
-							ledger_index,
-							transaction_hash.clone(),
-							e,
-						));
+					if asset_id == T::NativeAssetId::get() {
+						let pallet_address: T::AccountId =
+							T::XrplPalletId::get().into_account_truncating();
+						let _ = T::MultiCurrency::transfer(
+							asset_id,
+							&pallet_address,
+							&(*address).into(),
+							amount.clone(),
+							Preservation::Expendable,
+						);
+					} else {
+						if let Err(e) = T::MultiCurrency::mint_into(
+							asset_id,
+							&(*address).into(),
+							amount.clone(),
+						) {
+							Self::deposit_event(Event::ProcessingFailed(
+								ledger_index,
+								transaction_hash.clone(),
+								e,
+							));
+						}
 					}
 				},
 				_ => {
