@@ -524,7 +524,13 @@ pub mod pallet {
 
 		/// Withdraw any token to XRPL
 		#[pallet::call_index(15)]
-		#[pallet::weight((T::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
+		#[pallet::weight({(
+			match asset_id {
+				a if a == &T::XrpAssetId::get() => T::WeightInfo::withdraw_xrp(),
+				_ => T::WeightInfo::withdraw_asset(),
+			},
+			DispatchClass::Operational
+		)})]
 		#[transactional]
 		pub fn withdraw(
 			origin: OriginFor<T>,

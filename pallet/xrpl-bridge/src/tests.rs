@@ -1317,6 +1317,7 @@ fn withdraw_with_payment_delay_works() {
 			System::assert_has_event(
 				Event::<Test>::WithdrawDelayed {
 					sender: account,
+					asset_id: XrpAssetId::get(),
 					amount,
 					destination: destination.clone(),
 					delayed_payment_id,
@@ -1326,13 +1327,13 @@ fn withdraw_with_payment_delay_works() {
 			);
 
 			// Expected tx data
-			let tx_data = XrpWithdrawTransaction {
+			let tx_data = WithdrawTransaction::XRP(XrpWithdrawTransaction {
 				tx_nonce: 0_u32,
 				tx_fee: 0,
 				amount,
 				destination,
 				tx_ticket_sequence: next_ticket_sequence,
-			};
+			});
 			let delayed_withdrawal = DelayedWithdrawal {
 				sender: account,
 				destination_tag: None,
@@ -1399,6 +1400,7 @@ fn withdraw_with_destination_tag_payment_delay_works() {
 			System::assert_has_event(
 				Event::<Test>::WithdrawDelayed {
 					sender: account,
+					asset_id: XrpAssetId::get(),
 					amount,
 					destination: destination.clone(),
 					delayed_payment_id,
@@ -1408,13 +1410,13 @@ fn withdraw_with_destination_tag_payment_delay_works() {
 			);
 
 			// Expected tx data, including destination tag
-			let tx_data = XrpWithdrawTransaction {
+			let tx_data = WithdrawTransaction::XRP(XrpWithdrawTransaction {
 				tx_nonce: 0_u32,
 				tx_fee: 0,
 				amount,
 				destination,
 				tx_ticket_sequence: next_ticket_sequence,
-			};
+			});
 			let delayed_withdrawal = DelayedWithdrawal {
 				sender: account,
 				destination_tag: Some(destination_tag),
@@ -1473,6 +1475,7 @@ fn withdraw_below_payment_delay_does_not_delay_payment() {
 				Event::<Test>::WithdrawRequest {
 					proof_id: 1,
 					sender: account,
+					asset_id: XrpAssetId::get(),
 					amount,
 					destination: destination.clone(),
 				}
@@ -1541,6 +1544,7 @@ fn process_delayed_payments_works() {
 				Event::<Test>::WithdrawRequest {
 					proof_id: 1,
 					sender: account,
+					asset_id: XrpAssetId::get(),
 					amount,
 					destination: destination.clone(),
 				}
@@ -1603,6 +1607,7 @@ fn process_delayed_payments_works_in_on_idle() {
 				Event::<Test>::WithdrawRequest {
 					proof_id: 1,
 					sender: account,
+					asset_id: XrpAssetId::get(),
 					amount,
 					destination: destination.clone(),
 				}
