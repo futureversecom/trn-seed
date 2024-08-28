@@ -51,7 +51,7 @@ use xrpl_codec::{
 
 pub use pallet::*;
 
-mod types;
+pub mod types;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
