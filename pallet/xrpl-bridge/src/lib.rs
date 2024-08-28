@@ -16,20 +16,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::types::{
-	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, WithdrawTransaction,
-	XrpTransaction, XrpWithdrawTransaction, XrplTicketSequenceParams, XrplTxData,
+	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, WithdrawTransaction, XRPLAsset,
+	XRPLCurrency, XrpTransaction, XrpWithdrawTransaction, XrplTicketSequenceParams, XrplTxData,
 };
-use frame_support::traits::tokens::Preservation;
 use frame_support::{
 	fail,
 	pallet_prelude::*,
 	traits::{
 		fungibles::{Inspect, Mutate},
-		tokens::{Fortitude, Precision},
+		tokens::{Fortitude, Precision, Preservation},
 		UnixTime,
 	},
 	transactional,
 	weights::constants::RocksDbWeight as DbWeight,
+	PalletId,
 };
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, XrplBridgeToEthyAdapter};
@@ -38,9 +38,9 @@ use seed_primitives::{
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
 	AssetId, Balance, Timestamp,
 };
-use sp_runtime::traits::AccountIdConversion;
+use sp_core::H160;
 use sp_runtime::{
-	traits::{One, Zero},
+	traits::{AccountIdConversion, One, Zero},
 	ArithmeticError, Percent, SaturatedConversion, Saturating,
 };
 use sp_std::{prelude::*, vec};
@@ -63,17 +63,13 @@ mod tests;
 mod tests_relayer;
 
 pub mod weights;
+pub use weights::WeightInfo;
 
 type AccountOf<T> = <T as frame_system::Config>::AccountId;
-
-pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::types::{XRPLAsset, XRPLCurrency};
-	use frame_support::PalletId;
-	use sp_core::H160;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
@@ -134,18 +130,13 @@ pub mod pallet {
 
 		/// Maximum XRPL transactions within a single ledger
 		type XRPLTransactionLimitPerLedger: Get<u32>;
-
-		/// The native token asset Id (managed by pallet-balances)
-		#[pallet::constant]
-		type NativeAssetId: Get<AssetId>;
-		/// An onchain address for this pallet
-		type XrplPalletId: Get<PalletId>;
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		/// This asset is not supported by the bridge
 		AssetNotSupported,
+		/// Only the active relayer is permitted to perform this action
 		NotPermitted,
 		/// The paymentIds have been exhausted
 		NoAvailablePaymentIds,
