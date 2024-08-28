@@ -53,7 +53,7 @@ parameter_types! {
 	pub const DelayedPaymentBlockLimit: BlockNumber = 1000;
 	pub const XrpAssetId: u32 = XRP_ASSET_ID;
 	pub const SourceTag: u32 = 723456_u32;
-	pub const XRPLBridgePalletId: PalletId = PalletId(*b"xrplbrdg");
+	pub const XrplPalletId: PalletId = PalletId(*b"xrpl-peg");
 }
 
 impl pallet_xrpl_bridge::Config for Test {
