@@ -59,6 +59,101 @@ fn submit_transaction(
 	));
 }
 
+mod mantissa_tests {
+	use super::*;
+	#[test]
+	fn mantissa_conversion_test_1() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let amount: Balance = 1_000_000_000_000_000_000;
+			let decimals: u8 = 0;
+			let (mantissa, exponent) =
+				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
+			assert_eq!(mantissa, 1_000_000_000_000_000);
+			assert_eq!(exponent, 3);
+		});
+	}
+
+	#[test]
+	fn mantissa_conversion_test_2() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let amount: Balance = 1_000_000_000_000_001_111; // 1 ASTO at 18dp
+			let decimals: u8 = 18;
+			let (mantissa, exponent) =
+				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
+			assert_eq!(mantissa, 1_000_000_000_000_001);
+			assert_eq!(exponent, -15);
+		});
+	}
+
+	#[test]
+	fn mantissa_conversion_test_3() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let amount: Balance = 10_000_000_000_000_010;
+			let decimals = 0;
+			let (mantissa, exponent) =
+				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
+			assert_eq!(mantissa, 1_000_000_000_000_001);
+			assert_eq!(exponent, 1);
+		});
+	}
+
+	#[test]
+	fn mantissa_conversion_test_saturation() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let amount: Balance = 10_000_000_000_000_001; // The last one will be saturated
+			let saturated_amount: Balance = 10_000_000_000_000_000;
+			let decimals = 18;
+			// Saturate balance should remove the last 1 and prevent loss of precision
+			assert_eq!(Pallet::<Test>::saturate_balance(amount), saturated_amount);
+			let (mantissa, exponent) =
+				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
+			assert_eq!(mantissa, 1_000_000_000_000_000);
+			assert_eq!(exponent, -17);
+		});
+	}
+
+	#[test]
+	fn mantissa_conversion_test_max() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let amount: Balance = u128::MAX;
+			let decimals = 18;
+			let (mantissa, exponent) =
+				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
+			assert_eq!(mantissa, 3_402_823_669_209_384);
+			assert_eq!(exponent, 5);
+		});
+	}
+
+	#[test]
+	fn mantissa_conversion_test_min() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let amount: Balance = 1;
+			let decimals = 18;
+			let (mantissa, exponent) =
+				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
+			assert_eq!(mantissa, 1_000_000_000_000_000);
+			assert_eq!(exponent, -33);
+		});
+	}
+
+	#[test]
+	fn saturate_balance_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let amount: Balance = 111_111_111_111_111_111_111_111_111;
+			let saturated_amount: Balance = 111_111_111_111_111_100_000_000_000;
+			assert_eq!(Pallet::<Test>::saturate_balance(amount), saturated_amount);
+			let (mantissa, _) = Pallet::<Test>::balance_to_mantissa_exponent(amount, 0).unwrap();
+			assert_eq!(mantissa, 1_111_111_111_111_111);
+
+			let amount: Balance = 999_999_999_999_999_999_999_999_999;
+			let saturated_amount: Balance = 999_999_999_999_999_900_000_000_000;
+			assert_eq!(Pallet::<Test>::saturate_balance(amount), saturated_amount);
+			let (mantissa, _) = Pallet::<Test>::balance_to_mantissa_exponent(amount, 0).unwrap();
+			assert_eq!(mantissa, 9_999_999_999_999_999);
+		});
+	}
+}
+
 #[test]
 fn submit_transaction_replay_within_submission_window() {
 	TestExt::<Test>::default().build().execute_with(|| {

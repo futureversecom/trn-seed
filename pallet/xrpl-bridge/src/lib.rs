@@ -23,7 +23,7 @@ use frame_support::{
 	fail,
 	pallet_prelude::*,
 	traits::{
-		fungibles::{Inspect, Mutate},
+		fungibles::{metadata::Inspect as InspectMetadata, Inspect, Mutate},
 		tokens::{Fortitude, Precision, Preservation},
 		UnixTime,
 	},
@@ -44,6 +44,11 @@ use sp_runtime::{
 	ArithmeticError, Percent, SaturatedConversion, Saturating,
 };
 use sp_std::{prelude::*, vec};
+use xrpl_codec::field::Amount;
+use xrpl_codec::transaction::PaymentAltCurrency;
+use xrpl_codec::types::{
+	AccountIdType, AmountType, CurrencyCodeType, IssuedAmountType, IssuedValueType,
+};
 use xrpl_codec::{
 	traits::BinarySerialize,
 	transaction::{Payment, PaymentWithDestinationTag, SignerListSet},
@@ -81,7 +86,8 @@ pub mod pallet {
 
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 			+ Inspect<Self::AccountId, AssetId = AssetId>
-			+ Mutate<Self::AccountId, Balance = Balance>;
+			+ Mutate<Self::AccountId, Balance = Balance>
+			+ InspectMetadata<Self::AccountId>;
 
 		/// Allowed origins to add/remove the relayers
 		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -151,6 +157,12 @@ pub mod pallet {
 		DoorAddressNotSet,
 		/// XRPL does not allow more than 8 signers for door address
 		TooManySigners,
+		/// The asset decimals are too high to bridge to XRPL
+		InvalidAssetDecimals,
+		/// The issued amount currency code is invalid
+		InvalidCurrencyCode,
+		/// Could not convert Balance to Mantissa Exponent
+		InvalidMantissaExponentConversion,
 		/// The signers are not known by ethy
 		InvalidSigners,
 		/// highest_pruned_ledger_index must be less than highest_settled_ledger_index -
@@ -801,7 +813,7 @@ impl<T: Config> Pallet<T> {
 					let asset_id = xrpl_asset.asset_id;
 					if asset_id == T::NativeAssetId::get() {
 						let pallet_address: T::AccountId =
-							T::XrplPalletId::get().into_account_truncating();
+							T::PalletId::get().into_account_truncating();
 						let _ = T::MultiCurrency::transfer(
 							asset_id,
 							&pallet_address,
@@ -1097,6 +1109,11 @@ impl<T: Config> Pallet<T> {
 		// TODO: need a fee oracle, this is over estimating the fee
 		// https://github.com/futureversecom/seed/issues/107
 		let tx_fee = Self::door_tx_fee();
+		// Saturate the balance to be within the Mantissa range if the asset is not XRP
+		let amount =
+			if asset_id != T::XrpAssetId::get() { Self::saturate_balance(amount) } else { amount };
+
+		let amount = amount / 1000 * 1000;
 		ensure!(!amount.is_zero(), Error::<T>::WithdrawInvalidAmount);
 		ensure!(amount.checked_add(tx_fee as Balance).is_some(), Error::<T>::WithdrawInvalidAmount); // xrp amounts are `u64`
 		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
@@ -1180,6 +1197,7 @@ impl<T: Config> Pallet<T> {
 			Fortitude::Polite,
 		)?;
 
+		// if amount > 9999999999999999 // /100000
 		// Transfer ROOT tokens to the pallet address.
 		let pallet_address: T::AccountId = T::PalletId::get().into_account_truncating();
 		let _ = T::MultiCurrency::transfer(
@@ -1301,7 +1319,7 @@ impl<T: Config> Pallet<T> {
 				Self::serialize_xrp_tx(tx, door_address, destination_tag)
 			},
 			WithdrawTransaction::Asset(tx) => {
-				Self::serialize_asset_tx(tx, door_address, destination_tag)
+				Self::serialize_asset_tx(tx, door_address, destination_tag)?
 			},
 		};
 
@@ -1360,55 +1378,104 @@ impl<T: Config> Pallet<T> {
 
 	/// Serialise an asset tx using the CurrencyPayment type from the XRPL codec
 	fn serialize_asset_tx(
-		_tx_data: AssetWithdrawTransaction,
-		_door_address: [u8; 20],
+		tx_data: AssetWithdrawTransaction,
+		door_address: [u8; 20],
 		_destination_tag: Option<u32>,
-	) -> Vec<u8> {
-		// let AssetWithdrawTransaction {
-		// 	tx_fee,
-		// 	tx_nonce,
-		// 	tx_ticket_sequence,
-		// 	amount,
-		// 	destination,
-		// 	currency,
-		// 	issuer,
-		// } = tx_data;
-		//
-		// let tx_blob = if destination_tag.is_some() {
-		// 	let payment = CurrencyPaymentWithDestinationTag::new(
-		// 		door_address,
-		// 		destination.into(),
-		// 		amount.saturated_into(),
-		// 		tx_nonce,
-		// 		tx_ticket_sequence,
-		// 		tx_fee,
-		// 		SourceTag::<T>::get(),
-		// 		destination_tag.unwrap(),
-		// 		// omit signer key since this is a 'MultiSigner' tx
-		// 		None,
-		// 		currency,
-		// 		issuer,
-		// 	);
-		// 	payment.binary_serialize(true)
-		// } else {
-		// 	let payment = CurrencyPayment::new(
-		// 		door_address,
-		// 		destination.into(),
-		// 		amount.saturated_into(),
-		// 		tx_nonce,
-		// 		tx_ticket_sequence,
-		// 		tx_fee,
-		// 		SourceTag::<T>::get(),
-		// 		// omit signer key since this is a 'MultiSigner' tx
-		// 		None,
-		// 		currency,
-		// 		issuer,
-		// 	);
-		// 	payment.binary_serialize(true)
-		// };
-		//
-		// tx_blob
-		Vec::new()
+	) -> Result<Vec<u8>, DispatchError> {
+		let AssetWithdrawTransaction {
+			tx_fee,
+			tx_nonce,
+			tx_ticket_sequence,
+			amount,
+			destination,
+			currency,
+			issuer,
+			asset_id,
+		} = tx_data;
+
+		let currency = CurrencyCodeType::NonStandard(<[u8; 20]>::from(currency));
+		let issuer = AccountIdType(<[u8; 20]>::from(issuer));
+		let decimals = T::MultiCurrency::decimals(asset_id);
+		let (mantissa, exponent) = Self::balance_to_mantissa_exponent(amount, decimals)?;
+		let value_type = IssuedValueType::from_mantissa_exponent(mantissa, exponent)
+			.map_err(|_| Error::<T>::InvalidCurrencyCode)?;
+		let issued_amount = IssuedAmountType::from_issued_value(value_type, currency, issuer)
+			.map_err(|_| Error::<T>::InvalidCurrencyCode)?;
+		let amount: Amount = Amount(AmountType::Issued(issued_amount));
+		let payment = PaymentAltCurrency::new(
+			door_address,
+			destination.into(),
+			amount,
+			tx_nonce,
+			tx_ticket_sequence,
+			tx_fee,
+			SourceTag::<T>::get(),
+			// omit signer key since this is a 'MultiSigner' tx
+			None,
+		);
+		Ok(payment.binary_serialize(true))
+	}
+
+	/// Saturate balance values to ensure no precision is lost when converting to
+	/// mantissa and exponent
+	/// This must be done before charging the user on TRN to prevent token loss
+	fn saturate_balance(amount: Balance) -> Balance {
+		// Get exponent of amount
+		let mut exponent = 0;
+		let mut amount = amount;
+		const MANTISSA_MAX: u128 = 9999999999999999;
+		while amount > MANTISSA_MAX {
+			amount /= 10;
+			exponent += 1;
+		}
+		// Return back to original value but with less precision
+		amount *= 10_u128.pow(exponent as u32);
+		amount
+	}
+
+	fn balance_to_mantissa_exponent(
+		amount: Balance,
+		decimals: u8,
+	) -> Result<(i64, i8), DispatchError> {
+		const MANTISSA_MIN: i64 = 1_000_000_000_000_000;
+		const MANTISSA_MAX: i64 = 9_999_999_999_999_999;
+		const EXPONENT_MIN: i8 = -96;
+		const EXPONENT_MAX: i8 = 80;
+
+		if amount == 0 {
+			return Ok((0, 0));
+		}
+
+		// Convert decimals to exponent and invert
+		let mut exponent: i8 = decimals.try_into().map_err(|_| Error::<T>::InvalidAssetDecimals)?;
+		exponent = -exponent;
+		let mut mantissa: u128 = amount;
+
+		// Scale down the u128 value to fit within i64 range
+		while mantissa > MANTISSA_MAX as u128 {
+			mantissa /= 10;
+			exponent += 1;
+		}
+
+		// Convert to i64 (mantissa is now within i64 range)
+		let mut mantissa = mantissa as i64;
+
+		// Ensure mantissa is within the defined bounds
+		while mantissa < MANTISSA_MIN && exponent > EXPONENT_MIN {
+			mantissa *= 10;
+			exponent -= 1;
+		}
+
+		// This should never happen as u128 is too small to reach this bound
+		if mantissa > MANTISSA_MAX || exponent > EXPONENT_MAX {
+			return Err(Error::<T>::InvalidMantissaExponentConversion.into());
+		}
+
+		if mantissa < MANTISSA_MIN || exponent < EXPONENT_MIN {
+			return Ok((0, 0)); // Return zero value
+		}
+
+		Ok((mantissa, exponent))
 	}
 
 	// Return the current door ticket sequence and increment it in storage

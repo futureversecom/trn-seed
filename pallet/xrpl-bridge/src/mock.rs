@@ -64,7 +64,7 @@ impl pallet_xrpl_bridge::Config for Test {
 	type WeightInfo = ();
 	type XrpAssetId = XrpAssetId;
 	type NativeAssetId = NativeAssetId;
-	type PalletId = XRPLBridgePalletId;
+	type PalletId = XrplPalletId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type MaxPrunedTransactionsPerBlock = MaxPrunedTransactionsPerBlock;
 	type MaxDelayedPaymentsPerBlock = MaxDelayedPaymentsPerBlock;
