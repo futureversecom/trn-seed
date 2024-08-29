@@ -620,7 +620,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type WeightInfo = weights::pallet_xrpl_bridge::WeightInfo<Runtime>;
 	type XrpAssetId = XrpAssetId;
 	type NativeAssetId = RootAssetId;
-	type PalletId = XRPLBridgePalletId;
+	type PalletId = XrplPalletId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type MaxPrunedTransactionsPerBlock = MaxPrunedTransactionsPerBlock;
 	type MaxDelayedPaymentsPerBlock = MaxDelayedPaymentsPerBlock;

@@ -17,7 +17,8 @@
 
 use crate::types::{
 	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, WithdrawTransaction, XRPLAsset,
-	XRPLCurrency, XrpTransaction, XrpWithdrawTransaction, XrplTicketSequenceParams, XrplTxData,
+	XRPLCurrency, XRPLCurrencyType, XrpTransaction, XrpWithdrawTransaction,
+	XrplTicketSequenceParams, XrplTxData,
 };
 use frame_support::{
 	fail,
@@ -38,20 +39,19 @@ use seed_primitives::{
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
 	AssetId, Balance, Timestamp,
 };
-use sp_core::H160;
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
 	ArithmeticError, Percent, SaturatedConversion, Saturating,
 };
 use sp_std::{prelude::*, vec};
-use xrpl_codec::field::Amount;
-use xrpl_codec::transaction::PaymentAltCurrency;
-use xrpl_codec::types::{
-	AccountIdType, AmountType, CurrencyCodeType, IssuedAmountType, IssuedValueType,
-};
 use xrpl_codec::{
+	field::Amount,
 	traits::BinarySerialize,
 	transaction::{Payment, PaymentWithDestinationTag, SignerListSet},
+};
+use xrpl_codec::{
+	transaction::PaymentAltCurrency,
+	types::{AccountIdType, AmountType, IssuedAmountType, IssuedValueType},
 };
 
 pub use pallet::*;
@@ -242,7 +242,7 @@ pub mod pallet {
 		TicketSequenceThresholdReached(u32),
 		XrplAssetMapSet {
 			asset_id: AssetId,
-			xrpl_symbol: H160,
+			xrpl_currency: XRPLCurrencyType,
 			issuer: XrplAccountId,
 		},
 	}
@@ -301,7 +301,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Map XRPL symbol to TRN asset Id, storage to keep mapping between XRPL -> TRN tokens/assets
-	pub type XRPLToAssetId<T: Config> = StorageMap<_, Twox64Concat, H160, XRPLAsset>;
+	pub type XRPLToAssetId<T: Config> = StorageMap<_, Twox64Concat, XRPLCurrencyType, XRPLAsset>;
 
 	#[pallet::storage]
 	/// Highest settled XRPL ledger index
@@ -749,16 +749,20 @@ pub mod pallet {
 		pub fn set_xrpl_asset_map(
 			origin: OriginFor<T>,
 			asset_id: AssetId,
-			xrpl_symbol: H160,
-			issuer: XrplAccountId,
+			xrpl_currency: XRPLCurrency,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let xrpl_currency =
-				XRPLCurrency { currency: xrpl_symbol.clone(), issuer: issuer.clone() };
-			let xrpl_asset = XRPLAsset { asset_id: asset_id.clone(), issuer: issuer.clone() };
-			<AssetIdToXRPL<T>>::insert(asset_id.clone(), xrpl_currency.clone());
-			<XRPLToAssetId<T>>::insert(xrpl_symbol.clone(), xrpl_asset.clone());
-			Self::deposit_event(Event::XrplAssetMapSet { asset_id, xrpl_symbol, issuer });
+			// Validate currency to prevent errors during withdrawal
+			ensure!(xrpl_currency.currency.is_valid(), Error::<T>::InvalidCurrencyCode);
+			let issuer: XrplAccountId = xrpl_currency.issuer;
+			let xrpl_asset = XRPLAsset { asset_id, issuer };
+			<AssetIdToXRPL<T>>::insert(asset_id, xrpl_currency);
+			<XRPLToAssetId<T>>::insert(xrpl_currency.currency, xrpl_asset);
+			Self::deposit_event(Event::XrplAssetMapSet {
+				asset_id,
+				xrpl_currency: xrpl_currency.currency,
+				issuer,
+			});
 			Ok(())
 		}
 	}
@@ -1110,8 +1114,18 @@ impl<T: Config> Pallet<T> {
 		// https://github.com/futureversecom/seed/issues/107
 		let tx_fee = Self::door_tx_fee();
 		// Saturate the balance to be within the Mantissa range if the asset is not XRP
-		let amount =
-			if asset_id != T::XrpAssetId::get() { Self::saturate_balance(amount) } else { amount };
+		let amount = if asset_id != T::XrpAssetId::get() {
+			let (mantissa, exponent) = Self::balance_to_mantissa_exponent(amount, 0)?;
+			// Return an error if we are saturating by more than 1.0 of the asset
+			ensure!(
+				exponent < T::MultiCurrency::decimals(asset_id) as i8,
+				Error::<T>::WithdrawInvalidAmount
+			);
+			// Return mantissa and exponent back into Balance for our calculations
+			mantissa as u128 * 10u128.pow(exponent as u32)
+		} else {
+			amount
+		};
 
 		let amount = amount / 1000 * 1000;
 		ensure!(!amount.is_zero(), Error::<T>::WithdrawInvalidAmount);
@@ -1393,7 +1407,7 @@ impl<T: Config> Pallet<T> {
 			asset_id,
 		} = tx_data;
 
-		let currency = CurrencyCodeType::NonStandard(currency.into());
+		let currency = currency.into();
 		let issuer = AccountIdType(issuer.into());
 		let decimals = T::MultiCurrency::decimals(asset_id);
 		let (mantissa, exponent) = Self::balance_to_mantissa_exponent(amount, decimals)?;
@@ -1416,35 +1430,11 @@ impl<T: Config> Pallet<T> {
 		Ok(payment.binary_serialize(true))
 	}
 
-	/// Saturate balance values to ensure no precision is lost when converting to
-	/// mantissa and exponent
-	/// This must be done before charging the user on TRN to prevent token loss
-	fn saturate_balance(amount: Balance) -> Balance {
-		// Get exponent of amount
-		let mut exponent = 0;
-		let mut amount = amount;
-		const MANTISSA_MAX: u128 = 9999999999999999;
-		while amount > MANTISSA_MAX {
-			amount /= 10;
-			exponent += 1;
-		}
-		// Return back to original value but with less precision
-		amount *= 10_u128.pow(exponent as u32);
-		amount
-	}
-
 	fn balance_to_mantissa_exponent(
 		amount: Balance,
 		decimals: u8,
 	) -> Result<(i64, i8), DispatchError> {
-		const MANTISSA_MIN: i64 = 1_000_000_000_000_000;
-		const MANTISSA_MAX: i64 = 9_999_999_999_999_999;
-		const EXPONENT_MIN: i8 = -96;
-		const EXPONENT_MAX: i8 = 80;
-
-		if amount == 0 {
-			return Ok((0, 0));
-		}
+		const MANTISSA_MAX: u128 = 9_999_999_999_999_999;
 
 		// Convert decimals to exponent and invert
 		let mut exponent: i8 = decimals.try_into().map_err(|_| Error::<T>::InvalidAssetDecimals)?;
@@ -1452,33 +1442,18 @@ impl<T: Config> Pallet<T> {
 		let mut mantissa: u128 = amount;
 
 		// Scale down the u128 value to fit within i64 range
-		while mantissa > MANTISSA_MAX as u128 {
+		while mantissa > MANTISSA_MAX {
 			mantissa /= 10;
 			exponent += 1;
 		}
 
 		// Convert to i64 (mantissa is now within i64 range)
-		let mut mantissa = mantissa as i64;
-
-		// Ensure mantissa is within the defined bounds
-		while mantissa < MANTISSA_MIN && exponent > EXPONENT_MIN {
-			mantissa *= 10;
-			exponent -= 1;
-		}
-
-		// This should never happen as u128 is too small to reach this bound
-		if mantissa > MANTISSA_MAX || exponent > EXPONENT_MAX {
-			return Err(Error::<T>::InvalidMantissaExponentConversion.into());
-		}
-
-		if mantissa < MANTISSA_MIN || exponent < EXPONENT_MIN {
-			return Ok((0, 0)); // Return zero value
-		}
+		let mantissa = mantissa as i64;
 
 		Ok((mantissa, exponent))
 	}
 
-	// Return the current door ticket sequence and increment it in storage
+	/// Return the current door ticket sequence and increment it in storage
 	pub fn get_door_ticket_sequence() -> Result<XrplTxTicketSequence, DispatchError> {
 		let mut current_sequence = Self::door_ticket_sequence();
 		let ticket_params = Self::door_ticket_sequence_params();

@@ -154,6 +154,47 @@ mod mantissa_tests {
 	}
 }
 
+// mod currency_code_converter {
+// 	use super::*;
+// 	use crate::types::CurrencyCodeConverter;
+//
+// 	#[test]
+// 	fn currency_code_standard() {
+// 		TestExt::<Test>::default().build().execute_with(|| {
+// 			let currency_code = CurrencyCodeType::Standard(b"XRP".clone());
+// 			let converted: H160 = <H160 as CurrencyCodeConverter>::from(currency_code);
+// 			assert_eq!(converted, hex!("5852500000000000000000000000000000000000").into());
+// 			// TODO enable PartialEq for CurrencyCodeType
+// 			// assert_eq!(currency_code, <H160 as CurrencyCodeConverter>::to(converted));
+//
+// 			let currency_code = CurrencyCodeType::Standard(b"ZZZ".clone());
+// 			let converted: H160 = <H160 as CurrencyCodeConverter>::from(currency_code);
+// 			assert_eq!(converted, hex!("5a5a5a0000000000000000000000000000000000").into());
+// 			// TODO enable PartialEq for CurrencyCodeType
+// 			// assert_eq!(currency_code, <H160 as CurrencyCodeConverter>::to(converted));
+// 		});
+// 	}
+//
+// 	#[test]
+// 	fn currency_code_non_standard() {
+// 		TestExt::<Test>::default().build().execute_with(|| {
+// 			let currency_code =
+// 				CurrencyCodeType::NonStandard(hex!("5852534000000000000000000000000000000000"));
+// 			let converted: H160 = <H160 as CurrencyCodeConverter>::from(currency_code);
+// 			assert_eq!(converted, hex!("5852534000000000000000000000000000000000").into());
+// 			// TODO enable PartialEq for CurrencyCodeType
+// 			// assert_eq!(currency_code, <H160 as CurrencyCodeConverter>::to(converted));
+//
+// 			let currency_code =
+// 				CurrencyCodeType::NonStandard(hex!("2222222222222222222222222222222222222222"));
+// 			let converted: H160 = <H160 as CurrencyCodeConverter>::from(currency_code);
+// 			assert_eq!(converted, hex!("2222222222222222222222222222222222222222").into());
+// 			// TODO enable PartialEq for CurrencyCodeType
+// 			// assert_eq!(currency_code, <H160 as CurrencyCodeConverter>::to(converted));
+// 		});
+// 	}
+// }
+
 #[test]
 fn submit_transaction_replay_within_submission_window() {
 	TestExt::<Test>::default().build().execute_with(|| {
