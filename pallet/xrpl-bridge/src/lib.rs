@@ -1393,12 +1393,12 @@ impl<T: Config> Pallet<T> {
 			asset_id,
 		} = tx_data;
 
-		let currency = CurrencyCodeType::NonStandard(<[u8; 20]>::from(currency));
-		let issuer = AccountIdType(<[u8; 20]>::from(issuer));
+		let currency = CurrencyCodeType::NonStandard(currency.into());
+		let issuer = AccountIdType(issuer.into());
 		let decimals = T::MultiCurrency::decimals(asset_id);
 		let (mantissa, exponent) = Self::balance_to_mantissa_exponent(amount, decimals)?;
 		let value_type = IssuedValueType::from_mantissa_exponent(mantissa, exponent)
-			.map_err(|_| Error::<T>::InvalidCurrencyCode)?;
+			.map_err(|_| Error::<T>::InvalidMantissaExponentConversion)?;
 		let issued_amount = IssuedAmountType::from_issued_value(value_type, currency, issuer)
 			.map_err(|_| Error::<T>::InvalidCurrencyCode)?;
 		let amount: Amount = Amount(AmountType::Issued(issued_amount));
