@@ -1385,16 +1385,36 @@ fn set_xrpl_asset_map_works() {
 		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		let xrpl_symbol =
 			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
-		let xrpl_currency = XRPLCurrency { currency: xrpl_symbol.clone(), issuer: issuer.clone() };
-		assert_ok!(XRPLBridge::set_xrpl_asset_map(
-			RuntimeOrigin::root(),
-			asset_id,
-			xrpl_currency.clone()
-		));
-		assert_eq!(AssetIdToXRPL::<Test>::get(asset_id.clone()), Some(xrpl_currency));
-		let xrpl_asset = XRPLAsset { asset_id: asset_id.clone(), issuer: issuer.clone() };
-		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_symbol.clone()), Some(xrpl_asset));
+		let xrpl_currency = XRPLCurrency { currency: xrpl_symbol, issuer };
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency));
+		assert_eq!(AssetIdToXRPL::<Test>::get(asset_id), Some(xrpl_currency));
+		let xrpl_asset = XRPLAsset { asset_id, issuer };
+		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_symbol), Some(xrpl_asset));
 		System::assert_has_event(Event::<Test>::XrplAssetMapSet { asset_id, xrpl_currency }.into());
+	})
+}
+
+#[test]
+fn set_xrpl_asset_map_invalid_currency_code() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let asset_id = 1;
+		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		// Invalid symbol as it starts with 0x00
+		let xrpl_symbol =
+			XRPLCurrencyType::NonStandard(hex!("004F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { currency: xrpl_symbol, issuer };
+		assert_noop!(
+			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency),
+			Error::<Test>::InvalidCurrencyCode
+		);
+
+		// Invalid symbol, Standard currency can't be "XRP"
+		let xrpl_symbol = XRPLCurrencyType::Standard((*b"XRP").into());
+		let xrpl_currency = XRPLCurrency { currency: xrpl_symbol, issuer };
+		assert_noop!(
+			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency),
+			Error::<Test>::InvalidCurrencyCode
+		);
 	})
 }
 
@@ -1406,7 +1426,7 @@ fn set_xrpl_asset_map_not_sudo_fails() {
 		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		let xrpl_symbol =
 			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
-		let xrpl_currency = XRPLCurrency { currency: xrpl_symbol.clone(), issuer: issuer.clone() };
+		let xrpl_currency = XRPLCurrency { currency: xrpl_symbol, issuer };
 		assert_noop!(
 			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::signed(account), asset_id, xrpl_currency),
 			BadOrigin

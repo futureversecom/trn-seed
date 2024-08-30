@@ -18,6 +18,7 @@ use super::*;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
+use hex_literal::hex;
 
 use crate::Pallet as XrplBridge;
 
@@ -97,13 +98,15 @@ benchmarks! {
 		let alice_balance = amount + 1000000000;
 		let asset_id = T::NativeAssetId::get();
 		let tx_fee = DoorTxFee::<T>::get();
+		let xrpl_symbol =
+			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { currency: xrpl_symbol.clone(), issuer: destination };
 
 		// Set asset map
 		assert_ok!(XrplBridge::<T>::set_xrpl_asset_map(
 			RawOrigin::Root.into(),
 			asset_id,
-			sp_core::H160::zero(),
-			destination
+			xrpl_currency
 		));
 		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), door_address));
 		// Mint ROOT tokens to withdraw
