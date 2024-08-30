@@ -74,7 +74,7 @@ pub struct XrpWithdrawTransaction {
 	pub destination: XrplAccountId,
 }
 
-// Withdrawal transaction for all other assets
+/// Withdrawal transaction for all other assets
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
 pub struct AssetWithdrawTransaction {
 	pub tx_fee: u64,
@@ -92,7 +92,7 @@ pub struct AssetWithdrawTransaction {
 )]
 pub enum XrplTxData {
 	Payment { amount: Balance, address: H160 },
-	CurrencyPayment { amount: Balance, address: H160, currency: XRPLCurrencyType },
+	CurrencyPayment { amount: Balance, address: H160, currency: XRPLCurrency },
 	Xls20, // Nft
 }
 
@@ -136,7 +136,7 @@ impl Default for XrplTicketSequenceParams {
 	}
 }
 
-// Currency issued by issuer https://xrpl.org/docs/references/protocol/data-types/currency-formats#token-amounts
+/// Currency issued by issuer https://xrpl.org/docs/references/protocol/data-types/currency-formats#token-amounts
 #[derive(
 	Eq,
 	Copy,
@@ -149,14 +149,14 @@ impl Default for XrplTicketSequenceParams {
 	MaxEncodedLen,
 )]
 pub struct XRPLCurrency {
-	pub currency: XRPLCurrencyType,
+	pub symbol: XRPLCurrencyType,
 	pub issuer: XrplAccountId,
 }
 
 impl Default for XRPLCurrency {
 	fn default() -> Self {
 		XRPLCurrency {
-			currency: XRPLCurrencyType::NonStandard([0; 20]),
+			symbol: XRPLCurrencyType::NonStandard([0; 20]),
 			issuer: XrplAccountId::default(),
 		}
 	}
@@ -174,6 +174,8 @@ impl Default for XRPLAsset {
 	}
 }
 
+/// Currency type on TRN to match the CurrencyCodeType from XRPL codec
+/// Supports both 3 and 20 byte currency codes
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum XRPLCurrencyType {
 	Standard([u8; 3]),

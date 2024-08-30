@@ -100,7 +100,7 @@ benchmarks! {
 		let tx_fee = DoorTxFee::<T>::get();
 		let xrpl_symbol =
 			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
-		let xrpl_currency = XRPLCurrency { currency: xrpl_symbol.clone(), issuer: destination };
+		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol.clone(), issuer: destination };
 
 		// Set asset map
 		assert_ok!(XrplBridge::<T>::set_xrpl_asset_map(

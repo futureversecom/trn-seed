@@ -446,6 +446,14 @@ pub mod pallet {
 			let relayer = ensure_signed(origin)?;
 			let active_relayer = <Relayer<T>>::get(&relayer).unwrap_or(false);
 			ensure!(active_relayer, Error::<T>::NotPermitted);
+
+			// Verify that the issuer supplied matches the issuer we have in our map,
+			if let XrplTxData::CurrencyPayment { currency, .. } = &transaction {
+				let xrpl_asset = XRPLToAssetId::<T>::get(currency.symbol)
+					.ok_or(Error::<T>::AssetNotSupported)?;
+				ensure!(xrpl_asset.issuer == currency.issuer, Error::<T>::InvalidCurrencyCode);
+			}
+
 			// Check within the submission window
 			let submission_window_end = HighestSettledLedgerIndex::<T>::get()
 				.saturating_sub(SubmissionWindowWidth::<T>::get());
@@ -752,11 +760,11 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			// Validate currency to prevent errors during withdrawal
-			ensure!(xrpl_currency.currency.is_valid(), Error::<T>::InvalidCurrencyCode);
+			ensure!(xrpl_currency.symbol.is_valid(), Error::<T>::InvalidCurrencyCode);
 			let issuer: XrplAccountId = xrpl_currency.issuer;
 			let xrpl_asset = XRPLAsset { asset_id, issuer };
 			<AssetIdToXRPL<T>>::insert(asset_id, xrpl_currency);
-			<XRPLToAssetId<T>>::insert(xrpl_currency.currency, xrpl_asset);
+			<XRPLToAssetId<T>>::insert(xrpl_currency.symbol, xrpl_asset);
 			Self::deposit_event(Event::XrplAssetMapSet { asset_id, xrpl_currency });
 			Ok(())
 		}
@@ -805,21 +813,43 @@ impl<T: Config> Pallet<T> {
 							transaction_hash.clone(),
 							e,
 						));
+					} else {
+						Self::deposit_event(Event::ProcessingOk(
+							ledger_index,
+							transaction_hash.clone(),
+						));
 					}
 				},
 				XrplTxData::CurrencyPayment { amount, address, currency } => {
-					let xrpl_asset = XRPLToAssetId::<T>::get(currency).unwrap_or_default();
+					let xrpl_asset = match XRPLToAssetId::<T>::get(currency.symbol) {
+						None => {
+							Self::deposit_event(Event::ProcessingFailed(
+								ledger_index,
+								transaction_hash.clone(),
+								Error::<T>::AssetNotSupported.into(),
+							));
+							continue;
+						},
+						Some(xrpl_asset) => xrpl_asset,
+					};
 					let asset_id = xrpl_asset.asset_id;
 					if asset_id == T::NativeAssetId::get() {
 						let pallet_address: T::AccountId =
 							T::PalletId::get().into_account_truncating();
-						let _ = T::MultiCurrency::transfer(
+						if let Err(e) = T::MultiCurrency::transfer(
 							asset_id,
 							&pallet_address,
 							&(*address).into(),
 							amount.clone(),
 							Preservation::Expendable,
-						);
+						) {
+							Self::deposit_event(Event::ProcessingFailed(
+								ledger_index,
+								transaction_hash.clone(),
+								e,
+							));
+							continue;
+						}
 					} else {
 						if let Err(e) = T::MultiCurrency::mint_into(
 							asset_id,
@@ -831,8 +861,13 @@ impl<T: Config> Pallet<T> {
 								transaction_hash.clone(),
 								e,
 							));
+							continue;
 						}
 					}
+					Self::deposit_event(Event::ProcessingOk(
+						ledger_index,
+						transaction_hash.clone(),
+					));
 				},
 				_ => {
 					Self::deposit_event(Event::NotSupportedTransaction);
@@ -854,7 +889,6 @@ impl<T: Config> Pallet<T> {
 
 			writes += 2;
 			reads += 2;
-			Self::deposit_event(Event::ProcessingOk(ledger_index, transaction_hash.clone()));
 		}
 
 		writes += 1;
@@ -1107,10 +1141,10 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		// TODO: need a fee oracle, this is over estimating the fee
 		// https://github.com/futureversecom/seed/issues/107
-		let tx_fee = Self::door_tx_fee();
+		ensure!(!amount.is_zero(), Error::<T>::WithdrawInvalidAmount);
 		// Saturate the balance to be within the Mantissa range if the asset is not XRP
 		let amount = Self::saturate_balance(amount, 0)?;
-		ensure!(!amount.is_zero(), Error::<T>::WithdrawInvalidAmount);
+		let tx_fee = Self::door_tx_fee();
 		ensure!(amount.checked_add(tx_fee as Balance).is_some(), Error::<T>::WithdrawInvalidAmount); // xrp amounts are `u64`
 		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
 
@@ -1193,7 +1227,6 @@ impl<T: Config> Pallet<T> {
 			Fortitude::Polite,
 		)?;
 
-		// if amount > 9999999999999999 // /100000
 		// Transfer ROOT tokens to the pallet address.
 		let pallet_address: T::AccountId = T::PalletId::get().into_account_truncating();
 		let _ = T::MultiCurrency::transfer(
@@ -1212,7 +1245,7 @@ impl<T: Config> Pallet<T> {
 			destination,
 			tx_ticket_sequence: ticket_sequence,
 			asset_id: T::NativeAssetId::get(),
-			currency: xrpl_currency.currency,
+			currency: xrpl_currency.symbol,
 			issuer: xrpl_currency.issuer,
 		}))
 	}
@@ -1225,8 +1258,8 @@ impl<T: Config> Pallet<T> {
 		tx_fee: u64,
 		who: AccountOf<T>,
 	) -> Result<WithdrawTransaction, DispatchError> {
-		let xrpl_currency = AssetIdToXRPL::<T>::get(T::NativeAssetId::get())
-			.ok_or(Error::<T>::AssetNotSupported)?;
+		let xrpl_currency =
+			AssetIdToXRPL::<T>::get(asset_id).ok_or(Error::<T>::AssetNotSupported)?;
 		// the door address pays the tx fee on XRPL. Therefore we must charge the user the tx fee
 		// in XRP alongside their asset withdrawal
 		let _ = T::MultiCurrency::burn_from(
@@ -1254,7 +1287,7 @@ impl<T: Config> Pallet<T> {
 			destination,
 			tx_ticket_sequence: ticket_sequence,
 			asset_id,
-			currency: xrpl_currency.currency,
+			currency: xrpl_currency.symbol,
 			issuer: xrpl_currency.issuer,
 		}))
 	}
@@ -1373,6 +1406,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Serialise an asset tx using the CurrencyPayment type from the XRPL codec
+	/// Called for any asset other than XRP
+	/// This will convert the amount type into a mantissa exponent format which is
+	/// the way balances are represented on XRPL
 	fn serialize_asset_tx(
 		tx_data: AssetWithdrawTransaction,
 		door_address: [u8; 20],
@@ -1389,14 +1425,16 @@ impl<T: Config> Pallet<T> {
 			asset_id,
 		} = tx_data;
 
-		let currency = currency.into();
 		let issuer = AccountIdType(issuer.into());
 		let decimals = T::MultiCurrency::decimals(asset_id);
+		// Convert to mantissa and exponent
 		let (mantissa, exponent) = Self::balance_to_mantissa_exponent(amount, decimals)?;
+		// Create the necessary types from XRPL codec
 		let value_type = IssuedValueType::from_mantissa_exponent(mantissa, exponent)
 			.map_err(|_| Error::<T>::InvalidMantissaExponentConversion)?;
-		let issued_amount = IssuedAmountType::from_issued_value(value_type, currency, issuer)
-			.map_err(|_| Error::<T>::InvalidCurrencyCode)?;
+		let issued_amount =
+			IssuedAmountType::from_issued_value(value_type, currency.into(), issuer)
+				.map_err(|_| Error::<T>::InvalidCurrencyCode)?;
 		let amount: Amount = Amount(AmountType::Issued(issued_amount));
 		let payment = PaymentAltCurrency::new(
 			door_address,
