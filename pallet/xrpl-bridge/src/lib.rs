@@ -242,8 +242,7 @@ pub mod pallet {
 		TicketSequenceThresholdReached(u32),
 		XrplAssetMapSet {
 			asset_id: AssetId,
-			xrpl_currency: XRPLCurrencyType,
-			issuer: XrplAccountId,
+			xrpl_currency: XRPLCurrency,
 		},
 	}
 
@@ -758,11 +757,7 @@ pub mod pallet {
 			let xrpl_asset = XRPLAsset { asset_id, issuer };
 			<AssetIdToXRPL<T>>::insert(asset_id, xrpl_currency);
 			<XRPLToAssetId<T>>::insert(xrpl_currency.currency, xrpl_asset);
-			Self::deposit_event(Event::XrplAssetMapSet {
-				asset_id,
-				xrpl_currency: xrpl_currency.currency,
-				issuer,
-			});
+			Self::deposit_event(Event::XrplAssetMapSet { asset_id, xrpl_currency });
 			Ok(())
 		}
 	}
@@ -1114,20 +1109,7 @@ impl<T: Config> Pallet<T> {
 		// https://github.com/futureversecom/seed/issues/107
 		let tx_fee = Self::door_tx_fee();
 		// Saturate the balance to be within the Mantissa range if the asset is not XRP
-		let amount = if asset_id != T::XrpAssetId::get() {
-			let (mantissa, exponent) = Self::balance_to_mantissa_exponent(amount, 0)?;
-			// Return an error if we are saturating by more than 1.0 of the asset
-			ensure!(
-				exponent < T::MultiCurrency::decimals(asset_id) as i8,
-				Error::<T>::WithdrawInvalidAmount
-			);
-			// Return mantissa and exponent back into Balance for our calculations
-			mantissa as u128 * 10u128.pow(exponent as u32)
-		} else {
-			amount
-		};
-
-		let amount = amount / 1000 * 1000;
+		let amount = Self::saturate_balance(amount, 0)?;
 		ensure!(!amount.is_zero(), Error::<T>::WithdrawInvalidAmount);
 		ensure!(amount.checked_add(tx_fee as Balance).is_some(), Error::<T>::WithdrawInvalidAmount); // xrp amounts are `u64`
 		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
@@ -1430,6 +1412,31 @@ impl<T: Config> Pallet<T> {
 		Ok(payment.binary_serialize(true))
 	}
 
+	/// Saturate the balance so that we don't lose precision when we later convert it to
+	/// mantissa and exponent
+	/// If the asset is XRP, we don't need to do anything
+	/// Will Error if the amount saturated is greater than 1.00 of the asset
+	fn saturate_balance(amount: Balance, asset_id: AssetId) -> Result<Balance, DispatchError> {
+		// XRP asset is stored as a u64, not as mantissa and exponent
+		if asset_id == T::XrpAssetId::get() {
+			return Ok(amount);
+		}
+		let decimals: i8 = T::MultiCurrency::decimals(asset_id)
+			.try_into()
+			.map_err(|_| Error::<T>::InvalidAssetDecimals)?;
+		let (mantissa, exponent) = Self::balance_to_mantissa_exponent(amount, 0)?;
+		let new_amount = mantissa as u128 * 10u128.pow(exponent as u32);
+		// Return an error if we are saturating by more than 1.0 of the asset
+		ensure!(
+			(amount - new_amount) < 1 * 10u128.pow(decimals as u32),
+			Error::<T>::WithdrawInvalidAmount
+		);
+		// Return mantissa and exponent back into Balance for our calculations
+		Ok(new_amount)
+	}
+
+	/// Convert the balance to mantissa and exponent for sending to XRPL
+	/// See: https://xrpl.org/docs/references/protocol/binary-format#token-amount-format
 	fn balance_to_mantissa_exponent(
 		amount: Balance,
 		decimals: u8,

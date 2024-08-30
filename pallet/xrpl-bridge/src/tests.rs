@@ -61,6 +61,7 @@ fn submit_transaction(
 
 mod mantissa_tests {
 	use super::*;
+
 	#[test]
 	fn mantissa_conversion_test_1() {
 		TestExt::<Test>::default().build().execute_with(|| {
@@ -101,10 +102,8 @@ mod mantissa_tests {
 	fn mantissa_conversion_test_saturation() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let amount: Balance = 10_000_000_000_000_001; // The last one will be saturated
-			let saturated_amount: Balance = 10_000_000_000_000_000;
 			let decimals = 18;
 			// Saturate balance should remove the last 1 and prevent loss of precision
-			assert_eq!(Pallet::<Test>::saturate_balance(amount), saturated_amount);
 			let (mantissa, exponent) =
 				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
 			assert_eq!(mantissa, 1_000_000_000_000_000);
@@ -131,69 +130,84 @@ mod mantissa_tests {
 			let decimals = 18;
 			let (mantissa, exponent) =
 				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
-			assert_eq!(mantissa, 1_000_000_000_000_000);
-			assert_eq!(exponent, -33);
+			assert_eq!(mantissa, 1);
+			assert_eq!(exponent, -18);
 		});
 	}
 
 	#[test]
-	fn saturate_balance_works() {
+	fn saturation_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
+			let asset_id = AssetsExt::next_asset_uuid().unwrap();
+			// Create asset with 18 decimals for these tests
+			assert_ok!(AssetsExt::create_asset(
+				Some(alice()).into(),
+				b"ASTO".to_vec(),
+				b"ASTO".to_vec(),
+				18,
+				None,
+				None
+			));
+			assert_eq!(<Test as pallet::Config>::MultiCurrency::decimals(asset_id), 18);
+
 			let amount: Balance = 111_111_111_111_111_111_111_111_111;
 			let saturated_amount: Balance = 111_111_111_111_111_100_000_000_000;
-			assert_eq!(Pallet::<Test>::saturate_balance(amount), saturated_amount);
+			assert_eq!(
+				Pallet::<Test>::saturate_balance(amount, asset_id).unwrap(),
+				saturated_amount
+			);
 			let (mantissa, _) = Pallet::<Test>::balance_to_mantissa_exponent(amount, 0).unwrap();
 			assert_eq!(mantissa, 1_111_111_111_111_111);
 
 			let amount: Balance = 999_999_999_999_999_999_999_999_999;
 			let saturated_amount: Balance = 999_999_999_999_999_900_000_000_000;
-			assert_eq!(Pallet::<Test>::saturate_balance(amount), saturated_amount);
+			assert_eq!(
+				Pallet::<Test>::saturate_balance(amount, asset_id).unwrap(),
+				saturated_amount
+			);
 			let (mantissa, _) = Pallet::<Test>::balance_to_mantissa_exponent(amount, 0).unwrap();
 			assert_eq!(mantissa, 9_999_999_999_999_999);
 		});
 	}
-}
 
-// mod currency_code_converter {
-// 	use super::*;
-// 	use crate::types::CurrencyCodeConverter;
-//
-// 	#[test]
-// 	fn currency_code_standard() {
-// 		TestExt::<Test>::default().build().execute_with(|| {
-// 			let currency_code = CurrencyCodeType::Standard(b"XRP".clone());
-// 			let converted: H160 = <H160 as CurrencyCodeConverter>::from(currency_code);
-// 			assert_eq!(converted, hex!("5852500000000000000000000000000000000000").into());
-// 			// TODO enable PartialEq for CurrencyCodeType
-// 			// assert_eq!(currency_code, <H160 as CurrencyCodeConverter>::to(converted));
-//
-// 			let currency_code = CurrencyCodeType::Standard(b"ZZZ".clone());
-// 			let converted: H160 = <H160 as CurrencyCodeConverter>::from(currency_code);
-// 			assert_eq!(converted, hex!("5a5a5a0000000000000000000000000000000000").into());
-// 			// TODO enable PartialEq for CurrencyCodeType
-// 			// assert_eq!(currency_code, <H160 as CurrencyCodeConverter>::to(converted));
-// 		});
-// 	}
-//
-// 	#[test]
-// 	fn currency_code_non_standard() {
-// 		TestExt::<Test>::default().build().execute_with(|| {
-// 			let currency_code =
-// 				CurrencyCodeType::NonStandard(hex!("5852534000000000000000000000000000000000"));
-// 			let converted: H160 = <H160 as CurrencyCodeConverter>::from(currency_code);
-// 			assert_eq!(converted, hex!("5852534000000000000000000000000000000000").into());
-// 			// TODO enable PartialEq for CurrencyCodeType
-// 			// assert_eq!(currency_code, <H160 as CurrencyCodeConverter>::to(converted));
-//
-// 			let currency_code =
-// 				CurrencyCodeType::NonStandard(hex!("2222222222222222222222222222222222222222"));
-// 			let converted: H160 = <H160 as CurrencyCodeConverter>::from(currency_code);
-// 			assert_eq!(converted, hex!("2222222222222222222222222222222222222222").into());
-// 			// TODO enable PartialEq for CurrencyCodeType
-// 			// assert_eq!(currency_code, <H160 as CurrencyCodeConverter>::to(converted));
-// 		});
-// 	}
-// }
+	#[test]
+	fn saturation_over_1_unit_works() {
+		const TEST_ASSET_ID: u32 = 123;
+		TestExt::<Test>::default()
+			.with_asset(TEST_ASSET_ID, "TST", &[(alice(), 1)])
+			.build()
+			.execute_with(|| {
+				// Sanity check, with_asset uses 6 decimals
+				assert_eq!(<Test as pallet::Config>::MultiCurrency::decimals(TEST_ASSET_ID), 6);
+
+				// This is fine as we are only saturating decimals
+				//                    10_000_000_000_000_00| - saturated off
+				let amount: Balance = 10_000_000_000_000_000_100_000;
+				let saturated_amount: Balance = 10_000_000_000_000_000_000_000;
+				assert_eq!(
+					Pallet::<Test>::saturate_balance(amount, TEST_ASSET_ID).unwrap(),
+					saturated_amount
+				);
+
+				// This should error as we are saturating >= 1.0 of the 6dp asset
+				//                    10_000_000_000_000_00| - saturated off
+				let amount: Balance = 10_000_000_000_000_001_000_000;
+				assert_noop!(
+					Pallet::<Test>::saturate_balance(amount, TEST_ASSET_ID),
+					Error::<Test>::WithdrawInvalidAmount
+				);
+
+				// This is fine as although we are saturating more than 6 significant figures,
+				// we aren't losing any precision as it is all 0
+				//                    10_000_000_000_000_01| - saturated off
+				let amount: Balance = 10_000_000_000_000_010_000_000;
+				assert_eq!(
+					Pallet::<Test>::saturate_balance(amount, TEST_ASSET_ID).unwrap(),
+					amount
+				);
+			});
+	}
+}
 
 #[test]
 fn submit_transaction_replay_within_submission_window() {
@@ -605,7 +619,7 @@ fn withdraw_request_works_with_door_fee() {
 		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, initial_xrp_balance - withdraw_amount - door_tx_fee);
 
-		// Try again for remainding
+		// Try again for remainder
 		let initial_xrp_balance = xrp_balance_of(account);
 		let withdraw_amount: u64 = 800;
 		assert_ok!(XRPLBridge::withdraw_xrp(
@@ -1369,25 +1383,18 @@ fn set_xrpl_asset_map_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let asset_id = 1;
 		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-		let xrpl_symbol = H160::from(hex!("524F4F5400000000000000000000000000000000"));
+		let xrpl_symbol =
+			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { currency: xrpl_symbol.clone(), issuer: issuer.clone() };
 		assert_ok!(XRPLBridge::set_xrpl_asset_map(
 			RuntimeOrigin::root(),
 			asset_id,
-			xrpl_symbol.clone(),
-			issuer
+			xrpl_currency.clone()
 		));
-		let xrpl_currency = XRPLCurrency { currency: xrpl_symbol.clone(), issuer: issuer.clone() };
 		assert_eq!(AssetIdToXRPL::<Test>::get(asset_id.clone()), Some(xrpl_currency));
 		let xrpl_asset = XRPLAsset { asset_id: asset_id.clone(), issuer: issuer.clone() };
 		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_symbol.clone()), Some(xrpl_asset));
-		System::assert_has_event(
-			Event::<Test>::XrplAssetMapSet {
-				asset_id: asset_id.clone(),
-				xrpl_symbol: xrpl_symbol.clone(),
-				issuer: issuer.clone(),
-			}
-			.into(),
-		);
+		System::assert_has_event(Event::<Test>::XrplAssetMapSet { asset_id, xrpl_currency }.into());
 	})
 }
 
@@ -1395,16 +1402,13 @@ fn set_xrpl_asset_map_works() {
 fn set_xrpl_asset_map_not_sudo_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let asset_id = 1;
-		let xrpl_symbol = H160::from(hex!("524F4F5400000000000000000000000000000000"));
 		let account: AccountId = [1_u8; 20].into();
 		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		let xrpl_symbol =
+			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { currency: xrpl_symbol.clone(), issuer: issuer.clone() };
 		assert_noop!(
-			XRPLBridge::set_xrpl_asset_map(
-				RuntimeOrigin::signed(account),
-				asset_id,
-				xrpl_symbol,
-				issuer
-			),
+			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::signed(account), asset_id, xrpl_currency),
 			BadOrigin
 		);
 	})
@@ -2526,20 +2530,17 @@ fn process_xrp_tx_for_root_bridging_transaction() {
 		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
-		let currency = H160::from(hex!("524F4F5400000000000000000000000000000000"));
 		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-		assert_ok!(XRPLBridge::set_xrpl_asset_map(
-			RuntimeOrigin::root(),
-			1_u32,
-			currency.clone(),
-			issuer.clone()
-		));
+		let currency =
+			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { currency, issuer };
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), 1_u32, xrpl_currency));
 
 		// submit currency payment tx
 		let currency_payment_tx = XrplTxData::CurrencyPayment {
 			amount: (1 * 1000u64) as Balance,
 			address: account.into(),
-			currency: currency.clone(),
+			currency,
 		};
 		assert_ok!(XRPLBridge::submit_transaction(
 			RuntimeOrigin::signed(relayer),
