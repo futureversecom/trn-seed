@@ -619,6 +619,8 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::pallet_xrpl_bridge::WeightInfo<Runtime>;
 	type XrpAssetId = XrpAssetId;
+	type NativeAssetId = RootAssetId;
+	type PalletId = XrplPalletId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type MaxPrunedTransactionsPerBlock = MaxPrunedTransactionsPerBlock;
 	type MaxDelayedPaymentsPerBlock = MaxDelayedPaymentsPerBlock;
@@ -627,9 +629,6 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPTransactionLimitPerLedger;
-	/// PalletId/Account for this module
-	type XrplPalletId = XrplPalletId;
-	type NativeAssetId = RootAssetId;
 }
 
 parameter_types! {

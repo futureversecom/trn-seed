@@ -63,6 +63,8 @@ impl pallet_xrpl_bridge::Config for Test {
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
 	type XrpAssetId = XrpAssetId;
+	type NativeAssetId = NativeAssetId;
+	type PalletId = XrplPalletId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type MaxPrunedTransactionsPerBlock = MaxPrunedTransactionsPerBlock;
 	type MaxDelayedPaymentsPerBlock = MaxDelayedPaymentsPerBlock;
@@ -71,8 +73,6 @@ impl pallet_xrpl_bridge::Config for Test {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPLTransactionLimitPerLedger;
-	type NativeAssetId = NativeAssetId;
-	type XrplPalletId = XrplPalletId;
 }
 
 pub struct MockEthyAdapter;

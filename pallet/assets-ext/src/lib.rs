@@ -142,7 +142,7 @@ pub mod pallet {
 
 	/// The total units issued in the system.
 	#[pallet::storage]
-	pub type NextAssetId<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub(crate) type NextAssetId<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// The minimum deposit for creating an asset
 	#[pallet::storage]
