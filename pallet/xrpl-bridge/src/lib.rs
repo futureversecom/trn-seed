@@ -469,7 +469,7 @@ pub mod pallet {
 
 		/// Submit xrp transaction challenge
 		#[pallet::call_index(1)]
-		#[pallet::weight((T::WeightInfo::submit_challenge()))]
+		#[pallet::weight(T::WeightInfo::submit_challenge())]
 		#[transactional]
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
@@ -504,7 +504,7 @@ pub mod pallet {
 
 		/// Withdraw xrp transaction
 		#[pallet::call_index(3)]
-		#[pallet::weight((T::WeightInfo::withdraw_xrp()))]
+		#[pallet::weight(T::WeightInfo::withdraw_xrp())]
 		#[transactional]
 		pub fn withdraw_xrp(
 			origin: OriginFor<T>,
@@ -517,7 +517,7 @@ pub mod pallet {
 
 		/// Withdraw xrp transaction
 		#[pallet::call_index(4)]
-		#[pallet::weight((T::WeightInfo::withdraw_xrp()))]
+		#[pallet::weight(T::WeightInfo::withdraw_xrp())]
 		#[transactional]
 		pub fn withdraw_xrp_with_destination_tag(
 			origin: OriginFor<T>,
@@ -537,12 +537,12 @@ pub mod pallet {
 
 		/// Withdraw any token to XRPL
 		#[pallet::call_index(15)]
-		#[pallet::weight({(
+		#[pallet::weight(
 			match asset_id {
 				a if a == &T::XrpAssetId::get() => T::WeightInfo::withdraw_xrp(),
 				_ => T::WeightInfo::withdraw_asset(),
-			},
-		)})]
+			}
+		)]
 		#[transactional]
 		pub fn withdraw(
 			origin: OriginFor<T>,
@@ -1142,11 +1142,14 @@ impl<T: Config> Pallet<T> {
 		// Saturate the balance to be within the Mantissa range if the asset is not XRP
 		let amount = Self::saturate_balance(amount, 0)?;
 		let tx_fee = Self::door_tx_fee();
-		ensure!(amount.checked_add(tx_fee as Balance).is_some(), Error::<T>::WithdrawInvalidAmount); // xrp amounts are `u64`
 		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
 
 		let tx_data = match asset_id {
 			a if a == T::XrpAssetId::get() => {
+				ensure!(
+					amount.checked_add(tx_fee as Balance).is_some(),
+					Error::<T>::WithdrawInvalidAmount
+				); // xrp amounts are `u64`
 				Self::process_xrp_withdrawal(destination, amount, tx_fee, who.clone())?
 			},
 			a if a == T::NativeAssetId::get() => {
