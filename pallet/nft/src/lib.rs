@@ -34,7 +34,10 @@ use frame_support::{
 	traits::{fungibles::Mutate, Get},
 	transactional, PalletId,
 };
-use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest};
+use seed_pallet_common::{
+	utils::{CollectionUtilityFlags, PublicMintInformation},
+	NFIRequest, OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest,
+};
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
 	SerialNumber, TokenCount, TokenId, TokenLockReason, MAX_COLLECTION_ENTITLEMENTS,
@@ -49,6 +52,8 @@ use sp_std::prelude::*;
 mod benchmarking;
 #[cfg(test)]
 pub mod mock;
+#[cfg(feature = "std")]
+pub mod test_utils;
 #[cfg(test)]
 mod tests;
 pub mod weights;
@@ -72,7 +77,6 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use seed_pallet_common::utils::PublicMintInformation;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
@@ -129,6 +133,8 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		/// Interface for sending XLS20 mint requests
 		type Xls20MintRequest: Xls20MintRequest<AccountId = Self::AccountId>;
+		/// Interface for requesting extra meta storage items
+		type NFIRequest: NFIRequest<AccountId = Self::AccountId>;
 	}
 
 	/// Map from collection to its information
@@ -152,6 +158,11 @@ pub mod pallet {
 	/// Map from a token to lock status if any
 	#[pallet::storage]
 	pub type TokenLocks<T> = StorageMap<_, Twox64Concat, TokenId, TokenLockReason>;
+
+	/// Map from a collection to additional utility flags
+	#[pallet::storage]
+	pub type UtilityFlags<T> =
+		StorageMap<_, Twox64Concat, CollectionUuid, CollectionUtilityFlags, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -221,6 +232,8 @@ pub mod pallet {
 		Burn { collection_id: CollectionUuid, serial_number: SerialNumber },
 		/// Collection has been claimed
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
+		/// Utility flags were set for a collection
+		UtilityFlagsSet { collection_id: CollectionUuid, utility_flags: CollectionUtilityFlags },
 	}
 
 	#[pallet::error]
@@ -268,6 +281,12 @@ pub mod pallet {
 		CollectionIssuanceNotZero,
 		/// Token(s) blocked from minting during the bridging process
 		BlockedMint,
+		/// Minting has been disabled for tokens within this collection
+		MintUtilityBlocked,
+		/// Transfer has been disabled for tokens within this collection
+		TransferUtilityBlocked,
+		/// Burning has been disabled for tokens within this collection
+		BurnUtilityBlocked,
 	}
 
 	#[pallet::call]
@@ -492,6 +511,8 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(quantity <= T::MintLimit::get(), Error::<T>::MintLimitExceeded);
+			// minting flag must be enabled on the collection
+			ensure!(<UtilityFlags<T>>::get(collection_id).mintable, Error::<T>::MintUtilityBlocked);
 
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
@@ -534,6 +555,13 @@ pub mod pallet {
 					metadata_scheme,
 				)?;
 			}
+
+			// Request NFI storage if enabled
+			let _ = T::NFIRequest::request(
+				&who,
+				collection_id.clone(),
+				serial_numbers.clone().into_inner(),
+			)?;
 
 			// throw event, listing starting and endpoint token ids (sequential mint)
 			Self::deposit_event(Event::<T>::Mint {
@@ -629,6 +657,33 @@ pub mod pallet {
 				collection_id,
 				royalties_schedule,
 			});
+			Ok(())
+		}
+
+		/// Set utility flags of a collection. This allows restricting certain operations on a
+		/// collection such as transfer, burn or mint
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::WeightInfo::set_utility_flags())]
+		#[transactional]
+		pub fn set_utility_flags(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			utility_flags: CollectionUtilityFlags,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			if utility_flags == CollectionUtilityFlags::default() {
+				// If the utility flags are default, remove the storage entry
+				<UtilityFlags<T>>::remove(collection_id);
+			} else {
+				// Otherwise, update the storage
+				<UtilityFlags<T>>::insert(collection_id, utility_flags);
+			}
+
+			Self::deposit_event(Event::<T>::UtilityFlagsSet { collection_id, utility_flags });
 			Ok(())
 		}
 	}

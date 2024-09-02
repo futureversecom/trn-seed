@@ -90,6 +90,10 @@ impl<T: Config> Pallet<T> {
 		new_owner: &T::AccountId,
 	) -> DispatchResult {
 		ensure!(current_owner != new_owner, Error::<T>::InvalidNewOwner);
+		ensure!(
+			<UtilityFlags<T>>::get(collection_id).transferable,
+			Error::<T>::TransferUtilityBlocked
+		);
 
 		CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection_info| -> DispatchResult {
 			let collection_info =
@@ -479,6 +483,10 @@ impl<T: Config> Pallet<T> {
 			!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
 			Error::<T>::TokenLocked
 		);
+		ensure!(<UtilityFlags<T>>::get(collection_id).burnable, Error::<T>::BurnUtilityBlocked);
+
+		// Remove any NFI data associated with this token
+		T::NFIRequest::on_burn((collection_id, serial_number));
 
 		CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection_info| -> DispatchResult {
 			let collection_info =
@@ -663,6 +671,14 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn remove_token_lock(token_id: TokenId) {
 		<TokenLocks<T>>::remove(token_id);
+	}
+
+	fn get_collection_owner(
+		collection_id: CollectionUuid,
+	) -> Result<Self::AccountId, DispatchError> {
+		let collection_info =
+			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		Ok(collection_info.owner)
 	}
 }
 

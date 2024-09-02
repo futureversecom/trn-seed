@@ -6042,6 +6042,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-nfi"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-nft",
+ "pallet-sft",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-nft"
 version = "2.2.0"
 dependencies = [
@@ -9137,6 +9159,7 @@ dependencies = [
  "pallet-maintenance-mode",
  "pallet-marketplace",
  "pallet-multisig",
+ "pallet-nfi",
  "pallet-nft",
  "pallet-nft-peg",
  "pallet-nft-rpc-runtime-api",

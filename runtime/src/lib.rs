@@ -158,7 +158,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 56,
+	spec_version: 57,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 10,
@@ -434,6 +434,21 @@ impl pallet_assets_ext::Config for Runtime {
 }
 
 parameter_types! {
+	pub const MaxDataLength: u32 = 100;
+	pub const NFINetworkFeePercentage: Permill = Permill::from_perthousand(5);
+}
+
+impl pallet_nfi::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
+	type SFTExt = Sft;
+	type NetworkFeePercentage = NFINetworkFeePercentage;
+	type MaxDataLength = MaxDataLength;
+	type WeightInfo = weights::pallet_nfi::WeightInfo<Runtime>;
+}
+
+parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const CollectionNameStringLimit: u32 = 50;
 	pub const WorldId: seed_primitives::ParachainId = 100;
@@ -453,6 +468,7 @@ impl pallet_nft::Config for Runtime {
 	type StringLimit = CollectionNameStringLimit;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
+	type NFIRequest = Nfi;
 }
 
 parameter_types! {
@@ -500,6 +516,7 @@ impl pallet_sft::Config for Runtime {
 	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 	type MaxSerialsPerMint = MaxSerialsPerMint;
 	type MaxOwnersPerSftToken = MaxOwnersPerSftCollection;
+	type NFIRequest = Nfi;
 }
 
 parameter_types! {
@@ -1389,6 +1406,7 @@ construct_runtime!(
 		Doughnut: pallet_doughnut = 48,
 		MaintenanceMode: pallet_maintenance_mode = 47,
 		Crowdsale: pallet_crowdsale = 49,
+		Nfi: pallet_nfi = 50,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -1451,20 +1469,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	(
-		pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-		pallet_preimage::migration::v1::Migration<Runtime>,
-		pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
-		pallet_assets::migration::v1::MigrateToV1<Runtime>,
-		pallet_balances::migration::MigrateToTrackInactive<Runtime, ()>,
-		pallet_scheduler::migration::v4::CleanupAgendas<Runtime>,
-		pallet_staking::migrations::v13::MigrateToV13<Runtime>,
-		pallet_grandpa::migrations::CleanupSetIdSessionMap<Runtime>,
-		pallet_offences::migration::v1::MigrateToV1<Runtime>,
-		pallet_im_online::migration::v1::Migration<Runtime>,
-		pallet_election_provider_multi_phase::migrations::v1::MigrateToV1<Runtime>,
-		migrations::AllMigrations,
-	),
+	(migrations::AllMigrations,),
 >;
 
 impl_runtime_apis! {
@@ -2311,6 +2316,7 @@ mod benches {
 		[pallet_sudo, Sudo]
 		// Local
 		[pallet_nft, Nft]
+		[pallet_nfi, Nfi]
 		[pallet_sft, Sft]
 		[pallet_fee_control, FeeControl]
 		[pallet_nft_peg, NftPeg]
