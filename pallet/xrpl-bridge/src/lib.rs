@@ -183,6 +183,8 @@ pub mod pallet {
 		TooManyTransactionsPerLedger,
 		/// XRPL symbol to TRN asset id mapping is invalid
 		InvalidSymbolMapping,
+		/// The asset rounding due to saturation is too high, reduce the significant digits
+		AssetRoundingTooHigh,
 	}
 
 	#[pallet::event]
@@ -1466,7 +1468,7 @@ impl<T: Config> Pallet<T> {
 		// Return an error if we are saturating by more than 1.0 of the asset
 		ensure!(
 			(amount - new_amount) < 1 * 10u128.pow(decimals as u32),
-			Error::<T>::WithdrawInvalidAmount
+			Error::<T>::AssetRoundingTooHigh
 		);
 		// Return mantissa and exponent back into Balance for our calculations
 		Ok(new_amount)
