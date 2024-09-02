@@ -18,7 +18,7 @@ use crate::mock::{
 	AssetsExt, DelayedPaymentBlockLimit, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System,
 	Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod, XrplPalletId,
 };
-use crate::types::{XRPLAsset, XRPLCurrency};
+use crate::types::XRPLCurrency;
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
 
@@ -1476,8 +1476,7 @@ fn set_xrpl_asset_map_works() {
 		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol, issuer };
 		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency));
 		assert_eq!(AssetIdToXRPL::<Test>::get(asset_id), Some(xrpl_currency));
-		let xrpl_asset = XRPLAsset { asset_id, issuer };
-		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_symbol), Some(xrpl_asset));
+		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_symbol), Some(asset_id));
 		System::assert_has_event(Event::<Test>::XrplAssetMapSet { asset_id, xrpl_currency }.into());
 	})
 }
