@@ -102,7 +102,7 @@ mod mantissa_tests {
 	fn mantissa_conversion_test_saturation() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let amount: Balance = 10_000_000_000_000_001; // The last one will be saturated
-			let decimals = 0;
+			let decimals = 18;
 			// Saturate balance should remove the last 1 and prevent loss of precision
 			let (mantissa, exponent) =
 				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
@@ -115,11 +115,11 @@ mod mantissa_tests {
 	fn mantissa_conversion_test_max() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let amount: Balance = u128::MAX;
-			let decimals = 18;
+			let decimals = 0;
 			let (mantissa, exponent) =
 				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
 			assert_eq!(mantissa, 3_402_823_669_209_384);
-			assert_eq!(exponent, 5);
+			assert_eq!(exponent, 23);
 		});
 	}
 
@@ -2982,7 +2982,7 @@ mod withdraw_asset {
 						XrplAccountId::from_slice(b"6490B68F1116BFE87DDD"),
 						None
 					),
-					Error::<Test>::WithdrawInvalidAmount
+					Error::<Test>::AssetRoundingTooHigh
 				);
 			})
 	}
@@ -3123,7 +3123,7 @@ mod withdraw_asset {
 				));
 				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
 
-				// Withdraw full amount should fail as we don't have 1 XRP to cover the tx fee
+				// Withdraw full amount should succeed
 				assert_ok!(XRPLBridge::withdraw(
 					RuntimeOrigin::signed(alice()),
 					TEST_ASSET_ID,
