@@ -87,9 +87,7 @@ pub struct AssetWithdrawTransaction {
 	pub issuer: XrplAccountId,
 }
 
-#[derive(
-	Eq, CloneNoBound, PartialEqNoBound, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Eq, CloneNoBound, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum XrplTxData {
 	Payment { amount: Balance, address: H160 },
 	CurrencyPayment { amount: Balance, address: H160, currency: XRPLCurrency },
@@ -137,17 +135,7 @@ impl Default for XrplTicketSequenceParams {
 }
 
 /// Currency issued by issuer https://xrpl.org/docs/references/protocol/data-types/currency-formats#token-amounts
-#[derive(
-	Eq,
-	Copy,
-	CloneNoBound,
-	PartialEqNoBound,
-	Encode,
-	Decode,
-	RuntimeDebugNoBound,
-	TypeInfo,
-	MaxEncodedLen,
-)]
+#[derive(Eq, Copy, Clone, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct XRPLCurrency {
 	pub symbol: XRPLCurrencyType,
 	pub issuer: XrplAccountId,

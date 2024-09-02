@@ -47,10 +47,7 @@ use sp_std::{prelude::*, vec};
 use xrpl_codec::{
 	field::Amount,
 	traits::BinarySerialize,
-	transaction::{Payment, PaymentWithDestinationTag, SignerListSet},
-};
-use xrpl_codec::{
-	transaction::PaymentAltCurrency,
+	transaction::{Payment, PaymentAltCurrency, PaymentWithDestinationTag, SignerListSet},
 	types::{AccountIdType, AmountType, IssuedAmountType, IssuedValueType},
 };
 
@@ -472,7 +469,7 @@ pub mod pallet {
 
 		/// Submit xrp transaction challenge
 		#[pallet::call_index(1)]
-		#[pallet::weight((T::WeightInfo::submit_challenge(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::submit_challenge()))]
 		#[transactional]
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
@@ -507,7 +504,7 @@ pub mod pallet {
 
 		/// Withdraw xrp transaction
 		#[pallet::call_index(3)]
-		#[pallet::weight((T::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::withdraw_xrp()))]
 		#[transactional]
 		pub fn withdraw_xrp(
 			origin: OriginFor<T>,
@@ -520,7 +517,7 @@ pub mod pallet {
 
 		/// Withdraw xrp transaction
 		#[pallet::call_index(4)]
-		#[pallet::weight((T::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::withdraw_xrp()))]
 		#[transactional]
 		pub fn withdraw_xrp_with_destination_tag(
 			origin: OriginFor<T>,
@@ -545,7 +542,6 @@ pub mod pallet {
 				a if a == &T::XrpAssetId::get() => T::WeightInfo::withdraw_xrp(),
 				_ => T::WeightInfo::withdraw_asset(),
 			},
-			DispatchClass::Operational
 		)})]
 		#[transactional]
 		pub fn withdraw(
@@ -821,6 +817,7 @@ impl<T: Config> Pallet<T> {
 					}
 				},
 				XrplTxData::CurrencyPayment { amount, address, currency } => {
+					reads += 1;
 					let xrpl_asset = match XRPLToAssetId::<T>::get(currency.symbol) {
 						None => {
 							Self::deposit_event(Event::ProcessingFailed(
