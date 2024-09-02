@@ -16,7 +16,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::types::{
-	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, WithdrawTransaction, XRPLAsset,
+	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, WithdrawTransaction,
 	XRPLCurrency, XRPLCurrencyType, XrpTransaction, XrpWithdrawTransaction,
 	XrplTicketSequenceParams, XrplTxData,
 };
@@ -297,7 +297,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Map XRPL symbol to TRN asset Id, storage to keep mapping between XRPL -> TRN tokens/assets
-	pub type XRPLToAssetId<T: Config> = StorageMap<_, Twox64Concat, XRPLCurrencyType, XRPLAsset>;
+	pub type XRPLToAssetId<T: Config> = StorageMap<_, Twox64Concat, XRPLCurrencyType, AssetId>;
 
 	#[pallet::storage]
 	/// Highest settled XRPL ledger index
@@ -446,8 +446,10 @@ pub mod pallet {
 
 			// Verify that the issuer supplied matches the issuer we have in our map,
 			if let XrplTxData::CurrencyPayment { currency, .. } = &transaction {
-				let xrpl_asset = XRPLToAssetId::<T>::get(currency.symbol)
+				let asset_id = XRPLToAssetId::<T>::get(currency.symbol)
 					.ok_or(Error::<T>::AssetNotSupported)?;
+				let xrpl_asset =
+					AssetIdToXRPL::<T>::get(asset_id).ok_or(Error::<T>::AssetNotSupported)?;
 				ensure!(xrpl_asset.issuer == currency.issuer, Error::<T>::InvalidCurrencyCode);
 			}
 
@@ -757,10 +759,8 @@ pub mod pallet {
 			ensure_root(origin)?;
 			// Validate currency to prevent errors during withdrawal
 			ensure!(xrpl_currency.symbol.is_valid(), Error::<T>::InvalidCurrencyCode);
-			let issuer: XrplAccountId = xrpl_currency.issuer;
-			let xrpl_asset = XRPLAsset { asset_id, issuer };
 			<AssetIdToXRPL<T>>::insert(asset_id, xrpl_currency);
-			<XRPLToAssetId<T>>::insert(xrpl_currency.symbol, xrpl_asset);
+			<XRPLToAssetId<T>>::insert(xrpl_currency.symbol, asset_id);
 			Self::deposit_event(Event::XrplAssetMapSet { asset_id, xrpl_currency });
 			Ok(())
 		}
@@ -818,7 +818,7 @@ impl<T: Config> Pallet<T> {
 				},
 				XrplTxData::CurrencyPayment { amount, address, currency } => {
 					reads += 1;
-					let xrpl_asset = match XRPLToAssetId::<T>::get(currency.symbol) {
+					let asset_id = match XRPLToAssetId::<T>::get(currency.symbol) {
 						None => {
 							Self::deposit_event(Event::ProcessingFailed(
 								ledger_index,
@@ -827,9 +827,8 @@ impl<T: Config> Pallet<T> {
 							));
 							continue;
 						},
-						Some(xrpl_asset) => xrpl_asset,
+						Some(asset_id) => asset_id,
 					};
-					let asset_id = xrpl_asset.asset_id;
 					if asset_id == T::NativeAssetId::get() {
 						let pallet_address: T::AccountId =
 							T::PalletId::get().into_account_truncating();

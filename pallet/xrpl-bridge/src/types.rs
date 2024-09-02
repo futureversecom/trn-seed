@@ -150,18 +150,6 @@ impl Default for XRPLCurrency {
 	}
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct XRPLAsset {
-	pub asset_id: AssetId,
-	pub issuer: XrplAccountId,
-}
-
-impl Default for XRPLAsset {
-	fn default() -> Self {
-		XRPLAsset { asset_id: Default::default(), issuer: Default::default() }
-	}
-}
-
 /// Currency type on TRN to match the CurrencyCodeType from XRPL codec
 /// Supports both 3 and 20 byte currency codes
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
