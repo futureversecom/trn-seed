@@ -14,6 +14,7 @@ use frame_support::{
 	dispatch::GetStorageVersion,
 	traits::{OnRuntimeUpgrade, StorageVersion},
 };
+use sp_runtime::DispatchError;
 #[allow(unused_imports)]
 use sp_std::vec::Vec;
 
@@ -42,9 +43,9 @@ impl OnRuntimeUpgrade for Upgrade {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+	fn pre_upgrade() -> Result<Vec<u8>, DispatchError> {
 		log::info!(target: "Migration", "XRPLBridge: Upgrade to v3 Pre Upgrade.");
-		let onchain = EthBridge::on_chain_storage_version();
+		let onchain = XRPLBridge::on_chain_storage_version();
 		// Return OK(()) if upgrade has already been done
 		if onchain == 3 {
 			return Ok(Vec::new());
@@ -55,10 +56,10 @@ impl OnRuntimeUpgrade for Upgrade {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), DispatchError> {
 		log::info!(target: "Migration", "XRPLBridge: Upgrade to v3 Post Upgrade.");
-		let current = EthBridge::current_storage_version();
-		let onchain = EthBridge::on_chain_storage_version();
+		let current = XRPLBridge::current_storage_version();
+		let onchain = XRPLBridge::on_chain_storage_version();
 		assert_eq!(current, 3);
 		assert_eq!(onchain, 3);
 		Ok(())
