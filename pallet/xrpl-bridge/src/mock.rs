@@ -53,6 +53,7 @@ parameter_types! {
 	pub const DelayedPaymentBlockLimit: BlockNumber = 1000;
 	pub const XrpAssetId: u32 = XRP_ASSET_ID;
 	pub const SourceTag: u32 = 723456_u32;
+	pub const XrplPalletId: PalletId = PalletId(*b"xrpl-peg");
 }
 
 impl pallet_xrpl_bridge::Config for Test {
@@ -62,6 +63,8 @@ impl pallet_xrpl_bridge::Config for Test {
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
 	type XrpAssetId = XrpAssetId;
+	type NativeAssetId = NativeAssetId;
+	type PalletId = XrplPalletId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type MaxPrunedTransactionsPerBlock = MaxPrunedTransactionsPerBlock;
 	type MaxDelayedPaymentsPerBlock = MaxDelayedPaymentsPerBlock;
