@@ -423,7 +423,7 @@ fn submit_transaction_invalid_issuer_fails() {
 				transaction,
 				1234
 			),
-			Error::<Test>::InvalidCurrencyCode
+			Error::<Test>::AssetNotSupported
 		);
 	});
 }
@@ -1524,7 +1524,7 @@ fn set_xrpl_asset_map_works() {
 		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol, issuer };
 		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency));
 		assert_eq!(AssetIdToXRPL::<Test>::get(asset_id), Some(xrpl_currency));
-		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_symbol), Some(asset_id));
+		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_currency), Some(asset_id));
 		System::assert_has_event(Event::<Test>::XrplAssetMapSet { asset_id, xrpl_currency }.into());
 	})
 }

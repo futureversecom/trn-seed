@@ -299,7 +299,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Map XRPL symbol to TRN asset Id, storage to keep mapping between XRPL -> TRN tokens/assets
-	pub type XRPLToAssetId<T: Config> = StorageMap<_, Twox64Concat, XRPLCurrencyType, AssetId>;
+	pub type XRPLToAssetId<T: Config> = StorageMap<_, Twox64Concat, XRPLCurrency, AssetId>;
 
 	#[pallet::storage]
 	/// Highest settled XRPL ledger index
@@ -448,11 +448,7 @@ pub mod pallet {
 
 			// Verify that the issuer supplied matches the issuer we have in our map,
 			if let XrplTxData::CurrencyPayment { currency, .. } = &transaction {
-				let asset_id = XRPLToAssetId::<T>::get(currency.symbol)
-					.ok_or(Error::<T>::AssetNotSupported)?;
-				let xrpl_asset =
-					AssetIdToXRPL::<T>::get(asset_id).ok_or(Error::<T>::AssetNotSupported)?;
-				ensure!(xrpl_asset.issuer == currency.issuer, Error::<T>::InvalidCurrencyCode);
+				ensure!(XRPLToAssetId::<T>::contains_key(currency), Error::<T>::AssetNotSupported);
 			}
 
 			// Check within the submission window
@@ -762,7 +758,7 @@ pub mod pallet {
 			// Validate currency to prevent errors during withdrawal
 			ensure!(xrpl_currency.symbol.is_valid(), Error::<T>::InvalidCurrencyCode);
 			<AssetIdToXRPL<T>>::insert(asset_id, xrpl_currency);
-			<XRPLToAssetId<T>>::insert(xrpl_currency.symbol, asset_id);
+			<XRPLToAssetId<T>>::insert(xrpl_currency, asset_id);
 			Self::deposit_event(Event::XrplAssetMapSet { asset_id, xrpl_currency });
 			Ok(())
 		}
@@ -820,7 +816,7 @@ impl<T: Config> Pallet<T> {
 				},
 				XrplTxData::CurrencyPayment { amount, address, currency } => {
 					reads += 1;
-					let asset_id = match XRPLToAssetId::<T>::get(currency.symbol) {
+					let asset_id = match XRPLToAssetId::<T>::get(currency) {
 						None => {
 							Self::deposit_event(Event::ProcessingFailed(
 								ledger_index,
