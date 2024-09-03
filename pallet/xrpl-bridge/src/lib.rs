@@ -1151,7 +1151,24 @@ impl<T: Config> Pallet<T> {
 					amount.checked_add(tx_fee as Balance).is_some(),
 					Error::<T>::WithdrawInvalidAmount
 				); // xrp amounts are `u64`
-				Self::process_xrp_withdrawal(destination, amount, tx_fee, who.clone())?
+
+				let tx_data =
+					Self::process_xrp_withdrawal(destination, amount, tx_fee, who.clone())?;
+
+				// Check if there is a payment delay and delay the payment if necessary
+				if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get() {
+					if amount >= payment_threshold {
+						Self::delay_payment(
+							delay,
+							who.clone(),
+							asset_id,
+							tx_data,
+							destination_tag,
+						)?;
+						return Ok(());
+					}
+				}
+				tx_data
 			},
 			a if a == T::NativeAssetId::get() => {
 				Self::process_root_withdrawal(destination, amount, tx_fee, who.clone())?
@@ -1160,14 +1177,6 @@ impl<T: Config> Pallet<T> {
 				Self::process_asset_withdrawal(asset_id, destination, amount, tx_fee, who.clone())?
 			},
 		};
-
-		// Check if there is a payment delay and delay the payment if necessary
-		if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get() {
-			if amount >= payment_threshold {
-				Self::delay_payment(delay, who.clone(), asset_id, tx_data, destination_tag)?;
-				return Ok(());
-			}
-		}
 
 		Self::submit_withdraw_request(
 			who,
@@ -1189,6 +1198,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<WithdrawTransaction, DispatchError> {
 		// the door address pays the tx fee on XRPL. Therefore the withdrawn amount must include the
 		// tx fee to maintain an accurate door balance
+		// We burn on TRN as the tx_fee is burnt on XRPL side by the Door Address
 		let _ = T::MultiCurrency::burn_from(
 			T::XrpAssetId::get(),
 			&who,
@@ -1220,6 +1230,7 @@ impl<T: Config> Pallet<T> {
 			.ok_or(Error::<T>::AssetNotSupported)?;
 		// the door address pays the tx fee on XRPL. Therefore we must charge the user the tx fee
 		// in XRP alongside their ROOT withdrawal
+		// We burn on TRN as the tx_fee is burnt on XRPL side by the Door Address
 		let _ = T::MultiCurrency::burn_from(
 			T::XrpAssetId::get(),
 			&who,
@@ -1263,6 +1274,7 @@ impl<T: Config> Pallet<T> {
 			AssetIdToXRPL::<T>::get(asset_id).ok_or(Error::<T>::AssetNotSupported)?;
 		// the door address pays the tx fee on XRPL. Therefore we must charge the user the tx fee
 		// in XRP alongside their asset withdrawal
+		// We burn on TRN as the tx_fee is burnt on XRPL side by the Door Address
 		let _ = T::MultiCurrency::burn_from(
 			T::XrpAssetId::get(),
 			&who,

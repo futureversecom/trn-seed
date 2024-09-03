@@ -231,6 +231,30 @@ mod mantissa_tests {
 			);
 		});
 	}
+
+	#[test]
+	fn saturation_test_2_balance() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let asset_id = AssetsExt::next_asset_uuid().unwrap();
+			// Create asset with 18 decimals for these tests
+			assert_ok!(AssetsExt::create_asset(
+				Some(alice()).into(),
+				b"ASTO".to_vec(),
+				b"ASTO".to_vec(),
+				0,
+				None,
+				None
+			));
+			assert_eq!(<Test as pallet::Config>::MultiCurrency::decimals(asset_id), 0);
+
+			let amount: Balance = 1;
+			let saturated_amount: Balance = 1;
+			assert_eq!(
+				Pallet::<Test>::saturate_balance(amount, asset_id).unwrap(),
+				saturated_amount
+			);
+		});
+	}
 }
 
 #[test]
