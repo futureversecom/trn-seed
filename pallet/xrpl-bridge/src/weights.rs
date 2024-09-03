@@ -59,6 +59,7 @@ pub trait WeightInfo {
 	fn set_door_address() -> Weight;
 	fn set_ticket_sequence_next_allocation() -> Weight;
 	fn set_ticket_sequence_current_allocation() -> Weight;
+	fn set_xrpl_asset_map() -> Weight;
 	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight;
 	fn prune_settled_ledger_index(i: u32, ) -> Weight;
 }
@@ -213,6 +214,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_all(38_892_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
+	}
+	fn set_xrpl_asset_map() -> Weight {
+		Weight::from_all(16_397_000 as u64)
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: `XRPLBridge::SettledXRPTransactionDetails` (r:256 w:256)
 	// Proof: `XRPLBridge::SettledXRPTransactionDetails` (`max_values`: None, `max_size`: Some(64000016), added: 64002491, mode: `MaxEncodedLen`)
@@ -401,6 +406,10 @@ impl WeightInfo for () {
 		Weight::from_all(38_892_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
+	}
+	fn set_xrpl_asset_map() -> Weight {
+		Weight::from_all(16_397_000 as u64)
+			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: `XRPLBridge::SettledXRPTransactionDetails` (r:256 w:256)
 	// Proof: `XRPLBridge::SettledXRPTransactionDetails` (`max_values`: None, `max_size`: Some(64000016), added: 64002491, mode: `MaxEncodedLen`)

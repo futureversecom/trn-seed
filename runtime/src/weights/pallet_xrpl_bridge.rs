@@ -287,4 +287,14 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(1))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(i.into())))
 	}
+	
+	fn set_xrpl_asset_map() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 25_112_000 picoseconds.
+		Weight::from_parts(25_716_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
