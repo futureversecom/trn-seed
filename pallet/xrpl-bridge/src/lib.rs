@@ -185,6 +185,8 @@ pub mod pallet {
 		InvalidSymbolMapping,
 		/// The asset rounding due to saturation is too high, reduce the significant digits
 		AssetRoundingTooHigh,
+
+		TestErrorRemoveAfterUsing,
 	}
 
 	#[pallet::event]
@@ -526,6 +528,7 @@ pub mod pallet {
 			destination_tag: u32,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			// println!("Decimals: {}", <T as pallet::Config>::MultiCurrency::decimals(asset_id));
 			Self::add_to_withdraw(
 				who,
 				T::XrpAssetId::get(),
@@ -1137,7 +1140,7 @@ impl<T: Config> Pallet<T> {
 		// https://github.com/futureversecom/seed/issues/107
 		ensure!(!amount.is_zero(), Error::<T>::WithdrawInvalidAmount);
 		// Saturate the balance to be within the Mantissa range if the asset is not XRP
-		let amount = Self::saturate_balance(amount, 0)?;
+		let amount = Self::saturate_balance(amount, asset_id)?;
 		let tx_fee = Self::door_tx_fee();
 		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
 
