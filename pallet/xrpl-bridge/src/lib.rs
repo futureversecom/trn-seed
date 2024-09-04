@@ -196,11 +196,12 @@ pub mod pallet {
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		/// The payment delay was set
 		PaymentDelaySet {
+			asset_id: AssetId,
 			payment_threshold: Balance,
 			delay: BlockNumberFor<T>,
 		},
 		/// The payment delay was removed
-		PaymentDelayRemoved,
+		PaymentDelayRemoved(AssetId),
 		/// Processing an event succeeded
 		ProcessingOk(LedgerIndex, XrplTxHash),
 		/// Processing an event failed
@@ -501,11 +502,15 @@ pub mod pallet {
 			match payment_delay {
 				Some((payment_threshold, delay)) => {
 					PaymentDelay::<T>::insert(asset_id, (payment_threshold, delay));
-					Self::deposit_event(Event::<T>::PaymentDelaySet { payment_threshold, delay });
+					Self::deposit_event(Event::<T>::PaymentDelaySet {
+						asset_id,
+						payment_threshold,
+						delay,
+					});
 				},
 				None => {
 					PaymentDelay::<T>::remove(asset_id);
-					Self::deposit_event(Event::<T>::PaymentDelayRemoved);
+					Self::deposit_event(Event::<T>::PaymentDelayRemoved(asset_id));
 				},
 			}
 			Ok(())

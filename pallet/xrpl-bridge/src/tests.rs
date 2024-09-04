@@ -13,6 +13,8 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+use core::borrow::Borrow;
+
 use super::*;
 use crate::mock::{
 	AssetsExt, DelayedPaymentBlockLimit, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System,
@@ -1488,20 +1490,49 @@ fn set_payment_delay_works() {
 		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), asset_id, payment_delay));
 		assert_eq!(PaymentDelay::<Test>::get(asset_id), payment_delay);
 		System::assert_has_event(
-			Event::<Test>::PaymentDelaySet { payment_threshold: 100, delay: 1000 }.into(),
+			Event::<Test>::PaymentDelaySet { asset_id, payment_threshold: 100, delay: 1000 }.into(),
 		);
 
 		let payment_delay_2 = None;
 		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), asset_id, payment_delay_2));
 		assert_eq!(PaymentDelay::<Test>::get(asset_id), payment_delay_2);
-		System::assert_has_event(Event::<Test>::PaymentDelayRemoved.into());
+		System::assert_has_event(Event::<Test>::PaymentDelayRemoved(asset_id).into());
 
 		let payment_delay_3 = Some((1234, 123456789));
 		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), asset_id, payment_delay_3));
 		assert_eq!(PaymentDelay::<Test>::get(asset_id), payment_delay_3);
 		System::assert_has_event(
-			Event::<Test>::PaymentDelaySet { payment_threshold: 1234, delay: 123456789 }.into(),
+			Event::<Test>::PaymentDelaySet { asset_id, payment_threshold: 1234, delay: 123456789 }
+				.into(),
 		);
+	})
+}
+
+#[test]
+fn set_payment_delay_different_asset_ids_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let payment_delays: Vec<(u32, u128, u64)> =
+			vec![(1, 100, 1000), (22, 1250, 1500), (333, 200, 3000)];
+
+		// set payment delays
+		for (asset_id, payment_threshold, delay) in &payment_delays {
+			let asset_id = *asset_id;
+			let payment_delay @ (payment_threshold, delay) = (*payment_threshold, *delay);
+
+			assert_ok!(XRPLBridge::set_payment_delay(
+				RuntimeOrigin::root(),
+				asset_id,
+				Some(payment_delay)
+			));
+			System::assert_has_event(
+				Event::<Test>::PaymentDelaySet { asset_id, payment_threshold, delay }.into(),
+			);
+		}
+
+		// ensure payment delays for different asset ids are not overwritten
+		for (asset_id, payment_threshold, delay) in payment_delays {
+			assert_eq!(PaymentDelay::<Test>::get(asset_id), Some((payment_threshold, delay)));
+		}
 	})
 }
 
