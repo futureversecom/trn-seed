@@ -61,10 +61,11 @@ benchmarks! {
 	}
 
 	set_payment_delay {
+		let asset_id = T::XrpAssetId::get();
 		let payment_delay: (u128, BlockNumberFor<T>) = (100, BlockNumberFor::<T>::from(1000u32));
-	}: _(RawOrigin::Root, Some(payment_delay))
+	}: _(RawOrigin::Root, asset_id.clone(), Some(payment_delay))
 	verify {
-		assert_eq!(PaymentDelay::<T>::get(), Some(payment_delay));
+		assert_eq!(PaymentDelay::<T>::get(asset_id), Some(payment_delay));
 	}
 
 	withdraw_xrp {
