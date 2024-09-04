@@ -13,8 +13,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use core::borrow::Borrow;
-
 use super::*;
 use crate::mock::{
 	AssetsExt, DelayedPaymentBlockLimit, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System,
@@ -1616,7 +1614,6 @@ fn withdraw_with_payment_delay_works() {
 			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 			let delay_blocks = 1000;
-			let asset_id = 1;
 			let payment_delay = Some((100, 1000)); // (min_balance, delay)
 			let block_number = System::block_number();
 
@@ -1624,7 +1621,7 @@ fn withdraw_with_payment_delay_works() {
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
-				asset_id,
+				XrpAssetId::get(),
 				payment_delay
 			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
@@ -1701,7 +1698,6 @@ fn withdraw_with_destination_tag_payment_delay_works() {
 			let amount = 100;
 			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-			let asset_id = 1;
 			let payment_delay = Some((100, 1000)); // (min_balance, delay)
 			let destination_tag = 12;
 			let delay_blocks = 1000;
@@ -1712,7 +1708,7 @@ fn withdraw_with_destination_tag_payment_delay_works() {
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
-				asset_id,
+				XrpAssetId::get(),
 				payment_delay
 			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
@@ -1787,14 +1783,13 @@ fn withdraw_below_payment_delay_does_not_delay_payment() {
 			let amount = 99; // 1 below payment_delay amount
 			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-			let asset_id = 1;
 			let payment_delay = Some((100, 1000));
 
 			// Set initial parameters
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
-				asset_id,
+				XrpAssetId::get(),
 				payment_delay
 			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
@@ -1849,14 +1844,13 @@ fn process_delayed_payments_works() {
 			let amount = 100;
 			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-			let asset_id = 1;
 			let payment_delay = Some((100, 1000)); // (min_balance, delay)
 
 			// Set initial parameters
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
-				asset_id,
+				XrpAssetId::get(),
 				payment_delay
 			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
@@ -1920,14 +1914,13 @@ fn process_delayed_payments_works_in_on_idle() {
 			let amount = 100;
 			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-			let asset_id = 1;
 			let payment_delay = Some((100, 1000)); // (min_balance, delay)
 
 			// Set initial parameters
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
-				asset_id,
+				XrpAssetId::get(),
 				payment_delay
 			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
@@ -1988,14 +1981,13 @@ fn process_delayed_payments_multiple_withdrawals() {
 			let amount: u128 = 10;
 			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-			let asset_id = 1;
 			let payment_delay = Some((10, 1000)); // (min_balance, delay)
 
 			// Set initial parameters
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
-				asset_id,
+				XrpAssetId::get(),
 				payment_delay
 			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
@@ -2065,14 +2057,13 @@ fn process_delayed_payments_multiple_withdrawals_across_multiple_blocks() {
 			let amount: u128 = 10;
 			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-			let asset_id = 1;
 			let payment_delay = Some((10, 1000)); // (min_balance, delay)
 
 			// Set initial parameters
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
-				asset_id,
+				XrpAssetId::get(),
 				payment_delay
 			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));

@@ -69,6 +69,8 @@ impl OnRuntimeUpgrade for Upgrade {
 	}
 }
 
+#[allow(dead_code)]
+#[allow(unused_imports)]
 pub mod v4 {
 	use super::*;
 	use crate::migrations::Value;
