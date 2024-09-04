@@ -334,7 +334,13 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Payment delay for any withdraw over the specified Balance threshold
-	pub type PaymentDelay<T: Config> = StorageValue<_, (Balance, BlockNumberFor<T>), OptionQuery>;
+	pub type PaymentDelay<T: Config> =
+		StorageMap<_, Twox64Concat, AssetId, (Balance, BlockNumberFor<T>)>;
+
+	#[pallet::storage]
+	/// Payment delay for any withdraw over the specified Balance threshold
+	pub type PaymentDelayOriginal<T: Config> =
+		StorageValue<_, (Balance, BlockNumberFor<T>), OptionQuery>;
 
 	#[pallet::storage]
 	/// Map from DelayedPaymentId to (sender, WithdrawTx)
@@ -342,7 +348,7 @@ pub mod pallet {
 		StorageMap<_, Identity, DelayedPaymentId, DelayedWithdrawal<T::AccountId>>;
 
 	#[pallet::storage]
-	/// Map from block number to DelayedPatmentIds scheduled for that block
+	/// Map from block number to DelayedPaymentIds scheduled for that block
 	pub type DelayedPaymentSchedule<T: Config> = StorageMap<
 		_,
 		Identity,
@@ -488,16 +494,17 @@ pub mod pallet {
 		#[pallet::weight((T::WeightInfo::set_payment_delay(), DispatchClass::Operational))]
 		pub fn set_payment_delay(
 			origin: OriginFor<T>,
+			asset_id: AssetId,
 			payment_delay: Option<(Balance, BlockNumberFor<T>)>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			match payment_delay {
 				Some((payment_threshold, delay)) => {
-					PaymentDelay::<T>::put((payment_threshold, delay));
+					PaymentDelay::<T>::insert(asset_id, (payment_threshold, delay));
 					Self::deposit_event(Event::<T>::PaymentDelaySet { payment_threshold, delay });
 				},
 				None => {
-					PaymentDelay::<T>::kill();
+					PaymentDelay::<T>::remove(asset_id);
 					Self::deposit_event(Event::<T>::PaymentDelayRemoved);
 				},
 			}
@@ -1155,7 +1162,7 @@ impl<T: Config> Pallet<T> {
 					Self::process_xrp_withdrawal(destination, amount, tx_fee, who.clone())?;
 
 				// Check if there is a payment delay and delay the payment if necessary
-				if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get() {
+				if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get(asset_id) {
 					if amount >= payment_threshold {
 						Self::delay_payment(
 							delay,
