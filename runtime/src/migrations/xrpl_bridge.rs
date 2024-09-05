@@ -31,8 +31,8 @@ impl OnRuntimeUpgrade for Upgrade {
 
 		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(2);
 
-		if onchain == 3 {
-			log::info!(target: "Migration", "XRPLBridge: Migrating from on-chain version 3 to on-chain version 4.");
+		if onchain < 4 {
+			log::info!(target: "Migration", "XRPLBridge: Migrating from on-chain version {onchain:?} to on-chain version {current:?}.");
 			weight += v4::migrate::<Runtime>();
 
 			StorageVersion::new(4).put::<XRPLBridge>();
@@ -99,7 +99,9 @@ pub mod v4 {
 		if let Some(payment_delay) =
 			Value::unsafe_storage_get::<V3PaymentDelay<T>>(b"XRPLBridge", b"PaymentDelay")
 		{
-			weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1));
+			weight = weight.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(2));
+
+			Value::unsafe_clear(b"XRPLBridge", b"PaymentDelay");
 			PaymentDelay::<T>::insert(XrpAssetId::get(), payment_delay);
 		}
 
@@ -132,6 +134,14 @@ pub mod v4 {
 				assert_eq!(XRPLBridge::on_chain_storage_version(), 4);
 
 				assert_eq!(PaymentDelay::<Runtime>::get(XrpAssetId::get()), Some(payment_delay));
+
+				assert_eq!(
+					Value::unsafe_storage_get::<V3PaymentDelay<Runtime>>(
+						b"XRPLBridge",
+						b"PaymentDelay",
+					),
+					None
+				);
 			});
 		}
 
