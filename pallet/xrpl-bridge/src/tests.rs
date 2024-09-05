@@ -1494,7 +1494,7 @@ fn set_payment_delay_works() {
 		let payment_delay_2 = None;
 		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), asset_id, payment_delay_2));
 		assert_eq!(PaymentDelay::<Test>::get(asset_id), payment_delay_2);
-		System::assert_has_event(Event::<Test>::PaymentDelayRemoved(asset_id).into());
+		System::assert_has_event(Event::<Test>::PaymentDelayRemoved { asset_id }.into());
 
 		let payment_delay_3 = Some((1234, 123456789));
 		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), asset_id, payment_delay_3));

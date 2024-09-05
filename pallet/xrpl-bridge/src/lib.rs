@@ -201,7 +201,9 @@ pub mod pallet {
 			delay: BlockNumberFor<T>,
 		},
 		/// The payment delay was removed
-		PaymentDelayRemoved(AssetId),
+		PaymentDelayRemoved {
+			asset_id: AssetId,
+		},
 		/// Processing an event succeeded
 		ProcessingOk(LedgerIndex, XrplTxHash),
 		/// Processing an event failed
@@ -337,11 +339,6 @@ pub mod pallet {
 	/// Payment delay for any withdraw over the specified Balance threshold
 	pub type PaymentDelay<T: Config> =
 		StorageMap<_, Twox64Concat, AssetId, (Balance, BlockNumberFor<T>)>;
-
-	#[pallet::storage]
-	/// Payment delay for any withdraw over the specified Balance threshold
-	pub type PaymentDelayOriginal<T: Config> =
-		StorageValue<_, (Balance, BlockNumberFor<T>), OptionQuery>;
 
 	#[pallet::storage]
 	/// Map from DelayedPaymentId to (sender, WithdrawTx)
@@ -510,7 +507,7 @@ pub mod pallet {
 				},
 				None => {
 					PaymentDelay::<T>::remove(asset_id);
-					Self::deposit_event(Event::<T>::PaymentDelayRemoved(asset_id));
+					Self::deposit_event(Event::<T>::PaymentDelayRemoved { asset_id });
 				},
 			}
 			Ok(())
