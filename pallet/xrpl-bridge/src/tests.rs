@@ -1688,6 +1688,86 @@ fn withdraw_with_payment_delay_works() {
 }
 
 #[test]
+fn withdraw_with_payment_delay_using_different_asset_ids_works() {
+	let account = create_account(1);
+	let initial_balance = 10000;
+
+	let assets = vec![ROOT_ASSET_ID, 22, 333];
+
+	for asset_id in assets {
+		TestExt::<Test>::default()
+			.with_balances(&[(account, initial_balance)])
+			.with_asset(asset_id, "TEST", &[(account, initial_balance)])
+			.build()
+			.execute_with(|| {
+				let amount = 100;
+				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let delay_blocks = 1000;
+				let payment_delay = Some((100, 1000)); // (min_balance, delay)
+				let block_number = System::block_number();
+
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					0_u64
+				));
+				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+				assert_ok!(XRPLBridge::set_payment_delay(
+					RuntimeOrigin::root(),
+					asset_id,
+					payment_delay
+				));
+
+				// Setup the asset map
+				let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let currency = XRPLCurrencyType::NonStandard(
+					hex!("524F4F5400000000000000000000000000000000").into(),
+				);
+				let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+				assert_ok!(XRPLBridge::set_xrpl_asset_map(
+					RuntimeOrigin::root(),
+					asset_id,
+					xrpl_currency
+				));
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					1_u32,
+					1_u32,
+					200_u32
+				));
+				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+				// Check NextPaymentId before
+				let delayed_payment_id = NextDelayedPaymentId::<Test>::get();
+				let payment_block = block_number + delay_blocks;
+
+				// Withdraw amount which should add to pending withdrawals
+				assert_ok!(XRPLBridge::withdraw(
+					RuntimeOrigin::signed(account),
+					asset_id,
+					amount,
+					destination,
+					None
+				));
+
+				// Ensure event is thrown
+				System::assert_has_event(
+					Event::<Test>::WithdrawDelayed {
+						sender: account,
+						asset_id,
+						amount,
+						destination: destination.clone(),
+						delayed_payment_id,
+						payment_block,
+					}
+					.into(),
+				);
+			});
+	}
+}
+
+#[test]
 fn withdraw_with_destination_tag_payment_delay_works() {
 	let account = create_account(1);
 	let initial_balance = 10000;

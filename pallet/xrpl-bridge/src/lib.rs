@@ -1160,23 +1160,7 @@ impl<T: Config> Pallet<T> {
 					Error::<T>::WithdrawInvalidAmount
 				); // xrp amounts are `u64`
 
-				let tx_data =
-					Self::process_xrp_withdrawal(destination, amount, tx_fee, who.clone())?;
-
-				// Check if there is a payment delay and delay the payment if necessary
-				if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get(asset_id) {
-					if amount >= payment_threshold {
-						Self::delay_payment(
-							delay,
-							who.clone(),
-							asset_id,
-							tx_data,
-							destination_tag,
-						)?;
-						return Ok(());
-					}
-				}
-				tx_data
+				Self::process_xrp_withdrawal(destination, amount, tx_fee, who.clone())?
 			},
 			a if a == T::NativeAssetId::get() => {
 				Self::process_root_withdrawal(destination, amount, tx_fee, who.clone())?
@@ -1185,6 +1169,14 @@ impl<T: Config> Pallet<T> {
 				Self::process_asset_withdrawal(asset_id, destination, amount, tx_fee, who.clone())?
 			},
 		};
+
+		// Check if there is a payment delay and delay the payment if necessary
+		if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get(asset_id) {
+			if amount >= payment_threshold {
+				Self::delay_payment(delay, who.clone(), asset_id, tx_data, destination_tag)?;
+				return Ok(());
+			}
+		}
 
 		Self::submit_withdraw_request(
 			who,
@@ -1236,6 +1228,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<WithdrawTransaction, DispatchError> {
 		let xrpl_currency = AssetIdToXRPL::<T>::get(T::NativeAssetId::get())
 			.ok_or(Error::<T>::AssetNotSupported)?;
+
 		// the door address pays the tx fee on XRPL. Therefore we must charge the user the tx fee
 		// in XRP alongside their ROOT withdrawal
 		// We burn on TRN as the tx_fee is burnt on XRPL side by the Door Address
