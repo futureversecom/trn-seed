@@ -325,8 +325,8 @@ pub mod pallet {
 		TokenOnAuction,
 		/// No tokens were specified in the listing
 		EmptyTokens,
-		/// Token does not have an owner, likely the token has been burnt
-		NoTokenOwner,
+		/// The token does not exist
+		NoToken,
 	}
 
 	#[pallet::hooks]

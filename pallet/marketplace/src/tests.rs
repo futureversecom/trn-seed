@@ -2191,7 +2191,27 @@ fn make_simple_offer_on_burnt_token_should_fail() {
 				NativeAssetId::get(),
 				None
 			),
-			Error::<Test>::NoTokenOwner
+			Error::<Test>::NoToken
+		);
+	});
+}
+
+#[test]
+fn make_simple_offer_on_non_existent_token_should_fail() {
+	let buyer = create_account(7);
+
+	TestExt::<Test>::default().build().execute_with(|| {
+		let (collection_id, _, _) = setup_nft_token();
+		let offer_amount: Balance = 100;
+		assert_noop!(
+			Marketplace::make_simple_offer(
+				Some(buyer).into(),
+				(collection_id, 456), // non existent token
+				offer_amount,
+				NativeAssetId::get(),
+				None
+			),
+			Error::<Test>::NoToken
 		);
 	});
 }
