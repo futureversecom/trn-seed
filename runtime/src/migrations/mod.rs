@@ -13,6 +13,8 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+mod xrpl_bridge;
+
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
@@ -32,23 +34,28 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, DispatchError> {
-		Ok(Vec::new())
+		xrpl_bridge::Upgrade::pre_upgrade()
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		Weight::zero()
+		xrpl_bridge::Upgrade::on_runtime_upgrade()
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: Vec<u8>) -> Result<(), DispatchError> {
-		Ok(())
+	fn post_upgrade(state: Vec<u8>) -> Result<(), DispatchError> {
+		xrpl_bridge::Upgrade::post_upgrade(state)
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use crate::{Runtime, System};
+	use sp_core::H160;
 	use sp_runtime::BuildStorage;
+
+	pub fn create_account<AccountId: From<H160>>(seed: u64) -> AccountId {
+		AccountId::from(H160::from_low_u64_be(seed))
+	}
 
 	pub fn new_test_ext() -> sp_io::TestExternalities {
 		let t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();

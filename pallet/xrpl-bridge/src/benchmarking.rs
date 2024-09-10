@@ -18,6 +18,7 @@ use super::*;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
+use hex_literal::hex;
 
 use crate::Pallet as XrplBridge;
 
@@ -86,7 +87,48 @@ benchmarks! {
 	}: _(origin::<T>(&alice), amount, destination)
 	verify {
 		let new_alice_balance = T::MultiCurrency::balance(asset_id, &alice);
-		assert_ne!(alice_balance, new_alice_balance);
+		assert_eq!(alice_balance, new_alice_balance + amount + DoorTxFee::<T>::get() as u128);
+	}
+
+	withdraw_asset {
+		let alice = account::<T>("Alice");
+		let amount: Balance = 100u32.into();
+		let destination: XrplAccountId = [0u8; 20].into();
+		let door_address: XrplAccountId  = [1u8; 20].into();
+		let alice_balance = amount + 1000000000;
+		let asset_id = T::NativeAssetId::get();
+		let tx_fee = DoorTxFee::<T>::get();
+		let xrpl_symbol =
+			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol.clone(), issuer: destination };
+
+		// Set asset map
+		assert_ok!(XrplBridge::<T>::set_xrpl_asset_map(
+			RawOrigin::Root.into(),
+			asset_id,
+			xrpl_currency
+		));
+		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), door_address));
+		// Mint ROOT tokens to withdraw
+		assert_ok!(T::MultiCurrency::mint_into(
+			asset_id,
+			&alice.clone().into(),
+			alice_balance,
+		));
+		// Mint XRP tokens to cover fee
+		assert_ok!(T::MultiCurrency::mint_into(
+			T::XrpAssetId::get(),
+			&alice.clone().into(),
+			tx_fee as u128,
+		));
+		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
+		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), 1, 1));
+	}: withdraw(origin::<T>(&alice), asset_id, amount, destination, None)
+	verify {
+		let new_alice_balance = T::MultiCurrency::balance(asset_id, &alice);
+		assert_eq!(alice_balance, new_alice_balance + amount);
+		let new_alice_xrp_balance = T::MultiCurrency::balance(T::XrpAssetId::get(), &alice);
+		assert_eq!(new_alice_xrp_balance, 0);
 	}
 
 	add_relayer {
@@ -232,6 +274,21 @@ benchmarks! {
 			assert!(ProcessXRPTransactionDetails::<T>::get(tx_hash).is_none());
 		}
 	}
+
+	set_xrpl_asset_map {
+		let alice = account::<T>("Alice");
+		let destination: XrplAccountId = [0u8; 20].into();
+		let asset_id = T::NativeAssetId::get();
+		let tx_fee = DoorTxFee::<T>::get();
+		let xrpl_symbol =
+			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol.clone(), issuer: destination };
+	}: _(RawOrigin::Root, asset_id, xrpl_currency)
+	verify {
+		assert_eq!(AssetIdToXRPL::<T>::get(asset_id), Some(xrpl_currency));
+		assert_eq!(XRPLToAssetId::<T>::get(xrpl_currency), Some(asset_id));
+	}
+
 }
 
 impl_benchmark_test_suite!(

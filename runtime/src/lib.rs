@@ -158,7 +158,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 56,
+	spec_version: 58,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 10,
@@ -625,6 +625,8 @@ parameter_types! {
 	pub const MaxPrunedTransactionsPerBlock: u32 = 5000;
 	pub const MaxDelayedPaymentsPerBlock: u32 = 1000;
 	pub const DelayedPaymentBlockLimit: BlockNumber = 1000;
+	/// The xrpl peg address
+	pub const XrplPalletId: PalletId = PalletId(*b"xrpl-peg");
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -634,6 +636,8 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::pallet_xrpl_bridge::WeightInfo<Runtime>;
 	type XrpAssetId = XrpAssetId;
+	type NativeAssetId = RootAssetId;
+	type PalletId = XrplPalletId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type MaxPrunedTransactionsPerBlock = MaxPrunedTransactionsPerBlock;
 	type MaxDelayedPaymentsPerBlock = MaxDelayedPaymentsPerBlock;
@@ -1465,20 +1469,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	(
-		pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-		pallet_preimage::migration::v1::Migration<Runtime>,
-		pallet_scheduler::migration::v3::MigrateToV4<Runtime>,
-		pallet_assets::migration::v1::MigrateToV1<Runtime>,
-		pallet_balances::migration::MigrateToTrackInactive<Runtime, ()>,
-		pallet_scheduler::migration::v4::CleanupAgendas<Runtime>,
-		pallet_staking::migrations::v13::MigrateToV13<Runtime>,
-		pallet_grandpa::migrations::CleanupSetIdSessionMap<Runtime>,
-		pallet_offences::migration::v1::MigrateToV1<Runtime>,
-		pallet_im_online::migration::v1::Migration<Runtime>,
-		pallet_election_provider_multi_phase::migrations::v1::MigrateToV1<Runtime>,
-		migrations::AllMigrations,
-	),
+	(migrations::AllMigrations,),
 >;
 
 impl_runtime_apis! {

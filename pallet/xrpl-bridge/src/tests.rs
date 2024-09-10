@@ -16,8 +16,11 @@
 use super::*;
 use crate::mock::{
 	AssetsExt, DelayedPaymentBlockLimit, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System,
-	Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod,
+	Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod, XrplPalletId,
 };
+use crate::types::XRPLCurrency;
+use frame_support::traits::fungibles::metadata::Inspect as InspectMetadata;
+use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
 
 /// Helper function to get the xrp balance of an address
@@ -55,6 +58,205 @@ fn submit_transaction(
 		transaction,
 		1234
 	));
+}
+
+mod mantissa_tests {
+	use super::*;
+
+	#[test]
+	fn mantissa_conversion_test_1() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let amount: Balance = 1_000_000_000_000_000_000;
+			let decimals: u8 = 0;
+			let (mantissa, exponent) =
+				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
+			assert_eq!(mantissa, 1_000_000_000_000_000);
+			assert_eq!(exponent, 3);
+		});
+	}
+
+	#[test]
+	fn mantissa_conversion_test_2() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let amount: Balance = 1_000_000_000_000_001_111; // 1 ASTO at 18dp
+			let decimals: u8 = 18;
+			let (mantissa, exponent) =
+				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
+			assert_eq!(mantissa, 1_000_000_000_000_001);
+			assert_eq!(exponent, -15);
+		});
+	}
+
+	#[test]
+	fn mantissa_conversion_test_3() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let amount: Balance = 10_000_000_000_000_010;
+			let decimals = 0;
+			let (mantissa, exponent) =
+				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
+			assert_eq!(mantissa, 1_000_000_000_000_001);
+			assert_eq!(exponent, 1);
+		});
+	}
+
+	#[test]
+	fn mantissa_conversion_test_saturation() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let amount: Balance = 10_000_000_000_000_001; // The last one will be saturated
+			let decimals = 18;
+			// Saturate balance should remove the last 1 and prevent loss of precision
+			let (mantissa, exponent) =
+				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
+			assert_eq!(mantissa, 1_000_000_000_000_000);
+			assert_eq!(exponent, -17);
+		});
+	}
+
+	#[test]
+	fn mantissa_conversion_test_max() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let amount: Balance = u128::MAX;
+			let decimals = 0;
+			let (mantissa, exponent) =
+				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
+			assert_eq!(mantissa, 3_402_823_669_209_384);
+			assert_eq!(exponent, 23);
+		});
+	}
+
+	#[test]
+	fn mantissa_conversion_test_min() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let amount: Balance = 1;
+			let decimals = 18;
+			let (mantissa, exponent) =
+				Pallet::<Test>::balance_to_mantissa_exponent(amount, decimals).unwrap();
+			assert_eq!(mantissa, 1);
+			assert_eq!(exponent, -18);
+		});
+	}
+
+	#[test]
+	fn saturation_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let asset_id = AssetsExt::next_asset_uuid().unwrap();
+			// Create asset with 18 decimals for these tests
+			assert_ok!(AssetsExt::create_asset(
+				Some(alice()).into(),
+				b"ASTO".to_vec(),
+				b"ASTO".to_vec(),
+				18,
+				None,
+				None
+			));
+			assert_eq!(<Test as pallet::Config>::MultiCurrency::decimals(asset_id), 18);
+
+			let amount: Balance = 111_111_111_111_111_111_111_111_111;
+			let saturated_amount: Balance = 111_111_111_111_111_100_000_000_000;
+			assert_eq!(
+				Pallet::<Test>::saturate_balance(amount, asset_id).unwrap(),
+				saturated_amount
+			);
+			let (mantissa, _) = Pallet::<Test>::balance_to_mantissa_exponent(amount, 0).unwrap();
+			assert_eq!(mantissa, 1_111_111_111_111_111);
+
+			let amount: Balance = 999_999_999_999_999_999_999_999_999;
+			let saturated_amount: Balance = 999_999_999_999_999_900_000_000_000;
+			assert_eq!(
+				Pallet::<Test>::saturate_balance(amount, asset_id).unwrap(),
+				saturated_amount
+			);
+			let (mantissa, _) = Pallet::<Test>::balance_to_mantissa_exponent(amount, 0).unwrap();
+			assert_eq!(mantissa, 9_999_999_999_999_999);
+		});
+	}
+
+	#[test]
+	fn saturation_over_1_unit_works() {
+		const TEST_ASSET_ID: u32 = 123;
+		TestExt::<Test>::default()
+			.with_asset(TEST_ASSET_ID, "TST", &[(alice(), 1)])
+			.build()
+			.execute_with(|| {
+				// Sanity check, with_asset uses 6 decimals
+				assert_eq!(<Test as pallet::Config>::MultiCurrency::decimals(TEST_ASSET_ID), 6);
+
+				// This is fine as we are only saturating decimals
+				//                    10_000_000_000_000_00| - saturated off
+				let amount: Balance = 10_000_000_000_000_000_100_000;
+				let saturated_amount: Balance = 10_000_000_000_000_000_000_000;
+				assert_ok!(Pallet::<Test>::saturate_balance(amount, TEST_ASSET_ID));
+				assert_eq!(
+					Pallet::<Test>::saturate_balance(amount, TEST_ASSET_ID).unwrap(),
+					saturated_amount
+				);
+
+				// This should error as we are saturating >= 1.0 of the 6dp asset
+				//                    10_000_000_000_000_00| - saturated off
+				let amount: Balance = 10_000_000_000_000_001_000_000;
+				assert_noop!(
+					Pallet::<Test>::saturate_balance(amount, TEST_ASSET_ID),
+					Error::<Test>::AssetRoundingTooHigh
+				);
+
+				// This is fine as although we are saturating more than 6 significant figures,
+				// we aren't losing any precision as it is all 0
+				//                    10_000_000_000_000_01| - saturated off
+				let amount: Balance = 10_000_000_000_000_010_000_000;
+				assert_eq!(
+					Pallet::<Test>::saturate_balance(amount, TEST_ASSET_ID).unwrap(),
+					amount
+				);
+			});
+	}
+
+	#[test]
+	fn saturation_test_1_balance() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let asset_id = AssetsExt::next_asset_uuid().unwrap();
+			// Create asset with 18 decimals for these tests
+			assert_ok!(AssetsExt::create_asset(
+				Some(alice()).into(),
+				b"ASTO".to_vec(),
+				b"ASTO".to_vec(),
+				18,
+				None,
+				None
+			));
+			assert_eq!(<Test as pallet::Config>::MultiCurrency::decimals(asset_id), 18);
+
+			let amount: Balance = 1;
+			let saturated_amount: Balance = 1;
+			assert_eq!(
+				Pallet::<Test>::saturate_balance(amount, asset_id).unwrap(),
+				saturated_amount
+			);
+		});
+	}
+
+	#[test]
+	fn saturation_test_2_balance() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let asset_id = AssetsExt::next_asset_uuid().unwrap();
+			// Create asset with 18 decimals for these tests
+			assert_ok!(AssetsExt::create_asset(
+				Some(alice()).into(),
+				b"ASTO".to_vec(),
+				b"ASTO".to_vec(),
+				0,
+				None,
+				None
+			));
+			assert_eq!(<Test as pallet::Config>::MultiCurrency::decimals(asset_id), 0);
+
+			let amount: Balance = 1;
+			let saturated_amount: Balance = 1;
+			assert_eq!(
+				Pallet::<Test>::saturate_balance(amount, asset_id).unwrap(),
+				saturated_amount
+			);
+		});
+	}
 }
 
 #[test]
@@ -129,7 +331,6 @@ fn submit_transaction_with_default_replay_protection_values_works() {
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
 
 		// We don't set  replay protection data so that it would use default values.
-
 		assert_ok!(XRPLBridge::submit_transaction(
 			RuntimeOrigin::signed(relayer),
 			ledger_index,
@@ -137,6 +338,95 @@ fn submit_transaction_with_default_replay_protection_values_works() {
 			transaction,
 			1234
 		));
+	});
+}
+
+#[test]
+fn submit_currency_transaction_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(1);
+		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
+		let ledger_index = 1;
+		let issuer = H160::from_low_u64_be(555);
+		let symbol = XRPLCurrencyType::NonStandard([1; 20]);
+		let currency = XRPLCurrency { symbol, issuer };
+		let transaction = XrplTxData::CurrencyPayment {
+			amount: 1000 as Balance,
+			address: H160::from_low_u64_be(555),
+			currency,
+		};
+
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), 4, currency));
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+		assert_ok!(XRPLBridge::submit_transaction(
+			RuntimeOrigin::signed(relayer),
+			ledger_index,
+			XrplTxHash::from_slice(transaction_hash),
+			transaction,
+			1234
+		));
+	});
+}
+
+#[test]
+fn submit_currency_transaction_unsupported_currency_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(1);
+		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
+		let ledger_index = 1;
+		let issuer = H160::from_low_u64_be(555);
+		let symbol = XRPLCurrencyType::NonStandard([1; 20]);
+		let currency = XRPLCurrency { symbol, issuer };
+		let transaction = XrplTxData::CurrencyPayment {
+			amount: 1000 as Balance,
+			address: H160::from_low_u64_be(555),
+			currency,
+		};
+
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+		assert_noop!(
+			XRPLBridge::submit_transaction(
+				RuntimeOrigin::signed(relayer),
+				ledger_index,
+				XrplTxHash::from_slice(transaction_hash),
+				transaction,
+				1234
+			),
+			Error::<Test>::AssetNotSupported
+		);
+	});
+}
+
+#[test]
+fn submit_transaction_invalid_issuer_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let relayer = create_account(1);
+		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
+		let ledger_index = 1;
+		let issuer = H160::from_low_u64_be(555);
+		let symbol = XRPLCurrencyType::NonStandard([1; 20]);
+		let currency = XRPLCurrency { symbol, issuer };
+		let transaction = XrplTxData::CurrencyPayment {
+			amount: 1000 as Balance,
+			address: H160::from_low_u64_be(555),
+			currency,
+		};
+		// The currency we have mapped is different to the currency we pass through submit_transaction
+		let mapped_issuer = H160::from_low_u64_be(666);
+		let mapped_currency = XRPLCurrency { symbol, issuer: mapped_issuer };
+
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), 4, mapped_currency));
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+		assert_noop!(
+			XRPLBridge::submit_transaction(
+				RuntimeOrigin::signed(relayer),
+				ledger_index,
+				XrplTxHash::from_slice(transaction_hash),
+				transaction,
+				1234
+			),
+			Error::<Test>::AssetNotSupported
+		);
 	});
 }
 
@@ -467,7 +757,7 @@ fn withdraw_request_works_with_door_fee() {
 		let xrp_balance = xrp_balance_of(account);
 		assert_eq!(xrp_balance, initial_xrp_balance - withdraw_amount - door_tx_fee);
 
-		// Try again for remainding
+		// Try again for remainder
 		let initial_xrp_balance = xrp_balance_of(account);
 		let withdraw_amount: u64 = 800;
 		assert_ok!(XRPLBridge::withdraw_xrp(
@@ -1227,6 +1517,61 @@ fn set_payment_delay_not_sudo_fails() {
 }
 
 #[test]
+fn set_xrpl_asset_map_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let asset_id = 1;
+		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		let xrpl_symbol =
+			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol, issuer };
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency));
+		assert_eq!(AssetIdToXRPL::<Test>::get(asset_id), Some(xrpl_currency));
+		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_currency), Some(asset_id));
+		System::assert_has_event(Event::<Test>::XrplAssetMapSet { asset_id, xrpl_currency }.into());
+	})
+}
+
+#[test]
+fn set_xrpl_asset_map_invalid_currency_code() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let asset_id = 1;
+		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		// Invalid symbol as it starts with 0x00
+		let xrpl_symbol =
+			XRPLCurrencyType::NonStandard(hex!("004F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol, issuer };
+		assert_noop!(
+			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency),
+			Error::<Test>::InvalidCurrencyCode
+		);
+
+		// Invalid symbol, Standard currency can't be "XRP"
+		let xrpl_symbol = XRPLCurrencyType::Standard((*b"XRP").into());
+		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol, issuer };
+		assert_noop!(
+			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency),
+			Error::<Test>::InvalidCurrencyCode
+		);
+	})
+}
+
+#[test]
+fn set_xrpl_asset_map_not_sudo_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let asset_id = 1;
+		let account: AccountId = [1_u8; 20].into();
+		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		let xrpl_symbol =
+			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol, issuer };
+		assert_noop!(
+			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::signed(account), asset_id, xrpl_currency),
+			BadOrigin
+		);
+	})
+}
+
+#[test]
 fn withdraw_with_payment_delay_works() {
 	let account = create_account(1);
 	let initial_balance = 10000;
@@ -1269,6 +1614,7 @@ fn withdraw_with_payment_delay_works() {
 			System::assert_has_event(
 				Event::<Test>::WithdrawDelayed {
 					sender: account,
+					asset_id: XrpAssetId::get(),
 					amount,
 					destination: destination.clone(),
 					delayed_payment_id,
@@ -1278,13 +1624,13 @@ fn withdraw_with_payment_delay_works() {
 			);
 
 			// Expected tx data
-			let tx_data = XrpWithdrawTransaction {
+			let tx_data = WithdrawTransaction::XRP(XrpWithdrawTransaction {
 				tx_nonce: 0_u32,
 				tx_fee: 0,
 				amount,
 				destination,
 				tx_ticket_sequence: next_ticket_sequence,
-			};
+			});
 			let delayed_withdrawal = DelayedWithdrawal {
 				sender: account,
 				destination_tag: None,
@@ -1351,6 +1697,7 @@ fn withdraw_with_destination_tag_payment_delay_works() {
 			System::assert_has_event(
 				Event::<Test>::WithdrawDelayed {
 					sender: account,
+					asset_id: XrpAssetId::get(),
 					amount,
 					destination: destination.clone(),
 					delayed_payment_id,
@@ -1360,13 +1707,13 @@ fn withdraw_with_destination_tag_payment_delay_works() {
 			);
 
 			// Expected tx data, including destination tag
-			let tx_data = XrpWithdrawTransaction {
+			let tx_data = WithdrawTransaction::XRP(XrpWithdrawTransaction {
 				tx_nonce: 0_u32,
 				tx_fee: 0,
 				amount,
 				destination,
 				tx_ticket_sequence: next_ticket_sequence,
-			};
+			});
 			let delayed_withdrawal = DelayedWithdrawal {
 				sender: account,
 				destination_tag: Some(destination_tag),
@@ -1425,6 +1772,7 @@ fn withdraw_below_payment_delay_does_not_delay_payment() {
 				Event::<Test>::WithdrawRequest {
 					proof_id: 1,
 					sender: account,
+					asset_id: XrpAssetId::get(),
 					amount,
 					destination: destination.clone(),
 				}
@@ -1493,6 +1841,7 @@ fn process_delayed_payments_works() {
 				Event::<Test>::WithdrawRequest {
 					proof_id: 1,
 					sender: account,
+					asset_id: XrpAssetId::get(),
 					amount,
 					destination: destination.clone(),
 				}
@@ -1555,6 +1904,7 @@ fn process_delayed_payments_works_in_on_idle() {
 				Event::<Test>::WithdrawRequest {
 					proof_id: 1,
 					sender: account,
+					asset_id: XrpAssetId::get(),
 					amount,
 					destination: destination.clone(),
 				}
@@ -2329,7 +2679,7 @@ fn process_xrp_tx_success() {
 }
 
 #[test]
-fn process_xrp_tx_not_supported_transaction() {
+fn process_xrp_tx_for_root_bridging_transaction_low_peg_balance() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		System::set_block_number(1);
 		let account = create_account(2);
@@ -2337,11 +2687,22 @@ fn process_xrp_tx_not_supported_transaction() {
 		let relayer = create_account(1);
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
-		// submit currency payment tx
+		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		let currency =
+			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(
+			RuntimeOrigin::root(),
+			ROOT_ASSET_ID,
+			xrpl_currency
+		));
+
+		// submit currency payment tx, balance of peg address is too low so this will fail
+		let deposit_balance: u64 = 1;
 		let currency_payment_tx = XrplTxData::CurrencyPayment {
-			amount: (1 * 1000u64) as Balance,
+			amount: deposit_balance as Balance,
 			address: account.into(),
-			currency_id: H256::random(),
+			currency: xrpl_currency,
 		};
 		assert_ok!(XRPLBridge::submit_transaction(
 			RuntimeOrigin::signed(relayer),
@@ -2349,16 +2710,82 @@ fn process_xrp_tx_not_supported_transaction() {
 			XrplTxHash::from_slice(transaction_hash),
 			currency_payment_tx,
 			1234
-		));
+		),);
 
 		System::reset_events();
 		XRPLBridge::process_xrp_tx(XrpTxChallengePeriod::get() as u64 + 1);
 		System::set_block_number(XrpTxChallengePeriod::get() as u64 + 1);
-		System::assert_has_event(Event::<Test>::NotSupportedTransaction.into());
-
-		let xrp_balance = xrp_balance_of(account);
-		assert_eq!(xrp_balance, 0);
+		// ProcessingFailed event should be emitted
+		System::assert_has_event(
+			Event::<Test>::ProcessingFailed(
+				1_000_000_u64,
+				XrplTxHash::from_slice(transaction_hash),
+				ArithmeticError::Underflow.into(),
+			)
+			.into(),
+		);
+		// Balance not updated
+		let root_balance = AssetsExt::balance(ROOT_ASSET_ID, &account);
+		assert_eq!(root_balance, 0);
 	})
+}
+
+#[test]
+fn process_xrp_tx_for_root_bridging_transaction() {
+	let deposit_balance: Balance = 1_000;
+	// transfer ROOT to the peg address so it doesn't fail
+	let peg_address = XrplPalletId::get().into_account_truncating();
+	TestExt::<Test>::default()
+		.with_balances(&[(peg_address, deposit_balance)])
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+			let account = create_account(2);
+			let transaction_hash =
+				b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
+			let relayer = create_account(1);
+			XRPLBridge::initialize_relayer(&vec![relayer]);
+
+			let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+			let currency = XRPLCurrencyType::NonStandard(
+				hex!("524F4F5400000000000000000000000000000000").into(),
+			);
+			let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+			assert_ok!(XRPLBridge::set_xrpl_asset_map(
+				RuntimeOrigin::root(),
+				ROOT_ASSET_ID,
+				xrpl_currency
+			));
+
+			// submit currency payment tx
+			let currency_payment_tx = XrplTxData::CurrencyPayment {
+				amount: deposit_balance,
+				address: account.into(),
+				currency: xrpl_currency,
+			};
+			assert_ok!(XRPLBridge::submit_transaction(
+				RuntimeOrigin::signed(relayer),
+				1_000_000,
+				XrplTxHash::from_slice(transaction_hash),
+				currency_payment_tx,
+				1234
+			));
+
+			System::reset_events();
+			XRPLBridge::process_xrp_tx(XrpTxChallengePeriod::get() as u64 + 1);
+			System::set_block_number(XrpTxChallengePeriod::get() as u64 + 1);
+			System::assert_has_event(
+				Event::<Test>::ProcessingOk(
+					1_000_000_u64,
+					XrplTxHash::from_slice(transaction_hash),
+				)
+				.into(),
+			);
+
+			// Root transferred from peg address to account
+			assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &account), deposit_balance);
+			assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &peg_address), 0);
+		})
 }
 
 #[test]
@@ -2431,4 +2858,671 @@ fn process_xrp_tx_processing_failed() {
 			assert_eq!(xrp_balance, u128::MAX);
 		}
 	})
+}
+
+mod withdraw_asset {
+	use super::*;
+
+	#[test]
+	fn withdraw_asset_works() {
+		const TEST_ASSET_ID: u32 = 5;
+		let initial_balance = 2000;
+		TestExt::<Test>::default()
+			.with_asset(TEST_ASSET_ID, "TEST", &[(alice(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				// For this test we will set the door_tx_fee to 0
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					0_u64
+				));
+				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+				// Setup the asset map
+				let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let currency = XRPLCurrencyType::NonStandard(
+					hex!("524F4F5400000000000000000000000000000000").into(),
+				);
+				let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+				assert_ok!(XRPLBridge::set_xrpl_asset_map(
+					RuntimeOrigin::root(),
+					TEST_ASSET_ID,
+					xrpl_currency
+				));
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					1_u32,
+					1_u32,
+					200_u32
+				));
+				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+
+				// Withdraw full amount
+				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				assert_ok!(XRPLBridge::withdraw(
+					RuntimeOrigin::signed(alice()),
+					TEST_ASSET_ID,
+					initial_balance,
+					destination,
+					None
+				));
+				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &alice()), 0);
+
+				// Ensure event is thrown
+				System::assert_last_event(
+					Event::<Test>::WithdrawRequest {
+						proof_id: 1,
+						sender: alice(),
+						asset_id: TEST_ASSET_ID,
+						amount: initial_balance,
+						destination: destination.clone(),
+					}
+					.into(),
+				);
+			})
+	}
+
+	#[test]
+	fn withdraw_asset_works_with_saturation() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// This value should be saturated
+			let initial_balance = 10_000_000_000_000_000_100_000;
+			let saturated_amount: Balance = 10_000_000_000_000_000_000_000;
+			let asset_id = AssetsExt::next_asset_uuid().unwrap();
+
+			assert_ok!(AssetsExt::create_asset(
+				Some(alice()).into(),
+				b"ASTO".to_vec(),
+				b"ASTO".to_vec(),
+				6,
+				None,
+				None
+			));
+
+			assert_eq!(<Test as pallet::Config>::MultiCurrency::decimals(asset_id), 6);
+			assert_ok!(AssetsExt::mint(Some(alice()).into(), asset_id, alice(), initial_balance));
+
+			// For this test we will set the door_tx_fee to 0
+			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+			// Setup the asset map
+			let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+			let currency = XRPLCurrencyType::NonStandard(
+				hex!("524F4F5400000000000000000000000000000000").into(),
+			);
+			let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+			assert_ok!(XRPLBridge::set_xrpl_asset_map(
+				RuntimeOrigin::root(),
+				asset_id,
+				xrpl_currency
+			));
+
+			// set initial ticket sequence params
+			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+				RuntimeOrigin::root(),
+				1_u32,
+				1_u32,
+				200_u32
+			));
+			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+
+			// Withdraw full amount
+			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+			assert_eq!(
+				<<Test as pallet::Config>::MultiCurrency as InspectMetadata<
+					<Test as frame_system::Config>::AccountId,
+				>>::decimals(asset_id),
+				6
+			);
+			assert_ok!(XRPLBridge::withdraw(
+				RuntimeOrigin::signed(alice()),
+				asset_id,
+				initial_balance,
+				destination,
+				None
+			));
+			assert_eq!(AssetsExt::balance(asset_id, &alice()), 100_000);
+
+			// Ensure event is thrown
+			System::assert_last_event(
+				Event::<Test>::WithdrawRequest {
+					proof_id: 1,
+					sender: alice(),
+					asset_id,
+					amount: saturated_amount,
+					destination: destination.clone(),
+				}
+				.into(),
+			);
+		})
+	}
+
+	#[test]
+	fn withdraw_asset_no_asset_map_fails() {
+		const TEST_ASSET_ID: u32 = 5;
+		let initial_balance = 2000;
+		TestExt::<Test>::default()
+			.with_asset(TEST_ASSET_ID, "TEST", &[(alice(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				// For this test we will set the door_tx_fee to 0
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					0_u64
+				));
+				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					1_u32,
+					1_u32,
+					200_u32
+				));
+				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+
+				// Withdraw full amount
+				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				assert_noop!(
+					XRPLBridge::withdraw(
+						RuntimeOrigin::signed(alice()),
+						TEST_ASSET_ID,
+						initial_balance,
+						destination,
+						None
+					),
+					Error::<Test>::AssetNotSupported
+				);
+			})
+	}
+
+	#[test]
+	fn withdraw_asset_too_saturated_fails() {
+		const TEST_ASSET_ID: u32 = 5;
+		let initial_balance = 10_000_000_000_000_001_000_000;
+		TestExt::<Test>::default()
+			.with_asset(TEST_ASSET_ID, "TEST", &[(alice(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				// For this test we will set the door_tx_fee to 0
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					0_u64
+				));
+				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+				// Setup the asset map
+				let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let currency = XRPLCurrencyType::NonStandard(
+					hex!("524F4F5400000000000000000000000000000000").into(),
+				);
+				let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+				assert_ok!(XRPLBridge::set_xrpl_asset_map(
+					RuntimeOrigin::root(),
+					TEST_ASSET_ID,
+					xrpl_currency
+				));
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					1_u32,
+					1_u32,
+					200_u32
+				));
+				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+
+				// Withdraw full amount fails as it will saturate more than 1.0 off the amount
+				assert_noop!(
+					XRPLBridge::withdraw(
+						RuntimeOrigin::signed(alice()),
+						TEST_ASSET_ID,
+						initial_balance,
+						XrplAccountId::from_slice(b"6490B68F1116BFE87DDD"),
+						None
+					),
+					Error::<Test>::AssetRoundingTooHigh
+				);
+			})
+	}
+
+	#[test]
+	fn withdraw_asset_low_balance_fails() {
+		const TEST_ASSET_ID: u32 = 5;
+		let initial_balance = 2000;
+		TestExt::<Test>::default()
+			.with_asset(TEST_ASSET_ID, "TEST", &[(alice(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				// For this test we will set the door_tx_fee to 0
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					0_u64
+				));
+				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+				// Setup the asset map
+				let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let currency = XRPLCurrencyType::NonStandard(
+					hex!("524F4F5400000000000000000000000000000000").into(),
+				);
+				let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+				assert_ok!(XRPLBridge::set_xrpl_asset_map(
+					RuntimeOrigin::root(),
+					TEST_ASSET_ID,
+					xrpl_currency
+				));
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					1_u32,
+					1_u32,
+					200_u32
+				));
+				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+
+				// No tokens left to withdraw, should fail as account is reaped
+				assert_noop!(
+					XRPLBridge::withdraw(
+						RuntimeOrigin::signed(alice()),
+						TEST_ASSET_ID,
+						initial_balance + 1,
+						XrplAccountId::from_slice(b"6490B68F1116BFE87DDD"),
+						None
+					),
+					TokenError::FundsUnavailable
+				);
+			})
+	}
+
+	#[test]
+	fn withdraw_asset_door_address_not_set_fails() {
+		const TEST_ASSET_ID: u32 = 5;
+		let initial_balance = 2000;
+		TestExt::<Test>::default()
+			.with_asset(TEST_ASSET_ID, "TEST", &[(alice(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				// For this test we will set the door_tx_fee to 0
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					0_u64
+				));
+
+				// Setup the asset map
+				let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let currency = XRPLCurrencyType::NonStandard(
+					hex!("524F4F5400000000000000000000000000000000").into(),
+				);
+				let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+				assert_ok!(XRPLBridge::set_xrpl_asset_map(
+					RuntimeOrigin::root(),
+					TEST_ASSET_ID,
+					xrpl_currency
+				));
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					1_u32,
+					1_u32,
+					200_u32
+				));
+
+				// Withdraw full amount fails as door address isn't set
+				assert_noop!(
+					XRPLBridge::withdraw(
+						RuntimeOrigin::signed(alice()),
+						TEST_ASSET_ID,
+						initial_balance,
+						XrplAccountId::from_slice(b"6490B68F1116BFE87DDD"),
+						None
+					),
+					Error::<Test>::DoorAddressNotSet
+				);
+			})
+	}
+
+	#[test]
+	fn withdraw_asset_pays_tx_fee() {
+		const TEST_ASSET_ID: u32 = 5;
+		let initial_balance = 2000;
+		let tx_fee = 1000;
+		TestExt::<Test>::default()
+			.with_asset(TEST_ASSET_ID, "TEST", &[(alice(), initial_balance)])
+			.with_xrp_balances(&[(alice(), tx_fee)])
+			.build()
+			.execute_with(|| {
+				// For this test we will set the door_tx_fee to 1000
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					tx_fee as u64
+				));
+				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+				// Setup the asset map
+				let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let currency = XRPLCurrencyType::NonStandard(
+					hex!("524F4F5400000000000000000000000000000000").into(),
+				);
+				let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+				assert_ok!(XRPLBridge::set_xrpl_asset_map(
+					RuntimeOrigin::root(),
+					TEST_ASSET_ID,
+					xrpl_currency
+				));
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					1_u32,
+					1_u32,
+					200_u32
+				));
+				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+
+				// Withdraw full amount should succeed
+				assert_ok!(XRPLBridge::withdraw(
+					RuntimeOrigin::signed(alice()),
+					TEST_ASSET_ID,
+					initial_balance,
+					XrplAccountId::from_slice(b"6490B68F1116BFE87DDD"),
+					None
+				));
+				// Charged both Test asset and XRP fee
+				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &alice()), 0);
+				assert_eq!(AssetsExt::balance(XrpAssetId::get(), &alice()), 0);
+			})
+	}
+
+	#[test]
+	fn withdraw_asset_pays_tx_fee_low_xrp_balance_fails() {
+		const TEST_ASSET_ID: u32 = 5;
+		let initial_balance = 2000;
+		TestExt::<Test>::default()
+			.with_asset(TEST_ASSET_ID, "TEST", &[(alice(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				let tx_fee = 1;
+				// For this test we will set the door_tx_fee to 1
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					tx_fee
+				));
+				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+				// Setup the asset map
+				let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let currency = XRPLCurrencyType::NonStandard(
+					hex!("524F4F5400000000000000000000000000000000").into(),
+				);
+				let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+				assert_ok!(XRPLBridge::set_xrpl_asset_map(
+					RuntimeOrigin::root(),
+					TEST_ASSET_ID,
+					xrpl_currency
+				));
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					1_u32,
+					1_u32,
+					200_u32
+				));
+				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+
+				// Withdraw full amount should fail as we don't have 1 XRP to cover the tx fee
+				assert_noop!(
+					XRPLBridge::withdraw(
+						RuntimeOrigin::signed(alice()),
+						TEST_ASSET_ID,
+						initial_balance,
+						XrplAccountId::from_slice(b"6490B68F1116BFE87DDD"),
+						None
+					),
+					TokenError::FundsUnavailable
+				);
+			})
+	}
+}
+
+mod withdraw_root {
+	use super::*;
+
+	#[test]
+	fn withdraw_root_works() {
+		let initial_balance = 2000;
+		TestExt::<Test>::default()
+			.with_balances(&[(alice(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				// For this test we will set the door_tx_fee to 0
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					0_u64
+				));
+				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+				// Setup the asset map
+				let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let currency = XRPLCurrencyType::NonStandard(
+					hex!("524F4F5400000000000000000000000000000000").into(),
+				);
+				let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+				assert_ok!(XRPLBridge::set_xrpl_asset_map(
+					RuntimeOrigin::root(),
+					ROOT_ASSET_ID,
+					xrpl_currency
+				));
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					1_u32,
+					1_u32,
+					200_u32
+				));
+				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+
+				// Withdraw full amount
+				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				assert_ok!(XRPLBridge::withdraw(
+					RuntimeOrigin::signed(alice()),
+					ROOT_ASSET_ID,
+					initial_balance,
+					destination,
+					None
+				));
+				// alices balance should be transferred to the peg address instead of burnt
+				assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &alice()), 0);
+				assert_eq!(
+					AssetsExt::balance(
+						ROOT_ASSET_ID,
+						&XrplPalletId::get().into_account_truncating()
+					),
+					initial_balance
+				);
+
+				// Ensure event is thrown
+				System::assert_last_event(
+					Event::<Test>::WithdrawRequest {
+						proof_id: 1,
+						sender: alice(),
+						asset_id: ROOT_ASSET_ID,
+						amount: initial_balance,
+						destination: destination.clone(),
+					}
+					.into(),
+				);
+			})
+	}
+
+	#[test]
+	fn withdraw_root_insufficient_balance_fails() {
+		let initial_balance = 2000;
+		TestExt::<Test>::default()
+			.with_balances(&[(alice(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				// For this test we will set the door_tx_fee to 0
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					0_u64
+				));
+				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+				// Setup the asset map
+				let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let currency = XRPLCurrencyType::NonStandard(
+					hex!("524F4F5400000000000000000000000000000000").into(),
+				);
+				let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+				assert_ok!(XRPLBridge::set_xrpl_asset_map(
+					RuntimeOrigin::root(),
+					ROOT_ASSET_ID,
+					xrpl_currency
+				));
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					1_u32,
+					1_u32,
+					200_u32
+				));
+				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+
+				// Withdraw full amount fails due to insufficient balance
+				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				assert_noop!(
+					XRPLBridge::withdraw(
+						RuntimeOrigin::signed(alice()),
+						ROOT_ASSET_ID,
+						initial_balance + 1,
+						destination,
+						None
+					),
+					ArithmeticError::Underflow
+				);
+			})
+	}
+
+	#[test]
+	fn withdraw_root_pays_tx_fee() {
+		let initial_balance = 2000;
+		let tx_fee = 100;
+		TestExt::<Test>::default()
+			.with_balances(&[(alice(), initial_balance)])
+			.with_xrp_balances(&[(alice(), tx_fee)])
+			.build()
+			.execute_with(|| {
+				// For this test we will set the door_tx_fee to 100
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					tx_fee as u64
+				));
+				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+				// Setup the asset map
+				let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let currency = XRPLCurrencyType::NonStandard(
+					hex!("524F4F5400000000000000000000000000000000").into(),
+				);
+				let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+				assert_ok!(XRPLBridge::set_xrpl_asset_map(
+					RuntimeOrigin::root(),
+					ROOT_ASSET_ID,
+					xrpl_currency
+				));
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					1_u32,
+					1_u32,
+					200_u32
+				));
+				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+
+				// Withdraw full amount
+				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				assert_ok!(XRPLBridge::withdraw(
+					RuntimeOrigin::signed(alice()),
+					ROOT_ASSET_ID,
+					initial_balance,
+					destination,
+					None
+				));
+
+				// Balance transferred to Peg address
+				assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &alice()), 0);
+				assert_eq!(
+					AssetsExt::balance(
+						ROOT_ASSET_ID,
+						&XrplPalletId::get().into_account_truncating()
+					),
+					initial_balance
+				);
+
+				// Fee balance paid
+				assert_eq!(AssetsExt::balance(XrpAssetId::get(), &alice()), 0);
+			})
+	}
+
+	#[test]
+	fn withdraw_root_pays_tx_fee_low_xrp_balance_fails() {
+		let initial_balance = 2000;
+		let tx_fee = 100;
+		TestExt::<Test>::default()
+			.with_balances(&[(alice(), initial_balance)])
+			.with_xrp_balances(&[(alice(), tx_fee - 1)])
+			.build()
+			.execute_with(|| {
+				// For this test we will set the door_tx_fee to 100
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					tx_fee as u64
+				));
+				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+				// Setup the asset map
+				let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let currency = XRPLCurrencyType::NonStandard(
+					hex!("524F4F5400000000000000000000000000000000").into(),
+				);
+				let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+				assert_ok!(XRPLBridge::set_xrpl_asset_map(
+					RuntimeOrigin::root(),
+					ROOT_ASSET_ID,
+					xrpl_currency
+				));
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					1_u32,
+					1_u32,
+					200_u32
+				));
+				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+
+				// Withdraw full amount
+				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				assert_noop!(
+					XRPLBridge::withdraw(
+						RuntimeOrigin::signed(alice()),
+						ROOT_ASSET_ID,
+						initial_balance,
+						destination,
+						None
+					),
+					TokenError::FundsUnavailable
+				);
+			})
+	}
 }
