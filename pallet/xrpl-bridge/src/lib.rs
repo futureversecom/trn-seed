@@ -73,7 +73,7 @@ type AccountOf<T> = <T as frame_system::Config>::AccountId;
 pub mod pallet {
 	use super::*;
 
-	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -196,11 +196,14 @@ pub mod pallet {
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		/// The payment delay was set
 		PaymentDelaySet {
+			asset_id: AssetId,
 			payment_threshold: Balance,
 			delay: BlockNumberFor<T>,
 		},
 		/// The payment delay was removed
-		PaymentDelayRemoved,
+		PaymentDelayRemoved {
+			asset_id: AssetId,
+		},
 		/// Processing an event succeeded
 		ProcessingOk(LedgerIndex, XrplTxHash),
 		/// Processing an event failed
@@ -334,7 +337,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Payment delay for any withdraw over the specified Balance threshold
-	pub type PaymentDelay<T: Config> = StorageValue<_, (Balance, BlockNumberFor<T>), OptionQuery>;
+	pub type PaymentDelay<T: Config> =
+		StorageMap<_, Twox64Concat, AssetId, (Balance, BlockNumberFor<T>)>;
 
 	#[pallet::storage]
 	/// Map from DelayedPaymentId to (sender, WithdrawTx)
@@ -342,7 +346,7 @@ pub mod pallet {
 		StorageMap<_, Identity, DelayedPaymentId, DelayedWithdrawal<T::AccountId>>;
 
 	#[pallet::storage]
-	/// Map from block number to DelayedPatmentIds scheduled for that block
+	/// Map from block number to DelayedPaymentIds scheduled for that block
 	pub type DelayedPaymentSchedule<T: Config> = StorageMap<
 		_,
 		Identity,
@@ -488,17 +492,22 @@ pub mod pallet {
 		#[pallet::weight((T::WeightInfo::set_payment_delay(), DispatchClass::Operational))]
 		pub fn set_payment_delay(
 			origin: OriginFor<T>,
+			asset_id: AssetId,
 			payment_delay: Option<(Balance, BlockNumberFor<T>)>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			match payment_delay {
 				Some((payment_threshold, delay)) => {
-					PaymentDelay::<T>::put((payment_threshold, delay));
-					Self::deposit_event(Event::<T>::PaymentDelaySet { payment_threshold, delay });
+					PaymentDelay::<T>::insert(asset_id, (payment_threshold, delay));
+					Self::deposit_event(Event::<T>::PaymentDelaySet {
+						asset_id,
+						payment_threshold,
+						delay,
+					});
 				},
 				None => {
-					PaymentDelay::<T>::kill();
-					Self::deposit_event(Event::<T>::PaymentDelayRemoved);
+					PaymentDelay::<T>::remove(asset_id);
+					Self::deposit_event(Event::<T>::PaymentDelayRemoved { asset_id });
 				},
 			}
 			Ok(())
@@ -1151,23 +1160,7 @@ impl<T: Config> Pallet<T> {
 					Error::<T>::WithdrawInvalidAmount
 				); // xrp amounts are `u64`
 
-				let tx_data =
-					Self::process_xrp_withdrawal(destination, amount, tx_fee, who.clone())?;
-
-				// Check if there is a payment delay and delay the payment if necessary
-				if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get() {
-					if amount >= payment_threshold {
-						Self::delay_payment(
-							delay,
-							who.clone(),
-							asset_id,
-							tx_data,
-							destination_tag,
-						)?;
-						return Ok(());
-					}
-				}
-				tx_data
+				Self::process_xrp_withdrawal(destination, amount, tx_fee, who.clone())?
 			},
 			a if a == T::NativeAssetId::get() => {
 				Self::process_root_withdrawal(destination, amount, tx_fee, who.clone())?
@@ -1176,6 +1169,14 @@ impl<T: Config> Pallet<T> {
 				Self::process_asset_withdrawal(asset_id, destination, amount, tx_fee, who.clone())?
 			},
 		};
+
+		// Check if there is a payment delay and delay the payment if necessary
+		if let Some((payment_threshold, delay)) = PaymentDelay::<T>::get(asset_id) {
+			if amount >= payment_threshold {
+				Self::delay_payment(delay, who.clone(), asset_id, tx_data, destination_tag)?;
+				return Ok(());
+			}
+		}
 
 		Self::submit_withdraw_request(
 			who,
@@ -1227,6 +1228,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<WithdrawTransaction, DispatchError> {
 		let xrpl_currency = AssetIdToXRPL::<T>::get(T::NativeAssetId::get())
 			.ok_or(Error::<T>::AssetNotSupported)?;
+
 		// the door address pays the tx fee on XRPL. Therefore we must charge the user the tx fee
 		// in XRP alongside their ROOT withdrawal
 		// We burn on TRN as the tx_fee is burnt on XRPL side by the Door Address
