@@ -2172,6 +2172,51 @@ fn make_simple_offer() {
 }
 
 #[test]
+fn make_simple_offer_on_burnt_token_should_fail() {
+	let buyer = create_account(7);
+
+	TestExt::<Test>::default().build().execute_with(|| {
+		let (collection_id, token_id, token_owner) = setup_nft_token();
+		assert_eq!(
+			Nft::owned_tokens(collection_id, &token_owner, 0, 1000),
+			(token_id.1, 1, vec![token_id.1])
+		);
+		assert_ok!(Nft::burn(Some(token_owner).into(), token_id));
+		let offer_amount: Balance = 100;
+		assert_noop!(
+			Marketplace::make_simple_offer(
+				Some(buyer).into(),
+				token_id,
+				offer_amount,
+				NativeAssetId::get(),
+				None
+			),
+			Error::<Test>::NoToken
+		);
+	});
+}
+
+#[test]
+fn make_simple_offer_on_non_existent_token_should_fail() {
+	let buyer = create_account(7);
+
+	TestExt::<Test>::default().build().execute_with(|| {
+		let (collection_id, _, _) = setup_nft_token();
+		let offer_amount: Balance = 100;
+		assert_noop!(
+			Marketplace::make_simple_offer(
+				Some(buyer).into(),
+				(collection_id, 456), // non existent token
+				offer_amount,
+				NativeAssetId::get(),
+				None
+			),
+			Error::<Test>::NoToken
+		);
+	});
+}
+
+#[test]
 fn make_simple_offer_insufficient_funds_should_fail() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let (_, token_id, _) = setup_nft_token();

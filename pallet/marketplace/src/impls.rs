@@ -311,7 +311,9 @@ impl<T: Config> Pallet<T> {
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<OfferId, DispatchError> {
 		ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
-		ensure!(T::NFTExt::get_token_owner(&token_id) != Some(who), Error::<T>::IsTokenOwner);
+		let token_owner = T::NFTExt::get_token_owner(&token_id);
+		ensure!(token_owner.is_some(), Error::<T>::NoToken);
+		ensure!(token_owner != Some(who), Error::<T>::IsTokenOwner);
 		let offer_id = Self::next_offer_id();
 		ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 

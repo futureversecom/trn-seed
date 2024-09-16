@@ -325,6 +325,8 @@ pub mod pallet {
 		TokenOnAuction,
 		/// No tokens were specified in the listing
 		EmptyTokens,
+		/// The token does not exist
+		NoToken,
 	}
 
 	#[pallet::hooks]
