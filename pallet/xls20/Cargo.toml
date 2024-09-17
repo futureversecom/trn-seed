@@ -15,6 +15,7 @@ sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 codec = { workspace = true }
 scale-info = { workspace = true }
+hex-literal = { workspace = true }
 
 pallet-nft = { workspace = true }
 seed-primitives = { workspace = true }

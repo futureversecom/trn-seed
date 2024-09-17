@@ -23,6 +23,7 @@ use frame_support::traits::fungibles::Inspect;
 use pallet_nft::{CollectionInfo, CrossChainCompatibility};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::MetadataScheme;
+use hex_literal::hex;
 
 // Create an NFT collection with xls20 compatibility
 // Returns the created `collection_id`
@@ -56,6 +57,35 @@ fn setup_token_mappings(
 
 	BoundedVec::try_from(input).unwrap()
 }
+
+#[test]
+fn decode_xls20_token_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		//  000B 0C44 95F14B0E44F78A264E41713C64B5F89242540EE2 BC8B858E 00000D65
+		// 	+--- +--- +--------------------------------------- +------- +-------
+		// 	|    |    |                                        |        |
+		// 	|    |    |                                        |        `---> Sequence: 3,429
+		// 	|    |    |                                        |
+		//  |    |    |                                        `---> Taxon: 146,999,694
+		// 	|    |    |
+		// 	|    |    `---> Issuer: rNCFjv8Ek5oDrNiMJ3pw6eLLFtMjZLJnf2
+		// 	|    |
+		//  |    `---> TransferFee: 314.0 bps or 3.140%
+		// 	|
+		//  `---> Flags: 12 -> lsfBurnable, lsfOnlyXRP and lsfTransferable
+
+		let token = hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		let expected = Xls20Token {
+			flags: 11,
+			transfer_fee: Permill::from_rational(314u32, 10_000),
+			issuer: H160::from(hex!("95F14B0E44F78A264E41713C64B5F89242540EE2")),
+			taxon: 146_999_694,
+			sequence: 3429,
+		};
+		assert_eq!(Pallet::<Test>::decode_xls20_token(token), Ok(expected));
+	});
+}
+
 
 #[test]
 fn set_relayer_works() {

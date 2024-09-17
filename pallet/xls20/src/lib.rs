@@ -21,6 +21,7 @@
 //! XLS-20 Token String back in this pallet by calling the `fulfill_xls20_mint` extrinsic.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use std::io::Read;
 use frame_support::{
 	ensure,
 	pallet_prelude::*,
@@ -31,8 +32,11 @@ use frame_system::pallet_prelude::*;
 use pallet_nft::traits::NFTCollectionInfo;
 use seed_pallet_common::{NFTExt, Xls20MintRequest};
 use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount};
-use sp_runtime::{traits::Zero, DispatchResult, SaturatedConversion};
+use sp_runtime::{traits::Zero, DispatchResult, Permill, SaturatedConversion};
 use sp_std::prelude::*;
+use sp_core::H160;
+extern crate base58;
+use base58::ToBase58;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -50,6 +54,15 @@ mod tests;
 /// TokenId type for XLS-20 Token Ids
 /// See: https://github.com/XRPLF/XRPL-Standards/discussions/46
 pub type Xls20TokenId = [u8; 64];
+
+#[derive(Debug, PartialEq)]
+pub struct Xls20Token {
+	flags: u16,
+	transfer_fee: Permill,
+	issuer: H160,
+	taxon: u32,
+	sequence: u32,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -131,6 +144,8 @@ pub mod pallet {
 		NoToken,
 		/// No the owner of the collection
 		NotCollectionOwner,
+
+		CouldNotDecodeXls20Token,
 	}
 
 	#[pallet::call]
@@ -304,6 +319,57 @@ impl<T: Config> Pallet<T> {
 			serial_numbers,
 			token_uris,
 		});
+	}
+
+	pub fn decode_xls20_token(
+		xls20_token: [u8; 32],
+	) -> Result<Xls20Token, DispatchError> {
+		//  000B 0C44 95F14B0E44F78A264E41713C64B5F89242540EE2 BC8B858E 00000D65
+		// 	+--- +--- +--------------------------------------- +------- +-------
+		// 	|    |    |                                        |        |
+		// 	|    |    |                                        |        `---> Sequence: 3,429
+		// 	|    |    |                                        |
+		//  |    |    |                                        `---> Taxon: 146,999,694
+		// 	|    |    |
+		// 	|    |    `---> Issuer: rNCFjv8Ek5oDrNiMJ3pw6eLLFtMjZLJnf2
+		// 	|    |
+		//  |    `---> TransferFee: 314.0 bps or 3.140%
+		// 	|
+		//  `---> Flags: 12 -> lsfBurnable, lsfOnlyXRP and lsfTransferable
+
+		// Get first 4 bytes from token_id
+		let flags: u16 = u16::from_be_bytes(xls20_token[0..2].try_into().unwrap());
+		let transfer_fee = u16::from_be_bytes(xls20_token[2..4].try_into().unwrap()) as u32;
+		let transfer_fee = Permill::from_rational(transfer_fee, 100_000);
+		let issuer_bytes: [u8; 20] = xls20_token[4..24].try_into().unwrap();
+		let issuer: H160 = H160::from_slice(&issuer_bytes);
+		let scrambled_taxon: u32 = u32::from_be_bytes(xls20_token[24..28].try_into().unwrap());
+		let sequence: u32 = u32::from_be_bytes(xls20_token[28..].try_into().unwrap());
+		let taxon = Self::unscramble_taxon(scrambled_taxon, sequence);
+		let token = Xls20Token {
+			flags,
+			transfer_fee,
+			issuer,
+			taxon,
+			sequence,
+		};
+		Ok(token)
+	}
+
+	fn unscramble_taxon(
+		taxon: u32,
+		sequence: u32,
+	) -> u32 {
+		let seed: u64 = 384160001;
+		let increment: u64 = 2459;
+		let max: u64 = 4294967296;
+
+		// perform scrambling calculations, there will be no overflow as max is u64
+		// Max value would be u32::MAX * 384160001 which is less than u64::MAX
+		let mut scramble = seed.saturating_mul(sequence as u64) % max;
+		scramble = scramble.saturating_add(increment) % max;
+
+		taxon ^ scramble as u32
 	}
 }
 
