@@ -22,7 +22,7 @@ use crate::mock::{
 use frame_support::traits::fungibles::Inspect;
 use pallet_nft::{CollectionInfo, CrossChainCompatibility};
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::MetadataScheme;
+use seed_primitives::{MetadataScheme, xrpl::Xls20TokenId};
 use hex_literal::hex;
 
 // Create an NFT collection with xls20 compatibility

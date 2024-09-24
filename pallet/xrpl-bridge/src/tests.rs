@@ -506,7 +506,7 @@ fn set_door_tx_fee_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let new_fee = 123456_u64;
 		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), new_fee));
-		assert_eq!(XRPLBridge::door_tx_fee(), new_fee);
+		assert_eq!(DoorTxFee::<Test>::get(), new_fee);
 
 		// Only root can sign this tx, this should fail
 		let account = AccountId::from(H160::from_slice(b"6490B68F1116BFE87DDC"));
@@ -807,7 +807,7 @@ fn set_door_address_success() {
 			RuntimeOrigin::root(),
 			H160::from(xprl_door_address)
 		));
-		assert_eq!(XRPLBridge::door_address(), Some(H160::from_slice(xprl_door_address)));
+		assert_eq!(DoorAddress::<Test>::get(), Some(H160::from_slice(xprl_door_address)));
 	})
 }
 
@@ -823,7 +823,7 @@ fn set_door_address_fail() {
 			),
 			BadOrigin
 		);
-		assert_eq!(XRPLBridge::door_address(), None);
+		assert_eq!(DoorAddress::<Test>::get(), None);
 	})
 }
 
@@ -2188,9 +2188,9 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 			2_u32, // ticket sequence bucket size next round
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
-		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
+		assert_eq!(TicketSequenceThresholdReachedEmitted::<Test>::get(), false);
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
-		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
+		assert_eq!(TicketSequenceThresholdReachedEmitted::<Test>::get(), true);
 		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(4).into());
 
 		// try to fetch again - error
@@ -2301,10 +2301,10 @@ fn get_door_ticket_sequence_check_events_emitted() {
 			3_u32, // ticket sequence bucket size next round
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
-		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
+		assert_eq!(TicketSequenceThresholdReachedEmitted::<Test>::get(), false);
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
 		// event should be emitted here since ((4 - 3) + 1)/3 = 0.66 == TicketSequenceThreshold
-		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
+		assert_eq!(TicketSequenceThresholdReachedEmitted::<Test>::get(), true);
 		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(4).into());
 
 		// try to fetch again - error - but no TicketSequenceThresholdReached

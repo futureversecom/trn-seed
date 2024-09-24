@@ -79,8 +79,8 @@ fn test_is_relayer_works() {
 		let relayer2 = AccountId::from(H160::from_slice(relayer_address2));
 		let _ = XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer);
 		// Positive test
-		assert_eq!(XRPLBridge::get_relayer(relayer), Some(true));
+		assert_eq!(Relayer::<Test>::get(relayer), Some(true));
 		// Negative test
-		assert_eq!(XRPLBridge::get_relayer(relayer2), None);
+		assert_eq!(Relayer::<Test>::get(relayer2), None);
 	})
 }

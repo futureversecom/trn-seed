@@ -34,6 +34,7 @@ use seed_primitives::{
 };
 use sp_core::{bounded::BoundedVec, H160, U256};
 use sp_std::{fmt::Debug, vec::Vec};
+use seed_primitives::xrpl::Xls20TokenId;
 
 #[cfg(feature = "std")]
 pub mod test_utils;
@@ -374,6 +375,28 @@ impl Xls20MintRequest for () {
 		_metadata_scheme: MetadataScheme,
 	) -> DispatchResult {
 		Ok(())
+	}
+}
+
+
+// Trait used to handle bridged XLS20 deposits
+pub trait Xls20Deposit {
+	type AccountId;
+
+	fn deposit_xls20_token(
+		receiver: &Self::AccountId,
+		xls20_token_id: Xls20TokenId,
+	) -> Result<Weight, DispatchError>;
+}
+
+impl Xls20Deposit for () {
+	type AccountId = AccountId;
+
+	fn deposit_xls20_token(
+		_receiver: &Self::AccountId,
+		_xls20_token_id: Xls20TokenId,
+	) -> Result<Weight, DispatchError> {
+		Ok(Weight::zero())
 	}
 }
 
