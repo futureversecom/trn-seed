@@ -87,7 +87,7 @@ pub mod types {
 
 	/// Parachain Identifier
 	pub type ParachainId = u32;
-
+Xls20TokenId
 	/// The type for identifying the validators
 	pub type ValidatorId = u32;
 
@@ -136,6 +136,10 @@ pub mod xrpl {
 
 	/// The type for identifying the XRPL Tx TicketSequence
 	pub type XrplTxTicketSequence = u32;
+
+	/// TokenId type for XLS-20 Token Ids
+	/// See: https://github.com/XRPLF/XRPL-Standards/discussions/46
+	pub type Xls20TokenId = [u8; 64];
 }
 
 #[derive(PartialEq)]

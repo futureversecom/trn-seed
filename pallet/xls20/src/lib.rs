@@ -30,13 +30,11 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use pallet_nft::traits::NFTCollectionInfo;
-use seed_pallet_common::{NFTExt, Xls20MintRequest};
-use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount};
+use seed_pallet_common::{NFTExt, Xls20MintRequest, Xls20Deposit};
+use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount, xrpl::Xls20TokenId};
 use sp_runtime::{traits::Zero, DispatchResult, Permill, SaturatedConversion};
 use sp_std::prelude::*;
 use sp_core::H160;
-extern crate base58;
-use base58::ToBase58;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -50,10 +48,6 @@ pub use pallet::*;
 mod mock;
 #[cfg(test)]
 mod tests;
-
-/// TokenId type for XLS-20 Token Ids
-/// See: https://github.com/XRPLF/XRPL-Standards/discussions/46
-pub type Xls20TokenId = [u8; 64];
 
 #[derive(Debug, PartialEq)]
 pub struct Xls20Token {
@@ -105,6 +99,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Xls20TokenMap<T> =
 		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, SerialNumber, Xls20TokenId>;
+
+	#[pallet::storage]
+	pub type Xls20ToTokenId<T> = StorageMap<_, Twox64Concat, Xls20TokenId, TokenId>;
+
+	pub type CollectionMapping<T> = StorageMap<_, Twox64Concat, (issuer, taxon), CollectionUuid>;
+
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -385,5 +385,28 @@ impl<T: Config> Xls20MintRequest for Pallet<T> {
 		Self::pay_xls20_fee(who, serial_numbers.len() as TokenCount)?;
 		Self::send_xls20_requests(collection_id, serial_numbers, metadata_scheme);
 		Ok(())
+	}
+}
+
+impl<T: Config> Xls20Deposit for Pallet<T> {
+	type AccountId = T::AccountId;
+
+	fn deposit_xls20_token(receiver: &Self::AccountId, xls20_token_id: [u8; 32]) -> Result<Weight, DispatchError> {
+		let xls20_token = Self::decode_xls20_token(xls20_token_id)?;
+
+		// TODO Check flag is not burnable?
+
+		if Xls20TokenMap::<T>::get(xls20_token.taxon, xls20_token.sequence) == Some(xls20_token_id) {
+			// The token already exists, transfer it
+		}
+
+		if CollectionMapping::<T>::contains_key(xls20_token.issuer, xls20_token.taxon) {
+			// The collection already exists, mint the token
+		}
+
+		// Create the collection
+
+		// TODO calculate weight
+		Ok(Weight::zero())
 	}
 }

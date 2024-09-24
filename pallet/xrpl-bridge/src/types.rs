@@ -17,7 +17,7 @@ use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use seed_primitives::{
-	xrpl::{XrplAccountId, XrplTxHash, XrplTxNonce, XrplTxTicketSequence},
+	xrpl::{XrplAccountId, XrplTxHash, XrplTxNonce, XrplTxTicketSequence, Xls20TokenId},
 	AssetId, Balance,
 };
 use sp_core::H160;
@@ -104,9 +104,12 @@ pub struct NFTokenAcceptOfferTransaction {
 
 #[derive(Eq, CloneNoBound, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum XrplTxData {
+	// XRP asset
 	Payment { amount: Balance, address: H160 },
+	// Other fungible asset
 	CurrencyPayment { amount: Balance, address: H160, currency: XRPLCurrency },
-	Xls20, // Nft
+	// XLS-20 NFTs
+	Xls20 { token_id: Xls20TokenId, address: H160 },
 }
 
 impl Default for XrpTransaction {

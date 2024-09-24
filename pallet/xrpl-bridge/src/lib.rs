@@ -33,6 +33,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
+use sp_core::H160;
 use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, XrplBridgeToEthyAdapter};
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
@@ -54,6 +55,7 @@ use xrpl_codec::{
 };
 
 pub use pallet::*;
+use seed_primitives::xrpl::Xls20TokenId;
 
 pub mod types;
 
@@ -294,12 +296,10 @@ pub mod pallet {
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::storage]
-	#[pallet::getter(fn get_relayer)]
 	/// List of all XRP transaction relayers
 	pub type Relayer<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn process_xrp_transaction)]
 	/// Temporary storage to set the transactions ready to be processed at specified block number
 	pub type ProcessXRPTransaction<T: Config> = StorageMap<
 		_,
@@ -309,14 +309,12 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn process_xrp_transaction_details)]
 	/// Stores submitted transactions from XRPL waiting to be processed
 	/// Transactions will be cleared according to the submission window after processing
 	pub type ProcessXRPTransactionDetails<T: Config> =
 		StorageMap<_, Identity, XrplTxHash, (LedgerIndex, XrpTransaction, T::AccountId)>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn settled_xrp_transaction_details)]
 	/// Settled xrp transactions stored against XRPL ledger index
 	pub type SettledXRPTransactionDetails<T: Config> =
 		StorageMap<_, Twox64Concat, u32, BoundedVec<XrplTxHash, T::XRPLTransactionLimitPerLedger>>;
@@ -386,7 +384,6 @@ pub mod pallet {
 	pub type NextDelayedPaymentId<T: Config> = StorageValue<_, DelayedPaymentId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn challenge_xrp_transaction_list)]
 	/// Challenge received for a transaction mapped by hash, will be cleared when validator
 	/// validates
 	pub type ChallengeXRPTransactionList<T: Config> =
@@ -433,13 +430,11 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn door_tx_fee)]
 	/// The flat fee for XRPL door txs
 	pub type DoorTxFee<T: Config> =
 		StorageMap<_, Twox64Concat, XRPLDoorAccount, u64, ValueQuery, DefaultDoorTxFee>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn door_address)]
 	/// The door address on XRPL
 	pub type DoorAddress<T: Config> = StorageMap<_, Twox64Concat, XRPLDoorAccount, XrplAccountId>;
 
@@ -492,7 +487,7 @@ pub mod pallet {
 			);
 			// If within the submission window, check against ProcessXRPTransactionDetails
 			ensure!(
-				Self::process_xrp_transaction_details(transaction_hash).is_none(),
+				ProcessXRPTransactionDetails::<T>::get(transaction_hash).is_none(),
 				Error::<T>::TxReplay
 			);
 
@@ -883,6 +878,9 @@ impl<T: Config> Pallet<T> {
 		let mut highest_settled_ledger_index = HighestSettledLedgerIndex::<T>::get();
 
 		for (transaction_hash, (ledger_index, ref tx, _relayer)) in tx_details {
+			writes += 2;
+			reads += 2;
+
 			match &tx.transaction {
 				XrplTxData::Payment { amount, address } => {
 					if let Err(e) = T::MultiCurrency::mint_into(
@@ -903,57 +901,41 @@ impl<T: Config> Pallet<T> {
 					}
 				},
 				XrplTxData::CurrencyPayment { amount, address, currency } => {
+					// TODO properly calculate the reads/ writes or weight of these operations
 					reads += 1;
-					let asset_id = match XRPLToAssetId::<T>::get(currency) {
-						None => {
+					match Self::process_asset_deposit(amount, address, currency) {
+						Ok(_) => Self::deposit_event(Event::ProcessingOk(
+							ledger_index,
+							transaction_hash.clone(),
+						)),
+						Err(e) => {
+							// Note we don't want to continue here as we need to insert the
+							// transaction into SettledXRPTransactionDetails to prevent
+							// replay attacks
 							Self::deposit_event(Event::ProcessingFailed(
 								ledger_index,
 								transaction_hash.clone(),
-								Error::<T>::AssetNotSupported.into(),
+								e,
 							));
-							continue;
 						},
-						Some(asset_id) => asset_id,
-					};
-					if asset_id == T::NativeAssetId::get() {
-						let pallet_address: T::AccountId =
-							T::PalletId::get().into_account_truncating();
-						if let Err(e) = T::MultiCurrency::transfer(
-							asset_id,
-							&pallet_address,
-							&(*address).into(),
-							amount.clone(),
-							Preservation::Expendable,
-						) {
-							Self::deposit_event(Event::ProcessingFailed(
-								ledger_index,
-								transaction_hash.clone(),
-								e,
-							));
-							continue;
-						}
-					} else {
-						if let Err(e) = T::MultiCurrency::mint_into(
-							asset_id,
-							&(*address).into(),
-							amount.clone(),
-						) {
-							Self::deposit_event(Event::ProcessingFailed(
-								ledger_index,
-								transaction_hash.clone(),
-								e,
-							));
-							continue;
-						}
 					}
-					Self::deposit_event(Event::ProcessingOk(
-						ledger_index,
-						transaction_hash.clone(),
-					));
 				},
-				_ => {
-					Self::deposit_event(Event::NotSupportedTransaction);
-					continue;
+				XrplTxData::Xls20 { token_id, address } => {
+					// TODO benchmark process_xls20_deposit function
+					match Self::process_xls20_deposit(token_id, address) {
+						Ok(_) => Self::deposit_event(Event::ProcessingOk(
+							ledger_index,
+							transaction_hash.clone(),
+						)),
+						Err(e) => {
+							Self::deposit_event(Event::ProcessingFailed(
+								ledger_index,
+								transaction_hash.clone(),
+								e,
+							));
+							continue
+						},
+					}
 				},
 			}
 
@@ -969,14 +951,44 @@ impl<T: Config> Pallet<T> {
 				highest_settled_ledger_index = ledger_index as u32;
 			}
 
-			writes += 2;
-			reads += 2;
 		}
 
 		writes += 1;
 		HighestSettledLedgerIndex::<T>::put(highest_settled_ledger_index);
 
 		DbWeight::get().reads_writes(reads, writes)
+	}
+
+	// Process a deposit transaction from XRPL, if it is ROOT token, transfer from the pallet address
+	// otherwise mint the asset into the destination account
+	fn process_asset_deposit(amount: &Balance, address: &H160, currency: &XRPLCurrency) -> DispatchResult {
+		let Some(asset_id) = XRPLToAssetId::<T>::get(currency) else {
+			return Err(Error::<T>::AssetNotSupported.into());
+		};
+		if asset_id == T::NativeAssetId::get() {
+			let pallet_address: T::AccountId =
+				T::PalletId::get().into_account_truncating();
+			T::MultiCurrency::transfer(
+				asset_id,
+				&pallet_address,
+				&(*address).into(),
+				amount.clone(),
+				Preservation::Expendable,
+			)?;
+		} else {
+			T::MultiCurrency::mint_into(
+				asset_id,
+				&(*address).into(),
+				amount.clone(),
+			)?;
+		}
+		Ok(())
+	}
+
+	// Process an XLS-20 deposit from XRPL
+	fn process_xls20_deposit(token_id: &Xls20TokenId, address: &H160) -> DispatchResult {
+		// TODO Route to XLS-20 pallet
+		Ok(())
 	}
 
 	/// Process any transactions that have been delayed due to the min_payment threshold
