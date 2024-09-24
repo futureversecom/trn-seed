@@ -385,7 +385,7 @@ impl<T: Config> Pallet<T> {
 							tokens: sale.tokens,
 							listing_id,
 							marketplace_id: sale.marketplace_id,
-							reason: FixedPriceClosureReason::VendorCancelled,
+							reason: FixedPriceClosureReason::OfferAccepted,
 						});
 					},
 					// Offer cannot be made on auctions

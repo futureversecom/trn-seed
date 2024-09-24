@@ -2344,7 +2344,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 				tokens: ListingTokens::Nft(NftListing { collection_id, serial_numbers }),
 				listing_id,
 				marketplace_id: None,
-				reason: FixedPriceClosureReason::VendorCancelled,
+				reason: FixedPriceClosureReason::OfferAccepted,
 			}));
 		});
 }
