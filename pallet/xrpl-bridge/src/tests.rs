@@ -1563,6 +1563,54 @@ fn set_xrpl_asset_map_works() {
 }
 
 #[test]
+fn remove_xrpl_asset_map_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let asset_id = 1;
+		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		let xrpl_symbol =
+			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol, issuer };
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency));
+		assert_eq!(AssetIdToXRPL::<Test>::get(asset_id), Some(xrpl_currency));
+		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_currency), Some(asset_id));
+		assert_ok!(XRPLBridge::remove_xrpl_asset_map(RuntimeOrigin::root(), asset_id));
+		System::assert_has_event(
+			Event::<Test>::XrplAssetMapRemoved { asset_id, xrpl_currency }.into(),
+		);
+	})
+}
+
+#[test]
+fn remove_xrpl_asset_map_not_sudo_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let asset_id = 1;
+		let account: AccountId = [1_u8; 20].into();
+		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		let xrpl_symbol =
+			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol, issuer };
+		assert_noop!(
+			XRPLBridge::remove_xrpl_asset_map(
+				RuntimeOrigin::signed(account),
+				asset_id,
+				xrpl_currency
+			),
+			BadOrigin
+		);
+	})
+}
+
+#[test]
+fn remove_xrpl_asset_map_fails_with_no_mapping() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		assert_noop!(
+			XRPLBridge::remove_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency),
+			Error::<Test>::AssetNotSupported
+		);
+	})
+}
+
+#[test]
 fn set_xrpl_asset_map_invalid_currency_code() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let asset_id = 1;
