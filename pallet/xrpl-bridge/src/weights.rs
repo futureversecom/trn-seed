@@ -62,7 +62,6 @@ pub trait WeightInfo {
 	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight;
 	fn prune_settled_ledger_index(i: u32, ) -> Weight;
 	fn set_xrpl_asset_map() -> Weight;
-	fn remove_xrpl_asset_map() -> Weight;
 }
 
 /// Weights for pallet_xrpl_bridge using the Substrate node and recommended hardware.
@@ -262,12 +261,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_all(31_578_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
-	// Storage: `XRPLBridge::XRPLToAssetId` (r:0 w:1)
-	// Storage: `XRPLBridge::AssetIdToXRPL` (r:0 w:1)
-	fn remove_xrpl_asset_map() -> Weight {
-		Weight::from_all(31_578_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
-	}
 }
 
 // For backwards compatibility and tests
@@ -463,12 +456,6 @@ impl WeightInfo for () {
 	// Storage: `XRPLBridge::AssetIdToXRPL` (r:0 w:1)
 	// Proof: `XRPLBridge::AssetIdToXRPL` (`max_values`: None, `max_size`: Some(53), added: 2528, mode: `MaxEncodedLen`)
 	fn set_xrpl_asset_map() -> Weight {
-		Weight::from_all(31_578_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(2 as u64))
-	}
-	// Storage: `XRPLBridge::XRPLToAssetId` (r:0 w:1)
-	// Storage: `XRPLBridge::AssetIdToXRPL` (r:0 w:1)
-	fn remove_xrpl_asset_map() -> Weight {
 		Weight::from_all(31_578_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}

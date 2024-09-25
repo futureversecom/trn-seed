@@ -289,23 +289,6 @@ benchmarks! {
 		assert_eq!(AssetIdToXRPL::<T>::get(asset_id), Some(xrpl_currency));
 		assert_eq!(XRPLToAssetId::<T>::get(xrpl_currency), Some(asset_id));
 	}
-
-	remove_xrpl_asset_map {
-		let alice = account::<T>("Alice");
-		let destination: XrplAccountId = [0u8; 20].into();
-		let asset_id = T::NativeAssetId::get();
-		let tx_fee = DoorTxFee::<T>::get();
-		let xrpl_symbol =
-			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
-		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol.clone(), issuer: destination };
-		<AssetIdToXRPL<T>>::insert(asset_id, Some(xrpl_currency));
-		<XRPLToAssetId<T>>::insert(xrpl_currency, Some(asset_id));
-	}: _(RawOrigin::Root, asset_id, xrpl_currency)
-	verify {
-		assert_eq!(AssetIdToXRPL::<T>::get(asset_id), None);
-		assert_eq!(XRPLToAssetId::<T>::get(xrpl_currency), None);
-	}
-
 }
 
 impl_benchmark_test_suite!(
