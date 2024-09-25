@@ -284,7 +284,7 @@ benchmarks! {
 		let xrpl_symbol =
 			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
 		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol.clone(), issuer: destination };
-	}: _(RawOrigin::Root, asset_id, xrpl_currency)
+	}: _(RawOrigin::Root, asset_id, Some(xrpl_currency))
 	verify {
 		assert_eq!(AssetIdToXRPL::<T>::get(asset_id), Some(xrpl_currency));
 		assert_eq!(XRPLToAssetId::<T>::get(xrpl_currency), Some(asset_id));
