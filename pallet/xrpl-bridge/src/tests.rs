@@ -1592,6 +1592,7 @@ fn remove_xrpl_asset_map_works() {
 #[test]
 fn remove_xrpl_asset_map_fails_with_no_mapping() {
 	TestExt::<Test>::default().build().execute_with(|| {
+		let asset_id = 1;
 		let xrpl_currency = None;
 		assert_noop!(
 			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency),
