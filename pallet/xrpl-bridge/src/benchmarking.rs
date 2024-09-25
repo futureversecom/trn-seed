@@ -107,7 +107,7 @@ benchmarks! {
 		assert_ok!(XrplBridge::<T>::set_xrpl_asset_map(
 			RawOrigin::Root.into(),
 			asset_id,
-			xrpl_currency
+			Some(xrpl_currency)
 		));
 		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), door_address));
 		// Mint ROOT tokens to withdraw
