@@ -158,7 +158,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 58,
+	spec_version: 59,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 10,
@@ -1363,6 +1363,11 @@ impl pallet_crowdsale::Config for Runtime {
 	type WeightInfo = weights::pallet_crowdsale::WeightInfo<Self>;
 }
 
+impl pallet_migration::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type CurrentMigration = Xls20;
+}
+
 construct_runtime!(
 	pub enum Runtime {
 		System: frame_system = 0,
@@ -1407,6 +1412,7 @@ construct_runtime!(
 		MaintenanceMode: pallet_maintenance_mode = 47,
 		Crowdsale: pallet_crowdsale = 49,
 		Nfi: pallet_nfi = 50,
+		Migration: pallet_migration = 51,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,

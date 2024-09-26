@@ -13,7 +13,8 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod xrpl_bridge;
+mod xls20;
+mod multi_block;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
@@ -34,16 +35,16 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, DispatchError> {
-		xrpl_bridge::Upgrade::pre_upgrade()
+        xls20::Upgrade::pre_upgrade()
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		xrpl_bridge::Upgrade::on_runtime_upgrade()
+        xls20::Upgrade::on_runtime_upgrade()
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), DispatchError> {
-		xrpl_bridge::Upgrade::post_upgrade(state)
+        xls20::Upgrade::post_upgrade(state)
 	}
 }
 

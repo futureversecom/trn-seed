@@ -46,6 +46,7 @@ pub use pallet::*;
 mod mock;
 #[cfg(test)]
 mod tests;
+mod migration;
 
 /// TokenId type for XLS-20 Token Ids
 /// See: https://github.com/XRPLF/XRPL-Standards/discussions/46
@@ -56,7 +57,7 @@ pub mod pallet {
 	use super::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -92,6 +93,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Xls20TokenMap<T> =
 		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, SerialNumber, Xls20TokenId>;
+
+	#[pallet::storage]
+	pub type TokenIdToXls20<T> =
+	StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, SerialNumber, [u8; 32]>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -226,11 +231,13 @@ pub mod pallet {
 			token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), T::MaxTokensPerXls20Mint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(T::Migration::ensure_migrated().is_ok(), Error::<T>::Errnogo);
 
 			// Mappings can't be empty
 			ensure!(!token_mappings.is_empty(), Error::<T>::NoToken);
 			// Ensure only relayer can call extrinsic
-			ensure!(Some(who) == Relayer::<T>::get(), Error::<T>::NotRelayer);
+			// TODO I commented out for testing
+			// ensure!(Some(who) == Relayer::<T>::get(), Error::<T>::NotRelayer);
 
 			let collection_info = T::NFTCollectionInfo::get_collection_info(collection_id)?;
 

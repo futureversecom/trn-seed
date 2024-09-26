@@ -110,6 +110,7 @@ pallet-assets-ext-rpc = { path = "pallet/assets-ext/rpc", default-features = fal
 pallet-assets-ext-rpc-runtime-api = { path = "pallet/assets-ext/rpc/runtime-api", default-features = false }
 seed-pallet-common = { path = "pallet/common", default-features = false }
 pallet-crowdsale = { path = "pallet/crowdsale", default-features = false }
+pallet-migration = { path = "pallet/migration", default-features = false }
 pallet-dex = { path = "pallet/dex", default-features = false }
 pallet-dex-rpc = { path = "pallet/dex/rpc", default-features = false }
 pallet-dex-rpc-runtime-api = { path = "pallet/dex/rpc/runtime-api", default-features = false }
