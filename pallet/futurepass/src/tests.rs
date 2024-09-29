@@ -1632,6 +1632,80 @@ fn proxy_extrinsic_to_proxy_pallet_fails() {
 }
 
 #[test]
+fn cannot_bypass_proxy_extrinsic_via_proxy() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::<Test>::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let owner = create_account(2);
+			let (signer, delegate) = create_random_pair();
+
+			let proxy_type = ProxyType::Any;
+			let deadline = 200;
+
+			// fund owner
+			transfer_funds(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&owner,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE + 1,
+			);
+
+			// create FP for owner
+			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
+			let futurepass = Holders::<Test>::get(&owner).unwrap();
+
+			let signature = signer
+				.sign_prehashed(
+					&Futurepass::generate_add_delegate_eth_signed_message(
+						&futurepass,
+						&delegate,
+						&proxy_type,
+						&deadline,
+					)
+					.unwrap()
+					.1,
+				)
+				.0;
+
+			// register delegate
+			assert_ok!(Futurepass::register_delegate_with_signature(
+				RuntimeOrigin::signed(owner),
+				futurepass,
+				delegate,
+				proxy_type,
+				deadline,
+				signature,
+			));
+
+			// fund futurepass
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, 1000);
+
+			let other = create_account(4);
+			let inner_call = Box::new(MockCall::Futurepass(Call::transfer_futurepass {
+				current_owner: owner,
+				new_owner: Some(other),
+			}));
+			assert_ok!(pallet_proxy::Pallet::<Test>::proxy(
+				RuntimeOrigin::signed(delegate),
+				futurepass,
+				None,
+				inner_call
+			));
+
+			// the delegate tried to transfer the futurepass, but because it was
+			// was filtered, the futurepass should still be owned by the original
+			// owner
+			assert_eq!(futurepass, Holders::<Test>::get(&owner).unwrap());
+			assert!(Holders::<Test>::get(&other).is_none());
+		});
+}
+
+#[test]
 fn proxy_extrinsic_failures_common() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
