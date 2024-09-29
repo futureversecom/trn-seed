@@ -145,6 +145,7 @@ impl<T> Default for MarketplacePrecompile<T> {
 	}
 }
 
+#[allow(deprecated)]
 impl<Runtime> Precompile for MarketplacePrecompile<Runtime>
 where
 	Runtime::AccountId: From<H160> + Into<H160>,
@@ -157,59 +158,56 @@ where
 		From<Option<Runtime::AccountId>>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
-		let result = {
-			let selector = match handle.read_selector() {
-				Ok(selector) => selector,
-				Err(e) => return Err(e.into()),
-			};
-
-			if let Err(err) = handle.check_function_modifier(match selector {
-				Action::RegisterMarketplace
-				| Action::SellNft
-				| Action::SellNftWithMarketplaceId
-				| Action::SellSft
-				| Action::UpdateFixedPrice
-				| Action::AuctionNft
-				| Action::AuctionNftWithMarketplaceId
-				| Action::AuctionSft
-				| Action::Bid
-				| Action::Buy
-				| Action::CancelSale
-				| Action::MakeSimpleOffer
-				| Action::MakeSimpleOfferWithMarketplaceId
-				| Action::CancelOffer
-				| Action::AcceptOffer => FunctionModifier::NonPayable,
-				_ => FunctionModifier::View,
-			}) {
-				return Err(err.into());
-			}
-
-			match selector {
-				Action::RegisterMarketplace => Self::register_marketplace(handle),
-				Action::SellNftWithMarketplaceId => Self::sell_nft(handle),
-				Action::SellNft => Self::sell_nft(handle),
-				Action::SellSft => Self::sell_sft(handle),
-				Action::UpdateFixedPrice => Self::update_fixed_price(handle),
-				Action::Buy => Self::buy(handle),
-				Action::AuctionNftWithMarketplaceId => {
-					Self::auction_nft_with_marketplace_id(handle)
-				},
-				Action::AuctionNft => Self::auction_nft_with_marketplace_id(handle),
-				Action::AuctionSft => Self::auction_sft_with_marketplace_id(handle),
-				Action::Bid => Self::bid(handle),
-				Action::CancelSale => Self::cancel_sale(handle),
-				Action::MakeSimpleOfferWithMarketplaceId => {
-					Self::make_simple_offer_with_marketplace_id(handle)
-				},
-				Action::MakeSimpleOffer => Self::make_simple_offer_with_marketplace_id(handle),
-				Action::CancelOffer => Self::cancel_offer(handle),
-				Action::AcceptOffer => Self::accept_offer(handle),
-				Action::GetMarketplaceAccount => Self::get_marketplace_account(handle),
-				Action::GetListingFromId => Self::get_listing_from_id(handle),
-				Action::GetOfferFromId => Self::get_offer_from_id(handle),
-			}
+		let selector = match handle.read_selector() {
+			Ok(selector) => selector,
+			Err(e) => return Err(e.into()),
 		};
-		return result;
+
+		if let Err(err) = handle.check_function_modifier(match selector {
+			Action::RegisterMarketplace
+			| Action::SellNft
+			| Action::SellNftWithMarketplaceId
+			| Action::SellSft
+			| Action::UpdateFixedPrice
+			| Action::AuctionNft
+			| Action::AuctionNftWithMarketplaceId
+			| Action::AuctionSft
+			| Action::Bid
+			| Action::Buy
+			| Action::CancelSale
+			| Action::MakeSimpleOffer
+			| Action::MakeSimpleOfferWithMarketplaceId
+			| Action::CancelOffer
+			| Action::AcceptOffer => FunctionModifier::NonPayable,
+			_ => FunctionModifier::View,
+		}) {
+			return Err(err.into());
+		}
+
+		match selector {
+			Action::RegisterMarketplace => Self::register_marketplace(handle),
+			Action::SellNftWithMarketplaceId => Self::sell_nft(handle),
+			Action::SellNft => Self::sell_nft(handle),
+			Action::SellSft => Self::sell_sft(handle),
+			Action::UpdateFixedPrice => Self::update_fixed_price(handle),
+			Action::Buy => Self::buy(handle),
+			Action::AuctionNftWithMarketplaceId => {
+				Self::auction_nft_with_marketplace_id(handle)
+			},
+			Action::AuctionNft => Self::auction_nft_with_marketplace_id(handle),
+			Action::AuctionSft => Self::auction_sft_with_marketplace_id(handle),
+			Action::Bid => Self::bid(handle),
+			Action::CancelSale => Self::cancel_sale(handle),
+			Action::MakeSimpleOfferWithMarketplaceId => {
+				Self::make_simple_offer_with_marketplace_id(handle)
+			},
+			Action::MakeSimpleOffer => Self::make_simple_offer_with_marketplace_id(handle),
+			Action::CancelOffer => Self::cancel_offer(handle),
+			Action::AcceptOffer => Self::accept_offer(handle),
+			Action::GetMarketplaceAccount => Self::get_marketplace_account(handle),
+			Action::GetListingFromId => Self::get_listing_from_id(handle),
+			Action::GetOfferFromId => Self::get_offer_from_id(handle),
+		}
 	}
 }
 
@@ -308,7 +306,10 @@ where
 			marketplace_id <= u32::MAX.into(),
 			revert("Marketplace: Expected marketplace id <= 2^32")
 		);
-		let marketplace_id: u32 = marketplace_id.saturated_into();
+		let marketplace_id: Option<MarketplaceId> = match marketplace_id {
+			i if i == U256::zero() => None,
+			_ => Some(marketplace_id.saturated_into()),
+		};
 
 		let payment_asset: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
 			payment_asset,
@@ -316,7 +317,11 @@ where
 		)
 		.ok_or_else(|| revert("Marketplace NFT: Invalid payment asset address"))?;
 
-		let duration = Some(saturated_convert_blocknumber(duration)?.into());
+		let duration: BlockNumber = saturated_convert_blocknumber(duration)?;
+		let duration = match duration {
+			0 => None,
+			n => Some(n),
+		};
 		ensure!(
 			fixed_price <= u128::MAX.into(),
 			revert("Marketplace NFT: Expected fixed price <= 2^128")
@@ -364,8 +369,8 @@ where
 			buyer,
 			payment_asset,
 			fixed_price,
-			duration,
-			Some(marketplace_id),
+			duration.map(Into::into),
+			marketplace_id,
 		)
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace NFT: Dispatched call failed with error: {:?}", e))
@@ -379,7 +384,7 @@ where
 			EvmDataWriter::new()
 				.write(serial_number_ids)
 				.write(collection_address)
-				.write(marketplace_id)
+				.write(marketplace_id.unwrap_or_default())
 				.build(),
 		)
 		.record(handle)?;
@@ -407,7 +412,10 @@ where
 			marketplace_id <= u32::MAX.into(),
 			revert("Marketplace: Expected marketplace id <= 2^32")
 		);
-		let marketplace_id: u32 = marketplace_id.saturated_into();
+		let marketplace_id: Option<MarketplaceId> = match marketplace_id {
+			i if i == U256::zero() => None,
+			_ => Some(marketplace_id.saturated_into()),
+		};
 
 		// Parse asset_id
 		let payment_asset: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
@@ -416,7 +424,11 @@ where
 		)
 		.ok_or_else(|| revert("Marketplace SFT: Invalid payment asset address"))?;
 
-		let duration = Some(saturated_convert_blocknumber(duration)?.into());
+		let duration: BlockNumber = saturated_convert_blocknumber(duration)?;
+		let duration = match duration {
+			0 => None,
+			n => Some(n),
+		};
 		ensure!(
 			fixed_price <= u128::MAX.into(),
 			revert("Marketplace SFT: Expected fixed price <= 2^128")
@@ -471,8 +483,8 @@ where
 			buyer,
 			payment_asset,
 			fixed_price,
-			duration,
-			Some(marketplace_id),
+			duration.map(Into::into),
+			marketplace_id,
 		)
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace SFT: Dispatched call failed with error: {:?}", e))
@@ -486,7 +498,7 @@ where
 			EvmDataWriter::new()
 				.write(serial_number_ids)
 				.write(collection_address)
-				.write(marketplace_id)
+				.write(marketplace_id.unwrap_or_default())
 				.write::<Vec<U256>>(quantities)
 				.build(),
 		)
@@ -628,7 +640,11 @@ where
 		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
 
-		let duration = Some(saturated_convert_blocknumber(duration)?.into());
+		let duration: BlockNumber = saturated_convert_blocknumber(duration)?;
+		let duration = match duration {
+			0 => None,
+			n => Some(n),
+		};
 		ensure!(
 			reserve_price <= Balance::MAX.into(),
 			revert("Marketplace NFT: Expected reserve_price <= 2^128")
@@ -680,7 +696,7 @@ where
 			tokens,
 			payment_asset,
 			reserve_price,
-			duration,
+			duration.map(Into::into),
 			Some(marketplace_id),
 		)
 		.map_err(|e| {
@@ -730,7 +746,11 @@ where
 		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
 
-		let duration = Some(saturated_convert_blocknumber(duration)?.into());
+		let duration: BlockNumber = saturated_convert_blocknumber(duration)?;
+		let duration = match duration {
+			0 => None,
+			n => Some(n),
+		};
 		ensure!(
 			reserve_price <= Balance::MAX.into(),
 			revert("Marketplace SFT: Expected reserve_price <= 2^128")
@@ -792,7 +812,7 @@ where
 			tokens,
 			payment_asset,
 			reserve_price,
-			duration,
+			duration.map(Into::into),
 			Some(marketplace_id),
 		)
 		.map_err(|e| {
@@ -1086,7 +1106,7 @@ where
 			pallet_marketplace::RegisteredMarketplaces::<Runtime>::get(marketplace_id)
 		else {
 			return Err(revert(
-				"Marketplace: The account_id hasn't been registered as a marketplace",
+				"Marketplace: This MarketplaceId does not have a registered AccountId",
 			));
 		};
 		let marketplace_account_h160: H160 = marketplace_account.account.into();
