@@ -191,9 +191,7 @@ where
 			Action::SellSft => Self::sell_sft(handle),
 			Action::UpdateFixedPrice => Self::update_fixed_price(handle),
 			Action::Buy => Self::buy(handle),
-			Action::AuctionNftWithMarketplaceId => {
-				Self::auction_nft_with_marketplace_id(handle)
-			},
+			Action::AuctionNftWithMarketplaceId => Self::auction_nft_with_marketplace_id(handle),
 			Action::AuctionNft => Self::auction_nft_with_marketplace_id(handle),
 			Action::AuctionSft => Self::auction_sft_with_marketplace_id(handle),
 			Action::Bid => Self::bid(handle),

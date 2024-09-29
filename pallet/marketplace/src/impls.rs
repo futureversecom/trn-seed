@@ -624,7 +624,9 @@ impl<T: Config> Pallet<T> {
 	/// Returns the end block for a listing.
 	/// This is listing duration + the current block_number
 	/// Fails if duration is set to 0
-	fn get_listing_end_block(duration: Option<BlockNumberFor<T>>) -> Result<BlockNumberFor<T>, DispatchError> {
+	fn get_listing_end_block(
+		duration: Option<BlockNumberFor<T>>,
+	) -> Result<BlockNumberFor<T>, DispatchError> {
 		let duration = match duration {
 			Some(duration) => {
 				ensure!(duration > BlockNumberFor::<T>::zero(), Error::<T>::DurationTooShort);
