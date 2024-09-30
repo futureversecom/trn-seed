@@ -16,9 +16,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::types::{
-	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, WithdrawTransaction,
-	XRPLCurrency, XRPLDoorAccount, XrpTransaction, XrpWithdrawTransaction,
-	XrplTicketSequenceParams, XrplTxData,
+	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, NFTokenAcceptOfferTransaction,
+	WithdrawTransaction, XRPLCurrency, XRPLDoorAccount, XrpTransaction, XrpWithdrawTransaction,
+	XrplTicketSequenceParams, XrplTransaction, XrplTxData,
 };
 use frame_support::{
 	fail,
@@ -47,7 +47,9 @@ use sp_std::{prelude::*, vec};
 use xrpl_codec::{
 	field::Amount,
 	traits::BinarySerialize,
-	transaction::{Payment, PaymentAltCurrency, PaymentWithDestinationTag, SignerListSet},
+	transaction::{
+		NFTokenAcceptOffer, Payment, PaymentAltCurrency, PaymentWithDestinationTag, SignerListSet,
+	},
 	types::{AccountIdType, AmountType, IssuedAmountType, IssuedValueType},
 };
 
@@ -824,6 +826,29 @@ pub mod pallet {
 				});
 			}
 			Ok(())
+		}
+
+		/// Withdraw xrp transaction
+		#[pallet::call_index(16)]
+		#[pallet::weight(Weight::zero())] // TODO - update weight
+		#[transactional]
+		pub fn generate_nft_accept_offer(
+			origin: OriginFor<T>,
+			nftoken_sell_offer: [u8; 32],
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			// TODO - check if we need a separate relayer keeping
+			ensure!(Relayer::<T>::get(&who).unwrap_or(false), Error::<T>::NotPermitted);
+
+			let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?; // TODO - update to correct door address
+			let tx_data = XrplTransaction::NFTokenAcceptOffer(NFTokenAcceptOfferTransaction {
+				nftoken_sell_offer,
+				tx_fee: DoorTxFee::<T>::get(),
+				tx_ticket_sequence: Self::get_door_ticket_sequence()?, // TODO - update to correct ticket sequence
+				account: door_address,
+			});
+
+			Self::submit_xrpl_tx_for_signing(tx_data)
 		}
 	}
 }
