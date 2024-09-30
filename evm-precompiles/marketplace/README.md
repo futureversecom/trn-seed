@@ -20,24 +20,24 @@ interface IMarketplace {
 
     function registerMarketplace(address marketplaceAccount, uint256 entitlement) external returns (uint marketplaceId);
     // sellNftWithMarketplaceId is deprecated for sellNFT
-    function sellNftWithMarketplaceId(address collectionAddress, uint256[] calldata serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration, uint32 marketplaceId) external returns (uint listingId);
-    function sellNft(address collectionAddress, uint256[] calldata serialNumberIds, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration, uint128 marketplaceId) external returns (uint listingId);
-    function sellSft(address collectionAddress, uint256[] calldata serialNumberIds, uint256[] calldata quantities, address buyer, address paymentAsset, uint256 fixedPrice, uint256 duration, uint32 marketplaceId) external returns (uint listingId);
-    function updateFixedPrice(uint128 listingId, uint256 newPrice) external;
+    function sellNftWithMarketplaceId(address collectionAddress, uint32[] calldata serialNumberIds, address buyer, address paymentAsset, uint128 fixedPrice, uint128 duration, uint32 marketplaceId) external returns (uint listingId);
+    function sellNft(address collectionAddress, uint32[] calldata serialNumberIds, address buyer, address paymentAsset, uint128 fixedPrice, uint128 duration, uint32 marketplaceId) external returns (uint listingId);
+    function sellSft(address collectionAddress, uint32[] calldata serialNumberIds, uint128[] calldata quantities, address buyer, address paymentAsset, uint128 fixedPrice, uint128 duration, uint32 marketplaceId) external returns (uint listingId);
+    function updateFixedPrice(uint128 listingId, uint128 newPrice) external;
     function buy(uint128 listingId) external;
 
     // auctionNftWithMarketplaceId is deprecated for auctionNft
-    function auctionNftWithMarketplaceId(address collectionAddress, uint256[] calldata serialNumberIds, address paymentAsset, uint256 reservePrice, uint256 duration, uint256 marketplaceId) external;
-    function auctionNft(address collectionAddress, uint256[] calldata serialNumberIds, address paymentAsset, uint256 reservePrice, uint256 duration, uint256 marketplaceId) external;
-    function auctionSft(address collectionAddress, uint256[] calldata serialNumberIds, uint256[] calldata quantities, address paymentAsset, uint256 reservePrice, uint256 duration, uint32 marketplaceId) external;
-    function bid(uint128 listingId, uint256 amount) external;
+    function auctionNftWithMarketplaceId(address collectionAddress, uint32[] calldata serialNumberIds, address paymentAsset, uint128 reservePrice, uint128 duration, uint32 marketplaceId) external;
+    function auctionNft(address collectionAddress, uint32[] calldata serialNumberIds, address paymentAsset, uint128 reservePrice, uint128 duration, uint32 marketplaceId) external;
+    function auctionSft(address collectionAddress, uint32[] calldata serialNumberIds, uint128[] calldata quantities, address paymentAsset, uint128 reservePrice, uint128 duration, uint32 marketplaceId) external;
+    function bid(uint128 listingId, uint128 amount) external;
 
 
     function cancelSale(uint128 listingId) external;
 
     // makeSimpleOfferWithMarketplaceId is deprecated for makeSimpleOffer
-    function makeSimpleOfferWithMarketplaceId(address collectionAddress, uint32 serialNumber, uint256 amount, address assetId, uint32 marketplaceId) external returns (uint offerId);
-    function makeSimpleOffer(address collectionAddress, uint32 serialNumber, uint256 amount, address assetId, uint32 marketplaceId) external returns (uint offerId);
+    function makeSimpleOfferWithMarketplaceId(address collectionAddress, uint32 serialNumber, uint128 amount, address assetId, uint32 marketplaceId) external returns (uint offerId);
+    function makeSimpleOffer(address collectionAddress, uint32 serialNumber, uint128 amount, address assetId, uint32 marketplaceId) external returns (uint offerId);
     function cancelOffer(uint64 offerId) external;
     function acceptOffer(uint64 offerId) external;
 

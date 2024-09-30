@@ -13,7 +13,7 @@ import {
   BOB_PRIVATE_KEY,
   ERC1155_PRECOMPILE_ABI,
   MARKETPLACE_PRECOMPILE_ADDRESS,
-  MARKET_PLACE_ABI,
+  MARKETPLACE_ABI,
   NodeProcess,
   TxCosts,
   getScaledGasForExtrinsicFee,
@@ -103,7 +103,7 @@ describe("Marketplace SFT Precompile Gas Estimates", function () {
     await tx3.wait();
 
     // Deploy marketplace contract
-    marketPlacePrecompile = new Contract(MARKETPLACE_PRECOMPILE_ADDRESS, MARKET_PLACE_ABI, bobSigner);
+    marketPlacePrecompile = new Contract(MARKETPLACE_PRECOMPILE_ADDRESS, MARKETPLACE_ABI, bobSigner);
     // Register 0th marketplace id which would be used for other tests
     const entitlements = 1000;
     const marketplaceRegisterTx = await marketPlacePrecompile
