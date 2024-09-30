@@ -771,8 +771,14 @@ pub mod pallet {
 			xrpl_currency: Option<XRPLCurrency>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			// Remove mapping if xrpl_currency is none
-			if xrpl_currency.is_none() {
+			if let Some(xrpl_currency) = xrpl_currency {
+				// Validate currency to prevent errors during withdrawal
+				ensure!(xrpl_currency.symbol.is_valid(), Error::<T>::InvalidCurrencyCode);
+				<AssetIdToXRPL<T>>::insert(asset_id, xrpl_currency);
+				<XRPLToAssetId<T>>::insert(xrpl_currency, asset_id);
+				Self::deposit_event(Event::XrplAssetMapSet { asset_id, xrpl_currency });
+			} else {
+				// Remove mapping if xrpl_currency is none
 				let xrpl_currency_mapped =
 					AssetIdToXRPL::<T>::get(asset_id).ok_or(Error::<T>::AssetNotSupported)?;
 				<AssetIdToXRPL<T>>::remove(asset_id.clone());
@@ -781,13 +787,6 @@ pub mod pallet {
 					asset_id: asset_id.clone(),
 					xrpl_currency: xrpl_currency_mapped,
 				});
-			} else {
-				let xrpl_currency = xrpl_currency.unwrap();
-				// Validate currency to prevent errors during withdrawal
-				ensure!(xrpl_currency.symbol.is_valid(), Error::<T>::InvalidCurrencyCode);
-				<AssetIdToXRPL<T>>::insert(asset_id, xrpl_currency);
-				<XRPLToAssetId<T>>::insert(xrpl_currency, asset_id);
-				Self::deposit_event(Event::XrplAssetMapSet { asset_id, xrpl_currency });
 			}
 			Ok(())
 		}
