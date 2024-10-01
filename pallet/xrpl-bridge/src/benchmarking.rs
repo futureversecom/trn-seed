@@ -107,7 +107,7 @@ benchmarks! {
 		assert_ok!(XrplBridge::<T>::set_xrpl_asset_map(
 			RawOrigin::Root.into(),
 			asset_id,
-			xrpl_currency
+			Some(xrpl_currency)
 		));
 		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), door_address));
 		// Mint ROOT tokens to withdraw
@@ -284,12 +284,11 @@ benchmarks! {
 		let xrpl_symbol =
 			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
 		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol.clone(), issuer: destination };
-	}: _(RawOrigin::Root, asset_id, xrpl_currency)
+	}: _(RawOrigin::Root, asset_id, Some(xrpl_currency))
 	verify {
 		assert_eq!(AssetIdToXRPL::<T>::get(asset_id), Some(xrpl_currency));
 		assert_eq!(XRPLToAssetId::<T>::get(xrpl_currency), Some(asset_id));
 	}
-
 }
 
 impl_benchmark_test_suite!(
