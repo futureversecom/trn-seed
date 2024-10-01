@@ -17,7 +17,8 @@
 
 use crate::types::{
 	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, WithdrawTransaction,
-	XRPLCurrency, XrpTransaction, XrpWithdrawTransaction, XrplTicketSequenceParams, XrplTxData,
+	XRPLCurrency, XRPLCurrencyType, XRPLDoorAccount, XrpTransaction, XrpWithdrawTransaction,
+	XrplTicketSequenceParams, XrplTxData,
 };
 use frame_support::{
 	fail,
@@ -1592,31 +1593,36 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
 	fn submit_signer_list_set_request(
 		signer_entries: Vec<(XrplAccountId, u16)>,
-	) -> Result<EventProofId, DispatchError> {
-		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
-		// TODO: need a fee oracle, this is over estimating the fee
-		// https://github.com/futureversecom/seed/issues/107
-		let tx_fee = Self::door_tx_fee();
-		let ticket_sequence = Self::get_door_ticket_sequence()?;
+	) -> Result<Vec<EventProofId>, DispatchError> {
+		let mut results = vec![];
 		let signer_quorum: u32 = signer_entries.len().saturating_sub(1) as u32;
-		let signer_entries = signer_entries
+		let signer_entries: Vec<([u8; 20], u16)> = signer_entries
 			.into_iter()
 			.map(|(account, weight)| (account.into(), weight))
 			.collect();
 
-		let signer_list_set = SignerListSet::new(
-			door_address.into(),
-			tx_fee,
-			0_u32,
-			ticket_sequence,
-			signer_quorum,
-			signer_entries,
-			SourceTag::<T>::get(),
-			// omit signer key since this is a 'MultiSigner' tx
-			None,
-		);
-		let tx_blob = signer_list_set.binary_serialize(true);
+		for entry in XRPLDoorAccount::VALUES {
+			let door_address = Self::door_address(entry).ok_or(Error::<T>::DoorAddressNotSet)?;
+			let ticket_sequence = Self::get_door_ticket_sequence()?; // TODO- update
+			// TODO: need a fee oracle, this is over estimating the fee
+			// https://github.com/futureversecom/seed/issues/107
+			let tx_fee = Self::door_tx_fee(); // TODO - update
+			let signer_list_set = SignerListSet::new(
+				door_address.into(),
+				tx_fee,
+				0_u32,
+				ticket_sequence,
+				signer_quorum,
+				signer_entries.clone(),
+				SourceTag::<T>::get(),
+				// omit signer key since this is a 'MultiSigner' tx
+				None,
+			);
+			let tx_blob = signer_list_set.binary_serialize(true);
 
-		T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
+			let proof_id = T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())?;
+			results.push(proof_id);
+		}
+		Ok(results)
 	}
 }
