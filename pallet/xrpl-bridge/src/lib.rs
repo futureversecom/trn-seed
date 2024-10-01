@@ -418,7 +418,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn door_address)]
 	/// The door address on XRPL
-	pub type DoorAddress<T: Config> = StorageValue<_, XrplAccountId>;
+	pub type DoorAddress<T: Config> = StorageMap<_, Twox64Concat, XRPLDoorAccount, XrplAccountId>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
