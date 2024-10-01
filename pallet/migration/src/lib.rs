@@ -103,14 +103,15 @@ pub mod pallet {
             if T::CurrentMigration::version_check() {
                 LastKey::<T>::kill();
                 Status::<T>::put(MigrateStatus::NoMigrationInProgress);
-                return T::DbWeight::get().writes(1);
+                // TODO this causes the upgrade to fail due to exhausting block weights, why?
+                // return T::DbWeight::get().writes(2);
             } else {
                 // Ensure that a migration is not already in progress. This is to prevent data loss
                 // in the case where an update is performed before the previous migration is completed.
                 if !Self::migration_in_progress() {
                     Status::<T>::put(MigrateStatus::InProgress { steps_done: 0 });
                     Self::deposit_event(Event::MigrationStarted);
-                    return T::DbWeight::get().writes(1);
+                    // return T::DbWeight::get().writes(1);
                 }
             }
             Weight::zero()
@@ -168,12 +169,16 @@ impl<T: Config> Pallet<T> {
 
             if result == IsFinished::Yes {
                 Self::post_migration();
-                break;
+                return weight_limit.saturating_sub(weight_left);
             }
         }
 
         Status::<T>::put(MigrateStatus::InProgress { steps_done });
-        LastKey::<T>::put(last_key.expect("Last key is Some if migration is not finished"));
+        if let Some(last_key) = last_key {
+            LastKey::<T>::put(last_key);
+        } else {
+            LastKey::<T>::kill();
+        }
 
         weight_limit.saturating_sub(weight_left)
     }
