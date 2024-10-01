@@ -228,7 +228,11 @@ pub mod pallet {
 		},
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
-		DoorAddressSet(XrplAccountId),
+		/// XRPL Door address set/reset
+		DoorAddressSet {
+			door_type: XRPLDoorAccount,
+			address: Option<XrplAccountId>,
+		},
 		DoorNextTicketSequenceParamSet {
 			ticket_sequence_start_next: u32,
 			ticket_bucket_size_next: u32,
@@ -614,17 +618,26 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set XRPL door address managed by this pallet
+		/// Set/Reset XRPL door addresses managed by this pallet
 		#[pallet::call_index(9)]
 		#[pallet::weight((T::WeightInfo::set_door_address(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn set_door_address(
 			origin: OriginFor<T>,
-			door_address: XrplAccountId,
+			door_type: XRPLDoorAccount,
+			door_address: Option<XrplAccountId>,
 		) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
-			DoorAddress::<T>::put(door_address);
-			Self::deposit_event(Event::<T>::DoorAddressSet(door_address));
+			match door_address {
+				Some(door_address) => {
+					DoorAddress::<T>::insert(door_type, door_address);
+				},
+				None => {
+					DoorAddress::<T>::remove(door_type);
+				},
+			}
+
+			Self::deposit_event(Event::<T>::DoorAddressSet { door_type, address: door_address });
 			Ok(())
 		}
 
@@ -951,7 +964,7 @@ impl<T: Config> Pallet<T> {
 			.min(highest_processed_delay_block.saturating_add(T::DelayedPaymentBlockLimit::get()));
 
 		// Get the current door address
-		let Some(door_address) = DoorAddress::<T>::get() else {
+		let Some(door_address) = DoorAddress::<T>::get(XRPLDoorAccount::Main) else {
 			return used_weight;
 		};
 
@@ -1166,7 +1179,8 @@ impl<T: Config> Pallet<T> {
 		// Saturate the balance to be within the Mantissa range if the asset is not XRP
 		let amount = Self::saturate_balance(amount, asset_id)?;
 		let tx_fee = Self::door_tx_fee();
-		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
+		let door_address =
+			Self::door_address(XRPLDoorAccount::Main).ok_or(Error::<T>::DoorAddressNotSet)?;
 
 		let tx_data = match asset_id {
 			a if a == T::XrpAssetId::get() => {
