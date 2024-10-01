@@ -29,7 +29,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use pallet_nft::traits::NFTCollectionInfo;
-use seed_pallet_common::{NFTExt, Xls20MintRequest};
+use seed_pallet_common::{NFTExt, Xls20MintRequest, Migrator};
 use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount};
 use sp_runtime::{traits::Zero, DispatchResult, SaturatedConversion};
 use sp_std::prelude::*;
@@ -46,11 +46,10 @@ pub use pallet::*;
 mod mock;
 #[cfg(test)]
 mod tests;
-mod migration;
 
 /// TokenId type for XLS-20 Token Ids
 /// See: https://github.com/XRPLF/XRPL-Standards/discussions/46
-pub type Xls20TokenId = [u8; 64];
+pub type Xls20TokenId = [u8; 32];
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -79,6 +78,8 @@ pub mod pallet {
 		type NFTCollectionInfo: NFTCollectionInfo<AccountId = Self::AccountId>;
 		/// AssetId used to pay Xls20 Mint Fees
 		type Xls20PaymentAsset: Get<AssetId>;
+		/// Current Migrator handling the migration of storage values
+		type Migrator: Migrator;
 	}
 
 	/// The permissioned relayer
@@ -94,9 +95,6 @@ pub mod pallet {
 	pub type Xls20TokenMap<T> =
 		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, SerialNumber, Xls20TokenId>;
 
-	#[pallet::storage]
-	pub type TokenIdToXls20<T> =
-	StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, SerialNumber, [u8; 32]>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -188,6 +186,7 @@ pub mod pallet {
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerXls20Mint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 
 			// serial_numbers can't be empty
 			ensure!(!serial_numbers.len().is_zero(), Error::<T>::NoToken);
@@ -231,13 +230,12 @@ pub mod pallet {
 			token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), T::MaxTokensPerXls20Mint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(T::Migration::ensure_migrated().is_ok(), Error::<T>::Errnogo);
+			T::Migrator::ensure_migrated()?;
 
 			// Mappings can't be empty
 			ensure!(!token_mappings.is_empty(), Error::<T>::NoToken);
 			// Ensure only relayer can call extrinsic
-			// TODO I commented out for testing
-			// ensure!(Some(who) == Relayer::<T>::get(), Error::<T>::NotRelayer);
+			ensure!(Some(who) == Relayer::<T>::get(), Error::<T>::NotRelayer);
 
 			let collection_info = T::NFTCollectionInfo::get_collection_info(collection_id)?;
 

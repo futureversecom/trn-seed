@@ -25,6 +25,7 @@ pub mod nft;
 mod signature;
 #[cfg(feature = "std")]
 pub mod test_utils;
+pub mod migration;
 
 pub use nft::*;
 

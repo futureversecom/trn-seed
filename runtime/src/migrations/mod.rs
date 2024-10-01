@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 mod xls20;
-mod multi_block;
+pub mod xls20_multi;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
@@ -35,16 +35,16 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, DispatchError> {
-        xls20::Upgrade::pre_upgrade()
+		Ok(Vec::new())
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-        xls20::Upgrade::on_runtime_upgrade()
+		Weight::zero()
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), DispatchError> {
-        xls20::Upgrade::post_upgrade(state)
+		Ok(())
 	}
 }
 

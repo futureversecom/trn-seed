@@ -579,35 +579,7 @@ pub trait SFTExt {
 	fn token_exists(token_id: TokenId) -> bool;
 }
 
-// Migration trait to be implemented by the pallet being migrated
-pub trait Migration
-{
-	// The key of the storage item to be migrated
-	type StorageKey1: FullCodec;
-	type StorageKey2: FullCodec;
-
-	type OldStorageMap: StorageDoubleMap<Self::StorageKey1, Self::StorageKey2, Self::OldStorageValue>;
-
-	type NewStorageMap: StorageDoubleMap<Self::StorageKey1, Self::StorageKey2, Self::NewStorageValue>;
-
-	// The type of the value stored in the old map
-	type OldStorageValue: FullCodec;
-
-	// The type of the new value to be stored
-	type NewStorageValue: FullCodec;
-
-	// Convert from the old type to the new type
-	fn convert(value: Self::OldStorageValue) -> Self::NewStorageValue;
-
-	fn migrate_next() -> Weight;
-
-	// Get the value, this can either be from the old storage or from the new storage
-	fn get(key1: &Self::StorageKey1, key2: &Self::StorageKey2) -> Option<Self::NewStorageValue>;
-
-	fn insert(key1: &Self::StorageKey1, key2: &Self::StorageKey2, value: Option<Self::NewStorageValue>);
-
+// Migrator trait to be implemented by the migration pallet
+pub trait Migrator {
 	fn ensure_migrated() -> DispatchResult;
 }
-
-// Migrator trait to be implemented by the migration pallet
-pub trait Migrator {}

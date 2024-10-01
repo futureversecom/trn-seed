@@ -530,6 +530,7 @@ impl pallet_xls20::Config for Runtime {
 	type NFTCollectionInfo = Nft;
 	type WeightInfo = weights::pallet_xls20::WeightInfo<Runtime>;
 	type Xls20PaymentAsset = XrpAssetId;
+	type Migrator = Migration;
 }
 
 parameter_types! {
@@ -1365,7 +1366,7 @@ impl pallet_crowdsale::Config for Runtime {
 
 impl pallet_migration::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type CurrentMigration = Xls20;
+	type CurrentMigration = crate::migrations::xls20_multi::Xls20Migration<Runtime>;
 }
 
 construct_runtime!(
@@ -1460,14 +1461,6 @@ pub type UncheckedExtrinsic =
 pub type CheckedExtrinsic =
 	fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra, H160>;
 
-pub struct StakingMigrationV11OldPallet;
-
-impl Get<&'static str> for StakingMigrationV11OldPallet {
-	fn get() -> &'static str {
-		"VoterList"
-	}
-}
-
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
@@ -1475,7 +1468,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	(migrations::AllMigrations,),
+	(migrations::AllMigrations),
 >;
 
 impl_runtime_apis! {
