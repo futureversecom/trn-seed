@@ -383,7 +383,7 @@ pub mod pallet {
 	}
 	#[pallet::storage]
 	#[pallet::getter(fn door_ticket_sequence)]
-	/// The current ticket sequence of the XRPL door account
+	/// The current ticket sequence of the XRPL door accounts
 	pub type DoorTicketSequence<T: Config> =
 		StorageValue<_, XrplTxTicketSequence, ValueQuery, DefaultDoorTicketSequence>;
 
@@ -418,7 +418,8 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn door_tx_fee)]
 	/// The flat fee for XRPL door txs
-	pub type DoorTxFee<T: Config> = StorageValue<_, u64, ValueQuery, DefaultDoorTxFee>;
+	pub type DoorTxFee<T: Config> =
+		StorageMap<_, Twox64Concat, XRPLDoorAccount, u64, ValueQuery, DefaultDoorTxFee>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn door_address)]
@@ -604,9 +605,13 @@ pub mod pallet {
 		/// Set the door tx fee amount
 		#[pallet::call_index(7)]
 		#[pallet::weight((<T as Config>::WeightInfo::set_door_tx_fee(), DispatchClass::Operational))]
-		pub fn set_door_tx_fee(origin: OriginFor<T>, fee: u64) -> DispatchResult {
+		pub fn set_door_tx_fee(
+			origin: OriginFor<T>,
+			door_type: XRPLDoorAccount,
+			fee: u64,
+		) -> DispatchResult {
 			ensure_root(origin)?;
-			DoorTxFee::<T>::set(fee);
+			DoorTxFee::<T>::set(door_type, fee);
 			Ok(())
 		}
 
@@ -1179,7 +1184,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(!amount.is_zero(), Error::<T>::WithdrawInvalidAmount);
 		// Saturate the balance to be within the Mantissa range if the asset is not XRP
 		let amount = Self::saturate_balance(amount, asset_id)?;
-		let tx_fee = Self::door_tx_fee();
+		let tx_fee = Self::door_tx_fee(XRPLDoorAccount::Main);
 		let door_address =
 			Self::door_address(XRPLDoorAccount::Main).ok_or(Error::<T>::DoorAddressNotSet)?;
 
@@ -1603,10 +1608,10 @@ impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
 
 		for entry in XRPLDoorAccount::VALUES {
 			let door_address = Self::door_address(entry).ok_or(Error::<T>::DoorAddressNotSet)?;
-			let ticket_sequence = Self::get_door_ticket_sequence()?; // TODO- update
+			let ticket_sequence = Self::get_door_ticket_sequence()?;
 			// TODO: need a fee oracle, this is over estimating the fee
 			// https://github.com/futureversecom/seed/issues/107
-			let tx_fee = Self::door_tx_fee(); // TODO - update
+			let tx_fee = Self::door_tx_fee(entry);
 			let signer_list_set = SignerListSet::new(
 				door_address.into(),
 				tx_fee,
