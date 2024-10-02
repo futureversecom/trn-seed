@@ -265,6 +265,8 @@ pub mod pallet {
 		EvmWithdrawalFailed,
 		/// The abi received does not match the encoding scheme
 		InvalidAbiEncoding,
+		/// Supplied payment id not in storage
+		EntryNotFound,
 	}
 
 	#[pallet::hooks]
@@ -472,10 +474,39 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::PaymentDelaySet { asset_id, min_balance, delay });
 			Ok(())
 		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::claim_delayed_payment())]
+		pub fn claim_delayed_payment(
+			origin: OriginFor<T>,
+			block_number: BlockNumberFor<T>,
+			payment_id: DelayedPaymentId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::remove_delayed_payment_entry(block_number, payment_id)
+		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
+	pub fn remove_delayed_payment_entry(
+		block_number: BlockNumberFor<T>,
+		payment_id: DelayedPaymentId,
+	) -> Result<(), DispatchError> {
+		DelayedPaymentSchedule::<T>::try_mutate(block_number, |payment_ids| {
+			if let Some(pos) = payment_ids.iter().position(|&id| id == payment_id) {
+				payment_ids.remove(pos);
+				Ok(())
+			} else {
+				Err(())
+			}
+		})
+		.map_err(|_| Error::<T>::EntryNotFound)?;
+
+		Self::process_delayed_payment(payment_id);
+
+		Ok(())
+	}
 	/// Initiate the withdrawal
 	/// Can be called by the runtime or erc20-peg precompile
 	/// If a payment delay is in place for the asset, this will be handled when called from the
