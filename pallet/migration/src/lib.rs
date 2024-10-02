@@ -17,14 +17,19 @@
 
 pub use pallet::*;
 use frame_support::{
+    log,
     pallet_prelude::*,
-    sp_runtime::{traits::One, SaturatedConversion},
+    sp_runtime::{traits::One},
 };
 use frame_support::traits::OnRuntimeUpgrade;
 use frame_system::pallet_prelude::*;
 use sp_std::prelude::*;
 use seed_pallet_common::Migrator;
-use seed_primitives::migration::{IsFinished, MigrationStep};
+use seed_primitives::migration::{MigrationStep};
+use seed_primitives::{CollectionUuid, SerialNumber};
+
+#[allow(dead_code)]
+pub(crate) const LOG_TARGET: &str = "migration";
 
 /// The result of running the migration.
 #[derive(Decode, Encode, RuntimeDebugNoBound, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
@@ -45,8 +50,6 @@ impl Default for MigrateStatus {
 
 #[frame_support::pallet]
 pub mod pallet {
-    use frame_support::weights::RuntimeDbWeight;
-    use seed_primitives::{CollectionUuid, SerialNumber, TokenId};
     use super::*;
 
     #[pallet::pallet]
@@ -60,6 +63,10 @@ pub mod pallet {
         // /// Interface to access weight values
         // type WeightInfo: WeightInfo;
         type CurrentMigration: MigrationStep<StorageKey=(CollectionUuid, SerialNumber)>;
+
+        /// The maximum weight this pallet can use in on_idle
+        #[pallet::constant]
+        type MaxMigrationWeight: Get<Weight>;
     }
 
     /// Are we currently migrating data
@@ -95,7 +102,7 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_idle(_block: BlockNumberFor<T>, mut remaining_weight: Weight) -> Weight {
+        fn on_idle(_block: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
             Self::migrate(remaining_weight)
         }
 
@@ -103,15 +110,18 @@ pub mod pallet {
             if T::CurrentMigration::version_check() {
                 LastKey::<T>::kill();
                 Status::<T>::put(MigrateStatus::NoMigrationInProgress);
-                // TODO this causes the upgrade to fail due to exhausting block weights, why?
-                // return T::DbWeight::get().writes(2);
+                log::debug!(target: LOG_TARGET, "🦆 No multi-block migration in progress");
+                return T::DbWeight::get().writes(2);
             } else {
                 // Ensure that a migration is not already in progress. This is to prevent data loss
                 // in the case where an update is performed before the previous migration is completed.
                 if !Self::migration_in_progress() {
                     Status::<T>::put(MigrateStatus::InProgress { steps_done: 0 });
                     Self::deposit_event(Event::MigrationStarted);
-                    // return T::DbWeight::get().writes(1);
+                    log::debug!(target: LOG_TARGET, "🦆 A new multi-block migration has started");
+                    return T::DbWeight::get().writes(1);
+                } else {
+                    log::debug!(target: LOG_TARGET, "🦆 A multi-block migration is already in progress");
                 }
             }
             Weight::zero()
@@ -135,57 +145,76 @@ pub mod pallet {
             }
             Ok(())
         }
+
+        #[pallet::call_index(1)]
+        #[pallet::weight(0)]
+        pub fn manual_trigger(origin: OriginFor<T>) -> DispatchResult {
+            ensure_root(origin)?;
+            MigrationEnabled::<T>::put(true);
+            Status::<T>::put(MigrateStatus::InProgress { steps_done: 0 });
+            Ok(())
+        }
     }
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn migrate(mut weight_limit: Weight) -> Weight {
+    pub fn migrate(weight_limit: Weight) -> Weight {
+        let weight_limit = weight_limit.min(T::MaxMigrationWeight::get());
         // Check if there is enough weight to perform the migration
-        let mut weight_left = weight_limit;
-        let migration_weight = Weight::zero(); // TODO Change this
-        if weight_left.checked_reduce(migration_weight).is_none() {
+        let mut used_weight = Weight::zero();
+        // Maximum weight for one migration step
+        let max_step_weight = T::CurrentMigration::max_step_weight();
+        // Reads: MigrationEnabled, Status, LastKey
+        // Writes: Status, LastKey
+        let base_weight = T::DbWeight::get().reads_writes(3, 2);
+
+        // Check we have enough weight to perform at least one step
+        if weight_limit.all_lt(base_weight.saturating_add(max_step_weight)) {
             return Weight::zero()
         }
 
-        // CHeck if there is a migration in progress and it is not paused
-        let status = Status::<T>::get();
-        if status == MigrateStatus::NoMigrationInProgress {
-            return Weight::zero();
-        }
+        // Check if there is a migration in progress and it is not paused
         if !MigrationEnabled::<T>::get() {
-            return Weight::zero();
+            return T::DbWeight::get().reads(1);
         }
-
-        let mut steps_done = match status {
+        let previous_steps = match Status::<T>::get() {
             MigrateStatus::InProgress { steps_done } => steps_done,
-            _ => 0,
+            _ => return T::DbWeight::get().reads(2),
         };
         let mut last_key = LastKey::<T>::get();
-        while weight_left.all_gt(weight_limit) {
-            let (result, step_weight, last) = T::CurrentMigration::step(last_key);
-            last_key = last;
-            weight_left.saturating_reduce(step_weight);
-            steps_done += 1;
+        let mut step_counter: u32 = 0;
+        used_weight = used_weight.saturating_add(base_weight);
 
-            if result == IsFinished::Yes {
+        while used_weight.all_lt(weight_limit) {
+            // Perform one migration step on the current migration
+            let step_result = T::CurrentMigration::step(last_key);
+            last_key = step_result.last_key;
+            used_weight = used_weight.saturating_add(step_result.weight_consumed);
+            step_counter = step_counter.saturating_add(1);
+
+            if step_result.is_finished() {
                 Self::post_migration();
-                return weight_limit.saturating_sub(weight_left);
+                return used_weight;
             }
         }
+        let block_number = frame_system::Pallet::<T>::block_number();
+        log::debug!(target: LOG_TARGET, "🦆 Block: {:?} Migrated {} items, total: {}", block_number, step_counter, previous_steps.saturating_add(step_counter));
 
-        Status::<T>::put(MigrateStatus::InProgress { steps_done });
+        // Weight of these writes is accounted for in base_weight
+        Status::<T>::put(MigrateStatus::InProgress { steps_done: previous_steps.saturating_add(step_counter) });
         if let Some(last_key) = last_key {
             LastKey::<T>::put(last_key);
         } else {
             LastKey::<T>::kill();
         }
 
-        weight_limit.saturating_sub(weight_left)
+        used_weight
     }
 
     fn post_migration() {
         Status::<T>::put(MigrateStatus::Completed);
         LastKey::<T>::kill();
+        log::debug!(target: LOG_TARGET, "🦆 Migration completed successfully");
         Self::deposit_event(Event::MigrationComplete);
     }
 

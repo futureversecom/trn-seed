@@ -1,9 +1,10 @@
 use sp_std::marker::PhantomData;
 use frame_support::DefaultNoBound;
 use frame_support::dispatch::{GetStorageVersion, MaxEncodedLen};
+#[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 use crate::*;
-use seed_primitives::migration::{MigrationStep, IsFinished};
+use seed_primitives::migration::{MigrationStep, MigrationStepResult};
 
 #[allow(dead_code)]
 pub(crate) const LOG_TARGET: &str = "migration";
@@ -36,7 +37,9 @@ impl<T: pallet_xls20::Config> MigrationStep for Xls20Migration<T> {
     }
 
     fn max_step_weight() -> Weight {
-        Weight::zero()
+        let weight = T::DbWeight::get().reads_writes(1, 1);
+        weight.set_proof_size(weight.ref_time());
+        weight
     }
 
     fn convert(old: Self::OldStorageValue) -> Self::NewStorageValue {
@@ -45,7 +48,7 @@ impl<T: pallet_xls20::Config> MigrationStep for Xls20Migration<T> {
         new_token_id
     }
 
-    fn step(last_key: Option<Self::StorageKey>) -> (IsFinished, Weight, Option<Self::StorageKey>) {
+    fn step(last_key: Option<Self::StorageKey>) -> MigrationStepResult<Self::StorageKey> {
         let mut iter = if let Some(last_key) = last_key {
             old::Xls20TokenMap::<T>::iter_from(old::Xls20TokenMap::<T>::hashed_key_for(last_key.0, last_key.1))
         } else {
@@ -53,32 +56,34 @@ impl<T: pallet_xls20::Config> MigrationStep for Xls20Migration<T> {
         };
 
         if let Some((key1, key2, old)) = iter.next() {
-            log::debug!(target: LOG_TARGET, "Migrating xls20 token_id: ({:?},{:?})", key1, key2);
+            // log::debug!(target: LOG_TARGET, "🦆 Migrating XLS-20 token_id: ({:?},{:?})", key1, key2);
             let new_value = Self::convert(old);
             pallet_xls20::Xls20TokenMap::<Runtime>::insert(key1, key2, new_value);
-            (IsFinished::No, Weight::zero(), Some((key1, key2)))
+            let weight = Self::max_step_weight();
+            MigrationStepResult::continue_step(weight, (key1, key2))
         } else {
-            log::debug!(target: LOG_TARGET, "No more tokens to migrate");
-            (IsFinished::Yes, Weight::zero(), None)
+            log::debug!(target: LOG_TARGET, "🦆 No more tokens to migrate");
+            let weight = T::DbWeight::get().reads(1);
+            MigrationStepResult::finish_step(weight)
         }
     }
 
     #[cfg(feature = "try-runtime")]
     fn pre_upgrade_step() -> Result<Vec<u8>, TryRuntimeError> {
         let sample: Vec<_> = old::Xls20TokenMap::<T>::iter().take(100).collect();
-        log::debug!(target: LOG_TARGET, "Taking sample of {} token ids", sample.len());
+        log::debug!(target: LOG_TARGET, "🦆 Taking sample of {} token ids", sample.len());
         Ok(sample.encode())
     }
 
     #[cfg(feature = "try-runtime")]
     fn post_upgrade_step(state: Vec<u8>) -> Result<(), TryRuntimeError> {
         let sample = <Vec<(CollectionUuid, SerialNumber, old::Xls20TokenId)> as Decode>::decode(&mut &state[..])
-            .expect("pre_upgrade_step provides a valid state; qed");
+            .expect("🦆 pre_upgrade_step provides a valid state; qed");
 
         log::debug!(target: LOG_TARGET, "Validating sample of {} token_ids", sample.len());
         for (collection_id, serial_number, old) in sample {
             let new = pallet_xls20::Xls20TokenMap::<Runtime>::get(collection_id, serial_number).unwrap();
-            ensure!(new == old[..32], "Invalid token_id migration");
+            ensure!(new == old[..32], "🦆 Invalid token_id migration");
         }
         Ok(())
     }
