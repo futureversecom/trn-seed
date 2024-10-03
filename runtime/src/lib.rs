@@ -1366,13 +1366,15 @@ impl pallet_crowdsale::Config for Runtime {
 
 parameter_types! {
 	// We only want to use 20% of the block weight at max for multi-block-migrations
-	pub MaxMigrationWeight: Weight = Perbill::from_percent(20) * MAXIMUM_BLOCK_WEIGHT;
+	// TODO determine appropriate percentage value, maybe 10-20%?
+	pub MaxMigrationWeight: Weight = Perbill::from_percent(100) * MAXIMUM_BLOCK_WEIGHT;
 }
 
 impl pallet_migration::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type CurrentMigration = migrations::xls20_multi::Xls20Migration<Runtime>;
 	type MaxMigrationWeight = MaxMigrationWeight;
+	type WeightInfo = weights::pallet_migration::WeightInfo<Runtime>;
 }
 
 construct_runtime!(
@@ -2342,5 +2344,6 @@ mod benches {
 		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_crowdsale, Crowdsale]
 		[pallet_evm, EVM]
+		[pallet_migration, Migration]
 	);
 }

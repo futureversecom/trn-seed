@@ -18,7 +18,13 @@
 
 use codec::{Decode, Encode, FullCodec};
 pub use frame_support::log as logger;
-use frame_support::{dispatch::{DispatchError, DispatchResult, GetCallMetadata}, sp_runtime::{traits::AccountIdConversion, Perbill}, traits::{fungibles::Mutate, Get}, weights::{constants::RocksDbWeight as DbWeight, Weight}, PalletId, StorageDoubleMap};
+use frame_support::{
+	dispatch::{DispatchError, DispatchResult, GetCallMetadata},
+	sp_runtime::{traits::AccountIdConversion, Perbill},
+	traits::{fungibles::Mutate, Get},
+	weights::{constants::RocksDbWeight as DbWeight, Weight},
+	PalletId, StorageDoubleMap,
+};
 use frame_system::Config;
 use scale_info::TypeInfo;
 use seed_primitives::{
@@ -579,7 +585,14 @@ pub trait SFTExt {
 	fn token_exists(token_id: TokenId) -> bool;
 }
 
-// Migrator trait to be implemented by the migration pallet
+// Migrator trait to be implemented by the migration pallet. Can be used to determine whether a
+// migration is in progress
 pub trait Migrator {
 	fn ensure_migrated() -> DispatchResult;
+}
+
+impl Migrator for () {
+	fn ensure_migrated() -> DispatchResult {
+		Ok(())
+	}
 }
