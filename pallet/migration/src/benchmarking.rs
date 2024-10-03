@@ -33,6 +33,7 @@ benchmarks! {
 		assert_eq!( Status::<T>::get(), MigrateStatus::Completed);
 	}
 
+	#[pov_mode = Measured]
 	current_migration_step {
 		MigrationEnabled::<T>::put(true);
 		let mut key = Twox64Concat::hash(&(1 as CollectionUuid).encode());
@@ -43,6 +44,10 @@ benchmarks! {
 		Status::<T>::put(MigrateStatus::InProgress { steps_done: 0 });
 	}: {
 		T::CurrentMigration::step(None)
+	} verify {
+		let new_token = frame_support::migration::get_storage_value::<[u8; 32]>(b"Xls20", b"Xls20TokenMap", &key);
+		let xls20_token_id: [u8; 32] = "000b013a95f14b0e44f78a264e41713c".as_bytes().try_into().unwrap();
+		assert_eq!(new_token, Some(xls20_token_id));
 	}
 
 	enable_migration {

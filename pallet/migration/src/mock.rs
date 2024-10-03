@@ -46,4 +46,5 @@ impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type CurrentMigration = NoopMigration<(CollectionUuid, SerialNumber)>;
 	type MaxMigrationWeight = MaxMigrationWeight;
+	type WeightInfo = ();
 }
