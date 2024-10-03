@@ -14,6 +14,7 @@ use frame_support::{
 	dispatch::GetStorageVersion,
 	traits::{OnRuntimeUpgrade, StorageVersion},
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 
 #[allow(unused_imports)]
 use sp_runtime::DispatchError;
