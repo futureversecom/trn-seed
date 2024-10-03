@@ -413,21 +413,11 @@ pub mod pallet {
 	pub type DoorTicketSequenceParamsNext<T: Config> =
 		StorageMap<_, Twox64Concat, XRPLDoorAccount, XrplTicketSequenceParams, ValueQuery>;
 
-	#[pallet::type_value]
-	pub fn DefaultTicketSequenceThresholdReachedEmitted() -> bool {
-		false
-	}
 	#[pallet::storage]
 	#[pallet::getter(fn ticket_sequence_threshold_reached_emitted)]
 	/// Keeps track whether the TicketSequenceThresholdReached event is emitted for XRPL door accounts
-	pub type TicketSequenceThresholdReachedEmitted<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		XRPLDoorAccount,
-		bool,
-		ValueQuery,
-		DefaultTicketSequenceThresholdReachedEmitted,
-	>;
+	pub type TicketSequenceThresholdReachedEmitted<T: Config> =
+		StorageMap<_, Twox64Concat, XRPLDoorAccount, bool, ValueQuery>;
 
 	/// Default door tx fee 1 XRP
 	#[pallet::type_value]
