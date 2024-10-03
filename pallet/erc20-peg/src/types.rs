@@ -15,6 +15,7 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
+use seed_primitives::AccountId;
 use sp_core::{H160, U256};
 use sp_std::prelude::*;
 
@@ -40,7 +41,7 @@ pub enum PendingPayment {
 	/// A deposit event (deposit_event, tx_hash)
 	Deposit(Erc20DepositEvent),
 	/// A withdrawal (withdrawal_message)
-	Withdrawal(WithdrawMessage),
+	Withdrawal((AccountId, WithdrawMessage)),
 }
 
 /// A deposit event made by the ERC20 peg contract on Ethereum
