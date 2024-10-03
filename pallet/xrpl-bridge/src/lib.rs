@@ -73,7 +73,7 @@ type AccountOf<T> = <T as frame_system::Config>::AccountId;
 pub mod pallet {
 	use super::*;
 
-	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
