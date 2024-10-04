@@ -56,7 +56,10 @@ impl Default for MigrateStatus {
 pub mod pallet {
 	use super::*;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
 	#[pallet::pallet]
+	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -66,7 +69,7 @@ pub mod pallet {
 
 		// /// Interface to access weight values
 		// type WeightInfo: WeightInfo;
-		type CurrentMigration: MigrationStep<StorageKey = (CollectionUuid, SerialNumber)>;
+		type CurrentMigration: MigrationStep;
 
 		/// The maximum weight this pallet can use in on_idle
 		#[pallet::constant]
@@ -86,7 +89,7 @@ pub mod pallet {
 
 	/// The last key that was migrated if any
 	#[pallet::storage]
-	pub type LastKey<T> = StorageValue<_, (CollectionUuid, SerialNumber), OptionQuery>;
+	pub type LastKey<T> = StorageValue<_, Vec<u8>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -175,9 +178,10 @@ impl<T: Config> Pallet<T> {
 			MigrateStatus::InProgress { steps_done } => steps_done,
 			_ => return T::DbWeight::get().reads(1),
 		};
-		if !MigrationEnabled::<T>::get() {
-			return T::DbWeight::get().reads(2);
-		}
+		// TODO uncomment
+		// if !MigrationEnabled::<T>::get() {
+		// 	return T::DbWeight::get().reads(2);
+		// }
 
 		let mut last_key = LastKey::<T>::get();
 		let mut step_counter: u32 = 0;
@@ -186,11 +190,14 @@ impl<T: Config> Pallet<T> {
 		while used_weight.all_lt(weight_limit) {
 			// Perform one migration step on the current migration
 			let step_result = T::CurrentMigration::step(last_key);
-			last_key = step_result.last_key;
+			last_key = step_result.last_key.clone();
 			used_weight = used_weight.saturating_add(step_result.weight_consumed);
 			step_counter = step_counter.saturating_add(1);
 
 			if step_result.is_finished() {
+				log::debug!(target: LOG_TARGET, "🦆 Total items migrated: {}",
+					previous_steps.saturating_add(step_counter)
+				);
 				Self::post_migration();
 				return used_weight;
 			}
@@ -219,6 +226,7 @@ impl<T: Config> Pallet<T> {
 		Status::<T>::put(MigrateStatus::Completed);
 		LastKey::<T>::kill();
 		log::debug!(target: LOG_TARGET, "🦆 Migration completed successfully");
+		// TODO set version of XLS-20 pallet to new version
 		Self::deposit_event(Event::MigrationComplete);
 	}
 

@@ -2,16 +2,17 @@ use frame_support::weights::Weight;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 use sp_std::marker::PhantomData;
+use sp_std::vec::Vec;
 
-pub struct MigrationStepResult<StorageKey> {
+pub struct MigrationStepResult {
 	is_finished: bool,
 	pub weight_consumed: Weight,
-	pub last_key: Option<StorageKey>,
+	pub last_key: Option<Vec<u8>>,
 }
 
-impl<StorageKey> MigrationStepResult<StorageKey> {
+impl MigrationStepResult {
 	/// Generate a MigrationStepResult for a non-final step
-	pub fn continue_step(weight_consumed: Weight, last_key: StorageKey) -> Self {
+	pub fn continue_step(weight_consumed: Weight, last_key: Vec<u8>) -> Self {
 		Self { is_finished: false, weight_consumed, last_key: Some(last_key) }
 	}
 
@@ -34,7 +35,6 @@ pub trait MigrationStep {
 	/// Returns the version of the migration.
 	const TARGET_VERSION: u16;
 
-	type StorageKey;
 	type OldStorageValue;
 
 	type NewStorageValue;
@@ -51,7 +51,7 @@ pub trait MigrationStep {
 	/// Process one step of the migration.
 	///
 	/// Returns whether the migration is finished and the weight consumed.
-	fn step(last_key: Option<Self::StorageKey>) -> MigrationStepResult<Self::StorageKey>;
+	fn step(last_key: Option<Vec<u8>>) -> MigrationStepResult;
 
 	/// Execute some pre-checks prior to running the first step of this migration.
 	#[cfg(feature = "try-runtime")]
@@ -73,7 +73,6 @@ pub struct NoopMigration<K> {
 impl<K> MigrationStep for NoopMigration<K> {
 	const TARGET_VERSION: u16 = 0;
 
-	type StorageKey = K;
 	type OldStorageValue = ();
 	type NewStorageValue = ();
 
@@ -89,7 +88,7 @@ impl<K> MigrationStep for NoopMigration<K> {
 		()
 	}
 
-	fn step(_: Option<Self::StorageKey>) -> MigrationStepResult<Self::StorageKey> {
+	fn step(_: Option<Vec<u8>>) -> MigrationStepResult {
 		MigrationStepResult::finish_step(Weight::zero())
 	}
 }

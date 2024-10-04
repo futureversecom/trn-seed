@@ -95,6 +95,11 @@ pub mod pallet {
 	pub type Xls20TokenMap<T> =
 		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, SerialNumber, Xls20TokenId>;
 
+	/// TODO Jason testing stuff, remove after using
+	#[pallet::storage]
+	pub type Xls20TokenMap2<T> =
+		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, SerialNumber, Xls20TokenId>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
