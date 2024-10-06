@@ -2296,7 +2296,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 			assert_ok!(Marketplace::sell_nft(
 				Some(token_owner).into(),
 				collection_id,
-				serial_numbers,
+				serial_numbers.clone(),
 				None,
 				NativeAssetId::get(),
 				sell_price,
@@ -2339,6 +2339,13 @@ fn make_simple_offer_on_fixed_price_listing() {
 			)
 			.is_zero());
 			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &token_owner), offer_amount);
+
+			System::assert_has_event(MockEvent::Marketplace(Event::<Test>::FixedPriceSaleClose {
+				tokens: ListingTokens::Nft(NftListing { collection_id, serial_numbers }),
+				listing_id,
+				marketplace_id: None,
+				reason: FixedPriceClosureReason::OfferAccepted,
+			}));
 		});
 }
 

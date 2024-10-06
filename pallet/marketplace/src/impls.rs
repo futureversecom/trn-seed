@@ -379,6 +379,19 @@ impl<T: Config> Pallet<T> {
 		if let Some(TokenLockReason::Listed(listing_id)) = T::NFTExt::get_token_lock(offer.token_id)
 		{
 			if let Some(listing) = <Listings<T>>::get(listing_id) {
+				match listing.clone() {
+					Listing::<T>::FixedPrice(sale) => {
+						Self::deposit_event(Event::<T>::FixedPriceSaleClose {
+							tokens: sale.tokens,
+							listing_id,
+							marketplace_id: sale.marketplace_id,
+							reason: FixedPriceClosureReason::OfferAccepted,
+						});
+					},
+					// Offer cannot be made on auctions
+					_ => {},
+				}
+
 				Self::remove_listing(listing, listing_id);
 			}
 		}
