@@ -837,14 +837,14 @@ pub mod pallet {
 			nftoken_sell_offer: [u8; 32],
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// TODO - check if we need a separate relayer keeping
 			ensure!(Relayer::<T>::get(&who).unwrap_or(false), Error::<T>::NotPermitted);
 
-			let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?; // TODO - update to correct door address
+			let door_address =
+				Self::door_address(XRPLDoorAccount::NFT).ok_or(Error::<T>::DoorAddressNotSet)?;
 			let tx_data = XrplTransaction::NFTokenAcceptOffer(NFTokenAcceptOfferTransaction {
 				nftoken_sell_offer,
-				tx_fee: DoorTxFee::<T>::get(),
-				tx_ticket_sequence: Self::get_door_ticket_sequence()?, // TODO - update to correct ticket sequence
+				tx_fee: DoorTxFee::<T>::get(XRPLDoorAccount::NFT),
+				tx_ticket_sequence: Self::get_door_ticket_sequence(XRPLDoorAccount::NFT)?,
 				account: door_address,
 			});
 
@@ -1604,28 +1604,28 @@ impl<T: Config> Pallet<T> {
 		Ok((mantissa, exponent))
 	}
 
-    /// Serialise nft accept offer tx using NFTokenAcceptOffer type from the XRPL codec
-    fn serialize_nft_accept_offer_tx(tx_data: NFTokenAcceptOfferTransaction) -> Vec<u8> {
-        let NFTokenAcceptOfferTransaction {
-            nftoken_sell_offer,
-            tx_fee,
-            tx_ticket_sequence,
-            account,
-        } = tx_data;
+	/// Serialise nft accept offer tx using NFTokenAcceptOffer type from the XRPL codec
+	fn serialize_nft_accept_offer_tx(tx_data: NFTokenAcceptOfferTransaction) -> Vec<u8> {
+		let NFTokenAcceptOfferTransaction {
+			nftoken_sell_offer,
+			tx_fee,
+			tx_ticket_sequence,
+			account,
+		} = tx_data;
 
-        let nftoken_accept_offer = NFTokenAcceptOffer::new(
-            account.0,
-            nftoken_sell_offer,
-            0, // sequence 0 since we use ticket sequences
-            tx_ticket_sequence,
-            tx_fee,
-            SourceTag::<T>::get(),
-            // omit signer key since this is a 'MultiSigner' tx
-            None,
-        );
+		let nftoken_accept_offer = NFTokenAcceptOffer::new(
+			account.0,
+			nftoken_sell_offer,
+			0, // sequence 0 since we use ticket sequences
+			tx_ticket_sequence,
+			tx_fee,
+			SourceTag::<T>::get(),
+			// omit signer key since this is a 'MultiSigner' tx
+			None,
+		);
 
-        nftoken_accept_offer.binary_serialize(true)
-    }
+		nftoken_accept_offer.binary_serialize(true)
+	}
 
 	/// Return the current ticket sequence for the door account and increment it in storage
 	pub fn get_door_ticket_sequence(
