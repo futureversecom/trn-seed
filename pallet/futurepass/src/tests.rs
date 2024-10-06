@@ -1694,7 +1694,7 @@ fn cannot_bypass_proxy_extrinsic_via_proxy() {
 				RuntimeOrigin::signed(delegate),
 				futurepass,
 				None,
-				inner_call
+				inner_call.clone()
 			));
 
 			// the delegate tried to transfer the futurepass, but because it was
@@ -1702,6 +1702,15 @@ fn cannot_bypass_proxy_extrinsic_via_proxy() {
 			// owner
 			assert_eq!(futurepass, Holders::<Test>::get(&owner).unwrap());
 			assert!(Holders::<Test>::get(&other).is_none());
+
+			// validate the owner is still able to make whitelisted proxy calls
+			assert_ok!(pallet_proxy::Pallet::<Test>::proxy(
+				RuntimeOrigin::signed(owner),
+				futurepass,
+				None,
+				inner_call
+			));
+			assert_eq!(futurepass, Holders::<Test>::get(&other).unwrap());
 		});
 }
 
