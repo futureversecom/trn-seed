@@ -288,6 +288,19 @@ benchmarks! {
 		assert_eq!(AssetIdToXRPL::<T>::get(asset_id), Some(xrpl_currency));
 		assert_eq!(XRPLToAssetId::<T>::get(xrpl_currency), Some(asset_id));
 	}
+
+	generate_nft_accept_offer {
+		let alice = account::<T>("Alice");
+		let door_address: XrplAccountId  = [1u8; 20].into();
+		let tx_fee = 100;
+		let nftoken_sell_offer = [2_u8; 32];
+
+		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
+		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), XRPLDoorAccount::NFT, Some(door_address)));
+		assert_ok!(XrplBridge::<T>::set_door_tx_fee(RawOrigin::Root.into(), XRPLDoorAccount::NFT, tx_fee as u64));
+		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), XRPLDoorAccount::NFT, 1, 1));
+
+	}: _(origin::<T>(&alice), nftoken_sell_offer)
 }
 
 impl_benchmark_test_suite!(

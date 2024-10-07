@@ -830,7 +830,7 @@ pub mod pallet {
 
 		/// Generate a signing request for NFT Accept Offer
 		#[pallet::call_index(16)]
-		#[pallet::weight(Weight::zero())] // TODO - update weight
+		#[pallet::weight(T::WeightInfo::generate_nft_accept_offer())]
 		#[transactional]
 		pub fn generate_nft_accept_offer(
 			origin: OriginFor<T>,
