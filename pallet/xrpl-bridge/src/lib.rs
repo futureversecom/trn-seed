@@ -828,7 +828,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Withdraw xrp transaction
+		/// Generate a signing request for NFT Accept Offer
 		#[pallet::call_index(16)]
 		#[pallet::weight(Weight::zero())] // TODO - update weight
 		#[transactional]
