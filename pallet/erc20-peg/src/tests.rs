@@ -636,7 +636,7 @@ fn withdraw_with_delay() {
 		assert_eq!(DelayedPaymentSchedule::<Test>::get(payment_block), vec![delayed_payment_id]);
 		assert_eq!(
 			DelayedPayments::<Test>::get(delayed_payment_id),
-			Some(PendingPayment::Withdrawal((account.clone(), message)))
+			Some(PendingPayment::Withdrawal((account, message)))
 		);
 		// Check payment id has been increased
 		assert_eq!(<NextDelayedPaymentId<Test>>::get(), delayed_payment_id + 1);

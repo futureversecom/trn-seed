@@ -526,7 +526,7 @@ impl<T: Config> Pallet<T> {
 
 		// Process transfer or withdrawal of payment asset
 		let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
-		Self::process_withdrawal(origin.clone(), message, asset_id)
+		Self::process_withdrawal(origin, message, asset_id)
 	}
 
 	/// For a withdrawal, either transfer ROOT tokens to Peg address or burn all other tokens
