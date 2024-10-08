@@ -20,8 +20,9 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use seed_pallet_common::Migrator;
 use seed_primitives::migration::MigrationStep;
-use seed_primitives::{CollectionUuid, SerialNumber};
+use seed_primitives::{BlockNumber, CollectionUuid, SerialNumber};
 use sp_std::prelude::*;
+use frame_support::sp_runtime::traits::Zero;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -91,6 +92,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type LastKey<T> = StorageValue<_, Vec<u8>, OptionQuery>;
 
+	#[pallet::storage]
+	pub type BlockDelay<T> = StorageValue<_, u32, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event {
@@ -154,6 +158,17 @@ pub mod pallet {
 			}
 			Ok(())
 		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::enable_migration())]
+		pub fn set_block_delay(origin: OriginFor<T>, delay: Option<u32>) -> DispatchResult {
+			ensure_root(origin)?;
+			match delay {
+				Some(delay) => BlockDelay::<T>::put(delay),
+				None => BlockDelay::<T>::kill(),
+			}
+			Ok(())
+		}
 	}
 }
 
@@ -188,6 +203,14 @@ impl<T: Config> Pallet<T> {
 		used_weight = used_weight.saturating_add(base_weight);
 
 		let block_number = frame_system::Pallet::<T>::block_number();
+		// let number: BlockNumber = block_number.into();
+		if let Some(delay) = BlockDelay::<T>::get() {
+			let delay: BlockNumberFor<T> = delay.into();
+			if block_number % delay != BlockNumberFor::<T>::zero() {
+				log::debug!(target: LOG_TARGET, "🦆 Skipping multi-block migration for block {:?}", block_number);
+				return used_weight;
+			}
+		}
 		log::debug!(target: LOG_TARGET, "🦆 Starting multi-block migration for block {:?}", block_number);
 		while used_weight.all_lt(weight_limit) {
 			// Perform one migration step on the current migration
