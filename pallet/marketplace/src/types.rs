@@ -213,6 +213,8 @@ pub enum FixedPriceClosureReason {
 	VendorCancelled,
 	/// Listing expired
 	Expired,
+	/// Vendor accepted a buy offer
+	OfferAccepted,
 }
 
 /// Information about a marketplace
