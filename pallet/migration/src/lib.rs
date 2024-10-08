@@ -187,6 +187,8 @@ impl<T: Config> Pallet<T> {
 		let mut step_counter: u32 = 0;
 		used_weight = used_weight.saturating_add(base_weight);
 
+		let block_number = frame_system::Pallet::<T>::block_number();
+		log::debug!(target: LOG_TARGET, "🦆 Starting multi-block migration for block {:?}", block_number);
 		while used_weight.all_lt(weight_limit) {
 			// Perform one migration step on the current migration
 			let step_result = T::CurrentMigration::step(last_key);
@@ -202,7 +204,6 @@ impl<T: Config> Pallet<T> {
 				return used_weight;
 			}
 		}
-		let block_number = frame_system::Pallet::<T>::block_number();
 		log::debug!(target: LOG_TARGET, "🦆 Block {:?} Successfully migrated {} items, total: {}",
 			block_number,
 			step_counter,
