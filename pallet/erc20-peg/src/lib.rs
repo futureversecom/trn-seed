@@ -33,7 +33,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
 use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
-use sp_core::{H160, U256};
+use sp_core::{bounded::WeakBoundedVec, H160, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating},
 	SaturatedConversion,
@@ -99,6 +99,9 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Interface to generate weights
 		type WeightInfo: WeightInfo;
+		/// something
+		#[pallet::constant]
+		type MaxNormalDispatchables: Get<u32>;
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
 		type NativeAssetId: Get<AssetId>;
@@ -164,7 +167,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		BlockNumberFor<T>,
-		BoundedVec<DelayedPaymentId, T::MaxDelaysPerBlock>,
+		WeakBoundedVec<DelayedPaymentId, T::MaxNormalDispatchables>,
 		ValueQuery,
 	>;
 
@@ -303,10 +306,17 @@ pub mod pallet {
 				let remaining_payments = (max_payments - processed_payment_count) as usize;
 				if payment_ids.len() > remaining_payments {
 					// Update storage with unprocessed payments
-					DelayedPaymentSchedule::<T>::insert(
-						block,
-						BoundedVec::truncate_from(payment_ids.split_off(remaining_payments)),
-					);
+					DelayedPaymentSchedule::<T>::mutate(block, |v| {
+						let split_payment_ids = payment_ids.split_off(remaining_payments);
+						let payment_ids_bounded = WeakBoundedVec::force_from(
+							split_payment_ids,
+							Some(
+								"Warning: There are more DelayedPaymentSchedule than expected. \
+								A runtime configuration adjustment may be needed.",
+							),
+						);
+						*v = payment_ids_bounded
+					})
 				} else {
 					processed_block_count += 1;
 				}
@@ -672,18 +682,17 @@ impl<T: Config> Pallet<T> {
 		let payment_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
 		DelayedPayments::<T>::insert(payment_id, &pending_payment);
 		NextDelayedPaymentId::<T>::put(payment_id + 1);
-		let _ = DelayedPaymentSchedule::<T>::try_append(payment_block, payment_id).map_err(|_| {
-			// If we fail to append the payment_id to the schedule, log the error and throw an event
-			log::error!(
-				"ERC20-Peg: 📌 Failed to add delayed payment to DelayedPaymentSchedule: {:?}",
-				payment_id
+		DelayedPaymentSchedule::<T>::mutate(payment_block, |v| {
+			let mut payments = v.clone().into_inner();
+			payments.push(payment_id);
+			let payments_bounded = WeakBoundedVec::force_from(
+				payments,
+				Some(
+					"Warning: There are more DelayedPaymentSchedule than expected. \
+					A runtime configuration adjustment may be needed.",
+				),
 			);
-			Self::deposit_event(Event::<T>::Erc20DelayFailed {
-				payment_id,
-				scheduled_block: payment_block,
-				asset_id,
-				source,
-			});
+			*v = payments_bounded;
 		});
 
 		// Throw event for delayed payment
