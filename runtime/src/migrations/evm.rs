@@ -106,8 +106,8 @@ impl OnRuntimeUpgrade for Upgrade {
 		let universal_deployer_eoa = H160::from_str(UNIVERSAL_DEPLOYER_EOA_ADDRESS).unwrap();
 		let universal_deployer_contract =
 			H160::from_str(UNIVERSAL_DEPLOYER_CONTRACT_ADDRESS).unwrap();
-    
-    // Check universal deployer account
+
+		// Check universal deployer account
 		let (deployer_account, _) = EVM::account_basic(&universal_deployer_eoa);
 		assert_eq!(deployer_account.balance, U256::zero(), "Factory deployer balance should be 0");
 		assert_eq!(deployer_account.nonce, U256::one(), "Factory deployer nonce should be 1");
@@ -207,7 +207,7 @@ pub mod v1 {
 		use frame_support::weights::Weight;
 
 		#[test]
-		fn migrate_eip2470() {
+		fn migrate_evm_bytecode() {
 			new_test_ext().execute_with(|| {
 				// Pre-upgrade checks
 				let pre_upgrade_state = Upgrade::pre_upgrade().expect("Pre-upgrade should succeed");
