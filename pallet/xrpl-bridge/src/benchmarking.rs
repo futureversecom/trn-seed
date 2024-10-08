@@ -15,12 +15,11 @@
 
 use super::*;
 
+use crate::{types::XRPLCurrencyType, Pallet as XrplBridge};
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use hex_literal::hex;
-
-use crate::Pallet as XrplBridge;
 
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 	bench_account(name, 0, 0)

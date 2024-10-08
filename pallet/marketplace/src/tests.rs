@@ -486,6 +486,28 @@ fn sell_fails() {
 }
 
 #[test]
+fn sell_zero_duration_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let (collection_id, token_id, token_owner) = setup_nft_token();
+		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+			BoundedVec::try_from(vec![token_id.1]).unwrap();
+		assert_noop!(
+			Marketplace::sell_nft(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers.clone(),
+				Some(create_account(5)),
+				NativeAssetId::get(),
+				1_000,
+				Some(0), // Invalid duration
+				None,
+			),
+			Error::<Test>::DurationTooShort
+		);
+	});
+}
+
+#[test]
 fn cancel_sell() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_nft_token();
@@ -2051,6 +2073,27 @@ fn auction_fails_prechecks() {
 }
 
 #[test]
+fn auction_zero_duration_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let (collection_id, token_id, token_owner) = setup_nft_token();
+		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+			BoundedVec::try_from(vec![token_id.1]).unwrap();
+		assert_noop!(
+			Marketplace::auction_nft(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers.clone(),
+				NativeAssetId::get(),
+				100_000,
+				Some(0), // Invalid duration
+				None,
+			),
+			Error::<Test>::DurationTooShort
+		);
+	});
+}
+
+#[test]
 fn bid_fails_prechecks() {
 	let bidder = create_account(5);
 	let reserve_price = 100_004;
@@ -2296,7 +2339,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 			assert_ok!(Marketplace::sell_nft(
 				Some(token_owner).into(),
 				collection_id,
-				serial_numbers,
+				serial_numbers.clone(),
 				None,
 				NativeAssetId::get(),
 				sell_price,
@@ -2339,6 +2382,13 @@ fn make_simple_offer_on_fixed_price_listing() {
 			)
 			.is_zero());
 			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &token_owner), offer_amount);
+
+			System::assert_has_event(MockEvent::Marketplace(Event::<Test>::FixedPriceSaleClose {
+				tokens: ListingTokens::Nft(NftListing { collection_id, serial_numbers }),
+				listing_id,
+				marketplace_id: None,
+				reason: FixedPriceClosureReason::OfferAccepted,
+			}));
 		});
 }
 
