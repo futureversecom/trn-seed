@@ -156,7 +156,7 @@ pub mod pallet {
 	/// Map from DelayedPaymentId to PendingPayment
 	#[pallet::storage]
 	pub type DelayedPayments<T: Config> =
-		StorageMap<_, Twox64Concat, DelayedPaymentId, PendingPayment>;
+		StorageMap<_, Twox64Concat, DelayedPaymentId, PendingPayment<T::AccountId>>;
 
 	/// Map from block number to DelayedPaymentIds scheduled for that block
 	#[pallet::storage]
@@ -629,7 +629,7 @@ impl<T: Config> Pallet<T> {
 	/// Delay a withdrawal or deposit until a later block
 	pub fn delay_payment(
 		delay: BlockNumberFor<T>,
-		pending_payment: PendingPayment,
+		pending_payment: PendingPayment<T::AccountId>,
 		asset_id: AssetId,
 		source: T::AccountId,
 	) {

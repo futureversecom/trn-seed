@@ -15,7 +15,6 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use seed_primitives::AccountId;
 use sp_core::{H160, U256};
 use sp_std::prelude::*;
 
@@ -37,7 +36,7 @@ pub enum WithdrawCallOrigin {
 
 /// A pending deposit or withdrawal
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, MaxEncodedLen)]
-pub enum PendingPayment {
+pub enum PendingPayment<AccountId> {
 	/// A deposit event (deposit_event, tx_hash)
 	Deposit(Erc20DepositEvent),
 	/// A withdrawal (withdrawal_message)

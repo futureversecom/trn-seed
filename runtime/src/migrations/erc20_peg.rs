@@ -46,7 +46,7 @@ impl OnRuntimeUpgrade for Upgrade {
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, DispatchError> {
-		log::info!(target: "Migration", "Erc20Peg: Upgrade to v4 Pre Upgrade.");
+		log::info!(target: "Migration", "Erc20Peg: Upgrade to v1 Pre Upgrade.");
 		let onchain = Erc20Peg::on_chain_storage_version();
 		// Return OK(()) if upgrade has already been done
 		if onchain == 1 {
@@ -59,7 +59,7 @@ impl OnRuntimeUpgrade for Upgrade {
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), DispatchError> {
-		log::info!(target: "Migration", "Erc20Peg: Upgrade to v4 Post Upgrade.");
+		log::info!(target: "Migration", "Erc20Peg: Upgrade to v1 Post Upgrade.");
 		let current = Erc20Peg::current_storage_version();
 		let onchain = Erc20Peg::on_chain_storage_version();
 		assert_eq!(current, 1);
@@ -89,10 +89,7 @@ pub mod v1 {
 	use seed_primitives::{AssetId, Balance, CollectionUuid};
 	use sp_core::{Get, H160};
 	type AccountId = <Runtime as frame_system::Config>::AccountId;
-	// type AccountId = <Runtime as frame_system::Config>::AccountId;
-	// type BlockNumber = BlockNumberFor<T>;
 
-	// type V3PaymentDelay<T> = (Balance, BlockNumberFor<T>);
 	#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, TypeInfo, MaxEncodedLen)]
 	pub enum OldPendingPayment {
 		/// A deposit event (deposit_event, tx_hash)
