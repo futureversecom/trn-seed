@@ -69,7 +69,16 @@ impl OnRuntimeUpgrade for Upgrade {
 	fn on_runtime_upgrade() -> Weight {
 		log::info!(target: "Migration", "🛠️ EVM: creating EIP-2470 factory deployer and factory contract 🛠️");
 
-		let weight = v1::migrate::<Runtime>();
+		// reading factory deployer
+		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(3);
+
+		let factory_deployer = H160::from_str(EIP2470_EOA_ADDRESS).unwrap();
+		if !EVM::is_account_empty(&factory_deployer) {
+			log::info!(target: "Migration", "Factory deployer already exists, skipping migration");
+			return weight;
+		}
+
+		weight += v1::migrate::<Runtime>();
 
 		log::info!(target: "Migration", "✅ EVM: EIP-2470 factory deployer and factory contract successfully created ✅");
 
@@ -221,10 +230,12 @@ pub mod v1 {
 				// Post-upgrade checks
 				Upgrade::post_upgrade(pre_upgrade_state).expect("Post-upgrade should succeed");
 
-				// Validate future runtime upgrade fails (6 reads each - i.e. factory and universal deployer)
+				// Validate future runtime upgrade fails
+				// 3 reads for factory deployer check only
 				let new_weight = Upgrade::on_runtime_upgrade();
-				assert!(
-					new_weight.eq(&<Runtime as frame_system::Config>::DbWeight::get().reads(12)),
+				assert_eq!(
+					new_weight,
+					<Runtime as frame_system::Config>::DbWeight::get().reads(3),
 					"Migration weight mismatch"
 				);
 			});
