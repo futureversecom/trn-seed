@@ -63,6 +63,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			) {
 				return false;
 			}
+
+			return self == &ProxyType::Owner;
 		}
 		match self {
 			_ => true,
