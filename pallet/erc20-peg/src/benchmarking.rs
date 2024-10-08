@@ -99,6 +99,25 @@ benchmarks! {
 		assert_eq!(actual_balance, expected_balance);
 	}
 
+	process_deposit {
+		let token_address = account::<T>("TokenAddress").into();
+		let beneficiary: H160 = H160::from_low_u64_be(456);
+		let deposit_amount: Balance = 1_000_000;
+
+		assert!(AssetIdToErc20::<T>::iter_keys().next().is_none());
+		assert!(Erc20ToAssetId::<T>::get(token_address).is_none());
+		assert!(Erc20ToAssetId::<T>::iter_keys().next().is_none());
+	}: {
+		let _ = Erc20Peg::<T>::process_deposit(Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary});
+	} verify {
+		assert!(AssetIdToErc20::<T>::iter_keys().next().is_some());
+		assert!(Erc20ToAssetId::<T>::get(token_address).is_some());
+		assert!(Erc20ToAssetId::<T>::iter_keys().next().is_some());
+
+		let asset_id = Erc20ToAssetId::<T>::get(token_address).unwrap();
+		assert_eq!(T::MultiCurrency::balance(asset_id, &beneficiary.into()), deposit_amount);
+	}
+
 	claim_delayed_payment {
 		let alice = account::<T>("Alice");
 		let alice_balance: Balance = 10000u32.into();
