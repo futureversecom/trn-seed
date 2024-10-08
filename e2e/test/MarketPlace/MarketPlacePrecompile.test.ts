@@ -10,8 +10,8 @@ import {
   ALITH_PRIVATE_KEY,
   BOB_PRIVATE_KEY,
   ERC721_PRECOMPILE_ABI,
+  MARKETPLACE_ABI,
   MARKETPLACE_PRECOMPILE_ADDRESS,
-  MARKET_PLACE_ABI,
   NodeProcess,
   startNode,
   typedefs,
@@ -78,7 +78,7 @@ describe("Marketplace Precompile", function () {
     await tx.wait();
     expect(await erc721Precompile.totalSupply()).to.equal(quantity);
     // Deploy marketplace contract
-    marketPlacePrecompile = new Contract(MARKETPLACE_PRECOMPILE_ADDRESS, MARKET_PLACE_ABI, bobSigner);
+    marketPlacePrecompile = new Contract(MARKETPLACE_PRECOMPILE_ADDRESS, MARKETPLACE_ABI, bobSigner);
   });
 
   after(async () => await node.stop());

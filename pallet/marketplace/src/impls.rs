@@ -65,8 +65,7 @@ impl<T: Config> Pallet<T> {
 
 		tokens.lock_tokens(&who, listing_id)?;
 
-		let listing_end_block = <frame_system::Pallet<T>>::block_number()
-			.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
+		let listing_end_block = Self::get_listing_end_block(duration)?;
 		let listing = Listing::<T>::FixedPrice(FixedPriceListing::<T> {
 			payment_asset,
 			fixed_price,
@@ -187,9 +186,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 		tokens.lock_tokens(&who, listing_id)?;
-
-		let listing_end_block = <frame_system::Pallet<T>>::block_number()
-			.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
+		let listing_end_block = Self::get_listing_end_block(duration)?;
 		let listing = Listing::<T>::Auction(AuctionListing::<T> {
 			payment_asset,
 			reserve_price,
@@ -635,5 +632,21 @@ impl<T: Config> Pallet<T> {
 		FeeTo::<T>::put(&fee_to);
 		Self::deposit_event(Event::FeeToSet { account: fee_to });
 		Ok(())
+	}
+
+	/// Returns the end block for a listing.
+	/// This is listing duration + the current block_number
+	/// Fails if duration is set to 0
+	fn get_listing_end_block(
+		duration: Option<BlockNumberFor<T>>,
+	) -> Result<BlockNumberFor<T>, DispatchError> {
+		let duration = match duration {
+			Some(duration) => {
+				ensure!(duration > BlockNumberFor::<T>::zero(), Error::<T>::DurationTooShort);
+				duration
+			},
+			None => T::DefaultListingDuration::get(),
+		};
+		Ok(<frame_system::Pallet<T>>::block_number().saturating_add(duration))
 	}
 }
