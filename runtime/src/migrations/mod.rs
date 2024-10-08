@@ -53,6 +53,7 @@ mod tests {
 	use sp_core::H160;
 	use sp_runtime::BuildStorage;
 
+	#[allow(dead_code)]
 	pub fn create_account<AccountId: From<H160>>(seed: u64) -> AccountId {
 		AccountId::from(H160::from_low_u64_be(seed))
 	}

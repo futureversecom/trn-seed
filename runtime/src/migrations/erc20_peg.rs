@@ -184,7 +184,7 @@ pub mod v1 {
 					beneficiary: create_account(14).into(),
 				});
 				assert_eq!(
-					Map::unsafe_storage_get::<PendingPayment>(
+					Map::unsafe_storage_get::<PendingPayment<AccountId>>(
 						b"Erc20Peg",
 						b"DelayedPayments",
 						&payment_id_key_1,
@@ -202,7 +202,7 @@ pub mod v1 {
 					},
 				));
 				assert_eq!(
-					Map::unsafe_storage_get::<PendingPayment>(
+					Map::unsafe_storage_get::<PendingPayment<AccountId>>(
 						b"Erc20Peg",
 						b"DelayedPayments",
 						&payment_id_key_2,
