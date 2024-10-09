@@ -1175,11 +1175,7 @@ parameter_types! {
 	/// The ERC20 peg address
 	pub const PegPalletId: PalletId = PalletId(*b"erc20peg");
 	/// Limit that determines max delays stored simultaneously in a single block
-	pub const MaxDelaysPerBlock: u32 = 10_000;
-	/// Needs to be large enough to handle the maximum number of blocks that can be ready at once
-	pub const MaxReadyBlocks: u32 = 100_000;
-	// something
-	pub MaxNormalDispatchables: u32 = RuntimeBlockWeights::get()
+	pub MaxDelaysPerBlock: u32 =  RuntimeBlockWeights::get()
 	.get(DispatchClass::Normal)
 	.max_total
 	.expect("Normal extrinsics should have max_total defined")
@@ -1190,6 +1186,8 @@ parameter_types! {
 	)
 	.try_into()
 	.expect("Calculation will not exceed u32");
+	/// Needs to be large enough to handle the maximum number of blocks that can be ready at once
+	pub const MaxReadyBlocks: u32 = 100_000;
 }
 
 impl pallet_erc20_peg::Config for Runtime {
@@ -1202,7 +1200,6 @@ impl pallet_erc20_peg::Config for Runtime {
 	/// The overarching event type.
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_erc20_peg::WeightInfo<Runtime>;
-	type MaxNormalDispatchables = MaxNormalDispatchables;
 	type NativeAssetId = RootAssetId;
 	type StringLimit = AssetsStringLimit;
 	type MaxDelaysPerBlock = MaxDelaysPerBlock;
