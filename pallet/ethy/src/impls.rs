@@ -545,7 +545,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Send a notarization for the given claim
-	fn offchain_send_notarization(
+	pub(crate) fn offchain_send_notarization(
 		key: &T::EthyId,
 		payload: NotarizationPayload,
 	) -> Result<(), Error<T>> {
@@ -983,50 +983,6 @@ impl<T: Config> Pallet<T> {
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
 		Self::deposit_event(Event::<T>::EventSend { event_proof_id, signing_request: request });
-	}
-}
-
-impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
-	type Call = Call<T>;
-
-	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		if let Call::submit_notarization { ref payload, ref signature } = call {
-			// notarization must be from an active notary
-			let notary_keys = NotaryKeys::<T>::get();
-			let notary_public_key = match notary_keys.get(payload.authority_index() as usize) {
-				Some(id) => id,
-				None => return InvalidTransaction::BadProof.into(),
-			};
-			// notarization must not be a duplicate/equivocation
-			if <EventNotarizations<T>>::contains_key(payload.payload_id(), &notary_public_key) {
-				log!(
-					error,
-					"💎 received equivocation from: {:?} on {:?}",
-					notary_public_key,
-					payload.payload_id()
-				);
-				return InvalidTransaction::BadProof.into();
-			}
-			// notarization is signed correctly
-			if !(notary_public_key.verify(&payload.encode(), signature)) {
-				return InvalidTransaction::BadProof.into();
-			}
-			ValidTransaction::with_tag_prefix("eth-bridge")
-				.priority(UNSIGNED_TXS_PRIORITY)
-				// 'provides' must be unique for each submission on the network (i.e. unique for
-				// each claim id and validator)
-				.and_provides([
-					b"notarize",
-					&payload.type_id().to_be_bytes(),
-					&payload.payload_id().to_be_bytes(),
-					&(payload.authority_index() as u64).to_be_bytes(),
-				])
-				.longevity(3)
-				.propagate(true)
-				.build()
-		} else {
-			InvalidTransaction::Call.into()
-		}
 	}
 }
 
