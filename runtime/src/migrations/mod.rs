@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 mod erc20_peg;
+mod evm;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
@@ -34,16 +35,20 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, DispatchError> {
-		erc20_peg::Upgrade::pre_upgrade()
+		let _ = erc20_peg::Upgrade::pre_upgrade()?;
+		evm::Upgrade::pre_upgrade()
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		erc20_peg::Upgrade::on_runtime_upgrade()
+		let mut weight = erc20_peg::Upgrade::on_runtime_upgrade();
+		weight += evm::Upgrade::on_runtime_upgrade();
+		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), DispatchError> {
-		erc20_peg::Upgrade::post_upgrade(state)
+		let _ = erc20_peg::Upgrade::post_upgrade(state.clone())?;
+		evm::Upgrade::post_upgrade(state)
 	}
 }
 
