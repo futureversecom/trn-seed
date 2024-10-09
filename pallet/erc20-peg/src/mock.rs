@@ -37,7 +37,6 @@ parameter_types! {
 	pub const PegPalletId: PalletId = PalletId(*b"py/erc20");
 	pub const MaxDelaysPerBlock: u32 = 10;
 	pub const MaxReadyBlocks: u32 = 10;
-	pub const MaxNormalDispatchables: u32 = 100;
 	pub const StringLimit: u32 = 50;
 }
 
@@ -47,7 +46,6 @@ impl crate::Config for Test {
 	type PegPalletId = PegPalletId;
 	type MultiCurrency = AssetsExt;
 	type WeightInfo = ();
-	type MaxNormalDispatchables = MaxNormalDispatchables;
 	type NativeAssetId = NativeAssetId;
 	type StringLimit = StringLimit;
 	type MaxDelaysPerBlock = MaxDelaysPerBlock;

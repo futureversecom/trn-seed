@@ -99,9 +99,6 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Interface to generate weights
 		type WeightInfo: WeightInfo;
-		/// something
-		#[pallet::constant]
-		type MaxNormalDispatchables: Get<u32>;
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
 		type NativeAssetId: Get<AssetId>;
@@ -167,7 +164,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		BlockNumberFor<T>,
-		WeakBoundedVec<DelayedPaymentId, T::MaxNormalDispatchables>,
+		WeakBoundedVec<DelayedPaymentId, T::MaxDelaysPerBlock>,
 		ValueQuery,
 	>;
 

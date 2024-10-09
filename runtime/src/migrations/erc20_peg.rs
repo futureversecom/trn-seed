@@ -33,6 +33,7 @@ impl OnRuntimeUpgrade for Upgrade {
 		if onchain < 1 {
 			log::info!(target: "Migration", "XRPLBridge: Migrating from on-chain version {onchain:?} to on-chain version {current:?}.");
 			weight += v1::migrate::<Runtime>();
+			weight += v1::migrate_k::<Runtime>();
 
 			StorageVersion::new(1).put::<Erc20Peg>();
 
@@ -79,15 +80,21 @@ pub mod v1 {
 	use codec::{Decode, Encode, MaxEncodedLen};
 	use frame_support::{
 		sp_runtime::RuntimeDebug, storage_alias, weights::Weight, BoundedVec, StorageHasher,
-		Twox64Concat,
+		Twox64Concat, WeakBoundedVec,
 	};
 	use pallet_erc20_peg::{
-		types::{Erc20DepositEvent, PendingPayment, WithdrawMessage},
+		types::{
+			DelayedPaymentId, DelayedPaymentSchedule, Erc20DepositEvent, PendingPayment,
+			WithdrawMessage,
+		},
 		DelayedPayments,
 	};
 	use scale_info::TypeInfo;
 	use seed_primitives::{AssetId, Balance, CollectionUuid};
 	use sp_core::{Get, H160};
+
+	use frame_system::pallet_prelude::BlockNumberFor;
+
 	type AccountId = <Runtime as frame_system::Config>::AccountId;
 
 	#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, TypeInfo, MaxEncodedLen)]
@@ -121,6 +128,29 @@ pub mod v1 {
 		});
 
 		log::info!(target: "Migration", "ERC20Peg: successfully migrated DelayedPayments");
+
+		weight
+	}
+
+	type OldDelayedPaymentSchedule =
+		BoundedVec<DelayedPaymentId, <Runtime as pallet_erc20_peg::Config>::MaxDelaysPerBlock>;
+	type NewDelayedPaymentSchedule =
+		WeakBoundedVec<DelayedPaymentId, <Runtime as pallet_erc20_peg::Config>::MaxDelaysPerBlock>;
+
+	pub fn migrate_k<T: frame_system::Config + pallet_erc20_peg::Config>() -> Weight {
+		log::info!(target: "Migration", "ERC20Peg:[DelayedPaymentSchedule] Migrating from on-chain version 0 to on-chain version 1");
+
+		let mut weight: Weight = Weight::zero();
+
+		DelayedPaymentSchedule::<T>::translate_values::<
+			BoundedVec<DelayedPaymentId, <Runtime as pallet_erc20_peg::Config>::MaxDelaysPerBlock>,
+			_,
+		>(|old| {
+			weight += <Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1);
+			Some(WeakBoundedVec::force_from(old.into_inner(), None))
+		});
+
+		log::info!(target: "Migration", "ERC20Peg: successfully migrated DelayedPaymentSchedule");
 
 		weight
 	}
@@ -210,6 +240,72 @@ pub mod v1 {
 					Some(expected_pending_payment_2)
 				);
 			});
+		}
+	}
+
+	#[cfg(test)]
+	mod tests {
+		use super::*;
+
+		use codec::Encode;
+		use pallet_erc20_peg::DelayedPaymentSchedule;
+
+		use crate::migrations::{tests::new_test_ext, Map};
+
+		#[test]
+		fn migration_test() {
+			new_test_ext().execute_with(|| {
+				StorageVersion::new(0).put::<Erc20Peg>();
+
+				let one: BlockNumberFor<Runtime> = 1;
+				let two: BlockNumberFor<Runtime> = 2;
+
+				let block_key_1 = Twox64Concat::hash(&one.encode());
+				let block_key_2 = Twox64Concat::hash(&two.encode());
+
+				let delayed_payment_1: OldDelayedPaymentSchedule =
+					BoundedVec::truncate_from(vec![1, 2, 3, 4, 5]);
+				let delayed_payment_2: OldDelayedPaymentSchedule =
+					BoundedVec::truncate_from(vec![6, 7, 8, 9, 10]);
+
+				Map::unsafe_storage_put::<OldDelayedPaymentSchedule>(
+					b"Erc20Peg",
+					b"DelayedPaymentSchedule",
+					&block_key_1,
+					delayed_payment_1.clone(),
+				);
+				Map::unsafe_storage_put::<OldDelayedPaymentSchedule>(
+					b"Erc20Peg",
+					b"DelayedPaymentSchedule",
+					&block_key_2,
+					delayed_payment_2.clone(),
+				);
+
+				Upgrade::on_runtime_upgrade();
+				assert_eq!(Erc20Peg::on_chain_storage_version(), 1);
+
+				let expected_delayed_payment_1: NewDelayedPaymentSchedule =
+					WeakBoundedVec::force_from(delayed_payment_1.into_inner(), None);
+				let expected_delayed_payment_2: NewDelayedPaymentSchedule =
+					WeakBoundedVec::force_from(delayed_payment_2.into_inner(), None);
+
+				assert_eq!(
+					Map::unsafe_storage_get::<NewDelayedPaymentSchedule>(
+						b"Erc20Peg",
+						b"DelayedPaymentSchedule",
+						&block_key_1
+					),
+					Some(expected_delayed_payment_1)
+				);
+				assert_eq!(
+					Map::unsafe_storage_get::<NewDelayedPaymentSchedule>(
+						b"Erc20Peg",
+						b"DelayedPaymentSchedule",
+						&block_key_2
+					),
+					Some(expected_delayed_payment_2)
+				);
+			})
 		}
 	}
 }
