@@ -697,7 +697,7 @@ fn root_can_claim_delayed_payment() {
 		assert_eq!(DelayedPaymentSchedule::<Test>::get(payment_block), vec![delayed_payment_id]);
 		assert_eq!(
 			DelayedPayments::<Test>::get(delayed_payment_id),
-			Some(PendingPayment::Withdrawal(message))
+			Some(PendingPayment::Withdrawal((account, message)))
 		);
 
 		assert_ok!(Erc20Peg::claim_delayed_payment(
@@ -775,11 +775,11 @@ fn root_claim_on_delayed_payment_doesnt_effect_prior_delayed_payments() {
 		);
 		assert_eq!(
 			DelayedPayments::<Test>::get(delayed_payment_id),
-			Some(PendingPayment::Withdrawal(message.clone()))
+			Some(PendingPayment::Withdrawal((account, message.clone())))
 		);
 		assert_eq!(
 			DelayedPayments::<Test>::get(delayed_payment_id_two),
-			Some(PendingPayment::Withdrawal(message))
+			Some(PendingPayment::Withdrawal((account, message)))
 		);
 
 		assert_ok!(Erc20Peg::claim_delayed_payment(

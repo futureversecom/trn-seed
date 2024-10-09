@@ -155,7 +155,7 @@ benchmarks! {
 		assert_eq!(DelayedPaymentSchedule::<T>::get(payment_block), vec![delayed_payment_id]);
 		assert_eq!(
 			DelayedPayments::<T>::get(delayed_payment_id),
-			Some(PendingPayment::Withdrawal(message))
+			Some(PendingPayment::Withdrawal((alice, message)))
 		);
 	}: _(RawOrigin::Root, payment_block, delayed_payment_id)
 	verify {
