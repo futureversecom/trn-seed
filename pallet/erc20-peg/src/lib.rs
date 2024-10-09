@@ -57,7 +57,11 @@ pub use pallet::*;
 pub mod pallet {
 	use super::{DispatchResult, *};
 
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::genesis_config]
@@ -152,7 +156,7 @@ pub mod pallet {
 	/// Map from DelayedPaymentId to PendingPayment
 	#[pallet::storage]
 	pub type DelayedPayments<T: Config> =
-		StorageMap<_, Twox64Concat, DelayedPaymentId, PendingPayment>;
+		StorageMap<_, Twox64Concat, DelayedPaymentId, PendingPayment<T::AccountId>>;
 
 	/// Map from block number to DelayedPaymentIds scheduled for that block
 	#[pallet::storage]
@@ -215,7 +219,12 @@ pub mod pallet {
 		/// A bridged erc20 deposit succeeded.
 		Erc20Deposit { asset_id: AssetId, amount: Balance, beneficiary: T::AccountId },
 		/// Tokens were burnt for withdrawal on Ethereum as ERC20s
-		Erc20Withdraw { asset_id: AssetId, amount: Balance, beneficiary: EthAddress },
+		Erc20Withdraw {
+			asset_id: AssetId,
+			amount: Balance,
+			beneficiary: EthAddress,
+			source: T::AccountId,
+		},
 		/// A bridged erc20 deposit failed.
 		Erc20DepositFail { source: H160, abi_data: Vec<u8> },
 		/// The peg contract address has been set.
@@ -500,7 +509,7 @@ impl<T: Config> Pallet<T> {
 							let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
 							Self::delay_payment(
 								delay,
-								PendingPayment::Withdrawal(message),
+								PendingPayment::Withdrawal((origin.clone(), message)),
 								asset_id,
 								origin,
 							);
@@ -517,7 +526,7 @@ impl<T: Config> Pallet<T> {
 
 		// Process transfer or withdrawal of payment asset
 		let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
-		Self::process_withdrawal(message, asset_id)
+		Self::process_withdrawal(origin, message, asset_id)
 	}
 
 	/// For a withdrawal, either transfer ROOT tokens to Peg address or burn all other tokens
@@ -551,6 +560,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Process withdrawal and send
 	fn process_withdrawal(
+		sender: T::AccountId,
 		withdrawal_message: WithdrawMessage,
 		asset_id: AssetId,
 	) -> Result<Option<u64>, DispatchError> {
@@ -574,6 +584,7 @@ impl<T: Config> Pallet<T> {
 			asset_id,
 			amount: withdrawal_message.amount.saturated_into(),
 			beneficiary: withdrawal_message.beneficiary,
+			source: sender,
 		});
 		Ok(Some(event_proof_id))
 	}
@@ -590,13 +601,15 @@ impl<T: Config> Pallet<T> {
 						});
 					}
 				},
-				PendingPayment::Withdrawal(withdrawal_message) => {
+				PendingPayment::Withdrawal((source, withdrawal_message)) => {
 					// At this stage it is assumed that a mapping between erc20 to asset id exists
 					// for this token
 					let asset_id = Erc20ToAssetId::<T>::get(withdrawal_message.token_address);
 					if let Some(asset_id) = asset_id {
 						// Process transfer or withdrawal of payment asset
-						if Self::process_withdrawal(withdrawal_message.clone(), asset_id).is_err() {
+						if Self::process_withdrawal(source, withdrawal_message.clone(), asset_id)
+							.is_err()
+						{
 							Self::deposit_event(Event::<T>::DelayedErc20WithdrawalFailed {
 								asset_id,
 								beneficiary: withdrawal_message.beneficiary.into(),
@@ -616,7 +629,7 @@ impl<T: Config> Pallet<T> {
 	/// Delay a withdrawal or deposit until a later block
 	pub fn delay_payment(
 		delay: BlockNumberFor<T>,
-		pending_payment: PendingPayment,
+		pending_payment: PendingPayment<T::AccountId>,
 		asset_id: AssetId,
 		source: T::AccountId,
 	) {
@@ -644,7 +657,7 @@ impl<T: Config> Pallet<T> {
 
 		// Throw event for delayed payment
 		match pending_payment {
-			PendingPayment::Withdrawal(withdrawal) => {
+			PendingPayment::Withdrawal((_sender, withdrawal)) => {
 				Self::deposit_event(Event::<T>::Erc20WithdrawalDelayed {
 					payment_id,
 					scheduled_block: payment_block,
