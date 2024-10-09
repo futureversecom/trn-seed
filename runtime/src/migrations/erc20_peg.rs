@@ -83,11 +83,8 @@ pub mod v1 {
 		Twox64Concat, WeakBoundedVec,
 	};
 	use pallet_erc20_peg::{
-		types::{
-			DelayedPaymentId, DelayedPaymentSchedule, Erc20DepositEvent, PendingPayment,
-			WithdrawMessage,
-		},
-		DelayedPayments,
+		types::{DelayedPaymentId, Erc20DepositEvent, PendingPayment, WithdrawMessage},
+		DelayedPaymentSchedule, DelayedPayments,
 	};
 	use scale_info::TypeInfo;
 	use seed_primitives::{AssetId, Balance, CollectionUuid};
@@ -158,10 +155,13 @@ pub mod v1 {
 	#[cfg(test)]
 	mod tests {
 		use super::*;
-		use crate::migrations::tests::new_test_ext;
-		use pallet_erc20_peg::types::DelayedPaymentId;
+		use pallet_erc20_peg::{types::DelayedPaymentId, DelayedPaymentSchedule};
 		use sp_core::{H160, U256};
 		use sp_runtime::Permill;
+
+		use codec::Encode;
+
+		use crate::migrations::{tests::new_test_ext, Map};
 
 		fn create_account(seed: u64) -> AccountId {
 			AccountId::from(H160::from_low_u64_be(seed))
@@ -241,19 +241,9 @@ pub mod v1 {
 				);
 			});
 		}
-	}
-
-	#[cfg(test)]
-	mod tests {
-		use super::*;
-
-		use codec::Encode;
-		use pallet_erc20_peg::DelayedPaymentSchedule;
-
-		use crate::migrations::{tests::new_test_ext, Map};
 
 		#[test]
-		fn migration_test() {
+		fn migration_test_k() {
 			new_test_ext().execute_with(|| {
 				StorageVersion::new(0).put::<Erc20Peg>();
 
