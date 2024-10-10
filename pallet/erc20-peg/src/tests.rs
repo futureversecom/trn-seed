@@ -798,6 +798,47 @@ fn root_claim_on_delayed_payment_doesnt_effect_prior_delayed_payments() {
 }
 
 #[test]
+fn root_claim_fails_with_non_existant_block() {
+	ExtBuilder::default().build().execute_with(|| {
+		let payment_block = <frame_system::Pallet<Test>>::block_number();
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
+
+		assert_noop!(
+			Erc20Peg::claim_delayed_payment(
+				frame_system::RawOrigin::Root.into(),
+				payment_block,
+				delayed_payment_id,
+			),
+			Error::<Test>::PaymentIdNotFound
+		);
+	})
+}
+
+#[test]
+fn root_claim_fails_with_non_existant_payment_id() {
+	ExtBuilder::default().build().execute_with(|| {
+		let payment_block = <frame_system::Pallet<Test>>::block_number();
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
+
+		let non_existant_payment_id: u64 = 999;
+
+		DelayedPaymentSchedule::<Test>::insert(
+			payment_block,
+			WeakBoundedVec::try_from(vec![delayed_payment_id]).unwrap(),
+		);
+
+		assert_noop!(
+			Erc20Peg::claim_delayed_payment(
+				frame_system::RawOrigin::Root.into(),
+				payment_block,
+				non_existant_payment_id, // This payment id doesn't exist at this key
+			),
+			Error::<Test>::PaymentIdNotFound
+		);
+	})
+}
+
+#[test]
 fn withdraw_less_than_delay_goes_through() {
 	ExtBuilder::default().build().execute_with(|| {
 		let account: AccountId = create_account(123);
