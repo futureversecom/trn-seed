@@ -18,6 +18,7 @@ use super::*;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, traits::fungibles::Inspect};
 use frame_system::RawOrigin;
+use sp_core::bounded::WeakBoundedVec;
 
 use crate::Pallet as Erc20Peg;
 
@@ -120,37 +121,24 @@ benchmarks! {
 
 	claim_delayed_payment {
 		let alice = account::<T>("Alice");
-		let alice_balance: Balance = 10000u32.into();
 		let delay: BlockNumberFor<T> = 1000u32.into();
 		let withdraw_amount: Balance = 100u32.into();
 
-		assert_ok!(Erc20Peg::<T>::activate_withdrawals(RawOrigin::Root.into(), true));
-		assert_ok!(Erc20Peg::<T>::activate_deposits(RawOrigin::Root.into(), true));
-		assert_ok!(Erc20Peg::<T>::activate_withdrawals_delay(RawOrigin::Root.into(), true));
-
-		let source = account::<T>("Source").into();
 		let token_address = account::<T>("TokenAddress").into();
-		let amount = 10000u32.into();
 		let beneficiary = account::<T>("Beneficiary").into();
-		let data = ethabi::encode(&[Token::Address(token_address), Token::Uint(amount), Token::Address(beneficiary)]);
-		assert_ok!(Erc20Peg::<T>::on_event(&source, &data));
-
-		let asset_id = AssetIdToErc20::<T>::iter_keys().next().unwrap();
-		let eth_address = Erc20ToAssetId::<T>::iter_keys().next().unwrap();
-
-		assert_ok!(T::MultiCurrency::mint_into(asset_id, &alice, alice_balance));
-		assert_ok!(Erc20Peg::<T>::set_payment_delay(RawOrigin::Root.into(), asset_id, withdraw_amount, delay));
 
 		let delayed_payment_id = NextDelayedPaymentId::<T>::get();
 		let payment_block = frame_system::Pallet::<T>::block_number() + delay;
-
-		assert_ok!(Erc20Peg::<T>::withdraw(origin::<T>(&alice).into(), asset_id, withdraw_amount, beneficiary));
+		Erc20ToAssetId::<T>::insert(token_address, 2); // XRP asset id
 
 		let message = WithdrawMessage {
-			token_address: eth_address,
+			token_address: token_address,
 			amount: withdraw_amount.into(),
 			beneficiary,
 		};
+
+		DelayedPaymentSchedule::<T>::insert(payment_block, WeakBoundedVec::try_from(vec![delayed_payment_id]).unwrap());
+		DelayedPayments::<T>::insert(delayed_payment_id, PendingPayment::Withdrawal((alice, message.clone())));
 
 		assert_eq!(DelayedPaymentSchedule::<T>::get(payment_block), vec![delayed_payment_id]);
 		assert_eq!(

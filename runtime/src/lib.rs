@@ -1175,17 +1175,8 @@ parameter_types! {
 	/// The ERC20 peg address
 	pub const PegPalletId: PalletId = PalletId(*b"erc20peg");
 	/// Limit that determines max delays stored simultaneously in a single block
-	pub MaxDelaysPerBlock: u32 =  RuntimeBlockWeights::get()
-	.get(DispatchClass::Normal)
-	.max_total
-	.expect("Normal extrinsics should have max_total defined")
-	.ref_time()
-	.saturating_div(
-		<weights::pallet_erc20_peg::WeightInfo<Runtime> as pallet_erc20_peg::WeightInfo>::process_deposit()
-			.ref_time()
-	)
-	.try_into()
-	.expect("Calculation will not exceed u32");
+	/// NOTE: This value is estimated from the weight information of process deposit (with padding)
+	pub const MaxDelaysPerBlock: u32 =  600;
 	/// Needs to be large enough to handle the maximum number of blocks that can be ready at once
 	pub const MaxReadyBlocks: u32 = 100_000;
 }

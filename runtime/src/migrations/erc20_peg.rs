@@ -31,7 +31,7 @@ impl OnRuntimeUpgrade for Upgrade {
 		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(2);
 
 		if onchain < 1 {
-			log::info!(target: "Migration", "XRPLBridge: Migrating from on-chain version {onchain:?} to on-chain version {current:?}.");
+			log::info!(target: "Migration", "Erc20Peg: Migrating from on-chain version {onchain:?} to on-chain version {current:?}.");
 			weight += v1::migrate::<Runtime>();
 			weight += v1::migrate_k::<Runtime>();
 
@@ -279,22 +279,8 @@ pub mod v1 {
 				let expected_delayed_payment_2: NewDelayedPaymentSchedule =
 					WeakBoundedVec::force_from(delayed_payment_2.into_inner(), None);
 
-				assert_eq!(
-					Map::unsafe_storage_get::<NewDelayedPaymentSchedule>(
-						b"Erc20Peg",
-						b"DelayedPaymentSchedule",
-						&block_key_1
-					),
-					Some(expected_delayed_payment_1)
-				);
-				assert_eq!(
-					Map::unsafe_storage_get::<NewDelayedPaymentSchedule>(
-						b"Erc20Peg",
-						b"DelayedPaymentSchedule",
-						&block_key_2
-					),
-					Some(expected_delayed_payment_2)
-				);
+				assert_eq!(DelayedPaymentSchedule::<Runtime>::get(one), expected_delayed_payment_1);
+				assert_eq!(DelayedPaymentSchedule::<Runtime>::get(two), expected_delayed_payment_2);
 			})
 		}
 	}

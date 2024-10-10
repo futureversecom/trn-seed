@@ -266,7 +266,7 @@ pub mod pallet {
 		/// The abi received does not match the encoding scheme
 		InvalidAbiEncoding,
 		/// Supplied payment id not in storage
-		EntryNotFound,
+		PaymentIdNotFound,
 	}
 
 	#[pallet::hooks]
@@ -499,7 +499,7 @@ impl<T: Config> Pallet<T> {
 	pub fn remove_delayed_payment_entry(
 		block_number: BlockNumberFor<T>,
 		payment_id: DelayedPaymentId,
-	) -> Result<(), DispatchError> {
+	) -> DispatchResult {
 		DelayedPaymentSchedule::<T>::try_mutate(block_number, |payment_ids| {
 			if let Some(pos) = payment_ids.iter().position(|&id| id == payment_id) {
 				payment_ids.remove(pos);
@@ -508,7 +508,7 @@ impl<T: Config> Pallet<T> {
 				Err(())
 			}
 		})
-		.map_err(|_| Error::<T>::EntryNotFound)?;
+		.map_err(|_| Error::<T>::PaymentIdNotFound)?;
 
 		Self::process_delayed_payment(payment_id);
 
