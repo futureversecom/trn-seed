@@ -64,7 +64,7 @@ mod self_contained_call {
 				}));
 				assert_err!(
 					Executive::validate_transaction(TransactionSource::External, xt.into(), H256::default()),
-					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
+					TransactionValidityError::Invalid(InvalidTransaction::Call),
 				);
 			});
 	}
@@ -115,7 +115,7 @@ mod self_contained_call {
 				}));
 				assert_err!(
 					Executive::validate_transaction(TransactionSource::External, xt.into(), H256::default()),
-					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
+					TransactionValidityError::Invalid(InvalidTransaction::Call),
 				);
 			});
 	}
@@ -139,7 +139,7 @@ mod self_contained_call {
 				}));
 				assert_err!(
 					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
-					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
+					TransactionValidityError::Invalid(InvalidTransaction::Call),
 				);
 
 				// validate self contained extrinsic is invalid (invalid signature)
@@ -150,7 +150,7 @@ mod self_contained_call {
 				}));
 				assert_err!(
 					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
-					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
+					TransactionValidityError::Invalid(InvalidTransaction::Call),
 				);
 
 				// validate self contained extrinsic fails, user does not have funds to pay for transaction (corrected signature)
@@ -161,7 +161,7 @@ mod self_contained_call {
 				}));
 				assert_err!(
 					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
-					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
+					TransactionValidityError::Invalid(InvalidTransaction::Payment),
 				);
 				// validate same transaction is successful after funding caller
 				let tx = XRPLTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
@@ -201,7 +201,7 @@ mod self_contained_call {
 				System::set_block_number(10);
 				assert_err!(
 					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
-					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
+					TransactionValidityError::Invalid(InvalidTransaction::Call),
 				);
 
 				// reset block number, extrinsic validation should pass now
@@ -241,7 +241,7 @@ mod self_contained_call {
 				// validate the same extrinsic will fail (nonce mismatch) - preventing replays
 				assert_err!(
 					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
-					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
+					TransactionValidityError::Invalid(InvalidTransaction::Stale),
 				);
   		});
 	}
@@ -275,7 +275,7 @@ mod self_contained_call {
 				System::set_block_number(10);
 				assert_err!(
 					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
-					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
+					TransactionValidityError::Invalid(InvalidTransaction::Call),
 				);
 
 				// reset block number, extrinsic validation should pass now
@@ -315,7 +315,7 @@ mod self_contained_call {
 				// validate the same extrinsic will fail (nonce mismatch) - preventing replays
 				assert_err!(
 					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
-					TransactionValidityError::Invalid(InvalidTransaction::BadProof),
+					TransactionValidityError::Invalid(InvalidTransaction::Stale),
 				);
   		});
 	}

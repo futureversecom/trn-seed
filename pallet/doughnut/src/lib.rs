@@ -169,49 +169,53 @@ where
 		len: usize,
 	) -> Option<TransactionValidity> {
 		if let Call::transact { call: inner_call, doughnut, genesis_hash, nonce, tip, .. } = self {
-			let fee_payer_address = Self::validate_params(doughnut, genesis_hash, inner_call).ok()?;
-			let sender_address = T::AccountId::from(*origin);
+			let validate = || -> TransactionValidity {
+				let fee_payer_address = Self::validate_params(doughnut, genesis_hash, inner_call).map_err(|_| {
+					InvalidTransaction::Call
+				})?;
+				let sender_address = T::AccountId::from(*origin);
 
-			// construct the validation instances
-			let validations_fee_payer: DoughnutFeePayerValidations<T> =
-				(ChargeTransactionPayment::<T>::from((*tip).into()),);
-			let validations_sender: DoughnutSenderValidations<T> =
-				(CheckNonZeroSender::new(), CheckNonce::from(nonce.clone().into()), CheckWeight::new());
+				// construct the validation instances
+				let validations_fee_payer: DoughnutFeePayerValidations<T> =
+					(ChargeTransactionPayment::<T>::from((*tip).into()),);
+				let validations_sender: DoughnutSenderValidations<T> =
+					(CheckNonZeroSender::new(), CheckNonce::from(nonce.clone().into()), CheckWeight::new());
 
-			SignedExtension::validate(
-				&validations_sender,
-				&sender_address,
-				&(**inner_call).clone().into(),
-				dispatch_info,
-				len,
-			)
-			.ok()?;
-			SignedExtension::validate(
-				&validations_fee_payer,
-				&fee_payer_address,
-				&(**inner_call).clone().into(),
-				dispatch_info,
-				len,
-			)
-			.ok()?;
+				SignedExtension::validate(
+					&validations_sender,
+					&sender_address,
+					&(**inner_call).clone().into(),
+					dispatch_info,
+					len,
+				)?;
+				SignedExtension::validate(
+					&validations_fee_payer,
+					&fee_payer_address,
+					&(**inner_call).clone().into(),
+					dispatch_info,
+					len,
+				)?;
 
-			// priority is based on the provided tip in the doughnut transaction data
-			let priority = ChargeTransactionPayment::<T>::get_priority(&dispatch_info, len, (*tip).into(), 0.into());
-			let who: T::AccountId = (*origin).into();
-			let account = frame_system::Account::<T>::get(who.clone());
-			let transaction_nonce = *nonce as u32;
-			let mut builder =
-				ValidTransactionBuilder::default().and_provides((origin, transaction_nonce)).priority(priority);
+				// priority is based on the provided tip in the doughnut transaction data
+				let priority = ChargeTransactionPayment::<T>::get_priority(&dispatch_info, len, (*tip).into(), 0.into());
+				let who: T::AccountId = (*origin).into();
+				let account = frame_system::Account::<T>::get(who.clone());
+				let transaction_nonce = *nonce as u32;
+				let mut builder =
+					ValidTransactionBuilder::default().and_provides((origin, transaction_nonce)).priority(priority);
 
-			// In the context of the pool, a transaction with
-			// too high a nonce is still considered valid
-			if transaction_nonce > account.nonce.clone().into() {
-				if let Some(prev_nonce) = transaction_nonce.checked_sub(1) {
-					builder = builder.and_requires((origin, prev_nonce))
+				// In the context of the pool, a transaction with
+				// too high a nonce is still considered valid
+				if transaction_nonce > account.nonce.clone().into() {
+					if let Some(prev_nonce) = transaction_nonce.checked_sub(1) {
+						builder = builder.and_requires((origin, prev_nonce))
+					}
 				}
-			}
 
-			Some(builder.build())
+				builder.build()
+			};
+
+			Some(validate())
 		} else {
 			None
 		}
