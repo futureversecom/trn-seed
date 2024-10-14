@@ -15,12 +15,11 @@
 
 use super::*;
 
+use crate::{types::XRPLCurrencyType, Pallet as XrplBridge};
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use hex_literal::hex;
-
-use crate::Pallet as XrplBridge;
 
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 	bench_account(name, 0, 0)
@@ -61,10 +60,11 @@ benchmarks! {
 	}
 
 	set_payment_delay {
+		let asset_id = T::XrpAssetId::get();
 		let payment_delay: (u128, BlockNumberFor<T>) = (100, BlockNumberFor::<T>::from(1000u32));
-	}: _(RawOrigin::Root, Some(payment_delay))
+	}: _(RawOrigin::Root, asset_id.clone(), Some(payment_delay))
 	verify {
-		assert_eq!(PaymentDelay::<T>::get(), Some(payment_delay));
+		assert_eq!(PaymentDelay::<T>::get(asset_id), Some(payment_delay));
 	}
 
 	withdraw_xrp {
@@ -106,7 +106,7 @@ benchmarks! {
 		assert_ok!(XrplBridge::<T>::set_xrpl_asset_map(
 			RawOrigin::Root.into(),
 			asset_id,
-			xrpl_currency
+			Some(xrpl_currency)
 		));
 		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), door_address));
 		// Mint ROOT tokens to withdraw
@@ -283,12 +283,11 @@ benchmarks! {
 		let xrpl_symbol =
 			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
 		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol.clone(), issuer: destination };
-	}: _(RawOrigin::Root, asset_id, xrpl_currency)
+	}: _(RawOrigin::Root, asset_id, Some(xrpl_currency))
 	verify {
 		assert_eq!(AssetIdToXRPL::<T>::get(asset_id), Some(xrpl_currency));
 		assert_eq!(XRPLToAssetId::<T>::get(xrpl_currency), Some(asset_id));
 	}
-
 }
 
 impl_benchmark_test_suite!(

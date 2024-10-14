@@ -18,7 +18,7 @@ use crate::mock::{
 	AssetsExt, DelayedPaymentBlockLimit, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System,
 	Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod, XrplPalletId,
 };
-use crate::types::XRPLCurrency;
+use crate::types::{XRPLCurrency, XRPLCurrencyType};
 use frame_support::traits::fungibles::metadata::Inspect as InspectMetadata;
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
@@ -356,7 +356,7 @@ fn submit_currency_transaction_works() {
 			currency,
 		};
 
-		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), 4, currency));
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), 4, Some(currency)));
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
 		assert_ok!(XRPLBridge::submit_transaction(
 			RuntimeOrigin::signed(relayer),
@@ -415,7 +415,7 @@ fn submit_transaction_invalid_issuer_fails() {
 		let mapped_issuer = H160::from_low_u64_be(666);
 		let mapped_currency = XRPLCurrency { symbol, issuer: mapped_issuer };
 
-		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), 4, mapped_currency));
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), 4, Some(mapped_currency)));
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
 		assert_noop!(
 			XRPLBridge::submit_transaction(
@@ -1483,34 +1483,65 @@ fn prune_settled_ledger_index_only_root() {
 #[test]
 fn set_payment_delay_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
+		let asset_id = 1;
 		let payment_delay = Some((100, 1000));
-		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
-		assert_eq!(PaymentDelay::<Test>::get(), payment_delay);
+		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), asset_id, payment_delay));
+		assert_eq!(PaymentDelay::<Test>::get(asset_id), payment_delay);
 		System::assert_has_event(
-			Event::<Test>::PaymentDelaySet { payment_threshold: 100, delay: 1000 }.into(),
+			Event::<Test>::PaymentDelaySet { asset_id, payment_threshold: 100, delay: 1000 }.into(),
 		);
 
 		let payment_delay_2 = None;
-		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay_2));
-		assert_eq!(PaymentDelay::<Test>::get(), payment_delay_2);
-		System::assert_has_event(Event::<Test>::PaymentDelayRemoved.into());
+		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), asset_id, payment_delay_2));
+		assert_eq!(PaymentDelay::<Test>::get(asset_id), payment_delay_2);
+		System::assert_has_event(Event::<Test>::PaymentDelayRemoved { asset_id }.into());
 
 		let payment_delay_3 = Some((1234, 123456789));
-		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay_3));
-		assert_eq!(PaymentDelay::<Test>::get(), payment_delay_3);
+		assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), asset_id, payment_delay_3));
+		assert_eq!(PaymentDelay::<Test>::get(asset_id), payment_delay_3);
 		System::assert_has_event(
-			Event::<Test>::PaymentDelaySet { payment_threshold: 1234, delay: 123456789 }.into(),
+			Event::<Test>::PaymentDelaySet { asset_id, payment_threshold: 1234, delay: 123456789 }
+				.into(),
 		);
+	})
+}
+
+#[test]
+fn set_payment_delay_different_asset_ids_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let payment_delays: Vec<(u32, u128, u64)> =
+			vec![(1, 100, 1000), (22, 1250, 1500), (333, 200, 3000)];
+
+		// set payment delays
+		for (asset_id, payment_threshold, delay) in &payment_delays {
+			let asset_id = *asset_id;
+			let payment_delay @ (payment_threshold, delay) = (*payment_threshold, *delay);
+
+			assert_ok!(XRPLBridge::set_payment_delay(
+				RuntimeOrigin::root(),
+				asset_id,
+				Some(payment_delay)
+			));
+			System::assert_has_event(
+				Event::<Test>::PaymentDelaySet { asset_id, payment_threshold, delay }.into(),
+			);
+		}
+
+		// ensure payment delays for different asset ids are not overwritten
+		for (asset_id, payment_threshold, delay) in payment_delays {
+			assert_eq!(PaymentDelay::<Test>::get(asset_id), Some((payment_threshold, delay)));
+		}
 	})
 }
 
 #[test]
 fn set_payment_delay_not_sudo_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
+		let asset_id = 1;
 		let payment_delay = Some((100, 1000));
 		let account: AccountId = [1_u8; 20].into();
 		assert_noop!(
-			XRPLBridge::set_payment_delay(RuntimeOrigin::signed(account), payment_delay),
+			XRPLBridge::set_payment_delay(RuntimeOrigin::signed(account), asset_id, payment_delay),
 			BadOrigin
 		);
 	})
@@ -1524,10 +1555,49 @@ fn set_xrpl_asset_map_works() {
 		let xrpl_symbol =
 			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
 		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol, issuer };
-		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency));
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(
+			RuntimeOrigin::root(),
+			asset_id,
+			Some(xrpl_currency)
+		));
 		assert_eq!(AssetIdToXRPL::<Test>::get(asset_id), Some(xrpl_currency));
 		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_currency), Some(asset_id));
 		System::assert_has_event(Event::<Test>::XrplAssetMapSet { asset_id, xrpl_currency }.into());
+	})
+}
+
+#[test]
+fn remove_xrpl_asset_map_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let asset_id = 1;
+		let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		let xrpl_symbol =
+			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
+		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol, issuer };
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(
+			RuntimeOrigin::root(),
+			asset_id,
+			Some(xrpl_currency)
+		));
+		assert_eq!(AssetIdToXRPL::<Test>::get(asset_id), Some(xrpl_currency));
+		assert_eq!(XRPLToAssetId::<Test>::get(xrpl_currency), Some(asset_id));
+		// remove it by sending second param to none
+		assert_ok!(XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, None));
+		System::assert_has_event(
+			Event::<Test>::XrplAssetMapRemoved { asset_id, xrpl_currency }.into(),
+		);
+	})
+}
+
+#[test]
+fn remove_xrpl_asset_map_fails_with_no_mapping() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let asset_id = 1;
+		let xrpl_currency = None;
+		assert_noop!(
+			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency),
+			Error::<Test>::AssetNotSupported
+		);
 	})
 }
 
@@ -1541,7 +1611,7 @@ fn set_xrpl_asset_map_invalid_currency_code() {
 			XRPLCurrencyType::NonStandard(hex!("004F4F5400000000000000000000000000000000").into());
 		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol, issuer };
 		assert_noop!(
-			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency),
+			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, Some(xrpl_currency)),
 			Error::<Test>::InvalidCurrencyCode
 		);
 
@@ -1549,7 +1619,7 @@ fn set_xrpl_asset_map_invalid_currency_code() {
 		let xrpl_symbol = XRPLCurrencyType::Standard((*b"XRP").into());
 		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol, issuer };
 		assert_noop!(
-			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, xrpl_currency),
+			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::root(), asset_id, Some(xrpl_currency)),
 			Error::<Test>::InvalidCurrencyCode
 		);
 	})
@@ -1565,7 +1635,11 @@ fn set_xrpl_asset_map_not_sudo_fails() {
 			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
 		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol, issuer };
 		assert_noop!(
-			XRPLBridge::set_xrpl_asset_map(RuntimeOrigin::signed(account), asset_id, xrpl_currency),
+			XRPLBridge::set_xrpl_asset_map(
+				RuntimeOrigin::signed(account),
+				asset_id,
+				Some(xrpl_currency)
+			),
 			BadOrigin
 		);
 	})
@@ -1588,7 +1662,11 @@ fn withdraw_with_payment_delay_works() {
 
 			// Set initial parameters
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
-			assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
+			assert_ok!(XRPLBridge::set_payment_delay(
+				RuntimeOrigin::root(),
+				XrpAssetId::get(),
+				payment_delay
+			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
@@ -1653,6 +1731,86 @@ fn withdraw_with_payment_delay_works() {
 }
 
 #[test]
+fn withdraw_with_payment_delay_using_different_asset_ids_works() {
+	let account = create_account(1);
+	let initial_balance = 10000;
+
+	let assets = vec![ROOT_ASSET_ID, 22, 333];
+
+	for asset_id in assets {
+		TestExt::<Test>::default()
+			.with_balances(&[(account, initial_balance)])
+			.with_asset(asset_id, "TEST", &[(account, initial_balance)])
+			.build()
+			.execute_with(|| {
+				let amount = 100;
+				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let delay_blocks = 1000;
+				let payment_delay = Some((100, 1000)); // (min_balance, delay)
+				let block_number = System::block_number();
+
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					0_u64
+				));
+				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+				assert_ok!(XRPLBridge::set_payment_delay(
+					RuntimeOrigin::root(),
+					asset_id,
+					payment_delay
+				));
+
+				// Setup the asset map
+				let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let currency = XRPLCurrencyType::NonStandard(
+					hex!("524F4F5400000000000000000000000000000000").into(),
+				);
+				let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+				assert_ok!(XRPLBridge::set_xrpl_asset_map(
+					RuntimeOrigin::root(),
+					asset_id,
+					Some(xrpl_currency)
+				));
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					1_u32,
+					1_u32,
+					200_u32
+				));
+				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+				// Check NextPaymentId before
+				let delayed_payment_id = NextDelayedPaymentId::<Test>::get();
+				let payment_block = block_number + delay_blocks;
+
+				// Withdraw amount which should add to pending withdrawals
+				assert_ok!(XRPLBridge::withdraw(
+					RuntimeOrigin::signed(account),
+					asset_id,
+					amount,
+					destination,
+					None
+				));
+
+				// Ensure event is thrown
+				System::assert_has_event(
+					Event::<Test>::WithdrawDelayed {
+						sender: account,
+						asset_id,
+						amount,
+						destination: destination.clone(),
+						delayed_payment_id,
+						payment_block,
+					}
+					.into(),
+				);
+			});
+	}
+}
+
+#[test]
 fn withdraw_with_destination_tag_payment_delay_works() {
 	let account = create_account(1);
 	let initial_balance = 10000;
@@ -1671,7 +1829,11 @@ fn withdraw_with_destination_tag_payment_delay_works() {
 
 			// Set initial parameters
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
-			assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
+			assert_ok!(XRPLBridge::set_payment_delay(
+				RuntimeOrigin::root(),
+				XrpAssetId::get(),
+				payment_delay
+			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
@@ -1748,7 +1910,11 @@ fn withdraw_below_payment_delay_does_not_delay_payment() {
 
 			// Set initial parameters
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
-			assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
+			assert_ok!(XRPLBridge::set_payment_delay(
+				RuntimeOrigin::root(),
+				XrpAssetId::get(),
+				payment_delay
+			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
@@ -1805,7 +1971,11 @@ fn process_delayed_payments_works() {
 
 			// Set initial parameters
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
-			assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
+			assert_ok!(XRPLBridge::set_payment_delay(
+				RuntimeOrigin::root(),
+				XrpAssetId::get(),
+				payment_delay
+			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
@@ -1871,7 +2041,11 @@ fn process_delayed_payments_works_in_on_idle() {
 
 			// Set initial parameters
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
-			assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
+			assert_ok!(XRPLBridge::set_payment_delay(
+				RuntimeOrigin::root(),
+				XrpAssetId::get(),
+				payment_delay
+			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
@@ -1934,7 +2108,11 @@ fn process_delayed_payments_multiple_withdrawals() {
 
 			// Set initial parameters
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
-			assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
+			assert_ok!(XRPLBridge::set_payment_delay(
+				RuntimeOrigin::root(),
+				XrpAssetId::get(),
+				payment_delay
+			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
@@ -2006,7 +2184,11 @@ fn process_delayed_payments_multiple_withdrawals_across_multiple_blocks() {
 
 			// Set initial parameters
 			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
-			assert_ok!(XRPLBridge::set_payment_delay(RuntimeOrigin::root(), payment_delay));
+			assert_ok!(XRPLBridge::set_payment_delay(
+				RuntimeOrigin::root(),
+				XrpAssetId::get(),
+				payment_delay
+			));
 			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
@@ -2694,7 +2876,7 @@ fn process_xrp_tx_for_root_bridging_transaction_low_peg_balance() {
 		assert_ok!(XRPLBridge::set_xrpl_asset_map(
 			RuntimeOrigin::root(),
 			ROOT_ASSET_ID,
-			xrpl_currency
+			Some(xrpl_currency)
 		));
 
 		// submit currency payment tx, balance of peg address is too low so this will fail
@@ -2754,7 +2936,7 @@ fn process_xrp_tx_for_root_bridging_transaction() {
 			assert_ok!(XRPLBridge::set_xrpl_asset_map(
 				RuntimeOrigin::root(),
 				ROOT_ASSET_ID,
-				xrpl_currency
+				Some(xrpl_currency)
 			));
 
 			// submit currency payment tx
@@ -2887,7 +3069,7 @@ mod withdraw_asset {
 				assert_ok!(XRPLBridge::set_xrpl_asset_map(
 					RuntimeOrigin::root(),
 					TEST_ASSET_ID,
-					xrpl_currency
+					Some(xrpl_currency)
 				));
 
 				// set initial ticket sequence params
@@ -2957,7 +3139,7 @@ mod withdraw_asset {
 			assert_ok!(XRPLBridge::set_xrpl_asset_map(
 				RuntimeOrigin::root(),
 				asset_id,
-				xrpl_currency
+				Some(xrpl_currency)
 			));
 
 			// set initial ticket sequence params
@@ -3063,7 +3245,7 @@ mod withdraw_asset {
 				assert_ok!(XRPLBridge::set_xrpl_asset_map(
 					RuntimeOrigin::root(),
 					TEST_ASSET_ID,
-					xrpl_currency
+					Some(xrpl_currency)
 				));
 
 				// set initial ticket sequence params
@@ -3113,7 +3295,7 @@ mod withdraw_asset {
 				assert_ok!(XRPLBridge::set_xrpl_asset_map(
 					RuntimeOrigin::root(),
 					TEST_ASSET_ID,
-					xrpl_currency
+					Some(xrpl_currency)
 				));
 
 				// set initial ticket sequence params
@@ -3162,7 +3344,7 @@ mod withdraw_asset {
 				assert_ok!(XRPLBridge::set_xrpl_asset_map(
 					RuntimeOrigin::root(),
 					TEST_ASSET_ID,
-					xrpl_currency
+					Some(xrpl_currency)
 				));
 
 				// set initial ticket sequence params
@@ -3213,7 +3395,7 @@ mod withdraw_asset {
 				assert_ok!(XRPLBridge::set_xrpl_asset_map(
 					RuntimeOrigin::root(),
 					TEST_ASSET_ID,
-					xrpl_currency
+					Some(xrpl_currency)
 				));
 
 				// set initial ticket sequence params
@@ -3264,7 +3446,7 @@ mod withdraw_asset {
 				assert_ok!(XRPLBridge::set_xrpl_asset_map(
 					RuntimeOrigin::root(),
 					TEST_ASSET_ID,
-					xrpl_currency
+					Some(xrpl_currency)
 				));
 
 				// set initial ticket sequence params
@@ -3317,7 +3499,7 @@ mod withdraw_root {
 				assert_ok!(XRPLBridge::set_xrpl_asset_map(
 					RuntimeOrigin::root(),
 					ROOT_ASSET_ID,
-					xrpl_currency
+					Some(xrpl_currency)
 				));
 
 				// set initial ticket sequence params
@@ -3385,7 +3567,7 @@ mod withdraw_root {
 				assert_ok!(XRPLBridge::set_xrpl_asset_map(
 					RuntimeOrigin::root(),
 					ROOT_ASSET_ID,
-					xrpl_currency
+					Some(xrpl_currency)
 				));
 
 				// set initial ticket sequence params
@@ -3437,7 +3619,7 @@ mod withdraw_root {
 				assert_ok!(XRPLBridge::set_xrpl_asset_map(
 					RuntimeOrigin::root(),
 					ROOT_ASSET_ID,
-					xrpl_currency
+					Some(xrpl_currency)
 				));
 
 				// set initial ticket sequence params
@@ -3499,7 +3681,7 @@ mod withdraw_root {
 				assert_ok!(XRPLBridge::set_xrpl_asset_map(
 					RuntimeOrigin::root(),
 					ROOT_ASSET_ID,
-					xrpl_currency
+					Some(xrpl_currency)
 				));
 
 				// set initial ticket sequence params

@@ -36,11 +36,11 @@ pub enum WithdrawCallOrigin {
 
 /// A pending deposit or withdrawal
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, MaxEncodedLen)]
-pub enum PendingPayment {
+pub enum PendingPayment<AccountId> {
 	/// A deposit event (deposit_event, tx_hash)
 	Deposit(Erc20DepositEvent),
 	/// A withdrawal (withdrawal_message)
-	Withdrawal(WithdrawMessage),
+	Withdrawal((AccountId, WithdrawMessage)),
 }
 
 /// A deposit event made by the ERC20 peg contract on Ethereum

@@ -65,8 +65,7 @@ impl<T: Config> Pallet<T> {
 
 		tokens.lock_tokens(&who, listing_id)?;
 
-		let listing_end_block = <frame_system::Pallet<T>>::block_number()
-			.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
+		let listing_end_block = Self::get_listing_end_block(duration)?;
 		let listing = Listing::<T>::FixedPrice(FixedPriceListing::<T> {
 			payment_asset,
 			fixed_price,
@@ -187,9 +186,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 		tokens.lock_tokens(&who, listing_id)?;
-
-		let listing_end_block = <frame_system::Pallet<T>>::block_number()
-			.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
+		let listing_end_block = Self::get_listing_end_block(duration)?;
 		let listing = Listing::<T>::Auction(AuctionListing::<T> {
 			payment_asset,
 			reserve_price,
@@ -311,7 +308,9 @@ impl<T: Config> Pallet<T> {
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<OfferId, DispatchError> {
 		ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
-		ensure!(T::NFTExt::get_token_owner(&token_id) != Some(who), Error::<T>::IsTokenOwner);
+		let token_owner = T::NFTExt::get_token_owner(&token_id);
+		ensure!(token_owner.is_some(), Error::<T>::NoToken);
+		ensure!(token_owner != Some(who), Error::<T>::IsTokenOwner);
 		let offer_id = Self::next_offer_id();
 		ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
@@ -377,6 +376,19 @@ impl<T: Config> Pallet<T> {
 		if let Some(TokenLockReason::Listed(listing_id)) = T::NFTExt::get_token_lock(offer.token_id)
 		{
 			if let Some(listing) = <Listings<T>>::get(listing_id) {
+				match listing.clone() {
+					Listing::<T>::FixedPrice(sale) => {
+						Self::deposit_event(Event::<T>::FixedPriceSaleClose {
+							tokens: sale.tokens,
+							listing_id,
+							marketplace_id: sale.marketplace_id,
+							reason: FixedPriceClosureReason::OfferAccepted,
+						});
+					},
+					// Offer cannot be made on auctions
+					_ => {},
+				}
+
 				Self::remove_listing(listing, listing_id);
 			}
 		}
@@ -620,5 +632,21 @@ impl<T: Config> Pallet<T> {
 		FeeTo::<T>::put(&fee_to);
 		Self::deposit_event(Event::FeeToSet { account: fee_to });
 		Ok(())
+	}
+
+	/// Returns the end block for a listing.
+	/// This is listing duration + the current block_number
+	/// Fails if duration is set to 0
+	fn get_listing_end_block(
+		duration: Option<BlockNumberFor<T>>,
+	) -> Result<BlockNumberFor<T>, DispatchError> {
+		let duration = match duration {
+			Some(duration) => {
+				ensure!(duration > BlockNumberFor::<T>::zero(), Error::<T>::DurationTooShort);
+				duration
+			},
+			None => T::DefaultListingDuration::get(),
+		};
+		Ok(<frame_system::Pallet<T>>::block_number().saturating_add(duration))
 	}
 }

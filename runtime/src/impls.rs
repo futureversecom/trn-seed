@@ -786,6 +786,10 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			) {
 				return false;
 			}
+
+			// the whitelisted calls above should only be able to be called by
+			// the owner of the futurepass
+			return self == &ProxyType::Owner;
 		}
 		match self {
 			ProxyType::Owner => true,
