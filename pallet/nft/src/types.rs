@@ -93,42 +93,6 @@ impl Serialize for CrossChainCompatibility {
 	}
 }
 
-// impl<'a> Deserialize<'a> for CrossChainCompatibility {
-// 	fn deserialize<D>(deserializer: D) -> Result<CrossChainCompatibility, D::Error>
-// 		where
-// 			D: Deserializer<'a>,
-// 	{
-// 		deserializer.deserialize_any(CrossChainCompatibilityVisitor)
-// 	}
-// }
-//
-// struct CrossChainCompatibilityVisitor;
-//
-// impl<'a> Visitor<'a> for CrossChainCompatibilityVisitor {
-// 	type Value = CrossChainCompatibility;
-//
-// 	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-// 		formatter.write_str("valid abi spec file")
-// 	}
-//
-// 	fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-// 		where
-// 			A: SeqAccess<'a>,
-// 	{
-// 		let mut result = CrossChainCompatibility::default();
-// 		// while let Some(operation) = seq.next_element::<A>()? {
-// 		// 	match operation {
-// 		// 		xrpl => {
-// 					result.xrpl = false;
-// 		// 		}
-// 		// 	}
-// 		// }
-//
-//
-// 		Ok(result)
-// 	}
-// }
-
 impl Default for CrossChainCompatibility {
 	fn default() -> Self {
 		Self { xrpl: false }
