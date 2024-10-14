@@ -30,7 +30,9 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_nft::traits::NFTCollectionInfo;
 use seed_pallet_common::{Migrator, NFTExt, Xls20MintRequest};
-use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount};
+use seed_primitives::{
+	AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount, TokenId,
+};
 use sp_runtime::{traits::Zero, DispatchResult, SaturatedConversion};
 use sp_std::prelude::*;
 
@@ -93,11 +95,6 @@ pub mod pallet {
 	/// Maps from TRN native token_id to XLS-20 TokenId
 	#[pallet::storage]
 	pub type Xls20TokenMap<T> =
-		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, SerialNumber, Xls20TokenId>;
-
-	/// TODO Jason testing stuff, remove after using
-	#[pallet::storage]
-	pub type Xls20TokenMap2<T> =
 		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, SerialNumber, Xls20TokenId>;
 
 	#[pallet::event]

@@ -13,7 +13,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod xls20;
 pub mod xls20_multi;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
@@ -54,6 +53,7 @@ mod tests {
 	use sp_core::H160;
 	use sp_runtime::BuildStorage;
 
+	#[allow(dead_code)]
 	pub fn create_account<AccountId: From<H160>>(seed: u64) -> AccountId {
 		AccountId::from(H160::from_low_u64_be(seed))
 	}

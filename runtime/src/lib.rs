@@ -1365,13 +1365,14 @@ impl pallet_crowdsale::Config for Runtime {
 }
 
 parameter_types! {
-	// We only want to use 20% of the block weight at max for multi-block-migrations
-	// TODO determine appropriate percentage value, maybe 10-20%?
-	pub MaxMigrationWeight: Weight = Perbill::from_percent(100) * MAXIMUM_BLOCK_WEIGHT;
+	// The upper limit of weight used per block for migrations is 10%
+	// Note, this could still be smaller if we set a smaller BlockLimit within pallet-migration
+	pub MaxMigrationWeight: Weight = Perbill::from_percent(10) * MAXIMUM_BLOCK_WEIGHT;
 }
 
 impl pallet_migration::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	// Set to NoopMigration if no migration is in progress
 	type CurrentMigration = migrations::xls20_multi::Xls20Migration<Runtime>;
 	type MaxMigrationWeight = MaxMigrationWeight;
 	type WeightInfo = weights::pallet_migration::WeightInfo<Runtime>;

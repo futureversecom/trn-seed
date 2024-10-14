@@ -42,16 +42,18 @@ pub trait MigrationStep {
 	/// Check if the current storage version matches the target version.
 	fn version_check() -> bool;
 
+	/// Called when the migration is complete.
+	fn on_complete();
+
 	/// Returns the maximum weight that can be consumed in a single step.
 	fn max_step_weight() -> Weight;
 
 	/// Convert from the OldStorageValue to the NewStorageValue
-	fn convert(old: Self::OldStorageValue) -> Self::NewStorageValue;
+	fn convert(old: Self::OldStorageValue) -> Result<Self::NewStorageValue, &'static str>;
 
 	/// Process one step of the migration.
-	///
 	/// Returns whether the migration is finished and the weight consumed.
-	fn step(last_key: Option<Vec<u8>>) -> MigrationStepResult;
+	fn step(last_key: Option<Vec<u8>>, verbose: bool) -> MigrationStepResult;
 
 	/// Execute some pre-checks prior to running the first step of this migration.
 	#[cfg(feature = "try-runtime")]
@@ -66,11 +68,9 @@ pub trait MigrationStep {
 	}
 }
 
-pub struct NoopMigration<K> {
-	phantom: PhantomData<K>,
-}
+pub struct NoopMigration;
 
-impl<K> MigrationStep for NoopMigration<K> {
+impl MigrationStep for NoopMigration {
 	const TARGET_VERSION: u16 = 0;
 
 	type OldStorageValue = ();
@@ -80,15 +80,17 @@ impl<K> MigrationStep for NoopMigration<K> {
 		true
 	}
 
+	fn on_complete() {}
+
 	fn max_step_weight() -> Weight {
 		Weight::zero()
 	}
 
-	fn convert(_: Self::OldStorageValue) -> Self::NewStorageValue {
-		()
+	fn convert(_: Self::OldStorageValue) -> Result<Self::NewStorageValue, &'static str> {
+		Ok(())
 	}
 
-	fn step(_: Option<Vec<u8>>) -> MigrationStepResult {
+	fn step(_: Option<Vec<u8>>, _: bool) -> MigrationStepResult {
 		MigrationStepResult::finish_step(Weight::zero())
 	}
 }

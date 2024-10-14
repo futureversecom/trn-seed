@@ -25,12 +25,12 @@ benchmarks! {
 	#[pov_mode = Measured]
 	migrate {
 		let weight_limit = T::MaxMigrationWeight::get();
-		Status::<T>::put(MigrateStatus::InProgress { steps_done: 0 });
+		Status::<T>::put(MigrationStatus::InProgress { steps_done: 0 });
 		MigrationEnabled::<T>::put(true);
 	}: {
 		Migration::<T>::migrate(weight_limit)
 	} verify {
-		assert_eq!( Status::<T>::get(), MigrateStatus::Completed);
+		assert_eq!( Status::<T>::get(), MigrationStatus::Completed);
 	}
 
 	#[pov_mode = Measured]
@@ -41,7 +41,7 @@ benchmarks! {
 		key.extend_from_slice(&serial_key);
 		let xls20_token_id: [u8; 64] = "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67".as_bytes().try_into().unwrap();
 		frame_support::migration::put_storage_value::<[u8; 64]>(b"Xls20", b"Xls20TokenMap", &key, xls20_token_id);
-		Status::<T>::put(MigrateStatus::InProgress { steps_done: 0 });
+		Status::<T>::put(MigrationStatus::InProgress { steps_done: 0 });
 	}: {
 		T::CurrentMigration::step(None)
 	} verify {

@@ -14,15 +14,13 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg_attr(not(feature = "std"), no_std)]
-
-use frame_support::{log, pallet_prelude::*, sp_runtime::traits::One};
-use frame_system::pallet_prelude::*;
 pub use pallet::*;
+
+use frame_support::{log, pallet_prelude::*, sp_runtime::traits::Zero};
+use frame_system::pallet_prelude::*;
 use seed_pallet_common::Migrator;
 use seed_primitives::migration::MigrationStep;
-use seed_primitives::{BlockNumber, CollectionUuid, SerialNumber};
 use sp_std::prelude::*;
-use frame_support::sp_runtime::traits::Zero;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -38,7 +36,7 @@ pub(crate) const LOG_TARGET: &str = "migration";
 
 /// The result of running the migration.
 #[derive(Decode, Encode, RuntimeDebugNoBound, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
-pub enum MigrateStatus {
+pub enum MigrationStatus {
 	/// No migration currently in progress
 	NoMigrationInProgress,
 	/// A migration is in progress
@@ -47,9 +45,9 @@ pub enum MigrateStatus {
 	Completed,
 }
 
-impl Default for MigrateStatus {
+impl Default for MigrationStatus {
 	fn default() -> Self {
-		MigrateStatus::NoMigrationInProgress
+		MigrationStatus::NoMigrationInProgress
 	}
 }
 
@@ -60,6 +58,7 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
@@ -84,16 +83,28 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MigrationEnabled<T> = StorageValue<_, bool, ValueQuery>;
 
-	/// Are we currently migrating data
+	/// What is the current status of the migration
 	#[pallet::storage]
-	pub type Status<T> = StorageValue<_, MigrateStatus, ValueQuery>;
+	pub type Status<T> = StorageValue<_, MigrationStatus, ValueQuery>;
 
-	/// The last key that was migrated if any
+	/// The last key that was migrated
 	#[pallet::storage]
 	pub type LastKey<T> = StorageValue<_, Vec<u8>, OptionQuery>;
 
+	/// The delay between migration blocks
 	#[pallet::storage]
 	pub type BlockDelay<T> = StorageValue<_, u32, OptionQuery>;
+
+	/// Default value is 100 which is on the conservative side
+	#[pallet::type_value]
+	pub fn DefaultBlockLimit() -> u32 {
+		100
+	}
+
+	/// The maximum number of individual items to migrate in a single block
+	/// Will still respect maximum weight rules
+	#[pallet::storage]
+	pub type BlockLimit<T> = StorageValue<_, u32, ValueQuery, DefaultBlockLimit>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -103,7 +114,7 @@ pub mod pallet {
 		/// The current migration has been paused
 		MigrationPaused,
 		/// The current migration has completed
-		MigrationComplete,
+		MigrationComplete { items_migrated: u32 },
 		/// A Migration has started
 		MigrationStarted,
 	}
@@ -120,16 +131,19 @@ pub mod pallet {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
+			// Check if we are in the middle of a migration
 			if T::CurrentMigration::version_check() {
-				LastKey::<T>::kill();
-				Status::<T>::put(MigrateStatus::NoMigrationInProgress);
+				// Update Status to NoMigrationInProgress to signify that since the last runtime
+				// upgrade there was no multi-block migration
+				Status::<T>::put(MigrationStatus::NoMigrationInProgress);
 				log::debug!(target: LOG_TARGET, "🦆 No multi-block migration in progress");
-				return T::DbWeight::get().writes(2);
+				return T::DbWeight::get().writes(1);
 			} else {
 				// Ensure that a migration is not already in progress. This is to prevent data loss
-				// in the case where an update is performed before the previous migration is completed.
+				// in the case where a runtime update is performed before the previous migration is
+				// completed.
 				if !Self::migration_in_progress() {
-					Status::<T>::put(MigrateStatus::InProgress { steps_done: 0 });
+					Status::<T>::put(MigrationStatus::InProgress { steps_done: 0 });
 					Self::deposit_event(Event::MigrationStarted);
 					log::debug!(target: LOG_TARGET, "🦆 A new multi-block migration has started");
 					return T::DbWeight::get().writes(1);
@@ -139,10 +153,6 @@ pub mod pallet {
 			}
 			Weight::zero()
 		}
-
-		// fn integrity_test() {
-		//     T::CurrentMigration::integrity_test();
-		// }
 	}
 
 	#[pallet::call]
@@ -169,6 +179,14 @@ pub mod pallet {
 			}
 			Ok(())
 		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::enable_migration())]
+		pub fn set_block_limit(origin: OriginFor<T>, limit: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			BlockLimit::<T>::put(limit);
+			Ok(())
+		}
 	}
 }
 
@@ -190,13 +208,13 @@ impl<T: Config> Pallet<T> {
 
 		// Check if there is a migration in progress and it is not paused
 		let previous_steps = match Status::<T>::get() {
-			MigrateStatus::InProgress { steps_done } => steps_done,
+			MigrationStatus::InProgress { steps_done } => steps_done,
 			_ => return T::DbWeight::get().reads(1),
 		};
-		// TODO uncomment
-		// if !MigrationEnabled::<T>::get() {
-		// 	return T::DbWeight::get().reads(2);
-		// }
+
+		if !MigrationEnabled::<T>::get() {
+			return T::DbWeight::get().reads(2);
+		}
 
 		let mut last_key = LastKey::<T>::get();
 		let mut step_counter: u32 = 0;
@@ -212,18 +230,20 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 		log::debug!(target: LOG_TARGET, "🦆 Starting multi-block migration for block {:?}", block_number);
-		while used_weight.all_lt(weight_limit) {
+		let block_limit: u32 = BlockLimit::<T>::get();
+		while used_weight.all_lt(weight_limit) && step_counter < block_limit {
 			// Perform one migration step on the current migration
-			let step_result = T::CurrentMigration::step(last_key);
+			let step_result = T::CurrentMigration::step(last_key, false);
 			last_key = step_result.last_key.clone();
 			used_weight = used_weight.saturating_add(step_result.weight_consumed);
+			if step_counter.checked_add(1).is_none() {
+				log::debug!(target: LOG_TARGET, "🦆 Step counter overflowed, stopping migration");
+				break;
+			}
 			step_counter = step_counter.saturating_add(1);
 
 			if step_result.is_finished() {
-				log::debug!(target: LOG_TARGET, "🦆 Total items migrated: {}",
-					previous_steps.saturating_add(step_counter)
-				);
-				Self::post_migration();
+				Self::complete_migration(previous_steps.saturating_add(step_counter));
 				return used_weight;
 			}
 		}
@@ -234,7 +254,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		// Weight of these writes is accounted for in base_weight
-		Status::<T>::put(MigrateStatus::InProgress {
+		Status::<T>::put(MigrationStatus::InProgress {
 			steps_done: previous_steps.saturating_add(step_counter),
 		});
 		if let Some(last_key) = last_key {
@@ -246,24 +266,27 @@ impl<T: Config> Pallet<T> {
 		used_weight
 	}
 
-	fn post_migration() {
-		Status::<T>::put(MigrateStatus::Completed);
+	/// Perform post migration operations and clean up storage
+	fn complete_migration(total_steps: u32) {
+		Status::<T>::put(MigrationStatus::Completed);
 		LastKey::<T>::kill();
+		T::CurrentMigration::on_complete();
 		log::debug!(target: LOG_TARGET, "🦆 Migration completed successfully");
-		// TODO set version of XLS-20 pallet to new version
-		Self::deposit_event(Event::MigrationComplete);
+		log::debug!(target: LOG_TARGET, "🦆 Total items migrated: {}", total_steps);
+		Self::deposit_event(Event::MigrationComplete { items_migrated: total_steps });
 	}
 
 	/// Returns whether a migration is in progress
 	fn migration_in_progress() -> bool {
 		match Status::<T>::get() {
-			MigrateStatus::Completed => false,
-			MigrateStatus::NoMigrationInProgress => false,
+			MigrationStatus::Completed => false,
+			MigrationStatus::NoMigrationInProgress => false,
 			_ => true,
 		}
 	}
 }
 
+/// Called by external pallets to check on the migration process
 impl<T: Config> Migrator for Pallet<T> {
 	fn ensure_migrated() -> DispatchResult {
 		ensure!(!Self::migration_in_progress(), Error::<T>::MigrationInProgress);
