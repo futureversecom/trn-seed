@@ -1,7 +1,6 @@
 use frame_support::weights::Weight;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
-use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 
 pub struct MigrationStepResult {
@@ -28,7 +27,6 @@ impl MigrationStepResult {
 }
 
 /// A trait that allows to migrate storage from one version to another.
-///
 /// The migration is done in steps. The migration is finished when
 /// `step()` returns `IsFinished::Yes`.
 pub trait MigrationStep {
@@ -68,6 +66,7 @@ pub trait MigrationStep {
 	}
 }
 
+/// A migration that does nothing. Useful if no migrations are in progress
 pub struct NoopMigration;
 
 impl MigrationStep for NoopMigration {

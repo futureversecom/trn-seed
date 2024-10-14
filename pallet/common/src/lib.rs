@@ -16,14 +16,14 @@
 //! shared pallet types and traits
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, FullCodec};
+use codec::{Decode, Encode};
 pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult, GetCallMetadata},
 	sp_runtime::{traits::AccountIdConversion, Perbill},
 	traits::{fungibles::Mutate, Get},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
-	PalletId, StorageDoubleMap,
+	PalletId,
 };
 use frame_system::Config;
 use scale_info::TypeInfo;

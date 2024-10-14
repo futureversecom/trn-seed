@@ -14,8 +14,6 @@
 // You may obtain a copy of the License at the root of this project source code
 
 pub mod xls20_multi;
-mod erc20_peg;
-mod evm;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{

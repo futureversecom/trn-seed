@@ -724,8 +724,6 @@ pub mod pallet {
 					None => return InvalidTransaction::BadProof.into(),
 				};
 
-				let st = notary_public_key.as_ref();
-
 				// notarization must not be a duplicate/equivocation
 				match payload {
 					NotarizationPayload::Call { .. } => {
