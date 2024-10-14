@@ -50,8 +50,9 @@ impl Serialize for OriginChain {
 		S: serde::Serializer,
 	{
 		match *self {
-			OriginChain::Ethereum =>
-				serializer.serialize_unit_variant("OriginChain", 0, "Ethereum"),
+			OriginChain::Ethereum => {
+				serializer.serialize_unit_variant("OriginChain", 0, "Ethereum")
+			},
 			OriginChain::Root => serializer.serialize_unit_variant("OriginChain", 1, "Root"),
 		}
 	}

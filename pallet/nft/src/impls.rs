@@ -412,7 +412,7 @@ impl<T: Config> Pallet<T> {
 				Default::default(),
 				Default::default(),
 				Default::default(),
-			)
+			);
 		}
 
 		let collection_info = collection_info.unwrap();
