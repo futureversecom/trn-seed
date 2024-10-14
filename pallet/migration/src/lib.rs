@@ -233,7 +233,7 @@ impl<T: Config> Pallet<T> {
 		let block_limit: u32 = BlockLimit::<T>::get();
 		while used_weight.all_lt(weight_limit) && step_counter < block_limit {
 			// Perform one migration step on the current migration
-			let step_result = T::CurrentMigration::step(last_key, false);
+			let step_result = T::CurrentMigration::step(last_key);
 			last_key = step_result.last_key.clone();
 			used_weight = used_weight.saturating_add(step_result.weight_consumed);
 			if step_counter.checked_add(1).is_none() {

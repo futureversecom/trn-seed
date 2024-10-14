@@ -5,11 +5,11 @@ use frame_support::{
 	DefaultNoBound,
 };
 use pallet_migration::WeightInfo;
+use pallet_xls20::Xls20TokenId;
 use seed_primitives::migration::{MigrationStep, MigrationStepResult};
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 use sp_std::marker::PhantomData;
-use pallet_xls20::Xls20TokenId;
 
 #[allow(dead_code)]
 pub(crate) const LOG_TARGET: &str = "migration";
@@ -41,7 +41,7 @@ impl<T: pallet_xls20::Config + pallet_migration::Config> MigrationStep for Xls20
 	const TARGET_VERSION: u16 = 1;
 
 	type OldStorageValue = old::Xls20TokenId; // [u8; 64]
-	type NewStorageValue = Xls20TokenId;      // [u8; 32]
+	type NewStorageValue = Xls20TokenId; // [u8; 32]
 
 	fn version_check() -> bool {
 		Xls20::on_chain_storage_version() == Self::TARGET_VERSION
@@ -65,7 +65,7 @@ impl<T: pallet_xls20::Config + pallet_migration::Config> MigrationStep for Xls20
 	}
 
 	/// Migrate one token
-	fn step(last_key: Option<Vec<u8>>, verbose: bool) -> MigrationStepResult {
+	fn step(last_key: Option<Vec<u8>>) -> MigrationStepResult {
 		let mut iter = if let Some(last_key) = last_key {
 			old::Xls20TokenMap::<T>::iter_from(last_key)
 		} else {
@@ -73,9 +73,6 @@ impl<T: pallet_xls20::Config + pallet_migration::Config> MigrationStep for Xls20
 		};
 
 		if let Some((key1, key2, old)) = iter.next() {
-			if verbose {
-				log::debug!(target: LOG_TARGET, "🦆 Migrating XLS-20 token_id: ({:?},{:?})", key1, key2);
-			}
 			match Self::convert(old) {
 				Ok(new_value) => {
 					pallet_xls20::Xls20TokenMap::<T>::insert(key1, key2, new_value);
@@ -104,8 +101,10 @@ impl<T: pallet_xls20::Config + pallet_migration::Config> MigrationStep for Xls20
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade_step(state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		let sample =
-			<Vec<(CollectionUuid, SerialNumber, Self::OldStorageValue)> as Decode>::decode(&mut &state[..])
-				.expect("🦆 pre_upgrade_step provides a valid state; qed");
+			<Vec<(CollectionUuid, SerialNumber, Self::OldStorageValue)> as Decode>::decode(
+				&mut &state[..],
+			)
+			.expect("🦆 pre_upgrade_step provides a valid state; qed");
 
 		log::debug!(target: LOG_TARGET, "Validating sample of {} token_ids", sample.len());
 		for (collection_id, serial_number, old) in sample {
@@ -121,8 +120,17 @@ impl<T: pallet_xls20::Config + pallet_migration::Config> MigrationStep for Xls20
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::migrations::tests::new_test_ext;
+	use crate::migrations::{tests::new_test_ext, Map};
+	use frame_support::{StorageHasher, Twox64Concat};
 	use hex_literal::hex;
+
+	/// Helper function to manually insert fake data into storage map
+	fn insert_old_data(token_id: TokenId, old_value: old::Xls20TokenId) {
+		let mut key = Twox64Concat::hash(&(token_id.0).encode());
+		let key_2 = Twox64Concat::hash(&(token_id.1).encode());
+		key.extend_from_slice(&key_2);
+		Map::unsafe_storage_put::<old::Xls20TokenId>(b"Xls20", b"Xls20TokenMap", &key, old_value);
+	}
 
 	#[test]
 	fn convert_works() {
@@ -159,6 +167,72 @@ mod tests {
 			];
 			let new = Xls20Migration::<Runtime>::convert(old).unwrap();
 			assert_eq!(new, expected);
+		});
+	}
+
+	#[test]
+	fn migrate_single_step() {
+		new_test_ext().execute_with(|| {
+			let old: [u8; 64] = "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"
+				.as_bytes()
+				.try_into()
+				.unwrap();
+			let token_id: TokenId = (1, 2);
+			insert_old_data(token_id, old);
+
+			let result = Xls20Migration::<Runtime>::step(None);
+			assert!(!result.is_finished());
+			let expected: [u8; 32] =
+				hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66");
+			let new = pallet_xls20::Xls20TokenMap::<Runtime>::get(token_id.0, token_id.1).unwrap();
+			assert_eq!(new, expected);
+
+			// Attempting to perform one more step should return Finished
+			let last_key = result.last_key;
+			let result = Xls20Migration::<Runtime>::step(last_key.clone());
+			assert!(result.is_finished());
+		});
+	}
+
+	#[test]
+	fn migrate_many_steps() {
+		new_test_ext().execute_with(|| {
+			// Insert 100 tokens in 10 different collections
+			let collection_count = 10;
+			let token_count = 100;
+			for i in 0..collection_count {
+				for j in 0..token_count {
+					let token_id: TokenId = (i, j);
+					// insert collection_id and serial_number into first 2 bytes of old
+					let string = format!("{:0>8}{:0>8}{:0>48}", token_id.0.to_string(), token_id.1.to_string(), 0);
+					let old: [u8; 64] = string.as_bytes().try_into().unwrap();
+					insert_old_data(token_id, old);
+				}
+			}
+
+			// Perform migration
+			let mut last_key = None;
+			for _ in 0..collection_count * token_count {
+				let result = Xls20Migration::<Runtime>::step(last_key.clone());
+				assert!(!result.is_finished());
+				last_key = result.last_key;
+			}
+			// One last step to finish migration
+			let result = Xls20Migration::<Runtime>::step(last_key.clone());
+			assert!(result.is_finished());
+
+			// Check that all tokens have been migrated
+			for i in 0..collection_count {
+				for j in 0..token_count {
+					let token_id: TokenId = (i, j);
+					let string = format!("{:0>8}{:0>8}{:0>48}", token_id.0.to_string(), token_id.1.to_string(), 0);
+					let old: [u8; 64] = string.as_bytes().try_into().unwrap();
+					let expected = Xls20Migration::<Runtime>::convert(old).unwrap();
+					let new = pallet_xls20::Xls20TokenMap::<Runtime>::get(token_id.0, token_id.1)
+						.unwrap();
+					assert_eq!(new, expected);
+				}
+			}
 		});
 	}
 }

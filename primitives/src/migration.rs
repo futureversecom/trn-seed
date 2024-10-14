@@ -53,7 +53,7 @@ pub trait MigrationStep {
 
 	/// Process one step of the migration.
 	/// Returns whether the migration is finished and the weight consumed.
-	fn step(last_key: Option<Vec<u8>>, verbose: bool) -> MigrationStepResult;
+	fn step(last_key: Option<Vec<u8>>) -> MigrationStepResult;
 
 	/// Execute some pre-checks prior to running the first step of this migration.
 	#[cfg(feature = "try-runtime")]
@@ -90,7 +90,7 @@ impl MigrationStep for NoopMigration {
 		Ok(())
 	}
 
-	fn step(_: Option<Vec<u8>>, _: bool) -> MigrationStepResult {
+	fn step(_: Option<Vec<u8>>) -> MigrationStepResult {
 		MigrationStepResult::finish_step(Weight::zero())
 	}
 }
