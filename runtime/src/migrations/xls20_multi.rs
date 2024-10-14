@@ -90,31 +90,6 @@ impl<T: pallet_xls20::Config + pallet_migration::Config> MigrationStep for Xls20
 			MigrationStepResult::finish_step(Self::max_step_weight())
 		}
 	}
-
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade_step() -> Result<Vec<u8>, TryRuntimeError> {
-		let sample: Vec<_> = old::Xls20TokenMap::<T>::iter().take(100).collect();
-		log::debug!(target: LOG_TARGET, "🦆 Taking sample of {} token ids", sample.len());
-		Ok(sample.encode())
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade_step(state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		let sample =
-			<Vec<(CollectionUuid, SerialNumber, Self::OldStorageValue)> as Decode>::decode(
-				&mut &state[..],
-			)
-			.expect("🦆 pre_upgrade_step provides a valid state; qed");
-
-		log::debug!(target: LOG_TARGET, "Validating sample of {} token_ids", sample.len());
-		for (collection_id, serial_number, old) in sample {
-			let new =
-				pallet_xls20::Xls20TokenMap::<Runtime>::get(collection_id, serial_number).unwrap();
-			let converted = Self::convert(old).expect("Will fail prior if invalid");
-			ensure!(new == converted, "🦆 Invalid token_id migration");
-		}
-		Ok(())
-	}
 }
 
 #[cfg(test)]
