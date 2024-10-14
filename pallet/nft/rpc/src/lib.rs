@@ -27,10 +27,8 @@ use seed_primitives::types::{CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_api::ProvideRuntimeApi;
 use sp_arithmetic::Permill;
 use sp_blockchain::HeaderBackend;
-use sp_core::{bounded::BoundedVec, ConstU32, Get};
 use sp_runtime::traits::Block as BlockT;
 // use pallet_nft::mock::StringLimit;
-pub const CollectionNameStringLimit: u32 = 50;
 pub use pallet_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi};
 use seed_primitives::OriginChain;
 

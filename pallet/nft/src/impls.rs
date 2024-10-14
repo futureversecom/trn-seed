@@ -763,18 +763,3 @@ impl<T: Config> NFTCollectionInfo for Pallet<T> {
 		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
 	}
 }
-
-impl<T: Config> NFTCollectionInfo for Pallet<T> {
-	type AccountId = T::AccountId;
-	type MaxTokensPerCollection = T::MaxTokensPerCollection;
-	type StringLimit = T::StringLimit;
-
-	fn get_collection_info(
-		collection_id: CollectionUuid,
-	) -> Result<
-		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
-		DispatchError,
-	> {
-		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
-	}
-}
