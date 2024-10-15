@@ -1176,7 +1176,7 @@ parameter_types! {
 	pub const PegPalletId: PalletId = PalletId(*b"erc20peg");
 	/// Limit that determines max delays stored simultaneously in a single block
 	/// NOTE: This value is estimated from the weight information of process deposit (with padding)
-	pub const MaxDelaysPerBlock: u32 =  600;
+	pub const MaxDelaysPerBlock: u32 =  500;
 	/// Needs to be large enough to handle the maximum number of blocks that can be ready at once
 	pub const MaxReadyBlocks: u32 = 100_000;
 }
