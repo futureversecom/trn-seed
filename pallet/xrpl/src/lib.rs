@@ -170,7 +170,7 @@ where
 					let eoa = <T as pallet::Config>::FuturepassLookup::unlookup(*origin);
 					if eoa == H160::zero() {
 						log!(info, "⛔️ failed to get EOA from futurepass address");
-						// return None;
+						return Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof));
 					}
 					tx_origin = T::AccountId::from(eoa);
 				}
