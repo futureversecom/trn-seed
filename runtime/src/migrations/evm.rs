@@ -72,9 +72,9 @@ impl OnRuntimeUpgrade for Upgrade {
 		// reading factory deployer
 		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(3);
 
-		let factory_deployer = H160::from_str(EIP2470_EOA_ADDRESS).unwrap();
-		if !EVM::is_account_empty(&factory_deployer) {
-			log::info!(target: "Migration", "Factory deployer already exists, skipping migration");
+		let eip2470_factory = H160::from_str(EIP2470_CONTRACT_ADDRESS).unwrap();
+		if !EVM::is_account_empty(&eip2470_factory) {
+			log::info!(target: "Migration", "EIP-2470 factory already exists, skipping migration");
 			return weight;
 		}
 
