@@ -658,6 +658,187 @@ fn withdraw_with_delay() {
 }
 
 #[test]
+fn root_can_claim_delayed_payment() {
+	ExtBuilder::default().build().execute_with(|| {
+		let account: AccountId = create_account(123);
+		let asset_id: AssetId = 1;
+		let cennz_eth_address: EthAddress = H160::default();
+		let amount: Balance = 100;
+		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+		let delay: u64 = 1000;
+		let _ = <Test as Config>::MultiCurrency::mint_into(asset_id, &account, amount);
+
+		<AssetIdToErc20<Test>>::insert(asset_id, cennz_eth_address);
+		<Erc20ToAssetId<Test>>::insert(cennz_eth_address, asset_id);
+
+		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
+		// Activate withdrawal delays
+		assert_ok!(Erc20Peg::activate_withdrawals_delay(
+			frame_system::RawOrigin::Root.into(),
+			true
+		));
+
+		assert_ok!(Erc20Peg::set_payment_delay(
+			frame_system::RawOrigin::Root.into(),
+			asset_id,
+			amount,
+			delay
+		));
+
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
+		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
+		assert_ok!(Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary));
+		let message = WithdrawMessage {
+			token_address: cennz_eth_address,
+			amount: amount.into(),
+			beneficiary,
+		};
+
+		assert_eq!(DelayedPaymentSchedule::<Test>::get(payment_block), vec![delayed_payment_id]);
+		assert_eq!(
+			DelayedPayments::<Test>::get(delayed_payment_id),
+			Some(PendingPayment::Withdrawal((account, message)))
+		);
+
+		assert_ok!(Erc20Peg::claim_delayed_payment(
+			frame_system::RawOrigin::Root.into(),
+			payment_block,
+			delayed_payment_id,
+		));
+
+		// Payment should be removed from storage
+		assert_eq!(
+			DelayedPaymentSchedule::<Test>::get(payment_block),
+			vec![] as Vec<DelayedPaymentId>
+		);
+		assert!(DelayedPayments::<Test>::get(delayed_payment_id).is_none());
+	})
+}
+
+#[test]
+fn root_claim_on_delayed_payment_doesnt_effect_prior_delayed_payments() {
+	ExtBuilder::default().build().execute_with(|| {
+		let account: AccountId = create_account(123);
+		let asset_id: AssetId = 1;
+		let cennz_eth_address: EthAddress = H160::default();
+		let amount: Balance = 200;
+		let half_amount: Balance = 100;
+		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+		let delay: u64 = 1000;
+		let _ = <Test as Config>::MultiCurrency::mint_into(asset_id, &account, amount);
+
+		<AssetIdToErc20<Test>>::insert(asset_id, cennz_eth_address);
+		<Erc20ToAssetId<Test>>::insert(cennz_eth_address, asset_id);
+
+		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
+
+		// Activate withdrawal delays
+		assert_ok!(Erc20Peg::activate_withdrawals_delay(
+			frame_system::RawOrigin::Root.into(),
+			true
+		));
+
+		assert_ok!(Erc20Peg::set_payment_delay(
+			frame_system::RawOrigin::Root.into(),
+			asset_id,
+			half_amount,
+			delay
+		));
+
+		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
+
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
+		let delayed_payment_id_two = delayed_payment_id.saturating_add(1);
+
+		assert_ok!(Erc20Peg::withdraw(
+			Some(account.clone()).into(),
+			asset_id,
+			half_amount,
+			beneficiary
+		));
+		assert_ok!(Erc20Peg::withdraw(
+			Some(account.clone()).into(),
+			asset_id,
+			half_amount,
+			beneficiary
+		));
+
+		let message = WithdrawMessage {
+			token_address: cennz_eth_address,
+			amount: half_amount.into(),
+			beneficiary,
+		};
+
+		assert_eq!(
+			DelayedPaymentSchedule::<Test>::get(payment_block),
+			vec![delayed_payment_id, delayed_payment_id_two]
+		);
+		assert_eq!(
+			DelayedPayments::<Test>::get(delayed_payment_id),
+			Some(PendingPayment::Withdrawal((account, message.clone())))
+		);
+		assert_eq!(
+			DelayedPayments::<Test>::get(delayed_payment_id_two),
+			Some(PendingPayment::Withdrawal((account, message)))
+		);
+
+		assert_ok!(Erc20Peg::claim_delayed_payment(
+			frame_system::RawOrigin::Root.into(),
+			payment_block,
+			delayed_payment_id,
+		));
+
+		assert_eq!(
+			DelayedPaymentSchedule::<Test>::get(payment_block),
+			vec![delayed_payment_id_two]
+		);
+		assert!(DelayedPayments::<Test>::get(delayed_payment_id).is_none());
+		assert!(DelayedPayments::<Test>::get(delayed_payment_id_two).is_some());
+	})
+}
+
+#[test]
+fn root_claim_fails_with_non_existant_block() {
+	ExtBuilder::default().build().execute_with(|| {
+		let payment_block = <frame_system::Pallet<Test>>::block_number();
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
+
+		assert_noop!(
+			Erc20Peg::claim_delayed_payment(
+				frame_system::RawOrigin::Root.into(),
+				payment_block,
+				delayed_payment_id,
+			),
+			Error::<Test>::PaymentIdNotFound
+		);
+	})
+}
+
+#[test]
+fn root_claim_fails_with_non_existant_payment_id() {
+	ExtBuilder::default().build().execute_with(|| {
+		let payment_block = <frame_system::Pallet<Test>>::block_number();
+		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
+
+		let non_existant_payment_id: u64 = 999;
+
+		DelayedPaymentSchedule::<Test>::insert(
+			payment_block,
+			WeakBoundedVec::try_from(vec![delayed_payment_id]).unwrap(),
+		);
+
+		assert_noop!(
+			Erc20Peg::claim_delayed_payment(
+				frame_system::RawOrigin::Root.into(),
+				payment_block,
+				non_existant_payment_id, // This payment id doesn't exist at this key
+			),
+			Error::<Test>::PaymentIdNotFound
+		);
+	})
+}
+
+#[test]
 fn withdraw_less_than_delay_goes_through() {
 	ExtBuilder::default().build().execute_with(|| {
 		let account: AccountId = create_account(123);
