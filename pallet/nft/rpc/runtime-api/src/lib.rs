@@ -18,15 +18,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Codec;
+use pallet_nft::CollectionDetail;
 use pallet_nft::Config;
 use seed_primitives::types::{CollectionUuid, SerialNumber, TokenCount, TokenId};
-use sp_runtime::Permill;
-use sp_std::prelude::*;
+use sp_std::{fmt::Debug, prelude::*};
 
 sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with NFT module
 	pub trait NftApi<AccountId, T> where
-		AccountId: Codec,
+		AccountId: Codec + Clone + Debug + PartialEq,
 		T: Config,
 	{
 		/// Find all the tokens owned by `who` in a given collection
@@ -40,8 +40,6 @@ sp_api::decl_runtime_apis! {
 		/// Return the token metadata URI for a given token
 		fn token_uri(token_id: TokenId) -> Vec<u8>;
 
-		fn collection_details(collection_id: CollectionUuid) -> (AccountId, Vec<u8>, Vec<u8>,
-		Option<Vec<(AccountId, Permill)>>,
-		Option<TokenCount>, SerialNumber, TokenCount, pallet_nft::CrossChainCompatibility, seed_primitives::OriginChain);
+		fn collection_details(collection_id: CollectionUuid) -> CollectionDetail<AccountId>;
 	}
 }

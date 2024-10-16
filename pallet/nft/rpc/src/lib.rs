@@ -22,19 +22,17 @@ use jsonrpsee::{
 	core::{async_trait, Error as RpcError, RpcResult},
 	proc_macros::rpc,
 };
-use pallet_nft::{Config, CrossChainCompatibility};
+use pallet_nft::{CollectionDetail, Config};
+pub use pallet_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi};
 use seed_primitives::types::{CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_api::ProvideRuntimeApi;
-use sp_arithmetic::Permill;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
-// use pallet_nft::mock::StringLimit;
-pub use pallet_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi};
-use seed_primitives::OriginChain;
+use sp_std::{fmt::Debug, prelude::*};
 
 /// NFT RPC methods.
 #[rpc(client, server, namespace = "nft")]
-pub trait NftApi<AccountId> {
+pub trait NftApi<AccountId: Clone + Debug + PartialEq> {
 	#[method(name = "ownedTokens")]
 	fn owned_tokens(
 		&self,
@@ -51,17 +49,7 @@ pub trait NftApi<AccountId> {
 	fn collection_details(
 		&self,
 		collection_id: CollectionUuid,
-	) -> RpcResult<(
-		AccountId,
-		Vec<u8>,
-		Vec<u8>,
-		Option<Vec<(AccountId, Permill)>>,
-		Option<TokenCount>,
-		SerialNumber,
-		TokenCount,
-		CrossChainCompatibility,
-		OriginChain,
-	)>;
+	) -> RpcResult<CollectionDetail<AccountId>>;
 }
 
 /// An implementation of NFT specific RPC methods.
@@ -84,7 +72,7 @@ where
 	T: Config + Send + Sync,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: NftRuntimeApi<Block, AccountId, T>,
-	AccountId: Codec,
+	AccountId: Codec + Clone + Debug + PartialEq,
 {
 	fn owned_tokens(
 		&self,
@@ -107,17 +95,7 @@ where
 	fn collection_details(
 		&self,
 		collection_id: CollectionUuid,
-	) -> RpcResult<(
-		AccountId,
-		Vec<u8>,
-		Vec<u8>,
-		Option<Vec<(AccountId, Permill)>>,
-		Option<TokenCount>,
-		SerialNumber,
-		TokenCount,
-		CrossChainCompatibility,
-		OriginChain,
-	)> {
+	) -> RpcResult<CollectionDetail<AccountId>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		api.collection_details(best, collection_id)

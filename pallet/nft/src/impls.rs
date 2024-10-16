@@ -380,19 +380,7 @@ impl<T: Config> Pallet<T> {
 	/// Find the tokens details for the given collection id
 	/// Returns collection owner, name, metadata schema, max issuance,
 	/// next available serial number, collection issuance, is_cross_chain_compatible
-	pub fn collection_details(
-		collection_id: CollectionUuid,
-	) -> (
-		T::AccountId,
-		Vec<u8>,
-		Vec<u8>,
-		Option<Vec<(T::AccountId, Permill)>>,
-		Option<TokenCount>,
-		SerialNumber,
-		TokenCount,
-		CrossChainCompatibility,
-		OriginChain,
-	)
+	pub fn collection_details(collection_id: CollectionUuid) -> CollectionDetail<T::AccountId>
 	where
 		<T as frame_system::Config>::AccountId: core::default::Default,
 	{
@@ -400,21 +388,19 @@ impl<T: Config> Pallet<T> {
 		if collection_info.is_none() {
 			// should not happen
 			log!(warn, "🃏 Unexpected empty collection: {:?}", collection_id);
-			let default_owner = T::AccountId::from(Default::default());
-
-			return (
-				default_owner,
-				Default::default(),
-				Default::default(),
-				Default::default(),
-				Default::default(),
-				Default::default(),
-				Default::default(),
-				Default::default(),
-				Default::default(),
-			);
+			let collection_info = CollectionDetail {
+				owner: T::AccountId::from(Default::default()),
+				royalties_schedule: Default::default(),
+				max_issuance: None,
+				origin_chain: Default::default(),
+				next_serial_number: 0,
+				collection_issuance: 0,
+				cross_chain_compatibility: Default::default(),
+				name: Default::default(),
+				metadata_scheme: Default::default(), // MetadataScheme::try_from(b"".as_slice()).unwrap()
+			};
+			return collection_info;
 		}
-
 		let collection_info = collection_info.unwrap();
 		let owner = collection_info.owner;
 		let name = collection_info.name.into();
@@ -430,7 +416,7 @@ impl<T: Config> Pallet<T> {
 		let cross_chain_compatibility = collection_info.cross_chain_compatibility;
 		let origin_chain = collection_info.origin_chain;
 
-		(
+		return CollectionDetail {
 			owner,
 			name,
 			metadata_scheme,
@@ -440,7 +426,7 @@ impl<T: Config> Pallet<T> {
 			collection_issuance,
 			cross_chain_compatibility,
 			origin_chain,
-		)
+		};
 	}
 
 	/// Create the collection
