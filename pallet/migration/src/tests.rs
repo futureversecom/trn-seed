@@ -115,8 +115,6 @@ mod set_block_delay {
 			);
 		});
 	}
-
-	// TODO actual migration with block delay set
 }
 
 mod set_block_limit {
