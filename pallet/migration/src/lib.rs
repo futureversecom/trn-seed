@@ -16,7 +16,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
-use frame_support::{log, pallet_prelude::*, sp_runtime::traits::Zero};
+use frame_support::{
+	log, pallet_prelude::*, sp_runtime::traits::Zero, weights::constants::RocksDbWeight as DbWeight,
+};
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::Migrator;
 use seed_primitives::migration::MigrationStep;
@@ -109,14 +111,18 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event {
-		/// Migration has been enabled
+		/// Multi-Block migration has been enabled
 		MigrationEnabled,
-		/// The current migration has been paused
-		MigrationPaused,
+		/// Multi-Block migration has been disabled
+		MigrationDisabled,
 		/// The current migration has completed
 		MigrationComplete { items_migrated: u32 },
 		/// A Migration has started
 		MigrationStarted,
+		/// The block delay has been set
+		BlockDelaySet { block_delay: Option<u32> },
+		/// The block limit has been set
+		BlockLimitSet { block_limit: u32 },
 	}
 
 	#[pallet::error]
@@ -126,37 +132,39 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_idle(_block: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			Self::migrate(remaining_weight)
+		fn on_idle(block: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			Self::migrate(block, remaining_weight)
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			// Check if we are in the middle of a migration
+			// Check if the current migration is complete
 			if T::CurrentMigration::version_check() {
 				// Update Status to NoMigrationInProgress to signify that since the last runtime
 				// upgrade there was no multi-block migration
 				Status::<T>::put(MigrationStatus::NoMigrationInProgress);
 				log::debug!(target: LOG_TARGET, "🦆 No multi-block migration in progress");
-				return T::DbWeight::get().writes(1);
-			} else {
-				// Ensure that a migration is not already in progress. This is to prevent data loss
-				// in the case where a runtime update is performed before the previous migration is
-				// completed.
-				if !Self::migration_in_progress() {
-					Status::<T>::put(MigrationStatus::InProgress { steps_done: 0 });
-					Self::deposit_event(Event::MigrationStarted);
-					log::debug!(target: LOG_TARGET, "🦆 A new multi-block migration has started");
-					return T::DbWeight::get().writes(1);
-				} else {
-					log::debug!(target: LOG_TARGET, "🦆 A multi-block migration is already in progress");
-				}
+				return DbWeight::get().writes(1);
 			}
-			Weight::zero()
+
+			// Ensure that a migration is not already in progress. This is to prevent data loss
+			// in the case where a runtime update is performed before the previous migration is
+			// completed.
+			if Self::migration_in_progress() {
+				log::debug!(target: LOG_TARGET, "🦆 A multi-block migration is already in progress");
+				return DbWeight::get().reads(1);
+			}
+
+			// Return read for Status within migration_in_progress function
+			Status::<T>::put(MigrationStatus::InProgress { steps_done: 0 });
+			Self::deposit_event(Event::MigrationStarted);
+			log::debug!(target: LOG_TARGET, "🦆 A new multi-block migration has started");
+			DbWeight::get().reads_writes(1, 1)
 		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Can be called to pause or re-enable multi block migrations within the pallet.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::enable_migration())]
 		pub fn enable_migration(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
@@ -164,40 +172,46 @@ pub mod pallet {
 			MigrationEnabled::<T>::put(enabled);
 			match enabled {
 				true => Self::deposit_event(Event::MigrationEnabled),
-				false => Self::deposit_event(Event::MigrationPaused),
+				false => Self::deposit_event(Event::MigrationDisabled),
 			}
 			Ok(())
 		}
 
+		/// Set the block delay for multi-block migrations. The block delay is the number
+		/// of blocks between each migration step. If set to None, the migration will run every block.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::enable_migration())]
-		pub fn set_block_delay(origin: OriginFor<T>, delay: Option<u32>) -> DispatchResult {
+		pub fn set_block_delay(origin: OriginFor<T>, block_delay: Option<u32>) -> DispatchResult {
 			ensure_root(origin)?;
-			match delay {
+			match block_delay {
 				Some(delay) => BlockDelay::<T>::put(delay),
 				None => BlockDelay::<T>::kill(),
 			}
+			Self::deposit_event(Event::BlockDelaySet { block_delay });
 			Ok(())
 		}
 
-		#[pallet::call_index(3)]
+		/// Set the block limit for multi-block migrations. The block limit is the maximum number
+		/// of individual items to migrate in a single block. Will still respect maximum weight rules.
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::enable_migration())]
-		pub fn set_block_limit(origin: OriginFor<T>, limit: u32) -> DispatchResult {
+		pub fn set_block_limit(origin: OriginFor<T>, block_limit: u32) -> DispatchResult {
 			ensure_root(origin)?;
-			BlockLimit::<T>::put(limit);
+			BlockLimit::<T>::put(block_limit);
+			Self::deposit_event(Event::BlockLimitSet { block_limit });
 			Ok(())
 		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn migrate(weight_limit: Weight) -> Weight {
+	pub fn migrate(block_number: BlockNumberFor<T>, weight_limit: Weight) -> Weight {
 		let weight_limit = weight_limit.min(T::MaxMigrationWeight::get());
 		// Check if there is enough weight to perform the migration
 		let mut used_weight = Weight::zero();
 		// Maximum weight for one migration step
 		let max_step_weight = T::CurrentMigration::max_step_weight();
-		// Reads: MigrationEnabled, Status, LastKey
+		// Reads: MigrationEnabled, Status, LastKey, BlockDelay
 		// Writes: Status, LastKey
 		let base_weight = T::WeightInfo::migrate();
 
@@ -209,28 +223,27 @@ impl<T: Config> Pallet<T> {
 		// Check if there is a migration in progress and it is not paused
 		let previous_steps = match Status::<T>::get() {
 			MigrationStatus::InProgress { steps_done } => steps_done,
-			_ => return T::DbWeight::get().reads(1),
+			_ => return DbWeight::get().reads(1),
 		};
-
 		if !MigrationEnabled::<T>::get() {
-			return T::DbWeight::get().reads(2);
+			return DbWeight::get().reads(2);
 		}
 
-		let mut last_key = LastKey::<T>::get();
-		let mut step_counter: u32 = 0;
-		used_weight = used_weight.saturating_add(base_weight);
-
-		let block_number = frame_system::Pallet::<T>::block_number();
-		// let number: BlockNumber = block_number.into();
+		// Check if there is a block delay set and skip migration if necessary
 		if let Some(delay) = BlockDelay::<T>::get() {
 			let delay: BlockNumberFor<T> = delay.into();
 			if block_number % delay != BlockNumberFor::<T>::zero() {
 				log::debug!(target: LOG_TARGET, "🦆 Skipping multi-block migration for block {:?}", block_number);
-				return used_weight;
+				return DbWeight::get().reads(3);
 			}
 		}
-		log::debug!(target: LOG_TARGET, "🦆 Starting multi-block migration for block {:?}", block_number);
+
 		let block_limit: u32 = BlockLimit::<T>::get();
+		let mut last_key = LastKey::<T>::get();
+		let mut step_counter: u32 = 0;
+		used_weight = used_weight.saturating_add(base_weight);
+
+		log::debug!(target: LOG_TARGET, "🦆 Starting multi-block migration for block {:?}", block_number);
 		while used_weight.all_lt(weight_limit) && step_counter < block_limit {
 			// Perform one migration step on the current migration
 			let step_result = T::CurrentMigration::step(last_key);
@@ -279,9 +292,8 @@ impl<T: Config> Pallet<T> {
 	/// Returns whether a migration is in progress
 	fn migration_in_progress() -> bool {
 		match Status::<T>::get() {
-			MigrationStatus::Completed => false,
-			MigrationStatus::NoMigrationInProgress => false,
-			_ => true,
+			MigrationStatus::InProgress { steps_done: _ } => true,
+			_ => false,
 		}
 	}
 }

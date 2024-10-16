@@ -19,10 +19,10 @@ use crate::Pallet as Migration;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::StorageHasher;
 use frame_system::RawOrigin;
+use seed_primitives::{CollectionUuid, SerialNumber};
 
 benchmarks! {
 	// This benchmarks the weight of dispatching migrate to execute 1 `NoopMigraton` step
-	#[pov_mode = Measured]
 	migrate {
 		let weight_limit = T::MaxMigrationWeight::get();
 		Status::<T>::put(MigrationStatus::InProgress { steps_done: 0 });
@@ -33,7 +33,6 @@ benchmarks! {
 		assert_eq!( Status::<T>::get(), MigrationStatus::Completed);
 	}
 
-	#[pov_mode = Measured]
 	current_migration_step {
 		MigrationEnabled::<T>::put(true);
 		let mut key = Twox64Concat::hash(&(1 as CollectionUuid).encode());
@@ -55,6 +54,20 @@ benchmarks! {
 	}: _(RawOrigin::Root, enabled)
 	verify {
 		assert!(MigrationEnabled::<T>::get());
+	}
+
+	set_block_delay {
+		let delay = Some(10);
+	}: _(RawOrigin::Root, delay)
+	verify {
+		assert_eq!(BlockDelay::<T>::get(), Some(10));
+	}
+
+	set_block_limit {
+		let limit = 1000;
+	}: _(RawOrigin::Root, limit)
+	verify {
+		assert_eq!(BlockLimit::<T>::get(), 1000);
 	}
 }
 

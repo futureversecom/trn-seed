@@ -15,10 +15,11 @@
 
 use crate as pallet_migration;
 use crate::Config;
-use frame_support::weights::constants::WEIGHT_REF_TIME_PER_MILLIS;
+use frame_support::pallet_prelude::ValueQuery;
+use frame_support::{storage_alias, Twox64Concat};
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::migration::NoopMigration;
-use sp_runtime::Perbill;
+use seed_primitives::migration::{MigrationStep, MigrationStepResult};
+use std::marker::PhantomData;
 
 construct_runtime!(
 	pub enum Test
@@ -34,17 +35,76 @@ impl_frame_system_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_balance_config!(Test);
 
-pub const WEIGHT_MILLISECS_PER_BLOCK: u64 = 1000;
-pub const MAXIMUM_BLOCK_WEIGHT: Weight =
-	Weight::from_parts(WEIGHT_MILLISECS_PER_BLOCK * WEIGHT_REF_TIME_PER_MILLIS, u64::MAX);
+pub const WEIGHT_PER_MIGRATION: u64 = 1000;
+
+pub type OldType = u32;
+pub type NewType = String;
+
+pub mod old {
+	use super::*;
+
+	#[storage_alias]
+	pub type TestMap<Test: Config> = StorageMap<crate::Pallet<Test>, Twox64Concat, u32, OldType>;
+}
+#[storage_alias]
+pub type TestMap<Test: Config> = StorageMap<crate::Pallet<Test>, Twox64Concat, u32, NewType>;
+
+#[storage_alias]
+pub type TestVersion<Test: Config> = StorageValue<crate::Pallet<Test>, u16, ValueQuery>;
+
+/// A mock migration to test the migration pallet
+pub struct MockMigration<T: Config> {
+	phantom: PhantomData<T>,
+}
+
+impl<T: Config> MigrationStep for MockMigration<T> {
+	const TARGET_VERSION: u16 = 1;
+
+	type OldStorageValue = OldType;
+	type NewStorageValue = NewType;
+
+	fn version_check() -> bool {
+		TestVersion::<T>::get() == Self::TARGET_VERSION
+	}
+
+	fn on_complete() {
+		TestVersion::<T>::put(Self::TARGET_VERSION);
+	}
+
+	fn max_step_weight() -> Weight {
+		Weight::from_all(WEIGHT_PER_MIGRATION)
+	}
+
+	fn convert(old: Self::OldStorageValue) -> Result<Self::NewStorageValue, &'static str> {
+		Ok((old + 1).to_string())
+	}
+
+	fn step(last_key: Option<Vec<u8>>) -> MigrationStepResult {
+		let mut iter = if let Some(last_key) = last_key {
+			old::TestMap::<T>::iter_from(last_key)
+		} else {
+			old::TestMap::<T>::iter()
+		};
+
+		if let Some((key, value)) = iter.next() {
+			let new_value = Self::convert(value).unwrap();
+			TestMap::<T>::insert(key, new_value);
+			let last_key = old::TestMap::<T>::hashed_key_for(key);
+			MigrationStepResult::continue_step(Self::max_step_weight(), last_key)
+		} else {
+			MigrationStepResult::finish_step(Self::max_step_weight())
+		}
+	}
+}
 
 parameter_types! {
-	pub MaxMigrationWeight: Weight = Perbill::from_percent(20) * MAXIMUM_BLOCK_WEIGHT;
+	// Allow max 1000 migrations per block based on weight
+	pub MaxMigrationWeight: Weight = Weight::from_all(u64::MAX);
 }
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type CurrentMigration = NoopMigration<(CollectionUuid, SerialNumber)>;
+	type CurrentMigration = MockMigration<Test>;
 	type MaxMigrationWeight = MaxMigrationWeight;
 	type WeightInfo = ();
 }

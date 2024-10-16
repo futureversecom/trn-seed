@@ -59,6 +59,9 @@ impl<T: pallet_xls20::Config + pallet_migration::Config> MigrationStep for Xls20
 	fn convert(old: Self::OldStorageValue) -> Result<Self::NewStorageValue, &'static str> {
 		let hex_str = core::str::from_utf8(&old).map_err(|_| "Invalid UTF-8")?;
 		let bytes = hex::decode(hex_str).map_err(|_| "Invalid hex data")?;
+		if bytes.len() != 32 {
+			return Err("Invalid length");
+		}
 		let mut new = [0u8; 32];
 		new.copy_from_slice(&bytes);
 		Ok(new)
@@ -78,9 +81,12 @@ impl<T: pallet_xls20::Config + pallet_migration::Config> MigrationStep for Xls20
 					pallet_xls20::Xls20TokenMap::<T>::insert(key1, key2, new_value);
 				},
 				Err(e) => {
-					// Remove the invalid value if we encounter an error during conversion
+					// If we encounter an error during the conversion, we must insert some
+					// fake value, we can't remove the token as it will cause unexpected results
+					// with the iter process
 					log::error!(target: LOG_TARGET, "🦆 Error migrating token_id ({:?},{:?}) : {:?}", key1, key2, e);
-					pallet_xls20::Xls20TokenMap::<T>::remove(key1, key2);
+					let fake_value = [0u8; 32];
+					pallet_xls20::Xls20TokenMap::<T>::insert(key1, key2, fake_value);
 				},
 			}
 			let last_key = old::Xls20TokenMap::<T>::hashed_key_for(key1, key2);
@@ -179,7 +185,12 @@ mod tests {
 				for j in 0..token_count {
 					let token_id: TokenId = (i, j);
 					// insert collection_id and serial_number into first 2 bytes of old
-					let string = format!("{:0>8}{:0>8}{:0>48}", token_id.0.to_string(), token_id.1.to_string(), 0);
+					let string = format!(
+						"{:0>8}{:0>8}{:0>48}",
+						token_id.0.to_string(),
+						token_id.1.to_string(),
+						0
+					);
 					let old: [u8; 64] = string.as_bytes().try_into().unwrap();
 					insert_old_data(token_id, old);
 				}
@@ -200,7 +211,12 @@ mod tests {
 			for i in 0..collection_count {
 				for j in 0..token_count {
 					let token_id: TokenId = (i, j);
-					let string = format!("{:0>8}{:0>8}{:0>48}", token_id.0.to_string(), token_id.1.to_string(), 0);
+					let string = format!(
+						"{:0>8}{:0>8}{:0>48}",
+						token_id.0.to_string(),
+						token_id.1.to_string(),
+						0
+					);
 					let old: [u8; 64] = string.as_bytes().try_into().unwrap();
 					let expected = Xls20Migration::<Runtime>::convert(old).unwrap();
 					let new = pallet_xls20::Xls20TokenMap::<Runtime>::get(token_id.0, token_id.1)
