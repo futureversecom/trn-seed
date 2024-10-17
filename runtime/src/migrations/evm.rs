@@ -20,11 +20,11 @@ use {pallet_evm::AccountCodes, sp_core::U256, sp_runtime::DispatchError, sp_std:
 
 const EIP2470_EOA_ADDRESS: &str = "Bb6e024b9cFFACB947A71991E386681B1Cd1477D";
 const EIP2470_CONTRACT_ADDRESS: &str = "ce0042B868300000d44A59004Da54A005ffdcf9f";
-const EIP2470_CONTRACT_DATA: &str = "608060405234801561001057600080fd5b50610134806100206000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c80634af63f0214602d575b600080fd5b60cf60048036036040811015604157600080fd5b810190602081018135640100000000811115605b57600080fd5b820183602082011115606c57600080fd5b80359060200191846001830284011164010000000083111715608d57600080fd5b91908080601f016020809104026020016040519081016040528093929190818152602001838380828437600092019190915250929550509135925060eb915050565b604080516001600160a01b039092168252519081900360200190f35b6000818351602085016000f5939250505056fea26469706673582212206b44f8a82cb6b156bfcc3dc6aadd6df4eefd204bc928a4397fd15dacf6d5320564736f6c63430006020033";
+const EIP2470_CONTRACT_DATA: &str = "6080604052348015600f57600080fd5b506004361060285760003560e01c80634af63f0214602d575b600080fd5b60cf60048036036040811015604157600080fd5b810190602081018135640100000000811115605b57600080fd5b820183602082011115606c57600080fd5b80359060200191846001830284011164010000000083111715608d57600080fd5b91908080601f016020809104026020016040519081016040528093929190818152602001838380828437600092019190915250929550509135925060eb915050565b604080516001600160a01b039092168252519081900360200190f35b6000818351602085016000f5939250505056fea26469706673582212206b44f8a82cb6b156bfcc3dc6aadd6df4eefd204bc928a4397fd15dacf6d5320564736f6c63430006020033";
 
 const UNIVERSAL_DEPLOYER_EOA_ADDRESS: &str = "9c5a87452d4FAC0cbd53BDCA580b20A45526B3AB";
 const UNIVERSAL_DEPLOYER_CONTRACT_ADDRESS: &str = "1b926fbb24a9f78dcdd3272f2d86f5d0660e59c0";
-const UNIVERSAL_DEPLOYER_CONTRACT_DATA: &str = "6080604052348015600f57600080fd5b50609980601d6000396000f3fe60a06020601f369081018290049091028201604052608081815260009260609284918190838280828437600092018290525084519495509392505060208401905034f5604080516001600160a01b0383168152905191935081900360200190a0505000fea26469706673582212205a310755225e3c740b2f013fb6343f4c205e7141fcdf15947f5f0e0e818727fb64736f6c634300060a0033";
+const UNIVERSAL_DEPLOYER_CONTRACT_DATA: &str = "60a06020601f369081018290049091028201604052608081815260009260609284918190838280828437600092018290525084519495509392505060208401905034f5604080516001600160a01b0383168152905191935081900360200190a0505000fea26469706673582212205a310755225e3c740b2f013fb6343f4c205e7141fcdf15947f5f0e0e818727fb64736f6c634300060a0033";
 
 pub struct Upgrade;
 
@@ -70,11 +70,13 @@ impl OnRuntimeUpgrade for Upgrade {
 		log::info!(target: "Migration", "🛠️ EVM: creating EIP-2470 factory deployer and factory contract 🛠️");
 
 		// reading factory deployer
-		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(3);
+		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(1);
 
-		let factory_deployer = H160::from_str(EIP2470_EOA_ADDRESS).unwrap();
-		if !EVM::is_account_empty(&factory_deployer) {
-			log::info!(target: "Migration", "Factory deployer already exists, skipping migration");
+		let eip2470_factory = H160::from_str(EIP2470_CONTRACT_ADDRESS).unwrap();
+		let factory_code_len =
+			<pallet_evm::AccountCodes<Runtime>>::decode_len(&eip2470_factory).unwrap_or(0);
+		if factory_code_len != 0 {
+			log::info!(target: "Migration", "EIP-2470 factory already exists, skipping migration");
 			return weight;
 		}
 
@@ -157,10 +159,10 @@ pub mod v1 {
 	where
 		<Runtime as frame_system::Config>::AccountId: From<H160>,
 	{
-		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(6);
+		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(3);
 
-		// r: 3 + 3, w: 0
-		if !(EVM::is_account_empty(&deployer_eoa) && EVM::is_account_empty(&contract_address)) {
+		// r: 3, w: 0
+		if !EVM::is_account_empty(&contract_address) {
 			log::info!(target: "Migration", "No migration was done, however migration code needs to be removed.");
 			return weight;
 		}
@@ -231,11 +233,11 @@ pub mod v1 {
 				Upgrade::post_upgrade(pre_upgrade_state).expect("Post-upgrade should succeed");
 
 				// Validate future runtime upgrade fails
-				// 3 reads for factory deployer check only
+				// 1 read for factory check only
 				let new_weight = Upgrade::on_runtime_upgrade();
 				assert_eq!(
 					new_weight,
-					<Runtime as frame_system::Config>::DbWeight::get().reads(3),
+					<Runtime as frame_system::Config>::DbWeight::get().reads(1),
 					"Migration weight mismatch"
 				);
 			});
