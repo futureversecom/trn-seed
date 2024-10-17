@@ -21,6 +21,7 @@ pub use signature::*;
 pub use types::*;
 
 pub mod ethy;
+pub mod migration;
 pub mod nft;
 mod signature;
 #[cfg(feature = "std")]
