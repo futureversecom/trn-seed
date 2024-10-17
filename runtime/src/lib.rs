@@ -158,7 +158,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 59,
+	spec_version: 61,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 11,
@@ -1176,7 +1176,8 @@ parameter_types! {
 	/// The ERC20 peg address
 	pub const PegPalletId: PalletId = PalletId(*b"erc20peg");
 	/// Limit that determines max delays stored simultaneously in a single block
-	pub const MaxDelaysPerBlock: u32 = 10_000;
+	/// NOTE: This value is estimated from the weight information of process deposit (with padding)
+	pub const MaxDelaysPerBlock: u32 =  500;
 	/// Needs to be large enough to handle the maximum number of blocks that can be ready at once
 	pub const MaxReadyBlocks: u32 = 100_000;
 }
