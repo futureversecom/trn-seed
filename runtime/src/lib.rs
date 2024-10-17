@@ -58,7 +58,7 @@ use sp_std::prelude::*;
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
-
+use pallet_nft::CollectionDetail;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -1472,6 +1472,7 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 	(migrations::AllMigrations,),
 >;
+pub const COLLECTION_NAME_STRING_LIMIT: u32 = 50;
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -1704,6 +1705,9 @@ impl_runtime_apis! {
 		}
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Nft::token_uri(token_id)
+		}
+		fn collection_details(collection_id: CollectionUuid) -> CollectionDetail<AccountId> {
+			Nft::collection_details(collection_id)
 		}
 	}
 

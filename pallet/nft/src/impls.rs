@@ -31,7 +31,8 @@ use seed_primitives::{
 	TokenId, MAX_COLLECTION_ENTITLEMENTS,
 };
 use sp_runtime::{
-	traits::Zero, ArithmeticError, BoundedVec, DispatchError, DispatchResult, SaturatedConversion,
+	traits::Zero, ArithmeticError, BoundedVec, DispatchError, DispatchResult, Permill,
+	SaturatedConversion,
 };
 use sp_std::vec;
 
@@ -374,6 +375,58 @@ impl<T: Config> Pallet<T> {
 		};
 
 		(new_cursor, total_owned, response)
+	}
+
+	/// Find the tokens details for the given collection id
+	/// Returns collection owner, name, metadata schema, max issuance,
+	/// next available serial number, collection issuance, is_cross_chain_compatible
+	pub fn collection_details(collection_id: CollectionUuid) -> CollectionDetail<T::AccountId>
+	where
+		<T as frame_system::Config>::AccountId: core::default::Default,
+	{
+		let collection_info = <CollectionInfo<T>>::get(collection_id);
+		if collection_info.is_none() {
+			// should not happen
+			log!(warn, "🃏 Unexpected empty collection: {:?}", collection_id);
+			let collection_info = CollectionDetail {
+				owner: T::AccountId::from(Default::default()),
+				royalties_schedule: Default::default(),
+				max_issuance: None,
+				origin_chain: Default::default(),
+				next_serial_number: 0,
+				collection_issuance: 0,
+				cross_chain_compatibility: Default::default(),
+				name: Default::default(),
+				metadata_scheme: Default::default(), // MetadataScheme::try_from(b"".as_slice()).unwrap()
+			};
+			return collection_info;
+		}
+		let collection_info = collection_info.unwrap();
+		let owner = collection_info.owner;
+		let name = collection_info.name.into();
+		let metadata_scheme = collection_info.metadata_scheme.construct_token_uri(0);
+		let royalties_schedule: Option<Vec<(T::AccountId, Permill)>> =
+			match collection_info.royalties_schedule {
+				Some(royalties) => Some(royalties.entitlements.into_inner()),
+				None => None,
+			};
+		let max_issuance = collection_info.max_issuance;
+		let next_serial_number = collection_info.next_serial_number;
+		let collection_issuance = collection_info.collection_issuance;
+		let cross_chain_compatibility = collection_info.cross_chain_compatibility;
+		let origin_chain = collection_info.origin_chain;
+
+		return CollectionDetail {
+			owner,
+			name,
+			metadata_scheme,
+			royalties_schedule,
+			max_issuance,
+			next_serial_number,
+			collection_issuance,
+			cross_chain_compatibility,
+			origin_chain,
+		};
 	}
 
 	/// Create the collection
