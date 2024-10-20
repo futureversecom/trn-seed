@@ -866,6 +866,14 @@ fn set_door_address_success() {
 			XRPLBridge::door_address(XRPLDoorAccount::NFT),
 			Some(H160::from_slice(xprl_door_address))
 		);
+
+		// remove door address
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
+			None
+		));
+		assert_eq!(XRPLBridge::door_address(XRPLDoorAccount::Main), None);
 	})
 }
 

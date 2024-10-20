@@ -621,7 +621,7 @@ pub mod pallet {
 			fee: u64,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			DoorTxFee::<T>::set(door_type, fee);
+			DoorTxFee::<T>::insert(door_type, fee);
 			Ok(())
 		}
 
@@ -644,15 +644,7 @@ pub mod pallet {
 			door_address: Option<XrplAccountId>,
 		) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
-			match door_address {
-				Some(door_address) => {
-					DoorAddress::<T>::insert(door_account, door_address);
-				},
-				None => {
-					DoorAddress::<T>::remove(door_account);
-				},
-			}
-
+			DoorAddress::<T>::set(door_account, door_address);
 			Self::deposit_event(Event::<T>::DoorAddressSet { door_account, address: door_address });
 			Ok(())
 		}
@@ -679,7 +671,7 @@ pub mod pallet {
 			{
 				fail!(Error::<T>::NextTicketSequenceParamsInvalid);
 			}
-			DoorTicketSequenceParamsNext::<T>::set(
+			DoorTicketSequenceParamsNext::<T>::insert(
 				door_account,
 				XrplTicketSequenceParams {
 					start_sequence: start_ticket_sequence,
@@ -715,8 +707,8 @@ pub mod pallet {
 				fail!(Error::<T>::TicketSequenceParamsInvalid);
 			}
 
-			DoorTicketSequence::<T>::set(door_account, ticket_sequence);
-			DoorTicketSequenceParams::<T>::set(
+			DoorTicketSequence::<T>::insert(door_account, ticket_sequence);
+			DoorTicketSequenceParams::<T>::insert(
 				door_account,
 				XrplTicketSequenceParams {
 					start_sequence: start_ticket_sequence,

@@ -892,15 +892,15 @@ impl<T: Config> Pallet<T> {
 		debug!(target: "ethy-pallet", "💎 xrpl new signer entries: {:?}", signer_entries);
 		match T::XrplBridgeAdapter::submit_signer_list_set_request(signer_entries) {
 			Ok(event_proof_ids) => {
+				// NOTE - keep the first event proof id for the sake of display. can be removed later if no other use
+				XrplNotarySetProofId::<T>::put(event_proof_ids[0]);
 				// Signal the Event Id that will be used for the proof of xrpl notary set change.
 				// Any observer can subscribe to this event and submit the resulting proofs to keep
 				// the authority set of the xrpl door addresses updated.
 				Self::deposit_event(Event::<T>::XrplAuthoritySetChange {
-					event_proof_ids: event_proof_ids.clone(),
+					event_proof_ids,
 					validator_set_id: next_validator_set_id,
 				});
-				// NOTE - keep the first event proof id for the sake of display. can be removed later if no other use
-				XrplNotarySetProofId::<T>::put(event_proof_ids[0]);
 			},
 			Err(e) => {
 				warn!(target: "ethy-pallet", "💎 Failed to send xrpl signer list set request {:?}", e);
