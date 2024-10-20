@@ -17,7 +17,7 @@
 
 use crate::types::{
 	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, WithdrawTransaction,
-	XRPLCurrency, XRPLCurrencyType, XRPLDoorAccount, XrpTransaction, XrpWithdrawTransaction,
+	XRPLCurrency, XRPLDoorAccount, XrpTransaction, XrpWithdrawTransaction,
 	XrplTicketSequenceParams, XrplTxData,
 };
 use frame_support::{
