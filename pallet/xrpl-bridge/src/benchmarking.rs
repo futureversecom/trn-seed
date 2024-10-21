@@ -15,11 +15,13 @@
 
 use super::*;
 
+use crate::types::XrplTransaction::NFTokenAcceptOffer;
 use crate::{types::XRPLCurrencyType, Pallet as XrplBridge};
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use hex_literal::hex;
+use log::info;
 
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 	bench_account(name, 0, 0)
@@ -27,6 +29,10 @@ pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 
 pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
 	RawOrigin::Signed(acc.clone())
+}
+
+fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
 }
 
 benchmarks! {
@@ -297,10 +303,25 @@ benchmarks! {
 
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
 		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), XRPLDoorAccount::NFT, Some(door_address)));
-		assert_ok!(XrplBridge::<T>::set_door_tx_fee(RawOrigin::Root.into(), XRPLDoorAccount::NFT, tx_fee as u64));
+		assert_ok!(XrplBridge::<T>::set_door_tx_fee(RawOrigin::Root.into(), XRPLDoorAccount::NFT, tx_fee));
 		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), XRPLDoorAccount::NFT, 1, 1));
 
 	}: _(origin::<T>(&alice), nftoken_sell_offer)
+	verify {
+		// check the event is emitted.
+		assert_has_event::<T>(
+			Event::<T>::XrplTxSignRequest {
+				proof_id: 0,
+				tx: NFTokenAcceptOffer(NFTokenAcceptOfferTransaction {
+					nftoken_sell_offer,
+					tx_fee,
+					tx_ticket_sequence: 1,
+					account: door_address,
+				}),
+			}
+			.into(),
+		);
+	}
 }
 
 impl_benchmark_test_suite!(
