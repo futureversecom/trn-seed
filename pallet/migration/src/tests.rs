@@ -13,11 +13,11 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use frame_support::storage::storage_prefix;
-use frame_support::StorageHasher;
 use super::*;
 use crate::mock::{old::TestMap as TestMapOld, Migration, NewType, System, Test};
 use crate::Config;
+use frame_support::storage::storage_prefix;
+use frame_support::StorageHasher;
 use seed_pallet_common::test_prelude::*;
 
 // Setup some fake data for testing by inserting into the map as the old type (u32)
@@ -52,9 +52,8 @@ fn get<T: Decode + Sized>(key: u32) -> Option<T> {
 	key[..32].copy_from_slice(&storage_prefix);
 	key[32..].copy_from_slice(&key_raw);
 
-	sp_io::storage::get(&key).and_then(|val| {
-		Decode::decode(&mut &val[..]).map(Some).unwrap_or_default()
-	})
+	sp_io::storage::get(&key)
+		.and_then(|val| Decode::decode(&mut &val[..]).map(Some).unwrap_or_default())
 }
 
 mod enable_migration {
@@ -121,31 +120,20 @@ mod set_block_delay {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let block_delay = Some(0);
 			assert_noop!(
-				Migration::set_block_delay(
-					RawOrigin::Root.into(),
-					block_delay
-				),
+				Migration::set_block_delay(RawOrigin::Root.into(), block_delay),
 				InvalidBlockDelay
 			);
 
 			// One is invalid (As this is the same as None)
 			let block_delay = Some(1);
 			assert_noop!(
-				Migration::set_block_delay(
-					RawOrigin::Root.into(),
-					block_delay
-				),
+				Migration::set_block_delay(RawOrigin::Root.into(), block_delay),
 				InvalidBlockDelay
 			);
 
 			// 2 and greater should be ok
 			let block_delay = Some(2);
-			assert_ok!(
-				Migration::set_block_delay(
-					RawOrigin::Root.into(),
-					block_delay
-				),
-			);
+			assert_ok!(Migration::set_block_delay(RawOrigin::Root.into(), block_delay),);
 		});
 	}
 }
