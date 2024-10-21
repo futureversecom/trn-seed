@@ -18,7 +18,7 @@ use crate::mock::{
 	AssetsExt, DelayedPaymentBlockLimit, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System,
 	Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod, XrplPalletId,
 };
-use crate::types::{XRPLCurrency, XRPLCurrencyType};
+use crate::types::{XRPLCurrency, XRPLCurrencyType, XrplTransaction::NFTokenAcceptOffer};
 use frame_support::traits::fungibles::metadata::Inspect as InspectMetadata;
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
@@ -3983,4 +3983,108 @@ mod withdraw_root {
 				);
 			})
 	}
+}
+
+#[test]
+fn generate_nft_accept_offer_works() {
+	let tx_fee = 100;
+	TestExt::<Test>::default().build().execute_with(|| {
+		System::set_block_number(1);
+		let relayer = create_account(1);
+		let nftoken_sell_offer = [2_u8; 32];
+
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+		// set door address
+		let door = H160::from([3_u8; 20]);
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::NFT,
+			Some(door)
+		));
+		// door_tx_fee to 100
+		assert_ok!(XRPLBridge::set_door_tx_fee(
+			frame_system::RawOrigin::Root.into(),
+			XRPLDoorAccount::NFT,
+			tx_fee as u64
+		));
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::NFT,
+			1_u32,
+			1_u32,
+			200_u32
+		));
+
+		System::reset_events();
+		assert_ok!(XRPLBridge::generate_nft_accept_offer(
+			RuntimeOrigin::signed(relayer),
+			nftoken_sell_offer
+		));
+
+		System::assert_has_event(
+			Event::<Test>::XrplTxSignRequest {
+				proof_id: 1,
+				tx: NFTokenAcceptOffer(NFTokenAcceptOfferTransaction {
+					nftoken_sell_offer,
+					tx_fee,
+					tx_ticket_sequence: 1,
+					account: door,
+				}),
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn generate_nft_accept_offer_failure_scenarios() {
+	let tx_fee = 100;
+	TestExt::<Test>::default().build().execute_with(|| {
+		System::set_block_number(1);
+		let relayer = create_account(1);
+		let nftoken_sell_offer = [2_u8; 32];
+
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+
+		// door address and parameters not set should fail
+		assert_noop!(
+			XRPLBridge::generate_nft_accept_offer(
+				RuntimeOrigin::signed(relayer),
+				nftoken_sell_offer
+			),
+			Error::<Test>::DoorAddressNotSet,
+		);
+
+		// set door address
+		let door = H160::from([3_u8; 20]);
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::NFT,
+			Some(door)
+		));
+		// door_tx_fee to 100
+		assert_ok!(XRPLBridge::set_door_tx_fee(
+			frame_system::RawOrigin::Root.into(),
+			XRPLDoorAccount::NFT,
+			tx_fee as u64
+		));
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::NFT,
+			1_u32,
+			1_u32,
+			200_u32
+		));
+
+		// only the relayer can request
+		assert_noop!(
+			XRPLBridge::generate_nft_accept_offer(
+				RuntimeOrigin::signed(create_account(2)),
+				nftoken_sell_offer
+			),
+			Error::<Test>::NotPermitted,
+		);
+	});
 }
