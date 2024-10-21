@@ -121,14 +121,14 @@ mod set_block_delay {
 			let block_delay = Some(0);
 			assert_noop!(
 				Migration::set_block_delay(RawOrigin::Root.into(), block_delay),
-				InvalidBlockDelay
+				Error::<Test>::InvalidBlockDelay
 			);
 
 			// One is invalid (As this is the same as None)
 			let block_delay = Some(1);
 			assert_noop!(
 				Migration::set_block_delay(RawOrigin::Root.into(), block_delay),
-				InvalidBlockDelay
+				Error::<Test>::InvalidBlockDelay
 			);
 
 			// 2 and greater should be ok

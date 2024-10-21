@@ -16,7 +16,7 @@
 use super::*;
 #[allow(unused_imports)]
 use crate::Pallet as Migration;
-use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
+use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_support::StorageHasher;
 use frame_system::RawOrigin;
 use seed_primitives::{CollectionUuid, SerialNumber};
@@ -27,8 +27,9 @@ benchmarks! {
 		let weight_limit = T::MaxMigrationWeight::get();
 		Status::<T>::put(MigrationStatus::InProgress { steps_done: 0 });
 		MigrationEnabled::<T>::put(true);
+		let block_number: BlockNumberFor<T> = 1_u32.into();
 	}: {
-		Migration::<T>::migrate(weight_limit)
+		Migration::<T>::migrate(block_number, weight_limit)
 	} verify {
 		assert_eq!( Status::<T>::get(), MigrationStatus::Completed);
 	}
