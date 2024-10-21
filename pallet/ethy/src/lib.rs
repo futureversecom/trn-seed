@@ -422,8 +422,8 @@ pub mod pallet {
 		/// A proof for the change will be generated with the given `event_id`
 		AuthoritySetChange { event_proof_id: EventProofId, validator_set_id: u64 },
 		/// A notary (validator) set change for Xrpl is in motion
-		/// A proof for the change will be generated with the given `event_id`
-		XrplAuthoritySetChange { event_proof_id: EventProofId, validator_set_id: u64 },
+		/// A set of proofs for the change will be generated with the given `event_proof_ids`
+		XrplAuthoritySetChange { event_proof_ids: Vec<EventProofId>, validator_set_id: u64 },
 		/// Generating event proof delayed as bridge is paused
 		ProofDelayed { event_proof_id: EventProofId },
 		/// Processing an event succeeded

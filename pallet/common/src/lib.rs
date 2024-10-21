@@ -280,7 +280,7 @@ pub trait EthyToXrplBridgeAdapter<AccountId> {
 	/// Request xrpl-bridge to submit signer_list_set.
 	fn submit_signer_list_set_request(
 		_: Vec<(AccountId, u16)>,
-	) -> Result<EventProofId, DispatchError>;
+	) -> Result<Vec<EventProofId>, DispatchError>;
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]
