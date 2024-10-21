@@ -505,12 +505,20 @@ fn process_transaction_challenge_works() {
 fn set_door_tx_fee_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let new_fee = 123456_u64;
-		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), new_fee));
-		assert_eq!(XRPLBridge::door_tx_fee(), new_fee);
+		assert_ok!(XRPLBridge::set_door_tx_fee(
+			frame_system::RawOrigin::Root.into(),
+			XRPLDoorAccount::Main,
+			new_fee
+		));
+		assert_eq!(XRPLBridge::door_tx_fee(XRPLDoorAccount::Main), new_fee);
+		assert_eq!(XRPLBridge::door_tx_fee(XRPLDoorAccount::NFT), 1000000);
 
 		// Only root can sign this tx, this should fail
 		let account = AccountId::from(H160::from_slice(b"6490B68F1116BFE87DDC"));
-		assert_noop!(XRPLBridge::set_door_tx_fee(RuntimeOrigin::signed(account), 0), BadOrigin);
+		assert_noop!(
+			XRPLBridge::set_door_tx_fee(RuntimeOrigin::signed(account), XRPLDoorAccount::Main, 0),
+			BadOrigin
+		);
 	});
 }
 
@@ -534,7 +542,11 @@ fn set_xrp_source_tag_works() {
 fn withdraw_request_works() {
 	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
 		// For this test we will set the door_tx_fee to 0
-		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+		assert_ok!(XRPLBridge::set_door_tx_fee(
+			frame_system::RawOrigin::Root.into(),
+			XRPLDoorAccount::Main,
+			0_u64
+		));
 
 		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
@@ -544,6 +556,7 @@ fn withdraw_request_works() {
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			1_u32,
 			1_u32,
 			200_u32
@@ -554,7 +567,11 @@ fn withdraw_request_works() {
 			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1000, destination),
 			Error::<Test>::DoorAddressNotSet
 		);
-		assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
+			Some(door)
+		));
 
 		// Withdraw half of available xrp
 		assert_ok!(XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1000, destination));
@@ -584,7 +601,11 @@ fn withdraw_request_works() {
 fn withdraw_request_with_destination_tag_works() {
 	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
 		// For this test we will set the door_tx_fee to 0
-		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+		assert_ok!(XRPLBridge::set_door_tx_fee(
+			frame_system::RawOrigin::Root.into(),
+			XRPLDoorAccount::Main,
+			0_u64
+		));
 
 		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
@@ -594,6 +615,7 @@ fn withdraw_request_with_destination_tag_works() {
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			1_u32,
 			1_u32,
 			200_u32
@@ -611,7 +633,11 @@ fn withdraw_request_with_destination_tag_works() {
 			),
 			Error::<Test>::DoorAddressNotSet
 		);
-		assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
+			Some(door)
+		));
 
 		// Withdraw half of available xrp
 		assert_ok!(XRPLBridge::withdraw_xrp_with_destination_tag(
@@ -662,7 +688,11 @@ fn withdraw_request_with_destination_tag_works_with_door_fee() {
 	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
 		// For this test we will set the door_tx_fee to 100
 		let door_tx_fee = 100_u64;
-		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), door_tx_fee));
+		assert_ok!(XRPLBridge::set_door_tx_fee(
+			frame_system::RawOrigin::Root.into(),
+			XRPLDoorAccount::Main,
+			door_tx_fee
+		));
 		let account = create_account(1);
 		process_transaction(account); // 2000 XRP deposited
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
@@ -673,6 +703,7 @@ fn withdraw_request_with_destination_tag_works_with_door_fee() {
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			1_u32,
 			1_u32,
 			200_u32
@@ -680,7 +711,8 @@ fn withdraw_request_with_destination_tag_works_with_door_fee() {
 		// set door address
 		assert_ok!(XRPLBridge::set_door_address(
 			RuntimeOrigin::root(),
-			b"6490B68F1116BFE87DDC".into()
+			XRPLDoorAccount::Main,
+			Some(b"6490B68F1116BFE87DDC".into())
 		));
 
 		assert_ok!(XRPLBridge::withdraw_xrp_with_destination_tag(
@@ -727,7 +759,11 @@ fn withdraw_request_works_with_door_fee() {
 	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
 		// For this test we will set the door_tx_fee to 100
 		let door_tx_fee = 100_u64;
-		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), door_tx_fee));
+		assert_ok!(XRPLBridge::set_door_tx_fee(
+			frame_system::RawOrigin::Root.into(),
+			XRPLDoorAccount::Main,
+			door_tx_fee
+		));
 		let account = create_account(1);
 		process_transaction(account); // 2000 XRP deposited
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
@@ -737,6 +773,7 @@ fn withdraw_request_works_with_door_fee() {
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			1_u32,
 			1_u32,
 			200_u32
@@ -744,7 +781,8 @@ fn withdraw_request_works_with_door_fee() {
 		// set door address
 		assert_ok!(XRPLBridge::set_door_address(
 			RuntimeOrigin::root(),
-			b"6490B68F1116BFE87DDC".into()
+			XRPLDoorAccount::Main,
+			Some(b"6490B68F1116BFE87DDC".into())
 		));
 
 		assert_ok!(XRPLBridge::withdraw_xrp(
@@ -784,10 +822,15 @@ fn withdraw_request_burn_fails() {
 	TestExt::<Test>::default().with_asset(2, "XRP", &[]).build().execute_with(|| {
 		// For this test we will set the door_tx_fee to 0 so we can ensure the Underflow is due to
 		// the withdraw logic, not the door_tx_fee
-		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+		assert_ok!(XRPLBridge::set_door_tx_fee(
+			frame_system::RawOrigin::Root.into(),
+			XRPLDoorAccount::Main,
+			0_u64
+		));
 		assert_ok!(XRPLBridge::set_door_address(
 			RuntimeOrigin::root(),
-			b"6490B68F1116BFE87DDC".into()
+			XRPLDoorAccount::Main,
+			Some(b"6490B68F1116BFE87DDC".into())
 		));
 
 		let account = create_account(2);
@@ -805,9 +848,32 @@ fn set_door_address_success() {
 		let xprl_door_address = b"6490B68F1116BFE87DDD";
 		assert_ok!(XRPLBridge::set_door_address(
 			RuntimeOrigin::root(),
-			H160::from(xprl_door_address)
+			XRPLDoorAccount::Main,
+			Some(H160::from(xprl_door_address))
 		));
-		assert_eq!(XRPLBridge::door_address(), Some(H160::from_slice(xprl_door_address)));
+		assert_eq!(
+			XRPLBridge::door_address(XRPLDoorAccount::Main),
+			Some(H160::from_slice(xprl_door_address))
+		);
+		assert_eq!(XRPLBridge::door_address(XRPLDoorAccount::NFT), None);
+
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::NFT,
+			Some(H160::from(xprl_door_address))
+		));
+		assert_eq!(
+			XRPLBridge::door_address(XRPLDoorAccount::NFT),
+			Some(H160::from_slice(xprl_door_address))
+		);
+
+		// remove door address
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
+			None
+		));
+		assert_eq!(XRPLBridge::door_address(XRPLDoorAccount::Main), None);
 	})
 }
 
@@ -819,11 +885,12 @@ fn set_door_address_fail() {
 		assert_noop!(
 			XRPLBridge::set_door_address(
 				RuntimeOrigin::signed(AccountId::from(caller)),
-				H160::from(xprl_door_address)
+				XRPLDoorAccount::Main,
+				Some(H160::from(xprl_door_address))
 			),
 			BadOrigin
 		);
-		assert_eq!(XRPLBridge::door_address(), None);
+		assert_eq!(XRPLBridge::door_address(XRPLDoorAccount::Main), None);
 	})
 }
 
@@ -1661,22 +1728,32 @@ fn withdraw_with_payment_delay_works() {
 			let block_number = System::block_number();
 
 			// Set initial parameters
-			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			assert_ok!(XRPLBridge::set_door_tx_fee(
+				frame_system::RawOrigin::Root.into(),
+				XRPLDoorAccount::Main,
+				0_u64
+			));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
 				XrpAssetId::get(),
 				payment_delay
 			));
-			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+			assert_ok!(XRPLBridge::set_door_address(
+				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
+				Some(door)
+			));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
 				1_u32,
 				1_u32,
 				200_u32
 			));
 
 			// Get door ticket sequence before
-			let next_ticket_sequence = XRPLBridge::get_door_ticket_sequence().unwrap() + 1;
+			let next_ticket_sequence =
+				XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main).unwrap() + 1;
 			// Check NextPaymentId before
 			let delayed_payment_id = NextDelayedPaymentId::<Test>::get();
 			let payment_block = block_number + delay_blocks;
@@ -1751,6 +1828,7 @@ fn withdraw_with_payment_delay_using_different_asset_ids_works() {
 
 				assert_ok!(XRPLBridge::set_door_tx_fee(
 					frame_system::RawOrigin::Root.into(),
+					XRPLDoorAccount::Main,
 					0_u64
 				));
 				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
@@ -1776,11 +1854,16 @@ fn withdraw_with_payment_delay_using_different_asset_ids_works() {
 				// set initial ticket sequence params
 				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
 					1_u32,
 					1_u32,
 					200_u32
 				));
-				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+				assert_ok!(XRPLBridge::set_door_address(
+					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
+					Some(door)
+				));
 				// Check NextPaymentId before
 				let delayed_payment_id = NextDelayedPaymentId::<Test>::get();
 				let payment_block = block_number + delay_blocks;
@@ -1828,22 +1911,32 @@ fn withdraw_with_destination_tag_payment_delay_works() {
 			let payment_block = block_number + delay_blocks;
 
 			// Set initial parameters
-			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			assert_ok!(XRPLBridge::set_door_tx_fee(
+				frame_system::RawOrigin::Root.into(),
+				XRPLDoorAccount::Main,
+				0_u64
+			));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
 				XrpAssetId::get(),
 				payment_delay
 			));
-			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+			assert_ok!(XRPLBridge::set_door_address(
+				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
+				Some(door)
+			));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
 				1_u32,
 				1_u32,
 				200_u32
 			));
 
 			// Get door ticket sequence before
-			let next_ticket_sequence = XRPLBridge::get_door_ticket_sequence().unwrap() + 1;
+			let next_ticket_sequence =
+				XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main).unwrap() + 1;
 			// Check NextPaymentId before
 			let delayed_payment_id = NextDelayedPaymentId::<Test>::get();
 
@@ -1909,15 +2002,24 @@ fn withdraw_below_payment_delay_does_not_delay_payment() {
 			let payment_delay = Some((100, 1000));
 
 			// Set initial parameters
-			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			assert_ok!(XRPLBridge::set_door_tx_fee(
+				frame_system::RawOrigin::Root.into(),
+				XRPLDoorAccount::Main,
+				0_u64
+			));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
 				XrpAssetId::get(),
 				payment_delay
 			));
-			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+			assert_ok!(XRPLBridge::set_door_address(
+				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
+				Some(door)
+			));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
 				1_u32,
 				1_u32,
 				200_u32
@@ -1970,15 +2072,24 @@ fn process_delayed_payments_works() {
 			let payment_delay = Some((100, 1000)); // (min_balance, delay)
 
 			// Set initial parameters
-			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			assert_ok!(XRPLBridge::set_door_tx_fee(
+				frame_system::RawOrigin::Root.into(),
+				XRPLDoorAccount::Main,
+				0_u64
+			));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
 				XrpAssetId::get(),
 				payment_delay
 			));
-			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+			assert_ok!(XRPLBridge::set_door_address(
+				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
+				Some(door)
+			));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
 				1_u32,
 				1_u32,
 				200_u32
@@ -2040,15 +2151,24 @@ fn process_delayed_payments_works_in_on_idle() {
 			let payment_delay = Some((100, 1000)); // (min_balance, delay)
 
 			// Set initial parameters
-			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			assert_ok!(XRPLBridge::set_door_tx_fee(
+				frame_system::RawOrigin::Root.into(),
+				XRPLDoorAccount::Main,
+				0_u64
+			));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
 				XrpAssetId::get(),
 				payment_delay
 			));
-			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+			assert_ok!(XRPLBridge::set_door_address(
+				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
+				Some(door)
+			));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
 				1_u32,
 				1_u32,
 				200_u32
@@ -2107,15 +2227,24 @@ fn process_delayed_payments_multiple_withdrawals() {
 			let payment_delay = Some((10, 1000)); // (min_balance, delay)
 
 			// Set initial parameters
-			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			assert_ok!(XRPLBridge::set_door_tx_fee(
+				frame_system::RawOrigin::Root.into(),
+				XRPLDoorAccount::Main,
+				0_u64
+			));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
 				XrpAssetId::get(),
 				payment_delay
 			));
-			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+			assert_ok!(XRPLBridge::set_door_address(
+				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
+				Some(door)
+			));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
 				1_u32,
 				1_u32,
 				200_u32
@@ -2183,15 +2312,24 @@ fn process_delayed_payments_multiple_withdrawals_across_multiple_blocks() {
 			let payment_delay = Some((10, 1000)); // (min_balance, delay)
 
 			// Set initial parameters
-			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			assert_ok!(XRPLBridge::set_door_tx_fee(
+				frame_system::RawOrigin::Root.into(),
+				XRPLDoorAccount::Main,
+				0_u64
+			));
 			assert_ok!(XRPLBridge::set_payment_delay(
 				RuntimeOrigin::root(),
 				XrpAssetId::get(),
 				payment_delay
 			));
-			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+			assert_ok!(XRPLBridge::set_door_address(
+				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
+				Some(door)
+			));
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
 				1_u32,
 				1_u32,
 				200_u32
@@ -2251,7 +2389,11 @@ fn process_delayed_payments_multiple_withdrawals_across_multiple_blocks() {
 fn process_delayed_payments_nothing_to_process_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
-		assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
+			Some(door)
+		));
 		let delayed_payment_block_limit = DelayedPaymentBlockLimit::get(); // 1000
 																   // Set next process block to 0
 		NextDelayProcessBlock::<Test>::put(0);
@@ -2283,7 +2425,11 @@ fn process_delayed_payments_nothing_to_process_works() {
 fn process_delayed_payments_does_not_exceed_max_delayed_payments() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
-		assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
+			Some(door)
+		));
 		let delayed_payment_block_limit = DelayedPaymentBlockLimit::get(); // 1000
 																   // Set next process block to 0
 		NextDelayProcessBlock::<Test>::put(0);
@@ -2341,13 +2487,14 @@ fn get_door_ticket_sequence_success_at_start() {
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			1_u32,
 			1_u32,
 			200_u32
 		));
 
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(1));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(2));
 	})
 }
 
@@ -2359,30 +2506,43 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		assert_noop!(
-			XRPLBridge::get_door_ticket_sequence(),
+			XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main),
 			Error::<Test>::NextTicketSequenceParamsNotSet
 		);
 
 		// set the params for next round
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
 			RuntimeOrigin::signed(relayer),
+			XRPLDoorAccount::Main,
 			3_u32, // start ticket sequence next round
 			2_u32, // ticket sequence bucket size next round
 		));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
-		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
-		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
-		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(4).into());
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(3));
+		assert_eq!(
+			XRPLBridge::ticket_sequence_threshold_reached_emitted(XRPLDoorAccount::Main),
+			false
+		);
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(4));
+		assert_eq!(
+			XRPLBridge::ticket_sequence_threshold_reached_emitted(XRPLDoorAccount::Main),
+			true
+		);
+		System::assert_has_event(
+			Event::<Test>::TicketSequenceThresholdReached {
+				door_account: XRPLDoorAccount::Main,
+				current_ticket: 4,
+			}
+			.into(),
+		);
 
 		// try to fetch again - error
 		assert_err!(
-			XRPLBridge::get_door_ticket_sequence(),
+			XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main),
 			Error::<Test>::NextTicketSequenceParamsNotSet
 		);
 		// try to fetch again - error
 		assert_noop!(
-			XRPLBridge::get_door_ticket_sequence(),
+			XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main),
 			Error::<Test>::NextTicketSequenceParamsNotSet
 		);
 	})
@@ -2397,28 +2557,31 @@ fn get_door_ticket_sequence_success_over_next_round() {
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			1_u32,
 			1_u32,
 			2_u32
 		));
 
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(1));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(2));
 		// need to set the next ticket params on or before the last of current
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
 			RuntimeOrigin::signed(relayer),
+			XRPLDoorAccount::Main,
 			3_u32, // start ticket sequence next round
 			2_u32, // ticket sequence bucket size next round
 		));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(3));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(4));
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
 			RuntimeOrigin::signed(relayer),
+			XRPLDoorAccount::Main,
 			10_u32, // start ticket sequence next round
 			10_u32, // ticket sequence bucket size next round
 		));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(10));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(11));
 	})
 }
 
@@ -2431,31 +2594,34 @@ fn get_door_ticket_sequence_success_force_set_current_round() {
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			1_u32,
 			1_u32,
 			10_u32
 		));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(1));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(2));
 
 		// force set current values to (current=5 start=5, bucket_size=2)
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			5_u32,
 			5_u32,
 			3_u32
 		));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(5));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(6));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(7));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(5));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(6));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(7));
 
 		// need to set the next ticket params on or before the last of current
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
 			RuntimeOrigin::signed(relayer),
+			XRPLDoorAccount::Main,
 			11_u32, // start ticket sequence next round
 			2_u32,  // ticket sequence bucket size next round
 		));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(11));
 	})
 }
 
@@ -2468,38 +2634,51 @@ fn get_door_ticket_sequence_check_events_emitted() {
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		assert_noop!(
-			XRPLBridge::get_door_ticket_sequence(),
+			XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main),
 			Error::<Test>::NextTicketSequenceParamsNotSet
 		);
 		assert_noop!(
-			XRPLBridge::get_door_ticket_sequence(),
+			XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main),
 			Error::<Test>::NextTicketSequenceParamsNotSet
 		);
 
 		// set the params for next round
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
 			RuntimeOrigin::signed(relayer),
+			XRPLDoorAccount::Main,
 			3_u32, // start ticket sequence next round
 			3_u32, // ticket sequence bucket size next round
 		));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
-		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(3));
+		assert_eq!(
+			XRPLBridge::ticket_sequence_threshold_reached_emitted(XRPLDoorAccount::Main),
+			false
+		);
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(4));
 		// event should be emitted here since ((4 - 3) + 1)/3 = 0.66 == TicketSequenceThreshold
-		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
-		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(4).into());
+		assert_eq!(
+			XRPLBridge::ticket_sequence_threshold_reached_emitted(XRPLDoorAccount::Main),
+			true
+		);
+		System::assert_has_event(
+			Event::<Test>::TicketSequenceThresholdReached {
+				door_account: XRPLDoorAccount::Main,
+				current_ticket: 4,
+			}
+			.into(),
+		);
 
 		// try to fetch again - error - but no TicketSequenceThresholdReached
 		System::reset_events();
 		assert_eq!(System::events(), []);
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(5));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(5));
 		assert_eq!(System::events(), []);
 
 		// try to fetch again - error - but no TicketSequenceThresholdReached
 		System::reset_events();
 		assert_eq!(System::events(), []);
 		assert_noop!(
-			XRPLBridge::get_door_ticket_sequence(),
+			XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main),
 			Error::<Test>::NextTicketSequenceParamsNotSet
 		);
 		assert_eq!(System::events(), []);
@@ -2507,10 +2686,11 @@ fn get_door_ticket_sequence_check_events_emitted() {
 		// set the params for next round
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
 			RuntimeOrigin::signed(relayer),
+			XRPLDoorAccount::Main,
 			10_u32, // start ticket sequence next round
 			5_u32,  // ticket sequence bucket size next round
 		));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(10));
 	})
 }
 
@@ -2525,12 +2705,14 @@ fn set_ticket_sequence_current_allocation_success() {
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			1_u32,
 			1_u32,
 			200_u32
 		));
 		System::assert_has_event(
 			Event::<Test>::DoorTicketSequenceParamSet {
+				door_account: XRPLDoorAccount::Main,
 				ticket_sequence: 1_u32,
 				ticket_sequence_start: 1_u32,
 				ticket_bucket_size: 200_u32,
@@ -2538,25 +2720,27 @@ fn set_ticket_sequence_current_allocation_success() {
 			.into(),
 		);
 
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(1));
 
 		// Force set the current param set
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			10_u32,
 			1_u32,
 			200_u32
 		));
 		System::assert_has_event(
 			Event::<Test>::DoorTicketSequenceParamSet {
+				door_account: XRPLDoorAccount::Main,
 				ticket_sequence: 10_u32,
 				ticket_sequence_start: 1_u32,
 				ticket_bucket_size: 200_u32,
 			}
 			.into(),
 		);
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(10));
 	})
 }
 
@@ -2571,12 +2755,14 @@ fn set_ticket_sequence_current_allocation_failure() {
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			1_u32,
 			1_u32,
 			200_u32
 		));
 		System::assert_has_event(
 			Event::<Test>::DoorTicketSequenceParamSet {
+				door_account: XRPLDoorAccount::Main,
 				ticket_sequence: 1_u32,
 				ticket_sequence_start: 1_u32,
 				ticket_bucket_size: 200_u32,
@@ -2584,13 +2770,14 @@ fn set_ticket_sequence_current_allocation_failure() {
 			.into(),
 		);
 
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(1));
 
 		// Force set the current param set with ticket_bucket_size = 0
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
 				10_u32,
 				10_u32,
 				0_u32
@@ -2599,13 +2786,14 @@ fn set_ticket_sequence_current_allocation_failure() {
 		);
 
 		// try to fetch it, should give the next ticket sequence in current allocation
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(2));
 
 		// Force set the current param set with ticket_sequence < current ticket_sequence
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
 				2_u32,
 				1_u32,
 				200_u32
@@ -2619,6 +2807,7 @@ fn set_ticket_sequence_current_allocation_failure() {
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
 				10_u32,
 				0_u32,
 				200_u32
@@ -2627,13 +2816,14 @@ fn set_ticket_sequence_current_allocation_failure() {
 		);
 
 		// try to fetch it, should give the next ticket sequence in current allocation
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(3));
 
 		// Force set the current param set with valid params, but with relayer
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::signed(relayer),
+				XRPLDoorAccount::Main,
 				10_u32,
 				1_u32,
 				200_u32
@@ -2645,13 +2835,14 @@ fn set_ticket_sequence_current_allocation_failure() {
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			10_u32,
 			1_u32,
 			200_u32
 		));
 
 		// try to fetch it, should give the start of the new allocation
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(10));
 	})
 }
 
@@ -2666,11 +2857,13 @@ fn set_ticket_sequence_next_allocation_success() {
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
 			RuntimeOrigin::signed(relayer),
+			XRPLDoorAccount::Main,
 			1_u32,
 			200_u32
 		));
 		System::assert_has_event(
 			Event::<Test>::DoorNextTicketSequenceParamSet {
+				door_account: XRPLDoorAccount::Main,
 				ticket_sequence_start_next: 1_u32,
 				ticket_bucket_size_next: 200_u32,
 			}
@@ -2682,35 +2875,39 @@ fn set_ticket_sequence_next_allocation_success() {
 		// set_ticket_sequence_current_allocation(). This demonstrates that even without it, setting
 		// the next params would be enough. It will switch over and continue switch over happened,
 		// should give start of the next allocation(1,200)
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(1));
 
 		// Force update the current param set
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			10_u32,
 			1_u32,
 			12_u32
 		));
 		System::assert_has_event(
 			Event::<Test>::DoorTicketSequenceParamSet {
+				door_account: XRPLDoorAccount::Main,
 				ticket_sequence: 10_u32,
 				ticket_sequence_start: 1_u32,
 				ticket_bucket_size: 12_u32,
 			}
 			.into(),
 		);
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(10));
 
 		// set the next params
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
 			RuntimeOrigin::signed(relayer),
+			XRPLDoorAccount::Main,
 			15_u32,
 			10_u32
 		));
 		System::assert_has_event(
 			Event::<Test>::DoorNextTicketSequenceParamSet {
+				door_account: XRPLDoorAccount::Main,
 				ticket_sequence_start_next: 15_u32,
 				ticket_bucket_size_next: 10_u32,
 			}
@@ -2719,11 +2916,11 @@ fn set_ticket_sequence_next_allocation_success() {
 
 		// try to fetch, should still give the next in current allocation(11) since current
 		// allocation is not consumed yet
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(12));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(11));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(12));
 
 		// current allocation exhausted, switch over and give start of next allocation
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(15));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(15));
 	})
 }
 
@@ -2738,12 +2935,14 @@ fn set_ticket_sequence_next_allocation_failure() {
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 			RuntimeOrigin::root(),
+			XRPLDoorAccount::Main,
 			1_u32,
 			1_u32,
 			5_u32
 		));
 		System::assert_has_event(
 			Event::<Test>::DoorTicketSequenceParamSet {
+				door_account: XRPLDoorAccount::Main,
 				ticket_sequence: 1_u32,
 				ticket_sequence_start: 1_u32,
 				ticket_bucket_size: 5_u32,
@@ -2751,13 +2950,14 @@ fn set_ticket_sequence_next_allocation_failure() {
 			.into(),
 		);
 
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(1));
 
 		// set the next param set with ticket_bucket_size = 0
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_next_allocation(
 				RuntimeOrigin::signed(relayer),
+				XRPLDoorAccount::Main,
 				10_u32,
 				0_u32
 			),
@@ -2765,13 +2965,14 @@ fn set_ticket_sequence_next_allocation_failure() {
 		);
 
 		// try to fetch it, should give the next ticket sequence in current allocation
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(2));
 
 		// set the next param set with start_ticket_sequence < current ticket_sequence
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_next_allocation(
 				RuntimeOrigin::signed(relayer),
+				XRPLDoorAccount::Main,
 				1_u32,
 				200_u32
 			),
@@ -2783,6 +2984,7 @@ fn set_ticket_sequence_next_allocation_failure() {
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_next_allocation(
 				RuntimeOrigin::signed(relayer),
+				XRPLDoorAccount::Main,
 				0_u32,
 				200_u32
 			),
@@ -2790,13 +2992,14 @@ fn set_ticket_sequence_next_allocation_failure() {
 		);
 
 		// try to fetch it, should give the next ticket sequence in current allocation
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(3));
 
 		// set the next param set with valid params, but with !relayer
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_next_allocation(
 				RuntimeOrigin::signed(create_account(2)),
+				XRPLDoorAccount::Main,
 				10_u32,
 				200_u32
 			),
@@ -2807,11 +3010,13 @@ fn set_ticket_sequence_next_allocation_failure() {
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
 			RuntimeOrigin::signed(relayer),
+			XRPLDoorAccount::Main,
 			10_u32,
 			200_u32
 		));
 		System::assert_has_event(
 			Event::<Test>::DoorNextTicketSequenceParamSet {
+				door_account: XRPLDoorAccount::Main,
 				ticket_sequence_start_next: 10_u32,
 				ticket_bucket_size_next: 200_u32,
 			}
@@ -2819,11 +3024,11 @@ fn set_ticket_sequence_next_allocation_failure() {
 		);
 
 		// try to fetch it, should give from the current allocation
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(5));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(4));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(5));
 
 		// switch over
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(10));
 	})
 }
 
@@ -3056,6 +3261,7 @@ mod withdraw_asset {
 				// For this test we will set the door_tx_fee to 0
 				assert_ok!(XRPLBridge::set_door_tx_fee(
 					frame_system::RawOrigin::Root.into(),
+					XRPLDoorAccount::Main,
 					0_u64
 				));
 				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
@@ -3075,11 +3281,16 @@ mod withdraw_asset {
 				// set initial ticket sequence params
 				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
 					1_u32,
 					1_u32,
 					200_u32
 				));
-				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+				assert_ok!(XRPLBridge::set_door_address(
+					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
+					Some(door)
+				));
 
 				// Withdraw full amount
 				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
@@ -3127,7 +3338,11 @@ mod withdraw_asset {
 			assert_ok!(AssetsExt::mint(Some(alice()).into(), asset_id, alice(), initial_balance));
 
 			// For this test we will set the door_tx_fee to 0
-			assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
+			assert_ok!(XRPLBridge::set_door_tx_fee(
+				frame_system::RawOrigin::Root.into(),
+				XRPLDoorAccount::Main,
+				0_u64
+			));
 			let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
 
 			// Setup the asset map
@@ -3145,11 +3360,16 @@ mod withdraw_asset {
 			// set initial ticket sequence params
 			assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
 				1_u32,
 				1_u32,
 				200_u32
 			));
-			assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+			assert_ok!(XRPLBridge::set_door_address(
+				RuntimeOrigin::root(),
+				XRPLDoorAccount::Main,
+				Some(door)
+			));
 
 			// Withdraw full amount
 			let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
@@ -3193,6 +3413,7 @@ mod withdraw_asset {
 				// For this test we will set the door_tx_fee to 0
 				assert_ok!(XRPLBridge::set_door_tx_fee(
 					frame_system::RawOrigin::Root.into(),
+					XRPLDoorAccount::Main,
 					0_u64
 				));
 				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
@@ -3200,11 +3421,16 @@ mod withdraw_asset {
 				// set initial ticket sequence params
 				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
 					1_u32,
 					1_u32,
 					200_u32
 				));
-				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+				assert_ok!(XRPLBridge::set_door_address(
+					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
+					Some(door)
+				));
 
 				// Withdraw full amount
 				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
@@ -3232,6 +3458,7 @@ mod withdraw_asset {
 				// For this test we will set the door_tx_fee to 0
 				assert_ok!(XRPLBridge::set_door_tx_fee(
 					frame_system::RawOrigin::Root.into(),
+					XRPLDoorAccount::Main,
 					0_u64
 				));
 				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
@@ -3251,11 +3478,16 @@ mod withdraw_asset {
 				// set initial ticket sequence params
 				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
 					1_u32,
 					1_u32,
 					200_u32
 				));
-				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+				assert_ok!(XRPLBridge::set_door_address(
+					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
+					Some(door)
+				));
 
 				// Withdraw full amount fails as it will saturate more than 1.0 off the amount
 				assert_noop!(
@@ -3282,6 +3514,7 @@ mod withdraw_asset {
 				// For this test we will set the door_tx_fee to 0
 				assert_ok!(XRPLBridge::set_door_tx_fee(
 					frame_system::RawOrigin::Root.into(),
+					XRPLDoorAccount::Main,
 					0_u64
 				));
 				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
@@ -3301,11 +3534,16 @@ mod withdraw_asset {
 				// set initial ticket sequence params
 				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
 					1_u32,
 					1_u32,
 					200_u32
 				));
-				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+				assert_ok!(XRPLBridge::set_door_address(
+					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
+					Some(door)
+				));
 
 				// No tokens left to withdraw, should fail as account is reaped
 				assert_noop!(
@@ -3332,6 +3570,7 @@ mod withdraw_asset {
 				// For this test we will set the door_tx_fee to 0
 				assert_ok!(XRPLBridge::set_door_tx_fee(
 					frame_system::RawOrigin::Root.into(),
+					XRPLDoorAccount::Main,
 					0_u64
 				));
 
@@ -3350,6 +3589,7 @@ mod withdraw_asset {
 				// set initial ticket sequence params
 				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
 					1_u32,
 					1_u32,
 					200_u32
@@ -3382,6 +3622,7 @@ mod withdraw_asset {
 				// For this test we will set the door_tx_fee to 1000
 				assert_ok!(XRPLBridge::set_door_tx_fee(
 					frame_system::RawOrigin::Root.into(),
+					XRPLDoorAccount::Main,
 					tx_fee as u64
 				));
 				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
@@ -3401,11 +3642,16 @@ mod withdraw_asset {
 				// set initial ticket sequence params
 				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
 					1_u32,
 					1_u32,
 					200_u32
 				));
-				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+				assert_ok!(XRPLBridge::set_door_address(
+					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
+					Some(door)
+				));
 
 				// Withdraw full amount should succeed
 				assert_ok!(XRPLBridge::withdraw(
@@ -3433,6 +3679,7 @@ mod withdraw_asset {
 				// For this test we will set the door_tx_fee to 1
 				assert_ok!(XRPLBridge::set_door_tx_fee(
 					frame_system::RawOrigin::Root.into(),
+					XRPLDoorAccount::Main,
 					tx_fee
 				));
 				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
@@ -3452,11 +3699,16 @@ mod withdraw_asset {
 				// set initial ticket sequence params
 				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
 					1_u32,
 					1_u32,
 					200_u32
 				));
-				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+				assert_ok!(XRPLBridge::set_door_address(
+					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
+					Some(door)
+				));
 
 				// Withdraw full amount should fail as we don't have 1 XRP to cover the tx fee
 				assert_noop!(
@@ -3486,6 +3738,7 @@ mod withdraw_root {
 				// For this test we will set the door_tx_fee to 0
 				assert_ok!(XRPLBridge::set_door_tx_fee(
 					frame_system::RawOrigin::Root.into(),
+					XRPLDoorAccount::Main,
 					0_u64
 				));
 				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
@@ -3505,11 +3758,16 @@ mod withdraw_root {
 				// set initial ticket sequence params
 				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
 					1_u32,
 					1_u32,
 					200_u32
 				));
-				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+				assert_ok!(XRPLBridge::set_door_address(
+					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
+					Some(door)
+				));
 
 				// Withdraw full amount
 				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
@@ -3554,6 +3812,7 @@ mod withdraw_root {
 				// For this test we will set the door_tx_fee to 0
 				assert_ok!(XRPLBridge::set_door_tx_fee(
 					frame_system::RawOrigin::Root.into(),
+					XRPLDoorAccount::Main,
 					0_u64
 				));
 				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
@@ -3573,11 +3832,16 @@ mod withdraw_root {
 				// set initial ticket sequence params
 				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
 					1_u32,
 					1_u32,
 					200_u32
 				));
-				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+				assert_ok!(XRPLBridge::set_door_address(
+					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
+					Some(door)
+				));
 
 				// Withdraw full amount fails due to insufficient balance
 				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
@@ -3606,6 +3870,7 @@ mod withdraw_root {
 				// For this test we will set the door_tx_fee to 100
 				assert_ok!(XRPLBridge::set_door_tx_fee(
 					frame_system::RawOrigin::Root.into(),
+					XRPLDoorAccount::Main,
 					tx_fee as u64
 				));
 				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
@@ -3625,11 +3890,16 @@ mod withdraw_root {
 				// set initial ticket sequence params
 				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
 					1_u32,
 					1_u32,
 					200_u32
 				));
-				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+				assert_ok!(XRPLBridge::set_door_address(
+					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
+					Some(door)
+				));
 
 				// Withdraw full amount
 				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
@@ -3668,6 +3938,7 @@ mod withdraw_root {
 				// For this test we will set the door_tx_fee to 100
 				assert_ok!(XRPLBridge::set_door_tx_fee(
 					frame_system::RawOrigin::Root.into(),
+					XRPLDoorAccount::Main,
 					tx_fee as u64
 				));
 				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
@@ -3687,11 +3958,16 @@ mod withdraw_root {
 				// set initial ticket sequence params
 				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
 					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
 					1_u32,
 					1_u32,
 					200_u32
 				));
-				assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
+				assert_ok!(XRPLBridge::set_door_address(
+					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
+					Some(door)
+				));
 
 				// Withdraw full amount
 				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");

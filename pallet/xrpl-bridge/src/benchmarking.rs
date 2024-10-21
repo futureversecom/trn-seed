@@ -75,19 +75,19 @@ benchmarks! {
 		let alice_balance = amount + 1000000000;
 		let asset_id = T::XrpAssetId::get();
 
-		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), door_address));
+		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), XRPLDoorAccount::Main, Some(door_address)));
 		assert_ok!(T::MultiCurrency::mint_into(
 			asset_id,
 			&alice.clone().into(),
 			alice_balance,
 		));
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
-		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), 1, 1));
+		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), XRPLDoorAccount::Main, 1, 1));
 
 	}: _(origin::<T>(&alice), amount, destination)
 	verify {
 		let new_alice_balance = T::MultiCurrency::balance(asset_id, &alice);
-		assert_eq!(alice_balance, new_alice_balance + amount + DoorTxFee::<T>::get() as u128);
+		assert_eq!(alice_balance, new_alice_balance + amount + DoorTxFee::<T>::get(XRPLDoorAccount::Main) as u128);
 	}
 
 	withdraw_asset {
@@ -97,7 +97,7 @@ benchmarks! {
 		let door_address: XrplAccountId  = [1u8; 20].into();
 		let alice_balance = amount + 1000000000;
 		let asset_id = T::NativeAssetId::get();
-		let tx_fee = DoorTxFee::<T>::get();
+		let tx_fee = DoorTxFee::<T>::get(XRPLDoorAccount::Main);
 		let xrpl_symbol =
 			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
 		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol.clone(), issuer: destination };
@@ -108,7 +108,7 @@ benchmarks! {
 			asset_id,
 			Some(xrpl_currency)
 		));
-		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), door_address));
+		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), XRPLDoorAccount::Main, Some(door_address)));
 		// Mint ROOT tokens to withdraw
 		assert_ok!(T::MultiCurrency::mint_into(
 			asset_id,
@@ -122,7 +122,7 @@ benchmarks! {
 			tx_fee as u128,
 		));
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
-		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), 1, 1));
+		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), XRPLDoorAccount::Main, 1, 1));
 	}: withdraw(origin::<T>(&alice), asset_id, amount, destination, None)
 	verify {
 		let new_alice_balance = T::MultiCurrency::balance(asset_id, &alice);
@@ -157,11 +157,11 @@ benchmarks! {
 	set_door_tx_fee {
 		let tx_fee = 100;
 		// Sanity check
-		assert_ne!(DoorTxFee::<T>::get(), tx_fee);
+		assert_ne!(DoorTxFee::<T>::get(XRPLDoorAccount::Main), tx_fee);
 
-	}: _(RawOrigin::Root, tx_fee)
+	}: _(RawOrigin::Root, XRPLDoorAccount::Main, tx_fee)
 	verify {
-		assert_eq!(DoorTxFee::<T>::get(), tx_fee);
+		assert_eq!(DoorTxFee::<T>::get(XRPLDoorAccount::Main), tx_fee);
 	}
 
 	set_xrp_source_tag {
@@ -177,11 +177,11 @@ benchmarks! {
 	set_door_address {
 		let door_address: XrplAccountId = [1u8; 20].into();
 		// Sanity check
-		assert_ne!(DoorAddress::<T>::get(), Some(door_address));
+		assert_ne!(DoorAddress::<T>::get(XRPLDoorAccount::Main), Some(door_address));
 
-	}: _(RawOrigin::Root, door_address)
+	}: _(RawOrigin::Root, XRPLDoorAccount::Main, Some(door_address))
 	verify {
-		assert_eq!(DoorAddress::<T>::get(), Some(door_address));
+		assert_eq!(DoorAddress::<T>::get(XRPLDoorAccount::Main), Some(door_address));
 	}
 
 	set_ticket_sequence_next_allocation {
@@ -192,9 +192,9 @@ benchmarks! {
 
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
 
-	}: _(origin::<T>(&alice), start_sequence, bucket_size)
+	}: _(origin::<T>(&alice), XRPLDoorAccount::Main, start_sequence, bucket_size)
 	verify {
-		let actual_param = DoorTicketSequenceParamsNext::<T>::get();
+		let actual_param = DoorTicketSequenceParamsNext::<T>::get(XRPLDoorAccount::Main);
 		assert_eq!(actual_param, expected_param);
 	}
 
@@ -206,11 +206,11 @@ benchmarks! {
 		let expected_param = XrplTicketSequenceParams { start_sequence, bucket_size };
 
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
-		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), start_sequence, bucket_size));
+		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), XRPLDoorAccount::Main, start_sequence, bucket_size));
 
-	}: _(RawOrigin::Root, ticket_sequence, start_sequence, bucket_size)
+	}: _(RawOrigin::Root, XRPLDoorAccount::Main, ticket_sequence, start_sequence, bucket_size)
 	verify {
-		let actual_param = DoorTicketSequenceParams::<T>::get();
+		let actual_param = DoorTicketSequenceParams::<T>::get(XRPLDoorAccount::Main);
 		assert_eq!(actual_param, expected_param);
 	}
 
@@ -279,7 +279,7 @@ benchmarks! {
 		let alice = account::<T>("Alice");
 		let destination: XrplAccountId = [0u8; 20].into();
 		let asset_id = T::NativeAssetId::get();
-		let tx_fee = DoorTxFee::<T>::get();
+		let tx_fee = DoorTxFee::<T>::get(XRPLDoorAccount::Main);
 		let xrpl_symbol =
 			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
 		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol.clone(), issuer: destination };
