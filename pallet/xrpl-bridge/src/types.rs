@@ -87,6 +87,21 @@ pub struct AssetWithdrawTransaction {
 	pub issuer: XrplAccountId,
 }
 
+/// Xrpl transactions to be signed by ethy
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum XrplTransaction {
+	NFTokenAcceptOffer(NFTokenAcceptOfferTransaction),
+}
+
+/// NFTokenAcceptOffer transaction.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
+pub struct NFTokenAcceptOfferTransaction {
+	pub nftoken_sell_offer: [u8; 32],
+	pub tx_fee: u64,
+	pub tx_ticket_sequence: XrplTxTicketSequence,
+	pub account: XrplAccountId,
+}
+
 #[derive(Eq, CloneNoBound, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum XrplTxData {
 	Payment { amount: Balance, address: H160 },

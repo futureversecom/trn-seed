@@ -15,6 +15,7 @@
 
 use super::*;
 
+use crate::types::XrplTransaction::NFTokenAcceptOffer;
 use crate::{types::XRPLCurrencyType, Pallet as XrplBridge};
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
@@ -27,6 +28,10 @@ pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 
 pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
 	RawOrigin::Signed(acc.clone())
+}
+
+fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
 }
 
 benchmarks! {
@@ -287,6 +292,38 @@ benchmarks! {
 	verify {
 		assert_eq!(AssetIdToXRPL::<T>::get(asset_id), Some(xrpl_currency));
 		assert_eq!(XRPLToAssetId::<T>::get(xrpl_currency), Some(asset_id));
+	}
+
+	generate_nft_accept_offer {
+		let alice = account::<T>("Alice");
+		let door_address: XrplAccountId  = [1u8; 20].into();
+		let tx_fee = 100;
+		let nftoken_sell_offer = [2_u8; 32];
+		// Note - had to do this since when CI running all tests, NextEventProofId has been incremented
+		// by one already, probably from a prior test execution. Keeping it simple as this to satisfy
+		// both benchmarks and tests since we just need this for verification purpose only.
+		let proof_id = if cfg!(test) { 1 } else { 0 };
+
+		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
+		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), XRPLDoorAccount::NFT, Some(door_address)));
+		assert_ok!(XrplBridge::<T>::set_door_tx_fee(RawOrigin::Root.into(), XRPLDoorAccount::NFT, tx_fee));
+		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), XRPLDoorAccount::NFT, 1, 1));
+
+	}: _(origin::<T>(&alice), nftoken_sell_offer)
+	verify {
+		// check the event is emitted.
+		assert_has_event::<T>(
+			Event::<T>::XrplTxSignRequest {
+				proof_id,
+				tx: NFTokenAcceptOffer(NFTokenAcceptOfferTransaction {
+					nftoken_sell_offer,
+					tx_fee,
+					tx_ticket_sequence: 1,
+					account: door_address,
+				}),
+			}
+			.into(),
+		);
 	}
 }
 

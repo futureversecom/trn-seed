@@ -16,9 +16,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::types::{
-	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, WithdrawTransaction,
-	XRPLCurrency, XRPLDoorAccount, XrpTransaction, XrpWithdrawTransaction,
-	XrplTicketSequenceParams, XrplTxData,
+	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, NFTokenAcceptOfferTransaction,
+	WithdrawTransaction, XRPLCurrency, XRPLDoorAccount, XrpTransaction, XrpWithdrawTransaction,
+	XrplTicketSequenceParams, XrplTransaction, XrplTxData,
 };
 use frame_support::{
 	fail,
@@ -47,7 +47,9 @@ use sp_std::{prelude::*, vec};
 use xrpl_codec::{
 	field::Amount,
 	traits::BinarySerialize,
-	transaction::{Payment, PaymentAltCurrency, PaymentWithDestinationTag, SignerListSet},
+	transaction::{
+		NFTokenAcceptOffer, Payment, PaymentAltCurrency, PaymentWithDestinationTag, SignerListSet,
+	},
 	types::{AccountIdType, AmountType, IssuedAmountType, IssuedValueType},
 };
 
@@ -263,6 +265,11 @@ pub mod pallet {
 		XrplAssetMapRemoved {
 			asset_id: AssetId,
 			xrpl_currency: XRPLCurrency,
+		},
+		/// Submit XRPL Tx signing request
+		XrplTxSignRequest {
+			proof_id: u64,
+			tx: XrplTransaction,
 		},
 	}
 
@@ -819,6 +826,29 @@ pub mod pallet {
 				});
 			}
 			Ok(())
+		}
+
+		/// Generate a signing request for NFT Accept Offer
+		#[pallet::call_index(16)]
+		#[pallet::weight(T::WeightInfo::generate_nft_accept_offer())]
+		#[transactional]
+		pub fn generate_nft_accept_offer(
+			origin: OriginFor<T>,
+			nftoken_sell_offer: [u8; 32],
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			ensure!(Relayer::<T>::get(&who).unwrap_or(false), Error::<T>::NotPermitted);
+
+			let door_address =
+				Self::door_address(XRPLDoorAccount::NFT).ok_or(Error::<T>::DoorAddressNotSet)?;
+			let tx_data = XrplTransaction::NFTokenAcceptOffer(NFTokenAcceptOfferTransaction {
+				nftoken_sell_offer,
+				tx_fee: DoorTxFee::<T>::get(XRPLDoorAccount::NFT),
+				tx_ticket_sequence: Self::get_door_ticket_sequence(XRPLDoorAccount::NFT)?,
+				account: door_address,
+			});
+
+			Self::submit_xrpl_tx_for_signing(tx_data)
 		}
 	}
 }
@@ -1425,6 +1455,21 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Construct an XRPL transaction and submit for signing by ethy
+	fn submit_xrpl_tx_for_signing(tx_data: XrplTransaction) -> DispatchResult {
+		match tx_data {
+			XrplTransaction::NFTokenAcceptOffer(tx) => {
+				let tx_blob = Self::serialize_nft_accept_offer_tx(tx.clone());
+				let proof_id = T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())?;
+
+				// emit
+				Self::deposit_event(Event::XrplTxSignRequest { proof_id, tx: tx_data });
+			},
+		};
+
+		Ok(())
+	}
+
 	/// Serialise an XRP tx using the Payment type from the XRPL codec
 	fn serialize_xrp_tx(
 		tx_data: XrpWithdrawTransaction,
@@ -1557,6 +1602,29 @@ impl<T: Config> Pallet<T> {
 		let mantissa = mantissa as i64;
 
 		Ok((mantissa, exponent))
+	}
+
+	/// Serialise nft accept offer tx using NFTokenAcceptOffer type from the XRPL codec
+	fn serialize_nft_accept_offer_tx(tx_data: NFTokenAcceptOfferTransaction) -> Vec<u8> {
+		let NFTokenAcceptOfferTransaction {
+			nftoken_sell_offer,
+			tx_fee,
+			tx_ticket_sequence,
+			account,
+		} = tx_data;
+
+		let nftoken_accept_offer = NFTokenAcceptOffer::new(
+			account.0,
+			nftoken_sell_offer,
+			0, // sequence 0 since we use ticket sequences
+			tx_ticket_sequence,
+			tx_fee,
+			SourceTag::<T>::get(),
+			// omit signer key since this is a 'MultiSigner' tx
+			None,
+		);
+
+		nftoken_accept_offer.binary_serialize(true)
 	}
 
 	/// Return the current ticket sequence for the door account and increment it in storage
