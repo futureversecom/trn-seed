@@ -46,8 +46,8 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `275`
 		//  Estimated: `64003481`
-		// Minimum execution time: 20_000_000 picoseconds.
-		Weight::from_parts(21_000_000, 0)
+		// Minimum execution time: 21_000_000 picoseconds.
+		Weight::from_parts(22_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 64003481))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(2))
@@ -104,8 +104,8 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1304`
 		//  Estimated: `3627`
-		// Minimum execution time: 69_000_000 picoseconds.
-		Weight::from_parts(71_000_000, 0)
+		// Minimum execution time: 70_000_000 picoseconds.
+		Weight::from_parts(75_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 3627))
 			.saturating_add(T::DbWeight::get().reads(12))
 			.saturating_add(T::DbWeight::get().writes(8))
@@ -146,8 +146,8 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1765`
 		//  Estimated: `6172`
-		// Minimum execution time: 124_000_000 picoseconds.
-		Weight::from_parts(125_000_000, 0)
+		// Minimum execution time: 129_000_000 picoseconds.
+		Weight::from_parts(130_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 6172))
 			.saturating_add(T::DbWeight::get().reads(16))
 			.saturating_add(T::DbWeight::get().writes(10))
@@ -159,7 +159,7 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 8_000_000 picoseconds.
-		Weight::from_parts(8_000_000, 0)
+		Weight::from_parts(9_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -169,7 +169,7 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `275`
 		//  Estimated: `3502`
-		// Minimum execution time: 13_000_000 picoseconds.
+		// Minimum execution time: 14_000_000 picoseconds.
 		Weight::from_parts(14_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 3502))
 			.saturating_add(T::DbWeight::get().reads(1))
@@ -236,7 +236,7 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `250`
 		//  Estimated: `3482`
-		// Minimum execution time: 14_000_000 picoseconds.
+		// Minimum execution time: 15_000_000 picoseconds.
 		Weight::from_parts(15_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 3482))
 			.saturating_add(T::DbWeight::get().reads(2))
@@ -260,8 +260,8 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 		// Minimum execution time: 5_000_000 picoseconds.
 		Weight::from_parts(5_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 1887623333))
-			// Standard Error: 8_071
-			.saturating_add(Weight::from_parts(4_991_295, 0).saturating_mul(i.into()))
+			// Standard Error: 14_344
+			.saturating_add(Weight::from_parts(5_202_567, 0).saturating_mul(i.into()))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(i.into())))
 			.saturating_add(T::DbWeight::get().writes(3))
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(i.into())))
@@ -281,10 +281,10 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 		//  Measured:  `332 + i * (64 ±0)`
 		//  Estimated: `64003481`
 		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(13_842_160, 0)
+		Weight::from_parts(14_384_529, 0)
 			.saturating_add(Weight::from_parts(0, 64003481))
-			// Standard Error: 7_192
-			.saturating_add(Weight::from_parts(1_257_044, 0).saturating_mul(i.into()))
+			// Standard Error: 8_068
+			.saturating_add(Weight::from_parts(1_139_263, 0).saturating_mul(i.into()))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(i.into())))
@@ -298,7 +298,7 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 9_000_000 picoseconds.
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(9_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -328,8 +328,8 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `544`
 		//  Estimated: `3502`
-		// Minimum execution time: 42_000_000 picoseconds.
-		Weight::from_parts(43_000_000, 0)
+		// Minimum execution time: 40_000_000 picoseconds.
+		Weight::from_parts(42_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 3502))
 			.saturating_add(T::DbWeight::get().reads(10))
 			.saturating_add(T::DbWeight::get().writes(6))
