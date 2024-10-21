@@ -115,6 +115,39 @@ mod set_block_delay {
 			);
 		});
 	}
+
+	#[test]
+	fn set_block_delay_invalid_input_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let block_delay = Some(0);
+			assert_noop!(
+				Migration::set_block_delay(
+					RawOrigin::Root.into(),
+					block_delay
+				),
+				InvalidBlockDelay
+			);
+
+			// One is invalid (As this is the same as None)
+			let block_delay = Some(1);
+			assert_noop!(
+				Migration::set_block_delay(
+					RawOrigin::Root.into(),
+					block_delay
+				),
+				InvalidBlockDelay
+			);
+
+			// 2 and greater should be ok
+			let block_delay = Some(2);
+			assert_ok!(
+				Migration::set_block_delay(
+					RawOrigin::Root.into(),
+					block_delay
+				),
+			);
+		});
+	}
 }
 
 mod set_block_limit {

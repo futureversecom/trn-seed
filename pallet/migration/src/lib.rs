@@ -127,7 +127,10 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// The extrinsic cannot be executed while an active multi-block migration is in progress
 		MigrationInProgress,
+		/// The block delay must be set to None or a value greater than 1
+		InvalidBlockDelay,
 	}
 
 	#[pallet::hooks]
@@ -179,12 +182,16 @@ pub mod pallet {
 
 		/// Set the block delay for multi-block migrations. The block delay is the number
 		/// of blocks between each migration step. If set to None, the migration will run every block.
+		/// The delay must be greater than 1.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::enable_migration())]
 		pub fn set_block_delay(origin: OriginFor<T>, block_delay: Option<u32>) -> DispatchResult {
 			ensure_root(origin)?;
 			match block_delay {
-				Some(delay) => BlockDelay::<T>::put(delay),
+				Some(delay) => {
+					ensure!(delay > 1, Error::<T>::InvalidBlockDelay);
+					BlockDelay::<T>::put(delay);
+				},
 				None => BlockDelay::<T>::kill(),
 			}
 			Self::deposit_event(Event::BlockDelaySet { block_delay });
