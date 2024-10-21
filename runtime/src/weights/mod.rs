@@ -17,6 +17,7 @@ pub mod pallet_futurepass;
 pub mod pallet_im_online;
 pub mod pallet_maintenance_mode;
 pub mod pallet_marketplace;
+pub mod pallet_migration;
 pub mod pallet_multisig;
 pub mod pallet_nfi;
 pub mod pallet_nft;

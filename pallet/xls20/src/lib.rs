@@ -29,7 +29,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use pallet_nft::traits::NFTCollectionInfo;
-use seed_pallet_common::{NFTExt, Xls20MintRequest};
+use seed_pallet_common::{Migrator, NFTExt, Xls20MintRequest};
 use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount};
 use sp_runtime::{traits::Zero, DispatchResult, SaturatedConversion};
 use sp_std::prelude::*;
@@ -49,14 +49,14 @@ mod tests;
 
 /// TokenId type for XLS-20 Token Ids
 /// See: https://github.com/XRPLF/XRPL-Standards/discussions/46
-pub type Xls20TokenId = [u8; 64];
+pub type Xls20TokenId = [u8; 32];
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -78,6 +78,8 @@ pub mod pallet {
 		type NFTCollectionInfo: NFTCollectionInfo<AccountId = Self::AccountId>;
 		/// AssetId used to pay Xls20 Mint Fees
 		type Xls20PaymentAsset: Get<AssetId>;
+		/// Current Migrator handling the migration of storage values
+		type Migrator: Migrator;
 	}
 
 	/// The permissioned relayer
@@ -183,6 +185,7 @@ pub mod pallet {
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerXls20Mint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 
 			// serial_numbers can't be empty
 			ensure!(!serial_numbers.len().is_zero(), Error::<T>::NoToken);
@@ -226,6 +229,7 @@ pub mod pallet {
 			token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), T::MaxTokensPerXls20Mint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 
 			// Mappings can't be empty
 			ensure!(!token_mappings.is_empty(), Error::<T>::NoToken);
