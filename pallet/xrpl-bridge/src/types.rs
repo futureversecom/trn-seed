@@ -173,3 +173,14 @@ impl From<XRPLCurrencyType> for CurrencyCodeType {
 		}
 	}
 }
+
+/// XRPL side door accounts supported by TRN
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
+pub enum XRPLDoorAccount {
+	Main = 0,
+	NFT = 1,
+}
+
+impl XRPLDoorAccount {
+	pub const VALUES: [Self; 2] = [Self::Main, Self::NFT];
+}
