@@ -21,6 +21,7 @@ use codec::Codec;
 use pallet_nft::CollectionDetail;
 use pallet_nft::Config;
 use seed_primitives::types::{CollectionUuid, SerialNumber, TokenCount, TokenId};
+use sp_runtime::DispatchError;
 use sp_std::{fmt::Debug, prelude::*};
 
 sp_api::decl_runtime_apis! {
@@ -40,6 +41,6 @@ sp_api::decl_runtime_apis! {
 		/// Return the token metadata URI for a given token
 		fn token_uri(token_id: TokenId) -> Vec<u8>;
 
-		fn collection_details(collection_id: CollectionUuid) -> CollectionDetail<AccountId>;
+		fn collection_details(collection_id: CollectionUuid) -> Result<CollectionDetail<AccountId>, DispatchError>;
 	}
 }

@@ -1472,7 +1472,6 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 	(migrations::AllMigrations,),
 >;
-pub const COLLECTION_NAME_STRING_LIMIT: u32 = 50;
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -1706,7 +1705,7 @@ impl_runtime_apis! {
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Nft::token_uri(token_id)
 		}
-		fn collection_details(collection_id: CollectionUuid) -> CollectionDetail<AccountId> {
+		fn collection_details(collection_id: CollectionUuid) -> Result<CollectionDetail<AccountId>, sp_runtime::DispatchError> {
 			Nft::collection_details(collection_id)
 		}
 	}

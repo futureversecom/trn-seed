@@ -100,6 +100,8 @@ impl Default for CrossChainCompatibility {
 }
 
 /// Information related to a specific collection
+/// Need for separate collection structure from CollectionInformation for RPC call is cause
+/// of complexity of deserialization/serialization BoundedVec
 #[derive(
 	PartialEqNoBound,
 	RuntimeDebugNoBound,

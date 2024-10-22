@@ -27,7 +27,7 @@ pub use pallet_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeAp
 use seed_primitives::types::{CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::{traits::Block as BlockT, DispatchError};
 use sp_std::{fmt::Debug, prelude::*};
 
 /// NFT RPC methods.
@@ -49,7 +49,7 @@ pub trait NftApi<AccountId: Clone + Debug + PartialEq> {
 	fn collection_details(
 		&self,
 		collection_id: CollectionUuid,
-	) -> RpcResult<CollectionDetail<AccountId>>;
+	) -> RpcResult<Result<CollectionDetail<AccountId>, DispatchError>>;
 }
 
 /// An implementation of NFT specific RPC methods.
@@ -95,7 +95,7 @@ where
 	fn collection_details(
 		&self,
 		collection_id: CollectionUuid,
-	) -> RpcResult<CollectionDetail<AccountId>> {
+	) -> RpcResult<Result<CollectionDetail<AccountId>, DispatchError>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		api.collection_details(best, collection_id)

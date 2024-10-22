@@ -9,7 +9,6 @@ repository.workspace = true
 [dependencies]
 codec = { workspace = true }
 sp-api = { workspace = true }
-sp-core = { workspace = true }
 sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 pallet-nft = { workspace = true }
@@ -20,7 +19,6 @@ default = ["std"]
 std = [
 	"codec/std",
 	"sp-api/std",
-	"sp-core/std",
 	"codec/std",
 	"sp-std/std",
 	"pallet-nft/std",
