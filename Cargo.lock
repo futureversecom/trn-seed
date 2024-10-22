@@ -6082,6 +6082,8 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
+ "serde",
+ "serde_json",
  "sp-core",
  "sp-io",
  "sp-runtime",
