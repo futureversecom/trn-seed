@@ -682,6 +682,22 @@ impl<T: Config> NFTExt for Pallet<T> {
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok(collection_info.owner)
 	}
+
+	fn do_burn(
+		who: Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_number: SerialNumber,
+	) -> DispatchResult {
+		Self::do_burn(&who, collection_id, serial_number)
+	}
+
+	fn get_cross_chain_compatibility(
+		collection_id: CollectionUuid,
+	) -> Result<CrossChainCompatibility, DispatchError> {
+		let collection_info =
+			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		Ok(collection_info.cross_chain_compatibility)
+	}
 }
 
 impl<T: Config> NFTCollectionInfo for Pallet<T> {

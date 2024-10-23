@@ -604,6 +604,18 @@ pub trait NFTExt {
 	fn get_collection_owner(
 		collection_id: CollectionUuid,
 	) -> Result<Self::AccountId, DispatchError>;
+
+	/// Burn a token
+	fn do_burn(
+		who: Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_number: SerialNumber,
+	) -> DispatchResult;
+
+	/// Returns cross chain compatibility of a collection
+	fn get_cross_chain_compatibility(
+		collection_id: CollectionUuid,
+	) -> Result<CrossChainCompatibility, DispatchError>;
 }
 
 pub trait SFTExt {
