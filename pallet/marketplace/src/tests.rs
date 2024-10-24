@@ -21,10 +21,10 @@ use crate::mock::{
 };
 use core::ops::Mul;
 use frame_support::traits::{fungibles::Inspect, OnInitialize};
-use pallet_nft::{CrossChainCompatibility, TokenLocks};
+use pallet_nft::TokenLocks;
 use pallet_sft::{test_utils::sft_balance_of, TokenInfo};
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::{MetadataScheme, RoyaltiesSchedule, TokenCount};
+use seed_primitives::{CrossChainCompatibility, MetadataScheme, RoyaltiesSchedule, TokenCount};
 use sp_runtime::traits::{AccountIdConversion, Zero};
 
 // Create an NFT collection

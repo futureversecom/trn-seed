@@ -20,9 +20,9 @@ use crate::mock::{
 	Xls20PaymentAsset,
 };
 use frame_support::traits::fungibles::Inspect;
-use pallet_nft::{CollectionInfo, CrossChainCompatibility};
+use pallet_nft::CollectionInfo;
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::MetadataScheme;
+use seed_primitives::{CrossChainCompatibility, MetadataScheme};
 
 // Create an NFT collection with xls20 compatibility
 // Returns the created `collection_id`
