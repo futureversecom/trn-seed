@@ -194,6 +194,10 @@ pub mod pallet {
 		InvalidSymbolMapping,
 		/// The asset rounding due to saturation is too high, reduce the significant digits
 		AssetRoundingTooHigh,
+		/// XLS20 incompatible NFT
+		Xls20Incompatible,
+
+		TestErrorRemoveAfterUsing,
 	}
 
 	#[pallet::event]
@@ -848,6 +852,20 @@ pub mod pallet {
 
 			Self::submit_xrpl_tx_for_signing(tx_data)
 		}
+
+		/// Withdraw NFT to XRPL
+		#[pallet::call_index(17)]
+		#[pallet::weight(Weight::zero())]
+		#[transactional]
+		pub fn withdraw_nft(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			serial_number: SerialNumber,
+			destination: XrplAccountId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_nft_withdrawal(who, collection_id, serial_number, destination)
+		}
 	}
 }
 
@@ -1364,6 +1382,24 @@ impl<T: Config> Pallet<T> {
 			currency: xrpl_currency.symbol,
 			issuer: xrpl_currency.issuer,
 		}))
+	}
+
+	/// Process nft withdrawal
+	pub fn do_nft_withdrawal(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		serial_number: SerialNumber,
+		destination: XrplAccountId,
+	) -> DispatchResult {
+		let xls20_compatible = T::NFTExt::get_cross_chain_compatibility(collection_id)?;
+		ensure!(xls20_compatible.xrpl == true, Error::<T>::Xls20Incompatible);
+
+		// burn the nft
+		T::NFTExt::do_burn(who, collection_id, serial_number)?;
+
+		// request for ethy proof for NFTokenCreateOffer
+
+		Ok(())
 	}
 
 	/// Delay a withdrawal until a later block. Called if the withdrawal amount is over the
