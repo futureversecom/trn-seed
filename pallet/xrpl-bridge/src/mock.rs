@@ -30,6 +30,7 @@ construct_runtime!(
 		XRPLBridge: pallet_xrpl_bridge,
 		AssetsExt: pallet_assets_ext,
 		TimestampPallet: pallet_timestamp,
+		Nft: pallet_nft,
 	}
 );
 
@@ -38,6 +39,7 @@ impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_timestamp_config!(Test);
 impl_pallet_assets_ext_config!(Test);
+impl_pallet_nft_config!(Test);
 
 // Time is measured by number of blocks.
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;
@@ -73,6 +75,7 @@ impl pallet_xrpl_bridge::Config for Test {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPLTransactionLimitPerLedger;
+	type NFTExt = Nft;
 }
 
 pub struct MockEthyAdapter;

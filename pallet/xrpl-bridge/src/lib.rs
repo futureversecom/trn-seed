@@ -33,11 +33,11 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, XrplBridgeToEthyAdapter};
+use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, NFTExt, XrplBridgeToEthyAdapter};
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
-	AssetId, Balance, Timestamp,
+	AssetId, Balance, CollectionUuid, SerialNumber, Timestamp,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
@@ -135,6 +135,9 @@ pub mod pallet {
 
 		/// Maximum XRPL transactions within a single ledger
 		type XRPLTransactionLimitPerLedger: Get<u32>;
+
+		/// NFT Extension, used to interact with the NFT pallet
+		type NFTExt: NFTExt<AccountId = Self::AccountId>;
 	}
 
 	#[pallet::error]
