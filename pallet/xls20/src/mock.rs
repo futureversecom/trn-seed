@@ -76,13 +76,16 @@ impl pallet_nft::Config for Test {
 
 parameter_types! {
 	pub const MaxTokensPerXls20Mint: u32 = 1000;
+	pub const Xls20PalletId: PalletId = PalletId(*b"xls20nft");
 }
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type PalletId = Xls20PalletId;
 	type MaxTokensPerXls20Mint = MaxTokensPerXls20Mint;
 	type MultiCurrency = AssetsExt;
 	type WeightInfo = ();
 	type NFTExt = Nft;
 	type NFTCollectionInfo = Nft;
 	type Xls20PaymentAsset = Xls20PaymentAsset;
+	type NFTMinter = Nft;
 }

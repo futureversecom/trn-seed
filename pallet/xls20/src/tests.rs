@@ -20,9 +20,10 @@ use crate::mock::{
 	Xls20PaymentAsset,
 };
 use frame_support::traits::fungibles::Inspect;
+use hex_literal::hex;
 use pallet_nft::{CollectionInfo, CrossChainCompatibility};
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::MetadataScheme;
+use seed_primitives::{xrpl::Xls20TokenId, MetadataScheme};
 
 // Create an NFT collection with xls20 compatibility
 // Returns the created `collection_id`
@@ -44,17 +45,33 @@ fn setup_xls20_collection(owner: AccountId, xls_compatible: bool) -> CollectionU
 	collection_id
 }
 
-fn string_to_xls20_token(input: &str) -> Xls20TokenId {
-	Xls20TokenId::try_from(input.as_bytes()).unwrap()
-}
+#[test]
+fn decode_xls20_token_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		//  000B 0C44 95F14B0E44F78A264E41713C64B5F89242540EE2 BC8B858E 00000D65
+		// 	+--- +--- +--------------------------------------- +------- +-------
+		// 	|    |    |                                        |        |
+		// 	|    |    |                                        |        `---> Sequence: 3,429
+		// 	|    |    |                                        |
+		//  |    |    |                                        `---> Taxon: 146,999,694
+		// 	|    |    |
+		// 	|    |    `---> Issuer: rNCFjv8Ek5oDrNiMJ3pw6eLLFtMjZLJnf2
+		// 	|    |
+		//  |    `---> TransferFee: 314.0 bps or 3.140%
+		// 	|
+		//  `---> Flags: 12 -> lsfBurnable, lsfOnlyXRP and lsfTransferable
 
-fn setup_token_mappings(
-	input: Vec<(SerialNumber, &str)>,
-) -> BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerXls20Mint> {
-	let input: Vec<(SerialNumber, Xls20TokenId)> =
-		input.into_iter().map(|(s, token)| (s, string_to_xls20_token(token))).collect();
-
-	BoundedVec::try_from(input).unwrap()
+		let token = hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		let expected = Xls20Token {
+			flags: 11,
+			transfer_fee: Permill::from_rational(314u32, 10_000),
+			issuer: H160::from(hex!("95F14B0E44F78A264E41713C64B5F89242540EE2")),
+			taxon: 146_999_694,
+			sequence: 3429,
+		};
+		let actual = Xls20Token::from(token);
+		assert_eq!(actual, expected);
+	});
 }
 
 #[test]
@@ -388,9 +405,9 @@ fn re_request_xls20_mint_duplicate_mapping_fails() {
 		let quantity: TokenCount = 1;
 		let token_owner = create_account(12);
 
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			0,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
 		)]);
 
 		// Set relayer to Bob
@@ -429,11 +446,11 @@ fn fulfill_xls20_mint_works() {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![
-			(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
-			(1, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
-			(2, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68"),
-			(3, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69"),
+		let token_mappings = BoundedVec::truncate_from(vec![
+			(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+			(1, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67")),
+			(2, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68")),
+			(3, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69")),
 		]);
 
 		// Set relayer to Bob
@@ -502,9 +519,9 @@ fn fulfill_xls20_mint_not_relayer_fails() {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			0,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
 		)]);
 
 		// Set relayer to Bob
@@ -528,9 +545,9 @@ fn fulfill_xls20_mint_no_collection_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_id = 1;
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			0,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
 		)]);
 
 		// Set relayer to Bob
@@ -555,11 +572,11 @@ fn fulfill_xls20_mint_no_token_fails() {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![
-			(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
-			(1, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
-			(2, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68"),
-			(3, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69"),
+		let token_mappings = BoundedVec::truncate_from(vec![
+			(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+			(1, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67")),
+			(2, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68")),
+			(3, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69")),
 		]);
 		// Set relayer to Bob
 		assert_ok!(Xls20::set_relayer(RawOrigin::Root.into(), relayer));
@@ -591,9 +608,9 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![
-			(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
-			(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
+		let token_mappings = BoundedVec::truncate_from(vec![
+			(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+			(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
 		]);
 
 		// Set relayer to Bob
@@ -620,9 +637,9 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 
 		// Submit successful token mappings to add to storage
 		let serial_number: SerialNumber = 0;
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			serial_number,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
 		)]);
 
 		assert_ok!(Xls20::fulfill_xls20_mint(
@@ -633,9 +650,7 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 		// Check it's added to storage
 		assert_eq!(
 			Xls20TokenMap::<Test>::get(collection_id, serial_number),
-			Some(string_to_xls20_token(
-				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"
-			))
+			Some(hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"))
 		);
 
 		// Subsequent call should fail on same token id
@@ -650,9 +665,9 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 
 		// Different serial should work fine
 		let serial_number: SerialNumber = 1;
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			serial_number,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
 		)]);
 
 		assert_ok!(Xls20::fulfill_xls20_mint(
@@ -663,9 +678,7 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 		// Again, check it's added to storage
 		assert_eq!(
 			Xls20TokenMap::<Test>::get(collection_id, serial_number),
-			Some(string_to_xls20_token(
-				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"
-			))
+			Some(hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"))
 		);
 	});
 }

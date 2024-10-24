@@ -30,8 +30,8 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber, OnEventResult};
-use seed_primitives::{ethy::EventProofId, AccountId};
+use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
+use seed_primitives::{ethy::EventProofId, AccountId, WeightedDispatchResult};
 use sp_core::H160;
 use sp_std::prelude::*;
 
@@ -143,13 +143,13 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 	type Address = T::PalletId;
 	type SourceAddress = ();
 
-	fn verify_source(_source: &H160) -> OnEventResult {
+	fn verify_source(_source: &H160) -> WeightedDispatchResult {
 		// For testing purposes we don't require a verified source for the Echo pallet
 		// Can overwrite this method and simply return ok
 		Ok(Weight::zero())
 	}
 
-	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
+	fn on_event(source: &H160, data: &[u8]) -> WeightedDispatchResult {
 		let abi_decoded = match ethabi::decode(
 			&[ParamType::Uint(64), ParamType::Uint(64), ParamType::Address],
 			data,

@@ -19,8 +19,10 @@ use core::fmt::Write;
 use ethabi::{ParamType, Token};
 use frame_support::{ensure, traits::Get, weights::Weight, BoundedVec, PalletId};
 pub use pallet::*;
-use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
-use seed_primitives::{CollectionUuid, MetadataScheme, OriginChain, SerialNumber};
+use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber, NFTMinter};
+use seed_primitives::{
+	CollectionUuid, MetadataScheme, OriginChain, SerialNumber, WeightedDispatchResult,
+};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
 use sp_std::{boxed::Box, vec, vec::Vec};
@@ -60,6 +62,7 @@ pub mod pallet {
 		type NftPegWeightInfo: WeightInfo;
 		type MaxCollectionsPerWithdraw: Get<u32>;
 		type MaxSerialsPerWithdraw: Get<u32>;
+		type NFTMinter: NFTMinter<AccountId = Self::AccountId>;
 	}
 
 	#[pallet::storage]
@@ -195,7 +198,7 @@ impl<T: Config> Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
-	fn decode_deposit_event(data: &[u8]) -> Result<Weight, (Weight, DispatchError)> {
+	fn decode_deposit_event(data: &[u8]) -> WeightedDispatchResult {
 		let mut weight = Weight::zero();
 		let abi_decoded = match ethabi::decode(
 			&[
@@ -283,17 +286,14 @@ where
 	}
 
 	// TODO implement state sync feature for collection_owner, name and metadata
-	fn decode_state_sync_event(_data: &[u8]) -> Result<Weight, (Weight, DispatchError)> {
+	fn decode_state_sync_event(_data: &[u8]) -> WeightedDispatchResult {
 		Err((Weight::zero(), Error::<T>::StateSyncDisabled.into()))
 	}
 
 	// Accept some representation of one or more tokens from an outside source, and create a
 	// Root-side representation of them Expects ERC721 tokens sent and verified through the existing
 	// bridge
-	fn do_deposit(
-		token_info: GroupedTokenInfo<T>,
-		destination: H160,
-	) -> Result<Weight, (Weight, DispatchError)> {
+	fn do_deposit(token_info: GroupedTokenInfo<T>, destination: H160) -> WeightedDispatchResult {
 		let mut weight = Weight::zero();
 
 		let destination: T::AccountId = destination.into();
@@ -343,11 +343,8 @@ where
 			let serial_numbers = current_token.token_ids.clone().into_inner();
 
 			// Mint the tokens
-			let mint_result = pallet_nft::Pallet::<T>::mint_bridged_token(
-				&destination,
-				collection_id,
-				serial_numbers.clone(),
-			);
+			let mint_result =
+				T::NFTMinter::mint_bridged_nft(&destination, collection_id, serial_numbers.clone());
 
 			match mint_result {
 				Ok(mint_weight) => {
@@ -502,7 +499,7 @@ where
 	type Address = <T as Config>::PalletId;
 	type SourceAddress = GetContractAddress<T>;
 
-	fn on_event(_source: &H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
+	fn on_event(_source: &H160, data: &[u8]) -> WeightedDispatchResult {
 		let weight = Weight::zero();
 
 		// Decode prefix from first 32 bytes of data

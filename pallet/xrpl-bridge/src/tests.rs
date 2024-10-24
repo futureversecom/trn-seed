@@ -510,8 +510,8 @@ fn set_door_tx_fee_works() {
 			XRPLDoorAccount::Main,
 			new_fee
 		));
-		assert_eq!(XRPLBridge::door_tx_fee(XRPLDoorAccount::Main), new_fee);
-		assert_eq!(XRPLBridge::door_tx_fee(XRPLDoorAccount::NFT), 1000000);
+		assert_eq!(DoorTxFee::<Test>::get(XRPLDoorAccount::Main), new_fee);
+		assert_eq!(DoorTxFee::<Test>::get(XRPLDoorAccount::NFT), 1000000);
 
 		// Only root can sign this tx, this should fail
 		let account = AccountId::from(H160::from_slice(b"6490B68F1116BFE87DDC"));
@@ -852,10 +852,10 @@ fn set_door_address_success() {
 			Some(H160::from(xprl_door_address))
 		));
 		assert_eq!(
-			XRPLBridge::door_address(XRPLDoorAccount::Main),
+			DoorAddress::<Test>::get(XRPLDoorAccount::Main),
 			Some(H160::from_slice(xprl_door_address))
 		);
-		assert_eq!(XRPLBridge::door_address(XRPLDoorAccount::NFT), None);
+		assert_eq!(DoorAddress::<Test>::get(XRPLDoorAccount::NFT), None);
 
 		assert_ok!(XRPLBridge::set_door_address(
 			RuntimeOrigin::root(),
@@ -863,7 +863,7 @@ fn set_door_address_success() {
 			Some(H160::from(xprl_door_address))
 		));
 		assert_eq!(
-			XRPLBridge::door_address(XRPLDoorAccount::NFT),
+			DoorAddress::<Test>::get(XRPLDoorAccount::NFT),
 			Some(H160::from_slice(xprl_door_address))
 		);
 
@@ -873,7 +873,7 @@ fn set_door_address_success() {
 			XRPLDoorAccount::Main,
 			None
 		));
-		assert_eq!(XRPLBridge::door_address(XRPLDoorAccount::Main), None);
+		assert_eq!(DoorAddress::<Test>::get(XRPLDoorAccount::Main), None);
 	})
 }
 
@@ -890,7 +890,7 @@ fn set_door_address_fail() {
 			),
 			BadOrigin
 		);
-		assert_eq!(XRPLBridge::door_address(XRPLDoorAccount::Main), None);
+		assert_eq!(DoorAddress::<Test>::get(XRPLDoorAccount::Main), None);
 	})
 }
 
