@@ -25,7 +25,26 @@ use crate::{
 use frame_support::traits::fungibles::{metadata::Inspect as InspectMetadata, Inspect};
 use pallet_nft::{test_utils::NftBuilder, traits::NFTCollectionInfo};
 use seed_pallet_common::test_prelude::{BlockNumber, *};
-use seed_primitives::CrossChainCompatibility;
+use seed_primitives::{CrossChainCompatibility, TokenCount};
+
+// Create an NFT collection
+// Returns the created `collection_id`
+fn create_nft_collection(owner: AccountId, max_issuance: TokenCount) -> CollectionUuid {
+	let collection_id = Nft::next_collection_uuid().unwrap();
+	let collection_name = bounded_string("test-collection");
+	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
+	assert_ok!(Nft::create_collection(
+		Some(owner).into(),
+		collection_name,
+		0,
+		Some(max_issuance),
+		None,
+		metadata_scheme,
+		None,
+		CrossChainCompatibility::default(),
+	));
+	collection_id
+}
 
 // Helper function to initialize a crowdsale with default values
 fn initialize_crowdsale(
