@@ -41,6 +41,7 @@ pub type ListingId = u128;
 pub enum OriginChain {
 	Ethereum,
 	Root,
+	XRPL,
 }
 
 /// Reason for an NFT being locked (un-transferrable)

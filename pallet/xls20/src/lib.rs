@@ -21,20 +21,20 @@
 //! XLS-20 Token String back in this pallet by calling the `fulfill_xls20_mint` extrinsic.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use std::io::Read;
 use frame_support::{
 	ensure,
 	pallet_prelude::*,
 	traits::{fungibles::Mutate, tokens::Preservation, Get},
 	transactional,
+	weights::constants::RocksDbWeight as DbWeight,
+	PalletId
 };
 use frame_system::pallet_prelude::*;
 use pallet_nft::traits::NFTCollectionInfo;
-use seed_pallet_common::{NFTExt, Xls20MintRequest, Xls20Deposit};
-use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount, xrpl::Xls20TokenId};
-use sp_runtime::{traits::Zero, DispatchResult, Permill, SaturatedConversion};
+use seed_pallet_common::{NFTExt, NFTMinter, Xls20Deposit, Xls20MintRequest};
+use seed_primitives::{xrpl::Xls20TokenId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, SerialNumber, TokenCount, WeightedDispatchResult};
+use sp_runtime::{traits::{Zero, AccountIdConversion}, DispatchResult, SaturatedConversion};
 use sp_std::prelude::*;
-use sp_core::H160;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -48,15 +48,8 @@ pub use pallet::*;
 mod mock;
 #[cfg(test)]
 mod tests;
-
-#[derive(Debug, PartialEq)]
-pub struct Xls20Token {
-	flags: u16,
-	transfer_fee: Permill,
-	issuer: H160,
-	taxon: u32,
-	sequence: u32,
-}
+mod types;
+use types::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -73,6 +66,9 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// This pallet's ID, used for deriving a sovereign account ID
+		#[pallet::constant]
+		type PalletId: Get<PalletId>;
 		/// Max amount of tokens that can be minted in a single XLS-20 mint request
 		type MaxTokensPerXls20Mint: Get<u32>;
 		/// Handles a multi-currency fungible asset system
@@ -85,6 +81,8 @@ pub mod pallet {
 		type NFTCollectionInfo: NFTCollectionInfo<AccountId = Self::AccountId>;
 		/// AssetId used to pay Xls20 Mint Fees
 		type Xls20PaymentAsset: Get<AssetId>;
+		/// The NFT token minter
+		type NFTMinter: NFTMinter<AccountId=Self::AccountId>;
 	}
 
 	/// The permissioned relayer
@@ -100,11 +98,13 @@ pub mod pallet {
 	pub type Xls20TokenMap<T> =
 		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, SerialNumber, Xls20TokenId>;
 
+	// #[pallet::storage]
+	/// Maps from TRN XLS-20 token_id to native TokenId
+	// pub type Xls20ToTokenId<T> = StorageMap<_, Twox64Concat, Xls20TokenId, TokenId>;
+
+	/// Map from XLs-20 Collection to CollectionUuid
 	#[pallet::storage]
-	pub type Xls20ToTokenId<T> = StorageMap<_, Twox64Concat, Xls20TokenId, TokenId>;
-
-	pub type CollectionMapping<T> = StorageMap<_, Twox64Concat, (issuer, taxon), CollectionUuid>;
-
+	pub type CollectionMapping<T> = StorageMap<_, Twox64Concat, Xls20Collection, CollectionUuid>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -146,6 +146,8 @@ pub mod pallet {
 		NotCollectionOwner,
 
 		CouldNotDecodeXls20Token,
+		/// The token is burnable and cannot be bridged
+		CannotBridgeBurnableToken,
 	}
 
 	#[pallet::call]
@@ -320,57 +322,6 @@ impl<T: Config> Pallet<T> {
 			token_uris,
 		});
 	}
-
-	pub fn decode_xls20_token(
-		xls20_token: [u8; 32],
-	) -> Result<Xls20Token, DispatchError> {
-		//  000B 0C44 95F14B0E44F78A264E41713C64B5F89242540EE2 BC8B858E 00000D65
-		// 	+--- +--- +--------------------------------------- +------- +-------
-		// 	|    |    |                                        |        |
-		// 	|    |    |                                        |        `---> Sequence: 3,429
-		// 	|    |    |                                        |
-		//  |    |    |                                        `---> Taxon: 146,999,694
-		// 	|    |    |
-		// 	|    |    `---> Issuer: rNCFjv8Ek5oDrNiMJ3pw6eLLFtMjZLJnf2
-		// 	|    |
-		//  |    `---> TransferFee: 314.0 bps or 3.140%
-		// 	|
-		//  `---> Flags: 12 -> lsfBurnable, lsfOnlyXRP and lsfTransferable
-
-		// Get first 4 bytes from token_id
-		let flags: u16 = u16::from_be_bytes(xls20_token[0..2].try_into().unwrap());
-		let transfer_fee = u16::from_be_bytes(xls20_token[2..4].try_into().unwrap()) as u32;
-		let transfer_fee = Permill::from_rational(transfer_fee, 100_000);
-		let issuer_bytes: [u8; 20] = xls20_token[4..24].try_into().unwrap();
-		let issuer: H160 = H160::from_slice(&issuer_bytes);
-		let scrambled_taxon: u32 = u32::from_be_bytes(xls20_token[24..28].try_into().unwrap());
-		let sequence: u32 = u32::from_be_bytes(xls20_token[28..].try_into().unwrap());
-		let taxon = Self::unscramble_taxon(scrambled_taxon, sequence);
-		let token = Xls20Token {
-			flags,
-			transfer_fee,
-			issuer,
-			taxon,
-			sequence,
-		};
-		Ok(token)
-	}
-
-	fn unscramble_taxon(
-		taxon: u32,
-		sequence: u32,
-	) -> u32 {
-		let seed: u64 = 384160001;
-		let increment: u64 = 2459;
-		let max: u64 = 4294967296;
-
-		// perform scrambling calculations, there will be no overflow as max is u64
-		// Max value would be u32::MAX * 384160001 which is less than u64::MAX
-		let mut scramble = seed.saturating_mul(sequence as u64) % max;
-		scramble = scramble.saturating_add(increment) % max;
-
-		taxon ^ scramble as u32
-	}
 }
 
 impl<T: Config> Xls20MintRequest for Pallet<T> {
@@ -391,22 +342,81 @@ impl<T: Config> Xls20MintRequest for Pallet<T> {
 impl<T: Config> Xls20Deposit for Pallet<T> {
 	type AccountId = T::AccountId;
 
-	fn deposit_xls20_token(receiver: &Self::AccountId, xls20_token_id: [u8; 32]) -> Result<Weight, DispatchError> {
-		let xls20_token = Self::decode_xls20_token(xls20_token_id)?;
+	fn deposit_xls20_token(
+		receiver: &Self::AccountId,
+		xls20_token_id: Xls20TokenId,
+	) -> WeightedDispatchResult {
+		let xls20_token = Xls20Token::from(xls20_token_id);
 
-		// TODO Check flag is not burnable?
-
-		if Xls20TokenMap::<T>::get(xls20_token.taxon, xls20_token.sequence) == Some(xls20_token_id) {
-			// The token already exists, transfer it
+		// Check flag is not burnable, if the burnable flag is set then the issuer can
+		// burn the token at any time. For simplicity it is easier to disallow bridging
+		// of these tokens to respect the original design of the XLS-20 standard
+		// TODO, we need some way to retrieve tokens that failed to bridge
+		if xls20_token.is_burnable() {
+			return Err((Weight::zero(), Error::<T>::CannotBridgeBurnableToken.into()));
 		}
 
-		if CollectionMapping::<T>::contains_key(xls20_token.issuer, xls20_token.taxon) {
-			// The collection already exists, mint the token
+		let pallet_address = T::PalletId::get().into_account_truncating();
+		let xls20_collection = Xls20Collection::new(xls20_token.issuer, xls20_token.taxon);
+		if let Some(collection_uuid) = CollectionMapping::<T>::get(xls20_collection) {
+			// There is already a collection mapping for this token, this means it is either
+			// a TRN originated token that has been bridged over, or it is a token form XRPL
+			// from a collection that has been bridged before.
+
+			if Xls20TokenMap::<T>::get(collection_uuid, xls20_token.sequence) == Some(xls20_token_id)
+			{
+				// The token ID exists in an existing mapping. Either this token originated on TRN
+				// or it has been bridged in the past. The pallet should own the token
+				T::NFTExt::do_transfer(
+					pallet_address,
+					collection_uuid,
+					vec![xls20_token.sequence],
+					receiver.clone(),
+				).map_err(|e| {
+					// TODO calculate weight
+					(Weight::zero(), e)
+				})?;
+				return Ok(Weight::zero());
+			} else {
+				// New token to TRN, mint it and set up the mapping for reverse bridging
+				let used_weight = T::NFTMinter::mint_bridged_nft(
+					receiver,
+					collection_uuid,
+					vec![xls20_token.sequence],
+				)?;
+				Xls20TokenMap::<T>::insert(collection_uuid, xls20_token.sequence, xls20_token_id);
+				return Ok(used_weight.saturating_add(DbWeight::get().reads_writes(1, 1)));
+			}
 		}
 
-		// Create the collection
+		// The collection does not exist on TRN yet for a newly bridged XRPL token.
+		// Create the collection and mint the token
+		let collection_name = BoundedVec::truncate_from(b"xls20-bridged-collection".to_vec());
+		let metadata_scheme = MetadataScheme(BoundedVec::truncate_from(b"xls20://".to_vec()));
+		let collection_uuid = T::NFTExt::do_create_collection(
+			pallet_address,
+			collection_name,
+			0,
+			None,
+			None,
+			metadata_scheme,
+			None,
+			OriginChain::XRPL,
+		).map_err(|e| {
+			// TODO calculate weight
+			(Weight::zero(), e)
+		})?;
 
-		// TODO calculate weight
-		Ok(Weight::zero())
+		CollectionMapping::<T>::insert(xls20_collection, collection_uuid);
+
+		let used_weight = T::NFTMinter::mint_bridged_nft(
+			receiver,
+			collection_uuid,
+			vec![xls20_token.sequence],
+		)?;
+		Xls20TokenMap::<T>::insert(collection_uuid, xls20_token.sequence, xls20_token_id);
+
+
+		Ok(used_weight)
 	}
 }

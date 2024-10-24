@@ -20,10 +20,10 @@ use crate::mock::{
 	Xls20PaymentAsset,
 };
 use frame_support::traits::fungibles::Inspect;
+use hex_literal::hex;
 use pallet_nft::{CollectionInfo, CrossChainCompatibility};
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::{MetadataScheme, xrpl::Xls20TokenId};
-use hex_literal::hex;
+use seed_primitives::{xrpl::Xls20TokenId, MetadataScheme};
 
 // Create an NFT collection with xls20 compatibility
 // Returns the created `collection_id`
@@ -85,7 +85,6 @@ fn decode_xls20_token_works() {
 		assert_eq!(Pallet::<Test>::decode_xls20_token(token), Ok(expected));
 	});
 }
-
 
 #[test]
 fn set_relayer_works() {

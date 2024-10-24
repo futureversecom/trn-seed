@@ -17,7 +17,7 @@ use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use seed_primitives::{
-	xrpl::{XrplAccountId, XrplTxHash, XrplTxNonce, XrplTxTicketSequence, Xls20TokenId},
+	xrpl::{Xls20TokenId, XrplAccountId, XrplTxHash, XrplTxNonce, XrplTxTicketSequence},
 	AssetId, Balance,
 };
 use sp_core::H160;

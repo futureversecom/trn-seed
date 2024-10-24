@@ -23,7 +23,7 @@ use crate::Pallet as Xls20;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
-use seed_primitives::{nft::OriginChain, MetadataScheme, xrpl::Xls20TokenId};
+use seed_primitives::{nft::OriginChain, xrpl::Xls20TokenId, MetadataScheme};
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {

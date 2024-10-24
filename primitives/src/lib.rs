@@ -33,7 +33,9 @@ pub const XRP_HTTP_URI: [u8; 8] = *b"XRP_HTTP";
 
 pub mod types {
 	use crate::signature::EthereumSignature;
+	use frame_support::dispatch::Weight;
 	use sp_runtime::traits::{BlakeTwo256, IdentifyAccount, Verify};
+	use sp_runtime::DispatchError;
 
 	/// An index to a block.
 	pub type BlockNumber = u32;
@@ -87,7 +89,7 @@ pub mod types {
 
 	/// Parachain Identifier
 	pub type ParachainId = u32;
-Xls20TokenId
+
 	/// The type for identifying the validators
 	pub type ValidatorId = u32;
 
@@ -98,6 +100,9 @@ Xls20TokenId
 
 	/// Blake2-256 Hash implementation.
 	pub type BlakeTwo256Hash = BlakeTwo256;
+
+	/// DispatchResult that includes weight values
+	pub type WeightedDispatchResult = Result<Weight, (Weight, DispatchError)>;
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -139,7 +144,7 @@ pub mod xrpl {
 
 	/// TokenId type for XLS-20 Token Ids
 	/// See: https://github.com/XRPLF/XRPL-Standards/discussions/46
-	pub type Xls20TokenId = [u8; 64];
+	pub type Xls20TokenId = [u8; 32];
 }
 
 #[derive(PartialEq)]
