@@ -32,7 +32,10 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_nft::traits::NFTCollectionInfo;
 use seed_pallet_common::{NFTExt, NFTMinter, Xls20Ext, Xls20MintRequest};
-use seed_primitives::{xrpl::Xls20TokenId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, SerialNumber, TokenCount, TokenId, WeightedDispatchResult};
+use seed_primitives::{
+	xrpl::Xls20TokenId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain,
+	SerialNumber, TokenCount, TokenId, WeightedDispatchResult,
+};
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
 	DispatchResult, SaturatedConversion,
@@ -378,19 +381,18 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 					receiver.clone(),
 				)
 				.map_err(|e| {
-					// TODO calculate weight
-					(Weight::zero(), e)
+					(T::WeightInfo::deposit_token_transfer(), e)
 				})?;
-				return Ok(Weight::zero());
+				return Ok(T::WeightInfo::deposit_token_transfer());
 			} else {
 				// New token to TRN, mint it and set up the mapping for reverse bridging
-				let used_weight = T::NFTMinter::mint_bridged_nft(
+				let _ = T::NFTMinter::mint_bridged_nft(
 					receiver,
 					collection_uuid,
 					vec![xls20_token.sequence],
-				)?;
+				).map_err(|(_, e)| (T::WeightInfo::deposit_token_transfer(), e))?;
 				Xls20TokenMap::<T>::insert(collection_uuid, xls20_token.sequence, xls20_token_id);
-				return Ok(used_weight.saturating_add(DbWeight::get().reads_writes(1, 1)));
+				return Ok(T::WeightInfo::deposit_token_mint());
 			}
 		}
 
@@ -409,17 +411,18 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 			OriginChain::XRPL,
 		)
 		.map_err(|e| {
-			// TODO calculate weight
-			(Weight::zero(), e)
+			// Although not 100% accurate as this benchmark is for a successful case, it is unlikely
+			// that this will fail
+			(T::WeightInfo::deposit_token_create_collection(), e)
 		})?;
 
 		CollectionMapping::<T>::insert(xls20_collection, collection_uuid);
 
-		let used_weight =
-			T::NFTMinter::mint_bridged_nft(receiver, collection_uuid, vec![xls20_token.sequence])?;
+		let _ = T::NFTMinter::mint_bridged_nft(receiver, collection_uuid, vec![xls20_token.sequence])
+			.map_err(|(_, e)| (T::WeightInfo::deposit_token_create_collection(), e))?;
 		Xls20TokenMap::<T>::insert(collection_uuid, xls20_token.sequence, xls20_token_id);
 
-		Ok(used_weight)
+		Ok(T::WeightInfo::deposit_token_create_collection())
 	}
 
 	fn get_xls20_token_id(token_id: TokenId) -> Option<Xls20TokenId> {

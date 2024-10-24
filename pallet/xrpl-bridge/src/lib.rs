@@ -33,9 +33,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{
-	CreateExt, EthyToXrplBridgeAdapter, Xls20Ext, XrplBridgeToEthyAdapter,
-};
+use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, Xls20Ext, XrplBridgeToEthyAdapter};
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
@@ -879,8 +877,6 @@ impl<T: Config> Pallet<T> {
 		let mut highest_settled_ledger_index = HighestSettledLedgerIndex::<T>::get();
 
 		for (transaction_hash, (ledger_index, ref tx, _relayer)) in tx_details {
-			used_weight = used_weight.saturating_add(DbWeight::get().reads_writes(2, 2));
-
 			let weighted_result = match tx.transaction {
 				XrplTxData::Payment { amount, address } => {
 					Self::process_asset_deposit(amount, &address.into(), T::XrpAssetId::get())
@@ -919,6 +915,7 @@ impl<T: Config> Pallet<T> {
 			});
 
 			// Add to SettledXRPTransactionDetails
+			used_weight = used_weight.saturating_add(DbWeight::get().reads_writes(1, 1));
 			<SettledXRPTransactionDetails<T>>::try_append(
 				ledger_index as u32,
 				transaction_hash.clone(),
@@ -944,6 +941,7 @@ impl<T: Config> Pallet<T> {
 	) -> WeightedDispatchResult {
 		if asset_id == T::NativeAssetId::get() {
 			let pallet_address: T::AccountId = T::PalletId::get().into_account_truncating();
+			let weight = T::WeightInfo::process_asset_deposit_root();
 			T::MultiCurrency::transfer(
 				asset_id,
 				&pallet_address,
@@ -951,12 +949,13 @@ impl<T: Config> Pallet<T> {
 				amount,
 				Preservation::Expendable,
 			)
-			.map_err(|e| (Weight::zero(), e))?; // TODO add benchmark for both ROOT and XRP assets
+			.map_err(|e| (weight, e))?;
+			Ok(weight)
 		} else {
-			T::MultiCurrency::mint_into(asset_id, address, amount)
-				.map_err(|e| (Weight::zero(), e))?;
+			let weight = T::WeightInfo::process_asset_deposit();
+			T::MultiCurrency::mint_into(asset_id, address, amount).map_err(|e| (weight, e))?;
+			Ok(weight)
 		}
-		Ok(DbWeight::get().reads_writes(2, 2))
 	}
 
 	/// Process any transactions that have been delayed due to the min_payment threshold

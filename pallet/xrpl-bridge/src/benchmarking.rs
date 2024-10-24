@@ -53,6 +53,29 @@ benchmarks! {
 		assert_eq!(details, Some((ledger_index, val, relayer)))
 	}
 
+	process_asset_deposit {
+		let amount = 100;
+		let beneficiary = account::<T>("Beneficiary");
+		let asset_id = T::XrpAssetId::get();
+	}: {XrplBridge::<T>::process_asset_deposit(amount, &beneficiary, asset_id).expect("Failed to process asset deposit");}
+	verify {
+		let balance = T::MultiCurrency::balance(asset_id, &beneficiary);
+		assert_eq!(balance, amount);
+	}
+
+	process_asset_deposit_root {
+		let amount = 100;
+		let beneficiary = account::<T>("Beneficiary");
+		let asset_id = T::NativeAssetId::get();
+		let pallet_address: T::AccountId = T::PalletId::get().into_account_truncating();
+		// Mint some root into the pallet address
+		T::MultiCurrency::mint_into(asset_id, &pallet_address, amount).expect("Can mint");
+	}: {XrplBridge::<T>::process_asset_deposit(amount, &beneficiary, asset_id).expect("Failed to process asset deposit");}
+	verify {
+		let balance = T::MultiCurrency::balance(asset_id, &beneficiary);
+		assert_eq!(balance, amount);
+	}
+
 	submit_challenge {
 		let challenger = account::<T>("Challenger");
 		let transaction_hash: XrplTxHash = [0u8; 64].into();
