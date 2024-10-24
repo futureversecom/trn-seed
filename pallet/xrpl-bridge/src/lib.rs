@@ -951,7 +951,7 @@ impl<T: Config> Pallet<T> {
 				amount,
 				Preservation::Expendable,
 			)
-			.map_err(|e| (Weight::zero(), e))?;
+			.map_err(|e| (Weight::zero(), e))?; // TODO add benchmark for both ROOT and XRP assets
 		} else {
 			T::MultiCurrency::mint_into(asset_id, address, amount)
 				.map_err(|e| (Weight::zero(), e))?;

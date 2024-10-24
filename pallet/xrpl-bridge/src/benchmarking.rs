@@ -21,6 +21,8 @@ use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_te
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use hex_literal::hex;
+use seed_primitives::xrpl::Xls20TokenId;
+use sp_core::H160;
 
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 	bench_account(name, 0, 0)
@@ -39,7 +41,7 @@ benchmarks! {
 		let relayer = account::<T>("Relayer");
 		let ledger_index = 0;
 		let transaction_hash: XrplTxHash = [0u8; 64].into();
-		let transaction = XrplTxData::Xls20;
+		let transaction = XrplTxData::Xls20 { token_id: Xls20TokenId::default(), address: H160::zero() };
 		let timestamp = 100;
 
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), relayer.clone()));
@@ -228,7 +230,8 @@ benchmarks! {
 			let ledger_index = j;
 			let transaction_hash: XrplTxHash = [j as u8; 64].into();
 			let timestamp = 100;
-			let transaction = XrpTransaction { transaction_hash, transaction: XrplTxData::Xls20, timestamp } ;
+			let transaction = XrplTxData::Xls20 { token_id: Xls20TokenId::default(), address: H160::zero() };
+			let transaction = XrpTransaction { transaction_hash, transaction, timestamp } ;
 			settled_data.push((transaction_hash, ledger_index, transaction, alice.clone()));
 		}
 
