@@ -34,7 +34,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::{
-	CreateExt, EthyToXrplBridgeAdapter, Xls20Deposit, XrplBridgeToEthyAdapter,
+	CreateExt, EthyToXrplBridgeAdapter, Xls20Ext, XrplBridgeToEthyAdapter,
 };
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
@@ -139,7 +139,7 @@ pub mod pallet {
 		type XRPLTransactionLimitPerLedger: Get<u32>;
 
 		/// The pallet used to process Xls20 deposits
-		type Xls20Deposit: Xls20Deposit<AccountId = Self::AccountId>;
+		type Xls20Ext: Xls20Ext<AccountId = Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -896,7 +896,7 @@ impl<T: Config> Pallet<T> {
 					}
 				},
 				XrplTxData::Xls20 { token_id, address } => {
-					T::Xls20Deposit::deposit_xls20_token(&address.into(), token_id)
+					T::Xls20Ext::deposit_xls20_token(&address.into(), token_id)
 				},
 			};
 

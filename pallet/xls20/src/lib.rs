@@ -31,11 +31,8 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use pallet_nft::traits::NFTCollectionInfo;
-use seed_pallet_common::{NFTExt, NFTMinter, Xls20Deposit, Xls20MintRequest};
-use seed_primitives::{
-	xrpl::Xls20TokenId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain,
-	SerialNumber, TokenCount, WeightedDispatchResult,
-};
+use seed_pallet_common::{NFTExt, NFTMinter, Xls20Ext, Xls20MintRequest};
+use seed_primitives::{xrpl::Xls20TokenId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, SerialNumber, TokenCount, TokenId, WeightedDispatchResult};
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
 	DispatchResult, SaturatedConversion,
@@ -345,7 +342,7 @@ impl<T: Config> Xls20MintRequest for Pallet<T> {
 	}
 }
 
-impl<T: Config> Xls20Deposit for Pallet<T> {
+impl<T: Config> Xls20Ext for Pallet<T> {
 	type AccountId = T::AccountId;
 
 	fn deposit_xls20_token(
@@ -423,5 +420,9 @@ impl<T: Config> Xls20Deposit for Pallet<T> {
 		Xls20TokenMap::<T>::insert(collection_uuid, xls20_token.sequence, xls20_token_id);
 
 		Ok(used_weight)
+	}
+
+	fn get_xls20_token_id(token_id: TokenId) -> Option<Xls20TokenId> {
+		Xls20TokenMap::<T>::get(token_id.0, token_id.1)
 	}
 }

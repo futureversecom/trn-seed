@@ -650,7 +650,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPTransactionLimitPerLedger;
-	type Xls20Deposit = Xls20;
+	type Xls20Ext = Xls20;
 }
 
 parameter_types! {

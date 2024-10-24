@@ -375,17 +375,19 @@ impl Xls20MintRequest for () {
 	}
 }
 
-// Trait used to handle bridged XLS20 deposits
-pub trait Xls20Deposit {
+/// Interface for the XLS20 pallet
+pub trait Xls20Ext {
 	type AccountId;
 
 	fn deposit_xls20_token(
 		receiver: &Self::AccountId,
 		xls20_token_id: Xls20TokenId,
 	) -> WeightedDispatchResult;
+
+	fn get_xls20_token_id(token_id: TokenId) -> Option<Xls20TokenId>;
 }
 
-impl Xls20Deposit for () {
+impl Xls20Ext for () {
 	type AccountId = AccountId;
 
 	fn deposit_xls20_token(
@@ -393,6 +395,10 @@ impl Xls20Deposit for () {
 		_xls20_token_id: Xls20TokenId,
 	) -> WeightedDispatchResult {
 		Ok(Weight::zero())
+	}
+
+	fn get_xls20_token_id(_token_id: TokenId) -> Option<Xls20TokenId> {
+		None
 	}
 }
 
