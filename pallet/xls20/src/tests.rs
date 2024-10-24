@@ -45,19 +45,6 @@ fn setup_xls20_collection(owner: AccountId, xls_compatible: bool) -> CollectionU
 	collection_id
 }
 
-fn string_to_xls20_token(input: &str) -> Xls20TokenId {
-	Xls20TokenId::try_from(input.as_bytes()).unwrap()
-}
-
-fn setup_token_mappings(
-	input: Vec<(SerialNumber, &str)>,
-) -> BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerXls20Mint> {
-	let input: Vec<(SerialNumber, Xls20TokenId)> =
-		input.into_iter().map(|(s, token)| (s, string_to_xls20_token(token))).collect();
-
-	BoundedVec::try_from(input).unwrap()
-}
-
 #[test]
 fn decode_xls20_token_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
@@ -82,7 +69,8 @@ fn decode_xls20_token_works() {
 			taxon: 146_999_694,
 			sequence: 3429,
 		};
-		assert_eq!(Pallet::<Test>::decode_xls20_token(token), Ok(expected));
+		let actual = Xls20Token::from(token);
+		assert_eq!(actual, expected);
 	});
 }
 
@@ -417,9 +405,9 @@ fn re_request_xls20_mint_duplicate_mapping_fails() {
 		let quantity: TokenCount = 1;
 		let token_owner = create_account(12);
 
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			0,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
 		)]);
 
 		// Set relayer to Bob
@@ -458,11 +446,11 @@ fn fulfill_xls20_mint_works() {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![
-			(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
-			(1, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
-			(2, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68"),
-			(3, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69"),
+		let token_mappings = BoundedVec::truncate_from(vec![
+			(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+			(1, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67")),
+			(2, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68")),
+			(3, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69")),
 		]);
 
 		// Set relayer to Bob
@@ -531,9 +519,9 @@ fn fulfill_xls20_mint_not_relayer_fails() {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			0,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
 		)]);
 
 		// Set relayer to Bob
@@ -557,9 +545,9 @@ fn fulfill_xls20_mint_no_collection_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_id = 1;
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			0,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
 		)]);
 
 		// Set relayer to Bob
@@ -584,11 +572,11 @@ fn fulfill_xls20_mint_no_token_fails() {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![
-			(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
-			(1, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
-			(2, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68"),
-			(3, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69"),
+		let token_mappings = BoundedVec::truncate_from(vec![
+			(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+			(1, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67")),
+			(2, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68")),
+			(3, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69")),
 		]);
 		// Set relayer to Bob
 		assert_ok!(Xls20::set_relayer(RawOrigin::Root.into(), relayer));
@@ -620,9 +608,9 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![
-			(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
-			(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
+		let token_mappings = BoundedVec::truncate_from(vec![
+			(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+			(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
 		]);
 
 		// Set relayer to Bob
@@ -649,9 +637,9 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 
 		// Submit successful token mappings to add to storage
 		let serial_number: SerialNumber = 0;
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			serial_number,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
 		)]);
 
 		assert_ok!(Xls20::fulfill_xls20_mint(
@@ -662,9 +650,7 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 		// Check it's added to storage
 		assert_eq!(
 			Xls20TokenMap::<Test>::get(collection_id, serial_number),
-			Some(string_to_xls20_token(
-				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"
-			))
+			Some(hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"))
 		);
 
 		// Subsequent call should fail on same token id
@@ -679,9 +665,9 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 
 		// Different serial should work fine
 		let serial_number: SerialNumber = 1;
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			serial_number,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
 		)]);
 
 		assert_ok!(Xls20::fulfill_xls20_mint(
@@ -692,9 +678,7 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 		// Again, check it's added to storage
 		assert_eq!(
 			Xls20TokenMap::<Test>::get(collection_id, serial_number),
-			Some(string_to_xls20_token(
-				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"
-			))
+			Some(hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"))
 		);
 	});
 }
