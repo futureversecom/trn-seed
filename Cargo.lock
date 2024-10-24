@@ -6616,6 +6616,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
+ "pallet-nft",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",

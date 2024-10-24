@@ -30,6 +30,7 @@ pallet-balances = { workspace = true }
 pallet-timestamp = { workspace = true }
 seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
+pallet-nft = { workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true }
@@ -53,6 +54,7 @@ std = [
   'pallet-timestamp/std',
   "seed-pallet-common/std",
   "pallet-assets-ext/std",
+  "pallet-nft/std",
   "log/std",
   "frame-benchmarking?/std",
 ]

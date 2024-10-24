@@ -33,11 +33,11 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, Xls20Ext, XrplBridgeToEthyAdapter};
+use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, NFTExt, Xls20Ext, XrplBridgeToEthyAdapter};
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
-	AccountId, AssetId, Balance, Timestamp, WeightedDispatchResult,
+	AccountId, AssetId, Balance, CollectionUuid, SerialNumber, Timestamp, WeightedDispatchResult,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
@@ -135,6 +135,9 @@ pub mod pallet {
 
 		/// Maximum XRPL transactions within a single ledger
 		type XRPLTransactionLimitPerLedger: Get<u32>;
+
+		/// NFT Extension, used to interact with the NFT pallet
+		type NFTExt: NFTExt<AccountId = Self::AccountId>;
 
 		/// The pallet used to process Xls20 deposits
 		type Xls20Ext: Xls20Ext<AccountId = Self::AccountId>;
