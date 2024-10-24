@@ -31,10 +31,8 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{
-	CreateExt, EthereumBridge, EthereumEventSubscriber,
-};
-use seed_primitives::{AccountId, AssetId, Balance, WeightedDispatchResult, EthAddress};
+use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber};
+use seed_primitives::{AccountId, AssetId, Balance, EthAddress, WeightedDispatchResult};
 use sp_core::{bounded::WeakBoundedVec, H160, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating},

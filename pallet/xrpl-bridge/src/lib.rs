@@ -39,7 +39,7 @@ use seed_pallet_common::{
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
-	AssetId, Balance, Timestamp, WeightedDispatchResult, AccountId
+	AccountId, AssetId, Balance, Timestamp, WeightedDispatchResult,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
@@ -80,7 +80,7 @@ pub mod pallet {
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId=AccountId> {
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type EthyAdapter: XrplBridgeToEthyAdapter<AuthorityId>;
@@ -139,7 +139,7 @@ pub mod pallet {
 		type XRPLTransactionLimitPerLedger: Get<u32>;
 
 		/// The pallet used to process Xls20 deposits
-		type Xls20Deposit: Xls20Deposit<AccountId=Self::AccountId>;
+		type Xls20Deposit: Xls20Deposit<AccountId = Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -887,8 +887,12 @@ impl<T: Config> Pallet<T> {
 				},
 				XrplTxData::CurrencyPayment { amount, address, currency } => {
 					match XRPLToAssetId::<T>::get(currency) {
-						Some(asset_id) => Self::process_asset_deposit(amount, &address.into(), asset_id),
-						None => Err((DbWeight::get().reads(1), Error::<T>::AssetNotSupported.into())),
+						Some(asset_id) => {
+							Self::process_asset_deposit(amount, &address.into(), asset_id)
+						},
+						None => {
+							Err((DbWeight::get().reads(1), Error::<T>::AssetNotSupported.into()))
+						},
 					}
 				},
 				XrplTxData::Xls20 { token_id, address } => {
@@ -946,9 +950,11 @@ impl<T: Config> Pallet<T> {
 				address,
 				amount,
 				Preservation::Expendable,
-			).map_err(|e| (Weight::zero(), e))?;
+			)
+			.map_err(|e| (Weight::zero(), e))?;
 		} else {
-			T::MultiCurrency::mint_into(asset_id, address, amount).map_err(|e| (Weight::zero(), e))?;
+			T::MultiCurrency::mint_into(asset_id, address, amount)
+				.map_err(|e| (Weight::zero(), e))?;
 		}
 		Ok(DbWeight::get().reads_writes(2, 2))
 	}

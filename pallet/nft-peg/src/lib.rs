@@ -62,7 +62,7 @@ pub mod pallet {
 		type NftPegWeightInfo: WeightInfo;
 		type MaxCollectionsPerWithdraw: Get<u32>;
 		type MaxSerialsPerWithdraw: Get<u32>;
-		type NFTMinter: NFTMinter<AccountId=Self::AccountId>;
+		type NFTMinter: NFTMinter<AccountId = Self::AccountId>;
 	}
 
 	#[pallet::storage]
@@ -343,11 +343,8 @@ where
 			let serial_numbers = current_token.token_ids.clone().into_inner();
 
 			// Mint the tokens
-			let mint_result = T::NFTMinter::mint_bridged_nft(
-				&destination,
-				collection_id,
-				serial_numbers.clone(),
-			);
+			let mint_result =
+				T::NFTMinter::mint_bridged_nft(&destination, collection_id, serial_numbers.clone());
 
 			match mint_result {
 				Ok(mint_weight) => {

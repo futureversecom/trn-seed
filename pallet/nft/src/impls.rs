@@ -21,7 +21,11 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
-use seed_pallet_common::{log, utils::{next_asset_uuid, PublicMintInformation}, NFTExt, NFTMinter, OnNewAssetSubscriber, OnTransferSubscriber};
+use seed_pallet_common::{
+	log,
+	utils::{next_asset_uuid, PublicMintInformation},
+	NFTExt, NFTMinter, OnNewAssetSubscriber, OnTransferSubscriber,
+};
 use seed_primitives::MAX_COLLECTION_ENTITLEMENTS;
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,

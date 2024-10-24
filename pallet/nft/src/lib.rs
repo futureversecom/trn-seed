@@ -373,8 +373,14 @@ pub mod pallet {
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
-			ensure!(!collection_info.cross_chain_compatibility.xrpl, Error::<T>::CannotUpdateMetadata);
-			ensure!(collection_info.origin_chain == OriginChain::Root, Error::<T>::CannotUpdateMetadata);
+			ensure!(
+				!collection_info.cross_chain_compatibility.xrpl,
+				Error::<T>::CannotUpdateMetadata
+			);
+			ensure!(
+				collection_info.origin_chain == OriginChain::Root,
+				Error::<T>::CannotUpdateMetadata
+			);
 
 			collection_info.metadata_scheme = base_uri
 				.clone()

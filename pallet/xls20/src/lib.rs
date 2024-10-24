@@ -27,13 +27,19 @@ use frame_support::{
 	traits::{fungibles::Mutate, tokens::Preservation, Get},
 	transactional,
 	weights::constants::RocksDbWeight as DbWeight,
-	PalletId
+	PalletId,
 };
 use frame_system::pallet_prelude::*;
 use pallet_nft::traits::NFTCollectionInfo;
 use seed_pallet_common::{NFTExt, NFTMinter, Xls20Deposit, Xls20MintRequest};
-use seed_primitives::{xrpl::Xls20TokenId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, SerialNumber, TokenCount, WeightedDispatchResult};
-use sp_runtime::{traits::{Zero, AccountIdConversion}, DispatchResult, SaturatedConversion};
+use seed_primitives::{
+	xrpl::Xls20TokenId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain,
+	SerialNumber, TokenCount, WeightedDispatchResult,
+};
+use sp_runtime::{
+	traits::{AccountIdConversion, Zero},
+	DispatchResult, SaturatedConversion,
+};
 use sp_std::prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -82,7 +88,7 @@ pub mod pallet {
 		/// AssetId used to pay Xls20 Mint Fees
 		type Xls20PaymentAsset: Get<AssetId>;
 		/// The NFT token minter
-		type NFTMinter: NFTMinter<AccountId=Self::AccountId>;
+		type NFTMinter: NFTMinter<AccountId = Self::AccountId>;
 	}
 
 	/// The permissioned relayer
@@ -363,7 +369,8 @@ impl<T: Config> Xls20Deposit for Pallet<T> {
 			// a TRN originated token that has been bridged over, or it is a token form XRPL
 			// from a collection that has been bridged before.
 
-			if Xls20TokenMap::<T>::get(collection_uuid, xls20_token.sequence) == Some(xls20_token_id)
+			if Xls20TokenMap::<T>::get(collection_uuid, xls20_token.sequence)
+				== Some(xls20_token_id)
 			{
 				// The token ID exists in an existing mapping. Either this token originated on TRN
 				// or it has been bridged in the past. The pallet should own the token
@@ -372,7 +379,8 @@ impl<T: Config> Xls20Deposit for Pallet<T> {
 					collection_uuid,
 					vec![xls20_token.sequence],
 					receiver.clone(),
-				).map_err(|e| {
+				)
+				.map_err(|e| {
 					// TODO calculate weight
 					(Weight::zero(), e)
 				})?;
@@ -402,20 +410,17 @@ impl<T: Config> Xls20Deposit for Pallet<T> {
 			metadata_scheme,
 			None,
 			OriginChain::XRPL,
-		).map_err(|e| {
+		)
+		.map_err(|e| {
 			// TODO calculate weight
 			(Weight::zero(), e)
 		})?;
 
 		CollectionMapping::<T>::insert(xls20_collection, collection_uuid);
 
-		let used_weight = T::NFTMinter::mint_bridged_nft(
-			receiver,
-			collection_uuid,
-			vec![xls20_token.sequence],
-		)?;
+		let used_weight =
+			T::NFTMinter::mint_bridged_nft(receiver, collection_uuid, vec![xls20_token.sequence])?;
 		Xls20TokenMap::<T>::insert(collection_uuid, xls20_token.sequence, xls20_token_id);
-
 
 		Ok(used_weight)
 	}
