@@ -33,7 +33,9 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, NFTExt, Xls20Ext, XrplBridgeToEthyAdapter};
+use seed_pallet_common::{
+	CreateExt, EthyToXrplBridgeAdapter, NFTExt, Xls20Ext, XrplBridgeToEthyAdapter,
+};
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
@@ -139,7 +141,7 @@ pub mod pallet {
 		/// NFT Extension, used to interact with the NFT pallet
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
 
-		/// The pallet used to process Xls20 deposits
+        /// Xls20 Extension, used to interact with the Xls20 pallet
 		type Xls20Ext: Xls20Ext<AccountId = Self::AccountId>;
 	}
 

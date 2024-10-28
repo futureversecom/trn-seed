@@ -129,3 +129,12 @@ impl XrplBridgeToEthyAdapter<AuthorityId> for MockEthyAdapter {
 		]
 	}
 }
+
+// Mock implementation for Xls20Ext
+pub struct MockXls20Ext;
+
+impl Xls20Ext for MockXls20Ext {
+	fn get_xls20_token_id(_token_id: TokenId) -> Option<Xls20TokenId> {
+		Some([1_u8; 32])
+	}
+}
