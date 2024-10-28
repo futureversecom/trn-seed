@@ -30,6 +30,7 @@ use scale_info::TypeInfo;
 use seed_primitives::xrpl::Xls20TokenId;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
+	xrpl::Xls20TokenId,
 	AccountId, AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme,
 	OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
 	WeightedDispatchResult,
