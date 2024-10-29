@@ -19,6 +19,7 @@ use crate::Pallet as Migration;
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_support::StorageHasher;
 use frame_system::RawOrigin;
+use hex_literal::hex;
 use seed_primitives::{CollectionUuid, SerialNumber};
 
 benchmarks! {
@@ -46,7 +47,7 @@ benchmarks! {
 		T::CurrentMigration::step(None)
 	} verify {
 		let new_token = frame_support::migration::get_storage_value::<[u8; 32]>(b"Xls20", b"Xls20TokenMap", &key);
-		let xls20_token_id: [u8; 32] = "000b013a95f14b0e44f78a264e41713c".as_bytes().try_into().unwrap();
+		let xls20_token_id: [u8; 32] = hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67");
 		assert_eq!(new_token, Some(xls20_token_id));
 	}
 

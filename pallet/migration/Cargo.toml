@@ -11,6 +11,7 @@ repository.workspace = true
 codec = { workspace = true }
 ethabi = { workspace = true }
 scale-info = { workspace = true }
+hex-literal = { workspace = true }
 
 frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }

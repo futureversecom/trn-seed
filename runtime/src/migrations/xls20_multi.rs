@@ -82,11 +82,10 @@ impl<T: pallet_xls20::Config + pallet_migration::Config> MigrationStep for Xls20
 				},
 				Err(e) => {
 					// If we encounter an error during the conversion, we must insert some
-					// fake value, we can't remove the token as it will cause unexpected results
+					// default value, we can't remove the token as it will cause unexpected results
 					// with the iter process
 					log::error!(target: LOG_TARGET, "🦆 Error migrating token_id ({:?},{:?}) : {:?}", key1, key2, e);
-					let fake_value = [0u8; 32];
-					pallet_xls20::Xls20TokenMap::<T>::insert(key1, key2, fake_value);
+					pallet_xls20::Xls20TokenMap::<T>::insert(key1, key2, [0u8; 32]);
 				},
 			}
 			let last_key = old::Xls20TokenMap::<T>::hashed_key_for(key1, key2);

@@ -19,7 +19,7 @@ scale-info = { workspace = true }
 pallet-nft = { workspace = true }
 seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
-log = "0.4.22"
+log = { workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true }

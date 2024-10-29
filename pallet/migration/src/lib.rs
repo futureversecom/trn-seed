@@ -131,6 +131,8 @@ pub mod pallet {
 		MigrationInProgress,
 		/// The block delay must be set to None or a value greater than 1
 		InvalidBlockDelay,
+		/// The block limit must be greater than 0
+		InvalidBlockLimit,
 	}
 
 	#[pallet::hooks]
@@ -184,7 +186,7 @@ pub mod pallet {
 		/// of blocks between each migration step. If set to None, the migration will run every block.
 		/// The delay must be greater than 1.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::enable_migration())]
+		#[pallet::weight(T::WeightInfo::set_block_delay())]
 		pub fn set_block_delay(origin: OriginFor<T>, block_delay: Option<u32>) -> DispatchResult {
 			ensure_root(origin)?;
 			match block_delay {
@@ -201,9 +203,10 @@ pub mod pallet {
 		/// Set the block limit for multi-block migrations. The block limit is the maximum number
 		/// of individual items to migrate in a single block. Will still respect maximum weight rules.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::enable_migration())]
+		#[pallet::weight(T::WeightInfo::set_block_limit())]
 		pub fn set_block_limit(origin: OriginFor<T>, block_limit: u32) -> DispatchResult {
 			ensure_root(origin)?;
+			ensure!(block_limit > 0, Error::<T>::InvalidBlockLimit);
 			BlockLimit::<T>::put(block_limit);
 			Self::deposit_event(Event::BlockLimitSet { block_limit });
 			Ok(())

@@ -160,6 +160,16 @@ mod set_block_limit {
 			);
 		});
 	}
+
+	#[test]
+	fn set_block_limit_zero_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			assert_noop!(
+				Migration::set_block_limit(RawOrigin::Root.into(), 0),
+				Error::<Test>::InvalidBlockLimit
+			);
+		});
+	}
 }
 
 mod on_runtime_upgrade {

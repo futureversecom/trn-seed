@@ -110,7 +110,6 @@ pallet-assets-ext-rpc = { path = "pallet/assets-ext/rpc", default-features = fal
 pallet-assets-ext-rpc-runtime-api = { path = "pallet/assets-ext/rpc/runtime-api", default-features = false }
 seed-pallet-common = { path = "pallet/common", default-features = false }
 pallet-crowdsale = { path = "pallet/crowdsale", default-features = false }
-pallet-migration = { path = "pallet/migration", default-features = false }
 pallet-dex = { path = "pallet/dex", default-features = false }
 pallet-dex-rpc = { path = "pallet/dex/rpc", default-features = false }
 pallet-dex-rpc-runtime-api = { path = "pallet/dex/rpc/runtime-api", default-features = false }
@@ -124,6 +123,7 @@ pallet-fee-proxy = { path = "pallet/fee-proxy", default-features = false }
 pallet-futurepass = { path = "pallet/futurepass", default-features = false }
 pallet-maintenance-mode = { path = "pallet/maintenance-mode", default-features = false }
 pallet-marketplace = { path = "pallet/marketplace", default-features = false }
+pallet-migration = { path = "pallet/migration", default-features = false }
 pallet-nfi = { path = "pallet/nfi", default-features = false }
 pallet-nft = { path = "pallet/nft", default-features = false }
 pallet-nft-rpc = { path = "pallet/nft/rpc", default-features = false }
