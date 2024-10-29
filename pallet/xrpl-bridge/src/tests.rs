@@ -18,10 +18,14 @@ use crate::mock::{
 	AssetsExt, DelayedPaymentBlockLimit, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System,
 	Test, XRPLBridge, Xls20TokenTest, XrpAssetId, XrpTxChallengePeriod, XrplPalletId,
 };
-use crate::types::{XRPLCurrency, XRPLCurrencyType, XrplTransaction::NFTokenAcceptOffer};
+use crate::types::{
+	XRPLCurrency, XRPLCurrencyType,
+	XrplTransaction::{NFTokenAcceptOffer, NFTokenCreateOffer},
+};
 use frame_support::traits::fungibles::metadata::Inspect as InspectMetadata;
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
+use seed_primitives::{CrossChainCompatibility, OriginChain};
 
 /// Helper function to get the xrp balance of an address
 fn xrp_balance_of(who: AccountId) -> u64 {
@@ -4141,6 +4145,235 @@ fn generate_nft_accept_offer_failure_scenarios() {
 				nftoken_sell_offer
 			),
 			Error::<Test>::NotPermitted,
+		);
+	});
+}
+
+#[test]
+fn withdraw_nft_works() {
+	let tx_fee = 100;
+	TestExt::<Test>::default().build().execute_with(|| {
+		System::set_block_number(1);
+		// pallet-xrpl-bridge setup
+		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+		// set door address
+		let door = H160::from([3_u8; 20]);
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::NFT,
+			Some(door)
+		));
+		// door_tx_fee to 100
+		assert_ok!(XRPLBridge::set_door_tx_fee(
+			frame_system::RawOrigin::Root.into(),
+			XRPLDoorAccount::NFT,
+			tx_fee as u64
+		));
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::NFT,
+			1_u32,
+			1_u32,
+			200_u32
+		));
+
+		// setup pallet-nft
+		let collection_name = BoundedVec::truncate_from("test".as_bytes().to_vec());
+		let collection_owner = alice();
+		let metadata_scheme = MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
+
+		let nft_collection_id = <Test as Config>::NFTExt::do_create_collection(
+			collection_owner,
+			collection_name,
+			0,
+			None,
+			None,
+			metadata_scheme,
+			None,
+			OriginChain::Root,
+			CrossChainCompatibility { xrpl: true },
+		)
+		.unwrap();
+
+		assert_ok!(<Test as Config>::NFTExt::do_mint(alice(), nft_collection_id, 1, None,));
+
+		// withdraw nft
+		System::reset_events();
+		assert_ok!(XRPLBridge::withdraw_nft(
+			RuntimeOrigin::signed(alice()),
+			nft_collection_id,
+			0,
+			destination,
+		));
+
+		// check for XrplTxSignRequest event
+		System::assert_has_event(
+			Event::<Test>::XrplTxSignRequest {
+				proof_id: 1,
+				tx: NFTokenCreateOffer(NFTokenCreateOfferTransaction {
+					nftoken_id: [1_u8; 32],
+					tx_fee,
+					tx_ticket_sequence: 1,
+					account: door,
+					destination,
+				}),
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn withdraw_nft_failure_xls20_incompatible() {
+	let tx_fee = 100;
+	TestExt::<Test>::default().build().execute_with(|| {
+		System::set_block_number(1);
+		// pallet-xrpl-bridge setup
+		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+		// set door address
+		let door = H160::from([3_u8; 20]);
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::NFT,
+			Some(door)
+		));
+		// door_tx_fee to 100
+		assert_ok!(XRPLBridge::set_door_tx_fee(
+			frame_system::RawOrigin::Root.into(),
+			XRPLDoorAccount::NFT,
+			tx_fee as u64
+		));
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::NFT,
+			1_u32,
+			1_u32,
+			200_u32
+		));
+
+		// setup pallet-nft
+		let collection_name = BoundedVec::truncate_from("test".as_bytes().to_vec());
+		let collection_owner = alice();
+		let metadata_scheme = MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
+
+		let nft_collection_id = <Test as Config>::NFTExt::do_create_collection(
+			collection_owner,
+			collection_name,
+			0,
+			None,
+			None,
+			metadata_scheme,
+			None,
+			OriginChain::Root,
+			CrossChainCompatibility { xrpl: false },
+		)
+		.unwrap();
+
+		assert_ok!(<Test as Config>::NFTExt::do_mint(alice(), nft_collection_id, 1, None,));
+
+		// withdraw nft
+		System::reset_events();
+		assert_err!(
+			XRPLBridge::withdraw_nft(
+				RuntimeOrigin::signed(alice()),
+				nft_collection_id,
+				0,
+				destination,
+			),
+			Error::<Test>::Xls20Incompatible
+		);
+	});
+}
+
+#[test]
+fn withdraw_nft_more_failure_scenarios() {
+	let tx_fee = 100;
+	TestExt::<Test>::default().build().execute_with(|| {
+		System::set_block_number(1);
+		// pallet-xrpl-bridge setup
+		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		let relayer = create_account(1);
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+		// set door address
+		let door = H160::from([3_u8; 20]);
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::NFT,
+			Some(door)
+		));
+		// door_tx_fee to 100
+		assert_ok!(XRPLBridge::set_door_tx_fee(
+			frame_system::RawOrigin::Root.into(),
+			XRPLDoorAccount::NFT,
+			tx_fee as u64
+		));
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			RuntimeOrigin::root(),
+			XRPLDoorAccount::NFT,
+			1_u32,
+			1_u32,
+			200_u32
+		));
+
+		// setup pallet-nft
+		let collection_name = BoundedVec::truncate_from("test".as_bytes().to_vec());
+		let collection_owner = alice();
+		let metadata_scheme = MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
+
+		let nft_collection_id = <Test as Config>::NFTExt::do_create_collection(
+			collection_owner,
+			collection_name,
+			0,
+			None,
+			None,
+			metadata_scheme,
+			None,
+			OriginChain::Root,
+			CrossChainCompatibility { xrpl: true },
+		)
+		.unwrap();
+
+		assert_ok!(<Test as Config>::NFTExt::do_mint(alice(), nft_collection_id, 1, None,));
+
+		System::reset_events();
+		// withdraw by other than the owner
+		assert_err!(
+			XRPLBridge::withdraw_nft(
+				RuntimeOrigin::signed(bob()),
+				nft_collection_id,
+				0,
+				destination,
+			),
+			pallet_nft::Error::<Test>::NotTokenOwner
+		);
+
+		// withdraw invalid collection
+		assert_err!(
+			XRPLBridge::withdraw_nft(
+				RuntimeOrigin::signed(bob()),
+				nft_collection_id + 1, // non existent
+				0,
+				destination,
+			),
+			pallet_nft::Error::<Test>::NoCollectionFound
+		);
+
+		// withdraw invalid serial number
+		assert_err!(
+			XRPLBridge::withdraw_nft(
+				RuntimeOrigin::signed(bob()),
+				nft_collection_id,
+				0 + 100, // non existent
+				destination,
+			),
+			pallet_nft::Error::<Test>::NotTokenOwner
 		);
 	});
 }
