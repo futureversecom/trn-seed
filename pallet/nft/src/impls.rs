@@ -386,7 +386,7 @@ impl<T: Config> Pallet<T> {
 	where
 		<T as frame_system::Config>::AccountId: core::default::Default,
 	{
-		let mut collection_info =
+		let collection_info =
 			<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		let collection_info = collection_info;
 		let owner = collection_info.owner;
