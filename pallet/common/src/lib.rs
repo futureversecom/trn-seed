@@ -28,11 +28,7 @@ use frame_support::{
 use frame_system::Config;
 use scale_info::TypeInfo;
 use seed_primitives::xrpl::Xls20TokenId;
-use seed_primitives::{
-	ethy::{EventClaimId, EventProofId},
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId, TokenLockReason, WeightedDispatchResult,
-};
+use seed_primitives::{ethy::{EventClaimId, EventProofId}, AccountId, AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason, WeightedDispatchResult};
 use sp_core::{bounded::BoundedVec, H160, U256};
 use sp_std::{fmt::Debug, vec::Vec};
 
@@ -528,10 +524,10 @@ pub trait NFTExt {
 
 	/// Transfer a token from origin to new_owner
 	fn do_transfer(
-		origin: Self::AccountId,
+		origin: &Self::AccountId,
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
-		new_owner: Self::AccountId,
+		new_owner: &Self::AccountId,
 	) -> DispatchResult;
 
 	/// Create a new collection
@@ -544,6 +540,7 @@ pub trait NFTExt {
 		metadata_scheme: MetadataScheme,
 		royalties_schedule: Option<RoyaltiesSchedule<Self::AccountId>>,
 		origin_chain: OriginChain,
+		cross_chain_compatibility: CrossChainCompatibility,
 	) -> Result<CollectionUuid, DispatchError>;
 
 	/// Returns Some(token_owner) for a token if the owner exists

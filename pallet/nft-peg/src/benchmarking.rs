@@ -23,8 +23,8 @@ use crate::{BlockedTokens, EthToRootNft, NextBlockedMintId, Pallet as NftPeg, Ro
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use pallet_nft::{CollectionInfo, CollectionInformation, CrossChainCompatibility, Pallet as Nft};
-use seed_primitives::MetadataScheme;
+use pallet_nft::{CollectionInfo, CollectionInformation, Pallet as Nft};
+use seed_primitives::{MetadataScheme, CrossChainCompatibility};
 use sp_std::vec;
 
 /// This is a helper function to get an account.

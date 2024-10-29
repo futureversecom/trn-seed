@@ -26,7 +26,7 @@ use seed_pallet_common::{
 	utils::{next_asset_uuid, PublicMintInformation},
 	NFTExt, NFTMinter, OnNewAssetSubscriber, OnTransferSubscriber,
 };
-use seed_primitives::MAX_COLLECTION_ENTITLEMENTS;
+use seed_primitives::{CrossChainCompatibility, MAX_COLLECTION_ENTITLEMENTS};
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
 	TokenId, WeightedDispatchResult,
@@ -566,14 +566,14 @@ impl<T: Config> NFTExt for Pallet<T> {
 	}
 
 	fn do_transfer(
-		origin: Self::AccountId,
+		origin: &Self::AccountId,
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
-		new_owner: Self::AccountId,
+		new_owner: &Self::AccountId,
 	) -> DispatchResult {
 		let bounded_serials =
 			BoundedVec::try_from(serial_numbers).map_err(|_| Error::<T>::TokenLimitExceeded)?;
-		Self::transfer(RawOrigin::Signed(origin).into(), collection_id, bounded_serials, new_owner)
+		Self::do_transfer(collection_id, bounded_serials, origin, new_owner)
 	}
 
 	fn do_create_collection(
@@ -585,6 +585,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 		metadata_scheme: MetadataScheme,
 		royalties_schedule: Option<RoyaltiesSchedule<Self::AccountId>>,
 		origin_chain: OriginChain,
+		cross_chain_compatibility: CrossChainCompatibility
 	) -> Result<CollectionUuid, DispatchError> {
 		Self::do_create_collection(
 			owner,
@@ -595,7 +596,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 			metadata_scheme,
 			royalties_schedule,
 			origin_chain,
-			CrossChainCompatibility::default(),
+			cross_chain_compatibility,
 		)
 	}
 

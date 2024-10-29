@@ -1,7 +1,7 @@
 use crate::*;
 use frame_support::{assert_ok, traits::OriginTrait, BoundedVec};
 use frame_system::pallet_prelude::OriginFor;
-use seed_primitives::{MetadataScheme, TokenCount};
+use seed_primitives::{CrossChainCompatibility, MetadataScheme, TokenCount};
 
 pub struct NftBuilder<T>
 where

@@ -22,11 +22,11 @@ use frame_support::{
 	ensure,
 };
 use pallet_evm::{GasWeightMapping, Precompile};
-use pallet_nft::{CrossChainCompatibility, WeightInfo};
+use pallet_nft::WeightInfo;
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount,
-	MAX_COLLECTION_ENTITLEMENTS, MAX_ENTITLEMENTS,
+	MAX_COLLECTION_ENTITLEMENTS, MAX_ENTITLEMENTS, CrossChainCompatibility
 };
 use sp_core::{H160, U256};
 use sp_runtime::{

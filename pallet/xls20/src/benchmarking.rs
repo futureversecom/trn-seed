@@ -24,9 +24,9 @@ use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_te
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use pallet_nft::{CollectionInformation, CrossChainCompatibility, TokenOwnership};
+use pallet_nft::{CollectionInformation, TokenOwnership};
+use seed_primitives::{nft::OriginChain, MetadataScheme, CrossChainCompatibility};
 use sp_core::H160;
-use seed_primitives::{nft::OriginChain, MetadataScheme};
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -54,6 +54,7 @@ pub fn build_xls20_collection<T: Config>(
 		metadata_scheme,
 		None,
 		OriginChain::Root,
+		CrossChainCompatibility::default()
 	)
 	.unwrap();
 	assert_ok!(Xls20::<T>::enable_xls20_compatibility(origin::<T>(&caller).into(), collection_id));
@@ -93,9 +94,24 @@ benchmarks! {
 		let serial_numbers = BoundedVec::truncate_from(vec![(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"))]);
 	}: _(origin::<T>(&relayer), collection_id, serial_numbers)
 
+	set_collection_mappings {
+		let i in 0..256;
+		let mut mappings: Vec<(CollectionUuid, Xls20Collection)> = Vec::new();
+		for _ in 0..i {
+			let collection_id = i as u32;
+			let issuer = H160::from
+			(hex!("95F14B0E44F78A264E41713C64B5F89242540EE2"));
+			let xls20_collection = Xls20Collection::new(issuer, collection_id);
+			mappings.push((collection_id, xls20_collection));
+		}
+	}: _(RawOrigin::Root, mappings.clone())
+	verify {
+		for (collection_id, xls20_collection) in mappings {
+			assert_eq!(CollectionMapping::<T>::get(xls20_collection), Some(collection_id));
+		}
+	}
 
 	deposit_token_transfer {
-		let amount = 100;
 		let beneficiary = account::<T>("Beneficiary");
 		let xls20_token_id = hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
 		let collection_id = 146_999_694;
@@ -120,7 +136,7 @@ benchmarks! {
 			cross_chain_compatibility: CrossChainCompatibility::default(),
 			owned_tokens: BoundedVec::truncate_from(vec![owned_tokens]),
 		};
-		// Insert fake data
+		// Insert collection data
 		<pallet_nft::CollectionInfo<T>>::insert(collection_id, collection_info);
 		CollectionMapping::<T>::insert(xls20_collection, collection_id);
 		Xls20TokenMap::<T>::insert(collection_id, serial_number, xls20_token_id);
@@ -136,7 +152,6 @@ benchmarks! {
 	}
 
 	deposit_token_mint {
-		let amount = 100;
 		let beneficiary = account::<T>("Beneficiary");
 		let xls20_token_id = hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
 		let collection_id = 146_999_694;
@@ -157,7 +172,6 @@ benchmarks! {
 		};
 		<pallet_nft::CollectionInfo<T>>::insert(collection_id, collection_info);
 		CollectionMapping::<T>::insert(xls20_collection, collection_id);
-
 	}: {Xls20::<T>::deposit_xls20_token(&beneficiary, xls20_token_id).expect("Failed to process asset deposit");}
 	verify {
 		// Token was minted
@@ -166,14 +180,12 @@ benchmarks! {
 	}
 
 	deposit_token_create_collection {
-		let amount = 100;
 		let beneficiary = account::<T>("Beneficiary");
 		let xls20_token_id = hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
 		let collection_id = 146_999_694;
 		let serial_number = 3429;
 		let issuer = H160::from(hex!("95F14B0E44F78A264E41713C64B5F89242540EE2"));
 		let next_collection_id = T::NFTExt::next_collection_uuid().expect("Failed to get next collection uuid");
-
 	}: {Xls20::<T>::deposit_xls20_token(&beneficiary, xls20_token_id).expect("Failed to process asset deposit");}
 	verify {
 		// Token was minted

@@ -40,7 +40,7 @@ use seed_pallet_common::{
 };
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId, TokenLockReason, MAX_COLLECTION_ENTITLEMENTS,
+	SerialNumber, TokenCount, TokenId, TokenLockReason, MAX_COLLECTION_ENTITLEMENTS, CrossChainCompatibility
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
@@ -362,6 +362,8 @@ pub mod pallet {
 
 		/// Set the base URI of a collection
 		/// Caller must be the current collection owner
+		/// Collection must originate on TRN and not be XLS-20 compatible
+		/// XLS-20 metadata is immutable so we must respect that on our chain as well
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::set_base_uri())]
 		pub fn set_base_uri(
