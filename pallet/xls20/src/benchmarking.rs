@@ -25,7 +25,7 @@ use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use pallet_nft::{CollectionInformation, TokenOwnership};
-use seed_primitives::{nft::OriginChain, MetadataScheme, CrossChainCompatibility};
+use seed_primitives::{nft::OriginChain, CrossChainCompatibility, MetadataScheme};
 use sp_core::H160;
 
 /// This is a helper function to get an account.
@@ -54,7 +54,7 @@ pub fn build_xls20_collection<T: Config>(
 		metadata_scheme,
 		None,
 		OriginChain::Root,
-		CrossChainCompatibility::default()
+		CrossChainCompatibility::default(),
 	)
 	.unwrap();
 	assert_ok!(Xls20::<T>::enable_xls20_compatibility(origin::<T>(&caller).into(), collection_id));

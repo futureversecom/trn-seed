@@ -26,11 +26,11 @@ use seed_pallet_common::{
 	utils::{next_asset_uuid, PublicMintInformation},
 	NFTExt, NFTMinter, OnNewAssetSubscriber, OnTransferSubscriber,
 };
-use seed_primitives::{CrossChainCompatibility, MAX_COLLECTION_ENTITLEMENTS};
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
 	TokenId, WeightedDispatchResult,
 };
+use seed_primitives::{CrossChainCompatibility, MAX_COLLECTION_ENTITLEMENTS};
 use sp_runtime::{
 	traits::Zero, ArithmeticError, BoundedVec, DispatchError, DispatchResult, SaturatedConversion,
 };
@@ -585,7 +585,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 		metadata_scheme: MetadataScheme,
 		royalties_schedule: Option<RoyaltiesSchedule<Self::AccountId>>,
 		origin_chain: OriginChain,
-		cross_chain_compatibility: CrossChainCompatibility
+		cross_chain_compatibility: CrossChainCompatibility,
 	) -> Result<CollectionUuid, DispatchError> {
 		Self::do_create_collection(
 			owner,

@@ -31,7 +31,7 @@ pub fn build_collection<T: Config>(collection_owner: T::AccountId) -> Collection
 		MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
 		None,
 		OriginChain::Root,
-		CrossChainCompatibility::default()
+		CrossChainCompatibility::default(),
 	)
 	.unwrap()
 }

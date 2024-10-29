@@ -23,9 +23,9 @@ use crate::{
 	Pallet,
 };
 use frame_support::traits::fungibles::{metadata::Inspect as InspectMetadata, Inspect};
-use pallet_nft::{traits::NFTCollectionInfo};
+use pallet_nft::traits::NFTCollectionInfo;
 use seed_pallet_common::test_prelude::{BlockNumber, *};
-use seed_primitives::{TokenCount, CrossChainCompatibility};
+use seed_primitives::{CrossChainCompatibility, TokenCount};
 
 // Create an NFT collection
 // Returns the created `collection_id`

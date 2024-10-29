@@ -16,14 +16,14 @@
 #![cfg(test)]
 use super::*;
 use crate::mock::{
-	AssetsExt, MaxTokensPerXls20Mint, Nft, RuntimeEvent as MockEvent, System, Test, Xls20,
-	Xls20PaymentAsset, MaxTokensPerCollection
+	AssetsExt, MaxTokensPerCollection, MaxTokensPerXls20Mint, Nft, RuntimeEvent as MockEvent,
+	System, Test, Xls20, Xls20PaymentAsset,
 };
 use frame_support::traits::fungibles::Inspect;
 use hex_literal::hex;
 use pallet_nft::{CollectionInfo, TokenOwnership};
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::{xrpl::Xls20TokenId, MetadataScheme, CrossChainCompatibility};
+use seed_primitives::{xrpl::Xls20TokenId, CrossChainCompatibility, MetadataScheme};
 
 // Create an NFT collection with xls20 compatibility
 // Returns the created `collection_id`
@@ -775,7 +775,7 @@ mod set_collection_mappings {
 			let collection_mappings = vec![
 				(12, Xls20Collection::new(H160::from_low_u64_be(12), 123)),
 				(22, Xls20Collection::new(H160::from_low_u64_be(22), 223)),
-				(32, Xls20Collection::new(H160::from_low_u64_be(32), 323))
+				(32, Xls20Collection::new(H160::from_low_u64_be(32), 323)),
 			];
 
 			assert_ok!(Xls20::set_collection_mappings(
@@ -784,10 +784,7 @@ mod set_collection_mappings {
 			));
 
 			for (collection_id, xls20_collection) in collection_mappings.clone() {
-				assert_eq!(
-					CollectionMapping::<Test>::get(xls20_collection),
-					Some(collection_id)
-				);
+				assert_eq!(CollectionMapping::<Test>::get(xls20_collection), Some(collection_id));
 			}
 
 			// Check event
@@ -800,9 +797,8 @@ mod set_collection_mappings {
 	#[test]
 	fn set_collection_mappings_not_sudo_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let collection_mappings = vec![
-				(12, Xls20Collection::new(H160::from_low_u64_be(12), 123))
-			];
+			let collection_mappings =
+				vec![(12, Xls20Collection::new(H160::from_low_u64_be(12), 123))];
 
 			assert_noop!(
 				Xls20::set_collection_mappings(
@@ -826,7 +822,8 @@ mod deposit_token {
 			let collection_owner = create_account(10);
 			let collection_id = setup_xls20_collection(collection_owner, true);
 			let beneficiary = create_account(12);
-			let xls20_token_id = hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+			let xls20_token_id =
+				hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
 			let xls20_token = Xls20Token::from(xls20_token_id);
 			let serial_number = xls20_token.sequence;
 			let xls20_collection = Xls20Collection::new(xls20_token.issuer, xls20_token.taxon);
@@ -845,14 +842,13 @@ mod deposit_token {
 			Xls20TokenMap::<Test>::insert(collection_id, serial_number, xls20_token_id);
 
 			// Deposit token
-			let weight = Xls20::deposit_xls20_token(
-				&beneficiary,
-				xls20_token_id,
-			).expect("Failed to deposit token");
+			let weight = Xls20::deposit_xls20_token(&beneficiary, xls20_token_id)
+				.expect("Failed to deposit token");
 			assert_eq!(weight, <Test as Config>::WeightInfo::deposit_token_transfer());
 
 			// Token was transferred from pallet address to beneficiary
-			let new_owner = <Test as Config>::NFTExt::get_token_owner(&(collection_id, serial_number)).unwrap();
+			let new_owner =
+				<Test as Config>::NFTExt::get_token_owner(&(collection_id, serial_number)).unwrap();
 			assert_eq!(new_owner, beneficiary);
 		});
 	}
@@ -865,20 +861,21 @@ mod deposit_token {
 			let collection_owner = create_account(10);
 			let collection_id = setup_xls20_collection(collection_owner, true);
 			let beneficiary = create_account(12);
-			let xls20_token_id = hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+			let xls20_token_id =
+				hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
 			let xls20_token = Xls20Token::from(xls20_token_id);
 			let xls20_collection = Xls20Collection::new(xls20_token.issuer, xls20_token.taxon);
 			CollectionMapping::<Test>::insert(xls20_collection, collection_id);
 
 			// Deposit token
-			let weight = Xls20::deposit_xls20_token(
-				&beneficiary,
-				xls20_token_id,
-			).expect("Failed to deposit token");
+			let weight = Xls20::deposit_xls20_token(&beneficiary, xls20_token_id)
+				.expect("Failed to deposit token");
 			assert_eq!(weight, <Test as Config>::WeightInfo::deposit_token_mint());
 
 			// Token was minted into beneficiary address
-			let new_owner = <Test as Config>::NFTExt::get_token_owner(&(collection_id, xls20_token.sequence)).unwrap();
+			let new_owner =
+				<Test as Config>::NFTExt::get_token_owner(&(collection_id, xls20_token.sequence))
+					.unwrap();
 			assert_eq!(new_owner, beneficiary);
 
 			let collection_info = <CollectionInfo<Test>>::get(collection_id).unwrap();
@@ -886,27 +883,27 @@ mod deposit_token {
 		});
 	}
 
-
 	#[test]
 	/// Test the flow where a token is deposited to TRN and the collection needs to be created
 	/// and the token minted into the beneficiary address
 	fn deposit_token_create_collection_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let beneficiary = create_account(12);
-			let xls20_token_id = hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+			let xls20_token_id =
+				hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
 			let xls20_token = Xls20Token::from(xls20_token_id);
 			let serial_number = xls20_token.sequence;
-			let collection_id = <Test as Config>::NFTExt::next_collection_uuid().expect("Failed to get next collection uuid");
+			let collection_id = <Test as Config>::NFTExt::next_collection_uuid()
+				.expect("Failed to get next collection uuid");
 
 			// Deposit token
-			let weight = Xls20::deposit_xls20_token(
-				&beneficiary,
-				xls20_token_id,
-			).expect("Failed to deposit token");
+			let weight = Xls20::deposit_xls20_token(&beneficiary, xls20_token_id)
+				.expect("Failed to deposit token");
 			assert_eq!(weight, <Test as Config>::WeightInfo::deposit_token_create_collection());
 
 			// Token was minted into beneficiary address
-			let new_owner = <Test as Config>::NFTExt::get_token_owner(&(collection_id, serial_number)).unwrap();
+			let new_owner =
+				<Test as Config>::NFTExt::get_token_owner(&(collection_id, serial_number)).unwrap();
 			assert_eq!(new_owner, beneficiary);
 
 			let collection_info = <CollectionInfo<Test>>::get(collection_id).unwrap();

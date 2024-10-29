@@ -133,7 +133,6 @@ impl Default for CrossChainCompatibility {
 	}
 }
 
-
 #[cfg(test)]
 mod test {
 	use super::{MetadataScheme, RoyaltiesSchedule};

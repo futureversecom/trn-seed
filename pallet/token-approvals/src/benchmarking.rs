@@ -54,7 +54,7 @@ fn build_collection<T: Config>() -> (T::AccountId, CollectionUuid, TokenId) {
 		metadata_scheme,
 		None,
 		OriginChain::Root,
-		CrossChainCompatibility::default()
+		CrossChainCompatibility::default(),
 	)
 	.unwrap();
 

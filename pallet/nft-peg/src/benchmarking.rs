@@ -24,7 +24,7 @@ use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_te
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_nft::{CollectionInfo, CollectionInformation, Pallet as Nft};
-use seed_primitives::{MetadataScheme, CrossChainCompatibility};
+use seed_primitives::{CrossChainCompatibility, MetadataScheme};
 use sp_std::vec;
 
 /// This is a helper function to get an account.

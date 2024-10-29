@@ -25,13 +25,15 @@ use frame_support::{
 	ensure,
 	pallet_prelude::*,
 	traits::{fungibles::Mutate, tokens::Preservation, Get},
-	transactional,
-	PalletId,
+	transactional, PalletId,
 };
 use frame_system::pallet_prelude::*;
 use pallet_nft::traits::NFTCollectionInfo;
 use seed_pallet_common::{NFTExt, NFTMinter, Xls20Ext, Xls20MintRequest};
-use seed_primitives::{xrpl::Xls20TokenId, AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme, OriginChain, SerialNumber, TokenCount, TokenId, WeightedDispatchResult};
+use seed_primitives::{
+	xrpl::Xls20TokenId, AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme,
+	OriginChain, SerialNumber, TokenCount, TokenId, WeightedDispatchResult,
+};
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
 	DispatchResult, SaturatedConversion,
@@ -123,9 +125,7 @@ pub mod pallet {
 			mappings: Vec<(SerialNumber, Xls20TokenId)>,
 		},
 		/// Xls20 collection mappings have been set
-		Xls20CollectionMappingsSet {
-			mappings: Vec<(CollectionUuid, Xls20Collection)>,
-		},
+		Xls20CollectionMappingsSet { mappings: Vec<(CollectionUuid, Xls20Collection)> },
 		/// A collection has had XLS-20 compatibility enabled
 		Xls20CompatibilityEnabled { collection_id: CollectionUuid },
 		/// Additional mint fee for XLS-20 mint has been paid to relayer
@@ -285,9 +285,7 @@ pub mod pallet {
 			mappings.iter().for_each(|(collection_id, xls20_collection)| {
 				CollectionMapping::<T>::insert(xls20_collection, collection_id);
 			});
-			Self::deposit_event(Event::<T>::Xls20CollectionMappingsSet {
-				mappings,
-			});
+			Self::deposit_event(Event::<T>::Xls20CollectionMappingsSet { mappings });
 			Ok(())
 		}
 	}
@@ -395,7 +393,7 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 					vec![xls20_token.sequence],
 					&receiver,
 				)
-					.map_err(|e| (T::WeightInfo::deposit_token_transfer(), e))?;
+				.map_err(|e| (T::WeightInfo::deposit_token_transfer(), e))?;
 				return Ok(T::WeightInfo::deposit_token_transfer());
 			} else {
 				// New token to TRN, mint it and set up the mapping for reverse bridging
@@ -404,7 +402,7 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 					collection_uuid,
 					vec![xls20_token.sequence],
 				)
-					.map_err(|(_, e)| (T::WeightInfo::deposit_token_transfer(), e))?;
+				.map_err(|(_, e)| (T::WeightInfo::deposit_token_transfer(), e))?;
 				Xls20TokenMap::<T>::insert(collection_uuid, xls20_token.sequence, xls20_token_id);
 				return Ok(T::WeightInfo::deposit_token_mint());
 			}

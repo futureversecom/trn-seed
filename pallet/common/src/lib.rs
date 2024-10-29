@@ -28,7 +28,12 @@ use frame_support::{
 use frame_system::Config;
 use scale_info::TypeInfo;
 use seed_primitives::xrpl::Xls20TokenId;
-use seed_primitives::{ethy::{EventClaimId, EventProofId}, AccountId, AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason, WeightedDispatchResult};
+use seed_primitives::{
+	ethy::{EventClaimId, EventProofId},
+	AccountId, AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme,
+	OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
+	WeightedDispatchResult,
+};
 use sp_core::{bounded::BoundedVec, H160, U256};
 use sp_std::{fmt::Debug, vec::Vec};
 

@@ -16,7 +16,7 @@
 use super::*;
 use crate::mock::{
 	AssetsExt, DelayedPaymentBlockLimit, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System,
-	Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod, XrplPalletId,
+	Test, XRPLBridge, Xls20TokenTest, XrpAssetId, XrpTxChallengePeriod, XrplPalletId,
 };
 use crate::types::{XRPLCurrency, XRPLCurrencyType, XrplTransaction::NFTokenAcceptOffer};
 use frame_support::traits::fungibles::metadata::Inspect as InspectMetadata;
@@ -3244,6 +3244,43 @@ fn process_xrp_tx_processing_failed() {
 				AssetsExt::balance(XrpAssetId::get(), &H160::from_slice(account_address).into());
 			assert_eq!(xrp_balance, u128::MAX);
 		}
+	})
+}
+
+#[test]
+fn process_xrp_tx_xls20_success() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		System::set_block_number(1);
+		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
+		let relayer = create_account(1);
+		XRPLBridge::initialize_relayer(&vec![relayer]);
+
+		// submit payment tx
+		let xls20_token_id =
+			hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		let address = create_account(123);
+		let xls20_tx = XrplTxData::Xls20 { token_id: xls20_token_id, address: address.into() };
+		assert_ok!(XRPLBridge::submit_transaction(
+			RuntimeOrigin::signed(relayer),
+			1_000_000,
+			XrplTxHash::from_slice(transaction_hash),
+			xls20_tx,
+			1234
+		));
+		let process_block_number = System::block_number() + XrpTxChallengePeriod::get() as u64;
+		assert_eq!(
+			ProcessXRPTransaction::<Test>::get(&process_block_number).unwrap().into_inner(),
+			vec![XrplTxHash::from_slice(transaction_hash)]
+		);
+
+		XRPLBridge::process_xrp_tx(process_block_number);
+		System::set_block_number(process_block_number);
+		System::assert_has_event(
+			Event::<Test>::ProcessingOk(1_000_000_u64, XrplTxHash::from_slice(transaction_hash))
+				.into(),
+		);
+		// Check mock storage is updated to show that the token was routed to xls20 pallet
+		assert_eq!(Xls20TokenTest::<Test>::get(address), Some(xls20_token_id));
 	})
 }
 

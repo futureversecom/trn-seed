@@ -39,8 +39,9 @@ use seed_pallet_common::{
 	NFIRequest, OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest,
 };
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId, TokenLockReason, MAX_COLLECTION_ENTITLEMENTS, CrossChainCompatibility
+	AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme, OriginChain,
+	ParachainId, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
+	MAX_COLLECTION_ENTITLEMENTS,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
