@@ -19,7 +19,7 @@
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2024-10-29, STEPS: `50`, REPEAT: 20, LOW RANGE: `[]`, HIGH RANGE: `[]`
-//! HOSTNAME: `Jasons-Ubuntu`, CPU: `AMD Ryzen 9 7950X 16-Core Processor`
+//! HOSTNAME: `ip-172-31-102-147`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
 //! EXECUTION: , WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
@@ -72,33 +72,33 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: UNKNOWN KEY `0x28fc2cbf777640e8e3e472d285713c8d4e7b9012096b41c4eb3aaf947f6ea429` (r:0 w:1)
 	// Proof: UNKNOWN KEY `0x28fc2cbf777640e8e3e472d285713c8d4e7b9012096b41c4eb3aaf947f6ea429` (r:0 w:1)
 	fn migrate() -> Weight {
-		Weight::from_all(13_436_000 as u64)
+		Weight::from_all(45_461_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(6 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
 	// Storage: `Xls20::Xls20TokenMap` (r:2 w:1)
 	// Proof: `Xls20::Xls20TokenMap` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
 	fn current_migration_step() -> Weight {
-		Weight::from_all(8_647_000 as u64)
+		Weight::from_all(31_525_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: `Migration::MigrationEnabled` (r:0 w:1)
 	// Proof: `Migration::MigrationEnabled` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn enable_migration() -> Weight {
-		Weight::from_all(5_440_000 as u64)
+		Weight::from_all(22_368_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: `Migration::BlockDelay` (r:0 w:1)
 	// Proof: `Migration::BlockDelay` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_block_delay() -> Weight {
-		Weight::from_all(5_420_000 as u64)
+		Weight::from_all(22_928_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: `Migration::BlockLimit` (r:0 w:1)
 	// Proof: `Migration::BlockLimit` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_block_limit() -> Weight {
-		Weight::from_all(5_491_000 as u64)
+		Weight::from_all(22_532_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
@@ -120,33 +120,33 @@ impl WeightInfo for () {
 	// Storage: UNKNOWN KEY `0x28fc2cbf777640e8e3e472d285713c8d4e7b9012096b41c4eb3aaf947f6ea429` (r:0 w:1)
 	// Proof: UNKNOWN KEY `0x28fc2cbf777640e8e3e472d285713c8d4e7b9012096b41c4eb3aaf947f6ea429` (r:0 w:1)
 	fn migrate() -> Weight {
-		Weight::from_all(13_436_000 as u64)
+		Weight::from_all(45_461_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(6 as u64))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}
 	// Storage: `Xls20::Xls20TokenMap` (r:2 w:1)
 	// Proof: `Xls20::Xls20TokenMap` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
 	fn current_migration_step() -> Weight {
-		Weight::from_all(8_647_000 as u64)
+		Weight::from_all(31_525_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(2 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: `Migration::MigrationEnabled` (r:0 w:1)
 	// Proof: `Migration::MigrationEnabled` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn enable_migration() -> Weight {
-		Weight::from_all(5_440_000 as u64)
+		Weight::from_all(22_368_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: `Migration::BlockDelay` (r:0 w:1)
 	// Proof: `Migration::BlockDelay` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_block_delay() -> Weight {
-		Weight::from_all(5_420_000 as u64)
+		Weight::from_all(22_928_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: `Migration::BlockLimit` (r:0 w:1)
 	// Proof: `Migration::BlockLimit` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_block_limit() -> Weight {
-		Weight::from_all(5_491_000 as u64)
+		Weight::from_all(22_532_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 }
