@@ -860,7 +860,7 @@ pub mod pallet {
 
 		/// Withdraw NFT to XRPL
 		#[pallet::call_index(17)]
-		#[pallet::weight(Weight::zero())]
+		#[pallet::weight(T::WeightInfo::withdraw_nft())]
 		#[transactional]
 		pub fn withdraw_nft(
 			origin: OriginFor<T>,

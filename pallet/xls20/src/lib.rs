@@ -428,4 +428,11 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 		// TODO Ensure migrated check
 		Xls20TokenMap::<T>::get(token_id.0, token_id.1)
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_xls20_token_id(token_id: TokenId, xls20_token_id: seed_primitives::xrpl::Xls20TokenId) {
+		let mut expanded_xls20_token_id = [0_u8; 64]; // TODO: update this
+		expanded_xls20_token_id[..32].copy_from_slice(xls20_token_id.as_slice());
+		Xls20TokenMap::<T>::insert(token_id.0, token_id.1, expanded_xls20_token_id);
+	}
 }

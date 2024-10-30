@@ -58,7 +58,7 @@ std = [
   "log/std",
   "frame-benchmarking?/std",
 ]
-runtime-benchmarks = ['frame-benchmarking']
+runtime-benchmarks = ['frame-benchmarking', "seed-pallet-common/runtime-benchmarks"]
 try-runtime = ['frame-support/try-runtime']
 
 [lib]

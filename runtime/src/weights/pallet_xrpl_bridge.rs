@@ -362,4 +362,44 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(10))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
+	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::TokenLocks` (r:1 w:0)
+	/// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::UtilityFlags` (r:1 w:0)
+	/// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
+	/// Storage: `XRPLBridge::DoorAddress` (r:1 w:0)
+	/// Proof: `XRPLBridge::DoorAddress` (`max_values`: None, `max_size`: Some(29), added: 2504, mode: `MaxEncodedLen`)
+	/// Storage: `Xls20::Xls20TokenMap` (r:1 w:0)
+	/// Proof: `Xls20::Xls20TokenMap` (`max_values`: None, `max_size`: Some(88), added: 2563, mode: `MaxEncodedLen`)
+	/// Storage: `XRPLBridge::DoorTxFee` (r:1 w:0)
+	/// Proof: `XRPLBridge::DoorTxFee` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
+	/// Storage: `XRPLBridge::DoorTicketSequence` (r:1 w:1)
+	/// Proof: `XRPLBridge::DoorTicketSequence` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `MaxEncodedLen`)
+	/// Storage: `XRPLBridge::DoorTicketSequenceParams` (r:1 w:1)
+	/// Proof: `XRPLBridge::DoorTicketSequenceParams` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
+	/// Storage: `XRPLBridge::DoorTicketSequenceParamsNext` (r:1 w:1)
+	/// Proof: `XRPLBridge::DoorTicketSequenceParamsNext` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
+	/// Storage: `XRPLBridge::SourceTag` (r:1 w:0)
+	/// Proof: `XRPLBridge::SourceTag` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::NextEventProofId` (r:1 w:1)
+	/// Proof: `EthBridge::NextEventProofId` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `EthBridge::BridgePaused` (r:1 w:0)
+	/// Proof: `EthBridge::BridgePaused` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `System::Digest` (r:1 w:1)
+	/// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:1)
+	/// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
+	/// Storage: `XRPLBridge::TicketSequenceThresholdReachedEmitted` (r:0 w:1)
+	/// Proof: `XRPLBridge::TicketSequenceThresholdReachedEmitted` (`max_values`: None, `max_size`: Some(10), added: 2485, mode: `MaxEncodedLen`)
+	fn withdraw_nft() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `756`
+		//  Estimated: `3553`
+		// Minimum execution time: 59_000_000 picoseconds.
+		Weight::from_parts(60_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3553))
+			.saturating_add(T::DbWeight::get().reads(13))
+			.saturating_add(T::DbWeight::get().writes(8))
+	}
 }

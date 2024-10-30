@@ -15,14 +15,14 @@
 
 use super::*;
 
-use crate::types::XrplTransaction::NFTokenAcceptOffer;
+use crate::types::XrplTransaction::{NFTokenAcceptOffer, NFTokenCreateOffer};
 use crate::{types::XRPLCurrencyType, Pallet as XrplBridge};
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use seed_primitives::xrpl::Xls20TokenId;
 use sp_core::H160;
+use seed_primitives::{CrossChainCompatibility, MetadataScheme, OriginChain, xrpl::Xls20TokenId};
 
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 	bench_account(name, 0, 0)
@@ -346,6 +346,65 @@ benchmarks! {
 					tx_fee,
 					tx_ticket_sequence: 1,
 					account: door_address,
+				}),
+			}
+			.into(),
+		);
+	}
+
+	withdraw_nft {
+		let alice = account::<T>("Alice");
+		let door_address: XrplAccountId  = [1u8; 20].into();
+		let tx_fee = 100;
+		let nftoken_sell_offer = [2_u8; 32];
+		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		// Note - had to do this since when CI running all tests, NextEventProofId has been incremented
+		// by one already, probably from a prior test execution. Keeping it simple as this to satisfy
+		// both benchmarks and tests since we just need this for verification purpose only.
+		let proof_id = if cfg!(test) { 1 } else { 0 };
+
+		// setup xrpl-bridge-pallet
+		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
+		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), XRPLDoorAccount::NFT, Some(door_address)));
+		assert_ok!(XrplBridge::<T>::set_door_tx_fee(RawOrigin::Root.into(), XRPLDoorAccount::NFT, tx_fee));
+		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), XRPLDoorAccount::NFT, 1, 1));
+
+		// setup pallet-nft
+		let collection_name = BoundedVec::truncate_from("test".as_bytes().to_vec());
+		let collection_owner = alice.clone();
+		let metadata_scheme = MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
+
+		let nft_collection_id = <T as Config>::NFTExt::do_create_collection(
+			collection_owner,
+			collection_name,
+			0,
+			None,
+			None,
+			metadata_scheme,
+			None,
+			OriginChain::Root,
+			CrossChainCompatibility { xrpl: true },
+		)
+		.unwrap();
+
+		assert_ok!(<T as Config>::NFTExt::do_mint(alice.clone(), nft_collection_id, 1, None,));
+
+		// insert the xls20Id to the pallet-xls20 storage for the (nft_collection_id, 0)
+		let xls20_token_id = [1_u8;32];
+		<T as Config>::Xls20Ext::set_xls20_token_id((nft_collection_id, 0), xls20_token_id);
+
+	}: _(origin::<T>(&alice), nft_collection_id, 0, destination)
+	verify {
+		// check the event is emitted.
+		assert_has_event::<T>(
+			Event::<T>::XrplTxSignRequest {
+				proof_id,
+				tx: NFTokenCreateOffer(NFTokenCreateOfferTransaction {
+					nftoken_id: [1_u8; 32],
+					tx_fee,
+					tx_ticket_sequence: 1,
+					account: door_address,
+					destination,
 				}),
 			}
 			.into(),

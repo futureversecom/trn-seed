@@ -9077,6 +9077,7 @@ dependencies = [
 name = "seed-pallet-common"
 version = "1.0.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",

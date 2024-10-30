@@ -137,4 +137,11 @@ impl Xls20Ext for MockXls20Ext {
 	fn get_xls20_token_id(_token_id: TokenId) -> Option<Xls20TokenId> {
 		Some([1_u8; 32])
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_xls20_token_id(
+		_token_id: TokenId,
+		_xls20_token_id: seed_primitives::xrpl::Xls20TokenId,
+	) {
+	}
 }

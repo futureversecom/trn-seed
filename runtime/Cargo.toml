@@ -356,4 +356,5 @@ runtime-benchmarks = [
 	"pallet-maintenance-mode/runtime-benchmarks",
 	"pallet-crowdsale/runtime-benchmarks",
 	"pallet-migration/runtime-benchmarks",
+	"seed-pallet-common/runtime-benchmarks",
 ]
