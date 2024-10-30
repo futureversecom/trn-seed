@@ -387,6 +387,9 @@ pub trait Xls20Ext {
 	) -> WeightedDispatchResult;
 
 	fn get_xls20_token_id(token_id: TokenId) -> Option<Xls20TokenId>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_xls20_token_id(token_id: TokenId, xls20_token_id: Xls20TokenId);
 }
 
 impl Xls20Ext for () {
@@ -402,6 +405,9 @@ impl Xls20Ext for () {
 	fn get_xls20_token_id(_token_id: TokenId) -> Option<Xls20TokenId> {
 		None
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_xls20_token_id(_token_id: TokenId, _xls20_token_id: Xls20TokenId) {}
 }
 
 /// NFT Minter trait allows minting of Bridged NFTs that originate on other chains
