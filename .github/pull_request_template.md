@@ -24,7 +24,7 @@
 
 <!-- This section will be used to automatically generate release notes -->
 <!-- Please fill out relevant sections below based on your changes -->
-<!-- Leave sections empty if there are no changes -->
+<!-- Remove sections if there are no changes -->
 
 # Release Notes
 
