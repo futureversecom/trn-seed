@@ -14,12 +14,6 @@
 
 - _Link any related issues_
 
-## Testing
-
-- [ ] Unit tests added/updated
-- [ ] Integration tests added/updated
-- [ ] Manual testing performed
-
 ---
 
 <!-- This section will be used to automatically generate release notes -->
