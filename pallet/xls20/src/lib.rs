@@ -370,7 +370,7 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 		// Check flag is not burnable, if the burnable flag is set then the issuer can
 		// burn the token at any time. For simplicity it is easier to disallow bridging
 		// of these tokens to respect the original design of the XLS-20 standard
-		// TODO, we need some way to retrieve tokens that failed to bridge
+		// TODO, we may need some way to retrieve tokens that failed to bridge
 		if xls20_token.is_burnable() {
 			return Err((Weight::zero(), Error::<T>::CannotBridgeBurnableToken.into()));
 		}
@@ -378,34 +378,15 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 		let pallet_address = T::PalletId::get().into_account_truncating();
 		let xls20_collection = Xls20Collection::new(xls20_token.issuer, xls20_token.taxon);
 		if let Some(collection_uuid) = CollectionMapping::<T>::get(xls20_collection) {
-			// There is already a collection mapping for this token, this means it is either
-			// a TRN originated token that has been bridged over, or it is a token form XRPL
-			// from a collection that has been bridged before.
-
-			if Xls20TokenMap::<T>::get(collection_uuid, xls20_token.sequence)
-				== Some(xls20_token_id)
-			{
-				// The token ID exists in an existing mapping. Either this token originated on TRN
-				// or it has been bridged in the past. The pallet should own the token
-				T::NFTExt::do_transfer(
-					&pallet_address,
-					collection_uuid,
-					vec![xls20_token.sequence],
-					&receiver,
-				)
-				.map_err(|e| (T::WeightInfo::deposit_token_transfer(), e))?;
-				return Ok(T::WeightInfo::deposit_token_transfer());
-			} else {
-				// New token to TRN, mint it and set up the mapping for reverse bridging
-				let _ = T::NFTMinter::mint_bridged_nft(
-					receiver,
-					collection_uuid,
-					vec![xls20_token.sequence],
-				)
-				.map_err(|(_, e)| (T::WeightInfo::deposit_token_transfer(), e))?;
-				Xls20TokenMap::<T>::insert(collection_uuid, xls20_token.sequence, xls20_token_id);
-				return Ok(T::WeightInfo::deposit_token_mint());
-			}
+			// Mint the token and set up the mapping for reverse bridging
+			let _ = T::NFTMinter::mint_bridged_nft(
+				receiver,
+				collection_uuid,
+				vec![xls20_token.sequence],
+			)
+				.map_err(|(_, e)| (T::WeightInfo::deposit_token_mint(), e))?;
+			Xls20TokenMap::<T>::insert(collection_uuid, xls20_token.sequence, xls20_token_id);
+			return Ok(T::WeightInfo::deposit_token_mint());
 		}
 
 		// The collection does not exist on TRN yet for a newly bridged XRPL token.
@@ -428,14 +409,12 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 			// that this will fail
 			(T::WeightInfo::deposit_token_create_collection(), e)
 		})?;
-
 		CollectionMapping::<T>::insert(xls20_collection, collection_uuid);
 
 		let _ =
 			T::NFTMinter::mint_bridged_nft(receiver, collection_uuid, vec![xls20_token.sequence])
 				.map_err(|(_, e)| (T::WeightInfo::deposit_token_create_collection(), e))?;
 		Xls20TokenMap::<T>::insert(collection_uuid, xls20_token.sequence, xls20_token_id);
-
 		Ok(T::WeightInfo::deposit_token_create_collection())
 	}
 

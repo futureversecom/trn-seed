@@ -16,13 +16,13 @@
 #![cfg(test)]
 use super::*;
 use crate::mock::{
-	AssetsExt, MaxTokensPerCollection, MaxTokensPerXls20Mint, Nft, RuntimeEvent as MockEvent,
+	AssetsExt, MaxTokensPerXls20Mint, Nft, RuntimeEvent as MockEvent,
 	System, Test, Xls20, Xls20PaymentAsset,
 };
 use frame_support::traits::fungibles::Inspect;
 use hex_literal::hex;
 use pallet_nft::test_utils::NftBuilder;
-use pallet_nft::{CollectionInfo, TokenOwnership};
+use pallet_nft::CollectionInfo;
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{xrpl::Xls20TokenId, CrossChainCompatibility};
 
@@ -803,45 +803,6 @@ mod set_collection_mappings {
 
 mod deposit_token {
 	use super::*;
-
-	#[test]
-	/// Test the flow where a token is deposited to TRN and needs to be transferred from the peg
-	/// address to the beneficiary
-	fn deposit_token_transfer_works() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let collection_owner = create_account(10);
-			let collection_id = setup_xls20_collection(collection_owner, true);
-			let beneficiary = create_account(12);
-			let xls20_token_id =
-				hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
-			let xls20_token = Xls20Token::from(xls20_token_id);
-			let serial_number = xls20_token.sequence;
-			let xls20_collection = Xls20Collection::new(xls20_token.issuer, xls20_token.taxon);
-
-			let mut collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
-			// Insert pallet address as the owner of the decoded token
-			let owned_tokens = TokenOwnership::<AccountId, MaxTokensPerCollection>::new(
-				<Test as Config>::PalletId::get().into_account_truncating(),
-				BoundedVec::truncate_from(vec![serial_number]),
-			);
-			collection_info.owned_tokens.try_push(owned_tokens).unwrap();
-			collection_info.collection_issuance += 1;
-			// Manually insert collection data at correct collection ID based on xls20_token
-			<CollectionInfo<Test>>::insert(collection_id, collection_info);
-			CollectionMapping::<Test>::insert(xls20_collection, collection_id);
-			Xls20TokenMap::<Test>::insert(collection_id, serial_number, xls20_token_id);
-
-			// Deposit token
-			let weight = Xls20::deposit_xls20_token(&beneficiary, xls20_token_id)
-				.expect("Failed to deposit token");
-			assert_eq!(weight, <Test as Config>::WeightInfo::deposit_token_transfer());
-
-			// Token was transferred from pallet address to beneficiary
-			let new_owner =
-				<Test as Config>::NFTExt::get_token_owner(&(collection_id, serial_number)).unwrap();
-			assert_eq!(new_owner, beneficiary);
-		});
-	}
 
 	#[test]
 	/// Test the flow where a token is deposited to TRN and needs to be minted into the existing

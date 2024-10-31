@@ -24,7 +24,7 @@ use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_te
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use pallet_nft::{CollectionInformation, TokenOwnership};
+use pallet_nft::CollectionInformation;
 use seed_primitives::{nft::OriginChain, CrossChainCompatibility, MetadataScheme};
 use sp_core::H160;
 
@@ -109,46 +109,6 @@ benchmarks! {
 		for (collection_id, xls20_collection) in mappings {
 			assert_eq!(CollectionMapping::<T>::get(xls20_collection), Some(collection_id));
 		}
-	}
-
-	deposit_token_transfer {
-		let beneficiary = account::<T>("Beneficiary");
-		let xls20_token_id = hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
-		let collection_id = 146_999_694;
-		let serial_number = 3429;
-		let issuer = H160::from(hex!("95F14B0E44F78A264E41713C64B5F89242540EE2"));
-		let xls20_collection = Xls20Collection::new(issuer, collection_id);
-		let pallet_address: T::AccountId = <T as pallet::Config>::PalletId::get().into_account_truncating();
-		// Insert pallet address as the owner of the decoded token
-		let owned_tokens = TokenOwnership::<T::AccountId, T::MaxTokensPerCollection>::new(
-			pallet_address.clone(),
-			BoundedVec::truncate_from(vec![serial_number])
-		);
-		let collection_info = CollectionInformation {
-			owner: beneficiary.clone(),
-			name: BoundedVec::truncate_from("New Collection".encode()),
-			metadata_scheme: MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
-			royalties_schedule: None,
-			max_issuance: None,
-			origin_chain: OriginChain::Root,
-			next_serial_number: 3429,
-			collection_issuance: 0,
-			cross_chain_compatibility: CrossChainCompatibility::default(),
-			owned_tokens: BoundedVec::truncate_from(vec![owned_tokens]),
-		};
-		// Insert collection data
-		<pallet_nft::CollectionInfo<T>>::insert(collection_id, collection_info);
-		CollectionMapping::<T>::insert(xls20_collection, collection_id);
-		Xls20TokenMap::<T>::insert(collection_id, serial_number, xls20_token_id);
-
-		// Sanity check
-		let new_owner = T::NFTExt::get_token_owner(&(collection_id, serial_number)).unwrap();
-		assert_eq!(new_owner, pallet_address);
-	}: {Xls20::<T>::deposit_xls20_token(&beneficiary, xls20_token_id).expect("Failed to process asset deposit");}
-	verify {
-		// Token was transferred from pallet address to beneficiary
-		let new_owner = T::NFTExt::get_token_owner(&(collection_id, serial_number)).unwrap();
-		assert_eq!(new_owner, beneficiary);
 	}
 
 	deposit_token_mint {

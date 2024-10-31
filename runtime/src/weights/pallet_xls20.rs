@@ -113,28 +113,6 @@ impl<T: frame_system::Config> pallet_xls20::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `Xls20::CollectionMapping` (r:1 w:0)
 	/// Proof: `Xls20::CollectionMapping` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
-	/// Storage: `Xls20::Xls20TokenMap` (r:1 w:0)
-	/// Proof: `Xls20::Xls20TokenMap` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
-	/// Storage: `Nft::UtilityFlags` (r:1 w:0)
-	/// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
-	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
-	/// Storage: `Nft::TokenLocks` (r:1 w:0)
-	/// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
-	/// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:1)
-	/// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
-	fn deposit_token_transfer() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `474`
-		//  Estimated: `3521`
-		// Minimum execution time: 18_415_000 picoseconds.
-		Weight::from_parts(18_986_000, 0)
-			.saturating_add(Weight::from_parts(0, 3521))
-			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
-	/// Storage: `Xls20::CollectionMapping` (r:1 w:0)
-	/// Proof: `Xls20::CollectionMapping` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	/// Storage: `Xls20::Xls20TokenMap` (r:1 w:1)
 	/// Proof: `Xls20::Xls20TokenMap` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:1)

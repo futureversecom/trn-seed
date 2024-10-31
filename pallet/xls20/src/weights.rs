@@ -53,7 +53,6 @@ pub trait WeightInfo {
 	fn re_request_xls20_mint() -> Weight;
 	fn fulfill_xls20_mint() -> Weight;
 	fn set_collection_mappings(i: u32, ) -> Weight;
-	fn deposit_token_transfer() -> Weight;
 	fn deposit_token_mint() -> Weight;
 	fn deposit_token_create_collection() -> Weight;
 }
@@ -109,23 +108,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 1_081
 			.saturating_add(Weight::from_all(1_434_196 as u64).saturating_mul(i as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: `Xls20::CollectionMapping` (r:1 w:0)
-	// Proof: `Xls20::CollectionMapping` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
-	// Storage: `Xls20::Xls20TokenMap` (r:1 w:0)
-	// Proof: `Xls20::Xls20TokenMap` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
-	// Storage: `Nft::UtilityFlags` (r:1 w:0)
-	// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
-	// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
-	// Storage: `Nft::TokenLocks` (r:1 w:0)
-	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
-	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:1)
-	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
-	fn deposit_token_transfer() -> Weight {
-		Weight::from_all(18_806_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(5 as u64))
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: `Xls20::CollectionMapping` (r:1 w:0)
 	// Proof: `Xls20::CollectionMapping` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
@@ -211,23 +193,6 @@ impl WeightInfo for () {
 			// Standard Error: 1_081
 			.saturating_add(Weight::from_all(1_434_196 as u64).saturating_mul(i as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: `Xls20::CollectionMapping` (r:1 w:0)
-	// Proof: `Xls20::CollectionMapping` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
-	// Storage: `Xls20::Xls20TokenMap` (r:1 w:0)
-	// Proof: `Xls20::Xls20TokenMap` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
-	// Storage: `Nft::UtilityFlags` (r:1 w:0)
-	// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
-	// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
-	// Storage: `Nft::TokenLocks` (r:1 w:0)
-	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
-	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:1)
-	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
-	fn deposit_token_transfer() -> Weight {
-		Weight::from_all(18_806_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(5 as u64))
-			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
 	// Storage: `Xls20::CollectionMapping` (r:1 w:0)
 	// Proof: `Xls20::CollectionMapping` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
