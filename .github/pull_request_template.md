@@ -35,7 +35,7 @@
 
 #### Added
 
--
+- _e.g. **Marketplace: `sellNft`**_
 
 #### Changed
 
@@ -49,7 +49,7 @@
 
 #### Added
 
--
+- _e.g. **XRPLBridge: PaymentDelay, changed from value to map keyed by asset_id**_
 
 #### Changed
 
@@ -67,7 +67,7 @@
 
 #### Changed
 
--
+- _e.g. **XRPLBridge: set_payment_delay, added asset_id**_
 
 #### Removed
 
@@ -77,11 +77,11 @@
 
 #### Added
 
--
+- _e.g. **XRPL-Bridge: XrplAssetMapSet**_
 
 #### Changed
 
--
+- _e.g. **XRPLBridge: PaymentDelaySet, added asset_id parameter**_
 
 #### Removed
 
@@ -91,7 +91,7 @@
 
 #### Added
 
--
+- _e.g. **Marketplace: NoToken**_
 
 #### Changed
 
@@ -105,7 +105,7 @@
 
 #### Added
 
--
+- _e.g. **XRPLBridge: Migrate PaymentDelay to include asset_id as key**_
 
 #### Removed
 
