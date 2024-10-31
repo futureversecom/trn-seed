@@ -24,8 +24,9 @@ use crate::types::{
 };
 use frame_support::traits::fungibles::metadata::Inspect as InspectMetadata;
 use hex_literal::hex;
+use pallet_nft::test_utils::NftBuilder;
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::{CrossChainCompatibility, OriginChain};
+use seed_primitives::CrossChainCompatibility;
 
 /// Helper function to get the xrp balance of an address
 fn xrp_balance_of(who: AccountId) -> u64 {
@@ -4181,23 +4182,11 @@ fn withdraw_nft_works() {
 		));
 
 		// setup pallet-nft
-		let collection_name = BoundedVec::truncate_from("test".as_bytes().to_vec());
 		let collection_owner = alice();
-		let metadata_scheme = MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
-
-		let nft_collection_id = <Test as Config>::NFTExt::do_create_collection(
-			collection_owner,
-			collection_name,
-			0,
-			None,
-			None,
-			metadata_scheme,
-			None,
-			OriginChain::Root,
-			CrossChainCompatibility { xrpl: true },
-		)
-		.unwrap();
-
+		// create collection and mint 1 token to alice
+		let nft_collection_id = NftBuilder::<Test>::new(collection_owner)
+			.cross_chain_compatibility(CrossChainCompatibility { xrpl: true })
+			.build();
 		assert_ok!(<Test as Config>::NFTExt::do_mint(alice(), nft_collection_id, 1, None,));
 
 		// withdraw nft
@@ -4258,23 +4247,11 @@ fn withdraw_nft_failure_xls20_incompatible() {
 		));
 
 		// setup pallet-nft
-		let collection_name = BoundedVec::truncate_from("test".as_bytes().to_vec());
 		let collection_owner = alice();
-		let metadata_scheme = MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
-
-		let nft_collection_id = <Test as Config>::NFTExt::do_create_collection(
-			collection_owner,
-			collection_name,
-			0,
-			None,
-			None,
-			metadata_scheme,
-			None,
-			OriginChain::Root,
-			CrossChainCompatibility { xrpl: false },
-		)
-		.unwrap();
-
+		// create collection and mint 1 token to alice
+		let nft_collection_id = NftBuilder::<Test>::new(collection_owner)
+			.cross_chain_compatibility(CrossChainCompatibility { xrpl: false })
+			.build();
 		assert_ok!(<Test as Config>::NFTExt::do_mint(alice(), nft_collection_id, 1, None,));
 
 		// withdraw nft
@@ -4322,23 +4299,11 @@ fn withdraw_nft_more_failure_scenarios() {
 		));
 
 		// setup pallet-nft
-		let collection_name = BoundedVec::truncate_from("test".as_bytes().to_vec());
 		let collection_owner = alice();
-		let metadata_scheme = MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
-
-		let nft_collection_id = <Test as Config>::NFTExt::do_create_collection(
-			collection_owner,
-			collection_name,
-			0,
-			None,
-			None,
-			metadata_scheme,
-			None,
-			OriginChain::Root,
-			CrossChainCompatibility { xrpl: true },
-		)
-		.unwrap();
-
+		// create collection and mint 1 token to alice
+		let nft_collection_id = NftBuilder::<Test>::new(collection_owner)
+			.cross_chain_compatibility(CrossChainCompatibility { xrpl: true })
+			.build();
 		assert_ok!(<Test as Config>::NFTExt::do_mint(alice(), nft_collection_id, 1, None,));
 
 		// withdraw by other than the owner
