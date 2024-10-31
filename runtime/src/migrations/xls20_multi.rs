@@ -32,6 +32,18 @@ mod old {
 	>;
 }
 
+/// Convert from 64 byte utf-8 array to 32 byte array
+fn convert(old: old::Xls20TokenId) -> Result<Xls20TokenId, &'static str> {
+	let hex_str = core::str::from_utf8(&old).map_err(|_| "Invalid UTF-8")?;
+	let bytes = hex::decode(hex_str).map_err(|_| "Invalid hex data")?;
+	if bytes.len() != 32 {
+		return Err("Invalid length");
+	}
+	let mut new = [0u8; 32];
+	new.copy_from_slice(&bytes);
+	Ok(new)
+}
+
 #[derive(Encode, Decode, MaxEncodedLen, DefaultNoBound)]
 pub struct Xls20Migration<T: pallet_xls20::Config> {
 	phantom: PhantomData<T>,
@@ -39,9 +51,6 @@ pub struct Xls20Migration<T: pallet_xls20::Config> {
 
 impl<T: pallet_xls20::Config + pallet_migration::Config> MigrationStep for Xls20Migration<T> {
 	const TARGET_VERSION: u16 = 1;
-
-	type OldStorageValue = old::Xls20TokenId; // [u8; 64]
-	type NewStorageValue = Xls20TokenId; // [u8; 32]
 
 	fn version_check() -> bool {
 		Xls20::on_chain_storage_version() == Self::TARGET_VERSION
@@ -55,18 +64,6 @@ impl<T: pallet_xls20::Config + pallet_migration::Config> MigrationStep for Xls20
 		<T as pallet_migration::Config>::WeightInfo::current_migration_step()
 	}
 
-	/// Convert from 64 byte utf-8 array to 32 byte array
-	fn convert(old: Self::OldStorageValue) -> Result<Self::NewStorageValue, &'static str> {
-		let hex_str = core::str::from_utf8(&old).map_err(|_| "Invalid UTF-8")?;
-		let bytes = hex::decode(hex_str).map_err(|_| "Invalid hex data")?;
-		if bytes.len() != 32 {
-			return Err("Invalid length");
-		}
-		let mut new = [0u8; 32];
-		new.copy_from_slice(&bytes);
-		Ok(new)
-	}
-
 	/// Migrate one token
 	fn step(last_key: Option<Vec<u8>>) -> MigrationStepResult {
 		let mut iter = if let Some(last_key) = last_key {
@@ -76,7 +73,7 @@ impl<T: pallet_xls20::Config + pallet_migration::Config> MigrationStep for Xls20
 		};
 
 		if let Some((key1, key2, old)) = iter.next() {
-			match Self::convert(old) {
+			match convert(old) {
 				Ok(new_value) => {
 					pallet_xls20::Xls20TokenMap::<T>::insert(key1, key2, new_value);
 				},
@@ -121,7 +118,7 @@ mod tests {
 				.unwrap();
 			let expected: [u8; 32] =
 				hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66");
-			let new = Xls20Migration::<Runtime>::convert(old).unwrap();
+			let new = convert(old).unwrap();
 			assert_eq!(new, expected);
 		});
 	}
@@ -145,7 +142,7 @@ mod tests {
 				0, 8, 0, 0, 58, 224, 60, 170, 225, 75, 4, 240, 58, 204, 61, 179, 78, 224, 177, 51,
 				98, 197, 51, 160, 22, 229, 194, 248, 0, 0, 0, 1,
 			];
-			let new = Xls20Migration::<Runtime>::convert(old).unwrap();
+			let new = convert(old).unwrap();
 			assert_eq!(new, expected);
 		});
 	}
@@ -217,7 +214,7 @@ mod tests {
 						0
 					);
 					let old: [u8; 64] = string.as_bytes().try_into().unwrap();
-					let expected = Xls20Migration::<Runtime>::convert(old).unwrap();
+					let expected = convert(old).unwrap();
 					let new = pallet_xls20::Xls20TokenMap::<Runtime>::get(token_id.0, token_id.1)
 						.unwrap();
 					assert_eq!(new, expected);

@@ -60,9 +60,6 @@ pub struct MockMigration<T: Config> {
 impl<T: Config> MigrationStep for MockMigration<T> {
 	const TARGET_VERSION: u16 = 1;
 
-	type OldStorageValue = OldType;
-	type NewStorageValue = NewType;
-
 	fn version_check() -> bool {
 		TestVersion::<T>::get() == Self::TARGET_VERSION
 	}
@@ -75,10 +72,6 @@ impl<T: Config> MigrationStep for MockMigration<T> {
 		Weight::from_all(WEIGHT_PER_MIGRATION)
 	}
 
-	fn convert(old: Self::OldStorageValue) -> Result<Self::NewStorageValue, &'static str> {
-		Ok((old + 1).to_string())
-	}
-
 	fn step(last_key: Option<Vec<u8>>) -> MigrationStepResult {
 		let mut iter = if let Some(last_key) = last_key {
 			old::TestMap::<T>::iter_from(last_key)
@@ -87,7 +80,7 @@ impl<T: Config> MigrationStep for MockMigration<T> {
 		};
 
 		if let Some((key, value)) = iter.next() {
-			let new_value = Self::convert(value).unwrap();
+			let new_value = (value + 1).to_string();
 			TestMap::<T>::insert(key, new_value);
 			let last_key = old::TestMap::<T>::hashed_key_for(key);
 			MigrationStepResult::continue_step(Self::max_step_weight(), last_key)

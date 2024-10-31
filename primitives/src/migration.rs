@@ -33,10 +33,6 @@ pub trait MigrationStep {
 	/// Returns the version of the migration.
 	const TARGET_VERSION: u16;
 
-	type OldStorageValue;
-
-	type NewStorageValue;
-
 	/// Check if the current storage version matches the target version.
 	fn version_check() -> bool;
 
@@ -45,9 +41,6 @@ pub trait MigrationStep {
 
 	/// Returns the maximum weight that can be consumed in a single step.
 	fn max_step_weight() -> Weight;
-
-	/// Convert from the OldStorageValue to the NewStorageValue
-	fn convert(old: Self::OldStorageValue) -> Result<Self::NewStorageValue, &'static str>;
 
 	/// Process one step of the migration.
 	/// Returns whether the migration is finished and the weight consumed.
@@ -72,9 +65,6 @@ pub struct NoopMigration;
 impl MigrationStep for NoopMigration {
 	const TARGET_VERSION: u16 = 0;
 
-	type OldStorageValue = ();
-	type NewStorageValue = ();
-
 	fn version_check() -> bool {
 		true
 	}
@@ -83,10 +73,6 @@ impl MigrationStep for NoopMigration {
 
 	fn max_step_weight() -> Weight {
 		Weight::zero()
-	}
-
-	fn convert(_: Self::OldStorageValue) -> Result<Self::NewStorageValue, &'static str> {
-		Ok(())
 	}
 
 	fn step(_: Option<Vec<u8>>) -> MigrationStepResult {
