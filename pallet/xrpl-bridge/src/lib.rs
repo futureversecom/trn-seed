@@ -693,7 +693,7 @@ pub mod pallet {
 		#[pallet::weight((T::WeightInfo::set_ticket_sequence_current_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_current_allocation(
 			origin: OriginFor<T>,
-			door_account: XRPLDoorAccount,
+			door_account: XRPLDoorAccount,Address PR Comments
 			ticket_sequence: u32,
 			start_ticket_sequence: u32,
 			ticket_bucket_size: u32,
@@ -896,13 +896,13 @@ impl<T: Config> Pallet<T> {
 				},
 			};
 
-			used_weight.saturating_add(match weighted_result {
+			match weighted_result {
 				Ok(weight) => {
 					Self::deposit_event(Event::ProcessingOk(
 						ledger_index,
 						transaction_hash.clone(),
 					));
-					weight
+					used_weight.saturating_add(weight);
 				},
 				Err((weight, e)) => {
 					Self::deposit_event(Event::ProcessingFailed(
@@ -910,9 +910,10 @@ impl<T: Config> Pallet<T> {
 						transaction_hash.clone(),
 						e,
 					));
-					weight
+					used_weight.saturating_add(weight);
+					continue;
 				},
-			});
+			}
 
 			// Add to SettledXRPTransactionDetails
 			used_weight = used_weight.saturating_add(DbWeight::get().reads_writes(1, 1));
