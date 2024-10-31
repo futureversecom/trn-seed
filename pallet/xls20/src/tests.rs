@@ -21,28 +21,18 @@ use crate::mock::{
 };
 use frame_support::traits::fungibles::Inspect;
 use hex_literal::hex;
+use pallet_nft::test_utils::NftBuilder;
 use pallet_nft::{CollectionInfo, TokenOwnership};
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::{xrpl::Xls20TokenId, CrossChainCompatibility, MetadataScheme};
+use seed_primitives::{xrpl::Xls20TokenId, CrossChainCompatibility};
 
 // Create an NFT collection with xls20 compatibility
 // Returns the created `collection_id`
 fn setup_xls20_collection(owner: AccountId, xls_compatible: bool) -> CollectionUuid {
-	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = BoundedVec::truncate_from(b"test-xls20-collection".to_vec());
-	let metadata_scheme = MetadataScheme::try_from(b"https://example.com/".as_slice()).unwrap();
-	let cross_chain_compatibility = CrossChainCompatibility { xrpl: xls_compatible };
-	assert_ok!(Nft::create_collection(
-		Some(owner).into(),
-		collection_name,
-		0,
-		None,
-		None,
-		metadata_scheme,
-		None,
-		cross_chain_compatibility,
-	));
-	collection_id
+	NftBuilder::<Test>::new(owner)
+		.name("test-xls20-collection")
+		.cross_chain_compatibility(CrossChainCompatibility { xrpl: xls_compatible })
+		.build()
 }
 
 #[test]

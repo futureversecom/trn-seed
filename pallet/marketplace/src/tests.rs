@@ -21,68 +21,24 @@ use crate::mock::{
 };
 use core::ops::Mul;
 use frame_support::traits::{fungibles::Inspect, OnInitialize};
-use pallet_nft::TokenLocks;
-use pallet_sft::{test_utils::sft_balance_of, TokenInfo};
+use pallet_nft::{test_utils::NftBuilder, TokenLocks};
+use pallet_sft::{test_utils::sft_balance_of, test_utils::SftBuilder, TokenInfo};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{CrossChainCompatibility, MetadataScheme, RoyaltiesSchedule, TokenCount};
 use sp_runtime::traits::{AccountIdConversion, Zero};
 
-// Create an NFT collection
-// Returns the created `collection_id`
-fn create_nft_collection(owner: AccountId) -> CollectionUuid {
-	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = bounded_string("test-collection");
-	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
-	assert_ok!(Nft::create_collection(
-		Some(owner).into(),
-		collection_name,
-		0,
-		None,
-		None,
-		metadata_scheme,
-		None,
-		CrossChainCompatibility::default(),
-	));
-	collection_id
-}
-
-// Create an SFT collection
-// Returns the created `collection_id`
-fn create_sft_collection(owner: AccountId) -> CollectionUuid {
-	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = bounded_string("test-sft-collection");
-	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
-	assert_ok!(Sft::create_collection(
-		Some(owner).into(),
-		collection_name,
-		None,
-		metadata_scheme,
-		None,
-	));
-	collection_id
-}
-
 /// Setup an SFT token, return collection id, token id, token owner
 fn setup_sft_token(initial_issuance: Balance) -> (CollectionUuid, TokenId, AccountId) {
-	let collection_owner = create_account(100);
-	let collection_id = create_sft_collection(collection_owner);
-	let token_name = bounded_string("test-sft-token");
 	let token_owner = create_account(200);
-	let token_id = (collection_id, 0);
-	assert_ok!(Sft::create_token(
-		Some(collection_owner).into(),
-		collection_id,
-		token_name,
-		initial_issuance,
-		None,
-		Some(token_owner)
-	));
-
+	let token_id = SftBuilder::<Test>::new(create_account(100))
+		.token_owner(token_owner)
+		.initial_issuance(initial_issuance)
+		.build();
 	// Check free balance is correct
 	let token_info = TokenInfo::<Test>::get(token_id).unwrap();
 	assert_eq!(token_info.free_balance_of(&token_owner), initial_issuance);
 
-	(collection_id, token_id, token_owner)
+	(token_id.0, token_id, token_owner)
 }
 
 /// Setup an SFT token, return collection id, token id, token owner
@@ -90,41 +46,24 @@ fn setup_sft_token_with_royalties(
 	initial_issuance: Balance,
 	royalties: RoyaltiesSchedule<AccountId>,
 ) -> (CollectionUuid, TokenId, AccountId) {
-	let collection_owner = create_account(100);
-	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = bounded_string("test-sft-collection");
-	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
-	assert_ok!(Sft::create_collection(
-		Some(collection_owner).into(),
-		collection_name,
-		None,
-		metadata_scheme,
-		Some(royalties),
-	));
-
-	let token_name = bounded_string("test-sft-token");
 	let token_owner = create_account(200);
-	let token_id = (collection_id, 0);
-	assert_ok!(Sft::create_token(
-		Some(collection_owner).into(),
-		collection_id,
-		token_name,
-		initial_issuance,
-		None,
-		Some(token_owner)
-	));
+	let token_id = SftBuilder::<Test>::new(create_account(100))
+		.token_owner(token_owner)
+		.initial_issuance(initial_issuance)
+		.royalties_schedule(royalties)
+		.build();
 
 	// Check free balance is correct
 	let token_info = TokenInfo::<Test>::get(token_id).unwrap();
 	assert_eq!(token_info.free_balance_of(&token_owner), initial_issuance);
 
-	(collection_id, token_id, token_owner)
+	(token_id.0, token_id, token_owner)
 }
 
 /// Setup an NFT token, return collection id, token id, token owner
 fn setup_nft_token() -> (CollectionUuid, TokenId, AccountId) {
 	let collection_owner = create_account(1);
-	let collection_id = create_nft_collection(collection_owner);
+	let collection_id = NftBuilder::<Test>::new(collection_owner).build();
 	let token_owner = create_account(2);
 	let token_id = (collection_id, 0);
 	assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner)));
@@ -138,30 +77,14 @@ fn setup_nft_token_with_royalties(
 	quantity: TokenCount,
 ) -> (CollectionUuid, TokenId, AccountId) {
 	let collection_owner = create_account(1);
-	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = bounded_string("test-collection");
-	let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
-	assert_ok!(Nft::create_collection(
-		Some(collection_owner).into(),
-		collection_name,
-		0,
-		None,
-		None,
-		metadata_scheme,
-		Some(royalties_schedule),
-		CrossChainCompatibility::default(),
-	));
-
 	let token_owner = create_account(2);
-	let token_id = (collection_id, 0);
-	assert_ok!(Nft::mint(
-		Some(collection_owner).into(),
-		collection_id,
-		quantity,
-		Some(token_owner),
-	));
+	let collection_id = NftBuilder::<Test>::new(collection_owner)
+		.token_owner(token_owner)
+		.royalties_schedule(royalties_schedule)
+		.initial_issuance(quantity)
+		.build();
 
-	(collection_id, token_id, token_owner)
+	(collection_id, (collection_id, 0), token_owner)
 }
 
 /// Create an offer on a token. Return offer_id, offer
@@ -320,7 +243,7 @@ fn sell_with_empty_royalties() {
 fn sell_multiple_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(1);
-		let collection_id = create_nft_collection(collection_owner);
+		let collection_id = NftBuilder::<Test>::new(collection_owner).build();
 		// mint some tokens
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
 
@@ -1578,7 +1501,7 @@ fn auction_bundle_no_bids() {
 fn auction_bundle_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(1);
-		let collection_id = create_nft_collection(collection_owner);
+		let collection_id = NftBuilder::<Test>::new(collection_owner).build();
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
 
 		// empty tokens fails
