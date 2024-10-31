@@ -110,7 +110,7 @@ pub struct MockEthyAdapter;
 impl XrplBridgeToEthyAdapter<AuthorityId> for MockEthyAdapter {
 	/// Mock implementation of XrplBridgeToEthyAdapter
 	fn sign_xrpl_transaction(_tx_data: &[u8]) -> Result<EventProofId, DispatchError> {
-		Ok(1)
+		Ok(0)
 	}
 	fn validators() -> Vec<AuthorityId> {
 		// some hard coded validators

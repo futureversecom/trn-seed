@@ -2061,7 +2061,7 @@ fn withdraw_below_payment_delay_does_not_delay_payment() {
 			// Ensure event is thrown
 			System::assert_last_event(
 				Event::<Test>::WithdrawRequest {
-					proof_id: 1,
+					proof_id: 0,
 					sender: account,
 					asset_id: XrpAssetId::get(),
 					amount,
@@ -2143,7 +2143,7 @@ fn process_delayed_payments_works() {
 			// Ensure event is thrown
 			System::assert_last_event(
 				Event::<Test>::WithdrawRequest {
-					proof_id: 1,
+					proof_id: 0,
 					sender: account,
 					asset_id: XrpAssetId::get(),
 					amount,
@@ -2219,7 +2219,7 @@ fn process_delayed_payments_works_in_on_idle() {
 			// Ensure event is thrown
 			System::assert_last_event(
 				Event::<Test>::WithdrawRequest {
-					proof_id: 1,
+					proof_id: 0,
 					sender: account,
 					asset_id: XrpAssetId::get(),
 					amount,
@@ -2559,7 +2559,7 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 		);
 
 		// try to fetch again - error
-		assert_err!(
+		assert_noop!(
 			XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main),
 			Error::<Test>::NextTicketSequenceParamsNotSet
 		);
@@ -3366,7 +3366,7 @@ mod withdraw_asset {
 				// Ensure event is thrown
 				System::assert_last_event(
 					Event::<Test>::WithdrawRequest {
-						proof_id: 1,
+						proof_id: 0,
 						sender: alice(),
 						asset_id: TEST_ASSET_ID,
 						amount: initial_balance,
@@ -3451,7 +3451,7 @@ mod withdraw_asset {
 			// Ensure event is thrown
 			System::assert_last_event(
 				Event::<Test>::WithdrawRequest {
-					proof_id: 1,
+					proof_id: 0,
 					sender: alice(),
 					asset_id,
 					amount: saturated_amount,
@@ -3851,7 +3851,7 @@ mod withdraw_root {
 				// Ensure event is thrown
 				System::assert_last_event(
 					Event::<Test>::WithdrawRequest {
-						proof_id: 1,
+						proof_id: 0,
 						sender: alice(),
 						asset_id: ROOT_ASSET_ID,
 						amount: initial_balance,
@@ -4084,7 +4084,7 @@ fn generate_nft_accept_offer_works() {
 
 		System::assert_has_event(
 			Event::<Test>::XrplTxSignRequest {
-				proof_id: 1,
+				proof_id: 0,
 				tx: NFTokenAcceptOffer(NFTokenAcceptOfferTransaction {
 					nftoken_sell_offer,
 					tx_fee,
@@ -4212,7 +4212,7 @@ fn withdraw_nft_works() {
 		// check for XrplTxSignRequest event
 		System::assert_has_event(
 			Event::<Test>::XrplTxSignRequest {
-				proof_id: 1,
+				proof_id: 0,
 				tx: NFTokenCreateOffer(NFTokenCreateOfferTransaction {
 					nftoken_id: [1_u8; 32],
 					tx_fee,
@@ -4278,8 +4278,7 @@ fn withdraw_nft_failure_xls20_incompatible() {
 		assert_ok!(<Test as Config>::NFTExt::do_mint(alice(), nft_collection_id, 1, None,));
 
 		// withdraw nft
-		System::reset_events();
-		assert_err!(
+		assert_noop!(
 			XRPLBridge::withdraw_nft(
 				RuntimeOrigin::signed(alice()),
 				nft_collection_id,
@@ -4342,9 +4341,8 @@ fn withdraw_nft_more_failure_scenarios() {
 
 		assert_ok!(<Test as Config>::NFTExt::do_mint(alice(), nft_collection_id, 1, None,));
 
-		System::reset_events();
 		// withdraw by other than the owner
-		assert_err!(
+		assert_noop!(
 			XRPLBridge::withdraw_nft(
 				RuntimeOrigin::signed(bob()),
 				nft_collection_id,
@@ -4355,7 +4353,7 @@ fn withdraw_nft_more_failure_scenarios() {
 		);
 
 		// withdraw invalid collection
-		assert_err!(
+		assert_noop!(
 			XRPLBridge::withdraw_nft(
 				RuntimeOrigin::signed(bob()),
 				nft_collection_id + 1, // non existent
@@ -4366,7 +4364,7 @@ fn withdraw_nft_more_failure_scenarios() {
 		);
 
 		// withdraw invalid serial number
-		assert_err!(
+		assert_noop!(
 			XRPLBridge::withdraw_nft(
 				RuntimeOrigin::signed(bob()),
 				nft_collection_id,

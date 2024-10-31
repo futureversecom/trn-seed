@@ -325,10 +325,7 @@ benchmarks! {
 		let door_address: XrplAccountId  = [1u8; 20].into();
 		let tx_fee = 100;
 		let nftoken_sell_offer = [2_u8; 32];
-		// Note - had to do this since when CI running all tests, NextEventProofId has been incremented
-		// by one already, probably from a prior test execution. Keeping it simple as this to satisfy
-		// both benchmarks and tests since we just need this for verification purpose only.
-		let proof_id = if cfg!(test) { 1 } else { 0 };
+		let proof_id = 0;
 
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
 		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), XRPLDoorAccount::NFT, Some(door_address)));
@@ -358,10 +355,7 @@ benchmarks! {
 		let tx_fee = 100;
 		let nftoken_sell_offer = [2_u8; 32];
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
-		// Note - had to do this since when CI running all tests, NextEventProofId has been incremented
-		// by one already, probably from a prior test execution. Keeping it simple as this to satisfy
-		// both benchmarks and tests since we just need this for verification purpose only.
-		let proof_id = if cfg!(test) { 1 } else { 0 };
+		let proof_id = 0;
 
 		// setup xrpl-bridge-pallet
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
