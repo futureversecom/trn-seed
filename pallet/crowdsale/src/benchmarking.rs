@@ -19,7 +19,7 @@ use crate::Pallet as CrowdSale;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::traits::fungibles::Inspect;
 use frame_system::RawOrigin;
-use seed_primitives::{nft::OriginChain, CrossChainCompatibility, MetadataScheme};
+use seed_primitives::{nft::OriginChain, MetadataScheme};
 
 pub fn build_collection<T: Config>(collection_owner: T::AccountId) -> CollectionUuid {
 	T::NFTExt::do_create_collection(
@@ -31,7 +31,6 @@ pub fn build_collection<T: Config>(collection_owner: T::AccountId) -> Collection
 		MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
 		None,
 		OriginChain::Root,
-		CrossChainCompatibility::default(),
 	)
 	.unwrap()
 }
