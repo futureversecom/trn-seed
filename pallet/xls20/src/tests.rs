@@ -16,45 +16,52 @@
 #![cfg(test)]
 use super::*;
 use crate::mock::{
-	AssetsExt, MaxTokensPerXls20Mint, Nft, RuntimeEvent as MockEvent, System, Test, Xls20,
-	Xls20PaymentAsset,
+	AssetsExt, MaxTokensPerXls20Mint, Nft, RuntimeEvent as MockEvent,
+	System, Test, Xls20, Xls20PaymentAsset,
 };
 use frame_support::traits::fungibles::Inspect;
-use pallet_nft::{CollectionInfo, CrossChainCompatibility};
+use hex_literal::hex;
+use pallet_nft::test_utils::NftBuilder;
+use pallet_nft::CollectionInfo;
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::MetadataScheme;
+use seed_primitives::{xrpl::Xls20TokenId, CrossChainCompatibility};
 
 // Create an NFT collection with xls20 compatibility
 // Returns the created `collection_id`
 fn setup_xls20_collection(owner: AccountId, xls_compatible: bool) -> CollectionUuid {
-	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = BoundedVec::truncate_from(b"test-xls20-collection".to_vec());
-	let metadata_scheme = MetadataScheme::try_from(b"https://example.com/".as_slice()).unwrap();
-	let cross_chain_compatibility = CrossChainCompatibility { xrpl: xls_compatible };
-	assert_ok!(Nft::create_collection(
-		Some(owner).into(),
-		collection_name,
-		0,
-		None,
-		None,
-		metadata_scheme,
-		None,
-		cross_chain_compatibility,
-	));
-	collection_id
+	NftBuilder::<Test>::new(owner)
+		.name("test-xls20-collection")
+		.cross_chain_compatibility(CrossChainCompatibility { xrpl: xls_compatible })
+		.build()
 }
 
-fn string_to_xls20_token(input: &str) -> Xls20TokenId {
-	Xls20TokenId::try_from(input.as_bytes()).unwrap()
-}
+#[test]
+fn decode_xls20_token_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		//  000B 0C44 95F14B0E44F78A264E41713C64B5F89242540EE2 BC8B858E 00000D65
+		// 	+--- +--- +--------------------------------------- +------- +-------
+		// 	|    |    |                                        |        |
+		// 	|    |    |                                        |        `---> Sequence: 3,429
+		// 	|    |    |                                        |
+		//  |    |    |                                        `---> Taxon: 146,999,694
+		// 	|    |    |
+		// 	|    |    `---> Issuer: rNCFjv8Ek5oDrNiMJ3pw6eLLFtMjZLJnf2
+		// 	|    |
+		//  |    `---> TransferFee: 314.0 bps or 3.140%
+		// 	|
+		//  `---> Flags: 12 -> lsfBurnable, lsfOnlyXRP and lsfTransferable
 
-fn setup_token_mappings(
-	input: Vec<(SerialNumber, &str)>,
-) -> BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerXls20Mint> {
-	let input: Vec<(SerialNumber, Xls20TokenId)> =
-		input.into_iter().map(|(s, token)| (s, string_to_xls20_token(token))).collect();
-
-	BoundedVec::try_from(input).unwrap()
+		let token = hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		let expected = Xls20Token {
+			flags: 11,
+			transfer_fee: Permill::from_rational(314u32, 10_000),
+			issuer: H160::from(hex!("95F14B0E44F78A264E41713C64B5F89242540EE2")),
+			taxon: 146_999_694,
+			sequence: 3429,
+		};
+		let actual = Xls20Token::from(token);
+		assert_eq!(actual, expected);
+	});
 }
 
 #[test]
@@ -388,9 +395,9 @@ fn re_request_xls20_mint_duplicate_mapping_fails() {
 		let quantity: TokenCount = 1;
 		let token_owner = create_account(12);
 
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			0,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
 		)]);
 
 		// Set relayer to Bob
@@ -429,11 +436,11 @@ fn fulfill_xls20_mint_works() {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![
-			(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
-			(1, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
-			(2, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68"),
-			(3, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69"),
+		let token_mappings = BoundedVec::truncate_from(vec![
+			(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+			(1, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67")),
+			(2, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68")),
+			(3, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69")),
 		]);
 
 		// Set relayer to Bob
@@ -502,9 +509,9 @@ fn fulfill_xls20_mint_not_relayer_fails() {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			0,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
 		)]);
 
 		// Set relayer to Bob
@@ -528,9 +535,9 @@ fn fulfill_xls20_mint_no_collection_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_id = 1;
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			0,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
 		)]);
 
 		// Set relayer to Bob
@@ -555,11 +562,11 @@ fn fulfill_xls20_mint_no_token_fails() {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![
-			(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
-			(1, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
-			(2, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68"),
-			(3, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69"),
+		let token_mappings = BoundedVec::truncate_from(vec![
+			(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+			(1, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67")),
+			(2, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68")),
+			(3, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69")),
 		]);
 		// Set relayer to Bob
 		assert_ok!(Xls20::set_relayer(RawOrigin::Root.into(), relayer));
@@ -591,9 +598,9 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 		let collection_owner = create_account(10);
 		let collection_id = setup_xls20_collection(collection_owner, true);
 		let relayer = create_account(11);
-		let token_mappings = setup_token_mappings(vec![
-			(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
-			(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
+		let token_mappings = BoundedVec::truncate_from(vec![
+			(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+			(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
 		]);
 
 		// Set relayer to Bob
@@ -620,9 +627,9 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 
 		// Submit successful token mappings to add to storage
 		let serial_number: SerialNumber = 0;
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			serial_number,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
 		)]);
 
 		assert_ok!(Xls20::fulfill_xls20_mint(
@@ -633,9 +640,7 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 		// Check it's added to storage
 		assert_eq!(
 			Xls20TokenMap::<Test>::get(collection_id, serial_number),
-			Some(string_to_xls20_token(
-				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"
-			))
+			Some(hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"))
 		);
 
 		// Subsequent call should fail on same token id
@@ -650,9 +655,9 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 
 		// Different serial should work fine
 		let serial_number: SerialNumber = 1;
-		let token_mappings = setup_token_mappings(vec![(
+		let token_mappings = BoundedVec::truncate_from(vec![(
 			serial_number,
-			"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67",
+			hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
 		)]);
 
 		assert_ok!(Xls20::fulfill_xls20_mint(
@@ -663,9 +668,7 @@ fn fulfill_xls20_mint_duplicate_mapping_fails() {
 		// Again, check it's added to storage
 		assert_eq!(
 			Xls20TokenMap::<Test>::get(collection_id, serial_number),
-			Some(string_to_xls20_token(
-				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"
-			))
+			Some(hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"))
 		);
 	});
 }
@@ -751,4 +754,118 @@ fn enable_xls20_compatibility_non_zero_issuance_fails() {
 			pallet_nft::Error::<Test>::CollectionIssuanceNotZero
 		);
 	});
+}
+
+mod set_collection_mappings {
+	use super::*;
+
+	#[test]
+	fn set_collection_mappings_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_mappings = vec![
+				(12, Xls20Collection::new(H160::from_low_u64_be(12), 123)),
+				(22, Xls20Collection::new(H160::from_low_u64_be(22), 223)),
+				(32, Xls20Collection::new(H160::from_low_u64_be(32), 323)),
+			];
+
+			assert_ok!(Xls20::set_collection_mappings(
+				RawOrigin::Root.into(),
+				collection_mappings.clone()
+			));
+
+			for (collection_id, xls20_collection) in collection_mappings.clone() {
+				assert_eq!(CollectionMapping::<Test>::get(xls20_collection), Some(collection_id));
+			}
+
+			// Check event
+			System::assert_last_event(MockEvent::Xls20(crate::Event::Xls20CollectionMappingsSet {
+				mappings: collection_mappings,
+			}));
+		});
+	}
+
+	#[test]
+	fn set_collection_mappings_not_sudo_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_mappings =
+				vec![(12, Xls20Collection::new(H160::from_low_u64_be(12), 123))];
+
+			assert_noop!(
+				Xls20::set_collection_mappings(
+					RawOrigin::Signed(create_account(10)).into(),
+					collection_mappings.clone()
+				),
+				BadOrigin
+			);
+		});
+	}
+}
+
+mod deposit_token {
+	use super::*;
+
+	#[test]
+	/// Test the flow where a token is deposited to TRN and needs to be minted into the existing
+	/// collection
+	fn deposit_token_mint_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_xls20_collection(collection_owner, true);
+			let beneficiary = create_account(12);
+			let xls20_token_id =
+				hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+			let xls20_token = Xls20Token::from(xls20_token_id);
+			let xls20_collection = Xls20Collection::new(xls20_token.issuer, xls20_token.taxon);
+			CollectionMapping::<Test>::insert(xls20_collection, collection_id);
+
+			// Deposit token
+			let weight = Xls20::deposit_xls20_token(&beneficiary, xls20_token_id)
+				.expect("Failed to deposit token");
+			assert_eq!(weight, <Test as Config>::WeightInfo::deposit_token_mint());
+
+			// Token was minted into beneficiary address
+			let new_owner =
+				<Test as Config>::NFTExt::get_token_owner(&(collection_id, xls20_token.sequence))
+					.unwrap();
+			assert_eq!(new_owner, beneficiary);
+
+			let collection_info = <CollectionInfo<Test>>::get(collection_id).unwrap();
+			assert_eq!(collection_info.collection_issuance, 1);
+		});
+	}
+
+	#[test]
+	/// Test the flow where a token is deposited to TRN and the collection needs to be created
+	/// and the token minted into the beneficiary address
+	fn deposit_token_create_collection_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let beneficiary = create_account(12);
+			let xls20_token_id =
+				hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+			let xls20_token = Xls20Token::from(xls20_token_id);
+			let serial_number = xls20_token.sequence;
+			let collection_id = <Test as Config>::NFTExt::next_collection_uuid()
+				.expect("Failed to get next collection uuid");
+
+			// Deposit token
+			let weight = Xls20::deposit_xls20_token(&beneficiary, xls20_token_id)
+				.expect("Failed to deposit token");
+			assert_eq!(weight, <Test as Config>::WeightInfo::deposit_token_create_collection());
+
+			// Token was minted into beneficiary address
+			let new_owner =
+				<Test as Config>::NFTExt::get_token_owner(&(collection_id, serial_number)).unwrap();
+			assert_eq!(new_owner, beneficiary);
+
+			let collection_info = <CollectionInfo<Test>>::get(collection_id).unwrap();
+			assert_eq!(collection_info.collection_issuance, 1);
+			// Cross chain compatibility should be enabled
+			assert!(collection_info.cross_chain_compatibility.xrpl);
+			// Origin chain is XRPL
+			assert_eq!(collection_info.origin_chain, OriginChain::XRPL);
+			// collection mapping set
+			let xls20_collection = Xls20Collection::new(xls20_token.issuer, xls20_token.taxon);
+			assert_eq!(CollectionMapping::<Test>::get(xls20_collection), Some(collection_id));
+		});
+	}
 }

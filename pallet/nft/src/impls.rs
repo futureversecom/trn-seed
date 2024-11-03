@@ -24,12 +24,13 @@ use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	log,
 	utils::{next_asset_uuid, PublicMintInformation},
-	NFTExt, OnNewAssetSubscriber, OnTransferSubscriber,
+	NFTExt, NFTMinter, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
-	TokenId, MAX_COLLECTION_ENTITLEMENTS,
+	TokenId, WeightedDispatchResult,
 };
+use seed_primitives::{CrossChainCompatibility, MAX_COLLECTION_ENTITLEMENTS};
 use sp_runtime::{
 	traits::Zero, ArithmeticError, BoundedVec, DispatchError, DispatchResult, SaturatedConversion,
 };
@@ -137,7 +138,7 @@ impl<T: Config> Pallet<T> {
 		owner: &T::AccountId,
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
-	) -> Result<Weight, (Weight, DispatchError)> {
+	) -> WeightedDispatchResult {
 		if serial_numbers.is_empty() {
 			return Ok(Weight::zero());
 		};
@@ -565,14 +566,14 @@ impl<T: Config> NFTExt for Pallet<T> {
 	}
 
 	fn do_transfer(
-		origin: Self::AccountId,
+		origin: &Self::AccountId,
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
-		new_owner: Self::AccountId,
+		new_owner: &Self::AccountId,
 	) -> DispatchResult {
 		let bounded_serials =
 			BoundedVec::try_from(serial_numbers).map_err(|_| Error::<T>::TokenLimitExceeded)?;
-		Self::transfer(RawOrigin::Signed(origin).into(), collection_id, bounded_serials, new_owner)
+		Self::do_transfer(collection_id, bounded_serials, origin, new_owner)
 	}
 
 	fn do_create_collection(
@@ -584,6 +585,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 		metadata_scheme: MetadataScheme,
 		royalties_schedule: Option<RoyaltiesSchedule<Self::AccountId>>,
 		origin_chain: OriginChain,
+		cross_chain_compatibility: CrossChainCompatibility,
 	) -> Result<CollectionUuid, DispatchError> {
 		Self::do_create_collection(
 			owner,
@@ -594,7 +596,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 			metadata_scheme,
 			royalties_schedule,
 			origin_chain,
-			CrossChainCompatibility::default(),
+			cross_chain_compatibility,
 		)
 	}
 
@@ -694,5 +696,20 @@ impl<T: Config> NFTCollectionInfo for Pallet<T> {
 		DispatchError,
 	> {
 		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
+	}
+}
+
+impl<T: Config> NFTMinter for Pallet<T> {
+	type AccountId = T::AccountId;
+
+	/// Mint bridged tokens from Ethereum or XRPL
+	/// Note that in an attempt to match the serial numbers between chains, we will mint
+	/// the serial numbers as they are provided. If a serial number already exists, we will not mint
+	fn mint_bridged_nft(
+		owner: &Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: Vec<SerialNumber>,
+	) -> WeightedDispatchResult {
+		Self::mint_bridged_token(owner, collection_id, serial_numbers)
 	}
 }

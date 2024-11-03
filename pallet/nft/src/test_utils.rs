@@ -1,7 +1,7 @@
 use crate::*;
 use frame_support::{assert_ok, traits::OriginTrait, BoundedVec};
 use frame_system::pallet_prelude::OriginFor;
-use seed_primitives::{MetadataScheme, TokenCount};
+use seed_primitives::{CrossChainCompatibility, MetadataScheme, TokenCount};
 
 pub struct NftBuilder<T>
 where
@@ -29,7 +29,7 @@ where
 			initial_issuance: 0,
 			max_issuance: None,
 			token_owner: None,
-			metadata_scheme: MetadataScheme::try_from(b"https://default.com/".as_slice()).unwrap(),
+			metadata_scheme: MetadataScheme::try_from(b"https://example.com/".as_slice()).unwrap(),
 			royalties_schedule: None,
 			cross_chain_compatibility: Default::default(),
 		}
