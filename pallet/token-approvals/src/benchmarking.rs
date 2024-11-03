@@ -22,7 +22,7 @@ use super::*;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use seed_primitives::{nft::OriginChain, MetadataScheme};
+use seed_primitives::{nft::OriginChain, CrossChainCompatibility, MetadataScheme};
 
 use crate::Pallet as TokenApprovals;
 
@@ -54,6 +54,7 @@ fn build_collection<T: Config>() -> (T::AccountId, CollectionUuid, TokenId) {
 		metadata_scheme,
 		None,
 		OriginChain::Root,
+		CrossChainCompatibility::default(),
 	)
 	.unwrap();
 
