@@ -530,6 +530,7 @@ impl pallet_xls20::Config for Runtime {
 	type NFTCollectionInfo = Nft;
 	type WeightInfo = weights::pallet_xls20::WeightInfo<Runtime>;
 	type Xls20PaymentAsset = XrpAssetId;
+	type Migrator = Migration;
 }
 
 parameter_types! {
@@ -1364,6 +1365,20 @@ impl pallet_crowdsale::Config for Runtime {
 	type WeightInfo = weights::pallet_crowdsale::WeightInfo<Self>;
 }
 
+parameter_types! {
+	// The upper limit of weight used per block for migrations is 10%
+	// Note, this could still be smaller if we set a smaller BlockLimit within pallet-migration
+	pub MaxMigrationWeight: Weight = Perbill::from_percent(10) * MAXIMUM_BLOCK_WEIGHT;
+}
+
+impl pallet_migration::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	// Set to NoopMigration if no migration is in progress
+	type CurrentMigration = migrations::xls20_multi::Xls20Migration<Runtime>;
+	type MaxMigrationWeight = MaxMigrationWeight;
+	type WeightInfo = weights::pallet_migration::WeightInfo<Runtime>;
+}
+
 construct_runtime!(
 	pub enum Runtime {
 		System: frame_system = 0,
@@ -1408,6 +1423,7 @@ construct_runtime!(
 		MaintenanceMode: pallet_maintenance_mode = 47,
 		Crowdsale: pallet_crowdsale = 49,
 		Nfi: pallet_nfi = 50,
+		Migration: pallet_migration = 51,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -1454,14 +1470,6 @@ pub type UncheckedExtrinsic =
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic =
 	fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra, H160>;
-
-pub struct StakingMigrationV11OldPallet;
-
-impl Get<&'static str> for StakingMigrationV11OldPallet {
-	fn get() -> &'static str {
-		"VoterList"
-	}
-}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -2338,5 +2346,6 @@ mod benches {
 		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_crowdsale, Crowdsale]
 		[pallet_evm, EVM]
+		[pallet_migration, Migration]
 	);
 }

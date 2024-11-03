@@ -85,4 +85,5 @@ impl crate::Config for Test {
 	type NFTExt = Nft;
 	type NFTCollectionInfo = Nft;
 	type Xls20PaymentAsset = Xls20PaymentAsset;
+	type Migrator = ();
 }
