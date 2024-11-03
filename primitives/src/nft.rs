@@ -41,7 +41,6 @@ pub type ListingId = u128;
 pub enum OriginChain {
 	Ethereum,
 	Root,
-	XRPL,
 }
 
 /// Reason for an NFT being locked (un-transferrable)
@@ -115,21 +114,6 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 impl<AccountId> Default for RoyaltiesSchedule<AccountId> {
 	fn default() -> Self {
 		Self { entitlements: BoundedVec::default() }
-	}
-}
-
-/// Determines compatibility with external chains.
-/// If compatible with XRPL, XLS-20 tokens will be minted with every newly minted
-/// token on The Root Network
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
-pub struct CrossChainCompatibility {
-	/// This collection is compatible with the XLS-20 standard on XRPL
-	pub xrpl: bool,
-}
-
-impl Default for CrossChainCompatibility {
-	fn default() -> Self {
-		Self { xrpl: false }
 	}
 }
 

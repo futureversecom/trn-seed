@@ -13,15 +13,12 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate as pallet_xrpl_bridge;
-use crate::Config;
-use frame_support::{storage_alias, Twox64Concat};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::ethy::{crypto::AuthorityId, EventProofId};
-use seed_primitives::xrpl::Xls20TokenId;
-use seed_primitives::WeightedDispatchResult;
 use sp_core::ByteArray;
 use sp_runtime::Percent;
+
+use crate as pallet_xrpl_bridge;
 
 // Configure a mock runtime to test the pallet.
 construct_runtime!(
@@ -45,29 +42,6 @@ impl_pallet_assets_ext_config!(Test);
 // Time is measured by number of blocks.
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-
-#[storage_alias]
-pub type Xls20TokenTest<Test: Config> =
-	StorageMap<crate::Pallet<Test>, Twox64Concat, AccountId, Xls20TokenId>;
-
-// Mock Xls20Ext implementation by just storing the token in the mock storage to ensure
-// the correct path is triggered.
-pub struct MockXls20Ext;
-impl Xls20Ext for MockXls20Ext {
-	type AccountId = AccountId;
-
-	fn deposit_xls20_token(
-		receiver: &Self::AccountId,
-		xls20_token_id: Xls20TokenId,
-	) -> WeightedDispatchResult {
-		Xls20TokenTest::<Test>::insert(receiver, xls20_token_id);
-		Ok(Weight::zero())
-	}
-
-	fn get_xls20_token_id(_token_id: TokenId) -> Option<Xls20TokenId> {
-		None
-	}
-}
 
 parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES as u32;
@@ -99,7 +73,6 @@ impl pallet_xrpl_bridge::Config for Test {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPLTransactionLimitPerLedger;
-	type Xls20Ext = MockXls20Ext;
 }
 
 pub struct MockEthyAdapter;

@@ -54,7 +54,6 @@ impl pallet_nft_peg::Config for Test {
 	type NftPegWeightInfo = ();
 	type MaxCollectionsPerWithdraw = MaxCollectionsPerWithdraw;
 	type MaxSerialsPerWithdraw = MaxSerialsPerWithdraw;
-	type NFTMinter = Nft;
 }
 
 /// Mock ethereum bridge

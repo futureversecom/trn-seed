@@ -21,8 +21,6 @@ use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_te
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use seed_primitives::xrpl::Xls20TokenId;
-use sp_core::H160;
 
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 	bench_account(name, 0, 0)
@@ -41,7 +39,7 @@ benchmarks! {
 		let relayer = account::<T>("Relayer");
 		let ledger_index = 0;
 		let transaction_hash: XrplTxHash = [0u8; 64].into();
-		let transaction = XrplTxData::Xls20 { token_id: Xls20TokenId::default(), address: H160::zero() };
+		let transaction = XrplTxData::Xls20;
 		let timestamp = 100;
 
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), relayer.clone()));
@@ -51,29 +49,6 @@ benchmarks! {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
 		let details = ProcessXRPTransactionDetails::<T>::get(transaction_hash);
 		assert_eq!(details, Some((ledger_index, val, relayer)))
-	}
-
-	process_asset_deposit {
-		let amount = 100;
-		let beneficiary = account::<T>("Beneficiary");
-		let asset_id = T::XrpAssetId::get();
-	}: {XrplBridge::<T>::process_asset_deposit(amount, &beneficiary, asset_id).expect("Failed to process asset deposit");}
-	verify {
-		let balance = T::MultiCurrency::balance(asset_id, &beneficiary);
-		assert_eq!(balance, amount);
-	}
-
-	process_asset_deposit_root {
-		let amount = 100;
-		let beneficiary = account::<T>("Beneficiary");
-		let asset_id = T::NativeAssetId::get();
-		let pallet_address: T::AccountId = T::PalletId::get().into_account_truncating();
-		// Mint some root into the pallet address
-		T::MultiCurrency::mint_into(asset_id, &pallet_address, amount).expect("Can mint");
-	}: {XrplBridge::<T>::process_asset_deposit(amount, &beneficiary, asset_id).expect("Failed to process asset deposit");}
-	verify {
-		let balance = T::MultiCurrency::balance(asset_id, &beneficiary);
-		assert_eq!(balance, amount);
 	}
 
 	submit_challenge {
@@ -253,8 +228,7 @@ benchmarks! {
 			let ledger_index = j;
 			let transaction_hash: XrplTxHash = [j as u8; 64].into();
 			let timestamp = 100;
-			let transaction = XrplTxData::Xls20 { token_id: Xls20TokenId::default(), address: H160::zero() };
-			let transaction = XrpTransaction { transaction_hash, transaction, timestamp } ;
+			let transaction = XrpTransaction { transaction_hash, transaction: XrplTxData::Xls20, timestamp } ;
 			settled_data.push((transaction_hash, ledger_index, transaction, alice.clone()));
 		}
 

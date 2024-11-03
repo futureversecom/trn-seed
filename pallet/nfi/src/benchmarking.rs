@@ -19,8 +19,8 @@ use codec::Encode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
-use pallet_nft::Pallet as Nft;
-use seed_primitives::{CrossChainCompatibility, MetadataScheme};
+use pallet_nft::{CrossChainCompatibility, Pallet as Nft};
+use seed_primitives::MetadataScheme;
 use sp_std::vec;
 
 /// This is a helper function to get an account.
