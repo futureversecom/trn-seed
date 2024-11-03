@@ -16,8 +16,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::types::{
-	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, WithdrawTransaction,
-	XRPLCurrency, XrpTransaction, XrpWithdrawTransaction, XrplTicketSequenceParams, XrplTxData,
+	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, NFTokenAcceptOfferTransaction,
+	WithdrawTransaction, XRPLCurrency, XRPLDoorAccount, XrpTransaction, XrpWithdrawTransaction,
+	XrplTicketSequenceParams, XrplTransaction, XrplTxData,
 };
 use frame_support::{
 	fail,
@@ -46,7 +47,9 @@ use sp_std::{prelude::*, vec};
 use xrpl_codec::{
 	field::Amount,
 	traits::BinarySerialize,
-	transaction::{Payment, PaymentAltCurrency, PaymentWithDestinationTag, SignerListSet},
+	transaction::{
+		NFTokenAcceptOffer, Payment, PaymentAltCurrency, PaymentWithDestinationTag, SignerListSet,
+	},
 	types::{AccountIdType, AmountType, IssuedAmountType, IssuedValueType},
 };
 
@@ -72,7 +75,7 @@ type AccountOf<T> = <T as frame_system::Config>::AccountId;
 pub mod pallet {
 	use super::*;
 
-	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -228,12 +231,20 @@ pub mod pallet {
 		},
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
-		DoorAddressSet(XrplAccountId),
+		/// XRPL Door address set/reset
+		DoorAddressSet {
+			door_account: XRPLDoorAccount,
+			address: Option<XrplAccountId>,
+		},
+		/// Next ticket sequence params set for the XRPL door account
 		DoorNextTicketSequenceParamSet {
+			door_account: XRPLDoorAccount,
 			ticket_sequence_start_next: u32,
 			ticket_bucket_size_next: u32,
 		},
+		/// ticket sequence params set for the XRPL door account
 		DoorTicketSequenceParamSet {
+			door_account: XRPLDoorAccount,
 			ticket_sequence: u32,
 			ticket_sequence_start: u32,
 			ticket_bucket_size: u32,
@@ -242,7 +253,11 @@ pub mod pallet {
 			ledger_index: u32,
 			total_cleared: u32,
 		},
-		TicketSequenceThresholdReached(u32),
+		/// ticket sequence threshold reached for the XRPL door account
+		TicketSequenceThresholdReached {
+			door_account: XRPLDoorAccount,
+			current_ticket: u32,
+		},
 		XrplAssetMapSet {
 			asset_id: AssetId,
 			xrpl_currency: XRPLCurrency,
@@ -250,6 +265,11 @@ pub mod pallet {
 		XrplAssetMapRemoved {
 			asset_id: AssetId,
 			xrpl_currency: XRPLCurrency,
+		},
+		/// Submit XRPL Tx signing request
+		XrplTxSignRequest {
+			proof_id: u64,
+			tx: XrplTransaction,
 		},
 	}
 
@@ -378,31 +398,33 @@ pub mod pallet {
 	}
 	#[pallet::storage]
 	#[pallet::getter(fn door_ticket_sequence)]
-	/// The current ticket sequence of the XRPL door account
-	pub type DoorTicketSequence<T: Config> =
-		StorageValue<_, XrplTxTicketSequence, ValueQuery, DefaultDoorTicketSequence>;
+	/// The current ticket sequence of the XRPL door accounts
+	pub type DoorTicketSequence<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		XRPLDoorAccount,
+		XrplTxTicketSequence,
+		ValueQuery,
+		DefaultDoorTicketSequence,
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn door_ticket_sequence_params)]
-	/// The Ticket sequence params of the XRPL door account for the current allocation
+	/// The Ticket sequence params of the XRPL door accounts for the current allocation
 	pub type DoorTicketSequenceParams<T: Config> =
-		StorageValue<_, XrplTicketSequenceParams, ValueQuery>;
+		StorageMap<_, Twox64Concat, XRPLDoorAccount, XrplTicketSequenceParams, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn door_ticket_sequence_params_next)]
-	/// The Ticket sequence params of the XRPL door account for the next allocation
+	/// The Ticket sequence params of the XRPL door accounts for the next allocation
 	pub type DoorTicketSequenceParamsNext<T: Config> =
-		StorageValue<_, XrplTicketSequenceParams, ValueQuery>;
+		StorageMap<_, Twox64Concat, XRPLDoorAccount, XrplTicketSequenceParams, ValueQuery>;
 
-	#[pallet::type_value]
-	pub fn DefaultTicketSequenceThresholdReachedEmitted() -> bool {
-		false
-	}
 	#[pallet::storage]
 	#[pallet::getter(fn ticket_sequence_threshold_reached_emitted)]
-	/// Keeps track whether the TicketSequenceThresholdReached event is emitted
+	/// Keeps track whether the TicketSequenceThresholdReached event is emitted for XRPL door accounts
 	pub type TicketSequenceThresholdReachedEmitted<T: Config> =
-		StorageValue<_, bool, ValueQuery, DefaultTicketSequenceThresholdReachedEmitted>;
+		StorageMap<_, Twox64Concat, XRPLDoorAccount, bool, ValueQuery>;
 
 	/// Default door tx fee 1 XRP
 	#[pallet::type_value]
@@ -413,12 +435,13 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn door_tx_fee)]
 	/// The flat fee for XRPL door txs
-	pub type DoorTxFee<T: Config> = StorageValue<_, u64, ValueQuery, DefaultDoorTxFee>;
+	pub type DoorTxFee<T: Config> =
+		StorageMap<_, Twox64Concat, XRPLDoorAccount, u64, ValueQuery, DefaultDoorTxFee>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn door_address)]
 	/// The door address on XRPL
-	pub type DoorAddress<T: Config> = StorageValue<_, XrplAccountId>;
+	pub type DoorAddress<T: Config> = StorageMap<_, Twox64Concat, XRPLDoorAccount, XrplAccountId>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -599,9 +622,13 @@ pub mod pallet {
 		/// Set the door tx fee amount
 		#[pallet::call_index(7)]
 		#[pallet::weight((<T as Config>::WeightInfo::set_door_tx_fee(), DispatchClass::Operational))]
-		pub fn set_door_tx_fee(origin: OriginFor<T>, fee: u64) -> DispatchResult {
+		pub fn set_door_tx_fee(
+			origin: OriginFor<T>,
+			door_type: XRPLDoorAccount,
+			fee: u64,
+		) -> DispatchResult {
 			ensure_root(origin)?;
-			DoorTxFee::<T>::set(fee);
+			DoorTxFee::<T>::insert(door_type, fee);
 			Ok(())
 		}
 
@@ -614,17 +641,18 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set XRPL door address managed by this pallet
+		/// Set/Reset XRPL door addresses managed by this pallet
 		#[pallet::call_index(9)]
 		#[pallet::weight((T::WeightInfo::set_door_address(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn set_door_address(
 			origin: OriginFor<T>,
-			door_address: XrplAccountId,
+			door_account: XRPLDoorAccount,
+			door_address: Option<XrplAccountId>,
 		) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
-			DoorAddress::<T>::put(door_address);
-			Self::deposit_event(Event::<T>::DoorAddressSet(door_address));
+			DoorAddress::<T>::set(door_account, door_address);
+			Self::deposit_event(Event::<T>::DoorAddressSet { door_account, address: door_address });
 			Ok(())
 		}
 
@@ -633,6 +661,7 @@ pub mod pallet {
 		#[pallet::weight((T::WeightInfo::set_ticket_sequence_next_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_next_allocation(
 			origin: OriginFor<T>,
+			door_account: XRPLDoorAccount,
 			start_ticket_sequence: u32,
 			ticket_bucket_size: u32,
 		) -> DispatchResult {
@@ -640,8 +669,8 @@ pub mod pallet {
 			let active_relayer = <Relayer<T>>::get(&relayer).unwrap_or(false);
 			ensure!(active_relayer, Error::<T>::NotPermitted);
 
-			let current_ticket_sequence = Self::door_ticket_sequence();
-			let current_params = Self::door_ticket_sequence_params();
+			let current_ticket_sequence = Self::door_ticket_sequence(door_account);
+			let current_params = Self::door_ticket_sequence_params(door_account);
 
 			if start_ticket_sequence < current_ticket_sequence
 				|| start_ticket_sequence < current_params.start_sequence
@@ -649,11 +678,15 @@ pub mod pallet {
 			{
 				fail!(Error::<T>::NextTicketSequenceParamsInvalid);
 			}
-			DoorTicketSequenceParamsNext::<T>::put(XrplTicketSequenceParams {
-				start_sequence: start_ticket_sequence,
-				bucket_size: ticket_bucket_size,
-			});
+			DoorTicketSequenceParamsNext::<T>::insert(
+				door_account,
+				XrplTicketSequenceParams {
+					start_sequence: start_ticket_sequence,
+					bucket_size: ticket_bucket_size,
+				},
+			);
 			Self::deposit_event(Event::<T>::DoorNextTicketSequenceParamSet {
+				door_account,
 				ticket_sequence_start_next: start_ticket_sequence,
 				ticket_bucket_size_next: ticket_bucket_size,
 			});
@@ -665,13 +698,14 @@ pub mod pallet {
 		#[pallet::weight((T::WeightInfo::set_ticket_sequence_current_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_current_allocation(
 			origin: OriginFor<T>,
+			door_account: XRPLDoorAccount,
 			ticket_sequence: u32,
 			start_ticket_sequence: u32,
 			ticket_bucket_size: u32,
 		) -> DispatchResult {
 			ensure_root(origin)?; // only the root will be able to do it
-			let current_ticket_sequence = Self::door_ticket_sequence();
-			let current_params = Self::door_ticket_sequence_params();
+			let current_ticket_sequence = Self::door_ticket_sequence(door_account);
+			let current_params = Self::door_ticket_sequence_params(door_account);
 
 			if ticket_sequence < current_ticket_sequence
 				|| start_ticket_sequence < current_params.start_sequence
@@ -680,13 +714,17 @@ pub mod pallet {
 				fail!(Error::<T>::TicketSequenceParamsInvalid);
 			}
 
-			DoorTicketSequence::<T>::put(ticket_sequence);
-			DoorTicketSequenceParams::<T>::put(XrplTicketSequenceParams {
-				start_sequence: start_ticket_sequence,
-				bucket_size: ticket_bucket_size,
-			});
-			TicketSequenceThresholdReachedEmitted::<T>::kill();
+			DoorTicketSequence::<T>::insert(door_account, ticket_sequence);
+			DoorTicketSequenceParams::<T>::insert(
+				door_account,
+				XrplTicketSequenceParams {
+					start_sequence: start_ticket_sequence,
+					bucket_size: ticket_bucket_size,
+				},
+			);
+			TicketSequenceThresholdReachedEmitted::<T>::remove(door_account);
 			Self::deposit_event(Event::<T>::DoorTicketSequenceParamSet {
+				door_account,
 				ticket_sequence,
 				ticket_sequence_start: start_ticket_sequence,
 				ticket_bucket_size,
@@ -788,6 +826,29 @@ pub mod pallet {
 				});
 			}
 			Ok(())
+		}
+
+		/// Generate a signing request for NFT Accept Offer
+		#[pallet::call_index(16)]
+		#[pallet::weight(T::WeightInfo::generate_nft_accept_offer())]
+		#[transactional]
+		pub fn generate_nft_accept_offer(
+			origin: OriginFor<T>,
+			nftoken_sell_offer: [u8; 32],
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			ensure!(Relayer::<T>::get(&who).unwrap_or(false), Error::<T>::NotPermitted);
+
+			let door_address =
+				Self::door_address(XRPLDoorAccount::NFT).ok_or(Error::<T>::DoorAddressNotSet)?;
+			let tx_data = XrplTransaction::NFTokenAcceptOffer(NFTokenAcceptOfferTransaction {
+				nftoken_sell_offer,
+				tx_fee: DoorTxFee::<T>::get(XRPLDoorAccount::NFT),
+				tx_ticket_sequence: Self::get_door_ticket_sequence(XRPLDoorAccount::NFT)?,
+				account: door_address,
+			});
+
+			Self::submit_xrpl_tx_for_signing(tx_data)
 		}
 	}
 }
@@ -951,7 +1012,7 @@ impl<T: Config> Pallet<T> {
 			.min(highest_processed_delay_block.saturating_add(T::DelayedPaymentBlockLimit::get()));
 
 		// Get the current door address
-		let Some(door_address) = DoorAddress::<T>::get() else {
+		let Some(door_address) = DoorAddress::<T>::get(XRPLDoorAccount::Main) else {
 			return used_weight;
 		};
 
@@ -1165,8 +1226,9 @@ impl<T: Config> Pallet<T> {
 		ensure!(!amount.is_zero(), Error::<T>::WithdrawInvalidAmount);
 		// Saturate the balance to be within the Mantissa range if the asset is not XRP
 		let amount = Self::saturate_balance(amount, asset_id)?;
-		let tx_fee = Self::door_tx_fee();
-		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
+		let tx_fee = Self::door_tx_fee(XRPLDoorAccount::Main);
+		let door_address =
+			Self::door_address(XRPLDoorAccount::Main).ok_or(Error::<T>::DoorAddressNotSet)?;
 
 		let tx_data = match asset_id {
 			a if a == T::XrpAssetId::get() => {
@@ -1222,7 +1284,7 @@ impl<T: Config> Pallet<T> {
 			Fortitude::Polite,
 		)?;
 
-		let ticket_sequence = Self::get_door_ticket_sequence()?;
+		let ticket_sequence = Self::get_door_ticket_sequence(XRPLDoorAccount::Main)?;
 		Ok(WithdrawTransaction::XRP(XrpWithdrawTransaction {
 			tx_nonce: 0_u32, // Sequence = 0 when using TicketSequence
 			tx_fee,
@@ -1265,7 +1327,7 @@ impl<T: Config> Pallet<T> {
 			Preservation::Expendable,
 		)?;
 
-		let ticket_sequence = Self::get_door_ticket_sequence()?;
+		let ticket_sequence = Self::get_door_ticket_sequence(XRPLDoorAccount::Main)?;
 		Ok(WithdrawTransaction::Asset(AssetWithdrawTransaction {
 			tx_nonce: 0_u32, // Sequence = 0 when using TicketSequence
 			tx_fee,
@@ -1308,7 +1370,7 @@ impl<T: Config> Pallet<T> {
 			Fortitude::Polite,
 		)?;
 
-		let ticket_sequence = Self::get_door_ticket_sequence()?;
+		let ticket_sequence = Self::get_door_ticket_sequence(XRPLDoorAccount::Main)?;
 		Ok(WithdrawTransaction::Asset(AssetWithdrawTransaction {
 			tx_nonce: 0_u32, // Sequence = 0 when using TicketSequence
 			tx_fee,
@@ -1389,6 +1451,21 @@ impl<T: Config> Pallet<T> {
 			amount,
 			destination,
 		});
+
+		Ok(())
+	}
+
+	/// Construct an XRPL transaction and submit for signing by ethy
+	fn submit_xrpl_tx_for_signing(tx_data: XrplTransaction) -> DispatchResult {
+		match tx_data {
+			XrplTransaction::NFTokenAcceptOffer(tx) => {
+				let tx_blob = Self::serialize_nft_accept_offer_tx(tx.clone());
+				let proof_id = T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())?;
+
+				// emit
+				Self::deposit_event(Event::XrplTxSignRequest { proof_id, tx: tx_data });
+			},
+		};
 
 		Ok(())
 	}
@@ -1527,10 +1604,35 @@ impl<T: Config> Pallet<T> {
 		Ok((mantissa, exponent))
 	}
 
-	/// Return the current door ticket sequence and increment it in storage
-	pub fn get_door_ticket_sequence() -> Result<XrplTxTicketSequence, DispatchError> {
-		let mut current_sequence = Self::door_ticket_sequence();
-		let ticket_params = Self::door_ticket_sequence_params();
+	/// Serialise nft accept offer tx using NFTokenAcceptOffer type from the XRPL codec
+	fn serialize_nft_accept_offer_tx(tx_data: NFTokenAcceptOfferTransaction) -> Vec<u8> {
+		let NFTokenAcceptOfferTransaction {
+			nftoken_sell_offer,
+			tx_fee,
+			tx_ticket_sequence,
+			account,
+		} = tx_data;
+
+		let nftoken_accept_offer = NFTokenAcceptOffer::new(
+			account.0,
+			nftoken_sell_offer,
+			0, // sequence 0 since we use ticket sequences
+			tx_ticket_sequence,
+			tx_fee,
+			SourceTag::<T>::get(),
+			// omit signer key since this is a 'MultiSigner' tx
+			None,
+		);
+
+		nftoken_accept_offer.binary_serialize(true)
+	}
+
+	/// Return the current ticket sequence for the door account and increment it in storage
+	pub fn get_door_ticket_sequence(
+		door_account: XRPLDoorAccount,
+	) -> Result<XrplTxTicketSequence, DispatchError> {
+		let mut current_sequence = Self::door_ticket_sequence(door_account);
+		let ticket_params = Self::door_ticket_sequence_params(door_account);
 
 		// check if TicketSequenceThreshold reached. notify by emitting
 		// TicketSequenceThresholdReached
@@ -1539,10 +1641,13 @@ impl<T: Config> Pallet<T> {
 				current_sequence - ticket_params.start_sequence + 1,
 				ticket_params.bucket_size,
 			) >= T::TicketSequenceThreshold::get()
-			&& !Self::ticket_sequence_threshold_reached_emitted()
+			&& !Self::ticket_sequence_threshold_reached_emitted(door_account)
 		{
-			Self::deposit_event(Event::<T>::TicketSequenceThresholdReached(current_sequence));
-			TicketSequenceThresholdReachedEmitted::<T>::put(true);
+			Self::deposit_event(Event::<T>::TicketSequenceThresholdReached {
+				door_account,
+				current_ticket: current_sequence,
+			});
+			TicketSequenceThresholdReachedEmitted::<T>::set(door_account, true);
 		}
 
 		let mut next_sequence =
@@ -1553,23 +1658,23 @@ impl<T: Config> Pallet<T> {
 			.ok_or(ArithmeticError::Overflow)?;
 		if current_sequence >= last_sequence {
 			// we ran out current bucket, check the next_start_sequence
-			let next_ticket_params = Self::door_ticket_sequence_params_next();
+			let next_ticket_params = Self::door_ticket_sequence_params_next(door_account);
 			if next_ticket_params == XrplTicketSequenceParams::default()
 				|| next_ticket_params.start_sequence == ticket_params.start_sequence
 			{
 				return Err(Error::<T>::NextTicketSequenceParamsNotSet.into());
 			} else {
 				// update next to current and clear next
-				DoorTicketSequenceParams::<T>::set(next_ticket_params.clone());
+				DoorTicketSequenceParams::<T>::set(door_account, next_ticket_params.clone());
 				current_sequence = next_ticket_params.start_sequence;
 				next_sequence =
 					current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
 
-				DoorTicketSequenceParamsNext::<T>::kill();
-				TicketSequenceThresholdReachedEmitted::<T>::kill();
+				DoorTicketSequenceParamsNext::<T>::remove(door_account);
+				TicketSequenceThresholdReachedEmitted::<T>::remove(door_account);
 			}
 		}
-		DoorTicketSequence::<T>::set(next_sequence);
+		DoorTicketSequence::<T>::set(door_account, next_sequence);
 
 		Ok(current_sequence)
 	}
@@ -1578,31 +1683,37 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
 	fn submit_signer_list_set_request(
 		signer_entries: Vec<(XrplAccountId, u16)>,
-	) -> Result<EventProofId, DispatchError> {
-		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
-		// TODO: need a fee oracle, this is over estimating the fee
-		// https://github.com/futureversecom/seed/issues/107
-		let tx_fee = Self::door_tx_fee();
-		let ticket_sequence = Self::get_door_ticket_sequence()?;
+	) -> Result<Vec<EventProofId>, DispatchError> {
+		let mut results = vec![];
 		let signer_quorum: u32 = signer_entries.len().saturating_sub(1) as u32;
-		let signer_entries = signer_entries
+		let signer_entries: Vec<([u8; 20], u16)> = signer_entries
 			.into_iter()
 			.map(|(account, weight)| (account.into(), weight))
 			.collect();
 
-		let signer_list_set = SignerListSet::new(
-			door_address.into(),
-			tx_fee,
-			0_u32,
-			ticket_sequence,
-			signer_quorum,
-			signer_entries,
-			SourceTag::<T>::get(),
-			// omit signer key since this is a 'MultiSigner' tx
-			None,
-		);
-		let tx_blob = signer_list_set.binary_serialize(true);
+		for door_account in XRPLDoorAccount::VALUES {
+			let door_address =
+				Self::door_address(door_account).ok_or(Error::<T>::DoorAddressNotSet)?;
+			let ticket_sequence = Self::get_door_ticket_sequence(door_account)?;
+			// TODO: need a fee oracle, this is over estimating the fee
+			// https://github.com/futureversecom/seed/issues/107
+			let tx_fee = Self::door_tx_fee(door_account);
+			let signer_list_set = SignerListSet::new(
+				door_address.into(),
+				tx_fee,
+				0_u32,
+				ticket_sequence,
+				signer_quorum,
+				signer_entries.clone(),
+				SourceTag::<T>::get(),
+				// omit signer key since this is a 'MultiSigner' tx
+				None,
+			);
+			let tx_blob = signer_list_set.binary_serialize(true);
 
-		T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
+			let proof_id = T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())?;
+			results.push(proof_id);
+		}
+		Ok(results)
 	}
 }
