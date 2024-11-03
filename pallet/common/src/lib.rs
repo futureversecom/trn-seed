@@ -27,12 +27,10 @@ use frame_support::{
 };
 use frame_system::Config;
 use scale_info::TypeInfo;
-use seed_primitives::xrpl::Xls20TokenId;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
-	AccountId, AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme,
-	OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
-	WeightedDispatchResult,
+	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule,
+	SerialNumber, TokenCount, TokenId, TokenLockReason,
 };
 use sp_core::{bounded::BoundedVec, H160, U256};
 use sp_std::{fmt::Debug, vec::Vec};
@@ -206,6 +204,9 @@ pub trait EthereumEventRouter {
 	fn route(source: &H160, destination: &H160, data: &[u8]) -> EventRouterResult;
 }
 
+/// Result of processing an event by an `EthereumEventSubscriber`
+pub type OnEventResult = Result<Weight, (Weight, DispatchError)>;
+
 /// Handle verified Ethereum events (implemented by handler pallet)
 pub trait EthereumEventSubscriber {
 	/// The destination address of this subscriber (doubles as the source address for sent messages)
@@ -220,7 +221,7 @@ pub trait EthereumEventSubscriber {
 
 	/// process an incoming event from Ethereum
 	/// Verifies source address then calls on_event
-	fn process_event(source: &H160, data: &[u8]) -> WeightedDispatchResult {
+	fn process_event(source: &H160, data: &[u8]) -> OnEventResult {
 		let verify_weight = Self::verify_source(source)?;
 		let on_event_weight = Self::on_event(source, data)?;
 		Ok(verify_weight.saturating_add(on_event_weight))
@@ -229,7 +230,7 @@ pub trait EthereumEventSubscriber {
 	/// Verifies the source address
 	/// Allows pallets to restrict the source based on individual requirements
 	/// Default implementation compares source with SourceAddress
-	fn verify_source(source: &H160) -> WeightedDispatchResult {
+	fn verify_source(source: &H160) -> OnEventResult {
 		if source != &Self::SourceAddress::get() {
 			Err((
 				DbWeight::get().reads(1u64),
@@ -243,7 +244,7 @@ pub trait EthereumEventSubscriber {
 	/// Notify subscriber about a event received from Ethereum
 	/// - `source` the sender address on Ethereum
 	/// - `data` the Ethereum ABI encoded event data
-	fn on_event(source: &H160, data: &[u8]) -> WeightedDispatchResult;
+	fn on_event(source: &H160, data: &[u8]) -> OnEventResult;
 }
 
 /// Interface for an Ethereum event bridge
@@ -376,57 +377,6 @@ impl Xls20MintRequest for () {
 	}
 }
 
-/// Interface for the XLS20 pallet
-pub trait Xls20Ext {
-	type AccountId;
-
-	fn deposit_xls20_token(
-		receiver: &Self::AccountId,
-		xls20_token_id: Xls20TokenId,
-	) -> WeightedDispatchResult;
-
-	fn get_xls20_token_id(token_id: TokenId) -> Option<Xls20TokenId>;
-}
-
-impl Xls20Ext for () {
-	type AccountId = AccountId;
-
-	fn deposit_xls20_token(
-		_receiver: &Self::AccountId,
-		_xls20_token_id: Xls20TokenId,
-	) -> WeightedDispatchResult {
-		Ok(Weight::zero())
-	}
-
-	fn get_xls20_token_id(_token_id: TokenId) -> Option<Xls20TokenId> {
-		None
-	}
-}
-
-/// NFT Minter trait allows minting of Bridged NFTs that originate on other chains
-pub trait NFTMinter {
-	type AccountId;
-
-	/// Mint bridged tokens from other chain
-	fn mint_bridged_nft(
-		owner: &Self::AccountId,
-		collection_id: CollectionUuid,
-		serial_numbers: Vec<SerialNumber>,
-	) -> WeightedDispatchResult;
-}
-
-impl NFTMinter for () {
-	type AccountId = AccountId;
-
-	fn mint_bridged_nft(
-		_owner: &Self::AccountId,
-		_collection_id: CollectionUuid,
-		_serial_numbers: Vec<SerialNumber>,
-	) -> WeightedDispatchResult {
-		Ok(Weight::zero())
-	}
-}
-
 pub trait NFIRequest {
 	type AccountId;
 
@@ -529,10 +479,10 @@ pub trait NFTExt {
 
 	/// Transfer a token from origin to new_owner
 	fn do_transfer(
-		origin: &Self::AccountId,
+		origin: Self::AccountId,
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
-		new_owner: &Self::AccountId,
+		new_owner: Self::AccountId,
 	) -> DispatchResult;
 
 	/// Create a new collection
@@ -545,7 +495,6 @@ pub trait NFTExt {
 		metadata_scheme: MetadataScheme,
 		royalties_schedule: Option<RoyaltiesSchedule<Self::AccountId>>,
 		origin_chain: OriginChain,
-		cross_chain_compatibility: CrossChainCompatibility,
 	) -> Result<CollectionUuid, DispatchError>;
 
 	/// Returns Some(token_owner) for a token if the owner exists

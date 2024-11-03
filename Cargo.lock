@@ -6535,7 +6535,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal 0.3.4",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -12168,7 +12167,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde_json",
- "syn 2.0.68",
+ "syn 1.0.109",
 ]
 
 [[package]]
