@@ -23,6 +23,7 @@ use crate::Pallet as Xls20;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
+use hex_literal::hex;
 use seed_primitives::{nft::OriginChain, MetadataScheme};
 
 /// This is a helper function to get an account.
@@ -67,17 +68,6 @@ pub fn build_xls20_collection<T: Config>(
 	collection_id
 }
 
-fn setup_token_mappings<T: Config>(
-	input: Vec<(SerialNumber, &str)>,
-) -> BoundedVec<(SerialNumber, Xls20TokenId), T::MaxTokensPerXls20Mint> {
-	let input: Vec<(SerialNumber, Xls20TokenId)> = input
-		.into_iter()
-		.map(|(s, token)| (s, Xls20TokenId::try_from(token.as_bytes()).unwrap()))
-		.collect();
-
-	BoundedVec::try_from(input).unwrap()
-}
-
 benchmarks! {
 	set_relayer {
 	}: _(RawOrigin::Root, account::<T>("Bob"))
@@ -100,7 +90,7 @@ benchmarks! {
 		let caller = account::<T>("Alice");
 		let relayer = account::<T>("Bob");
 		let collection_id = build_xls20_collection::<T>(Some(caller), Some(relayer.clone()), 1);
-		let serial_numbers = setup_token_mappings::<T>(vec![(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")]);
+		let serial_numbers = BoundedVec::truncate_from(vec![(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"))]);
 	}: _(origin::<T>(&relayer), collection_id, serial_numbers)
 }
 

@@ -584,3 +584,15 @@ pub trait SFTExt {
 
 	fn token_exists(token_id: TokenId) -> bool;
 }
+
+// Migrator trait to be implemented by the migration pallet. Can be used to determine whether a
+// migration is in progress
+pub trait Migrator {
+	fn ensure_migrated() -> DispatchResult;
+}
+
+impl Migrator for () {
+	fn ensure_migrated() -> DispatchResult {
+		Ok(())
+	}
+}
