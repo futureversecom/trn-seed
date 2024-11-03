@@ -13,6 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+pub mod xls20_multi;
 mod xrpl_bridge;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};

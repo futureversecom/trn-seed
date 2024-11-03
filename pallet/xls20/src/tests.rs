@@ -24,7 +24,7 @@ use hex_literal::hex;
 use pallet_nft::test_utils::NftBuilder;
 use pallet_nft::CollectionInfo;
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::{xrpl::Xls20TokenId, CrossChainCompatibility};
+use seed_primitives::{xrpl::Xls20TokenId, MetadataScheme, CrossChainCompatibility};
 
 // Create an NFT collection with xls20 compatibility
 // Returns the created `collection_id`

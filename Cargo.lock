@@ -6026,6 +6026,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-migration"
+version = "1.0.0"
+dependencies = [
+ "ethabi",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-multisig"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#03763de688b09f9a21eea07fc9bce31c62a5cb7c"
@@ -6536,6 +6556,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal 0.3.4",
+ "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -9159,6 +9180,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-maintenance-mode",
  "pallet-marketplace",
+ "pallet-migration",
  "pallet-multisig",
  "pallet-nfi",
  "pallet-nft",
@@ -12168,7 +12190,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde_json",
- "syn 2.0.68",
+ "syn 1.0.109",
 ]
 
 [[package]]

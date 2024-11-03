@@ -29,7 +29,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use pallet_nft::traits::NFTCollectionInfo;
-use seed_pallet_common::{NFTExt, NFTMinter, Xls20Ext, Xls20MintRequest};
+use seed_pallet_common::{Migrator, NFTExt, NFTMinter, Xls20Ext, Xls20MintRequest};
 use seed_primitives::{
 	xrpl::Xls20TokenId, AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme,
 	OriginChain, SerialNumber, TokenCount, TokenId, WeightedDispatchResult,
@@ -60,7 +60,7 @@ pub mod pallet {
 	use super::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -87,6 +87,8 @@ pub mod pallet {
 		type Xls20PaymentAsset: Get<AssetId>;
 		/// The NFT token minter
 		type NFTMinter: NFTMinter<AccountId = Self::AccountId>;
+		/// Current Migrator handling the migration of storage values
+		type Migrator: Migrator;
 	}
 
 	/// The permissioned relayer
@@ -146,7 +148,7 @@ pub mod pallet {
 		NoToken,
 		/// No the owner of the collection
 		NotCollectionOwner,
-
+        /// The XLS20 token ID failed to decode
 		CouldNotDecodeXls20Token,
 		/// The token is burnable and cannot be bridged
 		CannotBridgeBurnableToken,
@@ -202,6 +204,7 @@ pub mod pallet {
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerXls20Mint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 
 			// serial_numbers can't be empty
 			ensure!(!serial_numbers.len().is_zero(), Error::<T>::NoToken);
@@ -245,6 +248,7 @@ pub mod pallet {
 			token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), T::MaxTokensPerXls20Mint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 
 			// Mappings can't be empty
 			ensure!(!token_mappings.is_empty(), Error::<T>::NoToken);
@@ -365,7 +369,8 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 		receiver: &Self::AccountId,
 		xls20_token_id: Xls20TokenId,
 	) -> WeightedDispatchResult {
-		let xls20_token = Xls20Token::from(xls20_token_id);
+        T::Migrator::ensure_migrated().map_err(|e| (Weight::zero(), e));
+        let xls20_token = Xls20Token::from(xls20_token_id);
 
 		// Check flag is not burnable, if the burnable flag is set then the issuer can
 		// burn the token at any time. For simplicity it is easier to disallow bridging
@@ -419,6 +424,7 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 	}
 
 	fn get_xls20_token_id(token_id: TokenId) -> Option<Xls20TokenId> {
-		Xls20TokenMap::<T>::get(token_id.0, token_id.1)
+        // TODO Ensure migrated check
+        Xls20TokenMap::<T>::get(token_id.0, token_id.1)
 	}
 }

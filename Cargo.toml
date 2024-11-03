@@ -123,6 +123,7 @@ pallet-fee-proxy = { path = "pallet/fee-proxy", default-features = false }
 pallet-futurepass = { path = "pallet/futurepass", default-features = false }
 pallet-maintenance-mode = { path = "pallet/maintenance-mode", default-features = false }
 pallet-marketplace = { path = "pallet/marketplace", default-features = false }
+pallet-migration = { path = "pallet/migration", default-features = false }
 pallet-nfi = { path = "pallet/nfi", default-features = false }
 pallet-nft = { path = "pallet/nft", default-features = false }
 pallet-nft-rpc = { path = "pallet/nft/rpc", default-features = false }
