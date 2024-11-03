@@ -693,7 +693,7 @@ pub mod pallet {
 		#[pallet::weight((T::WeightInfo::set_ticket_sequence_current_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_current_allocation(
 			origin: OriginFor<T>,
-			door_account: XRPLDoorAccount,Address PR Comments
+			door_account: XRPLDoorAccount,
 			ticket_sequence: u32,
 			start_ticket_sequence: u32,
 			ticket_bucket_size: u32,

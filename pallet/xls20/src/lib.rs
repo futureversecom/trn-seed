@@ -148,7 +148,7 @@ pub mod pallet {
 		NoToken,
 		/// No the owner of the collection
 		NotCollectionOwner,
-        /// The XLS20 token ID failed to decode
+		/// The XLS20 token ID failed to decode
 		CouldNotDecodeXls20Token,
 		/// The token is burnable and cannot be bridged
 		CannotBridgeBurnableToken,
@@ -369,8 +369,9 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 		receiver: &Self::AccountId,
 		xls20_token_id: Xls20TokenId,
 	) -> WeightedDispatchResult {
-        T::Migrator::ensure_migrated().map_err(|e| (Weight::zero(), e));
-        let xls20_token = Xls20Token::from(xls20_token_id);
+		// Ensure the migration is complete
+		T::Migrator::ensure_migrated().map_err(|e| (Weight::zero(), e))?;
+		let xls20_token = Xls20Token::from(xls20_token_id);
 
 		// Check flag is not burnable, if the burnable flag is set then the issuer can
 		// burn the token at any time. For simplicity it is easier to disallow bridging
@@ -389,7 +390,7 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 				collection_uuid,
 				vec![xls20_token.sequence],
 			)
-				.map_err(|(_, e)| (T::WeightInfo::deposit_token_mint(), e))?;
+			.map_err(|(_, e)| (T::WeightInfo::deposit_token_mint(), e))?;
 			Xls20TokenMap::<T>::insert(collection_uuid, xls20_token.sequence, xls20_token_id);
 			return Ok(T::WeightInfo::deposit_token_mint());
 		}
@@ -424,7 +425,7 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 	}
 
 	fn get_xls20_token_id(token_id: TokenId) -> Option<Xls20TokenId> {
-        // TODO Ensure migrated check
-        Xls20TokenMap::<T>::get(token_id.0, token_id.1)
+		// TODO Ensure migrated check
+		Xls20TokenMap::<T>::get(token_id.0, token_id.1)
 	}
 }
