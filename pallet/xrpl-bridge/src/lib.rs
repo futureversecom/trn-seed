@@ -36,7 +36,11 @@ use frame_system::pallet_prelude::*;
 use seed_pallet_common::{
 	CreateExt, EthyToXrplBridgeAdapter, NFTExt, Xls20Ext, XrplBridgeToEthyAdapter,
 };
-use seed_primitives::{ethy::{crypto::AuthorityId, EventProofId}, xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence}, AccountId, AssetId, Balance, Timestamp, WeightedDispatchResult, TokenId};
+use seed_primitives::{
+	ethy::{crypto::AuthorityId, EventProofId},
+	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
+	AccountId, AssetId, Balance, Timestamp, TokenId, WeightedDispatchResult,
+};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
 	ArithmeticError, Percent, SaturatedConversion, Saturating,
@@ -72,8 +76,8 @@ type AccountOf<T> = <T as frame_system::Config>::AccountId;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use seed_primitives::TokenId;
 	use super::*;
+	use seed_primitives::TokenId;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
@@ -139,7 +143,7 @@ pub mod pallet {
 		/// NFT Extension, used to interact with the NFT pallet
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
 
-        /// Xls20 Extension, used to interact with the Xls20 pallet
+		/// Xls20 Extension, used to interact with the Xls20 pallet
 		type Xls20Ext: Xls20Ext<AccountId = Self::AccountId>;
 	}
 

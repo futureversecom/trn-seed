@@ -71,10 +71,7 @@ impl Xls20Ext for MockXls20Ext {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn set_xls20_token_id(
-		_token_id: TokenId,
-		_xls20_token_id: Xls20TokenId,
-	) {}
+	fn set_xls20_token_id(_token_id: TokenId, _xls20_token_id: Xls20TokenId) {}
 }
 
 parameter_types! {

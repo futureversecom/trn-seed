@@ -4193,7 +4193,7 @@ fn withdraw_nft_works() {
 		System::reset_events();
 		assert_ok!(XRPLBridge::withdraw_nft(
 			RuntimeOrigin::signed(alice()),
-			(nft_collection_id,0),
+			(nft_collection_id, 0),
 			destination,
 		));
 
@@ -4257,7 +4257,7 @@ fn withdraw_nft_failure_xls20_incompatible() {
 		assert_noop!(
 			XRPLBridge::withdraw_nft(
 				RuntimeOrigin::signed(alice()),
-				(nft_collection_id,0),
+				(nft_collection_id, 0),
 				destination,
 			),
 			Error::<Test>::Xls20Incompatible
@@ -4308,7 +4308,7 @@ fn withdraw_nft_more_failure_scenarios() {
 		assert_noop!(
 			XRPLBridge::withdraw_nft(
 				RuntimeOrigin::signed(bob()),
-				(nft_collection_id,0),
+				(nft_collection_id, 0),
 				destination,
 			),
 			pallet_nft::Error::<Test>::NotTokenOwner
@@ -4318,7 +4318,7 @@ fn withdraw_nft_more_failure_scenarios() {
 		assert_noop!(
 			XRPLBridge::withdraw_nft(
 				RuntimeOrigin::signed(bob()),
-				(nft_collection_id + 1,0), // non existent
+				(nft_collection_id + 1, 0), // non existent
 				destination,
 			),
 			pallet_nft::Error::<Test>::NoCollectionFound
@@ -4328,7 +4328,7 @@ fn withdraw_nft_more_failure_scenarios() {
 		assert_noop!(
 			XRPLBridge::withdraw_nft(
 				RuntimeOrigin::signed(bob()),
-				(nft_collection_id,0 + 100), // non existent
+				(nft_collection_id, 0 + 100), // non existent
 				destination,
 			),
 			pallet_nft::Error::<Test>::NotTokenOwner

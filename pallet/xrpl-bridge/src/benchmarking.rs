@@ -21,8 +21,8 @@ use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_te
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use hex_literal::hex;
+use seed_primitives::{xrpl::Xls20TokenId, CrossChainCompatibility, MetadataScheme, OriginChain};
 use sp_core::H160;
-use seed_primitives::{CrossChainCompatibility, MetadataScheme, OriginChain, xrpl::Xls20TokenId};
 
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 	bench_account(name, 0, 0)
