@@ -33,11 +33,11 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, XrplBridgeToEthyAdapter};
+use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, Xls20Ext, XrplBridgeToEthyAdapter};
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
-	AssetId, Balance, Timestamp,
+	AccountId, AssetId, Balance, Timestamp, WeightedDispatchResult,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
@@ -78,7 +78,7 @@ pub mod pallet {
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type EthyAdapter: XrplBridgeToEthyAdapter<AuthorityId>;
@@ -135,6 +135,9 @@ pub mod pallet {
 
 		/// Maximum XRPL transactions within a single ledger
 		type XRPLTransactionLimitPerLedger: Get<u32>;
+
+		/// The pallet used to process Xls20 deposits
+		type Xls20Ext: Xls20Ext<AccountId = Self::AccountId>;
 	}
 
 	#[pallet::error]
@@ -149,6 +152,7 @@ pub mod pallet {
 		DelayScheduleAtCapacity,
 		/// There is no settledXRPTransactionDetails for this ledger index
 		NoTransactionDetails,
+		/// The relayer account does not exist
 		RelayerDoesNotExists,
 		/// Withdraw amount must be non-zero and <= u64
 		WithdrawInvalidAmount,
@@ -187,8 +191,6 @@ pub mod pallet {
 		InvalidSymbolMapping,
 		/// The asset rounding due to saturation is too high, reduce the significant digits
 		AssetRoundingTooHigh,
-
-		TestErrorRemoveAfterUsing,
 	}
 
 	#[pallet::event]
@@ -294,12 +296,10 @@ pub mod pallet {
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::storage]
-	#[pallet::getter(fn get_relayer)]
 	/// List of all XRP transaction relayers
 	pub type Relayer<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn process_xrp_transaction)]
 	/// Temporary storage to set the transactions ready to be processed at specified block number
 	pub type ProcessXRPTransaction<T: Config> = StorageMap<
 		_,
@@ -309,14 +309,12 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn process_xrp_transaction_details)]
 	/// Stores submitted transactions from XRPL waiting to be processed
 	/// Transactions will be cleared according to the submission window after processing
 	pub type ProcessXRPTransactionDetails<T: Config> =
 		StorageMap<_, Identity, XrplTxHash, (LedgerIndex, XrpTransaction, T::AccountId)>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn settled_xrp_transaction_details)]
 	/// Settled xrp transactions stored against XRPL ledger index
 	pub type SettledXRPTransactionDetails<T: Config> =
 		StorageMap<_, Twox64Concat, u32, BoundedVec<XrplTxHash, T::XRPLTransactionLimitPerLedger>>;
@@ -386,7 +384,6 @@ pub mod pallet {
 	pub type NextDelayedPaymentId<T: Config> = StorageValue<_, DelayedPaymentId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn challenge_xrp_transaction_list)]
 	/// Challenge received for a transaction mapped by hash, will be cleared when validator
 	/// validates
 	pub type ChallengeXRPTransactionList<T: Config> =
@@ -433,13 +430,11 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn door_tx_fee)]
 	/// The flat fee for XRPL door txs
 	pub type DoorTxFee<T: Config> =
 		StorageMap<_, Twox64Concat, XRPLDoorAccount, u64, ValueQuery, DefaultDoorTxFee>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn door_address)]
 	/// The door address on XRPL
 	pub type DoorAddress<T: Config> = StorageMap<_, Twox64Concat, XRPLDoorAccount, XrplAccountId>;
 
@@ -492,7 +487,7 @@ pub mod pallet {
 			);
 			// If within the submission window, check against ProcessXRPTransactionDetails
 			ensure!(
-				Self::process_xrp_transaction_details(transaction_hash).is_none(),
+				ProcessXRPTransactionDetails::<T>::get(transaction_hash).is_none(),
 				Error::<T>::TxReplay
 			);
 
@@ -840,7 +835,7 @@ pub mod pallet {
 			ensure!(Relayer::<T>::get(&who).unwrap_or(false), Error::<T>::NotPermitted);
 
 			let door_address =
-				Self::door_address(XRPLDoorAccount::NFT).ok_or(Error::<T>::DoorAddressNotSet)?;
+				DoorAddress::<T>::get(XRPLDoorAccount::NFT).ok_or(Error::<T>::DoorAddressNotSet)?;
 			let tx_data = XrplTransaction::NFTokenAcceptOffer(NFTokenAcceptOfferTransaction {
 				nftoken_sell_offer,
 				tx_fee: DoorTxFee::<T>::get(XRPLDoorAccount::NFT),
@@ -868,96 +863,60 @@ impl<T: Config> Pallet<T> {
 			None => return DbWeight::get().reads(2u64),
 			Some(v) => v,
 		};
-		let mut reads = 2u64;
-		let mut writes = 0u64;
+		let mut used_weight = DbWeight::get().reads(2);
 
 		let tx_details = tx_items
 			.iter()
 			.filter(|x| !<ChallengeXRPTransactionList<T>>::contains_key(x))
 			.map(|x| (x, <ProcessXRPTransactionDetails<T>>::get(x)));
 
-		reads += tx_items.len() as u64 * 2;
+		used_weight = used_weight.saturating_add(DbWeight::get().reads(tx_items.len() as u64 * 2));
 		let tx_details = tx_details.filter_map(|x| Some((x.0, x.1?)));
 
-		reads += 1;
+		used_weight = used_weight.saturating_add(DbWeight::get().reads(1));
 		let mut highest_settled_ledger_index = HighestSettledLedgerIndex::<T>::get();
 
 		for (transaction_hash, (ledger_index, ref tx, _relayer)) in tx_details {
-			match &tx.transaction {
+			let weighted_result = match tx.transaction {
 				XrplTxData::Payment { amount, address } => {
-					if let Err(e) = T::MultiCurrency::mint_into(
-						T::XrpAssetId::get(),
-						&(*address).into(),
-						amount.clone(),
-					) {
-						Self::deposit_event(Event::ProcessingFailed(
-							ledger_index,
-							transaction_hash.clone(),
-							e,
-						));
-					} else {
-						Self::deposit_event(Event::ProcessingOk(
-							ledger_index,
-							transaction_hash.clone(),
-						));
-					}
+					Self::process_asset_deposit(amount, &address.into(), T::XrpAssetId::get())
 				},
 				XrplTxData::CurrencyPayment { amount, address, currency } => {
-					reads += 1;
-					let asset_id = match XRPLToAssetId::<T>::get(currency) {
-						None => {
-							Self::deposit_event(Event::ProcessingFailed(
-								ledger_index,
-								transaction_hash.clone(),
-								Error::<T>::AssetNotSupported.into(),
-							));
-							continue;
+					match XRPLToAssetId::<T>::get(currency) {
+						Some(asset_id) => {
+							Self::process_asset_deposit(amount, &address.into(), asset_id)
 						},
-						Some(asset_id) => asset_id,
-					};
-					if asset_id == T::NativeAssetId::get() {
-						let pallet_address: T::AccountId =
-							T::PalletId::get().into_account_truncating();
-						if let Err(e) = T::MultiCurrency::transfer(
-							asset_id,
-							&pallet_address,
-							&(*address).into(),
-							amount.clone(),
-							Preservation::Expendable,
-						) {
-							Self::deposit_event(Event::ProcessingFailed(
-								ledger_index,
-								transaction_hash.clone(),
-								e,
-							));
-							continue;
-						}
-					} else {
-						if let Err(e) = T::MultiCurrency::mint_into(
-							asset_id,
-							&(*address).into(),
-							amount.clone(),
-						) {
-							Self::deposit_event(Event::ProcessingFailed(
-								ledger_index,
-								transaction_hash.clone(),
-								e,
-							));
-							continue;
-						}
+						None => {
+							Err((DbWeight::get().reads(1), Error::<T>::AssetNotSupported.into()))
+						},
 					}
+				},
+				XrplTxData::Xls20 { token_id, address } => {
+					T::Xls20Ext::deposit_xls20_token(&address.into(), token_id)
+				},
+			};
+
+			match weighted_result {
+				Ok(weight) => {
 					Self::deposit_event(Event::ProcessingOk(
 						ledger_index,
 						transaction_hash.clone(),
 					));
+					used_weight.saturating_add(weight);
 				},
-				_ => {
-					Self::deposit_event(Event::NotSupportedTransaction);
+				Err((weight, e)) => {
+					Self::deposit_event(Event::ProcessingFailed(
+						ledger_index,
+						transaction_hash.clone(),
+						e,
+					));
+					used_weight.saturating_add(weight);
 					continue;
 				},
 			}
 
 			// Add to SettledXRPTransactionDetails
+			used_weight = used_weight.saturating_add(DbWeight::get().reads_writes(1, 1));
 			<SettledXRPTransactionDetails<T>>::try_append(
 				ledger_index as u32,
 				transaction_hash.clone(),
@@ -968,15 +927,36 @@ impl<T: Config> Pallet<T> {
 			if highest_settled_ledger_index < ledger_index as u32 {
 				highest_settled_ledger_index = ledger_index as u32;
 			}
-
-			writes += 2;
-			reads += 2;
 		}
 
-		writes += 1;
 		HighestSettledLedgerIndex::<T>::put(highest_settled_ledger_index);
+		used_weight.saturating_add(DbWeight::get().writes(1))
+	}
 
-		DbWeight::get().reads_writes(reads, writes)
+	// Process a deposit transaction from XRPL, if it is ROOT token, transfer from the pallet address
+	// otherwise mint the asset into the destination address
+	fn process_asset_deposit(
+		amount: Balance,
+		address: &T::AccountId,
+		asset_id: AssetId,
+	) -> WeightedDispatchResult {
+		if asset_id == T::NativeAssetId::get() {
+			let pallet_address: T::AccountId = T::PalletId::get().into_account_truncating();
+			let weight = T::WeightInfo::process_asset_deposit_root();
+			T::MultiCurrency::transfer(
+				asset_id,
+				&pallet_address,
+				address,
+				amount,
+				Preservation::Expendable,
+			)
+			.map_err(|e| (weight, e))?;
+			Ok(weight)
+		} else {
+			let weight = T::WeightInfo::process_asset_deposit();
+			T::MultiCurrency::mint_into(asset_id, address, amount).map_err(|e| (weight, e))?;
+			Ok(weight)
+		}
 	}
 
 	/// Process any transactions that have been delayed due to the min_payment threshold
@@ -1226,9 +1206,9 @@ impl<T: Config> Pallet<T> {
 		ensure!(!amount.is_zero(), Error::<T>::WithdrawInvalidAmount);
 		// Saturate the balance to be within the Mantissa range if the asset is not XRP
 		let amount = Self::saturate_balance(amount, asset_id)?;
-		let tx_fee = Self::door_tx_fee(XRPLDoorAccount::Main);
+		let tx_fee = DoorTxFee::<T>::get(XRPLDoorAccount::Main);
 		let door_address =
-			Self::door_address(XRPLDoorAccount::Main).ok_or(Error::<T>::DoorAddressNotSet)?;
+			DoorAddress::<T>::get(XRPLDoorAccount::Main).ok_or(Error::<T>::DoorAddressNotSet)?;
 
 		let tx_data = match asset_id {
 			a if a == T::XrpAssetId::get() => {
@@ -1693,11 +1673,11 @@ impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
 
 		for door_account in XRPLDoorAccount::VALUES {
 			let door_address =
-				Self::door_address(door_account).ok_or(Error::<T>::DoorAddressNotSet)?;
+				DoorAddress::<T>::get(door_account).ok_or(Error::<T>::DoorAddressNotSet)?;
 			let ticket_sequence = Self::get_door_ticket_sequence(door_account)?;
 			// TODO: need a fee oracle, this is over estimating the fee
 			// https://github.com/futureversecom/seed/issues/107
-			let tx_fee = Self::door_tx_fee(door_account);
+			let tx_fee = DoorTxFee::<T>::get(door_account);
 			let signer_list_set = SignerListSet::new(
 				door_address.into(),
 				tx_fee,

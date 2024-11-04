@@ -23,28 +23,9 @@ use crate::{
 	Pallet,
 };
 use frame_support::traits::fungibles::{metadata::Inspect as InspectMetadata, Inspect};
-use pallet_nft::{traits::NFTCollectionInfo, CrossChainCompatibility};
+use pallet_nft::{test_utils::NftBuilder, traits::NFTCollectionInfo};
 use seed_pallet_common::test_prelude::{BlockNumber, *};
-use seed_primitives::TokenCount;
-
-// Create an NFT collection
-// Returns the created `collection_id`
-fn create_nft_collection(owner: AccountId, max_issuance: TokenCount) -> CollectionUuid {
-	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = bounded_string("test-collection");
-	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
-	assert_ok!(Nft::create_collection(
-		Some(owner).into(),
-		collection_name,
-		0,
-		Some(max_issuance),
-		None,
-		metadata_scheme,
-		None,
-		CrossChainCompatibility::default(),
-	));
-	collection_id
-}
+use seed_primitives::CrossChainCompatibility;
 
 // Helper function to initialize a crowdsale with default values
 fn initialize_crowdsale(
@@ -58,7 +39,9 @@ fn initialize_crowdsale_with_soft_cap(
 	max_issuance: Balance,
 	soft_cap_price: Balance,
 ) -> (SaleId, SaleInformation<AccountId, BlockNumber>) {
-	let reward_collection_id = create_nft_collection(alice(), max_issuance.saturated_into());
+	let reward_collection_id = NftBuilder::<Test>::new(alice())
+		.max_issuance(max_issuance.saturated_into())
+		.build();
 	let payment_asset_id = ROOT_ASSET_ID;
 	let duration = 100;
 
@@ -377,7 +360,8 @@ mod initialize {
 	fn initialize_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let max_issuance = 10_000;
-			let reward_collection_id = create_nft_collection(alice(), max_issuance);
+			let reward_collection_id =
+				NftBuilder::<Test>::new(alice()).max_issuance(max_issuance).build();
 			let payment_asset_id = 1;
 			let soft_cap_price = 10;
 			let duration = 100;
@@ -451,7 +435,8 @@ mod initialize {
 	fn initialize_with_voucher_metadata_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let max_issuance = 10_000;
-			let reward_collection_id = create_nft_collection(alice(), max_issuance);
+			let reward_collection_id =
+				NftBuilder::<Test>::new(alice()).max_issuance(max_issuance).build();
 			let payment_asset_id = 1;
 			let soft_cap_price = 10;
 			let duration = 100;
@@ -495,7 +480,7 @@ mod initialize {
 	#[test]
 	fn no_ids_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let collection_id = create_nft_collection(alice(), 10);
+			let collection_id = NftBuilder::<Test>::new(alice()).max_issuance(10).build();
 			let payment_asset = 1;
 			let soft_cap_price = 10;
 			let duration = 100;
@@ -522,7 +507,7 @@ mod initialize {
 	#[test]
 	fn invalid_asset_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let collection_id = create_nft_collection(alice(), 10);
+			let collection_id = NftBuilder::<Test>::new(alice()).max_issuance(10).build();
 			let payment_asset = 100; // Payment asset doesn't exist
 			let soft_cap_price = 10;
 			let duration = 100;
@@ -546,7 +531,7 @@ mod initialize {
 	#[test]
 	fn invalid_soft_cap_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let collection_id = create_nft_collection(alice(), 10);
+			let collection_id = NftBuilder::<Test>::new(alice()).max_issuance(10).build();
 			let payment_asset = 1;
 			let soft_cap_price = 0;
 			let duration = 100;
@@ -570,7 +555,7 @@ mod initialize {
 	#[test]
 	fn invalid_sale_duration_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let collection_id = create_nft_collection(alice(), 10);
+			let collection_id = NftBuilder::<Test>::new(alice()).max_issuance(10).build();
 			let payment_asset = 1;
 			let soft_cap_price = 10;
 			let duration = MaxSaleDuration::get() + 1;

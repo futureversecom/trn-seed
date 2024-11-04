@@ -521,6 +521,7 @@ impl pallet_sft::Config for Runtime {
 
 parameter_types! {
 	pub const MaxTokensPerXls20Mint: u32 = 1000;
+	pub const Xls20PalletId: PalletId = PalletId(*b"xls20nft");
 }
 impl pallet_xls20::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -530,6 +531,8 @@ impl pallet_xls20::Config for Runtime {
 	type NFTCollectionInfo = Nft;
 	type WeightInfo = weights::pallet_xls20::WeightInfo<Runtime>;
 	type Xls20PaymentAsset = XrpAssetId;
+	type PalletId = Xls20PalletId;
+	type NFTMinter = Nft;
 	type Migrator = Migration;
 }
 
@@ -647,6 +650,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPTransactionLimitPerLedger;
+	type Xls20Ext = Xls20;
 }
 
 parameter_types! {
@@ -1219,6 +1223,7 @@ impl pallet_nft_peg::Config for Runtime {
 	type NftPegWeightInfo = weights::pallet_nft_peg::WeightInfo<Runtime>;
 	type MaxCollectionsPerWithdraw = MaxCollectionsPerWithdraw;
 	type MaxSerialsPerWithdraw = MaxSerialsPerWithdraw;
+	type NFTMinter = Nft;
 }
 
 impl pallet_fee_control::Config for Runtime {

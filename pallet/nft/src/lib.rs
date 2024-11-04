@@ -39,8 +39,9 @@ use seed_pallet_common::{
 	NFIRequest, OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest,
 };
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId, TokenLockReason, MAX_COLLECTION_ENTITLEMENTS,
+	AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme, OriginChain,
+	ParachainId, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
+	MAX_COLLECTION_ENTITLEMENTS,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
@@ -275,6 +276,8 @@ pub mod pallet {
 		AttemptedMintOnBridgedToken,
 		/// Cannot claim already claimed collections
 		CannotClaimNonClaimableCollections,
+		/// Only Root originated NFTs that are not XLS-20 compatible can have their metadata updated
+		CannotUpdateMetadata,
 		/// Initial issuance on XLS-20 compatible collections must be zero
 		InitialIssuanceNotZero,
 		/// Total issuance of collection must be zero to add xls20 compatibility
@@ -360,6 +363,8 @@ pub mod pallet {
 
 		/// Set the base URI of a collection
 		/// Caller must be the current collection owner
+		/// Collection must originate on TRN and not be XLS-20 compatible
+		/// XLS-20 metadata is immutable so we must respect that on our chain as well
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::set_base_uri())]
 		pub fn set_base_uri(
@@ -371,6 +376,14 @@ pub mod pallet {
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(
+				!collection_info.cross_chain_compatibility.xrpl,
+				Error::<T>::CannotUpdateMetadata
+			);
+			ensure!(
+				collection_info.origin_chain == OriginChain::Root,
+				Error::<T>::CannotUpdateMetadata
+			);
 
 			collection_info.metadata_scheme = base_uri
 				.clone()
