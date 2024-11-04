@@ -27,7 +27,6 @@ use frame_support::{
 };
 use frame_system::Config;
 use scale_info::TypeInfo;
-use seed_primitives::xrpl::Xls20TokenId;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	xrpl::Xls20TokenId,

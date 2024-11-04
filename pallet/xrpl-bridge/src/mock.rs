@@ -67,8 +67,14 @@ impl Xls20Ext for MockXls20Ext {
 	}
 
 	fn get_xls20_token_id(_token_id: TokenId) -> Option<Xls20TokenId> {
-		None
+		Some([1_u8; 32])
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_xls20_token_id(
+		_token_id: TokenId,
+		_xls20_token_id: Xls20TokenId,
+	) {}
 }
 
 parameter_types! {
@@ -127,21 +133,5 @@ impl XrplBridgeToEthyAdapter<AuthorityId> for MockEthyAdapter {
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
 		]
-	}
-}
-
-// Mock implementation for Xls20Ext
-pub struct MockXls20Ext;
-
-impl Xls20Ext for MockXls20Ext {
-	fn get_xls20_token_id(_token_id: TokenId) -> Option<Xls20TokenId> {
-		Some([1_u8; 32])
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn set_xls20_token_id(
-		_token_id: TokenId,
-		_xls20_token_id: seed_primitives::xrpl::Xls20TokenId,
-	) {
 	}
 }

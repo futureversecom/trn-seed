@@ -1404,7 +1404,7 @@ impl<T: Config> Pallet<T> {
 
 		// request for ethy proof for NFTokenCreateOffer
 		let door_address =
-			Self::door_address(XRPLDoorAccount::NFT).ok_or(Error::<T>::DoorAddressNotSet)?;
+			DoorAddress::<T>::get(XRPLDoorAccount::NFT).ok_or(Error::<T>::DoorAddressNotSet)?;
 		let xls20_token_id = T::Xls20Ext::get_xls20_token_id((collection_id, serial_number))
 			.ok_or(Error::<T>::Xls20TokenIDNotFound)?;
 		let tx_data = XrplTransaction::NFTokenCreateOffer(NFTokenCreateOfferTransaction {
