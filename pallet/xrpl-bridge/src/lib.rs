@@ -77,7 +77,6 @@ type AccountOf<T> = <T as frame_system::Config>::AccountId;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use seed_primitives::TokenId;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
