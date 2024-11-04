@@ -425,7 +425,13 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 	}
 
 	fn get_xls20_token_id(token_id: TokenId) -> Option<Xls20TokenId> {
-		// TODO Ensure migrated check
+		// Ensure the migration is complete
+		T::Migrator::ensure_migrated().ok()?;
 		Xls20TokenMap::<T>::get(token_id.0, token_id.1)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_xls20_token_id(token_id: TokenId, xls20_token_id: Xls20TokenId) {
+		Xls20TokenMap::<T>::insert(token_id.0, token_id.1, xls20_token_id);
 	}
 }

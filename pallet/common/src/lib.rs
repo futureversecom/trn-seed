@@ -27,9 +27,9 @@ use frame_support::{
 };
 use frame_system::Config;
 use scale_info::TypeInfo;
-use seed_primitives::xrpl::Xls20TokenId;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
+	xrpl::Xls20TokenId,
 	AccountId, AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme,
 	OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
 	WeightedDispatchResult,
@@ -386,6 +386,9 @@ pub trait Xls20Ext {
 	) -> WeightedDispatchResult;
 
 	fn get_xls20_token_id(token_id: TokenId) -> Option<Xls20TokenId>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_xls20_token_id(token_id: TokenId, xls20_token_id: Xls20TokenId);
 }
 
 impl Xls20Ext for () {
@@ -401,6 +404,9 @@ impl Xls20Ext for () {
 	fn get_xls20_token_id(_token_id: TokenId) -> Option<Xls20TokenId> {
 		None
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_xls20_token_id(_token_id: TokenId, _xls20_token_id: Xls20TokenId) {}
 }
 
 /// NFT Minter trait allows minting of Bridged NFTs that originate on other chains
@@ -535,6 +541,13 @@ pub trait NFTExt {
 		new_owner: &Self::AccountId,
 	) -> DispatchResult;
 
+	/// Burn a token
+	fn do_burn(
+		who: Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_number: SerialNumber,
+	) -> DispatchResult;
+
 	/// Create a new collection
 	fn do_create_collection(
 		owner: Self::AccountId,
@@ -604,6 +617,11 @@ pub trait NFTExt {
 	fn get_collection_owner(
 		collection_id: CollectionUuid,
 	) -> Result<Self::AccountId, DispatchError>;
+
+	/// Returns cross chain compatibility of a collection
+	fn get_cross_chain_compatibility(
+		collection_id: CollectionUuid,
+	) -> Result<CrossChainCompatibility, DispatchError>;
 }
 
 pub trait SFTExt {

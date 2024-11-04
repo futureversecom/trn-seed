@@ -17,8 +17,8 @@
 
 use crate::types::{
 	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, NFTokenAcceptOfferTransaction,
-	WithdrawTransaction, XRPLCurrency, XRPLDoorAccount, XrpTransaction, XrpWithdrawTransaction,
-	XrplTicketSequenceParams, XrplTransaction, XrplTxData,
+	NFTokenCreateOfferTransaction, WithdrawTransaction, XRPLCurrency, XRPLDoorAccount,
+	XrpTransaction, XrpWithdrawTransaction, XrplTicketSequenceParams, XrplTransaction, XrplTxData,
 };
 use frame_support::{
 	fail,
@@ -33,11 +33,13 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, Xls20Ext, XrplBridgeToEthyAdapter};
+use seed_pallet_common::{
+	CreateExt, EthyToXrplBridgeAdapter, NFTExt, Xls20Ext, XrplBridgeToEthyAdapter,
+};
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
-	AccountId, AssetId, Balance, Timestamp, WeightedDispatchResult,
+	AccountId, AssetId, Balance, Timestamp, TokenId, WeightedDispatchResult,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
@@ -48,7 +50,8 @@ use xrpl_codec::{
 	field::Amount,
 	traits::BinarySerialize,
 	transaction::{
-		NFTokenAcceptOffer, Payment, PaymentAltCurrency, PaymentWithDestinationTag, SignerListSet,
+		NFTokenAcceptOffer, NFTokenCreateOffer, Payment, PaymentAltCurrency,
+		PaymentWithDestinationTag, SignerListSet,
 	},
 	types::{AccountIdType, AmountType, IssuedAmountType, IssuedValueType},
 };
@@ -136,7 +139,10 @@ pub mod pallet {
 		/// Maximum XRPL transactions within a single ledger
 		type XRPLTransactionLimitPerLedger: Get<u32>;
 
-		/// The pallet used to process Xls20 deposits
+		/// NFT Extension, used to interact with the NFT pallet
+		type NFTExt: NFTExt<AccountId = Self::AccountId>;
+
+		/// Xls20 Extension, used to interact with the Xls20 pallet
 		type Xls20Ext: Xls20Ext<AccountId = Self::AccountId>;
 	}
 
@@ -191,6 +197,12 @@ pub mod pallet {
 		InvalidSymbolMapping,
 		/// The asset rounding due to saturation is too high, reduce the significant digits
 		AssetRoundingTooHigh,
+		/// XLS20 incompatible NFT
+		Xls20Incompatible,
+		/// XLS20 token id not found
+		Xls20TokenIDNotFound,
+
+		TestErrorRemoveAfterUsing,
 	}
 
 	#[pallet::event]
@@ -845,6 +857,19 @@ pub mod pallet {
 
 			Self::submit_xrpl_tx_for_signing(tx_data)
 		}
+
+		/// Withdraw NFT to XRPL
+		#[pallet::call_index(17)]
+		#[pallet::weight(T::WeightInfo::withdraw_nft())]
+		#[transactional]
+		pub fn withdraw_nft(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			destination: XrplAccountId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_nft_withdrawal(who, token_id, destination)
+		}
 	}
 }
 
@@ -1363,6 +1388,35 @@ impl<T: Config> Pallet<T> {
 		}))
 	}
 
+	/// Process nft withdrawal
+	pub fn do_nft_withdrawal(
+		who: T::AccountId,
+		token_id: TokenId,
+		destination: XrplAccountId,
+	) -> DispatchResult {
+		let (collection_id, serial_number) = token_id;
+		let xls20_compatible = T::NFTExt::get_cross_chain_compatibility(collection_id)?;
+		ensure!(xls20_compatible.xrpl == true, Error::<T>::Xls20Incompatible);
+
+		// burn the nft
+		T::NFTExt::do_burn(who, collection_id, serial_number)?;
+
+		// request for ethy proof for NFTokenCreateOffer
+		let door_address =
+			DoorAddress::<T>::get(XRPLDoorAccount::NFT).ok_or(Error::<T>::DoorAddressNotSet)?;
+		let xls20_token_id = T::Xls20Ext::get_xls20_token_id((collection_id, serial_number))
+			.ok_or(Error::<T>::Xls20TokenIDNotFound)?;
+		let tx_data = XrplTransaction::NFTokenCreateOffer(NFTokenCreateOfferTransaction {
+			nftoken_id: xls20_token_id,
+			tx_fee: DoorTxFee::<T>::get(XRPLDoorAccount::NFT),
+			tx_ticket_sequence: Self::get_door_ticket_sequence(XRPLDoorAccount::NFT)?,
+			account: door_address,
+			destination,
+		});
+
+		Self::submit_xrpl_tx_for_signing(tx_data)
+	}
+
 	/// Delay a withdrawal until a later block. Called if the withdrawal amount is over the
 	/// PaymentDelay threshold
 	fn delay_payment(
@@ -1440,6 +1494,13 @@ impl<T: Config> Pallet<T> {
 		match tx_data {
 			XrplTransaction::NFTokenAcceptOffer(tx) => {
 				let tx_blob = Self::serialize_nft_accept_offer_tx(tx.clone());
+				let proof_id = T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())?;
+
+				// emit
+				Self::deposit_event(Event::XrplTxSignRequest { proof_id, tx: tx_data });
+			},
+			XrplTransaction::NFTokenCreateOffer(tx) => {
+				let tx_blob = Self::serialize_nft_create_offer_tx(tx.clone());
 				let proof_id = T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())?;
 
 				// emit
@@ -1605,6 +1666,31 @@ impl<T: Config> Pallet<T> {
 		);
 
 		nftoken_accept_offer.binary_serialize(true)
+	}
+
+	/// Serialise nft create offer tx using NFTokenCreateOffer type from the XRPL codec
+	fn serialize_nft_create_offer_tx(tx_data: NFTokenCreateOfferTransaction) -> Vec<u8> {
+		let NFTokenCreateOfferTransaction {
+			nftoken_id,
+			tx_fee,
+			tx_ticket_sequence,
+			account,
+			destination,
+		} = tx_data;
+
+		let nftoken_create_offer = NFTokenCreateOffer::new(
+			account.0,
+			destination.0,
+			nftoken_id,
+			0,
+			0, // sequence 0 since we use ticket sequences
+			tx_ticket_sequence,
+			tx_fee,
+			SourceTag::<T>::get(),
+			None,
+		);
+
+		nftoken_create_offer.binary_serialize(true)
 	}
 
 	/// Return the current ticket sequence for the door account and increment it in storage

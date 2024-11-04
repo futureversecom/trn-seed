@@ -91,6 +91,7 @@ pub struct AssetWithdrawTransaction {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum XrplTransaction {
 	NFTokenAcceptOffer(NFTokenAcceptOfferTransaction),
+	NFTokenCreateOffer(NFTokenCreateOfferTransaction),
 }
 
 /// NFTokenAcceptOffer transaction.
@@ -100,6 +101,16 @@ pub struct NFTokenAcceptOfferTransaction {
 	pub tx_fee: u64,
 	pub tx_ticket_sequence: XrplTxTicketSequence,
 	pub account: XrplAccountId,
+}
+
+/// NFTokenCreateOffer transaction.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
+pub struct NFTokenCreateOfferTransaction {
+	pub nftoken_id: [u8; 32],
+	pub tx_fee: u64,
+	pub tx_ticket_sequence: XrplTxTicketSequence,
+	pub account: XrplAccountId,
+	pub destination: XrplAccountId,
 }
 
 #[derive(Eq, CloneNoBound, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]

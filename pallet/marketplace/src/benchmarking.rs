@@ -29,8 +29,7 @@ use frame_support::{
 use frame_system::RawOrigin;
 use pallet_nft::Pallet as Nft;
 use pallet_sft::Pallet as Sft;
-use seed_primitives::nft::CrossChainCompatibility;
-use seed_primitives::MetadataScheme;
+use seed_primitives::{CrossChainCompatibility, MetadataScheme};
 use sp_runtime::Permill;
 use sp_std::{vec, vec::Vec};
 

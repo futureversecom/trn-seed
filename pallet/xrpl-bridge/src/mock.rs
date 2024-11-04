@@ -33,6 +33,7 @@ construct_runtime!(
 		XRPLBridge: pallet_xrpl_bridge,
 		AssetsExt: pallet_assets_ext,
 		TimestampPallet: pallet_timestamp,
+		Nft: pallet_nft,
 	}
 );
 
@@ -41,6 +42,7 @@ impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_timestamp_config!(Test);
 impl_pallet_assets_ext_config!(Test);
+impl_pallet_nft_config!(Test);
 
 // Time is measured by number of blocks.
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;
@@ -65,8 +67,11 @@ impl Xls20Ext for MockXls20Ext {
 	}
 
 	fn get_xls20_token_id(_token_id: TokenId) -> Option<Xls20TokenId> {
-		None
+		Some([1_u8; 32])
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_xls20_token_id(_token_id: TokenId, _xls20_token_id: Xls20TokenId) {}
 }
 
 parameter_types! {
@@ -99,6 +104,7 @@ impl pallet_xrpl_bridge::Config for Test {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPLTransactionLimitPerLedger;
+	type NFTExt = Nft;
 	type Xls20Ext = MockXls20Ext;
 }
 
@@ -107,7 +113,7 @@ pub struct MockEthyAdapter;
 impl XrplBridgeToEthyAdapter<AuthorityId> for MockEthyAdapter {
 	/// Mock implementation of XrplBridgeToEthyAdapter
 	fn sign_xrpl_transaction(_tx_data: &[u8]) -> Result<EventProofId, DispatchError> {
-		Ok(1)
+		Ok(0)
 	}
 	fn validators() -> Vec<AuthorityId> {
 		// some hard coded validators
