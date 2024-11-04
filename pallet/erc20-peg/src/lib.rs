@@ -31,8 +31,8 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
-use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
+use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber};
+use seed_primitives::{AccountId, AssetId, Balance, EthAddress, WeightedDispatchResult};
 use sp_core::{bounded::WeakBoundedVec, H160, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating},
@@ -841,7 +841,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 
 	/// Verifies the source address with either the erc20Peg contract address
 	/// Or the RootPeg contract address
-	fn verify_source(source: &H160) -> OnEventResult {
+	fn verify_source(source: &H160) -> WeightedDispatchResult {
 		let erc20_peg_contract_address: H160 = Self::SourceAddress::get();
 		let root_peg_contract_address: H160 = RootPegContractAddress::<T>::get();
 		if source == &erc20_peg_contract_address || source == &root_peg_contract_address {
@@ -854,7 +854,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 		}
 	}
 
-	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
+	fn on_event(source: &H160, data: &[u8]) -> WeightedDispatchResult {
 		let abi_decoded = match ethabi::decode(
 			&[ParamType::Address, ParamType::Uint(128), ParamType::Address],
 			data,

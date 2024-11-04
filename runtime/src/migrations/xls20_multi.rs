@@ -5,10 +5,10 @@ use frame_support::{
 	DefaultNoBound,
 };
 use pallet_migration::WeightInfo;
-use pallet_xls20::Xls20TokenId;
-use seed_primitives::migration::{MigrationStep, MigrationStepResult};
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
+use seed_primitives::{
+	migration::{MigrationStep, MigrationStepResult},
+	xrpl::Xls20TokenId,
+};
 use sp_std::marker::PhantomData;
 
 #[allow(dead_code)]
