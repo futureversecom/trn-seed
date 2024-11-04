@@ -82,7 +82,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `XRPLBridge::ProcessXRPTransaction` (r:1 w:1)
 	// Proof: `XRPLBridge::ProcessXRPTransaction` (`max_values`: None, `max_size`: Some(64000016), added: 64002491, mode: `MaxEncodedLen`)
 	fn submit_transaction() -> Weight {
-		Weight::from_all(22_000_000 as u64)
+		Weight::from_all(21_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
@@ -93,7 +93,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn process_asset_deposit() -> Weight {
-		Weight::from_all(28_000_000 as u64)
+		Weight::from_all(27_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
@@ -107,7 +107,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `XRPLBridge::ChallengeXRPTransactionList` (r:0 w:1)
 	// Proof: `XRPLBridge::ChallengeXRPTransactionList` (`max_values`: None, `max_size`: Some(84), added: 2559, mode: `MaxEncodedLen`)
 	fn submit_challenge() -> Weight {
-		Weight::from_all(5_000_000 as u64)
+		Weight::from_all(4_000_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: `XRPLBridge::PaymentDelay` (r:0 w:1)
@@ -143,7 +143,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `XRPLBridge::TicketSequenceThresholdReachedEmitted` (r:0 w:1)
 	// Proof: `XRPLBridge::TicketSequenceThresholdReachedEmitted` (`max_values`: None, `max_size`: Some(10), added: 2485, mode: `MaxEncodedLen`)
 	fn withdraw_xrp() -> Weight {
-		Weight::from_all(72_000_000 as u64)
+		Weight::from_all(71_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(12 as u64))
 			.saturating_add(T::DbWeight::get().writes(8 as u64))
 	}
@@ -180,7 +180,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `XRPLBridge::TicketSequenceThresholdReachedEmitted` (r:0 w:1)
 	// Proof: `XRPLBridge::TicketSequenceThresholdReachedEmitted` (`max_values`: None, `max_size`: Some(10), added: 2485, mode: `MaxEncodedLen`)
 	fn withdraw_asset() -> Weight {
-		Weight::from_all(127_000_000 as u64)
+		Weight::from_all(124_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(16 as u64))
 			.saturating_add(T::DbWeight::get().writes(10 as u64))
 	}
@@ -252,8 +252,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `i` is `[0, 256]`.
 	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight {
 		Weight::from_all(5_000_000 as u64)
-			// Standard Error: 4_032
-			.saturating_add(Weight::from_all(5_022_915 as u64).saturating_mul(i as u64))
+			// Standard Error: 8_284
+			.saturating_add(Weight::from_all(5_133_309 as u64).saturating_mul(i as u64))
 			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(i as u64)))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 			.saturating_add(T::DbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
@@ -268,9 +268,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `XRPLBridge::ProcessXRPTransactionDetails` (`max_values`: None, `max_size`: Some(242), added: 2717, mode: `MaxEncodedLen`)
 	/// The range of component `i` is `[0, 10]`.
 	fn prune_settled_ledger_index(i: u32, ) -> Weight {
-		Weight::from_all(13_819_892 as u64)
-			// Standard Error: 6_563
-			.saturating_add(Weight::from_all(1_079_227 as u64).saturating_mul(i as u64))
+		Weight::from_all(13_928_469 as u64)
+			// Standard Error: 8_594
+			.saturating_add(Weight::from_all(1_143_258 as u64).saturating_mul(i as u64))
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(i as u64)))
@@ -360,7 +360,7 @@ impl WeightInfo for () {
 	// Storage: `XRPLBridge::ProcessXRPTransaction` (r:1 w:1)
 	// Proof: `XRPLBridge::ProcessXRPTransaction` (`max_values`: None, `max_size`: Some(64000016), added: 64002491, mode: `MaxEncodedLen`)
 	fn submit_transaction() -> Weight {
-		Weight::from_all(22_000_000 as u64)
+		Weight::from_all(21_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(5 as u64))
 			.saturating_add(RocksDbWeight::get().writes(2 as u64))
 	}
@@ -371,7 +371,7 @@ impl WeightInfo for () {
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn process_asset_deposit() -> Weight {
-		Weight::from_all(28_000_000 as u64)
+		Weight::from_all(27_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}
@@ -385,7 +385,7 @@ impl WeightInfo for () {
 	// Storage: `XRPLBridge::ChallengeXRPTransactionList` (r:0 w:1)
 	// Proof: `XRPLBridge::ChallengeXRPTransactionList` (`max_values`: None, `max_size`: Some(84), added: 2559, mode: `MaxEncodedLen`)
 	fn submit_challenge() -> Weight {
-		Weight::from_all(5_000_000 as u64)
+		Weight::from_all(4_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
 	// Storage: `XRPLBridge::PaymentDelay` (r:0 w:1)
@@ -421,7 +421,7 @@ impl WeightInfo for () {
 	// Storage: `XRPLBridge::TicketSequenceThresholdReachedEmitted` (r:0 w:1)
 	// Proof: `XRPLBridge::TicketSequenceThresholdReachedEmitted` (`max_values`: None, `max_size`: Some(10), added: 2485, mode: `MaxEncodedLen`)
 	fn withdraw_xrp() -> Weight {
-		Weight::from_all(72_000_000 as u64)
+		Weight::from_all(71_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(12 as u64))
 			.saturating_add(RocksDbWeight::get().writes(8 as u64))
 	}
@@ -458,7 +458,7 @@ impl WeightInfo for () {
 	// Storage: `XRPLBridge::TicketSequenceThresholdReachedEmitted` (r:0 w:1)
 	// Proof: `XRPLBridge::TicketSequenceThresholdReachedEmitted` (`max_values`: None, `max_size`: Some(10), added: 2485, mode: `MaxEncodedLen`)
 	fn withdraw_asset() -> Weight {
-		Weight::from_all(127_000_000 as u64)
+		Weight::from_all(124_000_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(16 as u64))
 			.saturating_add(RocksDbWeight::get().writes(10 as u64))
 	}
@@ -530,8 +530,8 @@ impl WeightInfo for () {
 	/// The range of component `i` is `[0, 256]`.
 	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight {
 		Weight::from_all(5_000_000 as u64)
-			// Standard Error: 4_032
-			.saturating_add(Weight::from_all(5_022_915 as u64).saturating_mul(i as u64))
+			// Standard Error: 8_284
+			.saturating_add(Weight::from_all(5_133_309 as u64).saturating_mul(i as u64))
 			.saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(i as u64)))
 			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
@@ -546,9 +546,9 @@ impl WeightInfo for () {
 	// Proof: `XRPLBridge::ProcessXRPTransactionDetails` (`max_values`: None, `max_size`: Some(242), added: 2717, mode: `MaxEncodedLen`)
 	/// The range of component `i` is `[0, 10]`.
 	fn prune_settled_ledger_index(i: u32, ) -> Weight {
-		Weight::from_all(13_819_892 as u64)
-			// Standard Error: 6_563
-			.saturating_add(Weight::from_all(1_079_227 as u64).saturating_mul(i as u64))
+		Weight::from_all(13_928_469 as u64)
+			// Standard Error: 8_594
+			.saturating_add(Weight::from_all(1_143_258 as u64).saturating_mul(i as u64))
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(i as u64)))

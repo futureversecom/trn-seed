@@ -36,11 +36,7 @@ use frame_system::pallet_prelude::*;
 use seed_pallet_common::{
 	CreateExt, EthyToXrplBridgeAdapter, NFTExt, Xls20Ext, XrplBridgeToEthyAdapter,
 };
-use seed_primitives::{
-	ethy::{crypto::AuthorityId, EventProofId},
-	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence},
-	AccountId, AssetId, Balance, CollectionUuid, SerialNumber, Timestamp, WeightedDispatchResult,
-};
+use seed_primitives::{ethy::{crypto::AuthorityId, EventProofId}, xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxTicketSequence}, AccountId, AssetId, Balance, Timestamp, WeightedDispatchResult, TokenId};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
 	ArithmeticError, Percent, SaturatedConversion, Saturating,
@@ -76,6 +72,7 @@ type AccountOf<T> = <T as frame_system::Config>::AccountId;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use seed_primitives::TokenId;
 	use super::*;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
@@ -864,12 +861,11 @@ pub mod pallet {
 		#[transactional]
 		pub fn withdraw_nft(
 			origin: OriginFor<T>,
-			collection_id: CollectionUuid,
-			serial_number: SerialNumber,
+			token_id: TokenId,
 			destination: XrplAccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_nft_withdrawal(who, collection_id, serial_number, destination)
+			Self::do_nft_withdrawal(who, token_id, destination)
 		}
 	}
 }
@@ -1392,10 +1388,10 @@ impl<T: Config> Pallet<T> {
 	/// Process nft withdrawal
 	pub fn do_nft_withdrawal(
 		who: T::AccountId,
-		collection_id: CollectionUuid,
-		serial_number: SerialNumber,
+		token_id: TokenId,
 		destination: XrplAccountId,
 	) -> DispatchResult {
+		let (collection_id, serial_number) = token_id;
 		let xls20_compatible = T::NFTExt::get_cross_chain_compatibility(collection_id)?;
 		ensure!(xls20_compatible.xrpl == true, Error::<T>::Xls20Incompatible);
 

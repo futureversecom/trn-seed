@@ -541,6 +541,13 @@ pub trait NFTExt {
 		new_owner: &Self::AccountId,
 	) -> DispatchResult;
 
+	/// Burn a token
+	fn do_burn(
+		who: Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_number: SerialNumber,
+	) -> DispatchResult;
+
 	/// Create a new collection
 	fn do_create_collection(
 		owner: Self::AccountId,
@@ -610,13 +617,6 @@ pub trait NFTExt {
 	fn get_collection_owner(
 		collection_id: CollectionUuid,
 	) -> Result<Self::AccountId, DispatchError>;
-
-	/// Burn a token
-	fn do_burn(
-		who: Self::AccountId,
-		collection_id: CollectionUuid,
-		serial_number: SerialNumber,
-	) -> DispatchResult;
 
 	/// Returns cross chain compatibility of a collection
 	fn get_cross_chain_compatibility(

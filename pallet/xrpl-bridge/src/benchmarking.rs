@@ -387,7 +387,7 @@ benchmarks! {
 		let xls20_token_id = [1_u8;32];
 		<T as Config>::Xls20Ext::set_xls20_token_id((nft_collection_id, 0), xls20_token_id);
 
-	}: _(origin::<T>(&alice), nft_collection_id, 0, destination)
+	}: _(origin::<T>(&alice), (nft_collection_id, 0), destination)
 	verify {
 		// check the event is emitted.
 		assert_has_event::<T>(
