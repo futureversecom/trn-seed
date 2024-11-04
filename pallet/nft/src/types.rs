@@ -19,7 +19,8 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_primitives::{MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount};
-use sp_runtime::BoundedVec;
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
+use sp_runtime::{BoundedVec, Permill};
 use sp_std::{fmt::Debug, prelude::*};
 
 #[derive(Decode, Encode, Debug, Clone, Copy, PartialEq, TypeInfo)]
@@ -75,16 +76,65 @@ where
 /// Determines compatibility with external chains.
 /// If compatible with XRPL, XLS-20 tokens will be minted with every newly minted
 /// token on The Root Network
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
+#[derive(Debug, Clone, Encode, Decode, Deserialize, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
 pub struct CrossChainCompatibility {
 	/// This collection is compatible with the XLS-20 standard on XRPL
 	pub xrpl: bool,
+}
+
+impl Serialize for CrossChainCompatibility {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		let mut s = serializer.serialize_struct("CrossChainCompatibility", 1)?;
+		s.serialize_field("xrpl", &self.xrpl)?;
+		s.end()
+	}
 }
 
 impl Default for CrossChainCompatibility {
 	fn default() -> Self {
 		Self { xrpl: false }
 	}
+}
+
+/// Information related to a specific collection
+/// Need for separate collection structure from CollectionInformation for RPC call is cause
+/// of complexity of deserialization/serialization BoundedVec
+#[derive(
+	PartialEqNoBound,
+	RuntimeDebugNoBound,
+	CloneNoBound,
+	Encode,
+	Serialize,
+	Deserialize,
+	Decode,
+	TypeInfo,
+)]
+#[codec(mel_bound(AccountId: MaxEncodedLen))]
+pub struct CollectionDetail<AccountId>
+where
+	AccountId: Debug + PartialEq + Clone,
+{
+	/// The owner of the collection
+	pub owner: AccountId,
+	/// A human friendly name
+	pub name: Vec<u8>,
+	/// Collection metadata reference scheme
+	pub metadata_scheme: Vec<u8>,
+	/// configured royalties schedule
+	pub royalties_schedule: Option<Vec<(AccountId, Permill)>>,
+	/// Maximum number of tokens allowed in a collection
+	pub max_issuance: Option<TokenCount>,
+	/// The chain in which the collection was minted originally
+	pub origin_chain: OriginChain,
+	/// The next available serial_number
+	pub next_serial_number: SerialNumber,
+	/// the total count of tokens in this collection
+	pub collection_issuance: TokenCount,
+	/// This collections compatibility with other chains
+	pub cross_chain_compatibility: CrossChainCompatibility,
 }
 
 /// Information related to a specific collection
