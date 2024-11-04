@@ -276,7 +276,7 @@ parameter_types! {
 	/// next multiplier is always > min value.
 	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
 	/// The maximum amount of the multiplier.
-	pub MaximumMultiplier: Multiplier = Bounded::max_value();
+	pub MaximumMultiplier: Multiplier = Bounded::MAX;
 }
 
 pub type SlowAdjustingFeeUpdate<R> = TargetedFeeAdjustment<
@@ -389,7 +389,7 @@ parameter_types! {
 	pub const AssetsStringLimit: u32 = 50;
 	/// Key = 32 bytes, Value = 36 bytes (32+1+1+1+1)
 	// https://github.com/paritytech/substrate/blob/069917b/frame/assets/src/lib.rs#L257L271
-	pub const MetadataDepositBase: Balance = 1 * 68;
+	pub const MetadataDepositBase: Balance = 68;
 	pub const MetadataDepositPerByte: Balance = 1;
 	pub const RemoveItemsLimit: u32 = 100;
 }
@@ -947,8 +947,8 @@ impl pallet_offences::Config for Runtime {
 
 parameter_types! {
 	pub NposSolutionPriority: TransactionPriority =
-		Perbill::from_percent(90) * TransactionPriority::max_value();
-	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+		Perbill::from_percent(90) * TransactionPriority::MAX;
+	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
 	pub const MaxPeerDataEncodingSize: u32 = 1_000;
@@ -2182,7 +2182,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	) -> Option<TransactionValidity> {
 		match self {
 			RuntimeCall::Ethereum(ref call) => {
-				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len))
+				Some(validate_self_contained_inner(self, call, signed_info, dispatch_info, len))
 			},
 			RuntimeCall::Xrpl(ref call) => {
 				call.validate_self_contained(signed_info, dispatch_info, len)
@@ -2229,13 +2229,13 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 			RuntimeCall::Xrpl(call) => pallet_xrpl::Call::<Runtime>::apply_self_contained(
 				call.into(),
 				&info,
-				&dispatch_info,
+				dispatch_info,
 				len,
 			),
 			RuntimeCall::Doughnut(call) => pallet_doughnut::Call::<Runtime>::apply_self_contained(
 				call.into(),
 				&info,
-				&dispatch_info,
+				dispatch_info,
 				len,
 			),
 			_ => None,

@@ -202,7 +202,7 @@ fn testnet_genesis(
 				.cloned()
 				.map(|(acc, babe, im_online, grandpa, ethy)| {
 					(
-						acc.clone(),                                    // validator stash id
+						acc,                                    // validator stash id
 						acc,                                            // validator controller id
 						SessionKeys { babe, im_online, grandpa, ethy }, // session keys
 					)
@@ -215,9 +215,9 @@ fn testnet_genesis(
 			stakers: initial_authorities
 				.iter()
 				// stash == controller
-				.map(|x| (x.0.clone(), x.0.clone(), VALIDATOR_BOND, StakerStatus::Validator))
+				.map(|x| (x.0, x.0, VALIDATOR_BOND, StakerStatus::Validator))
 				.collect(),
-			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+			invulnerables: initial_authorities.iter().map(|x| x.0).collect(),
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
 		},

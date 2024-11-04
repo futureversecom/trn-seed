@@ -642,6 +642,7 @@ pub fn new_full(
 	Ok(task_manager)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn spawn_frontier_tasks(
 	task_manager: &TaskManager,
 	client: Arc<FullClient>,

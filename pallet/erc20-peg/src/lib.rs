@@ -674,7 +674,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_deposit(source: &H160, deposit_event: Erc20DepositEvent) -> DispatchResult {
 		ensure!(DepositsActive::<T>::get(), Error::<T>::DepositsPaused);
 		// fail a deposit early for an amount that is too large
-		ensure!(deposit_event.amount < U256::from(Balance::max_value()), Error::<T>::InvalidAmount);
+		ensure!(deposit_event.amount < U256::from(Balance::MAX), Error::<T>::InvalidAmount);
 
 		let asset_id = Erc20ToAssetId::<T>::get(deposit_event.token_address);
 		if asset_id.is_some() {

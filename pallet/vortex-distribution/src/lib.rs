@@ -54,7 +54,7 @@ use sp_runtime::{
 use sp_staking::EraIndex;
 use sp_std::{convert::TryInto, prelude::*};
 
-pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::max_value() / 2;
+pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::MAX / 2;
 
 #[derive(
 	Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, PartialOrd, Eq, TypeInfo, MaxEncodedLen,

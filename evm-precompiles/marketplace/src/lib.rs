@@ -93,8 +93,7 @@ fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileF
 	if input > BlockNumber::MAX.into() {
 		return Err(revert(
 			"Marketplace: Input number exceeds the BlockNumber type boundary (2^32)",
-		)
-		.into());
+		));
 	}
 	Ok(input.saturated_into())
 }
@@ -145,6 +144,7 @@ impl<T> Default for MarketplacePrecompile<T> {
 	}
 }
 
+#[allow(deprecated)]
 impl<Runtime> Precompile for MarketplacePrecompile<Runtime>
 where
 	Runtime::AccountId: From<H160> + Into<H160>,
@@ -209,7 +209,7 @@ where
 				Action::GetOfferFromId => Self::get_offer_from_id(handle),
 			}
 		};
-		return result;
+		result
 	}
 }
 
@@ -271,7 +271,7 @@ where
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
 		})?;
 		ensure!(
-			marketplace_id <= u32::MAX.into(),
+			marketplace_id <= u32::MAX,
 			revert("Marketplace: Expected marketplace id <= 2^32")
 		);
 
@@ -335,7 +335,7 @@ where
 			.into_iter()
 			.map(|serial_number| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("Marketplace NFT: Expected serial_number <= 2^32").into());
+					return Err(revert("Marketplace NFT: Expected serial_number <= 2^32"));
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				Ok(serial_number)
@@ -344,7 +344,7 @@ where
 
 		let serial_numbers: BoundedVec<SerialNumber, Runtime::MaxTokensPerListing> =
 			BoundedVec::try_from(serials_unbounded)
-				.or_else(|_| Err(revert("Marketplace NFT: Too many serial numbers")))?;
+				.map_err(|_| revert("Marketplace NFT: Too many serial numbers"))?;
 		let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 
 		let buyer: H160 = buyer.into();
@@ -439,10 +439,10 @@ where
 			.zip(quantities.clone())
 			.map(|(serial_number, quantity)| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("Marketplace SFT: Expected serial_number <= 2^32").into());
+					return Err(revert("Marketplace SFT: Expected serial_number <= 2^32"));
 				}
 				if quantity > Balance::MAX.into() {
-					return Err(revert("Marketplace SFT: Expected quantity <= 2^128").into());
+					return Err(revert("Marketplace SFT: Expected quantity <= 2^128"));
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				let quantity: Balance = quantity.saturated_into();
@@ -452,7 +452,7 @@ where
 
 		let serial_numbers: BoundedVec<(SerialNumber, Balance), Runtime::MaxTokensPerListing> =
 			BoundedVec::try_from(serials_unbounded)
-				.or_else(|_| Err(revert("Marketplace: Too many serial numbers")))?;
+				.map_err(|_| revert("Marketplace: Too many serial numbers"))?;
 		let tokens = ListingTokens::Sft(SftListing { collection_id, serial_numbers });
 		let buyer: H160 = buyer.into();
 		let buyer: Option<Runtime::AccountId> =
@@ -597,9 +597,7 @@ where
 				Ok(succeed([]))
 			},
 			Err(err) => Err(revert(
-				alloc::format!("Marketplace: buy nft failed {:?}", err.stripped())
-					.as_bytes()
-					.to_vec(),
+				alloc::format!("Marketplace: buy nft failed {:?}", err.stripped()).as_bytes(),
 			)),
 		}
 	}
@@ -647,7 +645,7 @@ where
 			.into_iter()
 			.map(|serial_number| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("Marketplace NFT: Expected serial_number <= 2^32").into());
+					return Err(revert("Marketplace NFT: Expected serial_number <= 2^32"));
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				Ok(serial_number)
@@ -656,7 +654,7 @@ where
 
 		let serial_numbers: BoundedVec<SerialNumber, Runtime::MaxTokensPerListing> =
 			BoundedVec::try_from(serials_unbounded)
-				.or_else(|_| Err(revert("Marketplace NFT: Too many serial numbers")))?;
+				.map_err(|_| revert("Marketplace NFT: Too many serial numbers"))?;
 		let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -755,10 +753,10 @@ where
 			.zip(quantities.clone())
 			.map(|(serial_number, quantity)| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("Marketplace: Expected serial_number <= 2^32").into());
+					return Err(revert("Marketplace: Expected serial_number <= 2^32"));
 				}
 				if quantity > Balance::MAX.into() {
-					return Err(revert("Marketplace: Expected quantity <= 2^128").into());
+					return Err(revert("Marketplace: Expected quantity <= 2^128"));
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				let quantity: Balance = quantity.saturated_into();
@@ -768,7 +766,7 @@ where
 
 		let serial_numbers: BoundedVec<(SerialNumber, Balance), Runtime::MaxTokensPerListing> =
 			BoundedVec::try_from(serials_unbounded)
-				.or_else(|_| Err(revert("Marketplace: Too many serial numbers")))?;
+				.map_err(|_| revert("Marketplace: Too many serial numbers"))?;
 		let tokens = ListingTokens::Sft(SftListing { collection_id, serial_numbers });
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -873,7 +871,7 @@ where
 		let origin = handle.context().caller;
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let listing = pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id)
-			.or_else(|_| Err(revert("Marketplace: listing details not found")))?;
+			.map_err(|_| revert("Marketplace: listing details not found"))?;
 
 		let Ok((collection_id, serial_numbers)) = (match listing.clone() {
 			Listing::FixedPrice(listing) => Self::split_listing_tokens(listing.tokens),
@@ -1006,7 +1004,7 @@ where
 		let offer_id: OfferId = offer_id.saturated_into();
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id)
-			.or_else(|_| Err(revert("Marketplace: Offer details not found")))?;
+			.map_err(|_| revert("Marketplace: Offer details not found"))?;
 
 		let origin = handle.context().caller;
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -1041,7 +1039,7 @@ where
 		ensure!(offer_id <= u64::MAX.into(), revert("Marketplace: Expected offer_id <= 2^64"));
 		let offer_id: OfferId = offer_id.saturated_into();
 		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id)
-			.or_else(|_| Err(revert("Marketplace: Offer details not found")))?;
+			.map_err(|_| revert("Marketplace: Offer details not found"))?;
 
 		// Return either the approved account or zero address if no account is approved
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -1104,7 +1102,7 @@ where
 		let listing_id: u128 = listing_id.saturated_into();
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let listing = pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id)
-			.or_else(|_| Err(revert("Marketplace: listing details not found")))?;
+			.map_err(|_| revert("Marketplace: listing details not found"))?;
 		match listing {
 			Listing::FixedPrice(listing) => {
 				let (collection_id, serial_numbers) = Self::split_listing_tokens(listing.tokens)?;

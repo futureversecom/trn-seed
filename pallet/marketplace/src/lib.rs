@@ -357,7 +357,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_register_marketplace(who, marketplace_account, entitlement)?;
-			Ok(().into())
+			Ok(())
 		}
 
 		/// Deprecated, use `sell` instead
@@ -459,7 +459,7 @@ pub mod pallet {
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_buy(who, listing_id)?;
-			Ok(().into())
+			Ok(())
 		}
 
 		/// Buy multiple listings, each for their respective price
@@ -504,7 +504,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 			Self::do_auction(who, tokens, payment_asset, reserve_price, duration, marketplace_id)?;
-			Ok(().into())
+			Ok(())
 		}
 
 		/// Auction a bundle of tokens on the open market to the highest bidder
@@ -532,7 +532,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_auction(who, tokens, payment_asset, reserve_price, duration, marketplace_id)?;
-			Ok(().into())
+			Ok(())
 		}
 
 		/// Place a bid on an open auction
@@ -573,7 +573,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id)?;
-			Ok(().into())
+			Ok(())
 		}
 
 		/// Cancels an offer on a token

@@ -471,7 +471,7 @@ impl<T: Config> Pallet<T> {
 		// some future proofing/protections if timestamps or block numbers are de-synced, stuck, or
 		// missing this protocol should vote to abort
 		let latest_eth_block_timestamp: u64 = latest_block.timestamp.saturated_into();
-		if latest_eth_block_timestamp == u64::max_value() {
+		if latest_eth_block_timestamp == u64::MAX {
 			return CheckedEthCallResult::InvalidTimestamp;
 		}
 		// latest ethereum block timestamp should be after the request
@@ -480,7 +480,7 @@ impl<T: Config> Pallet<T> {
 		}
 		let latest_eth_block_number = match latest_block.number {
 			Some(number) => {
-				if number.is_zero() || number.low_u64() == u64::max_value() {
+				if number.is_zero() || number.low_u64() == u64::MAX {
 					return CheckedEthCallResult::InvalidEthBlock;
 				}
 				number.low_u64()

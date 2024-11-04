@@ -15,7 +15,7 @@
 
 use frame_support::parameter_types;
 
-pub use constants::*;
+pub use durations::*;
 pub use currency::*;
 
 parameter_types! {
@@ -72,7 +72,7 @@ pub mod currency {
 }
 
 /// Common constants of parachains.
-mod constants {
+mod durations {
 	use seed_primitives::BlockNumber;
 
 	/// This determines the average expected block time that we are targeting. Blocks will be
