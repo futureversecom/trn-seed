@@ -234,7 +234,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(NfiEnabled::<T>::get(token_id.0, sub_type), Error::<T>::NotEnabled);
 			// Check that the caller is the token or collection owner
-			ensure!(Self::check_permissions(token_id.clone(), &who), Error::<T>::NotTokenOwner);
+			ensure!(Self::check_permissions(token_id, &who), Error::<T>::NotTokenOwner);
 			Self::pay_mint_fee(&who, 1, sub_type)?;
 			Self::send_data_request(who, sub_type, token_id.0, vec![token_id.1]);
 			Ok(())
@@ -254,8 +254,8 @@ pub mod pallet {
 			ensure!(Some(who) == Relayer::<T>::get(), Error::<T>::NotRelayer);
 			let sub_type = NFISubType::from(data_item.clone());
 			ensure!(NfiEnabled::<T>::get(token_id.0, sub_type), Error::<T>::NotEnabled);
-			ensure!(Self::token_exists(token_id.clone()), Error::<T>::NoToken);
-			NfiData::<T>::insert(token_id.clone(), sub_type.clone(), data_item.clone());
+			ensure!(Self::token_exists(token_id), Error::<T>::NoToken);
+			NfiData::<T>::insert(token_id, sub_type, data_item.clone());
 			Self::deposit_event(Event::<T>::DataSet { sub_type, token_id, data_item });
 			Ok(())
 		}

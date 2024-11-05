@@ -80,7 +80,7 @@ where
 		let collection_id = Pallet::<T>::next_collection_uuid().unwrap();
 		let collection_name = BoundedVec::truncate_from(self.name.as_bytes().to_vec());
 		assert_ok!(Pallet::<T>::create_collection(
-			OriginFor::<T>::signed(self.owner.into()),
+			OriginFor::<T>::signed(self.owner),
 			collection_name,
 			self.initial_issuance,
 			self.max_issuance,

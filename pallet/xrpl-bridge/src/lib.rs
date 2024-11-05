@@ -17,7 +17,7 @@
 
 use crate::types::{
 	AssetWithdrawTransaction, DelayedPaymentId, DelayedWithdrawal, WithdrawTransaction,
-	XRPLCurrency, XRPLCurrencyType, XrpTransaction, XrpWithdrawTransaction,
+	XRPLCurrency, XrpTransaction, XrpWithdrawTransaction,
 	XrplTicketSequenceParams, XrplTxData,
 };
 use frame_support::{
@@ -486,7 +486,7 @@ pub mod pallet {
 			transaction_hash: XrplTxHash,
 		) -> DispatchResult {
 			let challenger = ensure_signed(origin)?;
-			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
+			ChallengeXRPTransactionList::<T>::insert(transaction_hash, challenger);
 			Ok(())
 		}
 
@@ -781,10 +781,10 @@ pub mod pallet {
 				// Remove mapping if xrpl_currency is none
 				let xrpl_currency_mapped =
 					AssetIdToXRPL::<T>::get(asset_id).ok_or(Error::<T>::AssetNotSupported)?;
-				<AssetIdToXRPL<T>>::remove(asset_id.clone());
+				<AssetIdToXRPL<T>>::remove(asset_id);
 				<XRPLToAssetId<T>>::remove(xrpl_currency_mapped);
 				Self::deposit_event(Event::XrplAssetMapRemoved {
-					asset_id: asset_id.clone(),
+					asset_id,
 					xrpl_currency: xrpl_currency_mapped,
 				});
 			}
@@ -828,17 +828,17 @@ impl<T: Config> Pallet<T> {
 					if let Err(e) = T::MultiCurrency::mint_into(
 						T::XrpAssetId::get(),
 						&(*address).into(),
-						amount.clone(),
+						*amount,
 					) {
 						Self::deposit_event(Event::ProcessingFailed(
 							ledger_index,
-							transaction_hash.clone(),
+							*transaction_hash,
 							e,
 						));
 					} else {
 						Self::deposit_event(Event::ProcessingOk(
 							ledger_index,
-							transaction_hash.clone(),
+							*transaction_hash,
 						));
 					}
 				},
@@ -848,7 +848,7 @@ impl<T: Config> Pallet<T> {
 						None => {
 							Self::deposit_event(Event::ProcessingFailed(
 								ledger_index,
-								transaction_hash.clone(),
+								*transaction_hash,
 								Error::<T>::AssetNotSupported.into(),
 							));
 							continue;
@@ -862,33 +862,31 @@ impl<T: Config> Pallet<T> {
 							asset_id,
 							&pallet_address,
 							&(*address).into(),
-							amount.clone(),
+							*amount,
 							Preservation::Expendable,
 						) {
 							Self::deposit_event(Event::ProcessingFailed(
 								ledger_index,
-								transaction_hash.clone(),
+								*transaction_hash,
 								e,
 							));
 							continue;
 						}
-					} else {
-						if let Err(e) = T::MultiCurrency::mint_into(
-							asset_id,
-							&(*address).into(),
-							amount.clone(),
-						) {
-							Self::deposit_event(Event::ProcessingFailed(
-								ledger_index,
-								transaction_hash.clone(),
-								e,
-							));
-							continue;
-						}
+					} else if let Err(e) = T::MultiCurrency::mint_into(
+						asset_id,
+						&(*address).into(),
+						*amount,
+					) {
+						Self::deposit_event(Event::ProcessingFailed(
+							ledger_index,
+							*transaction_hash,
+							e,
+						));
+						continue;
 					}
 					Self::deposit_event(Event::ProcessingOk(
 						ledger_index,
-						transaction_hash.clone(),
+						*transaction_hash,
 					));
 				},
 				_ => {
@@ -900,7 +898,7 @@ impl<T: Config> Pallet<T> {
 			// Add to SettledXRPTransactionDetails
 			<SettledXRPTransactionDetails<T>>::try_append(
 				ledger_index as u32,
-				transaction_hash.clone(),
+				*transaction_hash,
 			)
 			.expect("Should not happen since XRPLTransactionLimitPerLedger >= XRPTransactionLimit");
 
@@ -1062,7 +1060,7 @@ impl<T: Config> Pallet<T> {
 		let current_end = current_end.min(max_end);
 		let settled_txs_to_clear = (highest_pruned_index..current_end).collect::<Vec<u32>>();
 
-		if settled_txs_to_clear.len() == 0 {
+		if settled_txs_to_clear.is_empty() {
 			return used_weight;
 		}
 
@@ -1134,7 +1132,7 @@ impl<T: Config> Pallet<T> {
 		timestamp: Timestamp,
 	) -> DispatchResult {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
-		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val, relayer));
+		<ProcessXRPTransactionDetails<T>>::insert(transaction_hash, (ledger_index, val, relayer));
 
 		Self::add_to_xrp_process(transaction_hash)?;
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
@@ -1359,7 +1357,7 @@ impl<T: Config> Pallet<T> {
 			delayed_payment_id,
 			payment_block,
 		});
-		return Ok(());
+		Ok(())
 	}
 
 	/// Construct an XRPL payment transaction and submit for signing
@@ -1403,7 +1401,7 @@ impl<T: Config> Pallet<T> {
 		let XrpWithdrawTransaction { tx_fee, tx_nonce, tx_ticket_sequence, amount, destination } =
 			tx_data;
 
-		let tx_blob = if destination_tag.is_some() {
+		if destination_tag.is_some() {
 			let payment = PaymentWithDestinationTag::new(
 				door_address,
 				destination.into(),
@@ -1430,9 +1428,7 @@ impl<T: Config> Pallet<T> {
 				None,
 			);
 			payment.binary_serialize(true)
-		};
-
-		tx_blob
+		}
 	}
 
 	/// Serialise an asset tx using the CurrencyPayment type from the XRPL codec
@@ -1496,7 +1492,7 @@ impl<T: Config> Pallet<T> {
 		let new_amount = mantissa as u128 * 10u128.pow(exponent as u32);
 		// Return an error if we are saturating by more than 1.0 of the asset
 		ensure!(
-			(amount - new_amount) < 1 * 10u128.pow(decimals as u32),
+			(amount - new_amount) < 10u128.pow(decimals as u32),
 			Error::<T>::AssetRoundingTooHigh
 		);
 		// Return mantissa and exponent back into Balance for our calculations

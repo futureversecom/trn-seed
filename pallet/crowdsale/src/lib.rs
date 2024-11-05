@@ -600,7 +600,7 @@ pub mod pallet {
 				let Ok(claimable_vouchers) = Self::transfer_user_vouchers(
 					who.clone(),
 					&sale_info,
-					contribution.into(),
+					contribution,
 					voucher_max_supply.into(),
 				) else {
 					log!(
@@ -695,7 +695,7 @@ pub mod pallet {
 				let claimable_vouchers = Self::transfer_user_vouchers(
 					who.clone(),
 					sale_info,
-					contribution.into(),
+					contribution,
 					voucher_max_supply.into(),
 				)
 				.map_err(|_| {
@@ -843,7 +843,7 @@ pub mod pallet {
 			ensure!(sale_info.admin == who, Error::<T>::AccessDenied);
 
 			// disallow invalid extrinsics
-			let _ = <T as pallet::Config>::ProxyCallValidator::check_extrinsic(&call, &())?;
+			<T as pallet::Config>::ProxyCallValidator::check_extrinsic(&call, &())?;
 
 			// proxy the call through the vault account
 			let vault_origin = frame_system::RawOrigin::Signed(sale_info.vault.clone());

@@ -388,7 +388,7 @@ pub mod pallet {
 		pub fn disable_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
 			Self::ensure_root_or_admin(origin)?;
 			ensure!(
-				VtxDistStatuses::<T>::get(id.clone()) != VtxDistStatus::Disabled,
+				VtxDistStatuses::<T>::get(id) != VtxDistStatus::Disabled,
 				Error::<T>::VtxDistDisabled
 			);
 			Self::do_disable_vtx_dist(id);
@@ -405,7 +405,7 @@ pub mod pallet {
 		pub fn start_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
 			Self::ensure_root_or_admin(origin)?;
 			ensure!(
-				VtxDistStatuses::<T>::get(id.clone()) == VtxDistStatus::Triggered,
+				VtxDistStatuses::<T>::get(id) == VtxDistStatus::Triggered,
 				Error::<T>::NotTriggered
 			);
 
@@ -430,8 +430,7 @@ pub mod pallet {
 			if let VtxDistStatus::Paying = VtxDistStatuses::<T>::get(id) {
 				let vault_account = Self::get_vtx_vault_account();
 				let start_key = VtxDistPayoutPivot::<T>::get(id);
-				let payout_pivot: Vec<u8> =
-					start_key.clone().try_into().map_err(|_| Error::<T>::PivotStringTooLong)?;
+				let payout_pivot: Vec<u8> = start_key.clone().into_inner();
 
 				let mut map_iterator = match VtxDistPayoutPivot::<T>::contains_key(id) {
 					true => <VtxDistOrderbook<T>>::iter_prefix_from(id, payout_pivot),
@@ -439,7 +438,7 @@ pub mod pallet {
 				};
 
 				let mut count = 0u32;
-				while let Some((who, entry)) = map_iterator.next() {
+				for (who, entry) in map_iterator.by_ref() {
 					// if the user is already paid out, skip
 					if entry.1 {
 						continue;
@@ -574,7 +573,7 @@ pub mod pallet {
 			Self::ensure_root_or_admin(origin)?;
 
 			ensure!(
-				VtxDistStatuses::<T>::get(id.clone()) == VtxDistStatus::Enabled,
+				VtxDistStatuses::<T>::get(id) == VtxDistStatus::Enabled,
 				Error::<T>::CannotTrigger
 			);
 
@@ -604,7 +603,7 @@ pub mod pallet {
 				Error::<T>::InvalidAmount
 			);
 			ensure!(
-				VtxDistStatuses::<T>::get(id.clone()) == VtxDistStatus::Done,
+				VtxDistStatuses::<T>::get(id) == VtxDistStatus::Done,
 				Error::<T>::CannotRedeem
 			);
 
@@ -687,7 +686,7 @@ pub mod pallet {
 			VtxDistStatuses::<T>::mutate(id, |status| {
 				*status = VtxDistStatus::Paying;
 			});
-			Ok(().into())
+			Ok(())
 		}
 
 		/// set asset prices

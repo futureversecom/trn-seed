@@ -62,14 +62,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Futurepass DefaultProxy (r:1 w:0)
 	// Storage: Assets Metadata (r:1 w:1)
 	fn create_asset() -> Weight {
-		Weight::from_all(175_374_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(7 as u64))
-			.saturating_add(T::DbWeight::get().writes(6 as u64))
+		Weight::from_all(175_374_000_u64)
+			.saturating_add(T::DbWeight::get().reads(7_u64))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
 	// Storage: AssetsExt AssetDeposit (r:0 w:1)
 	fn set_asset_deposit() -> Weight {
-		Weight::from_all(9_969_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(9_969_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -82,14 +82,14 @@ impl WeightInfo for () {
 	// Storage: Futurepass DefaultProxy (r:1 w:0)
 	// Storage: Assets Metadata (r:1 w:1)
 	fn create_asset() -> Weight {
-		Weight::from_all(175_374_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(7 as u64))
-			.saturating_add(RocksDbWeight::get().writes(6 as u64))
+		Weight::from_all(175_374_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
 	// Storage: AssetsExt AssetDeposit (r:0 w:1)
 	fn set_asset_deposit() -> Weight {
-		Weight::from_all(9_969_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(9_969_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
 

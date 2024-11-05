@@ -466,11 +466,11 @@ pub mod pallet {
 			let trading_pair = TradingPair::new(token_a, token_b);
 
 			ensure!(
-				Self::lp_token_id(&trading_pair).is_some(),
+				Self::lp_token_id(trading_pair).is_some(),
 				Error::<T>::LiquidityProviderTokenNotCreated
 			);
 
-			match Self::trading_pair_statuses(&trading_pair) {
+			match Self::trading_pair_statuses(trading_pair) {
 				TradingPairStatus::Enabled => return Err(Error::<T>::MustBeNotEnabled.into()),
 				// will enabled Disabled trading_pair
 				TradingPairStatus::NotEnabled => {
@@ -500,11 +500,11 @@ pub mod pallet {
 			let trading_pair = TradingPair::new(token_a, token_b);
 
 			ensure!(
-				Self::lp_token_id(&trading_pair).is_some(),
+				Self::lp_token_id(trading_pair).is_some(),
 				Error::<T>::LiquidityProviderTokenNotCreated
 			);
 
-			match Self::trading_pair_statuses(&trading_pair) {
+			match Self::trading_pair_statuses(trading_pair) {
 				// will disable Enabled trading_pair
 				TradingPairStatus::Enabled => {
 					TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::NotEnabled);
@@ -608,7 +608,7 @@ where
 		};
 
 		ensure!(
-			matches!(Self::trading_pair_statuses(&trading_pair), TradingPairStatus::Enabled),
+			matches!(Self::trading_pair_statuses(trading_pair), TradingPairStatus::Enabled),
 			Error::<T>::MustBeEnabled,
 		);
 
@@ -705,8 +705,8 @@ where
 			// liquidity = Math.min(amount0.mul(_totalSupply) / _reserve0,
 			// amount1.mul(_totalSupply) / _reserve1);
 			min(
-				U256::from(amount_0).mul(U256::from(total_supply))?.div(U256::from(reserve_a))?,
-				U256::from(amount_1).mul(U256::from(total_supply))?.div(U256::from(reserve_b))?,
+				U256::from(amount_0).mul(total_supply)?.div(U256::from(reserve_a))?,
+				U256::from(amount_1).mul(total_supply)?.div(U256::from(reserve_b))?,
 			)
 			.saturated_into()
 		};
@@ -777,7 +777,7 @@ where
 		let pool_address = trading_pair.pool_address();
 		T::MultiCurrency::transfer(
 			lp_share_asset_id,
-			&who,
+			who,
 			&pool_address,
 			liquidity,
 			Preservation::Expendable,
@@ -914,7 +914,7 @@ where
 
 		let amount_in_with_fee =
 			U256::from(amount_in).mul(U256::from(fee_denominator.sub(fee_numerator)?))?;
-		let numerator = U256::from(amount_in_with_fee).mul(U256::from(reserve_out))?;
+		let numerator = amount_in_with_fee.mul(U256::from(reserve_out))?;
 		let denominator = U256::from(reserve_in)
 			.mul(U256::from(fee_denominator))?
 			.add(amount_in_with_fee)?;
@@ -965,7 +965,7 @@ where
 			// trading pair in path must be enabled
 			ensure!(
 				matches!(
-					Self::trading_pair_statuses(&TradingPair::new(path[i], path[i + 1])),
+					Self::trading_pair_statuses(TradingPair::new(path[i], path[i + 1])),
 					TradingPairStatus::Enabled
 				),
 				Error::<T>::MustBeEnabled
@@ -1006,7 +1006,7 @@ where
 			// trading pair in path must be enabled
 			ensure!(
 				matches!(
-					Self::trading_pair_statuses(&TradingPair::new(path[i - 1], path[i])),
+					Self::trading_pair_statuses(TradingPair::new(path[i - 1], path[i])),
 					TradingPairStatus::Enabled
 				),
 				Error::<T>::MustBeEnabled
@@ -1208,7 +1208,7 @@ where
 			ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
 		}
 
-		let amounts = Self::get_amounts_out(amount_in, &path)?;
+		let amounts = Self::get_amounts_out(amount_in, path)?;
 
 		// INSUFFICIENT_OUTPUT_AMOUNT
 		ensure!(amounts[amounts.len() - 1] >= min_amount_out, Error::<T>::InsufficientTargetAmount);
@@ -1224,7 +1224,7 @@ where
 			Preservation::Expendable,
 		)?;
 
-		let swap_res = Self::_swap(&amounts, &path, &to)?;
+		let swap_res = Self::_swap(&amounts, path, &to)?;
 		Self::deposit_event(Event::Swap(
 			who.clone(),
 			path.to_vec(),
@@ -1254,7 +1254,7 @@ where
 			ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
 		}
 
-		let amounts = Self::get_amounts_in(amount_out, &path)?;
+		let amounts = Self::get_amounts_in(amount_out, path)?;
 
 		// EXCESSIVE_INPUT_AMOUNT
 		ensure!(amounts[0] <= amount_in_max, Error::<T>::ExcessiveSupplyAmount);
@@ -1268,7 +1268,7 @@ where
 			Preservation::Expendable,
 		)?;
 
-		let swap_res = Self::_swap(&amounts, &path, &to)?;
+		let swap_res = Self::_swap(&amounts, path, &to)?;
 		Self::deposit_event(Event::Swap(who.clone(), path.to_vec(), amounts[0], amount_out, to));
 		Ok((amounts, swap_res))
 	}

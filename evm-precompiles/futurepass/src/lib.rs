@@ -174,7 +174,7 @@ where
 				Action::TransferOwnership => Self::transfer_ownership(handle),
 			}
 		};
-		return Some(result);
+		Some(result)
 	}
 
 	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
@@ -222,10 +222,7 @@ where
 			.iter()
 			.find(|pd| pd.delegate == delegate.into())
 		{
-			proxy_type =
-				proxy_def.proxy_type.clone().try_into().map_err(|_e| {
-					RevertReason::custom("Futurepass: ProxyType conversion failure")
-				})?;
+			proxy_type = proxy_def.clone().proxy_type.into();
 		}
 
 		Ok(succeed(EvmDataWriter::new().write::<u8>(proxy_type).build()))
@@ -254,7 +251,7 @@ where
 				futurepass: futurepass.into(),
 				delegate: delegate.into(),
 				proxy_type: proxy_type_enum,
-				deadline: deadline.into(),
+				deadline,
 				signature,
 			},
 		)?;
@@ -322,7 +319,7 @@ where
 				let futurepass: H160 = handle.code_address();
 				let caller: H160 = handle.context().caller;
 				ensure!(
-					pallet_futurepass::Holders::<Runtime>::get(&Runtime::AccountId::from(caller))
+					pallet_futurepass::Holders::<Runtime>::get(Runtime::AccountId::from(caller))
 						== Some(futurepass.into()),
 					revert("Futurepass: NotFuturepassOwner")
 				);
@@ -346,7 +343,7 @@ where
 		value: U256,
 	) -> EvmResult<PrecompileOutput> {
 		// Read proxy
-		let futurepass_account_id = futurepass.clone().into();
+		let futurepass_account_id = futurepass.into();
 		let who = handle.context().caller.into();
 		// find proxy
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -372,14 +369,14 @@ where
 		// We also update the value for the sub call and for the transfer to match the "value" input
 		// parameter
 		let sub_context =
-			Context { caller: futurepass, address: address.clone(), apparent_value: value };
+			Context { caller: futurepass, address, apparent_value: value };
 
 		let transfer = if value.is_zero() {
 			None
 		} else {
 			// Transfer should happen from the futurepass and the value should be equal to the
 			// "value" input parameter.
-			Some(Transfer { source: futurepass, target: address.clone(), value })
+			Some(Transfer { source: futurepass, target: address, value })
 		};
 
 		let (reason, output) = match call_type {
@@ -453,7 +450,7 @@ where
 					8 + // chain id
 					65; // signature
 
-				let gas_limit = handle.remaining_gas().min(u64::MAX.into());
+				let gas_limit = handle.remaining_gas().min(u64::MAX);
 				let without_base_extrinsic_weight = true;
 
 				let (weight_limit, proof_size_base_cost) =
@@ -467,7 +464,7 @@ where
 						_ => (None, None),
 					};
 				let execution_info = <Runtime as pallet_evm::Config>::Runner::create(
-					futurepass.into(),
+					futurepass,
 					call_data.into_vec(),
 					value,
 					gas_limit,
@@ -525,7 +522,7 @@ where
 					8 + // chain id
 					65; // signature
 
-				let gas_limit = handle.remaining_gas().min(u64::MAX.into());
+				let gas_limit = handle.remaining_gas().min(u64::MAX);
 				let without_base_extrinsic_weight = true;
 
 				let (weight_limit, proof_size_base_cost) =
@@ -540,7 +537,7 @@ where
 					};
 
 				let execution_info = <Runtime as pallet_evm::Config>::Runner::create2(
-					futurepass.into(),
+					futurepass,
 					call_data_vec, // reuse the vector here
 					salt,
 					value,

@@ -85,7 +85,7 @@ where
 				Action::Erc721Withdraw => Self::erc721_withdraw(handle),
 			}
 		};
-		return result;
+		result
 	}
 }
 
@@ -128,7 +128,7 @@ where
 		.ok_or_else(|| revert("PEG: Invalid asset address"))?;
 		// Parse balance
 		if amount > Balance::MAX.into() {
-			return Err(revert("PEG: Expected balance <= 2^128").into());
+			return Err(revert("PEG: Expected balance <= 2^128"));
 		}
 		let amount: Balance = amount.saturated_into();
 
@@ -170,8 +170,7 @@ where
 			},
 			Err(err) => Err(revert(
 				alloc::format!("PEG: Erc20Withdraw failed {:?}", err.stripped())
-					.as_bytes()
-					.to_vec(),
+					.as_bytes(),
 			)),
 		}
 	}
@@ -209,8 +208,7 @@ where
 
 		// Bound collection_ids
 		let collection_ids: BoundedVec<CollectionUuid, Runtime::MaxCollectionsPerWithdraw> =
-			BoundedVec::try_from(collection_ids_unbounded)
-				.or_else(|_| Err(revert("PEG: Too many collections")))?;
+			BoundedVec::try_from(collection_ids_unbounded).map_err(|_| revert("PEG: Too many collections"))?;
 
 		// Parse serial_numbers
 		let serials_unbounded: Vec<BoundedVec<SerialNumber, Runtime::MaxSerialsPerWithdraw>> =
@@ -226,8 +224,7 @@ where
 		let serial_numbers: BoundedVec<
 			BoundedVec<SerialNumber, Runtime::MaxSerialsPerWithdraw>,
 			Runtime::MaxCollectionsPerWithdraw,
-		> = BoundedVec::try_from(serials_unbounded)
-			.or_else(|_| Err(revert("PEG: Too many collections")))?;
+		> = BoundedVec::try_from(serials_unbounded).map_err(|_| revert("PEG: Too many collections"))?;
 
 		// Get caller
 		let caller = Runtime::AccountId::from(handle.context().caller);
@@ -250,8 +247,7 @@ where
 		if let Err(err) = maybe_event_proof_id {
 			return Err(revert(
 				alloc::format!("PEG: Erc721Withdraw failed {:?}", err.stripped())
-					.as_bytes()
-					.to_vec(),
+					.as_bytes(),
 			));
 		};
 		let event_proof_id = maybe_event_proof_id.unwrap();
@@ -282,14 +278,13 @@ where
 			.into_iter()
 			.map(|serial_number| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("PEG: Expected serial_number <= 2^128").into());
+					return Err(revert("PEG: Expected serial_number <= 2^128"));
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				Ok(serial_number)
 			})
 			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
 
-		BoundedVec::try_from(serials_unbounded)
-			.or_else(|_| Err(revert("PEG: Too many serial numbers").into()))
+		BoundedVec::try_from(serials_unbounded).map_err(|_| revert("PEG: Too many serial numbers"))
 	}
 }

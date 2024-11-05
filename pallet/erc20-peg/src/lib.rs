@@ -497,7 +497,7 @@ impl<T: Config> Pallet<T> {
 					return match call_origin {
 						WithdrawCallOrigin::Runtime => {
 							// Delay the payment
-							let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
+							Self::burn_or_transfer(asset_id, &origin, amount)?;
 							Self::delay_payment(
 								delay,
 								PendingPayment::Withdrawal(message),
@@ -516,7 +516,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Process transfer or withdrawal of payment asset
-		let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
+		Self::burn_or_transfer(asset_id, &origin, amount)?;
 		Self::process_withdrawal(message, asset_id)
 	}
 
@@ -557,7 +557,7 @@ impl<T: Config> Pallet<T> {
 		let source: T::AccountId = T::PegPalletId::get().into_account_truncating();
 		let message = ethabi::encode(&[
 			Token::Address(withdrawal_message.token_address),
-			Token::Uint(withdrawal_message.amount.into()),
+			Token::Uint(withdrawal_message.amount),
 			Token::Address(withdrawal_message.beneficiary),
 		]);
 
@@ -599,7 +599,7 @@ impl<T: Config> Pallet<T> {
 						if Self::process_withdrawal(withdrawal_message.clone(), asset_id).is_err() {
 							Self::deposit_event(Event::<T>::DelayedErc20WithdrawalFailed {
 								asset_id,
-								beneficiary: withdrawal_message.beneficiary.into(),
+								beneficiary: withdrawal_message.beneficiary,
 							});
 						}
 					} else {
@@ -621,7 +621,7 @@ impl<T: Config> Pallet<T> {
 		source: T::AccountId,
 	) {
 		let payment_id = NextDelayedPaymentId::<T>::get();
-		if !payment_id.checked_add(One::one()).is_some() {
+		if payment_id.checked_add(One::one()).is_none() {
 			Self::deposit_event(Event::<T>::NoAvailableDelayedPaymentIds);
 			return;
 		}
@@ -799,7 +799,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 		} else {
 			Err((
 				DbWeight::get().reads(2u64),
-				DispatchError::Other("Invalid source address").into(),
+				DispatchError::Other("Invalid source address"),
 			))
 		}
 	}
@@ -816,9 +816,9 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 		if let &[Token::Address(token_address), Token::Uint(amount), Token::Address(beneficiary)] =
 			abi_decoded.as_slice()
 		{
-			let token_address: H160 = token_address.into();
-			let amount: U256 = amount.into();
-			let beneficiary: H160 = beneficiary.into();
+			let token_address: H160 = token_address;
+			let amount: U256 = amount;
+			let beneficiary: H160 = beneficiary;
 			// The total weight of do_deposit assuming it reaches every path
 			let deposit_weight = DbWeight::get().reads(6u64) + DbWeight::get().writes(4u64);
 			match Self::do_deposit(source, Erc20DepositEvent { token_address, amount, beneficiary })
@@ -829,7 +829,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 						source: *source,
 						abi_data: data.to_vec(),
 					});
-					Err((deposit_weight, e.into()))
+					Err((deposit_weight, e))
 				},
 			}
 		} else {

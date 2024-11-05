@@ -194,7 +194,7 @@ impl<T: Config> Pallet<T> {
 
 		let process_at: BlockNumberFor<T> =
 			<frame_system::Pallet<T>>::block_number() + ChallengePeriod::<T>::get();
-		MessagesValidAt::<T>::try_mutate(process_at.clone(), |v| -> DispatchResult {
+		MessagesValidAt::<T>::try_mutate(process_at, |v| -> DispatchResult {
 			v.try_push(event_id).map_err(|_| Error::<T>::MessageTooLarge)?;
 			Ok(())
 		})?;
@@ -223,10 +223,9 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn get_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Vec<T::EthyId> {
 		// Filter validator_list from WhiteList Validators.
 		validator_list
-			.into_iter()
+			.iter()
 			.filter(|validator| XrplDoorSigners::<T>::get(validator))
-			.map(|validator| -> T::EthyId { validator.clone() })
-			.take(T::MaxXrplKeys::get().into())
+			.take(T::MaxXrplKeys::get().into()).cloned()
 			.collect()
 	}
 
@@ -667,10 +666,10 @@ impl<T: Config> Pallet<T> {
 				log!(error, "💎 unexpected missing challenger account");
 			}
 			Self::deposit_event(Event::<T>::Invalid { event_claim_id });
-			return Ok(());
+			Ok(())
 		} else {
 			log!(error, "💎 unexpected empty claim");
-			return Err(Error::<T>::InvalidClaim.into());
+			Err(Error::<T>::InvalidClaim.into())
 		}
 	}
 
@@ -836,7 +835,6 @@ impl<T: Config> Pallet<T> {
 
 		// TODO: probably don't need both consensus logs...
 		let new_validator_addresses: Vec<Token> = next_keys
-			.to_vec()
 			.into_iter()
 			.map(|k| EthyEcdsaToEthereum::convert(k.as_ref()))
 			.map(|k| Token::Address(k.into()))
@@ -998,7 +996,7 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 				None => return InvalidTransaction::BadProof.into(),
 			};
 			// notarization must not be a duplicate/equivocation
-			if <EventNotarizations<T>>::contains_key(payload.payload_id(), &notary_public_key) {
+			if <EventNotarizations<T>>::contains_key(payload.payload_id(), notary_public_key) {
 				log!(
 					error,
 					"💎 received equivocation from: {:?} on {:?}",
@@ -1037,7 +1035,7 @@ impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
 impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	type Key = T::EthyId;
 
-	fn on_genesis_session<'a, I: 'a>(validators: I)
+	fn on_genesis_session<'a, I>(validators: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
@@ -1056,7 +1054,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		}
 	}
 
-	fn on_new_session<'a, I: 'a>(_changed: bool, _validators: I, queued_validators: I)
+	fn on_new_session<'a, I>(_changed: bool, _validators: I, queued_validators: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{

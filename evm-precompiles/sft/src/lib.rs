@@ -80,7 +80,7 @@ where
 				Action::InitializeCollection => Self::initialize_collection(handle),
 			}
 		};
-		return result;
+		result
 	}
 }
 
@@ -132,7 +132,7 @@ where
 		// Parse royalties
 		if royalty_addresses.len() != royalty_entitlements.len() {
 			return Err(
-				revert("SFT: Royalty addresses and entitlements must be the same length").into()
+				revert("SFT: Royalty addresses and entitlements must be the same length")
 			);
 		}
 		let royalty_entitlements = royalty_entitlements.into_iter().map(|entitlement| {
@@ -140,7 +140,7 @@ where
 			Permill::from_parts(entitlement)
 		});
 		let royalties_schedule: Option<RoyaltiesSchedule<Runtime::AccountId>> =
-			if royalty_addresses.len() > 0 {
+			if !royalty_addresses.is_empty() {
 				let entitlements_unbounded: Vec<(Runtime::AccountId, Permill)> = royalty_addresses
 					.into_iter()
 					.map(|address| H160::from(address).into())
@@ -196,8 +196,7 @@ where
 			},
 			Err(err) => Err(revert(
 				alloc::format!("SFT: Initialize collection failed {:?}", err.stripped())
-					.as_bytes()
-					.to_vec(),
+					.as_bytes(),
 			)),
 		}
 	}

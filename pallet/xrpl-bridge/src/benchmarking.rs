@@ -21,6 +21,7 @@ use frame_system::RawOrigin;
 use hex_literal::hex;
 
 use crate::Pallet as XrplBridge;
+use crate::types::XRPLCurrencyType;
 
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 	bench_account(name, 0, 0)

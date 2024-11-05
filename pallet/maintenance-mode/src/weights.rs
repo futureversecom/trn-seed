@@ -60,32 +60,32 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `MaintenanceMode::MaintenanceModeActive` (r:0 w:1)
 	// Proof: `MaintenanceMode::MaintenanceModeActive` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn enable_maintenance_mode() -> Weight {
-		Weight::from_all(23_722_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(23_722_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `MaintenanceMode::BlockedAccounts` (r:0 w:1)
 	// Proof: `MaintenanceMode::BlockedAccounts` (`max_values`: None, `max_size`: Some(29), added: 2504, mode: `MaxEncodedLen`)
 	fn block_account() -> Weight {
-		Weight::from_all(26_294_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(26_294_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `MaintenanceMode::BlockedEVMAddresses` (r:0 w:1)
 	// Proof: `MaintenanceMode::BlockedEVMAddresses` (`max_values`: None, `max_size`: Some(29), added: 2504, mode: `MaxEncodedLen`)
 	fn block_evm_target() -> Weight {
-		Weight::from_all(27_009_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(27_009_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `MaintenanceMode::BlockedCalls` (r:0 w:1)
 	// Proof: `MaintenanceMode::BlockedCalls` (`max_values`: None, `max_size`: Some(111), added: 2586, mode: `MaxEncodedLen`)
 	fn block_call() -> Weight {
-		Weight::from_all(30_054_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(30_054_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `MaintenanceMode::BlockedPallets` (r:0 w:1)
 	// Proof: `MaintenanceMode::BlockedPallets` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `MaxEncodedLen`)
 	fn block_pallet() -> Weight {
-		Weight::from_all(28_298_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(28_298_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -94,32 +94,32 @@ impl WeightInfo for () {
 	// Storage: `MaintenanceMode::MaintenanceModeActive` (r:0 w:1)
 	// Proof: `MaintenanceMode::MaintenanceModeActive` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn enable_maintenance_mode() -> Weight {
-		Weight::from_all(23_722_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(23_722_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `MaintenanceMode::BlockedAccounts` (r:0 w:1)
 	// Proof: `MaintenanceMode::BlockedAccounts` (`max_values`: None, `max_size`: Some(29), added: 2504, mode: `MaxEncodedLen`)
 	fn block_account() -> Weight {
-		Weight::from_all(26_294_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(26_294_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `MaintenanceMode::BlockedEVMAddresses` (r:0 w:1)
 	// Proof: `MaintenanceMode::BlockedEVMAddresses` (`max_values`: None, `max_size`: Some(29), added: 2504, mode: `MaxEncodedLen`)
 	fn block_evm_target() -> Weight {
-		Weight::from_all(27_009_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(27_009_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `MaintenanceMode::BlockedCalls` (r:0 w:1)
 	// Proof: `MaintenanceMode::BlockedCalls` (`max_values`: None, `max_size`: Some(111), added: 2586, mode: `MaxEncodedLen`)
 	fn block_call() -> Weight {
-		Weight::from_all(30_054_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(30_054_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `MaintenanceMode::BlockedPallets` (r:0 w:1)
 	// Proof: `MaintenanceMode::BlockedPallets` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `MaxEncodedLen`)
 	fn block_pallet() -> Weight {
-		Weight::from_all(28_298_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(28_298_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
 

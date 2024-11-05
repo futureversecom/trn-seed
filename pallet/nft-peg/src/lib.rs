@@ -218,10 +218,10 @@ where
 			abi_decoded.as_slice()
 		{
 			let token_addresses: Vec<H160> = token_addresses
-				.into_iter()
+				.iter()
 				.filter_map(|k| {
 					if let Token::Address(decoded) = k {
-						Some(decoded.clone())
+						Some(*decoded)
 					} else {
 						None
 					}
@@ -248,7 +248,7 @@ where
 					.filter_map(|j| {
 						if let Token::Uint(token_id) = j {
 							let token_id: SerialNumber = (*token_id).saturated_into();
-							Some(token_id.clone())
+							Some(token_id)
 						} else {
 							None
 						}
@@ -268,7 +268,7 @@ where
 			);
 
 			let token_information =
-				GroupedTokenInfo::new(new_token_ids, token_addresses, destination.clone().into());
+				GroupedTokenInfo::new(new_token_ids, token_addresses, (*destination).into());
 
 			let do_deposit_weight = Self::do_deposit(token_information, *destination)
 				.map_err(|(deposit_weight, err)| (weight.saturating_add(deposit_weight), err))?;
@@ -523,7 +523,7 @@ where
 				MessageDestination::Other => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
 			}
 		} else {
-			return Err((weight, Error::<T>::InvalidAbiPrefix.into()));
+			Err((weight, Error::<T>::InvalidAbiPrefix.into()))
 		}
 	}
 }

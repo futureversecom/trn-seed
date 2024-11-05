@@ -75,16 +75,10 @@ where
 /// Determines compatibility with external chains.
 /// If compatible with XRPL, XLS-20 tokens will be minted with every newly minted
 /// token on The Root Network
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
+#[derive(Default, Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
 pub struct CrossChainCompatibility {
 	/// This collection is compatible with the XLS-20 standard on XRPL
 	pub xrpl: bool,
-}
-
-impl Default for CrossChainCompatibility {
-	fn default() -> Self {
-		Self { xrpl: false }
-	}
 }
 
 /// Information related to a specific collection
@@ -154,10 +148,7 @@ where
 
 	/// Get's the token owner
 	pub fn get_token_owner(&self, serial_number: SerialNumber) -> Option<AccountId> {
-		let Some(token) = self.owned_tokens.iter().find(|x| x.contains_serial(&serial_number))
-		else {
-			return None;
-		};
+		let token = self.owned_tokens.iter().find(|x| x.contains_serial(&serial_number))?;
 		Some(token.owner.clone())
 	}
 

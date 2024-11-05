@@ -179,7 +179,7 @@ where
 				Ok(mut recursion_level) => {
 					if *recursion_level > max_recursion_level {
 						return Some(Err(
-							revert("Precompile is called with too high nesting").into()
+							revert("Precompile is called with too high nesting")
 						));
 					}
 
@@ -187,7 +187,7 @@ where
 				},
 				// We don't hold the borrow and are in single-threaded code, thus we should
 				// not be able to fail borrowing in nested calls.
-				Err(_) => return Some(Err(revert("Couldn't check precompile nesting").into())),
+				Err(_) => return Some(Err(revert("Couldn't check precompile nesting"))),
 			}
 		}
 
@@ -201,7 +201,7 @@ where
 				},
 				// We don't hold the borrow and are in single-threaded code, thus we should
 				// not be able to fail borrowing in nested calls.
-				Err(_) => return Some(Err(revert("Couldn't check precompile nesting").into())),
+				Err(_) => return Some(Err(revert("Couldn't check precompile nesting"))),
 			}
 		}
 
@@ -257,7 +257,7 @@ where
 
 		// Check DELEGATECALL config.
 		if !D::allow_delegate_call() && code_address != handle.context().address {
-			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE").into()));
+			return Some(Err(revert("Cannot be called with DELEGATECALL or CALLCODE")));
 		}
 
 		// Check and increase recursion level if needed.
@@ -266,7 +266,7 @@ where
 				Ok(mut recursion_level) => {
 					if *recursion_level > max_recursion_level {
 						return Some(Err(
-							revert("Precompile is called with too high nesting").into()
+							revert("Precompile is called with too high nesting")
 						));
 					}
 
@@ -274,7 +274,7 @@ where
 				},
 				// We don't hold the borrow and are in single-threaded code, thus we should
 				// not be able to fail borrowing in nested calls.
-				Err(_) => return Some(Err(revert("Couldn't check precompile nesting").into())),
+				Err(_) => return Some(Err(revert("Couldn't check precompile nesting"))),
 			}
 		}
 
@@ -459,16 +459,13 @@ impl PrecompileSetFragment for Tuple {
 	#[inline(always)]
 	fn is_precompile(&self, address: H160, remaining_gas: u64) -> IsPrecompileResult {
 		for_tuples!(#(
-			match self.Tuple.is_precompile(address, remaining_gas) {
-				IsPrecompileResult::Answer {
+			if let IsPrecompileResult::Answer {
 					is_precompile: true,
 					..
-				} => return IsPrecompileResult::Answer {
-					is_precompile: true,
-					extra_cost: 0,
-				},
-				_ => {}
-			};
+				} = self.Tuple.is_precompile(address, remaining_gas) { return IsPrecompileResult::Answer {
+   					is_precompile: true,
+   					extra_cost: 0,
+   				} };
 		)*);
 		IsPrecompileResult::Answer { is_precompile: false, extra_cost: 0 }
 	}
@@ -545,6 +542,12 @@ impl<R, P: PrecompileSetFragment> PrecompileSet for PrecompileSetBuilder<R, P> {
 	}
 }
 
+impl<R: pallet_evm::Config, P: PrecompileSetFragment> Default for PrecompileSetBuilder<R, P> {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 impl<R: pallet_evm::Config, P: PrecompileSetFragment> PrecompileSetBuilder<R, P> {
 	/// Create a new instance of the PrecompileSet.
 	pub fn new() -> Self {
@@ -557,6 +560,6 @@ impl<R: pallet_evm::Config, P: PrecompileSetFragment> PrecompileSetBuilder<R, P>
 			.inner
 			.used_addresses()
 			.into_iter()
-			.map(|x| R::AddressMapping::into_account_id(x))
+			.map(R::AddressMapping::into_account_id)
 	}
 }

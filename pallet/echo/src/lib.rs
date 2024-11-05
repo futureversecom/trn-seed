@@ -63,7 +63,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The EthereumBridge interface for sending messages to the bridge
 		type EthereumBridge: EthereumBridge;
-		/// This pallet's Id, used for deriving a sovereign account ID
+		/// This pallet's ID, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
@@ -163,7 +163,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 		{
 			let ping_or_pong: u8 = (*ping_or_pong).saturated_into();
 			let session_id: u64 = (*session_id).saturated_into();
-			let destination: H160 = (*destination).into();
+			let destination: H160 = *destination;
 
 			// Check whether event is a pong or a ping from Ethereum
 			match ping_or_pong {
@@ -192,7 +192,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 					]);
 					// Send pong response event to Ethereum
 					let event_proof_id = match T::EthereumBridge::send_event(
-						&source,
+						source,
 						&destination,
 						message.as_slice(),
 					) {

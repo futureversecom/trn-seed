@@ -74,9 +74,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Dex::LiquidityPoolLastK` (r:1 w:1)
 	// Proof: `Dex::LiquidityPoolLastK` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	fn swap_with_exact_supply() -> Weight {
-		Weight::from_all(290_144_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(11 as u64))
-			.saturating_add(T::DbWeight::get().writes(8 as u64))
+		Weight::from_all(290_144_000_u64)
+			.saturating_add(T::DbWeight::get().reads(11_u64))
+			.saturating_add(T::DbWeight::get().writes(8_u64))
 	}
 	// Storage: `Dex::TradingPairStatuses` (r:1 w:0)
 	// Proof: `Dex::TradingPairStatuses` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
@@ -93,9 +93,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Dex::LiquidityPoolLastK` (r:1 w:1)
 	// Proof: `Dex::LiquidityPoolLastK` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	fn swap_with_exact_target() -> Weight {
-		Weight::from_all(305_072_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(12 as u64))
-			.saturating_add(T::DbWeight::get().writes(8 as u64))
+		Weight::from_all(305_072_000_u64)
+			.saturating_add(T::DbWeight::get().reads(12_u64))
+			.saturating_add(T::DbWeight::get().writes(8_u64))
 	}
 	// Storage: `Dex::TradingPairLPToken` (r:1 w:1)
 	// Proof: `Dex::TradingPairLPToken` (`max_values`: None, `max_size`: Some(21), added: 2496, mode: `MaxEncodedLen`)
@@ -124,9 +124,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Dex::TradingPairStatuses` (r:0 w:1)
 	// Proof: `Dex::TradingPairStatuses` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
 	fn add_liquidity() -> Weight {
-		Weight::from_all(522_758_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(23 as u64))
-			.saturating_add(T::DbWeight::get().writes(21 as u64))
+		Weight::from_all(522_758_000_u64)
+			.saturating_add(T::DbWeight::get().reads(23_u64))
+			.saturating_add(T::DbWeight::get().writes(21_u64))
 	}
 	// Storage: `Dex::TradingPairLPToken` (r:1 w:0)
 	// Proof: `Dex::TradingPairLPToken` (`max_values`: None, `max_size`: Some(21), added: 2496, mode: `MaxEncodedLen`)
@@ -143,33 +143,33 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Dex::LiquidityPoolLastK` (r:1 w:1)
 	// Proof: `Dex::LiquidityPoolLastK` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	fn remove_liquidity() -> Weight {
-		Weight::from_all(430_985_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(14 as u64))
-			.saturating_add(T::DbWeight::get().writes(12 as u64))
+		Weight::from_all(430_985_000_u64)
+			.saturating_add(T::DbWeight::get().reads(14_u64))
+			.saturating_add(T::DbWeight::get().writes(12_u64))
 	}
 	// Storage: `Dex::TradingPairLPToken` (r:1 w:0)
 	// Proof: `Dex::TradingPairLPToken` (`max_values`: None, `max_size`: Some(21), added: 2496, mode: `MaxEncodedLen`)
 	// Storage: `Dex::TradingPairStatuses` (r:1 w:1)
 	// Proof: `Dex::TradingPairStatuses` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
 	fn reenable_trading_pair() -> Weight {
-		Weight::from_all(56_297_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(2 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(56_297_000_u64)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Dex::TradingPairLPToken` (r:1 w:0)
 	// Proof: `Dex::TradingPairLPToken` (`max_values`: None, `max_size`: Some(21), added: 2496, mode: `MaxEncodedLen`)
 	// Storage: `Dex::TradingPairStatuses` (r:1 w:1)
 	// Proof: `Dex::TradingPairStatuses` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
 	fn disable_trading_pair() -> Weight {
-		Weight::from_all(56_712_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(2 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(56_712_000_u64)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Dex::FeeTo` (r:0 w:1)
 	// Proof: `Dex::FeeTo` (`max_values`: Some(1), `max_size`: Some(21), added: 516, mode: `MaxEncodedLen`)
 	fn set_fee_to() -> Weight {
-		Weight::from_all(29_447_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(29_447_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -190,9 +190,9 @@ impl WeightInfo for () {
 	// Storage: `Dex::LiquidityPoolLastK` (r:1 w:1)
 	// Proof: `Dex::LiquidityPoolLastK` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	fn swap_with_exact_supply() -> Weight {
-		Weight::from_all(290_144_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(11 as u64))
-			.saturating_add(RocksDbWeight::get().writes(8 as u64))
+		Weight::from_all(290_144_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(11_u64))
+			.saturating_add(RocksDbWeight::get().writes(8_u64))
 	}
 	// Storage: `Dex::TradingPairStatuses` (r:1 w:0)
 	// Proof: `Dex::TradingPairStatuses` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
@@ -209,9 +209,9 @@ impl WeightInfo for () {
 	// Storage: `Dex::LiquidityPoolLastK` (r:1 w:1)
 	// Proof: `Dex::LiquidityPoolLastK` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	fn swap_with_exact_target() -> Weight {
-		Weight::from_all(305_072_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(12 as u64))
-			.saturating_add(RocksDbWeight::get().writes(8 as u64))
+		Weight::from_all(305_072_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(12_u64))
+			.saturating_add(RocksDbWeight::get().writes(8_u64))
 	}
 	// Storage: `Dex::TradingPairLPToken` (r:1 w:1)
 	// Proof: `Dex::TradingPairLPToken` (`max_values`: None, `max_size`: Some(21), added: 2496, mode: `MaxEncodedLen`)
@@ -240,9 +240,9 @@ impl WeightInfo for () {
 	// Storage: `Dex::TradingPairStatuses` (r:0 w:1)
 	// Proof: `Dex::TradingPairStatuses` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
 	fn add_liquidity() -> Weight {
-		Weight::from_all(522_758_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(23 as u64))
-			.saturating_add(RocksDbWeight::get().writes(21 as u64))
+		Weight::from_all(522_758_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(23_u64))
+			.saturating_add(RocksDbWeight::get().writes(21_u64))
 	}
 	// Storage: `Dex::TradingPairLPToken` (r:1 w:0)
 	// Proof: `Dex::TradingPairLPToken` (`max_values`: None, `max_size`: Some(21), added: 2496, mode: `MaxEncodedLen`)
@@ -259,33 +259,33 @@ impl WeightInfo for () {
 	// Storage: `Dex::LiquidityPoolLastK` (r:1 w:1)
 	// Proof: `Dex::LiquidityPoolLastK` (`max_values`: None, `max_size`: Some(44), added: 2519, mode: `MaxEncodedLen`)
 	fn remove_liquidity() -> Weight {
-		Weight::from_all(430_985_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(14 as u64))
-			.saturating_add(RocksDbWeight::get().writes(12 as u64))
+		Weight::from_all(430_985_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(14_u64))
+			.saturating_add(RocksDbWeight::get().writes(12_u64))
 	}
 	// Storage: `Dex::TradingPairLPToken` (r:1 w:0)
 	// Proof: `Dex::TradingPairLPToken` (`max_values`: None, `max_size`: Some(21), added: 2496, mode: `MaxEncodedLen`)
 	// Storage: `Dex::TradingPairStatuses` (r:1 w:1)
 	// Proof: `Dex::TradingPairStatuses` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
 	fn reenable_trading_pair() -> Weight {
-		Weight::from_all(56_297_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(2 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(56_297_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Dex::TradingPairLPToken` (r:1 w:0)
 	// Proof: `Dex::TradingPairLPToken` (`max_values`: None, `max_size`: Some(21), added: 2496, mode: `MaxEncodedLen`)
 	// Storage: `Dex::TradingPairStatuses` (r:1 w:1)
 	// Proof: `Dex::TradingPairStatuses` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
 	fn disable_trading_pair() -> Weight {
-		Weight::from_all(56_712_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(2 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(56_712_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Dex::FeeTo` (r:0 w:1)
 	// Proof: `Dex::FeeTo` (`max_values`: Some(1), `max_size`: Some(21), added: 516, mode: `MaxEncodedLen`)
 	fn set_fee_to() -> Weight {
-		Weight::from_all(29_447_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(29_447_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
 

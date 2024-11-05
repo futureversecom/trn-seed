@@ -129,9 +129,9 @@ where
 
 				verify_signature(
 					SignatureVersion::EIP191 as u8,
-					&signature,
+					signature,
 					&doughnut_v1.holder(),
-					&outer_call.encode().as_slice(),
+					outer_call.encode().as_slice(),
 				)
 				.map_err(|e| {
 					log!(info, "🍩 failed to verify outer signature: {:?}", e);
@@ -176,7 +176,7 @@ where
 			let validations_fee_payer: DoughnutFeePayerValidations<T> =
 				(ChargeTransactionPayment::<T>::from((*tip).into()),);
 			let validations_sender: DoughnutSenderValidations<T> =
-				(CheckNonZeroSender::new(), CheckNonce::from(nonce.clone().into()), CheckWeight::new());
+				(CheckNonZeroSender::new(), CheckNonce::from((*nonce).into()), CheckWeight::new());
 
 			SignedExtension::validate(
 				&validations_sender,
@@ -196,16 +196,16 @@ where
 			.ok()?;
 
 			// priority is based on the provided tip in the doughnut transaction data
-			let priority = ChargeTransactionPayment::<T>::get_priority(&dispatch_info, len, (*tip).into(), 0.into());
+			let priority = ChargeTransactionPayment::<T>::get_priority(dispatch_info, len, (*tip).into(), 0.into());
 			let who: T::AccountId = (*origin).into();
 			let account = frame_system::Account::<T>::get(who.clone());
-			let transaction_nonce = *nonce as u32;
+			let transaction_nonce = { *nonce };
 			let mut builder =
 				ValidTransactionBuilder::default().and_provides((origin, transaction_nonce)).priority(priority);
 
 			// In the context of the pool, a transaction with
 			// too high a nonce is still considered valid
-			if transaction_nonce > account.nonce.clone().into() {
+			if transaction_nonce > account.nonce.into() {
 				if let Some(prev_nonce) = transaction_nonce.checked_sub(1) {
 					builder = builder.and_requires((origin, prev_nonce))
 				}
@@ -232,7 +232,7 @@ where
 			let validations_fee_payer: DoughnutFeePayerValidations<T> =
 				(ChargeTransactionPayment::<T>::from((*tip).into()),);
 			let validations_sender: DoughnutSenderValidations<T> =
-				(CheckNonZeroSender::new(), CheckNonce::from(nonce.clone().into()), CheckWeight::new());
+				(CheckNonZeroSender::new(), CheckNonce::from((*nonce).into()), CheckWeight::new());
 
 			let pre_sender = SignedExtension::pre_dispatch(
 				validations_sender,
@@ -253,10 +253,7 @@ where
 
 			// Dispatch the outer call. i.e Doughnut::transact() with None as the origin
 			let res = call.dispatch(frame_system::RawOrigin::None.into());
-			let post_info = match res {
-				Ok(info) => info,
-				Err(err) => err.post_info,
-			};
+			let post_info = res.unwrap_or_else(|err| err.post_info);
 
 			// post dispatch
 			<DoughnutFeePayerValidations<T> as SignedExtension>::post_dispatch(
@@ -282,7 +279,7 @@ where
 	}
 
 	fn validate_params(
-		doughnut: &Vec<u8>,
+		doughnut: &[u8],
 		genesis_hash: &T::Hash,
 		call: &<T as Config>::RuntimeCall,
 	) -> Result<T::AccountId, String> {
@@ -295,7 +292,7 @@ where
 
 		// Doughnut work
 		// run doughnut common validations
-		let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.clone())
+		let Ok(Doughnut::V1(doughnut_v1)) = crate::Pallet::<T>::run_doughnut_common_validations(doughnut.to_vec())
 		else {
 			return Err("🍩 Doughnut validation failed.".into());
 		};
@@ -314,7 +311,7 @@ where
 			fee_payer_address = futurepass.into();
 		}
 
-		return Ok(fee_payer_address);
+		Ok(fee_payer_address)
 	}
 }
 

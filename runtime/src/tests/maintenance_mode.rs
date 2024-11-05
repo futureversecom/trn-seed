@@ -779,7 +779,7 @@ mod filtered_calls {
 
 			let call = pallet_assets::Call::<Runtime>::create {
 				id: 1,
-				admin: signer.clone(),
+				admin: signer,
 				min_balance: Default::default(),
 			};
 			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);

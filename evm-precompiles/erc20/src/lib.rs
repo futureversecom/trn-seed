@@ -282,7 +282,7 @@ where
 			Some(origin).into(),
 			pallet_assets_ext::Call::<Runtime>::transfer {
 				asset_id,
-				destination: to.clone().into(),
+				destination: to.into(),
 				amount,
 				keep_alive: false,
 			},
@@ -352,8 +352,8 @@ where
 		log3(
 			handle.code_address(),
 			SELECTOR_LOG_TRANSFER,
-			H160::from(from),
-			H160::from(to),
+			from,
+			to,
 			EvmDataWriter::new().write(amount).build(),
 		)
 		.record(handle)?;

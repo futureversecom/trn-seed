@@ -53,6 +53,7 @@ mod tests {
 	use sp_core::H160;
 	use sp_runtime::BuildStorage;
 
+	#[allow(dead_code)]
 	pub fn create_account<AccountId: From<H160>>(seed: u64) -> AccountId {
 		AccountId::from(H160::from_low_u64_be(seed))
 	}
@@ -217,7 +218,7 @@ impl Value {
 	///
 	/// # Usage
 	///
-	///	let (module, item, new_item) = (b"MyPallet", b"MyStorageName", b"NewStorage");
+	/// let (module, item, new_item) = (b"MyPallet", b"MyStorageName", b"NewStorage");
 	/// Value::unsafe_storage_put(module, item, 100u128);
 	/// assert_eq!(Value::unsafe_storage_rename::<u128>(module, item, new_item), true);
 	///
@@ -245,7 +246,7 @@ impl Value {
 	///
 	/// # Usage
 	///
-	///	let (storage, pallet, new_pallet) = (b"MyStorageName", b"MyPallet", b"MyNewPallet");
+	/// let (storage, pallet, new_pallet) = (b"MyStorageName", b"MyPallet", b"MyNewPallet");
 	/// Value::unsafe_storage_put(pallet, storage, 100u128);
 	/// assert_eq!(Value::unsafe_storage_move(storage, pallet, new_pallet), true);
 	///
@@ -274,7 +275,7 @@ impl Value {
 	///
 	/// # Usage
 	///
-	///	let (module, item) = (b"MyPallet", b"MyStorageName");
+	/// let (module, item) = (b"MyPallet", b"MyStorageName");
 	/// Value::unsafe_storage_put(module, item, 100u128);
 	/// assert_eq!(Value::unsafe_clear(module, item), true);
 	///
@@ -393,7 +394,7 @@ impl Map {
 	{
 		let keys: Vec<K> = Storage::iter_keys().collect();
 		keys.iter()
-			.filter_map(|key| Storage::try_get(key).map(|v| (key.clone(), v))
+			.filter_map(|key| Storage::try_get(key).map(|v| (key.clone(), v)).ok())
 			.collect()
 	}
 }

@@ -264,7 +264,7 @@ pub mod pallet {
 		/// # </weight>
 		#[pallet::call_index(1)]
 		#[pallet::weight({
-			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
+			let delegate_count = T::Proxy::delegates(futurepass).len() as u32;
 			T::WeightInfo::register_delegate_with_signature(delegate_count)
 		})]
 		#[transactional]
@@ -281,7 +281,7 @@ pub mod pallet {
 
 			// For V1 - caller must be futurepass holder or the futurepass
 			ensure!(
-				is_futurepass || Holders::<T>::get(&caller.clone()) == Some(futurepass.clone()),
+				is_futurepass || Holders::<T>::get(caller.clone()) == Some(futurepass.clone()),
 				Error::<T>::NotFuturepassOwner
 			);
 
@@ -349,7 +349,7 @@ pub mod pallet {
 		/// # </weight>
 		#[pallet::call_index(2)]
 		#[pallet::weight({
-			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
+			let delegate_count = T::Proxy::delegates(futurepass).len() as u32;
 			T::WeightInfo::unregister_delegate(delegate_count)
 		})]
 		#[transactional]
@@ -430,12 +430,12 @@ pub mod pallet {
 			if let Some(ref new_owner) = new_owner {
 				// Ensure that the new owner does not already own a futurepass
 				ensure!(
-					!Holders::<T>::contains_key(&new_owner),
+					!Holders::<T>::contains_key(new_owner),
 					Error::<T>::AccountAlreadyRegistered
 				);
 
 				// Add the new owner as a proxy delegate with the most permissive type, i.e.,
-				T::Proxy::add_delegate(&caller, &futurepass, &new_owner, &255)?; // owner is maxu8
+				T::Proxy::add_delegate(&caller, &futurepass, new_owner, &255)?; // owner is maxu8
 
 				// Iterate through the list of delegates and remove them, except for the new_owner
 				let delegates = T::Proxy::delegates(&futurepass);
@@ -473,7 +473,7 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		#[pallet::weight({
 			let di = call.get_dispatch_info();
-			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
+			let delegate_count = T::Proxy::delegates(futurepass).len() as u32;
 			(T::WeightInfo::proxy_extrinsic(delegate_count)
 				.saturating_add(di.weight)
 				 // AccountData for inner call origin accountdata.
@@ -499,7 +499,7 @@ pub mod pallet {
 				| Some(Call::unregister_delegate { .. })
 				| Some(Call::transfer_futurepass { .. }) => {
 					ensure!(
-						Holders::<T>::get(&who.clone()) == Some(futurepass.clone()),
+						Holders::<T>::get(who.clone()) == Some(futurepass.clone()),
 						Error::<T>::NotFuturepassOwner
 					);
 				},
@@ -509,7 +509,7 @@ pub mod pallet {
 			let result = T::Proxy::proxy_call(origin, futurepass, *call);
 			Self::deposit_event(Event::ProxyExecuted {
 				delegate: who,
-				result: result.map(|_| ()).map_err(|e| e),
+				result: result.map(|_| ()),
 			});
 			result
 		}
@@ -606,13 +606,13 @@ where
 		let hashed_msg: [u8; 32] = keccak_256(&packed_msg);
 
 		#[cfg(test)]
-		println!("hashed_msg: {:?}", hex::encode(&hashed_msg));
+		println!("hashed_msg: {:?}", hex::encode(hashed_msg));
 
 		let eth_signed_msg: [u8; 32] = keccak_256(
 			seed_primitives::ethereum_signed_message(hex::encode(hashed_msg).as_bytes()).as_ref(),
 		);
 		#[cfg(test)]
-		println!("ethereum_signed_message: {:?}", hex::encode(&eth_signed_msg));
+		println!("ethereum_signed_message: {:?}", hex::encode(eth_signed_msg));
 
 		Ok((hashed_msg, eth_signed_msg))
 	}

@@ -331,7 +331,7 @@ where
 		self.gossip_engine.gossip_message(topic::<B>(), witness.encode(), false);
 
 		// Try to make proof
-		self.try_make_proof(witness.event_id.clone());
+		self.try_make_proof(witness.event_id);
 	}
 
 	/// Try to make an event proof
@@ -524,8 +524,8 @@ pub(crate) mod test {
 		if let Ok(maybe_encoded_proof) = worker.client.get_aux(
 			[
 				ETHY_ENGINE_ID.as_slice(),
-				&[chain_id.into()].as_slice(),
-				&event_id.to_be_bytes().as_slice(),
+				([chain_id.into()].as_slice()),
+				(event_id.to_be_bytes().as_slice()),
 			]
 			.concat()
 			.as_ref(),
@@ -580,7 +580,7 @@ pub(crate) mod test {
 		let keys = &[Keyring::Alice, Keyring::Bob];
 		let validators = make_ethy_ids(keys);
 		let mut net = EthyTestNet::new(1, 0);
-		let mut worker = create_ethy_worker(&net.peer(0), &keys[0], validators.clone());
+		let mut worker = create_ethy_worker(net.peer(0), &keys[0], validators.clone());
 
 		// Create validator set with proof threshold of 2
 		let validator_set = ValidatorSet { validators, id: 1, proof_threshold: 2 };
@@ -604,7 +604,7 @@ pub(crate) mod test {
 		// Check we have 1 signature
 		assert_eq!(worker.witness_record.signatures_for(event_id).len(), 1);
 
-		let witness_2 = create_witness(&&keys[1], event_id, chain_id, digest);
+		let witness_2 = create_witness(&keys[1], event_id, chain_id, digest);
 		worker.handle_witness(witness_2);
 
 		// Check we have 0 signatures. The event should have reached consensus and  witness
@@ -621,7 +621,7 @@ pub(crate) mod test {
 		let keys = &[Keyring::Alice, Keyring::Bob];
 		let validators = make_ethy_ids(keys);
 		let mut net = EthyTestNet::new(1, 0);
-		let mut worker = create_ethy_worker(&net.peer(0), &keys[0], validators.clone());
+		let mut worker = create_ethy_worker(net.peer(0), &keys[0], validators.clone());
 
 		// Create validator set with proof threshold of 2
 		let validator_set = ValidatorSet { validators, id: 1, proof_threshold: 2 };
@@ -731,7 +731,7 @@ pub(crate) mod test {
 		let runtime_validators = make_ethy_ids(keys);
 		let header_validators = make_ethy_ids(&[Keyring::Alice, Keyring::Bob, Keyring::Charlie]);
 		let mut net = EthyTestNet::new(1, 0);
-		let mut worker = create_ethy_worker(&net.peer(0), &keys[0], runtime_validators.clone());
+		let mut worker = create_ethy_worker(net.peer(0), &keys[0], runtime_validators.clone());
 
 		let mut header = Header::new(
 			1u32.into(),

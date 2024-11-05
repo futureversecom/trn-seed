@@ -13,8 +13,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-#![cfg(test)]
-
 use super::*;
 use crate::{self as pallet_doughnut};
 use frame_support::{traits::InstanceFilter, weights::WeightToFee};
@@ -175,7 +173,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 			RuntimeCall::Doughnut(call) => pallet_doughnut::Call::<Test>::apply_self_contained(
 				call.into(),
 				&info,
-				&dispatch_info,
+				dispatch_info,
 				len,
 			),
 			_ => None,

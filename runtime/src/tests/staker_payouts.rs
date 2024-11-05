@@ -61,13 +61,13 @@ fn run_to_block(n: BlockNumber) {
 		};
 
 		System::reset_events();
-		System::initialize(&(b as u32 + 1), &parent_hash, &Default::default());
-		System::set_block_number((b + 1).into());
+		System::initialize(&(b + 1), &parent_hash, &Default::default());
+		System::set_block_number(b + 1);
 
 		System::on_initialize(System::block_number());
 		Babe::on_initialize(System::block_number());
 		<pallet_babe::CurrentSlot<Runtime>>::put(sp_consensus_babe::Slot::from(
-			b as u64 + 1 as u64,
+			b as u64 + 1_u64,
 		));
 		Timestamp::on_initialize(System::block_number());
 		Timestamp::set_timestamp((System::block_number() * MILLISECS_PER_BLOCK as u32) as u64);
@@ -117,7 +117,7 @@ fn advance_session() {
 
 /// Progress until the given era.
 fn start_active_era(era_index: EraIndex) {
-	start_session((era_index * <SessionsPerEra as Get<u32>>::get()).into());
+	start_session(era_index * <SessionsPerEra as Get<u32>>::get());
 	assert_eq!(active_era(), era_index);
 	// One way or another, current_era must have changed before the active era
 	assert_eq!(current_era(), active_era());
@@ -256,8 +256,7 @@ fn staking_final_session_tracking_ethy() {
 		advance_session(); // era 2 starts and keys contain the updated key
 		assert!(pallet_ethy::NotaryKeys::<Runtime>::get()
 			.into_iter()
-			.find(|x| x == &new_keys.ethy)
-			.is_some());
+			.any(|x| &x == &new_keys.ethy));
 
 		// Forcing era, marks active session final, sets keys
 		let (_, babe, im_online, grandpa, ethy) = authority_keys_from_seed("Alice3.0");
@@ -270,10 +269,9 @@ fn staking_final_session_tracking_ethy() {
 		advance_session(); // era 3 starts (forced) and keys contain the updated key
 				   // Call on_initialize for scheduler to update keys and unpause bridge
 		let scheduled_block: BlockNumber = System::block_number() + 75_u32;
-		Scheduler::on_initialize(scheduled_block.into());
+		Scheduler::on_initialize(scheduled_block);
 		assert!(pallet_ethy::NotaryKeys::<Runtime>::get()
 			.into_iter()
-			.find(|x| x == &new_keys.ethy)
-			.is_some());
+			.any(|x| &x == &new_keys.ethy));
 	});
 }

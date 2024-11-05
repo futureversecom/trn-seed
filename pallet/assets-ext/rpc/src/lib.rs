@@ -65,6 +65,6 @@ where
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		api.free_balance(best, asset_id, who, false)
-			.map_err(|e| RpcError::to_call_error(e))
+			.map_err(RpcError::to_call_error)
 	}
 }

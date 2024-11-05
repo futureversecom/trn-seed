@@ -74,9 +74,9 @@ impl From<&str> for Bytes {
 	}
 }
 
-impl Into<Vec<u8>> for Bytes {
-	fn into(self) -> Vec<u8> {
-		self.0
+impl From<Bytes> for Vec<u8> {
+	fn from(value: Bytes) -> Vec<u8> {
+		value.0
 	}
 }
 
@@ -211,7 +211,7 @@ impl<'a> EvmDataReader<'a> {
 	/// Checks cursor overflows.
 	fn move_cursor(&mut self, len: usize) -> MayRevert<Range<usize>> {
 		let start = self.cursor;
-		let end = self.cursor.checked_add(len).ok_or_else(|| RevertReason::CursorOverflow)?;
+		let end = self.cursor.checked_add(len).ok_or(RevertReason::CursorOverflow)?;
 
 		self.cursor = end;
 
@@ -673,18 +673,18 @@ impl<T: EvmData, S: Get<u32>> EvmData for BoundedVec<T, S> {
 ///
 /// ```rust,ignore
 /// impl EvmData for Currency {
-/// 	fn read(reader: &mut EvmDataReader) -> MayRevert<Self> {
-/// 		read_struct!(reader, (address, amount));
-/// 		Ok(Currency { address, amount })
-/// 	}
+///     fn read(reader: &mut EvmDataReader) -> MayRevert<Self> {
+///         read_struct!(reader, (address, amount));
+///         Ok(Currency { address, amount })
+///     }
 ///
-/// 	fn write(writer: &mut EvmDataWriter, value: Self) {
-/// 		EvmData::write(writer, (value.address, value.amount));
-/// 	}
+///     fn write(writer: &mut EvmDataWriter, value: Self) {
+///         EvmData::write(writer, (value.address, value.amount));
+///     }
 ///
-/// 	fn has_static_size() -> bool {
-/// 		<(Address, U256)>::has_static_size()
-/// 	}
+///     fn has_static_size() -> bool {
+///         <(Address, U256)>::has_static_size()
+///     }
 /// }
 /// ```
 #[macro_export]

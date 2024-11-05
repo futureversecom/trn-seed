@@ -182,18 +182,18 @@ pub type EventRouterResult = Result<Weight, (Weight, EventRouterError)>;
 /// ```ignore
 /// impl EthereumEventRouter for (A,B,C)
 /// where
-/// 	A: EthereumEventSubscriber,
-/// 	B: EthereumEventSubscriber,
-/// 	C: EthereumEventSubscriber,
+///     A: EthereumEventSubscriber,
+///     B: EthereumEventSubscriber,
+///     C: EthereumEventSubscriber,
 /// {
-/// 	fn route(destination, source, data) -> EventRouterResult {
-/// 		match destination {
-/// 			A::Destination => A::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
-/// 			B::Destination => B::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
-/// 			C::Destination => C::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
-/// 			 _ => Err((Weight::zero(), EventRouterError::NoReceiver)),
-/// 		}
-/// 	}
+///     fn route(destination, source, data) -> EventRouterResult {
+///         match destination {
+///             A::Destination => A::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
+///             B::Destination => B::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
+///             C::Destination => C::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
+///              _ => Err((Weight::zero(), EventRouterError::NoReceiver)),
+///         }
+///     }
 /// }
 /// ```
 pub trait EthereumEventRouter {
@@ -234,7 +234,7 @@ pub trait EthereumEventSubscriber {
 		if source != &Self::SourceAddress::get() {
 			Err((
 				DbWeight::get().reads(1u64),
-				DispatchError::Other("Invalid source address").into(),
+				DispatchError::Other("Invalid source address"),
 			))
 		} else {
 			Ok(DbWeight::get().reads(1u64))

@@ -95,7 +95,7 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 			&& self
 				.entitlements
 				.iter()
-				.map(|(_who, share)| share.deconstruct() as u32)
+			.map(|(_who, share)| share.deconstruct())
 				.sum::<u32>() <= Permill::ACCURACY
 	}
 	/// Calculate the total % entitled for royalties

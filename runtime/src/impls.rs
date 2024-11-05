@@ -378,7 +378,7 @@ impl FinalSessionTracker for StakingSessionTracker {
 		match Staking::force_era() {
 			Forcing::ForceNew | Forcing::ForceAlways => true,
 			Forcing::NotForcing | Forcing::ForceNone => false,
-		};
+		}
 	}
 }
 

@@ -42,7 +42,7 @@ pub const SELECTOR_LOG_SWAP: [u8; 32] =
 /// Saturated conversion from EVM uint256 to Balance
 fn saturated_convert_balance(input: U256) -> Result<Balance, PrecompileFailure> {
 	if input > Balance::MAX.into() {
-		return Err(revert("DEX: Input number exceeds the Balance type boundary (2^128)").into());
+		return Err(revert("DEX: Input number exceeds the Balance type boundary (2^128)"));
 	}
 	Ok(input.saturated_into())
 }
@@ -50,7 +50,7 @@ fn saturated_convert_balance(input: U256) -> Result<Balance, PrecompileFailure> 
 /// Saturated conversion from EVM uint256 to Blocknumber
 fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileFailure> {
 	if input > BlockNumber::MAX.into() {
-		return Err(revert("DEX: Input number exceeds the BlockNumber type boundary (2^32)").into());
+		return Err(revert("DEX: Input number exceeds the BlockNumber type boundary (2^32)"));
 	}
 	Ok(input.saturated_into())
 }
@@ -139,7 +139,7 @@ where
 				Action::GetAmountsOut => Self::get_amounts_out(handle),
 			}
 		};
-		return result;
+		result
 	}
 }
 
@@ -853,8 +853,7 @@ where
 			Ok(amount_b) => Ok(succeed(EvmDataWriter::new().write::<U256>(amount_b).build())),
 			Err(e) => Err(revert(
 				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes()
-					.to_vec(),
+					.as_bytes(),
 			)),
 		}
 	}
@@ -880,8 +879,7 @@ where
 			Ok(amount_out) => Ok(succeed(EvmDataWriter::new().write::<u128>(amount_out).build())),
 			Err(e) => Err(revert(
 				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes()
-					.to_vec(),
+					.as_bytes(),
 			)),
 		}
 	}
@@ -907,8 +905,7 @@ where
 			Ok(amount_in) => Ok(succeed(EvmDataWriter::new().write::<u128>(amount_in).build())),
 			Err(e) => Err(revert(
 				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes()
-					.to_vec(),
+					.as_bytes(),
 			)),
 		}
 	}
@@ -946,8 +943,7 @@ where
 			Ok(amounts) => Ok(succeed(EvmDataWriter::new().write(amounts).build())),
 			Err(e) => Err(revert(
 				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes()
-					.to_vec(),
+					.as_bytes(),
 			)),
 		}
 	}
@@ -985,8 +981,7 @@ where
 			Ok(amounts) => Ok(succeed(EvmDataWriter::new().write(amounts).build())),
 			Err(e) => Err(revert(
 				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes()
-					.to_vec(),
+					.as_bytes(),
 			)),
 		}
 	}

@@ -18,7 +18,7 @@ use crate::mock::{
 	AssetsExt, DelayedPaymentBlockLimit, MaxPrunedTransactionsPerBlock, RuntimeOrigin, System,
 	Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod, XrplPalletId,
 };
-use crate::types::XRPLCurrency;
+use crate::types::{XRPLCurrency, XRPLCurrencyType};
 use frame_support::traits::fungibles::metadata::Inspect as InspectMetadata;
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;

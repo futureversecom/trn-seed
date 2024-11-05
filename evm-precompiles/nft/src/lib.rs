@@ -83,7 +83,7 @@ where
 				Action::InitializeCollection => Self::initialize_collection(handle),
 			}
 		};
-		return result;
+		result
 	}
 }
 
@@ -132,7 +132,7 @@ where
 		// Parse max issuance
 		// If max issuance is 0, we assume no max issuance is set
 		if max_issuance > u32::MAX.into() {
-			return Err(revert("NFT: Expected max_issuance <= 2^32").into());
+			return Err(revert("NFT: Expected max_issuance <= 2^32"));
 		}
 		let max_issuance: TokenCount = max_issuance.saturated_into();
 		let max_issuance: Option<TokenCount> = match max_issuance {
@@ -149,7 +149,7 @@ where
 		// Parse royalties
 		if royalty_addresses.len() != royalty_entitlements.len() {
 			return Err(
-				revert("NFT: Royalty addresses and entitlements must be the same length").into()
+				revert("NFT: Royalty addresses and entitlements must be the same length")
 			);
 		}
 		let royalty_entitlements = royalty_entitlements.into_iter().map(|entitlement| {
@@ -157,7 +157,7 @@ where
 			Permill::from_parts(entitlement)
 		});
 		let royalties_schedule: Option<RoyaltiesSchedule<Runtime::AccountId>> =
-			if royalty_addresses.len() > 0 {
+			if !royalty_addresses.is_empty() {
 				let entitlements_unbounded: Vec<(Runtime::AccountId, Permill)> = royalty_addresses
 					.into_iter()
 					.map(|address| H160::from(address).into())
@@ -218,8 +218,7 @@ where
 			},
 			Err(err) => Err(revert(
 				alloc::format!("NFT: Initialize collection failed {:?}", err.stripped())
-					.as_bytes()
-					.to_vec(),
+					.as_bytes(),
 			)),
 		}
 	}

@@ -900,7 +900,7 @@ fn register_marketplace_separate_account() {
 
 		assert_ok!(Marketplace::register_marketplace(
 			Some(account).into(),
-			Some(marketplace_account).into(),
+			Some(marketplace_account),
 			entitlement
 		));
 		System::assert_last_event(MockEvent::Marketplace(Event::<Test>::MarketplaceRegister {
@@ -939,7 +939,7 @@ fn buy_with_marketplace_royalties() {
 			let marketplace_entitlement: Permill = Permill::from_float(0.5);
 			assert_ok!(Marketplace::register_marketplace(
 				Some(marketplace_account).into(),
-				Some(marketplace_account).into(),
+				Some(marketplace_account),
 				marketplace_entitlement
 			));
 			let marketplace_id = 0;
@@ -955,7 +955,7 @@ fn buy_with_marketplace_royalties() {
 				NativeAssetId::get(),
 				sale_price,
 				None,
-				Some(marketplace_id).into(),
+				Some(marketplace_id),
 			));
 
 			let initial_balance_owner = AssetsExt::balance(NativeAssetId::get(), &collection_owner);
@@ -1009,7 +1009,7 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 			let marketplace_entitlement: Permill = Permill::from_float(0.5);
 			assert_ok!(Marketplace::register_marketplace(
 				Some(marketplace_account).into(),
-				Some(marketplace_account).into(),
+				Some(marketplace_account),
 				marketplace_entitlement
 			));
 			let marketplace_id = 0;
@@ -1024,7 +1024,7 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 					NativeAssetId::get(),
 					sale_price,
 					None,
-					Some(marketplace_id).into(),
+					Some(marketplace_id),
 				),
 				Error::<Test>::RoyaltiesInvalid,
 			);
@@ -1076,7 +1076,7 @@ fn buy() {
 			.is_none());
 
 			// ownership changed
-			assert!(TokenLocks::<Test>::get(&token_id).is_none());
+			assert!(TokenLocks::<Test>::get(token_id).is_none());
 			assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
@@ -1137,7 +1137,7 @@ fn buy_with_xrp() {
 			.is_none());
 
 			// ownership changed
-			assert!(TokenLocks::<Test>::get(&token_id).is_none());
+			assert!(TokenLocks::<Test>::get(token_id).is_none());
 			assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
@@ -1601,7 +1601,7 @@ fn auction() {
 				None,
 			));
 			assert_eq!(
-				TokenLocks::<Test>::get(&token_id).unwrap(),
+				TokenLocks::<Test>::get(token_id).unwrap(),
 				TokenLockReason::Listed(listing_id)
 			);
 			assert_eq!(Marketplace::next_listing_id(), listing_id + 1);
@@ -1660,7 +1660,7 @@ fn auction() {
 			);
 
 			// ownership changed
-			assert!(TokenLocks::<Test>::get(&token_id).is_none());
+			assert!(TokenLocks::<Test>::get(token_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &bidder_2, 0, 1000),
 				(0_u32, 1, vec![token_id.1])
@@ -1706,7 +1706,7 @@ fn auction_with_xrp_asset() {
 				None,
 			));
 			assert_eq!(
-				TokenLocks::<Test>::get(&token_id).unwrap(),
+				TokenLocks::<Test>::get(token_id).unwrap(),
 				TokenLockReason::Listed(listing_id)
 			);
 			assert_eq!(Marketplace::next_listing_id(), listing_id + 1);
@@ -1749,7 +1749,7 @@ fn auction_with_xrp_asset() {
 			);
 
 			// ownership changed
-			assert!(TokenLocks::<Test>::get(&token_id).is_none());
+			assert!(TokenLocks::<Test>::get(token_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &bidder_2, 0, 1000),
 				(0_u32, 1, vec![token_id.1])
@@ -1916,7 +1916,7 @@ fn close_listings_at_removes_listing_data() {
 				fixed_price: price,
 				buyer: None,
 				close: System::block_number() + 1,
-				seller: seller.clone(),
+				seller: seller,
 				tokens: tokens.clone(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
@@ -1926,7 +1926,7 @@ fn close_listings_at_removes_listing_data() {
 				payment_asset: NativeAssetId::get(),
 				reserve_price: price,
 				close: System::block_number() + 1,
-				seller: seller.clone(),
+				seller: seller,
 				tokens: tokens.clone(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
@@ -1936,7 +1936,7 @@ fn close_listings_at_removes_listing_data() {
 				payment_asset: NativeAssetId::get(),
 				reserve_price: price,
 				close: System::block_number() + 1,
-				seller: seller.clone(),
+				seller: seller,
 				tokens: tokens.clone(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
@@ -2697,7 +2697,7 @@ mod set_fee_to {
 
 			// Change fee_to account
 			let new_fee_to = create_account(10);
-			assert_ok!(Marketplace::set_fee_to(RawOrigin::Root.into(), Some(new_fee_to.clone())));
+			assert_ok!(Marketplace::set_fee_to(RawOrigin::Root.into(), Some(new_fee_to)));
 
 			// Event thrown
 			System::assert_last_event(MockEvent::Marketplace(Event::<Test>::FeeToSet {
@@ -2775,13 +2775,12 @@ mod sell_sft {
 					marketplace_id: None,
 				})
 			);
-			assert_eq!(
+			assert!(
 				ListingEndSchedule::<Test>::get(
 					System::block_number() + DefaultListingDuration::get(),
 					listing_id
 				)
 				.unwrap(),
-				true
 			);
 			// Check the SFT reserved and free balance
 			let token_balance = sft_balance_of::<Test>(token_id, &token_owner);
@@ -3423,13 +3422,12 @@ mod auction_sft {
 					marketplace_id: None,
 				})
 			);
-			assert_eq!(
+			assert!(
 				ListingEndSchedule::<Test>::get(
 					System::block_number() + DefaultListingDuration::get(),
 					listing_id
 				)
 				.unwrap(),
-				true
 			);
 			// Check the SFT reserved and free balance
 			let token_balance = sft_balance_of::<Test>(token_id, &token_owner);

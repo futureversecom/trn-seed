@@ -301,7 +301,7 @@ pub mod pallet {
 			collection_id: CollectionUuid,
 			new_owner: T::AccountId,
 		) -> DispatchResult {
-			let _who = ensure_root(origin)?;
+			ensure_root(origin)?;
 
 			CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection| -> DispatchResult {
 				let collection = maybe_collection.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
@@ -383,6 +383,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		//noinspection ALL
 		/// Create a new collection
 		/// Additional tokens can be minted via `mint_additional`
 		///
@@ -548,7 +549,7 @@ pub mod pallet {
 			// Check if this collection is XLS-20 compatible
 			if xls20_compatible {
 				// Pay XLS20 mint fee and send requests
-				let _ = T::Xls20MintRequest::request_xls20_mint(
+				T::Xls20MintRequest::request_xls20_mint(
 					&who,
 					collection_id,
 					serial_numbers.clone().into_inner(),
@@ -557,9 +558,9 @@ pub mod pallet {
 			}
 
 			// Request NFI storage if enabled
-			let _ = T::NFIRequest::request(
+			T::NFIRequest::request(
 				&who,
-				collection_id.clone(),
+				collection_id,
 				serial_numbers.clone().into_inner(),
 			)?;
 

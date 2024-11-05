@@ -157,59 +157,56 @@ where
 		From<Option<Runtime::AccountId>>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
-		let result = {
-			let selector = match handle.read_selector() {
-				Ok(selector) => selector,
-				Err(e) => return Err(e.into()),
-			};
-
-			if let Err(err) = handle.check_function_modifier(match selector {
-				Action::RegisterMarketplace
-				| Action::SellNft
-				| Action::SellNftWithMarketplaceId
-				| Action::SellSft
-				| Action::UpdateFixedPrice
-				| Action::AuctionNft
-				| Action::AuctionNftWithMarketplaceId
-				| Action::AuctionSft
-				| Action::Bid
-				| Action::Buy
-				| Action::CancelSale
-				| Action::MakeSimpleOffer
-				| Action::MakeSimpleOfferWithMarketplaceId
-				| Action::CancelOffer
-				| Action::AcceptOffer => FunctionModifier::NonPayable,
-				_ => FunctionModifier::View,
-			}) {
-				return Err(err.into());
-			}
-
-			match selector {
-				Action::RegisterMarketplace => Self::register_marketplace(handle),
-				Action::SellNftWithMarketplaceId => Self::sell_nft(handle),
-				Action::SellNft => Self::sell_nft(handle),
-				Action::SellSft => Self::sell_sft(handle),
-				Action::UpdateFixedPrice => Self::update_fixed_price(handle),
-				Action::Buy => Self::buy(handle),
-				Action::AuctionNftWithMarketplaceId => {
-					Self::auction_nft_with_marketplace_id(handle)
-				},
-				Action::AuctionNft => Self::auction_nft_with_marketplace_id(handle),
-				Action::AuctionSft => Self::auction_sft_with_marketplace_id(handle),
-				Action::Bid => Self::bid(handle),
-				Action::CancelSale => Self::cancel_sale(handle),
-				Action::MakeSimpleOfferWithMarketplaceId => {
-					Self::make_simple_offer_with_marketplace_id(handle)
-				},
-				Action::MakeSimpleOffer => Self::make_simple_offer_with_marketplace_id(handle),
-				Action::CancelOffer => Self::cancel_offer(handle),
-				Action::AcceptOffer => Self::accept_offer(handle),
-				Action::GetMarketplaceAccount => Self::get_marketplace_account(handle),
-				Action::GetListingFromId => Self::get_listing_from_id(handle),
-				Action::GetOfferFromId => Self::get_offer_from_id(handle),
-			}
+		let selector = match handle.read_selector() {
+			Ok(selector) => selector,
+			Err(e) => return Err(e.into()),
 		};
-		result
+
+		if let Err(err) = handle.check_function_modifier(match selector {
+			Action::RegisterMarketplace
+			| Action::SellNft
+			| Action::SellNftWithMarketplaceId
+			| Action::SellSft
+			| Action::UpdateFixedPrice
+			| Action::AuctionNft
+			| Action::AuctionNftWithMarketplaceId
+			| Action::AuctionSft
+			| Action::Bid
+			| Action::Buy
+			| Action::CancelSale
+			| Action::MakeSimpleOffer
+			| Action::MakeSimpleOfferWithMarketplaceId
+			| Action::CancelOffer
+			| Action::AcceptOffer => FunctionModifier::NonPayable,
+			_ => FunctionModifier::View,
+		}) {
+			return Err(err.into());
+		}
+
+		match selector {
+			Action::RegisterMarketplace => Self::register_marketplace(handle),
+			Action::SellNftWithMarketplaceId => Self::sell_nft(handle),
+			Action::SellNft => Self::sell_nft(handle),
+			Action::SellSft => Self::sell_sft(handle),
+			Action::UpdateFixedPrice => Self::update_fixed_price(handle),
+			Action::Buy => Self::buy(handle),
+			Action::AuctionNftWithMarketplaceId => {
+				Self::auction_nft_with_marketplace_id(handle)
+			},
+			Action::AuctionNft => Self::auction_nft_with_marketplace_id(handle),
+			Action::AuctionSft => Self::auction_sft_with_marketplace_id(handle),
+			Action::Bid => Self::bid(handle),
+			Action::CancelSale => Self::cancel_sale(handle),
+			Action::MakeSimpleOfferWithMarketplaceId => {
+				Self::make_simple_offer_with_marketplace_id(handle)
+			},
+			Action::MakeSimpleOffer => Self::make_simple_offer_with_marketplace_id(handle),
+			Action::CancelOffer => Self::cancel_offer(handle),
+			Action::AcceptOffer => Self::accept_offer(handle),
+			Action::GetMarketplaceAccount => Self::get_marketplace_account(handle),
+			Action::GetListingFromId => Self::get_listing_from_id(handle),
+			Action::GetOfferFromId => Self::get_offer_from_id(handle),
+		}
 	}
 }
 
@@ -270,10 +267,6 @@ where
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
 		})?;
-		ensure!(
-			marketplace_id <= u32::MAX,
-			revert("Marketplace: Expected marketplace id <= 2^32")
-		);
 
 		let marketplace_id = H256::from_low_u64_be(marketplace_id as u64);
 

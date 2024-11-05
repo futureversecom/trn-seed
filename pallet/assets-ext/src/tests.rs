@@ -1146,7 +1146,7 @@ fn create() {
 		assert_eq!(AssetsExt::minimum_balance(usdc), 1);
 		assert_eq!(AssetsExt::total_issuance(usdc), 0);
 		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(usdc as u64).into()
+			&H160::from_low_u64_be(usdc as u64)
 		));
 
 		// create token & verify asset_uuid increment
@@ -1155,7 +1155,7 @@ fn create() {
 		assert_eq!(AssetsExt::minimum_balance(weth), 1);
 		assert_eq!(AssetsExt::total_issuance(weth), 0);
 		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(weth as u64).into()
+			&H160::from_low_u64_be(weth as u64)
 		));
 	});
 }
@@ -1322,7 +1322,7 @@ fn set_asset_deposit_reserves_the_correct_amount() {
 			assert_eq!(alice_balance, initial_balance - deposit);
 
 			// The deposit should be reserved
-			let alice_reserved = Balances::reserved_balance(&alice());
+			let alice_reserved = Balances::reserved_balance(alice());
 			assert_eq!(alice_reserved, deposit);
 		});
 }

@@ -75,7 +75,7 @@ where
 				Action::Create => Self::create_futurepass(handle),
 			}
 		};
-		return result;
+		result
 	}
 }
 
@@ -139,8 +139,7 @@ where
 			},
 			Err(err) => Err(revert(
 				alloc::format!("Futurepass Registrar: Futurepass creation failed {:?}", err)
-					.as_bytes()
-					.to_vec(),
+					.as_bytes(),
 			)),
 		}
 	}

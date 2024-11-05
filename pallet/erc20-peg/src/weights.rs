@@ -65,26 +65,26 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Erc20Peg::DepositsActive` (r:0 w:1)
 	// Proof: `Erc20Peg::DepositsActive` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn activate_deposits() -> Weight {
-		Weight::from_all(23_931_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(23_931_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::WithdrawalsActive` (r:0 w:1)
 	// Proof: `Erc20Peg::WithdrawalsActive` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn activate_withdrawals() -> Weight {
-		Weight::from_all(23_712_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(23_712_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::DepositsDelayActive` (r:0 w:1)
 	// Proof: `Erc20Peg::DepositsDelayActive` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn activate_deposits_delay() -> Weight {
-		Weight::from_all(23_408_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(23_408_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::WithdrawalsDelayActive` (r:0 w:1)
 	// Proof: `Erc20Peg::WithdrawalsDelayActive` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn activate_withdrawals_delay() -> Weight {
-		Weight::from_all(23_447_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(23_447_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::WithdrawalsActive` (r:1 w:0)
 	// Proof: `Erc20Peg::WithdrawalsActive` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
@@ -111,41 +111,41 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `System::Digest` (r:1 w:1)
 	// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn withdraw() -> Weight {
-		Weight::from_all(180_161_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(12 as u64))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
+		Weight::from_all(180_161_000_u64)
+			.saturating_add(T::DbWeight::get().reads(12_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	// Storage: `Erc20Peg::ContractAddress` (r:0 w:1)
 	// Proof: `Erc20Peg::ContractAddress` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_erc20_peg_address() -> Weight {
-		Weight::from_all(24_962_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(24_962_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::RootPegContractAddress` (r:0 w:1)
 	// Proof: `Erc20Peg::RootPegContractAddress` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_root_peg_address() -> Weight {
-		Weight::from_all(24_926_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(24_926_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::Erc20ToAssetId` (r:0 w:1)
 	// Proof: `Erc20Peg::Erc20ToAssetId` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
 	// Storage: `Erc20Peg::AssetIdToErc20` (r:0 w:1)
 	// Proof: `Erc20Peg::AssetIdToErc20` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
 	fn set_erc20_asset_map() -> Weight {
-		Weight::from_all(15_637_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
+		Weight::from_all(15_637_000_u64)
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	// Storage: `Erc20Peg::Erc20Meta` (r:0 w:1)
 	// Proof: `Erc20Peg::Erc20Meta` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
 	fn set_erc20_meta() -> Weight {
-		Weight::from_all(14_207_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(14_207_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::PaymentDelay` (r:0 w:1)
 	// Proof: `Erc20Peg::PaymentDelay` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
 	fn set_payment_delay() -> Weight {
-		Weight::from_all(26_115_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(26_115_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -154,26 +154,26 @@ impl WeightInfo for () {
 	// Storage: `Erc20Peg::DepositsActive` (r:0 w:1)
 	// Proof: `Erc20Peg::DepositsActive` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn activate_deposits() -> Weight {
-		Weight::from_all(23_931_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(23_931_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::WithdrawalsActive` (r:0 w:1)
 	// Proof: `Erc20Peg::WithdrawalsActive` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn activate_withdrawals() -> Weight {
-		Weight::from_all(23_712_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(23_712_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::DepositsDelayActive` (r:0 w:1)
 	// Proof: `Erc20Peg::DepositsDelayActive` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn activate_deposits_delay() -> Weight {
-		Weight::from_all(23_408_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(23_408_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::WithdrawalsDelayActive` (r:0 w:1)
 	// Proof: `Erc20Peg::WithdrawalsDelayActive` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn activate_withdrawals_delay() -> Weight {
-		Weight::from_all(23_447_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(23_447_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::WithdrawalsActive` (r:1 w:0)
 	// Proof: `Erc20Peg::WithdrawalsActive` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
@@ -200,41 +200,41 @@ impl WeightInfo for () {
 	// Storage: `System::Digest` (r:1 w:1)
 	// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn withdraw() -> Weight {
-		Weight::from_all(180_161_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(12 as u64))
-			.saturating_add(RocksDbWeight::get().writes(4 as u64))
+		Weight::from_all(180_161_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(12_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	// Storage: `Erc20Peg::ContractAddress` (r:0 w:1)
 	// Proof: `Erc20Peg::ContractAddress` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_erc20_peg_address() -> Weight {
-		Weight::from_all(24_962_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(24_962_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::RootPegContractAddress` (r:0 w:1)
 	// Proof: `Erc20Peg::RootPegContractAddress` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_root_peg_address() -> Weight {
-		Weight::from_all(24_926_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(24_926_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::Erc20ToAssetId` (r:0 w:1)
 	// Proof: `Erc20Peg::Erc20ToAssetId` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
 	// Storage: `Erc20Peg::AssetIdToErc20` (r:0 w:1)
 	// Proof: `Erc20Peg::AssetIdToErc20` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
 	fn set_erc20_asset_map() -> Weight {
-		Weight::from_all(15_637_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(2 as u64))
+		Weight::from_all(15_637_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	// Storage: `Erc20Peg::Erc20Meta` (r:0 w:1)
 	// Proof: `Erc20Peg::Erc20Meta` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
 	fn set_erc20_meta() -> Weight {
-		Weight::from_all(14_207_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(14_207_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Erc20Peg::PaymentDelay` (r:0 w:1)
 	// Proof: `Erc20Peg::PaymentDelay` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
 	fn set_payment_delay() -> Weight {
-		Weight::from_all(26_115_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(26_115_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
 
