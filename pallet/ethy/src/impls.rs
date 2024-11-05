@@ -220,7 +220,7 @@ impl<T: Config> Pallet<T> {
 		));
 	}
 
-	pub(crate) fn get_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Vec<T::EthyId> {
+	pub(crate) fn get_xrpl_notary_keys(validator_list: &[T::EthyId]) -> Vec<T::EthyId> {
 		// Filter validator_list from WhiteList Validators.
 		validator_list
 			.iter()
@@ -273,8 +273,7 @@ impl<T: Config> Pallet<T> {
 		// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block
 		// production.
 		for event_claim_id in PendingClaimChallenges::<T>::get().iter().take(CLAIMS_PER_BLOCK) {
-			let event_claim = PendingEventClaims::<T>::get(event_claim_id);
-			if event_claim.is_none() {
+			let Some(event_claim) = PendingEventClaims::<T>::get(event_claim_id) else {
 				// This shouldn't happen
 				log!(error, "💎 notarization failed, event claim: {:?} not found", event_claim_id);
 				continue;
@@ -289,7 +288,7 @@ impl<T: Config> Pallet<T> {
 				continue;
 			}
 
-			let result = Self::offchain_try_notarize_event(*event_claim_id, event_claim.unwrap());
+			let result = Self::offchain_try_notarize_event(*event_claim_id, event_claim);
 			log!(trace, "💎 claim verification status: {:?}", &result);
 			let payload = NotarizationPayload::Event {
 				event_claim_id: *event_claim_id,
@@ -328,13 +327,14 @@ impl<T: Config> Pallet<T> {
 		event_claim: EventClaim<T::MaxEthData>,
 	) -> EventClaimResult {
 		let EventClaim { tx_hash, data, source, destination } = event_claim;
-		let result = T::EthereumRpcClient::get_transaction_receipt(tx_hash);
-		if let Err(err) = result {
-			log!(error, "💎 eth_getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
-			return EventClaimResult::DataProviderErr;
-		}
+		let maybe_tx_receipt = match T::EthereumRpcClient::get_transaction_receipt(tx_hash) {
+			Ok(r) => r,
+			Err(err) => {
+				log!(error, "💎 eth_getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
+				return EventClaimResult::DataProviderErr;
+			}
+		};
 
-		let maybe_tx_receipt = result.unwrap(); // error handled above qed.
 		let tx_receipt = match maybe_tx_receipt {
 			Some(t) => t,
 			None => return EventClaimResult::NoTxReceipt,

@@ -99,47 +99,44 @@ where
 	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
-		let result = {
-			let selector = match handle.read_selector() {
-				Ok(selector) => selector,
-				Err(e) => return Err(e.into()),
-			};
-
-			if let Err(err) = handle.check_function_modifier(match selector {
-				Action::AddLiquidity
-				| Action::RemoveLiquidity
-				| Action::RemoveLiquidityETH
-				| Action::SwapExactTokensForTokens
-				| Action::SwapTokensForExactTokens
-				| Action::SwapTokensForExactETH
-				| Action::SwapExactTokensForETH => FunctionModifier::NonPayable,
-				Action::AddLiquidityETH
-				| Action::SwapExactETHForTokens
-				| Action::SwapETHForExactTokens => FunctionModifier::Payable,
-				_ => FunctionModifier::View,
-			}) {
-				return Err(err.into());
-			}
-
-			match selector {
-				Action::AddLiquidity => Self::add_liquidity(handle),
-				Action::AddLiquidityETH => Self::add_liquidity_eth(handle),
-				Action::RemoveLiquidity => Self::remove_liquidity(handle),
-				Action::RemoveLiquidityETH => Self::remove_liquidity_eth(handle),
-				Action::SwapExactTokensForTokens => Self::swap_exact_tokens_for_tokens(handle),
-				Action::SwapTokensForExactTokens => Self::swap_tokens_for_exact_tokens(handle),
-				Action::SwapExactETHForTokens => Self::swap_exact_eth_for_tokens(handle),
-				Action::SwapTokensForExactETH => Self::swap_tokens_for_exact_eth(handle),
-				Action::SwapExactTokensForETH => Self::swap_exact_tokens_for_eth(handle),
-				Action::SwapETHForExactTokens => Self::swap_eth_for_exact_tokens(handle),
-				Action::Quote => Self::quote(handle),
-				Action::GetAmountIn => Self::get_amount_in(handle),
-				Action::GetAmountOut => Self::get_amount_out(handle),
-				Action::GetAmountsIn => Self::get_amounts_in(handle),
-				Action::GetAmountsOut => Self::get_amounts_out(handle),
-			}
+		let selector = match handle.read_selector() {
+			Ok(selector) => selector,
+			Err(e) => return Err(e.into()),
 		};
-		result
+
+		if let Err(err) = handle.check_function_modifier(match selector {
+			Action::AddLiquidity
+			| Action::RemoveLiquidity
+			| Action::RemoveLiquidityETH
+			| Action::SwapExactTokensForTokens
+			| Action::SwapTokensForExactTokens
+			| Action::SwapTokensForExactETH
+			| Action::SwapExactTokensForETH => FunctionModifier::NonPayable,
+			Action::AddLiquidityETH
+			| Action::SwapExactETHForTokens
+			| Action::SwapETHForExactTokens => FunctionModifier::Payable,
+			_ => FunctionModifier::View,
+		}) {
+			return Err(err.into());
+		}
+
+		match selector {
+			Action::AddLiquidity => Self::add_liquidity(handle),
+			Action::AddLiquidityETH => Self::add_liquidity_eth(handle),
+			Action::RemoveLiquidity => Self::remove_liquidity(handle),
+			Action::RemoveLiquidityETH => Self::remove_liquidity_eth(handle),
+			Action::SwapExactTokensForTokens => Self::swap_exact_tokens_for_tokens(handle),
+			Action::SwapTokensForExactTokens => Self::swap_tokens_for_exact_tokens(handle),
+			Action::SwapExactETHForTokens => Self::swap_exact_eth_for_tokens(handle),
+			Action::SwapTokensForExactETH => Self::swap_tokens_for_exact_eth(handle),
+			Action::SwapExactTokensForETH => Self::swap_exact_tokens_for_eth(handle),
+			Action::SwapETHForExactTokens => Self::swap_eth_for_exact_tokens(handle),
+			Action::Quote => Self::quote(handle),
+			Action::GetAmountIn => Self::get_amount_in(handle),
+			Action::GetAmountOut => Self::get_amount_out(handle),
+			Action::GetAmountsIn => Self::get_amounts_in(handle),
+			Action::GetAmountsOut => Self::get_amounts_out(handle),
+		}
 	}
 }
 

@@ -85,7 +85,7 @@ mod enable_maintenance_mode {
 
 			// Enable maintenance mode by calling extrinsic directly
 			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), true));
-			assert_eq!(MaintenanceModeActive::<Runtime>::get(), true);
+			assert!(MaintenanceModeActive::<Runtime>::get());
 
 			// Send signed tx to disable maintenance mode
 			let call = RuntimeCall::MaintenanceMode(
@@ -98,7 +98,7 @@ mod enable_maintenance_mode {
 			assert_ok!(Executive::apply_extrinsic(xt2));
 
 			// Maintenance mode disabled
-			assert_eq!(MaintenanceModeActive::<Runtime>::get(), false);
+			assert!(!MaintenanceModeActive::<Runtime>::get());
 		});
 	}
 

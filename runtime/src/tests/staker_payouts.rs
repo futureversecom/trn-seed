@@ -256,7 +256,7 @@ fn staking_final_session_tracking_ethy() {
 		advance_session(); // era 2 starts and keys contain the updated key
 		assert!(pallet_ethy::NotaryKeys::<Runtime>::get()
 			.into_iter()
-			.any(|x| &x == &new_keys.ethy));
+			.any(|x| x == new_keys.ethy));
 
 		// Forcing era, marks active session final, sets keys
 		let (_, babe, im_online, grandpa, ethy) = authority_keys_from_seed("Alice3.0");
@@ -272,6 +272,6 @@ fn staking_final_session_tracking_ethy() {
 		Scheduler::on_initialize(scheduled_block);
 		assert!(pallet_ethy::NotaryKeys::<Runtime>::get()
 			.into_iter()
-			.any(|x| &x == &new_keys.ethy));
+			.any(|x| x == new_keys.ethy));
 	});
 }

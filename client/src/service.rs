@@ -316,7 +316,7 @@ pub fn new_full(
 	// the config is stored into the offchain context where it can
 	// be accessed later by the crml-eth-bridge offchain worker.
 	if let Some(ref eth_http_uri) = cli.run.eth_http {
-		backend.offchain_storage().unwrap().set(
+		backend.offchain_storage().expect("Failed to retrieve offchain storage handle").set(
 			sp_core::offchain::STORAGE_PREFIX,
 			&ETH_HTTP_URI,
 			eth_http_uri.as_bytes(),
@@ -324,7 +324,7 @@ pub fn new_full(
 	}
 
 	if let Some(ref xrp_http_uri) = cli.run.xrp_http {
-		backend.offchain_storage().unwrap().set(
+		backend.offchain_storage().expect("Failed to retrieve offchain storage handle").set(
 			sp_core::offchain::STORAGE_PREFIX,
 			&XRP_HTTP_URI,
 			xrp_http_uri.as_bytes(),

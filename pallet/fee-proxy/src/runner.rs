@@ -157,12 +157,13 @@ where
 			if let [Token::Address(payment_asset_address), Token::Uint(_max_payment), Token::Address(new_target), Token::Bytes(new_input)] =
 				tokens.as_slice()
 			{
-				let payment_asset = U::evm_id_to_runtime_id(
+				let Some(payment_asset) = U::evm_id_to_runtime_id(
 					(*payment_asset_address).into(),
 					ERC20_PRECOMPILE_ADDRESS_PREFIX,
-				);
-				ensure!(payment_asset.is_some(), FeePreferencesError::InvalidPaymentAsset);
-				Ok((payment_asset.unwrap(), (*new_target), new_input.clone()))
+				) else {
+					return Err(FeePreferencesError::InvalidPaymentAsset);
+				};
+				Ok((payment_asset, (*new_target), new_input.clone()))
 			} else {
 				Err(FeePreferencesError::InvalidInputArguments)?
 			}
@@ -173,12 +174,13 @@ where
 			if let [Token::Address(payment_asset_address), Token::Address(new_target), Token::Bytes(new_input)] =
 				tokens.as_slice()
 			{
-				let payment_asset = U::evm_id_to_runtime_id(
+				let Some(payment_asset) = U::evm_id_to_runtime_id(
 					(*payment_asset_address).into(),
 					ERC20_PRECOMPILE_ADDRESS_PREFIX,
-				);
-				ensure!(payment_asset.is_some(), FeePreferencesError::InvalidPaymentAsset);
-				Ok((payment_asset.unwrap(), (*new_target), new_input.clone()))
+				) else {
+					return Err(FeePreferencesError::InvalidPaymentAsset);
+				};
+				Ok((payment_asset, (*new_target), new_input.clone()))
 			} else {
 				Err(FeePreferencesError::InvalidInputArguments)?
 			}

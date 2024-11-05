@@ -55,7 +55,7 @@ impl XrplVerifyCommand {
 			data.to_vec(),
 			pub_key.clone().try_into().expect("Incorrect Public key"),
 		)
-		.unwrap();
+			.expect("Data failed to digest");
 		println!("\ndigest: {:?}", digest.clone().encode_hex::<String>());
 
 		// verify
@@ -63,7 +63,7 @@ impl XrplVerifyCommand {
 			&Message::parse(&digest),
 			&Signature::parse_der(&signature).unwrap(),
 			&PublicKey::parse_compressed(&pub_key.try_into().expect("Incorrect Public key"))
-				.unwrap(),
+				.expect("Failed to parse compressed public key"),
 		);
 
 		println!("result: {:?}", result);

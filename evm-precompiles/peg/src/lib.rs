@@ -70,22 +70,19 @@ where
 		+ ErcIdConversion<AssetId, EvmId = Address>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
-		let result = {
-			let selector = match handle.read_selector() {
-				Ok(selector) => selector,
-				Err(e) => return Err(e.into()),
-			};
-
-			if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
-				return Err(err.into());
-			}
-
-			match selector {
-				Action::Erc20Withdraw => Self::erc20_withdraw(handle),
-				Action::Erc721Withdraw => Self::erc721_withdraw(handle),
-			}
+		let selector = match handle.read_selector() {
+			Ok(selector) => selector,
+			Err(e) => return Err(e.into()),
 		};
-		result
+
+		if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
+			return Err(err.into());
+		}
+
+		match selector {
+			Action::Erc20Withdraw => Self::erc20_withdraw(handle),
+			Action::Erc721Withdraw => Self::erc721_withdraw(handle),
+		}
 	}
 }
 
@@ -235,22 +232,13 @@ where
 		))?;
 
 		// Dispatch call
-		let maybe_event_proof_id = pallet_nft_peg::Pallet::<Runtime>::do_withdrawal(
+		let event_proof_id = pallet_nft_peg::Pallet::<Runtime>::do_withdrawal(
 			caller,
 			collection_ids,
 			serial_numbers.clone(),
 			beneficiary,
 			None,
-		);
-
-		// Handle error case
-		if let Err(err) = maybe_event_proof_id {
-			return Err(revert(
-				alloc::format!("PEG: Erc721Withdraw failed {:?}", err.stripped())
-					.as_bytes(),
-			));
-		};
-		let event_proof_id = maybe_event_proof_id.unwrap();
+		).map_err(|e| revert(alloc::format!("PEG: Erc721Withdraw failed {:?}", e.stripped()).as_bytes()))?;
 
 		// throw individual log for every collection withdrawn
 		for (collection_address, serial_numbers) in

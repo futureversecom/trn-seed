@@ -66,21 +66,18 @@ where
 	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
-		let result = {
-			let selector = match handle.read_selector() {
-				Ok(selector) => selector,
-				Err(e) => return Err(e.into()),
-			};
-
-			if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
-				return Err(err.into());
-			}
-
-			match selector {
-				Action::InitializeCollection => Self::initialize_collection(handle),
-			}
+		let selector = match handle.read_selector() {
+			Ok(selector) => selector,
+			Err(e) => return Err(e.into()),
 		};
-		result
+
+		if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
+			return Err(err.into());
+		}
+
+		match selector {
+			Action::InitializeCollection => Self::initialize_collection(handle),
+		}
 	}
 }
 

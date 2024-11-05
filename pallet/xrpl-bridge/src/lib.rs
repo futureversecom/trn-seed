@@ -1401,33 +1401,36 @@ impl<T: Config> Pallet<T> {
 		let XrpWithdrawTransaction { tx_fee, tx_nonce, tx_ticket_sequence, amount, destination } =
 			tx_data;
 
-		if destination_tag.is_some() {
-			let payment = PaymentWithDestinationTag::new(
-				door_address,
-				destination.into(),
-				amount.saturated_into(),
-				tx_nonce,
-				tx_ticket_sequence,
-				tx_fee,
-				SourceTag::<T>::get(),
-				destination_tag.unwrap(),
-				// omit signer key since this is a 'MultiSigner' tx
-				None,
-			);
-			payment.binary_serialize(true)
-		} else {
-			let payment = Payment::new(
-				door_address,
-				destination.into(),
-				amount.saturated_into(),
-				tx_nonce,
-				tx_ticket_sequence,
-				tx_fee,
-				SourceTag::<T>::get(),
-				// omit signer key since this is a 'MultiSigner' tx
-				None,
-			);
-			payment.binary_serialize(true)
+		match destination_tag {
+			Some(destination_tag) => {
+				let payment = PaymentWithDestinationTag::new(
+					door_address,
+					destination.into(),
+					amount.saturated_into(),
+					tx_nonce,
+					tx_ticket_sequence,
+					tx_fee,
+					SourceTag::<T>::get(),
+					destination_tag,
+					// omit signer key since this is a 'MultiSigner' tx
+					None,
+				);
+				payment.binary_serialize(true)
+			},
+			None => {
+				let payment = Payment::new(
+					door_address,
+					destination.into(),
+					amount.saturated_into(),
+					tx_nonce,
+					tx_ticket_sequence,
+					tx_fee,
+					SourceTag::<T>::get(),
+					// omit signer key since this is a 'MultiSigner' tx
+					None,
+				);
+				payment.binary_serialize(true)
+			},
 		}
 	}
 

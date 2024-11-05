@@ -70,14 +70,11 @@ impl<T: Config> Pallet<T> {
 	/// Construct & return the full metadata URI for a given `token_id` (analogous to ERC721
 	/// metadata token_uri)
 	pub fn token_uri(token_id: TokenId) -> Vec<u8> {
-		let collection_info = <CollectionInfo<T>>::get(token_id.0);
-		if collection_info.is_none() {
+		let Some(collection_info) = <CollectionInfo<T>>::get(token_id.0) else {
 			// should not happen
 			log!(warn, "🃏 Unexpected empty metadata scheme: {:?}", token_id);
 			return Default::default();
-		}
-
-		let collection_info = collection_info.unwrap();
+		};
 		collection_info.metadata_scheme.construct_token_uri(token_id.1)
 	}
 

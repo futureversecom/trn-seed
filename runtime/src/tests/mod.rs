@@ -15,7 +15,6 @@
 
 //! Integration runtime mock storage
 //! Defines mock genesis state for the real seed runtime config
-#![cfg(test)]
 
 mod evm_fees;
 mod evm_gas_costs;

@@ -143,7 +143,7 @@ impl sp_runtime::traits::Verify for EthereumSignature {
 
 pub fn verify_signature(signature: &[u8; 65], message: &[u8; 32], signer: &AccountId20) -> bool {
 	match sp_io::crypto::secp256k1_ecdsa_recover(signature, message) {
-		Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().unwrap()) == *signer,
+		Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().expect("Expected 20 bytes")) == *signer,
 		Err(sp_io::EcdsaVerifyError::BadRS) => {
 			log::error!(target: "evm", "Error recovering: Incorrect value of R or S");
 			false
@@ -197,7 +197,7 @@ impl From<ecdsa::Public> for EthereumSigner {
 		.serialize();
 		let mut m = [0u8; 64];
 		m.copy_from_slice(&decompressed[1..65]);
-		let account = H160(keccak_256(&m)[12..].try_into().unwrap());
+		let account = H160(keccak_256(&m)[12..].try_into().expect("Expected 20 bytes"));
 		EthereumSigner(account.into())
 	}
 }
@@ -206,7 +206,7 @@ impl From<libsecp256k1::PublicKey> for EthereumSigner {
 	fn from(x: libsecp256k1::PublicKey) -> Self {
 		let mut m = [0u8; 64];
 		m.copy_from_slice(&x.serialize()[1..65]);
-		let account = H160(keccak_256(&m)[12..].try_into().unwrap());
+		let account = H160(keccak_256(&m)[12..].try_into().expect("Expected 20 bytes"));
 		EthereumSigner(account.into())
 	}
 }

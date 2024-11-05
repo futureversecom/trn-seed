@@ -483,9 +483,9 @@ impl<T: Config> Pallet<T> {
 
 		// there should be a known ERC20 address mapped for this asset
 		// otherwise there may be no liquidity on the Ethereum side of the peg
-		let token_address = AssetIdToErc20::<T>::get(asset_id);
-		ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
-		let token_address = token_address.unwrap();
+		let Some(token_address) = AssetIdToErc20::<T>::get(asset_id) else {
+			return Err(Error::<T>::UnsupportedAsset.into());
+		};
 
 		let message = WithdrawMessage { token_address, amount: amount.into(), beneficiary };
 
@@ -656,7 +656,7 @@ impl<T: Config> Pallet<T> {
 			},
 			PendingPayment::Deposit(deposit) => {
 				let beneficiary: T::AccountId =
-					T::AccountId::decode(&mut &deposit.beneficiary.0[..]).unwrap();
+					T::AccountId::decode(&mut &deposit.beneficiary.0[..]).expect("Failed to decode AccountId");
 				Self::deposit_event(Event::<T>::Erc20DepositDelayed {
 					payment_id,
 					scheduled_block: payment_block,
@@ -676,9 +676,7 @@ impl<T: Config> Pallet<T> {
 		// fail a deposit early for an amount that is too large
 		ensure!(deposit_event.amount < U256::from(Balance::MAX), Error::<T>::InvalidAmount);
 
-		let asset_id = Erc20ToAssetId::<T>::get(deposit_event.token_address);
-		if asset_id.is_some() {
-			let asset_id = asset_id.unwrap();
+		if let Some(asset_id) = Erc20ToAssetId::<T>::get(deposit_event.token_address) {
 			if asset_id == T::NativeAssetId::get() {
 				// If this is the root token, check it comes from the root peg contract address
 				ensure!(

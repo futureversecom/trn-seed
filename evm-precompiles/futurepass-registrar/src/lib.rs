@@ -58,24 +58,21 @@ where
 		From<Option<Runtime::AccountId>>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
-		let result = {
-			let selector = match handle.read_selector() {
-				Ok(selector) => selector,
-				Err(e) => return Err(e.into()),
-			};
-			if let Err(err) = handle.check_function_modifier(match selector {
-				Action::Create => FunctionModifier::NonPayable,
-				Action::FuturepassOf => FunctionModifier::View,
-			}) {
-				return Err(err.into());
-			}
-
-			match selector {
-				Action::FuturepassOf => Self::futurepass_of(handle),
-				Action::Create => Self::create_futurepass(handle),
-			}
+		let selector = match handle.read_selector() {
+			Ok(selector) => selector,
+			Err(e) => return Err(e.into()),
 		};
-		result
+		if let Err(err) = handle.check_function_modifier(match selector {
+			Action::Create => FunctionModifier::NonPayable,
+			Action::FuturepassOf => FunctionModifier::View,
+		}) {
+			return Err(err.into());
+		}
+
+		match selector {
+			Action::FuturepassOf => Self::futurepass_of(handle),
+			Action::Create => Self::create_futurepass(handle),
+		}
 	}
 }
 

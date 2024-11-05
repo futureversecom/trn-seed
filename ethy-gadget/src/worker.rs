@@ -353,7 +353,7 @@ where
 		// process any unverified witnesses, received before event metadata was known
 		self.witness_record.process_unverified_witnesses(event_id);
 		let EventMetadata { chain_id, block_hash, digest_data } =
-			self.witness_record.event_metadata(event_id).unwrap();
+			self.witness_record.event_metadata(event_id).expect("metadata is known; qed");
 
 		if self.witness_record.has_consensus(event_id, *chain_id) {
 			let signatures = self.witness_record.signatures_for(event_id);
