@@ -337,7 +337,7 @@ sha2 = { version = "0.10", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 thiserror = { version = "1.0", default-features = false }
 tokio = { version = "1.19.2", default-features = false  }
-xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", branch = "feat/support-NFTokenAcceptOffer", default-features = false }
+xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", version = "0.2.3", default-features = false }
 
 [patch."https://github.com/paritytech/substrate"]
 fork-tree = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }
