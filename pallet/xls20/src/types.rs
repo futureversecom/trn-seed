@@ -33,7 +33,7 @@ impl Xls20Token {
 	/// Check if the token is burnable by comparing the flag
 	/// https://xrpl.org/docs/references/protocol/data-types/nftoken#nftoken-flags
 	pub fn is_burnable(&self) -> bool {
-		self.flags == 1
+		self.flags & 0x0001 == 1
 	}
 
 	/// Unscramble the taxon using the sequence as the seed
