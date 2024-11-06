@@ -1,31 +1,29 @@
 [package]
-name = "pallet-xls20"
+name = "pallet-migration"
 version = "1.0.0"
-description = "Root Network Echo pallet"
+description = "Root Network Migration Pallet"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
+codec = { workspace = true }
+ethabi = { workspace = true }
+scale-info = { workspace = true }
+
 frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-sp-std = { workspace = true }
-sp-runtime = { workspace = true }
-codec = { workspace = true }
-scale-info = { workspace = true }
-hex-literal = { workspace = true }
 sp-core = { workspace = true }
+sp-std = { workspace = true }
 
-pallet-nft = { workspace = true }
 seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
-log = { workspace = true }
 
 [dev-dependencies]
+sp-runtime = { workspace = true }
 sp-io = { workspace = true }
-pallet-assets-ext = { workspace = true, default-features = true }
 pallet-balances = { workspace = true }
 pallet-assets = { workspace = true }
 
@@ -33,15 +31,15 @@ pallet-assets = { workspace = true }
 default = ["std"]
 std = [
     "codec/std",
+    "ethabi/std",
     "scale-info/std",
     "seed-primitives/std",
     "seed-pallet-common/std",
-    "pallet-nft/std",
+    "sp-core/std",
     "sp-std/std",
-    "sp-runtime/std",
     "frame-support/std",
     "frame-system/std",
     "frame-benchmarking?/std",
 ]
-runtime-benchmarks = ["frame-benchmarking", "seed-pallet-common/runtime-benchmarks"]
+runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]

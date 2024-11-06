@@ -18,7 +18,10 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use seed_primitives::{MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount};
+use seed_primitives::{
+	CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
+	TokenCount,
+};
 use sp_runtime::BoundedVec;
 use sp_std::{fmt::Debug, prelude::*};
 
@@ -69,21 +72,6 @@ where
 	/// Returns true if the serial number is containerd within owned_serials
 	pub fn contains_serial(&self, serial_number: &SerialNumber) -> bool {
 		self.owned_serials.contains(serial_number)
-	}
-}
-
-/// Determines compatibility with external chains.
-/// If compatible with XRPL, XLS-20 tokens will be minted with every newly minted
-/// token on The Root Network
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
-pub struct CrossChainCompatibility {
-	/// This collection is compatible with the XLS-20 standard on XRPL
-	pub xrpl: bool,
-}
-
-impl Default for CrossChainCompatibility {
-	fn default() -> Self {
-		Self { xrpl: false }
 	}
 }
 

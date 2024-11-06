@@ -123,6 +123,7 @@ pallet-fee-proxy = { path = "pallet/fee-proxy", default-features = false }
 pallet-futurepass = { path = "pallet/futurepass", default-features = false }
 pallet-maintenance-mode = { path = "pallet/maintenance-mode", default-features = false }
 pallet-marketplace = { path = "pallet/marketplace", default-features = false }
+pallet-migration = { path = "pallet/migration", default-features = false }
 pallet-nfi = { path = "pallet/nfi", default-features = false }
 pallet-nft = { path = "pallet/nft", default-features = false }
 pallet-nft-rpc = { path = "pallet/nft/rpc", default-features = false }
@@ -336,7 +337,7 @@ sha2 = { version = "0.10", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 thiserror = { version = "1.0", default-features = false }
 tokio = { version = "1.19.2", default-features = false  }
-xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", version = "0.1.3", default-features = false }
+xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", version = "0.2.3", default-features = false }
 
 [patch."https://github.com/paritytech/substrate"]
 fork-tree = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }

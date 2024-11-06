@@ -17,7 +17,7 @@ use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use seed_primitives::{
-	xrpl::{XrplAccountId, XrplTxHash, XrplTxNonce, XrplTxTicketSequence},
+	xrpl::{Xls20TokenId, XrplAccountId, XrplTxHash, XrplTxNonce, XrplTxTicketSequence},
 	AssetId, Balance,
 };
 use sp_core::H160;
@@ -87,11 +87,40 @@ pub struct AssetWithdrawTransaction {
 	pub issuer: XrplAccountId,
 }
 
+/// Xrpl transactions to be signed by ethy
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum XrplTransaction {
+	NFTokenAcceptOffer(NFTokenAcceptOfferTransaction),
+	NFTokenCreateOffer(NFTokenCreateOfferTransaction),
+}
+
+/// NFTokenAcceptOffer transaction.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
+pub struct NFTokenAcceptOfferTransaction {
+	pub nftoken_sell_offer: [u8; 32],
+	pub tx_fee: u64,
+	pub tx_ticket_sequence: XrplTxTicketSequence,
+	pub account: XrplAccountId,
+}
+
+/// NFTokenCreateOffer transaction.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
+pub struct NFTokenCreateOfferTransaction {
+	pub nftoken_id: [u8; 32],
+	pub tx_fee: u64,
+	pub tx_ticket_sequence: XrplTxTicketSequence,
+	pub account: XrplAccountId,
+	pub destination: XrplAccountId,
+}
+
 #[derive(Eq, CloneNoBound, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum XrplTxData {
+	// XRP asset
 	Payment { amount: Balance, address: H160 },
+	// Other fungible asset
 	CurrencyPayment { amount: Balance, address: H160, currency: XRPLCurrency },
-	Xls20, // Nft
+	// XLS-20 NFTs
+	Xls20 { token_id: Xls20TokenId, address: H160 },
 }
 
 impl Default for XrpTransaction {
@@ -172,4 +201,15 @@ impl From<XRPLCurrencyType> for CurrencyCodeType {
 			XRPLCurrencyType::NonStandard(currency) => Self::NonStandard(currency),
 		}
 	}
+}
+
+/// XRPL side door accounts supported by TRN
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
+pub enum XRPLDoorAccount {
+	Main = 0,
+	NFT = 1,
+}
+
+impl XRPLDoorAccount {
+	pub const VALUES: [Self; 2] = [Self::Main, Self::NFT];
 }
