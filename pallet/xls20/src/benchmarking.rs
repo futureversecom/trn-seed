@@ -113,7 +113,7 @@ benchmarks! {
 
 	deposit_token_mint {
 		let beneficiary = account::<T>("Beneficiary");
-		let xls20_token_id = hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		let xls20_token_id = hex!("000C0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
 		let collection_id = 146_999_694;
 		let serial_number = 3429;
 		let issuer = H160::from(hex!("95F14B0E44F78A264E41713C64B5F89242540EE2"));
@@ -141,7 +141,7 @@ benchmarks! {
 
 	deposit_token_create_collection {
 		let beneficiary = account::<T>("Beneficiary");
-		let xls20_token_id = hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		let xls20_token_id = hex!("000C0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
 		let collection_id = 146_999_694;
 		let serial_number = 3429;
 		let issuer = H160::from(hex!("95F14B0E44F78A264E41713C64B5F89242540EE2"));
