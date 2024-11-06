@@ -65,6 +65,45 @@ fn decode_xls20_token_works() {
 }
 
 #[test]
+fn is_burnable_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let token = hex!("00000C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(!Xls20Token::from(token).is_burnable());
+		let token = hex!("00020C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(!Xls20Token::from(token).is_burnable());
+		let token = hex!("00040C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(!Xls20Token::from(token).is_burnable());
+		let token = hex!("00060C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(!Xls20Token::from(token).is_burnable());
+		let token = hex!("00080C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(!Xls20Token::from(token).is_burnable());
+		let token = hex!("000A0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(!Xls20Token::from(token).is_burnable());
+		let token = hex!("000C0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(!Xls20Token::from(token).is_burnable());
+		let token = hex!("000E0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(!Xls20Token::from(token).is_burnable());
+
+		let token = hex!("00090C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(Xls20Token::from(token).is_burnable());
+		let token = hex!("00010C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(Xls20Token::from(token).is_burnable());
+		let token = hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(Xls20Token::from(token).is_burnable());
+		let token = hex!("00030C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(Xls20Token::from(token).is_burnable());
+		let token = hex!("00050C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(Xls20Token::from(token).is_burnable());
+		let token = hex!("00070C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(Xls20Token::from(token).is_burnable());
+		let token = hex!("000D0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(Xls20Token::from(token).is_burnable());
+		let token = hex!("000F0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		assert!(Xls20Token::from(token).is_burnable());
+	});
+}
+
+#[test]
 fn set_relayer_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let alice = create_account(10);
@@ -813,7 +852,7 @@ mod deposit_token {
 			let collection_id = setup_xls20_collection(collection_owner, true);
 			let beneficiary = create_account(12);
 			let xls20_token_id =
-				hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+				hex!("000C0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
 			let xls20_token = Xls20Token::from(xls20_token_id);
 			let xls20_collection = Xls20Collection::new(xls20_token.issuer, xls20_token.taxon);
 			CollectionMapping::<Test>::insert(xls20_collection, collection_id);
@@ -841,7 +880,7 @@ mod deposit_token {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let beneficiary = create_account(12);
 			let xls20_token_id =
-				hex!("000B0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+				hex!("000C0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
 			let xls20_token = Xls20Token::from(xls20_token_id);
 			let serial_number = xls20_token.sequence;
 			let collection_id = <Test as Config>::NFTExt::next_collection_uuid()
