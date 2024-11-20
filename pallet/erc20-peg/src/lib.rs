@@ -31,9 +31,9 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
-use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
-use sp_core::{H160, U256};
+use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber};
+use seed_primitives::{AccountId, AssetId, Balance, EthAddress, WeightedDispatchResult};
+use sp_core::{bounded::WeakBoundedVec, H160, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating},
 	SaturatedConversion,
@@ -57,7 +57,11 @@ pub use pallet::*;
 pub mod pallet {
 	use super::{DispatchResult, *};
 
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::genesis_config]
@@ -152,7 +156,7 @@ pub mod pallet {
 	/// Map from DelayedPaymentId to PendingPayment
 	#[pallet::storage]
 	pub type DelayedPayments<T: Config> =
-		StorageMap<_, Twox64Concat, DelayedPaymentId, PendingPayment>;
+		StorageMap<_, Twox64Concat, DelayedPaymentId, PendingPayment<T::AccountId>>;
 
 	/// Map from block number to DelayedPaymentIds scheduled for that block
 	#[pallet::storage]
@@ -160,7 +164,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		BlockNumberFor<T>,
-		BoundedVec<DelayedPaymentId, T::MaxDelaysPerBlock>,
+		WeakBoundedVec<DelayedPaymentId, T::MaxDelaysPerBlock>,
 		ValueQuery,
 	>;
 
@@ -215,7 +219,12 @@ pub mod pallet {
 		/// A bridged erc20 deposit succeeded.
 		Erc20Deposit { asset_id: AssetId, amount: Balance, beneficiary: T::AccountId },
 		/// Tokens were burnt for withdrawal on Ethereum as ERC20s
-		Erc20Withdraw { asset_id: AssetId, amount: Balance, beneficiary: EthAddress },
+		Erc20Withdraw {
+			asset_id: AssetId,
+			amount: Balance,
+			beneficiary: EthAddress,
+			source: T::AccountId,
+		},
 		/// A bridged erc20 deposit failed.
 		Erc20DepositFail { source: H160, abi_data: Vec<u8> },
 		/// The peg contract address has been set.
@@ -256,6 +265,8 @@ pub mod pallet {
 		EvmWithdrawalFailed,
 		/// The abi received does not match the encoding scheme
 		InvalidAbiEncoding,
+		/// Supplied payment id not in storage
+		PaymentIdNotFound,
 	}
 
 	#[pallet::hooks]
@@ -292,10 +303,17 @@ pub mod pallet {
 				let remaining_payments = (max_payments - processed_payment_count) as usize;
 				if payment_ids.len() > remaining_payments {
 					// Update storage with unprocessed payments
-					DelayedPaymentSchedule::<T>::insert(
-						block,
-						BoundedVec::truncate_from(payment_ids.split_off(remaining_payments)),
-					);
+					DelayedPaymentSchedule::<T>::mutate(block, |v| {
+						let split_payment_ids = payment_ids.split_off(remaining_payments);
+						let payment_ids_bounded = WeakBoundedVec::force_from(
+							split_payment_ids,
+							Some(
+								"Warning: There are more DelayedPaymentSchedule than expected. \
+								A runtime configuration adjustment may be needed.",
+							),
+						);
+						*v = payment_ids_bounded
+					})
 				} else {
 					processed_block_count += 1;
 				}
@@ -463,10 +481,39 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::PaymentDelaySet { asset_id, min_balance, delay });
 			Ok(())
 		}
+
+		#[pallet::call_index(10)]
+		#[pallet::weight(T::WeightInfo::claim_delayed_payment())]
+		pub fn claim_delayed_payment(
+			origin: OriginFor<T>,
+			block_number: BlockNumberFor<T>,
+			payment_id: DelayedPaymentId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::remove_delayed_payment_entry(block_number, payment_id)
+		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
+	pub fn remove_delayed_payment_entry(
+		block_number: BlockNumberFor<T>,
+		payment_id: DelayedPaymentId,
+	) -> DispatchResult {
+		DelayedPaymentSchedule::<T>::try_mutate(block_number, |payment_ids| {
+			if let Some(pos) = payment_ids.iter().position(|&id| id == payment_id) {
+				payment_ids.remove(pos);
+				Ok(())
+			} else {
+				Err(())
+			}
+		})
+		.map_err(|_| Error::<T>::PaymentIdNotFound)?;
+
+		Self::process_delayed_payment(payment_id);
+
+		Ok(())
+	}
 	/// Initiate the withdrawal
 	/// Can be called by the runtime or erc20-peg precompile
 	/// If a payment delay is in place for the asset, this will be handled when called from the
@@ -500,7 +547,7 @@ impl<T: Config> Pallet<T> {
 							Self::burn_or_transfer(asset_id, &origin, amount)?;
 							Self::delay_payment(
 								delay,
-								PendingPayment::Withdrawal(message),
+								PendingPayment::Withdrawal((origin.clone(), message)),
 								asset_id,
 								origin,
 							);
@@ -517,7 +564,7 @@ impl<T: Config> Pallet<T> {
 
 		// Process transfer or withdrawal of payment asset
 		Self::burn_or_transfer(asset_id, &origin, amount)?;
-		Self::process_withdrawal(message, asset_id)
+		Self::process_withdrawal(origin, message, asset_id)
 	}
 
 	/// For a withdrawal, either transfer ROOT tokens to Peg address or burn all other tokens
@@ -551,6 +598,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Process withdrawal and send
 	fn process_withdrawal(
+		sender: T::AccountId,
 		withdrawal_message: WithdrawMessage,
 		asset_id: AssetId,
 	) -> Result<Option<u64>, DispatchError> {
@@ -574,6 +622,7 @@ impl<T: Config> Pallet<T> {
 			asset_id,
 			amount: withdrawal_message.amount.saturated_into(),
 			beneficiary: withdrawal_message.beneficiary,
+			source: sender,
 		});
 		Ok(Some(event_proof_id))
 	}
@@ -590,13 +639,15 @@ impl<T: Config> Pallet<T> {
 						});
 					}
 				},
-				PendingPayment::Withdrawal(withdrawal_message) => {
+				PendingPayment::Withdrawal((source, withdrawal_message)) => {
 					// At this stage it is assumed that a mapping between erc20 to asset id exists
 					// for this token
 					let asset_id = Erc20ToAssetId::<T>::get(withdrawal_message.token_address);
 					if let Some(asset_id) = asset_id {
 						// Process transfer or withdrawal of payment asset
-						if Self::process_withdrawal(withdrawal_message.clone(), asset_id).is_err() {
+						if Self::process_withdrawal(source, withdrawal_message.clone(), asset_id)
+							.is_err()
+						{
 							Self::deposit_event(Event::<T>::DelayedErc20WithdrawalFailed {
 								asset_id,
 								beneficiary: withdrawal_message.beneficiary,
@@ -616,7 +667,7 @@ impl<T: Config> Pallet<T> {
 	/// Delay a withdrawal or deposit until a later block
 	pub fn delay_payment(
 		delay: BlockNumberFor<T>,
-		pending_payment: PendingPayment,
+		pending_payment: PendingPayment<T::AccountId>,
 		asset_id: AssetId,
 		source: T::AccountId,
 	) {
@@ -628,23 +679,22 @@ impl<T: Config> Pallet<T> {
 		let payment_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
 		DelayedPayments::<T>::insert(payment_id, &pending_payment);
 		NextDelayedPaymentId::<T>::put(payment_id + 1);
-		let _ = DelayedPaymentSchedule::<T>::try_append(payment_block, payment_id).map_err(|_| {
-			// If we fail to append the payment_id to the schedule, log the error and throw an event
-			log::error!(
-				"ERC20-Peg: 📌 Failed to add delayed payment to DelayedPaymentSchedule: {:?}",
-				payment_id
+		DelayedPaymentSchedule::<T>::mutate(payment_block, |v| {
+			let mut payments = v.clone().into_inner();
+			payments.push(payment_id);
+			let payments_bounded = WeakBoundedVec::force_from(
+				payments,
+				Some(
+					"Warning: There are more DelayedPaymentSchedule than expected. \
+					A runtime configuration adjustment may be needed.",
+				),
 			);
-			Self::deposit_event(Event::<T>::Erc20DelayFailed {
-				payment_id,
-				scheduled_block: payment_block,
-				asset_id,
-				source,
-			});
+			*v = payments_bounded;
 		});
 
 		// Throw event for delayed payment
 		match pending_payment {
-			PendingPayment::Withdrawal(withdrawal) => {
+			PendingPayment::Withdrawal((_sender, withdrawal)) => {
 				Self::deposit_event(Event::<T>::Erc20WithdrawalDelayed {
 					payment_id,
 					scheduled_block: payment_block,
@@ -789,7 +839,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 
 	/// Verifies the source address with either the erc20Peg contract address
 	/// Or the RootPeg contract address
-	fn verify_source(source: &H160) -> OnEventResult {
+	fn verify_source(source: &H160) -> WeightedDispatchResult {
 		let erc20_peg_contract_address: H160 = Self::SourceAddress::get();
 		let root_peg_contract_address: H160 = RootPegContractAddress::<T>::get();
 		if source == &erc20_peg_contract_address || source == &root_peg_contract_address {
@@ -802,7 +852,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 		}
 	}
 
-	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
+	fn on_event(source: &H160, data: &[u8]) -> WeightedDispatchResult {
 		let abi_decoded = match ethabi::decode(
 			&[ParamType::Address, ParamType::Uint(128), ParamType::Address],
 			data,

@@ -29,8 +29,10 @@ use frame_system::Config;
 use scale_info::TypeInfo;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId, TokenLockReason,
+	xrpl::Xls20TokenId,
+	AccountId, AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme,
+	OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
+	WeightedDispatchResult,
 };
 use sp_core::{bounded::BoundedVec, H160, U256};
 use sp_std::{fmt::Debug, vec::Vec};
@@ -204,9 +206,6 @@ pub trait EthereumEventRouter {
 	fn route(source: &H160, destination: &H160, data: &[u8]) -> EventRouterResult;
 }
 
-/// Result of processing an event by an `EthereumEventSubscriber`
-pub type OnEventResult = Result<Weight, (Weight, DispatchError)>;
-
 /// Handle verified Ethereum events (implemented by handler pallet)
 pub trait EthereumEventSubscriber {
 	/// The destination address of this subscriber (doubles as the source address for sent messages)
@@ -221,7 +220,7 @@ pub trait EthereumEventSubscriber {
 
 	/// process an incoming event from Ethereum
 	/// Verifies source address then calls on_event
-	fn process_event(source: &H160, data: &[u8]) -> OnEventResult {
+	fn process_event(source: &H160, data: &[u8]) -> WeightedDispatchResult {
 		let verify_weight = Self::verify_source(source)?;
 		let on_event_weight = Self::on_event(source, data)?;
 		Ok(verify_weight.saturating_add(on_event_weight))
@@ -230,7 +229,7 @@ pub trait EthereumEventSubscriber {
 	/// Verifies the source address
 	/// Allows pallets to restrict the source based on individual requirements
 	/// Default implementation compares source with SourceAddress
-	fn verify_source(source: &H160) -> OnEventResult {
+	fn verify_source(source: &H160) -> WeightedDispatchResult {
 		if source != &Self::SourceAddress::get() {
 			Err((
 				DbWeight::get().reads(1u64),
@@ -244,7 +243,7 @@ pub trait EthereumEventSubscriber {
 	/// Notify subscriber about a event received from Ethereum
 	/// - `source` the sender address on Ethereum
 	/// - `data` the Ethereum ABI encoded event data
-	fn on_event(source: &H160, data: &[u8]) -> OnEventResult;
+	fn on_event(source: &H160, data: &[u8]) -> WeightedDispatchResult;
 }
 
 /// Interface for an Ethereum event bridge
@@ -280,7 +279,7 @@ pub trait EthyToXrplBridgeAdapter<AccountId> {
 	/// Request xrpl-bridge to submit signer_list_set.
 	fn submit_signer_list_set_request(
 		_: Vec<(AccountId, u16)>,
-	) -> Result<EventProofId, DispatchError>;
+	) -> Result<Vec<EventProofId>, DispatchError>;
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]
@@ -374,6 +373,63 @@ impl Xls20MintRequest for () {
 		_metadata_scheme: MetadataScheme,
 	) -> DispatchResult {
 		Ok(())
+	}
+}
+
+/// Interface for the XLS20 pallet
+pub trait Xls20Ext {
+	type AccountId;
+
+	fn deposit_xls20_token(
+		receiver: &Self::AccountId,
+		xls20_token_id: Xls20TokenId,
+	) -> WeightedDispatchResult;
+
+	fn get_xls20_token_id(token_id: TokenId) -> Option<Xls20TokenId>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_xls20_token_id(token_id: TokenId, xls20_token_id: Xls20TokenId);
+}
+
+impl Xls20Ext for () {
+	type AccountId = AccountId;
+
+	fn deposit_xls20_token(
+		_receiver: &Self::AccountId,
+		_xls20_token_id: Xls20TokenId,
+	) -> WeightedDispatchResult {
+		Ok(Weight::zero())
+	}
+
+	fn get_xls20_token_id(_token_id: TokenId) -> Option<Xls20TokenId> {
+		None
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_xls20_token_id(_token_id: TokenId, _xls20_token_id: Xls20TokenId) {}
+}
+
+/// NFT Minter trait allows minting of Bridged NFTs that originate on other chains
+pub trait NFTMinter {
+	type AccountId;
+
+	/// Mint bridged tokens from other chain
+	fn mint_bridged_nft(
+		owner: &Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: Vec<SerialNumber>,
+	) -> WeightedDispatchResult;
+}
+
+impl NFTMinter for () {
+	type AccountId = AccountId;
+
+	fn mint_bridged_nft(
+		_owner: &Self::AccountId,
+		_collection_id: CollectionUuid,
+		_serial_numbers: Vec<SerialNumber>,
+	) -> WeightedDispatchResult {
+		Ok(Weight::zero())
 	}
 }
 
@@ -479,10 +535,17 @@ pub trait NFTExt {
 
 	/// Transfer a token from origin to new_owner
 	fn do_transfer(
-		origin: Self::AccountId,
+		origin: &Self::AccountId,
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
-		new_owner: Self::AccountId,
+		new_owner: &Self::AccountId,
+	) -> DispatchResult;
+
+	/// Burn a token
+	fn do_burn(
+		who: Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_number: SerialNumber,
 	) -> DispatchResult;
 
 	/// Create a new collection
@@ -495,6 +558,7 @@ pub trait NFTExt {
 		metadata_scheme: MetadataScheme,
 		royalties_schedule: Option<RoyaltiesSchedule<Self::AccountId>>,
 		origin_chain: OriginChain,
+		cross_chain_compatibility: CrossChainCompatibility,
 	) -> Result<CollectionUuid, DispatchError>;
 
 	/// Returns Some(token_owner) for a token if the owner exists
@@ -553,6 +617,11 @@ pub trait NFTExt {
 	fn get_collection_owner(
 		collection_id: CollectionUuid,
 	) -> Result<Self::AccountId, DispatchError>;
+
+	/// Returns cross chain compatibility of a collection
+	fn get_cross_chain_compatibility(
+		collection_id: CollectionUuid,
+	) -> Result<CrossChainCompatibility, DispatchError>;
 }
 
 pub trait SFTExt {
@@ -583,4 +652,16 @@ pub trait SFTExt {
 	) -> Result<Self::AccountId, DispatchError>;
 
 	fn token_exists(token_id: TokenId) -> bool;
+}
+
+// Migrator trait to be implemented by the migration pallet. Can be used to determine whether a
+// migration is in progress
+pub trait Migrator {
+	fn ensure_migrated() -> DispatchResult;
+}
+
+impl Migrator for () {
+	fn ensure_migrated() -> DispatchResult {
+		Ok(())
+	}
 }

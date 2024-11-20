@@ -29,7 +29,7 @@ where
 		Self {
 			owner,
 			name: String::from("SFT Collection"),
-			metadata_scheme: MetadataScheme::try_from(b"https://default.com/".as_slice()).unwrap(),
+			metadata_scheme: MetadataScheme::try_from(b"https://example.com/".as_slice()).unwrap(),
 			royalties_schedule: None,
 			token_name: String::from("SFT Token"),
 			initial_issuance: 0,

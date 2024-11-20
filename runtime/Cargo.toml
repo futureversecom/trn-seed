@@ -104,6 +104,7 @@ pallet-vortex-distribution = { workspace = true }
 pallet-doughnut = { workspace = true }
 pallet-maintenance-mode = { workspace = true }
 pallet-crowdsale = { workspace = true }
+pallet-migration = { workspace = true }
 
 seed-pallet-common = { workspace = true }
 seed-primitives = { workspace = true }
@@ -207,6 +208,7 @@ std = [
 	"pallet-vortex-distribution/std",
 	"pallet-maintenance-mode/std",
 	"pallet-crowdsale/std",
+	"pallet-migration/std",
 	"seed-primitives/std",
 	"fp-rpc/std",
 	"fp-self-contained/std",
@@ -299,6 +301,7 @@ try-runtime = [
 	"pallet-doughnut/try-runtime",
 	"pallet-maintenance-mode/try-runtime",
 	"pallet-crowdsale/try-runtime",
+	"pallet-migration/try-runtime",
 ]
 
 runtime-benchmarks = [
@@ -352,4 +355,6 @@ runtime-benchmarks = [
 	"pallet-doughnut/runtime-benchmarks",
 	"pallet-maintenance-mode/runtime-benchmarks",
 	"pallet-crowdsale/runtime-benchmarks",
+	"pallet-migration/runtime-benchmarks",
+	"seed-pallet-common/runtime-benchmarks",
 ]

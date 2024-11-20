@@ -906,7 +906,7 @@ fn signed_extension_validations_low_balance_fails() {
 			tip: 0,
 			signature: vec![],
 		};
-		let outer_signature = holder.sign_ecdsa(outer_call.encode().as_slice());
+		let outer_signature = holder.sign_eip191(&outer_call.encode().as_slice());
 
 		// validate self contained extrinsic is invalid (invalid signature)
 		let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(
@@ -928,7 +928,7 @@ fn signed_extension_validations_low_balance_fails() {
 				xt.clone(),
 				H256::default()
 			),
-			TransactionValidityError::Invalid(InvalidTransaction::BadProof)
+			TransactionValidityError::Invalid(InvalidTransaction::Payment)
 		);
 	});
 }

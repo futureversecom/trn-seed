@@ -120,8 +120,10 @@ impl Config for Test {
 pub struct MockXrplBridgeAdapter;
 impl EthyToXrplBridgeAdapter<H160> for MockXrplBridgeAdapter {
 	/// Mock implementation of EthyToXrplBridgeAdapter
-	fn submit_signer_list_set_request(_: Vec<(H160, u16)>) -> Result<EventProofId, DispatchError> {
-		Ok(1)
+	fn submit_signer_list_set_request(
+		_: Vec<(H160, u16)>,
+	) -> Result<Vec<EventProofId>, DispatchError> {
+		Ok(vec![1])
 	}
 }
 

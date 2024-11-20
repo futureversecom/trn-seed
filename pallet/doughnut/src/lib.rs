@@ -169,8 +169,11 @@ where
 		len: usize,
 	) -> Option<TransactionValidity> {
 		if let Call::transact { call: inner_call, doughnut, genesis_hash, nonce, tip, .. } = self {
-			let fee_payer_address = Self::validate_params(doughnut, genesis_hash, inner_call).ok()?;
-			let sender_address = T::AccountId::from(*origin);
+			let validate = || -> TransactionValidity {
+				let fee_payer_address = Self::validate_params(doughnut, genesis_hash, inner_call).map_err(|_| {
+					InvalidTransaction::Call
+				})?;
+				let sender_address = T::AccountId::from(*origin);
 
 			// construct the validation instances
 			let validations_fee_payer: DoughnutFeePayerValidations<T> =
@@ -178,22 +181,20 @@ where
 			let validations_sender: DoughnutSenderValidations<T> =
 				(CheckNonZeroSender::new(), CheckNonce::from((*nonce).into()), CheckWeight::new());
 
-			SignedExtension::validate(
-				&validations_sender,
-				&sender_address,
-				&(**inner_call).clone().into(),
-				dispatch_info,
-				len,
-			)
-			.ok()?;
-			SignedExtension::validate(
-				&validations_fee_payer,
-				&fee_payer_address,
-				&(**inner_call).clone().into(),
-				dispatch_info,
-				len,
-			)
-			.ok()?;
+				SignedExtension::validate(
+					&validations_sender,
+					&sender_address,
+					&(**inner_call).clone().into(),
+					dispatch_info,
+					len,
+				)?;
+				SignedExtension::validate(
+					&validations_fee_payer,
+					&fee_payer_address,
+					&(**inner_call).clone().into(),
+					dispatch_info,
+					len,
+				)?;
 
 			// priority is based on the provided tip in the doughnut transaction data
 			let priority = ChargeTransactionPayment::<T>::get_priority(dispatch_info, len, (*tip).into(), 0.into());
@@ -211,7 +212,10 @@ where
 				}
 			}
 
-			Some(builder.build())
+				builder.build()
+			};
+
+			Some(validate())
 		} else {
 			None
 		}

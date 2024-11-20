@@ -144,10 +144,10 @@ impl<T: Config> ListingTokens<T> {
 					T::NFTExt::remove_token_lock((nfts.collection_id, *serial_number));
 				}
 				T::NFTExt::do_transfer(
-					*from,
+					from,
 					nfts.collection_id,
 					nfts.serial_numbers.clone().into_inner(),
-					*to,
+					to,
 				)?;
 			},
 			ListingTokens::Sft(sfts) => {

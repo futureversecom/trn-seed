@@ -15,13 +15,14 @@
 
 use super::*;
 
+use crate::types::XrplTransaction::{NFTokenAcceptOffer, NFTokenCreateOffer};
+use crate::{types::XRPLCurrencyType, Pallet as XrplBridge};
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use hex_literal::hex;
-
-use crate::Pallet as XrplBridge;
-use crate::types::XRPLCurrencyType;
+use seed_primitives::{xrpl::Xls20TokenId, CrossChainCompatibility, MetadataScheme, OriginChain};
+use sp_core::H160;
 
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 	bench_account(name, 0, 0)
@@ -31,12 +32,16 @@ pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
 	RawOrigin::Signed(acc.clone())
 }
 
+fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
+}
+
 benchmarks! {
 	submit_transaction {
 		let relayer = account::<T>("Relayer");
 		let ledger_index = 0;
 		let transaction_hash: XrplTxHash = [0u8; 64].into();
-		let transaction = XrplTxData::Xls20;
+		let transaction = XrplTxData::Xls20 { token_id: Xls20TokenId::default(), address: H160::zero() };
 		let timestamp = 100;
 
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), relayer.clone()));
@@ -46,6 +51,29 @@ benchmarks! {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
 		let details = ProcessXRPTransactionDetails::<T>::get(transaction_hash);
 		assert_eq!(details, Some((ledger_index, val, relayer)))
+	}
+
+	process_asset_deposit {
+		let amount = 100;
+		let beneficiary = account::<T>("Beneficiary");
+		let asset_id = T::XrpAssetId::get();
+	}: {XrplBridge::<T>::process_asset_deposit(amount, &beneficiary, asset_id).expect("Failed to process asset deposit");}
+	verify {
+		let balance = T::MultiCurrency::balance(asset_id, &beneficiary);
+		assert_eq!(balance, amount);
+	}
+
+	process_asset_deposit_root {
+		let amount = 100;
+		let beneficiary = account::<T>("Beneficiary");
+		let asset_id = T::NativeAssetId::get();
+		let pallet_address: T::AccountId = T::PalletId::get().into_account_truncating();
+		// Mint some root into the pallet address
+		T::MultiCurrency::mint_into(asset_id, &pallet_address, amount).expect("Can mint");
+	}: {XrplBridge::<T>::process_asset_deposit(amount, &beneficiary, asset_id).expect("Failed to process asset deposit");}
+	verify {
+		let balance = T::MultiCurrency::balance(asset_id, &beneficiary);
+		assert_eq!(balance, amount);
 	}
 
 	submit_challenge {
@@ -77,19 +105,19 @@ benchmarks! {
 		let alice_balance = amount + 1000000000;
 		let asset_id = T::XrpAssetId::get();
 
-		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), door_address));
+		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), XRPLDoorAccount::Main, Some(door_address)));
 		assert_ok!(T::MultiCurrency::mint_into(
 			asset_id,
 			&alice.clone().into(),
 			alice_balance,
 		));
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
-		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), 1, 1));
+		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), XRPLDoorAccount::Main, 1, 1));
 
 	}: _(origin::<T>(&alice), amount, destination)
 	verify {
 		let new_alice_balance = T::MultiCurrency::balance(asset_id, &alice);
-		assert_eq!(alice_balance, new_alice_balance + amount + DoorTxFee::<T>::get() as u128);
+		assert_eq!(alice_balance, new_alice_balance + amount + DoorTxFee::<T>::get(XRPLDoorAccount::Main) as u128);
 	}
 
 	withdraw_asset {
@@ -99,7 +127,7 @@ benchmarks! {
 		let door_address: XrplAccountId  = [1u8; 20].into();
 		let alice_balance = amount + 1000000000;
 		let asset_id = T::NativeAssetId::get();
-		let tx_fee = DoorTxFee::<T>::get();
+		let tx_fee = DoorTxFee::<T>::get(XRPLDoorAccount::Main);
 		let xrpl_symbol =
 			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
 		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol.clone(), issuer: destination };
@@ -110,7 +138,7 @@ benchmarks! {
 			asset_id,
 			Some(xrpl_currency)
 		));
-		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), door_address));
+		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), XRPLDoorAccount::Main, Some(door_address)));
 		// Mint ROOT tokens to withdraw
 		assert_ok!(T::MultiCurrency::mint_into(
 			asset_id,
@@ -124,7 +152,7 @@ benchmarks! {
 			tx_fee as u128,
 		));
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
-		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), 1, 1));
+		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), XRPLDoorAccount::Main, 1, 1));
 	}: withdraw(origin::<T>(&alice), asset_id, amount, destination, None)
 	verify {
 		let new_alice_balance = T::MultiCurrency::balance(asset_id, &alice);
@@ -159,11 +187,11 @@ benchmarks! {
 	set_door_tx_fee {
 		let tx_fee = 100;
 		// Sanity check
-		assert_ne!(DoorTxFee::<T>::get(), tx_fee);
+		assert_ne!(DoorTxFee::<T>::get(XRPLDoorAccount::Main), tx_fee);
 
-	}: _(RawOrigin::Root, tx_fee)
+	}: _(RawOrigin::Root, XRPLDoorAccount::Main, tx_fee)
 	verify {
-		assert_eq!(DoorTxFee::<T>::get(), tx_fee);
+		assert_eq!(DoorTxFee::<T>::get(XRPLDoorAccount::Main), tx_fee);
 	}
 
 	set_xrp_source_tag {
@@ -179,11 +207,11 @@ benchmarks! {
 	set_door_address {
 		let door_address: XrplAccountId = [1u8; 20].into();
 		// Sanity check
-		assert_ne!(DoorAddress::<T>::get(), Some(door_address));
+		assert_ne!(DoorAddress::<T>::get(XRPLDoorAccount::Main), Some(door_address));
 
-	}: _(RawOrigin::Root, door_address)
+	}: _(RawOrigin::Root, XRPLDoorAccount::Main, Some(door_address))
 	verify {
-		assert_eq!(DoorAddress::<T>::get(), Some(door_address));
+		assert_eq!(DoorAddress::<T>::get(XRPLDoorAccount::Main), Some(door_address));
 	}
 
 	set_ticket_sequence_next_allocation {
@@ -194,9 +222,9 @@ benchmarks! {
 
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
 
-	}: _(origin::<T>(&alice), start_sequence, bucket_size)
+	}: _(origin::<T>(&alice), XRPLDoorAccount::Main, start_sequence, bucket_size)
 	verify {
-		let actual_param = DoorTicketSequenceParamsNext::<T>::get();
+		let actual_param = DoorTicketSequenceParamsNext::<T>::get(XRPLDoorAccount::Main);
 		assert_eq!(actual_param, expected_param);
 	}
 
@@ -208,11 +236,11 @@ benchmarks! {
 		let expected_param = XrplTicketSequenceParams { start_sequence, bucket_size };
 
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
-		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), start_sequence, bucket_size));
+		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), XRPLDoorAccount::Main, start_sequence, bucket_size));
 
-	}: _(RawOrigin::Root, ticket_sequence, start_sequence, bucket_size)
+	}: _(RawOrigin::Root, XRPLDoorAccount::Main, ticket_sequence, start_sequence, bucket_size)
 	verify {
-		let actual_param = DoorTicketSequenceParams::<T>::get();
+		let actual_param = DoorTicketSequenceParams::<T>::get(XRPLDoorAccount::Main);
 		assert_eq!(actual_param, expected_param);
 	}
 
@@ -225,7 +253,8 @@ benchmarks! {
 			let ledger_index = j;
 			let transaction_hash: XrplTxHash = [j as u8; 64].into();
 			let timestamp = 100;
-			let transaction = XrpTransaction { transaction_hash, transaction: XrplTxData::Xls20, timestamp } ;
+			let transaction = XrplTxData::Xls20 { token_id: Xls20TokenId::default(), address: H160::zero() };
+			let transaction = XrpTransaction { transaction_hash, transaction, timestamp } ;
 			settled_data.push((transaction_hash, ledger_index, transaction, alice.clone()));
 		}
 
@@ -281,7 +310,7 @@ benchmarks! {
 		let alice = account::<T>("Alice");
 		let destination: XrplAccountId = [0u8; 20].into();
 		let asset_id = T::NativeAssetId::get();
-		let tx_fee = DoorTxFee::<T>::get();
+		let tx_fee = DoorTxFee::<T>::get(XRPLDoorAccount::Main);
 		let xrpl_symbol =
 			XRPLCurrencyType::NonStandard(hex!("524F4F5400000000000000000000000000000000").into());
 		let xrpl_currency = XRPLCurrency { symbol: xrpl_symbol.clone(), issuer: destination };
@@ -289,6 +318,91 @@ benchmarks! {
 	verify {
 		assert_eq!(AssetIdToXRPL::<T>::get(asset_id), Some(xrpl_currency));
 		assert_eq!(XRPLToAssetId::<T>::get(xrpl_currency), Some(asset_id));
+	}
+
+	generate_nft_accept_offer {
+		let alice = account::<T>("Alice");
+		let door_address: XrplAccountId  = [1u8; 20].into();
+		let tx_fee = 100;
+		let nftoken_sell_offer = [2_u8; 32];
+		let proof_id = 0;
+
+		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
+		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), XRPLDoorAccount::NFT, Some(door_address)));
+		assert_ok!(XrplBridge::<T>::set_door_tx_fee(RawOrigin::Root.into(), XRPLDoorAccount::NFT, tx_fee));
+		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), XRPLDoorAccount::NFT, 1, 1));
+
+	}: _(origin::<T>(&alice), nftoken_sell_offer)
+	verify {
+		// check the event is emitted.
+		assert_has_event::<T>(
+			Event::<T>::XrplTxSignRequest {
+				proof_id,
+				tx: NFTokenAcceptOffer(NFTokenAcceptOfferTransaction {
+					nftoken_sell_offer,
+					tx_fee,
+					tx_ticket_sequence: 1,
+					account: door_address,
+				}),
+			}
+			.into(),
+		);
+	}
+
+	withdraw_nft {
+		let alice = account::<T>("Alice");
+		let door_address: XrplAccountId  = [1u8; 20].into();
+		let tx_fee = 100;
+		let nftoken_sell_offer = [2_u8; 32];
+		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+		let proof_id = 0;
+
+		// setup xrpl-bridge-pallet
+		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
+		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), XRPLDoorAccount::NFT, Some(door_address)));
+		assert_ok!(XrplBridge::<T>::set_door_tx_fee(RawOrigin::Root.into(), XRPLDoorAccount::NFT, tx_fee));
+		assert_ok!(XrplBridge::<T>::set_ticket_sequence_next_allocation(origin::<T>(&alice).into(), XRPLDoorAccount::NFT, 1, 1));
+
+		// setup pallet-nft
+		let collection_name = BoundedVec::truncate_from("test".as_bytes().to_vec());
+		let collection_owner = alice.clone();
+		let metadata_scheme = MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
+
+		let nft_collection_id = <T as Config>::NFTExt::do_create_collection(
+			collection_owner,
+			collection_name,
+			0,
+			None,
+			None,
+			metadata_scheme,
+			None,
+			OriginChain::Root,
+			CrossChainCompatibility { xrpl: true },
+		)
+		.unwrap();
+
+		assert_ok!(<T as Config>::NFTExt::do_mint(alice.clone(), nft_collection_id, 1, None,));
+
+		// insert the xls20Id to the pallet-xls20 storage for the (nft_collection_id, 0)
+		let xls20_token_id = [1_u8;32];
+		<T as Config>::Xls20Ext::set_xls20_token_id((nft_collection_id, 0), xls20_token_id);
+
+	}: _(origin::<T>(&alice), (nft_collection_id, 0), destination)
+	verify {
+		// check the event is emitted.
+		assert_has_event::<T>(
+			Event::<T>::XrplTxSignRequest {
+				proof_id,
+				tx: NFTokenCreateOffer(NFTokenCreateOfferTransaction {
+					nftoken_id: [1_u8; 32],
+					tx_fee,
+					tx_ticket_sequence: 1,
+					account: door_address,
+					destination,
+				}),
+			}
+			.into(),
+		);
 	}
 }
 

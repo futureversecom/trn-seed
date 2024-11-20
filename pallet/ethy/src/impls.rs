@@ -25,9 +25,6 @@ use sp_core::bounded::WeakBoundedVec;
 use sp_runtime::{
 	generic::DigestItem,
 	traits::{AccountIdConversion, Convert, SaturatedConversion, Saturating},
-	transaction_validity::{
-		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
-	},
 	Percent, RuntimeAppPublic,
 };
 use sp_std::prelude::*;
@@ -544,7 +541,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Send a notarization for the given claim
-	fn offchain_send_notarization(
+	pub(crate) fn offchain_send_notarization(
 		key: &T::EthyId,
 		payload: NotarizationPayload,
 	) -> Result<(), Error<T>> {
@@ -889,15 +886,16 @@ impl<T: Config> Pallet<T> {
 
 		debug!(target: "ethy-pallet", "💎 xrpl new signer entries: {:?}", signer_entries);
 		match T::XrplBridgeAdapter::submit_signer_list_set_request(signer_entries) {
-			Ok(event_proof_id) => {
+			Ok(event_proof_ids) => {
+				// NOTE - keep the first event proof id for the sake of display. can be removed later if no other use
+				XrplNotarySetProofId::<T>::put(event_proof_ids[0]);
 				// Signal the Event Id that will be used for the proof of xrpl notary set change.
-				// Any observer can subscribe to this event and submit the resulting proof to keep
-				// the authority set of the xrpl door address updated.
+				// Any observer can subscribe to this event and submit the resulting proofs to keep
+				// the authority set of the xrpl door addresses updated.
 				Self::deposit_event(Event::<T>::XrplAuthoritySetChange {
-					event_proof_id,
+					event_proof_ids,
 					validator_set_id: next_validator_set_id,
 				});
-				XrplNotarySetProofId::<T>::put(event_proof_id);
 			},
 			Err(e) => {
 				warn!(target: "ethy-pallet", "💎 Failed to send xrpl signer list set request {:?}", e);
@@ -981,50 +979,6 @@ impl<T: Config> Pallet<T> {
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
 		Self::deposit_event(Event::<T>::EventSend { event_proof_id, signing_request: request });
-	}
-}
-
-impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
-	type Call = Call<T>;
-
-	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		if let Call::submit_notarization { ref payload, ref signature } = call {
-			// notarization must be from an active notary
-			let notary_keys = NotaryKeys::<T>::get();
-			let notary_public_key = match notary_keys.get(payload.authority_index() as usize) {
-				Some(id) => id,
-				None => return InvalidTransaction::BadProof.into(),
-			};
-			// notarization must not be a duplicate/equivocation
-			if <EventNotarizations<T>>::contains_key(payload.payload_id(), notary_public_key) {
-				log!(
-					error,
-					"💎 received equivocation from: {:?} on {:?}",
-					notary_public_key,
-					payload.payload_id()
-				);
-				return InvalidTransaction::BadProof.into();
-			}
-			// notarization is signed correctly
-			if !(notary_public_key.verify(&payload.encode(), signature)) {
-				return InvalidTransaction::BadProof.into();
-			}
-			ValidTransaction::with_tag_prefix("eth-bridge")
-				.priority(UNSIGNED_TXS_PRIORITY)
-				// 'provides' must be unique for each submission on the network (i.e. unique for
-				// each claim id and validator)
-				.and_provides([
-					b"notarize",
-					&payload.type_id().to_be_bytes(),
-					&payload.payload_id().to_be_bytes(),
-					&(payload.authority_index() as u64).to_be_bytes(),
-				])
-				.longevity(3)
-				.propagate(true)
-				.build()
-		} else {
-			InvalidTransaction::Call.into()
-		}
 	}
 }
 

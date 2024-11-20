@@ -1940,6 +1940,84 @@ mod set_base_uri {
 			);
 		});
 	}
+
+	#[test]
+	fn set_base_uri_invalid_origin_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let mut collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+
+			// XRPL origin should fail
+			collection_info.origin_chain = OriginChain::XRPL;
+			CollectionInfo::<Test>::insert(collection_id, collection_info);
+			let new_metadata_scheme: Vec<u8> = "http://metadata.com".into();
+			assert_noop!(
+				Nft::set_base_uri(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					new_metadata_scheme.clone()
+				),
+				Error::<Test>::CannotUpdateMetadata
+			);
+
+			// Ethereum origin should fail
+			let mut collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+			collection_info.origin_chain = OriginChain::Ethereum;
+			CollectionInfo::<Test>::insert(collection_id, collection_info);
+			assert_noop!(
+				Nft::set_base_uri(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					new_metadata_scheme.clone()
+				),
+				Error::<Test>::CannotUpdateMetadata
+			);
+
+			// ROOT origin should work
+			let mut collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+			collection_info.origin_chain = OriginChain::Root;
+			CollectionInfo::<Test>::insert(collection_id, collection_info);
+			assert_ok!(Nft::set_base_uri(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				new_metadata_scheme
+			),);
+		});
+	}
+
+	#[test]
+	fn set_base_uri_xrpl_compatible_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let mut collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+
+			// XRPL compatible collections should fail
+			collection_info.cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
+			CollectionInfo::<Test>::insert(collection_id, collection_info);
+			let new_metadata_scheme: Vec<u8> = "http://metadata.com".into();
+			assert_noop!(
+				Nft::set_base_uri(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					new_metadata_scheme.clone()
+				),
+				Error::<Test>::CannotUpdateMetadata
+			);
+
+			// Should now succeed
+			let mut collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+			collection_info.cross_chain_compatibility = CrossChainCompatibility { xrpl: false };
+			CollectionInfo::<Test>::insert(collection_id, collection_info);
+			let new_metadata_scheme: Vec<u8> = "http://metadata.com".into();
+			assert_ok!(Nft::set_base_uri(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				new_metadata_scheme.clone()
+			),);
+		});
+	}
 }
 
 mod set_name {

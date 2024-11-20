@@ -327,6 +327,8 @@ pub mod pallet {
 		EmptyTokens,
 		/// The token does not exist
 		NoToken,
+		/// The listing duration is too short
+		DurationTooShort,
 	}
 
 	#[pallet::hooks]
