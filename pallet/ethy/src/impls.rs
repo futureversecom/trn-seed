@@ -222,7 +222,8 @@ impl<T: Config> Pallet<T> {
 		validator_list
 			.iter()
 			.filter(|validator| XrplDoorSigners::<T>::get(validator))
-			.take(T::MaxXrplKeys::get().into()).cloned()
+			.take(T::MaxXrplKeys::get().into())
+			.cloned()
 			.collect()
 	}
 
@@ -329,7 +330,7 @@ impl<T: Config> Pallet<T> {
 			Err(err) => {
 				log!(error, "💎 eth_getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
 				return EventClaimResult::DataProviderErr;
-			}
+			},
 		};
 
 		let tx_receipt = match maybe_tx_receipt {

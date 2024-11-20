@@ -258,7 +258,9 @@ impl<T: Config> Pallet<T> {
 		token_count: TokenCount,
 	) -> DispatchResult {
 		// Calculate the total fee
-		let total_fee = public_mint_info.pricing_details.map(|(asset, price)| (asset, price.saturating_mul(token_count as Balance)));
+		let total_fee = public_mint_info
+			.pricing_details
+			.map(|(asset, price)| (asset, price.saturating_mul(token_count as Balance)));
 		// Charge the fee if there is a fee set
 		if let Some((asset, total_fee)) = total_fee {
 			T::MultiCurrency::transfer(

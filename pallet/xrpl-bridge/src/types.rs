@@ -35,7 +35,7 @@ pub type DelayedPaymentId = u64;
 	Decode,
 	TypeInfo,
 	MaxEncodedLen,
-	Default
+	Default,
 )]
 pub struct XrpTransaction {
 	pub transaction_hash: XrplTxHash,
@@ -74,16 +74,7 @@ impl WithdrawTransaction {
 
 /// Withdrawal transaction for the XRP Currency
 #[derive(
-	Default,
-	PartialEq,
-	Eq,
-	Clone,
-	Encode,
-	Decode,
-	RuntimeDebug,
-	TypeInfo,
-	MaxEncodedLen,
-	Copy
+	Default, PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy,
 )]
 pub struct XrpWithdrawTransaction {
 	pub tx_fee: u64,
@@ -109,27 +100,27 @@ pub struct AssetWithdrawTransaction {
 /// Xrpl transactions to be signed by ethy
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum XrplTransaction {
-    NFTokenAcceptOffer(NFTokenAcceptOfferTransaction),
-    NFTokenCreateOffer(NFTokenCreateOfferTransaction),
+	NFTokenAcceptOffer(NFTokenAcceptOfferTransaction),
+	NFTokenCreateOffer(NFTokenCreateOfferTransaction),
 }
 
 /// NFTokenAcceptOffer transaction.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
 pub struct NFTokenAcceptOfferTransaction {
-    pub nftoken_sell_offer: [u8; 32],
-    pub tx_fee: u64,
-    pub tx_ticket_sequence: XrplTxTicketSequence,
-    pub account: XrplAccountId,
+	pub nftoken_sell_offer: [u8; 32],
+	pub tx_fee: u64,
+	pub tx_ticket_sequence: XrplTxTicketSequence,
+	pub account: XrplAccountId,
 }
 
 /// NFTokenCreateOffer transaction.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
 pub struct NFTokenCreateOfferTransaction {
-    pub nftoken_id: [u8; 32],
-    pub tx_fee: u64,
-    pub tx_ticket_sequence: XrplTxTicketSequence,
-    pub account: XrplAccountId,
-    pub destination: XrplAccountId,
+	pub nftoken_id: [u8; 32],
+	pub tx_fee: u64,
+	pub tx_ticket_sequence: XrplTxTicketSequence,
+	pub account: XrplAccountId,
+	pub destination: XrplAccountId,
 }
 
 #[derive(Eq, CloneNoBound, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -153,7 +144,6 @@ pub struct XrplTicketSequenceParams {
 	pub start_sequence: u32,
 	pub bucket_size: u32,
 }
-
 
 /// Currency issued by issuer https://xrpl.org/docs/references/protocol/data-types/currency-formats#token-amounts
 #[derive(Eq, Copy, Clone, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]

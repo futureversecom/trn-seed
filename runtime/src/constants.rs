@@ -15,8 +15,8 @@
 
 use frame_support::parameter_types;
 
-pub use durations::*;
 pub use currency::*;
+pub use durations::*;
 
 parameter_types! {
 	/// Getter for the ROOT asset Id

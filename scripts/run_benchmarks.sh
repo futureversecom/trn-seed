@@ -7,7 +7,7 @@ inputs_arguments() {
     setup   REST help:usage -- "Usage: ./scripts/run_benchmark.sh [options]... [arguments]..." ''
     msg -- 'Options:'
     param   TEMPLATE_PATH           --template      init:="./scripts/pallet_template.hbs"   -- "Specifies template location"
-    param   OUTPUT_FOLDER       -o  --output        init:="./runtime/src/weights"                        -- "Folder where all the weight files will be stored"
+    param   OUTPUT_FOLDER       -o  --output        init:="./runtime/src/weights"           -- "Folder where all the weight files will be stored"
     param   PALLETS             -p  --pallets       init:="*"                               -- "List of pallets that need to be bechmarked. Default is all. Example: -p \"pallet_nft pallet_echo\""
     flag    SKIP_BUILD          -S  --skip-build                                            -- "Skips the build process if set"
     param   STEPS               -s  --steps         init:=50                                -- "How many steps to do. Default is 50"

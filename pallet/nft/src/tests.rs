@@ -228,9 +228,9 @@ fn create_collection() {
 		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap(), expected_info);
 
 		// EVM pallet should have account code for collection
-		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(collection_id as u64)
-		));
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(&H160::from_low_u64_be(
+			collection_id as u64
+		)));
 
 		System::assert_last_event(
 			Event::<Test>::CollectionCreate {
@@ -575,10 +575,7 @@ fn burn() {
 		System::assert_last_event(Event::<Test>::Burn { collection_id, serial_number: 2 }.into());
 
 		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().collection_issuance, 0);
-		assert_eq!(
-			Nft::owned_tokens(collection_id, &token_owner, 0, 1000),
-			(0_u32, 0_u32, vec![])
-		);
+		assert_eq!(Nft::owned_tokens(collection_id, &token_owner, 0, 1000), (0_u32, 0_u32, vec![]));
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 0);
 	});
 }
@@ -1405,11 +1402,8 @@ mod claim_unowned_collection {
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let new_owner = create_account(10);
 
-			let ok = Nft::claim_unowned_collection(
-				RawOrigin::Root.into(),
-				collection_id,
-				new_owner,
-			);
+			let ok =
+				Nft::claim_unowned_collection(RawOrigin::Root.into(), collection_id, new_owner);
 			assert_noop!(ok, Error::<Test>::NoCollectionFound);
 		});
 	}
@@ -1432,11 +1426,8 @@ mod claim_unowned_collection {
 				None,
 				CrossChainCompatibility::default(),
 			));
-			let ok = Nft::claim_unowned_collection(
-				RawOrigin::Root.into(),
-				collection_id,
-				new_owner,
-			);
+			let ok =
+				Nft::claim_unowned_collection(RawOrigin::Root.into(), collection_id, new_owner);
 			assert_noop!(ok, Error::<Test>::CannotClaimNonClaimableCollections);
 		});
 	}

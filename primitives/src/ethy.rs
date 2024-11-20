@@ -260,7 +260,7 @@ impl Convert<&[u8], [u8; 20]> for EthyEcdsaToXRPLAccountId {
 			Some(libsecp256k1::PublicKeyFormat::Compressed),
 		)
 		.map(|k| k.serialize_compressed())
-			.map(|k| Ripemd160::digest(Sha256::digest(k)).into())
+		.map(|k| Ripemd160::digest(Sha256::digest(k)).into())
 		.unwrap_or([0_u8; 20])
 	}
 }

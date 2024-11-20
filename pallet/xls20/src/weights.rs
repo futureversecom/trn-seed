@@ -110,7 +110,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn set_collection_mappings(i: u32, ) -> Weight {
 		Weight::from_all(30_437_801_u64)
 			// Standard Error: 1_889
-			.saturating_add(Weight::from_all(3_223_038_u64).saturating_mul(i_u64))
+			.saturating_add(Weight::from_all(3_223_038_u64).saturating_mul(i as u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Migration::Status` (r:1 w:0)
@@ -203,7 +203,7 @@ impl WeightInfo for () {
 	fn set_collection_mappings(i: u32, ) -> Weight {
 		Weight::from_all(30_437_801_u64)
 			// Standard Error: 1_889
-			.saturating_add(Weight::from_all(3_223_038_u64).saturating_mul(i_u64))
+			.saturating_add(Weight::from_all(3_223_038_u64).saturating_mul(i as u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Migration::Status` (r:1 w:0)

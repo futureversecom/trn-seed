@@ -144,7 +144,9 @@ impl<T: Config> Pallet<T> {
 		token_count: Balance,
 	) -> DispatchResult {
 		// Calculate the total fee
-		let total_fee = public_mint_info.pricing_details.map(|(asset, price)| (asset, price.saturating_mul(token_count as Balance)));
+		let total_fee = public_mint_info
+			.pricing_details
+			.map(|(asset, price)| (asset, price.saturating_mul(token_count as Balance)));
 		// Charge the fee if there is a fee set
 		if let Some((asset, total_fee)) = total_fee {
 			T::MultiCurrency::transfer(
@@ -301,9 +303,7 @@ impl<T: Config> Pallet<T> {
 			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 
 			// Burn the balance
-			token_info
-				.remove_balance(&who, *quantity)
-				.map_err(Error::<T>::from)?;
+			token_info.remove_balance(&who, *quantity).map_err(Error::<T>::from)?;
 			token_info.token_issuance = token_info.token_issuance.saturating_sub(*quantity);
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
@@ -510,9 +510,7 @@ impl<T: Config> SFTExt for Pallet<T> {
 		who: &Self::AccountId,
 	) -> DispatchResult {
 		let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
-		token_info
-			.free_reserved_balance(who, amount)
-			.map_err(Error::<T>::from)?;
+		token_info.free_reserved_balance(who, amount).map_err(Error::<T>::from)?;
 		TokenInfo::<T>::insert(token_id, token_info);
 		Ok(())
 	}

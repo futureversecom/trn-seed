@@ -657,11 +657,7 @@ impl<T: Config> Hold for Pallet<T> {
 				holds[index].1 = decreased_hold;
 			}
 
-			Self::split_transfer(
-				&T::PalletId::get().into_account_truncating(),
-				asset_id,
-				spends,
-			)?;
+			Self::split_transfer(&T::PalletId::get().into_account_truncating(), asset_id, spends)?;
 
 			if holds.is_empty() {
 				Holds::<T>::take(asset_id, who.clone());

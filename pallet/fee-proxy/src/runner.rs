@@ -346,8 +346,7 @@ where
 				}
 			};
 
-			let account =
-				<T as pallet_evm::Config>::AddressMapping::into_account_id(source);
+			let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
 
 			pallet_dex::Pallet::<T>::do_swap_with_exact_supply(
 				&account,

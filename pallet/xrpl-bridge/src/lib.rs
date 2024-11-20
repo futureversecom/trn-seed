@@ -923,10 +923,7 @@ impl<T: Config> Pallet<T> {
 
 			match weighted_result {
 				Ok(weight) => {
-					Self::deposit_event(Event::ProcessingOk(
-						ledger_index,
-						*transaction_hash,
-					));
+					Self::deposit_event(Event::ProcessingOk(ledger_index, *transaction_hash));
 					used_weight.saturating_add(weight);
 				},
 				Err((weight, e)) => {
@@ -942,11 +939,10 @@ impl<T: Config> Pallet<T> {
 
 			// Add to SettledXRPTransactionDetails
 			used_weight = used_weight.saturating_add(DbWeight::get().reads_writes(1, 1));
-			<SettledXRPTransactionDetails<T>>::try_append(
-				ledger_index as u32,
-				*transaction_hash,
-			)
-			.expect("Should not happen since XRPLTransactionLimitPerLedger >= XRPTransactionLimit");
+			<SettledXRPTransactionDetails<T>>::try_append(ledger_index as u32, *transaction_hash)
+				.expect(
+					"Should not happen since XRPLTransactionLimitPerLedger >= XRPTransactionLimit",
+				);
 
 			// Update HighestSettledLedgerIndex
 			if highest_settled_ledger_index < ledger_index as u32 {

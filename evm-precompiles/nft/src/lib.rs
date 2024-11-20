@@ -145,9 +145,7 @@ where
 
 		// Parse royalties
 		if royalty_addresses.len() != royalty_entitlements.len() {
-			return Err(
-				revert("NFT: Royalty addresses and entitlements must be the same length")
-			);
+			return Err(revert("NFT: Royalty addresses and entitlements must be the same length"));
 		}
 		let royalty_entitlements = royalty_entitlements.into_iter().map(|entitlement| {
 			let entitlement: u32 = entitlement.saturated_into();
@@ -214,8 +212,7 @@ where
 				))
 			},
 			Err(err) => Err(revert(
-				alloc::format!("NFT: Initialize collection failed {:?}", err.stripped())
-					.as_bytes(),
+				alloc::format!("NFT: Initialize collection failed {:?}", err.stripped()).as_bytes(),
 			)),
 		}
 	}

@@ -1640,7 +1640,7 @@ fn delayed_event_proof() {
 		let event_proof_id = NextEventProofId::<Test>::get();
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
-			destination: destination,
+			destination,
 			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: EthBridge::validator_set().id,
 			event_proof_id,
@@ -1707,7 +1707,7 @@ fn delayed_event_proof_updates_validator_set_id_on_last_minute_authorities_chang
 		let event_proof_id = NextEventProofId::<Test>::get();
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
-			destination: destination,
+			destination,
 			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: EthBridge::validator_set().id,
 			event_proof_id,
@@ -1739,7 +1739,7 @@ fn delayed_event_proof_updates_validator_set_id_on_last_minute_authorities_chang
 		// check event is thrown with the correct validator_set_id
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
-			destination: destination,
+			destination,
 			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: next_validator_set_id, // Updated validator set id
 			event_proof_id,
@@ -1793,7 +1793,7 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 		let event_proof_id = NextEventProofId::<Test>::get();
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
-			destination: destination,
+			destination,
 			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: EthBridge::validator_set().id,
 			event_proof_id,
@@ -1823,7 +1823,7 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 		// check event is thrown with the correct validator_set_id
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
-			destination: destination,
+			destination,
 			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: next_validator_set_id, // Updated validator set id
 			event_proof_id,
@@ -1853,7 +1853,7 @@ fn multiple_delayed_event_proof() {
 			event_ids.push(event_proof_id);
 			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 				source,
-				destination: destination,
+				destination,
 				message: BoundedVec::truncate_from(message.to_vec()),
 				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
@@ -1927,7 +1927,7 @@ fn on_idle_limits_processing() {
 			event_ids.push(event_proof_id);
 			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 				source,
-				destination: destination,
+				destination,
 				message: BoundedVec::truncate_from(message.to_vec()),
 				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
@@ -2006,7 +2006,7 @@ fn on_idle_no_remaining_weight_is_noop() {
 			event_ids.push(event_proof_id);
 			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 				source,
-				destination: destination,
+				destination,
 				message: BoundedVec::truncate_from(message.to_vec()),
 				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
@@ -2059,7 +2059,7 @@ fn set_delayed_event_proofs_per_block() {
 			event_ids.push(event_proof_id);
 			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 				source,
-				destination: destination,
+				destination,
 				message: BoundedVec::truncate_from(message.to_vec()),
 				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,

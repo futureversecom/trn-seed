@@ -222,13 +222,7 @@ where
 		{
 			let token_addresses: Vec<H160> = token_addresses
 				.iter()
-				.filter_map(|k| {
-					if let Token::Address(decoded) = k {
-						Some(*decoded)
-					} else {
-						None
-					}
-				})
+				.filter_map(|k| if let Token::Address(decoded) = k { Some(*decoded) } else { None })
 				.collect();
 
 			let token_addresses: BoundedVec<H160, T::MaxAddresses> =

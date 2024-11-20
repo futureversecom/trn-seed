@@ -507,10 +507,7 @@ pub mod pallet {
 			}
 
 			let result = T::Proxy::proxy_call(origin, futurepass, *call);
-			Self::deposit_event(Event::ProxyExecuted {
-				delegate: who,
-				result: result.map(|_| ()),
-			});
+			Self::deposit_event(Event::ProxyExecuted { delegate: who, result: result.map(|_| ()) });
 			result
 		}
 	}

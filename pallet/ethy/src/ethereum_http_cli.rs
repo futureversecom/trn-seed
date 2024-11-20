@@ -169,7 +169,9 @@ impl EthereumRpcClient {
 
 /// Return a random usize value
 fn random_request_id() -> usize {
-	u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().expect("Byte length is correct")) as usize
+	u32::from_be_bytes(
+		sp_io::offchain::random_seed()[..4].try_into().expect("Byte length is correct"),
+	) as usize
 }
 
 #[cfg(test)]
@@ -192,9 +194,9 @@ mod tests {
 	impl PendingRequestBuilder {
 		fn new() -> Self {
 			Self(PendingRequest {
-					uri: MOCK_TEST_ENDPOINT.into(),
-					sent: true,
-					..Default::default()
+				uri: MOCK_TEST_ENDPOINT.into(),
+				sent: true,
+				..Default::default()
 			})
 		}
 		fn request(mut self, request: &[u8]) -> Self {

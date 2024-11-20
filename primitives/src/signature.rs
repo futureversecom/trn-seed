@@ -143,7 +143,9 @@ impl sp_runtime::traits::Verify for EthereumSignature {
 
 pub fn verify_signature(signature: &[u8; 65], message: &[u8; 32], signer: &AccountId20) -> bool {
 	match sp_io::crypto::secp256k1_ecdsa_recover(signature, message) {
-		Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().expect("Expected 20 bytes")) == *signer,
+		Ok(pubkey) => {
+			AccountId20(keccak_256(&pubkey)[12..].try_into().expect("Expected 20 bytes")) == *signer
+		},
 		Err(sp_io::EcdsaVerifyError::BadRS) => {
 			log::error!(target: "evm", "Error recovering: Incorrect value of R or S");
 			false
@@ -360,8 +362,7 @@ mod tests {
 		let msg_hash: &[u8; 32] =
 			&hex!("4bb8b8a113de9a87a8c02cace5c8a9f61e478eaaa8f8100773a4c207f2c06662");
 		let msg_hash_str: &str = &hex::encode(msg_hash);
-		let eth_signed_msg =
-			&keccak_256(ethereum_signed_message(msg_hash_str.as_bytes()).as_ref()); // 71ea60525c727e50bfa2358ef14e7456bae41fe483ed104341e1376ab3141338
+		let eth_signed_msg = &keccak_256(ethereum_signed_message(msg_hash_str.as_bytes()).as_ref()); // 71ea60525c727e50bfa2358ef14e7456bae41fe483ed104341e1376ab3141338
 
 		let pair = ecdsa::Pair::from_seed(&hex![
 			"7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c"
@@ -371,7 +372,7 @@ mod tests {
 		let signature: EthereumSignature = pair.sign_prehashed(eth_signed_msg).into();
 		assert!(signature.verify(msg_hash_str.as_ref(), &address.into_account()));
 
-		match sp_io::crypto::secp256k1_ecdsa_recover(&signature.0.0, eth_signed_msg) {
+		match sp_io::crypto::secp256k1_ecdsa_recover(&signature.0 .0, eth_signed_msg) {
 			Ok(pubkey_bytes) => {
 				let account = AccountId20(keccak_256(&pubkey_bytes)[12..].try_into().unwrap());
 				assert_eq!(

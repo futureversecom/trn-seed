@@ -93,11 +93,8 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	pub fn validate(&self) -> bool {
 		!self.entitlements.is_empty()
 			&& self.entitlements.len() <= MAX_ENTITLEMENTS as usize
-			&& self
-				.entitlements
-				.iter()
-			.map(|(_who, share)| share.deconstruct())
-				.sum::<u32>() <= Permill::ACCURACY
+			&& self.entitlements.iter().map(|(_who, share)| share.deconstruct()).sum::<u32>()
+			<= Permill::ACCURACY
 	}
 	/// Calculate the total % entitled for royalties
 	/// It will return `0` if the `entitlements` are overcommitted
@@ -121,16 +118,10 @@ impl<AccountId> Default for RoyaltiesSchedule<AccountId> {
 /// Determines compatibility with external chains.
 /// If compatible with XRPL, XLS-20 tokens will be minted with every newly minted
 /// token on The Root Network
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
+#[derive(Default, Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
 pub struct CrossChainCompatibility {
 	/// This collection is compatible with the XLS-20 standard on XRPL
 	pub xrpl: bool,
-}
-
-impl Default for CrossChainCompatibility {
-	fn default() -> Self {
-		Self { xrpl: false }
-	}
 }
 
 #[cfg(test)]

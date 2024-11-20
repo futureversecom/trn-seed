@@ -202,7 +202,7 @@ fn testnet_genesis(
 				.cloned()
 				.map(|(acc, babe, im_online, grandpa, ethy)| {
 					(
-						acc,                                    // validator stash id
+						acc,                                            // validator stash id
 						acc,                                            // validator controller id
 						SessionKeys { babe, im_online, grandpa, ethy }, // session keys
 					)

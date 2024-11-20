@@ -131,8 +131,7 @@ impl ExtBuilder {
 			(XRP_ASSET_ID, self.root_account, true, XRP_MINIMUM_BALANCE),
 		];
 
-		let stashes: Vec<AccountId> =
-			self.initial_authorities.iter().map(|x| x.0).collect();
+		let stashes: Vec<AccountId> = self.initial_authorities.iter().map(|x| x.0).collect();
 		// ensure stashes will be funded too, ignore duplicates
 		let mut accounts_to_fund = self.accounts_to_fund.clone();
 		for s in stashes.iter() {

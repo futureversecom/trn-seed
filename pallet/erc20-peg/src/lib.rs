@@ -706,7 +706,8 @@ impl<T: Config> Pallet<T> {
 			},
 			PendingPayment::Deposit(deposit) => {
 				let beneficiary: T::AccountId =
-					T::AccountId::decode(&mut &deposit.beneficiary.0[..]).expect("Failed to decode AccountId");
+					T::AccountId::decode(&mut &deposit.beneficiary.0[..])
+						.expect("Failed to decode AccountId");
 				Self::deposit_event(Event::<T>::Erc20DepositDelayed {
 					payment_id,
 					scheduled_block: payment_block,
@@ -845,10 +846,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 		if source == &erc20_peg_contract_address || source == &root_peg_contract_address {
 			Ok(DbWeight::get().reads(2u64))
 		} else {
-			Err((
-				DbWeight::get().reads(2u64),
-				DispatchError::Other("Invalid source address"),
-			))
+			Err((DbWeight::get().reads(2u64), DispatchError::Other("Invalid source address")))
 		}
 	}
 

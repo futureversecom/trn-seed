@@ -231,10 +231,7 @@ pub trait EthereumEventSubscriber {
 	/// Default implementation compares source with SourceAddress
 	fn verify_source(source: &H160) -> WeightedDispatchResult {
 		if source != &Self::SourceAddress::get() {
-			Err((
-				DbWeight::get().reads(1u64),
-				DispatchError::Other("Invalid source address"),
-			))
+			Err((DbWeight::get().reads(1u64), DispatchError::Other("Invalid source address")))
 		} else {
 			Ok(DbWeight::get().reads(1u64))
 		}

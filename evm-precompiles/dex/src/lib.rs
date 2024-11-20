@@ -849,8 +849,7 @@ where
 		) {
 			Ok(amount_b) => Ok(succeed(EvmDataWriter::new().write::<U256>(amount_b).build())),
 			Err(e) => Err(revert(
-				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes(),
+				alloc::format!("DEX: Dispatched call failed with error: {:?}", e).as_bytes(),
 			)),
 		}
 	}
@@ -875,8 +874,7 @@ where
 		) {
 			Ok(amount_out) => Ok(succeed(EvmDataWriter::new().write::<u128>(amount_out).build())),
 			Err(e) => Err(revert(
-				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes(),
+				alloc::format!("DEX: Dispatched call failed with error: {:?}", e).as_bytes(),
 			)),
 		}
 	}
@@ -901,8 +899,7 @@ where
 		) {
 			Ok(amount_in) => Ok(succeed(EvmDataWriter::new().write::<u128>(amount_in).build())),
 			Err(e) => Err(revert(
-				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes(),
+				alloc::format!("DEX: Dispatched call failed with error: {:?}", e).as_bytes(),
 			)),
 		}
 	}
@@ -939,8 +936,7 @@ where
 		) {
 			Ok(amounts) => Ok(succeed(EvmDataWriter::new().write(amounts).build())),
 			Err(e) => Err(revert(
-				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes(),
+				alloc::format!("DEX: Dispatched call failed with error: {:?}", e).as_bytes(),
 			)),
 		}
 	}
@@ -977,8 +973,7 @@ where
 		) {
 			Ok(amounts) => Ok(succeed(EvmDataWriter::new().write(amounts).build())),
 			Err(e) => Err(revert(
-				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes(),
+				alloc::format!("DEX: Dispatched call failed with error: {:?}", e).as_bytes(),
 			)),
 		}
 	}

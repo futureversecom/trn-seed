@@ -80,7 +80,9 @@ impl TryInto<AccountId20> for XrplPublicKey {
 pub fn sha512_first_half(message: &[u8]) -> [u8; SHA512_HASH_LENGTH] {
 	let mut sha512 = sha2::Sha512::new();
 	sha512.update(message);
-	sha512.finalize()[..SHA512_HASH_LENGTH].try_into().expect("Incorrect byte length")
+	sha512.finalize()[..SHA512_HASH_LENGTH]
+		.try_into()
+		.expect("Incorrect byte length")
 }
 
 /// XRPL transaction memo field

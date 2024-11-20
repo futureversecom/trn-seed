@@ -356,8 +356,7 @@ mod create_token {
 			));
 
 			// Check storage added correctly
-			let expected_owned_tokens =
-				create_owned_tokens(vec![(token_owner, initial_issuance)]);
+			let expected_owned_tokens = create_owned_tokens(vec![(token_owner, initial_issuance)]);
 			let expected_token_info = SftTokenInformation {
 				token_name: token_name.clone(),
 				max_issuance: Some(max_issuance),
@@ -1067,8 +1066,7 @@ mod transfer {
 			assert_eq!(token_info.free_balance_of(&new_owner), initial_issuance);
 
 			// Owned tokens is correct, the collection_owner should be fully removed
-			let expected_owned_tokens =
-				create_owned_tokens(vec![(new_owner, initial_issuance)]);
+			let expected_owned_tokens = create_owned_tokens(vec![(new_owner, initial_issuance)]);
 			assert_eq!(token_info.owned_tokens, expected_owned_tokens);
 		});
 	}
@@ -1225,10 +1223,8 @@ mod burn {
 			assert_eq!(token_info.token_issuance, initial_issuance - burn_amount);
 
 			// Owned tokens is correct, the collection_owner should be fully removed
-			let expected_owned_tokens = create_owned_tokens(vec![(
-				collection_owner,
-				initial_issuance - burn_amount,
-			)]);
+			let expected_owned_tokens =
+				create_owned_tokens(vec![(collection_owner, initial_issuance - burn_amount)]);
 			assert_eq!(token_info.owned_tokens, expected_owned_tokens);
 
 			// Event emitted

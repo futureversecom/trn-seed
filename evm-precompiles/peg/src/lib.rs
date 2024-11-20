@@ -166,8 +166,7 @@ where
 				Ok(succeed(EvmDataWriter::new().write(U256::from(event_proof_id)).build()))
 			},
 			Err(err) => Err(revert(
-				alloc::format!("PEG: Erc20Withdraw failed {:?}", err.stripped())
-					.as_bytes(),
+				alloc::format!("PEG: Erc20Withdraw failed {:?}", err.stripped()).as_bytes(),
 			)),
 		}
 	}
@@ -205,7 +204,8 @@ where
 
 		// Bound collection_ids
 		let collection_ids: BoundedVec<CollectionUuid, Runtime::MaxCollectionsPerWithdraw> =
-			BoundedVec::try_from(collection_ids_unbounded).map_err(|_| revert("PEG: Too many collections"))?;
+			BoundedVec::try_from(collection_ids_unbounded)
+				.map_err(|_| revert("PEG: Too many collections"))?;
 
 		// Parse serial_numbers
 		let serials_unbounded: Vec<BoundedVec<SerialNumber, Runtime::MaxSerialsPerWithdraw>> =
@@ -221,7 +221,8 @@ where
 		let serial_numbers: BoundedVec<
 			BoundedVec<SerialNumber, Runtime::MaxSerialsPerWithdraw>,
 			Runtime::MaxCollectionsPerWithdraw,
-		> = BoundedVec::try_from(serials_unbounded).map_err(|_| revert("PEG: Too many collections"))?;
+		> = BoundedVec::try_from(serials_unbounded)
+			.map_err(|_| revert("PEG: Too many collections"))?;
 
 		// Get caller
 		let caller = Runtime::AccountId::from(handle.context().caller);
@@ -238,7 +239,10 @@ where
 			serial_numbers.clone(),
 			beneficiary,
 			None,
-		).map_err(|e| revert(alloc::format!("PEG: Erc721Withdraw failed {:?}", e.stripped()).as_bytes()))?;
+		)
+		.map_err(|e| {
+			revert(alloc::format!("PEG: Erc721Withdraw failed {:?}", e.stripped()).as_bytes())
+		})?;
 
 		// throw individual log for every collection withdrawn
 		for (collection_address, serial_numbers) in

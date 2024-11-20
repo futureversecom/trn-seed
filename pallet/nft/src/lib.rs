@@ -571,11 +571,7 @@ pub mod pallet {
 			}
 
 			// Request NFI storage if enabled
-			T::NFIRequest::request(
-				&who,
-				collection_id,
-				serial_numbers.clone().into_inner(),
-			)?;
+			T::NFIRequest::request(&who, collection_id, serial_numbers.clone().into_inner())?;
 
 			// throw event, listing starting and endpoint token ids (sequential mint)
 			Self::deposit_event(Event::<T>::Mint {

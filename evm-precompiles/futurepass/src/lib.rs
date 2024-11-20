@@ -368,8 +368,7 @@ where
 		// build the sub context. here we update the caller to the futurepass.
 		// We also update the value for the sub call and for the transfer to match the "value" input
 		// parameter
-		let sub_context =
-			Context { caller: futurepass, address, apparent_value: value };
+		let sub_context = Context { caller: futurepass, address, apparent_value: value };
 
 		let transfer = if value.is_zero() {
 			None

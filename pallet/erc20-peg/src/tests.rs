@@ -222,9 +222,7 @@ fn deposit_payment_with_ethereum_event_router_source_address_not_set() {
 			MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()),
 			(
 				DbWeight::get().reads(2u64),
-				EventRouterError::FailedProcessing(
-					DispatchError::Other("Invalid source address")
-				)
+				EventRouterError::FailedProcessing(DispatchError::Other("Invalid source address"))
 			)
 		);
 	});
@@ -261,9 +259,7 @@ fn deposit_payment_with_ethereum_event_router_incorrect_source_address() {
 			MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()),
 			(
 				DbWeight::get().reads(2u64),
-				EventRouterError::FailedProcessing(
-					DispatchError::Other("Invalid source address")
-				)
+				EventRouterError::FailedProcessing(DispatchError::Other("Invalid source address"))
 			)
 		);
 	});
@@ -862,12 +858,7 @@ fn withdraw_less_than_delay_goes_through() {
 
 		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
-		assert_ok!(Erc20Peg::withdraw(
-			Some(account).into(),
-			asset_id,
-			amount - 1,
-			beneficiary
-		));
+		assert_ok!(Erc20Peg::withdraw(Some(account).into(), asset_id, amount - 1, beneficiary));
 		assert_eq!(
 			DelayedPaymentSchedule::<Test>::get(payment_block),
 			vec![] as Vec<DelayedPaymentId>

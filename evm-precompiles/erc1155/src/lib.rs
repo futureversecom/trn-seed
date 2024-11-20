@@ -16,6 +16,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
+use alloc::string::String;
 use core::convert::{TryFrom, TryInto};
 use ethereum_types::BigEndianHash;
 use fp_evm::{IsPrecompileResult, PrecompileHandle, PrecompileOutput};
@@ -33,7 +34,6 @@ use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNu
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
-use alloc::string::String;
 
 /// Solidity selector of the TransferSingle log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER_SINGLE: [u8; 32] =
@@ -448,11 +448,7 @@ where
 						return Err(revert("ERC1155: ERC1155Receiver rejected tokens"));
 					}
 				},
-				_ => {
-					return Err(
-						revert("ERC1155: transfer to non-ERC1155Receiver implementer")
-					)
-				},
+				_ => return Err(revert("ERC1155: transfer to non-ERC1155Receiver implementer")),
 			};
 		}
 		Ok(())
@@ -556,11 +552,7 @@ where
 						return Err(revert("ERC1155: ERC1155Receiver rejected tokens"));
 					}
 				},
-				_ => {
-					return Err(
-						revert("ERC1155: transfer to non-ERC1155Receiver implementer")
-					)
-				},
+				_ => return Err(revert("ERC1155: transfer to non-ERC1155Receiver implementer")),
 			};
 		}
 		Ok(())
@@ -794,9 +786,7 @@ where
 					.write(Address::from(Into::<H160>::into(collection_owner)))
 					.build(),
 			)),
-			None => Err(revert(
-				String::from("ERC1155: Collection does not exist").as_bytes(),
-			)),
+			None => Err(revert(String::from("ERC1155: Collection does not exist").as_bytes())),
 		}
 	}
 
@@ -911,8 +901,7 @@ where
 				Ok(succeed(EvmDataWriter::new().write(U256::from(serial_number)).build()))
 			},
 			Err(err) => Err(revert(
-				alloc::format!("ERC1155: Create token failed {:?}", err.stripped())
-					.as_bytes(),
+				alloc::format!("ERC1155: Create token failed {:?}", err.stripped()).as_bytes(),
 			)),
 		}
 	}

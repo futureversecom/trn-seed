@@ -623,9 +623,7 @@ impl ExtBuilder {
 
 		if let Some(relayer) = self.relayer {
 			ext.execute_with(|| {
-				assert!(
-					EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer)).is_ok()
-				);
+				assert!(EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer)).is_ok());
 				assert!(EthBridge::set_relayer(RuntimeOrigin::root(), relayer).is_ok());
 			});
 		}

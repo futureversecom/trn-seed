@@ -806,18 +806,18 @@ pub(crate) mod test {
 		let witness = create_witness(validator, event_id, chain_id, digest_data);
 		let correct_digest =
 			data_to_digest(chain_id, digest_data.to_vec(), compatible_public).unwrap();
-		assert!(
-			EthyKeystore::verify_prehashed(
-				&validator.public(),
-				&witness.signature,
-				&correct_digest
-			)
-		);
+		assert!(EthyKeystore::verify_prehashed(
+			&validator.public(),
+			&witness.signature,
+			&correct_digest
+		));
 
 		let wrong_digest = data_to_digest(chain_id, vec![3_u8; 32], compatible_public).unwrap();
-		assert!(
-			!EthyKeystore::verify_prehashed(&validator.public(), &witness.signature, &wrong_digest),
-		);
+		assert!(!EthyKeystore::verify_prehashed(
+			&validator.public(),
+			&witness.signature,
+			&wrong_digest
+		),);
 	}
 
 	#[test]
@@ -832,17 +832,17 @@ pub(crate) mod test {
 		let witness = create_witness(validator, event_id, chain_id, digest_data);
 		let correct_digest =
 			data_to_digest(chain_id, digest_data.to_vec(), compatible_public).unwrap();
-		assert!(
-			EthyKeystore::verify_prehashed(
-				&validator.public(),
-				&witness.signature,
-				&correct_digest
-			)
-		);
+		assert!(EthyKeystore::verify_prehashed(
+			&validator.public(),
+			&witness.signature,
+			&correct_digest
+		));
 
 		let wrong_digest = data_to_digest(chain_id, vec![3_u8; 32], compatible_public).unwrap();
-		assert!(
-			!EthyKeystore::verify_prehashed(&validator.public(), &witness.signature, &wrong_digest),
-		);
+		assert!(!EthyKeystore::verify_prehashed(
+			&validator.public(),
+			&witness.signature,
+			&wrong_digest
+		),);
 	}
 }

@@ -28,6 +28,7 @@ use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
+use alloc::string::String;
 use precompile_utils::{
 	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, ERC721_PRECOMPILE_ADDRESS_PREFIX},
 	prelude::*,
@@ -35,7 +36,6 @@ use precompile_utils::{
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId,
 };
-use alloc::string::String;
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
@@ -477,14 +477,10 @@ where
 			match reason {
 				ExitReason::Succeed(_) => {
 					if output[..4] != ON_ERC721_RECEIVED_FUNCTION_SELECTOR.to_vec() {
-						return Err(
-							revert("ERC721: transfer to non ERC721Receiver implementer")
-						);
+						return Err(revert("ERC721: transfer to non ERC721Receiver implementer"));
 					}
 				},
-				_ => {
-					return Err(revert("ERC721: transfer to non ERC721Receiver implementer"))
-				},
+				_ => return Err(revert("ERC721: transfer to non ERC721Receiver implementer")),
 			};
 		}
 
@@ -660,9 +656,7 @@ where
 					.write::<Bytes>(collection_info.name.as_slice().into())
 					.build(),
 			)),
-			None => {
-				Err(revert(String::from("ERC721: Collection does not exist").as_bytes()))
-			},
+			None => Err(revert(String::from("ERC721: Collection does not exist").as_bytes())),
 		}
 	}
 
@@ -680,9 +674,7 @@ where
 					.write::<Bytes>(collection_info.name.as_slice().into())
 					.build(),
 			)),
-			None => {
-				Err(revert(String::from("ERC721: Collection does not exist").as_bytes()))
-			},
+			None => Err(revert(String::from("ERC721: Collection does not exist").as_bytes())),
 		}
 	}
 
@@ -726,9 +718,7 @@ where
 					.write::<U256>(collection_info.collection_issuance.into())
 					.build(),
 			)),
-			None => {
-				Err(revert(String::from("ERC721: Collection does not exist").as_bytes()))
-			},
+			None => Err(revert(String::from("ERC721: Collection does not exist").as_bytes())),
 		}
 	}
 
@@ -975,9 +965,7 @@ where
 					.write(Address::from(Into::<H160>::into(collection_info.owner)))
 					.build(),
 			)),
-			None => {
-				Err(revert(String::from("ERC721: Collection does not exist").as_bytes()))
-			},
+			None => Err(revert(String::from("ERC721: Collection does not exist").as_bytes())),
 		}
 	}
 

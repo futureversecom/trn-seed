@@ -66,9 +66,7 @@ fn run_to_block(n: BlockNumber) {
 
 		System::on_initialize(System::block_number());
 		Babe::on_initialize(System::block_number());
-		<pallet_babe::CurrentSlot<Runtime>>::put(sp_consensus_babe::Slot::from(
-			b as u64 + 1_u64,
-		));
+		<pallet_babe::CurrentSlot<Runtime>>::put(sp_consensus_babe::Slot::from(b as u64 + 1_u64));
 		Timestamp::on_initialize(System::block_number());
 		Timestamp::set_timestamp((System::block_number() * MILLISECS_PER_BLOCK as u32) as u64);
 

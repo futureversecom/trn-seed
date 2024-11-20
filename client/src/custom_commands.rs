@@ -55,7 +55,7 @@ impl XrplVerifyCommand {
 			data.to_vec(),
 			pub_key.clone().try_into().expect("Incorrect Public key"),
 		)
-			.expect("Data failed to digest");
+		.expect("Data failed to digest");
 		println!("\ndigest: {:?}", digest.clone().encode_hex::<String>());
 
 		// verify

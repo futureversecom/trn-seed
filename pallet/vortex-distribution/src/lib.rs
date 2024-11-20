@@ -602,10 +602,7 @@ pub mod pallet {
 					&& vortex_balance <= T::MultiCurrency::balance(T::VtxAssetId::get(), &who),
 				Error::<T>::InvalidAmount
 			);
-			ensure!(
-				VtxDistStatuses::<T>::get(id) == VtxDistStatus::Done,
-				Error::<T>::CannotRedeem
-			);
+			ensure!(VtxDistStatuses::<T>::get(id) == VtxDistStatus::Done, Error::<T>::CannotRedeem);
 
 			for (asset_id, _) in AssetPrices::<T>::iter_prefix(id) {
 				// First we calculate the ratio between the asset balance and the total vortex

@@ -357,10 +357,7 @@ fn transact_works() {
 			);
 			// Check balance of destination and issuer is correct
 			assert_eq!(Balances::free_balance(destination), transfer_amount);
-			assert_eq!(
-				Balances::free_balance(issuer.address()),
-				initial_balance - transfer_amount
-			);
+			assert_eq!(Balances::free_balance(issuer.address()), initial_balance - transfer_amount);
 		});
 }
 
@@ -415,10 +412,7 @@ fn transact_works_eip191() {
 			);
 			// Check balance of destination and issuer is correct
 			assert_eq!(Balances::free_balance(destination), transfer_amount);
-			assert_eq!(
-				Balances::free_balance(issuer.address()),
-				initial_balance - transfer_amount
-			);
+			assert_eq!(Balances::free_balance(issuer.address()), initial_balance - transfer_amount);
 		});
 }
 

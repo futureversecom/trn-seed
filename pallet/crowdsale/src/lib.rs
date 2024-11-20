@@ -66,8 +66,7 @@ mod tests;
 #[allow(dead_code)]
 pub(crate) const LOG_TARGET: &str = "crowdsale";
 
-pub const CROWDSALE_DIST_UNSIGNED_PRIORITY: TransactionPriority =
-	TransactionPriority::MAX / 2;
+pub const CROWDSALE_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::MAX / 2;
 
 #[frame_support::pallet]
 pub mod pallet {

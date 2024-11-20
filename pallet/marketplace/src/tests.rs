@@ -1861,7 +1861,7 @@ fn close_listings_at_removes_listing_data() {
 				fixed_price: price,
 				buyer: None,
 				close: System::block_number() + 1,
-				seller: seller,
+				seller,
 				tokens: tokens.clone(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
@@ -1871,7 +1871,7 @@ fn close_listings_at_removes_listing_data() {
 				payment_asset: NativeAssetId::get(),
 				reserve_price: price,
 				close: System::block_number() + 1,
-				seller: seller,
+				seller,
 				tokens: tokens.clone(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
@@ -1881,7 +1881,7 @@ fn close_listings_at_removes_listing_data() {
 				payment_asset: NativeAssetId::get(),
 				reserve_price: price,
 				close: System::block_number() + 1,
-				seller: seller,
+				seller,
 				tokens: tokens.clone(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
@@ -2741,13 +2741,11 @@ mod sell_sft {
 					marketplace_id: None,
 				})
 			);
-			assert!(
-				ListingEndSchedule::<Test>::get(
-					System::block_number() + DefaultListingDuration::get(),
-					listing_id
-				)
-				.unwrap(),
-			);
+			assert!(ListingEndSchedule::<Test>::get(
+				System::block_number() + DefaultListingDuration::get(),
+				listing_id
+			)
+			.unwrap(),);
 			// Check the SFT reserved and free balance
 			let token_balance = sft_balance_of::<Test>(token_id, &token_owner);
 			assert_eq!(token_balance.free_balance, 0);
@@ -3388,13 +3386,11 @@ mod auction_sft {
 					marketplace_id: None,
 				})
 			);
-			assert!(
-				ListingEndSchedule::<Test>::get(
-					System::block_number() + DefaultListingDuration::get(),
-					listing_id
-				)
-				.unwrap(),
-			);
+			assert!(ListingEndSchedule::<Test>::get(
+				System::block_number() + DefaultListingDuration::get(),
+				listing_id
+			)
+			.unwrap(),);
 			// Check the SFT reserved and free balance
 			let token_balance = sft_balance_of::<Test>(token_id, &token_owner);
 			assert_eq!(token_balance.free_balance, 0);

@@ -29,7 +29,12 @@ pub enum FrontierBackendType {
 pub enum FrontierBackendConfig {
 	#[default]
 	KeyValue,
-	Sql { pool_size: u32, num_ops_timeout: u32, thread_count: u32, cache_size: u64 },
+	Sql {
+		pool_size: u32,
+		num_ops_timeout: u32,
+		thread_count: u32,
+		cache_size: u64,
+	},
 }
 
 pub struct RpcConfig {

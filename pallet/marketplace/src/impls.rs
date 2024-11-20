@@ -27,10 +27,7 @@ impl<T: Config> Pallet<T> {
 		marketplace_account: Option<T::AccountId>,
 		entitlement: Permill,
 	) -> Result<MarketplaceId, DispatchError> {
-		ensure!(
-			entitlement.deconstruct() <= Permill::ACCURACY,
-			Error::<T>::RoyaltiesInvalid
-		);
+		ensure!(entitlement.deconstruct() <= Permill::ACCURACY, Error::<T>::RoyaltiesInvalid);
 		let marketplace_account = marketplace_account.unwrap_or(who);
 		let marketplace_id = Self::next_marketplace_id();
 		let marketplace = Marketplace { account: marketplace_account, entitlement };
