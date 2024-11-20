@@ -3526,7 +3526,7 @@ mod withdraw_asset {
 						amount: initial_balance,
 						destination: destination.clone(),
 					}
-						.into(),
+					.into(),
 				);
 			})
 	}

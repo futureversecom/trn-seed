@@ -51,7 +51,7 @@ use xrpl_codec::{
 	traits::BinarySerialize,
 	transaction::{
 		NFTokenAcceptOffer, NFTokenCreateOffer, Payment, PaymentAltCurrency,
-		PaymentWithDestinationTag, SignerListSet, PaymentAltCurrencyWithDestinationTag
+		PaymentAltCurrencyWithDestinationTag, PaymentWithDestinationTag, SignerListSet,
 	},
 	types::{AccountIdType, AmountType, IssuedAmountType, IssuedValueType},
 };
@@ -1595,7 +1595,8 @@ impl<T: Config> Pallet<T> {
 				destination_tag,
 				// omit signer key since this is a 'MultiSigner' tx
 				None,
-			).binary_serialize(true)
+			)
+			.binary_serialize(true)
 		} else {
 			PaymentAltCurrency::new(
 				door_address,
@@ -1607,7 +1608,8 @@ impl<T: Config> Pallet<T> {
 				SourceTag::<T>::get(),
 				// omit signer key since this is a 'MultiSigner' tx
 				None,
-			).binary_serialize(true)
+			)
+			.binary_serialize(true)
 		};
 		Ok(tx_blob)
 	}
