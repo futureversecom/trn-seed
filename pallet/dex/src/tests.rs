@@ -65,7 +65,7 @@ fn disable_trading_pair() {
 			TradingPair::new(usdc, weth),
 		)));
 		assert_eq!(
-			Dex::trading_pair_statuses(TradingPair::new(usdc, weth)),
+			TradingPairStatuses::<Test>::get(TradingPair::new(usdc, weth)),
 			TradingPairStatus::NotEnabled
 		);
 
@@ -101,7 +101,7 @@ fn reenable_trading_pair() {
 		);
 
 		// check that pair LP token does not exist
-		assert_eq!(Dex::lp_token_id(TradingPair::new(usdc, weth)).is_some(), false);
+		assert_eq!(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).is_some(), false);
 
 		// manually create LP token and enable it
 		TradingPairLPToken::<Test>::insert(TradingPair::new(usdc, weth), Some(3));
@@ -125,7 +125,7 @@ fn reenable_trading_pair() {
 		// a disabled trading pair can be re-enabled
 		assert_ok!(Dex::reenable_trading_pair(RuntimeOrigin::root(), usdc, weth));
 		assert_eq!(
-			Dex::trading_pair_statuses(TradingPair::new(usdc, weth)),
+			TradingPairStatuses::<Test>::get(TradingPair::new(usdc, weth)),
 			TradingPairStatus::Enabled
 		);
 		System::assert_last_event(MockEvent::Dex(crate::Event::EnableTradingPair(
@@ -319,7 +319,7 @@ fn add_liquidity() {
 
 		// adding LP enables trading pair
 		assert_eq!(
-			Dex::trading_pair_statuses(TradingPair::new(usdc, weth)),
+			TradingPairStatuses::<Test>::get(TradingPair::new(usdc, weth)),
 			TradingPairStatus::Enabled
 		);
 
@@ -361,25 +361,25 @@ fn add_liquidity() {
 		)));
 
 		// the created lp token should be the 3rd created token (first 22bit) + 100 (last 10bits)
-		assert_eq!(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), 3 << 10 | 100);
+		assert_eq!(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), 3 << 10 | 100);
 
 		// check that the next asset id should be 4 (2 assets + 1 lp token)
 
 		// lp token is the same token independent of trading pair token ordering
 		assert_eq!(
-			Dex::lp_token_id(TradingPair::new(usdc, weth)),
-			Dex::lp_token_id(TradingPair::new(weth, usdc))
+			TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)),
+			TradingPairLPToken::<Test>::get(TradingPair::new(weth, usdc))
 		);
 
 		// verify Alice now has LP tokens
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice),
+			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &alice),
 			999_999_999_999_999_000u128,
 		);
 
 		// verify Charlie now has LP tokens
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &charlie),
+			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &charlie),
 			1_000_000_000_000_000_000u128,
 		);
 
@@ -418,14 +418,14 @@ fn add_liquidity() {
 
 		// verify Bob now has LP tokens
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &bob),
+			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &bob),
 			to_eth(2),
 		);
 
 		// bob should have more LP tokens than Alice as Bob provisioned more liquidity
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice)
-				< AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &bob),
+			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &alice)
+				< AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &bob),
 			true
 		);
 
@@ -483,7 +483,7 @@ fn add_shared_liquidity() {
 		let trading_pair: TradingPair = TradingPair::new(usdc, weth);
 
 		// adding LP enables trading pair
-		assert_eq!(Dex::trading_pair_statuses(trading_pair), TradingPairStatus::Enabled);
+		assert_eq!(TradingPairStatuses::<Test>::get(trading_pair), TradingPairStatus::Enabled);
 
 		System::assert_last_event(MockEvent::Dex(crate::Event::AddLiquidity(
 			alice,
@@ -497,8 +497,8 @@ fn add_shared_liquidity() {
 
 		// lp token is the same token independent of trading pair token ordering
 		assert_eq!(
-			Dex::lp_token_id(TradingPair::new(usdc, weth)),
-			Dex::lp_token_id(TradingPair::new(weth, usdc))
+			TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)),
+			TradingPairLPToken::<Test>::get(TradingPair::new(weth, usdc))
 		);
 
 		// mint tokens to new user
@@ -694,7 +694,7 @@ fn add_liquidity_issue_15() {
 			None,
 		));
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice),
+			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &alice),
 			1_999_999_999_999_999_000_u128,
 		);
 		assert_eq!(AssetsExt::balance(usdc, &alice), 8_000_000_000_000_000_000_u128);
@@ -729,7 +729,7 @@ fn remove_liquidity_simple() {
 			None,
 		));
 
-		let lp_token_id = Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap();
+		let lp_token_id = TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap();
 		assert_eq!(AssetsExt::balance(lp_token_id, &alice), 1_999_999_999_999_999_000u128);
 		assert_eq!(AssetsExt::balance(usdc, &alice), 0);
 		assert_eq!(AssetsExt::balance(weth, &alice), 0);
@@ -772,7 +772,7 @@ fn remove_liquidity_simple() {
 		)));
 
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice),
+			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &alice),
 			0,
 		);
 		assert_eq!(AssetsExt::balance(usdc, &bob), 1_999_999_999_999_999_000u128);
@@ -847,7 +847,7 @@ fn remove_liquidity_full() {
 			None,
 			None,
 		));
-		let lp_token_id = Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(); // TODO remove
+		let lp_token_id = TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(); // TODO remove
 		assert_eq!(AssetsExt::balance(lp_token_id, &alice), 1_999_999_999_999_999_000u128);
 		assert_eq!(AssetsExt::balance(usdc, &alice), 0);
 		assert_eq!(AssetsExt::balance(weth, &alice), 0);
@@ -918,7 +918,7 @@ fn remove_liquidity_full() {
 		)));
 
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice),
+			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &alice),
 			1,
 		);
 		assert_eq!(AssetsExt::balance(usdc, &alice), 1_999_999_999_999_998_999_u128);
@@ -945,7 +945,7 @@ fn remove_liquidity_full() {
 
 		// removing all liquidity should imply user has recieved all input tokens
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice),
+			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &alice),
 			0u128,
 		);
 		// do not get 100% tokens back as some lost due to minimum liquidity minting
@@ -1455,7 +1455,7 @@ fn multiple_swaps_with_multiple_lp() {
 			None,
 		));
 
-		let lp_usdc_weth = Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap();
+		let lp_usdc_weth = TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap();
 
 		// lp providers alice have lp tokens
 		assert_eq!(AssetsExt::balance(lp_usdc_weth, &alice), 17_320_508_075_688_771_935_u128);
@@ -1631,20 +1631,20 @@ fn set_fee_to() {
 
 		// check the default value of FeeTo
 		let fee_pot = DefaultFeeTo::<Test>::get().map(|v| v.into());
-		assert_eq!(Dex::fee_to(), fee_pot);
+		assert_eq!(FeeTo::<Test>::get(), fee_pot);
 
 		// normal user can not set FeeTo
 		assert_noop!(Dex::set_fee_to(RuntimeOrigin::signed(alice), Some(bob)), BadOrigin);
 
 		// change FeeTo with root user
 		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), Some(bob)));
-		assert_eq!(Dex::fee_to().unwrap(), bob);
+		assert_eq!(FeeTo::<Test>::get().unwrap(), bob);
 
 		System::assert_last_event(MockEvent::Dex(crate::Event::FeeToSet(Some(bob))));
 
 		// disable FeeTo with root user
 		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), None));
-		assert_eq!(Dex::fee_to().is_none(), true);
+		assert_eq!(FeeTo::<Test>::get().is_none(), true);
 
 		System::assert_last_event(MockEvent::Dex(crate::Event::FeeToSet(None)));
 	});
@@ -1679,8 +1679,8 @@ fn mint_fee() {
 
 		// get the lp token id
 		let trading_pair = TradingPair::new(usdc, weth);
-		let lp_token = Dex::lp_token_id(trading_pair).unwrap();
-		let (reserve_a, reserve_b) = Dex::liquidity_pool(trading_pair);
+		let lp_token = TradingPairLPToken::<Test>::get(trading_pair).unwrap();
+		let (reserve_a, reserve_b) = LiquidityPool::<Test>::get(trading_pair);
 
 		// set FeeTo to None
 		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), None));
@@ -1755,11 +1755,11 @@ fn test_network_fee() {
 
 		// get the lp token id
 		let trading_pair = TradingPair::new(usdc, weth);
-		let lp_token = Dex::lp_token_id(trading_pair).unwrap();
+		let lp_token = TradingPairLPToken::<Test>::get(trading_pair).unwrap();
 
 		// the last k value should be updated as the product of the initial reserve values
 		let (reserve_0_init, reserve_1_init) = LiquidityPool::<Test>::get(trading_pair);
-		assert_eq!(Dex::liquidity_pool_last_k(lp_token), (reserve_0_init * reserve_1_init).into());
+		assert_eq!(LiquidityPoolLastK::<Test>::get(lp_token), (reserve_0_init * reserve_1_init).into());
 
 		// fee_pot doesn't have lp token balance before swaps happening
 		assert_eq!(AssetsExt::balance(lp_token, &fee_pot), 0);
@@ -1803,7 +1803,7 @@ fn test_network_fee() {
 
 		// the last k value should be updated after remove_liquidity is called
 		let (reserve_0_new, reserve_1_new) = LiquidityPool::<Test>::get(trading_pair);
-		assert_eq!(Dex::liquidity_pool_last_k(lp_token), (reserve_0_new * reserve_1_new).into());
+		assert_eq!(LiquidityPoolLastK::<Test>::get(lp_token), (reserve_0_new * reserve_1_new).into());
 	});
 }
 
