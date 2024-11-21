@@ -58,12 +58,10 @@ pub mod pallet {
 
 	// Account with transfer approval for a single NFT
 	#[pallet::storage]
-	#[pallet::getter(fn erc721_approvals)]
 	pub type ERC721Approvals<T: Config> = StorageMap<_, Twox64Concat, TokenId, T::AccountId>;
 
 	// Accounts with transfer approval for an NFT collection of another account
 	#[pallet::storage]
-	#[pallet::getter(fn erc721_approvals_for_all)]
 	pub type ERC721ApprovalsForAll<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -75,7 +73,6 @@ pub mod pallet {
 
 	// Mapping from account/ asset_id to an approved balance of another account
 	#[pallet::storage]
-	#[pallet::getter(fn erc20_approvals)]
 	pub type ERC20Approvals<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -87,7 +84,6 @@ pub mod pallet {
 
 	// Accounts with transfer approval for an SFT collection of another account
 	#[pallet::storage]
-	#[pallet::getter(fn erc1155_approvals_for_all)]
 	pub type ERC1155ApprovalsForAll<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -140,7 +136,7 @@ pub mod pallet {
 			};
 
 			let is_approved_for_all =
-				Self::erc721_approvals_for_all(&token_owner, (token_id.0, caller.clone()))
+				ERC721ApprovalsForAll::<T>::get(&token_owner, (token_id.0, caller.clone()))
 					.unwrap_or_default();
 			ensure!(
 				token_owner == caller || is_approved_for_all,
@@ -194,7 +190,7 @@ pub mod pallet {
 			amount: Balance,
 		) -> DispatchResult {
 			let _ = ensure_none(origin)?;
-			let new_approved_amount = Self::erc20_approvals((&caller, asset_id), &spender)
+			let new_approved_amount = ERC20Approvals::<T>::get((&caller, asset_id), &spender)
 				.ok_or(Error::<T>::CallerNotApproved)?
 				.checked_sub(amount)
 				.ok_or(Error::<T>::ApprovedAmountTooLow)?;
@@ -277,7 +273,7 @@ impl<T: Config> Pallet<T> {
 
 		// Check approvalForAll
 		if let Some(owner) = token_owner {
-			if Self::erc721_approvals_for_all(owner, (token_id.0, spender.clone()))
+			if ERC721ApprovalsForAll::<T>::get(owner, (token_id.0, spender.clone()))
 				.unwrap_or_default()
 			{
 				return true;
@@ -285,7 +281,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Lastly, Check token approval
-		Some(spender) == Self::erc721_approvals(token_id)
+		Some(spender) == ERC721Approvals::<T>::get(token_id)
 	}
 }
 
