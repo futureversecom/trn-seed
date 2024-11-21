@@ -14,8 +14,8 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg(test)]
-use crate::ChainId;
 use crate::mock::{EVMChainId, RuntimeEvent, RuntimeOrigin, System, Test, TestExt};
+use crate::ChainId;
 use seed_pallet_common::test_prelude::*;
 
 #[test]

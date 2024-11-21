@@ -14,8 +14,8 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use crate::{ERC1155ApprovalsForAll, ERC20Approvals, ERC721Approvals, ERC721ApprovalsForAll};
 use crate::mock::{Nft, Test, TokenApprovals};
+use crate::{ERC1155ApprovalsForAll, ERC20Approvals, ERC721Approvals, ERC721ApprovalsForAll};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::OriginChain;
 
@@ -334,9 +334,7 @@ fn set_erc721_approval_for_all() {
 			collection_id,
 			true
 		));
-		assert!(
-			ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator)).unwrap()
-		);
+		assert!(ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator)).unwrap());
 
 		// Remove approval
 		assert_ok!(TokenApprovals::erc721_approval_for_all(
@@ -346,9 +344,7 @@ fn set_erc721_approval_for_all() {
 			collection_id,
 			false
 		));
-		assert!(
-			ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator)).is_none()
-		);
+		assert!(ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator)).is_none());
 	});
 }
 
@@ -385,15 +381,9 @@ fn set_erc721_approval_for_all_multiple_approvals() {
 		));
 
 		// Check storage
-		assert!(
-			ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator_1)).unwrap()
-		);
-		assert!(
-			ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator_2)).unwrap()
-		);
-		assert!(
-			ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator_3)).unwrap()
-		);
+		assert!(ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator_1)).unwrap());
+		assert!(ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator_2)).unwrap());
+		assert!(ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator_3)).unwrap());
 	});
 }
 
@@ -468,9 +458,7 @@ fn set_erc1155_approval_for_all() {
 			collection_id,
 			true
 		));
-		assert!(
-			ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator)).unwrap()
-		);
+		assert!(ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator)).unwrap());
 
 		// Remove approval
 		assert_ok!(TokenApprovals::erc1155_approval_for_all(
@@ -480,9 +468,7 @@ fn set_erc1155_approval_for_all() {
 			collection_id,
 			false
 		));
-		assert!(
-			ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator)).is_none()
-		);
+		assert!(ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator)).is_none());
 	});
 }
 
@@ -519,15 +505,9 @@ fn set_erc1155_approval_for_all_multiple_approvals() {
 		));
 
 		// Check storage
-		assert!(
-			ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator_1)).unwrap()
-		);
-		assert!(
-			ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator_2)).unwrap()
-		);
-		assert!(
-			ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator_3)).unwrap()
-		);
+		assert!(ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator_1)).unwrap());
+		assert!(ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator_2)).unwrap());
+		assert!(ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator_3)).unwrap());
 	});
 }
 

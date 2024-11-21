@@ -361,7 +361,10 @@ fn add_liquidity() {
 		)));
 
 		// the created lp token should be the 3rd created token (first 22bit) + 100 (last 10bits)
-		assert_eq!(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), 3 << 10 | 100);
+		assert_eq!(
+			TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(),
+			3 << 10 | 100
+		);
 
 		// check that the next asset id should be 4 (2 assets + 1 lp token)
 
@@ -373,13 +376,19 @@ fn add_liquidity() {
 
 		// verify Alice now has LP tokens
 		assert_eq!(
-			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &alice),
+			AssetsExt::balance(
+				TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(),
+				&alice
+			),
 			999_999_999_999_999_000u128,
 		);
 
 		// verify Charlie now has LP tokens
 		assert_eq!(
-			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &charlie),
+			AssetsExt::balance(
+				TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(),
+				&charlie
+			),
 			1_000_000_000_000_000_000u128,
 		);
 
@@ -418,14 +427,22 @@ fn add_liquidity() {
 
 		// verify Bob now has LP tokens
 		assert_eq!(
-			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &bob),
+			AssetsExt::balance(
+				TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(),
+				&bob
+			),
 			to_eth(2),
 		);
 
 		// bob should have more LP tokens than Alice as Bob provisioned more liquidity
 		assert_eq!(
-			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &alice)
-				< AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &bob),
+			AssetsExt::balance(
+				TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(),
+				&alice
+			) < AssetsExt::balance(
+				TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(),
+				&bob
+			),
 			true
 		);
 
@@ -694,7 +711,10 @@ fn add_liquidity_issue_15() {
 			None,
 		));
 		assert_eq!(
-			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &alice),
+			AssetsExt::balance(
+				TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(),
+				&alice
+			),
 			1_999_999_999_999_999_000_u128,
 		);
 		assert_eq!(AssetsExt::balance(usdc, &alice), 8_000_000_000_000_000_000_u128);
@@ -772,7 +792,10 @@ fn remove_liquidity_simple() {
 		)));
 
 		assert_eq!(
-			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &alice),
+			AssetsExt::balance(
+				TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(),
+				&alice
+			),
 			0,
 		);
 		assert_eq!(AssetsExt::balance(usdc, &bob), 1_999_999_999_999_999_000u128);
@@ -918,7 +941,10 @@ fn remove_liquidity_full() {
 		)));
 
 		assert_eq!(
-			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &alice),
+			AssetsExt::balance(
+				TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(),
+				&alice
+			),
 			1,
 		);
 		assert_eq!(AssetsExt::balance(usdc, &alice), 1_999_999_999_999_998_999_u128);
@@ -945,7 +971,10 @@ fn remove_liquidity_full() {
 
 		// removing all liquidity should imply user has recieved all input tokens
 		assert_eq!(
-			AssetsExt::balance(TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(), &alice),
+			AssetsExt::balance(
+				TradingPairLPToken::<Test>::get(TradingPair::new(usdc, weth)).unwrap(),
+				&alice
+			),
 			0u128,
 		);
 		// do not get 100% tokens back as some lost due to minimum liquidity minting
@@ -1759,7 +1788,10 @@ fn test_network_fee() {
 
 		// the last k value should be updated as the product of the initial reserve values
 		let (reserve_0_init, reserve_1_init) = LiquidityPool::<Test>::get(trading_pair);
-		assert_eq!(LiquidityPoolLastK::<Test>::get(lp_token), (reserve_0_init * reserve_1_init).into());
+		assert_eq!(
+			LiquidityPoolLastK::<Test>::get(lp_token),
+			(reserve_0_init * reserve_1_init).into()
+		);
 
 		// fee_pot doesn't have lp token balance before swaps happening
 		assert_eq!(AssetsExt::balance(lp_token, &fee_pot), 0);
@@ -1803,7 +1835,10 @@ fn test_network_fee() {
 
 		// the last k value should be updated after remove_liquidity is called
 		let (reserve_0_new, reserve_1_new) = LiquidityPool::<Test>::get(trading_pair);
-		assert_eq!(LiquidityPoolLastK::<Test>::get(lp_token), (reserve_0_new * reserve_1_new).into());
+		assert_eq!(
+			LiquidityPoolLastK::<Test>::get(lp_token),
+			(reserve_0_new * reserve_1_new).into()
+		);
 	});
 }
 
