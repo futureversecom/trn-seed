@@ -2543,12 +2543,12 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(3));
 		assert_eq!(
-			XRPLBridge::ticket_sequence_threshold_reached_emitted(XRPLDoorAccount::Main),
+			TicketSequenceThresholdReachedEmitted::<Test>::get(XRPLDoorAccount::Main),
 			false
 		);
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(4));
 		assert_eq!(
-			XRPLBridge::ticket_sequence_threshold_reached_emitted(XRPLDoorAccount::Main),
+			TicketSequenceThresholdReachedEmitted::<Test>::get(XRPLDoorAccount::Main),
 			true
 		);
 		System::assert_has_event(
@@ -2675,13 +2675,13 @@ fn get_door_ticket_sequence_check_events_emitted() {
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(3));
 		assert_eq!(
-			XRPLBridge::ticket_sequence_threshold_reached_emitted(XRPLDoorAccount::Main),
+			TicketSequenceThresholdReachedEmitted::<Test>::get(XRPLDoorAccount::Main),
 			false
 		);
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(XRPLDoorAccount::Main), Ok(4));
 		// event should be emitted here since ((4 - 3) + 1)/3 = 0.66 == TicketSequenceThreshold
 		assert_eq!(
-			XRPLBridge::ticket_sequence_threshold_reached_emitted(XRPLDoorAccount::Main),
+			TicketSequenceThresholdReachedEmitted::<Test>::get(XRPLDoorAccount::Main),
 			true
 		);
 		System::assert_has_event(
