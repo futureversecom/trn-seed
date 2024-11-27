@@ -25,6 +25,10 @@ use pallet_sft::test_utils::SftBuilder;
 use seed_pallet_common::test_prelude::*;
 use sp_runtime::ArithmeticError;
 
+// test GenericCollectionId with all types
+
+
+
 mod set_relayer {
 	use super::*;
 

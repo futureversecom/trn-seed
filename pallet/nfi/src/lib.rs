@@ -67,8 +67,13 @@ pub mod pallet {
 		/// Max length of data stored per token
 		#[pallet::constant]
 		type MaxDataLength: Get<u32>;
+		/// Max length of bytes stored for MultiChainTokenId
+		#[pallet::constant]
+		type MaxByteLength: Get<u32>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
+		/// The chain ID of this chain
+		type ChainId: Get<u64>;
 	}
 
 	/// The permission enabled relayer
@@ -83,17 +88,19 @@ pub mod pallet {
 	pub type NfiData<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
-		TokenId,
+		MultiChainTokenId<T::MaxByteLength>,
 		Twox64Concat,
 		NFISubType,
 		NFIDataType<T::MaxDataLength>,
 	>;
 
+	/// Flag to enable NFI for collections across chains
 	#[pallet::storage]
-	pub type NfiEnabled<T> = StorageDoubleMap<
+	pub type NfiEnabled<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
-		CollectionUuid,
+		// chain_id, collection_id
+		(u64, GenericCollectionId<T::MaxByteLength>),
 		Twox64Concat,
 		NFISubType,
 		bool,
@@ -111,17 +118,16 @@ pub mod pallet {
 		DataRequest {
 			sub_type: NFISubType,
 			caller: T::AccountId,
-			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
+			token_id: MultiChainTokenId<T::MaxByteLength>,
 		},
 		/// A new NFI storage item has been set
 		DataSet {
 			sub_type: NFISubType,
-			token_id: TokenId,
+			token_id: MultiChainTokenId<T::MaxByteLength>,
 			data_item: NFIDataType<T::MaxDataLength>,
 		},
 		/// NFI storage has been removed for a token
-		DataRemoved { token_id: TokenId },
+		DataRemoved { token_id: MultiChainTokenId<T::MaxByteLength> },
 		/// New Fee details have been set
 		FeeDetailsSet { sub_type: NFISubType, fee_details: Option<FeeDetails<T::AccountId>> },
 		/// The network fee receiver address has been updated
@@ -134,7 +140,7 @@ pub mod pallet {
 			total_fee: Balance,
 		},
 		/// NFI compatibility enabled for a collection
-		NfiEnabled { sub_type: NFISubType, collection_id: CollectionUuid },
+		NfiEnabled { sub_type: NFISubType, collection_id: GenericCollectionId<T::MaxByteLength> },
 		/// A new relayer has been set
 		RelayerSet { account: T::AccountId },
 	}
@@ -207,14 +213,16 @@ pub mod pallet {
 		///  - Caller must be collection owner
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::enable_nfi())]
-		pub fn enable_nfi(
+		pub fn enable_nfi_for_trn_collection(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
 			sub_type: NFISubType,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(Self::is_collection_owner(collection_id, &who), Error::<T>::NotCollectionOwner);
-			<NfiEnabled<T>>::insert(collection_id, sub_type, true);
+			let chain_id = T::ChainId::get();
+			let collection_id = GenericCollectionId::U32(collection_id);
+			<NfiEnabled<T>>::insert((chain_id, collection_id.clone()), sub_type, true);
 			Self::deposit_event(Event::<T>::NfiEnabled { sub_type, collection_id });
 			Ok(())
 		}
@@ -228,15 +236,21 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::manual_data_request())]
 		pub fn manual_data_request(
 			origin: OriginFor<T>,
-			token_id: TokenId,
+			token_id: MultiChainTokenId<T::MaxByteLength>,
 			sub_type: NFISubType,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(NfiEnabled::<T>::get(token_id.0, sub_type), Error::<T>::NotEnabled);
-			// Check that the caller is the token or collection owner
-			ensure!(Self::check_permissions(token_id.clone(), &who), Error::<T>::NotTokenOwner);
+			let chain_id = T::ChainId::get();
+			ensure!(NfiEnabled::<T>::get((chain_id, token_id.collection_id.clone()), sub_type), Error::<T>::NotEnabled);
+			// TODO Check with Leni if we want manual data requests for external chains
+			// // Check that the caller is the token or collection owner
+			// ensure!(Self::check_permissions(token_id.clone(), &who), Error::<T>::NotTokenOwner);
 			Self::pay_mint_fee(&who, 1, sub_type)?;
-			Self::send_data_request(who, sub_type, token_id.0, vec![token_id.1]);
+			Self::deposit_event(Event::<T>::DataRequest {
+				caller: who,
+				sub_type,
+				token_id,
+			});
 			Ok(())
 		}
 
@@ -247,14 +261,12 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit_nfi_data())]
 		pub fn submit_nfi_data(
 			origin: OriginFor<T>,
-			token_id: TokenId,
+			token_id: MultiChainTokenId<T::MaxByteLength>,
 			data_item: NFIDataType<T::MaxDataLength>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(Some(who) == Relayer::<T>::get(), Error::<T>::NotRelayer);
 			let sub_type = NFISubType::from(data_item.clone());
-			ensure!(NfiEnabled::<T>::get(token_id.0, sub_type), Error::<T>::NotEnabled);
-			ensure!(Self::token_exists(token_id.clone()), Error::<T>::NoToken);
 			NfiData::<T>::insert(token_id.clone(), sub_type.clone(), data_item.clone());
 			Self::deposit_event(Event::<T>::DataSet { sub_type, token_id, data_item });
 			Ok(())
@@ -308,22 +320,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Emits an event to display which tokens need NFI data to be created off-chain
-	pub fn send_data_request(
-		caller: T::AccountId,
-		sub_type: NFISubType,
-		collection_id: CollectionUuid,
-		serial_numbers: Vec<SerialNumber>,
-	) {
-		// Deposit event containing collection_id and all serial numbers
-		Self::deposit_event(Event::<T>::DataRequest {
-			caller,
-			sub_type,
-			collection_id,
-			serial_numbers,
-		});
-	}
-
 	/// Returns true if who is the owner of the collection.
 	/// Checks both NFT and SFT pallet
 	fn is_collection_owner(collection_id: CollectionUuid, who: &T::AccountId) -> bool {
@@ -369,7 +365,7 @@ impl<T: Config> NFIRequest for Pallet<T> {
 	type AccountId = T::AccountId;
 
 	/// Request from the NFT pallet to create an NFI for a token
-	/// Hardcoded to NFI for now. In future, there may be use cases for extending this pallet to
+	/// Hardcoded to NFI for now. In the future, there may be use cases for extending this pallet to
 	/// handle multiple NFISubTypes
 	fn request(
 		who: &Self::AccountId,
@@ -377,13 +373,26 @@ impl<T: Config> NFIRequest for Pallet<T> {
 		serial_numbers: Vec<SerialNumber>,
 	) -> DispatchResult {
 		let sub_type = NFISubType::NFI;
+		let chain_id = T::ChainId::get();
 		// Check if NFI is enabled for this collection. If not, we don't need to do anything
-		if !NfiEnabled::<T>::get(collection_id, sub_type) {
+		if !NfiEnabled::<T>::get((chain_id, GenericCollectionId::U32(collection_id)), sub_type) {
 			return Ok(());
 		}
 		// Pay the mint fee for the NFI storage, return an error if this is not possible
 		Self::pay_mint_fee(who, serial_numbers.len() as TokenCount, sub_type)?;
-		Self::send_data_request(who.clone(), sub_type, collection_id, serial_numbers);
+		for serial_number in serial_numbers {
+			let token_id = MultiChainTokenId {
+				chain_id,
+				collection_id: GenericCollectionId::U32(collection_id),
+				serial_number: GenericSerialNumber::U32(serial_number),
+			};
+			// Deposit event for the data request
+			Self::deposit_event(Event::<T>::DataRequest {
+				caller: who.clone(),
+				sub_type,
+				token_id,
+			});
+		}
 		Ok(())
 	}
 
@@ -392,8 +401,13 @@ impl<T: Config> NFIRequest for Pallet<T> {
 		// Limit of tokens to be removed with the clear_prefix call. This should be larger than the
 		// number of enum variants in NFISubType
 		let limit: u32 = 10;
+		let token_id = MultiChainTokenId {
+			chain_id: T::ChainId::get(),
+			collection_id: GenericCollectionId::U32(token_id.0),
+			serial_number: GenericSerialNumber::U32(token_id.1),
+		};
 		// Remove all NFI data for this token
-		let _ = NfiData::<T>::clear_prefix(token_id, limit, None);
+		let _ = NfiData::<T>::clear_prefix(token_id.clone(), limit, None);
 		Self::deposit_event(Event::<T>::DataRemoved { token_id });
 	}
 }
