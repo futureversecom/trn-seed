@@ -21,7 +21,6 @@ use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
 use pallet_nft::Pallet as Nft;
 use seed_primitives::{CrossChainCompatibility, MetadataScheme};
-use sp_std::vec;
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -31,6 +30,8 @@ pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
 	RawOrigin::Signed(acc.clone())
 }
+
+const CHAIN_ID: u64 = 7672;
 
 pub fn build_collection<T: Config + pallet_nft::Config>(
 	caller: Option<T::AccountId>,
@@ -90,28 +91,31 @@ benchmarks! {
 		assert_eq!(MintFee::<T>::get(sub_type), Some(fee_details));
 	}
 
-	enable_nfi {
+	enable_nfi_for_trn_collection {
 		let caller = account::<T>("Alice");
 		let collection_id = build_collection::<T>(Some(caller.clone()));
 		let sub_type = NFISubType::NFI;
 	}: _(origin::<T>(&caller), collection_id, sub_type)
 	verify {
-		assert!(NfiEnabled::<T>::get(collection_id, sub_type));
+		assert!(NfiEnabled::<T>::get((CHAIN_ID, GenericCollectionId::U32(collection_id)), sub_type));
 	}
 
 	manual_data_request {
 		let caller = account::<T>("Alice");
 		let collection_id = build_collection::<T>(Some(caller.clone()));
 		let sub_type = NFISubType::NFI;
-		let token_id = (collection_id, 0);
-		assert_ok!(Nfi::<T>::enable_nfi(origin::<T>(&caller).into(), collection_id, sub_type));
-	}: _(origin::<T>(&caller), token_id, sub_type)
+		let token_id = MultiChainTokenId {
+			chain_id: CHAIN_ID,
+			collection_id: GenericCollectionId::U32(collection_id),
+			serial_number: GenericSerialNumber::U32(0),
+		};
+		assert_ok!(Nfi::<T>::enable_nfi_for_trn_collection(origin::<T>(&caller).into(), collection_id, sub_type));
+	}: _(origin::<T>(&caller), token_id.clone(), sub_type)
 	verify {
 		assert_last_event::<T>(Event::DataRequest {
 			caller,
 			sub_type,
-			collection_id,
-			serial_numbers: vec![0]
+			token_id
 		}.into())
 	}
 
@@ -119,14 +123,18 @@ benchmarks! {
 		let caller = account::<T>("Alice");
 		let collection_id = build_collection::<T>(Some(caller.clone()));
 		let sub_type = NFISubType::NFI;
-		let token_id = (collection_id, 0);
+		let token_id = MultiChainTokenId {
+			chain_id: CHAIN_ID,
+			collection_id: GenericCollectionId::U32(collection_id),
+			serial_number: GenericSerialNumber::U32(0),
+		};
 		let data_item = NFIDataType::NFI(NFIMatrix {
 			metadata_link: BoundedVec::truncate_from(b"https://google.com/".to_vec()),
 			verification_hash: Default::default(),
 		});
-		assert_ok!(Nfi::<T>::enable_nfi(origin::<T>(&caller).into(), collection_id, sub_type));
+		assert_ok!(Nfi::<T>::enable_nfi_for_trn_collection(origin::<T>(&caller).into(), collection_id, sub_type));
 		assert_ok!(Nfi::<T>::set_relayer(RawOrigin::Root.into(), caller.clone()));
-	}: _(origin::<T>(&caller), token_id, data_item.clone())
+	}: _(origin::<T>(&caller), token_id.clone(), data_item.clone())
 	verify {
 		assert_last_event::<T>(Event::DataSet {
 			sub_type,

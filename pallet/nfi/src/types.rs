@@ -72,16 +72,8 @@ pub struct FeeDetails<AccountId> {
 	pub receiver: AccountId,
 }
 
-
 #[derive(
-	Decode,
-	Encode,
-	CloneNoBound,
-	RuntimeDebugNoBound,
-	PartialEqNoBound,
-	Eq,
-	TypeInfo,
-	MaxEncodedLen
+	Decode, Encode, CloneNoBound, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxByteLength))]
 pub struct MultiChainTokenId<MaxByteLength: Get<u32>> {
@@ -91,14 +83,7 @@ pub struct MultiChainTokenId<MaxByteLength: Get<u32>> {
 }
 
 #[derive(
-	Decode,
-	Encode,
-	CloneNoBound,
-	RuntimeDebugNoBound,
-	PartialEqNoBound,
-	Eq,
-	TypeInfo,
-	MaxEncodedLen
+	Decode, Encode, CloneNoBound, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxByteLength))]
 pub enum GenericCollectionId<MaxByteLength: Get<u32>> {
@@ -112,14 +97,7 @@ pub enum GenericCollectionId<MaxByteLength: Get<u32>> {
 }
 
 #[derive(
-	Decode,
-	Encode,
-	CloneNoBound,
-	RuntimeDebugNoBound,
-	PartialEqNoBound,
-	Eq,
-	TypeInfo,
-	MaxEncodedLen
+	Decode, Encode, CloneNoBound, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxByteLength))]
 pub enum GenericSerialNumber<MaxByteLength: Get<u32>> {

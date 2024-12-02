@@ -14,7 +14,10 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use crate::mock::{AssetsExt, ChainId, NFINetworkFeePercentage, NativeAssetId, Nfi, Nft, RuntimeEvent as MockEvent, Sft, System, Test};
+use crate::mock::{
+	AssetsExt, ChainId, NFINetworkFeePercentage, NativeAssetId, Nfi, Nft,
+	RuntimeEvent as MockEvent, Sft, System, Test,
+};
 use core::ops::Mul;
 use frame_support::traits::fungibles::Inspect;
 use pallet_nft::test_utils::NftBuilder;
@@ -30,7 +33,6 @@ fn create_mc_token_id(token_id: TokenId) -> MultiChainTokenId<mock::MaxByteLengt
 		serial_number: GenericSerialNumber::U32(token_id.1),
 	}
 }
-
 
 mod set_relayer {
 	use super::*;
@@ -188,7 +190,10 @@ mod enable_nfi {
 			let chain_id = ChainId::get();
 
 			// Sanity check
-			assert!(!NfiEnabled::<Test>::get((chain_id, GenericCollectionId::U32(collection_id)), sub_type));
+			assert!(!NfiEnabled::<Test>::get(
+				(chain_id, GenericCollectionId::U32(collection_id)),
+				sub_type
+			));
 
 			// Enable NFI
 			assert_ok!(Nfi::enable_nfi_for_trn_collection(
@@ -204,7 +209,10 @@ mod enable_nfi {
 			}));
 
 			// Storage updated
-			assert!(NfiEnabled::<Test>::get((chain_id, GenericCollectionId::U32(collection_id)), sub_type));
+			assert!(NfiEnabled::<Test>::get(
+				(chain_id, GenericCollectionId::U32(collection_id)),
+				sub_type
+			));
 		});
 	}
 
@@ -217,7 +225,11 @@ mod enable_nfi {
 
 			// Enable NFI should fail
 			assert_noop!(
-				Nfi::enable_nfi_for_trn_collection(RawOrigin::Signed(bob()).into(), collection_id, sub_type),
+				Nfi::enable_nfi_for_trn_collection(
+					RawOrigin::Signed(bob()).into(),
+					collection_id,
+					sub_type
+				),
 				Error::<Test>::NotCollectionOwner
 			);
 
@@ -296,7 +308,7 @@ mod manual_data_request {
 			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
 				caller: collection_owner,
 				sub_type,
-				token_id
+				token_id,
 			}));
 		});
 	}
@@ -598,11 +610,14 @@ mod manual_data_request {
 			);
 
 			// Request data
-			assert_noop!(Nfi::manual_data_request(
-				RawOrigin::Signed(token_owner.clone()).into(),
-				token_id.clone(),
-				sub_type
-			), Error::<Test>::InvalidTokenFormat);
+			assert_noop!(
+				Nfi::manual_data_request(
+					RawOrigin::Signed(token_owner.clone()).into(),
+					token_id.clone(),
+					sub_type
+				),
+				Error::<Test>::InvalidTokenFormat
+			);
 		});
 	}
 
@@ -625,14 +640,16 @@ mod manual_data_request {
 			);
 
 			// Request data
-			assert_noop!(Nfi::manual_data_request(
-				RawOrigin::Signed(token_owner.clone()).into(),
-				token_id.clone(),
-				sub_type
-			), Error::<Test>::InvalidTokenFormat);
+			assert_noop!(
+				Nfi::manual_data_request(
+					RawOrigin::Signed(token_owner.clone()).into(),
+					token_id.clone(),
+					sub_type
+				),
+				Error::<Test>::InvalidTokenFormat
+			);
 		});
 	}
-
 
 	#[test]
 	fn manual_data_request_non_trn_works() {
@@ -711,7 +728,9 @@ mod manual_data_request {
 			// Request data Bytes
 			let token_id = MultiChainTokenId {
 				chain_id: ChainId::get() + 1, // Not TRN chain Id will bypass checks
-				collection_id: GenericCollectionId::Bytes(BoundedVec::truncate_from(b"123".to_vec())),
+				collection_id: GenericCollectionId::Bytes(BoundedVec::truncate_from(
+					b"123".to_vec(),
+				)),
 				serial_number: GenericSerialNumber::Bytes(BoundedVec::truncate_from(b"2".to_vec())),
 			};
 			assert_ok!(Nfi::manual_data_request(
@@ -787,7 +806,6 @@ mod manual_data_request {
 					sub_type,
 					token_id,
 				}));
-
 
 				// Check fees paid
 				let network_fee = NFINetworkFeePercentage::get().mul(mint_fee);
@@ -1038,11 +1056,10 @@ mod submit_nfi_data {
 			);
 
 			// Request data
-			assert_noop!(Nfi::submit_nfi_data(
-				RawOrigin::Signed(alice()).into(),
-				token_id.clone(),
-				data
-			), Error::<Test>::InvalidTokenFormat);
+			assert_noop!(
+				Nfi::submit_nfi_data(RawOrigin::Signed(alice()).into(), token_id.clone(), data),
+				Error::<Test>::InvalidTokenFormat
+			);
 		});
 	}
 
@@ -1071,11 +1088,10 @@ mod submit_nfi_data {
 			);
 
 			// Request data
-			assert_noop!(Nfi::submit_nfi_data(
-				RawOrigin::Signed(alice()).into(),
-				token_id.clone(),
-				data
-			), Error::<Test>::InvalidTokenFormat);
+			assert_noop!(
+				Nfi::submit_nfi_data(RawOrigin::Signed(alice()).into(), token_id.clone(), data),
+				Error::<Test>::InvalidTokenFormat
+			);
 		});
 	}
 
@@ -1166,7 +1182,9 @@ mod submit_nfi_data {
 			// Request data Bytes
 			let token_id = MultiChainTokenId {
 				chain_id: ChainId::get() + 1, // Not TRN chain id will bypass checks
-				collection_id: GenericCollectionId::Bytes(BoundedVec::truncate_from(b"123".to_vec())),
+				collection_id: GenericCollectionId::Bytes(BoundedVec::truncate_from(
+					b"123".to_vec(),
+				)),
 				serial_number: GenericSerialNumber::Bytes(BoundedVec::truncate_from(b"2".to_vec())),
 			};
 			assert_ok!(Nfi::submit_nfi_data(
@@ -1233,7 +1251,7 @@ mod nft_mint {
 			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRequest {
 				caller: collection_owner,
 				sub_type,
-				token_id
+				token_id,
 			}));
 		});
 	}
@@ -1477,7 +1495,7 @@ mod sft_create_token {
 			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRequest {
 				caller: collection_owner,
 				sub_type,
-				token_id
+				token_id,
 			}));
 		});
 	}

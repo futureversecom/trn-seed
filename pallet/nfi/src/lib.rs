@@ -251,7 +251,10 @@ pub mod pallet {
 			// - Check that NFI is enabled for this collection
 			// - Check that the caller is the token or collection owner
 			if token_id.chain_id == chain_id {
-				ensure!(NfiEnabled::<T>::get((chain_id, token_id.collection_id.clone()), sub_type), Error::<T>::NotEnabled);
+				ensure!(
+					NfiEnabled::<T>::get((chain_id, token_id.collection_id.clone()), sub_type),
+					Error::<T>::NotEnabled
+				);
 				let GenericCollectionId::U32(collection_id) = token_id.collection_id else {
 					return Err(Error::<T>::InvalidTokenFormat.into());
 				};
@@ -262,11 +265,7 @@ pub mod pallet {
 				ensure!(Self::check_permissions(trn_token_id, &who), Error::<T>::NotTokenOwner);
 			}
 			Self::pay_mint_fee(&who, 1, sub_type)?;
-			Self::deposit_event(Event::<T>::DataRequest {
-				caller: who,
-				sub_type,
-				token_id,
-			});
+			Self::deposit_event(Event::<T>::DataRequest { caller: who, sub_type, token_id });
 			Ok(())
 		}
 
@@ -288,7 +287,10 @@ pub mod pallet {
 			let sub_type = NFISubType::from(data_item.clone());
 			let chain_id = T::ChainId::get();
 			if token_id.chain_id == chain_id {
-				ensure!(NfiEnabled::<T>::get((chain_id, token_id.collection_id.clone()), sub_type), Error::<T>::NotEnabled);
+				ensure!(
+					NfiEnabled::<T>::get((chain_id, token_id.collection_id.clone()), sub_type),
+					Error::<T>::NotEnabled
+				);
 				let GenericCollectionId::U32(collection_id) = token_id.collection_id else {
 					return Err(Error::<T>::InvalidTokenFormat.into());
 				};

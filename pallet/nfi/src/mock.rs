@@ -88,7 +88,7 @@ parameter_types! {
 	pub const MaxDataLength: u32 = 100;
 	pub const MaxByteLength: u32 = 100;
 	pub const NFINetworkFeePercentage: Permill = Permill::from_perthousand(5);
-	pub const ChainId: u64 = 1234;
+	pub const ChainId: u64 = 7672;
 }
 
 impl crate::Config for Test {
