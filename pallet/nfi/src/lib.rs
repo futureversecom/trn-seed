@@ -28,7 +28,7 @@ use sp_std::prelude::*;
 
 pub use pallet::*;
 
-mod types;
+pub mod types;
 use types::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -45,7 +45,7 @@ pub mod pallet {
 	use super::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -149,6 +149,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The mint fee must be a valid integer above 0
 		InvalidMintFee,
+		/// The token format for TRN tokens is invalid
+		InvalidTokenFormat,
 		/// NFI storage is not enabled for this collection
 		NotEnabled,
 		/// The caller is not the relayer and does not have permission to perform this action
@@ -209,7 +211,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Enables NFI compatibility on a collection
+		/// Enables NFI compatibility for a TRN collection.
+		/// This will allow NFI to automatically be requested when new tokens are minted
 		///  - Caller must be collection owner
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::enable_nfi())]
@@ -227,11 +230,14 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Users can manually request NFI data if it does not already exist on a token.
+		/// Users can manually request NFI data for a token on any chain.
 		/// This can be used to manually request data for pre-existing tokens in a collection
-		/// that has had nfi enabled
+		/// that, or new tokens.
 		/// Caller must be either the token owner or the collection owner
 		/// Note. the mint fee will need to be paid for any manual request
+		/// For TRN collections,
+		/// - Check that NFI is enabled for this collection
+		/// - Check that the caller is the token or collection owner
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::manual_data_request())]
 		pub fn manual_data_request(
@@ -241,10 +247,20 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let chain_id = T::ChainId::get();
-			ensure!(NfiEnabled::<T>::get((chain_id, token_id.collection_id.clone()), sub_type), Error::<T>::NotEnabled);
-			// TODO Check with Leni if we want manual data requests for external chains
-			// // Check that the caller is the token or collection owner
-			// ensure!(Self::check_permissions(token_id.clone(), &who), Error::<T>::NotTokenOwner);
+			// For TRN collections,
+			// - Check that NFI is enabled for this collection
+			// - Check that the caller is the token or collection owner
+			if token_id.chain_id == chain_id {
+				ensure!(NfiEnabled::<T>::get((chain_id, token_id.collection_id.clone()), sub_type), Error::<T>::NotEnabled);
+				let GenericCollectionId::U32(collection_id) = token_id.collection_id else {
+					return Err(Error::<T>::InvalidTokenFormat.into());
+				};
+				let GenericSerialNumber::U32(serial_number) = token_id.serial_number else {
+					return Err(Error::<T>::InvalidTokenFormat.into());
+				};
+				let trn_token_id = (collection_id, serial_number);
+				ensure!(Self::check_permissions(trn_token_id, &who), Error::<T>::NotTokenOwner);
+			}
 			Self::pay_mint_fee(&who, 1, sub_type)?;
 			Self::deposit_event(Event::<T>::DataRequest {
 				caller: who,
@@ -254,9 +270,12 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// submit NFI data to the chain
+		/// submit NFI data for any chain
 		/// Caller must be the relayer
-		/// NFI must be enabled for the collection
+		/// For TRN collections:
+		/// - Ensure tokens are in the correct format to enforce space efficiency
+		/// - Ensure token exists
+		/// - Ensure NFI is enabled for this collection
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::submit_nfi_data())]
 		pub fn submit_nfi_data(
@@ -267,6 +286,18 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(Some(who) == Relayer::<T>::get(), Error::<T>::NotRelayer);
 			let sub_type = NFISubType::from(data_item.clone());
+			let chain_id = T::ChainId::get();
+			if token_id.chain_id == chain_id {
+				ensure!(NfiEnabled::<T>::get((chain_id, token_id.collection_id.clone()), sub_type), Error::<T>::NotEnabled);
+				let GenericCollectionId::U32(collection_id) = token_id.collection_id else {
+					return Err(Error::<T>::InvalidTokenFormat.into());
+				};
+				let GenericSerialNumber::U32(serial_number) = token_id.serial_number else {
+					return Err(Error::<T>::InvalidTokenFormat.into());
+				};
+				let trn_token_id = (collection_id, serial_number);
+				ensure!(Self::token_exists(trn_token_id), Error::<T>::NoToken);
+			}
 			NfiData::<T>::insert(token_id.clone(), sub_type.clone(), data_item.clone());
 			Self::deposit_event(Event::<T>::DataSet { sub_type, token_id, data_item });
 			Ok(())

@@ -13,6 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+use frame_support::pallet_prelude::Get;
 use crate as pallet_nfi;
 use seed_pallet_common::test_prelude::*;
 
@@ -86,7 +87,9 @@ impl pallet_sft::Config for Test {
 
 parameter_types! {
 	pub const MaxDataLength: u32 = 100;
+	pub const MaxByteLength: u32 = 100;
 	pub const NFINetworkFeePercentage: Permill = Permill::from_perthousand(5);
+	pub const ChainId: u64 = 1234;
 }
 
 impl crate::Config for Test {
@@ -96,5 +99,7 @@ impl crate::Config for Test {
 	type SFTExt = Sft;
 	type NetworkFeePercentage = NFINetworkFeePercentage;
 	type MaxDataLength = MaxDataLength;
+	type MaxByteLength = MaxByteLength;
 	type WeightInfo = ();
+	type ChainId = ChainId;
 }

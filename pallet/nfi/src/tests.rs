@@ -14,10 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use crate::mock::{
-	AssetsExt, NFINetworkFeePercentage, NativeAssetId, Nfi, Nft, RuntimeEvent as MockEvent, Sft,
-	System, Test,
-};
+use crate::mock::{AssetsExt, ChainId, NFINetworkFeePercentage, NativeAssetId, Nfi, Nft, RuntimeEvent as MockEvent, Sft, System, Test};
 use core::ops::Mul;
 use frame_support::traits::fungibles::Inspect;
 use pallet_nft::test_utils::NftBuilder;
@@ -25,8 +22,14 @@ use pallet_sft::test_utils::SftBuilder;
 use seed_pallet_common::test_prelude::*;
 use sp_runtime::ArithmeticError;
 
-// test GenericCollectionId with all types
-
+// Helper function to create a MultiChainTokenId from a standard TRN TokenId
+fn create_mc_token_id(token_id: TokenId) -> MultiChainTokenId<mock::MaxByteLength> {
+	MultiChainTokenId {
+		chain_id: ChainId::get(),
+		collection_id: GenericCollectionId::U32(token_id.0),
+		serial_number: GenericSerialNumber::U32(token_id.1),
+	}
+}
 
 
 mod set_relayer {
@@ -182,12 +185,13 @@ mod enable_nfi {
 			let sub_type = NFISubType::NFI;
 			let collection_owner = alice();
 			let collection_id = NftBuilder::<Test>::new(collection_owner).build();
+			let chain_id = ChainId::get();
 
 			// Sanity check
-			assert!(!NfiEnabled::<Test>::get(collection_id, sub_type));
+			assert!(!NfiEnabled::<Test>::get((chain_id, GenericCollectionId::U32(collection_id)), sub_type));
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				sub_type
@@ -196,11 +200,11 @@ mod enable_nfi {
 			// Event thrown
 			System::assert_last_event(MockEvent::Nfi(Event::<Test>::NfiEnabled {
 				sub_type,
-				collection_id,
+				collection_id: GenericCollectionId::U32(collection_id),
 			}));
 
 			// Storage updated
-			assert!(NfiEnabled::<Test>::get(collection_id, sub_type));
+			assert!(NfiEnabled::<Test>::get((chain_id, GenericCollectionId::U32(collection_id)), sub_type));
 		});
 	}
 
@@ -213,11 +217,12 @@ mod enable_nfi {
 
 			// Enable NFI should fail
 			assert_noop!(
-				Nfi::enable_nfi(RawOrigin::Signed(bob()).into(), collection_id, sub_type),
+				Nfi::enable_nfi_for_trn_collection(RawOrigin::Signed(bob()).into(), collection_id, sub_type),
 				Error::<Test>::NotCollectionOwner
 			);
 
 			// Still disabled
+			let collection_id = (ChainId::get(), GenericCollectionId::U32(collection_id));
 			assert!(!NfiEnabled::<Test>::get(collection_id, sub_type));
 		});
 	}
@@ -236,10 +241,10 @@ mod manual_data_request {
 				.token_owner(token_owner)
 				.initial_issuance(1)
 				.build();
-			let token_id = (collection_id, 0);
+			let token_id = create_mc_token_id((collection_id, 0));
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				sub_type
@@ -248,7 +253,7 @@ mod manual_data_request {
 			// Request data
 			assert_ok!(Nfi::manual_data_request(
 				RawOrigin::Signed(token_owner.clone()).into(),
-				token_id,
+				token_id.clone(),
 				sub_type
 			));
 
@@ -256,8 +261,7 @@ mod manual_data_request {
 			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
 				caller: token_owner,
 				sub_type,
-				collection_id,
-				serial_numbers: vec![0],
+				token_id,
 			}));
 		});
 	}
@@ -272,10 +276,10 @@ mod manual_data_request {
 				.token_owner(token_owner)
 				.initial_issuance(1)
 				.build();
-			let token_id = (collection_id, 0);
+			let token_id = create_mc_token_id((collection_id, 0));
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				sub_type
@@ -284,7 +288,7 @@ mod manual_data_request {
 			// Request data
 			assert_ok!(Nfi::manual_data_request(
 				RawOrigin::Signed(collection_owner.clone()).into(),
-				token_id,
+				token_id.clone(),
 				sub_type
 			));
 
@@ -292,8 +296,7 @@ mod manual_data_request {
 			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
 				caller: collection_owner,
 				sub_type,
-				collection_id,
-				serial_numbers: vec![0],
+				token_id
 			}));
 		});
 	}
@@ -306,16 +309,18 @@ mod manual_data_request {
 			let token_id = SftBuilder::<Test>::new(collection_owner).build();
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
 				token_id.0,
 				sub_type
 			));
 
+			let token_id = create_mc_token_id(token_id);
+
 			// Request data
 			assert_ok!(Nfi::manual_data_request(
 				RawOrigin::Signed(collection_owner.clone()).into(),
-				token_id,
+				token_id.clone(),
 				sub_type
 			));
 
@@ -323,8 +328,7 @@ mod manual_data_request {
 			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
 				caller: collection_owner,
 				sub_type,
-				collection_id: token_id.0,
-				serial_numbers: vec![0],
+				token_id,
 			}));
 		});
 	}
@@ -339,10 +343,10 @@ mod manual_data_request {
 				.token_owner(token_owner)
 				.initial_issuance(1)
 				.build();
-			let token_id = (collection_id, 0);
+			let token_id = create_mc_token_id((collection_id, 0));
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				sub_type
@@ -368,12 +372,13 @@ mod manual_data_request {
 			let token_id = SftBuilder::<Test>::new(collection_owner).build();
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
 				token_id.0,
 				sub_type
 			));
 
+			let token_id = create_mc_token_id(token_id);
 			// Request data should fail
 			assert_noop!(
 				Nfi::manual_data_request(
@@ -398,10 +403,10 @@ mod manual_data_request {
 				let sub_type = NFISubType::NFI;
 				let collection_id =
 					NftBuilder::<Test>::new(collection_owner).initial_issuance(1).build();
-				let token_id = (collection_id, 0);
+				let token_id = create_mc_token_id((collection_id, 0));
 
 				// Enable NFI
-				assert_ok!(Nfi::enable_nfi(
+				assert_ok!(Nfi::enable_nfi_for_trn_collection(
 					RawOrigin::Signed(collection_owner).into(),
 					collection_id,
 					sub_type
@@ -444,10 +449,10 @@ mod manual_data_request {
 				let sub_type = NFISubType::NFI;
 				let collection_id =
 					NftBuilder::<Test>::new(collection_owner).initial_issuance(1).build();
-				let token_id = (collection_id, 0);
+				let token_id = create_mc_token_id((collection_id, 0));
 
 				// Enable NFI
-				assert_ok!(Nfi::enable_nfi(
+				assert_ok!(Nfi::enable_nfi_for_trn_collection(
 					RawOrigin::Signed(collection_owner).into(),
 					collection_id,
 					sub_type
@@ -486,10 +491,10 @@ mod manual_data_request {
 				let sub_type = NFISubType::NFI;
 				let collection_id =
 					NftBuilder::<Test>::new(collection_owner).initial_issuance(1).build();
-				let token_id = (collection_id, 0);
+				let token_id = create_mc_token_id((collection_id, 0));
 
 				// Enable NFI
-				assert_ok!(Nfi::enable_nfi(
+				assert_ok!(Nfi::enable_nfi_for_trn_collection(
 					RawOrigin::Signed(collection_owner).into(),
 					collection_id,
 					sub_type
@@ -541,10 +546,10 @@ mod manual_data_request {
 				let sub_type = NFISubType::NFI;
 				let collection_id =
 					NftBuilder::<Test>::new(collection_owner).initial_issuance(1).build();
-				let token_id = (collection_id, 0);
+				let token_id = create_mc_token_id((collection_id, 0));
 
 				// Enable NFI
-				assert_ok!(Nfi::enable_nfi(
+				assert_ok!(Nfi::enable_nfi_for_trn_collection(
 					RawOrigin::Signed(collection_owner).into(),
 					collection_id,
 					sub_type
@@ -585,13 +590,13 @@ mod submit_nfi_data {
 			let collection_owner = alice();
 			let collection_id =
 				NftBuilder::<Test>::new(collection_owner).initial_issuance(1).build();
-			let token_id = (collection_id, 0);
+			let token_id = create_mc_token_id((collection_id, 0));
 
 			// Set relayer to bob
 			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), bob()));
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				sub_type
@@ -605,7 +610,7 @@ mod submit_nfi_data {
 			// Submit data
 			assert_ok!(Nfi::submit_nfi_data(
 				RawOrigin::Signed(bob()).into(),
-				token_id,
+				token_id.clone(),
 				data_item.clone()
 			));
 
@@ -629,12 +634,13 @@ mod submit_nfi_data {
 			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), bob()));
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
 				token_id.0,
 				sub_type
 			));
 
+			let token_id = create_mc_token_id(token_id);
 			let data_item = NFIDataType::NFI(NFIMatrix {
 				metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
 				verification_hash: H256::from_low_u64_be(123),
@@ -643,7 +649,7 @@ mod submit_nfi_data {
 			// Submit data
 			assert_ok!(Nfi::submit_nfi_data(
 				RawOrigin::Signed(bob()).into(),
-				token_id,
+				token_id.clone(),
 				data_item.clone()
 			));
 
@@ -663,13 +669,13 @@ mod submit_nfi_data {
 			let collection_owner = alice();
 			let collection_id =
 				NftBuilder::<Test>::new(collection_owner).initial_issuance(1).build();
-			let token_id = (collection_id, 0);
+			let token_id = create_mc_token_id((collection_id, 0));
 
 			// Set relayer to charlie
 			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), charlie()));
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				sub_type
@@ -696,7 +702,7 @@ mod submit_nfi_data {
 			let collection_owner = alice();
 			let collection_id =
 				NftBuilder::<Test>::new(collection_owner).initial_issuance(1).build();
-			let token_id = (collection_id, 0);
+			let token_id = create_mc_token_id((collection_id, 0));
 
 			// Set relayer to bob
 			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), bob()));
@@ -728,17 +734,18 @@ mod submit_nfi_data {
 			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), bob()));
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				sub_type
 			));
 
 			// Submit data should fail
+			let token_id = create_mc_token_id((collection_id, 1));
 			assert_noop!(
 				Nfi::submit_nfi_data(
 					RawOrigin::Signed(bob()).into(),
-					(collection_id, 1), // Token does not exist
+					token_id, // Token does not exist
 					NFIDataType::NFI(NFIMatrix {
 						metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
 						verification_hash: H256::from_low_u64_be(123),
@@ -754,23 +761,24 @@ mod submit_nfi_data {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let sub_type = NFISubType::NFI;
 			let collection_owner = alice();
-			let token_id = SftBuilder::<Test>::new(collection_owner).build();
+			let (collection_id, _) = SftBuilder::<Test>::new(collection_owner).build();
 
 			// Set relayer to bob
 			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), bob()));
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
-				token_id.0,
+				collection_id,
 				sub_type
 			));
 
+			let token_id = create_mc_token_id((collection_id, 1));
 			// Submit data should fail
 			assert_noop!(
 				Nfi::submit_nfi_data(
 					RawOrigin::Signed(bob()).into(),
-					(token_id.0, 1), // Token does not exist
+					token_id, // Token does not exist
 					NFIDataType::NFI(NFIMatrix {
 						metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
 						verification_hash: H256::from_low_u64_be(123),
@@ -794,7 +802,7 @@ mod nft_mint {
 			let collection_id = NftBuilder::<Test>::new(collection_owner).build();
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				sub_type
@@ -808,12 +816,12 @@ mod nft_mint {
 				Some(token_owner),
 			));
 
+			let token_id = create_mc_token_id((collection_id, 0));
 			// Event thrown
 			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRequest {
 				caller: collection_owner,
 				sub_type,
-				collection_id,
-				serial_numbers: vec![0],
+				token_id
 			}));
 		});
 	}
@@ -831,7 +839,7 @@ mod nft_mint {
 				let collection_id = NftBuilder::<Test>::new(collection_owner).build();
 
 				// Enable NFI
-				assert_ok!(Nfi::enable_nfi(
+				assert_ok!(Nfi::enable_nfi_for_trn_collection(
 					RawOrigin::Signed(collection_owner).into(),
 					collection_id,
 					sub_type
@@ -876,7 +884,7 @@ mod nft_mint {
 				let collection_id = NftBuilder::<Test>::new(collection_owner).build();
 
 				// Enable NFI
-				assert_ok!(Nfi::enable_nfi(
+				assert_ok!(Nfi::enable_nfi_for_trn_collection(
 					RawOrigin::Signed(collection_owner).into(),
 					collection_id,
 					sub_type
@@ -930,7 +938,7 @@ mod nft_mint {
 				let collection_id = NftBuilder::<Test>::new(collection_owner).build();
 
 				// Enable NFI
-				assert_ok!(Nfi::enable_nfi(
+				assert_ok!(Nfi::enable_nfi_for_trn_collection(
 					RawOrigin::Signed(collection_owner).into(),
 					collection_id,
 					sub_type
@@ -981,14 +989,14 @@ mod nft_burn {
 			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), relayer));
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				sub_type
 			));
 
-			let token_id_1 = (collection_id, 0);
-			let token_id_2 = (collection_id, 1);
+			let token_id_1 = create_mc_token_id((collection_id, 0));
+			let token_id_2 = create_mc_token_id((collection_id, 1));
 			// Submit some fake data
 			let data = NFIDataType::NFI(NFIMatrix {
 				metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
@@ -997,24 +1005,24 @@ mod nft_burn {
 			// Data for token we will burn
 			assert_ok!(Nfi::submit_nfi_data(
 				RawOrigin::Signed(relayer).into(),
-				token_id_1,
+				token_id_1.clone(),
 				data.clone()
 			));
 			// Data for token we will keep
 			assert_ok!(Nfi::submit_nfi_data(
 				RawOrigin::Signed(relayer).into(),
-				token_id_2,
+				token_id_2.clone(),
 				data.clone()
 			));
-			assert_eq!(NfiData::<Test>::get(token_id_1, sub_type), Some(data.clone()));
-			assert_eq!(NfiData::<Test>::get(token_id_2, sub_type), Some(data.clone()));
+			assert_eq!(NfiData::<Test>::get(token_id_1.clone(), sub_type), Some(data.clone()));
+			assert_eq!(NfiData::<Test>::get(token_id_2.clone(), sub_type), Some(data.clone()));
 
 			// Burn NFT
-			assert_ok!(Nft::burn(RawOrigin::Signed(token_owner).into(), token_id_1));
+			assert_ok!(Nft::burn(RawOrigin::Signed(token_owner).into(), (collection_id, 0)));
 
 			// Check event thrown
 			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRemoved {
-				token_id: token_id_1,
+				token_id: token_id_1.clone(),
 			}));
 
 			// Check data cleared
@@ -1033,31 +1041,31 @@ mod sft_create_token {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let sub_type = NFISubType::NFI;
 			let collection_owner = alice();
-			let token_id = SftBuilder::<Test>::new(collection_owner).build();
+			let (collection_id, _) = SftBuilder::<Test>::new(collection_owner).build();
 
 			// Enable NFI
-			assert_ok!(Nfi::enable_nfi(
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
 				RawOrigin::Signed(collection_owner).into(),
-				token_id.0,
+				collection_id,
 				sub_type
 			));
 
 			// Create new SFT token
 			assert_ok!(Sft::create_token(
 				RawOrigin::Signed(collection_owner.clone()).into(),
-				token_id.0,
+				collection_id,
 				BoundedVec::truncate_from(b"SFT Token".to_vec()),
 				0,
 				None,
 				None,
 			));
 
+			let token_id = create_mc_token_id((collection_id, 1));
 			// Event thrown
 			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRequest {
 				caller: collection_owner,
 				sub_type,
-				collection_id: token_id.0,
-				serial_numbers: vec![1],
+				token_id
 			}));
 		});
 	}
@@ -1075,7 +1083,7 @@ mod sft_create_token {
 				let token_id = SftBuilder::<Test>::new(collection_owner).build();
 
 				// Enable NFI
-				assert_ok!(Nfi::enable_nfi(
+				assert_ok!(Nfi::enable_nfi_for_trn_collection(
 					RawOrigin::Signed(collection_owner).into(),
 					token_id.0,
 					sub_type
@@ -1122,7 +1130,7 @@ mod sft_create_token {
 				let token_id = SftBuilder::<Test>::new(collection_owner).build();
 
 				// Enable NFI
-				assert_ok!(Nfi::enable_nfi(
+				assert_ok!(Nfi::enable_nfi_for_trn_collection(
 					RawOrigin::Signed(collection_owner).into(),
 					token_id.0,
 					sub_type
@@ -1178,7 +1186,7 @@ mod sft_create_token {
 				let token_id = SftBuilder::<Test>::new(collection_owner).build();
 
 				// Enable NFI
-				assert_ok!(Nfi::enable_nfi(
+				assert_ok!(Nfi::enable_nfi_for_trn_collection(
 					RawOrigin::Signed(collection_owner).into(),
 					token_id.0,
 					sub_type

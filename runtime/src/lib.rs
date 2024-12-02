@@ -435,6 +435,7 @@ impl pallet_assets_ext::Config for Runtime {
 
 parameter_types! {
 	pub const MaxDataLength: u32 = 100;
+	pub const MaxByteLength: u32 = 500;
 	pub const NFINetworkFeePercentage: Permill = Permill::from_perthousand(5);
 }
 
@@ -445,7 +446,9 @@ impl pallet_nfi::Config for Runtime {
 	type SFTExt = Sft;
 	type NetworkFeePercentage = NFINetworkFeePercentage;
 	type MaxDataLength = MaxDataLength;
+	type MaxByteLength = MaxByteLength;
 	type WeightInfo = weights::pallet_nfi::WeightInfo<Runtime>;
+	type ChainId = EVMChainId;
 }
 
 parameter_types! {
