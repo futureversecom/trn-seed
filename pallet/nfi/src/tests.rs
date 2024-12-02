@@ -500,7 +500,7 @@ mod manual_data_request {
 					sub_type
 				));
 
-				// Set fee details to 400 ROOT
+				// Set fee details to 1000 ROOT
 				let fee = FeeDetails {
 					asset_id: NativeAssetId::get(),
 					amount: mint_fee,
@@ -578,6 +578,227 @@ mod manual_data_request {
 				);
 			});
 	}
+
+	#[test]
+	fn manual_data_request_invalid_trn_collection_format_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let token_owner = bob();
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get(),
+				collection_id: GenericCollectionId::U64(123),
+				serial_number: GenericSerialNumber::U32(2),
+			};
+
+			// Manually Enable NFI
+			NfiEnabled::<Test>::insert(
+				(ChainId::get(), GenericCollectionId::U64(123)),
+				sub_type,
+				true,
+			);
+
+			// Request data
+			assert_noop!(Nfi::manual_data_request(
+				RawOrigin::Signed(token_owner.clone()).into(),
+				token_id.clone(),
+				sub_type
+			), Error::<Test>::InvalidTokenFormat);
+		});
+	}
+
+	#[test]
+	fn manual_data_request_invalid_trn_serial_format_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let token_owner = bob();
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get(),
+				collection_id: GenericCollectionId::U32(123),
+				serial_number: GenericSerialNumber::U64(2),
+			};
+
+			// Manually Enable NFI
+			NfiEnabled::<Test>::insert(
+				(ChainId::get(), GenericCollectionId::U32(123)),
+				sub_type,
+				true,
+			);
+
+			// Request data
+			assert_noop!(Nfi::manual_data_request(
+				RawOrigin::Signed(token_owner.clone()).into(),
+				token_id.clone(),
+				sub_type
+			), Error::<Test>::InvalidTokenFormat);
+		});
+	}
+
+
+	#[test]
+	fn manual_data_request_non_trn_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let token_owner = bob();
+
+			// Request data U64
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get() + 1, // Not TRN chain Id will bypass checks
+				collection_id: GenericCollectionId::U64(123),
+				serial_number: GenericSerialNumber::U64(2),
+			};
+			assert_ok!(Nfi::manual_data_request(
+				RawOrigin::Signed(token_owner.clone()).into(),
+				token_id.clone(),
+				sub_type
+			));
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				caller: token_owner,
+				sub_type,
+				token_id,
+			}));
+
+			// Request data U128
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get() + 1, // Not TRN chain Id will bypass checks
+				collection_id: GenericCollectionId::U128(123),
+				serial_number: GenericSerialNumber::U128(2),
+			};
+			assert_ok!(Nfi::manual_data_request(
+				RawOrigin::Signed(token_owner.clone()).into(),
+				token_id.clone(),
+				sub_type
+			));
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				caller: token_owner,
+				sub_type,
+				token_id,
+			}));
+
+			// Request data H160
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get() + 1, // Not TRN chain Id will bypass checks
+				collection_id: GenericCollectionId::H160(H160::zero()),
+				serial_number: GenericSerialNumber::U32(2),
+			};
+			assert_ok!(Nfi::manual_data_request(
+				RawOrigin::Signed(token_owner.clone()).into(),
+				token_id.clone(),
+				sub_type
+			));
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				caller: token_owner,
+				sub_type,
+				token_id,
+			}));
+
+			// Request data H256
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get() + 1, // Not TRN chain Id will bypass checks
+				collection_id: GenericCollectionId::H256(H256::zero()),
+				serial_number: GenericSerialNumber::U32(2),
+			};
+			assert_ok!(Nfi::manual_data_request(
+				RawOrigin::Signed(token_owner.clone()).into(),
+				token_id.clone(),
+				sub_type
+			));
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				caller: token_owner,
+				sub_type,
+				token_id,
+			}));
+
+			// Request data Bytes
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get() + 1, // Not TRN chain Id will bypass checks
+				collection_id: GenericCollectionId::Bytes(BoundedVec::truncate_from(b"123".to_vec())),
+				serial_number: GenericSerialNumber::Bytes(BoundedVec::truncate_from(b"2".to_vec())),
+			};
+			assert_ok!(Nfi::manual_data_request(
+				RawOrigin::Signed(token_owner.clone()).into(),
+				token_id.clone(),
+				sub_type
+			));
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				caller: token_owner,
+				sub_type,
+				token_id,
+			}));
+
+			// Request data Empty
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get() + 1, // Not TRN chain Id will bypass checks
+				collection_id: GenericCollectionId::Empty,
+				serial_number: GenericSerialNumber::U32(2),
+			};
+			assert_ok!(Nfi::manual_data_request(
+				RawOrigin::Signed(token_owner.clone()).into(),
+				token_id.clone(),
+				sub_type
+			));
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				caller: token_owner,
+				sub_type,
+				token_id,
+			}));
+		});
+	}
+
+	#[test]
+	fn manual_data_request_non_trn_pays_mint_fee() {
+		let token_owner = alice();
+		let mint_fee = 1000;
+
+		TestExt::<Test>::default()
+			.with_balances(&[(token_owner, mint_fee)])
+			.build()
+			.execute_with(|| {
+				let sub_type = NFISubType::NFI;
+
+				// Set fee details to 1000 ROOT
+				let fee = FeeDetails {
+					asset_id: NativeAssetId::get(),
+					amount: mint_fee,
+					receiver: bob(),
+				};
+				assert_ok!(Nfi::set_fee_details(
+					RawOrigin::Root.into(),
+					sub_type,
+					Some(fee.clone())
+				));
+
+				// Set FeeTo address
+				let fee_to = charlie();
+				assert_ok!(Nfi::set_fee_to(RawOrigin::Root.into(), Some(fee_to.clone())));
+
+				// Request data U64
+				let token_id = MultiChainTokenId {
+					chain_id: ChainId::get() + 1, // Not TRN chain Id will bypass checks
+					collection_id: GenericCollectionId::U64(123),
+					serial_number: GenericSerialNumber::U64(2),
+				};
+				assert_ok!(Nfi::manual_data_request(
+					RawOrigin::Signed(token_owner.clone()).into(),
+					token_id.clone(),
+					sub_type
+				));
+				System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+					caller: token_owner,
+					sub_type,
+					token_id,
+				}));
+
+
+				// Check fees paid
+				let network_fee = NFINetworkFeePercentage::get().mul(mint_fee);
+				assert_eq!(
+					AssetsExt::balance(NativeAssetId::get(), &bob()),
+					mint_fee - network_fee
+				);
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &fee_to), network_fee);
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &token_owner), 0);
+			});
+	}
 }
 
 mod submit_nfi_data {
@@ -617,9 +838,12 @@ mod submit_nfi_data {
 			// Event thrown
 			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataSet {
 				sub_type,
-				token_id,
-				data_item,
+				token_id: token_id.clone(),
+				data_item: data_item.clone(),
 			}));
+
+			// Storage updated
+			assert_eq!(NfiData::<Test>::get(token_id, sub_type), Some(data_item));
 		});
 	}
 
@@ -786,6 +1010,194 @@ mod submit_nfi_data {
 				),
 				Error::<Test>::NoToken
 			);
+		});
+	}
+
+	#[test]
+	fn submit_data_request_invalid_trn_collection_format_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get(),
+				collection_id: GenericCollectionId::U64(123),
+				serial_number: GenericSerialNumber::U32(2),
+			};
+			let data = NFIDataType::NFI(NFIMatrix {
+				metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
+				verification_hash: H256::from_low_u64_be(123),
+			});
+
+			// Set relayer to alice
+			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), alice()));
+
+			// Manually Enable NFI
+			NfiEnabled::<Test>::insert(
+				(ChainId::get(), GenericCollectionId::U64(123)),
+				sub_type,
+				true,
+			);
+
+			// Request data
+			assert_noop!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(alice()).into(),
+				token_id.clone(),
+				data
+			), Error::<Test>::InvalidTokenFormat);
+		});
+	}
+
+	#[test]
+	fn submit_data_request_invalid_trn_serial_format_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get(),
+				collection_id: GenericCollectionId::U32(123),
+				serial_number: GenericSerialNumber::U64(2),
+			};
+			let data = NFIDataType::NFI(NFIMatrix {
+				metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
+				verification_hash: H256::from_low_u64_be(123),
+			});
+
+			// Set relayer to alice
+			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), alice()));
+
+			// Manually Enable NFI
+			NfiEnabled::<Test>::insert(
+				(ChainId::get(), GenericCollectionId::U32(123)),
+				sub_type,
+				true,
+			);
+
+			// Request data
+			assert_noop!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(alice()).into(),
+				token_id.clone(),
+				data
+			), Error::<Test>::InvalidTokenFormat);
+		});
+	}
+
+	#[test]
+	fn submit_data_request_non_trn_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let data = NFIDataType::NFI(NFIMatrix {
+				metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
+				verification_hash: H256::from_low_u64_be(123),
+			});
+
+			// Set relayer to alice
+			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), alice()));
+
+			// Request data U64
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get() + 1, // Not TRN chain id will bypass checks
+				collection_id: GenericCollectionId::U64(123),
+				serial_number: GenericSerialNumber::U64(2),
+			};
+			assert_ok!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(alice()).into(),
+				token_id.clone(),
+				data.clone()
+			));
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataSet {
+				sub_type,
+				token_id: token_id.clone(),
+				data_item: data.clone(),
+			}));
+			assert_eq!(NfiData::<Test>::get(token_id, sub_type), Some(data.clone()));
+
+			// Request data U128
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get() + 1, // Not TRN chain id will bypass checks
+				collection_id: GenericCollectionId::U128(123),
+				serial_number: GenericSerialNumber::U128(2),
+			};
+			assert_ok!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(alice()).into(),
+				token_id.clone(),
+				data.clone()
+			));
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataSet {
+				sub_type,
+				token_id: token_id.clone(),
+				data_item: data.clone(),
+			}));
+			assert_eq!(NfiData::<Test>::get(token_id, sub_type), Some(data.clone()));
+
+			// Request data H160
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get() + 1, // Not TRN chain id will bypass checks
+				collection_id: GenericCollectionId::H160(H160::zero()),
+				serial_number: GenericSerialNumber::U32(2),
+			};
+			assert_ok!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(alice()).into(),
+				token_id.clone(),
+				data.clone()
+			));
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataSet {
+				sub_type,
+				token_id: token_id.clone(),
+				data_item: data.clone(),
+			}));
+			assert_eq!(NfiData::<Test>::get(token_id, sub_type), Some(data.clone()));
+
+			// Request data H256
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get() + 1, // Not TRN chain id will bypass checks
+				collection_id: GenericCollectionId::H256(H256::zero()),
+				serial_number: GenericSerialNumber::U32(2),
+			};
+			assert_ok!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(alice()).into(),
+				token_id.clone(),
+				data.clone()
+			));
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataSet {
+				sub_type,
+				token_id: token_id.clone(),
+				data_item: data.clone(),
+			}));
+			assert_eq!(NfiData::<Test>::get(token_id, sub_type), Some(data.clone()));
+
+			// Request data Bytes
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get() + 1, // Not TRN chain id will bypass checks
+				collection_id: GenericCollectionId::Bytes(BoundedVec::truncate_from(b"123".to_vec())),
+				serial_number: GenericSerialNumber::Bytes(BoundedVec::truncate_from(b"2".to_vec())),
+			};
+			assert_ok!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(alice()).into(),
+				token_id.clone(),
+				data.clone()
+			));
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataSet {
+				sub_type,
+				token_id: token_id.clone(),
+				data_item: data.clone(),
+			}));
+			assert_eq!(NfiData::<Test>::get(token_id, sub_type), Some(data.clone()));
+
+			// Request data Empty
+			let token_id = MultiChainTokenId {
+				chain_id: ChainId::get() + 1, // Not TRN chain id will bypass checks
+				collection_id: GenericCollectionId::Empty,
+				serial_number: GenericSerialNumber::U32(2),
+			};
+			assert_ok!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(alice()).into(),
+				token_id.clone(),
+				data.clone()
+			));
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataSet {
+				sub_type,
+				token_id: token_id.clone(),
+				data_item: data.clone(),
+			}));
+			assert_eq!(NfiData::<Test>::get(token_id, sub_type), Some(data.clone()));
 		});
 	}
 }

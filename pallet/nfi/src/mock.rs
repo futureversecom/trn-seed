@@ -13,7 +13,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use frame_support::pallet_prelude::Get;
 use crate as pallet_nfi;
 use seed_pallet_common::test_prelude::*;
 
