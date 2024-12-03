@@ -215,7 +215,7 @@ pub mod pallet {
 		/// This will allow NFI to automatically be requested when new tokens are minted
 		///  - Caller must be collection owner
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::enable_nfi())]
+		#[pallet::weight(T::WeightInfo::enable_nfi_for_trn_collection())]
 		pub fn enable_nfi_for_trn_collection(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
