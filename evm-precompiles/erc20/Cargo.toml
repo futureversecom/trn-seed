@@ -8,7 +8,6 @@ repository.workspace = true
 [dependencies]
 pallet-assets-ext = { workspace = true }
 pallet-token-approvals = { workspace = true }
-seed-pallet-common = { workspace = true }
 seed-primitives = { workspace = true }
 
 codec = { workspace = true }

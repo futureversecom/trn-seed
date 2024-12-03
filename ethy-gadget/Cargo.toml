@@ -9,13 +9,11 @@ license.workspace = true
 futures-timer = { version = "3.0.1", default-features = false }
 parking_lot = { workspace = true }
 
-ethabi = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }
 codec = { workspace = true }
-libsecp256k1 = { workspace = true }
 substrate-prometheus-endpoint = { workspace = true }
 sc-chain-spec = { workspace = true }
 sc-client-api = { workspace = true }
@@ -26,28 +24,19 @@ sc-network-gossip = { workspace = true }
 sc-utils = { workspace = true }
 sp-api = { workspace = true }
 sp-application-crypto = { workspace = true }
-sp-arithmetic = { workspace = true }
 sp-blockchain = { workspace = true }
 sp-consensus = { workspace = true }
 sp-core = { workspace = true }
 sp-keystore = { workspace = true }
 sp-runtime = { workspace = true }
-sc-network-common = { workspace = true }
 
 seed-primitives = { workspace = true, default-features = true }
 xrpl-codec = { workspace = true }
 
 [dev-dependencies]
 strum = { version = "0.24", default-features = false }
-tempfile = { version = "3.1.0", default-features = false }
-hex-literal = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 sc-consensus = { workspace = true }
-sc-service = { workspace = true }
 sc-network-test = { workspace = true }
-sc-block-builder = { workspace = true }
-sp-consensus-grandpa = { workspace = true }
-sp-keyring = { workspace = true }
-sp-tracing = { workspace = true }
 substrate-test-runtime-client = { workspace = true }

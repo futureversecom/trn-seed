@@ -8,8 +8,6 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-log = { workspace = true }
-
 frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
