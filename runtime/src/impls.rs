@@ -1035,7 +1035,6 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 				let who = <Runtime as frame_system::Config>::Lookup::lookup(*destination)
 					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
 				let destination: [u8; 20] = who.into();
-				let amount_u128: u128 = *amount;
 				let keep_alive_u64: u64 = (*keep_alive).into();
 
 				topping
@@ -1046,7 +1045,7 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 						&[
 							PactType::Numeric(Numeric(asset_id_u64)),
 							PactType::StringLike(StringLike(destination.to_vec())),
-							PactType::Numeric(Numeric(amount_u128 as u64)),
+							PactType::Numeric(Numeric(*amount as u64)),
 							PactType::Numeric(Numeric(keep_alive_u64)),
 						],
 					)

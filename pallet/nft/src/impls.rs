@@ -373,7 +373,6 @@ impl<T: Config> Pallet<T> {
 		(new_cursor, total_owned, response)
 	}
 
-	//noinspection ALL
 	/// Create the collection
 	pub fn do_create_collection(
 		owner: T::AccountId,

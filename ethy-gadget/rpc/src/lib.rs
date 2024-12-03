@@ -132,8 +132,8 @@ where
 		if let Ok(maybe_encoded_proof) = self.client.get_aux(
 			[
 				ETHY_ENGINE_ID.as_slice(),
-				([EthyChainId::Ethereum.into()].as_slice()),
-				(event_id.to_be_bytes().as_slice()),
+				[EthyChainId::Ethereum.into()].as_slice(),
+				event_id.to_be_bytes().as_slice(),
 			]
 			.concat()
 			.as_ref(),

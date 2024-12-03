@@ -333,9 +333,8 @@ impl<T: Config> Pallet<T> {
 			},
 		};
 
-		let tx_receipt = match maybe_tx_receipt {
-			Some(t) => t,
-			None => return EventClaimResult::NoTxReceipt,
+		let Some(tx_receipt) = maybe_tx_receipt else {
+			return EventClaimResult::NoTxReceipt;
 		};
 		let status = tx_receipt.status.unwrap_or_default();
 		if status.is_zero() {

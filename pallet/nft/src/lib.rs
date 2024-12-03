@@ -396,7 +396,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		//noinspection ALL
 		/// Create a new collection
 		/// Additional tokens can be minted via `mint_additional`
 		///
