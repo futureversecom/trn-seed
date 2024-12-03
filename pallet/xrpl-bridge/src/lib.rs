@@ -406,7 +406,6 @@ pub mod pallet {
 		0_u32
 	}
 	#[pallet::storage]
-	#[pallet::getter(fn door_ticket_sequence)]
 	/// The current ticket sequence of the XRPL door accounts
 	pub type DoorTicketSequence<T: Config> = StorageMap<
 		_,
@@ -418,19 +417,16 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn door_ticket_sequence_params)]
 	/// The Ticket sequence params of the XRPL door accounts for the current allocation
 	pub type DoorTicketSequenceParams<T: Config> =
 		StorageMap<_, Twox64Concat, XRPLDoorAccount, XrplTicketSequenceParams, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn door_ticket_sequence_params_next)]
 	/// The Ticket sequence params of the XRPL door accounts for the next allocation
 	pub type DoorTicketSequenceParamsNext<T: Config> =
 		StorageMap<_, Twox64Concat, XRPLDoorAccount, XrplTicketSequenceParams, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn ticket_sequence_threshold_reached_emitted)]
 	/// Keeps track whether the TicketSequenceThresholdReached event is emitted for XRPL door accounts
 	pub type TicketSequenceThresholdReachedEmitted<T: Config> =
 		StorageMap<_, Twox64Concat, XRPLDoorAccount, bool, ValueQuery>;
@@ -676,8 +672,8 @@ pub mod pallet {
 			let active_relayer = <Relayer<T>>::get(&relayer).unwrap_or(false);
 			ensure!(active_relayer, Error::<T>::NotPermitted);
 
-			let current_ticket_sequence = Self::door_ticket_sequence(door_account);
-			let current_params = Self::door_ticket_sequence_params(door_account);
+			let current_ticket_sequence = DoorTicketSequence::<T>::get(door_account);
+			let current_params = DoorTicketSequenceParams::<T>::get(door_account);
 
 			if start_ticket_sequence < current_ticket_sequence
 				|| start_ticket_sequence < current_params.start_sequence
@@ -711,8 +707,8 @@ pub mod pallet {
 			ticket_bucket_size: u32,
 		) -> DispatchResult {
 			ensure_root(origin)?; // only the root will be able to do it
-			let current_ticket_sequence = Self::door_ticket_sequence(door_account);
-			let current_params = Self::door_ticket_sequence_params(door_account);
+			let current_ticket_sequence = DoorTicketSequence::<T>::get(door_account);
+			let current_params = DoorTicketSequenceParams::<T>::get(door_account);
 
 			if ticket_sequence < current_ticket_sequence
 				|| start_ticket_sequence < current_params.start_sequence
@@ -1714,8 +1710,8 @@ impl<T: Config> Pallet<T> {
 	pub fn get_door_ticket_sequence(
 		door_account: XRPLDoorAccount,
 	) -> Result<XrplTxTicketSequence, DispatchError> {
-		let mut current_sequence = Self::door_ticket_sequence(door_account);
-		let ticket_params = Self::door_ticket_sequence_params(door_account);
+		let mut current_sequence = DoorTicketSequence::<T>::get(door_account);
+		let ticket_params = DoorTicketSequenceParams::<T>::get(door_account);
 
 		// check if TicketSequenceThreshold reached. notify by emitting
 		// TicketSequenceThresholdReached
@@ -1724,7 +1720,7 @@ impl<T: Config> Pallet<T> {
 				current_sequence - ticket_params.start_sequence + 1,
 				ticket_params.bucket_size,
 			) >= T::TicketSequenceThreshold::get()
-			&& !Self::ticket_sequence_threshold_reached_emitted(door_account)
+			&& !TicketSequenceThresholdReachedEmitted::<T>::get(door_account)
 		{
 			Self::deposit_event(Event::<T>::TicketSequenceThresholdReached {
 				door_account,
@@ -1741,7 +1737,7 @@ impl<T: Config> Pallet<T> {
 			.ok_or(ArithmeticError::Overflow)?;
 		if current_sequence >= last_sequence {
 			// we ran out current bucket, check the next_start_sequence
-			let next_ticket_params = Self::door_ticket_sequence_params_next(door_account);
+			let next_ticket_params = DoorTicketSequenceParamsNext::<T>::get(door_account);
 			if next_ticket_params == XrplTicketSequenceParams::default()
 				|| next_ticket_params.start_sequence == ticket_params.start_sequence
 			{

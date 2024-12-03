@@ -322,7 +322,7 @@ where
 		let operator: Runtime::AccountId = H160::from(operator).into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc1155_approvals_for_all(
+		let is_approved = pallet_token_approvals::ERC1155ApprovalsForAll::<Runtime>::get(
 			owner,
 			(collection_id, operator),
 		)
@@ -582,7 +582,7 @@ where
 		// Check approvals
 		if from != handle.context().caller {
 			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-			let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc1155_approvals_for_all(
+			let is_approved = pallet_token_approvals::ERC1155ApprovalsForAll::<Runtime>::get(
 				Runtime::AccountId::from(from),
 				(collection_id, Runtime::AccountId::from(handle.context().caller)),
 			)
@@ -629,7 +629,7 @@ where
 		// Check approvals
 		if operator != handle.context().caller {
 			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-			let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc1155_approvals_for_all(
+			let is_approved = pallet_token_approvals::ERC1155ApprovalsForAll::<Runtime>::get(
 				Runtime::AccountId::from(operator),
 				(collection_id, Runtime::AccountId::from(handle.context().caller)),
 			)
@@ -697,7 +697,7 @@ where
 		// Check approvals
 		if operator != handle.context().caller {
 			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-			let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc1155_approvals_for_all(
+			let is_approved = pallet_token_approvals::ERC1155ApprovalsForAll::<Runtime>::get(
 				Runtime::AccountId::from(operator),
 				(collection_id, Runtime::AccountId::from(handle.context().caller)),
 			)

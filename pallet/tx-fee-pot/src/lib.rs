@@ -61,7 +61,6 @@ pub mod pallet {
 
 	/// Accrued transaction fees in the current staking Era
 	#[pallet::storage]
-	#[pallet::getter(fn era_tx_fees)]
 	pub type EraTxFees<T> = StorageValue<_, Balance, ValueQuery>;
 }
 
@@ -76,7 +75,7 @@ impl<T: Config> Pallet<T> {
 	}
 	/// Get the tx fee pot balance (current era)
 	pub fn era_pot_balance() -> Balance {
-		Self::era_tx_fees()
+		EraTxFees::<T>::get()
 	}
 	/// Get the tx fee pot balance (all eras - any claimed amounts)
 	pub fn total_pot_balance() -> Balance {
