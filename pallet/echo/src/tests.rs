@@ -24,12 +24,12 @@ fn ping_works_from_runtime() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let caller = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PalletId::get().into_account_truncating();
-		let next_session_id = Echo::next_session_id();
+		let next_session_id = NextSessionId::<Test>::get();
 
 		assert_ok!(Echo::ping(Some(AccountId::from(caller)).into(), destination));
 
 		// Check storage updated
-		assert_eq!(Echo::next_session_id(), next_session_id + 1);
+		assert_eq!(NextSessionId::<Test>::get(), next_session_id + 1);
 
 		// Check PingSent event thrown
 		System::assert_has_event(
@@ -64,7 +64,7 @@ fn ping_works_from_ethereum() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let caller = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PalletId::get().into_account_truncating();
-		let next_session_id = Echo::next_session_id();
+		let next_session_id = NextSessionId::<Test>::get();
 
 		let data = ethabi::encode(&[
 			Token::Uint(PONG.into()),

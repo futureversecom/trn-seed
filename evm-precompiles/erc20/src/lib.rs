@@ -217,12 +217,10 @@ where
 		let spender: Runtime::AccountId = H160::from(spender).into();
 
 		// Fetch info.
-		let amount: U256 = pallet_token_approvals::Pallet::<Runtime>::erc20_approvals(
-			(&owner, &asset_id),
-			&spender,
-		)
-		.unwrap_or_default()
-		.into();
+		let amount: U256 =
+			pallet_token_approvals::ERC20Approvals::<Runtime>::get((&owner, &asset_id), &spender)
+				.unwrap_or_default()
+				.into();
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(amount).build()))
