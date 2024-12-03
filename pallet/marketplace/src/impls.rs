@@ -32,7 +32,7 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::RoyaltiesInvalid
 		);
 		let marketplace_account = marketplace_account.unwrap_or(who);
-		let marketplace_id = Self::next_marketplace_id();
+		let marketplace_id = NextMarketplaceId::<T>::get();
 		let marketplace = Marketplace { account: marketplace_account.clone(), entitlement };
 		let next_marketplace_id = <NextMarketplaceId<T>>::get();
 		ensure!(next_marketplace_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
@@ -61,7 +61,7 @@ impl<T: Config> Pallet<T> {
 		// Validate tokens
 		tokens.validate()?;
 		let royalties_schedule = Self::calculate_bundle_royalties(tokens.clone(), marketplace_id)?;
-		let listing_id = Self::next_listing_id();
+		let listing_id = NextListingId::<T>::get();
 
 		tokens.lock_tokens(&who, listing_id)?;
 
@@ -126,7 +126,7 @@ impl<T: Config> Pallet<T> {
 
 	// /// Returns the offer detail of a specified offer_id
 	pub fn get_offer_detail(offer_id: OfferId) -> Result<SimpleOffer<T::AccountId>, DispatchError> {
-		let Some(OfferType::Simple(offer)) = Self::offers(offer_id) else {
+		let Some(OfferType::Simple(offer)) = Offers::<T>::get(offer_id) else {
 			return Err(Error::<T>::InvalidOffer.into());
 		};
 		Ok(offer)
@@ -182,7 +182,7 @@ impl<T: Config> Pallet<T> {
 		// Validate tokens and get collection_id
 		tokens.validate()?;
 		let royalties_schedule = Self::calculate_bundle_royalties(tokens.clone(), marketplace_id)?;
-		let listing_id = Self::next_listing_id();
+		let listing_id = NextListingId::<T>::get();
 		ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 		tokens.lock_tokens(&who, listing_id)?;
@@ -220,7 +220,7 @@ impl<T: Config> Pallet<T> {
 			_ => return Err(Error::<T>::NotForAuction.into()),
 		};
 
-		if let Some(current_bid) = Self::listing_winning_bid(listing_id) {
+		if let Some(current_bid) = ListingWinningBid::<T>::get(listing_id) {
 			ensure!(amount > current_bid.1, Error::<T>::BidTooLow);
 		} else {
 			// first bid
@@ -283,7 +283,7 @@ impl<T: Config> Pallet<T> {
 			},
 			Listing::<T>::Auction(auction) => {
 				ensure!(auction.seller == who, Error::<T>::NotSeller);
-				ensure!(Self::listing_winning_bid(listing_id).is_none(), Error::<T>::TokenLocked);
+				ensure!(ListingWinningBid::<T>::get(listing_id).is_none(), Error::<T>::TokenLocked);
 				auction.tokens.unlock_tokens(&who)?;
 
 				Self::deposit_event(Event::<T>::AuctionClose {
@@ -311,7 +311,7 @@ impl<T: Config> Pallet<T> {
 		let token_owner = T::NFTExt::get_token_owner(&token_id);
 		ensure!(token_owner.is_some(), Error::<T>::NoToken);
 		ensure!(token_owner != Some(who), Error::<T>::IsTokenOwner);
-		let offer_id = Self::next_offer_id();
+		let offer_id = NextOfferId::<T>::get();
 		ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 		// ensure the token_id is not currently in an auction
@@ -347,7 +347,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn do_cancel_offer(who: T::AccountId, offer_id: OfferId) -> DispatchResult {
-		let Some(OfferType::Simple(offer)) = Self::offers(offer_id) else {
+		let Some(OfferType::Simple(offer)) = Offers::<T>::get(offer_id) else {
 			return Err(Error::<T>::InvalidOffer.into());
 		};
 		ensure!(offer.buyer == who, Error::<T>::NotBuyer);
@@ -362,7 +362,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn do_accept_offer(who: T::AccountId, offer_id: OfferId) -> DispatchResult {
-		let Some(OfferType::Simple(offer)) = Self::offers(offer_id) else {
+		let Some(OfferType::Simple(offer)) = Offers::<T>::get(offer_id) else {
 			return Err(Error::<T>::InvalidOffer.into());
 		};
 

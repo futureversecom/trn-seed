@@ -14,13 +14,14 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg(test)]
-use crate::mock::{EVMChainId, RuntimeEvent, RuntimeOrigin, System, TestExt};
+use crate::mock::{EVMChainId, RuntimeEvent, RuntimeOrigin, System, Test, TestExt};
+use crate::ChainId;
 use seed_pallet_common::test_prelude::*;
 
 #[test]
 fn default_chain_id() {
 	TestExt::default().build().execute_with(|| {
-		let chain_id = EVMChainId::chain_id();
+		let chain_id = ChainId::<Test>::get();
 		assert_eq!(chain_id, 7672);
 	});
 }
@@ -30,11 +31,11 @@ fn update_chain_id() {
 	TestExt::default().build().execute_with(|| {
 		// normal user cannot update chain id
 		assert_noop!(EVMChainId::set_chain_id(RuntimeOrigin::signed(alice()), 1234), BadOrigin);
-		assert_eq!(EVMChainId::chain_id(), 7672); // chain id is not updated
+		assert_eq!(ChainId::<Test>::get(), 7672); // chain id is not updated
 
 		// root user can update chain id
 		assert_ok!(EVMChainId::set_chain_id(RuntimeOrigin::root().into(), 1234));
-		assert_eq!(EVMChainId::chain_id(), 1234); // chain id is updated
+		assert_eq!(ChainId::<Test>::get(), 1234); // chain id is updated
 
 		System::assert_last_event(RuntimeEvent::EVMChainId(crate::Event::ChainIdSet(1234)));
 	});

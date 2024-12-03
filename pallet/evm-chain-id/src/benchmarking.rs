@@ -17,6 +17,7 @@
 
 use super::*;
 
+#[allow(unused_imports)]
 use crate::Pallet as EVMChainId;
 
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
@@ -28,7 +29,7 @@ benchmarks! {
 		assert_eq!(ChainId::<T>::get(), T::DefaultChainId::get());
 	}: _(RawOrigin::Root, 1234)
 	verify {
-		assert_eq!(EVMChainId::<T>::chain_id(), 1234);
+		assert_eq!(ChainId::<T>::get(), 1234);
 	}
 
 }
