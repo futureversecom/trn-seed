@@ -94,7 +94,7 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 		!self.entitlements.is_empty()
 			&& self.entitlements.len() <= MAX_ENTITLEMENTS as usize
 			&& self.entitlements.iter().map(|(_who, share)| share.deconstruct()).sum::<u32>()
-			<= Permill::ACCURACY
+				<= Permill::ACCURACY
 	}
 	/// Calculate the total % entitled for royalties
 	/// It will return `0` if the `entitlements` are overcommitted
