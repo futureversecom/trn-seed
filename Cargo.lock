@@ -6623,8 +6623,6 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "sp-core",
- "sp-io",
- "sp-keystore",
  "sp-runtime",
  "sp-std",
  "xrpl-codec",
@@ -12175,7 +12173,7 @@ dependencies = [
 [[package]]
 name = "xrpl-codec"
 version = "0.2.3"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec#1af5e9fbbe3695f9d7711ec823edc8631e94a40f"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec#fcf088ef4af985254fcfcb947b6850728c2aced8"
 dependencies = [
  "ripemd",
  "sha2 0.10.8",
@@ -12185,7 +12183,7 @@ dependencies = [
 [[package]]
 name = "xrpl-codec-utils"
 version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec#1af5e9fbbe3695f9d7711ec823edc8631e94a40f"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec#fcf088ef4af985254fcfcb947b6850728c2aced8"
 dependencies = [
  "hashbrown 0.12.3",
  "lazy_static",
