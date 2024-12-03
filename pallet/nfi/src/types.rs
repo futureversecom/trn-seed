@@ -72,6 +72,7 @@ pub struct FeeDetails<AccountId> {
 	pub receiver: AccountId,
 }
 
+/// Token Id that can support many types of collection_id and serial_number
 #[derive(
 	Decode, Encode, CloneNoBound, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
@@ -82,6 +83,7 @@ pub struct MultiChainTokenId<MaxByteLength: Get<u32>> {
 	pub serial_number: GenericSerialNumber<MaxByteLength>,
 }
 
+/// Collection ID type that supports multiple chains
 #[derive(
 	Decode, Encode, CloneNoBound, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
@@ -96,6 +98,7 @@ pub enum GenericCollectionId<MaxByteLength: Get<u32>> {
 	Empty, // Sui doesn't use CollectionId equivalent, only tokenId
 }
 
+/// Serial Number type that supports multiple chains
 #[derive(
 	Decode, Encode, CloneNoBound, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
