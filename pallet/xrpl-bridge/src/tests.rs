@@ -3458,6 +3458,74 @@ mod withdraw_asset {
 	}
 
 	#[test]
+	fn withdraw_asset_with_destination_tag_works() {
+		const TEST_ASSET_ID: u32 = 5;
+		let initial_balance = 2000;
+		TestExt::<Test>::default()
+			.with_asset(TEST_ASSET_ID, "TEST", &[(alice(), initial_balance)])
+			.build()
+			.execute_with(|| {
+				// For this test we will set the door_tx_fee to 0
+				assert_ok!(XRPLBridge::set_door_tx_fee(
+					frame_system::RawOrigin::Root.into(),
+					XRPLDoorAccount::Main,
+					0_u64
+				));
+				let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+
+				// Setup the asset map
+				let issuer = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let currency = XRPLCurrencyType::NonStandard(
+					hex!("524F4F5400000000000000000000000000000000").into(),
+				);
+				let xrpl_currency = XRPLCurrency { symbol: currency, issuer };
+				assert_ok!(XRPLBridge::set_xrpl_asset_map(
+					RuntimeOrigin::root(),
+					TEST_ASSET_ID,
+					Some(xrpl_currency)
+				));
+
+				// set initial ticket sequence params
+				assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
+					1_u32,
+					1_u32,
+					200_u32
+				));
+				assert_ok!(XRPLBridge::set_door_address(
+					RuntimeOrigin::root(),
+					XRPLDoorAccount::Main,
+					Some(door)
+				));
+
+				// Withdraw full amount
+				let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
+				let destination_tag = 1234;
+				assert_ok!(XRPLBridge::withdraw(
+					RuntimeOrigin::signed(alice()),
+					TEST_ASSET_ID,
+					initial_balance,
+					destination,
+					Some(destination_tag)
+				));
+				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &alice()), 0);
+
+				// Ensure event is thrown
+				System::assert_last_event(
+					Event::<Test>::WithdrawRequest {
+						proof_id: 0,
+						sender: alice(),
+						asset_id: TEST_ASSET_ID,
+						amount: initial_balance,
+						destination: destination.clone(),
+					}
+					.into(),
+				);
+			})
+	}
+
+	#[test]
 	fn withdraw_asset_no_asset_map_fails() {
 		const TEST_ASSET_ID: u32 = 5;
 		let initial_balance = 2000;

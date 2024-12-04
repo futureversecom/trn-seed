@@ -51,7 +51,7 @@ use xrpl_codec::{
 	traits::BinarySerialize,
 	transaction::{
 		NFTokenAcceptOffer, NFTokenCreateOffer, Payment, PaymentAltCurrency,
-		PaymentWithDestinationTag, SignerListSet,
+		PaymentAltCurrencyWithDestinationTag, PaymentWithDestinationTag, SignerListSet,
 	},
 	types::{AccountIdType, AmountType, IssuedAmountType, IssuedValueType},
 };
@@ -1549,7 +1549,7 @@ impl<T: Config> Pallet<T> {
 	fn serialize_asset_tx(
 		tx_data: AssetWithdrawTransaction,
 		door_address: [u8; 20],
-		_destination_tag: Option<u32>,
+		destination_tag: Option<u32>,
 	) -> Result<Vec<u8>, DispatchError> {
 		let AssetWithdrawTransaction {
 			tx_fee,
@@ -1573,18 +1573,35 @@ impl<T: Config> Pallet<T> {
 			IssuedAmountType::from_issued_value(value_type, currency.into(), issuer)
 				.map_err(|_| Error::<T>::InvalidCurrencyCode)?;
 		let amount: Amount = Amount(AmountType::Issued(issued_amount));
-		let payment = PaymentAltCurrency::new(
-			door_address,
-			destination.into(),
-			amount,
-			tx_nonce,
-			tx_ticket_sequence,
-			tx_fee,
-			SourceTag::<T>::get(),
-			// omit signer key since this is a 'MultiSigner' tx
-			None,
-		);
-		Ok(payment.binary_serialize(true))
+		let tx_blob = if let Some(destination_tag) = destination_tag {
+			PaymentAltCurrencyWithDestinationTag::new(
+				door_address,
+				destination.into(),
+				amount,
+				tx_nonce,
+				tx_ticket_sequence,
+				tx_fee,
+				SourceTag::<T>::get(),
+				destination_tag,
+				// omit signer key since this is a 'MultiSigner' tx
+				None,
+			)
+			.binary_serialize(true)
+		} else {
+			PaymentAltCurrency::new(
+				door_address,
+				destination.into(),
+				amount,
+				tx_nonce,
+				tx_ticket_sequence,
+				tx_fee,
+				SourceTag::<T>::get(),
+				// omit signer key since this is a 'MultiSigner' tx
+				None,
+			)
+			.binary_serialize(true)
+		};
+		Ok(tx_blob)
 	}
 
 	/// Saturate the balance so that we don't lose precision when we later convert it to

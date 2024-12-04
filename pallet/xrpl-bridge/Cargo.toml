@@ -32,8 +32,6 @@ seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
 
 [dev-dependencies]
-sp-io = { workspace = true }
-sp-keystore = { workspace = true }
 pallet-nft = { workspace = true }
 
 [features]
