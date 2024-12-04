@@ -270,11 +270,89 @@ mod manual_data_request {
 			));
 
 			// Event thrown
-			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequestNew {
 				caller: token_owner,
 				sub_type,
 				token_id,
 			}));
+		});
+	}
+
+	#[test]
+	fn manual_data_request_overwrite_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let collection_owner = alice();
+			let token_owner = bob();
+			let collection_id = NftBuilder::<Test>::new(collection_owner)
+				.token_owner(token_owner)
+				.initial_issuance(1)
+				.build();
+			let token_id = create_mc_token_id((collection_id, 0));
+			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), bob()));
+
+			// Enable NFI
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				sub_type
+			));
+
+			// Request data
+			assert_ok!(Nfi::manual_data_request(
+				RawOrigin::Signed(token_owner.clone()).into(),
+				token_id.clone(),
+				sub_type
+			));
+
+			// Event thrown for requesting new data
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequestNew {
+				caller: token_owner,
+				sub_type,
+				token_id: token_id.clone(),
+			}));
+
+
+			// Submit data
+			let data_item = NFIDataType::NFI(NFIMatrix {
+				metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
+				verification_hash: H256::from_low_u64_be(123),
+			});
+			assert_ok!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(bob()).into(),
+				token_id.clone(),
+				data_item.clone()
+			));
+
+
+			// Request data again
+			assert_ok!(Nfi::manual_data_request(
+				RawOrigin::Signed(token_owner.clone()).into(),
+				token_id.clone(),
+				sub_type
+			));
+
+			// Event thrown for requesting data on pre-existing token
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequestExisting {
+				caller: token_owner,
+				sub_type,
+				token_id: token_id.clone(),
+			}));
+
+
+			// Submit data is successful
+			let data_item = NFIDataType::NFI(NFIMatrix {
+				metadata_link: BoundedVec::truncate_from(b"https://example2.com".to_vec()),
+				verification_hash: H256::from_low_u64_be(124),
+			});
+			assert_ok!(Nfi::submit_nfi_data(
+				RawOrigin::Signed(bob()).into(),
+				token_id.clone(),
+				data_item.clone()
+			));
+
+			// verify data
+			assert_eq!(NfiData::<Test>::get(token_id, sub_type).unwrap(), data_item);
 		});
 	}
 
@@ -305,7 +383,7 @@ mod manual_data_request {
 			));
 
 			// Event thrown
-			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequestNew {
 				caller: collection_owner,
 				sub_type,
 				token_id,
@@ -337,7 +415,7 @@ mod manual_data_request {
 			));
 
 			// Event thrown
-			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequestNew {
 				caller: collection_owner,
 				sub_type,
 				token_id,
@@ -668,7 +746,7 @@ mod manual_data_request {
 				token_id.clone(),
 				sub_type
 			));
-			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequestNew {
 				caller: token_owner,
 				sub_type,
 				token_id,
@@ -685,7 +763,7 @@ mod manual_data_request {
 				token_id.clone(),
 				sub_type
 			));
-			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequestNew {
 				caller: token_owner,
 				sub_type,
 				token_id,
@@ -702,7 +780,7 @@ mod manual_data_request {
 				token_id.clone(),
 				sub_type
 			));
-			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequestNew {
 				caller: token_owner,
 				sub_type,
 				token_id,
@@ -719,7 +797,7 @@ mod manual_data_request {
 				token_id.clone(),
 				sub_type
 			));
-			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequestNew {
 				caller: token_owner,
 				sub_type,
 				token_id,
@@ -738,7 +816,7 @@ mod manual_data_request {
 				token_id.clone(),
 				sub_type
 			));
-			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequestNew {
 				caller: token_owner,
 				sub_type,
 				token_id,
@@ -755,7 +833,7 @@ mod manual_data_request {
 				token_id.clone(),
 				sub_type
 			));
-			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+			System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequestNew {
 				caller: token_owner,
 				sub_type,
 				token_id,
@@ -801,7 +879,7 @@ mod manual_data_request {
 					token_id.clone(),
 					sub_type
 				));
-				System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+				System::assert_last_event(MockEvent::Nfi(Event::<Test>::DataRequestNew {
 					caller: token_owner,
 					sub_type,
 					token_id,
@@ -1248,7 +1326,7 @@ mod nft_mint {
 
 			let token_id = create_mc_token_id((collection_id, 0));
 			// Event thrown
-			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRequestNew {
 				caller: collection_owner,
 				sub_type,
 				token_id,
@@ -1492,7 +1570,7 @@ mod sft_create_token {
 
 			let token_id = create_mc_token_id((collection_id, 1));
 			// Event thrown
-			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRequest {
+			System::assert_has_event(MockEvent::Nfi(Event::<Test>::DataRequestNew {
 				caller: collection_owner,
 				sub_type,
 				token_id,

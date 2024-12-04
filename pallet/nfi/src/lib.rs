@@ -114,8 +114,14 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Request for new NFI data creation
-		DataRequest {
+		/// Request for new NFI data creation on a token without existing data
+		DataRequestNew {
+			sub_type: NFISubType,
+			caller: T::AccountId,
+			token_id: MultiChainTokenId<T::MaxByteLength>,
+		},
+		/// Request for new NFI data creation on a token with pre-existing data
+		DataRequestExisting {
 			sub_type: NFISubType,
 			caller: T::AccountId,
 			token_id: MultiChainTokenId<T::MaxByteLength>,
@@ -265,7 +271,7 @@ pub mod pallet {
 				ensure!(Self::check_permissions(trn_token_id, &who), Error::<T>::NotTokenOwner);
 			}
 			Self::pay_mint_fee(&who, 1, sub_type)?;
-			Self::deposit_event(Event::<T>::DataRequest { caller: who, sub_type, token_id });
+			Self::send_data_request(who, token_id, sub_type);
 			Ok(())
 		}
 
@@ -353,6 +359,29 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Emits an event to display which tokens need NFI data to be created off-chain
+	pub fn send_data_request(
+		caller: T::AccountId,
+		token_id: MultiChainTokenId<T::MaxByteLength>,
+		sub_type: NFISubType,
+	) {
+		if NfiData::<T>::contains_key(token_id.clone(), sub_type) {
+			// Deposit event to request new data for an existing token
+			Self::deposit_event(Event::<T>::DataRequestExisting {
+				caller,
+				sub_type,
+				token_id,
+			});
+		} else {
+			// Deposit event requesting data for a new token
+			Self::deposit_event(Event::<T>::DataRequestNew {
+				caller,
+				sub_type,
+				token_id,
+			});
+		}
+	}
+
 	/// Returns true if who is the owner of the collection.
 	/// Checks both NFT and SFT pallet
 	fn is_collection_owner(collection_id: CollectionUuid, who: &T::AccountId) -> bool {
@@ -419,12 +448,7 @@ impl<T: Config> NFIRequest for Pallet<T> {
 				collection_id: GenericCollectionId::U32(collection_id),
 				serial_number: GenericSerialNumber::U32(serial_number),
 			};
-			// Deposit event for the data request
-			Self::deposit_event(Event::<T>::DataRequest {
-				caller: who.clone(),
-				sub_type,
-				token_id,
-			});
+			Self::send_data_request(who.clone(), token_id, sub_type);
 		}
 		Ok(())
 	}

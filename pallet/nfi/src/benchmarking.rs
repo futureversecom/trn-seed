@@ -112,7 +112,7 @@ benchmarks! {
 		assert_ok!(Nfi::<T>::enable_nfi_for_trn_collection(origin::<T>(&caller).into(), collection_id, sub_type));
 	}: _(origin::<T>(&caller), token_id.clone(), sub_type)
 	verify {
-		assert_last_event::<T>(Event::DataRequest {
+		assert_last_event::<T>(Event::DataRequestNew {
 			caller,
 			sub_type,
 			token_id
