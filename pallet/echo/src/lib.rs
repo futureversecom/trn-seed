@@ -73,7 +73,6 @@ pub mod pallet {
 
 	/// The next available offer_id
 	#[pallet::storage]
-	#[pallet::getter(fn next_session_id)]
 	pub type NextSessionId<T> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::event]
@@ -108,7 +107,7 @@ pub mod pallet {
 			let source: H160 = ensure_signed(origin)?.into();
 
 			// Get session id and ensure within u64 bounds
-			let session_id = Self::next_session_id();
+			let session_id = NextSessionId::<T>::get();
 			ensure!(session_id.checked_add(u64::one()).is_some(), Error::<T>::NoAvailableIds);
 
 			// Encode the message, the first value as 0 states that the event was sent from this

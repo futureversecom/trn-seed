@@ -224,25 +224,20 @@ pub mod pallet {
 
 	/// FeeTo account where network fees are deposited
 	#[pallet::storage]
-	#[pallet::getter(fn fee_to)]
 	pub type FeeTo<T: Config> = StorageValue<_, Option<T::AccountId>, ValueQuery, DefaultFeeTo<T>>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn lp_token_id)]
 	pub type TradingPairLPToken<T: Config> =
 		StorageMap<_, Twox64Concat, TradingPair, Option<AssetId>, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn liquidity_pool)]
 	pub type LiquidityPool<T: Config> =
 		StorageMap<_, Twox64Concat, TradingPair, (Balance, Balance), ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn liquidity_pool_last_k)]
 	pub type LiquidityPoolLastK<T: Config> = StorageMap<_, Twox64Concat, AssetId, U256, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn trading_pair_statuses)]
 	pub type TradingPairStatuses<T: Config> =
 		StorageMap<_, Twox64Concat, TradingPair, TradingPairStatus, ValueQuery>;
 
@@ -466,11 +461,11 @@ pub mod pallet {
 			let trading_pair = TradingPair::new(token_a, token_b);
 
 			ensure!(
-				Self::lp_token_id(trading_pair).is_some(),
+				TradingPairLPToken::<T>::get(trading_pair).is_some(),
 				Error::<T>::LiquidityProviderTokenNotCreated
 			);
 
-			match Self::trading_pair_statuses(trading_pair) {
+			match TradingPairStatuses::<T>::get(trading_pair) {
 				TradingPairStatus::Enabled => return Err(Error::<T>::MustBeNotEnabled.into()),
 				// will enabled Disabled trading_pair
 				TradingPairStatus::NotEnabled => {
@@ -500,11 +495,11 @@ pub mod pallet {
 			let trading_pair = TradingPair::new(token_a, token_b);
 
 			ensure!(
-				Self::lp_token_id(trading_pair).is_some(),
+				TradingPairLPToken::<T>::get(trading_pair).is_some(),
 				Error::<T>::LiquidityProviderTokenNotCreated
 			);
 
-			match Self::trading_pair_statuses(trading_pair) {
+			match TradingPairStatuses::<T>::get(trading_pair) {
 				// will disable Enabled trading_pair
 				TradingPairStatus::Enabled => {
 					TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::NotEnabled);
@@ -602,13 +597,13 @@ where
 
 		let trading_pair = TradingPair::new(token_a, token_b);
 		// create trading pair & lp token if non-existent
-		let lp_share_asset_id = match Self::lp_token_id(trading_pair) {
+		let lp_share_asset_id = match TradingPairLPToken::<T>::get(trading_pair) {
 			Some(lp_id) => lp_id,
 			None => Self::create_lp_token(&trading_pair)?,
 		};
 
 		ensure!(
-			matches!(Self::trading_pair_statuses(trading_pair), TradingPairStatus::Enabled),
+			matches!(TradingPairStatuses::<T>::get(trading_pair), TradingPairStatus::Enabled),
 			Error::<T>::MustBeEnabled,
 		);
 
@@ -769,7 +764,7 @@ where
 
 		let trading_pair = TradingPair::new(token_a, token_b);
 		let lp_share_asset_id =
-			Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId)?;
+			TradingPairLPToken::<T>::get(trading_pair).ok_or(Error::<T>::InvalidAssetId)?;
 
 		ensure!(token_a != token_b, Error::<T>::IdenticalTokenAddress);
 
@@ -876,12 +871,12 @@ where
 		token_b: AssetId,
 	) -> sp_std::result::Result<AssetId, DispatchError> {
 		let trading_pair = TradingPair::new(token_a, token_b);
-		Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId.into())
+		TradingPairLPToken::<T>::get(trading_pair).ok_or(Error::<T>::InvalidAssetId.into())
 	}
 
 	pub fn get_liquidity(token_a: AssetId, token_b: AssetId) -> (Balance, Balance) {
 		let trading_pair = TradingPair::new(token_a, token_b);
-		let (reserve_0, reserve_1) = Self::liquidity_pool(trading_pair);
+		let (reserve_0, reserve_1) = LiquidityPool::<T>::get(trading_pair);
 		if token_a == trading_pair.0 {
 			(reserve_0, reserve_1)
 		} else {
@@ -891,7 +886,7 @@ where
 
 	pub fn get_trading_pair_status(token_a: AssetId, token_b: AssetId) -> TradingPairStatus {
 		let trading_pair = TradingPair::new(token_a, token_b);
-		Self::trading_pair_statuses(trading_pair)
+		TradingPairStatuses::<T>::get(trading_pair)
 	}
 
 	/// Given an input amount of an asset and pair reserves, returns the maximum output amount of
@@ -965,7 +960,7 @@ where
 			// trading pair in path must be enabled
 			ensure!(
 				matches!(
-					Self::trading_pair_statuses(TradingPair::new(path[i], path[i + 1])),
+					TradingPairStatuses::<T>::get(TradingPair::new(path[i], path[i + 1])),
 					TradingPairStatus::Enabled
 				),
 				Error::<T>::MustBeEnabled
@@ -1006,7 +1001,7 @@ where
 			// trading pair in path must be enabled
 			ensure!(
 				matches!(
-					Self::trading_pair_statuses(TradingPair::new(path[i - 1], path[i])),
+					TradingPairStatuses::<T>::get(TradingPair::new(path[i - 1], path[i])),
 					TradingPairStatus::Enabled
 				),
 				Error::<T>::MustBeEnabled
@@ -1160,7 +1155,7 @@ where
 			if FeeTo::<T>::get().is_some() {
 				// get the lp shared asset id
 				let lp_share_asset_id =
-					Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId)?;
+					TradingPairLPToken::<T>::get(trading_pair).ok_or(Error::<T>::InvalidAssetId)?;
 
 				// get the updated reserve values of the trading pair
 				let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);

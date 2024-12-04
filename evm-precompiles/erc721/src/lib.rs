@@ -576,14 +576,12 @@ where
 
 		// Return either the approved account or zero address if no account is approved
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let approved_account: H160 =
-			match pallet_token_approvals::Pallet::<Runtime>::erc721_approvals((
-				collection_id,
-				serial_number,
-			)) {
-				Some(approved_account) => (approved_account).into(),
-				None => H160::default(),
-			};
+		let approved_account: H160 = match pallet_token_approvals::ERC721Approvals::<Runtime>::get(
+			(collection_id, serial_number),
+		) {
+			Some(approved_account) => (approved_account).into(),
+			None => H160::default(),
+		};
 
 		Ok(succeed(EvmDataWriter::new().write(Address::from(approved_account)).build()))
 	}
@@ -600,7 +598,7 @@ where
 		let operator: Runtime::AccountId = H160::from(operator).into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc721_approvals_for_all(
+		let is_approved = pallet_token_approvals::ERC721ApprovalsForAll::<Runtime>::get(
 			owner,
 			(collection_id, operator),
 		)
