@@ -26,11 +26,8 @@ seed-pallet-common = { workspace = true }
 
 [dev-dependencies]
 pallet-assets-ext = { workspace = true, default-features = true }
-pallet-fee-control = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-assets = { workspace = true }
-pallet-evm = { workspace = true }
-pallet-timestamp = { workspace = true }
 pallet-nft = { workspace = true }
 pallet-sft = { workspace = true }
 

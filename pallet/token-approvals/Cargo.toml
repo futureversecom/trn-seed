@@ -20,7 +20,6 @@ seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
 
 [dev-dependencies]
-sp-io = { workspace = true }
 pallet-assets-ext = { workspace = true, default-features = true }
 pallet-balances = { workspace = true }
 pallet-assets = { workspace = true }

@@ -19,7 +19,6 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.0.9", default-features = false, features = ["derive"] }
-url = { version = "2.3.1", default-features = false }
 futures = { workspace = true }
 hex-literal = { workspace = true }
 hex = { workspace = true }
@@ -33,7 +32,6 @@ sc-network-sync = { workspace = true }
 sc-executor = { workspace = true }
 sc-service = { workspace = true }
 sc-telemetry = { workspace = true }
-sc-keystore = { workspace = true }
 sc-transaction-pool = { workspace = true }
 sc-transaction-pool-api = { workspace = true }
 sc-consensus-babe = { workspace = true }
@@ -41,15 +39,12 @@ sc-consensus-babe-rpc = { workspace = true }
 sp-consensus-babe = { workspace = true }
 sp-consensus = { workspace = true }
 sc-consensus = { workspace = true }
-sc-consensus-epochs = { workspace = true }
 sc-consensus-grandpa = { workspace = true }
 sc-consensus-grandpa-rpc = { workspace = true }
-sp-consensus-grandpa = { workspace = true }
 sc-client-api = { workspace = true }
 sp-runtime = { workspace = true }
 sp-timestamp = { workspace = true }
 sp-inherents = { workspace = true }
-sp-keyring = { workspace = true }
 sp-keystore = { workspace = true }
 sp-transaction-storage-proof = { workspace = true }
 frame-system = { workspace = true }
@@ -62,9 +57,7 @@ fc-db = { workspace = true }
 fc-mapping-sync = { workspace = true, features = ["sql"] }
 fc-rpc = { workspace = true, features = [ "rpc-binary-search-estimate" ] }
 fc-rpc-core = { workspace = true }
-fp-consensus = { workspace = true }
 fp-rpc = { workspace = true }
-fp-storage = { workspace = true }
 
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { workspace = true }
@@ -91,14 +84,10 @@ pallet-dex-rpc = { workspace = true, default-features = true }
 pallet-nft-rpc = { workspace = true, default-features = true }
 pallet-sft-rpc = { workspace = true, default-features = true }
 pallet-assets-ext-rpc = { workspace = true, default-features = true }
-# Diagnostics
-log = { workspace = true }
 
 # Try Runtime
 frame-try-runtime = { workspace = true, optional = true }
 try-runtime-cli = { workspace = true, optional = true }
-
-# CLI-specific dependencies
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true, default-features = true }
