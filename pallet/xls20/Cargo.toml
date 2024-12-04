@@ -21,10 +21,8 @@ sp-core = { workspace = true }
 pallet-nft = { workspace = true }
 seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
-log = { workspace = true }
 
 [dev-dependencies]
-sp-io = { workspace = true }
 pallet-assets-ext = { workspace = true, default-features = true }
 pallet-balances = { workspace = true }
 pallet-assets = { workspace = true }

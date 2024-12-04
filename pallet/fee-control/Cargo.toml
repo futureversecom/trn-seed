@@ -30,8 +30,6 @@ precompile-utils = { workspace = true }
 
 [dev-dependencies]
 pallet-evm = { workspace = true }
-
-sp-io = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-timestamp = { workspace = true }

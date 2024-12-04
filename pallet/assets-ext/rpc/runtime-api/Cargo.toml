@@ -10,7 +10,6 @@ repository.workspace = true
 codec = { workspace = true }
 sp-api = { workspace = true }
 sp-std = { workspace = true }
-sp-runtime = { workspace = true }
 
 pallet-assets-ext = { workspace = true }
 seed-primitives = { workspace = true }
