@@ -659,4 +659,77 @@ describe("ERC721 Precompile", function () {
     // Check ownership is now zero address
     expect(await erc721Precompile.owner()).to.equal(constants.AddressZero);
   });
+
+  it("supportsInterface", async () => {
+    // ERC165
+    expect(await erc721Precompile.supportsInterface(0x01ffc9a7)).to.be.true;
+    // ERC721
+    expect(await erc721Precompile.supportsInterface(0x80ac58cd)).to.be.true;
+    // ERC721Metadata
+    expect(await erc721Precompile.supportsInterface(0x5b5e139f)).to.be.true;
+    // ERC721Burnable
+    expect(await erc721Precompile.supportsInterface(0x42966c68)).to.be.true;
+    // Ownable
+    expect(await erc721Precompile.supportsInterface(0x0e083076)).to.be.true;
+    // TRN721
+    expect(await erc721Precompile.supportsInterface(0x2a4288ec)).to.be.true;
+
+    // Test that 0xffffffff returns false (ERC165 requirement)
+    expect(await erc721Precompile.supportsInterface(0xffffffff)).to.be.false;
+
+    // Invalid random interface ID
+    expect(await erc721Precompile.supportsInterface(0x12345678)).to.be.false;
+  });
+
+  it("supportsInterface via contract", async () => {
+    // Deploy ERC721PrecompileERC165Validator contract
+    const factory = await ethers.getContractFactory("ERC721PrecompileERC165Validator");
+    const validator = await factory.connect(bobSigner).deploy();
+    await validator.deployed();
+
+    // Get all interface IDs from the validator contract
+    const {
+      erc165: erc165Id,
+      erc721: erc721Id,
+      erc721Metadata: metadataId,
+      erc721Burnable: burnableId,
+      trn721: trn721Id,
+      ownable: ownableId,
+    } = await validator.getAllInterfaceIds();
+
+    // Validate individual interfaces
+    expect(await erc721Precompile.supportsInterface(erc165Id)).to.be.true;
+    expect(await erc721Precompile.supportsInterface(erc721Id)).to.be.true;
+    expect(await erc721Precompile.supportsInterface(metadataId)).to.be.true;
+    expect(await erc721Precompile.supportsInterface(burnableId)).to.be.true;
+    expect(await erc721Precompile.supportsInterface(trn721Id)).to.be.true;
+    expect(await erc721Precompile.supportsInterface(ownableId)).to.be.true;
+
+    // Validate using the contract's validation function
+    const [
+      supportsERC165,
+      supportsERC721,
+      supportsERC721Metadata,
+      supportsERC721Burnable,
+      supportsTRN721,
+      supportsOwnable,
+    ] = await validator.validateContract(erc721Precompile.address);
+
+    // Assert all interfaces are supported
+    expect(supportsERC165).to.be.true;
+    expect(supportsERC721).to.be.true;
+    expect(supportsERC721Metadata).to.be.true;
+    expect(supportsERC721Burnable).to.be.true;
+    expect(supportsTRN721).to.be.true;
+    expect(supportsOwnable).to.be.true;
+
+    // // Log the interface IDs for reference
+    // console.log("Interface IDs:");
+    // console.log("ERC165:", erc165Id);
+    // console.log("ERC721:", erc721Id);
+    // console.log("ERC721Metadata:", metadataId);
+    // console.log("ERC721Burnable:", burnableId);
+    // console.log("TRN721:", trn721Id);
+    // console.log("Ownable:", ownableId);
+  });
 });
