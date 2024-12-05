@@ -76,21 +76,21 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `EthBridge::NotaryXrplKeys` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `p` is `[1, 19]`.
 	fn set_xrpl_door_signers(p: u32, ) -> Weight {
-		Weight::from_all(51_256_671 as u64)
+		Weight::from_all(51_256_671_u64)
 			// Standard Error: 7_900
-			.saturating_add(Weight::from_all(3_225_611 as u64).saturating_mul(p as u64))
-			.saturating_add(T::DbWeight::get().reads(2 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(3_225_611_u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `EthBridge::RelayerPaidBond` (r:1 w:0)
 	// Proof: `EthBridge::RelayerPaidBond` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	// Storage: `EthBridge::Relayer` (r:0 w:1)
 	// Proof: `EthBridge::Relayer` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_relayer() -> Weight {
-		Weight::from_all(42_939_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(42_939_000_u64)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::RelayerPaidBond` (r:1 w:1)
 	// Proof: `EthBridge::RelayerPaidBond` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -103,9 +103,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn deposit_relayer_bond() -> Weight {
-		Weight::from_all(200_169_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(7 as u64))
-			.saturating_add(T::DbWeight::get().writes(7 as u64))
+		Weight::from_all(200_169_000_u64)
+			.saturating_add(T::DbWeight::get().reads(7_u64))
+			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
 	// Storage: `EthBridge::Relayer` (r:1 w:0)
 	// Proof: `EthBridge::Relayer` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -120,40 +120,40 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn withdraw_relayer_bond() -> Weight {
-		Weight::from_all(207_719_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(8 as u64))
-			.saturating_add(T::DbWeight::get().writes(7 as u64))
+		Weight::from_all(207_719_000_u64)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
 	// Storage: `EthBridge::EventBlockConfirmations` (r:0 w:1)
 	// Proof: `EthBridge::EventBlockConfirmations` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_event_block_confirmations() -> Weight {
-		Weight::from_all(24_183_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(24_183_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::DelayedEventProofsPerBlock` (r:0 w:1)
 	// Proof: `EthBridge::DelayedEventProofsPerBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_delayed_event_proofs_per_block() -> Weight {
-		Weight::from_all(24_872_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(24_872_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::ChallengePeriod` (r:0 w:1)
 	// Proof: `EthBridge::ChallengePeriod` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_challenge_period() -> Weight {
-		Weight::from_all(24_016_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(24_016_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::ContractAddress` (r:0 w:1)
 	// Proof: `EthBridge::ContractAddress` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_contract_address() -> Weight {
-		Weight::from_all(26_770_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(26_770_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::BridgePaused` (r:1 w:1)
 	// Proof: `EthBridge::BridgePaused` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_bridge_paused() -> Weight {
-		Weight::from_all(31_760_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(31_760_000_u64)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::NotarySetId` (r:1 w:1)
 	// Proof: `EthBridge::NotarySetId` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -170,16 +170,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `EthBridge::NotaryKeys` (r:0 w:1)
 	// Proof: `EthBridge::NotaryKeys` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn finalise_authorities_change() -> Weight {
-		Weight::from_all(50_901_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
-			.saturating_add(T::DbWeight::get().writes(6 as u64))
+		Weight::from_all(50_901_000_u64)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
 	// Storage: `EthBridge::MissedMessageIds` (r:1 w:1)
 	// Proof: `EthBridge::MissedMessageIds` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn remove_missing_event_id() -> Weight {
-		Weight::from_all(39_981_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(39_981_000_u64)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::Relayer` (r:1 w:0)
 	// Proof: `EthBridge::Relayer` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -194,9 +194,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `EthBridge::PendingClaimStatus` (r:0 w:1)
 	// Proof: `EthBridge::PendingClaimStatus` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn submit_missing_event() -> Weight {
-		Weight::from_all(79_768_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(5 as u64))
-			.saturating_add(T::DbWeight::get().writes(3 as u64))
+		Weight::from_all(79_768_000_u64)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	// Storage: `EthBridge::Relayer` (r:1 w:0)
 	// Proof: `EthBridge::Relayer` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -211,9 +211,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `EthBridge::PendingClaimStatus` (r:0 w:1)
 	// Proof: `EthBridge::PendingClaimStatus` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn submit_event() -> Weight {
-		Weight::from_all(67_866_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(5 as u64))
-			.saturating_add(T::DbWeight::get().writes(3 as u64))
+		Weight::from_all(67_866_000_u64)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	// Storage: `EthBridge::PendingEventClaims` (r:1 w:0)
 	// Proof: `EthBridge::PendingEventClaims` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -232,9 +232,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `EthBridge::ChallengerAccount` (r:0 w:1)
 	// Proof: `EthBridge::ChallengerAccount` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn submit_challenge() -> Weight {
-		Weight::from_all(224_778_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(9 as u64))
-			.saturating_add(T::DbWeight::get().writes(9 as u64))
+		Weight::from_all(224_778_000_u64)
+			.saturating_add(T::DbWeight::get().reads(9_u64))
+			.saturating_add(T::DbWeight::get().writes(9_u64))
 	}
 	// Storage: `EthBridge::NotaryKeys` (r:1 w:0)
 	// Proof: `EthBridge::NotaryKeys` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -261,9 +261,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn submit_notarization() -> Weight {
-		Weight::from_all(302_708_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(14 as u64))
-			.saturating_add(T::DbWeight::get().writes(9 as u64))
+		Weight::from_all(302_708_000_u64)
+			.saturating_add(T::DbWeight::get().reads(14_u64))
+			.saturating_add(T::DbWeight::get().writes(9_u64))
 	}
 	// Storage: `EthBridge::NextNotaryKeys` (r:1 w:0)
 	// Proof: `EthBridge::NextNotaryKeys` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -292,9 +292,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `EthBridge::NotarySetProofId` (r:0 w:1)
 	// Proof: `EthBridge::NotarySetProofId` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn handle_authorities_change() -> Weight {
-		Weight::from_all(177_258_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(10 as u64))
-			.saturating_add(T::DbWeight::get().writes(6 as u64))
+		Weight::from_all(177_258_000_u64)
+			.saturating_add(T::DbWeight::get().reads(10_u64))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
 }
 
@@ -308,21 +308,21 @@ impl WeightInfo for () {
 	// Proof: `EthBridge::NotaryXrplKeys` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `p` is `[1, 19]`.
 	fn set_xrpl_door_signers(p: u32, ) -> Weight {
-		Weight::from_all(51_256_671 as u64)
+		Weight::from_all(51_256_671_u64)
 			// Standard Error: 7_900
-			.saturating_add(Weight::from_all(3_225_611 as u64).saturating_mul(p as u64))
-			.saturating_add(RocksDbWeight::get().reads(2 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(3_225_611_u64).saturating_mul(p as u64))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `EthBridge::RelayerPaidBond` (r:1 w:0)
 	// Proof: `EthBridge::RelayerPaidBond` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	// Storage: `EthBridge::Relayer` (r:0 w:1)
 	// Proof: `EthBridge::Relayer` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_relayer() -> Weight {
-		Weight::from_all(42_939_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(42_939_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::RelayerPaidBond` (r:1 w:1)
 	// Proof: `EthBridge::RelayerPaidBond` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -335,9 +335,9 @@ impl WeightInfo for () {
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn deposit_relayer_bond() -> Weight {
-		Weight::from_all(200_169_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(7 as u64))
-			.saturating_add(RocksDbWeight::get().writes(7 as u64))
+		Weight::from_all(200_169_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
+			.saturating_add(RocksDbWeight::get().writes(7_u64))
 	}
 	// Storage: `EthBridge::Relayer` (r:1 w:0)
 	// Proof: `EthBridge::Relayer` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -352,40 +352,40 @@ impl WeightInfo for () {
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn withdraw_relayer_bond() -> Weight {
-		Weight::from_all(207_719_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(8 as u64))
-			.saturating_add(RocksDbWeight::get().writes(7 as u64))
+		Weight::from_all(207_719_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(7_u64))
 	}
 	// Storage: `EthBridge::EventBlockConfirmations` (r:0 w:1)
 	// Proof: `EthBridge::EventBlockConfirmations` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_event_block_confirmations() -> Weight {
-		Weight::from_all(24_183_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(24_183_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::DelayedEventProofsPerBlock` (r:0 w:1)
 	// Proof: `EthBridge::DelayedEventProofsPerBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_delayed_event_proofs_per_block() -> Weight {
-		Weight::from_all(24_872_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(24_872_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::ChallengePeriod` (r:0 w:1)
 	// Proof: `EthBridge::ChallengePeriod` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_challenge_period() -> Weight {
-		Weight::from_all(24_016_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(24_016_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::ContractAddress` (r:0 w:1)
 	// Proof: `EthBridge::ContractAddress` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_contract_address() -> Weight {
-		Weight::from_all(26_770_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(26_770_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::BridgePaused` (r:1 w:1)
 	// Proof: `EthBridge::BridgePaused` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_bridge_paused() -> Weight {
-		Weight::from_all(31_760_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(31_760_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::NotarySetId` (r:1 w:1)
 	// Proof: `EthBridge::NotarySetId` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -402,16 +402,16 @@ impl WeightInfo for () {
 	// Storage: `EthBridge::NotaryKeys` (r:0 w:1)
 	// Proof: `EthBridge::NotaryKeys` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn finalise_authorities_change() -> Weight {
-		Weight::from_all(50_901_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(4 as u64))
-			.saturating_add(RocksDbWeight::get().writes(6 as u64))
+		Weight::from_all(50_901_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
 	// Storage: `EthBridge::MissedMessageIds` (r:1 w:1)
 	// Proof: `EthBridge::MissedMessageIds` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn remove_missing_event_id() -> Weight {
-		Weight::from_all(39_981_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(39_981_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `EthBridge::Relayer` (r:1 w:0)
 	// Proof: `EthBridge::Relayer` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -426,9 +426,9 @@ impl WeightInfo for () {
 	// Storage: `EthBridge::PendingClaimStatus` (r:0 w:1)
 	// Proof: `EthBridge::PendingClaimStatus` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn submit_missing_event() -> Weight {
-		Weight::from_all(79_768_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(5 as u64))
-			.saturating_add(RocksDbWeight::get().writes(3 as u64))
+		Weight::from_all(79_768_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	// Storage: `EthBridge::Relayer` (r:1 w:0)
 	// Proof: `EthBridge::Relayer` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -443,9 +443,9 @@ impl WeightInfo for () {
 	// Storage: `EthBridge::PendingClaimStatus` (r:0 w:1)
 	// Proof: `EthBridge::PendingClaimStatus` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn submit_event() -> Weight {
-		Weight::from_all(67_866_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(5 as u64))
-			.saturating_add(RocksDbWeight::get().writes(3 as u64))
+		Weight::from_all(67_866_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	// Storage: `EthBridge::PendingEventClaims` (r:1 w:0)
 	// Proof: `EthBridge::PendingEventClaims` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -464,9 +464,9 @@ impl WeightInfo for () {
 	// Storage: `EthBridge::ChallengerAccount` (r:0 w:1)
 	// Proof: `EthBridge::ChallengerAccount` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn submit_challenge() -> Weight {
-		Weight::from_all(224_778_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(9 as u64))
-			.saturating_add(RocksDbWeight::get().writes(9 as u64))
+		Weight::from_all(224_778_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(9_u64))
+			.saturating_add(RocksDbWeight::get().writes(9_u64))
 	}
 	// Storage: `EthBridge::NotaryKeys` (r:1 w:0)
 	// Proof: `EthBridge::NotaryKeys` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -493,9 +493,9 @@ impl WeightInfo for () {
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn submit_notarization() -> Weight {
-		Weight::from_all(302_708_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(14 as u64))
-			.saturating_add(RocksDbWeight::get().writes(9 as u64))
+		Weight::from_all(302_708_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(14_u64))
+			.saturating_add(RocksDbWeight::get().writes(9_u64))
 	}
 	// Storage: `EthBridge::NextNotaryKeys` (r:1 w:0)
 	// Proof: `EthBridge::NextNotaryKeys` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -524,9 +524,9 @@ impl WeightInfo for () {
 	// Storage: `EthBridge::NotarySetProofId` (r:0 w:1)
 	// Proof: `EthBridge::NotarySetProofId` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn handle_authorities_change() -> Weight {
-		Weight::from_all(177_258_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(10 as u64))
-			.saturating_add(RocksDbWeight::get().writes(6 as u64))
+		Weight::from_all(177_258_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(10_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
 }
 

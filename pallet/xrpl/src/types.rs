@@ -80,7 +80,9 @@ impl TryInto<AccountId20> for XrplPublicKey {
 pub fn sha512_first_half(message: &[u8]) -> [u8; SHA512_HASH_LENGTH] {
 	let mut sha512 = sha2::Sha512::new();
 	sha512.update(message);
-	sha512.finalize()[..SHA512_HASH_LENGTH].try_into().unwrap()
+	sha512.finalize()[..SHA512_HASH_LENGTH]
+		.try_into()
+		.expect("Incorrect byte length")
 }
 
 /// XRPL transaction memo field
@@ -226,7 +228,7 @@ impl XRPLTransaction {
 						log::warn!("⛔️ failed to parse public key: {:?}", e);
 						"failed to parse public key"
 					})?;
-				let signature = libsecp256k1::Signature::parse_der(&signature).map_err(|e| {
+				let signature = libsecp256k1::Signature::parse_der(signature).map_err(|e| {
 					log::warn!("⛔️ failed to parse signature: {:?}", e);
 					"failed to parse signature"
 				})?;
@@ -242,7 +244,7 @@ impl TryFrom<&[u8]> for XRPLTransaction {
 	fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
 		let deserializer = &mut Deserializer::new(value.to_vec(), field_info_lookup());
 		let tx_json = deserializer
-			.to_json(&TypeCode::Object, &value)
+			.to_json(&TypeCode::Object, value)
 			.map_err(|_e| "failed to convert encoded_msg to json value")?;
 		let tx: XRPLTransaction = serde_json::from_value(tx_json)
 			.map_err(|_e| "failed to deserialize json value of encoded_msg")?;
@@ -258,9 +260,9 @@ impl TryInto<TransactionCommon> for &XRPLTransaction {
 			.iter()
 			.map(|MemoElmRaw { memo: Memo { memo_data, memo_type } }| {
 				Ok::<xrpl_types::Memo, &str>(xrpl_types::Memo {
-					memo_data: xrpl_types::Blob::from_hex(&memo_data)
+					memo_data: xrpl_types::Blob::from_hex(memo_data)
 						.map_err(|_| "failed to convert memo_data to Blob")?,
-					memo_type: xrpl_types::Blob::from_hex(&memo_type)
+					memo_type: xrpl_types::Blob::from_hex(memo_type)
 						.map_err(|_| "failed to convert memo_type to Blob")?,
 					memo_format: None,
 				})
@@ -333,7 +335,7 @@ mod tests {
 		// validate encoded message matches with the expected
 		let tx_common: TransactionCommon = (&tx).try_into().unwrap();
 		let encoded_message = encode_for_signing(&tx_common).unwrap();
-		let prefix = hex::encode(&SIGNED_MESSAGE_PREFIX).to_uppercase();
+		let prefix = hex::encode(SIGNED_MESSAGE_PREFIX).to_uppercase();
 		assert_eq!(
 			prefix + "5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C25807321EDFB2A3A850B43E24D2700532EF1F9CCB2475DFF4F62B634B0C58845F23C26396581145116224CEF7355137BEBBA8E277A9BE18E0596E7F9EA7C0965787472696E7369637D8A636438353462323135363766646531636362306466306532313035306436633934633131313534373134616230313263623638353334376235666535643434393A303A313230373A303A35633933633236383339613137636235616366323765383961616330306639646433663531643161316161346234383266363930663634333633396665383732E1F1",
 			hex::encode(encoded_message).to_uppercase(),
@@ -366,7 +368,7 @@ mod tests {
 		// validate encoded message matches with the expected
 		let tx_common: TransactionCommon = (&tx).try_into().unwrap();
 		let encoded_message = encode_for_signing(&tx_common).unwrap();
-		let prefix = hex::encode(&SIGNED_MESSAGE_PREFIX).to_uppercase();
+		let prefix = hex::encode(SIGNED_MESSAGE_PREFIX).to_uppercase();
 		assert_eq!(
 			prefix + "5916969036626990000000000000000000F236FD752B5E4C84810AB3D41A3C25807321035C080E3218FAEF37FFD21F7CD2EFF0E574D0FDCE703E15A590AE84DE42C5BB5F81142F3B69B564A3465ACF3D164E66FD642EA7A41E51F9EA7C0965787472696E7369637D8A636438353462323135363766646531636362306466306532313035306436633934633131313534373134616230313263623638353334376235666535643434393A303A313033313A303A35633933633236383339613137636235616366323765383961616330306639646433663531643161316161346234383266363930663634333633396665383732E1F1",
 			hex::encode(encoded_message).to_uppercase(),

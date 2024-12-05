@@ -72,7 +72,7 @@ mod set_fee_to {
 		TestExt::<Test>::default().build().execute_with(|| {
 			// Change fee_to account
 			let new_fee_to = create_account(10);
-			assert_ok!(Nfi::set_fee_to(RawOrigin::Root.into(), Some(new_fee_to.clone())));
+			assert_ok!(Nfi::set_fee_to(RawOrigin::Root.into(), Some(new_fee_to)));
 
 			// Event thrown
 			System::assert_last_event(MockEvent::Nfi(Event::<Test>::FeeToSet {
@@ -601,7 +601,7 @@ mod manual_data_request {
 
 				// Set FeeTo address
 				let fee_to = charlie();
-				assert_ok!(Nfi::set_fee_to(RawOrigin::Root.into(), Some(fee_to.clone())));
+				assert_ok!(Nfi::set_fee_to(RawOrigin::Root.into(), Some(fee_to)));
 
 				// Request data
 				assert_ok!(Nfi::manual_data_request(
@@ -1315,7 +1315,7 @@ mod nft_mint {
 
 			// Mint NFT to token_owner
 			assert_ok!(Nft::mint(
-				RawOrigin::Signed(collection_owner.clone()).into(),
+				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				1,
 				Some(token_owner),
@@ -1409,7 +1409,7 @@ mod nft_mint {
 
 				// Set FeeTo address
 				let fee_to = charlie();
-				assert_ok!(Nfi::set_fee_to(RawOrigin::Root.into(), Some(fee_to.clone())));
+				assert_ok!(Nfi::set_fee_to(RawOrigin::Root.into(), Some(fee_to)));
 
 				// Mint NFT
 				assert_ok!(Nft::mint(
@@ -1655,7 +1655,7 @@ mod sft_create_token {
 
 				// Set FeeTo address
 				let fee_to = charlie();
-				assert_ok!(Nfi::set_fee_to(RawOrigin::Root.into(), Some(fee_to.clone())));
+				assert_ok!(Nfi::set_fee_to(RawOrigin::Root.into(), Some(fee_to)));
 
 				// Create new SFT token
 				assert_ok!(Sft::create_token(

@@ -13,7 +13,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-#![cfg(test)]
 use super::*;
 use crate::{
 	mock::{
@@ -74,7 +73,7 @@ fn initialize_crowdsale_with_soft_cap(
 		voucher_asset_id: next_asset_id,
 		duration,
 	};
-	return (sale_id, sale_info);
+	(sale_id, sale_info)
 }
 
 // Helper function for creating the collection name type
@@ -2709,7 +2708,7 @@ mod automatic_distribution {
 	#[test]
 	fn distribution_across_many_blocks_over_committed() {
 		let payout_iterations = 50;
-		let total_contributors = MaxPaymentsPerBlock::get() as u32 * payout_iterations;
+		let total_contributors = MaxPaymentsPerBlock::get() * payout_iterations;
 		let mut accounts = vec![];
 		for i in 0..total_contributors {
 			let i = i + 1;

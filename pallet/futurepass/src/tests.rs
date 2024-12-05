@@ -2147,7 +2147,7 @@ fn futurepass_generate_add_delegate_eth_signed_message() {
 					let recovered = AccountId20(keccak_256(&pubkey_bytes)[12..].try_into().unwrap());
 					assert_eq!(recovered, delegate);
 				},
-				_ => assert!(false),
+				_ => panic!(),
 			};
 		});
 }

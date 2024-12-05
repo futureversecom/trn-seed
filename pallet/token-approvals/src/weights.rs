@@ -65,43 +65,43 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:1)
 	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	fn erc721_approval() -> Weight {
-		Weight::from_all(41_438_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(2 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(41_438_000_u64)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `TokenApprovals::ERC721Approvals` (r:1 w:1)
 	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	// Storage: `Nft::CollectionInfo` (r:1 w:0)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	fn erc721_remove_approval() -> Weight {
-		Weight::from_all(41_414_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(2 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(41_414_000_u64)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `TokenApprovals::ERC20Approvals` (r:0 w:1)
 	// Proof: `TokenApprovals::ERC20Approvals` (`max_values`: None, `max_size`: Some(76), added: 2551, mode: `MaxEncodedLen`)
 	fn erc20_approval() -> Weight {
-		Weight::from_all(16_098_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(16_098_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `TokenApprovals::ERC20Approvals` (r:1 w:1)
 	// Proof: `TokenApprovals::ERC20Approvals` (`max_values`: None, `max_size`: Some(76), added: 2551, mode: `MaxEncodedLen`)
 	fn erc20_update_approval() -> Weight {
-		Weight::from_all(31_365_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(31_365_000_u64)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `TokenApprovals::ERC721ApprovalsForAll` (r:0 w:1)
 	// Proof: `TokenApprovals::ERC721ApprovalsForAll` (`max_values`: None, `max_size`: Some(61), added: 2536, mode: `MaxEncodedLen`)
 	fn erc721_approval_for_all() -> Weight {
-		Weight::from_all(15_913_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(15_913_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `TokenApprovals::ERC1155ApprovalsForAll` (r:0 w:1)
 	// Proof: `TokenApprovals::ERC1155ApprovalsForAll` (`max_values`: None, `max_size`: Some(61), added: 2536, mode: `MaxEncodedLen`)
 	fn erc1155_approval_for_all() -> Weight {
-		Weight::from_all(16_232_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(16_232_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -114,43 +114,43 @@ impl WeightInfo for () {
 	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:1)
 	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	fn erc721_approval() -> Weight {
-		Weight::from_all(41_438_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(2 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(41_438_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `TokenApprovals::ERC721Approvals` (r:1 w:1)
 	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	// Storage: `Nft::CollectionInfo` (r:1 w:0)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	fn erc721_remove_approval() -> Weight {
-		Weight::from_all(41_414_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(2 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(41_414_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `TokenApprovals::ERC20Approvals` (r:0 w:1)
 	// Proof: `TokenApprovals::ERC20Approvals` (`max_values`: None, `max_size`: Some(76), added: 2551, mode: `MaxEncodedLen`)
 	fn erc20_approval() -> Weight {
-		Weight::from_all(16_098_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(16_098_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `TokenApprovals::ERC20Approvals` (r:1 w:1)
 	// Proof: `TokenApprovals::ERC20Approvals` (`max_values`: None, `max_size`: Some(76), added: 2551, mode: `MaxEncodedLen`)
 	fn erc20_update_approval() -> Weight {
-		Weight::from_all(31_365_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(31_365_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `TokenApprovals::ERC721ApprovalsForAll` (r:0 w:1)
 	// Proof: `TokenApprovals::ERC721ApprovalsForAll` (`max_values`: None, `max_size`: Some(61), added: 2536, mode: `MaxEncodedLen`)
 	fn erc721_approval_for_all() -> Weight {
-		Weight::from_all(15_913_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(15_913_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `TokenApprovals::ERC1155ApprovalsForAll` (r:0 w:1)
 	// Proof: `TokenApprovals::ERC1155ApprovalsForAll` (`max_values`: None, `max_size`: Some(61), added: 2536, mode: `MaxEncodedLen`)
 	fn erc1155_approval_for_all() -> Weight {
-		Weight::from_all(16_232_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(16_232_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
 

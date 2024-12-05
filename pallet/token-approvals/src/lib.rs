@@ -127,7 +127,7 @@ pub mod pallet {
 			operator_account: T::AccountId,
 			token_id: TokenId,
 		) -> DispatchResult {
-			let _ = ensure_none(origin)?;
+			ensure_none(origin)?;
 			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
 			// Check that origin owns NFT or is approved_for_all
 			let token_owner = match T::NFTExt::get_token_owner(&token_id) {
@@ -172,7 +172,7 @@ pub mod pallet {
 			asset_id: AssetId,
 			amount: Balance,
 		) -> DispatchResult {
-			let _ = ensure_none(origin)?;
+			ensure_none(origin)?;
 			ensure!(caller != spender, Error::<T>::CallerNotOperator);
 			ERC20Approvals::<T>::insert((&caller, asset_id), &spender, amount);
 			Ok(())
@@ -189,7 +189,7 @@ pub mod pallet {
 			asset_id: AssetId,
 			amount: Balance,
 		) -> DispatchResult {
-			let _ = ensure_none(origin)?;
+			ensure_none(origin)?;
 			let new_approved_amount = ERC20Approvals::<T>::get((&caller, asset_id), &spender)
 				.ok_or(Error::<T>::CallerNotApproved)?
 				.checked_sub(amount)
@@ -213,7 +213,7 @@ pub mod pallet {
 			collection_uuid: CollectionUuid,
 			approved: bool,
 		) -> DispatchResult {
-			let _ = ensure_none(origin)?;
+			ensure_none(origin)?;
 			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
 			if approved {
 				ERC721ApprovalsForAll::<T>::insert(
@@ -238,7 +238,7 @@ pub mod pallet {
 			collection_uuid: CollectionUuid,
 			approved: bool,
 		) -> DispatchResult {
-			let _ = ensure_none(origin)?;
+			ensure_none(origin)?;
 			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
 			if approved {
 				ERC1155ApprovalsForAll::<T>::insert(

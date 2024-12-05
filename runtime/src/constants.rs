@@ -15,8 +15,8 @@
 
 use frame_support::parameter_types;
 
-pub use constants::*;
 pub use currency::*;
+pub use durations::*;
 
 parameter_types! {
 	/// Getter for the ROOT asset Id
@@ -72,7 +72,7 @@ pub mod currency {
 }
 
 /// Common constants of parachains.
-mod constants {
+mod durations {
 	use seed_primitives::BlockNumber;
 
 	/// This determines the average expected block time that we are targeting. Blocks will be
@@ -94,7 +94,7 @@ mod constants {
 	#[cfg(not(test))]
 	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 24 * HOURS / EPOCH_DURATION_IN_SLOTS;
 	#[cfg(test)]
-	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 1 * MINUTES / EPOCH_DURATION_IN_SLOTS;
+	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = MINUTES / EPOCH_DURATION_IN_SLOTS;
 
 	// 1 in 4 blocks (on average, not counting collisions) will be primary BABE blocks.
 	pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);

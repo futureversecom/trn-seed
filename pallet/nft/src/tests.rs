@@ -217,20 +217,20 @@ fn create_collection() {
 		assert_ok!(Nft::create_collection(
 			Some(expected_info.owner).into(),
 			expected_info.name.clone(),
-			expected_info.next_serial_number.clone(),
+			expected_info.next_serial_number,
 			None,
 			Some(token_owner),
 			expected_info.metadata_scheme.clone(),
 			expected_info.royalties_schedule.clone(),
-			expected_info.cross_chain_compatibility.clone(),
+			expected_info.cross_chain_compatibility,
 		));
 
 		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap(), expected_info);
 
 		// EVM pallet should have account code for collection
-		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(collection_id as u64).into()
-		));
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(&H160::from_low_u64_be(
+			collection_id as u64
+		)));
 
 		System::assert_last_event(
 			Event::<Test>::CollectionCreate {
@@ -575,10 +575,7 @@ fn burn() {
 		System::assert_last_event(Event::<Test>::Burn { collection_id, serial_number: 2 }.into());
 
 		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().collection_issuance, 0);
-		assert_eq!(
-			Nft::owned_tokens(collection_id, &token_owner, 0, 1000),
-			(0_u32, 0_u32, vec![].into())
-		);
+		assert_eq!(Nft::owned_tokens(collection_id, &token_owner, 0, 1000), (0_u32, 0_u32, vec![]));
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 0);
 	});
 }
@@ -1159,7 +1156,7 @@ fn mint_duplicate_token_id_should_fail_silently() {
 		assert_eq!(Nft::token_balance_of(&other_owner, collection_id), 3);
 
 		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
-		vec![3000, 40005, 1234].iter().for_each(|&serial_number| {
+		[3000, 40005, 1234].iter().for_each(|&serial_number| {
 			assert!(collection_info.is_token_owner(&other_owner, serial_number));
 		});
 	});
@@ -1347,7 +1344,7 @@ mod claim_unowned_collection {
 
 			assert_ne!(new_owner, pallet_account);
 			assert_ok!(Nft::create_collection(
-				RawOrigin::Signed(pallet_account.clone()).into(),
+				RawOrigin::Signed(pallet_account).into(),
 				bounded_string("test-collection"),
 				0,
 				None,
@@ -1359,7 +1356,7 @@ mod claim_unowned_collection {
 			assert_ok!(Nft::claim_unowned_collection(
 				RawOrigin::Root.into(),
 				collection_id,
-				new_owner.clone()
+				new_owner
 			));
 
 			// Storage
@@ -1381,7 +1378,7 @@ mod claim_unowned_collection {
 			let new_owner = create_account(10);
 
 			assert_ok!(Nft::create_collection(
-				RawOrigin::Signed(pallet_account.clone()).into(),
+				RawOrigin::Signed(pallet_account).into(),
 				bounded_string("test-collection"),
 				0,
 				None,
@@ -1391,9 +1388,9 @@ mod claim_unowned_collection {
 				CrossChainCompatibility::default(),
 			));
 			let ok = Nft::claim_unowned_collection(
-				RawOrigin::Signed(new_owner.clone()).into(),
+				RawOrigin::Signed(new_owner).into(),
 				collection_id,
-				new_owner.clone(),
+				new_owner,
 			);
 			assert_noop!(ok, BadOrigin);
 		});
@@ -1405,11 +1402,8 @@ mod claim_unowned_collection {
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let new_owner = create_account(10);
 
-			let ok = Nft::claim_unowned_collection(
-				RawOrigin::Root.into(),
-				collection_id,
-				new_owner.clone(),
-			);
+			let ok =
+				Nft::claim_unowned_collection(RawOrigin::Root.into(), collection_id, new_owner);
 			assert_noop!(ok, Error::<Test>::NoCollectionFound);
 		});
 	}
@@ -1423,7 +1417,7 @@ mod claim_unowned_collection {
 			let old_owner = create_account(10);
 
 			assert_ok!(Nft::create_collection(
-				RawOrigin::Signed(old_owner.clone()).into(),
+				RawOrigin::Signed(old_owner).into(),
 				bounded_string("test-collection"),
 				0,
 				None,
@@ -1432,11 +1426,8 @@ mod claim_unowned_collection {
 				None,
 				CrossChainCompatibility::default(),
 			));
-			let ok = Nft::claim_unowned_collection(
-				RawOrigin::Root.into(),
-				collection_id,
-				new_owner.clone(),
-			);
+			let ok =
+				Nft::claim_unowned_collection(RawOrigin::Root.into(), collection_id, new_owner);
 			assert_noop!(ok, Error::<Test>::CannotClaimNonClaimableCollections);
 		});
 	}
@@ -1460,7 +1451,7 @@ fn create_xls20_collection_works() {
 			None,
 			metadata_scheme.clone(),
 			None,
-			cross_chain_compatibility.clone(),
+			cross_chain_compatibility,
 		));
 		let expected_tokens = create_owned_tokens(vec![]);
 

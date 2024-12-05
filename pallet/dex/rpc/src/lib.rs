@@ -110,7 +110,7 @@ where
 	) -> RpcResult<Result<u128, DispatchError>> {
 		let api = self.client.runtime_api();
 		api.quote(self.client.info().best_hash, amount_a, reserve_a, reserve_b)
-			.map_err(|e| RpcError::to_call_error(e))
+			.map_err(RpcError::to_call_error)
 	}
 
 	fn get_amounts_out(
@@ -119,8 +119,8 @@ where
 		path: Vec<AssetId>,
 	) -> RpcResult<Result<Vec<Balance>, DispatchError>> {
 		let api = self.client.runtime_api();
-		api.get_amounts_out(self.client.info().best_hash, amount_in.0.into(), path)
-			.map_err(|e| RpcError::to_call_error(e))
+		api.get_amounts_out(self.client.info().best_hash, amount_in.0, path)
+			.map_err(RpcError::to_call_error)
 	}
 
 	fn get_amounts_in(
@@ -129,8 +129,8 @@ where
 		path: Vec<AssetId>,
 	) -> RpcResult<Result<Vec<Balance>, DispatchError>> {
 		let api = self.client.runtime_api();
-		api.get_amounts_in(self.client.info().best_hash, amount_out.0.into(), path)
-			.map_err(|e| RpcError::to_call_error(e))
+		api.get_amounts_in(self.client.info().best_hash, amount_out.0, path)
+			.map_err(RpcError::to_call_error)
 	}
 
 	fn get_lp_token_id(
@@ -140,7 +140,7 @@ where
 	) -> RpcResult<Result<AssetId, DispatchError>> {
 		let api = self.client.runtime_api();
 		api.get_lp_token_id(self.client.info().best_hash, asset_id_a, asset_id_b)
-			.map_err(|e| RpcError::to_call_error(e))
+			.map_err(RpcError::to_call_error)
 	}
 
 	fn get_liquidity(
@@ -150,7 +150,7 @@ where
 	) -> RpcResult<(Balance, Balance)> {
 		let api = self.client.runtime_api();
 		api.get_liquidity(self.client.info().best_hash, asset_id_a, asset_id_b)
-			.map_err(|e| RpcError::to_call_error(e))
+			.map_err(RpcError::to_call_error)
 	}
 
 	fn get_trading_pair_status(
@@ -160,7 +160,7 @@ where
 	) -> RpcResult<TradingPairStatus> {
 		let api = self.client.runtime_api();
 		api.get_trading_pair_status(self.client.info().best_hash, asset_id_a, asset_id_b)
-			.map_err(|e| RpcError::to_call_error(e))
+			.map_err(RpcError::to_call_error)
 	}
 }
 
@@ -172,7 +172,7 @@ fn wrapped_balance_can_deserialize_integer_or_hex() {
 	assert_eq!(serde_json::to_string(&info).unwrap(), String::from(json_str));
 	assert_eq!(serde_json::from_str::<WrappedBalance>("18446744073709551615").unwrap(), info);
 
-	let info = WrappedBalance { 0: u128::MAX };
+	let info = WrappedBalance(u128::MAX);
 	let json_str = r#"{"value":340282366920938463463374607431768211455}"#;
 
 	assert_eq!(serde_json::to_string(&info).unwrap(), String::from(json_str));

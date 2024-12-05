@@ -63,7 +63,7 @@ mod self_contained_call {
 					call: Box::new(call.clone()),
 				}));
 				assert_err!(
-					Executive::validate_transaction(TransactionSource::External, xt.into(), H256::default()),
+					Executive::validate_transaction(TransactionSource::External, xt, H256::default()),
 					TransactionValidityError::Invalid(InvalidTransaction::Call),
 				);
 			});
@@ -90,7 +90,7 @@ mod self_contained_call {
 				let caller: AccountId20 = tx.get_account().unwrap().into();
 				assert_ok!(AssetsExt::mint_into(2, &caller, 2_000_000));
 				// validate transaction is successful
-				assert_ok!(Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()));
+				assert_ok!(Executive::validate_transaction(TransactionSource::External, xt.clone(), H256::default()));
 				// validate that applying extrinsic fails; the pre-dispatch validates nonce mismatch
 				assert_err!(
 					Executive::apply_extrinsic(xt),
@@ -114,7 +114,7 @@ mod self_contained_call {
 					call: Box::new(call.clone()),
 				}));
 				assert_err!(
-					Executive::validate_transaction(TransactionSource::External, xt.into(), H256::default()),
+					Executive::validate_transaction(TransactionSource::External, xt, H256::default()),
 					TransactionValidityError::Invalid(InvalidTransaction::Call),
 				);
 			});
@@ -138,7 +138,7 @@ mod self_contained_call {
 					call: Box::new(call.clone()),
 				}));
 				assert_err!(
-					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
+					Executive::validate_transaction(TransactionSource::External, xt.clone(), H256::default()),
 					TransactionValidityError::Invalid(InvalidTransaction::Call),
 				);
 
@@ -149,7 +149,7 @@ mod self_contained_call {
 					call: Box::new(call.clone()),
 				}));
 				assert_err!(
-					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
+					Executive::validate_transaction(TransactionSource::External, xt.clone(), H256::default()),
 					TransactionValidityError::Invalid(InvalidTransaction::Call),
 				);
 
@@ -160,14 +160,14 @@ mod self_contained_call {
 					call: Box::new(call.clone()),
 				}));
 				assert_err!(
-					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
+					Executive::validate_transaction(TransactionSource::External, xt.clone(), H256::default()),
 					TransactionValidityError::Invalid(InvalidTransaction::Payment),
 				);
 				// validate same transaction is successful after funding caller
 				let tx = XRPLTransaction::try_from(tx_bytes.as_bytes_ref()).unwrap();
 				let caller: AccountId20 = tx.get_account().unwrap().into();
 				assert_ok!(AssetsExt::mint_into(2, &caller, 2_000_000));
-				assert_ok!(Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()));
+				assert_ok!(Executive::validate_transaction(TransactionSource::External, xt.clone(), H256::default()));
 				assert_ok!(Executive::apply_extrinsic(xt));
     	});
 	}
@@ -189,7 +189,7 @@ mod self_contained_call {
 				let caller: AccountId20 = tx.get_account().unwrap().into();
 				assert_ok!(AssetsExt::mint_into(2, &caller, 2_000_000));
 
-				let balance_before = Assets::balance(XRP_ASSET_ID, &caller);
+				let balance_before = Assets::balance(XRP_ASSET_ID, caller);
 
 				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::transact {
 					encoded_msg: BoundedVec::truncate_from(tx_bytes.clone()),
@@ -200,13 +200,13 @@ mod self_contained_call {
 				// validate self contained extrinsic fails if block_number is exceeded
 				System::set_block_number(10);
 				assert_err!(
-					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
+					Executive::validate_transaction(TransactionSource::External, xt.clone(), H256::default()),
 					TransactionValidityError::Invalid(InvalidTransaction::Call),
 				);
 
 				// reset block number, extrinsic validation should pass now
 				System::set_block_number(1);
-				assert_ok!(Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()));
+				assert_ok!(Executive::validate_transaction(TransactionSource::External, xt.clone(), H256::default()));
 
 				// execute the extrinsic with the provided signed extras
 				assert_ok!(Executive::apply_extrinsic(xt.clone()));
@@ -233,14 +233,14 @@ mod self_contained_call {
 				));
 
 				// validate account nonce is incremented
-				assert_eq!(System::account_nonce(&caller), 1);
+				assert_eq!(System::account_nonce(caller), 1);
 
 				// validate account balance is decremented
-				assert!(Assets::balance(XRP_ASSET_ID, &caller) < balance_before);
+				assert!(Assets::balance(XRP_ASSET_ID, caller) < balance_before);
 
 				// validate the same extrinsic will fail (nonce mismatch) - preventing replays
 				assert_err!(
-					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
+					Executive::validate_transaction(TransactionSource::External, xt.clone(), H256::default()),
 					TransactionValidityError::Invalid(InvalidTransaction::Stale),
 				);
   		});
@@ -263,7 +263,7 @@ mod self_contained_call {
 				let caller: AccountId20 = tx.get_account().unwrap().into();
 				assert_ok!(AssetsExt::mint_into(2, &caller, 2_000_000));
 
-				let balance_before = Assets::balance(XRP_ASSET_ID, &caller);
+				let balance_before = Assets::balance(XRP_ASSET_ID, caller);
 
 				let xt: mock::UncheckedExtrinsicT = fp_self_contained::UncheckedExtrinsic::new_unsigned(mock::RuntimeCall::Xrpl(crate::Call::transact {
 					encoded_msg: BoundedVec::truncate_from(tx_bytes.clone()),
@@ -274,13 +274,13 @@ mod self_contained_call {
 				// validate self contained extrinsic fails if block_number is exceeded
 				System::set_block_number(10);
 				assert_err!(
-					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
+					Executive::validate_transaction(TransactionSource::External, xt.clone(), H256::default()),
 					TransactionValidityError::Invalid(InvalidTransaction::Call),
 				);
 
 				// reset block number, extrinsic validation should pass now
 				System::set_block_number(1);
-				assert_ok!(Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()));
+				assert_ok!(Executive::validate_transaction(TransactionSource::External, xt.clone(), H256::default()));
 
 				// execute the extrinsic with the provided signed extras
 				assert_ok!(Executive::apply_extrinsic(xt.clone()));
@@ -307,14 +307,14 @@ mod self_contained_call {
 				));
 
 				// validate account nonce is incremented
-				assert_eq!(System::account_nonce(&caller), 1);
+				assert_eq!(System::account_nonce(caller), 1);
 
 				// validate account balance is decremented
-				assert!(Assets::balance(XRP_ASSET_ID, &caller) < balance_before);
+				assert!(Assets::balance(XRP_ASSET_ID, caller) < balance_before);
 
 				// validate the same extrinsic will fail (nonce mismatch) - preventing replays
 				assert_err!(
-					Executive::validate_transaction(TransactionSource::External, xt.clone().into(), H256::default()),
+					Executive::validate_transaction(TransactionSource::External, xt.clone(), H256::default()),
 					TransactionValidityError::Invalid(InvalidTransaction::Stale),
 				);
   		});

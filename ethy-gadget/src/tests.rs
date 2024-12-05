@@ -30,7 +30,7 @@ use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::{BuildStorage, Storage};
 use std::sync::Arc;
 
-pub(crate) const ETHY_PROTOCOL_NAME: &'static str = "/ethy/1";
+pub(crate) const ETHY_PROTOCOL_NAME: &str = "/ethy/1";
 
 pub(crate) type EthyValidatorSet = ValidatorSet<AuthorityId>;
 pub(crate) type EthyPeer = Peer<PeerData, PeersClient>;
@@ -191,7 +191,7 @@ create_test_api!(two_validators, EthyKeyring::Alice, EthyKeyring::Bob);
 } */
 
 pub(crate) fn make_ethy_ids(keys: &[EthyKeyring]) -> Vec<AuthorityId> {
-	keys.iter().map(|key| key.clone().public().into()).collect()
+	keys.iter().map(|key| key.public()).collect()
 }
 
 pub(crate) fn create_ethy_keystore(authority: EthyKeyring) -> KeystorePtr {

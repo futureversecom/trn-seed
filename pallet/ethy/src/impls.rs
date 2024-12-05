@@ -191,7 +191,7 @@ impl<T: Config> Pallet<T> {
 
 		let process_at: BlockNumberFor<T> =
 			<frame_system::Pallet<T>>::block_number() + ChallengePeriod::<T>::get();
-		MessagesValidAt::<T>::try_mutate(process_at.clone(), |v| -> DispatchResult {
+		MessagesValidAt::<T>::try_mutate(process_at, |v| -> DispatchResult {
 			v.try_push(event_id).map_err(|_| Error::<T>::MessageTooLarge)?;
 			Ok(())
 		})?;
@@ -217,13 +217,13 @@ impl<T: Config> Pallet<T> {
 		));
 	}
 
-	pub(crate) fn get_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Vec<T::EthyId> {
+	pub(crate) fn get_xrpl_notary_keys(validator_list: &[T::EthyId]) -> Vec<T::EthyId> {
 		// Filter validator_list from WhiteList Validators.
 		validator_list
-			.into_iter()
+			.iter()
 			.filter(|validator| XrplDoorSigners::<T>::get(validator))
-			.map(|validator| -> T::EthyId { validator.clone() })
 			.take(T::MaxXrplKeys::get().into())
+			.cloned()
 			.collect()
 	}
 
@@ -271,8 +271,7 @@ impl<T: Config> Pallet<T> {
 		// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block
 		// production.
 		for event_claim_id in PendingClaimChallenges::<T>::get().iter().take(CLAIMS_PER_BLOCK) {
-			let event_claim = PendingEventClaims::<T>::get(event_claim_id);
-			if event_claim.is_none() {
+			let Some(event_claim) = PendingEventClaims::<T>::get(event_claim_id) else {
 				// This shouldn't happen
 				log!(error, "💎 notarization failed, event claim: {:?} not found", event_claim_id);
 				continue;
@@ -287,7 +286,7 @@ impl<T: Config> Pallet<T> {
 				continue;
 			}
 
-			let result = Self::offchain_try_notarize_event(*event_claim_id, event_claim.unwrap());
+			let result = Self::offchain_try_notarize_event(*event_claim_id, event_claim);
 			log!(trace, "💎 claim verification status: {:?}", &result);
 			let payload = NotarizationPayload::Event {
 				event_claim_id: *event_claim_id,
@@ -326,16 +325,16 @@ impl<T: Config> Pallet<T> {
 		event_claim: EventClaim<T::MaxEthData>,
 	) -> EventClaimResult {
 		let EventClaim { tx_hash, data, source, destination } = event_claim;
-		let result = T::EthereumRpcClient::get_transaction_receipt(tx_hash);
-		if let Err(err) = result {
-			log!(error, "💎 eth_getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
-			return EventClaimResult::DataProviderErr;
-		}
+		let maybe_tx_receipt = match T::EthereumRpcClient::get_transaction_receipt(tx_hash) {
+			Ok(r) => r,
+			Err(err) => {
+				log!(error, "💎 eth_getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
+				return EventClaimResult::DataProviderErr;
+			},
+		};
 
-		let maybe_tx_receipt = result.unwrap(); // error handled above qed.
-		let tx_receipt = match maybe_tx_receipt {
-			Some(t) => t,
-			None => return EventClaimResult::NoTxReceipt,
+		let Some(tx_receipt) = maybe_tx_receipt else {
+			return EventClaimResult::NoTxReceipt;
 		};
 		let status = tx_receipt.status.unwrap_or_default();
 		if status.is_zero() {
@@ -468,7 +467,7 @@ impl<T: Config> Pallet<T> {
 		// some future proofing/protections if timestamps or block numbers are de-synced, stuck, or
 		// missing this protocol should vote to abort
 		let latest_eth_block_timestamp: u64 = latest_block.timestamp.saturated_into();
-		if latest_eth_block_timestamp == u64::max_value() {
+		if latest_eth_block_timestamp == u64::MAX {
 			return CheckedEthCallResult::InvalidTimestamp;
 		}
 		// latest ethereum block timestamp should be after the request
@@ -477,7 +476,7 @@ impl<T: Config> Pallet<T> {
 		}
 		let latest_eth_block_number = match latest_block.number {
 			Some(number) => {
-				if number.is_zero() || number.low_u64() == u64::max_value() {
+				if number.is_zero() || number.low_u64() == u64::MAX {
 					return CheckedEthCallResult::InvalidEthBlock;
 				}
 				number.low_u64()
@@ -664,10 +663,10 @@ impl<T: Config> Pallet<T> {
 				log!(error, "💎 unexpected missing challenger account");
 			}
 			Self::deposit_event(Event::<T>::Invalid { event_claim_id });
-			return Ok(());
+			Ok(())
 		} else {
 			log!(error, "💎 unexpected empty claim");
-			return Err(Error::<T>::InvalidClaim.into());
+			Err(Error::<T>::InvalidClaim.into())
 		}
 	}
 
@@ -833,7 +832,6 @@ impl<T: Config> Pallet<T> {
 
 		// TODO: probably don't need both consensus logs...
 		let new_validator_addresses: Vec<Token> = next_keys
-			.to_vec()
 			.into_iter()
 			.map(|k| EthyEcdsaToEthereum::convert(k.as_ref()))
 			.map(|k| Token::Address(k.into()))
@@ -991,7 +989,7 @@ impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
 impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	type Key = T::EthyId;
 
-	fn on_genesis_session<'a, I: 'a>(validators: I)
+	fn on_genesis_session<'a, I>(validators: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
@@ -1010,7 +1008,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		}
 	}
 
-	fn on_new_session<'a, I: 'a>(_changed: bool, _validators: I, queued_validators: I)
+	fn on_new_session<'a, I>(_changed: bool, _validators: I, queued_validators: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{

@@ -58,8 +58,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `MaintenanceMode::BlockedPallets` (r:1 w:0)
 	// Proof: `MaintenanceMode::BlockedPallets` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `MaxEncodedLen`)
 	fn transact() -> Weight {
-		Weight::from_all(220_300_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(2 as u64))
+		Weight::from_all(220_300_000_u64)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
 	}
 }
 
@@ -70,8 +70,8 @@ impl WeightInfo for () {
 	// Storage: `MaintenanceMode::BlockedPallets` (r:1 w:0)
 	// Proof: `MaintenanceMode::BlockedPallets` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `MaxEncodedLen`)
 	fn transact() -> Weight {
-		Weight::from_all(220_300_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(2 as u64))
+		Weight::from_all(220_300_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
 	}
 }
 

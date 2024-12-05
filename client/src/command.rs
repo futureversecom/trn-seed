@@ -189,7 +189,8 @@ pub fn run() -> sc_cli::Result<()> {
 							service::new_partial(&config, &cli, &rpc_config)?;
 						// Register the *Remark* and *TKA* builders.
 						let alice: sp_core::ecdsa::Pair =
-							sp_core::ecdsa::Pair::from_string("//Alice", None).unwrap().into();
+							sp_core::ecdsa::Pair::from_string("//Alice", None)
+								.expect("convert Pair from String");
 						let alice = EthereumSigner::from(alice.public()).into_account();
 
 						let ext_factory = ExtrinsicFactory(vec![

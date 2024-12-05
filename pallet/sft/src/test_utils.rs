@@ -90,7 +90,7 @@ where
 		.expect("Failed to create SFT collection");
 
 		assert_ok!(Pallet::<T>::create_token(
-			OriginFor::<T>::signed(self.owner.into()),
+			OriginFor::<T>::signed(self.owner),
 			collection_id,
 			token_name,
 			self.initial_issuance,

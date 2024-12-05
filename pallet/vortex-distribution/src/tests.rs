@@ -646,9 +646,9 @@ fn trigger_vtx_distribution_should_work() {
 			));
 
 			//trigger vortext reward calcuation and assets/root transfer to vault
-			assert_eq!(Balances::free_balance(&fee_vault), 1_000_000);
+			assert_eq!(Balances::free_balance(fee_vault), 1_000_000);
 			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id,));
-			assert_eq!(Balances::free_balance(&fee_vault), 0);
+			assert_eq!(Balances::free_balance(fee_vault), 0);
 
 			// Check that the correct event was emitted.
 			System::assert_last_event(MockEvent::Vortex(crate::Event::TriggerVtxDistribution {
@@ -804,7 +804,7 @@ fn redeem_tokens_from_vault_should_work() {
 			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &bob), 0);
 			assert_eq!(AssetsExt::balance(usdc, &bob), 500_000);
 			assert_eq!(AssetsExt::balance(weth, &bob), 500_000);
-			assert_eq!(Balances::free_balance(&bob), 1_000_000);
+			assert_eq!(Balances::free_balance(bob), 1_000_000);
 
 			// Redeem Charlie's tokens
 			assert_ok!(Vortex::redeem_tokens_from_vault(
@@ -816,7 +816,7 @@ fn redeem_tokens_from_vault_should_work() {
 			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &charlie), 0);
 			assert_eq!(AssetsExt::balance(usdc, &charlie), 500_000);
 			assert_eq!(AssetsExt::balance(weth, &charlie), 500_000);
-			assert_eq!(Balances::free_balance(&charlie), 1_000_000);
+			assert_eq!(Balances::free_balance(charlie), 1_000_000);
 		});
 }
 
@@ -925,7 +925,7 @@ fn redeem_tokens_from_vault_should_work_without_root_token_in_asset_prices() {
 			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &bob), 0);
 			assert_eq!(AssetsExt::balance(usdc, &bob), 500_000);
 			assert_eq!(AssetsExt::balance(weth, &bob), 500_000);
-			assert_eq!(Balances::free_balance(&bob), 0);
+			assert_eq!(Balances::free_balance(bob), 0);
 
 			// Redeem Charlie's tokens
 			assert_ok!(Vortex::redeem_tokens_from_vault(
@@ -937,7 +937,7 @@ fn redeem_tokens_from_vault_should_work_without_root_token_in_asset_prices() {
 			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &charlie), 0);
 			assert_eq!(AssetsExt::balance(usdc, &charlie), 500_000);
 			assert_eq!(AssetsExt::balance(weth, &charlie), 500_000);
-			assert_eq!(Balances::free_balance(&charlie), 0);
+			assert_eq!(Balances::free_balance(charlie), 0);
 		});
 }
 

@@ -61,31 +61,31 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Nfi::Relayer` (r:0 w:1)
 	// Proof: `Nfi::Relayer` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_relayer() -> Weight {
-		Weight::from_all(25_147_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(23_662_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Nfi::FeeTo` (r:0 w:1)
 	// Proof: `Nfi::FeeTo` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_fee_to() -> Weight {
-		Weight::from_all(25_256_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(23_372_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Nfi::MintFee` (r:0 w:1)
 	// Proof: `Nfi::MintFee` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
 	fn set_fee_details() -> Weight {
-		Weight::from_all(27_830_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(26_093_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Nft::CollectionInfo` (r:1 w:0)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	// Storage: `EVMChainId::ChainId` (r:1 w:0)
 	// Proof: `EVMChainId::ChainId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	// Storage: `Nfi::NfiEnabled` (r:0 w:1)
-	// Proof: `Nfi::NfiEnabled` (`max_values`: None, `max_size`: Some(529), added: 3004, mode: `MaxEncodedLen`)
+	// Proof: `Nfi::NfiEnabled` (`max_values`: None, `max_size`: Some(22), added: 2497, mode: `MaxEncodedLen`)
 	fn enable_nfi_for_trn_collection() -> Weight {
-		Weight::from_all(51_927_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(2 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(43_540_000_u64)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `EVMChainId::ChainId` (r:1 w:0)
 	// Proof: `EVMChainId::ChainId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
@@ -96,8 +96,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Nfi::MintFee` (r:1 w:0)
 	// Proof: `Nfi::MintFee` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
 	fn manual_data_request() -> Weight {
-		Weight::from_all(62_326_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
+		Weight::from_all(52_152_000_u64)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
 	}
 	// Storage: `Nfi::Relayer` (r:1 w:0)
 	// Proof: `Nfi::Relayer` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
@@ -110,9 +110,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Nfi::NfiData` (r:0 w:1)
 	// Proof: `Nfi::NfiData` (`max_values`: None, `max_size`: Some(1166), added: 3641, mode: `MaxEncodedLen`)
 	fn submit_nfi_data() -> Weight {
-		Weight::from_all(71_428_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(61_650_000_u64)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -121,31 +121,31 @@ impl WeightInfo for () {
 	// Storage: `Nfi::Relayer` (r:0 w:1)
 	// Proof: `Nfi::Relayer` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_relayer() -> Weight {
-		Weight::from_all(25_147_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(23_662_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Nfi::FeeTo` (r:0 w:1)
 	// Proof: `Nfi::FeeTo` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_fee_to() -> Weight {
-		Weight::from_all(25_256_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(23_372_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Nfi::MintFee` (r:0 w:1)
 	// Proof: `Nfi::MintFee` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
 	fn set_fee_details() -> Weight {
-		Weight::from_all(27_830_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(26_093_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Nft::CollectionInfo` (r:1 w:0)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	// Storage: `EVMChainId::ChainId` (r:1 w:0)
 	// Proof: `EVMChainId::ChainId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	// Storage: `Nfi::NfiEnabled` (r:0 w:1)
-	// Proof: `Nfi::NfiEnabled` (`max_values`: None, `max_size`: Some(529), added: 3004, mode: `MaxEncodedLen`)
+	// Proof: `Nfi::NfiEnabled` (`max_values`: None, `max_size`: Some(22), added: 2497, mode: `MaxEncodedLen`)
 	fn enable_nfi_for_trn_collection() -> Weight {
-		Weight::from_all(51_927_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(2 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(43_540_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `EVMChainId::ChainId` (r:1 w:0)
 	// Proof: `EVMChainId::ChainId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
@@ -156,8 +156,8 @@ impl WeightInfo for () {
 	// Storage: `Nfi::MintFee` (r:1 w:0)
 	// Proof: `Nfi::MintFee` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
 	fn manual_data_request() -> Weight {
-		Weight::from_all(62_326_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(4 as u64))
+		Weight::from_all(52_152_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
 	}
 	// Storage: `Nfi::Relayer` (r:1 w:0)
 	// Proof: `Nfi::Relayer` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
@@ -170,9 +170,9 @@ impl WeightInfo for () {
 	// Storage: `Nfi::NfiData` (r:0 w:1)
 	// Proof: `Nfi::NfiData` (`max_values`: None, `max_size`: Some(1166), added: 3641, mode: `MaxEncodedLen`)
 	fn submit_nfi_data() -> Weight {
-		Weight::from_all(71_428_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(4 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(61_650_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
 

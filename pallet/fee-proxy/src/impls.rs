@@ -76,20 +76,17 @@ where
 				|gas_limit: &u64,
 				 max_fee_per_gas: &U256,
 				 max_priority_fee_per_gas: &Option<U256>| {
-					if let Some(FeePreferencesData { max_fee_scaled, .. }) =
-						get_fee_preferences_data::<
-							T,
-							<T as Config>::ErcIdConversion,
-							pallet_futurepass::Pallet<T>,
-						>(
-							*gas_limit,
-							<T as Config>::EVMBaseFeeProvider::evm_base_fee_per_gas(),
-							Some(*max_fee_per_gas),
-							*max_priority_fee_per_gas,
-							*payment_asset,
-						)
-						.ok()
-					{
+					if let Ok(FeePreferencesData { max_fee_scaled, .. }) = get_fee_preferences_data::<
+						T,
+						<T as Config>::ErcIdConversion,
+						pallet_futurepass::Pallet<T>,
+					>(
+						*gas_limit,
+						<T as Config>::EVMBaseFeeProvider::evm_base_fee_per_gas(),
+						Some(*max_fee_per_gas),
+						*max_priority_fee_per_gas,
+						*payment_asset,
+					) {
 						total_fee = total_fee.saturating_add(max_fee_scaled);
 					}
 				};
@@ -134,8 +131,7 @@ where
 			// the minimum deposit onto the total_fee.
 			// This is due to the preservation rules of the withdraw call made within
 			// <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee
-			let account_balance =
-				pallet_assets_ext::Pallet::<T>::balance(native_asset.clone(), &who);
+			let account_balance = pallet_assets_ext::Pallet::<T>::balance(native_asset, who);
 			// Minium balance is hardcoded to 1
 			// pallet_assets_ext::Pallet::<T>::minimum_balance(native_asset);
 			let minimum_balance = pallet_assets_ext::Pallet::<T>::minimum_balance(native_asset);
@@ -148,7 +144,7 @@ where
 				total_fee,
 				*max_payment,
 				path,
-				who.clone(),
+				*who,
 				None,
 			)
 			.map_err(|_| InvalidTransaction::Payment)?;

@@ -27,7 +27,15 @@ use xrpl_codec::types::CurrencyCodeType;
 pub type DelayedPaymentId = u64;
 
 #[derive(
-	RuntimeDebugNoBound, Eq, CloneNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
+	RuntimeDebugNoBound,
+	Eq,
+	CloneNoBound,
+	PartialEqNoBound,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	Default,
 )]
 pub struct XrpTransaction {
 	pub transaction_hash: XrplTxHash,
@@ -65,7 +73,9 @@ impl WithdrawTransaction {
 }
 
 /// Withdrawal transaction for the XRP Currency
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
+#[derive(
+	Default, PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy,
+)]
 pub struct XrpWithdrawTransaction {
 	pub tx_fee: u64,
 	pub tx_nonce: XrplTxNonce,
@@ -123,44 +133,16 @@ pub enum XrplTxData {
 	Xls20 { token_id: Xls20TokenId, address: H160 },
 }
 
-impl Default for XrpTransaction {
-	fn default() -> Self {
-		XrpTransaction {
-			transaction_hash: XrplTxHash::default(),
-			transaction: XrplTxData::default(),
-			timestamp: 0,
-		}
-	}
-}
-
-impl Default for XrpWithdrawTransaction {
-	fn default() -> Self {
-		XrpWithdrawTransaction {
-			tx_fee: 0,
-			tx_nonce: 0,
-			tx_ticket_sequence: 0,
-			amount: 0,
-			destination: XrplAccountId::default(),
-		}
-	}
-}
-
 impl Default for XrplTxData {
 	fn default() -> Self {
 		XrplTxData::Payment { amount: 0, address: H160::default() }
 	}
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Default, PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct XrplTicketSequenceParams {
 	pub start_sequence: u32,
 	pub bucket_size: u32,
-}
-
-impl Default for XrplTicketSequenceParams {
-	fn default() -> Self {
-		XrplTicketSequenceParams { start_sequence: 0_u32, bucket_size: 0_u32 }
-	}
 }
 
 /// Currency issued by issuer https://xrpl.org/docs/references/protocol/data-types/currency-formats#token-amounts

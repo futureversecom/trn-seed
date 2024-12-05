@@ -130,7 +130,6 @@ pub mod pallet {
 			let genesis_xrpl_keys = NotaryKeys::<T>::get()
 				.into_iter()
 				.filter(|validator| XrplDoorSigners::<T>::get(validator))
-				.map(|validator| -> T::EthyId { validator.clone() })
 				.take(T::MaxXrplKeys::get().into())
 				.collect::<Vec<_>>();
 			NotaryXrplKeys::<T>::put(WeakBoundedVec::force_from(genesis_xrpl_keys, None));
@@ -551,7 +550,7 @@ pub mod pallet {
 					// read + write: MessagesValidAt
 					consumed_weight =
 						consumed_weight.saturating_add(DbWeight::get().reads_writes(1_u64, 1_u64));
-					MessagesValidAt::<T>::mutate(new_process_at.clone(), |v| {
+					MessagesValidAt::<T>::mutate(new_process_at, |v| {
 						let mut message_ids = v.clone().into_inner();
 						message_ids.push(message_id);
 						let message_ids_bounded = WeakBoundedVec::force_from(
@@ -1077,7 +1076,7 @@ pub mod pallet {
 			payload: NotarizationPayload,
 			_signature: <<T as Config>::EthyId as RuntimeAppPublic>::Signature,
 		) -> DispatchResult {
-			let _ = ensure_none(origin)?;
+			ensure_none(origin)?;
 
 			// we don't need to verify the signature here because it has been verified in
 			// `validate_unsigned` function when sending out the unsigned tx.

@@ -67,12 +67,7 @@ impl EthyKeystore {
 			.map_err(|e| error::Error::Keystore(e.to_string()))?
 			.ok_or_else(|| error::Error::Signature("ecdsa_sign_prehashed() failed".to_string()))?;
 
-		// check that `sig` has the expected result type
-		let sig = sig.clone().try_into().map_err(|_| {
-			error::Error::Signature(format!("invalid signature {:?} for key {:?}", sig, public))
-		})?;
-
-		Ok(sig)
+		Ok(sig.into())
 	}
 
 	/// Returns a vector of Public keys which are currently supported
