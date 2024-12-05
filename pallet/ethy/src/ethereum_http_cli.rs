@@ -121,7 +121,7 @@ impl EthereumRpcClient {
 
 		const HEADER_CONTENT_TYPE: &str = "application/json";
 		log!(info, "💎 sending request to: {}", eth_http_uri);
-		let body = serde_json::to_string::<R>(&request_body).unwrap();
+		let body = serde_json::to_string::<R>(&request_body).expect("💎 serialize request body");
 		let body_raw = body.as_bytes();
 		// Initiate an external HTTP POST request. This is using high-level wrappers from
 		// `sp_runtime`.
@@ -169,7 +169,9 @@ impl EthereumRpcClient {
 
 /// Return a random usize value
 fn random_request_id() -> usize {
-	u32::from_be_bytes(sp_io::offchain::random_seed()[..4].try_into().unwrap()) as usize
+	u32::from_be_bytes(
+		sp_io::offchain::random_seed()[..4].try_into().expect("Byte length is correct"),
+	) as usize
 }
 
 #[cfg(test)]
@@ -184,20 +186,18 @@ mod tests {
 	use sp_std::sync::Arc;
 
 	/// a fake URI to use as the configured `--eth-http` endpoint
-	const MOCK_TEST_ENDPOINT: &'static str = "http://example.com";
+	const MOCK_TEST_ENDPOINT: &str = "http://example.com";
 
 	/// Build `PendingRequest`s
 	struct PendingRequestBuilder(PendingRequest);
 
 	impl PendingRequestBuilder {
 		fn new() -> Self {
-			Self {
-				0: PendingRequest {
-					uri: MOCK_TEST_ENDPOINT.into(),
-					sent: true,
-					..Default::default()
-				},
-			}
+			Self(PendingRequest {
+				uri: MOCK_TEST_ENDPOINT.into(),
+				sent: true,
+				..Default::default()
+			})
 		}
 		fn request(mut self, request: &[u8]) -> Self {
 			self.0.body = request.to_vec();

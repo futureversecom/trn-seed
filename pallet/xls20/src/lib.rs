@@ -308,7 +308,7 @@ impl<T: Config> Pallet<T> {
 			let mint_fee: Balance = nft_count.saturating_mul(xls20_mint_fee as u32).into();
 			// Make the payment
 			T::MultiCurrency::transfer(
-				T::Xls20PaymentAsset::get().into(),
+				T::Xls20PaymentAsset::get(),
 				who,
 				&relayer,
 				mint_fee,

@@ -63,21 +63,21 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Xls20::Relayer` (r:0 w:1)
 	// Proof: `Xls20::Relayer` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_relayer() -> Weight {
-		Weight::from_all(24_227_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(24_214_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Xls20::Xls20MintFee` (r:0 w:1)
 	// Proof: `Xls20::Xls20MintFee` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	fn set_xls20_fee() -> Weight {
-		Weight::from_all(23_200_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(23_606_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Nft::CollectionInfo` (r:1 w:1)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	fn enable_xls20_compatibility() -> Weight {
-		Weight::from_all(42_686_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(42_893_000_u64)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Migration::Status` (r:1 w:0)
 	// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -88,8 +88,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Xls20::Xls20MintFee` (r:1 w:0)
 	// Proof: `Xls20::Xls20MintFee` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	fn re_request_xls20_mint() -> Weight {
-		Weight::from_all(62_296_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
+		Weight::from_all(62_296_000_u64)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
 	}
 	// Storage: `Migration::Status` (r:1 w:0)
 	// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -100,18 +100,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Xls20::Xls20TokenMap` (r:1 w:1)
 	// Proof: `Xls20::Xls20TokenMap` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
 	fn fulfill_xls20_mint() -> Weight {
-		Weight::from_all(66_156_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(66_156_000_u64)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Xls20::CollectionMapping` (r:0 w:1)
 	// Proof: `Xls20::CollectionMapping` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	/// The range of component `i` is `[0, 256]`.
 	fn set_collection_mappings(i: u32, ) -> Weight {
-		Weight::from_all(30_437_801 as u64)
+		Weight::from_all(30_437_801_u64)
 			// Standard Error: 1_889
-			.saturating_add(Weight::from_all(3_223_038 as u64).saturating_mul(i as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+			.saturating_add(Weight::from_all(3_223_038_u64).saturating_mul(i as u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Migration::Status` (r:1 w:0)
 	// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -122,9 +122,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Xls20::Xls20TokenMap` (r:0 w:1)
 	// Proof: `Xls20::Xls20TokenMap` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
 	fn deposit_token_mint() -> Weight {
-		Weight::from_all(55_203_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
+		Weight::from_all(55_203_000_u64)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	// Storage: `Migration::Status` (r:1 w:0)
 	// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -145,9 +145,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Nft::CollectionInfo` (r:0 w:1)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	fn deposit_token_create_collection() -> Weight {
-		Weight::from_all(113_909_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(6 as u64))
-			.saturating_add(T::DbWeight::get().writes(7 as u64))
+		Weight::from_all(113_909_000_u64)
+			.saturating_add(T::DbWeight::get().reads(6_u64))
+			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
 }
 
@@ -156,21 +156,21 @@ impl WeightInfo for () {
 	// Storage: `Xls20::Relayer` (r:0 w:1)
 	// Proof: `Xls20::Relayer` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_relayer() -> Weight {
-		Weight::from_all(24_227_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(24_227_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Xls20::Xls20MintFee` (r:0 w:1)
 	// Proof: `Xls20::Xls20MintFee` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	fn set_xls20_fee() -> Weight {
-		Weight::from_all(23_200_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(23_200_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Nft::CollectionInfo` (r:1 w:1)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	fn enable_xls20_compatibility() -> Weight {
-		Weight::from_all(42_686_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(42_686_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Migration::Status` (r:1 w:0)
 	// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -181,8 +181,8 @@ impl WeightInfo for () {
 	// Storage: `Xls20::Xls20MintFee` (r:1 w:0)
 	// Proof: `Xls20::Xls20MintFee` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
 	fn re_request_xls20_mint() -> Weight {
-		Weight::from_all(62_296_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(4 as u64))
+		Weight::from_all(62_296_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
 	}
 	// Storage: `Migration::Status` (r:1 w:0)
 	// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -193,18 +193,18 @@ impl WeightInfo for () {
 	// Storage: `Xls20::Xls20TokenMap` (r:1 w:1)
 	// Proof: `Xls20::Xls20TokenMap` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
 	fn fulfill_xls20_mint() -> Weight {
-		Weight::from_all(66_156_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(4 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(66_156_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Xls20::CollectionMapping` (r:0 w:1)
 	// Proof: `Xls20::CollectionMapping` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	/// The range of component `i` is `[0, 256]`.
 	fn set_collection_mappings(i: u32, ) -> Weight {
-		Weight::from_all(30_437_801 as u64)
+		Weight::from_all(30_437_801_u64)
 			// Standard Error: 1_889
-			.saturating_add(Weight::from_all(3_223_038 as u64).saturating_mul(i as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+			.saturating_add(Weight::from_all(3_223_038_u64).saturating_mul(i as u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Migration::Status` (r:1 w:0)
 	// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -215,9 +215,9 @@ impl WeightInfo for () {
 	// Storage: `Xls20::Xls20TokenMap` (r:0 w:1)
 	// Proof: `Xls20::Xls20TokenMap` (`max_values`: None, `max_size`: Some(56), added: 2531, mode: `MaxEncodedLen`)
 	fn deposit_token_mint() -> Weight {
-		Weight::from_all(55_203_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(3 as u64))
-			.saturating_add(RocksDbWeight::get().writes(2 as u64))
+		Weight::from_all(55_203_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	// Storage: `Migration::Status` (r:1 w:0)
 	// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -238,9 +238,9 @@ impl WeightInfo for () {
 	// Storage: `Nft::CollectionInfo` (r:0 w:1)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	fn deposit_token_create_collection() -> Weight {
-		Weight::from_all(113_909_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(6 as u64))
-			.saturating_add(RocksDbWeight::get().writes(7 as u64))
+		Weight::from_all(113_909_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
+			.saturating_add(RocksDbWeight::get().writes(7_u64))
 	}
 }
 

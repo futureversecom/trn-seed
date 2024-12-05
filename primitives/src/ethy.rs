@@ -69,11 +69,11 @@ pub enum EthyChainId {
 	Xrpl = 2,
 }
 
-impl Into<u8> for EthyChainId {
-	fn into(self) -> u8 {
-		match self {
-			Self::Ethereum => 1_u8,
-			Self::Xrpl => 2_u8,
+impl From<EthyChainId> for u8 {
+	fn from(value: EthyChainId) -> Self {
+		match value {
+			EthyChainId::Ethereum => 1_u8,
+			EthyChainId::Xrpl => 2_u8,
 		}
 	}
 }
@@ -260,7 +260,7 @@ impl Convert<&[u8], [u8; 20]> for EthyEcdsaToXRPLAccountId {
 			Some(libsecp256k1::PublicKeyFormat::Compressed),
 		)
 		.map(|k| k.serialize_compressed())
-		.map(|k| Ripemd160::digest(Sha256::digest(&k)).into())
+		.map(|k| Ripemd160::digest(Sha256::digest(k)).into())
 		.unwrap_or([0_u8; 20])
 	}
 }

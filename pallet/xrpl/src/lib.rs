@@ -106,7 +106,7 @@ where
 				})?;
 
 				// check if the origin is a futurepass holder, to switch the caller to the futurepass
-				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call, &()) {
+				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(call, &()) {
 					if let Ok(futurepass) = <T as pallet::Config>::FuturepassLookup::lookup(origin) {
 						return Ok(futurepass);
 					}
@@ -165,7 +165,7 @@ where
 				SignedExtension::validate(&validations, &tx_origin, &(*call.clone()).into(), dispatch_info, len)?;
 
 				// validate signed extensions using EOA - for futurepass based transactions
-				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call, &()) {
+				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(call, &()) {
 					// this implies that the origin is futurepass address; we need to get the EOA associated with it
 					let eoa = <T as pallet::Config>::FuturepassLookup::unlookup(*origin);
 					if eoa == H160::zero() {
@@ -181,7 +181,7 @@ where
 
 				// priority is based on the provided tip in the xrpl transaction data
 				let priority = ChargeTransactionPayment::<T>::get_priority(&dispatch_info, len, tip.into(), 0.into());
-				let who: T::AccountId = (tx_origin).clone().into();
+				let who: T::AccountId = (tx_origin).clone();
 				let account = frame_system::Account::<T>::get(who);
 				let mut builder =
 					ValidTransactionBuilder::default().and_provides((tx_origin.clone(), nonce)).priority(priority);
@@ -235,7 +235,7 @@ where
 					.ok()?;
 
 			// Pre Dispatch - execute signed extensions with EOA - for futurepass based transactions
-			if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call, &()) {
+			if <T as pallet::Config>::FuturepassLookup::check_extrinsic(call, &()) {
 				// this implies that the origin is futurepass address; we need to get the EOA associated with it
 				let eoa = <T as pallet::Config>::FuturepassLookup::unlookup(*info);
 				if eoa == H160::zero() {
@@ -251,7 +251,7 @@ where
 
 			// Dispatch - execute outer call (transact)
 			let res = outer_call.dispatch(frame_system::RawOrigin::None.into());
-			let post_info = res.map_or_else(|err| err.post_info, |info| info);
+			let post_info = res.unwrap_or_else(|err| err.post_info);
 
 			// Post Dispatch
 			<XRPLValidations<T> as SignedExtension>::post_dispatch(
@@ -312,7 +312,7 @@ where
 	}
 
 	let success = tx
-		.verify_transaction(&signature)
+		.verify_transaction(signature)
 		.map_err(|e| alloc::format!("⛔️ failed to verify transaction: {:?}", e))?;
 	if !success {
 		return Err("⛔️ transaction verification unsuccessful".into());
@@ -483,7 +483,7 @@ pub mod pallet {
 				r_address: tx.account,
 				call: *call,
 			});
-			Ok(().into())
+			Ok(())
 		}
 	}
 }

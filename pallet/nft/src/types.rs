@@ -142,10 +142,7 @@ where
 
 	/// Get's the token owner
 	pub fn get_token_owner(&self, serial_number: SerialNumber) -> Option<AccountId> {
-		let Some(token) = self.owned_tokens.iter().find(|x| x.contains_serial(&serial_number))
-		else {
-			return None;
-		};
+		let token = self.owned_tokens.iter().find(|x| x.contains_serial(&serial_number))?;
 		Some(token.owner.clone())
 	}
 

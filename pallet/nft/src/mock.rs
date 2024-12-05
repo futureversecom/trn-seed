@@ -57,10 +57,7 @@ where
 	fn on_asset_create(runtime_id: RuntimeId, _precompile_address_prefix: &[u8; 4]) {
 		// Mock address without conversion
 		let address = H160::from_low_u64_be(runtime_id.into().into());
-		pallet_evm::Pallet::<Test>::create_account(
-			address.into(),
-			b"TRN Asset Precompile".to_vec(),
-		);
+		pallet_evm::Pallet::<Test>::create_account(address, b"TRN Asset Precompile".to_vec());
 	}
 }
 

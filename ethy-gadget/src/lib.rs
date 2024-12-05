@@ -61,7 +61,7 @@ pub(crate) mod ethy_protocol_name {
 	use sc_chain_spec::ChainSpec;
 	use sc_network::ProtocolName;
 
-	pub const NAME: &'static str = "/ethy/1";
+	pub const NAME: &str = "/ethy/1";
 	/// Name of the notifications protocol used by Ethy.
 	///
 	/// Must be registered towards the networking in order for Ethy to properly function.

@@ -71,9 +71,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Marketplace::RegisteredMarketplaces` (r:0 w:1)
 	// Proof: `Marketplace::RegisteredMarketplaces` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	fn register_marketplace() -> Weight {
-		Weight::from_all(48_124_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
+		Weight::from_all(48_124_000_u64)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	// Storage: `Nft::CollectionInfo` (r:1 w:0)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
@@ -91,13 +91,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Marketplace::OpenCollectionListings` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn sell_nft(p: u32, ) -> Weight {
-		Weight::from_all(95_762_950 as u64)
+		Weight::from_all(95_762_950_u64)
 			// Standard Error: 12_435
-			.saturating_add(Weight::from_all(13_939_641 as u64).saturating_mul(p as u64))
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
-			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(13_939_641_u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(p as u64)))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Sft::SftCollectionInfo` (r:1 w:0)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
@@ -115,13 +115,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Marketplace::OpenCollectionListings` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn sell_sft(p: u32, ) -> Weight {
-		Weight::from_all(91_324_086 as u64)
+		Weight::from_all(91_324_086_u64)
 			// Standard Error: 28_637
-			.saturating_add(Weight::from_all(10_702_400 as u64).saturating_mul(p as u64))
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
-			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(10_702_400_u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(p as u64)))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Marketplace::Listings` (r:1 w:1)
 	// Proof: `Marketplace::Listings` (`max_values`: None, `max_size`: Some(20295), added: 22770, mode: `MaxEncodedLen`)
@@ -140,9 +140,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Nft::TokenLocks` (r:0 w:1)
 	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
 	fn buy() -> Weight {
-		Weight::from_all(165_370_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
-			.saturating_add(T::DbWeight::get().writes(6 as u64))
+		Weight::from_all(165_370_000_u64)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
 	// Storage: `Marketplace::Listings` (r:50 w:50)
 	// Proof: `Marketplace::Listings` (`max_values`: None, `max_size`: Some(20295), added: 22770, mode: `MaxEncodedLen`)
@@ -162,11 +162,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn buy_multi(p: u32, ) -> Weight {
-		Weight::from_all(29_771_213 as u64)
+		Weight::from_all(29_771_213_u64)
 			// Standard Error: 137_227
-			.saturating_add(Weight::from_all(120_268_894 as u64).saturating_mul(p as u64))
-			.saturating_add(T::DbWeight::get().reads((4 as u64).saturating_mul(p as u64)))
-			.saturating_add(T::DbWeight::get().writes((6 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(120_268_894_u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads((4_u64).saturating_mul(p as u64)))
+			.saturating_add(T::DbWeight::get().writes((6_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Nft::CollectionInfo` (r:1 w:0)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
@@ -184,13 +184,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Marketplace::OpenCollectionListings` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn auction_nft(p: u32, ) -> Weight {
-		Weight::from_all(98_821_301 as u64)
+		Weight::from_all(98_821_301_u64)
 			// Standard Error: 54_582
-			.saturating_add(Weight::from_all(14_043_585 as u64).saturating_mul(p as u64))
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
-			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(14_043_585_u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(p as u64)))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Sft::SftCollectionInfo` (r:1 w:0)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
@@ -208,13 +208,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Marketplace::OpenCollectionListings` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn auction_sft(p: u32, ) -> Weight {
-		Weight::from_all(92_904_042 as u64)
+		Weight::from_all(92_904_042_u64)
 			// Standard Error: 27_291
-			.saturating_add(Weight::from_all(10_468_680 as u64).saturating_mul(p as u64))
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
-			.saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(10_468_680_u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(p as u64)))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Marketplace::Listings` (r:1 w:1)
 	// Proof: `Marketplace::Listings` (`max_values`: None, `max_size`: Some(20295), added: 22770, mode: `MaxEncodedLen`)
@@ -231,9 +231,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Marketplace::ListingEndSchedule` (r:0 w:2)
 	// Proof: `Marketplace::ListingEndSchedule` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	fn bid() -> Weight {
-		Weight::from_all(209_405_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(7 as u64))
-			.saturating_add(T::DbWeight::get().writes(9 as u64))
+		Weight::from_all(209_405_000_u64)
+			.saturating_add(T::DbWeight::get().reads(7_u64))
+			.saturating_add(T::DbWeight::get().writes(9_u64))
 	}
 	// Storage: `Marketplace::Listings` (r:1 w:1)
 	// Proof: `Marketplace::Listings` (`max_values`: None, `max_size`: Some(20295), added: 22770, mode: `MaxEncodedLen`)
@@ -244,16 +244,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Nft::TokenLocks` (r:0 w:1)
 	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
 	fn cancel_sale() -> Weight {
-		Weight::from_all(65_696_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
+		Weight::from_all(65_696_000_u64)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	// Storage: `Marketplace::Listings` (r:1 w:1)
 	// Proof: `Marketplace::Listings` (`max_values`: None, `max_size`: Some(20295), added: 22770, mode: `MaxEncodedLen`)
 	fn update_fixed_price() -> Weight {
-		Weight::from_all(49_654_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(49_654_000_u64)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Nft::CollectionInfo` (r:1 w:0)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
@@ -274,9 +274,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Marketplace::Offers` (r:0 w:1)
 	// Proof: `Marketplace::Offers` (`max_values`: None, `max_size`: Some(70), added: 2545, mode: `MaxEncodedLen`)
 	fn make_simple_offer() -> Weight {
-		Weight::from_all(223_298_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(9 as u64))
-			.saturating_add(T::DbWeight::get().writes(8 as u64))
+		Weight::from_all(223_298_000_u64)
+			.saturating_add(T::DbWeight::get().reads(9_u64))
+			.saturating_add(T::DbWeight::get().writes(8_u64))
 	}
 	// Storage: `Marketplace::Offers` (r:1 w:1)
 	// Proof: `Marketplace::Offers` (`max_values`: None, `max_size`: Some(70), added: 2545, mode: `MaxEncodedLen`)
@@ -291,9 +291,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Marketplace::TokenOffers` (r:1 w:1)
 	// Proof: `Marketplace::TokenOffers` (`max_values`: None, `max_size`: Some(818), added: 3293, mode: `MaxEncodedLen`)
 	fn cancel_offer() -> Weight {
-		Weight::from_all(204_413_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(7 as u64))
-			.saturating_add(T::DbWeight::get().writes(7 as u64))
+		Weight::from_all(204_413_000_u64)
+			.saturating_add(T::DbWeight::get().reads(7_u64))
+			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
 	// Storage: `Marketplace::Offers` (r:1 w:1)
 	// Proof: `Marketplace::Offers` (`max_values`: None, `max_size`: Some(70), added: 2545, mode: `MaxEncodedLen`)
@@ -316,15 +316,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:1)
 	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	fn accept_offer() -> Weight {
-		Weight::from_all(325_816_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(10 as u64))
-			.saturating_add(T::DbWeight::get().writes(10 as u64))
+		Weight::from_all(325_816_000_u64)
+			.saturating_add(T::DbWeight::get().reads(10_u64))
+			.saturating_add(T::DbWeight::get().writes(10_u64))
 	}
 	// Storage: `Marketplace::FeeTo` (r:0 w:1)
 	// Proof: `Marketplace::FeeTo` (`max_values`: Some(1), `max_size`: Some(21), added: 516, mode: `MaxEncodedLen`)
 	fn set_fee_to() -> Weight {
-		Weight::from_all(24_729_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(24_729_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -335,9 +335,9 @@ impl WeightInfo for () {
 	// Storage: `Marketplace::RegisteredMarketplaces` (r:0 w:1)
 	// Proof: `Marketplace::RegisteredMarketplaces` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	fn register_marketplace() -> Weight {
-		Weight::from_all(48_124_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(2 as u64))
+		Weight::from_all(48_124_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	// Storage: `Nft::CollectionInfo` (r:1 w:0)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
@@ -355,13 +355,13 @@ impl WeightInfo for () {
 	// Proof: `Marketplace::OpenCollectionListings` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn sell_nft(p: u32, ) -> Weight {
-		Weight::from_all(95_762_950 as u64)
+		Weight::from_all(95_762_950_u64)
 			// Standard Error: 12_435
-			.saturating_add(Weight::from_all(13_939_641 as u64).saturating_mul(p as u64))
-			.saturating_add(RocksDbWeight::get().reads(3 as u64))
-			.saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
-			.saturating_add(RocksDbWeight::get().writes(4 as u64))
-			.saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(13_939_641_u64).saturating_mul(p as u64))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(p as u64)))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Sft::SftCollectionInfo` (r:1 w:0)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
@@ -379,13 +379,13 @@ impl WeightInfo for () {
 	// Proof: `Marketplace::OpenCollectionListings` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn sell_sft(p: u32, ) -> Weight {
-		Weight::from_all(91_324_086 as u64)
+		Weight::from_all(91_324_086_u64)
 			// Standard Error: 28_637
-			.saturating_add(Weight::from_all(10_702_400 as u64).saturating_mul(p as u64))
-			.saturating_add(RocksDbWeight::get().reads(3 as u64))
-			.saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
-			.saturating_add(RocksDbWeight::get().writes(4 as u64))
-			.saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(10_702_400_u64).saturating_mul(p as u64))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(p as u64)))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Marketplace::Listings` (r:1 w:1)
 	// Proof: `Marketplace::Listings` (`max_values`: None, `max_size`: Some(20295), added: 22770, mode: `MaxEncodedLen`)
@@ -404,9 +404,9 @@ impl WeightInfo for () {
 	// Storage: `Nft::TokenLocks` (r:0 w:1)
 	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
 	fn buy() -> Weight {
-		Weight::from_all(165_370_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(4 as u64))
-			.saturating_add(RocksDbWeight::get().writes(6 as u64))
+		Weight::from_all(165_370_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
 	// Storage: `Marketplace::Listings` (r:50 w:50)
 	// Proof: `Marketplace::Listings` (`max_values`: None, `max_size`: Some(20295), added: 22770, mode: `MaxEncodedLen`)
@@ -426,11 +426,11 @@ impl WeightInfo for () {
 	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn buy_multi(p: u32, ) -> Weight {
-		Weight::from_all(29_771_213 as u64)
+		Weight::from_all(29_771_213_u64)
 			// Standard Error: 137_227
-			.saturating_add(Weight::from_all(120_268_894 as u64).saturating_mul(p as u64))
-			.saturating_add(RocksDbWeight::get().reads((4 as u64).saturating_mul(p as u64)))
-			.saturating_add(RocksDbWeight::get().writes((6 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(120_268_894_u64).saturating_mul(p as u64))
+			.saturating_add(RocksDbWeight::get().reads((4_u64).saturating_mul(p as u64)))
+			.saturating_add(RocksDbWeight::get().writes((6_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Nft::CollectionInfo` (r:1 w:0)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
@@ -448,13 +448,13 @@ impl WeightInfo for () {
 	// Proof: `Marketplace::OpenCollectionListings` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn auction_nft(p: u32, ) -> Weight {
-		Weight::from_all(98_821_301 as u64)
+		Weight::from_all(98_821_301_u64)
 			// Standard Error: 54_582
-			.saturating_add(Weight::from_all(14_043_585 as u64).saturating_mul(p as u64))
-			.saturating_add(RocksDbWeight::get().reads(3 as u64))
-			.saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
-			.saturating_add(RocksDbWeight::get().writes(4 as u64))
-			.saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(14_043_585_u64).saturating_mul(p as u64))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(p as u64)))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Sft::SftCollectionInfo` (r:1 w:0)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
@@ -472,13 +472,13 @@ impl WeightInfo for () {
 	// Proof: `Marketplace::OpenCollectionListings` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn auction_sft(p: u32, ) -> Weight {
-		Weight::from_all(92_904_042 as u64)
+		Weight::from_all(92_904_042_u64)
 			// Standard Error: 27_291
-			.saturating_add(Weight::from_all(10_468_680 as u64).saturating_mul(p as u64))
-			.saturating_add(RocksDbWeight::get().reads(3 as u64))
-			.saturating_add(RocksDbWeight::get().reads((1 as u64).saturating_mul(p as u64)))
-			.saturating_add(RocksDbWeight::get().writes(4 as u64))
-			.saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(10_468_680_u64).saturating_mul(p as u64))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(p as u64)))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Marketplace::Listings` (r:1 w:1)
 	// Proof: `Marketplace::Listings` (`max_values`: None, `max_size`: Some(20295), added: 22770, mode: `MaxEncodedLen`)
@@ -495,9 +495,9 @@ impl WeightInfo for () {
 	// Storage: `Marketplace::ListingEndSchedule` (r:0 w:2)
 	// Proof: `Marketplace::ListingEndSchedule` (`max_values`: None, `max_size`: Some(37), added: 2512, mode: `MaxEncodedLen`)
 	fn bid() -> Weight {
-		Weight::from_all(209_405_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(7 as u64))
-			.saturating_add(RocksDbWeight::get().writes(9 as u64))
+		Weight::from_all(209_405_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
+			.saturating_add(RocksDbWeight::get().writes(9_u64))
 	}
 	// Storage: `Marketplace::Listings` (r:1 w:1)
 	// Proof: `Marketplace::Listings` (`max_values`: None, `max_size`: Some(20295), added: 22770, mode: `MaxEncodedLen`)
@@ -508,16 +508,16 @@ impl WeightInfo for () {
 	// Storage: `Nft::TokenLocks` (r:0 w:1)
 	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
 	fn cancel_sale() -> Weight {
-		Weight::from_all(65_696_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(4 as u64))
+		Weight::from_all(65_696_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	// Storage: `Marketplace::Listings` (r:1 w:1)
 	// Proof: `Marketplace::Listings` (`max_values`: None, `max_size`: Some(20295), added: 22770, mode: `MaxEncodedLen`)
 	fn update_fixed_price() -> Weight {
-		Weight::from_all(49_654_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(49_654_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Nft::CollectionInfo` (r:1 w:0)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
@@ -538,9 +538,9 @@ impl WeightInfo for () {
 	// Storage: `Marketplace::Offers` (r:0 w:1)
 	// Proof: `Marketplace::Offers` (`max_values`: None, `max_size`: Some(70), added: 2545, mode: `MaxEncodedLen`)
 	fn make_simple_offer() -> Weight {
-		Weight::from_all(223_298_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(9 as u64))
-			.saturating_add(RocksDbWeight::get().writes(8 as u64))
+		Weight::from_all(223_298_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(9_u64))
+			.saturating_add(RocksDbWeight::get().writes(8_u64))
 	}
 	// Storage: `Marketplace::Offers` (r:1 w:1)
 	// Proof: `Marketplace::Offers` (`max_values`: None, `max_size`: Some(70), added: 2545, mode: `MaxEncodedLen`)
@@ -555,9 +555,9 @@ impl WeightInfo for () {
 	// Storage: `Marketplace::TokenOffers` (r:1 w:1)
 	// Proof: `Marketplace::TokenOffers` (`max_values`: None, `max_size`: Some(818), added: 3293, mode: `MaxEncodedLen`)
 	fn cancel_offer() -> Weight {
-		Weight::from_all(204_413_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(7 as u64))
-			.saturating_add(RocksDbWeight::get().writes(7 as u64))
+		Weight::from_all(204_413_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
+			.saturating_add(RocksDbWeight::get().writes(7_u64))
 	}
 	// Storage: `Marketplace::Offers` (r:1 w:1)
 	// Proof: `Marketplace::Offers` (`max_values`: None, `max_size`: Some(70), added: 2545, mode: `MaxEncodedLen`)
@@ -580,15 +580,15 @@ impl WeightInfo for () {
 	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:1)
 	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	fn accept_offer() -> Weight {
-		Weight::from_all(325_816_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(10 as u64))
-			.saturating_add(RocksDbWeight::get().writes(10 as u64))
+		Weight::from_all(325_816_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(10_u64))
+			.saturating_add(RocksDbWeight::get().writes(10_u64))
 	}
 	// Storage: `Marketplace::FeeTo` (r:0 w:1)
 	// Proof: `Marketplace::FeeTo` (`max_values`: Some(1), `max_size`: Some(21), added: 516, mode: `MaxEncodedLen`)
 	fn set_fee_to() -> Weight {
-		Weight::from_all(24_729_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(24_729_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
 

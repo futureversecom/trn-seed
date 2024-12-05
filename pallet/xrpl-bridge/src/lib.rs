@@ -511,7 +511,7 @@ pub mod pallet {
 			transaction_hash: XrplTxHash,
 		) -> DispatchResult {
 			let challenger = ensure_signed(origin)?;
-			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
+			ChallengeXRPTransactionList::<T>::insert(transaction_hash, challenger);
 			Ok(())
 		}
 
@@ -821,10 +821,10 @@ pub mod pallet {
 				// Remove mapping if xrpl_currency is none
 				let xrpl_currency_mapped =
 					AssetIdToXRPL::<T>::get(asset_id).ok_or(Error::<T>::AssetNotSupported)?;
-				<AssetIdToXRPL<T>>::remove(asset_id.clone());
+				<AssetIdToXRPL<T>>::remove(asset_id);
 				<XRPLToAssetId<T>>::remove(xrpl_currency_mapped);
 				Self::deposit_event(Event::XrplAssetMapRemoved {
-					asset_id: asset_id.clone(),
+					asset_id,
 					xrpl_currency: xrpl_currency_mapped,
 				});
 			}
@@ -919,16 +919,13 @@ impl<T: Config> Pallet<T> {
 
 			match weighted_result {
 				Ok(weight) => {
-					Self::deposit_event(Event::ProcessingOk(
-						ledger_index,
-						transaction_hash.clone(),
-					));
+					Self::deposit_event(Event::ProcessingOk(ledger_index, *transaction_hash));
 					used_weight.saturating_add(weight);
 				},
 				Err((weight, e)) => {
 					Self::deposit_event(Event::ProcessingFailed(
 						ledger_index,
-						transaction_hash.clone(),
+						*transaction_hash,
 						e,
 					));
 					used_weight.saturating_add(weight);
@@ -938,11 +935,10 @@ impl<T: Config> Pallet<T> {
 
 			// Add to SettledXRPTransactionDetails
 			used_weight = used_weight.saturating_add(DbWeight::get().reads_writes(1, 1));
-			<SettledXRPTransactionDetails<T>>::try_append(
-				ledger_index as u32,
-				transaction_hash.clone(),
-			)
-			.expect("Should not happen since XRPLTransactionLimitPerLedger >= XRPTransactionLimit");
+			<SettledXRPTransactionDetails<T>>::try_append(ledger_index as u32, *transaction_hash)
+				.expect(
+					"Should not happen since XRPLTransactionLimitPerLedger >= XRPTransactionLimit",
+				);
 
 			// Update HighestSettledLedgerIndex
 			if highest_settled_ledger_index < ledger_index as u32 {
@@ -1123,7 +1119,7 @@ impl<T: Config> Pallet<T> {
 		let current_end = current_end.min(max_end);
 		let settled_txs_to_clear = (highest_pruned_index..current_end).collect::<Vec<u32>>();
 
-		if settled_txs_to_clear.len() == 0 {
+		if settled_txs_to_clear.is_empty() {
 			return used_weight;
 		}
 
@@ -1195,7 +1191,7 @@ impl<T: Config> Pallet<T> {
 		timestamp: Timestamp,
 	) -> DispatchResult {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
-		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val, relayer));
+		<ProcessXRPTransactionDetails<T>>::insert(transaction_hash, (ledger_index, val, relayer));
 
 		Self::add_to_xrp_process(transaction_hash)?;
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
@@ -1450,7 +1446,7 @@ impl<T: Config> Pallet<T> {
 			delayed_payment_id,
 			payment_block,
 		});
-		return Ok(());
+		Ok(())
 	}
 
 	/// Construct an XRPL payment transaction and submit for signing
@@ -1516,7 +1512,7 @@ impl<T: Config> Pallet<T> {
 		let XrpWithdrawTransaction { tx_fee, tx_nonce, tx_ticket_sequence, amount, destination } =
 			tx_data;
 
-		let tx_blob = if destination_tag.is_some() {
+		if let Some(destination_tag) = destination_tag {
 			let payment = PaymentWithDestinationTag::new(
 				door_address,
 				destination.into(),
@@ -1525,7 +1521,7 @@ impl<T: Config> Pallet<T> {
 				tx_ticket_sequence,
 				tx_fee,
 				SourceTag::<T>::get(),
-				destination_tag.unwrap(),
+				destination_tag,
 				// omit signer key since this is a 'MultiSigner' tx
 				None,
 			);
@@ -1543,9 +1539,7 @@ impl<T: Config> Pallet<T> {
 				None,
 			);
 			payment.binary_serialize(true)
-		};
-
-		tx_blob
+		}
 	}
 
 	/// Serialise an asset tx using the CurrencyPayment type from the XRPL codec
@@ -1626,7 +1620,7 @@ impl<T: Config> Pallet<T> {
 		let new_amount = mantissa as u128 * 10u128.pow(exponent as u32);
 		// Return an error if we are saturating by more than 1.0 of the asset
 		ensure!(
-			(amount - new_amount) < 1 * 10u128.pow(decimals as u32),
+			(amount - new_amount) < 10u128.pow(decimals as u32),
 			Error::<T>::AssetRoundingTooHigh
 		);
 		// Return mantissa and exponent back into Balance for our calculations

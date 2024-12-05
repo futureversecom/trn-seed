@@ -27,17 +27,14 @@ impl<T: Config> Pallet<T> {
 		marketplace_account: Option<T::AccountId>,
 		entitlement: Permill,
 	) -> Result<MarketplaceId, DispatchError> {
-		ensure!(
-			entitlement.deconstruct() as u32 <= Permill::ACCURACY,
-			Error::<T>::RoyaltiesInvalid
-		);
+		ensure!(entitlement.deconstruct() <= Permill::ACCURACY, Error::<T>::RoyaltiesInvalid);
 		let marketplace_account = marketplace_account.unwrap_or(who);
 		let marketplace_id = NextMarketplaceId::<T>::get();
-		let marketplace = Marketplace { account: marketplace_account.clone(), entitlement };
+		let marketplace = Marketplace { account: marketplace_account, entitlement };
 		let next_marketplace_id = <NextMarketplaceId<T>>::get();
 		ensure!(next_marketplace_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
-		<RegisteredMarketplaces<T>>::insert(&marketplace_id, marketplace);
+		<RegisteredMarketplaces<T>>::insert(marketplace_id, marketplace);
 		<NextMarketplaceId<T>>::mutate(|i| *i += 1);
 
 		Self::deposit_event(Event::<T>::MarketplaceRegister {
@@ -71,8 +68,8 @@ impl<T: Config> Pallet<T> {
 			fixed_price,
 			close: listing_end_block,
 			tokens: tokens.clone(),
-			buyer: buyer.clone(),
-			seller: who.clone(),
+			buyer,
+			seller: who,
 			royalties_schedule,
 			marketplace_id,
 		});
@@ -148,7 +145,7 @@ impl<T: Config> Pallet<T> {
 		Self::remove_listing(Listing::FixedPrice(listing.clone()), listing_id);
 
 		let payouts = Self::calculate_royalty_payouts(
-			listing.seller.clone(),
+			listing.seller,
 			listing.royalties_schedule.clone(),
 			listing.fixed_price,
 		);
@@ -192,7 +189,7 @@ impl<T: Config> Pallet<T> {
 			reserve_price,
 			close: listing_end_block,
 			tokens: tokens.clone(),
-			seller: who.clone(),
+			seller: who,
 			royalties_schedule,
 			marketplace_id,
 		});
@@ -233,14 +230,14 @@ impl<T: Config> Pallet<T> {
 		<ListingWinningBid<T>>::try_mutate(listing_id, |maybe_current_bid| -> DispatchResult {
 			if let Some(current_bid) = maybe_current_bid {
 				// replace old bid
-				let _ = T::MultiCurrency::release_hold(
+				T::MultiCurrency::release_hold(
 					T::PalletId::get(),
 					&current_bid.0,
 					listing.payment_asset,
 					current_bid.1,
 				)?;
 			}
-			*maybe_current_bid = Some((who.clone(), amount));
+			*maybe_current_bid = Some((who, amount));
 			Ok(())
 		})?;
 
@@ -250,7 +247,7 @@ impl<T: Config> Pallet<T> {
 		let current_block = <frame_system::Pallet<T>>::block_number();
 		let blocks_till_close = listing_end_block - current_block;
 		let new_closing_block = current_block + BlockNumberFor::<T>::from(AUCTION_EXTENSION_PERIOD);
-		if blocks_till_close <= BlockNumberFor::<T>::from(AUCTION_EXTENSION_PERIOD).into() {
+		if blocks_till_close <= BlockNumberFor::<T>::from(AUCTION_EXTENSION_PERIOD) {
 			ListingEndSchedule::<T>::remove(listing_end_block, listing_id);
 			ListingEndSchedule::<T>::insert(new_closing_block, listing_id, true);
 			listing.close = new_closing_block;
@@ -330,7 +327,7 @@ impl<T: Config> Pallet<T> {
 			token_id,
 			asset_id,
 			amount,
-			buyer: who.clone(),
+			buyer: who,
 			marketplace_id,
 		});
 		<Offers<T>>::insert(offer_id, new_offer);
@@ -352,7 +349,7 @@ impl<T: Config> Pallet<T> {
 		};
 		ensure!(offer.buyer == who, Error::<T>::NotBuyer);
 		T::MultiCurrency::release_hold(T::PalletId::get(), &who, offer.asset_id, offer.amount)?;
-		let _ = Self::remove_offer(offer_id, offer.token_id)?;
+		Self::remove_offer(offer_id, offer.token_id)?;
 		Self::deposit_event(Event::<T>::OfferCancel {
 			offer_id,
 			marketplace_id: offer.marketplace_id,
@@ -376,17 +373,13 @@ impl<T: Config> Pallet<T> {
 		if let Some(TokenLockReason::Listed(listing_id)) = T::NFTExt::get_token_lock(offer.token_id)
 		{
 			if let Some(listing) = <Listings<T>>::get(listing_id) {
-				match listing.clone() {
-					Listing::<T>::FixedPrice(sale) => {
-						Self::deposit_event(Event::<T>::FixedPriceSaleClose {
-							tokens: sale.tokens,
-							listing_id,
-							marketplace_id: sale.marketplace_id,
-							reason: FixedPriceClosureReason::OfferAccepted,
-						});
-					},
-					// Offer cannot be made on auctions
-					_ => {},
+				if let Listing::<T>::FixedPrice(sale) = listing.clone() {
+					Self::deposit_event(Event::<T>::FixedPriceSaleClose {
+						tokens: sale.tokens,
+						listing_id,
+						marketplace_id: sale.marketplace_id,
+						reason: FixedPriceClosureReason::OfferAccepted,
+					});
 				}
 
 				Self::remove_listing(listing, listing_id);
@@ -408,7 +401,7 @@ impl<T: Config> Pallet<T> {
 			royalties_schedule,
 		)?;
 
-		let _ = Self::remove_offer(offer_id, offer.token_id)?;
+		Self::remove_offer(offer_id, offer.token_id)?;
 		Self::deposit_event(Event::<T>::OfferAccept {
 			offer_id,
 			marketplace_id: offer.marketplace_id,
@@ -441,7 +434,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns the number of listings removed
 	pub(crate) fn close_listings_at(now: BlockNumberFor<T>) -> u32 {
 		let mut removed = 0_u32;
-		for (listing_id, _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
+		for (listing_id, _) in ListingEndSchedule::<T>::drain_prefix(now) {
 			let Some(listing_outer) = Listings::<T>::get(listing_id) else { continue };
 			match listing_outer.clone() {
 				Listing::FixedPrice(listing) => {
@@ -555,9 +548,9 @@ impl<T: Config> Pallet<T> {
 		amount: Balance,
 		royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	) -> DispatchResult {
-		let payouts = Self::calculate_royalty_payouts(seller.clone(), royalties_schedule, amount);
+		let payouts = Self::calculate_royalty_payouts(*seller, royalties_schedule, amount);
 		// spend hold and split to royalty accounts
-		T::MultiCurrency::spend_hold(T::PalletId::get(), &buyer, asset_id, &payouts)?;
+		T::MultiCurrency::spend_hold(T::PalletId::get(), buyer, asset_id, &payouts)?;
 
 		// Transfer the tokens to the buyer
 		tokens.unlock_and_transfer(seller, buyer)

@@ -87,18 +87,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Crowdsale::SaleInfo` (r:0 w:1)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
 	fn initialize() -> Weight {
-		Weight::from_all(287_741_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(12 as u64))
-			.saturating_add(T::DbWeight::get().writes(11 as u64))
+		Weight::from_all(287_741_000_u64)
+			.saturating_add(T::DbWeight::get().reads(12_u64))
+			.saturating_add(T::DbWeight::get().writes(11_u64))
 	}
 	// Storage: `Crowdsale::SaleInfo` (r:1 w:1)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
 	// Storage: `Crowdsale::SaleEndBlocks` (r:1 w:1)
 	// Proof: `Crowdsale::SaleEndBlocks` (`max_values`: None, `max_size`: Some(53), added: 2528, mode: `MaxEncodedLen`)
 	fn enable() -> Weight {
-		Weight::from_all(59_200_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(2 as u64))
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
+		Weight::from_all(59_200_000_u64)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	// Storage: `Crowdsale::SaleInfo` (r:1 w:1)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
@@ -111,9 +111,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Crowdsale::SaleParticipation` (r:1 w:1)
 	// Proof: `Crowdsale::SaleParticipation` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `MaxEncodedLen`)
 	fn participate() -> Weight {
-		Weight::from_all(176_931_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(7 as u64))
-			.saturating_add(T::DbWeight::get().writes(7 as u64))
+		Weight::from_all(176_931_000_u64)
+			.saturating_add(T::DbWeight::get().reads(7_u64))
+			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
 	// Storage: `Crowdsale::SaleDistribution` (r:1 w:1)
 	// Proof: `Crowdsale::SaleDistribution` (`max_values`: Some(1), `max_size`: Some(16002), added: 16497, mode: `MaxEncodedLen`)
@@ -132,9 +132,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Crowdsale::NextUnsignedAt` (r:0 w:1)
 	// Proof: `Crowdsale::NextUnsignedAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn distribute_crowdsale_rewards() -> Weight {
-		Weight::from_all(263_444_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(10 as u64))
-			.saturating_add(T::DbWeight::get().writes(9 as u64))
+		Weight::from_all(263_444_000_u64)
+			.saturating_add(T::DbWeight::get().reads(10_u64))
+			.saturating_add(T::DbWeight::get().writes(9_u64))
 	}
 	// Storage: `Crowdsale::SaleInfo` (r:1 w:1)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
@@ -151,9 +151,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Crowdsale::SaleDistribution` (r:1 w:1)
 	// Proof: `Crowdsale::SaleDistribution` (`max_values`: Some(1), `max_size`: Some(16002), added: 16497, mode: `MaxEncodedLen`)
 	fn claim_voucher() -> Weight {
-		Weight::from_all(257_978_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(10 as u64))
-			.saturating_add(T::DbWeight::get().writes(8 as u64))
+		Weight::from_all(257_978_000_u64)
+			.saturating_add(T::DbWeight::get().reads(10_u64))
+			.saturating_add(T::DbWeight::get().writes(8_u64))
 	}
 	// Storage: `Crowdsale::SaleInfo` (r:1 w:0)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
@@ -168,9 +168,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Nft::PublicMintInfo` (r:1 w:0)
 	// Proof: `Nft::PublicMintInfo` (`max_values`: None, `max_size`: Some(34), added: 2509, mode: `MaxEncodedLen`)
 	fn redeem_voucher() -> Weight {
-		Weight::from_all(189_765_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(6 as u64))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
+		Weight::from_all(189_765_000_u64)
+			.saturating_add(T::DbWeight::get().reads(6_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	// Storage: `Crowdsale::SaleInfo` (r:1 w:0)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
@@ -179,17 +179,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `MaintenanceMode::BlockedPallets` (r:1 w:0)
 	// Proof: `MaintenanceMode::BlockedPallets` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `MaxEncodedLen`)
 	fn proxy_vault_call() -> Weight {
-		Weight::from_all(79_017_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
+		Weight::from_all(79_017_000_u64)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
 	}
 	// Storage: `Crowdsale::SaleInfo` (r:1 w:1)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
 	// Storage: `Crowdsale::SaleDistribution` (r:1 w:1)
 	// Proof: `Crowdsale::SaleDistribution` (`max_values`: Some(1), `max_size`: Some(16002), added: 16497, mode: `MaxEncodedLen`)
 	fn try_force_distribution() -> Weight {
-		Weight::from_all(53_497_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(2 as u64))
-			.saturating_add(T::DbWeight::get().writes(2 as u64))
+		Weight::from_all(53_497_000_u64)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	// Storage: `Crowdsale::SaleEndBlocks` (r:1 w:1)
 	// Proof: `Crowdsale::SaleEndBlocks` (`max_values`: None, `max_size`: Some(53), added: 2528, mode: `MaxEncodedLen`)
@@ -207,19 +207,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Crowdsale::SaleDistribution` (`max_values`: Some(1), `max_size`: Some(16002), added: 16497, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 5]`.
 	fn on_initialize(p: u32, ) -> Weight {
-		Weight::from_all(55_353_636 as u64)
+		Weight::from_all(55_353_636_u64)
 			// Standard Error: 272_354
-			.saturating_add(Weight::from_all(206_224_383 as u64).saturating_mul(p as u64))
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().reads((9 as u64).saturating_mul(p as u64)))
-			.saturating_add(T::DbWeight::get().writes(3 as u64))
-			.saturating_add(T::DbWeight::get().writes((8 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(206_224_383_u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().reads((9_u64).saturating_mul(p as u64)))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(T::DbWeight::get().writes((8_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Crowdsale::SaleEndBlocks` (r:1 w:0)
 	// Proof: `Crowdsale::SaleEndBlocks` (`max_values`: None, `max_size`: Some(53), added: 2528, mode: `MaxEncodedLen`)
 	fn on_initialize_empty() -> Weight {
-		Weight::from_all(9_592_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
+		Weight::from_all(9_592_000_u64)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 }
 
@@ -250,18 +250,18 @@ impl WeightInfo for () {
 	// Storage: `Crowdsale::SaleInfo` (r:0 w:1)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
 	fn initialize() -> Weight {
-		Weight::from_all(287_741_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(12 as u64))
-			.saturating_add(RocksDbWeight::get().writes(11 as u64))
+		Weight::from_all(287_741_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(12_u64))
+			.saturating_add(RocksDbWeight::get().writes(11_u64))
 	}
 	// Storage: `Crowdsale::SaleInfo` (r:1 w:1)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
 	// Storage: `Crowdsale::SaleEndBlocks` (r:1 w:1)
 	// Proof: `Crowdsale::SaleEndBlocks` (`max_values`: None, `max_size`: Some(53), added: 2528, mode: `MaxEncodedLen`)
 	fn enable() -> Weight {
-		Weight::from_all(59_200_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(2 as u64))
-			.saturating_add(RocksDbWeight::get().writes(2 as u64))
+		Weight::from_all(59_200_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	// Storage: `Crowdsale::SaleInfo` (r:1 w:1)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
@@ -274,9 +274,9 @@ impl WeightInfo for () {
 	// Storage: `Crowdsale::SaleParticipation` (r:1 w:1)
 	// Proof: `Crowdsale::SaleParticipation` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `MaxEncodedLen`)
 	fn participate() -> Weight {
-		Weight::from_all(176_931_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(7 as u64))
-			.saturating_add(RocksDbWeight::get().writes(7 as u64))
+		Weight::from_all(176_931_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(7_u64))
+			.saturating_add(RocksDbWeight::get().writes(7_u64))
 	}
 	// Storage: `Crowdsale::SaleDistribution` (r:1 w:1)
 	// Proof: `Crowdsale::SaleDistribution` (`max_values`: Some(1), `max_size`: Some(16002), added: 16497, mode: `MaxEncodedLen`)
@@ -295,9 +295,9 @@ impl WeightInfo for () {
 	// Storage: `Crowdsale::NextUnsignedAt` (r:0 w:1)
 	// Proof: `Crowdsale::NextUnsignedAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn distribute_crowdsale_rewards() -> Weight {
-		Weight::from_all(263_444_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(10 as u64))
-			.saturating_add(RocksDbWeight::get().writes(9 as u64))
+		Weight::from_all(263_444_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(10_u64))
+			.saturating_add(RocksDbWeight::get().writes(9_u64))
 	}
 	// Storage: `Crowdsale::SaleInfo` (r:1 w:1)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
@@ -314,9 +314,9 @@ impl WeightInfo for () {
 	// Storage: `Crowdsale::SaleDistribution` (r:1 w:1)
 	// Proof: `Crowdsale::SaleDistribution` (`max_values`: Some(1), `max_size`: Some(16002), added: 16497, mode: `MaxEncodedLen`)
 	fn claim_voucher() -> Weight {
-		Weight::from_all(257_978_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(10 as u64))
-			.saturating_add(RocksDbWeight::get().writes(8 as u64))
+		Weight::from_all(257_978_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(10_u64))
+			.saturating_add(RocksDbWeight::get().writes(8_u64))
 	}
 	// Storage: `Crowdsale::SaleInfo` (r:1 w:0)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
@@ -331,9 +331,9 @@ impl WeightInfo for () {
 	// Storage: `Nft::PublicMintInfo` (r:1 w:0)
 	// Proof: `Nft::PublicMintInfo` (`max_values`: None, `max_size`: Some(34), added: 2509, mode: `MaxEncodedLen`)
 	fn redeem_voucher() -> Weight {
-		Weight::from_all(189_765_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(6 as u64))
-			.saturating_add(RocksDbWeight::get().writes(4 as u64))
+		Weight::from_all(189_765_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	// Storage: `Crowdsale::SaleInfo` (r:1 w:0)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
@@ -342,17 +342,17 @@ impl WeightInfo for () {
 	// Storage: `MaintenanceMode::BlockedPallets` (r:1 w:0)
 	// Proof: `MaintenanceMode::BlockedPallets` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `MaxEncodedLen`)
 	fn proxy_vault_call() -> Weight {
-		Weight::from_all(79_017_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(3 as u64))
+		Weight::from_all(79_017_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
 	}
 	// Storage: `Crowdsale::SaleInfo` (r:1 w:1)
 	// Proof: `Crowdsale::SaleInfo` (`max_values`: None, `max_size`: Some(133), added: 2608, mode: `MaxEncodedLen`)
 	// Storage: `Crowdsale::SaleDistribution` (r:1 w:1)
 	// Proof: `Crowdsale::SaleDistribution` (`max_values`: Some(1), `max_size`: Some(16002), added: 16497, mode: `MaxEncodedLen`)
 	fn try_force_distribution() -> Weight {
-		Weight::from_all(53_497_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(2 as u64))
-			.saturating_add(RocksDbWeight::get().writes(2 as u64))
+		Weight::from_all(53_497_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	// Storage: `Crowdsale::SaleEndBlocks` (r:1 w:1)
 	// Proof: `Crowdsale::SaleEndBlocks` (`max_values`: None, `max_size`: Some(53), added: 2528, mode: `MaxEncodedLen`)
@@ -370,19 +370,19 @@ impl WeightInfo for () {
 	// Proof: `Crowdsale::SaleDistribution` (`max_values`: Some(1), `max_size`: Some(16002), added: 16497, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 5]`.
 	fn on_initialize(p: u32, ) -> Weight {
-		Weight::from_all(55_353_636 as u64)
+		Weight::from_all(55_353_636_u64)
 			// Standard Error: 272_354
-			.saturating_add(Weight::from_all(206_224_383 as u64).saturating_mul(p as u64))
-			.saturating_add(RocksDbWeight::get().reads(3 as u64))
-			.saturating_add(RocksDbWeight::get().reads((9 as u64).saturating_mul(p as u64)))
-			.saturating_add(RocksDbWeight::get().writes(3 as u64))
-			.saturating_add(RocksDbWeight::get().writes((8 as u64).saturating_mul(p as u64)))
+			.saturating_add(Weight::from_all(206_224_383_u64).saturating_mul(p as u64))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().reads((9_u64).saturating_mul(p as u64)))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+			.saturating_add(RocksDbWeight::get().writes((8_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Crowdsale::SaleEndBlocks` (r:1 w:0)
 	// Proof: `Crowdsale::SaleEndBlocks` (`max_values`: None, `max_size`: Some(53), added: 2528, mode: `MaxEncodedLen`)
 	fn on_initialize_empty() -> Weight {
-		Weight::from_all(9_592_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
+		Weight::from_all(9_592_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 }
 

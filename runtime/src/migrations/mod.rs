@@ -219,11 +219,11 @@ impl Value {
 	///
 	/// # Usage
 	///
-	///	let (module, item, new_item) = (b"MyPallet", b"MyStorageName", b"NewStorage");
+	/// let (module, item, new_item) = (b"MyPallet", b"MyStorageName", b"NewStorage");
 	/// Value::unsafe_storage_put(module, item, 100u128);
 	/// assert_eq!(Value::unsafe_storage_rename::<u128>(module, item, new_item), true);
 	///
-	/// // Renaming a non-existing storage will return false
+	/// Renaming a non-existing storage will return false
 	/// assert_eq!(Value::unsafe_storage_rename::<u128>(module, b"ThisDoesNotExist", new_item),
 	/// false);
 	#[allow(dead_code)]
@@ -247,11 +247,11 @@ impl Value {
 	///
 	/// # Usage
 	///
-	///	let (storage, pallet, new_pallet) = (b"MyStorageName", b"MyPallet", b"MyNewPallet");
+	/// let (storage, pallet, new_pallet) = (b"MyStorageName", b"MyPallet", b"MyNewPallet");
 	/// Value::unsafe_storage_put(pallet, storage, 100u128);
 	/// assert_eq!(Value::unsafe_storage_move(storage, pallet, new_pallet), true);
 	///
-	/// // moving a non-existing storage will return false
+	/// moving a non-existing storage will return false
 	/// assert_eq!(Value::unsafe_storage_move(b"RandomStorage", pallet, new_pallet), false)
 	#[allow(dead_code)]
 	pub fn unsafe_storage_move(
@@ -276,11 +276,11 @@ impl Value {
 	///
 	/// # Usage
 	///
-	///	/// let (module, item) = (b"MyPallet", b"MyStorageName");
+	/// let (module, item) = (b"MyPallet", b"MyStorageName");
 	/// Value::unsafe_storage_put(module, item, 100u128);
 	/// assert_eq!(Value::unsafe_clear(module, item), true);
 	///
-	/// // killing a non-existing storage will return false
+	/// killing a non-existing storage will return false
 	/// assert_eq!(Value::unsafe_clear(module, b"DoesNotExist"), false);
 	#[allow(dead_code)]
 	pub fn unsafe_clear(module: &[u8], item: &[u8]) -> bool {
@@ -395,7 +395,7 @@ impl Map {
 	{
 		let keys: Vec<K> = Storage::iter_keys().collect();
 		keys.iter()
-			.filter_map(|key| Storage::try_get(key).and_then(|v| Ok((key.clone(), v))).ok())
+			.filter_map(|key| Storage::try_get(key).map(|v| (key.clone(), v)).ok())
 			.collect()
 	}
 }

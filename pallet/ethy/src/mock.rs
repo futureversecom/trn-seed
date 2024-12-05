@@ -146,13 +146,13 @@ pub struct MockLog {
 	pub transaction_hash: Option<H256>,
 }
 
-impl Into<Log> for MockLog {
-	fn into(self) -> Log {
+impl From<MockLog> for Log {
+	fn from(value: MockLog) -> Log {
 		Log {
-			address: self.address,
-			data: self.data,
-			topics: self.topics,
-			transaction_hash: self.transaction_hash,
+			address: value.address,
+			data: value.data,
+			topics: value.topics,
+			transaction_hash: value.transaction_hash,
 			..Default::default()
 		}
 	}
@@ -393,7 +393,7 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 		let eth_block = EthBlock {
 			number: Some(U64::from(mock_block_response.block_number)),
 			hash: Some(mock_block_response.block_hash),
-			timestamp: U256::from(mock_block_response.timestamp),
+			timestamp: mock_block_response.timestamp,
 			..Default::default()
 		};
 		Ok(Some(eth_block))
@@ -623,9 +623,7 @@ impl ExtBuilder {
 
 		if let Some(relayer) = self.relayer {
 			ext.execute_with(|| {
-				assert!(
-					EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer.into())).is_ok()
-				);
+				assert!(EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer)).is_ok());
 				assert!(EthBridge::set_relayer(RuntimeOrigin::root(), relayer).is_ok());
 			});
 		}

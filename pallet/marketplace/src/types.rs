@@ -75,7 +75,7 @@ impl<T: Config> ListingTokens<T> {
 				ensure!(!tokens.serial_numbers.is_empty(), Error::<T>::EmptyTokens);
 				// Ensure the balance is not zero for any token in the listing
 				ensure!(
-					tokens.serial_numbers.iter().find(|(_, balance)| *balance == 0).is_none(),
+					!tokens.serial_numbers.iter().any(|(_, balance)| *balance == 0),
 					Error::<T>::ZeroBalance
 				);
 			},
@@ -260,7 +260,7 @@ pub struct AuctionListing<T: Config> {
 pub struct FixedPriceListing<T: Config> {
 	/// The asset to allow bids with
 	pub payment_asset: AssetId,
-	/// The requested amount for a succesful sale
+	/// The requested amount for a successful sale
 	pub fixed_price: Balance,
 	/// When the listing closes
 	pub close: BlockNumberFor<T>,

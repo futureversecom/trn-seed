@@ -33,7 +33,7 @@ use seed_primitives::ethy::{crypto::AuthorityId as Public, EventProofId, Witness
 use crate::keystore::EthyKeystore;
 
 /// Gossip engine messages topic
-pub(crate) fn topic<B: Block>() -> B::Hash
+pub(crate) fn topic<B>() -> B::Hash
 where
 	B: Block,
 {
@@ -462,7 +462,7 @@ mod tests {
 
 		// finalized number is 0 atm. check now, should give false
 		let result = gv.message_expired()(topic::<Block>(), witness.clone().encode().as_ref());
-		assert_eq!(result, false);
+		assert!(!result);
 
 		// set the finalized block number to 7. try to validate now. should fail since out of live
 		// window. i.e. WINDOW_SIZE = 5
@@ -486,7 +486,7 @@ mod tests {
 		witness.event_id += 1;
 		// check now, should give true since out of live window.
 		let result = gv.message_expired()(topic::<Block>(), witness.clone().encode().as_ref());
-		assert_eq!(result, true);
+		assert!(result);
 	}
 
 	#[tokio::test]
@@ -516,7 +516,7 @@ mod tests {
 			&topic::<Block>(),
 			witness.clone().encode().as_ref(),
 		);
-		assert_eq!(result, true);
+		assert!(result);
 
 		// set the finalized block number to 7. try to validate now. should fail since out of live
 		// window. i.e. WINDOW_SIZE = 5
@@ -544,6 +544,6 @@ mod tests {
 			&topic::<Block>(),
 			witness.clone().encode().as_ref(),
 		);
-		assert_eq!(result, false);
+		assert!(!result);
 	}
 }

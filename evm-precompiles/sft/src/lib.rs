@@ -66,21 +66,18 @@ where
 	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
-		let result = {
-			let selector = match handle.read_selector() {
-				Ok(selector) => selector,
-				Err(e) => return Err(e.into()),
-			};
-
-			if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
-				return Err(err.into());
-			}
-
-			match selector {
-				Action::InitializeCollection => Self::initialize_collection(handle),
-			}
+		let selector = match handle.read_selector() {
+			Ok(selector) => selector,
+			Err(e) => return Err(e.into()),
 		};
-		return result;
+
+		if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
+			return Err(err.into());
+		}
+
+		match selector {
+			Action::InitializeCollection => Self::initialize_collection(handle),
+		}
 	}
 }
 
@@ -131,16 +128,14 @@ where
 
 		// Parse royalties
 		if royalty_addresses.len() != royalty_entitlements.len() {
-			return Err(
-				revert("SFT: Royalty addresses and entitlements must be the same length").into()
-			);
+			return Err(revert("SFT: Royalty addresses and entitlements must be the same length"));
 		}
 		let royalty_entitlements = royalty_entitlements.into_iter().map(|entitlement| {
 			let entitlement: u32 = entitlement.saturated_into();
 			Permill::from_parts(entitlement)
 		});
 		let royalties_schedule: Option<RoyaltiesSchedule<Runtime::AccountId>> =
-			if royalty_addresses.len() > 0 {
+			if !royalty_addresses.is_empty() {
 				let entitlements_unbounded: Vec<(Runtime::AccountId, Permill)> = royalty_addresses
 					.into_iter()
 					.map(|address| H160::from(address).into())
@@ -195,9 +190,7 @@ where
 				))
 			},
 			Err(err) => Err(revert(
-				alloc::format!("SFT: Initialize collection failed {:?}", err.stripped())
-					.as_bytes()
-					.to_vec(),
+				alloc::format!("SFT: Initialize collection failed {:?}", err.stripped()).as_bytes(),
 			)),
 		}
 	}

@@ -49,9 +49,9 @@ impl From<[u8; 20]> for AccountId20 {
 	}
 }
 
-impl Into<[u8; 20]> for AccountId20 {
-	fn into(self) -> [u8; 20] {
-		self.0
+impl From<AccountId20> for [u8; 20] {
+	fn from(value: AccountId20) -> [u8; 20] {
+		value.0
 	}
 }
 
@@ -88,9 +88,9 @@ impl TryFrom<ed25519::Public> for AccountId20 {
 	}
 }
 
-impl Into<H160> for AccountId20 {
-	fn into(self) -> H160 {
-		H160(self.0)
+impl From<AccountId20> for H160 {
+	fn from(value: AccountId20) -> H160 {
+		H160(value.0)
 	}
 }
 
@@ -142,8 +142,10 @@ impl sp_runtime::traits::Verify for EthereumSignature {
 }
 
 pub fn verify_signature(signature: &[u8; 65], message: &[u8; 32], signer: &AccountId20) -> bool {
-	match sp_io::crypto::secp256k1_ecdsa_recover(signature, &message) {
-		Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().unwrap()) == *signer,
+	match sp_io::crypto::secp256k1_ecdsa_recover(signature, message) {
+		Ok(pubkey) => {
+			AccountId20(keccak_256(&pubkey)[12..].try_into().expect("Expected 20 bytes")) == *signer
+		},
 		Err(sp_io::EcdsaVerifyError::BadRS) => {
 			log::error!(target: "evm", "Error recovering: Incorrect value of R or S");
 			false
@@ -197,7 +199,7 @@ impl From<ecdsa::Public> for EthereumSigner {
 		.serialize();
 		let mut m = [0u8; 64];
 		m.copy_from_slice(&decompressed[1..65]);
-		let account = H160(keccak_256(&m)[12..].try_into().unwrap());
+		let account = H160(keccak_256(&m)[12..].try_into().expect("Expected 20 bytes"));
 		EthereumSigner(account.into())
 	}
 }
@@ -206,7 +208,7 @@ impl From<libsecp256k1::PublicKey> for EthereumSigner {
 	fn from(x: libsecp256k1::PublicKey) -> Self {
 		let mut m = [0u8; 64];
 		m.copy_from_slice(&x.serialize()[1..65]);
-		let account = H160(keccak_256(&m)[12..].try_into().unwrap());
+		let account = H160(keccak_256(&m)[12..].try_into().expect("Expected 20 bytes"));
 		EthereumSigner(account.into())
 	}
 }
@@ -277,7 +279,7 @@ mod tests {
 					AccountId20(keccak_256(&pub_key)[12..].try_into().unwrap())
 				)
 			},
-			_ => assert!(false),
+			_ => panic!(),
 		}
 
 		// Now check verify function
@@ -360,8 +362,7 @@ mod tests {
 		let msg_hash: &[u8; 32] =
 			&hex!("4bb8b8a113de9a87a8c02cace5c8a9f61e478eaaa8f8100773a4c207f2c06662");
 		let msg_hash_str: &str = &hex::encode(msg_hash);
-		let eth_signed_msg =
-			&keccak_256(ethereum_signed_message(&msg_hash_str.as_bytes()).as_ref()); // 71ea60525c727e50bfa2358ef14e7456bae41fe483ed104341e1376ab3141338
+		let eth_signed_msg = &keccak_256(ethereum_signed_message(msg_hash_str.as_bytes()).as_ref()); // 71ea60525c727e50bfa2358ef14e7456bae41fe483ed104341e1376ab3141338
 
 		let pair = ecdsa::Pair::from_seed(&hex![
 			"7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c"
@@ -371,7 +372,7 @@ mod tests {
 		let signature: EthereumSignature = pair.sign_prehashed(eth_signed_msg).into();
 		assert!(signature.verify(msg_hash_str.as_ref(), &address.into_account()));
 
-		match sp_io::crypto::secp256k1_ecdsa_recover(&signature.0 .0, &eth_signed_msg) {
+		match sp_io::crypto::secp256k1_ecdsa_recover(&signature.0 .0, eth_signed_msg) {
 			Ok(pubkey_bytes) => {
 				let account = AccountId20(keccak_256(&pubkey_bytes)[12..].try_into().unwrap());
 				assert_eq!(
@@ -379,7 +380,7 @@ mod tests {
 					account
 				);
 			},
-			_ => assert!(false),
+			_ => panic!(),
 		};
 	}
 }

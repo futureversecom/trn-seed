@@ -16,6 +16,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
+use alloc::string::String;
 use core::convert::{TryFrom, TryInto};
 use ethereum_types::BigEndianHash;
 use fp_evm::{IsPrecompileResult, PrecompileHandle, PrecompileOutput};
@@ -112,7 +113,7 @@ pub enum Action {
 /// 1024-2047 Precompiles that are not in Ethereum Mainnet but are neither Root specific
 /// 2048-4095 Seed specific precompiles
 /// SFT precompile addresses can only fall between
-/// 	0xBBBBBBBB00000000000000000000000000000000 - 0xBBBBBBBBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+///     0xBBBBBBBB00000000000000000000000000000000 - 0xBBBBBBBBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 /// The precompile for SFT series X where X is a u32 (i.e.4 bytes), if 0XFFFFFFFF +
 /// Bytes(CollectionUuid) In order to route the address to Erc1155Precompile<R>, we
 /// check whether the CollectionUuid exists in pallet-sft
@@ -208,7 +209,7 @@ where
 						Action::SetBaseURI => Self::set_base_uri(collection_id, handle),
 						Action::TogglePublicMint => Self::toggle_public_mint(collection_id, handle),
 						Action::SetMintFee => Self::set_mint_fee(collection_id, handle),
-						_ => return Some(Err(revert("ERC1155: Function not implemented").into())),
+						_ => return Some(Err(revert("ERC1155: Function not implemented"))),
 					}
 				};
 				return Some(result);
@@ -288,7 +289,7 @@ where
 			.into_iter()
 			.map(|id| {
 				if id > u32::MAX.into() {
-					return Err(revert("ERC1155: Expected token id <= 2^32").into());
+					return Err(revert("ERC1155: Expected token id <= 2^32"));
 				}
 				Ok(id.saturated_into())
 			})
@@ -347,7 +348,7 @@ where
 			None.into(),
 			pallet_token_approvals::Call::<Runtime>::erc1155_approval_for_all {
 				caller: handle.context().caller.into(),
-				operator_account: operator.clone().into(),
+				operator_account: operator.into(),
 				collection_uuid: collection_id,
 				approved,
 			},
@@ -444,14 +445,10 @@ where
 			match reason {
 				ExitReason::Succeed(_) => {
 					if output[..4] != ON_ERC1155_RECEIVED_FUNCTION_SELECTOR.to_vec() {
-						return Err(revert("ERC1155: ERC1155Receiver rejected tokens").into());
+						return Err(revert("ERC1155: ERC1155Receiver rejected tokens"));
 					}
 				},
-				_ => {
-					return Err(
-						revert("ERC1155: transfer to non-ERC1155Receiver implementer").into()
-					)
-				},
+				_ => return Err(revert("ERC1155: transfer to non-ERC1155Receiver implementer")),
 			};
 		}
 		Ok(())
@@ -552,14 +549,10 @@ where
 			match reason {
 				ExitReason::Succeed(_) => {
 					if output[..4] != ON_ERC1155_BATCH_RECEIVED_FUNCTION_SELECTOR.to_vec() {
-						return Err(revert("ERC1155: ERC1155Receiver rejected tokens").into());
+						return Err(revert("ERC1155: ERC1155Receiver rejected tokens"));
 					}
 				},
-				_ => {
-					return Err(
-						revert("ERC1155: transfer to non-ERC1155Receiver implementer").into()
-					)
-				},
+				_ => return Err(revert("ERC1155: transfer to non-ERC1155Receiver implementer")),
 			};
 		}
 		Ok(())
@@ -591,7 +584,7 @@ where
 		}
 
 		// Build input BoundedVec from serial_numbers and amounts.
-		let combined = serial_numbers.into_iter().zip(amounts.into_iter()).collect::<Vec<_>>();
+		let combined = serial_numbers.into_iter().zip(amounts).collect::<Vec<_>>();
 		let serial_numbers: BoundedVec<
 			(SerialNumber, Balance),
 			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
@@ -706,7 +699,7 @@ where
 		}
 
 		// Build input BoundedVec from serial_number and amount.
-		let combined = serial_numbers.into_iter().zip(balances.into_iter()).collect::<Vec<_>>();
+		let combined = serial_numbers.into_iter().zip(balances).collect::<Vec<_>>();
 		let serial_numbers: BoundedVec<
 			(SerialNumber, Balance),
 			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
@@ -793,9 +786,7 @@ where
 					.write(Address::from(Into::<H160>::into(collection_owner)))
 					.build(),
 			)),
-			None => Err(revert(
-				alloc::format!("ERC1155: Collection does not exist").as_bytes().to_vec(),
-			)),
+			None => Err(revert(String::from("ERC1155: Collection does not exist").as_bytes())),
 		}
 	}
 
@@ -910,9 +901,7 @@ where
 				Ok(succeed(EvmDataWriter::new().write(U256::from(serial_number)).build()))
 			},
 			Err(err) => Err(revert(
-				alloc::format!("ERC1155: Create token failed {:?}", err.stripped())
-					.as_bytes()
-					.to_vec(),
+				alloc::format!("ERC1155: Create token failed {:?}", err.stripped()).as_bytes(),
 			)),
 		}
 	}
@@ -992,7 +981,7 @@ where
 			.collect::<Result<Vec<Balance>, PrecompileFailure>>()?;
 
 		// Build input BoundedVec from serial_number and amount.
-		let combined = serial_numbers.into_iter().zip(balances.into_iter()).collect::<Vec<_>>();
+		let combined = serial_numbers.into_iter().zip(balances).collect::<Vec<_>>();
 		let serial_numbers: BoundedVec<
 			(SerialNumber, Balance),
 			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
@@ -1037,7 +1026,7 @@ where
 
 		// Parse max_supply
 		if max_supply > Balance::MAX.into() {
-			return Err(revert("ERC1155: Expected max_supply <= 2^128").into());
+			return Err(revert("ERC1155: Expected max_supply <= 2^128"));
 		}
 		let max_issuance: Balance = max_supply.saturated_into();
 		let origin = handle.context().caller;
@@ -1147,7 +1136,7 @@ where
 		)
 		.ok_or_else(|| revert("ERC1155: Invalid payment asset address"))?;
 		if mint_fee > Balance::MAX.into() {
-			return Err(revert("ERC1155: Expected mint_fee <= 2^128").into());
+			return Err(revert("ERC1155: Expected mint_fee <= 2^128"));
 		}
 		let fee: Balance = mint_fee.saturated_into();
 		// If the mint fee is 0, we can assume this means no mint fee

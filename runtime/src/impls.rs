@@ -350,7 +350,7 @@ where
 			.ok()?;
 		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
 		let (call, extra, _) = raw_payload.deconstruct();
-		Some((call, (account, signature.into(), extra)))
+		Some((call, (account, signature, extra)))
 	}
 }
 
@@ -375,10 +375,10 @@ impl FinalSessionTracker for StakingSessionTracker {
 		}
 
 		// check if era is going to be forced e.g. due to forced re-election
-		return match Staking::force_era() {
+		match Staking::force_era() {
 			Forcing::ForceNew | Forcing::ForceAlways => true,
 			Forcing::NotForcing | Forcing::ForceNone => false,
-		};
+		}
 	}
 }
 
@@ -491,7 +491,7 @@ impl seed_pallet_common::ExtrinsicChecker for MaintenanceModeCallValidator {
 	type Extra = ();
 	type Result = bool;
 	fn check_extrinsic(call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
-		!pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(&call)
+		!pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(call)
 	}
 }
 
@@ -596,7 +596,7 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		// Check if the futurepass account has balance less than the existential deposit
 		// If it does, fund with the ED to allow the Futurepass to reserve balance while still
 		// keeping the account alive
-		let account_balance = pallet_balances::Pallet::<Runtime>::balance(&futurepass);
+		let account_balance = pallet_balances::Pallet::<Runtime>::balance(futurepass);
 		let minimum_balance = crate::ExistentialDeposit::get();
 		if account_balance < minimum_balance {
 			extra_reserve_required = extra_reserve_required.saturating_add(minimum_balance);
@@ -668,7 +668,7 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		call: RuntimeCall,
 	) -> DispatchResult {
 		let call = pallet_proxy::Call::<Runtime>::proxy {
-			real: futurepass.into(),
+			real: futurepass,
 			force_proxy_type: None,
 			call: call.into(),
 		};
@@ -717,9 +717,9 @@ impl TryFrom<u8> for ProxyType {
 	}
 }
 
-impl Into<u8> for ProxyType {
-	fn into(self) -> u8 {
-		match self {
+impl From<ProxyType> for u8 {
+	fn from(proxy_type: ProxyType) -> u8 {
+		match proxy_type {
 			ProxyType::NoPermission => 0,
 			ProxyType::Any => 1,
 			ProxyType::NonTransfer => 2,
@@ -964,10 +964,10 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 		match &actual_call {
 			// Balances
 			RuntimeCall::Balances(pallet_balances::Call::transfer { dest, value }) => {
-				let who = <Runtime as frame_system::Config>::Lookup::lookup(dest.clone())
+				let who = <Runtime as frame_system::Config>::Lookup::lookup(*dest)
 					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
 				let destination: [u8; 20] = who.into();
-				let value_u128: u128 = (*value).into();
+				let value_u128: u128 = *value;
 
 				topping
 					.validate_module(
@@ -983,10 +983,10 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 				Ok(())
 			},
 			RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { dest, value }) => {
-				let who = <Runtime as frame_system::Config>::Lookup::lookup(dest.clone())
+				let who = <Runtime as frame_system::Config>::Lookup::lookup(*dest)
 					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
 				let destination: [u8; 20] = who.into();
-				let value_u128: u128 = (*value).into();
+				let value_u128: u128 = *value;
 
 				topping
 					.validate_module(
@@ -1003,7 +1003,7 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 			},
 			// Futurepass
 			RuntimeCall::Futurepass(pallet_futurepass::Call::create { account }) => {
-				let owner_account: [u8; 20] = (*account).clone().into();
+				let owner_account: [u8; 20] = (*account).into();
 				topping
 					.validate_module(
 						pallet_name,
@@ -1032,10 +1032,9 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 				keep_alive,
 			}) => {
 				let asset_id_u64: u64 = (*asset_id).into();
-				let who = <Runtime as frame_system::Config>::Lookup::lookup(destination.clone())
+				let who = <Runtime as frame_system::Config>::Lookup::lookup(*destination)
 					.map_err(|_| pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied)?;
 				let destination: [u8; 20] = who.into();
-				let amount_u128: u128 = (*amount).into();
 				let keep_alive_u64: u64 = (*keep_alive).into();
 
 				topping
@@ -1046,7 +1045,7 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 						&[
 							PactType::Numeric(Numeric(asset_id_u64)),
 							PactType::StringLike(StringLike(destination.to_vec())),
-							PactType::Numeric(Numeric(amount_u128 as u64)),
+							PactType::Numeric(Numeric(*amount as u64)),
 							PactType::Numeric(Numeric(keep_alive_u64)),
 						],
 					)
@@ -1054,7 +1053,7 @@ impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 				Ok(())
 			},
 
-			_ => return Err(pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied.into()),
+			_ => Err(pallet_doughnut::Error::<Runtime>::ToppingPermissionDenied.into()),
 		}
 	}
 }
@@ -1115,7 +1114,7 @@ impl seed_pallet_common::ExtrinsicChecker for CrowdsaleProxyVaultValidator {
 
 	fn check_extrinsic(call: &Self::Call, _permission_object: &Self::Extra) -> Self::Result {
 		// check maintenance mode
-		if pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(&call) {
+		if pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(call) {
 			return Err(frame_system::Error::<Runtime>::CallFiltered.into());
 		}
 

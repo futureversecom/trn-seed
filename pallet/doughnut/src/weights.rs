@@ -67,26 +67,26 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `MaintenanceMode::BlockedPallets` (r:1 w:0)
 	// Proof: `MaintenanceMode::BlockedPallets` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `MaxEncodedLen`)
 	fn transact() -> Weight {
-		Weight::from_all(514_937_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(5 as u64))
+		Weight::from_all(514_937_000_u64)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
 	}
 	// Storage: `Doughnut::BlockedDoughnuts` (r:0 w:1)
 	// Proof: `Doughnut::BlockedDoughnuts` (`max_values`: None, `max_size`: Some(41), added: 2516, mode: `MaxEncodedLen`)
 	fn revoke_doughnut() -> Weight {
-		Weight::from_all(54_500_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(54_500_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Doughnut::BlockedHolders` (r:0 w:1)
 	// Proof: `Doughnut::BlockedHolders` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	fn revoke_holder() -> Weight {
-		Weight::from_all(27_483_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(27_483_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Doughnut::WhitelistedHolders` (r:0 w:1)
 	// Proof: `Doughnut::WhitelistedHolders` (`max_values`: None, `max_size`: Some(29), added: 2504, mode: `MaxEncodedLen`)
 	fn update_whitelisted_holders() -> Weight {
-		Weight::from_all(26_157_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(26_157_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -103,26 +103,26 @@ impl WeightInfo for () {
 	// Storage: `MaintenanceMode::BlockedPallets` (r:1 w:0)
 	// Proof: `MaintenanceMode::BlockedPallets` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `MaxEncodedLen`)
 	fn transact() -> Weight {
-		Weight::from_all(514_937_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(5 as u64))
+		Weight::from_all(514_937_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
 	}
 	// Storage: `Doughnut::BlockedDoughnuts` (r:0 w:1)
 	// Proof: `Doughnut::BlockedDoughnuts` (`max_values`: None, `max_size`: Some(41), added: 2516, mode: `MaxEncodedLen`)
 	fn revoke_doughnut() -> Weight {
-		Weight::from_all(54_500_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(54_500_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Doughnut::BlockedHolders` (r:0 w:1)
 	// Proof: `Doughnut::BlockedHolders` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	fn revoke_holder() -> Weight {
-		Weight::from_all(27_483_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(27_483_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Doughnut::WhitelistedHolders` (r:0 w:1)
 	// Proof: `Doughnut::WhitelistedHolders` (`max_values`: None, `max_size`: Some(29), added: 2504, mode: `MaxEncodedLen`)
 	fn update_whitelisted_holders() -> Weight {
-		Weight::from_all(26_157_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(26_157_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
 

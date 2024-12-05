@@ -15,7 +15,6 @@
 
 //! Integration runtime mock storage
 //! Defines mock genesis state for the real seed runtime config
-#![cfg(test)]
 
 mod evm_fees;
 mod evm_gas_costs;
@@ -77,12 +76,12 @@ pub struct ExtBuilder {
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
-		let dev_uris = vec!["Alice", "Bob", "Charlie"];
+		let dev_uris = ["Alice", "Bob", "Charlie"];
 		let initial_authorities: Vec<AuthorityKeys> =
 			dev_uris.iter().map(|s| authority_keys_from_seed(s)).collect();
 		Self {
 			// fund Alice-Ferdie
-			accounts_to_fund: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+			accounts_to_fund: initial_authorities.iter().map(|x| x.0).collect(),
 			// Alice
 			root_account: initial_authorities[0].0,
 			// Alice & Bob
@@ -132,12 +131,11 @@ impl ExtBuilder {
 			(XRP_ASSET_ID, self.root_account, true, XRP_MINIMUM_BALANCE),
 		];
 
-		let stashes: Vec<AccountId> =
-			self.initial_authorities.iter().map(|x| x.0.clone()).collect();
+		let stashes: Vec<AccountId> = self.initial_authorities.iter().map(|x| x.0).collect();
 		// ensure stashes will be funded too, ignore duplicates
 		let mut accounts_to_fund = self.accounts_to_fund.clone();
 		for s in stashes.iter() {
-			if accounts_to_fund.iter().find(|acc| *acc == s).is_none() {
+			if !accounts_to_fund.iter().any(|acc| acc == s) {
 				accounts_to_fund.push(*s);
 			}
 		}
@@ -169,7 +167,7 @@ impl ExtBuilder {
 				.initial_authorities
 				.clone()
 				.iter()
-				.map(|x| (x.0.clone(), x.0.clone(), VALIDATOR_BOND, StakerStatus::Validator))
+				.map(|x| (x.0, x.0, VALIDATOR_BOND, StakerStatus::Validator))
 				.collect(),
 			slash_reward_fraction: Perbill::from_percent(10),
 			invulnerables,
@@ -273,11 +271,11 @@ fn get_pair_from_signer(signer: &AccountId20) -> ecdsa::Pair {
 	let bob = bob();
 	let charlie = charlie();
 	if signer == &alice {
-		ecdsa::Pair::from_string(&"//Alice", None).unwrap()
+		ecdsa::Pair::from_string("//Alice", None).unwrap()
 	} else if signer == &bob {
-		ecdsa::Pair::from_string(&"//Bob", None).unwrap()
+		ecdsa::Pair::from_string("//Bob", None).unwrap()
 	} else if signer == &charlie {
-		ecdsa::Pair::from_string(&"//Charlie", None).unwrap()
+		ecdsa::Pair::from_string("//Charlie", None).unwrap()
 	} else {
 		unimplemented!("unknown signer, add to keyring");
 	}

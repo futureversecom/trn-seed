@@ -13,8 +13,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-#![cfg(test)]
-
 use super::*;
 use crate::{self as pallet_dex};
 use seed_pallet_common::test_prelude::*;

@@ -178,7 +178,7 @@ fn do_deposit_creates_tokens_and_collection() {
 			RootNftToErc721::<Test>::get(expected_collection_id),
 			Some(test_vals.token_address)
 		);
-		assert_eq!(Nft::collection_exists(expected_collection_id), true);
+		assert!(Nft::collection_exists(expected_collection_id));
 
 		let collection_info = CollectionInfo::<Test>::get(expected_collection_id).unwrap();
 		let mut h160_addr = sp_std::Writer::default();

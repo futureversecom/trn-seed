@@ -34,7 +34,7 @@ pub struct TestData {
 
 fn prepare_test() -> TestData {
 	let alice = create_account(10);
-	let coll_owner = alice.clone();
+	let coll_owner = alice;
 	let collection_name = BoundedVec::truncate_from("Hello".into());
 	let metadata_scheme = MetadataScheme::try_from(
 		b"ethereum://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".as_slice(),
@@ -42,7 +42,7 @@ fn prepare_test() -> TestData {
 	.unwrap();
 
 	let coll_id = Nft::do_create_collection(
-		coll_owner.clone(),
+		coll_owner,
 		collection_name,
 		0,
 		None,
@@ -54,13 +54,13 @@ fn prepare_test() -> TestData {
 	)
 	.unwrap();
 
-	let origin = RawOrigin::Signed(alice.clone()).into();
+	let origin = RawOrigin::Signed(alice).into();
 	let count = 10u32;
 	assert_ok!(Nft::mint(origin, coll_id, count + 1, Some(alice)));
 	let coll_tokens: Vec<TokenId> = vec![(coll_id, count)];
 
-	let token_id = coll_tokens[0].clone();
-	let token_owner = coll_owner.clone();
+	let token_id = coll_tokens[0];
+	let token_owner = coll_owner;
 
 	TestData { coll_owner, coll_id, coll_tokens, token_id, token_owner }
 }

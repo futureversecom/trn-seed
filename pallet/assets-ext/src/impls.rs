@@ -232,7 +232,7 @@ where
 
 		// no change to balance
 		// either withdraw failed or free == new_balance
-		return SignedImbalance::Positive(PositiveImbalance::default());
+		SignedImbalance::Positive(PositiveImbalance::default())
 	}
 	// unused staking/inflation related methods
 	fn can_slash(_who: &T::AccountId, _value: Self::Balance) -> bool {
