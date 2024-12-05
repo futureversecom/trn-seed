@@ -256,6 +256,8 @@ const OWNABLE_ABI = [
   "function transferOwnership(address owner)",
 ];
 
+const ERC165_ABI = ["function supportsInterface(bytes4 interfaceId) public view returns (bool)"];
+
 export const FEE_PROXY_ABI_DEPRECATED = [
   "function callWithFeePreferences(address asset, uint128 maxPayment, address target, bytes input)",
 ];
@@ -331,6 +333,9 @@ export const ERC721_PRECOMPILE_ABI = [
 
   // Ownable
   ...OWNABLE_ABI,
+
+  // ERC165
+  ...ERC165_ABI,
 ];
 
 export const ERC1155_PRECOMPILE_ABI = [
