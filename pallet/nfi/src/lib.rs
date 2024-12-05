@@ -367,18 +367,10 @@ impl<T: Config> Pallet<T> {
 	) {
 		if NfiData::<T>::contains_key(token_id.clone(), sub_type) {
 			// Deposit event to request new data for an existing token
-			Self::deposit_event(Event::<T>::DataRequestExisting {
-				caller,
-				sub_type,
-				token_id,
-			});
+			Self::deposit_event(Event::<T>::DataRequestExisting { caller, sub_type, token_id });
 		} else {
 			// Deposit event requesting data for a new token
-			Self::deposit_event(Event::<T>::DataRequestNew {
-				caller,
-				sub_type,
-				token_id,
-			});
+			Self::deposit_event(Event::<T>::DataRequestNew { caller, sub_type, token_id });
 		}
 	}
 

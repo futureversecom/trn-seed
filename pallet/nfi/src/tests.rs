@@ -312,7 +312,6 @@ mod manual_data_request {
 				token_id: token_id.clone(),
 			}));
 
-
 			// Submit data
 			let data_item = NFIDataType::NFI(NFIMatrix {
 				metadata_link: BoundedVec::truncate_from(b"https://example.com".to_vec()),
@@ -323,7 +322,6 @@ mod manual_data_request {
 				token_id.clone(),
 				data_item.clone()
 			));
-
 
 			// Request data again
 			assert_ok!(Nfi::manual_data_request(
@@ -338,7 +336,6 @@ mod manual_data_request {
 				sub_type,
 				token_id: token_id.clone(),
 			}));
-
 
 			// Submit data is successful
 			let data_item = NFIDataType::NFI(NFIMatrix {
