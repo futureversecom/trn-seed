@@ -145,6 +145,7 @@ mod migrations;
 mod weights;
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
+use seed_primitives::migration::NoopMigration;
 
 #[cfg(test)]
 mod tests;
@@ -1383,7 +1384,7 @@ parameter_types! {
 impl pallet_migration::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// Set to NoopMigration if no migration is in progress
-	type CurrentMigration = migrations::xls20_multi::Xls20Migration<Runtime>;
+	type CurrentMigration = NoopMigration;
 	type MaxMigrationWeight = MaxMigrationWeight;
 	type WeightInfo = weights::pallet_migration::WeightInfo<Runtime>;
 }
