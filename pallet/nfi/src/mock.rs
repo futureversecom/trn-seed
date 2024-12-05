@@ -86,7 +86,9 @@ impl pallet_sft::Config for Test {
 
 parameter_types! {
 	pub const MaxDataLength: u32 = 100;
+	pub const MaxByteLength: u32 = 100;
 	pub const NFINetworkFeePercentage: Permill = Permill::from_perthousand(5);
+	pub const ChainId: u64 = 7672;
 }
 
 impl crate::Config for Test {
@@ -96,5 +98,7 @@ impl crate::Config for Test {
 	type SFTExt = Sft;
 	type NetworkFeePercentage = NFINetworkFeePercentage;
 	type MaxDataLength = MaxDataLength;
+	type MaxByteLength = MaxByteLength;
 	type WeightInfo = ();
+	type ChainId = ChainId;
 }
