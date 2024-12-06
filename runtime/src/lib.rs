@@ -145,6 +145,7 @@ mod migrations;
 mod weights;
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
+use seed_primitives::migration::NoopMigration;
 
 #[cfg(test)]
 mod tests;
@@ -158,10 +159,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 62,
+	spec_version: 63,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 12,
+	transaction_version: 13,
 	state_version: 0,
 };
 
@@ -1383,7 +1384,7 @@ parameter_types! {
 impl pallet_migration::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// Set to NoopMigration if no migration is in progress
-	type CurrentMigration = migrations::xls20_multi::Xls20Migration<Runtime>;
+	type CurrentMigration = NoopMigration;
 	type MaxMigrationWeight = MaxMigrationWeight;
 	type WeightInfo = weights::pallet_migration::WeightInfo<Runtime>;
 }

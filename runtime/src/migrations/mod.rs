@@ -14,7 +14,6 @@
 // You may obtain a copy of the License at the root of this project source code
 
 mod nfi;
-pub mod xls20_multi;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
