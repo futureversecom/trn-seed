@@ -230,7 +230,11 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		},
 		/// A token was burned
-		Burn { collection_id: CollectionUuid, serial_number: SerialNumber },
+		Burn {
+			token_owner: T::AccountId,
+			collection_id: CollectionUuid,
+			serial_number: SerialNumber,
+		},
 		/// Collection has been claimed
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
 		/// Utility flags were set for a collection
@@ -609,7 +613,11 @@ pub mod pallet {
 			let (collection_id, serial_number) = token_id;
 
 			Self::do_burn(&who, collection_id, serial_number)?;
-			Self::deposit_event(Event::<T>::Burn { collection_id, serial_number });
+			Self::deposit_event(Event::<T>::Burn {
+				token_owner: who,
+				collection_id,
+				serial_number,
+			});
 			Ok(())
 		}
 
