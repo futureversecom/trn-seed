@@ -264,17 +264,23 @@ export const FEE_PROXY_ABI_DEPRECATED = [
 export const FEE_PROXY_ABI = ["function callWithFeePreferences(address asset, address target, bytes input)"];
 
 export const ERC20_ABI = [
+  // ERC20
   "event Transfer(address indexed from, address indexed to, uint256 value)",
   "event Approval(address indexed owner, address indexed spender, uint256 value)",
   "function approve(address spender, uint256 amount) public returns (bool)",
   "function allowance(address owner, address spender) public view returns (uint256)",
   "function balanceOf(address who) public view returns (uint256)",
-  "function name() public view returns (string memory)",
-  "function symbol() public view returns (string memory)",
-  "function decimals() public view returns (uint8)",
   "function totalSupply() external view returns (uint256)",
   "function transfer(address who, uint256 amount)",
   "function transferFrom(address from, address to, uint256 amount)",
+
+  // ERC20 Metadata
+  "function name() public view returns (string memory)",
+  "function symbol() public view returns (string memory)",
+  "function decimals() public view returns (uint8)",
+
+  // ERC165
+  ...ERC165_ABI,
 ];
 
 export const NFT_PRECOMPILE_ABI = [
