@@ -68,7 +68,7 @@ pub const SELECTOR_LOG_MINT_FEE_UPDATED: [u8; 32] = keccak256!("MintFeeUpdated(a
 /// Solidity selector of the onERC721Received(address,address,uint256,bytes) function
 pub const ON_ERC721_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0x15, 0x0b, 0x7a, 0x02];
 
-/// Interface IDs for the ERC721, ERC721Metadata, ERC721Burnable, Ownable, and TRN721 interfaces
+/// Interface IDs for the ERC165, ERC721, ERC721Metadata, ERC721Burnable, Ownable, and TRN721 interfaces
 pub const ERC165_INTERFACE_IDS: &[u32] = &[
 	0x01ffc9a7, // ERC165
 	0x80ac58cd, // ERC721
