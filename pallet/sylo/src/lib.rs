@@ -75,7 +75,7 @@ pub mod pallet {
 	pub type Resolvers<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
-		ResolverId<T::StringLimit>,
+		BoundedVec<u8, T::StringLimit>,
 		Resolver<T::AccountId, T::MaxServiceEndpoints, T::StringLimit>,
 	>;
 
@@ -118,17 +118,15 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let resolver_id = Self::get_reserved_resolver_id(identifier.clone());
-
 			ensure!(
-				<Resolvers<T>>::get(resolver_id.clone()).is_none(),
+				<Resolvers<T>>::get(identifier.clone()).is_none(),
 				Error::<T>::ResolverAlreadyRegistered
 			);
 
 			let resolver =
 				Resolver { controller: who.clone(), service_endpoints: service_endpoints.clone() };
 
-			<Resolvers<T>>::insert(resolver_id, resolver);
+			<Resolvers<T>>::insert(identifier.clone(), resolver);
 
 			Self::deposit_event(Event::ResolverRegistered {
 				id: identifier.to_vec(),
@@ -148,15 +146,14 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let resolver_id = Self::get_reserved_resolver_id(identifier.clone());
-			let mut resolver = <Resolvers<T>>::get(resolver_id.clone())
-				.ok_or(Error::<T>::ResolverNotRegistered)?;
+			let mut resolver =
+				<Resolvers<T>>::get(identifier.clone()).ok_or(Error::<T>::ResolverNotRegistered)?;
 
 			ensure!(who == resolver.controller, Error::<T>::NotController);
 
 			resolver.service_endpoints = service_endpoints.clone();
 
-			<Resolvers<T>>::insert(resolver_id, resolver);
+			<Resolvers<T>>::insert(identifier.clone(), resolver);
 
 			Self::deposit_event(Event::ResolverUpdated {
 				id: identifier.to_vec(),
@@ -175,13 +172,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let resolver_id = Self::get_reserved_resolver_id(identifier.clone());
-			let mut resolver = <Resolvers<T>>::get(resolver_id.clone())
-				.ok_or(Error::<T>::ResolverNotRegistered)?;
+			let resolver =
+				<Resolvers<T>>::get(identifier.clone()).ok_or(Error::<T>::ResolverNotRegistered)?;
 
 			ensure!(who == resolver.controller, Error::<T>::NotController);
 
-			<Resolvers<T>>::remove(resolver_id);
+			<Resolvers<T>>::remove(identifier.clone());
 
 			Self::deposit_event(Event::ResolverUnregistered { id: identifier.to_vec() });
 

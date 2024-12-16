@@ -16,11 +16,12 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	parameter_types, traits::Get, BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebug,
+	RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
 use seed_primitives::{AssetId, Balance};
 use sp_core::{H160, H256};
-use sp_std::default::Default;
+use sp_std::{fmt::Debug, prelude::*};
 
 parameter_types! {
 	pub const MethodLimit: u32 = 32;
@@ -39,10 +40,13 @@ where
 
 pub type ServiceEndpoint<StringLimit: Get<u32>> = BoundedVec<u8, StringLimit>;
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(MaxServiceEndpoints, StringLimit))]
 pub struct Resolver<AccountId, MaxServiceEndpoints, StringLimit>
 where
+	AccountId: Debug + PartialEq + Clone,
 	MaxServiceEndpoints: Get<u32>,
 	StringLimit: Get<u32>,
 {
