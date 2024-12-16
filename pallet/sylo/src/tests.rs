@@ -14,7 +14,6 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use crate::mock::AssetsExt;
 use hex::encode;
 use mock::{Dex, RuntimeEvent as MockEvent, RuntimeOrigin, System, Test, TestExt};
 use seed_pallet_common::test_prelude::*;

@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use crate::{self as pallet_dex};
+use crate::{self as pallet_sylo};
 use seed_pallet_common::test_prelude::*;
 
 construct_runtime!(
@@ -23,7 +23,7 @@ construct_runtime!(
 		Balances: pallet_balances,
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
-		Dex: pallet_dex,
+		Dex: pallet_sylo,
 	}
 );
 
@@ -33,15 +33,15 @@ impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 
 parameter_types! {
-	pub const GetExchangeFee: (u32, u32) = (3, 1000); // 0.3% fee
-	pub const TradingPathLimit: u32 = 3;
-	pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
-	pub const LPTokenDecimals: u8 = 6;
-	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
-	pub const DefaultFeeTo: Option<PalletId> = Some(TxFeePotId::get());
+	pub const MaxServiceEndpoints: u32 = 10;
+	pub const StringLimit: u32 = 100;
+	pub const ResolverMethod: [u8; 9] = *b"sylo-data";
 }
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type MaxServiceEndpoints = MaxServiceEndpoints;
+	type StringLimit = StringLimit;
+	type ResolverMethod = ResolverMethod;
 }
 
 #[derive(Default)]

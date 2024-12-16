@@ -14,13 +14,41 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{traits::Get, BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebug};
+use frame_support::{
+	parameter_types, traits::Get, BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebug,
+};
 use scale_info::TypeInfo;
 use seed_primitives::{AssetId, Balance};
 use sp_core::{H160, H256};
 use sp_std::default::Default;
 
-pub type ResolverId<StringLimit> = BoundedVec<u8, StringLimit>;
+parameter_types! {
+	pub const MethodLimit: u32 = 32;
+	pub const IdentifierLimit: u32 = 64;
+}
+
+#[derive(CloneNoBound, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(StringLimit))]
+pub struct ResolverId<StringLimit>
+where
+	StringLimit: Get<u32>,
+{
+	pub method: BoundedVec<u8, StringLimit>,
+	pub identifier: BoundedVec<u8, StringLimit>,
+}
+
+pub type ServiceEndpoint<StringLimit: Get<u32>> = BoundedVec<u8, StringLimit>;
+
+#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(MaxServiceEndpoints, StringLimit))]
+pub struct Resolver<AccountId, MaxServiceEndpoints, StringLimit>
+where
+	MaxServiceEndpoints: Get<u32>,
+	StringLimit: Get<u32>,
+{
+	pub controller: AccountId,
+	pub service_endpoints: BoundedVec<ServiceEndpoint<StringLimit>, MaxServiceEndpoints>,
+}
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct ValidationRecord<AccountId, MaxResolvers, MaxTags, StringLimit>
