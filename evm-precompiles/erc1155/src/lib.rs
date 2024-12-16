@@ -31,7 +31,7 @@ use precompile_utils::{
 	prelude::*,
 };
 use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId};
-use sp_core::{H160, H256, U256};
+use sp_core::{Encode, H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
@@ -73,6 +73,17 @@ pub const SELECTOR_LOG_PUBLIC_MINT_TOGGLED: [u8; 32] = keccak256!("PublicMintTog
 pub const SELECTOR_LOG_MINT_FEE_UPDATED: [u8; 32] =
 	keccak256!("MintFeeUpdated(uint32,address,uint128)");
 
+/// Interface IDs for the ERC165, ERC1155, ERC1155Burnable, ERC1155Supply, ERC1155MetadataURI, Ownable and TRN1155 interfaces
+pub const ERC165_INTERFACE_IDS: &[u32] = &[
+	0x01ffc9a7, // ERC165
+	0xd9b67a26, // ERC1155
+	0x9e094e9e, // ERC1155Burnable
+	0x0e89341c, // ERC1155MetadataURI
+	0xf2d03e40, // ERC1155Supply
+	0x0e083076, // Ownable
+	0xf0f03f65, // TRN1155
+];
+
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
 pub enum Action {
@@ -106,6 +117,8 @@ pub enum Action {
 	// Selector used by SafeTransferFrom function
 	OnErc1155Received = "onERC1155Received(address,address,uint256,uint256,bytes)",
 	OnErc1155BatchReceived = "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)",
+	// ERC165 - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/introspection/ERC165.sol
+	SupportsInterface = "supportsInterface(bytes4)",
 }
 
 /// The following distribution has been decided for the precompiles
@@ -209,6 +222,8 @@ where
 						Action::SetBaseURI => Self::set_base_uri(collection_id, handle),
 						Action::TogglePublicMint => Self::toggle_public_mint(collection_id, handle),
 						Action::SetMintFee => Self::set_mint_fee(collection_id, handle),
+						// ERC165
+						Action::SupportsInterface => Self::supports_interface(handle),
 						_ => return Some(Err(revert("ERC1155: Function not implemented"))),
 					}
 				};
@@ -1164,5 +1179,27 @@ where
 		.record(handle)?;
 
 		Ok(succeed([]))
+	}
+
+	fn supports_interface(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+		read_args!(handle, { interface_id: U256 });
+
+		// Convert to bytes4 by getting the last 4 bytes of the BE representation
+		let interface_id_bytes = interface_id.encode();
+		let interface_id_u32 = u32::from_le_bytes(
+			interface_id_bytes[28..32]
+				.try_into()
+				.map_err(|_| revert("ERC165: Invalid interface ID"))?,
+		);
+
+		// ERC165 requires returning false for 0xffffffff
+		// https://eips.ethereum.org/EIPS/eip-165#how-a-contract-will-publish-the-interfaces-it-implements
+		if interface_id_u32 == 0xffffffff {
+			return Ok(succeed(EvmDataWriter::new().write(false).build()));
+		}
+
+		let supported = ERC165_INTERFACE_IDS.contains(&interface_id_u32);
+		Ok(succeed(EvmDataWriter::new().write(supported).build()))
 	}
 }

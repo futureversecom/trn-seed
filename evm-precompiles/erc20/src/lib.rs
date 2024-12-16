@@ -28,7 +28,7 @@ use frame_support::{
 use pallet_evm::PrecompileSet;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{AssetId, Balance};
-use sp_core::{H160, U256};
+use sp_core::{Encode, H160, U256};
 use sp_runtime::traits::SaturatedConversion;
 use sp_std::marker::PhantomData;
 
@@ -37,6 +37,13 @@ pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address
 
 /// Solidity selector of the Approval log, which is the Keccak of the Log signature
 pub const SELECTOR_LOG_APPROVAL: [u8; 32] = keccak256!("Approval(address,address,uint256)");
+
+/// Interface IDs for the ERC20, ERC20Metadata, and ERC165 interfaces
+pub const ERC165_INTERFACE_IDS: &[u32] = &[
+	0x01ffc9a7, // ERC165
+	0x36372b07, // ERC20
+	0xa219a025, // ERC20Metadata
+];
 
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -47,9 +54,12 @@ pub enum Action {
 	Transfer = "transfer(address,uint256)",
 	Approve = "approve(address,uint256)",
 	TransferFrom = "transferFrom(address,address,uint256)",
+	// ERC20Metadata - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/IERC20Metadata.sol
 	Name = "name()",
 	Symbol = "symbol()",
 	Decimals = "decimals()",
+	// ERC165 - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/introspection/ERC165.sol
+	SupportsInterface = "supportsInterface(bytes4)",
 }
 
 /// The following distribution has been decided for the precompiles
@@ -110,12 +120,15 @@ where
 					Action::TotalSupply => Self::total_supply(asset_id, handle),
 					Action::BalanceOf => Self::balance_of(asset_id, handle),
 					Action::Transfer => Self::transfer(asset_id, handle),
-					Action::Name => Self::name(asset_id, handle),
-					Action::Symbol => Self::symbol(asset_id, handle),
-					Action::Decimals => Self::decimals(asset_id, handle),
 					Action::Allowance => Self::allowance(asset_id, handle),
 					Action::Approve => Self::approve(asset_id, handle),
 					Action::TransferFrom => Self::transfer_from(asset_id, handle),
+					// ERC20Metadata
+					Action::Name => Self::name(asset_id, handle),
+					Action::Symbol => Self::symbol(asset_id, handle),
+					Action::Decimals => Self::decimals(asset_id, handle),
+					// ERC165
+					Action::SupportsInterface => Self::supports_interface(handle),
 				}
 			};
 
@@ -415,5 +428,27 @@ where
 				>>::decimals(asset_id))
 				.build(),
 		))
+	}
+
+	fn supports_interface(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+		read_args!(handle, { interface_id: U256 });
+
+		// Convert to bytes4 by getting the last 4 bytes of the BE representation
+		let interface_id_bytes = interface_id.encode();
+		let interface_id_u32 = u32::from_le_bytes(
+			interface_id_bytes[28..32]
+				.try_into()
+				.map_err(|_| revert("ERC165: Invalid interface ID"))?,
+		);
+
+		// ERC165 requires returning false for 0xffffffff
+		// https://eips.ethereum.org/EIPS/eip-165#how-a-contract-will-publish-the-interfaces-it-implements
+		if interface_id_u32 == 0xffffffff {
+			return Ok(succeed(EvmDataWriter::new().write(false).build()));
+		}
+
+		let supported = ERC165_INTERFACE_IDS.contains(&interface_id_u32);
+		Ok(succeed(EvmDataWriter::new().write(supported).build()))
 	}
 }

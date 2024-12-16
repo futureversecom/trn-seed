@@ -690,4 +690,78 @@ describe("ERC1155 Precompile", function () {
     // Check ownership is now zero address
     expect(await erc1155Precompile.owner()).to.equal(constants.AddressZero);
   });
+
+  it("supportsInterface", async () => {
+    // ERC165
+    expect(await erc1155Precompile.supportsInterface(0x01ffc9a7)).to.be.true;
+    // ERC1155
+    expect(await erc1155Precompile.supportsInterface(0xd9b67a26)).to.be.true;
+    // ERC1155Burnable
+    expect(await erc1155Precompile.supportsInterface(0x9e094e9e)).to.be.true;
+    // ERC1155MetadataURI
+    expect(await erc1155Precompile.supportsInterface(0x0e89341c)).to.be.true;
+    // ERC1155Supply
+    expect(await erc1155Precompile.supportsInterface(0xf2d03e40)).to.be.true;
+    // TRN1155
+    expect(await erc1155Precompile.supportsInterface(0xf0f03f65)).to.be.true;
+    // Ownable
+    expect(await erc1155Precompile.supportsInterface(0x0e083076)).to.be.true;
+  });
+
+  it("supportsInterface via contract", async () => {
+    // Deploy ERC1155PrecompileERC165Validator contract
+    const factory = await ethers.getContractFactory("ERC1155PrecompileERC165Validator");
+    const validator = await factory.connect(alithSigner).deploy();
+    await validator.deployed();
+
+    // Get all interface IDs from the validator contract
+    const {
+      erc165: erc165Id,
+      erc1155: erc1155Id,
+      erc1155Burnable: erc1155BurnableId,
+      erc1155MetadataURI: erc1155MetadataURIId,
+      erc1155Supply: erc1155SupplyId,
+      trn1155: trn1155Id,
+      ownable: ownableId,
+    } = await validator.getAllInterfaceIds();
+
+    // Validate individual interfaces
+    expect(await erc1155Precompile.supportsInterface(erc165Id)).to.be.true;
+    expect(await erc1155Precompile.supportsInterface(erc1155Id)).to.be.true;
+    expect(await erc1155Precompile.supportsInterface(erc1155BurnableId)).to.be.true;
+    expect(await erc1155Precompile.supportsInterface(erc1155MetadataURIId)).to.be.true;
+    expect(await erc1155Precompile.supportsInterface(erc1155SupplyId)).to.be.true;
+    expect(await erc1155Precompile.supportsInterface(trn1155Id)).to.be.true;
+    expect(await erc1155Precompile.supportsInterface(ownableId)).to.be.true;
+
+    // Validate using the contract's validation function
+    const [
+      supportsERC165,
+      supportsERC1155,
+      supportsERC1155Burnable,
+      supportsERC1155MetadataURI,
+      supportsERC1155Supply,
+      supportsTrn1155,
+      supportsOwnable,
+    ] = await validator.validateContract(erc1155Precompile.address);
+
+    // Assert all interfaces are supported
+    expect(supportsERC165).to.be.true;
+    expect(supportsERC1155).to.be.true;
+    expect(supportsERC1155Burnable).to.be.true;
+    expect(supportsERC1155MetadataURI).to.be.true;
+    expect(supportsERC1155Supply).to.be.true;
+    expect(supportsTrn1155).to.be.true;
+    expect(supportsOwnable).to.be.true;
+
+    // // Log the interface IDs for reference
+    // console.log("Interface IDs:");
+    // console.log("ERC165:", erc165Id);
+    // console.log("ERC1155:", erc1155Id);
+    // console.log("ERC1155Burnable:", erc1155BurnableId);
+    // console.log("ERC1155MetadataURI:", erc1155MetadataURIId);
+    // console.log("ERC1155Supply:", erc1155SupplyId);
+    // console.log("TRN1155:", trn1155Id);
+    // console.log("Ownable:", ownableId);
+  });
 });

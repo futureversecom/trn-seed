@@ -3,6 +3,12 @@
 Precompile address spec: `0xCCCCCCCC[4-byte-token-id]000000000000000000000000`
 
 ```solidity
+interface IERC165 {
+    function supportsInterface(bytes4 interfaceId) external view returns (bool);
+}
+```
+
+```solidity
 interface IERC20 is IERC165 {
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
