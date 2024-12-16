@@ -23,7 +23,7 @@ construct_runtime!(
 		Balances: pallet_balances,
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
-		Dex: pallet_sylo,
+		Sylo: pallet_sylo,
 	}
 );
 
