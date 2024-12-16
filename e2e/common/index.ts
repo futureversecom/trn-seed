@@ -357,15 +357,15 @@ export const ERC1155_PRECOMPILE_ABI = [
   "function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata data) external",
   "function safeBatchTransferFrom(address from, address to, uint256[] calldata ids, uint256[] calldata amounts, bytes calldata data) external",
 
-  // Burnable
+  // ERC1155Burnable
   "function burn(address account, uint256 id, uint256 value) external",
   "function burnBatch(address account, uint256[] ids, uint256[] values) external",
 
-  // Supply
+  // ERC1155Supply
   "function totalSupply(uint256 id) external view returns (uint256)",
   "function exists(uint256 id) external view returns (bool)",
 
-  // Metadata
+  // ERC1155MetadataURI
   "function uri(uint256 id) external view returns (string memory)",
 
   // TRN
@@ -385,6 +385,9 @@ export const ERC1155_PRECOMPILE_ABI = [
 
   // Ownable
   ...OWNABLE_ABI,
+
+  // ERC165
+  ...ERC165_ABI,
 ];
 
 export const FUTUREPASS_REGISTRAR_PRECOMPILE_ABI = [
