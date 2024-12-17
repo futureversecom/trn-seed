@@ -47,6 +47,7 @@ pub use types::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use serde::ser;
+	use sp_core::H256;
 
 	use super::*;
 
@@ -60,6 +61,15 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		#[pallet::constant]
+		type MaxResolvers: Get<u32>;
+
+		#[pallet::constant]
+		type MaxTags: Get<u32>;
+
+		#[pallet::constant]
+		type MaxEntries: Get<u32>;
 
 		#[pallet::constant]
 		type MaxServiceEndpoints: Get<u32>;
@@ -79,6 +89,23 @@ pub mod pallet {
 		Resolver<T::AccountId, T::MaxServiceEndpoints, T::StringLimit>,
 	>;
 
+	#[pallet::storage]
+	pub type ValidationRecords<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		Twox64Concat,
+		BoundedVec<u8, T::StringLimit>,
+		ValidationRecord<
+			T::AccountId,
+			BlockNumberFor<T>,
+			T::MaxResolvers,
+			T::MaxTags,
+			T::MaxEntries,
+			T::StringLimit,
+		>,
+	>;
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The Resolver identifier is already in use
@@ -87,6 +114,10 @@ pub mod pallet {
 		ResolverNotRegistered,
 		/// Account is not controller of resolver
 		NotController,
+		/// A validation record with the given data id has already been created
+		RecordAlreadyCreated,
+		/// The validation record to be updated has not been created
+		RecordNotCreated,
 	}
 
 	#[pallet::event]
@@ -103,6 +134,26 @@ pub mod pallet {
 			service_endpoints: BoundedVec<BoundedVec<u8, T::StringLimit>, T::MaxServiceEndpoints>,
 		},
 		ResolverUnregistered {
+			id: Vec<u8>,
+		},
+		ValidationRecordCreated {
+			author: T::AccountId,
+			id: Vec<u8>,
+		},
+		ValidationEntryAdded {
+			author: T::AccountId,
+			id: Vec<u8>,
+			checksum: H256,
+		},
+		ValidationRecordUpdated {
+			author: T::AccountId,
+			id: Vec<u8>,
+			resolvers: Option<Vec<Vec<u8>>>,
+			data_type: Option<Vec<u8>>,
+			tags: Option<Vec<Vec<u8>>>,
+		},
+		ValidationRecordDeleted {
+			author: T::AccountId,
 			id: Vec<u8>,
 		},
 	}
@@ -180,6 +231,151 @@ pub mod pallet {
 			<Resolvers<T>>::remove(identifier.clone());
 
 			Self::deposit_event(Event::ResolverUnregistered { id: identifier.to_vec() });
+
+			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(1_000)]
+		pub fn create_validation_record(
+			origin: OriginFor<T>,
+			data_id: BoundedVec<u8, T::StringLimit>,
+			resolvers: BoundedVec<ResolverId<T::StringLimit>, T::MaxResolvers>,
+			data_type: BoundedVec<u8, T::StringLimit>,
+			tags: BoundedVec<BoundedVec<u8, T::StringLimit>, T::MaxTags>,
+			checksum: H256,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			ensure!(
+				<ValidationRecords<T>>::get(who.clone(), data_id.clone()).is_none(),
+				Error::<T>::RecordAlreadyCreated
+			);
+
+			let reserved_method: BoundedVec<u8, T::StringLimit> =
+				BoundedVec::try_from(<T as Config>::ResolverMethod::get().to_vec())
+					.expect("Failed to convert invalid resolver method config");
+
+			// Ensure any sylo data resolvers are already registered
+			for resolver in resolvers.clone() {
+				if resolver.method == reserved_method {
+					ensure!(
+						<Resolvers<T>>::get(resolver.identifier).is_some(),
+						Error::<T>::ResolverNotRegistered
+					);
+				}
+			}
+
+			let current_block = <frame_system::Pallet<T>>::block_number();
+
+			let record = ValidationRecord {
+				author: who.clone(),
+				resolvers,
+				data_type,
+				tags,
+				entries: BoundedVec::truncate_from(vec![ValidationEntry {
+					checksum,
+					block: current_block,
+				}]),
+			};
+
+			<ValidationRecords<T>>::insert(who.clone(), data_id.clone(), record);
+
+			Self::deposit_event(Event::ValidationRecordCreated {
+				author: who,
+				id: data_id.to_vec(),
+			});
+
+			Ok(())
+		}
+
+		#[pallet::call_index(4)]
+		#[pallet::weight(1_000)]
+		pub fn add_validation_record_entry(
+			origin: OriginFor<T>,
+			data_id: BoundedVec<u8, T::StringLimit>,
+			checksum: H256,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let mut record = <ValidationRecords<T>>::get(who.clone(), data_id.clone())
+				.ok_or(Error::<T>::RecordNotCreated)?;
+
+			record.entries.force_push(ValidationEntry {
+				checksum: checksum.clone(),
+				block: <frame_system::Pallet<T>>::block_number(),
+			});
+
+			<ValidationRecords<T>>::insert(who.clone(), data_id.clone(), record);
+
+			Self::deposit_event(Event::ValidationEntryAdded {
+				author: who,
+				id: data_id.to_vec(),
+				checksum,
+			});
+
+			Ok(())
+		}
+
+		#[pallet::call_index(5)]
+		#[pallet::weight(1_000)]
+		pub fn update_validation_record(
+			origin: OriginFor<T>,
+			data_id: BoundedVec<u8, T::StringLimit>,
+			resolvers: Option<BoundedVec<ResolverId<T::StringLimit>, T::MaxResolvers>>,
+			data_type: Option<BoundedVec<u8, T::StringLimit>>,
+			tags: Option<BoundedVec<BoundedVec<u8, T::StringLimit>, T::MaxTags>>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let mut record = <ValidationRecords<T>>::get(who.clone(), data_id.clone())
+				.ok_or(Error::<T>::RecordNotCreated)?;
+
+			if let Some(resolvers) = resolvers.clone() {
+				record.resolvers = resolvers;
+			}
+
+			if let Some(data_type) = data_type.clone() {
+				record.data_type = data_type;
+			}
+
+			if let Some(tags) = tags.clone() {
+				record.tags = tags;
+			}
+
+			<ValidationRecords<T>>::insert(who.clone(), data_id.clone(), record);
+
+			Self::deposit_event(Event::ValidationRecordUpdated {
+				author: who,
+				id: data_id.to_vec(),
+				resolvers: resolvers
+					.map(|resolvers| resolvers.iter().map(|resolver| resolver.to_did()).collect()),
+				data_type: data_type.map(|data_type| data_type.to_vec()),
+				tags: tags.map(|tags| tags.iter().map(|tag| tag.to_vec()).collect()),
+			});
+
+			Ok(())
+		}
+
+		#[pallet::call_index(6)]
+		#[pallet::weight(1_000)]
+		pub fn delete_validation_record(
+			origin: OriginFor<T>,
+			data_id: BoundedVec<u8, T::StringLimit>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			ensure!(
+				<ValidationRecords<T>>::get(who.clone(), data_id.clone()).is_some(),
+				Error::<T>::RecordNotCreated
+			);
+
+			<ValidationRecords<T>>::remove(who.clone(), data_id.clone());
+
+			Self::deposit_event(Event::ValidationRecordDeleted {
+				author: who,
+				id: data_id.to_vec(),
+			});
 
 			Ok(())
 		}

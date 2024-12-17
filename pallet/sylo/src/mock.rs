@@ -33,12 +33,18 @@ impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 
 parameter_types! {
+	pub const MaxResolvers: u32 = 10;
+	pub const MaxTags: u32 = 10;
+	pub const MaxEntries: u32 = 100;
 	pub const MaxServiceEndpoints: u32 = 10;
 	pub const StringLimit: u32 = 100;
 	pub const ResolverMethod: [u8; 9] = *b"sylo-data";
 }
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
+	type MaxResolvers = MaxResolvers;
+	type MaxTags = MaxTags;
+	type MaxEntries = MaxEntries;
 	type MaxServiceEndpoints = MaxServiceEndpoints;
 	type StringLimit = StringLimit;
 	type ResolverMethod = ResolverMethod;
