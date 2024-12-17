@@ -15,12 +15,12 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	parameter_types, traits::Get, BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebug,
-	RuntimeDebugNoBound,
+	parameter_types, traits::Get, BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound,
+	RuntimeDebug, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
 use seed_primitives::{AssetId, Balance};
-use sp_core::{H160, H256};
+use sp_core::{hexdisplay::AsBytesRef, H160, H256};
 use sp_std::{fmt::Debug, prelude::*};
 
 parameter_types! {
@@ -28,7 +28,16 @@ parameter_types! {
 	pub const IdentifierLimit: u32 = 64;
 }
 
-#[derive(CloneNoBound, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[derive(
+	CloneNoBound,
+	RuntimeDebugNoBound,
+	Encode,
+	Decode,
+	PartialEqNoBound,
+	EqNoBound,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(StringLimit))]
 pub struct ResolverId<StringLimit>
 where
@@ -38,7 +47,19 @@ where
 	pub identifier: BoundedVec<u8, StringLimit>,
 }
 
-pub type ServiceEndpoint<StringLimit: Get<u32>> = BoundedVec<u8, StringLimit>;
+impl<T: Get<u32>> ResolverId<T> {
+	pub fn to_did(&self) -> Vec<u8> {
+		let method = self.method.to_vec();
+		let method = String::from_utf8_lossy(method.as_bytes_ref());
+
+		let identifier = self.identifier.to_vec();
+		let identifier = String::from_utf8_lossy(identifier.as_bytes_ref());
+
+		format!("did:{method}:{identifier}").as_bytes().to_vec()
+	}
+}
+
+pub type ServiceEndpoint<StringLimit> = BoundedVec<u8, StringLimit>;
 
 #[derive(
 	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
@@ -55,15 +76,23 @@ where
 }
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
-pub struct ValidationRecord<AccountId, MaxResolvers, MaxTags, StringLimit>
+pub struct ValidationEntry<BlockNumber> {
+	pub checksum: H256,
+	pub block: BlockNumber,
+}
+
+#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(MaxResolvers, MaxTags, MaxEntries, StringLimit))]
+pub struct ValidationRecord<AccountId, BlockNumber, MaxResolvers, MaxTags, MaxEntries, StringLimit>
 where
 	MaxResolvers: Get<u32>,
 	MaxTags: Get<u32>,
+	MaxEntries: Get<u32>,
 	StringLimit: Get<u32>,
 {
 	pub author: AccountId,
 	pub resolvers: BoundedVec<ResolverId<StringLimit>, MaxResolvers>,
 	pub data_type: BoundedVec<u8, StringLimit>,
-	pub algorithm: BoundedVec<u8, StringLimit>,
 	pub tags: BoundedVec<BoundedVec<u8, StringLimit>, MaxTags>,
+	pub entries: BoundedVec<ValidationEntry<BlockNumber>, MaxEntries>,
 }
