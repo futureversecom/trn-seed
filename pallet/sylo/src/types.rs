@@ -19,14 +19,9 @@ use frame_support::{
 	RuntimeDebug, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
-use seed_primitives::{AssetId, Balance};
+use seed_primitives::{AssetId, Balance, Block};
 use sp_core::{hexdisplay::AsBytesRef, H160, H256};
 use sp_std::{fmt::Debug, prelude::*};
-
-parameter_types! {
-	pub const MethodLimit: u32 = 32;
-	pub const IdentifierLimit: u32 = 64;
-}
 
 #[derive(
 	CloneNoBound,
@@ -75,16 +70,25 @@ where
 	pub service_endpoints: BoundedVec<ServiceEndpoint<StringLimit>, MaxServiceEndpoints>,
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
-pub struct ValidationEntry<BlockNumber> {
+#[derive(
+	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+)]
+pub struct ValidationEntry<BlockNumber>
+where
+	BlockNumber: Debug + PartialEq + Clone,
+{
 	pub checksum: H256,
 	pub block: BlockNumber,
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(MaxResolvers, MaxTags, MaxEntries, StringLimit))]
 pub struct ValidationRecord<AccountId, BlockNumber, MaxResolvers, MaxTags, MaxEntries, StringLimit>
 where
+	AccountId: Debug + PartialEq + Clone,
+	BlockNumber: Debug + PartialEq + Clone,
 	MaxResolvers: Get<u32>,
 	MaxTags: Get<u32>,
 	MaxEntries: Get<u32>,

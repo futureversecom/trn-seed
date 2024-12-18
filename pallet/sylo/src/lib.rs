@@ -78,7 +78,7 @@ pub mod pallet {
 		type StringLimit: Get<u32>;
 
 		#[pallet::constant]
-		type ResolverMethod: Get<[u8; 9]>;
+		type SyloResolverMethod: Get<[u8; 9]>;
 	}
 
 	#[pallet::storage]
@@ -252,19 +252,7 @@ pub mod pallet {
 				Error::<T>::RecordAlreadyCreated
 			);
 
-			let reserved_method: BoundedVec<u8, T::StringLimit> =
-				BoundedVec::try_from(<T as Config>::ResolverMethod::get().to_vec())
-					.expect("Failed to convert invalid resolver method config");
-
-			// Ensure any sylo data resolvers are already registered
-			for resolver in resolvers.clone() {
-				if resolver.method == reserved_method {
-					ensure!(
-						<Resolvers<T>>::get(resolver.identifier).is_some(),
-						Error::<T>::ResolverNotRegistered
-					);
-				}
-			}
+			Self::validate_sylo_resolvers(resolvers.clone())?;
 
 			let current_block = <frame_system::Pallet<T>>::block_number();
 
@@ -332,6 +320,7 @@ pub mod pallet {
 				.ok_or(Error::<T>::RecordNotCreated)?;
 
 			if let Some(resolvers) = resolvers.clone() {
+				Self::validate_sylo_resolvers(resolvers.clone())?;
 				record.resolvers = resolvers;
 			}
 
@@ -382,14 +371,24 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn get_reserved_resolver_id(
-			identifier: BoundedVec<u8, T::StringLimit>,
-		) -> ResolverId<T::StringLimit> {
-			let method: BoundedVec<u8, T::StringLimit> =
-				BoundedVec::try_from(<T as Config>::ResolverMethod::get().to_vec())
+		pub fn validate_sylo_resolvers(
+			resolvers: BoundedVec<ResolverId<T::StringLimit>, T::MaxResolvers>,
+		) -> DispatchResult {
+			let reserved_method: BoundedVec<u8, T::StringLimit> =
+				BoundedVec::try_from(<T as Config>::SyloResolverMethod::get().to_vec())
 					.expect("Failed to convert invalid resolver method config");
 
-			ResolverId { method, identifier }
+			// Ensure any sylo data resolvers are already registered
+			for resolver in resolvers {
+				if resolver.method == reserved_method {
+					ensure!(
+						<Resolvers<T>>::get(resolver.identifier).is_some(),
+						Error::<T>::ResolverNotRegistered
+					);
+				}
+			}
+
+			Ok(())
 		}
 	}
 }
