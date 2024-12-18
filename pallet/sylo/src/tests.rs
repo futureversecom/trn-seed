@@ -396,46 +396,46 @@ mod validation_records {
 				);
 			}
 		});
+	}
 
-		#[test]
-		fn create_validation_records_with_different_author_works() {
-			TestExt.build().execute_with(|| {
-				for i in 2..5 {
-					let author: AccountId = create_account(i);
+	#[test]
+	fn create_validation_records_with_different_author_works() {
+		TestExt.build().execute_with(|| {
+			for i in 2..5 {
+				let author: AccountId = create_account(i);
 
-					let (data_id, resolvers, data_type, tags, checksum, record) =
-						create_initial_validation_record(
-							author,
-							// use the same data id for each author's validation record
-							format!("data_id").as_str(),
-							vec![("method-1", "resolver-1")],
-							"data_type",
-							vec!["tag-1", "tag-2"],
-						);
-
-					assert_ok!(Sylo::create_validation_record(
-						RawOrigin::Signed(author.clone()).into(),
-						data_id.clone(),
-						resolvers.clone(),
-						data_type.clone(),
-						tags.clone(),
-						checksum.clone()
-					));
-
-					System::assert_last_event(MockEvent::Sylo(
-						Event::<Test>::ValidationRecordCreated {
-							author: author.clone(),
-							id: data_id.clone().to_vec(),
-						},
-					));
-
-					assert_eq!(
-						ValidationRecords::<Test>::get(author.clone(), data_id.clone()).unwrap(),
-						record
+				let (data_id, resolvers, data_type, tags, checksum, record) =
+					create_initial_validation_record(
+						author,
+						// use the same data id for each author's validation record
+						format!("data_id").as_str(),
+						vec![("method-1", "resolver-1")],
+						"data_type",
+						vec!["tag-1", "tag-2"],
 					);
-				}
-			});
-		}
+
+				assert_ok!(Sylo::create_validation_record(
+					RawOrigin::Signed(author.clone()).into(),
+					data_id.clone(),
+					resolvers.clone(),
+					data_type.clone(),
+					tags.clone(),
+					checksum.clone()
+				));
+
+				System::assert_last_event(MockEvent::Sylo(
+					Event::<Test>::ValidationRecordCreated {
+						author: author.clone(),
+						id: data_id.clone().to_vec(),
+					},
+				));
+
+				assert_eq!(
+					ValidationRecords::<Test>::get(author.clone(), data_id.clone()).unwrap(),
+					record
+				);
+			}
+		});
 	}
 
 	#[test]
@@ -763,7 +763,7 @@ mod validation_records {
 		TestExt.build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
-			let (data_id, resolvers, data_type, tags, checksum, record) =
+			let (data_id, resolvers, data_type, tags, checksum, _) =
 				create_initial_validation_record(
 					alice,
 					"data_id",

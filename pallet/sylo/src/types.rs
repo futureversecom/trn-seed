@@ -44,13 +44,14 @@ where
 
 impl<T: Get<u32>> ResolverId<T> {
 	pub fn to_did(&self) -> Vec<u8> {
-		let method = self.method.to_vec();
-		let method = String::from_utf8_lossy(method.as_bytes_ref());
+		return Vec::new();
+		// let method = self.method.to_vec();
+		// let method = String::from_utf8_lossy(method.as_bytes_ref());
 
-		let identifier = self.identifier.to_vec();
-		let identifier = String::from_utf8_lossy(identifier.as_bytes_ref());
+		// let identifier = self.identifier.to_vec();
+		// let identifier = String::from_utf8_lossy(identifier.as_bytes_ref());
 
-		format!("did:{method}:{identifier}").as_bytes().to_vec()
+		// format!("did:{method}:{identifier}").as_bytes().to_vec()
 	}
 }
 
