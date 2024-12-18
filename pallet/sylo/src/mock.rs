@@ -48,6 +48,7 @@ impl Config for Test {
 	type MaxServiceEndpoints = MaxServiceEndpoints;
 	type StringLimit = StringLimit;
 	type SyloResolverMethod = SyloResolverMethod;
+	type WeightInfo = ();
 }
 
 #[derive(Default)]

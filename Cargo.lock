@@ -9149,6 +9149,7 @@ dependencies = [
  "pallet-sft-rpc-runtime-api",
  "pallet-staking",
  "pallet-sudo",
+ "pallet-sylo",
  "pallet-timestamp",
  "pallet-token-approvals",
  "pallet-transaction-payment",

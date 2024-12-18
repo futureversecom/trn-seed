@@ -29,13 +29,15 @@ use scale_info::TypeInfo;
 use seed_pallet_common::CreateExt;
 use seed_primitives::{AssetId, Balance};
 use serde::{Deserialize, Serialize};
-use sp_core::{H160, U256};
+use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
 	ArithmeticError, DispatchError, FixedU128, RuntimeDebug, SaturatedConversion,
 };
 use sp_std::{cmp::min, convert::TryInto, prelude::*, vec};
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -44,11 +46,11 @@ pub mod types;
 
 pub use types::*;
 
+pub mod weights;
+pub use weights::WeightInfo;
+
 #[frame_support::pallet]
 pub mod pallet {
-	use serde::ser;
-	use sp_core::H256;
-
 	use super::*;
 
 	/// The current storage version.
@@ -61,6 +63,9 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// Interface to access weight values
+		type WeightInfo: WeightInfo;
 
 		#[pallet::constant]
 		type MaxResolvers: Get<u32>;
@@ -161,7 +166,9 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight({
+			T::WeightInfo::register_resolver(<T::StringLimit>::get(), <T::StringLimit>::get())
+		})]
 		pub fn register_resolver(
 			origin: OriginFor<T>,
 			identifier: BoundedVec<u8, T::StringLimit>,

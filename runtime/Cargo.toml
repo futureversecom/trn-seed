@@ -89,6 +89,7 @@ pallet-nfi = { workspace = true }
 pallet-nft = { workspace = true }
 pallet-nft-rpc-runtime-api = { workspace = true }
 pallet-sft = { workspace = true }
+pallet-sylo = { workspace = true }
 pallet-sft-rpc-runtime-api = { workspace = true }
 pallet-token-approvals = { workspace = true }
 pallet-tx-fee-pot = { workspace = true }
@@ -198,6 +199,7 @@ std = [
 	"pallet-nft-rpc-runtime-api/std",
 	"pallet-sft/std",
 	"pallet-sft-rpc-runtime-api/std",
+	"pallet-sylo/std",
 	"pallet-xrpl-bridge/std",
 	"pallet-xrpl/std",
 	"pallet-tx-fee-pot/std",
@@ -282,6 +284,7 @@ try-runtime = [
 	"pallet-nfi/try-runtime",
 	"pallet-nft/try-runtime",
 	"pallet-sft/try-runtime",
+	"pallet-sylo/try-runtime",
 	"pallet-xrpl-bridge/try-runtime",
 	"pallet-xrpl/try-runtime",
 	"pallet-token-approvals/try-runtime",
@@ -335,6 +338,7 @@ runtime-benchmarks = [
 	"pallet-nfi/runtime-benchmarks",
 	"pallet-nft/runtime-benchmarks",
 	"pallet-sft/runtime-benchmarks",
+	"pallet-sylo/runtime-benchmarks",
 	"pallet-xrpl-bridge/runtime-benchmarks",
 	"pallet-xrpl/runtime-benchmarks",
 	"pallet-dex/runtime-benchmarks",

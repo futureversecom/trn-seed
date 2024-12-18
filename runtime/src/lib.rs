@@ -596,6 +596,26 @@ impl pallet_preimage::Config for Runtime {
 	type ByteDeposit = PreimageByteDeposit;
 }
 
+parameter_types! {
+	pub const MaxResolvers: u32 = 10;
+	pub const MaxTags: u32 = 10;
+	pub const MaxEntries: u32 = 100;
+	pub const MaxServiceEndpoints: u32 = 10;
+	pub const SyloStringLimit: u32 = 100;
+	pub const SyloResolverMethod: [u8; 9] = *b"sylo-data";
+}
+
+impl pallet_sylo::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MaxResolvers = MaxResolvers;
+	type MaxTags = MaxTags;
+	type MaxEntries = MaxEntries;
+	type MaxServiceEndpoints = MaxServiceEndpoints;
+	type StringLimit = SyloStringLimit;
+	type SyloResolverMethod = SyloResolverMethod;
+	type WeightInfo = weights::pallet_sylo::WeightInfo<Runtime>;
+}
+
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -1434,6 +1454,7 @@ construct_runtime!(
 		Crowdsale: pallet_crowdsale = 49,
 		Nfi: pallet_nfi = 50,
 		Migration: pallet_migration = 51,
+		Sylo: pallet_sylo = 52,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -2360,5 +2381,6 @@ mod benches {
 		[pallet_crowdsale, Crowdsale]
 		[pallet_evm, EVM]
 		[pallet_migration, Migration]
+		[pallet_sylo, Sylo]
 	);
 }
