@@ -1663,7 +1663,6 @@ mod set_token_name {
 		});
 	}
 
-
 	#[test]
 	fn set_name_no_token_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
@@ -1672,11 +1671,14 @@ mod set_token_name {
 			let token_name = bounded_string("test-collection");
 
 			// Call to unknown token fails
-			assert_noop!(Sft::set_token_name(
-				Some(collection_owner).into(),
-				(token_id.0, token_id.1 + 1),
-				token_name.clone()
-			), Error::<Test>::NoToken);
+			assert_noop!(
+				Sft::set_token_name(
+					Some(collection_owner).into(),
+					(token_id.0, token_id.1 + 1),
+					token_name.clone()
+				),
+				Error::<Test>::NoToken
+			);
 		});
 	}
 

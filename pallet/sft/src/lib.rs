@@ -516,7 +516,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-
 		/// Set the name of a collection
 		/// Caller must be the current collection owner
 		#[pallet::call_index(13)]
