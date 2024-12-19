@@ -1567,7 +1567,8 @@ mod nft_burn {
 			// Check event is NOT thrown
 			let events = System::events();
 			assert!(!events.iter().any(|record| {
-				record.event == MockEvent::Nfi(Event::<Test>::DataRemoved { token_id: token_id.clone() })
+				record.event
+					== MockEvent::Nfi(Event::<Test>::DataRemoved { token_id: token_id.clone() })
 			}));
 		});
 	}
