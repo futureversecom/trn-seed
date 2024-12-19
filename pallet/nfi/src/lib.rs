@@ -445,7 +445,7 @@ impl<T: Config> NFIRequest for Pallet<T> {
 		Ok(())
 	}
 
-	// A token was burned so we can remove the data assosciated with it to save space in the pallet
+	// A token was burned so we can remove the data associated with it to save space in the pallet
 	fn on_burn(token_id: TokenId) {
 		// Limit of tokens to be removed with the clear_prefix call. This should be larger than the
 		// number of enum variants in NFISubType
@@ -456,7 +456,9 @@ impl<T: Config> NFIRequest for Pallet<T> {
 			serial_number: GenericSerialNumber::U32(token_id.1),
 		};
 		// Remove all NFI data for this token
-		let _ = NfiData::<T>::clear_prefix(token_id.clone(), limit, None);
-		Self::deposit_event(Event::<T>::DataRemoved { token_id });
+		if NfiData::<T>::contains_key(token_id.clone(), NFISubType::NFI) {
+			let _ = NfiData::<T>::clear_prefix(token_id.clone(), limit, None);
+			Self::deposit_event(Event::<T>::DataRemoved { token_id });
+		}
 	}
 }

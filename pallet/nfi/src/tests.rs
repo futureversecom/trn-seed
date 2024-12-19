@@ -1536,6 +1536,41 @@ mod nft_burn {
 			assert_eq!(NfiData::<Test>::get(token_id_2, sub_type), Some(data.clone()));
 		});
 	}
+
+	#[test]
+	fn burn_nft_doesnt_clear_nfi_data_if_empty() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let sub_type = NFISubType::NFI;
+			let collection_owner = alice();
+			let token_owner = bob();
+			let relayer = charlie();
+			let collection_id = NftBuilder::<Test>::new(collection_owner)
+				.initial_issuance(2)
+				.token_owner(token_owner)
+				.build();
+
+			// Set Relayer
+			assert_ok!(Nfi::set_relayer(RawOrigin::Root.into(), relayer));
+
+			// Enable NFI
+			assert_ok!(Nfi::enable_nfi_for_trn_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				sub_type
+			));
+
+			let token_id = create_mc_token_id((collection_id, 0));
+
+			// Burn NFT
+			assert_ok!(Nft::burn(RawOrigin::Signed(token_owner).into(), (collection_id, 0)));
+
+			// Check event is NOT thrown
+			let events = System::events();
+			assert!(!events.iter().any(|record| {
+				record.event == MockEvent::Nfi(Event::<Test>::DataRemoved { token_id: token_id.clone() })
+			}));
+		});
+	}
 }
 
 mod sft_create_token {
