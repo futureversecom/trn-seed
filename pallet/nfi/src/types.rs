@@ -92,11 +92,11 @@ pub enum GenericCollectionId<MaxByteLength: Get<u32>> {
 	U32(u32), // Used for TRN
 	U64(u64),
 	U128(u128),
-	U256(U256),
 	H160(H160), // Used for Ethereum, Arbitrum
 	H256(H256),
 	Bytes(BoundedVec<u8, MaxByteLength>),
 	Empty, // Sui doesn't use CollectionId equivalent, only tokenId
+	U256(U256),
 }
 
 /// Serial Number type that supports multiple chains
@@ -110,4 +110,5 @@ pub enum GenericSerialNumber<MaxByteLength: Get<u32>> {
 	U128(u128),
 	U256(U256),
 	Bytes(BoundedVec<u8, MaxByteLength>), // Used for Sui
+	U256(U256),
 }
