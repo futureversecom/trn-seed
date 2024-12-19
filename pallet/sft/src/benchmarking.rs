@@ -247,6 +247,16 @@ benchmarks! {
 	verify {
 		assert_eq!(UtilityFlags::<T>::get(collection_id), utility_flags)
 	}
+
+	set_token_name {
+		let owner = account::<T>("Alice");
+		let token_id = build_token::<T>(Some(owner.clone()), 1);
+		let token_name = bounded_string::<T>("Token");
+	}: _(origin::<T>(&owner), token_id, token_name.clone())
+	verify {
+		let token = TokenInfo::<T>::get(token_id).unwrap();
+		assert_eq!(token.token_name, token_name);
+	}
 }
 
 impl_benchmark_test_suite!(

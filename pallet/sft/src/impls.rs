@@ -406,6 +406,31 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Perform the set name operation on the token
+	/// Caller must be collection owner
+	pub fn do_set_token_name(
+		who: T::AccountId,
+		token_id: TokenId,
+		token_name: BoundedVec<u8, T::StringLimit>,
+	) -> DispatchResult {
+		let collection_info =
+			SftCollectionInfo::<T>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
+		// Caller must be collection_owner
+		ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
+
+		// Validate token_name
+		ensure!(!token_name.is_empty(), Error::<T>::NameInvalid);
+		ensure!(core::str::from_utf8(&token_name).is_ok(), Error::<T>::NameInvalid);
+
+		let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
+		token_info.token_name = token_name.clone();
+
+		TokenInfo::<T>::insert(token_id, token_info);
+
+		Self::deposit_event(Event::<T>::TokenNameSet { token_id, token_name });
+		Ok(())
+	}
+
 	/// Perform the set name operation
 	/// Caller must be collection owner
 	pub fn do_set_royalties_schedule(

@@ -168,6 +168,8 @@ pub mod pallet {
 		BaseUriSet { collection_id: CollectionUuid, metadata_scheme: MetadataScheme },
 		/// Name was set
 		NameSet { collection_id: CollectionUuid, collection_name: BoundedVec<u8, T::StringLimit> },
+		/// Token name was set
+		TokenNameSet { token_id: TokenId, token_name: BoundedVec<u8, T::StringLimit> },
 		/// Royalties schedule was set
 		RoyaltiesScheduleSet {
 			collection_id: CollectionUuid,
@@ -512,6 +514,20 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::UtilityFlagsSet { collection_id, utility_flags });
 			Ok(())
+		}
+
+
+		/// Set the name of a collection
+		/// Caller must be the current collection owner
+		#[pallet::call_index(13)]
+		#[pallet::weight(T::WeightInfo::set_token_name())]
+		pub fn set_token_name(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			token_name: BoundedVec<u8, T::StringLimit>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_set_token_name(who, token_id, token_name)
 		}
 	}
 }

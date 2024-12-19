@@ -1625,6 +1625,101 @@ mod set_name {
 	}
 }
 
+mod set_token_name {
+	use super::*;
+
+	#[test]
+	fn set_name_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let token_name = bounded_string("test-collection");
+
+			// Set name
+			assert_ok!(Sft::set_token_name(
+				Some(collection_owner).into(),
+				token_id,
+				token_name.clone()
+			));
+
+			// Name is correct
+			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+			assert_eq!(token_info.token_name, token_name);
+		});
+	}
+
+	#[test]
+	fn set_name_no_collection_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id: TokenId = (1, 0);
+			let new_name = bounded_string("yeet");
+
+			// Call to unknown collection should fail
+			assert_noop!(
+				Sft::set_token_name(Some(collection_owner).into(), token_id, new_name),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+
+	#[test]
+	fn set_name_no_token_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let token_name = bounded_string("test-collection");
+
+			// Call to unknown token fails
+			assert_noop!(Sft::set_token_name(
+				Some(collection_owner).into(),
+				(token_id.0, token_id.1 + 1),
+				token_name.clone()
+			), Error::<Test>::NoToken);
+		});
+	}
+
+	#[test]
+	fn set_name_not_collection_owner_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let token_name = bounded_string("test-collection");
+
+			// Set name fails because not collection owner
+			assert_noop!(
+				Sft::set_token_name(Some(bob()).into(), token_id, token_name),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_name_invalid_name_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+
+			// Calls with no name should fail
+			assert_noop!(
+				Sft::set_token_name(Some(collection_owner).into(), token_id, bounded_string("")),
+				Error::<Test>::NameInvalid
+			);
+
+			// non UTF-8 chars
+			assert_noop!(
+				Sft::set_token_name(
+					Some(collection_owner).into(),
+					token_id,
+					BoundedVec::truncate_from(vec![0xfe, 0xff])
+				),
+				Error::<Test>::NameInvalid
+			);
+		});
+	}
+}
+
 mod set_royalties_schedule {
 	use super::*;
 
