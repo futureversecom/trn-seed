@@ -17,7 +17,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_primitives::{AssetId, Balance};
-use sp_core::{H160, H256};
+use sp_core::{H160, H256, U256};
 use sp_std::default::Default;
 
 /// Categorise the NFI sub type. This is to futureproof the pallet and to allow for multiple
@@ -96,6 +96,7 @@ pub enum GenericCollectionId<MaxByteLength: Get<u32>> {
 	H256(H256),
 	Bytes(BoundedVec<u8, MaxByteLength>),
 	Empty, // Sui doesn't use CollectionId equivalent, only tokenId
+	U256(U256),
 }
 
 /// Serial Number type that supports multiple chains
@@ -108,4 +109,5 @@ pub enum GenericSerialNumber<MaxByteLength: Get<u32>> {
 	U64(u64),
 	U128(u128),
 	Bytes(BoundedVec<u8, MaxByteLength>), // Used for Sui
+	U256(U256),
 }
