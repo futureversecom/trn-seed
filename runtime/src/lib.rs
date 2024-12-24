@@ -1357,6 +1357,14 @@ impl pallet_vortex_distribution::Config for Runtime {
 	type HistoryDepth = HistoryDepth;
 }
 
+impl pallet_partner_attribution::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ApproveOrigin = EnsureRoot<AccountId>;
+	type DefaultChainId = DefaultChainId;
+	// type WeightInfo = weights::pallet_partner_attribution::WeightInfo<Runtime>;
+	type WeightInfo = ();
+}
+
 impl pallet_maintenance_mode::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
@@ -1446,6 +1454,7 @@ construct_runtime!(
 		Marketplace: pallet_marketplace = 44,
 		Preimage: pallet_preimage = 45,
 		VortexDistribution: pallet_vortex_distribution = 46,
+		PartnerAttribution: pallet_partner_attribution = 52,
 		FeeProxy: pallet_fee_proxy = 31,
 		FeeControl: pallet_fee_control = 40,
 		Xls20: pallet_xls20 = 42,
@@ -2374,6 +2383,7 @@ mod benches {
 		[pallet_xls20, Xls20]
 		[pallet_futurepass, Futurepass]
 		[pallet_vortex_distribution, VortexDistribution]
+		[pallet_partner_attribution, PartnerAttribution]
 		[pallet_dex, Dex]
 		[pallet_marketplace, Marketplace]
 		[pallet_doughnut, Doughnut]
