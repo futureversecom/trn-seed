@@ -601,7 +601,7 @@ parameter_types! {
 	pub const MaxTags: u32 = 10;
 	pub const MaxEntries: u32 = 100;
 	pub const MaxServiceEndpoints: u32 = 10;
-	pub const SyloStringLimit: u32 = 100;
+	pub const SyloStringLimit: u32 = 250;
 	pub const SyloResolverMethod: [u8; 9] = *b"sylo-data";
 }
 
