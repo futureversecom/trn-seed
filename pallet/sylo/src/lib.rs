@@ -13,6 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 #![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
 
 pub use pallet::*;
 
@@ -167,7 +168,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight({
-			T::WeightInfo::register_resolver(<T::StringLimit>::get(), <T::StringLimit>::get())
+			T::WeightInfo::register_resolver(<T::StringLimit>::get(), <T::MaxServiceEndpoints>::get())
 		})]
 		pub fn register_resolver(
 			origin: OriginFor<T>,
@@ -196,7 +197,9 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight({
+			T::WeightInfo::update_resolver(<T::MaxServiceEndpoints>::get())
+		})]
 		pub fn update_resolver(
 			origin: OriginFor<T>,
 			identifier: BoundedVec<u8, T::StringLimit>,
@@ -223,7 +226,9 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(2)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight({
+			T::WeightInfo::unregister_resolver()
+		})]
 		pub fn unregister_resolver(
 			origin: OriginFor<T>,
 			identifier: BoundedVec<u8, T::StringLimit>,
@@ -243,7 +248,9 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(3)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight({
+			T::WeightInfo::create_validation_record(<T::MaxResolvers>::get(), <T::MaxTags>::get())
+		})]
 		pub fn create_validation_record(
 			origin: OriginFor<T>,
 			data_id: BoundedVec<u8, T::StringLimit>,
@@ -285,7 +292,9 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(4)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight({
+			T::WeightInfo::add_validation_record_entry()
+		})]
 		pub fn add_validation_record_entry(
 			origin: OriginFor<T>,
 			data_id: BoundedVec<u8, T::StringLimit>,
@@ -313,7 +322,9 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(5)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight({
+			T::WeightInfo::update_validation_record(<T::MaxResolvers>::get(), <T::MaxTags>::get())
+		})]
 		pub fn update_validation_record(
 			origin: OriginFor<T>,
 			data_id: BoundedVec<u8, T::StringLimit>,
@@ -354,7 +365,9 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(6)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight({
+			T::WeightInfo::delete_validation_record()
+		})]
 		pub fn delete_validation_record(
 			origin: OriginFor<T>,
 			data_id: BoundedVec<u8, T::StringLimit>,
