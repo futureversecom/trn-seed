@@ -14,8 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use hex::encode;
-use mock::{RuntimeEvent as MockEvent, RuntimeOrigin, Sylo, System, Test, TestExt};
+use mock::{RuntimeEvent as MockEvent, Sylo, System, Test, TestExt};
 use seed_pallet_common::test_prelude::*;
 
 mod resolvers {
@@ -80,7 +79,7 @@ mod resolvers {
 	#[test]
 	fn resolver_unregistration_works() {
 		TestExt.build().execute_with(|| {
-			let (controller, identifier, mut service_endpoints) = create_and_register_resolver(
+			let (controller, identifier, _) = create_and_register_resolver(
 				bounded_string("test-resolver"),
 				vec![
 					bounded_string("https://endpoint.one"),
@@ -104,7 +103,7 @@ mod resolvers {
 	#[test]
 	fn resolver_register_existing_fails() {
 		TestExt.build().execute_with(|| {
-			let (controller, identifier, mut service_endpoints) = create_and_register_resolver(
+			let (controller, identifier, service_endpoints) = create_and_register_resolver(
 				bounded_string("test-resolver"),
 				vec![
 					bounded_string("https://endpoint.one"),
@@ -147,7 +146,7 @@ mod resolvers {
 	#[test]
 	fn resolver_update_not_controller_fails() {
 		TestExt.build().execute_with(|| {
-			let (controller, identifier, service_endpoints) = create_and_register_resolver(
+			let (_, identifier, service_endpoints) = create_and_register_resolver(
 				bounded_string("test-resolver"),
 				vec![
 					bounded_string("https://endpoint.one"),
@@ -185,7 +184,7 @@ mod resolvers {
 	#[test]
 	fn resolver_unregister_not_controller_fails() {
 		TestExt.build().execute_with(|| {
-			let (controller, identifier, service_endpoints) = create_and_register_resolver(
+			let (_, identifier, _) = create_and_register_resolver(
 				bounded_string("test-resolver"),
 				vec![
 					bounded_string("https://endpoint.one"),
@@ -251,7 +250,7 @@ mod validation_records {
 		TestExt.build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
-			let (data_id, resolvers, data_type, tags, checksum, record) =
+			let (data_id, resolvers, data_type, tags, checksum, _) =
 				create_initial_validation_record(
 					alice,
 					"data_id",
@@ -332,7 +331,7 @@ mod validation_records {
 		TestExt.build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
-			let (data_id, resolvers, data_type, tags, checksum, record) =
+			let (data_id, resolvers, data_type, tags, checksum, _) =
 				create_initial_validation_record(
 					alice,
 					"data_id",
@@ -443,7 +442,7 @@ mod validation_records {
 		TestExt.build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
-			let (data_id, resolvers, data_type, tags, checksum, record) =
+			let (data_id, resolvers, data_type, tags, checksum, _) =
 				create_initial_validation_record(
 					alice,
 					"data_id",
@@ -509,7 +508,7 @@ mod validation_records {
 		TestExt.build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
-			let (data_id, resolvers, data_type, tags, checksum, record) =
+			let (data_id, resolvers, data_type, tags, checksum, _) =
 				create_initial_validation_record(
 					alice,
 					"data_id",
@@ -668,14 +667,13 @@ mod validation_records {
 		TestExt.build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
-			let (data_id, resolvers, data_type, tags, checksum, record) =
-				create_initial_validation_record(
-					alice,
-					"data_id",
-					vec![("method-1", "resolver-1")],
-					"data_type",
-					vec!["tag-1", "tag-2"],
-				);
+			let (data_id, resolvers, data_type, tags, _, _) = create_initial_validation_record(
+				alice,
+				"data_id",
+				vec![("method-1", "resolver-1")],
+				"data_type",
+				vec!["tag-1", "tag-2"],
+			);
 
 			assert_noop!(
 				Sylo::update_validation_record(
@@ -695,7 +693,7 @@ mod validation_records {
 		TestExt.build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
-			let (data_id, resolvers, data_type, tags, checksum, record) =
+			let (data_id, resolvers, data_type, tags, checksum, _) =
 				create_initial_validation_record(
 					alice,
 					"data_id",
@@ -733,7 +731,7 @@ mod validation_records {
 		TestExt.build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
-			let (data_id, resolvers, data_type, tags, checksum, record) =
+			let (data_id, resolvers, data_type, tags, checksum, _) =
 				create_initial_validation_record(
 					alice,
 					"data_id",
@@ -763,14 +761,13 @@ mod validation_records {
 		TestExt.build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
-			let (data_id, resolvers, data_type, tags, checksum, _) =
-				create_initial_validation_record(
-					alice,
-					"data_id",
-					vec![("method-1", "resolver-1")],
-					"data_type",
-					vec!["tag-1", "tag-2"],
-				);
+			let (data_id, resolvers, data_type, tags, _, _) = create_initial_validation_record(
+				alice,
+				"data_id",
+				vec![("method-1", "resolver-1")],
+				"data_type",
+				vec!["tag-1", "tag-2"],
+			);
 
 			assert_noop!(
 				Sylo::update_validation_record(
@@ -790,7 +787,7 @@ mod validation_records {
 		TestExt.build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
-			let (data_id, resolvers, data_type, tags, checksum, record) =
+			let (data_id, resolvers, data_type, tags, checksum, _) =
 				create_initial_validation_record(
 					alice,
 					"data_id",

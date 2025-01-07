@@ -18,24 +18,15 @@ extern crate alloc;
 pub use pallet::*;
 
 use frame_support::{
+	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
-	traits::{
-		fungibles::{self, metadata::Inspect as MetadataInspect, Inspect, Mutate},
-		tokens::{Fortitude, Precision, Preservation},
-	},
-	transactional, PalletId,
+	traits::IsSubType,
 };
 use frame_system::pallet_prelude::*;
-use scale_info::TypeInfo;
-use seed_pallet_common::CreateExt;
-use seed_primitives::{AssetId, Balance};
-use serde::{Deserialize, Serialize};
-use sp_core::{H160, H256, U256};
-use sp_runtime::{
-	traits::{AccountIdConversion, Zero},
-	ArithmeticError, DispatchError, FixedU128, RuntimeDebug, SaturatedConversion,
-};
-use sp_std::{cmp::min, convert::TryInto, prelude::*, vec};
+use seed_primitives::AssetId;
+use sp_core::{H160, H256};
+use sp_std::prelude::*;
+use sp_std::{convert::TryInto, vec};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -63,6 +54,13 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// The overarching call type.
+		type RuntimeCall: Parameter
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
+			+ GetDispatchInfo
+			+ From<frame_system::Call<Self>>
+			+ IsSubType<Call<Self>>;
+		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Interface to access weight values
@@ -86,6 +84,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type SyloResolverMethod: Get<[u8; 9]>;
 	}
+
+	#[pallet::storage]
+	pub type SyloAssetId<T> = StorageValue<_, AssetId, OptionQuery>;
 
 	#[pallet::storage]
 	pub type Resolvers<T: Config> = StorageMap<
@@ -168,6 +169,16 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight({
+			T::WeightInfo::set_payment_asset()
+		})]
+		pub fn set_payment_asset(origin: OriginFor<T>, payment_asset: AssetId) -> DispatchResult {
+			ensure_root(origin)?;
+			<SyloAssetId<T>>::put(payment_asset);
+			Ok(())
+		}
+
+		#[pallet::call_index(1)]
+		#[pallet::weight({
 			T::WeightInfo::register_resolver(<T::StringLimit>::get(), <T::MaxServiceEndpoints>::get())
 		})]
 		pub fn register_resolver(
@@ -196,7 +207,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(1)]
+		#[pallet::call_index(2)]
 		#[pallet::weight({
 			T::WeightInfo::update_resolver(<T::MaxServiceEndpoints>::get())
 		})]
@@ -225,7 +236,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[pallet::weight({
 			T::WeightInfo::unregister_resolver()
 		})]
@@ -247,7 +258,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(3)]
+		#[pallet::call_index(4)]
 		#[pallet::weight({
 			T::WeightInfo::create_validation_record(<T::MaxResolvers>::get(), <T::MaxTags>::get())
 		})]
@@ -291,7 +302,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(4)]
+		#[pallet::call_index(5)]
 		#[pallet::weight({
 			T::WeightInfo::add_validation_record_entry()
 		})]
@@ -321,7 +332,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(5)]
+		#[pallet::call_index(6)]
 		#[pallet::weight({
 			T::WeightInfo::update_validation_record(<T::MaxResolvers>::get(), <T::MaxTags>::get())
 		})]
@@ -364,7 +375,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(6)]
+		#[pallet::call_index(7)]
 		#[pallet::weight({
 			T::WeightInfo::delete_validation_record()
 		})]
@@ -409,6 +420,10 @@ pub mod pallet {
 			}
 
 			Ok(())
+		}
+
+		pub fn payment_asset() -> Option<AssetId> {
+			<SyloAssetId<T>>::get()
 		}
 	}
 }
