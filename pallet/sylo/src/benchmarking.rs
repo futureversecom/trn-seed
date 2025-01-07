@@ -88,6 +88,8 @@ benchmarks! {
 
 	set_payment_asset {}: _(RawOrigin::Root, 24)
 
+	set_sylo_resolver_method {}: _(RawOrigin::Root, bounded_string::<T>("sylo-resolver-method"))
+
 	register_resolver {
 		let p in 1 .. STRING_LIMIT;
 		let q in 1 .. MAX_SERVICE_ENDPOINTS;

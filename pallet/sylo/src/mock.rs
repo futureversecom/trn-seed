@@ -38,7 +38,6 @@ parameter_types! {
 	pub const MaxEntries: u32 = 100;
 	pub const MaxServiceEndpoints: u32 = 10;
 	pub const StringLimit: u32 = 100;
-	pub const SyloResolverMethod: [u8; 9] = *b"sylo-data";
 }
 impl Config for Test {
 	type RuntimeCall = RuntimeCall;
@@ -48,7 +47,6 @@ impl Config for Test {
 	type MaxEntries = MaxEntries;
 	type MaxServiceEndpoints = MaxServiceEndpoints;
 	type StringLimit = StringLimit;
-	type SyloResolverMethod = SyloResolverMethod;
 	type WeightInfo = ();
 }
 

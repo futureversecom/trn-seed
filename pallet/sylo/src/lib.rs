@@ -80,13 +80,24 @@ pub mod pallet {
 
 		#[pallet::constant]
 		type StringLimit: Get<u32>;
+	}
 
-		#[pallet::constant]
-		type SyloResolverMethod: Get<[u8; 9]>;
+	/// The default string used as the reserved method for sylo resolvers
+	#[pallet::type_value]
+	pub fn DefaultReservedSyloResolvedMethod<T: Config>() -> BoundedVec<u8, T::StringLimit> {
+		BoundedVec::truncate_from(b"sylo-data".to_vec())
 	}
 
 	#[pallet::storage]
-	pub type SyloAssetId<T> = StorageValue<_, AssetId, OptionQuery>;
+	pub type SyloAssetId<T: Config> = StorageValue<_, AssetId, OptionQuery>;
+
+	#[pallet::storage]
+	pub type SyloResolverMethod<T: Config> = StorageValue<
+		_,
+		BoundedVec<u8, T::StringLimit>,
+		ValueQuery,
+		DefaultReservedSyloResolvedMethod<T>,
+	>;
 
 	#[pallet::storage]
 	pub type Resolvers<T: Config> = StorageMap<
@@ -179,6 +190,19 @@ pub mod pallet {
 
 		#[pallet::call_index(1)]
 		#[pallet::weight({
+			T::WeightInfo::set_sylo_resolver_method()
+		})]
+		pub fn set_sylo_resolver_method(
+			origin: OriginFor<T>,
+			resolver_method: BoundedVec<u8, T::StringLimit>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			<SyloResolverMethod<T>>::put(resolver_method);
+			Ok(())
+		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight({
 			T::WeightInfo::register_resolver(<T::StringLimit>::get(), <T::MaxServiceEndpoints>::get())
 		})]
 		pub fn register_resolver(
@@ -207,7 +231,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[pallet::weight({
 			T::WeightInfo::update_resolver(<T::MaxServiceEndpoints>::get())
 		})]
@@ -236,7 +260,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(3)]
+		#[pallet::call_index(4)]
 		#[pallet::weight({
 			T::WeightInfo::unregister_resolver()
 		})]
@@ -258,7 +282,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(4)]
+		#[pallet::call_index(5)]
 		#[pallet::weight({
 			T::WeightInfo::create_validation_record(<T::MaxResolvers>::get(), <T::MaxTags>::get())
 		})]
@@ -302,7 +326,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(5)]
+		#[pallet::call_index(6)]
 		#[pallet::weight({
 			T::WeightInfo::add_validation_record_entry()
 		})]
@@ -332,7 +356,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(6)]
+		#[pallet::call_index(7)]
 		#[pallet::weight({
 			T::WeightInfo::update_validation_record(<T::MaxResolvers>::get(), <T::MaxTags>::get())
 		})]
@@ -375,7 +399,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(7)]
+		#[pallet::call_index(8)]
 		#[pallet::weight({
 			T::WeightInfo::delete_validation_record()
 		})]
@@ -405,9 +429,7 @@ pub mod pallet {
 		pub fn validate_sylo_resolvers(
 			resolvers: BoundedVec<ResolverId<T::StringLimit>, T::MaxResolvers>,
 		) -> DispatchResult {
-			let reserved_method: BoundedVec<u8, T::StringLimit> =
-				BoundedVec::try_from(<T as Config>::SyloResolverMethod::get().to_vec())
-					.expect("Failed to convert invalid resolver method config");
+			let reserved_method = <SyloResolverMethod<T>>::get();
 
 			// Ensure any sylo data resolvers are already registered
 			for resolver in resolvers {
