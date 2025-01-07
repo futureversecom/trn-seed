@@ -39,6 +39,7 @@ construct_runtime!(
 		Evm: pallet_evm,
 		Timestamp: pallet_timestamp,
 		Futurepass: pallet_futurepass,
+		Sylo: pallet_sylo,
 		MockPallet: mock_pallet::pallet,
 		FeeControl: pallet_fee_control,
 	}
@@ -54,6 +55,7 @@ impl_pallet_dex_config!(Test);
 impl_pallet_timestamp_config!(Test);
 impl_pallet_evm_config!(Test);
 impl_pallet_futurepass_config!(Test);
+impl_pallet_sylo_config!(Test);
 impl_pallet_fee_control_config!(Test);
 
 impl mock_pallet::pallet::Config for Test {}
