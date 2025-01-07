@@ -23,6 +23,7 @@ use alloc::string::{String, ToString};
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
+use sp_core::H160;
 
 const MAX_SERVICE_ENDPOINTS: u32 = 10;
 const STRING_LIMIT: u32 = 250;

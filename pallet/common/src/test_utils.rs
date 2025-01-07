@@ -723,3 +723,26 @@ macro_rules! impl_pallet_scheduler_config {
 		}
 	};
 }
+
+#[macro_export]
+macro_rules! impl_pallet_sylo_config {
+	($test:ident) => {
+		parameter_types! {
+			pub const MaxResolvers: u32 = 10;
+			pub const MaxTags: u32 = 10;
+			pub const MaxEntries: u32 = 100;
+			pub const MaxServiceEndpoints: u32 = 10;
+			pub const StringLimit: u32 = 100;
+		}
+		impl pallet_sylo::Config for Test {
+			type RuntimeCall = RuntimeCall;
+			type RuntimeEvent = RuntimeEvent;
+			type MaxResolvers = MaxResolvers;
+			type MaxTags = MaxTags;
+			type MaxEntries = MaxEntries;
+			type MaxServiceEndpoints = MaxServiceEndpoints;
+			type StringLimit = StringLimit;
+			type WeightInfo = ();
+		}
+	};
+}

@@ -24,7 +24,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use seed_primitives::AssetId;
-use sp_core::{H160, H256};
+use sp_core::H256;
 use sp_std::prelude::*;
 use sp_std::{convert::TryInto, vec};
 

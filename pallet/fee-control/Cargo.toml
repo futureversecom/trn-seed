@@ -38,6 +38,7 @@ pallet-fee-proxy = { workspace = true, default-features = true }
 pallet-dex = { workspace = true }
 pallet-assets-ext = { workspace = true }
 pallet-futurepass = { workspace = true }
+pallet-sylo = { workspace = true }
 seed-pallet-common= { workspace = true, default-features = true }
 
 [features]
