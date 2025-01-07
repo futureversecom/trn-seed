@@ -43,108 +43,123 @@ impl<T: frame_system::Config> pallet_sylo::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Sylo::SyloResolverMethod` (r:0 w:1)
+	/// Proof: `Sylo::SyloResolverMethod` (`max_values`: Some(1), `max_size`: Some(502), added: 997, mode: `MaxEncodedLen`)
+	fn set_sylo_resolver_method() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 3_000_000 picoseconds.
+		Weight::from_parts(4_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// Storage: `Sylo::Resolvers` (r:1 w:1)
-	/// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(2801), added: 5276, mode: `MaxEncodedLen`)
+	/// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(5551), added: 8026, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 250]`.
 	/// The range of component `q` is `[1, 10]`.
 	fn register_resolver(p: u32, q: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `175`
-		//  Estimated: `6266`
+		//  Estimated: `9016`
 		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(13_760_190, 0)
-			.saturating_add(Weight::from_parts(0, 6266))
-			// Standard Error: 313
-			.saturating_add(Weight::from_parts(3_660, 0).saturating_mul(p.into()))
-			// Standard Error: 8_176
-			.saturating_add(Weight::from_parts(309_234, 0).saturating_mul(q.into()))
+		Weight::from_parts(12_953_454, 0)
+			.saturating_add(Weight::from_parts(0, 9016))
+			// Standard Error: 216
+			.saturating_add(Weight::from_parts(2_490, 0).saturating_mul(p.into()))
+			// Standard Error: 5_652
+			.saturating_add(Weight::from_parts(301_265, 0).saturating_mul(q.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `Sylo::Resolvers` (r:1 w:1)
-	/// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(2801), added: 5276, mode: `MaxEncodedLen`)
+	/// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(5551), added: 8026, mode: `MaxEncodedLen`)
 	/// The range of component `q` is `[1, 10]`.
 	fn update_resolver(q: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `289`
-		//  Estimated: `6266`
+		//  Estimated: `9016`
 		// Minimum execution time: 15_000_000 picoseconds.
-		Weight::from_parts(16_249_618, 0)
-			.saturating_add(Weight::from_parts(0, 6266))
-			// Standard Error: 8_386
-			.saturating_add(Weight::from_parts(416_808, 0).saturating_mul(q.into()))
+		Weight::from_parts(15_831_188, 0)
+			.saturating_add(Weight::from_parts(0, 9016))
+			// Standard Error: 5_846
+			.saturating_add(Weight::from_parts(350_759, 0).saturating_mul(q.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `Sylo::Resolvers` (r:1 w:1)
-	/// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(2801), added: 5276, mode: `MaxEncodedLen`)
+	/// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(5551), added: 8026, mode: `MaxEncodedLen`)
 	fn unregister_resolver() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `289`
-		//  Estimated: `6266`
+		//  Estimated: `9016`
 		// Minimum execution time: 15_000_000 picoseconds.
-		Weight::from_parts(16_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 6266))
+		Weight::from_parts(15_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 9016))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `Sylo::ValidationRecords` (r:1 w:1)
-	/// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(11724), added: 14199, mode: `MaxEncodedLen`)
+	/// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(19724), added: 22199, mode: `MaxEncodedLen`)
+	/// Storage: `Sylo::SyloResolverMethod` (r:1 w:0)
+	/// Proof: `Sylo::SyloResolverMethod` (`max_values`: Some(1), `max_size`: Some(502), added: 997, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 10]`.
 	/// The range of component `q` is `[1, 10]`.
 	fn create_validation_record(p: u32, q: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `213`
-		//  Estimated: `15189`
-		// Minimum execution time: 16_000_000 picoseconds.
-		Weight::from_parts(14_981_271, 0)
-			.saturating_add(Weight::from_parts(0, 15189))
-			// Standard Error: 7_754
-			.saturating_add(Weight::from_parts(698_812, 0).saturating_mul(p.into()))
-			// Standard Error: 7_754
-			.saturating_add(Weight::from_parts(183_708, 0).saturating_mul(q.into()))
-			.saturating_add(T::DbWeight::get().reads(1))
+		//  Measured:  `217 + p * (16 ±0)`
+		//  Estimated: `23189`
+		// Minimum execution time: 17_000_000 picoseconds.
+		Weight::from_parts(17_280_488, 0)
+			.saturating_add(Weight::from_parts(0, 23189))
+			// Standard Error: 9_099
+			.saturating_add(Weight::from_parts(673_932, 0).saturating_mul(p.into()))
+			// Standard Error: 9_099
+			.saturating_add(Weight::from_parts(133_592, 0).saturating_mul(q.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `Sylo::ValidationRecords` (r:1 w:1)
-	/// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(11724), added: 14199, mode: `MaxEncodedLen`)
+	/// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(19724), added: 22199, mode: `MaxEncodedLen`)
 	fn add_validation_record_entry() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `317`
-		//  Estimated: `15189`
-		// Minimum execution time: 19_000_000 picoseconds.
-		Weight::from_parts(26_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 15189))
+		//  Estimated: `23189`
+		// Minimum execution time: 18_000_000 picoseconds.
+		Weight::from_parts(19_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 23189))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `Sylo::ValidationRecords` (r:1 w:1)
-	/// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(11724), added: 14199, mode: `MaxEncodedLen`)
+	/// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(19724), added: 22199, mode: `MaxEncodedLen`)
+	/// Storage: `Sylo::SyloResolverMethod` (r:1 w:0)
+	/// Proof: `Sylo::SyloResolverMethod` (`max_values`: Some(1), `max_size`: Some(502), added: 997, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 10]`.
 	/// The range of component `q` is `[1, 10]`.
 	fn update_validation_record(p: u32, q: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `351`
-		//  Estimated: `15189`
+		//  Measured:  `355 + p * (16 ±0)`
+		//  Estimated: `23189`
 		// Minimum execution time: 22_000_000 picoseconds.
-		Weight::from_parts(19_834_497, 0)
-			.saturating_add(Weight::from_parts(0, 15189))
-			// Standard Error: 26_349
-			.saturating_add(Weight::from_parts(1_090_616, 0).saturating_mul(p.into()))
-			// Standard Error: 26_349
-			.saturating_add(Weight::from_parts(204_524, 0).saturating_mul(q.into()))
-			.saturating_add(T::DbWeight::get().reads(1))
+		Weight::from_parts(18_370_121, 0)
+			.saturating_add(Weight::from_parts(0, 23189))
+			// Standard Error: 6_644
+			.saturating_add(Weight::from_parts(1_759_119, 0).saturating_mul(p.into()))
+			// Standard Error: 6_644
+			.saturating_add(Weight::from_parts(374_286, 0).saturating_mul(q.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `Sylo::ValidationRecords` (r:1 w:1)
-	/// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(11724), added: 14199, mode: `MaxEncodedLen`)
+	/// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(19724), added: 22199, mode: `MaxEncodedLen`)
 	fn delete_validation_record() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `317`
-		//  Estimated: `15189`
-		// Minimum execution time: 16_000_000 picoseconds.
+		//  Estimated: `23189`
+		// Minimum execution time: 17_000_000 picoseconds.
 		Weight::from_parts(17_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 15189))
+			.saturating_add(Weight::from_parts(0, 23189))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}

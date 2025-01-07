@@ -601,8 +601,7 @@ parameter_types! {
 	pub const MaxTags: u32 = 10;
 	pub const MaxEntries: u32 = 100;
 	pub const MaxServiceEndpoints: u32 = 10;
-	pub const SyloStringLimit: u32 = 250;
-	pub const SyloResolverMethod: [u8; 9] = *b"sylo-data";
+	pub const SyloStringLimit: u32 = 500;
 }
 
 impl pallet_sylo::Config for Runtime {
@@ -613,7 +612,6 @@ impl pallet_sylo::Config for Runtime {
 	type MaxEntries = MaxEntries;
 	type MaxServiceEndpoints = MaxServiceEndpoints;
 	type StringLimit = SyloStringLimit;
-	type SyloResolverMethod = SyloResolverMethod;
 	type WeightInfo = weights::pallet_sylo::WeightInfo<Runtime>;
 }
 
