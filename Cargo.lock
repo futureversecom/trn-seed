@@ -5854,6 +5854,7 @@ dependencies = [
  "pallet-evm",
  "pallet-fee-control",
  "pallet-futurepass",
+ "pallet-sylo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",

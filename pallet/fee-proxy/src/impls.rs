@@ -30,11 +30,14 @@ where
 		+ pallet_dex::Config
 		+ pallet_evm::Config
 		+ pallet_assets_ext::Config
-		+ pallet_futurepass::Config,
+		+ pallet_futurepass::Config
+		+ pallet_sylo::Config,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<crate::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
 	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
 	<T as Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
@@ -65,12 +68,67 @@ where
 			}
 		}
 
+		let do_fee_swap = |payment_asset: AssetId,
+		                   mut total_fee: Balance,
+		                   max_payment: Balance|
+		 -> Result<(), TransactionValidityError> {
+			let native_asset = <T as Config>::FeeAssetId::get();
+
+			// If the account has less balance than the minimum_deposit, we need to add
+			// the minimum deposit onto the total_fee.
+			// This is due to the preservation rules of the withdraw call made within
+			// <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee
+			let account_balance = pallet_assets_ext::Pallet::<T>::balance(native_asset, who);
+			// Minium balance is hardcoded to 1
+			// pallet_assets_ext::Pallet::<T>::minimum_balance(native_asset);
+			let minimum_balance = pallet_assets_ext::Pallet::<T>::minimum_balance(native_asset);
+			if account_balance < minimum_balance {
+				total_fee = total_fee.saturating_add(minimum_balance);
+			}
+			let path: &[AssetId] = &[payment_asset, native_asset];
+			pallet_dex::Pallet::<T>::do_swap_with_exact_target(
+				who,
+				total_fee,
+				max_payment,
+				path,
+				*who,
+				None,
+			)
+			.map_err(|_| InvalidTransaction::Payment)?;
+
+			Ok(())
+		};
+
+		let is_sylo_call = match call.is_sub_type() {
+			Some(pallet_sylo::Call::register_resolver { .. }) => true,
+			Some(pallet_sylo::Call::update_resolver { .. }) => true,
+			Some(pallet_sylo::Call::unregister_resolver { .. }) => true,
+			Some(pallet_sylo::Call::create_validation_record { .. }) => true,
+			Some(pallet_sylo::Call::add_validation_record_entry { .. }) => true,
+			Some(pallet_sylo::Call::update_validation_record { .. }) => true,
+			Some(pallet_sylo::Call::delete_validation_record { .. }) => true,
+			_ => false,
+		};
+
+		// if the call is a sylo pallet call, then we always force a fee swap with the
+		// sylo token
+		if is_sylo_call {
+			let payment_asset =
+				pallet_sylo::Pallet::<T>::payment_asset().ok_or(InvalidTransaction::Payment)?;
+
+			do_fee_swap(payment_asset, Balance::from(fee), u128::MAX)?;
+		}
+
 		// Check whether this call has specified fee preferences
 		if let Some(call_with_fee_preferences { payment_asset, max_payment, call }) =
 			call.is_sub_type()
 		{
+			// prevent using the fee proxy if the call is a sylo call
+			if is_sylo_call {
+				Err(InvalidTransaction::Payment)?;
+			}
+
 			let mut total_fee: Balance = Balance::from(fee);
-			let native_asset = <T as Config>::FeeAssetId::get();
 
 			let mut add_evm_gas_cost =
 				|gas_limit: &u64,
@@ -127,27 +185,7 @@ where
 				add_evm_gas_cost(gas_limit, max_fee_per_gas, max_priority_fee_per_gas);
 			}
 
-			// If the account has less balance than the minimum_deposit, we need to add
-			// the minimum deposit onto the total_fee.
-			// This is due to the preservation rules of the withdraw call made within
-			// <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee
-			let account_balance = pallet_assets_ext::Pallet::<T>::balance(native_asset, who);
-			// Minium balance is hardcoded to 1
-			// pallet_assets_ext::Pallet::<T>::minimum_balance(native_asset);
-			let minimum_balance = pallet_assets_ext::Pallet::<T>::minimum_balance(native_asset);
-			if account_balance < minimum_balance {
-				total_fee = total_fee.saturating_add(minimum_balance);
-			}
-			let path: &[AssetId] = &[*payment_asset, native_asset];
-			pallet_dex::Pallet::<T>::do_swap_with_exact_target(
-				who,
-				total_fee,
-				*max_payment,
-				path,
-				*who,
-				None,
-			)
-			.map_err(|_| InvalidTransaction::Payment)?;
+			do_fee_swap(*payment_asset, total_fee, *max_payment)?;
 		};
 
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(

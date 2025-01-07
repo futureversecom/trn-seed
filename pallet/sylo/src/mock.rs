@@ -41,6 +41,7 @@ parameter_types! {
 	pub const SyloResolverMethod: [u8; 9] = *b"sylo-data";
 }
 impl Config for Test {
+	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MaxResolvers = MaxResolvers;
 	type MaxTags = MaxTags;

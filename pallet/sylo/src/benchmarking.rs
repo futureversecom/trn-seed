@@ -86,6 +86,8 @@ pub fn setup_validation_record<T: Config>(
 benchmarks! {
 	where_clause { where <T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160> }
 
+	set_payment_asset {}: _(RawOrigin::Root, 24)
+
 	register_resolver {
 		let p in 1 .. STRING_LIMIT;
 		let q in 1 .. MAX_SERVICE_ENDPOINTS;

@@ -13,14 +13,13 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+use alloc::{format, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	parameter_types, traits::Get, BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound,
-	RuntimeDebug, RuntimeDebugNoBound,
+	traits::Get, BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
-use seed_primitives::{AssetId, Balance, Block};
-use sp_core::{hexdisplay::AsBytesRef, H160, H256};
+use sp_core::H256;
 use sp_std::{fmt::Debug, prelude::*};
 
 #[derive(
@@ -44,14 +43,13 @@ where
 
 impl<T: Get<u32>> ResolverId<T> {
 	pub fn to_did(&self) -> Vec<u8> {
-		return Vec::new();
-		// let method = self.method.to_vec();
-		// let method = String::from_utf8_lossy(method.as_bytes_ref());
+		let method = self.method.to_vec();
+		let method = String::from_utf8_lossy(method.as_slice());
 
-		// let identifier = self.identifier.to_vec();
-		// let identifier = String::from_utf8_lossy(identifier.as_bytes_ref());
+		let identifier = self.identifier.to_vec();
+		let identifier = String::from_utf8_lossy(identifier.as_slice());
 
-		// format!("did:{method}:{identifier}").as_bytes().to_vec()
+		format!("did:{method}:{identifier}").as_bytes().to_vec()
 	}
 }
 

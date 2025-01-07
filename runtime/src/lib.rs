@@ -606,6 +606,7 @@ parameter_types! {
 }
 
 impl pallet_sylo::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MaxResolvers = MaxResolvers;
 	type MaxTags = MaxTags;
