@@ -40,6 +40,7 @@ construct_runtime!(
 		Timestamp: pallet_timestamp,
 		Futurepass: pallet_futurepass,
 		FeeControl: pallet_fee_control,
+		Sylo: pallet_sylo,
 	}
 );
 
@@ -53,6 +54,7 @@ impl_pallet_timestamp_config!(Test);
 impl_pallet_evm_config!(Test);
 impl_pallet_futurepass_config!(Test);
 impl_pallet_fee_control_config!(Test);
+impl_pallet_sylo_config!(Test);
 
 // Mock ErcIdConversion for testing purposes
 impl<RuntimeId> ErcIdConversion<RuntimeId> for Test

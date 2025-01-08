@@ -205,7 +205,6 @@ mod resolvers {
 mod validation_records {
 	use core::str;
 
-	use mock::SyloResolverMethod;
 	use sp_core::hexdisplay::AsBytesRef;
 
 	use super::*;
@@ -298,7 +297,7 @@ mod validation_records {
 					alice,
 					"data_id",
 					vec![(
-						str::from_utf8(SyloResolverMethod::get().as_bytes_ref()).unwrap(),
+						str::from_utf8(SyloResolverMethod::<Test>::get().as_bytes_ref()).unwrap(),
 						str::from_utf8(identifier.to_vec().as_bytes_ref()).unwrap(),
 					)],
 					"data_type",
@@ -336,7 +335,7 @@ mod validation_records {
 					alice,
 					"data_id",
 					vec![(
-						str::from_utf8(SyloResolverMethod::get().as_bytes_ref()).unwrap(),
+						str::from_utf8(SyloResolverMethod::<Test>::get().as_bytes_ref()).unwrap(),
 						// identifier references a non-existent resolver
 						"unregistered-resolver",
 					)],
