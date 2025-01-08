@@ -60,24 +60,32 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>;
+
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
 
+		/// The maximim number of resolvers in a validation record.
 		#[pallet::constant]
 		type MaxResolvers: Get<u32>;
 
+		/// The maximum number of tags in a validation record.
 		#[pallet::constant]
 		type MaxTags: Get<u32>;
 
+		/// The maximum number of validation entries in a record.
 		#[pallet::constant]
 		type MaxEntries: Get<u32>;
 
+		/// The maximum number of service endpoints for a registered resolver.
 		#[pallet::constant]
 		type MaxServiceEndpoints: Get<u32>;
 
+		/// The max length of strings used within the Sylo Pallet. This limits
+		/// the maximum size for resolver identifiers, data identifier, service
+		/// endpoint strings, and tag strings.
 		#[pallet::constant]
 		type StringLimit: Get<u32>;
 	}
