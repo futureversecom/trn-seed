@@ -56,7 +56,7 @@ impl<T: Config> GroupedTokenInfo<T> {
 	) -> Self {
 		let token_information: Vec<TokenInfo<T>> = token_ids
 			.into_iter()
-			.zip(token_addresses.into_iter())
+			.zip(token_addresses)
 			.map(|(token_ids, token_address)| TokenInfo { token_address, token_ids })
 			.collect();
 		GroupedTokenInfo { tokens: token_information, destination }

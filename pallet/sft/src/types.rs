@@ -116,7 +116,7 @@ where
 		let Some((_, existing_balance)) =
 			self.owned_tokens.iter_mut().find(|(account, _)| account == who)
 		else {
-			return Err(TokenBalanceError::InsufficientBalance.into());
+			return Err(TokenBalanceError::InsufficientBalance);
 		};
 
 		existing_balance.remove_free_balance(amount)?;
@@ -177,7 +177,7 @@ where
 
 /// Holds information about a users balance of a specific token
 /// An amount of SFT balance can be reserved when listed for sale
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(Default, Debug, Clone, Encode, Decode, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct SftTokenBalance {
 	// The balance currently available
 	pub free_balance: Balance,
@@ -194,16 +194,10 @@ pub enum TokenBalanceError {
 impl<T: Config> From<TokenBalanceError> for Error<T> {
 	fn from(error: TokenBalanceError) -> Self {
 		match error {
-			TokenBalanceError::InsufficientBalance => Error::<T>::InsufficientBalance.into(),
-			TokenBalanceError::Overflow => Error::<T>::Overflow.into(),
-			TokenBalanceError::MaxOwnersReached => Error::<T>::MaxOwnersReached.into(),
+			TokenBalanceError::InsufficientBalance => Error::<T>::InsufficientBalance,
+			TokenBalanceError::Overflow => Error::<T>::Overflow,
+			TokenBalanceError::MaxOwnersReached => Error::<T>::MaxOwnersReached,
 		}
-	}
-}
-
-impl Default for SftTokenBalance {
-	fn default() -> Self {
-		SftTokenBalance { free_balance: 0, reserved_balance: 0 }
 	}
 }
 

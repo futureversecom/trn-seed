@@ -29,7 +29,7 @@ where
 		Self {
 			owner,
 			name: String::from("SFT Collection"),
-			metadata_scheme: MetadataScheme::try_from(b"https://default.com/".as_slice()).unwrap(),
+			metadata_scheme: MetadataScheme::try_from(b"https://example.com/".as_slice()).unwrap(),
 			royalties_schedule: None,
 			token_name: String::from("SFT Token"),
 			initial_issuance: 0,
@@ -90,7 +90,7 @@ where
 		.expect("Failed to create SFT collection");
 
 		assert_ok!(Pallet::<T>::create_token(
-			OriginFor::<T>::signed(self.owner.into()),
+			OriginFor::<T>::signed(self.owner),
 			collection_id,
 			token_name,
 			self.initial_issuance,

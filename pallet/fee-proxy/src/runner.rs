@@ -53,9 +53,9 @@ pub enum FeePreferencesError {
 	FeeExceedsMaxPayment,
 }
 
-impl<T> Into<pallet_evm::Error<T>> for FeePreferencesError {
-	fn into(self: Self) -> pallet_evm::Error<T> {
-		match self {
+impl<T> From<FeePreferencesError> for pallet_evm::Error<T> {
+	fn from(value: FeePreferencesError) -> pallet_evm::Error<T> {
+		match value {
 			FeePreferencesError::WithdrawFailed => pallet_evm::Error::WithdrawFailed,
 			FeePreferencesError::GasPriceTooLow => pallet_evm::Error::GasPriceTooLow,
 			FeePreferencesError::FeeOverflow => pallet_evm::Error::FeeOverflow,
@@ -157,12 +157,13 @@ where
 			if let [Token::Address(payment_asset_address), Token::Uint(_max_payment), Token::Address(new_target), Token::Bytes(new_input)] =
 				tokens.as_slice()
 			{
-				let payment_asset = U::evm_id_to_runtime_id(
+				let Some(payment_asset) = U::evm_id_to_runtime_id(
 					(*payment_asset_address).into(),
 					ERC20_PRECOMPILE_ADDRESS_PREFIX,
-				);
-				ensure!(payment_asset.is_some(), FeePreferencesError::InvalidPaymentAsset);
-				Ok((payment_asset.unwrap(), (*new_target).into(), new_input.clone()))
+				) else {
+					return Err(FeePreferencesError::InvalidPaymentAsset);
+				};
+				Ok((payment_asset, (*new_target), new_input.clone()))
 			} else {
 				Err(FeePreferencesError::InvalidInputArguments)?
 			}
@@ -173,12 +174,13 @@ where
 			if let [Token::Address(payment_asset_address), Token::Address(new_target), Token::Bytes(new_input)] =
 				tokens.as_slice()
 			{
-				let payment_asset = U::evm_id_to_runtime_id(
+				let Some(payment_asset) = U::evm_id_to_runtime_id(
 					(*payment_asset_address).into(),
 					ERC20_PRECOMPILE_ADDRESS_PREFIX,
-				);
-				ensure!(payment_asset.is_some(), FeePreferencesError::InvalidPaymentAsset);
-				Ok((payment_asset.unwrap(), (*new_target).into(), new_input.clone()))
+				) else {
+					return Err(FeePreferencesError::InvalidPaymentAsset);
+				};
+				Ok((payment_asset, (*new_target), new_input.clone()))
 			} else {
 				Err(FeePreferencesError::InvalidInputArguments)?
 			}
@@ -295,8 +297,8 @@ where
 		// Verify that the chain is not in maintenance mode,
 		// the signer account is not blocked,
 		// And the target address is not blocked
-		let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
-		if <T as Config>::MaintenanceChecker::validate_evm_call(&account, &target) == false {
+		let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
+		if !<T as Config>::MaintenanceChecker::validate_evm_call(&account, &target) {
 			return Err(RunnerError {
 				error: Self::Error::WithdrawFailed,
 				weight: Weight::default(),
@@ -344,15 +346,14 @@ where
 				}
 			};
 
-			let account =
-				<T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
+			let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
 
 			pallet_dex::Pallet::<T>::do_swap_with_exact_supply(
 				&account,
 				max_payment_tokens,
 				final_fee,
 				&path,
-				account.clone(),
+				account,
 				None,
 			)
 			.map_err(|err| {
@@ -406,8 +407,8 @@ where
 		// @todo check source, proxy request if needed
 
 		// Verify that the chain is not in maintenance mode, and the signer account is not blocked
-		let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
-		if <T as Config>::MaintenanceChecker::validate_evm_create(&account) == false {
+		let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
+		if !<T as Config>::MaintenanceChecker::validate_evm_create(&account) {
 			return Err(RunnerError {
 				error: Self::Error::WithdrawFailed,
 				weight: Weight::default(),
@@ -450,8 +451,8 @@ where
 		// @todo check source, proxy request if needed
 
 		// Verify that the chain is not in maintenance mode, and the signer account is not blocked
-		let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
-		if <T as Config>::MaintenanceChecker::validate_evm_create(&account) == false {
+		let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
+		if !<T as Config>::MaintenanceChecker::validate_evm_create(&account) {
 			return Err(RunnerError {
 				error: Self::Error::WithdrawFailed,
 				weight: Weight::default(),

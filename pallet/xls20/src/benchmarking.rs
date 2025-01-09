@@ -23,7 +23,10 @@ use crate::Pallet as Xls20;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
-use seed_primitives::{nft::OriginChain, MetadataScheme};
+use hex_literal::hex;
+use pallet_nft::CollectionInformation;
+use seed_primitives::{nft::OriginChain, CrossChainCompatibility, MetadataScheme};
+use sp_core::H160;
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -51,34 +54,22 @@ pub fn build_xls20_collection<T: Config>(
 		metadata_scheme,
 		None,
 		OriginChain::Root,
+		CrossChainCompatibility::default(),
 	)
 	.unwrap();
-
 	assert_ok!(Xls20::<T>::enable_xls20_compatibility(origin::<T>(&caller).into(), collection_id));
-
-	// Setup relayer
 	assert_ok!(Xls20::<T>::set_relayer(RawOrigin::Root.into(), relayer,));
 
 	// Mint tokens
 	if !initial_issuance.is_zero() {
 		assert_ok!(T::NFTExt::do_mint(caller, collection_id, initial_issuance.into(), None,));
 	}
-
 	collection_id
 }
 
-fn setup_token_mappings<T: Config>(
-	input: Vec<(SerialNumber, &str)>,
-) -> BoundedVec<(SerialNumber, Xls20TokenId), T::MaxTokensPerXls20Mint> {
-	let input: Vec<(SerialNumber, Xls20TokenId)> = input
-		.into_iter()
-		.map(|(s, token)| (s, Xls20TokenId::try_from(token.as_bytes()).unwrap()))
-		.collect();
-
-	BoundedVec::try_from(input).unwrap()
-}
-
 benchmarks! {
+	where_clause { where T: pallet_nft::Config }
+
 	set_relayer {
 	}: _(RawOrigin::Root, account::<T>("Bob"))
 
@@ -100,8 +91,71 @@ benchmarks! {
 		let caller = account::<T>("Alice");
 		let relayer = account::<T>("Bob");
 		let collection_id = build_xls20_collection::<T>(Some(caller), Some(relayer.clone()), 1);
-		let serial_numbers = setup_token_mappings::<T>(vec![(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")]);
+		let serial_numbers = BoundedVec::truncate_from(vec![(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"))]);
 	}: _(origin::<T>(&relayer), collection_id, serial_numbers)
+
+	set_collection_mappings {
+		let i in 0..256;
+		let mut mappings: Vec<(CollectionUuid, Xls20Collection)> = Vec::new();
+		for _ in 0..i {
+			let collection_id = i as u32;
+			let issuer = H160::from
+			(hex!("95F14B0E44F78A264E41713C64B5F89242540EE2"));
+			let xls20_collection = Xls20Collection::new(issuer, collection_id);
+			mappings.push((collection_id, xls20_collection));
+		}
+	}: _(RawOrigin::Root, mappings.clone())
+	verify {
+		for (collection_id, xls20_collection) in mappings {
+			assert_eq!(CollectionMapping::<T>::get(xls20_collection), Some(collection_id));
+		}
+	}
+
+	deposit_token_mint {
+		let beneficiary = account::<T>("Beneficiary");
+		let xls20_token_id = hex!("000C0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		let collection_id = 146_999_694;
+		let serial_number = 3429;
+		let issuer = H160::from(hex!("95F14B0E44F78A264E41713C64B5F89242540EE2"));
+		let xls20_collection = Xls20Collection::new(issuer, collection_id);
+		let collection_info = CollectionInformation {
+			owner: beneficiary.clone(),
+			name: BoundedVec::truncate_from("New Collection".encode()),
+			metadata_scheme: MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
+			royalties_schedule: None,
+			max_issuance: None,
+			origin_chain: OriginChain::Root,
+			next_serial_number: 3429,
+			collection_issuance: 0,
+			cross_chain_compatibility: CrossChainCompatibility::default(),
+			owned_tokens: BoundedVec::truncate_from(vec![]), // No tokens
+		};
+		<pallet_nft::CollectionInfo<T>>::insert(collection_id, collection_info);
+		CollectionMapping::<T>::insert(xls20_collection, collection_id);
+	}: {Xls20::<T>::deposit_xls20_token(&beneficiary, xls20_token_id).expect("Failed to process asset deposit");}
+	verify {
+		// Token was minted
+		let new_owner = T::NFTExt::get_token_owner(&(collection_id, serial_number)).unwrap();
+		assert_eq!(new_owner, beneficiary);
+	}
+
+	deposit_token_create_collection {
+		let beneficiary = account::<T>("Beneficiary");
+		let xls20_token_id = hex!("000C0C4495F14B0E44F78A264E41713C64B5F89242540EE2BC8B858E00000D65");
+		let collection_id = 146_999_694;
+		let serial_number = 3429;
+		let issuer = H160::from(hex!("95F14B0E44F78A264E41713C64B5F89242540EE2"));
+		let next_collection_id = T::NFTExt::next_collection_uuid().expect("Failed to get next collection uuid");
+	}: {Xls20::<T>::deposit_xls20_token(&beneficiary, xls20_token_id).expect("Failed to process asset deposit");}
+	verify {
+		// Token was minted
+		let new_owner = T::NFTExt::get_token_owner(&(next_collection_id, serial_number)).unwrap();
+		assert_eq!(new_owner, beneficiary);
+		// Collection was created
+		let collection_info = <pallet_nft::CollectionInfo<T>>::get(next_collection_id).expect("Failed to get collection info");
+		let pallet_address: T::AccountId = <T as pallet::Config>::PalletId::get().into_account_truncating();
+		assert_eq!(collection_info.owner, pallet_address);
+	}
 }
 
 impl_benchmark_test_suite!(

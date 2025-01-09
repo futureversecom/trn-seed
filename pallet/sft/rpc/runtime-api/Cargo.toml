@@ -9,7 +9,6 @@ license.workspace = true
 codec = { workspace = true }
 sp-api = { workspace = true }
 sp-std = { workspace = true }
-sp-runtime = { workspace = true }
 pallet-sft = { workspace = true }
 seed-primitives = { workspace = true }
 

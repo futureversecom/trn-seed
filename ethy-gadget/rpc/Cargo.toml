@@ -12,12 +12,9 @@ jsonrpsee = { workspace = true }
 libsecp256k1 = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
-rustc-hex = { workspace = true }
 
 sc-client-api = { workspace = true }
 sc-rpc = { workspace = true }
-sc-utils = { workspace = true }
 sp-api = { workspace = true }
 sp-core = { workspace = true }
 sp-runtime = { workspace = true }

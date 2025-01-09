@@ -24,7 +24,6 @@ seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
 
 [dev-dependencies]
-pallet-nft = { workspace = true }
 sp-io = { workspace = true }
 hex-literal = { workspace = true }
 pallet-assets-ext = { workspace = true, default-features = true }

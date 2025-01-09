@@ -16,6 +16,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
+use alloc::string::String;
 use core::convert::{TryFrom, TryInto};
 use ethereum_types::BigEndianHash;
 use fp_evm::{IsPrecompileResult, PrecompileHandle, PrecompileOutput};
@@ -30,7 +31,7 @@ use precompile_utils::{
 	prelude::*,
 };
 use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId};
-use sp_core::{H160, H256, U256};
+use sp_core::{Encode, H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
@@ -72,6 +73,17 @@ pub const SELECTOR_LOG_PUBLIC_MINT_TOGGLED: [u8; 32] = keccak256!("PublicMintTog
 pub const SELECTOR_LOG_MINT_FEE_UPDATED: [u8; 32] =
 	keccak256!("MintFeeUpdated(uint32,address,uint128)");
 
+/// Interface IDs for the ERC165, ERC1155, ERC1155Burnable, ERC1155Supply, ERC1155MetadataURI, Ownable and TRN1155 interfaces
+pub const ERC165_INTERFACE_IDS: &[u32] = &[
+	0x01ffc9a7, // ERC165
+	0xd9b67a26, // ERC1155
+	0x9e094e9e, // ERC1155Burnable
+	0x0e89341c, // ERC1155MetadataURI
+	0xf2d03e40, // ERC1155Supply
+	0x0e083076, // Ownable
+	0xf0f03f65, // TRN1155
+];
+
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
 pub enum Action {
@@ -105,6 +117,8 @@ pub enum Action {
 	// Selector used by SafeTransferFrom function
 	OnErc1155Received = "onERC1155Received(address,address,uint256,uint256,bytes)",
 	OnErc1155BatchReceived = "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)",
+	// ERC165 - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/introspection/ERC165.sol
+	SupportsInterface = "supportsInterface(bytes4)",
 }
 
 /// The following distribution has been decided for the precompiles
@@ -112,7 +126,7 @@ pub enum Action {
 /// 1024-2047 Precompiles that are not in Ethereum Mainnet but are neither Root specific
 /// 2048-4095 Seed specific precompiles
 /// SFT precompile addresses can only fall between
-/// 	0xBBBBBBBB00000000000000000000000000000000 - 0xBBBBBBBBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+///     0xBBBBBBBB00000000000000000000000000000000 - 0xBBBBBBBBFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 /// The precompile for SFT series X where X is a u32 (i.e.4 bytes), if 0XFFFFFFFF +
 /// Bytes(CollectionUuid) In order to route the address to Erc1155Precompile<R>, we
 /// check whether the CollectionUuid exists in pallet-sft
@@ -208,7 +222,9 @@ where
 						Action::SetBaseURI => Self::set_base_uri(collection_id, handle),
 						Action::TogglePublicMint => Self::toggle_public_mint(collection_id, handle),
 						Action::SetMintFee => Self::set_mint_fee(collection_id, handle),
-						_ => return Some(Err(revert("ERC1155: Function not implemented").into())),
+						// ERC165
+						Action::SupportsInterface => Self::supports_interface(handle),
+						_ => return Some(Err(revert("ERC1155: Function not implemented"))),
 					}
 				};
 				return Some(result);
@@ -288,7 +304,7 @@ where
 			.into_iter()
 			.map(|id| {
 				if id > u32::MAX.into() {
-					return Err(revert("ERC1155: Expected token id <= 2^32").into());
+					return Err(revert("ERC1155: Expected token id <= 2^32"));
 				}
 				Ok(id.saturated_into())
 			})
@@ -322,7 +338,7 @@ where
 		let operator: Runtime::AccountId = H160::from(operator).into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc1155_approvals_for_all(
+		let is_approved = pallet_token_approvals::ERC1155ApprovalsForAll::<Runtime>::get(
 			owner,
 			(collection_id, operator),
 		)
@@ -347,7 +363,7 @@ where
 			None.into(),
 			pallet_token_approvals::Call::<Runtime>::erc1155_approval_for_all {
 				caller: handle.context().caller.into(),
-				operator_account: operator.clone().into(),
+				operator_account: operator.into(),
 				collection_uuid: collection_id,
 				approved,
 			},
@@ -444,14 +460,10 @@ where
 			match reason {
 				ExitReason::Succeed(_) => {
 					if output[..4] != ON_ERC1155_RECEIVED_FUNCTION_SELECTOR.to_vec() {
-						return Err(revert("ERC1155: ERC1155Receiver rejected tokens").into());
+						return Err(revert("ERC1155: ERC1155Receiver rejected tokens"));
 					}
 				},
-				_ => {
-					return Err(
-						revert("ERC1155: transfer to non-ERC1155Receiver implementer").into()
-					)
-				},
+				_ => return Err(revert("ERC1155: transfer to non-ERC1155Receiver implementer")),
 			};
 		}
 		Ok(())
@@ -552,14 +564,10 @@ where
 			match reason {
 				ExitReason::Succeed(_) => {
 					if output[..4] != ON_ERC1155_BATCH_RECEIVED_FUNCTION_SELECTOR.to_vec() {
-						return Err(revert("ERC1155: ERC1155Receiver rejected tokens").into());
+						return Err(revert("ERC1155: ERC1155Receiver rejected tokens"));
 					}
 				},
-				_ => {
-					return Err(
-						revert("ERC1155: transfer to non-ERC1155Receiver implementer").into()
-					)
-				},
+				_ => return Err(revert("ERC1155: transfer to non-ERC1155Receiver implementer")),
 			};
 		}
 		Ok(())
@@ -582,7 +590,7 @@ where
 		// Check approvals
 		if from != handle.context().caller {
 			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-			let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc1155_approvals_for_all(
+			let is_approved = pallet_token_approvals::ERC1155ApprovalsForAll::<Runtime>::get(
 				Runtime::AccountId::from(from),
 				(collection_id, Runtime::AccountId::from(handle.context().caller)),
 			)
@@ -591,7 +599,7 @@ where
 		}
 
 		// Build input BoundedVec from serial_numbers and amounts.
-		let combined = serial_numbers.into_iter().zip(amounts.into_iter()).collect::<Vec<_>>();
+		let combined = serial_numbers.into_iter().zip(amounts).collect::<Vec<_>>();
 		let serial_numbers: BoundedVec<
 			(SerialNumber, Balance),
 			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
@@ -629,7 +637,7 @@ where
 		// Check approvals
 		if operator != handle.context().caller {
 			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-			let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc1155_approvals_for_all(
+			let is_approved = pallet_token_approvals::ERC1155ApprovalsForAll::<Runtime>::get(
 				Runtime::AccountId::from(operator),
 				(collection_id, Runtime::AccountId::from(handle.context().caller)),
 			)
@@ -697,7 +705,7 @@ where
 		// Check approvals
 		if operator != handle.context().caller {
 			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-			let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc1155_approvals_for_all(
+			let is_approved = pallet_token_approvals::ERC1155ApprovalsForAll::<Runtime>::get(
 				Runtime::AccountId::from(operator),
 				(collection_id, Runtime::AccountId::from(handle.context().caller)),
 			)
@@ -706,7 +714,7 @@ where
 		}
 
 		// Build input BoundedVec from serial_number and amount.
-		let combined = serial_numbers.into_iter().zip(balances.into_iter()).collect::<Vec<_>>();
+		let combined = serial_numbers.into_iter().zip(balances).collect::<Vec<_>>();
 		let serial_numbers: BoundedVec<
 			(SerialNumber, Balance),
 			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
@@ -793,9 +801,7 @@ where
 					.write(Address::from(Into::<H160>::into(collection_owner)))
 					.build(),
 			)),
-			None => Err(revert(
-				alloc::format!("ERC1155: Collection does not exist").as_bytes().to_vec(),
-			)),
+			None => Err(revert(String::from("ERC1155: Collection does not exist").as_bytes())),
 		}
 	}
 
@@ -910,9 +916,7 @@ where
 				Ok(succeed(EvmDataWriter::new().write(U256::from(serial_number)).build()))
 			},
 			Err(err) => Err(revert(
-				alloc::format!("ERC1155: Create token failed {:?}", err.stripped())
-					.as_bytes()
-					.to_vec(),
+				alloc::format!("ERC1155: Create token failed {:?}", err.stripped()).as_bytes(),
 			)),
 		}
 	}
@@ -992,7 +996,7 @@ where
 			.collect::<Result<Vec<Balance>, PrecompileFailure>>()?;
 
 		// Build input BoundedVec from serial_number and amount.
-		let combined = serial_numbers.into_iter().zip(balances.into_iter()).collect::<Vec<_>>();
+		let combined = serial_numbers.into_iter().zip(balances).collect::<Vec<_>>();
 		let serial_numbers: BoundedVec<
 			(SerialNumber, Balance),
 			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
@@ -1037,7 +1041,7 @@ where
 
 		// Parse max_supply
 		if max_supply > Balance::MAX.into() {
-			return Err(revert("ERC1155: Expected max_supply <= 2^128").into());
+			return Err(revert("ERC1155: Expected max_supply <= 2^128"));
 		}
 		let max_issuance: Balance = max_supply.saturated_into();
 		let origin = handle.context().caller;
@@ -1147,7 +1151,7 @@ where
 		)
 		.ok_or_else(|| revert("ERC1155: Invalid payment asset address"))?;
 		if mint_fee > Balance::MAX.into() {
-			return Err(revert("ERC1155: Expected mint_fee <= 2^128").into());
+			return Err(revert("ERC1155: Expected mint_fee <= 2^128"));
 		}
 		let fee: Balance = mint_fee.saturated_into();
 		// If the mint fee is 0, we can assume this means no mint fee
@@ -1175,5 +1179,27 @@ where
 		.record(handle)?;
 
 		Ok(succeed([]))
+	}
+
+	fn supports_interface(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+		read_args!(handle, { interface_id: U256 });
+
+		// Convert to bytes4 by getting the last 4 bytes of the BE representation
+		let interface_id_bytes = interface_id.encode();
+		let interface_id_u32 = u32::from_le_bytes(
+			interface_id_bytes[28..32]
+				.try_into()
+				.map_err(|_| revert("ERC165: Invalid interface ID"))?,
+		);
+
+		// ERC165 requires returning false for 0xffffffff
+		// https://eips.ethereum.org/EIPS/eip-165#how-a-contract-will-publish-the-interfaces-it-implements
+		if interface_id_u32 == 0xffffffff {
+			return Ok(succeed(EvmDataWriter::new().write(false).build()));
+		}
+
+		let supported = ERC165_INTERFACE_IDS.contains(&interface_id_u32);
+		Ok(succeed(EvmDataWriter::new().write(supported).build()))
 	}
 }

@@ -24,7 +24,7 @@ use seed_pallet_common::test_prelude::*;
 
 #[test]
 fn set_peg_contract_address_works() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let signer = create_account(22);
 		let contract_address = H160::from_low_u64_be(123);
 
@@ -50,7 +50,7 @@ fn set_peg_contract_address_works() {
 
 #[test]
 fn set_deposit_delay_active() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let signer = create_account(22);
 
 		// Setting as not sudo fails
@@ -69,7 +69,7 @@ fn set_deposit_delay_active() {
 
 #[test]
 fn set_withdrawal_delay_active() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let signer = create_account(22);
 
 		// Setting as not sudo fails
@@ -91,7 +91,7 @@ fn set_withdrawal_delay_active() {
 
 #[test]
 fn set_root_peg_address_works() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let signer = create_account(22);
 		let contract_address = H160::from_low_u64_be(123);
 
@@ -117,7 +117,7 @@ fn set_root_peg_address_works() {
 
 #[test]
 fn set_erc20_asset_map_works() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let signer = create_account(22);
 		let contract_address = H160::from_low_u64_be(123);
 		let asset_id: AssetId = 12;
@@ -143,7 +143,7 @@ fn set_erc20_asset_map_works() {
 
 #[test]
 fn set_payment_delay() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let asset_id: AssetId = 1;
 		let min_balance: Balance = 100;
 		let delay: u64 = 1000;
@@ -159,7 +159,7 @@ fn set_payment_delay() {
 
 #[test]
 fn deposit_payment_with_ethereum_event_router() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 		// Set contract address
@@ -199,7 +199,7 @@ fn deposit_payment_with_ethereum_event_router() {
 
 #[test]
 fn deposit_payment_with_ethereum_event_router_source_address_not_set() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 
@@ -222,9 +222,7 @@ fn deposit_payment_with_ethereum_event_router_source_address_not_set() {
 			MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()),
 			(
 				DbWeight::get().reads(2u64),
-				EventRouterError::FailedProcessing(
-					DispatchError::Other("Invalid source address").into()
-				)
+				EventRouterError::FailedProcessing(DispatchError::Other("Invalid source address"))
 			)
 		);
 	});
@@ -232,7 +230,7 @@ fn deposit_payment_with_ethereum_event_router_source_address_not_set() {
 
 #[test]
 fn deposit_payment_with_ethereum_event_router_incorrect_source_address() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 		// Set contract address to different value
@@ -261,9 +259,7 @@ fn deposit_payment_with_ethereum_event_router_incorrect_source_address() {
 			MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()),
 			(
 				DbWeight::get().reads(2u64),
-				EventRouterError::FailedProcessing(
-					DispatchError::Other("Invalid source address").into()
-				)
+				EventRouterError::FailedProcessing(DispatchError::Other("Invalid source address"))
 			)
 		);
 	});
@@ -271,7 +267,7 @@ fn deposit_payment_with_ethereum_event_router_incorrect_source_address() {
 
 #[test]
 fn on_deposit_mints() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 		let token_address: H160 = H160::from_low_u64_be(666);
@@ -306,7 +302,7 @@ fn on_deposit_mints() {
 
 #[test]
 fn on_deposit_fails_with_wrong_source() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 
@@ -377,7 +373,7 @@ fn on_deposit_fails_with_wrong_source() {
 
 #[test]
 fn on_deposit_transfers_root_token() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let token_address: H160 = H160::from_low_u64_be(666);
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 		let deposit_amount: Balance = 1_000_000;
@@ -426,7 +422,7 @@ fn on_deposit_transfers_root_token() {
 
 #[test]
 fn deposit_payment_less_than_delay_goes_through() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let deposit_amount: Balance = 100;
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 		let erc20_peg_address: H160 = H160::from_low_u64_be(555);
@@ -478,7 +474,7 @@ fn deposit_payment_less_than_delay_goes_through() {
 
 #[test]
 fn deposit_payment_with_delay() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let deposit_amount: Balance = 100;
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 		let erc20_peg_address: H160 = H160::from_low_u64_be(555);
@@ -575,7 +571,7 @@ fn deposit_payment_with_delay() {
 
 #[test]
 fn withdraw() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let account = create_account(123);
 		let asset_id: AssetId = 1;
 		let cennz_eth_address: EthAddress = H160::default();
@@ -587,14 +583,14 @@ fn withdraw() {
 
 		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 		assert_eq!(AssetsExt::balance(asset_id, &account), amount);
-		assert_ok!(Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary));
+		assert_ok!(Erc20Peg::withdraw(Some(account).into(), asset_id, amount, beneficiary));
 		assert_eq!(AssetsExt::balance(asset_id, &account), 0);
 	})
 }
 
 #[test]
 fn withdraw_with_delay() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let account: AccountId = create_account(123);
 		let asset_id: AssetId = 1;
 		let cennz_eth_address: EthAddress = H160::default();
@@ -623,7 +619,7 @@ fn withdraw_with_delay() {
 
 		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
-		assert_ok!(Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary));
+		assert_ok!(Erc20Peg::withdraw(Some(account).into(), asset_id, amount, beneficiary));
 
 		// Balance should be withdrawn straight away
 		assert_eq!(AssetsExt::balance(asset_id, &account), 0);
@@ -840,7 +836,7 @@ fn root_claim_fails_with_non_existant_payment_id() {
 
 #[test]
 fn withdraw_less_than_delay_goes_through() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let account: AccountId = create_account(123);
 		let asset_id: AssetId = 1;
 		let cennz_eth_address: EthAddress = H160::default();
@@ -862,12 +858,7 @@ fn withdraw_less_than_delay_goes_through() {
 
 		let delayed_payment_id = <NextDelayedPaymentId<Test>>::get();
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
-		assert_ok!(Erc20Peg::withdraw(
-			Some(account.clone()).into(),
-			asset_id,
-			amount - 1,
-			beneficiary
-		));
+		assert_ok!(Erc20Peg::withdraw(Some(account).into(), asset_id, amount - 1, beneficiary));
 		assert_eq!(
 			DelayedPaymentSchedule::<Test>::get(payment_block),
 			vec![] as Vec<DelayedPaymentId>
@@ -878,7 +869,7 @@ fn withdraw_less_than_delay_goes_through() {
 
 #[test]
 fn withdraw_unsupported_asset_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let account: AccountId = create_account(123);
 		let asset_id: AssetId = 1;
 		let amount: Balance = 100;
@@ -887,7 +878,7 @@ fn withdraw_unsupported_asset_should_fail() {
 		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 
 		assert_noop!(
-			Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary),
+			Erc20Peg::withdraw(Some(account).into(), asset_id, amount, beneficiary),
 			Error::<Test>::UnsupportedAsset
 		);
 	});
@@ -895,14 +886,14 @@ fn withdraw_unsupported_asset_should_fail() {
 
 #[test]
 fn withdraw_not_active_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let account: AccountId = create_account(123);
 		let asset_id: AssetId = 1;
 		let amount: Balance = 100;
 		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
 
 		assert_noop!(
-			Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary),
+			Erc20Peg::withdraw(Some(account).into(), asset_id, amount, beneficiary),
 			Error::<Test>::WithdrawalsPaused
 		);
 	});
@@ -910,7 +901,7 @@ fn withdraw_not_active_should_fail() {
 
 #[test]
 fn withdraw_transfers_root_token() {
-	ExtBuilder::default().build().execute_with(|| {
+	ExtBuilder.build().execute_with(|| {
 		let token_address: H160 = H160::from_low_u64_be(666);
 		let account: AccountId = create_account(456);
 		let beneficiary: H160 = H160::from_low_u64_be(457);
@@ -933,7 +924,7 @@ fn withdraw_transfers_root_token() {
 
 		// Do the withdrawal
 		assert_ok!(Erc20Peg::withdraw(
-			Some(account.clone()).into(),
+			Some(account).into(),
 			ROOT_ASSET_ID,
 			withdraw_amount,
 			beneficiary

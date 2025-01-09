@@ -78,7 +78,7 @@ fn truth_value_update(block_weight: Weight, previous: Multiplier) -> Multiplier 
 
 fn run_with_system_weight<F>(w: Weight, mut assertions: F)
 where
-	F: FnMut() -> (),
+	F: FnMut(),
 {
 	let mut t: sp_io::TestExternalities = frame_system::GenesisConfig::<Runtime>::default()
 		.build_storage()

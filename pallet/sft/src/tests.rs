@@ -352,12 +352,11 @@ mod create_token {
 				token_name.clone(),
 				initial_issuance,
 				Some(max_issuance),
-				Some(token_owner.clone()),
+				Some(token_owner),
 			));
 
 			// Check storage added correctly
-			let expected_owned_tokens =
-				create_owned_tokens(vec![(token_owner.clone(), initial_issuance)]);
+			let expected_owned_tokens = create_owned_tokens(vec![(token_owner, initial_issuance)]);
 			let expected_token_info = SftTokenInformation {
 				token_name: token_name.clone(),
 				max_issuance: Some(max_issuance),
@@ -616,7 +615,7 @@ mod mint {
 				Some(collection_owner).into(),
 				collection_id,
 				bounded_combined(vec![serial_number], vec![quantity]),
-				Some(token_owner.clone()),
+				Some(token_owner),
 			));
 
 			// Get updated token_info
@@ -626,7 +625,7 @@ mod mint {
 			assert_eq!(token_info.free_balance_of(&token_owner), quantity);
 
 			// Owned tokens is correct
-			let expected_owned_tokens = create_owned_tokens(vec![(token_owner.clone(), quantity)]);
+			let expected_owned_tokens = create_owned_tokens(vec![(token_owner, quantity)]);
 			assert_eq!(token_info.owned_tokens, expected_owned_tokens);
 
 			// token_issuance updated
@@ -646,14 +645,14 @@ mod mint {
 				Some(collection_owner).into(),
 				collection_id,
 				bounded_combined(vec![serial_number], vec![quantity2]),
-				Some(token_owner.clone()),
+				Some(token_owner),
 			));
 
 			// Get updated token_info and check storage
 			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
 			assert_eq!(token_info.free_balance_of(&token_owner), quantity + quantity2);
 			let expected_owned_tokens =
-				create_owned_tokens(vec![(token_owner.clone(), quantity + quantity2)]);
+				create_owned_tokens(vec![(token_owner, quantity + quantity2)]);
 			assert_eq!(token_info.owned_tokens, expected_owned_tokens);
 			assert_eq!(token_info.token_issuance, quantity + quantity2);
 
@@ -693,7 +692,7 @@ mod mint {
 				Some(collection_owner).into(),
 				collection_id,
 				bounded_combined(serial_numbers.clone(), quantities.clone()),
-				Some(token_owner.clone()),
+				Some(token_owner),
 			));
 
 			// Check each token has the correct free balance and token issuance
@@ -731,7 +730,7 @@ mod mint {
 				Some(collection_owner).into(),
 				collection_id,
 				bounded_combined(serial_numbers.clone(), quantities.clone()),
-				Some(token_owner.clone()),
+				Some(token_owner),
 			));
 
 			let token_info = TokenInfo::<Test>::get((collection_id, serial_number)).unwrap();
@@ -922,7 +921,7 @@ mod mint {
 					Some(collection_owner).into(),
 					collection_id,
 					bounded_combined(vec![serial_number], vec![1]),
-					Some(owner.clone()),
+					Some(owner),
 				));
 			}
 
@@ -932,7 +931,7 @@ mod mint {
 					Some(collection_owner).into(),
 					collection_id,
 					bounded_combined(vec![serial_number], vec![1]),
-					Some(token_owner.clone()),
+					Some(token_owner),
 				),
 				Error::<Test>::MaxOwnersReached
 			);
@@ -956,10 +955,10 @@ mod transfer {
 
 			// Perform transfer
 			assert_ok!(Sft::transfer(
-				Some(token_owner.clone()).into(),
+				Some(token_owner).into(),
 				collection_id,
 				bounded_combined(vec![serial_number], vec![quantity]),
-				new_owner.clone(),
+				new_owner,
 			));
 
 			// Get updated token_info
@@ -971,8 +970,8 @@ mod transfer {
 
 			// Owned tokens is correct
 			let expected_owned_tokens = create_owned_tokens(vec![
-				(token_owner.clone(), initial_issuance - quantity),
-				(new_owner.clone(), quantity),
+				(token_owner, initial_issuance - quantity),
+				(new_owner, quantity),
 			]);
 			assert_eq!(token_info.owned_tokens, expected_owned_tokens);
 
@@ -1017,7 +1016,7 @@ mod transfer {
 				Some(collection_owner).into(),
 				collection_id,
 				bounded_combined(serial_numbers.clone(), quantities.clone()),
-				token_owner.clone()
+				token_owner
 			));
 
 			// Check each token has the correct free balance for both accounts
@@ -1053,10 +1052,10 @@ mod transfer {
 
 			// Perform transfer
 			assert_ok!(Sft::transfer(
-				Some(collection_owner.clone()).into(),
+				Some(collection_owner).into(),
 				collection_id,
 				bounded_combined(vec![serial_number], vec![initial_issuance]),
-				new_owner.clone(),
+				new_owner,
 			));
 
 			// Get updated token_info
@@ -1067,8 +1066,7 @@ mod transfer {
 			assert_eq!(token_info.free_balance_of(&new_owner), initial_issuance);
 
 			// Owned tokens is correct, the collection_owner should be fully removed
-			let expected_owned_tokens =
-				create_owned_tokens(vec![(new_owner.clone(), initial_issuance)]);
+			let expected_owned_tokens = create_owned_tokens(vec![(new_owner, initial_issuance)]);
 			assert_eq!(token_info.owned_tokens, expected_owned_tokens);
 		});
 	}
@@ -1085,10 +1083,10 @@ mod transfer {
 			// Perform transfer
 			assert_noop!(
 				Sft::transfer(
-					Some(collection_owner.clone()).into(),
+					Some(collection_owner).into(),
 					collection_id,
 					bounded_combined(vec![serial_number], vec![initial_issuance + 1]),
-					new_owner.clone(),
+					new_owner,
 				),
 				Error::<Test>::InsufficientBalance
 			);
@@ -1119,13 +1117,13 @@ mod transfer {
 			// Perform transfer but second serial has insufficient balance
 			assert_noop!(
 				Sft::transfer(
-					Some(collection_owner.clone()).into(),
+					Some(collection_owner).into(),
 					collection_id,
 					bounded_combined(
 						vec![serial_number, serial_number_2],
 						vec![1, initial_issuance_2 + 1]
 					),
-					new_owner.clone(),
+					new_owner,
 				),
 				Error::<Test>::InsufficientBalance
 			);
@@ -1210,7 +1208,7 @@ mod burn {
 			// Burn 100 tokens
 			let burn_amount = 100;
 			assert_ok!(Sft::burn(
-				Some(collection_owner.clone()).into(),
+				Some(collection_owner).into(),
 				collection_id,
 				bounded_combined(vec![serial_number], vec![burn_amount]),
 			));
@@ -1225,10 +1223,8 @@ mod burn {
 			assert_eq!(token_info.token_issuance, initial_issuance - burn_amount);
 
 			// Owned tokens is correct, the collection_owner should be fully removed
-			let expected_owned_tokens = create_owned_tokens(vec![(
-				collection_owner.clone(),
-				initial_issuance - burn_amount,
-			)]);
+			let expected_owned_tokens =
+				create_owned_tokens(vec![(collection_owner, initial_issuance - burn_amount)]);
 			assert_eq!(token_info.owned_tokens, expected_owned_tokens);
 
 			// Event emitted
@@ -1264,7 +1260,7 @@ mod burn {
 			// Burn 100 tokens
 			let burn_amount = 100;
 			assert_ok!(Sft::burn(
-				Some(collection_owner.clone()).into(),
+				Some(collection_owner).into(),
 				collection_id,
 				bounded_combined(
 					vec![serial_number, serial_number_2],
@@ -1299,7 +1295,7 @@ mod burn {
 			// Burn initial issuance + 1 tokens
 			assert_noop!(
 				Sft::burn(
-					Some(collection_owner.clone()).into(),
+					Some(collection_owner).into(),
 					collection_id,
 					bounded_combined(vec![serial_number, serial_number], vec![initial_issuance, 1]),
 				),
@@ -1330,7 +1326,7 @@ mod burn {
 			let burn_amount = 100;
 			assert_noop!(
 				Sft::burn(
-					Some(collection_owner.clone()).into(),
+					Some(collection_owner).into(),
 					collection_id,
 					bounded_combined(vec![serial_number, 12], vec![burn_amount, burn_amount]),
 				),
@@ -1350,7 +1346,7 @@ mod burn {
 			// Burn 100 tokens
 			assert_noop!(
 				Sft::burn(
-					Some(collection_owner.clone()).into(),
+					Some(collection_owner).into(),
 					collection_id,
 					bounded_combined(vec![serial_number], vec![0]),
 				),
@@ -2215,7 +2211,7 @@ mod public_minting {
 					.into(),
 				);
 
-				let payment_amount: Balance = mint_price * quantity as u128;
+				let payment_amount: Balance = mint_price * quantity;
 				System::assert_has_event(
 					Event::<Test>::MintFeePaid {
 						who: minter,
@@ -2300,8 +2296,8 @@ mod public_minting {
 					let token_info = TokenInfo::<Test>::get(token_id).unwrap();
 					assert_eq!(token_info.free_balance_of(&minter), *quantity);
 
-					let payment_amount: Balance = *price * *quantity as u128;
-					total_fee_paid = total_fee_paid + payment_amount;
+					let payment_amount: Balance = *price * *quantity;
+					total_fee_paid += payment_amount;
 					System::assert_has_event(
 						Event::<Test>::MintFeePaid {
 							who: minter,
@@ -2568,7 +2564,7 @@ mod public_minting {
 					}
 					.into(),
 				);
-				let payment_amount: Balance = mint_price * max_issuance as u128;
+				let payment_amount: Balance = mint_price * max_issuance;
 				System::assert_has_event(
 					Event::<Test>::MintFeePaid {
 						who: minter,

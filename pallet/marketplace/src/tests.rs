@@ -21,68 +21,24 @@ use crate::mock::{
 };
 use core::ops::Mul;
 use frame_support::traits::{fungibles::Inspect, OnInitialize};
-use pallet_nft::{CrossChainCompatibility, TokenLocks};
-use pallet_sft::{test_utils::sft_balance_of, TokenInfo};
+use pallet_nft::{test_utils::NftBuilder, TokenLocks};
+use pallet_sft::{test_utils::sft_balance_of, test_utils::SftBuilder, TokenInfo};
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::{MetadataScheme, RoyaltiesSchedule, TokenCount};
+use seed_primitives::{CrossChainCompatibility, MetadataScheme, RoyaltiesSchedule, TokenCount};
 use sp_runtime::traits::{AccountIdConversion, Zero};
-
-// Create an NFT collection
-// Returns the created `collection_id`
-fn create_nft_collection(owner: AccountId) -> CollectionUuid {
-	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = bounded_string("test-collection");
-	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
-	assert_ok!(Nft::create_collection(
-		Some(owner).into(),
-		collection_name,
-		0,
-		None,
-		None,
-		metadata_scheme,
-		None,
-		CrossChainCompatibility::default(),
-	));
-	collection_id
-}
-
-// Create an SFT collection
-// Returns the created `collection_id`
-fn create_sft_collection(owner: AccountId) -> CollectionUuid {
-	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = bounded_string("test-sft-collection");
-	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
-	assert_ok!(Sft::create_collection(
-		Some(owner).into(),
-		collection_name,
-		None,
-		metadata_scheme,
-		None,
-	));
-	collection_id
-}
 
 /// Setup an SFT token, return collection id, token id, token owner
 fn setup_sft_token(initial_issuance: Balance) -> (CollectionUuid, TokenId, AccountId) {
-	let collection_owner = create_account(100);
-	let collection_id = create_sft_collection(collection_owner);
-	let token_name = bounded_string("test-sft-token");
 	let token_owner = create_account(200);
-	let token_id = (collection_id, 0);
-	assert_ok!(Sft::create_token(
-		Some(collection_owner).into(),
-		collection_id,
-		token_name,
-		initial_issuance,
-		None,
-		Some(token_owner)
-	));
-
+	let token_id = SftBuilder::<Test>::new(create_account(100))
+		.token_owner(token_owner)
+		.initial_issuance(initial_issuance)
+		.build();
 	// Check free balance is correct
 	let token_info = TokenInfo::<Test>::get(token_id).unwrap();
 	assert_eq!(token_info.free_balance_of(&token_owner), initial_issuance);
 
-	(collection_id, token_id, token_owner)
+	(token_id.0, token_id, token_owner)
 }
 
 /// Setup an SFT token, return collection id, token id, token owner
@@ -90,41 +46,24 @@ fn setup_sft_token_with_royalties(
 	initial_issuance: Balance,
 	royalties: RoyaltiesSchedule<AccountId>,
 ) -> (CollectionUuid, TokenId, AccountId) {
-	let collection_owner = create_account(100);
-	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = bounded_string("test-sft-collection");
-	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
-	assert_ok!(Sft::create_collection(
-		Some(collection_owner).into(),
-		collection_name,
-		None,
-		metadata_scheme,
-		Some(royalties),
-	));
-
-	let token_name = bounded_string("test-sft-token");
 	let token_owner = create_account(200);
-	let token_id = (collection_id, 0);
-	assert_ok!(Sft::create_token(
-		Some(collection_owner).into(),
-		collection_id,
-		token_name,
-		initial_issuance,
-		None,
-		Some(token_owner)
-	));
+	let token_id = SftBuilder::<Test>::new(create_account(100))
+		.token_owner(token_owner)
+		.initial_issuance(initial_issuance)
+		.royalties_schedule(royalties)
+		.build();
 
 	// Check free balance is correct
 	let token_info = TokenInfo::<Test>::get(token_id).unwrap();
 	assert_eq!(token_info.free_balance_of(&token_owner), initial_issuance);
 
-	(collection_id, token_id, token_owner)
+	(token_id.0, token_id, token_owner)
 }
 
 /// Setup an NFT token, return collection id, token id, token owner
 fn setup_nft_token() -> (CollectionUuid, TokenId, AccountId) {
 	let collection_owner = create_account(1);
-	let collection_id = create_nft_collection(collection_owner);
+	let collection_id = NftBuilder::<Test>::new(collection_owner).build();
 	let token_owner = create_account(2);
 	let token_id = (collection_id, 0);
 	assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner)));
@@ -138,30 +77,14 @@ fn setup_nft_token_with_royalties(
 	quantity: TokenCount,
 ) -> (CollectionUuid, TokenId, AccountId) {
 	let collection_owner = create_account(1);
-	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = bounded_string("test-collection");
-	let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
-	assert_ok!(Nft::create_collection(
-		Some(collection_owner).into(),
-		collection_name,
-		0,
-		None,
-		None,
-		metadata_scheme,
-		Some(royalties_schedule),
-		CrossChainCompatibility::default(),
-	));
-
 	let token_owner = create_account(2);
-	let token_id = (collection_id, 0);
-	assert_ok!(Nft::mint(
-		Some(collection_owner).into(),
-		collection_id,
-		quantity,
-		Some(token_owner),
-	));
+	let collection_id = NftBuilder::<Test>::new(collection_owner)
+		.token_owner(token_owner)
+		.royalties_schedule(royalties_schedule)
+		.initial_issuance(quantity)
+		.build();
 
-	(collection_id, token_id, token_owner)
+	(collection_id, (collection_id, 0), token_owner)
 }
 
 /// Create an offer on a token. Return offer_id, offer
@@ -171,7 +94,7 @@ fn make_new_simple_offer(
 	buyer: AccountId,
 	marketplace_id: Option<MarketplaceId>,
 ) -> (OfferId, SimpleOffer<AccountId>) {
-	let next_offer_id = Marketplace::next_offer_id();
+	let next_offer_id = NextOfferId::<Test>::get();
 
 	assert_ok!(Marketplace::make_simple_offer(
 		Some(buyer).into(),
@@ -189,8 +112,8 @@ fn make_new_simple_offer(
 	};
 
 	// Check storage has been updated
-	assert_eq!(Marketplace::next_offer_id(), next_offer_id + 1);
-	assert_eq!(Marketplace::offers(next_offer_id), Some(OfferType::Simple(offer.clone())));
+	assert_eq!(NextOfferId::<Test>::get(), next_offer_id + 1);
+	assert_eq!(Offers::<Test>::get(next_offer_id), Some(OfferType::Simple(offer.clone())));
 	System::assert_last_event(MockEvent::Marketplace(Event::<Test>::Offer {
 		offer_id: next_offer_id,
 		amount: offer_amount,
@@ -233,7 +156,7 @@ fn sell() {
 
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![1, 3, 4]).unwrap();
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 
 			assert_ok!(Marketplace::sell_nft(
 				Some(collection_owner).into(),
@@ -320,7 +243,7 @@ fn sell_with_empty_royalties() {
 fn sell_multiple_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(1);
-		let collection_id = create_nft_collection(collection_owner);
+		let collection_id = NftBuilder::<Test>::new(collection_owner).build();
 		// mint some tokens
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
 
@@ -347,7 +270,7 @@ fn sell_multiple_fails() {
 fn sell_multiple() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_nft_token();
-		let listing_id = Marketplace::next_listing_id();
+		let listing_id = NextListingId::<Test>::get();
 
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
@@ -374,7 +297,7 @@ fn sell_multiple() {
 		}));
 
 		assert_eq!(TokenLocks::<Test>::get(token_id).unwrap(), TokenLockReason::Listed(listing_id));
-		assert!(Marketplace::open_collection_listings(collection_id, listing_id).unwrap());
+		assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).unwrap());
 
 		let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
 		let royalties_schedule = RoyaltiesSchedule {
@@ -398,7 +321,7 @@ fn sell_multiple() {
 		assert_eq!(listing, expected);
 
 		// current block is 1 + duration
-		assert!(Marketplace::listing_end_schedule(
+		assert!(ListingEndSchedule::<Test>::get(
 			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			listing_id
 		)
@@ -511,7 +434,7 @@ fn sell_zero_duration_fails() {
 fn cancel_sell() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_nft_token();
-		let listing_id = Marketplace::next_listing_id();
+		let listing_id = NextListingId::<Test>::get();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
 		let buyer = create_account(5);
@@ -536,7 +459,7 @@ fn cancel_sell() {
 
 		// storage cleared up
 		assert!(Listings::<Test>::get(listing_id).is_none());
-		assert!(Marketplace::listing_end_schedule(
+		assert!(ListingEndSchedule::<Test>::get(
 			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			listing_id
 		)
@@ -560,7 +483,7 @@ fn sell_closes_on_schedule() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_nft_token();
 		let listing_duration = 100;
-		let listing_id = Marketplace::next_listing_id();
+		let listing_id = NextListingId::<Test>::get();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
 		let buyer = create_account(5);
@@ -580,7 +503,7 @@ fn sell_closes_on_schedule() {
 
 		// seller should have tokens
 		assert!(Listings::<Test>::get(listing_id).is_none());
-		assert!(Marketplace::listing_end_schedule(
+		assert!(ListingEndSchedule::<Test>::get(
 			System::block_number() + listing_duration,
 			listing_id
 		)
@@ -618,7 +541,7 @@ fn listing_price_splits_royalties_and_network_fee() {
 			let (collection_id, token_id, token_owner) =
 				setup_nft_token_with_royalties(royalties_schedule.clone(), 2);
 
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
 			assert_ok!(Marketplace::sell_nft(
@@ -684,7 +607,7 @@ fn listing_price_splits_multiple_royalties_and_network_fee() {
 			let (collection_id, token_id, token_owner) =
 				setup_nft_token_with_royalties(royalties_schedule.clone(), 2);
 
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
 			assert_ok!(Marketplace::sell_nft(
@@ -749,7 +672,7 @@ fn network_fee_royalties_split_is_respected_xrpl() {
 			let (collection_id, token_id, token_owner) =
 				setup_nft_token_with_royalties(royalties_schedule.clone(), 2);
 
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
 			assert_ok!(Marketplace::sell_nft(
@@ -789,7 +712,7 @@ fn network_fee_royalties_split_is_respected_xrpl() {
 fn update_fixed_price() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_nft_token();
-		let listing_id = Marketplace::next_listing_id();
+		let listing_id = NextListingId::<Test>::get();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
 		let buyer = create_account(5);
@@ -843,7 +766,7 @@ fn update_fixed_price_fails() {
 		let (collection_id, token_id, token_owner) = setup_nft_token();
 
 		let reserve_price = 1_000;
-		let listing_id = Marketplace::next_listing_id();
+		let listing_id = NextListingId::<Test>::get();
 
 		// can't update, token not listed
 		assert_noop!(
@@ -874,7 +797,7 @@ fn update_fixed_price_fails() {
 fn update_fixed_price_fails_not_owner() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_nft_token();
-		let listing_id = Marketplace::next_listing_id();
+		let listing_id = NextListingId::<Test>::get();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
 		let buyer = create_account(5);
@@ -901,14 +824,14 @@ fn register_marketplace() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let account = create_account(1);
 		let entitlement: Permill = Permill::from_float(0.1);
-		let marketplace_id = Marketplace::next_marketplace_id();
+		let marketplace_id = NextMarketplaceId::<Test>::get();
 		assert_ok!(Marketplace::register_marketplace(Some(account).into(), None, entitlement));
 		System::assert_last_event(MockEvent::Marketplace(Event::<Test>::MarketplaceRegister {
 			account,
 			entitlement,
 			marketplace_id,
 		}));
-		assert_eq!(Marketplace::next_marketplace_id(), marketplace_id + 1);
+		assert_eq!(NextMarketplaceId::<Test>::get(), marketplace_id + 1);
 	});
 }
 
@@ -917,12 +840,12 @@ fn register_marketplace_separate_account() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let account = create_account(1);
 		let marketplace_account = create_account(2);
-		let marketplace_id = Marketplace::next_marketplace_id();
+		let marketplace_id = NextMarketplaceId::<Test>::get();
 		let entitlement: Permill = Permill::from_float(0.1);
 
 		assert_ok!(Marketplace::register_marketplace(
 			Some(account).into(),
-			Some(marketplace_account).into(),
+			Some(marketplace_account),
 			entitlement
 		));
 		System::assert_last_event(MockEvent::Marketplace(Event::<Test>::MarketplaceRegister {
@@ -961,11 +884,11 @@ fn buy_with_marketplace_royalties() {
 			let marketplace_entitlement: Permill = Permill::from_float(0.5);
 			assert_ok!(Marketplace::register_marketplace(
 				Some(marketplace_account).into(),
-				Some(marketplace_account).into(),
+				Some(marketplace_account),
 				marketplace_entitlement
 			));
 			let marketplace_id = 0;
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			assert_eq!(listing_id, 0);
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
@@ -977,7 +900,7 @@ fn buy_with_marketplace_royalties() {
 				NativeAssetId::get(),
 				sale_price,
 				None,
-				Some(marketplace_id).into(),
+				Some(marketplace_id),
 			));
 
 			let initial_balance_owner = AssetsExt::balance(NativeAssetId::get(), &collection_owner);
@@ -1031,7 +954,7 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 			let marketplace_entitlement: Permill = Permill::from_float(0.5);
 			assert_ok!(Marketplace::register_marketplace(
 				Some(marketplace_account).into(),
-				Some(marketplace_account).into(),
+				Some(marketplace_account),
 				marketplace_entitlement
 			));
 			let marketplace_id = 0;
@@ -1046,7 +969,7 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 					NativeAssetId::get(),
 					sale_price,
 					None,
-					Some(marketplace_id).into(),
+					Some(marketplace_id),
 				),
 				Error::<Test>::RoyaltiesInvalid,
 			);
@@ -1066,7 +989,7 @@ fn buy() {
 			let (collection_id, token_id, token_owner) = setup_nft_token();
 			let buyer = create_account(5);
 
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
 			assert_ok!(Marketplace::sell_nft(
@@ -1091,15 +1014,15 @@ fn buy() {
 
 			// listing removed
 			assert!(Listings::<Test>::get(listing_id).is_none());
-			assert!(Marketplace::listing_end_schedule(
+			assert!(ListingEndSchedule::<Test>::get(
 				System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 				listing_id
 			)
 			.is_none());
 
 			// ownership changed
-			assert!(TokenLocks::<Test>::get(&token_id).is_none());
-			assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
+			assert!(TokenLocks::<Test>::get(token_id).is_none());
+			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
 				(0_u32, 1, vec![token_id.1])
@@ -1127,7 +1050,7 @@ fn buy_with_xrp() {
 			let (collection_id, token_id, token_owner) = setup_nft_token();
 			let buyer = create_account(5);
 
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
 			assert_ok!(Marketplace::sell_nft(
@@ -1152,15 +1075,15 @@ fn buy_with_xrp() {
 
 			// listing removed
 			assert!(Listings::<Test>::get(listing_id).is_none());
-			assert!(Marketplace::listing_end_schedule(
+			assert!(ListingEndSchedule::<Test>::get(
 				System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 				listing_id
 			)
 			.is_none());
 
 			// ownership changed
-			assert!(TokenLocks::<Test>::get(&token_id).is_none());
-			assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
+			assert!(TokenLocks::<Test>::get(token_id).is_none());
+			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
 				(0_u32, 1, vec![token_id.1])
@@ -1198,7 +1121,7 @@ fn buy_with_royalties() {
 			let (collection_id, token_id, token_owner) =
 				setup_nft_token_with_royalties(royalties_schedule.clone(), 2);
 
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			assert_eq!(listing_id, 0);
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
@@ -1249,7 +1172,7 @@ fn buy_with_royalties() {
 
 			// listing removed
 			assert!(Listings::<Test>::get(listing_id).is_none());
-			assert!(Marketplace::listing_end_schedule(
+			assert!(ListingEndSchedule::<Test>::get(
 				System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 				listing_id
 			)
@@ -1275,7 +1198,7 @@ fn buy_fails_prechecks() {
 			let buyer = create_account(5);
 
 			let price = 1_000;
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 
 			// not for sale
 			assert_noop!(
@@ -1320,7 +1243,7 @@ fn sell_to_anybody() {
 			let (collection_id, token_id, token_owner) = setup_nft_token();
 
 			let price = 1_000;
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
 			assert_ok!(Marketplace::sell_nft(
@@ -1341,7 +1264,7 @@ fn sell_to_anybody() {
 
 			// listing removed
 			assert!(Listings::<Test>::get(listing_id).is_none());
-			assert!(Marketplace::listing_end_schedule(
+			assert!(ListingEndSchedule::<Test>::get(
 				System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 				listing_id
 			)
@@ -1373,7 +1296,7 @@ fn buy_with_overcommitted_royalties() {
 					(12_u64, Permill::from_float(0.9)),
 				]),
 			};
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
 			assert_ok!(Marketplace::sell_nft(
@@ -1406,7 +1329,7 @@ fn cancel_auction() {
 		let (collection_id, token_id, token_owner) = setup_nft_token();
 
 		let reserve_price = 100_000;
-		let listing_id = Marketplace::next_listing_id();
+		let listing_id = NextListingId::<Test>::get();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
 		assert_ok!(Marketplace::auction_nft(
@@ -1437,7 +1360,7 @@ fn cancel_auction() {
 
 		// storage cleared up
 		assert!(Listings::<Test>::get(listing_id).is_none());
-		assert!(Marketplace::listing_end_schedule(System::block_number() + 1, listing_id).is_none());
+		assert!(ListingEndSchedule::<Test>::get(System::block_number() + 1, listing_id).is_none());
 
 		// it should be free to operate on the token
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
@@ -1477,7 +1400,7 @@ fn auction_bundle() {
 
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![1, 3, 4]).unwrap();
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 
 			assert_ok!(Marketplace::auction_nft(
 				Some(collection_owner).into(),
@@ -1489,7 +1412,7 @@ fn auction_bundle() {
 				None,
 			));
 
-			assert!(Marketplace::open_collection_listings(collection_id, listing_id).unwrap());
+			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).unwrap());
 			for serial_number in serial_numbers.iter() {
 				assert_eq!(
 					TokenLocks::<Test>::get((collection_id, serial_number)).unwrap(),
@@ -1541,7 +1464,7 @@ fn auction_bundle_no_bids() {
 
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![1, 3, 4]).unwrap();
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 
 			assert_ok!(Marketplace::auction_nft(
 				Some(collection_owner).into(),
@@ -1553,7 +1476,7 @@ fn auction_bundle_no_bids() {
 				None,
 			));
 
-			assert!(Marketplace::open_collection_listings(collection_id, listing_id).unwrap());
+			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).unwrap());
 			for serial_number in serial_numbers.iter() {
 				assert_eq!(
 					TokenLocks::<Test>::get((collection_id, serial_number)).unwrap(),
@@ -1578,7 +1501,7 @@ fn auction_bundle_no_bids() {
 fn auction_bundle_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(1);
-		let collection_id = create_nft_collection(collection_owner);
+		let collection_id = NftBuilder::<Test>::new(collection_owner).build();
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
 
 		// empty tokens fails
@@ -1610,7 +1533,7 @@ fn auction() {
 		.execute_with(|| {
 			let (collection_id, token_id, token_owner) = setup_nft_token();
 
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
 			assert_ok!(Marketplace::auction_nft(
@@ -1623,11 +1546,11 @@ fn auction() {
 				None,
 			));
 			assert_eq!(
-				TokenLocks::<Test>::get(&token_id).unwrap(),
+				TokenLocks::<Test>::get(token_id).unwrap(),
 				TokenLockReason::Listed(listing_id)
 			);
-			assert_eq!(Marketplace::next_listing_id(), listing_id + 1);
-			assert!(Marketplace::open_collection_listings(collection_id, listing_id).unwrap());
+			assert_eq!(NextListingId::<Test>::get(), listing_id + 1);
+			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).unwrap());
 
 			// first bidder at reserve price
 			assert_ok!(Marketplace::bid(Some(bidder_1).into(), listing_id, reserve_price,));
@@ -1678,16 +1601,16 @@ fn auction() {
 			// listing metadata removed
 			assert!(Listings::<Test>::get(listing_id).is_none());
 			assert!(
-				Marketplace::listing_end_schedule(System::block_number() + 1, listing_id).is_none()
+				ListingEndSchedule::<Test>::get(System::block_number() + 1, listing_id).is_none()
 			);
 
 			// ownership changed
-			assert!(TokenLocks::<Test>::get(&token_id).is_none());
+			assert!(TokenLocks::<Test>::get(token_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &bidder_2, 0, 1000),
 				(0_u32, 1, vec![token_id.1])
 			);
-			assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
+			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).is_none());
 
 			// event logged
 			let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
@@ -1715,7 +1638,7 @@ fn auction_with_xrp_asset() {
 		.execute_with(|| {
 			let (collection_id, token_id, token_owner) = setup_nft_token();
 
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
 			assert_ok!(Marketplace::auction_nft(
@@ -1728,11 +1651,11 @@ fn auction_with_xrp_asset() {
 				None,
 			));
 			assert_eq!(
-				TokenLocks::<Test>::get(&token_id).unwrap(),
+				TokenLocks::<Test>::get(token_id).unwrap(),
 				TokenLockReason::Listed(listing_id)
 			);
-			assert_eq!(Marketplace::next_listing_id(), listing_id + 1);
-			assert!(Marketplace::open_collection_listings(collection_id, listing_id).unwrap());
+			assert_eq!(NextListingId::<Test>::get(), listing_id + 1);
+			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).unwrap());
 
 			// first bidder at reserve price
 			assert_ok!(Marketplace::bid(Some(bidder_1).into(), listing_id, reserve_price,));
@@ -1767,16 +1690,16 @@ fn auction_with_xrp_asset() {
 			// listing metadata removed
 			assert!(Listings::<Test>::get(listing_id).is_none());
 			assert!(
-				Marketplace::listing_end_schedule(System::block_number() + 1, listing_id).is_none()
+				ListingEndSchedule::<Test>::get(System::block_number() + 1, listing_id).is_none()
 			);
 
 			// ownership changed
-			assert!(TokenLocks::<Test>::get(&token_id).is_none());
+			assert!(TokenLocks::<Test>::get(token_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &bidder_2, 0, 1000),
 				(0_u32, 1, vec![token_id.1])
 			);
-			assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
+			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).is_none());
 
 			// event logged
 			let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
@@ -1802,7 +1725,7 @@ fn bid_auto_extends() {
 		.execute_with(|| {
 			let (collection_id, token_id, token_owner) = setup_nft_token();
 			let reserve_price = 100_000;
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
 			assert_ok!(Marketplace::auction_nft(
@@ -1821,7 +1744,7 @@ fn bid_auto_extends() {
 			if let Some(Listing::Auction(listing)) = Listings::<Test>::get(listing_id) {
 				assert_eq!(listing.close, System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
 			}
-			assert!(Marketplace::listing_end_schedule(
+			assert!(ListingEndSchedule::<Test>::get(
 				System::block_number() + AUCTION_EXTENSION_PERIOD as u64,
 				listing_id
 			)
@@ -1850,7 +1773,7 @@ fn auction_royalty_payments() {
 			};
 			let (collection_id, token_id, token_owner) =
 				setup_nft_token_with_royalties(royalties_schedule.clone(), 1);
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
 			assert_ok!(Marketplace::auction_nft(
@@ -1938,7 +1861,7 @@ fn close_listings_at_removes_listing_data() {
 				fixed_price: price,
 				buyer: None,
 				close: System::block_number() + 1,
-				seller: seller.clone(),
+				seller,
 				tokens: tokens.clone(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
@@ -1948,7 +1871,7 @@ fn close_listings_at_removes_listing_data() {
 				payment_asset: NativeAssetId::get(),
 				reserve_price: price,
 				close: System::block_number() + 1,
-				seller: seller.clone(),
+				seller,
 				tokens: tokens.clone(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
@@ -1958,7 +1881,7 @@ fn close_listings_at_removes_listing_data() {
 				payment_asset: NativeAssetId::get(),
 				reserve_price: price,
 				close: System::block_number() + 1,
-				seller: seller.clone(),
+				seller,
 				tokens: tokens.clone(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
@@ -1983,9 +1906,9 @@ fn close_listings_at_removes_listing_data() {
 			.is_zero());
 		for listing_id in 0..listings.len() as ListingId {
 			assert!(Listings::<Test>::get(listing_id).is_none());
-			assert!(Marketplace::listing_winning_bid(listing_id).is_none());
+			assert!(ListingWinningBid::<Test>::get(listing_id).is_none());
 			assert!(
-				Marketplace::listing_end_schedule(System::block_number() + 1, listing_id).is_none()
+				ListingEndSchedule::<Test>::get(System::block_number() + 1, listing_id).is_none()
 			);
 		}
 	});
@@ -2109,7 +2032,7 @@ fn bid_fails_prechecks() {
 			);
 
 			let (collection_id, token_id, token_owner) = setup_nft_token();
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
 			assert_ok!(Marketplace::auction_nft(
@@ -2168,7 +2091,7 @@ fn bid_no_balance_should_fail() {
 
 		let (collection_id, token_id, token_owner) = setup_nft_token();
 		let reserve_price = 100_000;
-		let listing_id = Marketplace::next_listing_id();
+		let listing_id = NextListingId::<Test>::get();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
 		assert_ok!(Marketplace::auction_nft(
@@ -2201,7 +2124,7 @@ fn make_simple_offer() {
 			let (_, token_id, _) = setup_nft_token();
 			let offer_amount: Balance = 100;
 			let (offer_id, _) = make_new_simple_offer(offer_amount, token_id, buyer, None);
-			assert_eq!(Marketplace::token_offers(token_id).unwrap(), vec![offer_id]);
+			assert_eq!(TokenOffers::<Test>::get(token_id).unwrap(), vec![offer_id]);
 			// Check funds have been locked
 			assert_eq!(
 				AssetsExt::hold_balance(&MarketplacePalletId::get(), &buyer, &NativeAssetId::get()),
@@ -2334,7 +2257,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 			let sell_price = 100_000;
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 
 			assert_ok!(Marketplace::sell_nft(
 				Some(token_owner).into(),
@@ -2367,8 +2290,8 @@ fn make_simple_offer_on_fixed_price_listing() {
 			assert!(Listings::<Test>::get(listing_id).is_none());
 			assert!(TokenLocks::<Test>::get(token_id).is_none());
 			// Check offer storage has been removed
-			assert!(Marketplace::token_offers(token_id).is_none());
-			assert!(Marketplace::offers(offer_id).is_none());
+			assert!(TokenOffers::<Test>::get(token_id).is_none());
+			assert!(Offers::<Test>::get(offer_id).is_none());
 
 			// Check funds have been transferred
 			assert_eq!(
@@ -2451,8 +2374,8 @@ fn cancel_offer() {
 			}));
 
 			// Check storage has been removed
-			assert!(Marketplace::token_offers(token_id).is_none());
-			assert_eq!(Marketplace::offers(offer_id), None);
+			assert!(TokenOffers::<Test>::get(token_id).is_none());
+			assert_eq!(Offers::<Test>::get(offer_id), None);
 			// Check funds have been unlocked after offer cancelled
 			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &buyer), initial_balance_buyer);
 			assert!(AssetsExt::hold_balance(
@@ -2499,9 +2422,9 @@ fn cancel_offer_multiple_offers() {
 
 			// Check storage has been removed
 			let offer_vector: Vec<OfferId> = vec![offer_id_2];
-			assert_eq!(Marketplace::token_offers(token_id).unwrap(), offer_vector);
-			assert_eq!(Marketplace::offers(offer_id_2), Some(OfferType::Simple(offer_2.clone())));
-			assert_eq!(Marketplace::offers(offer_id_1), None);
+			assert_eq!(TokenOffers::<Test>::get(token_id).unwrap(), offer_vector);
+			assert_eq!(Offers::<Test>::get(offer_id_2), Some(OfferType::Simple(offer_2.clone())));
+			assert_eq!(Offers::<Test>::get(offer_id_1), None);
 
 			// Check funds have been unlocked after offer cancelled
 			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &buyer_1), initial_balance_buyer_1);
@@ -2569,8 +2492,8 @@ fn accept_offer() {
 			}));
 
 			// Check storage has been removed
-			assert!(Marketplace::token_offers(token_id).is_none());
-			assert!(Marketplace::offers(offer_id).is_none());
+			assert!(TokenOffers::<Test>::get(token_id).is_none());
+			assert!(Offers::<Test>::get(offer_id).is_none());
 			// Check funds have been transferred
 			assert_eq!(
 				AssetsExt::balance(NativeAssetId::get(), &buyer),
@@ -2617,9 +2540,9 @@ fn accept_offer_multiple_offers() {
 			}));
 			// Check storage has been removed
 			let offer_vector: Vec<OfferId> = vec![offer_id_1];
-			assert_eq!(Marketplace::token_offers(token_id).unwrap(), offer_vector);
-			assert_eq!(Marketplace::offers(offer_id_1), Some(OfferType::Simple(offer_1.clone())));
-			assert_eq!(Marketplace::offers(offer_id_2), None);
+			assert_eq!(TokenOffers::<Test>::get(token_id).unwrap(), offer_vector);
+			assert_eq!(Offers::<Test>::get(offer_id_1), Some(OfferType::Simple(offer_1.clone())));
+			assert_eq!(Offers::<Test>::get(offer_id_2), None);
 
 			// Check funds have been transferred
 			assert_eq!(
@@ -2671,7 +2594,7 @@ fn accept_offer_pays_marketplace_royalties() {
 
 			let marketplace_account = create_account(4);
 			let entitlements: Permill = Permill::from_float(0.1);
-			let marketplace_id = Marketplace::next_marketplace_id();
+			let marketplace_id = NextMarketplaceId::<Test>::get();
 			assert_ok!(Marketplace::register_marketplace(
 				Some(marketplace_account).into(),
 				None,
@@ -2683,8 +2606,8 @@ fn accept_offer_pays_marketplace_royalties() {
 			assert_ok!(Marketplace::accept_offer(Some(token_owner).into(), offer_id));
 
 			// Check storage has been removed
-			assert!(Marketplace::token_offers(token_id).is_none());
-			assert_eq!(Marketplace::offers(offer_id), None);
+			assert!(TokenOffers::<Test>::get(token_id).is_none());
+			assert_eq!(Offers::<Test>::get(offer_id), None);
 			// Check funds have been transferred with royalties
 			assert_eq!(
 				AssetsExt::balance(NativeAssetId::get(), &buyer),
@@ -2740,7 +2663,7 @@ mod set_fee_to {
 
 			// Change fee_to account
 			let new_fee_to = create_account(10);
-			assert_ok!(Marketplace::set_fee_to(RawOrigin::Root.into(), Some(new_fee_to.clone())));
+			assert_ok!(Marketplace::set_fee_to(RawOrigin::Root.into(), Some(new_fee_to)));
 
 			// Event thrown
 			System::assert_last_event(MockEvent::Marketplace(Event::<Test>::FeeToSet {
@@ -2775,7 +2698,7 @@ mod sell_sft {
 			let price = 100_000;
 			let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
 				BoundedVec::truncate_from(vec![(token_id.1, balance)]);
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let sft_token = ListingTokens::Sft(SftListing {
 				collection_id,
 				serial_numbers: serial_numbers.clone(),
@@ -2818,14 +2741,11 @@ mod sell_sft {
 					marketplace_id: None,
 				})
 			);
-			assert_eq!(
-				ListingEndSchedule::<Test>::get(
-					System::block_number() + DefaultListingDuration::get(),
-					listing_id
-				)
-				.unwrap(),
-				true
-			);
+			assert!(ListingEndSchedule::<Test>::get(
+				System::block_number() + DefaultListingDuration::get(),
+				listing_id
+			)
+			.unwrap(),);
 			// Check the SFT reserved and free balance
 			let token_balance = sft_balance_of::<Test>(token_id, &token_owner);
 			assert_eq!(token_balance.free_balance, 0);
@@ -3000,7 +2920,7 @@ mod sell_sft {
 				serial_numbers: serial_numbers.clone(),
 			});
 
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			assert_ok!(Marketplace::sell(
 				Some(token_owner).into(),
 				sft_token.clone(),
@@ -3080,7 +3000,7 @@ mod buy_sft {
 				let (collection_id, token_id, token_owner) = setup_sft_token(initial_issuance);
 				let buyer = create_account(5);
 
-				let listing_id = Marketplace::next_listing_id();
+				let listing_id = NextListingId::<Test>::get();
 				let sell_quantity = 60;
 				let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
 					BoundedVec::truncate_from(vec![(token_id.1, sell_quantity)]);
@@ -3112,12 +3032,12 @@ mod buy_sft {
 
 				// listing removed
 				assert!(Listings::<Test>::get(listing_id).is_none());
-				assert!(Marketplace::listing_end_schedule(
+				assert!(ListingEndSchedule::<Test>::get(
 					System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 					listing_id
 				)
 				.is_none());
-				assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
+				assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).is_none());
 
 				// Check SFT balances of both seller and buyer
 				let seller_balance = sft_balance_of::<Test>(token_id, &token_owner);
@@ -3173,7 +3093,7 @@ mod buy_sft {
 				let (collection_id, token_id, token_owner) = setup_sft_token(initial_issuance);
 				let buyer = create_account(5);
 
-				let listing_id = Marketplace::next_listing_id();
+				let listing_id = NextListingId::<Test>::get();
 				let sell_quantity = 60;
 				let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
 					BoundedVec::truncate_from(vec![(token_id.1, sell_quantity)]);
@@ -3202,12 +3122,12 @@ mod buy_sft {
 
 				// listing removed
 				assert!(Listings::<Test>::get(listing_id).is_none());
-				assert!(Marketplace::listing_end_schedule(
+				assert!(ListingEndSchedule::<Test>::get(
 					System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 					listing_id
 				)
 				.is_none());
-				assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
+				assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).is_none());
 
 				// Check SFT balances of both seller and buyer
 				let seller_balance = sft_balance_of::<Test>(token_id, &token_owner);
@@ -3273,7 +3193,7 @@ mod buy_sft {
 				let (collection_id, token_id, token_owner) =
 					setup_sft_token_with_royalties(initial_issuance, royalties_schedule.clone());
 
-				let listing_id = Marketplace::next_listing_id();
+				let listing_id = NextListingId::<Test>::get();
 				let sell_quantity = 100;
 				let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
 					BoundedVec::truncate_from(vec![(token_id.1, sell_quantity)]);
@@ -3285,7 +3205,7 @@ mod buy_sft {
 				// Setup marketplace
 				let marketplace_account = create_account(4);
 				let marketplace_entitlements: Permill = Permill::from_float(0.1);
-				let marketplace_id = Marketplace::next_marketplace_id();
+				let marketplace_id = NextMarketplaceId::<Test>::get();
 				assert_ok!(Marketplace::register_marketplace(
 					Some(marketplace_account).into(),
 					None,
@@ -3352,7 +3272,7 @@ mod buy_sft {
 
 				// listing removed
 				assert!(Listings::<Test>::get(listing_id).is_none());
-				assert!(Marketplace::listing_end_schedule(
+				assert!(ListingEndSchedule::<Test>::get(
 					System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 					listing_id
 				)
@@ -3381,7 +3301,7 @@ mod buy_sft {
 				let (collection_id, token_id, token_owner) = setup_sft_token(initial_issuance);
 				let buyer = create_account(5);
 				let price = 1_000;
-				let listing_id = Marketplace::next_listing_id();
+				let listing_id = NextListingId::<Test>::get();
 				let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
 					BoundedVec::truncate_from(vec![(token_id.1, 100)]);
 				let sft_token = ListingTokens::Sft(SftListing {
@@ -3425,7 +3345,7 @@ mod auction_sft {
 			let reserve_price = 100_000;
 			let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
 				BoundedVec::truncate_from(vec![(token_id.1, balance)]);
-			let listing_id = Marketplace::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let sft_token = ListingTokens::Sft(SftListing {
 				collection_id,
 				serial_numbers: serial_numbers.clone(),
@@ -3466,14 +3386,11 @@ mod auction_sft {
 					marketplace_id: None,
 				})
 			);
-			assert_eq!(
-				ListingEndSchedule::<Test>::get(
-					System::block_number() + DefaultListingDuration::get(),
-					listing_id
-				)
-				.unwrap(),
-				true
-			);
+			assert!(ListingEndSchedule::<Test>::get(
+				System::block_number() + DefaultListingDuration::get(),
+				listing_id
+			)
+			.unwrap(),);
 			// Check the SFT reserved and free balance
 			let token_balance = sft_balance_of::<Test>(token_id, &token_owner);
 			assert_eq!(token_balance.free_balance, 0);
@@ -4118,7 +4035,7 @@ mod buy_multi {
 				});
 				let price1 = 1_000;
 				let asset_id1 = NativeAssetId::get();
-				let listing_id1 = Marketplace::next_listing_id();
+				let listing_id1 = NextListingId::<Test>::get();
 				assert_ok!(Marketplace::sell(
 					Some(token_owner1).into(),
 					nft_token.clone(),
@@ -4139,7 +4056,7 @@ mod buy_multi {
 				});
 				let price2 = 2_000;
 				let asset_id2 = XRP_ASSET_ID;
-				let listing_id2 = Marketplace::next_listing_id();
+				let listing_id2 = NextListingId::<Test>::get();
 				assert_ok!(Marketplace::sell(
 					Some(token_owner2).into(),
 					sft_token.clone(),
@@ -4225,7 +4142,7 @@ mod buy_multi {
 						collection_id,
 						serial_numbers: serial_numbers.clone(),
 					});
-					let listing_id = Marketplace::next_listing_id();
+					let listing_id = NextListingId::<Test>::get();
 					assert_ok!(Marketplace::sell(
 						Some(token_owner).into(),
 						nft_token.clone(),

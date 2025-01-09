@@ -66,9 +66,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn create() -> Weight {
-		Weight::from_all(196_195_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
+		Weight::from_all(196_195_000_u64)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	// Storage: `Futurepass::Holders` (r:1 w:0)
 	// Proof: `Futurepass::Holders` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
@@ -78,11 +78,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 31]`.
 	fn register_delegate_with_signature(p: u32, ) -> Weight {
-		Weight::from_all(270_996_791 as u64)
+		Weight::from_all(270_996_791_u64)
 			// Standard Error: 11_734
-			.saturating_add(Weight::from_all(213_467 as u64).saturating_mul(p as u64))
-			.saturating_add(T::DbWeight::get().reads(4 as u64))
-			.saturating_add(T::DbWeight::get().writes(3 as u64))
+			.saturating_add(Weight::from_all(213_467_u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	// Storage: `Futurepass::Holders` (r:2 w:0)
 	// Proof: `Futurepass::Holders` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
@@ -92,11 +92,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 31]`.
 	fn unregister_delegate(p: u32, ) -> Weight {
-		Weight::from_all(194_326_623 as u64)
+		Weight::from_all(194_326_623_u64)
 			// Standard Error: 6_500
-			.saturating_add(Weight::from_all(270_944 as u64).saturating_mul(p as u64))
-			.saturating_add(T::DbWeight::get().reads(5 as u64))
-			.saturating_add(T::DbWeight::get().writes(3 as u64))
+			.saturating_add(Weight::from_all(270_944_u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	// Storage: `Futurepass::Holders` (r:2 w:2)
 	// Proof: `Futurepass::Holders` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
@@ -106,11 +106,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 31]`.
 	fn transfer_futurepass(p: u32, ) -> Weight {
-		Weight::from_all(191_033_203 as u64)
+		Weight::from_all(191_033_203_u64)
 			// Standard Error: 97_820
-			.saturating_add(Weight::from_all(109_262_745 as u64).saturating_mul(p as u64))
-			.saturating_add(T::DbWeight::get().reads(5 as u64))
-			.saturating_add(T::DbWeight::get().writes(5 as u64))
+			.saturating_add(Weight::from_all(109_262_745_u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
 	// Storage: `MaintenanceMode::BlockedCalls` (r:2 w:0)
 	// Proof: `MaintenanceMode::BlockedCalls` (`max_values`: None, `max_size`: Some(111), added: 2586, mode: `MaxEncodedLen`)
@@ -120,10 +120,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(845), added: 3320, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 31]`.
 	fn proxy_extrinsic(p: u32, ) -> Weight {
-		Weight::from_all(89_612_094 as u64)
+		Weight::from_all(89_612_094_u64)
 			// Standard Error: 4_867
-			.saturating_add(Weight::from_all(89_411 as u64).saturating_mul(p as u64))
-			.saturating_add(T::DbWeight::get().reads(5 as u64))
+			.saturating_add(Weight::from_all(89_411_u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(5_u64))
 	}
 }
 
@@ -138,9 +138,9 @@ impl WeightInfo for () {
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn create() -> Weight {
-		Weight::from_all(196_195_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(4 as u64))
-			.saturating_add(RocksDbWeight::get().writes(4 as u64))
+		Weight::from_all(196_195_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	// Storage: `Futurepass::Holders` (r:1 w:0)
 	// Proof: `Futurepass::Holders` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
@@ -150,11 +150,11 @@ impl WeightInfo for () {
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 31]`.
 	fn register_delegate_with_signature(p: u32, ) -> Weight {
-		Weight::from_all(270_996_791 as u64)
+		Weight::from_all(270_996_791_u64)
 			// Standard Error: 11_734
-			.saturating_add(Weight::from_all(213_467 as u64).saturating_mul(p as u64))
-			.saturating_add(RocksDbWeight::get().reads(4 as u64))
-			.saturating_add(RocksDbWeight::get().writes(3 as u64))
+			.saturating_add(Weight::from_all(213_467_u64).saturating_mul(p as u64))
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	// Storage: `Futurepass::Holders` (r:2 w:0)
 	// Proof: `Futurepass::Holders` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
@@ -164,11 +164,11 @@ impl WeightInfo for () {
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 31]`.
 	fn unregister_delegate(p: u32, ) -> Weight {
-		Weight::from_all(194_326_623 as u64)
+		Weight::from_all(194_326_623_u64)
 			// Standard Error: 6_500
-			.saturating_add(Weight::from_all(270_944 as u64).saturating_mul(p as u64))
-			.saturating_add(RocksDbWeight::get().reads(5 as u64))
-			.saturating_add(RocksDbWeight::get().writes(3 as u64))
+			.saturating_add(Weight::from_all(270_944_u64).saturating_mul(p as u64))
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	// Storage: `Futurepass::Holders` (r:2 w:2)
 	// Proof: `Futurepass::Holders` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
@@ -178,11 +178,11 @@ impl WeightInfo for () {
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 31]`.
 	fn transfer_futurepass(p: u32, ) -> Weight {
-		Weight::from_all(191_033_203 as u64)
+		Weight::from_all(191_033_203_u64)
 			// Standard Error: 97_820
-			.saturating_add(Weight::from_all(109_262_745 as u64).saturating_mul(p as u64))
-			.saturating_add(RocksDbWeight::get().reads(5 as u64))
-			.saturating_add(RocksDbWeight::get().writes(5 as u64))
+			.saturating_add(Weight::from_all(109_262_745_u64).saturating_mul(p as u64))
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(5_u64))
 	}
 	// Storage: `MaintenanceMode::BlockedCalls` (r:2 w:0)
 	// Proof: `MaintenanceMode::BlockedCalls` (`max_values`: None, `max_size`: Some(111), added: 2586, mode: `MaxEncodedLen`)
@@ -192,10 +192,10 @@ impl WeightInfo for () {
 	// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(845), added: 3320, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 31]`.
 	fn proxy_extrinsic(p: u32, ) -> Weight {
-		Weight::from_all(89_612_094 as u64)
+		Weight::from_all(89_612_094_u64)
 			// Standard Error: 4_867
-			.saturating_add(Weight::from_all(89_411 as u64).saturating_mul(p as u64))
-			.saturating_add(RocksDbWeight::get().reads(5 as u64))
+			.saturating_add(Weight::from_all(89_411_u64).saturating_mul(p as u64))
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
 	}
 }
 

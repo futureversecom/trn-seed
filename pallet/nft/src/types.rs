@@ -18,7 +18,10 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use seed_primitives::{MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount};
+use seed_primitives::{
+	CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
+	TokenCount,
+};
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use sp_runtime::{BoundedVec, Permill};
 use sp_std::{fmt::Debug, prelude::*};
@@ -204,10 +207,7 @@ where
 
 	/// Get's the token owner
 	pub fn get_token_owner(&self, serial_number: SerialNumber) -> Option<AccountId> {
-		let Some(token) = self.owned_tokens.iter().find(|x| x.contains_serial(&serial_number))
-		else {
-			return None;
-		};
+		let token = self.owned_tokens.iter().find(|x| x.contains_serial(&serial_number))?;
 		Some(token.owner.clone())
 	}
 

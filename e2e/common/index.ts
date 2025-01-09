@@ -280,23 +280,31 @@ const OWNABLE_ABI = [
   "function transferOwnership(address owner)",
 ];
 
+const ERC165_ABI = ["function supportsInterface(bytes4 interfaceId) public view returns (bool)"];
+
 export const FEE_PROXY_ABI_DEPRECATED = [
   "function callWithFeePreferences(address asset, uint128 maxPayment, address target, bytes input)",
 ];
 export const FEE_PROXY_ABI = ["function callWithFeePreferences(address asset, address target, bytes input)"];
 
 export const ERC20_ABI = [
+  // ERC20
   "event Transfer(address indexed from, address indexed to, uint256 value)",
   "event Approval(address indexed owner, address indexed spender, uint256 value)",
   "function approve(address spender, uint256 amount) public returns (bool)",
   "function allowance(address owner, address spender) public view returns (uint256)",
   "function balanceOf(address who) public view returns (uint256)",
-  "function name() public view returns (string memory)",
-  "function symbol() public view returns (string memory)",
-  "function decimals() public view returns (uint8)",
   "function totalSupply() external view returns (uint256)",
   "function transfer(address who, uint256 amount)",
   "function transferFrom(address from, address to, uint256 amount)",
+
+  // ERC20 Metadata
+  "function name() public view returns (string memory)",
+  "function symbol() public view returns (string memory)",
+  "function decimals() public view returns (uint8)",
+
+  // ERC165
+  ...ERC165_ABI,
 ];
 
 export const NFT_PRECOMPILE_ABI = [
@@ -355,6 +363,9 @@ export const ERC721_PRECOMPILE_ABI = [
 
   // Ownable
   ...OWNABLE_ABI,
+
+  // ERC165
+  ...ERC165_ABI,
 ];
 
 export const ERC1155_PRECOMPILE_ABI = [
@@ -370,15 +381,15 @@ export const ERC1155_PRECOMPILE_ABI = [
   "function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata data) external",
   "function safeBatchTransferFrom(address from, address to, uint256[] calldata ids, uint256[] calldata amounts, bytes calldata data) external",
 
-  // Burnable
+  // ERC1155Burnable
   "function burn(address account, uint256 id, uint256 value) external",
   "function burnBatch(address account, uint256[] ids, uint256[] values) external",
 
-  // Supply
+  // ERC1155Supply
   "function totalSupply(uint256 id) external view returns (uint256)",
   "function exists(uint256 id) external view returns (bool)",
 
-  // Metadata
+  // ERC1155MetadataURI
   "function uri(uint256 id) external view returns (string memory)",
 
   // TRN
@@ -398,6 +409,9 @@ export const ERC1155_PRECOMPILE_ABI = [
 
   // Ownable
   ...OWNABLE_ABI,
+
+  // ERC165
+  ...ERC165_ABI,
 ];
 
 export const FUTUREPASS_REGISTRAR_PRECOMPILE_ABI = [

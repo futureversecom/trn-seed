@@ -64,7 +64,7 @@ mod call_with_fee_preferences {
 			let max_payment: Balance = 100;
 
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
-			let futurepass = pallet_futurepass::Holders::<Test>::get(&owner).unwrap();
+			let futurepass = pallet_futurepass::Holders::<Test>::get(owner).unwrap();
 
 			let call = mock::RuntimeCall::System(frame_system::Call::remark {
 				remark: b"Mischief Managed".to_vec(),

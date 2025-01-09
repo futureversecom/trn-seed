@@ -56,6 +56,6 @@ where
 	fn token_uri(&self, token_id: TokenId) -> RpcResult<Vec<u8>> {
 		let api = self.client.runtime_api();
 		api.token_uri(self.client.info().best_hash, token_id)
-			.map_err(|e| RpcError::to_call_error(e))
+			.map_err(RpcError::to_call_error)
 	}
 }

@@ -23,18 +23,17 @@ use frame_support::{
 	traits::OriginTrait,
 };
 use pallet_evm::{Context, ExitReason, PrecompileSet};
-use seed_pallet_common::NFTExt;
-use sp_core::{H160, H256, U256};
-use sp_runtime::{traits::SaturatedConversion, BoundedVec};
-use sp_std::{marker::PhantomData, vec, vec::Vec};
-
 use precompile_utils::{
 	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, ERC721_PRECOMPILE_ADDRESS_PREFIX},
 	prelude::*,
 };
+use seed_pallet_common::NFTExt;
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId,
 };
+use sp_core::{Encode, H160, H256, U256};
+use sp_runtime::{traits::SaturatedConversion, BoundedVec};
+use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
@@ -68,6 +67,16 @@ pub const SELECTOR_LOG_MINT_FEE_UPDATED: [u8; 32] = keccak256!("MintFeeUpdated(a
 
 /// Solidity selector of the onERC721Received(address,address,uint256,bytes) function
 pub const ON_ERC721_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0x15, 0x0b, 0x7a, 0x02];
+
+/// Interface IDs for the ERC165, ERC721, ERC721Metadata, ERC721Burnable, Ownable, and TRN721 interfaces
+pub const ERC165_INTERFACE_IDS: &[u32] = &[
+	0x01ffc9a7, // ERC165
+	0x80ac58cd, // ERC721
+	0x5b5e139f, // ERC721Metadata
+	0x42966c68, // ERC721Burnable
+	0x0e083076, // Ownable
+	0x2a4288ec, // TRN721
+];
 
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -104,6 +113,8 @@ pub enum Action {
 	// XLS-20 extensions
 	EnableXls20Compatibility = "enableXls20Compatibility()",
 	ReRequestXls20Mint = "reRequestXls20Mint(uint32[])",
+	// ERC165 - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/introspection/ERC165.sol
+	SupportsInterface = "supportsInterface(bytes4)",
 }
 
 /// The following distribution has been decided for the precompiles
@@ -111,7 +122,7 @@ pub enum Action {
 /// 1024-2047 Precompiles that are not in Ethereum Mainnet but are neither Root specific
 /// 2048-4095 Seed specific precompiles
 /// NFT precompile addresses can only fall between
-/// 	0xAAAAAAAA00000000000000000000000000000000 - 0xAAAAAAAAFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+///     0xAAAAAAAA00000000000000000000000000000000 - 0xAAAAAAAAFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 /// The precompile for NFT series X where X is a u32 (i.e.4 bytes), if 0XFFFFFFFF +
 /// Bytes(CollectionUuid) In order to route the address to Erc721Precompile<R>, we
 /// check whether the CollectionUuid exists in pallet-nft
@@ -224,7 +235,9 @@ where
 						Action::ReRequestXls20Mint => {
 							Self::re_request_xls20_mint(collection_id, handle)
 						},
-						_ => return Some(Err(revert("ERC721: Function not implemented").into())),
+						// ERC165
+						Action::SupportsInterface => Self::supports_interface(handle),
+						_ => return Some(Err(revert("ERC721: Function not implemented"))),
 					}
 				};
 				return Some(result);
@@ -288,7 +301,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into());
+			return Err(revert("ERC721: Expected token id <= 2^32"));
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -300,7 +313,7 @@ where
 					.write(Address::from(Into::<H160>::into(owner_account_id)))
 					.build(),
 			)),
-			None => Err(revert(alloc::format!("ERC721: Token does not exist").as_bytes().to_vec())),
+			None => Err(revert("ERC721: Token does not exist")),
 		}
 	}
 
@@ -348,7 +361,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into());
+			return Err(revert("ERC721: Expected token id <= 2^32"));
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -374,7 +387,7 @@ where
 				},
 			)?;
 		} else {
-			return Err(revert("ERC721: Caller not approved").into());
+			return Err(revert("ERC721: Caller not approved"));
 		}
 
 		let serial_number = H256::from_low_u64_be(serial_number as u64);
@@ -438,7 +451,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into());
+			return Err(revert("ERC721: Expected token id <= 2^32"));
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		let token_id: TokenId = (collection_id, serial_number);
@@ -449,7 +462,7 @@ where
 			token_id,
 			Runtime::AccountId::from(handle.context().caller),
 		) {
-			return Err(revert("ERC721: Caller not approved").into());
+			return Err(revert("ERC721: Caller not approved"));
 		}
 
 		// Check that target implements onERC721Received
@@ -476,14 +489,10 @@ where
 			match reason {
 				ExitReason::Succeed(_) => {
 					if output[..4] != ON_ERC721_RECEIVED_FUNCTION_SELECTOR.to_vec() {
-						return Err(
-							revert("ERC721: transfer to non ERC721Receiver implementer").into()
-						);
+						return Err(revert("ERC721: transfer to non ERC721Receiver implementer"));
 					}
 				},
-				_ => {
-					return Err(revert("ERC721: transfer to non ERC721Receiver implementer").into())
-				},
+				_ => return Err(revert("ERC721: transfer to non ERC721Receiver implementer")),
 			};
 		}
 
@@ -532,7 +541,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into());
+			return Err(revert("ERC721: Expected token id <= 2^32"));
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -575,20 +584,18 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into());
+			return Err(revert("ERC721: Expected token id <= 2^32"));
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
 		// Return either the approved account or zero address if no account is approved
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let approved_account: H160 =
-			match pallet_token_approvals::Pallet::<Runtime>::erc721_approvals((
-				collection_id,
-				serial_number,
-			)) {
-				Some(approved_account) => (approved_account).into(),
-				None => H160::default(),
-			};
+		let approved_account: H160 = match pallet_token_approvals::ERC721Approvals::<Runtime>::get(
+			(collection_id, serial_number),
+		) {
+			Some(approved_account) => (approved_account).into(),
+			None => H160::default(),
+		};
 
 		Ok(succeed(EvmDataWriter::new().write(Address::from(approved_account)).build()))
 	}
@@ -605,7 +612,7 @@ where
 		let operator: Runtime::AccountId = H160::from(operator).into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc721_approvals_for_all(
+		let is_approved = pallet_token_approvals::ERC721ApprovalsForAll::<Runtime>::get(
 			owner,
 			(collection_id, operator),
 		)
@@ -630,7 +637,7 @@ where
 			None.into(),
 			pallet_token_approvals::Call::<Runtime>::erc721_approval_for_all {
 				caller: handle.context().caller.into(),
-				operator_account: operator.clone().into(),
+				operator_account: operator.into(),
 				collection_uuid: collection_id,
 				approved,
 			},
@@ -659,9 +666,7 @@ where
 					.write::<Bytes>(collection_info.name.as_slice().into())
 					.build(),
 			)),
-			None => {
-				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec()))
-			},
+			None => Err(revert("ERC721: Collection does not exist")),
 		}
 	}
 
@@ -679,9 +684,7 @@ where
 					.write::<Bytes>(collection_info.name.as_slice().into())
 					.build(),
 			)),
-			None => {
-				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec()))
-			},
+			None => Err(revert("ERC721: Collection does not exist")),
 		}
 	}
 
@@ -696,7 +699,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into());
+			return Err(revert("ERC721: Expected token id <= 2^32"));
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -725,9 +728,7 @@ where
 					.write::<U256>(collection_info.collection_issuance.into())
 					.build(),
 			)),
-			None => {
-				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec()))
-			},
+			None => Err(revert("ERC721: Collection does not exist")),
 		}
 	}
 
@@ -749,7 +750,7 @@ where
 
 		// Parse quantity
 		if quantity > TokenCount::MAX.into() {
-			return Err(revert("ERC721: Expected quantity <= 2^32").into());
+			return Err(revert("ERC721: Expected quantity <= 2^32"));
 		}
 		let quantity: TokenCount = quantity.saturated_into();
 		let origin = handle.context().caller;
@@ -759,7 +760,7 @@ where
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let serial_number = match pallet_nft::CollectionInfo::<Runtime>::get(collection_id) {
 			Some(collection_info) => collection_info.next_serial_number,
-			None => return Err(revert("Collection does not exist").into()),
+			None => return Err(revert("Collection does not exist")),
 		};
 
 		// Dispatch call (if enough gas).
@@ -801,7 +802,7 @@ where
 
 		// Parse max_supply
 		if max_supply > TokenCount::MAX.into() {
-			return Err(revert("ERC721: Expected max_supply <= 2^32").into());
+			return Err(revert("ERC721: Expected max_supply <= 2^32"));
 		}
 		let max_issuance: TokenCount = max_supply.saturated_into();
 		let origin = handle.context().caller;
@@ -865,11 +866,11 @@ where
 		// Parse inputs
 		let owner: H160 = owner.into();
 		if limit > u16::MAX.into() {
-			return Err(revert("ERC721: Expected limit <= 2^32").into());
+			return Err(revert("ERC721: Expected limit <= 2^32"));
 		}
 		let limit: u16 = limit.saturated_into();
 		if cursor > SerialNumber::MAX.into() {
-			return Err(revert("ERC721: Expected cursor <= 2^32").into());
+			return Err(revert("ERC721: Expected cursor <= 2^32"));
 		}
 		let cursor: SerialNumber = cursor.saturated_into();
 
@@ -932,7 +933,7 @@ where
 		)
 		.ok_or_else(|| revert("ERC721: Invalid payment asset address"))?;
 		if mint_fee > Balance::MAX.into() {
-			return Err(revert("ERC721: Expected mint_fee <= 2^128").into());
+			return Err(revert("ERC721: Expected mint_fee <= 2^128"));
 		}
 		let fee: Balance = mint_fee.saturated_into();
 		// If the mint fee is 0, we can assume this means no mint fee
@@ -974,9 +975,7 @@ where
 					.write(Address::from(Into::<H160>::into(collection_info.owner)))
 					.build(),
 			)),
-			None => {
-				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec()))
-			},
+			None => Err(revert("ERC721: Collection does not exist")),
 		}
 	}
 
@@ -1051,7 +1050,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into());
+			return Err(revert("ERC721: Expected token id <= 2^32"));
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		let token_id: TokenId = (collection_id, serial_number);
@@ -1063,14 +1062,14 @@ where
 			token_id,
 			Runtime::AccountId::from(origin),
 		) {
-			return Err(revert("ERC721: Caller not approved").into());
+			return Err(revert("ERC721: Caller not approved"));
 		}
 
 		// Get token owner and call burn from the owner address
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let owner = match pallet_nft::Pallet::<Runtime>::get_token_owner(&token_id) {
 			Some(owner) => owner,
-			None => return Err(revert("ERC721: Token does not exist").into()),
+			None => return Err(revert("ERC721: Token does not exist")),
 		};
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -1131,7 +1130,7 @@ where
 		let mut serial_numbers_unbounded: Vec<SerialNumber> = vec![];
 		for serial_number in serial_numbers {
 			if serial_number > u32::MAX.into() {
-				return Err(revert("XLS20: Expected serial_number <= 2^32").into());
+				return Err(revert("XLS20: Expected serial_number <= 2^32"));
 			}
 			serial_numbers_unbounded.push(serial_number.saturated_into())
 		}
@@ -1163,5 +1162,27 @@ where
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))
+	}
+
+	fn supports_interface(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+		read_args!(handle, { interface_id: U256 });
+
+		// Convert to bytes4 by getting the last 4 bytes of the BE representation
+		let interface_id_bytes = interface_id.encode();
+		let interface_id_u32 = u32::from_le_bytes(
+			interface_id_bytes[28..32]
+				.try_into()
+				.map_err(|_| revert("ERC165: Invalid interface ID"))?,
+		);
+
+		// ERC165 requires returning false for 0xffffffff
+		// https://eips.ethereum.org/EIPS/eip-165#how-a-contract-will-publish-the-interfaces-it-implements
+		if interface_id_u32 == 0xffffffff {
+			return Ok(succeed(EvmDataWriter::new().write(false).build()));
+		}
+
+		let supported = ERC165_INTERFACE_IDS.contains(&interface_id_u32);
+		Ok(succeed(EvmDataWriter::new().write(supported).build()))
 	}
 }

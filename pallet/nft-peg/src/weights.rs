@@ -58,8 +58,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `NftPeg::ContractAddress` (r:0 w:1)
 	// Proof: `NftPeg::ContractAddress` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_contract_address() -> Weight {
-		Weight::from_all(25_600_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
+		Weight::from_all(25_600_000_u64)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	// Storage: `Nft::CollectionInfo` (r:1 w:1)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
@@ -82,9 +82,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:3)
 	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	fn withdraw() -> Weight {
-		Weight::from_all(156_478_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(11 as u64))
-			.saturating_add(T::DbWeight::get().writes(6 as u64))
+		Weight::from_all(156_478_000_u64)
+			.saturating_add(T::DbWeight::get().reads(11_u64))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
 	// Storage: `NftPeg::BlockedTokens` (r:1 w:1)
 	// Proof: `NftPeg::BlockedTokens` (`max_values`: None, `max_size`: Some(237), added: 2712, mode: `MaxEncodedLen`)
@@ -105,9 +105,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `System::Digest` (r:1 w:1)
 	// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn reclaim_blocked_nfts() -> Weight {
-		Weight::from_all(124_109_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(9 as u64))
-			.saturating_add(T::DbWeight::get().writes(3 as u64))
+		Weight::from_all(124_109_000_u64)
+			.saturating_add(T::DbWeight::get().reads(9_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 }
 
@@ -116,8 +116,8 @@ impl WeightInfo for () {
 	// Storage: `NftPeg::ContractAddress` (r:0 w:1)
 	// Proof: `NftPeg::ContractAddress` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_contract_address() -> Weight {
-		Weight::from_all(25_600_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
+		Weight::from_all(25_600_000_u64)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	// Storage: `Nft::CollectionInfo` (r:1 w:1)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
@@ -140,9 +140,9 @@ impl WeightInfo for () {
 	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:3)
 	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	fn withdraw() -> Weight {
-		Weight::from_all(156_478_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(11 as u64))
-			.saturating_add(RocksDbWeight::get().writes(6 as u64))
+		Weight::from_all(156_478_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(11_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
 	// Storage: `NftPeg::BlockedTokens` (r:1 w:1)
 	// Proof: `NftPeg::BlockedTokens` (`max_values`: None, `max_size`: Some(237), added: 2712, mode: `MaxEncodedLen`)
@@ -163,9 +163,9 @@ impl WeightInfo for () {
 	// Storage: `System::Digest` (r:1 w:1)
 	// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn reclaim_blocked_nfts() -> Weight {
-		Weight::from_all(124_109_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(9 as u64))
-			.saturating_add(RocksDbWeight::get().writes(3 as u64))
+		Weight::from_all(124_109_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(9_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 }
 

@@ -13,8 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod erc20_peg;
-mod evm;
+mod nfi;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
@@ -35,20 +34,16 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, DispatchError> {
-		let _ = erc20_peg::Upgrade::pre_upgrade()?;
-		evm::Upgrade::pre_upgrade()
+		nfi::Upgrade::pre_upgrade()
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let mut weight = erc20_peg::Upgrade::on_runtime_upgrade();
-		weight += evm::Upgrade::on_runtime_upgrade();
-		weight
+		nfi::Upgrade::on_runtime_upgrade()
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), DispatchError> {
-		let _ = erc20_peg::Upgrade::post_upgrade(state.clone())?;
-		evm::Upgrade::post_upgrade(state)
+		nfi::Upgrade::post_upgrade(state.clone())
 	}
 }
 
@@ -223,11 +218,11 @@ impl Value {
 	///
 	/// # Usage
 	///
-	///	let (module, item, new_item) = (b"MyPallet", b"MyStorageName", b"NewStorage");
+	/// let (module, item, new_item) = (b"MyPallet", b"MyStorageName", b"NewStorage");
 	/// Value::unsafe_storage_put(module, item, 100u128);
 	/// assert_eq!(Value::unsafe_storage_rename::<u128>(module, item, new_item), true);
 	///
-	/// // Renaming a non-existing storage will return false
+	/// Renaming a non-existing storage will return false
 	/// assert_eq!(Value::unsafe_storage_rename::<u128>(module, b"ThisDoesNotExist", new_item),
 	/// false);
 	#[allow(dead_code)]
@@ -251,11 +246,11 @@ impl Value {
 	///
 	/// # Usage
 	///
-	///	let (storage, pallet, new_pallet) = (b"MyStorageName", b"MyPallet", b"MyNewPallet");
+	/// let (storage, pallet, new_pallet) = (b"MyStorageName", b"MyPallet", b"MyNewPallet");
 	/// Value::unsafe_storage_put(pallet, storage, 100u128);
 	/// assert_eq!(Value::unsafe_storage_move(storage, pallet, new_pallet), true);
 	///
-	/// // moving a non-existing storage will return false
+	/// moving a non-existing storage will return false
 	/// assert_eq!(Value::unsafe_storage_move(b"RandomStorage", pallet, new_pallet), false)
 	#[allow(dead_code)]
 	pub fn unsafe_storage_move(
@@ -280,11 +275,11 @@ impl Value {
 	///
 	/// # Usage
 	///
-	///	/// let (module, item) = (b"MyPallet", b"MyStorageName");
+	/// let (module, item) = (b"MyPallet", b"MyStorageName");
 	/// Value::unsafe_storage_put(module, item, 100u128);
 	/// assert_eq!(Value::unsafe_clear(module, item), true);
 	///
-	/// // killing a non-existing storage will return false
+	/// killing a non-existing storage will return false
 	/// assert_eq!(Value::unsafe_clear(module, b"DoesNotExist"), false);
 	#[allow(dead_code)]
 	pub fn unsafe_clear(module: &[u8], item: &[u8]) -> bool {
@@ -399,7 +394,7 @@ impl Map {
 	{
 		let keys: Vec<K> = Storage::iter_keys().collect();
 		keys.iter()
-			.filter_map(|key| Storage::try_get(key).and_then(|v| Ok((key.clone(), v))).ok())
+			.filter_map(|key| Storage::try_get(key).map(|v| (key.clone(), v)).ok())
 			.collect()
 	}
 }

@@ -66,9 +66,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `System::Digest` (r:1 w:1)
 	// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn ping() -> Weight {
-		Weight::from_all(87_348_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(6 as u64))
-			.saturating_add(T::DbWeight::get().writes(3 as u64))
+		Weight::from_all(87_348_000_u64)
+			.saturating_add(T::DbWeight::get().reads(6_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 }
 
@@ -87,9 +87,9 @@ impl WeightInfo for () {
 	// Storage: `System::Digest` (r:1 w:1)
 	// Proof: `System::Digest` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn ping() -> Weight {
-		Weight::from_all(87_348_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(6 as u64))
-			.saturating_add(RocksDbWeight::get().writes(3 as u64))
+		Weight::from_all(87_348_000_u64)
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 }
 

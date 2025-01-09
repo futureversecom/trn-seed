@@ -9,7 +9,6 @@ repository.workspace = true
 
 [dependencies]
 codec = { workspace = true }
-log = { workspace = true }
 scale-info = { workspace = true }
 
 frame-benchmarking = { workspace = true, optional = true }

@@ -63,7 +63,7 @@ pub mod pallet {
 
 	impl<T: Config> Get<u64> for Pallet<T> {
 		fn get() -> u64 {
-			Self::chain_id()
+			ChainId::<T>::get()
 		}
 	}
 
@@ -74,7 +74,6 @@ pub mod pallet {
 
 	/// The EVM chain ID.
 	#[pallet::storage]
-	#[pallet::getter(fn chain_id)]
 	pub type ChainId<T> = StorageValue<_, u64, ValueQuery, DefaultChainId<T>>;
 
 	#[pallet::event]

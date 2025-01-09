@@ -120,7 +120,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Request NFI data for the minted tokens
-		let _ = T::NFIRequest::request(&who, collection_id, vec![next_serial_number])?;
+		T::NFIRequest::request(&who, collection_id, vec![next_serial_number])?;
 
 		TokenInfo::<T>::insert((collection_id, next_serial_number), new_sft);
 		SftCollectionInfo::<T>::insert(collection_id, existing_collection);
@@ -144,16 +144,15 @@ impl<T: Config> Pallet<T> {
 		token_count: Balance,
 	) -> DispatchResult {
 		// Calculate the total fee
-		let total_fee = match public_mint_info.pricing_details {
-			Some((asset, price)) => Some((asset, price.saturating_mul(token_count as Balance))),
-			None => None,
-		};
+		let total_fee = public_mint_info
+			.pricing_details
+			.map(|(asset, price)| (asset, price.saturating_mul(token_count as Balance)));
 		// Charge the fee if there is a fee set
 		if let Some((asset, total_fee)) = total_fee {
 			T::MultiCurrency::transfer(
 				asset,
 				who,
-				&collection_owner,
+				collection_owner,
 				total_fee,
 				Preservation::Expendable,
 			)?;
@@ -229,7 +228,7 @@ impl<T: Config> Pallet<T> {
 			}
 
 			// Add the balance
-			token_info.add_balance(&owner, *quantity).map_err(|err| Error::<T>::from(err))?;
+			token_info.add_balance(&owner, *quantity).map_err(Error::<T>::from)?;
 			token_info.token_issuance += quantity;
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
@@ -268,7 +267,7 @@ impl<T: Config> Pallet<T> {
 			// Transfer the balance
 			token_info
 				.transfer_balance(&who, &new_owner, *quantity)
-				.map_err(|err| Error::<T>::from(err))?;
+				.map_err(Error::<T>::from)?;
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
 
@@ -304,9 +303,7 @@ impl<T: Config> Pallet<T> {
 			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 
 			// Burn the balance
-			token_info
-				.remove_balance(&who, *quantity)
-				.map_err(|err| Error::<T>::from(err))?;
+			token_info.remove_balance(&who, *quantity).map_err(Error::<T>::from)?;
 			token_info.token_issuance = token_info.token_issuance.saturating_sub(*quantity);
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
@@ -502,7 +499,7 @@ impl<T: Config> SFTExt for Pallet<T> {
 		who: &Self::AccountId,
 	) -> DispatchResult {
 		let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
-		token_info.reserve_balance(who, amount).map_err(|err| Error::<T>::from(err))?;
+		token_info.reserve_balance(who, amount).map_err(Error::<T>::from)?;
 		TokenInfo::<T>::insert(token_id, token_info);
 		Ok(())
 	}
@@ -513,9 +510,7 @@ impl<T: Config> SFTExt for Pallet<T> {
 		who: &Self::AccountId,
 	) -> DispatchResult {
 		let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
-		token_info
-			.free_reserved_balance(who, amount)
-			.map_err(|err| Error::<T>::from(err))?;
+		token_info.free_reserved_balance(who, amount).map_err(Error::<T>::from)?;
 		TokenInfo::<T>::insert(token_id, token_info);
 		Ok(())
 	}
