@@ -17,7 +17,7 @@ use crate::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::fmt::Write;
 use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use sp_runtime::{traits::ConstU32, BoundedVec, PerThing, Permill};
 use sp_std::prelude::*;
 
@@ -139,10 +139,27 @@ impl<AccountId> Default for RoyaltiesSchedule<AccountId> {
 /// Determines compatibility with external chains.
 /// If compatible with XRPL, XLS-20 tokens will be minted with every newly minted
 /// token on The Root Network
-#[derive(Default, Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
+#[derive(Debug, Clone, Encode, Decode, Deserialize, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
 pub struct CrossChainCompatibility {
 	/// This collection is compatible with the XLS-20 standard on XRPL
 	pub xrpl: bool,
+}
+
+impl Serialize for CrossChainCompatibility {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		let mut s = serializer.serialize_struct("CrossChainCompatibility", 1)?;
+		s.serialize_field("xrpl", &self.xrpl)?;
+		s.end()
+	}
+}
+
+impl Default for CrossChainCompatibility {
+	fn default() -> Self {
+		Self { xrpl: false }
+	}
 }
 
 #[cfg(test)]
