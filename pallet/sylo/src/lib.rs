@@ -452,6 +452,10 @@ pub mod pallet {
 			Ok(())
 		}
 
+		// pub fn is_sylo_extrinsic(call: &<T as frame_system::Config>::RuntimeCall) -> bool {
+		// 	true
+		// }
+
 		pub fn payment_asset() -> Option<AssetId> {
 			<SyloAssetId<T>>::get()
 		}

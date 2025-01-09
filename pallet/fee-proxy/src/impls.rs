@@ -39,6 +39,7 @@ where
 	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
 	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
+	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
 	<T as Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
 	Balance: From<<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance>,
@@ -48,7 +49,10 @@ where
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo;
 
 	/// Intercept the withdraw fee, and swap any tokens to gas tokens if the call is
-	/// pallet_fee_proxy.call_with_fee_preferences()
+	/// pallet_fee_proxy.call_with_fee_preferences().
+	///
+	/// This also additionally will force the Sylo token as the gas token if the call
+	/// is detected as  a extrinsic for the sylo pallet.
 	fn withdraw_fee(
 		who: &T::AccountId,
 		call: &<T as frame_system::Config>::RuntimeCall,
@@ -68,7 +72,8 @@ where
 			}
 		}
 
-		let do_fee_swap = |payment_asset: AssetId,
+		let do_fee_swap = |who: &T::AccountId,
+		                   payment_asset: &AssetId,
 		                   mut total_fee: Balance,
 		                   max_payment: Balance|
 		 -> Result<(), TransactionValidityError> {
@@ -80,12 +85,11 @@ where
 			// <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee
 			let account_balance = pallet_assets_ext::Pallet::<T>::balance(native_asset, who);
 			// Minium balance is hardcoded to 1
-			// pallet_assets_ext::Pallet::<T>::minimum_balance(native_asset);
 			let minimum_balance = pallet_assets_ext::Pallet::<T>::minimum_balance(native_asset);
 			if account_balance < minimum_balance {
 				total_fee = total_fee.saturating_add(minimum_balance);
 			}
-			let path: &[AssetId] = &[payment_asset, native_asset];
+			let path: &[AssetId] = &[*payment_asset, native_asset];
 			pallet_dex::Pallet::<T>::do_swap_with_exact_target(
 				who,
 				total_fee,
@@ -94,21 +98,12 @@ where
 				*who,
 				None,
 			)
-			.map_err(|_| InvalidTransaction::Payment)?;
+			.map_err(|_| InvalidTransaction::Stale)?;
 
 			Ok(())
 		};
 
-		let is_sylo_call = match call.is_sub_type() {
-			Some(pallet_sylo::Call::register_resolver { .. }) => true,
-			Some(pallet_sylo::Call::update_resolver { .. }) => true,
-			Some(pallet_sylo::Call::unregister_resolver { .. }) => true,
-			Some(pallet_sylo::Call::create_validation_record { .. }) => true,
-			Some(pallet_sylo::Call::add_validation_record_entry { .. }) => true,
-			Some(pallet_sylo::Call::update_validation_record { .. }) => true,
-			Some(pallet_sylo::Call::delete_validation_record { .. }) => true,
-			_ => false,
-		};
+		let is_sylo_call = is_sylo_call::<T>(call);
 
 		// if the call is a sylo pallet call, then we always force a fee swap with the
 		// sylo token
@@ -116,14 +111,14 @@ where
 			let payment_asset =
 				pallet_sylo::Pallet::<T>::payment_asset().ok_or(InvalidTransaction::Payment)?;
 
-			do_fee_swap(payment_asset, Balance::from(fee), u128::MAX)?;
+			do_fee_swap(who, &payment_asset, Balance::from(fee), u128::MAX)?;
 		}
 
 		// Check whether this call has specified fee preferences
 		if let Some(call_with_fee_preferences { payment_asset, max_payment, call }) =
 			call.is_sub_type()
 		{
-			// prevent using the fee proxy if the call is a sylo call
+			// prevent using the fee proxy if the inner call is a sylo call
 			if is_sylo_call {
 				Err(InvalidTransaction::Payment)?;
 			}
@@ -185,7 +180,7 @@ where
 				add_evm_gas_cost(gas_limit, max_fee_per_gas, max_priority_fee_per_gas);
 			}
 
-			do_fee_swap(*payment_asset, total_fee, *max_payment)?;
+			do_fee_swap(who, payment_asset, total_fee, *max_payment)?;
 		};
 
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(
@@ -219,4 +214,46 @@ where
 			already_withdrawn,
 		)
 	}
+}
+
+/// Helper function to determine if a call is sylo pallet call that
+/// should be paid using sylo tokens.
+///
+/// Will also determine if the inner call of a futurepass or
+/// fee proxy call is a sylo call as well.
+fn is_sylo_call<T>(call: &<T as frame_system::Config>::RuntimeCall) -> bool
+where
+	T: Config
+		+ frame_system::Config<AccountId = AccountId>
+		+ pallet_futurepass::Config
+		+ pallet_sylo::Config,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<crate::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
+	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
+{
+	if match call.is_sub_type() {
+		Some(pallet_sylo::Call::register_resolver { .. }) => true,
+		Some(pallet_sylo::Call::update_resolver { .. }) => true,
+		Some(pallet_sylo::Call::unregister_resolver { .. }) => true,
+		Some(pallet_sylo::Call::create_validation_record { .. }) => true,
+		Some(pallet_sylo::Call::add_validation_record_entry { .. }) => true,
+		Some(pallet_sylo::Call::update_validation_record { .. }) => true,
+		Some(pallet_sylo::Call::delete_validation_record { .. }) => true,
+		_ => false,
+	} {
+		return true;
+	}
+
+	if let Some(pallet_futurepass::Call::proxy_extrinsic { call, .. }) = call.is_sub_type() {
+		return is_sylo_call::<T>(call.as_ref().into_ref());
+	}
+
+	if let Some(call_with_fee_preferences { call, .. }) = call.is_sub_type() {
+		return is_sylo_call::<T>(call.as_ref().into_ref());
+	}
+
+	false
 }
