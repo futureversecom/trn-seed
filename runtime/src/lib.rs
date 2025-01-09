@@ -597,11 +597,11 @@ impl pallet_preimage::Config for Runtime {
 }
 
 parameter_types! {
-	pub const MaxResolvers: u32 = 10;
-	pub const MaxTags: u32 = 10;
-	pub const MaxEntries: u32 = 100;
-	pub const MaxServiceEndpoints: u32 = 10;
-	pub const SyloStringLimit: u32 = 500;
+	pub const MaxResolvers: u8 = 10;
+	pub const MaxTags: u8 = 10;
+	pub const MaxEntries: u8 = 100;
+	pub const MaxServiceEndpoints: u8 = 10;
+	pub const SyloStringLimit: u16 = 500;
 }
 
 impl pallet_sylo::Config for Runtime {
