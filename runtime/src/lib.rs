@@ -145,6 +145,7 @@ mod migrations;
 mod weights;
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
+use seed_primitives::migration::NoopMigration;
 
 #[cfg(test)]
 mod tests;
@@ -158,10 +159,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 61,
+	spec_version: 63,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 11,
+	transaction_version: 13,
 	state_version: 0,
 };
 
@@ -389,7 +390,7 @@ parameter_types! {
 	pub const AssetsStringLimit: u32 = 50;
 	/// Key = 32 bytes, Value = 36 bytes (32+1+1+1+1)
 	// https://github.com/paritytech/substrate/blob/069917b/frame/assets/src/lib.rs#L257L271
-	pub const MetadataDepositBase: Balance = 1 * 68;
+	pub const MetadataDepositBase: Balance = 68;
 	pub const MetadataDepositPerByte: Balance = 1;
 	pub const RemoveItemsLimit: u32 = 100;
 }
@@ -435,6 +436,7 @@ impl pallet_assets_ext::Config for Runtime {
 
 parameter_types! {
 	pub const MaxDataLength: u32 = 100;
+	pub const MaxByteLength: u32 = 500;
 	pub const NFINetworkFeePercentage: Permill = Permill::from_perthousand(5);
 }
 
@@ -445,7 +447,9 @@ impl pallet_nfi::Config for Runtime {
 	type SFTExt = Sft;
 	type NetworkFeePercentage = NFINetworkFeePercentage;
 	type MaxDataLength = MaxDataLength;
+	type MaxByteLength = MaxByteLength;
 	type WeightInfo = weights::pallet_nfi::WeightInfo<Runtime>;
+	type ChainId = EVMChainId;
 }
 
 parameter_types! {
@@ -521,6 +525,7 @@ impl pallet_sft::Config for Runtime {
 
 parameter_types! {
 	pub const MaxTokensPerXls20Mint: u32 = 1000;
+	pub const Xls20PalletId: PalletId = PalletId(*b"xls20nft");
 }
 impl pallet_xls20::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -530,6 +535,9 @@ impl pallet_xls20::Config for Runtime {
 	type NFTCollectionInfo = Nft;
 	type WeightInfo = weights::pallet_xls20::WeightInfo<Runtime>;
 	type Xls20PaymentAsset = XrpAssetId;
+	type PalletId = Xls20PalletId;
+	type NFTMinter = Nft;
+	type Migrator = Migration;
 }
 
 parameter_types! {
@@ -646,6 +654,8 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
 	type XRPLTransactionLimitPerLedger = XRPTransactionLimitPerLedger;
+	type NFTExt = Nft;
+	type Xls20Ext = Xls20;
 }
 
 parameter_types! {
@@ -947,8 +957,8 @@ impl pallet_offences::Config for Runtime {
 
 parameter_types! {
 	pub NposSolutionPriority: TransactionPriority =
-		Perbill::from_percent(90) * TransactionPriority::max_value();
-	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+		Perbill::from_percent(90) * TransactionPriority::MAX;
+	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
 	pub const MaxPeerDataEncodingSize: u32 = 1_000;
@@ -1218,6 +1228,7 @@ impl pallet_nft_peg::Config for Runtime {
 	type NftPegWeightInfo = weights::pallet_nft_peg::WeightInfo<Runtime>;
 	type MaxCollectionsPerWithdraw = MaxCollectionsPerWithdraw;
 	type MaxSerialsPerWithdraw = MaxSerialsPerWithdraw;
+	type NFTMinter = Nft;
 }
 
 impl pallet_fee_control::Config for Runtime {
@@ -1364,6 +1375,20 @@ impl pallet_crowdsale::Config for Runtime {
 	type WeightInfo = weights::pallet_crowdsale::WeightInfo<Self>;
 }
 
+parameter_types! {
+	// The upper limit of weight used per block for migrations is 10%
+	// Note, this could still be smaller if we set a smaller BlockLimit within pallet-migration
+	pub MaxMigrationWeight: Weight = Perbill::from_percent(10) * MAXIMUM_BLOCK_WEIGHT;
+}
+
+impl pallet_migration::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	// Set to NoopMigration if no migration is in progress
+	type CurrentMigration = NoopMigration;
+	type MaxMigrationWeight = MaxMigrationWeight;
+	type WeightInfo = weights::pallet_migration::WeightInfo<Runtime>;
+}
+
 construct_runtime!(
 	pub enum Runtime {
 		System: frame_system = 0,
@@ -1408,6 +1433,7 @@ construct_runtime!(
 		MaintenanceMode: pallet_maintenance_mode = 47,
 		Crowdsale: pallet_crowdsale = 49,
 		Nfi: pallet_nfi = 50,
+		Migration: pallet_migration = 51,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -1454,14 +1480,6 @@ pub type UncheckedExtrinsic =
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic =
 	fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra, H160>;
-
-pub struct StakingMigrationV11OldPallet;
-
-impl Get<&'static str> for StakingMigrationV11OldPallet {
-	fn get() -> &'static str {
-		"VoterList"
-	}
-}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
@@ -2186,7 +2204,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 	) -> Option<TransactionValidity> {
 		match self {
 			RuntimeCall::Ethereum(ref call) => {
-				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len))
+				Some(validate_self_contained_inner(self, call, signed_info, dispatch_info, len))
 			},
 			RuntimeCall::Xrpl(ref call) => {
 				call.validate_self_contained(signed_info, dispatch_info, len)
@@ -2233,13 +2251,13 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 			RuntimeCall::Xrpl(call) => pallet_xrpl::Call::<Runtime>::apply_self_contained(
 				call.into(),
 				&info,
-				&dispatch_info,
+				dispatch_info,
 				len,
 			),
 			RuntimeCall::Doughnut(call) => pallet_doughnut::Call::<Runtime>::apply_self_contained(
 				call.into(),
 				&info,
-				&dispatch_info,
+				dispatch_info,
 				len,
 			),
 			_ => None,
@@ -2341,5 +2359,6 @@ mod benches {
 		[pallet_maintenance_mode, MaintenanceMode]
 		[pallet_crowdsale, Crowdsale]
 		[pallet_evm, EVM]
+		[pallet_migration, Migration]
 	);
 }

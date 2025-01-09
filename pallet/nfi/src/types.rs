@@ -17,7 +17,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_primitives::{AssetId, Balance};
-use sp_core::H256;
+use sp_core::{H160, H256};
 use sp_std::default::Default;
 
 /// Categorise the NFI sub type. This is to futureproof the pallet and to allow for multiple
@@ -70,4 +70,42 @@ pub struct FeeDetails<AccountId> {
 	pub asset_id: AssetId,
 	pub amount: Balance,
 	pub receiver: AccountId,
+}
+
+/// Token Id that can support many types of collection_id and serial_number
+#[derive(
+	Decode, Encode, CloneNoBound, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(MaxByteLength))]
+pub struct MultiChainTokenId<MaxByteLength: Get<u32>> {
+	pub chain_id: u64,
+	pub collection_id: GenericCollectionId<MaxByteLength>,
+	pub serial_number: GenericSerialNumber<MaxByteLength>,
+}
+
+/// Collection ID type that supports multiple chains
+#[derive(
+	Decode, Encode, CloneNoBound, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(MaxByteLength))]
+pub enum GenericCollectionId<MaxByteLength: Get<u32>> {
+	U32(u32), // Used for TRN
+	U64(u64),
+	U128(u128),
+	H160(H160), // Used for Ethereum, Arbitrum
+	H256(H256),
+	Bytes(BoundedVec<u8, MaxByteLength>),
+	Empty, // Sui doesn't use CollectionId equivalent, only tokenId
+}
+
+/// Serial Number type that supports multiple chains
+#[derive(
+	Decode, Encode, CloneNoBound, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(MaxByteLength))]
+pub enum GenericSerialNumber<MaxByteLength: Get<u32>> {
+	U32(u32), // Used for TRN, Ethereum
+	U64(u64),
+	U128(u128),
+	Bytes(BoundedVec<u8, MaxByteLength>), // Used for Sui
 }

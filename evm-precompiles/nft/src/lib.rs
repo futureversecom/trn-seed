@@ -22,11 +22,11 @@ use frame_support::{
 	ensure,
 };
 use pallet_evm::{GasWeightMapping, Precompile};
-use pallet_nft::{CrossChainCompatibility, WeightInfo};
+use pallet_nft::WeightInfo;
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{
-	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount,
-	MAX_COLLECTION_ENTITLEMENTS, MAX_ENTITLEMENTS,
+	CollectionUuid, CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule,
+	TokenCount, MAX_COLLECTION_ENTITLEMENTS, MAX_ENTITLEMENTS,
 };
 use sp_core::{H160, U256};
 use sp_runtime::{
@@ -69,21 +69,18 @@ where
 		From<Option<Runtime::AccountId>>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
-		let result = {
-			let selector = match handle.read_selector() {
-				Ok(selector) => selector,
-				Err(e) => return Err(e.into()),
-			};
-
-			if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
-				return Err(err.into());
-			}
-
-			match selector {
-				Action::InitializeCollection => Self::initialize_collection(handle),
-			}
+		let selector = match handle.read_selector() {
+			Ok(selector) => selector,
+			Err(e) => return Err(e.into()),
 		};
-		return result;
+
+		if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
+			return Err(err.into());
+		}
+
+		match selector {
+			Action::InitializeCollection => Self::initialize_collection(handle),
+		}
 	}
 }
 
@@ -132,7 +129,7 @@ where
 		// Parse max issuance
 		// If max issuance is 0, we assume no max issuance is set
 		if max_issuance > u32::MAX.into() {
-			return Err(revert("NFT: Expected max_issuance <= 2^32").into());
+			return Err(revert("NFT: Expected max_issuance <= 2^32"));
 		}
 		let max_issuance: TokenCount = max_issuance.saturated_into();
 		let max_issuance: Option<TokenCount> = match max_issuance {
@@ -148,16 +145,14 @@ where
 
 		// Parse royalties
 		if royalty_addresses.len() != royalty_entitlements.len() {
-			return Err(
-				revert("NFT: Royalty addresses and entitlements must be the same length").into()
-			);
+			return Err(revert("NFT: Royalty addresses and entitlements must be the same length"));
 		}
 		let royalty_entitlements = royalty_entitlements.into_iter().map(|entitlement| {
 			let entitlement: u32 = entitlement.saturated_into();
 			Permill::from_parts(entitlement)
 		});
 		let royalties_schedule: Option<RoyaltiesSchedule<Runtime::AccountId>> =
-			if royalty_addresses.len() > 0 {
+			if !royalty_addresses.is_empty() {
 				let entitlements_unbounded: Vec<(Runtime::AccountId, Permill)> = royalty_addresses
 					.into_iter()
 					.map(|address| H160::from(address).into())
@@ -217,9 +212,7 @@ where
 				))
 			},
 			Err(err) => Err(revert(
-				alloc::format!("NFT: Initialize collection failed {:?}", err.stripped())
-					.as_bytes()
-					.to_vec(),
+				alloc::format!("NFT: Initialize collection failed {:?}", err.stripped()).as_bytes(),
 			)),
 		}
 	}

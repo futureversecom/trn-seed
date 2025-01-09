@@ -318,7 +318,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns the AssetId unique across parachains
 	pub fn next_asset_uuid() -> Result<AssetId, DispatchError> {
 		let asset_id = <NextAssetId<T>>::get();
-		match next_asset_uuid(asset_id, T::ParachainId::get().into()) {
+		match next_asset_uuid(asset_id, T::ParachainId::get()) {
 			Some(next_asset_id) => Ok(next_asset_id),
 			None => Err(Error::<T>::NoAvailableIds.into()),
 		}
@@ -527,7 +527,7 @@ impl<T: Config> TransferExt for Pallet<T> {
 		);
 
 		// Skip zero transfers, these will error within the transfer function
-		for (payee, amount) in transfers.into_iter().filter(|(_, b)| !b.is_zero()) {
+		for (payee, amount) in transfers.iter().filter(|(_, b)| !b.is_zero()) {
 			<Self as Mutate<T::AccountId>>::transfer(
 				asset_id,
 				who,
@@ -610,7 +610,7 @@ impl<T: Config> Hold for Pallet<T> {
 				holds[index].1 = decreased_hold;
 			}
 
-			let _ = <Self as Mutate<T::AccountId>>::transfer(
+			<Self as Mutate<T::AccountId>>::transfer(
 				asset_id,
 				&T::PalletId::get().into_account_truncating(),
 				who,
@@ -657,11 +657,7 @@ impl<T: Config> Hold for Pallet<T> {
 				holds[index].1 = decreased_hold;
 			}
 
-			let _ = Self::split_transfer(
-				&T::PalletId::get().into_account_truncating(),
-				asset_id,
-				spends,
-			)?;
+			Self::split_transfer(&T::PalletId::get().into_account_truncating(), asset_id, spends)?;
 
 			if holds.is_empty() {
 				Holds::<T>::take(asset_id, who.clone());
@@ -731,7 +727,7 @@ impl<T: Config> CreateExt for Pallet<T> {
 		decimals: u8,
 		min_balance: Option<Balance>,
 	) -> Result<AssetId, DispatchError> {
-		let new_asset_id = Self::create(&owner, min_balance)?;
+		let new_asset_id = Self::create(owner, min_balance)?;
 
 		// set metadata for new asset - as root origin
 		<pallet_assets::Pallet<T>>::force_set_metadata(

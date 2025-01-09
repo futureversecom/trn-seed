@@ -187,8 +187,8 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			match blocked {
-				true => BlockedEVMAddresses::<T>::insert(&target_address, true),
-				false => BlockedEVMAddresses::<T>::remove(&target_address),
+				true => BlockedEVMAddresses::<T>::insert(target_address, true),
+				false => BlockedEVMAddresses::<T>::remove(target_address),
 			}
 
 			Self::deposit_event(Event::EVMTargetBlocked { target_address, blocked });
@@ -291,6 +291,12 @@ impl<T: Config> Pallet<T> {
 #[scale_info(skip_type_params(T))]
 pub struct MaintenanceChecker<T>(sp_std::marker::PhantomData<T>);
 
+impl<T: Config> Default for MaintenanceChecker<T> {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 impl<T: Config> MaintenanceChecker<T> {
 	pub fn new() -> Self {
 		Self(Default::default())
@@ -323,7 +329,7 @@ where
 			return true;
 		}
 
-		return false;
+		false
 	}
 }
 
@@ -339,7 +345,7 @@ impl<T: frame_system::Config + Config> MaintenanceCheckEVM<T> for MaintenanceChe
 		if BlockedEVMAddresses::<T>::contains_key(target) {
 			return false;
 		}
-		return true;
+		true
 	}
 
 	fn validate_evm_create(signer: &<T as frame_system::Config>::AccountId) -> bool {
@@ -350,7 +356,7 @@ impl<T: frame_system::Config + Config> MaintenanceCheckEVM<T> for MaintenanceChe
 		if BlockedAccounts::<T>::contains_key(signer) {
 			return false;
 		}
-		return true;
+		true
 	}
 }
 

@@ -42,7 +42,7 @@ impl<T: Config> Pallet<T> {
 		let voucher_symbol =
 			voucher_symbol.unwrap_or_else(|| format!("CSV-{}", sale_id).as_bytes().to_vec());
 		let voucher_asset_id = T::MultiCurrency::create_with_metadata(
-			&vault,
+			vault,
 			voucher_name,
 			voucher_symbol,
 			VOUCHER_DECIMALS,
@@ -53,7 +53,7 @@ impl<T: Config> Pallet<T> {
 		let total_supply = Balance::from(collection_max_issuance)
 			.checked_mul(10u128.pow(VOUCHER_DECIMALS as u32))
 			.ok_or(Error::<T>::InvalidMaxIssuance)?;
-		T::MultiCurrency::mint_into(voucher_asset_id, &vault, total_supply)?;
+		T::MultiCurrency::mint_into(voucher_asset_id, vault, total_supply)?;
 
 		Ok(voucher_asset_id)
 	}

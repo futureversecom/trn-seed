@@ -273,7 +273,7 @@ fn call_with_fee_preferences_futurepass_proxy_extrinsic() {
 		));
 
 		assert_ok!(Futurepass::create(RuntimeOrigin::signed(alice()), new_account));
-		let futurepass = pallet_futurepass::Holders::<Runtime>::get(&new_account).unwrap();
+		let futurepass = pallet_futurepass::Holders::<Runtime>::get(new_account).unwrap();
 
 		// mint payment assets into futurepass - for futurepass to pay for proxy_extrinsic
 		assert_ok!(Assets::mint(
@@ -344,7 +344,7 @@ fn call_with_fee_preferences_futurepass_proxy_extrinsic() {
 fn transactions_cost_goes_to_tx_pot() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Setup
-		let old_pot = TxFeePot::era_tx_fees();
+		let old_pot = pallet_tx_fee_pot::EraTxFees::<Runtime>::get();
 
 		// Call
 		let (origin, tx) = TxBuilder::default().build();
@@ -352,7 +352,7 @@ fn transactions_cost_goes_to_tx_pot() {
 
 		// Check
 		let expected_change = 157_500u128;
-		assert_eq!(TxFeePot::era_tx_fees(), old_pot + expected_change);
+		assert_eq!(pallet_tx_fee_pot::EraTxFees::<Runtime>::get(), old_pot + expected_change);
 	})
 }
 

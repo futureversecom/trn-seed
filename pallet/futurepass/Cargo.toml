@@ -14,7 +14,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 hex = { workspace = true }
 hex-literal = { workspace = true }
 codec = { workspace = true }
-log = { workspace = true }
 scale-info = { workspace = true }
 
 # Substrate FRAME
@@ -31,19 +30,14 @@ seed-pallet-common = { workspace = true }
 seed-primitives = { workspace = true }
 
 [dev-dependencies]
-fp-evm = { workspace = true }
 seed-runtime = { workspace = true, default-features = true }
 pallet-balances = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-assets-ext = { workspace = true }
 pallet-fee-control = { workspace = true }
-pallet-transaction-payment = { workspace = true }
-pallet-fee-proxy = { workspace = true, default-features = true }
 pallet-dex = { workspace = true }
 pallet-nft = { workspace = true }
-pallet-timestamp = { workspace = true }
-pallet-evm = { workspace = true }
 seed-pallet-common= { workspace = true, default-features = true }
 
 [features]

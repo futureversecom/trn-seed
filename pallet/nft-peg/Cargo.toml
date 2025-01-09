@@ -9,7 +9,6 @@ repository.workspace = true
 [dependencies]
 codec = { workspace = true }
 ethabi = { workspace = true }
-log = { workspace = true }
 scale-info = { workspace = true }
 
 # Substrate
@@ -25,7 +24,6 @@ seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
 
 [dev-dependencies]
-sp-io = { workspace = true }
 hex-literal = { workspace = true }
 pallet-assets-ext = { workspace = true, default-features = true }
 pallet-balances = { workspace = true }

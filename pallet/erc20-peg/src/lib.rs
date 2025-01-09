@@ -31,8 +31,8 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
-use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
+use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber};
+use seed_primitives::{AccountId, AssetId, Balance, EthAddress, WeightedDispatchResult};
 use sp_core::{bounded::WeakBoundedVec, H160, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating},
@@ -530,9 +530,9 @@ impl<T: Config> Pallet<T> {
 
 		// there should be a known ERC20 address mapped for this asset
 		// otherwise there may be no liquidity on the Ethereum side of the peg
-		let token_address = AssetIdToErc20::<T>::get(asset_id);
-		ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
-		let token_address = token_address.unwrap();
+		let Some(token_address) = AssetIdToErc20::<T>::get(asset_id) else {
+			return Err(Error::<T>::UnsupportedAsset.into());
+		};
 
 		let message = WithdrawMessage { token_address, amount: amount.into(), beneficiary };
 
@@ -544,7 +544,7 @@ impl<T: Config> Pallet<T> {
 					return match call_origin {
 						WithdrawCallOrigin::Runtime => {
 							// Delay the payment
-							let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
+							Self::burn_or_transfer(asset_id, &origin, amount)?;
 							Self::delay_payment(
 								delay,
 								PendingPayment::Withdrawal((origin.clone(), message)),
@@ -563,7 +563,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Process transfer or withdrawal of payment asset
-		let _imbalance = Self::burn_or_transfer(asset_id, &origin, amount)?;
+		Self::burn_or_transfer(asset_id, &origin, amount)?;
 		Self::process_withdrawal(origin, message, asset_id)
 	}
 
@@ -605,7 +605,7 @@ impl<T: Config> Pallet<T> {
 		let source: T::AccountId = T::PegPalletId::get().into_account_truncating();
 		let message = ethabi::encode(&[
 			Token::Address(withdrawal_message.token_address),
-			Token::Uint(withdrawal_message.amount.into()),
+			Token::Uint(withdrawal_message.amount),
 			Token::Address(withdrawal_message.beneficiary),
 		]);
 
@@ -650,7 +650,7 @@ impl<T: Config> Pallet<T> {
 						{
 							Self::deposit_event(Event::<T>::DelayedErc20WithdrawalFailed {
 								asset_id,
-								beneficiary: withdrawal_message.beneficiary.into(),
+								beneficiary: withdrawal_message.beneficiary,
 							});
 						}
 					} else {
@@ -672,7 +672,7 @@ impl<T: Config> Pallet<T> {
 		source: T::AccountId,
 	) {
 		let payment_id = NextDelayedPaymentId::<T>::get();
-		if !payment_id.checked_add(One::one()).is_some() {
+		if payment_id.checked_add(One::one()).is_none() {
 			Self::deposit_event(Event::<T>::NoAvailableDelayedPaymentIds);
 			return;
 		}
@@ -706,7 +706,8 @@ impl<T: Config> Pallet<T> {
 			},
 			PendingPayment::Deposit(deposit) => {
 				let beneficiary: T::AccountId =
-					T::AccountId::decode(&mut &deposit.beneficiary.0[..]).unwrap();
+					T::AccountId::decode(&mut &deposit.beneficiary.0[..])
+						.expect("Failed to decode AccountId");
 				Self::deposit_event(Event::<T>::Erc20DepositDelayed {
 					payment_id,
 					scheduled_block: payment_block,
@@ -724,11 +725,9 @@ impl<T: Config> Pallet<T> {
 	pub fn do_deposit(source: &H160, deposit_event: Erc20DepositEvent) -> DispatchResult {
 		ensure!(DepositsActive::<T>::get(), Error::<T>::DepositsPaused);
 		// fail a deposit early for an amount that is too large
-		ensure!(deposit_event.amount < U256::from(Balance::max_value()), Error::<T>::InvalidAmount);
+		ensure!(deposit_event.amount < U256::from(Balance::MAX), Error::<T>::InvalidAmount);
 
-		let asset_id = Erc20ToAssetId::<T>::get(deposit_event.token_address);
-		if asset_id.is_some() {
-			let asset_id = asset_id.unwrap();
+		if let Some(asset_id) = Erc20ToAssetId::<T>::get(deposit_event.token_address) {
 			if asset_id == T::NativeAssetId::get() {
 				// If this is the root token, check it comes from the root peg contract address
 				ensure!(
@@ -841,20 +840,17 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 
 	/// Verifies the source address with either the erc20Peg contract address
 	/// Or the RootPeg contract address
-	fn verify_source(source: &H160) -> OnEventResult {
+	fn verify_source(source: &H160) -> WeightedDispatchResult {
 		let erc20_peg_contract_address: H160 = Self::SourceAddress::get();
 		let root_peg_contract_address: H160 = RootPegContractAddress::<T>::get();
 		if source == &erc20_peg_contract_address || source == &root_peg_contract_address {
 			Ok(DbWeight::get().reads(2u64))
 		} else {
-			Err((
-				DbWeight::get().reads(2u64),
-				DispatchError::Other("Invalid source address").into(),
-			))
+			Err((DbWeight::get().reads(2u64), DispatchError::Other("Invalid source address")))
 		}
 	}
 
-	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
+	fn on_event(source: &H160, data: &[u8]) -> WeightedDispatchResult {
 		let abi_decoded = match ethabi::decode(
 			&[ParamType::Address, ParamType::Uint(128), ParamType::Address],
 			data,
@@ -866,9 +862,9 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 		if let &[Token::Address(token_address), Token::Uint(amount), Token::Address(beneficiary)] =
 			abi_decoded.as_slice()
 		{
-			let token_address: H160 = token_address.into();
-			let amount: U256 = amount.into();
-			let beneficiary: H160 = beneficiary.into();
+			let token_address: H160 = token_address;
+			let amount: U256 = amount;
+			let beneficiary: H160 = beneficiary;
 			// The total weight of do_deposit assuming it reaches every path
 			let deposit_weight = DbWeight::get().reads(6u64) + DbWeight::get().writes(4u64);
 			match Self::do_deposit(source, Erc20DepositEvent { token_address, amount, beneficiary })
@@ -879,7 +875,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 						source: *source,
 						abi_data: data.to_vec(),
 					});
-					Err((deposit_weight, e.into()))
+					Err((deposit_weight, e))
 				},
 			}
 		} else {

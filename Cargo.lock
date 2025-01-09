@@ -1873,44 +1873,33 @@ dependencies = [
 name = "ethy-gadget"
 version = "0.1.2"
 dependencies = [
- "ethabi",
  "futures",
  "futures-timer",
  "hex",
- "hex-literal 0.3.4",
- "libsecp256k1",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "sc-block-builder",
  "sc-chain-spec",
  "sc-client-api",
  "sc-consensus",
  "sc-keystore",
  "sc-network",
- "sc-network-common",
  "sc-network-gossip",
  "sc-network-sync",
  "sc-network-test",
- "sc-service",
  "sc-utils",
  "seed-primitives",
  "serde",
  "sp-api",
  "sp-application-crypto",
- "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
- "sp-consensus-grandpa",
  "sp-core",
- "sp-keyring",
  "sp-keystore",
  "sp-runtime",
- "sp-tracing",
  "strum 0.24.1",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
- "tempfile",
  "thiserror",
  "tokio",
  "xrpl-codec",
@@ -1926,13 +1915,10 @@ dependencies = [
  "libsecp256k1",
  "log",
  "parity-scale-codec",
- "rustc-hex",
  "sc-client-api",
  "sc-rpc",
- "sc-utils",
  "seed-primitives",
  "serde",
- "serde_json",
  "sp-api",
  "sp-core",
  "sp-runtime",
@@ -5210,13 +5196,8 @@ dependencies = [
  "parity-scale-codec",
  "seed-primitives",
  "sp-api",
- "sp-arithmetic",
  "sp-blockchain",
- "sp-core",
- "sp-io",
- "sp-rpc",
  "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
@@ -5227,7 +5208,6 @@ dependencies = [
  "parity-scale-codec",
  "seed-primitives",
  "sp-api",
- "sp-runtime",
  "sp-std",
 ]
 
@@ -5376,7 +5356,6 @@ dependencies = [
  "sp-blockchain",
  "sp-core",
  "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
@@ -5406,12 +5385,8 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
- "pallet-dex",
- "pallet-evm",
  "pallet-fee-control",
- "pallet-fee-proxy",
  "pallet-futurepass",
- "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "scale-info",
@@ -5438,7 +5413,6 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "sp-core",
- "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -5492,7 +5466,6 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
- "pallet-nft",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
@@ -5592,9 +5565,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
- "sp-core",
  "sp-io",
- "sp-runtime",
  "sp-std",
 ]
 
@@ -5701,7 +5672,6 @@ dependencies = [
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
- "seed-pallet-common",
  "seed-primitives",
  "sp-core",
  "sp-runtime",
@@ -5776,7 +5746,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "num_enum 0.5.11",
- "pallet-assets",
  "pallet-evm",
  "pallet-marketplace",
  "precompile-utils",
@@ -5865,7 +5834,6 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "sp-core",
- "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -5894,7 +5862,6 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "sp-core",
- "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -5903,24 +5870,18 @@ dependencies = [
 name = "pallet-futurepass"
 version = "1.0.0-dev"
 dependencies = [
- "fp-evm",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
  "hex-literal 0.3.4",
- "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-dex",
- "pallet-evm",
  "pallet-fee-control",
- "pallet-fee-proxy",
  "pallet-nft",
  "pallet-proxy",
- "pallet-timestamp",
- "pallet-transaction-payment",
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
@@ -5986,16 +5947,12 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
- "pallet-ethy",
- "pallet-im-online",
  "pallet-sudo",
- "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
  "sp-core",
- "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -6010,11 +5967,28 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
- "pallet-evm",
- "pallet-fee-control",
  "pallet-nft",
  "pallet-sft",
- "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-migration"
+version = "1.0.0"
+dependencies = [
+ "ethabi",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
@@ -6048,6 +6022,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex-literal 0.3.4",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6058,7 +6033,6 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "sp-core",
- "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -6070,7 +6044,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6099,7 +6072,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal 0.3.4",
- "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6109,7 +6081,6 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "sp-core",
- "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -6124,13 +6095,8 @@ dependencies = [
  "parity-scale-codec",
  "seed-primitives",
  "sp-api",
- "sp-arithmetic",
  "sp-blockchain",
- "sp-core",
- "sp-io",
- "sp-rpc",
  "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
@@ -6141,7 +6107,6 @@ dependencies = [
  "parity-scale-codec",
  "seed-primitives",
  "sp-api",
- "sp-runtime",
  "sp-std",
 ]
 
@@ -6287,7 +6252,6 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6312,16 +6276,10 @@ dependencies = [
  "jsonrpsee",
  "pallet-sft",
  "pallet-sft-rpc-runtime-api",
- "parity-scale-codec",
  "seed-primitives",
  "sp-api",
- "sp-arithmetic",
  "sp-blockchain",
- "sp-core",
- "sp-io",
- "sp-rpc",
  "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
@@ -6332,7 +6290,6 @@ dependencies = [
  "parity-scale-codec",
  "seed-primitives",
  "sp-api",
- "sp-runtime",
  "sp-std",
 ]
 
@@ -6419,7 +6376,6 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "sp-core",
- "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -6537,6 +6493,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex-literal 0.3.4",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6546,7 +6503,6 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "sp-core",
- "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -6596,14 +6552,13 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
+ "pallet-nft",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
  "sp-core",
- "sp-io",
- "sp-keystore",
  "sp-runtime",
  "sp-std",
  "xrpl-codec",
@@ -6948,7 +6903,6 @@ dependencies = [
  "fp-evm",
  "frame-support",
  "frame-system",
- "hex",
  "hex-literal 0.3.4",
  "impl-trait-for-tuples",
  "log",
@@ -8990,9 +8944,7 @@ dependencies = [
  "fc-mapping-sync",
  "fc-rpc",
  "fc-rpc-core",
- "fp-consensus",
  "fp-rpc",
- "fp-storage",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
@@ -9002,7 +8954,6 @@ dependencies = [
  "hex-literal 0.3.4",
  "jsonrpsee",
  "libsecp256k1",
- "log",
  "pallet-assets-ext-rpc",
  "pallet-dex-rpc",
  "pallet-maintenance-mode",
@@ -9016,11 +8967,9 @@ dependencies = [
  "sc-consensus",
  "sc-consensus-babe",
  "sc-consensus-babe-rpc",
- "sc-consensus-epochs",
  "sc-consensus-grandpa",
  "sc-consensus-grandpa-rpc",
  "sc-executor",
- "sc-keystore",
  "sc-network",
  "sc-network-sync",
  "sc-offchain",
@@ -9037,10 +8986,8 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
- "sp-consensus-grandpa",
  "sp-core",
  "sp-inherents",
- "sp-keyring",
  "sp-keystore",
  "sp-runtime",
  "sp-timestamp",
@@ -9049,16 +8996,15 @@ dependencies = [
  "substrate-frame-rpc-system",
  "thiserror",
  "try-runtime-cli",
- "url",
 ]
 
 [[package]]
 name = "seed-pallet-common"
 version = "1.0.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
- "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
  "seed-primitives",
@@ -9160,6 +9106,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-maintenance-mode",
  "pallet-marketplace",
+ "pallet-migration",
  "pallet-multisig",
  "pallet-nfi",
  "pallet-nft",
@@ -12151,8 +12098,8 @@ dependencies = [
 
 [[package]]
 name = "xrpl-codec"
-version = "0.1.3"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec#87014dd6d3e45a0e112f9288d4d33e3f0e5850bc"
+version = "0.2.3"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec#fcf088ef4af985254fcfcb947b6850728c2aced8"
 dependencies = [
  "ripemd",
  "sha2 0.10.8",
@@ -12162,7 +12109,7 @@ dependencies = [
 [[package]]
 name = "xrpl-codec-utils"
 version = "0.1.0"
-source = "git+https://github.com/futureversecom/xrpl-tx-codec#87014dd6d3e45a0e112f9288d4d33e3f0e5850bc"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec#fcf088ef4af985254fcfcb947b6850728c2aced8"
 dependencies = [
  "hashbrown 0.12.3",
  "lazy_static",

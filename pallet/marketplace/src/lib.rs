@@ -125,12 +125,10 @@ pub mod pallet {
 
 	/// The next available marketplace id
 	#[pallet::storage]
-	#[pallet::getter(fn next_marketplace_id)]
 	pub type NextMarketplaceId<T> = StorageValue<_, MarketplaceId, ValueQuery>;
 
 	/// Map from marketplace account_id to royalties schedule
 	#[pallet::storage]
-	#[pallet::getter(fn registered_marketplaces)]
 	pub type RegisteredMarketplaces<T: Config> =
 		StorageMap<_, Twox64Concat, MarketplaceId, Marketplace<T::AccountId>>;
 
@@ -140,42 +138,35 @@ pub mod pallet {
 
 	/// The next available listing Id
 	#[pallet::storage]
-	#[pallet::getter(fn next_listing_id)]
 	pub type NextListingId<T> = StorageValue<_, ListingId, ValueQuery>;
 
 	/// Map from collection to any open listings
 	#[pallet::storage]
-	#[pallet::getter(fn open_collection_listings)]
 	pub type OpenCollectionListings<T> =
 		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, ListingId, bool>;
 
 	/// Winning bids on open listings.
 	#[pallet::storage]
-	#[pallet::getter(fn listing_winning_bid)]
 	pub type ListingWinningBid<T: Config> =
 		StorageMap<_, Twox64Concat, ListingId, (T::AccountId, Balance)>;
 
 	/// Block numbers where listings will close. Value is `true` if at block number `listing_id` is
 	/// scheduled to close.
 	#[pallet::storage]
-	#[pallet::getter(fn listing_end_schedule)]
 	pub type ListingEndSchedule<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, BlockNumberFor<T>, Twox64Concat, ListingId, bool>;
 
 	/// Map from offer_id to the information related to the offer
 	#[pallet::storage]
-	#[pallet::getter(fn offers)]
 	pub type Offers<T: Config> = StorageMap<_, Twox64Concat, OfferId, OfferType<T::AccountId>>;
 
 	/// Maps from token_id to a vector of offer_ids on that token
 	#[pallet::storage]
-	#[pallet::getter(fn token_offers)]
 	pub type TokenOffers<T: Config> =
 		StorageMap<_, Twox64Concat, TokenId, BoundedVec<OfferId, T::MaxOffers>>;
 
 	/// The next available offer_id
 	#[pallet::storage]
-	#[pallet::getter(fn next_offer_id)]
 	pub type NextOfferId<T> = StorageValue<_, OfferId, ValueQuery>;
 
 	/// The pallet id for the tx fee pot
@@ -359,7 +350,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_register_marketplace(who, marketplace_account, entitlement)?;
-			Ok(().into())
+			Ok(())
 		}
 
 		/// Deprecated, use `sell` instead
@@ -461,7 +452,7 @@ pub mod pallet {
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_buy(who, listing_id)?;
-			Ok(().into())
+			Ok(())
 		}
 
 		/// Buy multiple listings, each for their respective price
@@ -506,7 +497,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let tokens = ListingTokens::Nft(NftListing { collection_id, serial_numbers });
 			Self::do_auction(who, tokens, payment_asset, reserve_price, duration, marketplace_id)?;
-			Ok(().into())
+			Ok(())
 		}
 
 		/// Auction a bundle of tokens on the open market to the highest bidder
@@ -534,7 +525,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_auction(who, tokens, payment_asset, reserve_price, duration, marketplace_id)?;
-			Ok(().into())
+			Ok(())
 		}
 
 		/// Place a bid on an open auction
@@ -575,7 +566,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id)?;
-			Ok(().into())
+			Ok(())
 		}
 
 		/// Cancels an offer on a token

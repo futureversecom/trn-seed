@@ -106,7 +106,7 @@ where
 				})?;
 
 				// check if the origin is a futurepass holder, to switch the caller to the futurepass
-				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call, &()) {
+				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(call, &()) {
 					if let Ok(futurepass) = <T as pallet::Config>::FuturepassLookup::lookup(origin) {
 						return Ok(futurepass);
 					}
@@ -143,57 +143,60 @@ where
 		len: usize,
 	) -> Option<TransactionValidity> {
 		if let Call::transact { encoded_msg, signature, call } = self {
-			let (nonce, tip) = validate_params::<T>(encoded_msg.as_bytes_ref(), signature.as_bytes_ref(), call)
-				.map_err(|e| {
-					log!(info, "⛔️ validate_self_contained: failed to validate params: {:?}", e);
-					InvalidTransaction::Call
-				})
-				.ok()?;
+			let validate = || -> TransactionValidity {
+				let (nonce, tip) = validate_params::<T>(encoded_msg.as_bytes_ref(), signature.as_bytes_ref(), call)
+					.map_err(|e| {
+						log!(info, "⛔️ validate_self_contained: failed to validate params: {:?}", e);
+						InvalidTransaction::Call
+					})?;
 
-			let validations: XRPLValidations<T> = (
-				CheckNonZeroSender::new(),
-				CheckSpecVersion::<T>::new(),
-				CheckTxVersion::<T>::new(),
-				CheckEra::<T>::from(Era::immortal()),
-				CheckWeight::new(),
-				ChargeTransactionPayment::<T>::from(tip.into()),
-			);
+				let validations: XRPLValidations<T> = (
+					CheckNonZeroSender::new(),
+					CheckSpecVersion::<T>::new(),
+					CheckTxVersion::<T>::new(),
+					CheckEra::<T>::from(Era::immortal()),
+					CheckWeight::new(),
+					ChargeTransactionPayment::<T>::from(tip.into()),
+				);
 
-			let mut tx_origin = T::AccountId::from(*origin);
+				let mut tx_origin = T::AccountId::from(*origin);
 
-			// validate signed extensions using origin
-			SignedExtension::validate(&validations, &tx_origin, &(*call.clone()).into(), dispatch_info, len).ok()?;
+				// validate signed extensions using origin
+				SignedExtension::validate(&validations, &tx_origin, &(*call.clone()).into(), dispatch_info, len)?;
 
-			// validate signed extensions using EOA - for futurepass based transactions
-			if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call, &()) {
-				// this implies that the origin is futurepass address; we need to get the EOA associated with it
-				let eoa = <T as pallet::Config>::FuturepassLookup::unlookup(*origin);
-				if eoa == H160::zero() {
-					log!(info, "⛔️ failed to get EOA from futurepass address");
-					return None;
+				// validate signed extensions using EOA - for futurepass based transactions
+				if <T as pallet::Config>::FuturepassLookup::check_extrinsic(call, &()) {
+					// this implies that the origin is futurepass address; we need to get the EOA associated with it
+					let eoa = <T as pallet::Config>::FuturepassLookup::unlookup(*origin);
+					if eoa == H160::zero() {
+						log!(info, "⛔️ failed to get EOA from futurepass address");
+						return Err(TransactionValidityError::Invalid(InvalidTransaction::BadProof));
+					}
+					tx_origin = T::AccountId::from(eoa);
 				}
-				tx_origin = T::AccountId::from(eoa);
-			}
 
-			// validate nonce signed extension using EOA
-			let validations: EOANonceValidation<T> = (CheckNonce::from(nonce.into()),);
-			SignedExtension::validate(&validations, &tx_origin, &(*call.clone()).into(), dispatch_info, len).ok()?;
+				// validate nonce signed extension using EOA
+				let validations: EOANonceValidation<T> = (CheckNonce::from(nonce.into()),);
+				SignedExtension::validate(&validations, &tx_origin, &(*call.clone()).into(), dispatch_info, len)?;
 
-			// priority is based on the provided tip in the xrpl transaction data
-			let priority = ChargeTransactionPayment::<T>::get_priority(&dispatch_info, len, tip.into(), 0.into());
-			let who: T::AccountId = (tx_origin).clone().into();
-			let account = frame_system::Account::<T>::get(who);
-			let mut builder =
-				ValidTransactionBuilder::default().and_provides((tx_origin.clone(), nonce)).priority(priority);
+				// priority is based on the provided tip in the xrpl transaction data
+				let priority = ChargeTransactionPayment::<T>::get_priority(&dispatch_info, len, tip.into(), 0.into());
+				let who: T::AccountId = (tx_origin).clone();
+				let account = frame_system::Account::<T>::get(who);
+				let mut builder =
+					ValidTransactionBuilder::default().and_provides((tx_origin.clone(), nonce)).priority(priority);
 
-			// in the context of the pool, a transaction with too high a nonce is still considered valid
-			if nonce > account.nonce.into() {
-				if let Some(prev_nonce) = nonce.checked_sub(1) {
-					builder = builder.and_requires((tx_origin, prev_nonce))
+				// in the context of the pool, a transaction with too high a nonce is still considered valid
+				if nonce > account.nonce.into() {
+					if let Some(prev_nonce) = nonce.checked_sub(1) {
+						builder = builder.and_requires((tx_origin, prev_nonce))
+					}
 				}
-			}
 
-			Some(builder.build())
+				builder.build()
+			};
+
+			Some(validate())
 		} else {
 			None
 		}
@@ -232,7 +235,7 @@ where
 					.ok()?;
 
 			// Pre Dispatch - execute signed extensions with EOA - for futurepass based transactions
-			if <T as pallet::Config>::FuturepassLookup::check_extrinsic(&call, &()) {
+			if <T as pallet::Config>::FuturepassLookup::check_extrinsic(call, &()) {
 				// this implies that the origin is futurepass address; we need to get the EOA associated with it
 				let eoa = <T as pallet::Config>::FuturepassLookup::unlookup(*info);
 				if eoa == H160::zero() {
@@ -248,7 +251,7 @@ where
 
 			// Dispatch - execute outer call (transact)
 			let res = outer_call.dispatch(frame_system::RawOrigin::None.into());
-			let post_info = res.map_or_else(|err| err.post_info, |info| info);
+			let post_info = res.unwrap_or_else(|err| err.post_info);
 
 			// Post Dispatch
 			<XRPLValidations<T> as SignedExtension>::post_dispatch(
@@ -309,7 +312,7 @@ where
 	}
 
 	let success = tx
-		.verify_transaction(&signature)
+		.verify_transaction(signature)
 		.map_err(|e| alloc::format!("⛔️ failed to verify transaction: {:?}", e))?;
 	if !success {
 		return Err("⛔️ transaction verification unsuccessful".into());
@@ -480,7 +483,7 @@ pub mod pallet {
 				r_address: tx.account,
 				call: *call,
 			});
-			Ok(().into())
+			Ok(())
 		}
 	}
 }

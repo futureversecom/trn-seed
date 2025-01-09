@@ -66,9 +66,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 
 			return self == &ProxyType::Owner;
 		}
-		match self {
-			_ => true,
-		}
+		true
 	}
 	fn is_superset(&self, o: &Self) -> bool {
 		match (self, o) {
@@ -136,7 +134,7 @@ impl ProxyProvider<Test> for ProxyPalletProvider {
 		let mut extra_reserve_required = new_reserve - reserve_amount;
 
 		let account_balance =
-			pallet_assets_ext::Pallet::<Test>::balance(MOCK_NATIVE_ASSET_ID, &futurepass);
+			pallet_assets_ext::Pallet::<Test>::balance(MOCK_NATIVE_ASSET_ID, futurepass);
 		let minimum_balance = ExistentialDeposit::get();
 		if account_balance < minimum_balance {
 			extra_reserve_required = extra_reserve_required.saturating_add(minimum_balance);
@@ -207,7 +205,7 @@ impl ProxyProvider<Test> for ProxyPalletProvider {
 		call: RuntimeCall,
 	) -> DispatchResult {
 		let call = pallet_proxy::Call::<Test>::proxy {
-			real: futurepass.into(),
+			real: futurepass,
 			force_proxy_type: None,
 			call: call.into(),
 		};

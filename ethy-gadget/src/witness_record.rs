@@ -332,7 +332,7 @@ pub(crate) mod test {
 	) -> Witness {
 		let compatible_public = EthyEcdsaToPublicKey::convert(validator.public());
 		let digest = data_to_digest(chain_id, digest_data.to_vec(), compatible_public).unwrap();
-		let keystore: EthyKeystore = Some(create_ethy_keystore(validator.clone())).into();
+		let keystore: EthyKeystore = Some(create_ethy_keystore(*validator)).into();
 
 		Witness {
 			digest,
@@ -368,7 +368,7 @@ pub(crate) mod test {
 
 		// note signatures in reverse order
 		for validator_key in validator_keys.iter().rev() {
-			let witness = &create_witness(&validator_key, event_id, EthyChainId::Ethereum, digest);
+			let witness = &create_witness(validator_key, event_id, EthyChainId::Ethereum, digest);
 			assert!(witness_record.note_event_witness(witness).is_ok());
 		}
 
@@ -803,23 +803,21 @@ pub(crate) mod test {
 		let compatible_public = EthyEcdsaToPublicKey::convert(validator.public());
 		let digest_data = [2_u8; 32];
 
-		let witness = create_witness(&validator, event_id, chain_id, digest_data);
+		let witness = create_witness(validator, event_id, chain_id, digest_data);
 		let correct_digest =
 			data_to_digest(chain_id, digest_data.to_vec(), compatible_public).unwrap();
-		assert_eq!(
-			EthyKeystore::verify_prehashed(
-				&validator.public(),
-				&witness.signature,
-				&correct_digest
-			),
-			true
-		);
+		assert!(EthyKeystore::verify_prehashed(
+			&validator.public(),
+			&witness.signature,
+			&correct_digest
+		));
 
 		let wrong_digest = data_to_digest(chain_id, vec![3_u8; 32], compatible_public).unwrap();
-		assert_eq!(
-			EthyKeystore::verify_prehashed(&validator.public(), &witness.signature, &wrong_digest),
-			false
-		);
+		assert!(!EthyKeystore::verify_prehashed(
+			&validator.public(),
+			&witness.signature,
+			&wrong_digest
+		),);
 	}
 
 	#[test]
@@ -831,22 +829,20 @@ pub(crate) mod test {
 		let compatible_public = EthyEcdsaToPublicKey::convert(validator.public());
 		let digest_data = [2_u8; 32];
 
-		let witness = create_witness(&validator, event_id, chain_id, digest_data);
+		let witness = create_witness(validator, event_id, chain_id, digest_data);
 		let correct_digest =
 			data_to_digest(chain_id, digest_data.to_vec(), compatible_public).unwrap();
-		assert_eq!(
-			EthyKeystore::verify_prehashed(
-				&validator.public(),
-				&witness.signature,
-				&correct_digest
-			),
-			true
-		);
+		assert!(EthyKeystore::verify_prehashed(
+			&validator.public(),
+			&witness.signature,
+			&correct_digest
+		));
 
 		let wrong_digest = data_to_digest(chain_id, vec![3_u8; 32], compatible_public).unwrap();
-		assert_eq!(
-			EthyKeystore::verify_prehashed(&validator.public(), &witness.signature, &wrong_digest),
-			false
-		);
+		assert!(!EthyKeystore::verify_prehashed(
+			&validator.public(),
+			&witness.signature,
+			&wrong_digest
+		),);
 	}
 }

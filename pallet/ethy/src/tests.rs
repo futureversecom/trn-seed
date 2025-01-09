@@ -13,7 +13,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-#![cfg(test)]
 use crate::{
 	mock::*,
 	types::{
@@ -101,7 +100,7 @@ fn encode_event_message(
 }
 
 /// Ethereum ABI encode validator set message
-fn encode_validator_set_message(validator_set: &Vec<AuthorityId>, token_id: u64) -> Vec<u8> {
+fn encode_validator_set_message(validator_set: &[AuthorityId], token_id: u64) -> Vec<u8> {
 	ethabi::encode(&[
 		Token::Array(
 			validator_set
@@ -127,7 +126,7 @@ fn submit_event() {
 	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
 		assert_ok!(EthBridge::submit_event(
 			RuntimeOrigin::signed(relayer.into()),
-			tx_hash.clone(),
+			tx_hash,
 			event_data.clone(),
 		));
 
@@ -188,7 +187,7 @@ fn submit_event_tracks_pending() {
 	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
 		assert_ok!(EthBridge::submit_event(
 			RuntimeOrigin::signed(relayer.into()),
-			tx_hash.clone(),
+			tx_hash,
 			event_data.clone(),
 		));
 
@@ -213,7 +212,7 @@ fn submit_event_tracks_completed() {
 	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
 		assert_ok!(EthBridge::submit_event(
 			RuntimeOrigin::signed(relayer.into()),
-			tx_hash.clone(),
+			tx_hash,
 			event_data.clone(),
 		));
 
@@ -245,7 +244,7 @@ fn submit_missing_event_id_works() {
 		assert_noop!(
 			EthBridge::submit_event(
 				RuntimeOrigin::signed(relayer.into()),
-				tx_hash.clone(),
+				tx_hash,
 				event_item_data.clone(),
 			),
 			Error::<Test>::EventReplayProcessed
@@ -254,7 +253,7 @@ fn submit_missing_event_id_works() {
 		// Submit missing event should work as event id is stored within MissedMessageIds
 		assert_ok!(EthBridge::submit_missing_event(
 			RuntimeOrigin::signed(relayer.into()),
-			tx_hash.clone(),
+			tx_hash,
 			event_item_data.clone(),
 		));
 
@@ -278,7 +277,7 @@ fn submit_missing_event_id_works() {
 		assert_noop!(
 			EthBridge::submit_missing_event(
 				RuntimeOrigin::signed(relayer.into()),
-				tx_hash.clone(),
+				tx_hash,
 				event_item_data.clone(),
 			),
 			Error::<Test>::EventReplayProcessed
@@ -302,7 +301,7 @@ fn submit_missing_event_id_prevents_replay() {
 		// Submit missing event should work as event id is stored within MissedMessageIds
 		assert_ok!(EthBridge::submit_missing_event(
 			RuntimeOrigin::signed(relayer.into()),
-			tx_hash.clone(),
+			tx_hash,
 			event_item_data.clone(),
 		));
 
@@ -310,7 +309,7 @@ fn submit_missing_event_id_prevents_replay() {
 		assert_noop!(
 			EthBridge::submit_missing_event(
 				RuntimeOrigin::signed(relayer.into()),
-				tx_hash.clone(),
+				tx_hash,
 				event_item_data.clone(),
 			),
 			Error::<Test>::EventReplayPending
@@ -335,7 +334,7 @@ fn submit_missing_event_id_fails_if_not_in_missing() {
 		assert_noop!(
 			EthBridge::submit_missing_event(
 				RuntimeOrigin::signed(relayer.into()),
-				tx_hash.clone(),
+				tx_hash,
 				event_item_data.clone(),
 			),
 			Error::<Test>::EventReplayProcessed
@@ -344,7 +343,7 @@ fn submit_missing_event_id_fails_if_not_in_missing() {
 		assert_noop!(
 			EthBridge::submit_event(
 				RuntimeOrigin::signed(relayer.into()),
-				tx_hash.clone(),
+				tx_hash,
 				event_item_data.clone(),
 			),
 			Error::<Test>::EventReplayProcessed
@@ -532,7 +531,7 @@ fn submit_challenge() {
 			// Submit event
 			assert_ok!(EthBridge::submit_event(
 				RuntimeOrigin::signed(relayer.into()),
-				tx_hash.clone(),
+				tx_hash,
 				event_data.clone(),
 			));
 
@@ -572,7 +571,7 @@ fn submit_challenge_no_balance_should_fail() {
 		// Submit event
 		assert_ok!(EthBridge::submit_event(
 			RuntimeOrigin::signed(relayer.into()),
-			tx_hash.clone(),
+			tx_hash,
 			event_data.clone(),
 		));
 
@@ -615,7 +614,7 @@ fn handle_event_notarization_valid_claims() {
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
 				RuntimeOrigin::signed(relayer.into()),
-				tx_hash_1.clone(),
+				tx_hash_1,
 				event_data_1.clone(),
 			));
 			assert_eq!(
@@ -625,7 +624,7 @@ fn handle_event_notarization_valid_claims() {
 			// Submit Event 2
 			assert_ok!(EthBridge::submit_event(
 				RuntimeOrigin::signed(relayer.into()),
-				tx_hash_2.clone(),
+				tx_hash_2,
 				event_data_2.clone(),
 			));
 			assert_eq!(
@@ -743,7 +742,7 @@ fn process_valid_challenged_event() {
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
 				RuntimeOrigin::signed(relayer.into()),
-				tx_hash_1.clone(),
+				tx_hash_1,
 				event_data_1.clone(),
 			));
 
@@ -845,7 +844,7 @@ fn process_valid_challenged_event_delayed() {
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
 				RuntimeOrigin::signed(relayer.into()),
-				tx_hash_1.clone(),
+				tx_hash_1,
 				event_data_1.clone(),
 			));
 
@@ -936,7 +935,7 @@ fn handle_event_notarization_invalid_claims() {
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
 				RuntimeOrigin::signed(relayer.into()),
-				tx_hash_1.clone(),
+				tx_hash_1,
 				event_data_1.clone(),
 			));
 			assert_eq!(
@@ -1039,7 +1038,7 @@ fn do_event_notarization_ocw_doesnt_change_storage() {
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
 				RuntimeOrigin::signed(relayer.into()),
-				tx_hash_1.clone(),
+				tx_hash_1,
 				event_data_1.clone(),
 			));
 
@@ -1055,7 +1054,7 @@ fn do_event_notarization_ocw_doesnt_change_storage() {
 			let keystore = MemoryKeystore::new();
 			Keystore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
 			let public_key =
-				Keystore::ecdsa_public_keys(&keystore, AuthorityId::ID).get(0).unwrap().clone();
+				*Keystore::ecdsa_public_keys(&keystore, AuthorityId::ID).get(0).unwrap();
 			let current_set_id = NotarySetId::<Test>::get();
 
 			// Check no storage is changed
@@ -1151,7 +1150,7 @@ fn on_new_session_updates_keys() {
 		assert!(NextAuthorityChange::<Test>::get().is_none());
 
 		let block_number: BlockNumber = 100;
-		System::set_block_number(block_number.into());
+		System::set_block_number(block_number);
 		// Call on_new_session where is_active_session_final is true, should change storage
 		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
 			true,
@@ -1166,7 +1165,7 @@ fn on_new_session_updates_keys() {
 		let event_proof_id = NextEventProofId::<Test>::get();
 		let next_validator_set_id = NotarySetId::<Test>::get() + 1;
 		// Now call on_initialize with the expected block to check it gets processed correctly
-		EthBridge::on_initialize(expected_block.into());
+		EthBridge::on_initialize(expected_block);
 
 		// Storage updated
 		assert_eq!(NotarySetProofId::<Test>::get(), event_proof_id);
@@ -1259,7 +1258,7 @@ fn on_before_session_ending_handles_authorities() {
 		assert!(NextAuthorityChange::<Test>::get().is_none());
 
 		let block_number: BlockNumber = 100;
-		System::set_block_number(block_number.into());
+		System::set_block_number(block_number);
 		// Call on_new_session where is_active_session_final is true, should change storage
 		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
 			true,
@@ -1288,7 +1287,7 @@ fn on_before_session_ending_handles_authorities() {
 
 		// Item should be scheduled
 		let scheduled_block: BlockNumber = block_number + 75_u64;
-		Scheduler::on_initialize(scheduled_block.into());
+		Scheduler::on_initialize(scheduled_block);
 
 		// scheduled do_finalise_authorities_change() will add notification log to the header
 		assert_eq!(System::digest().logs.len(), 2_usize);
@@ -1344,7 +1343,7 @@ fn on_before_session_ending_handles_authorities_without_on_new_session() {
 
 		// Block number as 2 triggers is_active_session_final = true
 		let block_number: BlockNumber = 100;
-		System::set_block_number(block_number.into());
+		System::set_block_number(block_number);
 
 		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
 		// changed in on_initialize
@@ -1355,11 +1354,11 @@ fn on_before_session_ending_handles_authorities_without_on_new_session() {
 		let scheduled_block: BlockNumber = block_number + 75_u64;
 
 		// Block before scheduled should not unpause bridge
-		Scheduler::on_initialize((scheduled_block - 1_u64).into());
+		Scheduler::on_initialize(scheduled_block - 1_u64);
 		assert!(EthBridge::bridge_paused());
 
 		// Scheduler unpauses bridge
-		Scheduler::on_initialize(scheduled_block.into());
+		Scheduler::on_initialize(scheduled_block);
 		assert!(!EthBridge::bridge_paused());
 	});
 }
@@ -1393,7 +1392,7 @@ fn scheduled_authorities_change_keeps_bridge_paused_if_manually_paused() {
 
 		// Block number as 2 triggers is_active_session_final = true
 		let block_number: BlockNumber = 100;
-		System::set_block_number(block_number.into());
+		System::set_block_number(block_number);
 
 		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
 		// changed in on_initialize
@@ -1408,11 +1407,11 @@ fn scheduled_authorities_change_keeps_bridge_paused_if_manually_paused() {
 		let scheduled_block: BlockNumber = block_number + 75_u64;
 
 		// Block before scheduled should not unpause bridge
-		Scheduler::on_initialize((scheduled_block - 1_u64).into());
+		Scheduler::on_initialize(scheduled_block - 1_u64);
 		assert!(EthBridge::bridge_paused());
 
 		// Scheduler unpauses bridge
-		Scheduler::on_initialize(scheduled_block.into());
+		Scheduler::on_initialize(scheduled_block);
 		// Bridge still paused due to manual pause
 		assert!(EthBridge::bridge_paused());
 		assert_eq!(
@@ -1462,7 +1461,7 @@ fn force_new_era_with_scheduled_authority_change_works() {
 
 		// Block number 50 isn't final session, but we have forced
 		let block_number: BlockNumber = 50;
-		System::set_block_number(block_number.into());
+		System::set_block_number(block_number);
 
 		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
 		// changed in on_initialize
@@ -1487,7 +1486,7 @@ fn force_new_era_with_scheduled_authority_change_works() {
 		let scheduled_block: BlockNumber = block_number + 75_u64;
 
 		// Scheduler unpauses bridge
-		Scheduler::on_initialize(scheduled_block.into());
+		Scheduler::on_initialize(scheduled_block);
 		assert!(!EthBridge::bridge_paused());
 
 		// Keys updated with the correct value
@@ -1556,7 +1555,7 @@ fn send_event() {
 		let event_proof_id = NextEventProofId::<Test>::get();
 
 		// Generate event proof
-		assert_ok!(EthBridge::send_event(&source, &destination, &message));
+		assert_ok!(EthBridge::send_event(&source, &destination, message));
 		// Ensure event has not been added to delayed queue
 		assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), None);
 		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
@@ -1622,8 +1621,8 @@ fn request_multiple_event_proofs() {
 		let destination = H160::from_low_u64_be(555);
 		let message = &b"hello world"[..];
 
-		assert_ok!(EthBridge::send_event(&source, &destination, &message));
-		assert_ok!(EthBridge::send_event(&source, &destination, &message));
+		assert_ok!(EthBridge::send_event(&source, &destination, message));
+		assert_ok!(EthBridge::send_event(&source, &destination, message));
 		let block_digest = <frame_system::Pallet<Test>>::digest();
 		assert_eq!(block_digest.logs.len(), 2_usize);
 	});
@@ -1641,14 +1640,14 @@ fn delayed_event_proof() {
 		let event_proof_id = NextEventProofId::<Test>::get();
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
-			destination: destination.clone(),
+			destination,
 			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: EthBridge::validator_set().id,
 			event_proof_id,
 		});
 
 		// Generate event proof
-		assert_ok!(EthBridge::send_event(&source, &destination, &message));
+		assert_ok!(EthBridge::send_event(&source, &destination, message));
 		// Ensure event has been added to delayed claims
 		assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
 		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
@@ -1684,7 +1683,7 @@ fn delayed_event_proof_updates_validator_set_id_on_last_minute_authorities_chang
 		.into_iter();
 
 		let block_number: BlockNumber = 100;
-		System::set_block_number(block_number.into());
+		System::set_block_number(block_number);
 
 		// Call on_new_session where is_active_session_final is true, should change storage
 		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
@@ -1708,14 +1707,14 @@ fn delayed_event_proof_updates_validator_set_id_on_last_minute_authorities_chang
 		let event_proof_id = NextEventProofId::<Test>::get();
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
-			destination: destination.clone(),
+			destination,
 			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: EthBridge::validator_set().id,
 			event_proof_id,
 		});
 
 		// Generate event proof
-		assert_ok!(EthBridge::send_event(&source, &destination, &message));
+		assert_ok!(EthBridge::send_event(&source, &destination, message));
 		// Ensure event has been added to delayed claims
 		assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
 		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
@@ -1723,7 +1722,7 @@ fn delayed_event_proof_updates_validator_set_id_on_last_minute_authorities_chang
 		// Finalise authorities change by calling scheduled block
 		let block_number = frame_system::Pallet::<Test>::block_number();
 		let scheduled_block: BlockNumber = block_number + 75_u64;
-		Scheduler::on_initialize(scheduled_block.into());
+		Scheduler::on_initialize(scheduled_block);
 
 		// validator_set_id now updated
 		assert_eq!(NotarySetId::<Test>::get(), next_validator_set_id);
@@ -1740,7 +1739,7 @@ fn delayed_event_proof_updates_validator_set_id_on_last_minute_authorities_chang
 		// check event is thrown with the correct validator_set_id
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
-			destination: destination.clone(),
+			destination,
 			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: next_validator_set_id, // Updated validator set id
 			event_proof_id,
@@ -1771,7 +1770,7 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 		let next_validator_set_id = NotarySetId::<Test>::get() + 1;
 
 		let block_number: BlockNumber = 100;
-		System::set_block_number(block_number.into());
+		System::set_block_number(block_number);
 		// Call on_new_session where is_active_session_final is true, should change storage
 		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
 			true,
@@ -1782,7 +1781,7 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 
 		// Now call on_initialise with the expected block to check it gets processed correctly
 		let expected_block: BlockNumber = NextAuthorityChange::<Test>::get().unwrap();
-		EthBridge::on_initialize(expected_block.into());
+		EthBridge::on_initialize(expected_block);
 
 		// Bridge paused due to authorities change
 		assert!(EthBridge::bridge_paused());
@@ -1794,14 +1793,14 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 		let event_proof_id = NextEventProofId::<Test>::get();
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
-			destination: destination.clone(),
+			destination,
 			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: EthBridge::validator_set().id,
 			event_proof_id,
 		});
 
 		// Generate event proof
-		assert_ok!(EthBridge::send_event(&source, &destination, &message));
+		assert_ok!(EthBridge::send_event(&source, &destination, message));
 		// Ensure event has been added to delayed claims
 		assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
 		assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
@@ -1824,7 +1823,7 @@ fn delayed_event_proof_updates_validator_set_id_on_normal_authorities_change() {
 		// check event is thrown with the correct validator_set_id
 		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
-			destination: destination.clone(),
+			destination,
 			message: BoundedVec::truncate_from(message.to_vec()),
 			validator_set_id: next_validator_set_id, // Updated validator set id
 			event_proof_id,
@@ -1854,14 +1853,14 @@ fn multiple_delayed_event_proof() {
 			event_ids.push(event_proof_id);
 			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 				source,
-				destination: destination.clone(),
+				destination,
 				message: BoundedVec::truncate_from(message.to_vec()),
 				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
 			});
 			events_for_proving.push(event_proof_info.clone());
 			// Generate event proof
-			assert_ok!(EthBridge::send_event(&source, &destination, &message));
+			assert_ok!(EthBridge::send_event(&source, &destination, message));
 			// Ensure event has been added to delayed claims
 			assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
 			assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
@@ -1928,14 +1927,14 @@ fn on_idle_limits_processing() {
 			event_ids.push(event_proof_id);
 			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 				source,
-				destination: destination.clone(),
+				destination,
 				message: BoundedVec::truncate_from(message.to_vec()),
 				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
 			});
 			events_for_proving.push(event_proof_info.clone());
 			// Generate event proof
-			assert_ok!(EthBridge::send_event(&source, &destination, &message));
+			assert_ok!(EthBridge::send_event(&source, &destination, message));
 			// Ensure event has been added to delayed claims
 			assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
 			assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
@@ -2007,14 +2006,14 @@ fn on_idle_no_remaining_weight_is_noop() {
 			event_ids.push(event_proof_id);
 			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 				source,
-				destination: destination.clone(),
+				destination,
 				message: BoundedVec::truncate_from(message.to_vec()),
 				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
 			});
 			events_for_proving.push(event_proof_info.clone());
 			// Generate event proof
-			assert_ok!(EthBridge::send_event(&source, &destination, &message));
+			assert_ok!(EthBridge::send_event(&source, &destination, message));
 			// Ensure event has been added to delayed claims
 			assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
 			assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
@@ -2060,13 +2059,13 @@ fn set_delayed_event_proofs_per_block() {
 			event_ids.push(event_proof_id);
 			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 				source,
-				destination: destination.clone(),
+				destination,
 				message: BoundedVec::truncate_from(message.to_vec()),
 				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
 			});
 			// Generate event proof
-			assert_ok!(EthBridge::send_event(&source, &destination, &message));
+			assert_ok!(EthBridge::send_event(&source, &destination, message));
 			// Ensure event has been added to delayed claims
 			assert_eq!(PendingEventProofs::<Test>::get(event_proof_id), Some(event_proof_info));
 			assert_eq!(NextEventProofId::<Test>::get(), event_proof_id + 1);
@@ -2570,7 +2569,7 @@ fn handle_call_notarization_success() {
 			let aggregated_notarizations =
 				EthCallNotarizationsAggregated::<Test>::get(call_id).unwrap_or_default();
 			println!("{:?}", aggregated_notarizations);
-			assert_eq!(aggregated_notarizations.get(&notary_result).map(|x| *x), aggregation);
+			assert_eq!(aggregated_notarizations.get(&notary_result).copied(), aggregation);
 		}
 
 		// callback triggered with correct value
@@ -2652,7 +2651,7 @@ fn handle_call_notarization_aborts_no_consensus() {
 			let aggregated_notarizations =
 				EthCallNotarizationsAggregated::<Test>::get(call_id).unwrap_or_default();
 			println!("{:?}", aggregated_notarizations);
-			assert_eq!(aggregated_notarizations.get(&notary_result).map(|x| *x), aggregation);
+			assert_eq!(aggregated_notarizations.get(&notary_result).copied(), aggregation);
 		}
 
 		// failure callback triggered with correct value
@@ -2749,7 +2748,7 @@ fn on_initialize_moves_missed_to_vec() {
 
 		// submit event 28 and 30
 		let event_data = encode_event_message(
-			28 as u64,
+			28_u64,
 			H160::from_low_u64_be(555),
 			H160::from_low_u64_be(555),
 			&[2, 3, 4, 5],
@@ -2757,11 +2756,11 @@ fn on_initialize_moves_missed_to_vec() {
 		let tx_hash = EthHash::from_low_u64_be(33);
 		assert_ok!(EthBridge::submit_event(
 			RuntimeOrigin::signed(relayer.into()),
-			tx_hash.clone(),
+			tx_hash,
 			event_data.clone(),
 		));
 		let event_data = encode_event_message(
-			30 as u64,
+			30_u64,
 			H160::from_low_u64_be(555),
 			H160::from_low_u64_be(555),
 			&[2, 3, 4, 5],
@@ -2769,7 +2768,7 @@ fn on_initialize_moves_missed_to_vec() {
 		let tx_hash = EthHash::from_low_u64_be(33);
 		assert_ok!(EthBridge::submit_event(
 			RuntimeOrigin::signed(relayer.into()),
-			tx_hash.clone(),
+			tx_hash,
 			event_data.clone(),
 		));
 
@@ -2810,7 +2809,7 @@ fn test_submit_event_replay_check() {
 			if i != 2 {
 				assert_ok!(EthBridge::submit_event(
 					RuntimeOrigin::signed(relayer.into()),
-					tx_hash.clone(),
+					tx_hash,
 					event_data[i].clone(),
 				));
 			}
@@ -2833,7 +2832,7 @@ fn test_submit_event_replay_check() {
 		// submit claim 2 now
 		assert_ok!(EthBridge::submit_event(
 			RuntimeOrigin::signed(relayer.into()),
-			tx_hash.clone(),
+			tx_hash,
 			event_data[2].clone(),
 		));
 		// Process the messages

@@ -42,7 +42,7 @@ pub const SELECTOR_LOG_SWAP: [u8; 32] =
 /// Saturated conversion from EVM uint256 to Balance
 fn saturated_convert_balance(input: U256) -> Result<Balance, PrecompileFailure> {
 	if input > Balance::MAX.into() {
-		return Err(revert("DEX: Input number exceeds the Balance type boundary (2^128)").into());
+		return Err(revert("DEX: Input number exceeds the Balance type boundary (2^128)"));
 	}
 	Ok(input.saturated_into())
 }
@@ -50,7 +50,7 @@ fn saturated_convert_balance(input: U256) -> Result<Balance, PrecompileFailure> 
 /// Saturated conversion from EVM uint256 to Blocknumber
 fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileFailure> {
 	if input > BlockNumber::MAX.into() {
-		return Err(revert("DEX: Input number exceeds the BlockNumber type boundary (2^32)").into());
+		return Err(revert("DEX: Input number exceeds the BlockNumber type boundary (2^32)"));
 	}
 	Ok(input.saturated_into())
 }
@@ -99,47 +99,44 @@ where
 	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
-		let result = {
-			let selector = match handle.read_selector() {
-				Ok(selector) => selector,
-				Err(e) => return Err(e.into()),
-			};
-
-			if let Err(err) = handle.check_function_modifier(match selector {
-				Action::AddLiquidity
-				| Action::RemoveLiquidity
-				| Action::RemoveLiquidityETH
-				| Action::SwapExactTokensForTokens
-				| Action::SwapTokensForExactTokens
-				| Action::SwapTokensForExactETH
-				| Action::SwapExactTokensForETH => FunctionModifier::NonPayable,
-				Action::AddLiquidityETH
-				| Action::SwapExactETHForTokens
-				| Action::SwapETHForExactTokens => FunctionModifier::Payable,
-				_ => FunctionModifier::View,
-			}) {
-				return Err(err.into());
-			}
-
-			match selector {
-				Action::AddLiquidity => Self::add_liquidity(handle),
-				Action::AddLiquidityETH => Self::add_liquidity_eth(handle),
-				Action::RemoveLiquidity => Self::remove_liquidity(handle),
-				Action::RemoveLiquidityETH => Self::remove_liquidity_eth(handle),
-				Action::SwapExactTokensForTokens => Self::swap_exact_tokens_for_tokens(handle),
-				Action::SwapTokensForExactTokens => Self::swap_tokens_for_exact_tokens(handle),
-				Action::SwapExactETHForTokens => Self::swap_exact_eth_for_tokens(handle),
-				Action::SwapTokensForExactETH => Self::swap_tokens_for_exact_eth(handle),
-				Action::SwapExactTokensForETH => Self::swap_exact_tokens_for_eth(handle),
-				Action::SwapETHForExactTokens => Self::swap_eth_for_exact_tokens(handle),
-				Action::Quote => Self::quote(handle),
-				Action::GetAmountIn => Self::get_amount_in(handle),
-				Action::GetAmountOut => Self::get_amount_out(handle),
-				Action::GetAmountsIn => Self::get_amounts_in(handle),
-				Action::GetAmountsOut => Self::get_amounts_out(handle),
-			}
+		let selector = match handle.read_selector() {
+			Ok(selector) => selector,
+			Err(e) => return Err(e.into()),
 		};
-		return result;
+
+		if let Err(err) = handle.check_function_modifier(match selector {
+			Action::AddLiquidity
+			| Action::RemoveLiquidity
+			| Action::RemoveLiquidityETH
+			| Action::SwapExactTokensForTokens
+			| Action::SwapTokensForExactTokens
+			| Action::SwapTokensForExactETH
+			| Action::SwapExactTokensForETH => FunctionModifier::NonPayable,
+			Action::AddLiquidityETH
+			| Action::SwapExactETHForTokens
+			| Action::SwapETHForExactTokens => FunctionModifier::Payable,
+			_ => FunctionModifier::View,
+		}) {
+			return Err(err.into());
+		}
+
+		match selector {
+			Action::AddLiquidity => Self::add_liquidity(handle),
+			Action::AddLiquidityETH => Self::add_liquidity_eth(handle),
+			Action::RemoveLiquidity => Self::remove_liquidity(handle),
+			Action::RemoveLiquidityETH => Self::remove_liquidity_eth(handle),
+			Action::SwapExactTokensForTokens => Self::swap_exact_tokens_for_tokens(handle),
+			Action::SwapTokensForExactTokens => Self::swap_tokens_for_exact_tokens(handle),
+			Action::SwapExactETHForTokens => Self::swap_exact_eth_for_tokens(handle),
+			Action::SwapTokensForExactETH => Self::swap_tokens_for_exact_eth(handle),
+			Action::SwapExactTokensForETH => Self::swap_exact_tokens_for_eth(handle),
+			Action::SwapETHForExactTokens => Self::swap_eth_for_exact_tokens(handle),
+			Action::Quote => Self::quote(handle),
+			Action::GetAmountIn => Self::get_amount_in(handle),
+			Action::GetAmountOut => Self::get_amount_out(handle),
+			Action::GetAmountsIn => Self::get_amounts_in(handle),
+			Action::GetAmountsOut => Self::get_amounts_out(handle),
+		}
 	}
 }
 
@@ -852,9 +849,7 @@ where
 		) {
 			Ok(amount_b) => Ok(succeed(EvmDataWriter::new().write::<U256>(amount_b).build())),
 			Err(e) => Err(revert(
-				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes()
-					.to_vec(),
+				alloc::format!("DEX: Dispatched call failed with error: {:?}", e).as_bytes(),
 			)),
 		}
 	}
@@ -879,9 +874,7 @@ where
 		) {
 			Ok(amount_out) => Ok(succeed(EvmDataWriter::new().write::<u128>(amount_out).build())),
 			Err(e) => Err(revert(
-				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes()
-					.to_vec(),
+				alloc::format!("DEX: Dispatched call failed with error: {:?}", e).as_bytes(),
 			)),
 		}
 	}
@@ -906,9 +899,7 @@ where
 		) {
 			Ok(amount_in) => Ok(succeed(EvmDataWriter::new().write::<u128>(amount_in).build())),
 			Err(e) => Err(revert(
-				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes()
-					.to_vec(),
+				alloc::format!("DEX: Dispatched call failed with error: {:?}", e).as_bytes(),
 			)),
 		}
 	}
@@ -945,9 +936,7 @@ where
 		) {
 			Ok(amounts) => Ok(succeed(EvmDataWriter::new().write(amounts).build())),
 			Err(e) => Err(revert(
-				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes()
-					.to_vec(),
+				alloc::format!("DEX: Dispatched call failed with error: {:?}", e).as_bytes(),
 			)),
 		}
 	}
@@ -984,9 +973,7 @@ where
 		) {
 			Ok(amounts) => Ok(succeed(EvmDataWriter::new().write(amounts).build())),
 			Err(e) => Err(revert(
-				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
-					.as_bytes()
-					.to_vec(),
+				alloc::format!("DEX: Dispatched call failed with error: {:?}", e).as_bytes(),
 			)),
 		}
 	}

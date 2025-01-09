@@ -34,11 +34,7 @@ doughnut-rs = { workspace = true, features = ["crypto"] }
 [dev-dependencies]
 frame-executive = { workspace = true }
 fp-self-contained = { workspace = true, default-features = true }
-pallet-timestamp = { workspace = true }
-pallet-evm = { workspace = true }
 pallet-fee-control = { workspace = true }
-pallet-fee-proxy = { workspace = true, default-features = true }
-pallet-dex = { workspace = true }
 pallet-assets-ext = { workspace = true }
 pallet-futurepass = { workspace = true }
 

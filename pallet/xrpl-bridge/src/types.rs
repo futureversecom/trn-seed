@@ -17,7 +17,7 @@ use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use seed_primitives::{
-	xrpl::{XrplAccountId, XrplTxHash, XrplTxNonce, XrplTxTicketSequence},
+	xrpl::{Xls20TokenId, XrplAccountId, XrplTxHash, XrplTxNonce, XrplTxTicketSequence},
 	AssetId, Balance,
 };
 use sp_core::H160;
@@ -27,7 +27,15 @@ use xrpl_codec::types::CurrencyCodeType;
 pub type DelayedPaymentId = u64;
 
 #[derive(
-	RuntimeDebugNoBound, Eq, CloneNoBound, PartialEqNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
+	RuntimeDebugNoBound,
+	Eq,
+	CloneNoBound,
+	PartialEqNoBound,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	Default,
 )]
 pub struct XrpTransaction {
 	pub transaction_hash: XrplTxHash,
@@ -65,7 +73,9 @@ impl WithdrawTransaction {
 }
 
 /// Withdrawal transaction for the XRP Currency
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
+#[derive(
+	Default, PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy,
+)]
 pub struct XrpWithdrawTransaction {
 	pub tx_fee: u64,
 	pub tx_nonce: XrplTxNonce,
@@ -87,33 +97,40 @@ pub struct AssetWithdrawTransaction {
 	pub issuer: XrplAccountId,
 }
 
+/// Xrpl transactions to be signed by ethy
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum XrplTransaction {
+	NFTokenAcceptOffer(NFTokenAcceptOfferTransaction),
+	NFTokenCreateOffer(NFTokenCreateOfferTransaction),
+}
+
+/// NFTokenAcceptOffer transaction.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
+pub struct NFTokenAcceptOfferTransaction {
+	pub nftoken_sell_offer: [u8; 32],
+	pub tx_fee: u64,
+	pub tx_ticket_sequence: XrplTxTicketSequence,
+	pub account: XrplAccountId,
+}
+
+/// NFTokenCreateOffer transaction.
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, Copy)]
+pub struct NFTokenCreateOfferTransaction {
+	pub nftoken_id: [u8; 32],
+	pub tx_fee: u64,
+	pub tx_ticket_sequence: XrplTxTicketSequence,
+	pub account: XrplAccountId,
+	pub destination: XrplAccountId,
+}
+
 #[derive(Eq, CloneNoBound, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum XrplTxData {
+	// XRP asset
 	Payment { amount: Balance, address: H160 },
+	// Other fungible asset
 	CurrencyPayment { amount: Balance, address: H160, currency: XRPLCurrency },
-	Xls20, // Nft
-}
-
-impl Default for XrpTransaction {
-	fn default() -> Self {
-		XrpTransaction {
-			transaction_hash: XrplTxHash::default(),
-			transaction: XrplTxData::default(),
-			timestamp: 0,
-		}
-	}
-}
-
-impl Default for XrpWithdrawTransaction {
-	fn default() -> Self {
-		XrpWithdrawTransaction {
-			tx_fee: 0,
-			tx_nonce: 0,
-			tx_ticket_sequence: 0,
-			amount: 0,
-			destination: XrplAccountId::default(),
-		}
-	}
+	// XLS-20 NFTs
+	Xls20 { token_id: Xls20TokenId, address: H160 },
 }
 
 impl Default for XrplTxData {
@@ -122,16 +139,10 @@ impl Default for XrplTxData {
 	}
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Default, PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct XrplTicketSequenceParams {
 	pub start_sequence: u32,
 	pub bucket_size: u32,
-}
-
-impl Default for XrplTicketSequenceParams {
-	fn default() -> Self {
-		XrplTicketSequenceParams { start_sequence: 0_u32, bucket_size: 0_u32 }
-	}
 }
 
 /// Currency issued by issuer https://xrpl.org/docs/references/protocol/data-types/currency-formats#token-amounts
@@ -172,4 +183,15 @@ impl From<XRPLCurrencyType> for CurrencyCodeType {
 			XRPLCurrencyType::NonStandard(currency) => Self::NonStandard(currency),
 		}
 	}
+}
+
+/// XRPL side door accounts supported by TRN
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo, MaxEncodedLen)]
+pub enum XRPLDoorAccount {
+	Main = 0,
+	NFT = 1,
+}
+
+impl XRPLDoorAccount {
+	pub const VALUES: [Self; 2] = [Self::Main, Self::NFT];
 }

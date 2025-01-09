@@ -57,7 +57,7 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
 
 	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
 		let acc: sp_core::ecdsa::Pair =
-			sp_core::ecdsa::Pair::from_string("//Bob", None).unwrap().into();
+			sp_core::ecdsa::Pair::from_string("//Bob", None).expect("convert Pair from String");
 		let extrinsic: OpaqueExtrinsic = create_benchmark_extrinsic(
 			self.client.as_ref(),
 			acc,
@@ -96,15 +96,12 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 	}
 
 	fn build(&self, nonce: u32) -> std::result::Result<OpaqueExtrinsic, &'static str> {
-		let acc = sp_core::ecdsa::Pair::from_string("//Bob", None).unwrap().into();
+		let acc =
+			sp_core::ecdsa::Pair::from_string("//Bob", None).expect("convert Pair from String");
 		let extrinsic: OpaqueExtrinsic = create_benchmark_extrinsic(
 			self.client.as_ref(),
 			acc,
-			BalancesCall::transfer_keep_alive {
-				dest: self.dest.clone().into(),
-				value: self.value.into(),
-			}
-			.into(),
+			BalancesCall::transfer_keep_alive { dest: self.dest, value: self.value }.into(),
 			nonce,
 		)
 		.into();

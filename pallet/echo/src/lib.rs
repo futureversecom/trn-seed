@@ -30,8 +30,8 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber, OnEventResult};
-use seed_primitives::{ethy::EventProofId, AccountId};
+use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
+use seed_primitives::{ethy::EventProofId, AccountId, WeightedDispatchResult};
 use sp_core::H160;
 use sp_std::prelude::*;
 
@@ -63,7 +63,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The EthereumBridge interface for sending messages to the bridge
 		type EthereumBridge: EthereumBridge;
-		/// This pallet's Id, used for deriving a sovereign account ID
+		/// This pallet's ID, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
@@ -73,7 +73,6 @@ pub mod pallet {
 
 	/// The next available offer_id
 	#[pallet::storage]
-	#[pallet::getter(fn next_session_id)]
 	pub type NextSessionId<T> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::event]
@@ -108,7 +107,7 @@ pub mod pallet {
 			let source: H160 = ensure_signed(origin)?.into();
 
 			// Get session id and ensure within u64 bounds
-			let session_id = Self::next_session_id();
+			let session_id = NextSessionId::<T>::get();
 			ensure!(session_id.checked_add(u64::one()).is_some(), Error::<T>::NoAvailableIds);
 
 			// Encode the message, the first value as 0 states that the event was sent from this
@@ -143,13 +142,13 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 	type Address = T::PalletId;
 	type SourceAddress = ();
 
-	fn verify_source(_source: &H160) -> OnEventResult {
+	fn verify_source(_source: &H160) -> WeightedDispatchResult {
 		// For testing purposes we don't require a verified source for the Echo pallet
 		// Can overwrite this method and simply return ok
 		Ok(Weight::zero())
 	}
 
-	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
+	fn on_event(source: &H160, data: &[u8]) -> WeightedDispatchResult {
 		let abi_decoded = match ethabi::decode(
 			&[ParamType::Uint(64), ParamType::Uint(64), ParamType::Address],
 			data,
@@ -163,7 +162,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 		{
 			let ping_or_pong: u8 = (*ping_or_pong).saturated_into();
 			let session_id: u64 = (*session_id).saturated_into();
-			let destination: H160 = (*destination).into();
+			let destination: H160 = *destination;
 
 			// Check whether event is a pong or a ping from Ethereum
 			match ping_or_pong {
@@ -192,7 +191,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 					]);
 					// Send pong response event to Ethereum
 					let event_proof_id = match T::EthereumBridge::send_event(
-						&source,
+						source,
 						&destination,
 						message.as_slice(),
 					) {

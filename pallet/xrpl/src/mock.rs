@@ -199,7 +199,7 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 			RuntimeCall::Xrpl(call) => pallet_xrpl::Call::<Test>::apply_self_contained(
 				call.into(),
 				&info,
-				&dispatch_info,
+				dispatch_info,
 				len,
 			),
 			_ => None,

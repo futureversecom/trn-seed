@@ -15,6 +15,7 @@
 
 use super::*;
 use crate::mock::{Nft, Test, TokenApprovals};
+use crate::{ERC1155ApprovalsForAll, ERC20Approvals, ERC721Approvals, ERC721ApprovalsForAll};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::OriginChain;
 
@@ -33,7 +34,7 @@ pub struct TestData {
 
 fn prepare_test() -> TestData {
 	let alice = create_account(10);
-	let coll_owner = alice.clone();
+	let coll_owner = alice;
 	let collection_name = BoundedVec::truncate_from("Hello".into());
 	let metadata_scheme = MetadataScheme::try_from(
 		b"ethereum://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".as_slice(),
@@ -41,7 +42,7 @@ fn prepare_test() -> TestData {
 	.unwrap();
 
 	let coll_id = Nft::do_create_collection(
-		coll_owner.clone(),
+		coll_owner,
 		collection_name,
 		0,
 		None,
@@ -53,13 +54,13 @@ fn prepare_test() -> TestData {
 	)
 	.unwrap();
 
-	let origin = RawOrigin::Signed(alice.clone()).into();
+	let origin = RawOrigin::Signed(alice).into();
 	let count = 10u32;
 	assert_ok!(Nft::mint(origin, coll_id, count + 1, Some(alice)));
 	let coll_tokens: Vec<TokenId> = vec![(coll_id, count)];
 
-	let token_id = coll_tokens[0].clone();
-	let token_owner = coll_owner.clone();
+	let token_id = coll_tokens[0];
+	let token_owner = coll_owner;
 
 	TestData { coll_owner, coll_id, coll_tokens, token_id, token_owner }
 }
@@ -72,7 +73,7 @@ fn set_erc721_approval() {
 		let operator = create_account(12);
 
 		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
-		assert_eq!(TokenApprovals::erc721_approvals(token_id).unwrap(), operator);
+		assert_eq!(ERC721Approvals::<Test>::get(token_id).unwrap(), operator);
 	});
 }
 
@@ -95,7 +96,7 @@ fn set_erc721_approval_approved_for_all() {
 
 		// Caller is not token owner, but they are approved for all so this passes
 		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
-		assert_eq!(TokenApprovals::erc721_approvals(token_id).unwrap(), operator);
+		assert_eq!(ERC721Approvals::<Test>::get(token_id).unwrap(), operator);
 		// 000_001_500_000_000_000
 	});
 }
@@ -136,7 +137,7 @@ fn erc721_approval_removed_on_transfer() {
 		let operator = create_account(11);
 
 		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
-		assert_eq!(TokenApprovals::erc721_approvals(token_id).unwrap(), operator);
+		assert_eq!(ERC721Approvals::<Test>::get(token_id).unwrap(), operator);
 		TokenApprovals::on_nft_transfer(&token_id);
 		assert!(!ERC721Approvals::<Test>::contains_key(token_id));
 	});
@@ -197,7 +198,7 @@ fn set_erc20_approval() {
 		let amount: Balance = 10;
 
 		assert_ok!(TokenApprovals::erc20_approval(None.into(), caller, spender, asset_id, amount));
-		assert_eq!(TokenApprovals::erc20_approvals((caller, asset_id), spender).unwrap(), amount);
+		assert_eq!(ERC20Approvals::<Test>::get((caller, asset_id), spender).unwrap(), amount);
 	});
 }
 
@@ -225,7 +226,7 @@ fn update_erc20_approval_full_amount() {
 		let amount: Balance = 10;
 
 		assert_ok!(TokenApprovals::erc20_approval(None.into(), caller, spender, asset_id, amount));
-		assert_eq!(TokenApprovals::erc20_approvals((caller, asset_id), spender).unwrap(), amount);
+		assert_eq!(ERC20Approvals::<Test>::get((caller, asset_id), spender).unwrap(), amount);
 
 		// Remove approval
 		assert_ok!(TokenApprovals::erc20_update_approval(
@@ -248,7 +249,7 @@ fn update_erc20_approval_some_amount() {
 		let amount: Balance = 10;
 
 		assert_ok!(TokenApprovals::erc20_approval(None.into(), caller, spender, asset_id, amount));
-		assert_eq!(TokenApprovals::erc20_approvals((caller, asset_id), spender).unwrap(), amount);
+		assert_eq!(ERC20Approvals::<Test>::get((caller, asset_id), spender).unwrap(), amount);
 
 		let removal_amount: Balance = 9;
 		// Remove approval
@@ -260,7 +261,7 @@ fn update_erc20_approval_some_amount() {
 			removal_amount
 		));
 		assert_eq!(
-			TokenApprovals::erc20_approvals((caller, asset_id), spender).unwrap(),
+			ERC20Approvals::<Test>::get((caller, asset_id), spender).unwrap(),
 			amount - removal_amount
 		);
 	});
@@ -275,7 +276,7 @@ fn update_erc20_approval_amount_too_high_should_fail() {
 		let amount: Balance = 10;
 
 		assert_ok!(TokenApprovals::erc20_approval(None.into(), caller, spender, asset_id, amount));
-		assert_eq!(TokenApprovals::erc20_approvals((caller, asset_id), spender).unwrap(), amount);
+		assert_eq!(ERC20Approvals::<Test>::get((caller, asset_id), spender).unwrap(), amount);
 
 		let removal_amount: Balance = 11;
 		// Attempt to remove approval
@@ -301,7 +302,7 @@ fn update_erc20_approval_not_approved_should_fail() {
 		let amount: Balance = 10;
 
 		assert_ok!(TokenApprovals::erc20_approval(None.into(), caller, spender, asset_id, amount));
-		assert_eq!(TokenApprovals::erc20_approvals((caller, asset_id), spender).unwrap(), amount);
+		assert_eq!(ERC20Approvals::<Test>::get((caller, asset_id), spender).unwrap(), amount);
 
 		let malicious_spender = create_account(13);
 		// Attempt to remove approval
@@ -333,9 +334,7 @@ fn set_erc721_approval_for_all() {
 			collection_id,
 			true
 		));
-		assert!(
-			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator)).unwrap()
-		);
+		assert!(ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator)).unwrap());
 
 		// Remove approval
 		assert_ok!(TokenApprovals::erc721_approval_for_all(
@@ -345,9 +344,7 @@ fn set_erc721_approval_for_all() {
 			collection_id,
 			false
 		));
-		assert!(
-			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator)).is_none()
-		);
+		assert!(ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator)).is_none());
 	});
 }
 
@@ -384,15 +381,9 @@ fn set_erc721_approval_for_all_multiple_approvals() {
 		));
 
 		// Check storage
-		assert!(
-			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator_1)).unwrap()
-		);
-		assert!(
-			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator_2)).unwrap()
-		);
-		assert!(
-			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator_3)).unwrap()
-		);
+		assert!(ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator_1)).unwrap());
+		assert!(ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator_2)).unwrap());
+		assert!(ERC721ApprovalsForAll::<Test>::get(caller, (collection_id, operator_3)).unwrap());
 	});
 }
 
@@ -467,9 +458,7 @@ fn set_erc1155_approval_for_all() {
 			collection_id,
 			true
 		));
-		assert!(
-			TokenApprovals::erc1155_approvals_for_all(caller, (collection_id, operator)).unwrap()
-		);
+		assert!(ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator)).unwrap());
 
 		// Remove approval
 		assert_ok!(TokenApprovals::erc1155_approval_for_all(
@@ -479,9 +468,7 @@ fn set_erc1155_approval_for_all() {
 			collection_id,
 			false
 		));
-		assert!(
-			TokenApprovals::erc1155_approvals_for_all(caller, (collection_id, operator)).is_none()
-		);
+		assert!(ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator)).is_none());
 	});
 }
 
@@ -518,15 +505,9 @@ fn set_erc1155_approval_for_all_multiple_approvals() {
 		));
 
 		// Check storage
-		assert!(
-			TokenApprovals::erc1155_approvals_for_all(caller, (collection_id, operator_1)).unwrap()
-		);
-		assert!(
-			TokenApprovals::erc1155_approvals_for_all(caller, (collection_id, operator_2)).unwrap()
-		);
-		assert!(
-			TokenApprovals::erc1155_approvals_for_all(caller, (collection_id, operator_3)).unwrap()
-		);
+		assert!(ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator_1)).unwrap());
+		assert!(ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator_2)).unwrap());
+		assert!(ERC1155ApprovalsForAll::<Test>::get(caller, (collection_id, operator_3)).unwrap());
 	});
 }
 
