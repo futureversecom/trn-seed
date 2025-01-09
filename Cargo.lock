@@ -6097,6 +6097,7 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6107,6 +6108,7 @@ dependencies = [
  "parity-scale-codec",
  "seed-primitives",
  "sp-api",
+ "sp-runtime",
  "sp-std",
 ]
 
