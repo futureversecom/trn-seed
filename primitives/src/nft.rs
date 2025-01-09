@@ -42,6 +42,7 @@ pub type ListingId = u128;
 pub enum OriginChain {
 	Ethereum,
 	Root,
+	XRPL,
 }
 
 impl Serialize for OriginChain {
@@ -54,6 +55,7 @@ impl Serialize for OriginChain {
 				serializer.serialize_unit_variant("OriginChain", 0, "Ethereum")
 			},
 			OriginChain::Root => serializer.serialize_unit_variant("OriginChain", 1, "Root"),
+			OriginChain::XRPL => serializer.serialize_unit_variant("OriginChain", 2, "XRPL"),
 		}
 	}
 }
