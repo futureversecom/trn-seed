@@ -232,14 +232,14 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
-				<Resolvers<T>>::get(identifier.clone()).is_none(),
+				<Resolvers<T>>::get(&identifier).is_none(),
 				Error::<T>::ResolverAlreadyRegistered
 			);
 
 			let resolver =
 				Resolver { controller: who.clone(), service_endpoints: service_endpoints.clone() };
 
-			<Resolvers<T>>::insert(identifier.clone(), resolver);
+			<Resolvers<T>>::insert(&identifier, resolver);
 
 			Self::deposit_event(Event::ResolverRegistered {
 				id: identifier.to_vec(),
@@ -261,20 +261,21 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let mut resolver =
-				<Resolvers<T>>::get(identifier.clone()).ok_or(Error::<T>::ResolverNotRegistered)?;
+			<Resolvers<T>>::try_mutate(&identifier, |resolver| -> DispatchResult {
+				let resolver = resolver.as_mut().ok_or(Error::<T>::ResolverNotRegistered)?;
 
-			ensure!(who == resolver.controller, Error::<T>::NotController);
+				ensure!(who == resolver.controller, Error::<T>::NotController);
 
-			resolver.service_endpoints = service_endpoints.clone();
+				resolver.service_endpoints = service_endpoints.clone();
 
-			<Resolvers<T>>::insert(identifier.clone(), resolver);
+				Self::deposit_event(Event::ResolverUpdated {
+					id: identifier.to_vec(),
+					controller: who,
+					service_endpoints,
+				});
 
-			Self::deposit_event(Event::ResolverUpdated {
-				id: identifier.to_vec(),
-				controller: who,
-				service_endpoints,
-			});
+				Ok(())
+			})?;
 
 			Ok(())
 		}
@@ -290,11 +291,11 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			let resolver =
-				<Resolvers<T>>::get(identifier.clone()).ok_or(Error::<T>::ResolverNotRegistered)?;
+				<Resolvers<T>>::get(&identifier).ok_or(Error::<T>::ResolverNotRegistered)?;
 
 			ensure!(who == resolver.controller, Error::<T>::NotController);
 
-			<Resolvers<T>>::remove(identifier.clone());
+			<Resolvers<T>>::remove(&identifier);
 
 			Self::deposit_event(Event::ResolverUnregistered { id: identifier.to_vec() });
 
@@ -316,11 +317,11 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
-				<ValidationRecords<T>>::get(who.clone(), data_id.clone()).is_none(),
+				<ValidationRecords<T>>::get(&who, &data_id).is_none(),
 				Error::<T>::RecordAlreadyCreated
 			);
 
-			Self::validate_sylo_resolvers(resolvers.clone())?;
+			Self::validate_sylo_resolvers(&resolvers)?;
 
 			let current_block = <frame_system::Pallet<T>>::block_number();
 
@@ -335,7 +336,7 @@ pub mod pallet {
 				}]),
 			};
 
-			<ValidationRecords<T>>::insert(who.clone(), data_id.clone(), record);
+			<ValidationRecords<T>>::insert(&who, &data_id, record);
 
 			Self::deposit_event(Event::ValidationRecordCreated {
 				author: who,
@@ -356,21 +357,22 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let mut record = <ValidationRecords<T>>::get(who.clone(), data_id.clone())
-				.ok_or(Error::<T>::RecordNotCreated)?;
+			<ValidationRecords<T>>::try_mutate(&who, &data_id, |record| -> DispatchResult {
+				let record = record.as_mut().ok_or(Error::<T>::RecordNotCreated)?;
 
-			record.entries.force_push(ValidationEntry {
-				checksum: checksum.clone(),
-				block: <frame_system::Pallet<T>>::block_number(),
-			});
+				record.entries.force_push(ValidationEntry {
+					checksum,
+					block: <frame_system::Pallet<T>>::block_number(),
+				});
 
-			<ValidationRecords<T>>::insert(who.clone(), data_id.clone(), record);
+				Self::deposit_event(Event::ValidationEntryAdded {
+					author: who.clone(),
+					id: data_id.to_vec(),
+					checksum,
+				});
 
-			Self::deposit_event(Event::ValidationEntryAdded {
-				author: who,
-				id: data_id.to_vec(),
-				checksum,
-			});
+				Ok(())
+			})?;
 
 			Ok(())
 		}
@@ -388,32 +390,33 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let mut record = <ValidationRecords<T>>::get(who.clone(), data_id.clone())
-				.ok_or(Error::<T>::RecordNotCreated)?;
+			<ValidationRecords<T>>::try_mutate(&who, &data_id, |record| -> DispatchResult {
+				let record = record.as_mut().ok_or(Error::<T>::RecordNotCreated)?;
 
-			if let Some(resolvers) = resolvers.clone() {
-				Self::validate_sylo_resolvers(resolvers.clone())?;
-				record.resolvers = resolvers;
-			}
+				if let Some(ref new_resolvers) = resolvers {
+					Self::validate_sylo_resolvers(new_resolvers)?;
+					record.resolvers = new_resolvers.clone();
+				}
 
-			if let Some(data_type) = data_type.clone() {
-				record.data_type = data_type;
-			}
+				if let Some(ref new_data_type) = data_type {
+					record.data_type = new_data_type.clone();
+				}
 
-			if let Some(tags) = tags.clone() {
-				record.tags = tags;
-			}
+				if let Some(ref new_tags) = tags {
+					record.tags = new_tags.clone();
+				}
 
-			<ValidationRecords<T>>::insert(who.clone(), data_id.clone(), record);
+				Self::deposit_event(Event::ValidationRecordUpdated {
+					author: who.clone(),
+					id: data_id.to_vec(),
+					resolvers: resolvers
+						.map(|r| r.iter().map(|resolver| resolver.to_did()).collect()),
+					data_type: data_type.map(|dt| dt.to_vec()),
+					tags: tags.map(|t| t.iter().map(|tag| tag.to_vec()).collect()),
+				});
 
-			Self::deposit_event(Event::ValidationRecordUpdated {
-				author: who,
-				id: data_id.to_vec(),
-				resolvers: resolvers
-					.map(|resolvers| resolvers.iter().map(|resolver| resolver.to_did()).collect()),
-				data_type: data_type.map(|data_type| data_type.to_vec()),
-				tags: tags.map(|tags| tags.iter().map(|tag| tag.to_vec()).collect()),
-			});
+				Ok(())
+			})?;
 
 			Ok(())
 		}
@@ -429,11 +432,11 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
-				<ValidationRecords<T>>::get(who.clone(), data_id.clone()).is_some(),
+				<ValidationRecords<T>>::contains_key(&who, &data_id),
 				Error::<T>::RecordNotCreated
 			);
 
-			<ValidationRecords<T>>::remove(who.clone(), data_id.clone());
+			<ValidationRecords<T>>::remove(&who, &data_id);
 
 			Self::deposit_event(Event::ValidationRecordDeleted {
 				author: who,
@@ -446,19 +449,21 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		pub fn validate_sylo_resolvers(
-			resolvers: BoundedVec<ResolverId<T::StringLimit>, T::MaxResolvers>,
+			resolvers: &BoundedVec<ResolverId<T::StringLimit>, T::MaxResolvers>,
 		) -> DispatchResult {
 			let reserved_method = <SyloResolverMethod<T>>::get();
 
 			// Ensure any sylo data resolvers are already registered
-			for resolver in resolvers {
-				if resolver.method == reserved_method {
+			resolvers
+				.iter()
+				.filter(|resolver| resolver.method == reserved_method)
+				.try_for_each(|resolver| -> DispatchResult {
 					ensure!(
-						<Resolvers<T>>::get(resolver.identifier).is_some(),
+						<Resolvers<T>>::contains_key(&resolver.identifier),
 						Error::<T>::ResolverNotRegistered
 					);
-				}
-			}
+					Ok(())
+				})?;
 
 			Ok(())
 		}

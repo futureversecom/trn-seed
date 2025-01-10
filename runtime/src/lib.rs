@@ -607,6 +607,7 @@ parameter_types! {
 impl pallet_sylo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
+	type ApproveOrigin = EnsureRoot<AccountId>;
 	type MaxResolvers = MaxResolvers;
 	type MaxTags = MaxTags;
 	type MaxEntries = MaxEntries;
