@@ -14,6 +14,7 @@ jsonrpsee = { workspace = true, default-features = true}
 sp-api = { workspace = true }
 sp-blockchain = { workspace = true }
 sp-runtime = { workspace = true }
+sp-std = { workspace = true }
 
 pallet-nft = { workspace = true }
 pallet-nft-rpc-runtime-api = { workspace = true }
