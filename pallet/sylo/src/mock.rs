@@ -42,6 +42,7 @@ parameter_types! {
 impl Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
+	type ApproveOrigin = EnsureRoot<AccountId>;
 	type MaxResolvers = MaxResolvers;
 	type MaxTags = MaxTags;
 	type MaxEntries = MaxEntries;

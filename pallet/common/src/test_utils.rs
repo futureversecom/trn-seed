@@ -732,11 +732,12 @@ macro_rules! impl_pallet_sylo_config {
 			pub const MaxTags: u32 = 10;
 			pub const MaxEntries: u32 = 100;
 			pub const MaxServiceEndpoints: u32 = 10;
-			pub const StringLimit: u32 = 100;
+			pub const StringLimit: u32 = 500;
 		}
 		impl pallet_sylo::Config for Test {
 			type RuntimeCall = RuntimeCall;
 			type RuntimeEvent = RuntimeEvent;
+			type ApproveOrigin = EnsureRoot<AccountId>;
 			type MaxResolvers = MaxResolvers;
 			type MaxTags = MaxTags;
 			type MaxEntries = MaxEntries;

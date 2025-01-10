@@ -64,6 +64,9 @@ pub mod pallet {
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		/// Allowed origins to set payment asset and reversed sylo method
+		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
 
@@ -149,6 +152,12 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
+		PaymentAssetSet {
+			asset_id: AssetId,
+		},
+		SyloResolverMethodSet {
+			method: Vec<u8>,
+		},
 		ResolverRegistered {
 			id: Vec<u8>,
 			controller: T::AccountId,
@@ -191,8 +200,9 @@ pub mod pallet {
 			T::WeightInfo::set_payment_asset()
 		})]
 		pub fn set_payment_asset(origin: OriginFor<T>, payment_asset: AssetId) -> DispatchResult {
-			ensure_root(origin)?;
+			T::ApproveOrigin::ensure_origin(origin)?;
 			<SyloAssetId<T>>::put(payment_asset);
+			Self::deposit_event(Event::PaymentAssetSet { asset_id: payment_asset });
 			Ok(())
 		}
 
@@ -204,8 +214,9 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			resolver_method: BoundedVec<u8, T::StringLimit>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
-			<SyloResolverMethod<T>>::put(resolver_method);
+			T::ApproveOrigin::ensure_origin(origin)?;
+			<SyloResolverMethod<T>>::put(&resolver_method);
+			Self::deposit_event(Event::SyloResolverMethodSet { method: resolver_method.to_vec() });
 			Ok(())
 		}
 
@@ -451,10 +462,6 @@ pub mod pallet {
 
 			Ok(())
 		}
-
-		// pub fn is_sylo_extrinsic(call: &<T as frame_system::Config>::RuntimeCall) -> bool {
-		// 	true
-		// }
 
 		pub fn payment_asset() -> Option<AssetId> {
 			<SyloAssetId<T>>::get()

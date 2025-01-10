@@ -46,6 +46,7 @@ std = [
     "pallet-assets-ext/std",
     "pallet-futurepass/std",
     "pallet-evm/std",
+    "pallet-sylo/std",
     "pallet-transaction-payment/std",
     "scale-info/std",
     "seed-primitives/std",
