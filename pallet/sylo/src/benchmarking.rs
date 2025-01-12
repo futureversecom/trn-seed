@@ -46,6 +46,14 @@ pub fn bounded_string<T: Config>(name: &str) -> BoundedVec<u8, <T as Config>::St
 	BoundedVec::truncate_from(name.as_bytes().to_vec())
 }
 
+pub fn max_bounded_string<T: Config>(bound: u32) -> BoundedVec<u8, <T as Config>::StringLimit> {
+	let mut max_string = BoundedVec::new();
+	for _ in 1..bound {
+		max_string.force_push(b'a');
+	}
+	max_string
+}
+
 pub fn setup_resolver<T: Config>(
 	caller: T::AccountId,
 	identifier: BoundedVec<u8, <T as Config>::StringLimit>,
@@ -97,18 +105,21 @@ benchmarks! {
 
 		let alice = account::<T>("Alice");
 
-		let mut identifier = BoundedVec::new();
-		for _ in 1..p {
-			identifier.force_push(b'a');
-		}
+		let identifier = max_bounded_string::<T>(p);
 
 		let mut service_endpoints = BoundedVec::new();
 		for _ in 1..q {
-			service_endpoints.force_push(bounded_string::<T>("https://service-endpoint.one.two.three"));
+			service_endpoints.force_push(max_bounded_string::<T>(p));
 		}
-	}: _(origin::<T>(&alice), identifier, service_endpoints)
+	}: _(origin::<T>(&alice), identifier.clone(), service_endpoints.clone())
+	verify {
+		assert_eq!(Resolvers::<T>::get(identifier), Some(Resolver {
+			controller: alice, service_endpoints
+		}));
+	}
 
 	update_resolver {
+		let p in 1 .. STRING_LIMIT;
 		let q in 1 .. MAX_SERVICE_ENDPOINTS;
 
 		let alice = account::<T>("Alice");
@@ -117,87 +128,158 @@ benchmarks! {
 
 		let mut service_endpoints = BoundedVec::new();
 		for _ in 1..q {
-			service_endpoints.force_push(bounded_string::<T>("https://service-endpoint.one.two.three"));
+			service_endpoints.force_push(max_bounded_string::<T>(p));
 		}
-	}: _(origin::<T>(&alice), identifier, service_endpoints)
+	}: _(origin::<T>(&alice), identifier.clone(), service_endpoints.clone())
+	verify {
+		assert_eq!(Resolvers::<T>::get(identifier), Some(Resolver {
+			controller: alice, service_endpoints
+		}));
+	}
 
 	unregister_resolver {
 		let alice = account::<T>("Alice");
 
 		let identifier = setup_resolver::<T>(alice.clone(), bounded_string::<T>("sylo-data-resolver"));
-	}: _(origin::<T>(&alice), identifier)
+	}: _(origin::<T>(&alice), identifier.clone())
+	verify {
+		assert_eq!(Resolvers::<T>::get(identifier), None);
+	}
 
 	create_validation_record {
-		let p in 1 .. MAX_RESOLVERS;
-		let q in 1 .. MAX_TAGS;
+		let p in 1 .. STRING_LIMIT;
+		let q in 1 .. MAX_RESOLVERS;
+		let r in 1 .. MAX_TAGS;
 
 		let alice = account::<T>("Alice");
 
 		let data_id = bounded_string::<T>("data-id");
 
 		let mut resolvers = BoundedVec::new();
-		for i in 1 .. p {
+		for i in 1 .. q {
+			// create a maximum sized resolver id that is unique to each
+			// resolver
 			let mut resolver_id = String::from("sylo-resolver");
 			resolver_id.push_str(i.to_string().as_str());
-
-			let resolver_id = setup_resolver::<T>(alice.clone(), bounded_string::<T>(resolver_id.as_str()));
+			let mut resolver_id = bounded_string::<T>(resolver_id.as_str());
+			let id_len = <usize as TryInto<u32>>::try_into(resolver_id.len()).unwrap();
+			if id_len < p {
+				let max_affix = max_bounded_string::<T>(p - id_len);
+				resolver_id.try_append(&mut max_affix.to_vec()).unwrap();
+			};
+			let resolver_id = setup_resolver::<T>(alice.clone(), resolver_id);
 			resolvers.force_push(ResolverId {
-				method: bounded_string::<T>("sylo_resolver"),
+				method: max_bounded_string::<T>(p),
 				identifier: resolver_id,
 			});
 		}
 
-		let data_type = bounded_string::<T>("data-type");
+		let data_type = max_bounded_string::<T>(p);
 
 		let mut tags = BoundedVec::new();
-		for _ in 1 .. q {
-			tags.force_push(bounded_string::<T>("tag"));
+		for _ in 1 .. r {
+			tags.force_push(max_bounded_string::<T>(p));
 		}
 
 		let checksum = H256::from_low_u64_be(123);
-	}: _(origin::<T>(&alice), data_id, resolvers, data_type, tags, checksum)
+
+		let block: BlockNumberFor<T> = 1_u32.into();
+	}: _(origin::<T>(&alice), data_id.clone(), resolvers.clone(), data_type.clone(), tags.clone(), checksum.clone())
+	verify {
+		assert_eq!(ValidationRecords::<T>::get(&alice, &data_id), Some(ValidationRecord {
+			author: alice,
+			resolvers: resolvers,
+			data_type: data_type,
+			tags: tags,
+			entries: BoundedVec::truncate_from(vec![ValidationEntry {
+				checksum,
+				block,
+			}]),
+		}));
+	}
 
 	add_validation_record_entry {
 		let alice = account::<T>("Alice");
 
 		let data_id = setup_validation_record::<T>(alice.clone());
 
-		let checksum = H256::from_low_u64_be(125);
-	}: _(origin::<T>(&alice), data_id, checksum)
+		let checksum = H256::from_low_u64_be(123);
+	}: _(origin::<T>(&alice), data_id.clone(), checksum.clone())
+	verify {
+		assert_eq!(ValidationRecords::<T>::get(&alice, &data_id), Some(ValidationRecord {
+			author: alice,
+			resolvers: BoundedVec::new(),
+			data_type: bounded_string::<T>("data-type"),
+			tags: BoundedVec::new(),
+			entries: BoundedVec::truncate_from(vec![ValidationEntry {
+				checksum,
+				block: 0_u32.into(),
+			}, ValidationEntry {
+				checksum,
+				block: 1_u32.into(),
+			}]),
+		}));
+	}
 
 	update_validation_record {
-		let p in 1 .. MAX_RESOLVERS;
-		let q in 1 .. MAX_TAGS;
+		let p in 1 .. STRING_LIMIT;
+		let q in 1 .. MAX_RESOLVERS;
+		let r in 1 .. MAX_TAGS;
 
 		let alice = account::<T>("Alice");
 
 		let data_id = setup_validation_record::<T>(alice.clone());
 
 		let mut resolvers = BoundedVec::new();
-		for i in 1 .. p {
+		for i in 1 .. q {
+			// create a maximum sized resolver id that is unique to each
+			// resolver
 			let mut resolver_id = String::from("sylo-resolver");
 			resolver_id.push_str(i.to_string().as_str());
+			let mut resolver_id = bounded_string::<T>(resolver_id.as_str());
+			let id_len = <usize as TryInto<u32>>::try_into(resolver_id.len()).unwrap();
+			if id_len < p {
+				let max_affix = max_bounded_string::<T>(p - id_len);
+				resolver_id.try_append(&mut max_affix.to_vec()).unwrap();
+			};
 
-			let resolver_id = setup_resolver::<T>(alice.clone(), bounded_string::<T>(resolver_id.as_str()));
+			let resolver_id = setup_resolver::<T>(alice.clone(), resolver_id);
 			resolvers.force_push(ResolverId {
-				method: bounded_string::<T>("sylo_resolver"),
+				method: max_bounded_string::<T>(p),
 				identifier: resolver_id,
 			});
 		}
 
-		let data_type = bounded_string::<T>("data-type");
+		let data_type = max_bounded_string::<T>(p);
 
 		let mut tags = BoundedVec::new();
-		for _ in 1 .. q {
-			tags.force_push(bounded_string::<T>("tag"));
+		for _ in 1 .. r {
+			tags.force_push(max_bounded_string::<T>(p));
 		}
-	}: _(origin::<T>(&alice), data_id, Some(resolvers), Some(data_type), Some(tags))
+
+		let block: BlockNumberFor<T> = 1_u32.into();
+	}: _(origin::<T>(&alice), data_id.clone(), Some(resolvers.clone()), Some(data_type.clone()), Some(tags.clone()))
+	verify {
+		assert_eq!(ValidationRecords::<T>::get(&alice, &data_id), Some(ValidationRecord {
+			author: alice,
+			resolvers: resolvers,
+			data_type: data_type,
+			tags: tags,
+			entries: BoundedVec::truncate_from(vec![ValidationEntry {
+				checksum: H256::from_low_u64_be(123),
+				block,
+			}]),
+		}));
+	}
 
 	delete_validation_record {
 		let alice = account::<T>("Alice");
 
 		let data_id = setup_validation_record::<T>(alice.clone());
-	}: _(origin::<T>(&alice), data_id)
+	}: _(origin::<T>(&alice), data_id.clone())
+	verify {
+		assert_eq!(ValidationRecords::<T>::get(&alice, &data_id), None);
+	}
 }
 
 impl_benchmark_test_suite!(
