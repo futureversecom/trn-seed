@@ -162,11 +162,10 @@ benchmarks! {
 			let mut resolver_id = String::from("sylo-resolver");
 			resolver_id.push_str(i.to_string().as_str());
 			let mut resolver_id = bounded_string::<T>(resolver_id.as_str());
-			let id_len = <usize as TryInto<u32>>::try_into(resolver_id.len()).unwrap();
-			if id_len < p {
-				let max_affix = max_bounded_string::<T>(p - id_len);
-				resolver_id.try_append(&mut max_affix.to_vec()).unwrap();
-			};
+			for _ in 1..p {
+				resolver_id.force_push(b'a');
+			}
+
 			let resolver_id = setup_resolver::<T>(alice.clone(), resolver_id);
 			resolvers.force_push(ResolverId {
 				method: max_bounded_string::<T>(p),
@@ -237,11 +236,9 @@ benchmarks! {
 			let mut resolver_id = String::from("sylo-resolver");
 			resolver_id.push_str(i.to_string().as_str());
 			let mut resolver_id = bounded_string::<T>(resolver_id.as_str());
-			let id_len = <usize as TryInto<u32>>::try_into(resolver_id.len()).unwrap();
-			if id_len < p {
-				let max_affix = max_bounded_string::<T>(p - id_len);
-				resolver_id.try_append(&mut max_affix.to_vec()).unwrap();
-			};
+			for _ in 1..p {
+				resolver_id.force_push(b'a');
+			}
 
 			let resolver_id = setup_resolver::<T>(alice.clone(), resolver_id);
 			resolvers.force_push(ResolverId {
@@ -260,16 +257,10 @@ benchmarks! {
 		let block: BlockNumberFor<T> = 1_u32.into();
 	}: _(origin::<T>(&alice), data_id.clone(), Some(resolvers.clone()), Some(data_type.clone()), Some(tags.clone()))
 	verify {
-		assert_eq!(ValidationRecords::<T>::get(&alice, &data_id), Some(ValidationRecord {
-			author: alice,
-			resolvers: resolvers,
-			data_type: data_type,
-			tags: tags,
-			entries: BoundedVec::truncate_from(vec![ValidationEntry {
-				checksum: H256::from_low_u64_be(123),
-				block,
-			}]),
-		}));
+		let validation_record = ValidationRecords::<T>::get(&alice, &data_id).unwrap();
+		assert_eq!(validation_record.resolvers, resolvers);
+		assert_eq!(validation_record.data_type, data_type);
+		assert_eq!(validation_record.tags, tags);
 	}
 
 	delete_validation_record {

@@ -379,7 +379,7 @@ pub mod pallet {
 
 		#[pallet::call_index(7)]
 		#[pallet::weight({
-			T::WeightInfo::update_validation_record(<T::MaxResolvers>::get(), <T::MaxTags>::get())
+			T::WeightInfo::update_validation_record(<T::StringLimit>::get(), <T::MaxResolvers>::get(), <T::MaxTags>::get())
 		})]
 		pub fn update_validation_record(
 			origin: OriginFor<T>,
