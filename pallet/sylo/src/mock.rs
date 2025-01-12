@@ -51,16 +51,16 @@ impl Config for Test {
 	type WeightInfo = ();
 }
 
-#[derive(Default)]
-pub struct TestExt;
+// #[derive(Default)]
+// pub struct TestExt;
 
-impl TestExt {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+// impl TestExt {
+// 	pub fn build(self) -> sp_io::TestExternalities {
+// 		let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
-		let mut ext: sp_io::TestExternalities = storage.into();
-		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
-		ext.execute_with(|| pallet_assets_ext::GenesisConfig::<Test>::default().build());
-		ext
-	}
-}
+// 		let mut ext: sp_io::TestExternalities = storage.into();
+// 		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
+// 		ext.execute_with(|| pallet_assets_ext::GenesisConfig::<Test>::default().build());
+// 		ext
+// 	}
+// }

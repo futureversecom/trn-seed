@@ -14,15 +14,98 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use mock::{RuntimeEvent as MockEvent, Sylo, System, Test, TestExt};
+use mock::{RuntimeEvent as MockEvent, Sylo, System, Test};
 use seed_pallet_common::test_prelude::*;
 
-mod resolvers {
+fn create_and_register_resolver(
+	identifier: BoundedVec<u8, <Test as Config>::StringLimit>,
+	service_endpoints: Vec<BoundedVec<u8, <Test as Config>::StringLimit>>,
+) -> (
+	AccountId,
+	BoundedVec<u8, <Test as Config>::StringLimit>,
+	BoundedVec<
+		BoundedVec<u8, <Test as Config>::StringLimit>,
+		<Test as Config>::MaxServiceEndpoints,
+	>,
+) {
+	let controller: AccountId = create_account(1);
+
+	let service_endpoints =
+		BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::try_from(service_endpoints)
+			.unwrap();
+
+	assert_ok!(Sylo::register_resolver(
+		RawOrigin::Signed(controller.clone()).into(),
+		identifier.clone(),
+		service_endpoints.clone(),
+	));
+
+	(controller, identifier, service_endpoints)
+}
+
+fn create_initial_validation_record(
+	author: <Test as frame_system::Config>::AccountId,
+	data_id: &str,
+	resolvers: Vec<(&str, &str)>,
+	data_type: &str,
+	tags: Vec<&str>,
+) -> (
+	BoundedVec<u8, mock::StringLimit>,
+	BoundedVec<ResolverId<mock::StringLimit>, mock::MaxResolvers>,
+	BoundedVec<u8, mock::StringLimit>,
+	BoundedVec<BoundedVec<u8, mock::StringLimit>, mock::MaxTags>,
+	H256,
+	ValidationRecord<
+		<Test as frame_system::Config>::AccountId,
+		BlockNumberFor<Test>,
+		mock::MaxResolvers,
+		mock::MaxTags,
+		mock::MaxEntries,
+		mock::StringLimit,
+	>,
+) {
+	let data_id = bounded_string(data_id);
+	let resolvers = BoundedVec::truncate_from(
+		resolvers
+			.iter()
+			.map(|(method, identifier)| create_resolver_id(method, identifier))
+			.collect(),
+	);
+	let data_type = bounded_string(data_type);
+	let tags = BoundedVec::truncate_from(tags.iter().map(|tag| bounded_string(tag)).collect());
+	let checksum = H256::from_low_u64_be(123);
+
+	let record = ValidationRecord {
+		author,
+		resolvers: resolvers.clone(),
+		data_type: data_type.clone(),
+		tags: tags.clone(),
+		entries: BoundedVec::truncate_from(vec![ValidationEntry {
+			checksum,
+			block: System::block_number(),
+		}]),
+	};
+
+	return (data_id, resolvers, data_type, tags, checksum, record);
+}
+
+fn create_resolver_id(method: &str, identifier: &str) -> ResolverId<<Test as Config>::StringLimit> {
+	ResolverId {
+		method: BoundedVec::truncate_from(method.as_bytes().to_vec()),
+		identifier: BoundedVec::truncate_from(identifier.as_bytes().to_vec()),
+	}
+}
+
+fn bounded_string(str: &str) -> BoundedVec<u8, <Test as Config>::StringLimit> {
+	BoundedVec::truncate_from(str.as_bytes().to_vec())
+}
+
+mod resolver_registration {
 	use super::*;
 
 	#[test]
 	fn resolver_registration_works() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let (controller, identifier, service_endpoints) = create_and_register_resolver(
 				bounded_string("test-resolver"),
 				vec![
@@ -45,8 +128,34 @@ mod resolvers {
 	}
 
 	#[test]
+	fn resolver_register_existing_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let (controller, identifier, service_endpoints) = create_and_register_resolver(
+				bounded_string("test-resolver"),
+				vec![
+					bounded_string("https://endpoint.one"),
+					bounded_string("https://endpoint.two"),
+				],
+			);
+
+			assert_noop!(
+				Sylo::register_resolver(
+					RawOrigin::Signed(controller).into(),
+					identifier,
+					service_endpoints,
+				),
+				Error::<Test>::ResolverAlreadyRegistered,
+			);
+		});
+	}
+}
+
+mod resolver_update {
+	use super::*;
+
+	#[test]
 	fn resolver_update_works() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let (controller, identifier, mut service_endpoints) = create_and_register_resolver(
 				bounded_string("test-resolver"),
 				vec![
@@ -77,8 +186,57 @@ mod resolvers {
 	}
 
 	#[test]
+	fn resolver_update_not_existing_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let controller: AccountId = create_account(1);
+
+			let identifier = bounded_string("test-resolver");
+
+			let service_endpoints =
+				BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::try_from(vec![]).unwrap();
+
+			assert_noop!(
+				Sylo::update_resolver(
+					RawOrigin::Signed(controller).into(),
+					identifier,
+					service_endpoints,
+				),
+				Error::<Test>::ResolverNotRegistered,
+			);
+		});
+	}
+
+	#[test]
+	fn resolver_update_not_controller_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let (_, identifier, service_endpoints) = create_and_register_resolver(
+				bounded_string("test-resolver"),
+				vec![
+					bounded_string("https://endpoint.one"),
+					bounded_string("https://endpoint.two"),
+				],
+			);
+
+			let not_controller: AccountId = create_account(2);
+
+			assert_noop!(
+				Sylo::update_resolver(
+					RawOrigin::Signed(not_controller).into(),
+					identifier,
+					service_endpoints,
+				),
+				Error::<Test>::NotController,
+			);
+		});
+	}
+}
+
+mod resolver_unregistration {
+	use super::*;
+
+	#[test]
 	fn resolver_unregistration_works() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let (controller, identifier, _) = create_and_register_resolver(
 				bounded_string("test-resolver"),
 				vec![
@@ -101,75 +259,8 @@ mod resolvers {
 	}
 
 	#[test]
-	fn resolver_register_existing_fails() {
-		TestExt.build().execute_with(|| {
-			let (controller, identifier, service_endpoints) = create_and_register_resolver(
-				bounded_string("test-resolver"),
-				vec![
-					bounded_string("https://endpoint.one"),
-					bounded_string("https://endpoint.two"),
-				],
-			);
-
-			assert_noop!(
-				Sylo::register_resolver(
-					RawOrigin::Signed(controller).into(),
-					identifier,
-					service_endpoints,
-				),
-				Error::<Test>::ResolverAlreadyRegistered,
-			);
-		});
-	}
-
-	#[test]
-	fn resolver_update_not_existing_fails() {
-		TestExt.build().execute_with(|| {
-			let controller: AccountId = create_account(1);
-
-			let identifier = bounded_string("test-resolver");
-
-			let service_endpoints =
-				BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::try_from(vec![]).unwrap();
-
-			assert_noop!(
-				Sylo::update_resolver(
-					RawOrigin::Signed(controller).into(),
-					identifier,
-					service_endpoints,
-				),
-				Error::<Test>::ResolverNotRegistered,
-			);
-		});
-	}
-
-	#[test]
-	fn resolver_update_not_controller_fails() {
-		TestExt.build().execute_with(|| {
-			let (_, identifier, service_endpoints) = create_and_register_resolver(
-				bounded_string("test-resolver"),
-				vec![
-					bounded_string("https://endpoint.one"),
-					bounded_string("https://endpoint.two"),
-				],
-			);
-
-			let not_controller: AccountId = create_account(2);
-
-			assert_noop!(
-				Sylo::update_resolver(
-					RawOrigin::Signed(not_controller).into(),
-					identifier,
-					service_endpoints,
-				),
-				Error::<Test>::NotController,
-			);
-		});
-	}
-
-	#[test]
 	fn resolver_unregister_not_existing_fails() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let controller: AccountId = create_account(1);
 
 			let identifier = bounded_string("test-resolver");
@@ -183,7 +274,7 @@ mod resolvers {
 
 	#[test]
 	fn resolver_unregister_not_controller_fails() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let (_, identifier, _) = create_and_register_resolver(
 				bounded_string("test-resolver"),
 				vec![
@@ -202,7 +293,7 @@ mod resolvers {
 	}
 }
 
-mod validation_records {
+mod create_validation_record {
 	use core::str;
 
 	use sp_core::hexdisplay::AsBytesRef;
@@ -211,7 +302,7 @@ mod validation_records {
 
 	#[test]
 	fn create_validation_records_works() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
 			let (data_id, resolvers, data_type, tags, checksum, record) =
@@ -246,7 +337,7 @@ mod validation_records {
 
 	#[test]
 	fn create_existing_validation_record_fails() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
 			let (data_id, resolvers, data_type, tags, checksum, _) =
@@ -283,7 +374,7 @@ mod validation_records {
 
 	#[test]
 	fn create_validation_records_with_sylo_resolvers_works() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			// Ensure sylo resolver is registered
 			let (_, identifier, _) = create_and_register_resolver(
 				bounded_string("test-resolver"),
@@ -327,7 +418,7 @@ mod validation_records {
 
 	#[test]
 	fn create_validation_record_with_unregistered_sylo_resolver_fails() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
 			let (data_id, resolvers, data_type, tags, checksum, _) =
@@ -359,7 +450,7 @@ mod validation_records {
 
 	#[test]
 	fn create_multiple_validation_records_with_same_author_works() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
 			for i in 1..5 {
@@ -398,7 +489,7 @@ mod validation_records {
 
 	#[test]
 	fn create_validation_records_with_different_author_works() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			for i in 2..5 {
 				let author: AccountId = create_account(i);
 
@@ -435,10 +526,14 @@ mod validation_records {
 			}
 		});
 	}
+}
+
+mod add_validation_record_entry {
+	use super::*;
 
 	#[test]
 	fn add_validation_entry_works() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
 			let (data_id, resolvers, data_type, tags, checksum, _) =
@@ -485,7 +580,7 @@ mod validation_records {
 
 	#[test]
 	fn add_not_existing_validation_entry_fails() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
 			let (data_id, _, _, _, checksum, _) =
@@ -504,7 +599,7 @@ mod validation_records {
 
 	#[test]
 	fn only_author_can_add_validation_entry() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
 			let (data_id, resolvers, data_type, tags, checksum, _) =
@@ -537,10 +632,14 @@ mod validation_records {
 			);
 		});
 	}
+}
+
+mod update_validation_record {
+	use super::*;
 
 	#[test]
 	fn update_validation_record_works() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
 			let (data_id, resolvers, data_type, tags, checksum, record) =
@@ -663,7 +762,7 @@ mod validation_records {
 
 	#[test]
 	fn update_not_existing_validation_record_fails() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
 			let (data_id, resolvers, data_type, tags, _, _) = create_initial_validation_record(
@@ -689,7 +788,7 @@ mod validation_records {
 
 	#[test]
 	fn only_author_can_update_validation_record() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
 			let (data_id, resolvers, data_type, tags, checksum, _) =
@@ -724,10 +823,14 @@ mod validation_records {
 			);
 		});
 	}
+}
+
+mod delete_validation_record {
+	use super::*;
 
 	#[test]
 	fn delete_validation_record_works() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
 			let (data_id, resolvers, data_type, tags, checksum, _) =
@@ -757,7 +860,7 @@ mod validation_records {
 
 	#[test]
 	fn delete_not_existing_validation_record_fails() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
 			let (data_id, resolvers, data_type, tags, _, _) = create_initial_validation_record(
@@ -783,7 +886,7 @@ mod validation_records {
 
 	#[test]
 	fn only_author_can_delete_validation_record() {
-		TestExt.build().execute_with(|| {
+		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
 			let (data_id, resolvers, data_type, tags, checksum, _) =
@@ -815,87 +918,4 @@ mod validation_records {
 			);
 		});
 	}
-}
-
-fn create_and_register_resolver(
-	identifier: BoundedVec<u8, <Test as Config>::StringLimit>,
-	service_endpoints: Vec<BoundedVec<u8, <Test as Config>::StringLimit>>,
-) -> (
-	AccountId,
-	BoundedVec<u8, <Test as Config>::StringLimit>,
-	BoundedVec<
-		BoundedVec<u8, <Test as Config>::StringLimit>,
-		<Test as Config>::MaxServiceEndpoints,
-	>,
-) {
-	let controller: AccountId = create_account(1);
-
-	let service_endpoints =
-		BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::try_from(service_endpoints)
-			.unwrap();
-
-	assert_ok!(Sylo::register_resolver(
-		RawOrigin::Signed(controller.clone()).into(),
-		identifier.clone(),
-		service_endpoints.clone(),
-	));
-
-	(controller, identifier, service_endpoints)
-}
-
-fn create_initial_validation_record(
-	author: <Test as frame_system::Config>::AccountId,
-	data_id: &str,
-	resolvers: Vec<(&str, &str)>,
-	data_type: &str,
-	tags: Vec<&str>,
-) -> (
-	BoundedVec<u8, mock::StringLimit>,
-	BoundedVec<ResolverId<mock::StringLimit>, mock::MaxResolvers>,
-	BoundedVec<u8, mock::StringLimit>,
-	BoundedVec<BoundedVec<u8, mock::StringLimit>, mock::MaxTags>,
-	H256,
-	ValidationRecord<
-		<Test as frame_system::Config>::AccountId,
-		BlockNumberFor<Test>,
-		mock::MaxResolvers,
-		mock::MaxTags,
-		mock::MaxEntries,
-		mock::StringLimit,
-	>,
-) {
-	let data_id = bounded_string(data_id);
-	let resolvers = BoundedVec::truncate_from(
-		resolvers
-			.iter()
-			.map(|(method, identifier)| create_resolver_id(method, identifier))
-			.collect(),
-	);
-	let data_type = bounded_string(data_type);
-	let tags = BoundedVec::truncate_from(tags.iter().map(|tag| bounded_string(tag)).collect());
-	let checksum = H256::from_low_u64_be(123);
-
-	let record = ValidationRecord {
-		author,
-		resolvers: resolvers.clone(),
-		data_type: data_type.clone(),
-		tags: tags.clone(),
-		entries: BoundedVec::truncate_from(vec![ValidationEntry {
-			checksum,
-			block: System::block_number(),
-		}]),
-	};
-
-	return (data_id, resolvers, data_type, tags, checksum, record);
-}
-
-fn create_resolver_id(method: &str, identifier: &str) -> ResolverId<<Test as Config>::StringLimit> {
-	ResolverId {
-		method: BoundedVec::truncate_from(method.as_bytes().to_vec()),
-		identifier: BoundedVec::truncate_from(identifier.as_bytes().to_vec()),
-	}
-}
-
-fn bounded_string(str: &str) -> BoundedVec<u8, <Test as Config>::StringLimit> {
-	BoundedVec::truncate_from(str.as_bytes().to_vec())
 }
