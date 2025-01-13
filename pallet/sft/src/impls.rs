@@ -422,10 +422,11 @@ impl<T: Config> Pallet<T> {
 		ensure!(!token_name.is_empty(), Error::<T>::NameInvalid);
 		ensure!(core::str::from_utf8(&token_name).is_ok(), Error::<T>::NameInvalid);
 
-		let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
-		token_info.token_name = token_name.clone();
-
-		TokenInfo::<T>::insert(token_id, token_info);
+		TokenInfo::<T>::try_mutate(token_id, |maybe_token_info| -> DispatchResult {
+			let token_info = maybe_token_info.as_mut().ok_or(Error::<T>::NoToken)?;
+			token_info.token_name = token_name.clone();
+			Ok(())
+		})?;
 
 		Self::deposit_event(Event::<T>::TokenNameSet { token_id, token_name });
 		Ok(())

@@ -17,6 +17,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use std::iter::repeat;
 
 use crate::Pallet as Sft;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
@@ -213,7 +214,9 @@ benchmarks! {
 	set_name {
 		let owner = account::<T>("Alice");
 		let id = build_collection::<T>(Some(owner.clone()));
-		let collection_name = bounded_string::<T>("Collection");
+		// benchmark string at max len, will be truncated in bounded_string
+		let name_str = repeat("a").take(5000).collect::<String>();
+		let token_name = bounded_string::<T>(&name_str);
 	}: _(origin::<T>(&owner), id, collection_name.clone())
 	verify {
 		let collection = SftCollectionInfo::<T>::get(id);
@@ -251,7 +254,9 @@ benchmarks! {
 	set_token_name {
 		let owner = account::<T>("Alice");
 		let token_id = build_token::<T>(Some(owner.clone()), 1);
-		let token_name = bounded_string::<T>("Token");
+		// benchmark string at max len, will be truncated in bounded_string
+		let name_str = repeat("a").take(5000).collect::<String>();
+		let token_name = bounded_string::<T>(&name_str);
 	}: _(origin::<T>(&owner), token_id, token_name.clone())
 	verify {
 		let token = TokenInfo::<T>::get(token_id).unwrap();

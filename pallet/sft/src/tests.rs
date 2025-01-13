@@ -1644,7 +1644,9 @@ mod set_token_name {
 
 			// Name is correct
 			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
-			assert_eq!(token_info.token_name, token_name);
+			assert_eq!(token_info.token_name, token_name.clone());
+
+			System::assert_last_event(Event::<Test>::TokenNameSet { token_id, token_name }.into());
 		});
 	}
 
