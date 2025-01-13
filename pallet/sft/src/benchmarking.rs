@@ -84,6 +84,14 @@ pub fn bounded_string<T: Config>(name: &str) -> BoundedVec<u8, <T as Config>::St
 	BoundedVec::truncate_from(name.as_bytes().to_vec())
 }
 
+pub fn max_bounded_string<T: Config>(bound: u32) -> BoundedVec<u8, <T as Config>::StringLimit> {
+	let mut max_string = BoundedVec::new();
+	for _ in 1..bound {
+		max_string.force_push(b'a');
+	}
+	max_string
+}
+
 benchmarks! {
 	create_collection {
 		let id = T::NFTExt::next_collection_uuid().expect("Failed to get next collection uuid");
@@ -215,8 +223,7 @@ benchmarks! {
 		let owner = account::<T>("Alice");
 		let id = build_collection::<T>(Some(owner.clone()));
 		// benchmark string at max len, will be truncated in bounded_string
-		let name_str = repeat("a").take(5000).collect::<String>();
-		let token_name = bounded_string::<T>(&name_str);
+		let collection_name = max_bounded_string::<T>(T::StringLimit::get());
 	}: _(origin::<T>(&owner), id, collection_name.clone())
 	verify {
 		let collection = SftCollectionInfo::<T>::get(id);
@@ -255,8 +262,7 @@ benchmarks! {
 		let owner = account::<T>("Alice");
 		let token_id = build_token::<T>(Some(owner.clone()), 1);
 		// benchmark string at max len, will be truncated in bounded_string
-		let name_str = repeat("a").take(5000).collect::<String>();
-		let token_name = bounded_string::<T>(&name_str);
+		let token_name = max_bounded_string::<T>(T::StringLimit::get());
 	}: _(origin::<T>(&owner), token_id, token_name.clone())
 	verify {
 		let token = TokenInfo::<T>::get(token_id).unwrap();
