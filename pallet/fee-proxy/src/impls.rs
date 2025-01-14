@@ -98,7 +98,7 @@ where
 				*who,
 				None,
 			)
-			.map_err(|_| InvalidTransaction::Stale)?;
+			.map_err(|_| InvalidTransaction::Payment)?;
 
 			Ok(())
 		};
@@ -108,9 +108,6 @@ where
 		// if the call is a sylo pallet call, then we always force a fee swap with the
 		// sylo token
 		if is_sylo_call {
-			// let payment_asset =
-			// 	pallet_sylo::Pallet::<T>::payment_asset().ok_or(InvalidTransaction::Payment)?;
-
 			let payment_asset =
 				pallet_sylo::SyloAssetId::<T>::get().ok_or(InvalidTransaction::Payment)?;
 
