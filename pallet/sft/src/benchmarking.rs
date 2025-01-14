@@ -19,7 +19,7 @@
 use super::*;
 use crate::Pallet as Sft;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
-use frame_support::{assert_ok, BoundedVec, traits::Get};
+use frame_support::{assert_ok, traits::Get, BoundedVec};
 use frame_system::RawOrigin;
 use sp_runtime::Permill;
 
