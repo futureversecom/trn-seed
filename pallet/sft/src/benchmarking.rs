@@ -17,10 +17,9 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-
 use crate::Pallet as Sft;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
-use frame_support::{assert_ok, BoundedVec};
+use frame_support::{assert_ok, traits::Get, BoundedVec};
 use frame_system::RawOrigin;
 use sp_runtime::Permill;
 
@@ -81,6 +80,14 @@ pub fn bounded_combined<T: Config>(
 /// Helper function for creating the collection name type
 pub fn bounded_string<T: Config>(name: &str) -> BoundedVec<u8, <T as Config>::StringLimit> {
 	BoundedVec::truncate_from(name.as_bytes().to_vec())
+}
+
+pub fn max_bounded_string<T: Config>(bound: u32) -> BoundedVec<u8, <T as Config>::StringLimit> {
+	let mut max_string = BoundedVec::new();
+	for _ in 1..bound {
+		max_string.force_push(b'a');
+	}
+	max_string
 }
 
 benchmarks! {
@@ -213,7 +220,8 @@ benchmarks! {
 	set_name {
 		let owner = account::<T>("Alice");
 		let id = build_collection::<T>(Some(owner.clone()));
-		let collection_name = bounded_string::<T>("Collection");
+		// benchmark string at max len, will be truncated in bounded_string
+		let collection_name = max_bounded_string::<T>(T::StringLimit::get());
 	}: _(origin::<T>(&owner), id, collection_name.clone())
 	verify {
 		let collection = SftCollectionInfo::<T>::get(id);
@@ -246,6 +254,17 @@ benchmarks! {
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, utility_flags)
 	verify {
 		assert_eq!(UtilityFlags::<T>::get(collection_id), utility_flags)
+	}
+
+	set_token_name {
+		let owner = account::<T>("Alice");
+		let token_id = build_token::<T>(Some(owner.clone()), 1);
+		// benchmark string at max len, will be truncated in bounded_string
+		let token_name = max_bounded_string::<T>(T::StringLimit::get());
+	}: _(origin::<T>(&owner), token_id, token_name.clone())
+	verify {
+		let token = TokenInfo::<T>::get(token_id).unwrap();
+		assert_eq!(token.token_name, token_name);
 	}
 }
 
