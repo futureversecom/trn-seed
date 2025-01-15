@@ -237,7 +237,7 @@ where
 	if match call.is_sub_type() {
 		Some(pallet_sylo::Call::register_resolver { .. }) => true,
 		Some(pallet_sylo::Call::update_resolver { .. }) => true,
-		Some(pallet_sylo::Call::unregister_resolver { .. }) => true,
+		Some(pallet_sylo::Call::deregister_resolver { .. }) => true,
 		Some(pallet_sylo::Call::create_validation_record { .. }) => true,
 		Some(pallet_sylo::Call::add_validation_record_entry { .. }) => true,
 		Some(pallet_sylo::Call::update_validation_record { .. }) => true,

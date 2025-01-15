@@ -245,12 +245,12 @@ mod resolver_unregistration {
 				],
 			);
 
-			assert_ok!(Sylo::unregister_resolver(
+			assert_ok!(Sylo::deregister_resolver(
 				RawOrigin::Signed(controller.clone()).into(),
 				identifier.clone(),
 			));
 
-			System::assert_last_event(MockEvent::Sylo(Event::<Test>::ResolverUnregistered {
+			System::assert_last_event(MockEvent::Sylo(Event::<Test>::ResolverDeregistered {
 				id: identifier.to_vec(),
 			}));
 
@@ -259,21 +259,21 @@ mod resolver_unregistration {
 	}
 
 	#[test]
-	fn resolver_unregister_not_existing_fails() {
+	fn resolver_deregister_not_existing_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let controller: AccountId = create_account(1);
 
 			let identifier = bounded_string("test-resolver");
 
 			assert_noop!(
-				Sylo::unregister_resolver(RawOrigin::Signed(controller).into(), identifier,),
+				Sylo::deregister_resolver(RawOrigin::Signed(controller).into(), identifier,),
 				Error::<Test>::ResolverNotRegistered,
 			);
 		});
 	}
 
 	#[test]
-	fn resolver_unregister_not_controller_fails() {
+	fn resolver_deregister_not_controller_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let (_, identifier, _) = create_and_register_resolver(
 				bounded_string("test-resolver"),
@@ -286,7 +286,7 @@ mod resolver_unregistration {
 			let not_controller: AccountId = create_account(2);
 
 			assert_noop!(
-				Sylo::unregister_resolver(RawOrigin::Signed(not_controller).into(), identifier,),
+				Sylo::deregister_resolver(RawOrigin::Signed(not_controller).into(), identifier,),
 				Error::<Test>::NotController,
 			);
 		});
@@ -417,7 +417,7 @@ mod create_validation_record {
 	}
 
 	#[test]
-	fn create_validation_record_with_unregistered_sylo_resolver_fails() {
+	fn create_validation_record_with_deregistered_sylo_resolver_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
@@ -428,7 +428,7 @@ mod create_validation_record {
 					vec![(
 						str::from_utf8(SyloResolverMethod::<Test>::get().as_bytes_ref()).unwrap(),
 						// identifier references a non-existent resolver
-						"unregistered-resolver",
+						"deregistered-resolver",
 					)],
 					"data_type",
 					vec!["tag-1", "tag-2"],

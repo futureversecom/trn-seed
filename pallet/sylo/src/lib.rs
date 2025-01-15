@@ -152,34 +152,29 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
-		PaymentAssetSet {
-			asset_id: AssetId,
-		},
-		SyloResolverMethodSet {
-			method: Vec<u8>,
-		},
+		/// The asset used to for extrinsics has been set
+		PaymentAssetSet { asset_id: AssetId },
+		/// The string reserved for the method used by sylo resolvers has been set
+		SyloResolverMethodSet { method: Vec<u8> },
+		/// A new resolver has been registered and set in storage
 		ResolverRegistered {
 			id: Vec<u8>,
 			controller: T::AccountId,
 			service_endpoints: BoundedVec<BoundedVec<u8, T::StringLimit>, T::MaxServiceEndpoints>,
 		},
+		/// An existing resolver has had it's service endpoints updated
 		ResolverUpdated {
 			id: Vec<u8>,
 			controller: T::AccountId,
 			service_endpoints: BoundedVec<BoundedVec<u8, T::StringLimit>, T::MaxServiceEndpoints>,
 		},
-		ResolverUnregistered {
-			id: Vec<u8>,
-		},
-		ValidationRecordCreated {
-			author: T::AccountId,
-			id: Vec<u8>,
-		},
-		ValidationEntryAdded {
-			author: T::AccountId,
-			id: Vec<u8>,
-			checksum: H256,
-		},
+		/// An existing resolver has been deregistered and removed from storage
+		ResolverDeregistered { id: Vec<u8> },
+		/// A new validation record has been created and set in storage
+		ValidationRecordCreated { author: T::AccountId, id: Vec<u8> },
+		/// An entry of an existing validation record has been added
+		ValidationEntryAdded { author: T::AccountId, id: Vec<u8>, checksum: H256 },
+		/// An existing validation record has had its fields updated
 		ValidationRecordUpdated {
 			author: T::AccountId,
 			id: Vec<u8>,
@@ -187,14 +182,16 @@ pub mod pallet {
 			data_type: Option<Vec<u8>>,
 			tags: Option<Vec<Vec<u8>>>,
 		},
-		ValidationRecordDeleted {
-			author: T::AccountId,
-			id: Vec<u8>,
-		},
+		/// An existing validation record has been deleted and removed from
+		/// storage
+		ValidationRecordDeleted { author: T::AccountId, id: Vec<u8> },
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Set the asset used to pay for sylo extrinsics.
+		///
+		/// This operation requires root access.
 		#[pallet::call_index(0)]
 		#[pallet::weight({
 			T::WeightInfo::set_payment_asset()
@@ -206,6 +203,9 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Set the string used as the reserved sylo resolver method.
+		///
+		/// This operation requires root access.
 		#[pallet::call_index(1)]
 		#[pallet::weight({
 			T::WeightInfo::set_sylo_resolver_method()
@@ -220,6 +220,9 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Register a new resolver.
+		///
+		/// The caller will be set as the controller of the resolver.
 		#[pallet::call_index(2)]
 		#[pallet::weight({
 			T::WeightInfo::register_resolver(<T::StringLimit>::get(), <T::MaxServiceEndpoints>::get())
@@ -250,6 +253,9 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Update the the service endpoints of an existing the resolver.
+		///
+		/// Caller must be the controller of the resolver.
 		#[pallet::call_index(3)]
 		#[pallet::weight({
 			T::WeightInfo::update_resolver(<T::StringLimit>::get(), <T::MaxServiceEndpoints>::get())
@@ -280,11 +286,14 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Deregister an existing resolver.
+		///
+		/// Caller must be the controller of the resolver.
 		#[pallet::call_index(4)]
 		#[pallet::weight({
-			T::WeightInfo::unregister_resolver()
+			T::WeightInfo::deregister_resolver()
 		})]
-		pub fn unregister_resolver(
+		pub fn deregister_resolver(
 			origin: OriginFor<T>,
 			identifier: BoundedVec<u8, T::StringLimit>,
 		) -> DispatchResult {
@@ -297,11 +306,20 @@ pub mod pallet {
 
 			<Resolvers<T>>::remove(&identifier);
 
-			Self::deposit_event(Event::ResolverUnregistered { id: identifier.to_vec() });
+			Self::deposit_event(Event::ResolverDeregistered { id: identifier.to_vec() });
 
 			Ok(())
 		}
 
+		/// Create a new validation record.
+		///
+		/// The caller will be set as the record's author.
+		///
+		/// For any specified resolvers which use the reserved sylo resolver
+		/// method, those resolvers must already be registered and exist in storage.
+		///
+		/// The initial record entry will use the current system block for the
+		/// block value.
 		#[pallet::call_index(5)]
 		#[pallet::weight({
 			T::WeightInfo::create_validation_record(<T::StringLimit>::get(), <T::MaxResolvers>::get(), <T::MaxTags>::get())
@@ -346,6 +364,11 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Add a new entry to an existing validation record.
+		///
+		/// The current block will be used as the entry's block number.
+		///
+		/// Caller must be the author of the record.
 		#[pallet::call_index(6)]
 		#[pallet::weight({
 			T::WeightInfo::add_validation_record_entry()
@@ -377,6 +400,13 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Update a validation record's fields. The call takes in an Option
+		/// value for the fields: resolvers, data_type, and tags.
+		///
+		/// Setting those fields to Some value will update the field in storage,
+		/// whilst setting to None will be a no-op.
+		///
+		/// Caller must be the author of the record.
 		#[pallet::call_index(7)]
 		#[pallet::weight({
 			T::WeightInfo::update_validation_record(<T::StringLimit>::get(), <T::MaxResolvers>::get(), <T::MaxTags>::get())
@@ -421,6 +451,9 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Delete an existing validation record.
+		///
+		/// Caller must be the author of the record.
 		#[pallet::call_index(8)]
 		#[pallet::weight({
 			T::WeightInfo::delete_validation_record()

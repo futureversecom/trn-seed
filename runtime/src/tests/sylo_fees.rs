@@ -263,7 +263,7 @@ fn create_sylo_calls() -> Vec<<Runtime as pallet_sylo::Config>::RuntimeCall> {
 			identifier: BoundedVec::new(),
 			service_endpoints: BoundedVec::new(),
 		}),
-		crate::RuntimeCall::Sylo(pallet_sylo::Call::unregister_resolver {
+		crate::RuntimeCall::Sylo(pallet_sylo::Call::deregister_resolver {
 			identifier: BoundedVec::new(),
 		}),
 		crate::RuntimeCall::Sylo(pallet_sylo::Call::create_validation_record {

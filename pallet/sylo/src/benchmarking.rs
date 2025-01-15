@@ -137,7 +137,7 @@ benchmarks! {
 		}));
 	}
 
-	unregister_resolver {
+	deregister_resolver {
 		let alice = account::<T>("Alice");
 
 		let identifier = setup_resolver::<T>(alice.clone(), bounded_string::<T>("sylo-data-resolver"));

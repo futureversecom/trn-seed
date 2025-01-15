@@ -60,7 +60,7 @@ describe("Sylo", () => {
   const createSyloExtrinsics = (api: ApiPromise) => [
     api.tx.sylo.registerResolver("id", ["endpoint"]),
     api.tx.sylo.updateResolver("id", ["endpoint-2"]),
-    api.tx.sylo.unregisterResolver("id"),
+    api.tx.sylo.deregisterResolver("id"),
     api.tx.sylo.createValidationRecord(
       "data-id",
       [{ method: "sylo-resolver", identifier: "id" }],
@@ -200,4 +200,6 @@ describe("Sylo", () => {
 
     await finalizeTx(user, api.tx.feeProxy.callWithFeePreferences(next_fee_token_id, maxTokenPayment, syloCall));
   });
+
+  it.only("proxy", async () => {});
 });
