@@ -21,6 +21,8 @@ sp-std = { workspace = true }
 
 seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 precompile-utils = { workspace = true }
 
 [dev-dependencies]
