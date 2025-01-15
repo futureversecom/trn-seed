@@ -1,12 +1,10 @@
 import { JsonRpcProvider, Provider } from "@ethersproject/providers";
 import { expect } from "chai";
 import { BigNumber, Contract, ContractFactory, Wallet, utils } from "ethers";
-import web3 from "web3";
+import { ethers } from "hardhat";
 
 import PrecompileCaller from "../../artifacts/contracts/Erc20PrecompileCaller.sol/ERC20PrecompileCaller.json";
-import { BOB_PRIVATE_KEY, ERC20_ABI, NodeProcess, startNode } from "../../common";
-
-const xrpTokenAddress = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
+import { BOB_PRIVATE_KEY, ERC20_ABI, NodeProcess, XRP_PRECOMPILE_ADDRESS, startNode } from "../../common";
 
 describe("ERC20 Precompile", function () {
   let node: NodeProcess;
@@ -25,7 +23,7 @@ describe("ERC20 Precompile", function () {
     // Setup JSON RPC
     jsonProvider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
     seedSigner = new Wallet(BOB_PRIVATE_KEY).connect(jsonProvider); // 'development' seed
-    xrpToken = new Contract(xrpTokenAddress, ERC20_ABI, seedSigner);
+    xrpToken = new Contract(XRP_PRECOMPILE_ADDRESS, ERC20_ABI, seedSigner);
 
     const factory = new ContractFactory(PrecompileCaller.abi, PrecompileCaller.bytecode, seedSigner);
     precompileCaller = await factory.deploy();
@@ -112,5 +110,49 @@ describe("ERC20 Precompile", function () {
       total = total.add(expected);
       expect(balance).to.be.equal(total.toString());
     }
+  });
+
+  it("supportsInterface", async () => {
+    // ERC165
+    expect(await xrpToken.supportsInterface(0x01ffc9a7)).to.be.true;
+    // ERC20
+    expect(await xrpToken.supportsInterface(0x36372b07)).to.be.true;
+    // ERC20Metadata
+    expect(await xrpToken.supportsInterface(0xa219a025)).to.be.true;
+
+    // Test that 0xffffffff returns false (ERC165 requirement)
+    expect(await xrpToken.supportsInterface(0xffffffff)).to.be.false;
+
+    // Invalid random interface ID
+    expect(await xrpToken.supportsInterface(0x12345678)).to.be.false;
+  });
+
+  it("supportsInterface via contract", async () => {
+    // Deploy ERC20PrecompileERC165Validator contract
+    const factory = await ethers.getContractFactory("ERC20PrecompileERC165Validator");
+    const validator = await factory.connect(seedSigner).deploy();
+    await validator.deployed();
+
+    // Get all interface IDs from the validator contract
+    const { erc165: erc165Id, erc20: erc20Id, erc20Metadata: metadataId } = await validator.getAllInterfaceIds();
+
+    // Validate individual interfaces
+    expect(await xrpToken.supportsInterface(erc165Id)).to.be.true;
+    expect(await xrpToken.supportsInterface(erc20Id)).to.be.true;
+    expect(await xrpToken.supportsInterface(metadataId)).to.be.true;
+
+    // Validate using the contract's validation function
+    const [supportsERC165, supportsERC20, supportsERC20Metadata] = await validator.validateContract(xrpToken.address);
+
+    // Assert all interfaces are supported
+    expect(supportsERC165).to.be.true;
+    expect(supportsERC20).to.be.true;
+    expect(supportsERC20Metadata).to.be.true;
+
+    // // Log the interface IDs for reference
+    // console.log("Interface IDs:");
+    // console.log("ERC165:", erc165Id);
+    // console.log("ERC20:", erc20Id);
+    // console.log("ERC20Metadata:", metadataId);
   });
 });
