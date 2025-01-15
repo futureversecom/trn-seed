@@ -100,6 +100,69 @@ fn bounded_string(str: &str) -> BoundedVec<u8, <Test as Config>::StringLimit> {
 	BoundedVec::truncate_from(str.as_bytes().to_vec())
 }
 
+mod set_payment_asset {
+	use super::*;
+
+	#[test]
+	fn set_payment_asset_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			assert_ok!(Sylo::set_payment_asset(RawOrigin::Root.into(), 50));
+			assert_eq!(SyloAssetId::<Test>::get(), Some(50));
+
+			// Check event
+			System::assert_last_event(MockEvent::Sylo(crate::Event::PaymentAssetSet {
+				asset_id: 50,
+			}));
+		});
+	}
+
+	#[test]
+	fn set_payment_asset_not_root_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let new_account: AccountId = create_account(1);
+
+			assert_noop!(
+				Sylo::set_payment_asset(RawOrigin::Signed(new_account).into(), 50),
+				BadOrigin
+			);
+		});
+	}
+}
+
+mod set_sylo_resolver_method {
+	use super::*;
+
+	#[test]
+	fn set_sylo_resolver_method_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let method = bounded_string("sylo");
+
+			assert_ok!(Sylo::set_sylo_resolver_method(RawOrigin::Root.into(), method.clone()));
+			assert_eq!(SyloResolverMethod::<Test>::get(), method.clone());
+
+			// Check event
+			System::assert_last_event(MockEvent::Sylo(crate::Event::SyloResolverMethodSet {
+				method: method.to_vec(),
+			}));
+		});
+	}
+
+	#[test]
+	fn set_sylo_resolver_method_not_root_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let new_account: AccountId = create_account(1);
+
+			assert_noop!(
+				Sylo::set_sylo_resolver_method(
+					RawOrigin::Signed(new_account).into(),
+					bounded_string("sylo")
+				),
+				BadOrigin
+			);
+		});
+	}
+}
+
 mod resolver_registration {
 	use super::*;
 
