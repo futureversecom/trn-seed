@@ -37,7 +37,7 @@ parameter_types! {
 	pub const MaxTags: u32 = 10;
 	pub const MaxEntries: u32 = 100;
 	pub const MaxServiceEndpoints: u32 = 10;
-	pub const StringLimit: u32 = 100;
+	pub const StringLimit: u32 = 250;
 }
 impl Config for Test {
 	type RuntimeCall = RuntimeCall;

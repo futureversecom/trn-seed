@@ -655,7 +655,7 @@ mod add_validation_record_entry {
 					data_id.clone(),
 					checksum.clone()
 				),
-				Error::<Test>::RecordNotCreated
+				Error::<Test>::NoValidationRecord
 			);
 		});
 	}
@@ -691,7 +691,7 @@ mod add_validation_record_entry {
 					data_id,
 					checksum
 				),
-				Error::<Test>::RecordNotCreated
+				Error::<Test>::NoValidationRecord
 			);
 		});
 	}
@@ -844,7 +844,7 @@ mod update_validation_record {
 					Some(data_type.clone()),
 					Some(tags.clone()),
 				),
-				Error::<Test>::RecordNotCreated
+				Error::<Test>::NoValidationRecord
 			);
 		});
 	}
@@ -882,7 +882,7 @@ mod update_validation_record {
 					Some(data_type.clone()),
 					Some(tags.clone()),
 				),
-				Error::<Test>::RecordNotCreated
+				Error::<Test>::NoValidationRecord
 			);
 		});
 	}
@@ -942,7 +942,7 @@ mod delete_validation_record {
 					Some(data_type.clone()),
 					Some(tags.clone()),
 				),
-				Error::<Test>::RecordNotCreated
+				Error::<Test>::NoValidationRecord
 			);
 		});
 	}
@@ -977,7 +977,7 @@ mod delete_validation_record {
 					RawOrigin::Signed(bob.clone()).into(),
 					data_id.clone(),
 				),
-				Error::<Test>::RecordNotCreated
+				Error::<Test>::NoValidationRecord
 			);
 		});
 	}

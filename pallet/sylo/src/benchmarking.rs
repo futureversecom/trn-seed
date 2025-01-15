@@ -25,11 +25,6 @@ use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
 use sp_core::H160;
 
-const MAX_SERVICE_ENDPOINTS: u32 = 10;
-const STRING_LIMIT: u32 = 250;
-const MAX_RESOLVERS: u32 = 10;
-const MAX_TAGS: u32 = 10;
-
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId
 where
@@ -96,12 +91,20 @@ benchmarks! {
 	where_clause { where <T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160> }
 
 	set_payment_asset {}: _(RawOrigin::Root, 24)
+	verify {
+		assert_eq!(SyloAssetId::<T>::get(), Some(24));
+	}
 
-	set_sylo_resolver_method {}: _(RawOrigin::Root, bounded_string::<T>("sylo-resolver-method"))
+	set_sylo_resolver_method {
+		let method = bounded_string::<T>("sylo-resolver-method");
+	}: _(RawOrigin::Root, method.clone())
+	verify {
+		assert_eq!(SyloResolverMethod::<T>::get(), method);
+	}
 
 	register_resolver {
-		let p in 1 .. STRING_LIMIT;
-		let q in 1 .. MAX_SERVICE_ENDPOINTS;
+		let p in 1 .. <T as Config>::StringLimit::get();
+		let q in 1 .. <T as Config>::MaxResolvers::get();
 
 		let alice = account::<T>("Alice");
 
@@ -119,8 +122,8 @@ benchmarks! {
 	}
 
 	update_resolver {
-		let p in 1 .. STRING_LIMIT;
-		let q in 1 .. MAX_SERVICE_ENDPOINTS;
+		let p in 1 .. <T as Config>::StringLimit::get();
+		let q in 1 .. <T as Config>::MaxServiceEndpoints::get();
 
 		let alice = account::<T>("Alice");
 
@@ -221,9 +224,9 @@ benchmarks! {
 	}
 
 	update_validation_record {
-		let p in 1 .. STRING_LIMIT;
-		let q in 1 .. MAX_RESOLVERS;
-		let r in 1 .. MAX_TAGS;
+		let p in 1 .. <T as Config>::StringLimit::get();
+		let q in 1 .. <T as Config>::MaxResolvers::get();
+		let r in 1 .. <T as Config>::MaxTags::get();
 
 		let alice = account::<T>("Alice");
 

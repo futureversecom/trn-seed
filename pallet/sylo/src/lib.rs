@@ -146,7 +146,7 @@ pub mod pallet {
 		/// A validation record with the given data id has already been created
 		RecordAlreadyCreated,
 		/// The validation record to be updated has not been created
-		RecordNotCreated,
+		NoValidationRecord,
 	}
 
 	#[pallet::event]
@@ -235,7 +235,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
-				<Resolvers<T>>::get(&identifier).is_none(),
+				!<Resolvers<T>>::contains_key(&identifier),
 				Error::<T>::ResolverAlreadyRegistered
 			);
 
@@ -335,7 +335,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
-				<ValidationRecords<T>>::get(&who, &data_id).is_none(),
+				!<ValidationRecords<T>>::contains_key(&who, &data_id),
 				Error::<T>::RecordAlreadyCreated
 			);
 
@@ -381,7 +381,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			<ValidationRecords<T>>::try_mutate(&who, &data_id, |record| -> DispatchResult {
-				let record = record.as_mut().ok_or(Error::<T>::RecordNotCreated)?;
+				let record = record.as_mut().ok_or(Error::<T>::NoValidationRecord)?;
 
 				record.entries.force_push(ValidationEntry {
 					checksum,
@@ -421,7 +421,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			<ValidationRecords<T>>::try_mutate(&who, &data_id, |record| -> DispatchResult {
-				let record = record.as_mut().ok_or(Error::<T>::RecordNotCreated)?;
+				let record = record.as_mut().ok_or(Error::<T>::NoValidationRecord)?;
 
 				if let Some(ref new_resolvers) = resolvers {
 					Self::validate_sylo_resolvers(new_resolvers)?;
@@ -466,7 +466,7 @@ pub mod pallet {
 
 			ensure!(
 				<ValidationRecords<T>>::contains_key(&who, &data_id),
-				Error::<T>::RecordNotCreated
+				Error::<T>::NoValidationRecord
 			);
 
 			<ValidationRecords<T>>::remove(&who, &data_id);

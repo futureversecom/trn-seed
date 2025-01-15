@@ -39,7 +39,7 @@ impl<T: frame_system::Config> pallet_sylo::WeightInfo for WeightInfo<T> {
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 8_000_000 picoseconds.
-		Weight::from_parts(9_000_000, 0)
+		Weight::from_parts(8_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -49,44 +49,44 @@ impl<T: frame_system::Config> pallet_sylo::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 9_000_000 picoseconds.
+		// Minimum execution time: 8_000_000 picoseconds.
 		Weight::from_parts(9_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `Sylo::Resolvers` (r:1 w:1)
 	/// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(5551), added: 8026, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[1, 250]`.
+	/// The range of component `p` is `[1, 500]`.
 	/// The range of component `q` is `[1, 10]`.
 	fn register_resolver(p: u32, q: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `175`
 		//  Estimated: `9016`
 		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(9_722_745, 0)
+		Weight::from_parts(5_948_200, 0)
 			.saturating_add(Weight::from_parts(0, 9016))
-			// Standard Error: 264
-			.saturating_add(Weight::from_parts(14_431, 0).saturating_mul(p.into()))
-			// Standard Error: 6_901
-			.saturating_add(Weight::from_parts(664_338, 0).saturating_mul(q.into()))
+			// Standard Error: 171
+			.saturating_add(Weight::from_parts(14_506, 0).saturating_mul(p.into()))
+			// Standard Error: 8_968
+			.saturating_add(Weight::from_parts(1_023_944, 0).saturating_mul(q.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `Sylo::Resolvers` (r:1 w:1)
 	/// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(5551), added: 8026, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[1, 250]`.
+	/// The range of component `p` is `[1, 500]`.
 	/// The range of component `q` is `[1, 10]`.
 	fn update_resolver(p: u32, q: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `289`
 		//  Estimated: `9016`
 		// Minimum execution time: 14_000_000 picoseconds.
-		Weight::from_parts(11_815_745, 0)
+		Weight::from_parts(9_125_015, 0)
 			.saturating_add(Weight::from_parts(0, 9016))
-			// Standard Error: 240
-			.saturating_add(Weight::from_parts(12_045, 0).saturating_mul(p.into()))
-			// Standard Error: 6_259
-			.saturating_add(Weight::from_parts(683_973, 0).saturating_mul(q.into()))
+			// Standard Error: 200
+			.saturating_add(Weight::from_parts(10_284, 0).saturating_mul(p.into()))
+			// Standard Error: 10_444
+			.saturating_add(Weight::from_parts(984_843, 0).saturating_mul(q.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -106,22 +106,25 @@ impl<T: frame_system::Config> pallet_sylo::WeightInfo for WeightInfo<T> {
 	/// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(19724), added: 22199, mode: `MaxEncodedLen`)
 	/// Storage: `Sylo::SyloResolverMethod` (r:1 w:0)
 	/// Proof: `Sylo::SyloResolverMethod` (`max_values`: Some(1), `max_size`: Some(502), added: 997, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[1, 250]`.
+	/// The range of component `d` is `[1, 500]`.
+	/// The range of component `p` is `[1, 500]`.
 	/// The range of component `q` is `[1, 10]`.
 	/// The range of component `r` is `[1, 10]`.
-	fn create_validation_record(p: u32, q: u32, r: u32, ) -> Weight {
+	fn create_validation_record(d: u32, p: u32, q: u32, r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `212 + q * (22 ±0)`
 		//  Estimated: `23189`
-		// Minimum execution time: 19_000_000 picoseconds.
-		Weight::from_parts(13_851_093, 0)
+		// Minimum execution time: 20_000_000 picoseconds.
+		Weight::from_parts(7_554_183, 0)
 			.saturating_add(Weight::from_parts(0, 23189))
-			// Standard Error: 770
-			.saturating_add(Weight::from_parts(13_945, 0).saturating_mul(p.into()))
-			// Standard Error: 20_056
-			.saturating_add(Weight::from_parts(814_227, 0).saturating_mul(q.into()))
-			// Standard Error: 20_056
-			.saturating_add(Weight::from_parts(366_838, 0).saturating_mul(r.into()))
+			// Standard Error: 334
+			.saturating_add(Weight::from_parts(1_794, 0).saturating_mul(d.into()))
+			// Standard Error: 334
+			.saturating_add(Weight::from_parts(14_214, 0).saturating_mul(p.into()))
+			// Standard Error: 17_393
+			.saturating_add(Weight::from_parts(1_198_599, 0).saturating_mul(q.into()))
+			// Standard Error: 17_393
+			.saturating_add(Weight::from_parts(660_965, 0).saturating_mul(r.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -131,8 +134,8 @@ impl<T: frame_system::Config> pallet_sylo::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `317`
 		//  Estimated: `23189`
-		// Minimum execution time: 18_000_000 picoseconds.
-		Weight::from_parts(19_000_000, 0)
+		// Minimum execution time: 17_000_000 picoseconds.
+		Weight::from_parts(18_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 23189))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -141,22 +144,20 @@ impl<T: frame_system::Config> pallet_sylo::WeightInfo for WeightInfo<T> {
 	/// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(19724), added: 22199, mode: `MaxEncodedLen`)
 	/// Storage: `Sylo::SyloResolverMethod` (r:1 w:0)
 	/// Proof: `Sylo::SyloResolverMethod` (`max_values`: Some(1), `max_size`: Some(502), added: 997, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[1, 250]`.
+	/// The range of component `p` is `[1, 500]`.
 	/// The range of component `q` is `[1, 10]`.
 	/// The range of component `r` is `[1, 10]`.
-	fn update_validation_record(p: u32, q: u32, r: u32, ) -> Weight {
+	fn update_validation_record(p: u32, q: u32, _r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `350 + q * (22 ±0)`
 		//  Estimated: `23189`
-		// Minimum execution time: 24_000_000 picoseconds.
-		Weight::from_parts(3_055_343, 0)
+		// Minimum execution time: 26_000_000 picoseconds.
+		Weight::from_parts(27_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 23189))
-			// Standard Error: 463
-			.saturating_add(Weight::from_parts(54_208, 0).saturating_mul(p.into()))
-			// Standard Error: 12_061
-			.saturating_add(Weight::from_parts(2_839_825, 0).saturating_mul(q.into()))
-			// Standard Error: 12_061
-			.saturating_add(Weight::from_parts(696_401, 0).saturating_mul(r.into()))
+			// Standard Error: 577
+			.saturating_add(Weight::from_parts(19_814, 0).saturating_mul(p.into()))
+			// Standard Error: 29_322
+			.saturating_add(Weight::from_parts(2_395_468, 0).saturating_mul(q.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -167,7 +168,7 @@ impl<T: frame_system::Config> pallet_sylo::WeightInfo for WeightInfo<T> {
 		//  Measured:  `276`
 		//  Estimated: `23189`
 		// Minimum execution time: 15_000_000 picoseconds.
-		Weight::from_parts(15_000_000, 0)
+		Weight::from_parts(16_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 23189))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))

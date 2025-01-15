@@ -52,7 +52,7 @@ pub trait WeightInfo {
 	fn register_resolver(p: u32, q: u32, ) -> Weight;
 	fn update_resolver(p: u32, q: u32, ) -> Weight;
 	fn deregister_resolver() -> Weight;
-	fn create_validation_record(p: u32, q: u32, r: u32, ) -> Weight;
+	fn create_validation_record(d: u32, p: u32, q: u32, r: u32, ) -> Weight;
 	fn add_validation_record_entry() -> Weight;
 	fn update_validation_record(p: u32, q: u32, r: u32, ) -> Weight;
 	fn delete_validation_record() -> Weight;
@@ -64,7 +64,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sylo::SyloAssetId` (r:0 w:1)
 	// Proof: `Sylo::SyloAssetId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn set_payment_asset() -> Weight {
-		Weight::from_all(9_000_000)
+		Weight::from_all(8_000_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `Sylo::SyloResolverMethod` (r:0 w:1)
@@ -75,34 +75,34 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	// Storage: `Sylo::Resolvers` (r:1 w:1)
 	// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(5551), added: 8026, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[1, 250]`.
+	/// The range of component `p` is `[1, 500]`.
 	/// The range of component `q` is `[1, 10]`.
 	fn register_resolver(p: u32, q: u32, ) -> Weight {
-		Weight::from_all(10_245_832)
-			// Standard Error: 280
-			.saturating_add(Weight::from_all(12_290_u64).saturating_mul(p as u64))
-			// Standard Error: 7_321
-			.saturating_add(Weight::from_all(682_226_u64).saturating_mul(q as u64))
+		Weight::from_all(7_257_524)
+			// Standard Error: 139
+			.saturating_add(Weight::from_all(12_514_u64).saturating_mul(p as u64))
+			// Standard Error: 7_259
+			.saturating_add(Weight::from_all(905_772_u64).saturating_mul(q as u64))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `Sylo::Resolvers` (r:1 w:1)
 	// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(5551), added: 8026, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[1, 250]`.
+	/// The range of component `p` is `[1, 500]`.
 	/// The range of component `q` is `[1, 10]`.
 	fn update_resolver(p: u32, q: u32, ) -> Weight {
-		Weight::from_all(11_883_855)
-			// Standard Error: 308
-			.saturating_add(Weight::from_all(12_707_u64).saturating_mul(p as u64))
-			// Standard Error: 8_037
-			.saturating_add(Weight::from_all(670_881_u64).saturating_mul(q as u64))
+		Weight::from_all(8_807_283)
+			// Standard Error: 164
+			.saturating_add(Weight::from_all(10_671_u64).saturating_mul(p as u64))
+			// Standard Error: 8_607
+			.saturating_add(Weight::from_all(964_685_u64).saturating_mul(q as u64))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `Sylo::Resolvers` (r:1 w:1)
 	// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(5551), added: 8026, mode: `MaxEncodedLen`)
 	fn deregister_resolver() -> Weight {
-		Weight::from_all(16_000_000)
+		Weight::from_all(15_000_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -110,17 +110,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(19724), added: 22199, mode: `MaxEncodedLen`)
 	// Storage: `Sylo::SyloResolverMethod` (r:1 w:0)
 	// Proof: `Sylo::SyloResolverMethod` (`max_values`: Some(1), `max_size`: Some(502), added: 997, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[1, 250]`.
+	/// The range of component `d` is `[1, 500]`.
+	/// The range of component `p` is `[1, 500]`.
 	/// The range of component `q` is `[1, 10]`.
 	/// The range of component `r` is `[1, 10]`.
-	fn create_validation_record(p: u32, q: u32, r: u32, ) -> Weight {
-		Weight::from_all(12_583_999)
-			// Standard Error: 325
-			.saturating_add(Weight::from_all(18_414_u64).saturating_mul(p as u64))
-			// Standard Error: 8_482
-			.saturating_add(Weight::from_all(839_885_u64).saturating_mul(q as u64))
-			// Standard Error: 8_482
-			.saturating_add(Weight::from_all(376_512_u64).saturating_mul(r as u64))
+	fn create_validation_record(_d: u32, p: u32, q: u32, r: u32, ) -> Weight {
+		Weight::from_all(13_001_343)
+			// Standard Error: 282
+			.saturating_add(Weight::from_all(13_634_u64).saturating_mul(p as u64))
+			// Standard Error: 14_694
+			.saturating_add(Weight::from_all(989_022_u64).saturating_mul(q as u64))
+			// Standard Error: 14_694
+			.saturating_add(Weight::from_all(384_931_u64).saturating_mul(r as u64))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -135,24 +136,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(19724), added: 22199, mode: `MaxEncodedLen`)
 	// Storage: `Sylo::SyloResolverMethod` (r:1 w:0)
 	// Proof: `Sylo::SyloResolverMethod` (`max_values`: Some(1), `max_size`: Some(502), added: 997, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[1, 250]`.
+	/// The range of component `p` is `[1, 500]`.
 	/// The range of component `q` is `[1, 10]`.
 	/// The range of component `r` is `[1, 10]`.
-	fn update_validation_record(p: u32, q: u32, r: u32, ) -> Weight {
-		Weight::from_all(2_813_514)
-			// Standard Error: 544
-			.saturating_add(Weight::from_all(57_067_u64).saturating_mul(p as u64))
-			// Standard Error: 14_176
-			.saturating_add(Weight::from_all(2_829_596_u64).saturating_mul(q as u64))
-			// Standard Error: 14_176
-			.saturating_add(Weight::from_all(670_440_u64).saturating_mul(r as u64))
+	fn update_validation_record(p: u32, q: u32, _r: u32, ) -> Weight {
+		Weight::from_all(27_000_000)
+			// Standard Error: 591
+			.saturating_add(Weight::from_all(22_014_u64).saturating_mul(p as u64))
+			// Standard Error: 30_025
+			.saturating_add(Weight::from_all(2_207_889_u64).saturating_mul(q as u64))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `Sylo::ValidationRecords` (r:1 w:1)
 	// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(19724), added: 22199, mode: `MaxEncodedLen`)
 	fn delete_validation_record() -> Weight {
-		Weight::from_all(16_000_000)
+		Weight::from_all(15_000_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -163,7 +162,7 @@ impl WeightInfo for () {
 	// Storage: `Sylo::SyloAssetId` (r:0 w:1)
 	// Proof: `Sylo::SyloAssetId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn set_payment_asset() -> Weight {
-		Weight::from_all(9_000_000)
+		Weight::from_all(8_000_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `Sylo::SyloResolverMethod` (r:0 w:1)
@@ -174,34 +173,34 @@ impl WeightInfo for () {
 	}
 	// Storage: `Sylo::Resolvers` (r:1 w:1)
 	// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(5551), added: 8026, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[1, 250]`.
+	/// The range of component `p` is `[1, 500]`.
 	/// The range of component `q` is `[1, 10]`.
 	fn register_resolver(p: u32, q: u32, ) -> Weight {
-		Weight::from_all(10_245_832)
-			// Standard Error: 280
-			.saturating_add(Weight::from_all(12_290_u64).saturating_mul(p as u64))
-			// Standard Error: 7_321
-			.saturating_add(Weight::from_all(682_226_u64).saturating_mul(q as u64))
+		Weight::from_all(7_257_524)
+			// Standard Error: 139
+			.saturating_add(Weight::from_all(12_514_u64).saturating_mul(p as u64))
+			// Standard Error: 7_259
+			.saturating_add(Weight::from_all(905_772_u64).saturating_mul(q as u64))
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `Sylo::Resolvers` (r:1 w:1)
 	// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(5551), added: 8026, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[1, 250]`.
+	/// The range of component `p` is `[1, 500]`.
 	/// The range of component `q` is `[1, 10]`.
 	fn update_resolver(p: u32, q: u32, ) -> Weight {
-		Weight::from_all(11_883_855)
-			// Standard Error: 308
-			.saturating_add(Weight::from_all(12_707_u64).saturating_mul(p as u64))
-			// Standard Error: 8_037
-			.saturating_add(Weight::from_all(670_881_u64).saturating_mul(q as u64))
+		Weight::from_all(8_807_283)
+			// Standard Error: 164
+			.saturating_add(Weight::from_all(10_671_u64).saturating_mul(p as u64))
+			// Standard Error: 8_607
+			.saturating_add(Weight::from_all(964_685_u64).saturating_mul(q as u64))
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `Sylo::Resolvers` (r:1 w:1)
 	// Proof: `Sylo::Resolvers` (`max_values`: None, `max_size`: Some(5551), added: 8026, mode: `MaxEncodedLen`)
 	fn deregister_resolver() -> Weight {
-		Weight::from_all(16_000_000)
+		Weight::from_all(15_000_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -209,17 +208,18 @@ impl WeightInfo for () {
 	// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(19724), added: 22199, mode: `MaxEncodedLen`)
 	// Storage: `Sylo::SyloResolverMethod` (r:1 w:0)
 	// Proof: `Sylo::SyloResolverMethod` (`max_values`: Some(1), `max_size`: Some(502), added: 997, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[1, 250]`.
+	/// The range of component `d` is `[1, 500]`.
+	/// The range of component `p` is `[1, 500]`.
 	/// The range of component `q` is `[1, 10]`.
 	/// The range of component `r` is `[1, 10]`.
-	fn create_validation_record(p: u32, q: u32, r: u32, ) -> Weight {
-		Weight::from_all(12_583_999)
-			// Standard Error: 325
-			.saturating_add(Weight::from_all(18_414_u64).saturating_mul(p as u64))
-			// Standard Error: 8_482
-			.saturating_add(Weight::from_all(839_885_u64).saturating_mul(q as u64))
-			// Standard Error: 8_482
-			.saturating_add(Weight::from_all(376_512_u64).saturating_mul(r as u64))
+	fn create_validation_record(_d: u32, p: u32, q: u32, r: u32, ) -> Weight {
+		Weight::from_all(13_001_343)
+			// Standard Error: 282
+			.saturating_add(Weight::from_all(13_634_u64).saturating_mul(p as u64))
+			// Standard Error: 14_694
+			.saturating_add(Weight::from_all(989_022_u64).saturating_mul(q as u64))
+			// Standard Error: 14_694
+			.saturating_add(Weight::from_all(384_931_u64).saturating_mul(r as u64))
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -234,24 +234,22 @@ impl WeightInfo for () {
 	// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(19724), added: 22199, mode: `MaxEncodedLen`)
 	// Storage: `Sylo::SyloResolverMethod` (r:1 w:0)
 	// Proof: `Sylo::SyloResolverMethod` (`max_values`: Some(1), `max_size`: Some(502), added: 997, mode: `MaxEncodedLen`)
-	/// The range of component `p` is `[1, 250]`.
+	/// The range of component `p` is `[1, 500]`.
 	/// The range of component `q` is `[1, 10]`.
 	/// The range of component `r` is `[1, 10]`.
-	fn update_validation_record(p: u32, q: u32, r: u32, ) -> Weight {
-		Weight::from_all(2_813_514)
-			// Standard Error: 544
-			.saturating_add(Weight::from_all(57_067_u64).saturating_mul(p as u64))
-			// Standard Error: 14_176
-			.saturating_add(Weight::from_all(2_829_596_u64).saturating_mul(q as u64))
-			// Standard Error: 14_176
-			.saturating_add(Weight::from_all(670_440_u64).saturating_mul(r as u64))
+	fn update_validation_record(p: u32, q: u32, _r: u32, ) -> Weight {
+		Weight::from_all(27_000_000)
+			// Standard Error: 591
+			.saturating_add(Weight::from_all(22_014_u64).saturating_mul(p as u64))
+			// Standard Error: 30_025
+			.saturating_add(Weight::from_all(2_207_889_u64).saturating_mul(q as u64))
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `Sylo::ValidationRecords` (r:1 w:1)
 	// Proof: `Sylo::ValidationRecords` (`max_values`: None, `max_size`: Some(19724), added: 22199, mode: `MaxEncodedLen`)
 	fn delete_validation_record() -> Weight {
-		Weight::from_all(16_000_000)
+		Weight::from_all(15_000_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
