@@ -225,7 +225,7 @@ pub mod pallet {
 		/// The caller will be set as the controller of the resolver.
 		#[pallet::call_index(2)]
 		#[pallet::weight({
-			T::WeightInfo::register_resolver(<T::StringLimit>::get(), <T::MaxServiceEndpoints>::get())
+			T::WeightInfo::register_resolver(service_endpoints.len() as u32)
 		})]
 		pub fn register_resolver(
 			origin: OriginFor<T>,
@@ -258,7 +258,7 @@ pub mod pallet {
 		/// Caller must be the controller of the resolver.
 		#[pallet::call_index(3)]
 		#[pallet::weight({
-			T::WeightInfo::update_resolver(<T::StringLimit>::get(), <T::MaxServiceEndpoints>::get())
+			T::WeightInfo::update_resolver(service_endpoints.len() as u32)
 		})]
 		pub fn update_resolver(
 			origin: OriginFor<T>,
@@ -322,7 +322,7 @@ pub mod pallet {
 		/// block value.
 		#[pallet::call_index(5)]
 		#[pallet::weight({
-			T::WeightInfo::create_validation_record(<T::StringLimit>::get(), <T::MaxResolvers>::get(), <T::MaxTags>::get())
+			T::WeightInfo::create_validation_record(resolvers.len() as u32, tags.len() as u32)
 		})]
 		pub fn create_validation_record(
 			origin: OriginFor<T>,
@@ -409,7 +409,10 @@ pub mod pallet {
 		/// Caller must be the author of the record.
 		#[pallet::call_index(7)]
 		#[pallet::weight({
-			T::WeightInfo::update_validation_record(<T::StringLimit>::get(), <T::MaxResolvers>::get(), <T::MaxTags>::get())
+			T::WeightInfo::update_validation_record(
+				resolvers.as_ref().map_or(0, |v| v.len() as u32),
+				tags.as_ref().map_or(0, |v| v.len() as u32)
+			)
 		})]
 		pub fn update_validation_record(
 			origin: OriginFor<T>,

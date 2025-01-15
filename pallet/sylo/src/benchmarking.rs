@@ -41,9 +41,9 @@ pub fn bounded_string<T: Config>(name: &str) -> BoundedVec<u8, <T as Config>::St
 	BoundedVec::truncate_from(name.as_bytes().to_vec())
 }
 
-pub fn max_bounded_string<T: Config>(bound: u32) -> BoundedVec<u8, <T as Config>::StringLimit> {
+pub fn max_bounded_string<T: Config>() -> BoundedVec<u8, <T as Config>::StringLimit> {
 	let mut max_string = BoundedVec::new();
-	for _ in 1..bound {
+	for _ in 1..T::StringLimit::get() {
 		max_string.force_push(b'a');
 	}
 	max_string
@@ -103,16 +103,15 @@ benchmarks! {
 	}
 
 	register_resolver {
-		let p in 1 .. <T as Config>::StringLimit::get();
-		let q in 1 .. <T as Config>::MaxResolvers::get();
+		let p in 1 .. T::MaxResolvers::get();
 
 		let alice = account::<T>("Alice");
 
-		let identifier = max_bounded_string::<T>(p);
+		let identifier = max_bounded_string::<T>();
 
 		let mut service_endpoints = BoundedVec::new();
-		for _ in 1..q {
-			service_endpoints.force_push(max_bounded_string::<T>(p));
+		for _ in 1..p {
+			service_endpoints.force_push(max_bounded_string::<T>());
 		}
 	}: _(origin::<T>(&alice), identifier.clone(), service_endpoints.clone())
 	verify {
@@ -122,16 +121,15 @@ benchmarks! {
 	}
 
 	update_resolver {
-		let p in 1 .. <T as Config>::StringLimit::get();
-		let q in 1 .. <T as Config>::MaxServiceEndpoints::get();
+		let p in 1 .. T::MaxServiceEndpoints::get();
 
 		let alice = account::<T>("Alice");
 
 		let identifier = setup_resolver::<T>(alice.clone(), bounded_string::<T>("sylo-data-resolver"));
 
 		let mut service_endpoints = BoundedVec::new();
-		for _ in 1..q {
-			service_endpoints.force_push(max_bounded_string::<T>(p));
+		for _ in 1..p {
+			service_endpoints.force_push(max_bounded_string::<T>());
 		}
 	}: _(origin::<T>(&alice), identifier.clone(), service_endpoints.clone())
 	verify {
@@ -150,9 +148,8 @@ benchmarks! {
 	}
 
 	create_validation_record {
-		let p in 1 .. STRING_LIMIT;
-		let q in 1 .. MAX_RESOLVERS;
-		let r in 1 .. MAX_TAGS;
+		let q in 1 .. T::MaxResolvers::get();
+		let r in 1 .. T::MaxTags::get();
 
 		let alice = account::<T>("Alice");
 
@@ -165,22 +162,22 @@ benchmarks! {
 			let mut resolver_id = String::from("sylo-resolver");
 			resolver_id.push_str(i.to_string().as_str());
 			let mut resolver_id = bounded_string::<T>(resolver_id.as_str());
-			for _ in 1..p {
+			for _ in 1..T::StringLimit::get() {
 				resolver_id.force_push(b'a');
 			}
 
 			let resolver_id = setup_resolver::<T>(alice.clone(), resolver_id);
 			resolvers.force_push(ResolverId {
-				method: max_bounded_string::<T>(p),
+				method: max_bounded_string::<T>(),
 				identifier: resolver_id,
 			});
 		}
 
-		let data_type = max_bounded_string::<T>(p);
+		let data_type = max_bounded_string::<T>();
 
 		let mut tags = BoundedVec::new();
 		for _ in 1 .. r {
-			tags.force_push(max_bounded_string::<T>(p));
+			tags.force_push(max_bounded_string::<T>());
 		}
 
 		let checksum = H256::from_low_u64_be(123);
@@ -224,9 +221,8 @@ benchmarks! {
 	}
 
 	update_validation_record {
-		let p in 1 .. <T as Config>::StringLimit::get();
-		let q in 1 .. <T as Config>::MaxResolvers::get();
-		let r in 1 .. <T as Config>::MaxTags::get();
+		let q in 1 .. T::MaxResolvers::get();
+		let r in 1 .. T::MaxTags::get();
 
 		let alice = account::<T>("Alice");
 
@@ -239,22 +235,22 @@ benchmarks! {
 			let mut resolver_id = String::from("sylo-resolver");
 			resolver_id.push_str(i.to_string().as_str());
 			let mut resolver_id = bounded_string::<T>(resolver_id.as_str());
-			for _ in 1..p {
+			for _ in 1..T::StringLimit::get() {
 				resolver_id.force_push(b'a');
 			}
 
 			let resolver_id = setup_resolver::<T>(alice.clone(), resolver_id);
 			resolvers.force_push(ResolverId {
-				method: max_bounded_string::<T>(p),
+				method: max_bounded_string::<T>(),
 				identifier: resolver_id,
 			});
 		}
 
-		let data_type = max_bounded_string::<T>(p);
+		let data_type = max_bounded_string::<T>();
 
 		let mut tags = BoundedVec::new();
 		for _ in 1 .. r {
-			tags.force_push(max_bounded_string::<T>(p));
+			tags.force_push(max_bounded_string::<T>());
 		}
 
 		let block: BlockNumberFor<T> = 1_u32.into();

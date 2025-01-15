@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{Call::call_with_fee_preferences, *};
+use frame_support::log;
 use frame_support::traits::{fungibles::Inspect, IsSubType};
 use pallet_futurepass::ProxyProvider;
 use pallet_transaction_payment::OnChargeTransaction;
