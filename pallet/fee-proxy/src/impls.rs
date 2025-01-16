@@ -286,26 +286,22 @@ where
 	}
 
 	// check if the inner call of a proxy pallet call is a sylo call
-	let is_proxy = match call.is_sub_type() {
+	match call.is_sub_type() {
 		Some(pallet_proxy::Call::proxy { call, .. }) => {
-			is_sylo_and_valid_call::<T>(call.as_ref().into_ref())
+			return is_sylo_and_valid_call::<T>(call.as_ref().into_ref())
 		},
 		Some(pallet_proxy::Call::proxy_announced { call, .. }) => {
-			is_sylo_and_valid_call::<T>(call.as_ref().into_ref())
+			return is_sylo_and_valid_call::<T>(call.as_ref().into_ref())
 		},
-		_ => Ok(false),
+		_ => Ok::<bool, TransactionValidityError>(false),
 	}?;
-
-	if is_proxy {
-		return Ok(true);
-	}
 
 	// check if the inner call of a xrpl call is a sylo call
 	if let Some(pallet_xrpl::Call::transact { call, .. }) = call.is_sub_type() {
 		return is_sylo_and_valid_call::<T>(call.as_ref().into_ref());
 	}
 
-	let is_utility = match call.is_sub_type() {
+	match call.is_sub_type() {
 		// for batch calls, if there is any call which is a sylo call, then
 		// all calls must be a sylo call
 		Some(pallet_utility::Call::batch { calls, .. })
@@ -326,17 +322,13 @@ where
 				}
 			}
 
-			Ok(false)
+			Ok::<bool, TransactionValidityError>(false)
 		},
 		Some(pallet_utility::Call::as_derivative { call, .. }) => {
-			is_sylo_and_valid_call::<T>(call.as_ref().into_ref())
+			return is_sylo_and_valid_call::<T>(call.as_ref().into_ref())
 		},
 		_ => Ok(false),
 	}?;
-
-	if is_utility {
-		return Ok(true);
-	}
 
 	// prevent using the fee proxy if the inner call is a sylo call
 	if let Some(call_with_fee_preferences { call, .. }) = call.is_sub_type() {

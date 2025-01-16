@@ -17,6 +17,7 @@ import {
   GAS_TOKEN_ID,
   NodeProcess,
   finalizeTx,
+  getNextAssetId,
   getPrefixLength,
   startNode,
   stringToHex,
@@ -38,8 +39,7 @@ describe("Sylo", () => {
   let user: KeyringPair;
   let provider: JsonRpcProvider;
   let genesisHash: string;
-
-  const FEE_TOKEN_ASSET_ID = 1124;
+  let feeTokenAssetId: number;
 
   before(async () => {
     node = await startNode();
@@ -55,14 +55,16 @@ describe("Sylo", () => {
     userPrivateKey = Wallet.createRandom().privateKey;
     user = keyring.addFromSeed(hexToU8a(userPrivateKey));
 
+    feeTokenAssetId = await getNextAssetId(api);
+
     // add liquidity for XRP/SYLO token and set up user funds
     const txs = [
       api.tx.assetsExt.createAsset("sylo", "SYLO", 18, 1, alith.address),
-      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, alith.address, 2_000_000_000_000_000),
-      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, user.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(feeTokenAssetId, alith.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(feeTokenAssetId, user.address, 2_000_000_000_000_000),
       api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 1), // avoids xrp balance increase due to preservation rules
       api.tx.dex.addLiquidity(
-        FEE_TOKEN_ASSET_ID,
+        feeTokenAssetId,
         GAS_TOKEN_ID,
         100_000_000_000,
         100_000_000_000,
@@ -75,7 +77,7 @@ describe("Sylo", () => {
     await finalizeTx(alith, api.tx.utility.batch(txs));
 
     // set payment asset
-    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.syloDataVerification.setPaymentAsset(FEE_TOKEN_ASSET_ID)));
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.syloDataVerification.setPaymentAsset(feeTokenAssetId)));
 
     console.log("liquidity setup complete...");
   });
@@ -117,7 +119,7 @@ describe("Sylo", () => {
       const userXRPBalanceBefore =
         ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
       const userSyloBalanceBefore =
-        ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+        ((await api.query.assets.account(feeTokenAssetId, user.address)).toJSON() as any)?.balance ?? 0;
 
       await finalizeTx(user, call);
 
@@ -125,7 +127,7 @@ describe("Sylo", () => {
       const userXRPBalanceAfter =
         ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
       const userSyloBalanceAfter =
-        ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+        ((await api.query.assets.account(feeTokenAssetId, user.address)).toJSON() as any)?.balance ?? 0;
 
       expect(userXRPBalanceAfter).to.be.eq(userXRPBalanceBefore);
       expect(userSyloBalanceAfter).to.be.lessThan(userSyloBalanceBefore);
@@ -142,7 +144,7 @@ describe("Sylo", () => {
 
     // fund the futurepass account
     const futurepassAddress = (await api.query.futurepass.holders(user.address)).toString();
-    await finalizeTx(alith, api.tx.assets.transfer(FEE_TOKEN_ASSET_ID, futurepassAddress, 100_000_000)); // gas
+    await finalizeTx(alith, api.tx.assets.transfer(feeTokenAssetId, futurepassAddress, 100_000_000)); // gas
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, futurepassAddress, 1)); // preservation rules
 
     const calls = createSyloExtrinsics(api);
@@ -153,12 +155,12 @@ describe("Sylo", () => {
       const userXRPBalanceBefore =
         ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
       const userSyloBalanceBefore =
-        ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+        ((await api.query.assets.account(feeTokenAssetId, user.address)).toJSON() as any)?.balance ?? 0;
 
       const fpXRPBalanceBefore =
         ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
       const fpSyloBalanceBefore =
-        ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+        ((await api.query.assets.account(feeTokenAssetId, futurepassAddress)).toJSON() as any)?.balance ?? 0;
 
       const futurepassCall = api.tx.futurepass.proxyExtrinsic(futurepassAddress, call);
 
@@ -167,12 +169,12 @@ describe("Sylo", () => {
       const userXRPBalanceAfter =
         ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
       const userSyloBalanceAfter =
-        ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+        ((await api.query.assets.account(feeTokenAssetId, user.address)).toJSON() as any)?.balance ?? 0;
 
       const fpXRPBalanceAfter =
         ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
       const fpSyloBalanceAfter =
-        ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+        ((await api.query.assets.account(feeTokenAssetId, futurepassAddress)).toJSON() as any)?.balance ?? 0;
 
       // validate the futurepass's token balance has decreased, and the user's asset
       // balance remains the same
@@ -202,7 +204,7 @@ describe("Sylo", () => {
 
     // fund delegate for extrinsics
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, delegate.address, 1));
-    await finalizeTx(alith, api.tx.assets.transfer(FEE_TOKEN_ASSET_ID, delegate.address, 10_000_000_000));
+    await finalizeTx(alith, api.tx.assets.transfer(feeTokenAssetId, delegate.address, 10_000_000_000));
 
     const deadline = (await provider.getBlockNumber()) + 20;
     const message = ethersUtils
@@ -228,7 +230,7 @@ describe("Sylo", () => {
     const delegateXRPBalanceBefore =
       ((await api.query.assets.account(GAS_TOKEN_ID, delegate.address)).toJSON() as any)?.balance ?? 0;
     const delegateSyloBalanceBefore =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, delegate.address)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, delegate.address)).toJSON() as any)?.balance ?? 0;
 
     await finalizeTx(
       delegate,
@@ -239,7 +241,7 @@ describe("Sylo", () => {
     const delegateXRPBalanceAfter =
       ((await api.query.assets.account(GAS_TOKEN_ID, delegate.address)).toJSON() as any)?.balance ?? 0;
     const delegateSyloBalanceAfter =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, delegate.address)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, delegate.address)).toJSON() as any)?.balance ?? 0;
 
     expect(delegateXRPBalanceAfter).to.be.eq(delegateXRPBalanceBefore);
     expect(delegateSyloBalanceAfter).to.be.lessThan(delegateSyloBalanceBefore);
@@ -251,7 +253,7 @@ describe("Sylo", () => {
 
     // fund the user account to pay for tx fees
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 1));
-    await finalizeTx(alith, api.tx.assets.transfer(FEE_TOKEN_ASSET_ID, user.address, 10_000_000_000));
+    await finalizeTx(alith, api.tx.assets.transfer(feeTokenAssetId, user.address, 10_000_000_000));
 
     const call = createSyloExtrinsics(api)[0];
 
@@ -281,7 +283,7 @@ describe("Sylo", () => {
     const userXRPBalanceBefore =
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     const userSyloBalanceBefore =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, user.address)).toJSON() as any)?.balance ?? 0;
 
     // execute xaman tx extrinsic
     await new Promise<any[]>(async (resolve) => {
@@ -293,7 +295,7 @@ describe("Sylo", () => {
     const userXRPBalanceAfter =
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     const userSyloBalanceAfter =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, user.address)).toJSON() as any)?.balance ?? 0;
 
     expect(userXRPBalanceAfter).to.be.eq(userXRPBalanceBefore);
     expect(userSyloBalanceAfter).to.be.lessThan(userSyloBalanceBefore);
@@ -305,14 +307,14 @@ describe("Sylo", () => {
     const userXRPBalanceBefore =
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     const userSyloBalanceBefore =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, user.address)).toJSON() as any)?.balance ?? 0;
 
     await finalizeTx(user, api.tx.utility.batch(calls));
 
     const userXRPBalanceAfter =
       ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
     const userSyloBalanceAfter =
-      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+      ((await api.query.assets.account(feeTokenAssetId, user.address)).toJSON() as any)?.balance ?? 0;
 
     expect(userXRPBalanceAfter).to.be.eq(userXRPBalanceBefore);
     expect(userSyloBalanceAfter).to.be.lessThan(userSyloBalanceBefore);
@@ -455,6 +457,6 @@ describe("Sylo", () => {
         });
     });
 
-    console.log("doughtnut err:", doughnutErr);
+    console.error("doughtnut err:", doughnutErr);
   });
 });
