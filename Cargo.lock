@@ -9035,7 +9035,6 @@ dependencies = [
 name = "seed-pallet-common"
 version = "1.0.0"
 dependencies = [
- "fp-self-contained",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

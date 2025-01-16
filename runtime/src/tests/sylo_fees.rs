@@ -17,37 +17,23 @@
 //! charged with the set Sylo payment token.
 #![cfg(test)]
 
-use super::{TxBuilder, BASE_TX_GAS_COST, MAX_PRIORITY_FEE_PER_GAS, MINIMUM_XRP_TX_COST};
 use crate::{
-	constants::ONE_XRP,
-	impls::scale_wei_to_6dp,
-	tests::{alice, bob, charlie, ExtBuilder},
-	Assets, AssetsExt, Dex, Ethereum, FeeControl, FeeProxy, Futurepass, Runtime, RuntimeOrigin,
-	Sylo, System, TxFeePot, XrpCurrency, EVM,
+	tests::{alice, bob, ExtBuilder},
+	Assets, AssetsExt, Dex, Futurepass, Runtime, RuntimeOrigin, Sylo, XrpCurrency,
 };
-use ethabi::Token;
-
 use frame_support::{
-	assert_err, assert_noop, assert_ok,
+	assert_err, assert_ok,
 	dispatch::{GetDispatchInfo, RawOrigin},
 	pallet_prelude::{InvalidTransaction, TransactionValidityError},
-	traits::{
-		fungible::Inspect,
-		fungibles::Inspect as Inspects,
-		tokens::{Fortitude, Preservation},
-	},
+	traits::{fungible::Inspect, fungibles::Inspect as Inspects},
 };
-use frame_system::RawOrigin::Root;
-use hex_literal::hex;
 use seed_pallet_common::test_prelude::create_account;
 
-use crate::{constants::XRP_ASSET_ID, impls::scale_6dp_to_wei};
+use crate::constants::XRP_ASSET_ID;
 use pallet_transaction_payment::ChargeTransactionPayment;
-use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, ErcIdConversion};
-use seed_client::chain_spec::get_account_id_from_seed;
-use seed_primitives::{AccountId, AssetId, Balance};
-use sp_core::{ecdsa, H160, H256, U256};
-use sp_runtime::{traits::SignedExtension, BoundedVec, DispatchError::BadOrigin};
+use seed_primitives::{AccountId, Balance};
+use sp_core::H256;
+use sp_runtime::{traits::SignedExtension, BoundedVec};
 
 #[test]
 fn sylo_extrinsic_works_with_sylo_token() {
@@ -55,8 +41,6 @@ fn sylo_extrinsic_works_with_sylo_token() {
 		let new_account = create_account(2);
 
 		let payment_asset = setup_sylo_liquidity(new_account.clone());
-
-		let caller_token_balance_before = AssetsExt::balance(payment_asset, &new_account);
 
 		let calls = create_sylo_calls();
 
@@ -177,8 +161,6 @@ fn sylo_extrinsic_fails_using_call_with_fee_preferences() {
 		let new_account = create_account(2);
 
 		let payment_asset = setup_sylo_liquidity(new_account.clone());
-
-		let caller_token_balance_before = AssetsExt::balance(payment_asset, &new_account);
 
 		let calls = create_sylo_calls();
 
