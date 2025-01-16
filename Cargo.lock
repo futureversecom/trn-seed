@@ -5827,7 +5827,7 @@ dependencies = [
  "pallet-fee-proxy",
  "pallet-futurepass",
  "pallet-proxy",
- "pallet-sylo",
+ "pallet-sylo-data-verification",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-utility",
@@ -5859,7 +5859,7 @@ dependencies = [
  "pallet-fee-control",
  "pallet-futurepass",
  "pallet-proxy",
- "pallet-sylo",
+ "pallet-sylo-data-verification",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-utility",
@@ -6353,7 +6353,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-sylo"
+name = "pallet-sylo-data-verification"
 version = "0.0.1"
 dependencies = [
  "frame-benchmarking",
@@ -9157,7 +9157,7 @@ dependencies = [
  "pallet-sft-rpc-runtime-api",
  "pallet-staking",
  "pallet-sudo",
- "pallet-sylo",
+ "pallet-sylo-data-verification",
  "pallet-timestamp",
  "pallet-token-approvals",
  "pallet-transaction-payment",

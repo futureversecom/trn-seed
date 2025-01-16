@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use crate::{self as pallet_sylo};
+use crate::{self as pallet_sylo_data_verification};
 use seed_pallet_common::test_prelude::*;
 
 construct_runtime!(
@@ -23,7 +23,7 @@ construct_runtime!(
 		Balances: pallet_balances,
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
-		Sylo: pallet_sylo,
+		SyloDataVerification: pallet_sylo_data_verification,
 	}
 );
 

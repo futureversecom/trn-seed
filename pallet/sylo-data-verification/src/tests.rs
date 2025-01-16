@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use mock::{RuntimeEvent as MockEvent, Sylo, System, Test};
+use mock::{RuntimeEvent as MockEvent, SyloDataVerification, System, Test};
 use seed_pallet_common::test_prelude::*;
 
 fn create_and_register_resolver(
@@ -34,7 +34,7 @@ fn create_and_register_resolver(
 		BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::try_from(service_endpoints)
 			.unwrap();
 
-	assert_ok!(Sylo::register_resolver(
+	assert_ok!(SyloDataVerification::register_resolver(
 		RawOrigin::Signed(controller.clone()).into(),
 		identifier.clone(),
 		service_endpoints.clone(),
@@ -106,13 +106,13 @@ mod set_payment_asset {
 	#[test]
 	fn set_payment_asset_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(Sylo::set_payment_asset(RawOrigin::Root.into(), 50));
+			assert_ok!(SyloDataVerification::set_payment_asset(RawOrigin::Root.into(), 50));
 			assert_eq!(SyloAssetId::<Test>::get(), Some(50));
 
 			// Check event
-			System::assert_last_event(MockEvent::Sylo(crate::Event::PaymentAssetSet {
-				asset_id: 50,
-			}));
+			System::assert_last_event(MockEvent::SyloDataVerification(
+				crate::Event::PaymentAssetSet { asset_id: 50 },
+			));
 		});
 	}
 
@@ -122,7 +122,7 @@ mod set_payment_asset {
 			let new_account: AccountId = create_account(1);
 
 			assert_noop!(
-				Sylo::set_payment_asset(RawOrigin::Signed(new_account).into(), 50),
+				SyloDataVerification::set_payment_asset(RawOrigin::Signed(new_account).into(), 50),
 				BadOrigin
 			);
 		});
@@ -137,13 +137,16 @@ mod set_sylo_resolver_method {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let method = bounded_string("sylo");
 
-			assert_ok!(Sylo::set_sylo_resolver_method(RawOrigin::Root.into(), method.clone()));
+			assert_ok!(SyloDataVerification::set_sylo_resolver_method(
+				RawOrigin::Root.into(),
+				method.clone()
+			));
 			assert_eq!(SyloResolverMethod::<Test>::get(), method.clone());
 
 			// Check event
-			System::assert_last_event(MockEvent::Sylo(crate::Event::SyloResolverMethodSet {
-				method: method.to_vec(),
-			}));
+			System::assert_last_event(MockEvent::SyloDataVerification(
+				crate::Event::SyloResolverMethodSet { method: method.to_vec() },
+			));
 		});
 	}
 
@@ -153,7 +156,7 @@ mod set_sylo_resolver_method {
 			let new_account: AccountId = create_account(1);
 
 			assert_noop!(
-				Sylo::set_sylo_resolver_method(
+				SyloDataVerification::set_sylo_resolver_method(
 					RawOrigin::Signed(new_account).into(),
 					bounded_string("sylo")
 				),
@@ -177,11 +180,13 @@ mod resolver_registration {
 				],
 			);
 
-			System::assert_last_event(MockEvent::Sylo(Event::<Test>::ResolverRegistered {
-				id: identifier.to_vec(),
-				controller: controller.clone(),
-				service_endpoints: service_endpoints.clone(),
-			}));
+			System::assert_last_event(MockEvent::SyloDataVerification(
+				Event::<Test>::ResolverRegistered {
+					id: identifier.to_vec(),
+					controller: controller.clone(),
+					service_endpoints: service_endpoints.clone(),
+				},
+			));
 
 			assert_eq!(
 				Resolvers::<Test>::get(identifier).unwrap(),
@@ -202,7 +207,7 @@ mod resolver_registration {
 			);
 
 			assert_noop!(
-				Sylo::register_resolver(
+				SyloDataVerification::register_resolver(
 					RawOrigin::Signed(controller).into(),
 					identifier,
 					service_endpoints,
@@ -229,17 +234,19 @@ mod resolver_update {
 
 			service_endpoints.force_push(bounded_string("https://endpoint.three"));
 
-			assert_ok!(Sylo::update_resolver(
+			assert_ok!(SyloDataVerification::update_resolver(
 				RawOrigin::Signed(controller.clone()).into(),
 				identifier.clone(),
 				service_endpoints.clone(),
 			));
 
-			System::assert_last_event(MockEvent::Sylo(Event::<Test>::ResolverUpdated {
-				id: identifier.to_vec(),
-				controller: controller.clone(),
-				service_endpoints: service_endpoints.clone(),
-			}));
+			System::assert_last_event(MockEvent::SyloDataVerification(
+				Event::<Test>::ResolverUpdated {
+					id: identifier.to_vec(),
+					controller: controller.clone(),
+					service_endpoints: service_endpoints.clone(),
+				},
+			));
 
 			assert_eq!(
 				Resolvers::<Test>::get(identifier).unwrap(),
@@ -259,7 +266,7 @@ mod resolver_update {
 				BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::try_from(vec![]).unwrap();
 
 			assert_noop!(
-				Sylo::update_resolver(
+				SyloDataVerification::update_resolver(
 					RawOrigin::Signed(controller).into(),
 					identifier,
 					service_endpoints,
@@ -283,7 +290,7 @@ mod resolver_update {
 			let not_controller: AccountId = create_account(2);
 
 			assert_noop!(
-				Sylo::update_resolver(
+				SyloDataVerification::update_resolver(
 					RawOrigin::Signed(not_controller).into(),
 					identifier,
 					service_endpoints,
@@ -308,14 +315,14 @@ mod resolver_unregistration {
 				],
 			);
 
-			assert_ok!(Sylo::deregister_resolver(
+			assert_ok!(SyloDataVerification::deregister_resolver(
 				RawOrigin::Signed(controller.clone()).into(),
 				identifier.clone(),
 			));
 
-			System::assert_last_event(MockEvent::Sylo(Event::<Test>::ResolverDeregistered {
-				id: identifier.to_vec(),
-			}));
+			System::assert_last_event(MockEvent::SyloDataVerification(
+				Event::<Test>::ResolverDeregistered { id: identifier.to_vec() },
+			));
 
 			assert!(Resolvers::<Test>::get(identifier).is_none());
 		});
@@ -329,7 +336,10 @@ mod resolver_unregistration {
 			let identifier = bounded_string("test-resolver");
 
 			assert_noop!(
-				Sylo::deregister_resolver(RawOrigin::Signed(controller).into(), identifier,),
+				SyloDataVerification::deregister_resolver(
+					RawOrigin::Signed(controller).into(),
+					identifier,
+				),
 				Error::<Test>::ResolverNotRegistered,
 			);
 		});
@@ -349,7 +359,10 @@ mod resolver_unregistration {
 			let not_controller: AccountId = create_account(2);
 
 			assert_noop!(
-				Sylo::deregister_resolver(RawOrigin::Signed(not_controller).into(), identifier,),
+				SyloDataVerification::deregister_resolver(
+					RawOrigin::Signed(not_controller).into(),
+					identifier,
+				),
 				Error::<Test>::NotController,
 			);
 		});
@@ -377,7 +390,7 @@ mod create_validation_record {
 					vec!["tag-1", "tag-2"],
 				);
 
-			assert_ok!(Sylo::create_validation_record(
+			assert_ok!(SyloDataVerification::create_validation_record(
 				RawOrigin::Signed(alice.clone()).into(),
 				data_id.clone(),
 				resolvers.clone(),
@@ -386,10 +399,12 @@ mod create_validation_record {
 				checksum.clone()
 			));
 
-			System::assert_last_event(MockEvent::Sylo(Event::<Test>::ValidationRecordCreated {
-				author: alice.clone(),
-				id: data_id.clone().to_vec(),
-			}));
+			System::assert_last_event(MockEvent::SyloDataVerification(
+				Event::<Test>::ValidationRecordCreated {
+					author: alice.clone(),
+					id: data_id.clone().to_vec(),
+				},
+			));
 
 			assert_eq!(
 				ValidationRecords::<Test>::get(alice.clone(), data_id.clone()).unwrap(),
@@ -412,7 +427,7 @@ mod create_validation_record {
 					vec!["tag-1", "tag-2"],
 				);
 
-			assert_ok!(Sylo::create_validation_record(
+			assert_ok!(SyloDataVerification::create_validation_record(
 				RawOrigin::Signed(alice.clone()).into(),
 				data_id.clone(),
 				resolvers.clone(),
@@ -422,7 +437,7 @@ mod create_validation_record {
 			));
 
 			assert_noop!(
-				Sylo::create_validation_record(
+				SyloDataVerification::create_validation_record(
 					RawOrigin::Signed(alice.clone()).into(),
 					data_id.clone(),
 					resolvers.clone(),
@@ -458,7 +473,7 @@ mod create_validation_record {
 					vec!["tag-1", "tag-2"],
 				);
 
-			assert_ok!(Sylo::create_validation_record(
+			assert_ok!(SyloDataVerification::create_validation_record(
 				RawOrigin::Signed(alice.clone()).into(),
 				data_id.clone(),
 				resolvers.clone(),
@@ -467,10 +482,12 @@ mod create_validation_record {
 				checksum.clone()
 			));
 
-			System::assert_last_event(MockEvent::Sylo(Event::<Test>::ValidationRecordCreated {
-				author: alice.clone(),
-				id: data_id.clone().to_vec(),
-			}));
+			System::assert_last_event(MockEvent::SyloDataVerification(
+				Event::<Test>::ValidationRecordCreated {
+					author: alice.clone(),
+					id: data_id.clone().to_vec(),
+				},
+			));
 
 			assert_eq!(
 				ValidationRecords::<Test>::get(alice.clone(), data_id.clone()).unwrap(),
@@ -498,7 +515,7 @@ mod create_validation_record {
 				);
 
 			assert_noop!(
-				Sylo::create_validation_record(
+				SyloDataVerification::create_validation_record(
 					RawOrigin::Signed(alice.clone()).into(),
 					data_id.clone(),
 					resolvers.clone(),
@@ -526,7 +543,7 @@ mod create_validation_record {
 						vec!["tag-1", "tag-2"],
 					);
 
-				assert_ok!(Sylo::create_validation_record(
+				assert_ok!(SyloDataVerification::create_validation_record(
 					RawOrigin::Signed(alice.clone()).into(),
 					data_id.clone(),
 					resolvers.clone(),
@@ -535,7 +552,7 @@ mod create_validation_record {
 					checksum.clone()
 				));
 
-				System::assert_last_event(MockEvent::Sylo(
+				System::assert_last_event(MockEvent::SyloDataVerification(
 					Event::<Test>::ValidationRecordCreated {
 						author: alice.clone(),
 						id: data_id.clone().to_vec(),
@@ -566,7 +583,7 @@ mod create_validation_record {
 						vec!["tag-1", "tag-2"],
 					);
 
-				assert_ok!(Sylo::create_validation_record(
+				assert_ok!(SyloDataVerification::create_validation_record(
 					RawOrigin::Signed(author.clone()).into(),
 					data_id.clone(),
 					resolvers.clone(),
@@ -575,7 +592,7 @@ mod create_validation_record {
 					checksum.clone()
 				));
 
-				System::assert_last_event(MockEvent::Sylo(
+				System::assert_last_event(MockEvent::SyloDataVerification(
 					Event::<Test>::ValidationRecordCreated {
 						author: author.clone(),
 						id: data_id.clone().to_vec(),
@@ -608,7 +625,7 @@ mod add_validation_record_entry {
 					vec!["tag-1", "tag-2"],
 				);
 
-			assert_ok!(Sylo::create_validation_record(
+			assert_ok!(SyloDataVerification::create_validation_record(
 				RawOrigin::Signed(alice.clone()).into(),
 				data_id.clone(),
 				resolvers.clone(),
@@ -620,17 +637,19 @@ mod add_validation_record_entry {
 			for i in 2..5 {
 				let checksum = H256::from_low_u64_be(i);
 
-				assert_ok!(Sylo::add_validation_record_entry(
+				assert_ok!(SyloDataVerification::add_validation_record_entry(
 					RawOrigin::Signed(alice.clone()).into(),
 					data_id.clone(),
 					checksum.clone()
 				));
 
-				System::assert_last_event(MockEvent::Sylo(Event::<Test>::ValidationEntryAdded {
-					author: alice.clone(),
-					id: data_id.clone().to_vec(),
-					checksum,
-				}));
+				System::assert_last_event(MockEvent::SyloDataVerification(
+					Event::<Test>::ValidationEntryAdded {
+						author: alice.clone(),
+						id: data_id.clone().to_vec(),
+						checksum,
+					},
+				));
 
 				let record =
 					ValidationRecords::<Test>::get(alice.clone(), data_id.clone()).unwrap();
@@ -650,7 +669,7 @@ mod add_validation_record_entry {
 				create_initial_validation_record(alice, "data_id", vec![], "data_type", vec![]);
 
 			assert_noop!(
-				Sylo::add_validation_record_entry(
+				SyloDataVerification::add_validation_record_entry(
 					RawOrigin::Signed(alice.clone()).into(),
 					data_id.clone(),
 					checksum.clone()
@@ -674,7 +693,7 @@ mod add_validation_record_entry {
 					vec!["tag-1", "tag-2"],
 				);
 
-			assert_ok!(Sylo::create_validation_record(
+			assert_ok!(SyloDataVerification::create_validation_record(
 				RawOrigin::Signed(alice.clone()).into(),
 				data_id.clone(),
 				resolvers.clone(),
@@ -686,7 +705,7 @@ mod add_validation_record_entry {
 			let bob: AccountId = create_account(3);
 
 			assert_noop!(
-				Sylo::add_validation_record_entry(
+				SyloDataVerification::add_validation_record_entry(
 					RawOrigin::Signed(bob.clone()).into(),
 					data_id,
 					checksum
@@ -714,7 +733,7 @@ mod update_validation_record {
 					vec!["tag-1", "tag-2"],
 				);
 
-			assert_ok!(Sylo::create_validation_record(
+			assert_ok!(SyloDataVerification::create_validation_record(
 				RawOrigin::Signed(alice.clone()).into(),
 				data_id.clone(),
 				resolvers.clone(),
@@ -736,7 +755,7 @@ mod update_validation_record {
 				);
 
 			// Update the list of resolvers
-			assert_ok!(Sylo::update_validation_record(
+			assert_ok!(SyloDataVerification::update_validation_record(
 				RawOrigin::Signed(alice.clone()).into(),
 				data_id.clone(),
 				Some(new_resolvers.clone()),
@@ -755,18 +774,20 @@ mod update_validation_record {
 				}
 			);
 
-			System::assert_last_event(MockEvent::Sylo(Event::<Test>::ValidationRecordUpdated {
-				author: alice.clone(),
-				id: data_id.clone().to_vec(),
-				resolvers: Some(
-					new_resolvers.clone().iter().map(|resolver| resolver.to_did()).collect(),
-				),
-				data_type: None,
-				tags: None,
-			}));
+			System::assert_last_event(MockEvent::SyloDataVerification(
+				Event::<Test>::ValidationRecordUpdated {
+					author: alice.clone(),
+					id: data_id.clone().to_vec(),
+					resolvers: Some(
+						new_resolvers.clone().iter().map(|resolver| resolver.to_did()).collect(),
+					),
+					data_type: None,
+					tags: None,
+				},
+			));
 
 			// Update the data type
-			assert_ok!(Sylo::update_validation_record(
+			assert_ok!(SyloDataVerification::update_validation_record(
 				RawOrigin::Signed(alice.clone()).into(),
 				data_id.clone(),
 				None,
@@ -785,16 +806,18 @@ mod update_validation_record {
 				}
 			);
 
-			System::assert_last_event(MockEvent::Sylo(Event::<Test>::ValidationRecordUpdated {
-				author: alice.clone(),
-				id: data_id.clone().to_vec(),
-				resolvers: None,
-				data_type: Some(new_data_type.clone().to_vec()),
-				tags: None,
-			}));
+			System::assert_last_event(MockEvent::SyloDataVerification(
+				Event::<Test>::ValidationRecordUpdated {
+					author: alice.clone(),
+					id: data_id.clone().to_vec(),
+					resolvers: None,
+					data_type: Some(new_data_type.clone().to_vec()),
+					tags: None,
+				},
+			));
 
 			// Update the list of tags
-			assert_ok!(Sylo::update_validation_record(
+			assert_ok!(SyloDataVerification::update_validation_record(
 				RawOrigin::Signed(alice.clone()).into(),
 				data_id.clone(),
 				None,
@@ -813,13 +836,15 @@ mod update_validation_record {
 				}
 			);
 
-			System::assert_last_event(MockEvent::Sylo(Event::<Test>::ValidationRecordUpdated {
-				author: alice.clone(),
-				id: data_id.clone().to_vec(),
-				resolvers: None,
-				data_type: None,
-				tags: Some(new_tags.iter().map(|tag| tag.to_vec()).collect()),
-			}));
+			System::assert_last_event(MockEvent::SyloDataVerification(
+				Event::<Test>::ValidationRecordUpdated {
+					author: alice.clone(),
+					id: data_id.clone().to_vec(),
+					resolvers: None,
+					data_type: None,
+					tags: Some(new_tags.iter().map(|tag| tag.to_vec()).collect()),
+				},
+			));
 		});
 	}
 
@@ -837,7 +862,7 @@ mod update_validation_record {
 			);
 
 			assert_noop!(
-				Sylo::update_validation_record(
+				SyloDataVerification::update_validation_record(
 					RawOrigin::Signed(alice.clone()).into(),
 					data_id.clone(),
 					Some(resolvers.clone()),
@@ -863,7 +888,7 @@ mod update_validation_record {
 					vec!["tag-1", "tag-2"],
 				);
 
-			assert_ok!(Sylo::create_validation_record(
+			assert_ok!(SyloDataVerification::create_validation_record(
 				RawOrigin::Signed(alice.clone()).into(),
 				data_id.clone(),
 				resolvers.clone(),
@@ -875,7 +900,7 @@ mod update_validation_record {
 			let bob: AccountId = create_account(3);
 
 			assert_noop!(
-				Sylo::update_validation_record(
+				SyloDataVerification::update_validation_record(
 					RawOrigin::Signed(bob.clone()).into(),
 					data_id.clone(),
 					Some(resolvers.clone()),
@@ -905,7 +930,7 @@ mod delete_validation_record {
 					vec!["tag-1", "tag-2"],
 				);
 
-			assert_ok!(Sylo::create_validation_record(
+			assert_ok!(SyloDataVerification::create_validation_record(
 				RawOrigin::Signed(alice.clone()).into(),
 				data_id.clone(),
 				resolvers.clone(),
@@ -914,7 +939,7 @@ mod delete_validation_record {
 				checksum.clone()
 			));
 
-			assert_ok!(Sylo::delete_validation_record(
+			assert_ok!(SyloDataVerification::delete_validation_record(
 				RawOrigin::Signed(alice.clone()).into(),
 				data_id.clone(),
 			));
@@ -935,7 +960,7 @@ mod delete_validation_record {
 			);
 
 			assert_noop!(
-				Sylo::update_validation_record(
+				SyloDataVerification::update_validation_record(
 					RawOrigin::Signed(alice.clone()).into(),
 					data_id.clone(),
 					Some(resolvers.clone()),
@@ -961,7 +986,7 @@ mod delete_validation_record {
 					vec!["tag-1", "tag-2"],
 				);
 
-			assert_ok!(Sylo::create_validation_record(
+			assert_ok!(SyloDataVerification::create_validation_record(
 				RawOrigin::Signed(alice.clone()).into(),
 				data_id.clone(),
 				resolvers.clone(),
@@ -973,7 +998,7 @@ mod delete_validation_record {
 			let bob: AccountId = create_account(3);
 
 			assert_noop!(
-				Sylo::delete_validation_record(
+				SyloDataVerification::delete_validation_record(
 					RawOrigin::Signed(bob.clone()).into(),
 					data_id.clone(),
 				),

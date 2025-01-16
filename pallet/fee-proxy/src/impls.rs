@@ -31,24 +31,25 @@ where
 		+ pallet_evm::Config
 		+ pallet_assets_ext::Config
 		+ pallet_futurepass::Config
-		+ pallet_sylo::Config
+		+ pallet_sylo_data_verification::Config
 		+ pallet_proxy::Config
 		+ pallet_utility::Config
 		+ pallet_xrpl::Config,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<crate::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
-	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
-	<T as Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
 	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
-	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
+	<T as pallet_futurepass::Config>::RuntimeCall:
+		IsSubType<pallet_sylo_data_verification::Call<T>>,
 	<T as Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
 	Balance: From<<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance>,
@@ -117,8 +118,8 @@ where
 		// if the call is a sylo pallet call, then we always force a fee swap with the
 		// sylo token
 		if is_sylo_and_valid_call {
-			let payment_asset =
-				pallet_sylo::SyloAssetId::<T>::get().ok_or(InvalidTransaction::Payment)?;
+			let payment_asset = pallet_sylo_data_verification::SyloAssetId::<T>::get()
+				.ok_or(InvalidTransaction::Payment)?;
 
 			do_fee_swap(who, &payment_asset, Balance::from(fee), u128::MAX)?;
 		}
@@ -252,27 +253,28 @@ where
 		+ pallet_xrpl::Config
 		+ pallet_proxy::Config
 		+ pallet_utility::Config
-		+ pallet_sylo::Config,
+		+ pallet_sylo_data_verification::Config,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<crate::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
-	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
-	<T as Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
-	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
+	<T as pallet_futurepass::Config>::RuntimeCall:
+		IsSubType<pallet_sylo_data_verification::Call<T>>,
 {
 	if match call.is_sub_type() {
-		Some(pallet_sylo::Call::register_resolver { .. }) => true,
-		Some(pallet_sylo::Call::update_resolver { .. }) => true,
-		Some(pallet_sylo::Call::deregister_resolver { .. }) => true,
-		Some(pallet_sylo::Call::create_validation_record { .. }) => true,
-		Some(pallet_sylo::Call::add_validation_record_entry { .. }) => true,
-		Some(pallet_sylo::Call::update_validation_record { .. }) => true,
-		Some(pallet_sylo::Call::delete_validation_record { .. }) => true,
+		Some(pallet_sylo_data_verification::Call::register_resolver { .. }) => true,
+		Some(pallet_sylo_data_verification::Call::update_resolver { .. }) => true,
+		Some(pallet_sylo_data_verification::Call::deregister_resolver { .. }) => true,
+		Some(pallet_sylo_data_verification::Call::create_validation_record { .. }) => true,
+		Some(pallet_sylo_data_verification::Call::add_validation_record_entry { .. }) => true,
+		Some(pallet_sylo_data_verification::Call::update_validation_record { .. }) => true,
+		Some(pallet_sylo_data_verification::Call::delete_validation_record { .. }) => true,
 		_ => false,
 	} {
 		return Ok(true);

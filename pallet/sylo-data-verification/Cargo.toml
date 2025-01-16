@@ -1,7 +1,7 @@
 [package]
-name = "pallet-sylo"
+name = "pallet-sylo-data-verification"
 version = "0.0.1"
-description = "Root Network Sylo Pallet"
+description = "Root Network Sylo Data Verification Pallet"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true

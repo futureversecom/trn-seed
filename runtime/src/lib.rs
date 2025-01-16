@@ -604,7 +604,7 @@ parameter_types! {
 	pub const SyloStringLimit: u16 = 500;
 }
 
-impl pallet_sylo::Config for Runtime {
+impl pallet_sylo_data_verification::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type ApproveOrigin = EnsureRoot<AccountId>;
@@ -613,7 +613,7 @@ impl pallet_sylo::Config for Runtime {
 	type MaxEntries = MaxEntries;
 	type MaxServiceEndpoints = MaxServiceEndpoints;
 	type StringLimit = SyloStringLimit;
-	type WeightInfo = weights::pallet_sylo::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_sylo_data_verification::WeightInfo<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -1454,7 +1454,7 @@ construct_runtime!(
 		Crowdsale: pallet_crowdsale = 49,
 		Nfi: pallet_nfi = 50,
 		Migration: pallet_migration = 51,
-		Sylo: pallet_sylo = 52,
+		SyloDataVerification: pallet_sylo_data_verification = 52,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -2381,6 +2381,6 @@ mod benches {
 		[pallet_crowdsale, Crowdsale]
 		[pallet_evm, EVM]
 		[pallet_migration, Migration]
-		[pallet_sylo, Sylo]
+		[pallet_sylo_data_verification, SyloDataVerification]
 	);
 }

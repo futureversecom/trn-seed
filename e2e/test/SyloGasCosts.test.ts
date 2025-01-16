@@ -75,7 +75,7 @@ describe("Sylo", () => {
     await finalizeTx(alith, api.tx.utility.batch(txs));
 
     // set payment asset
-    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.sylo.setPaymentAsset(FEE_TOKEN_ASSET_ID)));
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.syloDataVerification.setPaymentAsset(FEE_TOKEN_ASSET_ID)));
 
     console.log("liquidity setup complete...");
   });
@@ -85,24 +85,27 @@ describe("Sylo", () => {
   // A set of sylo extrinsics to test, where each extrinsic should be paid for
   // using sylo tokens
   const createSyloExtrinsics = (api: ApiPromise) => [
-    api.tx.sylo.registerResolver("id", ["endpoint"]),
-    api.tx.sylo.updateResolver("id", ["endpoint-2"]),
-    api.tx.sylo.deregisterResolver("id"),
-    api.tx.sylo.createValidationRecord(
+    api.tx.syloDataVerification.registerResolver("id", ["endpoint"]),
+    api.tx.syloDataVerification.updateResolver("id", ["endpoint-2"]),
+    api.tx.syloDataVerification.deregisterResolver("id"),
+    api.tx.syloDataVerification.createValidationRecord(
       "data-id",
       [{ method: "sylo-resolver", identifier: "id" }],
       "data-type",
       ["tag"],
       "0x0000000000000000000000000000000000000000000000000000000000000000",
     ),
-    api.tx.sylo.addValidationRecordEntry(
+    api.tx.syloDataVerification.addValidationRecordEntry(
       "data-id",
       "0x0000000000000000000000000000000000000000000000000000000000000000",
     ),
-    api.tx.sylo.updateValidationRecord("data-id", [{ method: "sylo-resolver", identifier: "id-2" }], "data-type-2", [
-      "tag-2",
-    ]),
-    api.tx.sylo.deleteValidationRecord("data-id"),
+    api.tx.syloDataVerification.updateValidationRecord(
+      "data-id",
+      [{ method: "sylo-resolver", identifier: "id-2" }],
+      "data-type-2",
+      ["tag-2"],
+    ),
+    api.tx.syloDataVerification.deleteValidationRecord("data-id"),
   ];
 
   it("can submit sylo extrinsic and pay with sylo tokens", async () => {
@@ -229,7 +232,7 @@ describe("Sylo", () => {
 
     await finalizeTx(
       delegate,
-      api.tx.proxy.proxy(futurepassAddress, null, api.tx.sylo.registerResolver("test-proxy", [])),
+      api.tx.proxy.proxy(futurepassAddress, null, api.tx.syloDataVerification.registerResolver("test-proxy", [])),
     );
 
     // verify balances updated
@@ -325,7 +328,7 @@ describe("Sylo", () => {
     // ensure user has enough xrp to submit regular extrinsics
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 100_000_000));
 
-    await finalizeTx(user, api.tx.sylo.registerResolver("id", ["endpoint"]));
+    await finalizeTx(user, api.tx.syloDataVerification.registerResolver("id", ["endpoint"]));
   });
 
   xit("fails to submit when wrapping sylo exstrinsic in fee-proxy call", async () => {
@@ -336,7 +339,7 @@ describe("Sylo", () => {
     // ensure user has enough xrp to submit regular extrinsics
     await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 100_000_000));
 
-    const syloCall = api.tx.sylo.registerResolver("id", ["endpoint"]);
+    const syloCall = api.tx.syloDataVerification.registerResolver("id", ["endpoint"]);
 
     const next_fee_token_id = 2148;
 

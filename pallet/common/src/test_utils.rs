@@ -725,7 +725,7 @@ macro_rules! impl_pallet_scheduler_config {
 }
 
 #[macro_export]
-macro_rules! impl_pallet_sylo_config {
+macro_rules! impl_pallet_sylo_data_verification_config {
 	($test:ident) => {
 		parameter_types! {
 			pub const MaxResolvers: u32 = 10;
@@ -734,7 +734,7 @@ macro_rules! impl_pallet_sylo_config {
 			pub const MaxServiceEndpoints: u32 = 10;
 			pub const StringLimit: u32 = 500;
 		}
-		impl pallet_sylo::Config for Test {
+		impl pallet_sylo_data_verification::Config for Test {
 			type RuntimeCall = RuntimeCall;
 			type RuntimeEvent = RuntimeEvent;
 			type ApproveOrigin = EnsureRoot<AccountId>;

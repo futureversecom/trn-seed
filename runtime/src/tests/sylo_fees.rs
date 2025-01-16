@@ -19,7 +19,7 @@
 
 use crate::{
 	tests::{alice, bob, ExtBuilder},
-	Assets, AssetsExt, Dex, Futurepass, Runtime, RuntimeOrigin, Sylo, XrpCurrency,
+	Assets, AssetsExt, Dex, Futurepass, Runtime, RuntimeOrigin, SyloDataVerification, XrpCurrency,
 };
 use frame_support::{
 	assert_err, assert_ok,
@@ -229,44 +229,58 @@ fn setup_sylo_liquidity(new_account: AccountId) -> u32 {
 		None,
 	));
 
-	assert_ok!(Sylo::set_payment_asset(RawOrigin::Root.into(), payment_asset));
+	assert_ok!(SyloDataVerification::set_payment_asset(RawOrigin::Root.into(), payment_asset));
 
 	payment_asset
 }
 
 /// Creates a list of calls for all sylo extrinsics which should be charged in Sylo Tokens
-fn create_sylo_calls() -> Vec<<Runtime as pallet_sylo::Config>::RuntimeCall> {
+fn create_sylo_calls() -> Vec<<Runtime as pallet_sylo_data_verification::Config>::RuntimeCall> {
 	vec![
-		crate::RuntimeCall::Sylo(pallet_sylo::Call::register_resolver {
-			identifier: BoundedVec::new(),
-			service_endpoints: BoundedVec::new(),
-		}),
-		crate::RuntimeCall::Sylo(pallet_sylo::Call::update_resolver {
-			identifier: BoundedVec::new(),
-			service_endpoints: BoundedVec::new(),
-		}),
-		crate::RuntimeCall::Sylo(pallet_sylo::Call::deregister_resolver {
-			identifier: BoundedVec::new(),
-		}),
-		crate::RuntimeCall::Sylo(pallet_sylo::Call::create_validation_record {
-			data_id: BoundedVec::new(),
-			resolvers: BoundedVec::new(),
-			data_type: BoundedVec::new(),
-			tags: BoundedVec::new(),
-			checksum: H256::from_low_u64_be(123),
-		}),
-		crate::RuntimeCall::Sylo(pallet_sylo::Call::add_validation_record_entry {
-			data_id: BoundedVec::new(),
-			checksum: H256::from_low_u64_be(123),
-		}),
-		crate::RuntimeCall::Sylo(pallet_sylo::Call::update_validation_record {
-			data_id: BoundedVec::new(),
-			resolvers: None,
-			data_type: None,
-			tags: None,
-		}),
-		crate::RuntimeCall::Sylo(pallet_sylo::Call::delete_validation_record {
-			data_id: BoundedVec::new(),
-		}),
+		crate::RuntimeCall::SyloDataVerification(
+			pallet_sylo_data_verification::Call::register_resolver {
+				identifier: BoundedVec::new(),
+				service_endpoints: BoundedVec::new(),
+			},
+		),
+		crate::RuntimeCall::SyloDataVerification(
+			pallet_sylo_data_verification::Call::update_resolver {
+				identifier: BoundedVec::new(),
+				service_endpoints: BoundedVec::new(),
+			},
+		),
+		crate::RuntimeCall::SyloDataVerification(
+			pallet_sylo_data_verification::Call::deregister_resolver {
+				identifier: BoundedVec::new(),
+			},
+		),
+		crate::RuntimeCall::SyloDataVerification(
+			pallet_sylo_data_verification::Call::create_validation_record {
+				data_id: BoundedVec::new(),
+				resolvers: BoundedVec::new(),
+				data_type: BoundedVec::new(),
+				tags: BoundedVec::new(),
+				checksum: H256::from_low_u64_be(123),
+			},
+		),
+		crate::RuntimeCall::SyloDataVerification(
+			pallet_sylo_data_verification::Call::add_validation_record_entry {
+				data_id: BoundedVec::new(),
+				checksum: H256::from_low_u64_be(123),
+			},
+		),
+		crate::RuntimeCall::SyloDataVerification(
+			pallet_sylo_data_verification::Call::update_validation_record {
+				data_id: BoundedVec::new(),
+				resolvers: None,
+				data_type: None,
+				tags: None,
+			},
+		),
+		crate::RuntimeCall::SyloDataVerification(
+			pallet_sylo_data_verification::Call::delete_validation_record {
+				data_id: BoundedVec::new(),
+			},
+		),
 	]
 }
