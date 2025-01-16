@@ -48,6 +48,8 @@ std = [
     "precompile-utils/std",
     "pallet-assets-ext/std",
     "pallet-futurepass/std",
+    "pallet-proxy/std",
+	"pallet-utility/std",
     "pallet-evm/std",
     "pallet-sylo/std",
     "pallet-transaction-payment/std",

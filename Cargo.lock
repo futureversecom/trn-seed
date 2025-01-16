@@ -5826,9 +5826,12 @@ dependencies = [
  "pallet-evm",
  "pallet-fee-proxy",
  "pallet-futurepass",
+ "pallet-proxy",
  "pallet-sylo",
  "pallet-timestamp",
  "pallet-transaction-payment",
+ "pallet-utility",
+ "pallet-xrpl",
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
@@ -9032,6 +9035,7 @@ dependencies = [
 name = "seed-pallet-common"
 version = "1.0.0"
 dependencies = [
+ "fp-self-contained",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
