@@ -36,7 +36,7 @@ pub mod test_prelude {
 	pub use sp_core::{H160, H256, U256};
 	pub use sp_runtime::{
 		testing::Header,
-		traits::{BlakeTwo256, IdentityLookup},
+		traits::{BlakeTwo256, IdentityLookup, LookupError, StaticLookup},
 		ArithmeticError, BoundedVec, BuildStorage,
 		DispatchError::BadOrigin,
 		Permill, TokenError,
@@ -720,6 +720,92 @@ macro_rules! impl_pallet_scheduler_config {
 			type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 			type WeightInfo = ();
 			type Preimages = ();
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_pallet_sylo_data_verification_config {
+	($test:ident) => {
+		parameter_types! {
+			pub const MaxResolvers: u32 = 10;
+			pub const MaxTags: u32 = 10;
+			pub const MaxEntries: u32 = 100;
+			pub const MaxServiceEndpoints: u32 = 10;
+			pub const StringLimit: u32 = 500;
+		}
+		impl pallet_sylo_data_verification::Config for Test {
+			type RuntimeCall = RuntimeCall;
+			type RuntimeEvent = RuntimeEvent;
+			type ApproveOrigin = EnsureRoot<AccountId>;
+			type MaxResolvers = MaxResolvers;
+			type MaxTags = MaxTags;
+			type MaxEntries = MaxEntries;
+			type MaxServiceEndpoints = MaxServiceEndpoints;
+			type StringLimit = StringLimit;
+			type WeightInfo = ();
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_pallet_xrpl_config {
+	($test:ident) => {
+		pub struct FuturepassIdentityLookup;
+		impl StaticLookup for FuturepassIdentityLookup {
+			type Source = H160;
+			type Target = H160;
+			fn lookup(s: Self::Source) -> Result<Self::Target, LookupError> {
+				Ok(s)
+			}
+			fn unlookup(t: Self::Target) -> Self::Source {
+				t
+			}
+		}
+		impl ExtrinsicChecker for FuturepassIdentityLookup {
+			type Call = RuntimeCall;
+			type Extra = ();
+			type Result = bool;
+			fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+				false
+			}
+		}
+
+		pub struct ValidatedCall;
+		impl ExtrinsicChecker for ValidatedCall {
+			type Call = RuntimeCall;
+			type Extra = ();
+			type Result = bool;
+			fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+				true
+			}
+		}
+
+		parameter_types! {
+			pub const MaxMessageLength: u32 = 2048;
+			pub const MaxSignatureLength: u32 = 80;
+		}
+		impl pallet_xrpl::Config for Test {
+			type RuntimeEvent = RuntimeEvent;
+			type RuntimeCall = RuntimeCall;
+			type CallValidator = ValidatedCall;
+			type FuturepassLookup = FuturepassIdentityLookup;
+			type PalletsOrigin = OriginCaller;
+			type MaxMessageLength = MaxMessageLength;
+			type MaxSignatureLength = MaxSignatureLength;
+			type WeightInfo = ();
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_pallet_utility_config {
+	($test:ident) => {
+		impl pallet_utility::Config for Test {
+			type RuntimeEvent = RuntimeEvent;
+			type RuntimeCall = RuntimeCall;
+			type PalletsOrigin = OriginCaller;
+			type WeightInfo = ();
 		}
 	};
 }

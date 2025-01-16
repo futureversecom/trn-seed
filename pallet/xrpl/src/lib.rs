@@ -355,7 +355,7 @@ pub mod pallet {
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
-			// + IsType<<Self as frame_system::Config>::RuntimeCall>
+			+ IsType<<Self as frame_system::Config>::RuntimeCall>
 			+ IsSubType<Call<Self>>;
 
 		/// Inner call validator

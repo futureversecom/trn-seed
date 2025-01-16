@@ -345,7 +345,7 @@ describe("Doughnuts", () => {
       .transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig)
       .send()
       .catch((err: any) => {
-        console.log(err);
+        console.log("DOUGHNUT ERR", err);
       });
 
     // console.log(events);
