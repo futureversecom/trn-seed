@@ -38,6 +38,10 @@ pallet-fee-proxy = { workspace = true, default-features = true }
 pallet-dex = { workspace = true }
 pallet-assets-ext = { workspace = true }
 pallet-futurepass = { workspace = true }
+pallet-sylo-data-verification = { workspace = true }
+pallet-xrpl = { workspace = true }
+pallet-proxy = { workspace = true }
+pallet-utility = { workspace = true }
 seed-pallet-common= { workspace = true, default-features = true }
 
 [features]
@@ -49,6 +53,8 @@ std = [
 	"frame-system/std",
 	"pallet-assets/std",
 	"pallet-balances/std",
+	"pallet-proxy/std",
+	"pallet-utility/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"seed-pallet-common/std",

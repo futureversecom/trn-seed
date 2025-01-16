@@ -22,6 +22,7 @@ mod evm_tests;
 mod maintenance_mode;
 mod multiplier;
 mod staker_payouts;
+mod sylo_fees;
 
 use frame_support::traits::{
 	fungibles::Inspect as _,

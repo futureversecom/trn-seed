@@ -1,5 +1,4 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
-import { SubmittableExtrinsic } from "@polkadot/api/types";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import { DispatchError } from "@polkadot/types/interfaces";
 import { hexToU8a } from "@polkadot/util";
@@ -20,6 +19,7 @@ import {
   assetIdToERC20ContractAddress,
   finalizeTx,
   getNextAssetId,
+  getPrefixLength,
   poolAddress,
   startNode,
   stringToHex,
@@ -1309,8 +1309,3 @@ describe("XRPL pallet", () => {
     expect(errorFound).to.be.true;
   });
 });
-
-function getPrefixLength(encoded: SubmittableExtrinsic<any>): number {
-  if (encoded.encodedLength < 66) return 6;
-  return 8;
-}

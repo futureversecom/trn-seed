@@ -623,15 +623,31 @@ export const finalizeTx = (
   extrinsic: SubmittableExtrinsic<"promise">,
   opts?: Partial<SignerOptions>,
 ) => {
-  return new Promise<any[]>((resolve) => {
+  const sendCb =
+    (resolve: any, reject: any) =>
+    ({ internalError, dispatchError, status, events = [] }: any) => {
+      if (internalError) {
+        return reject(internalError);
+      }
+
+      if (dispatchError && !dispatchError.isModule) {
+        return reject(dispatchError.toJSON());
+      }
+
+      if (dispatchError && dispatchError.isModule) {
+        const { section, name, docs } = dispatchError.registry.findMetaError(dispatchError.asModule);
+
+        return reject({ section, name, docs });
+      }
+
+      if (status.isInBlock) resolve(events);
+    };
+
+  return new Promise<any[]>((resolve, reject) => {
     if (opts) {
-      extrinsic.signAndSend(signer, opts, ({ status, events = [] }: any) => {
-        if (status.isInBlock) resolve(events);
-      });
+      extrinsic.signAndSend(signer, opts, sendCb(resolve, reject));
     } else {
-      extrinsic.signAndSend(signer, ({ status, events = [] }: any) => {
-        if (status.isInBlock) resolve(events);
-      });
+      extrinsic.signAndSend(signer, sendCb(resolve, reject));
     }
   });
 };
@@ -806,4 +822,9 @@ export const loadTestUsers = (userAmount?: number): KeyringPair[] => {
   }
   console.log(`loaded ${keypairs.length} users`);
   return keypairs;
+};
+
+export const getPrefixLength = (encoded: SubmittableExtrinsic<any>): number => {
+  if (encoded.encodedLength < 66) return 6;
+  return 8;
 };

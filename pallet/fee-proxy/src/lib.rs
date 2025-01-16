@@ -25,7 +25,7 @@ pub use pallet::*;
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
-	traits::IsSubType,
+	traits::{IsSubType, IsType},
 };
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::{FeeConfig, MaintenanceCheckEVM};
@@ -63,7 +63,8 @@ pub mod pallet {
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
-			+ IsSubType<Call<Self>>;
+			+ IsSubType<Call<Self>>
+			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The caller origin, overarching type of all pallets origins.
