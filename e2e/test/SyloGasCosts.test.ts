@@ -1,31 +1,23 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
-import { SubmittableExtrinsic, SubmittableResultValue } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
-import { DispatchError, Extrinsic } from "@polkadot/types/interfaces";
 import { hexToU8a, u8aToHex } from "@polkadot/util";
 import { blake2AsHex } from "@polkadot/util-crypto";
 import { Doughnut, PayloadVersion, SignatureVersion, Topping } from "@therootnetwork/doughnut-nodejs";
-import { OpCodeComparator, OpComp, OpLoad, Pact } from "@therootnetwork/pact-nodejs";
 import { expect } from "chai";
 import { blake256 } from "codechain-primitives";
 import { Wallet, utils as ethersUtils } from "ethers";
-import { computePublicKey, keccak256 } from "ethers/lib/utils";
+import { computePublicKey } from "ethers/lib/utils";
 import { xit } from "mocha";
 import { encode, encodeForSigning } from "ripple-binary-codec";
 import { deriveAddress, sign } from "ripple-keypairs";
-import Web3 from "web3";
-import * as AccountLib from "xrpl-accountlib";
 
 import {
-  ALICE_PRIVATE_KEY,
   ALITH_PRIVATE_KEY,
-  BOB_PRIVATE_KEY,
   GAS_TOKEN_ID,
   NodeProcess,
   finalizeTx,
   getPrefixLength,
-  sleep,
   startNode,
   stringToHex,
   typedefs,
@@ -440,8 +432,6 @@ describe("Sylo", () => {
     const txSlice = Buffer.from(txHash.slice(2), "hex");
     const holderSig = await holderWallet.signMessage(txSlice);
 
-    console.log("here yo");
-
     const doughnutErr = await new Promise((resolve) => {
       api.tx.doughnut
         .transact(call, doughnutHex, nonce, genesis_hash, tip, holderSig)
@@ -461,5 +451,7 @@ describe("Sylo", () => {
           }
         });
     });
+
+    console.log("doughtnut err:", doughnutErr);
   });
 });
