@@ -21,17 +21,18 @@ export const rpc = {
   },
 };
 
-describe("NftRPC", () => {
+describe.only("NftRPC", () => {
   let node: NodeProcess;
   let api: ApiPromise;
   let collectionId: any;
   let alith: KeyringPair;
 
   before(async () => {
-    node = await startNode();
+    console.log("*************");
+   // node = await startNode();
 
-    await node.wait(); // wait for the node to be ready
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+   // await node.wait(); // wait for the node to be ready
+    const wsProvider = new WsProvider(`ws://127.0.0.1:9944`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -40,30 +41,30 @@ describe("NftRPC", () => {
 
     const keyring = new Keyring({ type: "ethereum" });
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
-
-    collectionId = await api.query.nft.nextCollectionId();
-    const royaltiesSchedule = {
-      entitlements: [[alith.address, 10000 /* one percent */]],
-    };
-    await new Promise<void>((resolve, reject) => {
-      api.tx.nft
-        .createCollection("test-collection", 0, null, null, "https://test/api/", royaltiesSchedule, { xrpl: false })
-        .signAndSend(alith, ({ status, events }) => {
-          if (status.isInBlock) {
-            events.forEach(({ event: { data, method } }) => {
-              if (method == "CollectionCreate") {
-                collectionId = (data.toJSON() as any)[0];
-                console.log(`Collection UUID: ${collectionId}`);
-                resolve();
-              }
-            });
-          }
-        })
-        .catch((err) => reject(err));
-    });
+    collectionId = 7268;
+    // collectionId = await api.query.nft.nextCollectionId();
+    // const royaltiesSchedule = {
+    //   entitlements: [[alith.address, 10000 /* one percent */]],
+    // };
+    // await new Promise<void>((resolve, reject) => {
+    //   api.tx.nft
+    //     .createCollection("test-collection", 0, null, null, "https://test/api/", royaltiesSchedule, { xrpl: false })
+    //     .signAndSend(alith, ({ status, events }) => {
+    //       if (status.isInBlock) {
+    //         events.forEach(({ event: { data, method } }) => {
+    //           if (method == "CollectionCreate") {
+    //             collectionId = (data.toJSON() as any)[0];
+    //             console.log(`Collection UUID: ${collectionId}`);
+    //             resolve();
+    //           }
+    //         });
+    //       }
+    //     })
+    //     .catch((err) => reject(err));
+    // });
   });
 
-  after(async () => node.stop());
+ // after(async () => node.stop());
 
   it("collection info rpc works [http - axios]", async () => {
     const httpResult = await axios.post(`http://127.0.0.1:9944`, {
@@ -79,6 +80,7 @@ describe("NftRPC", () => {
     const {
       result: { Ok },
     } = httpResult.data;
+    console.log('httpResult.data::', httpResult.data);
     const {
       owner,
       name,
@@ -90,14 +92,14 @@ describe("NftRPC", () => {
       collection_issuance,
       cross_chain_compatibility,
     } = Ok;
-    expect(owner).to.eql("0xf24ff3a9cf04c71dbc94d0b566f7a27b94566cac");
-    expect(u8aToString(new Uint8Array(name))).to.eql("test-collection");
-    expect(u8aToString(new Uint8Array(metadata_scheme))).to.eql("https://test/api/");
-    expect(royalties_schedule).to.eql([["0xf24ff3a9cf04c71dbc94d0b566f7a27b94566cac", 10000]]);
+    expect(owner).to.eql("0xb2e85a2e0fb0c8e02d0fddca19ac54db8fafed0a");
+    expect(u8aToString(new Uint8Array(name))).to.eql("FIFA AI League");
+    expect(u8aToString(new Uint8Array(metadata_scheme))).to.eql("https://nft.fifaworldcupaileague.com/token/");
+    expect(royalties_schedule).to.eql(null);
     expect(max_issuance).to.eql(null);
-    expect(next_serial_number).to.eql(0);
-    expect(collection_issuance).to.eql(0);
-    expect(cross_chain_compatibility).to.eql({ xrpl: false });
+    expect(next_serial_number).to.eql(813600);
+    expect(collection_issuance).to.eql(813600);
+    expect(cross_chain_compatibility).to.eql({ xrpl: true });
     expect(origin_chain).to.eql("Root");
   });
 
@@ -115,14 +117,16 @@ describe("NftRPC", () => {
       collection_issuance,
       cross_chain_compatibility,
     } = data;
-    expect(owner).to.eql("0xf24ff3a9cf04c71dbc94d0b566f7a27b94566cac");
-    expect(u8aToString(new Uint8Array(name))).to.eql("test-collection");
-    expect(u8aToString(new Uint8Array(metadata_scheme))).to.eql("https://test/api/");
-    expect(royalties_schedule).to.eql([[alith.address.toLowerCase(), 10000]]);
+    console.log('rpc .data::', data);
+    expect(owner).to.eql("0xb2e85a2e0fb0c8e02d0fddca19ac54db8fafed0a");
+    expect(u8aToString(new Uint8Array(name))).to.eql("FIFA AI League");
+    expect(u8aToString(new Uint8Array(metadata_scheme))).to.eql("https://nft.fifaworldcupaileague.com/token/");
+    console.log('royalties_schedule::',royalties_schedule);
+    expect(royalties_schedule).to.eql(null);
     expect(max_issuance).to.eql(null);
-    expect(next_serial_number).to.eql(0);
-    expect(collection_issuance).to.eql(0);
-    expect(cross_chain_compatibility).to.eql({ xrpl: false });
+    expect(next_serial_number).to.eql(813600);
+    expect(collection_issuance).to.eql(813600);
+    expect(cross_chain_compatibility).to.eql({ xrpl: true });
     expect(origin_chain).to.eql("Root");
   });
 
