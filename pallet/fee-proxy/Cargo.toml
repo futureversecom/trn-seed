@@ -23,6 +23,9 @@ pallet-evm = { workspace = true }
 pallet-assets-ext = { workspace = true }
 pallet-dex = { workspace = true }
 pallet-futurepass = { workspace = true }
+pallet-proxy = { workspace = true }
+pallet-utility = { workspace = true }
+pallet-xrpl = { workspace = true }
 pallet-sylo = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 precompile-utils = { workspace = true }

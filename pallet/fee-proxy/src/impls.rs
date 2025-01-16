@@ -14,7 +14,6 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{Call::call_with_fee_preferences, *};
-use frame_support::log;
 use frame_support::traits::{fungibles::Inspect, IsSubType};
 use pallet_futurepass::ProxyProvider;
 use pallet_transaction_payment::OnChargeTransaction;
@@ -32,13 +31,22 @@ where
 		+ pallet_evm::Config
 		+ pallet_assets_ext::Config
 		+ pallet_futurepass::Config
-		+ pallet_sylo::Config,
+		+ pallet_sylo::Config
+		+ pallet_proxy::Config
+		+ pallet_utility::Config
+		+ pallet_xrpl::Config,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<crate::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
 	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
 	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
 	<T as Config>::OnChargeTransaction: OnChargeTransaction<T>,
@@ -104,11 +112,11 @@ where
 			Ok(())
 		};
 
-		let is_sylo_call = is_sylo_call::<T>(call);
+		let is_sylo_and_valid_call = is_sylo_and_valid_call::<T>(call)?;
 
 		// if the call is a sylo pallet call, then we always force a fee swap with the
 		// sylo token
-		if is_sylo_call {
+		if is_sylo_and_valid_call {
 			let payment_asset =
 				pallet_sylo::SyloAssetId::<T>::get().ok_or(InvalidTransaction::Payment)?;
 
@@ -119,11 +127,6 @@ where
 		if let Some(call_with_fee_preferences { payment_asset, max_payment, call }) =
 			call.is_sub_type()
 		{
-			// prevent using the fee proxy if the inner call is a sylo call
-			if is_sylo_call {
-				Err(InvalidTransaction::Payment)?;
-			}
-
 			let mut total_fee: Balance = Balance::from(fee);
 
 			let mut add_evm_gas_cost =
@@ -217,22 +220,49 @@ where
 	}
 }
 
-/// Helper function to determine if a call is sylo pallet call that
-/// should be paid using sylo tokens.
+/// Helper function to determine if a call is a sylo pallet call that
+/// should be paid using sylo tokens. This function will also attempt to destructure
+/// any proxy calls and check the inner call. This includes:
+///   - pallet_futurepass.proxy_extrinsic
+///   - pallet_xrpl.transact
+///   - pallet_proxy.proxy
+///   - pallet_proxy.proxy_announce
+///   - pallet_utility.batch
+///   - pallet_utility.batch_all
+///   - pallet_utility.force_batch
 ///
-/// Will also determine if the inner call of a futurepass or
-/// fee proxy call is a sylo call as well.
-fn is_sylo_call<T>(call: &<T as frame_system::Config>::RuntimeCall) -> bool
+/// Not all proxy calls are supported, such as some sudo calls, or scheduled
+/// calls. In these edge cases, the fee for the call will be paid in the native
+/// fee token.
+///
+/// This will also return an error if the call is an invalid sylo call. A sylo call
+/// can be invalid in the following cases:
+///   - The sylo call has been wrapped in a call_with_fee_preferences call. Sylo
+///     calls should be paid in Sylos only.
+///   - The sylo call is in a batch/batch_all call. In batch calls, if any call is
+///     a sylo call, then all inner calls must be a sylo call. This simplifies the
+///     implementation, preventing a need to process the fee for each individual call.
+fn is_sylo_and_valid_call<T>(
+	call: &<T as frame_system::Config>::RuntimeCall,
+) -> Result<bool, TransactionValidityError>
 where
 	T: Config
 		+ frame_system::Config<AccountId = AccountId>
 		+ pallet_futurepass::Config
+		+ pallet_xrpl::Config
+		+ pallet_proxy::Config
+		+ pallet_utility::Config
 		+ pallet_sylo::Config,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<crate::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_sylo::Call<T>>,
 {
 	if match call.is_sub_type() {
@@ -245,16 +275,74 @@ where
 		Some(pallet_sylo::Call::delete_validation_record { .. }) => true,
 		_ => false,
 	} {
-		return true;
+		return Ok(true);
 	}
 
+	// check if the inner call of a futurepass call is a sylo call
 	if let Some(pallet_futurepass::Call::proxy_extrinsic { call, .. }) = call.is_sub_type() {
-		return is_sylo_call::<T>(call.as_ref().into_ref());
+		return is_sylo_and_valid_call::<T>(call.as_ref().into_ref());
 	}
 
+	// check if the inner call of a proxy pallet call is a sylo call
+	let is_proxy = match call.is_sub_type() {
+		Some(pallet_proxy::Call::proxy { call, .. }) => {
+			is_sylo_and_valid_call::<T>(call.as_ref().into_ref())
+		},
+		Some(pallet_proxy::Call::proxy_announced { call, .. }) => {
+			is_sylo_and_valid_call::<T>(call.as_ref().into_ref())
+		},
+		_ => Ok(false),
+	}?;
+
+	if is_proxy {
+		return Ok(true);
+	}
+
+	// check if the inner call of a xrpl call is a sylo call
+	if let Some(pallet_xrpl::Call::transact { call, .. }) = call.is_sub_type() {
+		return is_sylo_and_valid_call::<T>(call.as_ref().into_ref());
+	}
+
+	let is_utility = match call.is_sub_type() {
+		// for batch calls, if there is any call which is a sylo call, then
+		// all calls must be a sylo call
+		Some(pallet_utility::Call::batch { calls, .. })
+		| Some(pallet_utility::Call::force_batch { calls, .. })
+		| Some(pallet_utility::Call::batch_all { calls, .. }) => {
+			let sylo_calls = calls
+				.into_iter()
+				.map(|call| is_sylo_and_valid_call::<T>(call.into_ref()))
+				.collect::<Vec<Result<_, _>>>()
+				.into_iter()
+				.collect::<Result<Vec<_>, _>>()?;
+
+			if sylo_calls.iter().any(|x| *x) {
+				if !sylo_calls.iter().all(|x| *x) {
+					Err(InvalidTransaction::Payment)?;
+				} else {
+					return Ok(true);
+				}
+			}
+
+			Ok(false)
+		},
+		Some(pallet_utility::Call::as_derivative { call, .. }) => {
+			is_sylo_and_valid_call::<T>(call.as_ref().into_ref())
+		},
+		_ => Ok(false),
+	}?;
+
+	if is_utility {
+		return Ok(true);
+	}
+
+	// prevent using the fee proxy if the inner call is a sylo call
 	if let Some(call_with_fee_preferences { call, .. }) = call.is_sub_type() {
-		return is_sylo_call::<T>(call.as_ref().into_ref());
+		let is_sylo_call = is_sylo_and_valid_call::<T>(call.as_ref().into_ref())?;
+		if is_sylo_call {
+			Err(InvalidTransaction::Payment)?;
+		}
 	}
 
-	false
+	Ok(false)
 }
