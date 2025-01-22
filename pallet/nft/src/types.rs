@@ -15,6 +15,7 @@
 
 //! NFT module types
 
+use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
@@ -25,56 +26,6 @@ use seed_primitives::{
 use serde::{Deserialize, Serialize};
 use sp_runtime::{BoundedVec, Permill};
 use sp_std::{fmt::Debug, prelude::*};
-
-#[derive(Decode, Encode, Debug, Clone, Copy, PartialEq, TypeInfo)]
-pub enum TokenOwnershipError {
-	TokenLimitExceeded,
-}
-
-/// Struct that represents the owned serial numbers within a collection of an individual account
-#[derive(
-	PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, CloneNoBound, TypeInfo, MaxEncodedLen,
-)]
-#[codec(mel_bound(AccountId: MaxEncodedLen))]
-#[scale_info(skip_type_params(MaxTokensPerCollection))]
-pub struct TokenOwnership<AccountId, MaxTokensPerCollection>
-where
-	AccountId: Debug + PartialEq + Clone,
-	MaxTokensPerCollection: Get<u32>,
-{
-	pub owner: AccountId,
-	pub owned_serials: BoundedVec<SerialNumber, MaxTokensPerCollection>,
-}
-
-impl<AccountId, MaxTokensPerCollection> TokenOwnership<AccountId, MaxTokensPerCollection>
-where
-	AccountId: Debug + PartialEq + Clone,
-	MaxTokensPerCollection: Get<u32>,
-{
-	/// Creates a new TokenOwnership with the given owner and serial numbers
-	pub fn new(
-		owner: AccountId,
-		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
-	) -> Self {
-		let mut owned_serials = serial_numbers.clone();
-		owned_serials.sort();
-		Self { owner, owned_serials }
-	}
-
-	/// Adds a serial to owned_serials and sorts the vec
-	pub fn add(&mut self, serial_number: SerialNumber) -> Result<(), TokenOwnershipError> {
-		self.owned_serials
-			.try_push(serial_number)
-			.map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
-		self.owned_serials.sort();
-		Ok(())
-	}
-
-	/// Returns true if the serial number is containerd within owned_serials
-	pub fn contains_serial(&self, serial_number: &SerialNumber) -> bool {
-		self.owned_serials.contains(serial_number)
-	}
-}
 
 /// Information related to a specific collection
 /// Need for separate collection structure from CollectionInformation for RPC call is cause
@@ -119,11 +70,10 @@ where
 	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
-#[scale_info(skip_type_params(MaxTokensPerCollection, StringLimit))]
-pub struct CollectionInformation<AccountId, MaxTokensPerCollection, StringLimit>
+#[scale_info(skip_type_params(StringLimit))]
+pub struct CollectionInformation<AccountId, StringLimit>
 where
 	AccountId: Debug + PartialEq + Clone,
-	MaxTokensPerCollection: Get<u32>,
 	StringLimit: Get<u32>,
 {
 	/// The owner of the collection
@@ -144,45 +94,92 @@ where
 	pub collection_issuance: TokenCount,
 	/// This collections compatibility with other chains
 	pub cross_chain_compatibility: CrossChainCompatibility,
-	/// All serial numbers owned by an account in a collection
-	pub owned_tokens:
-		BoundedVec<TokenOwnership<AccountId, MaxTokensPerCollection>, MaxTokensPerCollection>,
 }
 
-impl<AccountId, MaxTokensPerCollection, StringLimit>
-	CollectionInformation<AccountId, MaxTokensPerCollection, StringLimit>
+#[derive(Decode, Encode, Debug, Clone, Copy, PartialEq, TypeInfo)]
+pub enum TokenOwnershipError {
+	TokenLimitExceeded,
+}
+
+impl<T: Config> From<TokenOwnershipError> for crate::Error<T> {
+	fn from(val: TokenOwnershipError) -> crate::Error<T> {
+		match val {
+			TokenOwnershipError::TokenLimitExceeded => crate::Error::<T>::TokenLimitExceeded,
+		}
+	}
+}
+
+/// Type to denote an account and it's owned serial numbers within a collection
+pub type OwnedTokens<AccountId, MaxTokensPerCollection> =
+	(AccountId, BoundedVec<SerialNumber, MaxTokensPerCollection>);
+
+/// Contains ownership info for all tokens within a collection
+#[derive(
+	PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, CloneNoBound, TypeInfo, MaxEncodedLen,
+)]
+#[codec(mel_bound(AccountId: MaxEncodedLen))]
+#[scale_info(skip_type_params(MaxTokensPerCollection))]
+pub struct TokenOwnership<AccountId, MaxTokensPerCollection>
 where
 	AccountId: Debug + PartialEq + Clone,
 	MaxTokensPerCollection: Get<u32>,
-	StringLimit: Get<u32>,
 {
-	/// Check whether a token has been minted in a collection
-	pub fn token_exists(&self, serial_number: SerialNumber) -> bool {
-		self.owned_tokens
-			.iter()
-			.any(|token_ownership| token_ownership.contains_serial(&serial_number))
-	}
+	/// List of all token owners
+	pub owned_tokens:
+		BoundedVec<OwnedTokens<AccountId, MaxTokensPerCollection>, MaxTokensPerCollection>,
+}
 
-	/// Check whether who is the collection owner
-	pub fn is_collection_owner(&self, who: &AccountId) -> bool {
-		&self.owner == who
+impl<AccountId, MaxTokensPerCollection> Default
+	for TokenOwnership<AccountId, MaxTokensPerCollection>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxTokensPerCollection: Get<u32>,
+{
+	fn default() -> Self {
+		Self { owned_tokens: BoundedVec::default() }
 	}
+}
 
+impl<AccountId, MaxTokensPerCollection> TokenOwnership<AccountId, MaxTokensPerCollection>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxTokensPerCollection: Get<u32>,
+{
+	pub fn new(
+		account: AccountId,
+		serials: BoundedVec<SerialNumber, MaxTokensPerCollection>,
+	) -> Self {
+		let owned_tokens = BoundedVec::truncate_from(vec![(account, serials)]);
+		Self { owned_tokens }
+	}
 	/// Check whether who owns the serial number in collection_info
 	pub fn is_token_owner(&self, who: &AccountId, serial_number: SerialNumber) -> bool {
-		self.owned_tokens.iter().any(|token_ownership| {
-			if &token_ownership.owner == who {
-				token_ownership.contains_serial(&serial_number)
+		self.owned_tokens.iter().any(|(owner, owned_serials)| {
+			if owner == who {
+				owned_serials.contains(&serial_number)
 			} else {
 				false
 			}
 		})
 	}
 
-	/// Get's the token owner
+	/// Retrieve the token owner of a specified serial number
 	pub fn get_token_owner(&self, serial_number: SerialNumber) -> Option<AccountId> {
-		let token = self.owned_tokens.iter().find(|x| x.contains_serial(&serial_number))?;
-		Some(token.owner.clone())
+		let Some((token_owner, _)) = self
+			.owned_tokens
+			.iter()
+			.find(|(_, owned_serials)| owned_serials.contains(&serial_number))
+		else {
+			return None;
+		};
+		Some(token_owner.clone())
+	}
+
+	/// Check whether a token has been minted in a collection
+	pub fn token_exists(&self, serial_number: SerialNumber) -> bool {
+		self.owned_tokens
+			.iter()
+			.any(|(_, owned_serials)| owned_serials.contains(&serial_number))
 	}
 
 	/// Adds a list of tokens to a users balance in collection_info
@@ -194,22 +191,25 @@ where
 		if self
 			.owned_tokens
 			.iter()
-			.any(|token_ownership| &token_ownership.owner == token_owner)
+			.any(|token_ownership| &token_ownership.0 == token_owner)
 		{
-			for token_ownership in self.owned_tokens.iter_mut() {
-				if &token_ownership.owner != token_owner {
+			for (owner, owned_serials) in self.owned_tokens.iter_mut() {
+				if owner != token_owner {
 					continue;
 				}
 				// Add new serial numbers to existing owner
 				for serial_number in serial_numbers.iter() {
-					token_ownership.add(*serial_number)?;
+					owned_serials
+						.try_push(*serial_number)
+						.map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
+					owned_serials.sort();
 				}
 			}
 		} else {
 			// If token owner doesn't exist, create new entry
-			let new_token_ownership = TokenOwnership::new(token_owner.clone(), serial_numbers);
+			let new_owned_tokens = (token_owner.clone(), serial_numbers);
 			self.owned_tokens
-				.try_push(new_token_ownership)
+				.try_push(new_owned_tokens)
 				.map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
 		}
 		Ok(())
@@ -222,18 +222,17 @@ where
 		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
 	) {
 		let mut removing_all_tokens: bool = false;
-		for token_ownership in self.owned_tokens.iter_mut() {
-			if &token_ownership.owner != token_owner {
+		for (owner, owned_serials) in self.owned_tokens.iter_mut() {
+			if owner != token_owner {
 				continue;
 			}
-			token_ownership.owned_serials.retain(|serial| !serial_numbers.contains(serial));
-			removing_all_tokens = token_ownership.owned_serials.is_empty();
+			owned_serials.retain(|serial| !serial_numbers.contains(serial));
+			removing_all_tokens = owned_serials.is_empty();
 			break;
 		}
 		// Check whether the owner has any tokens left, if not remove them from the collection
 		if removing_all_tokens {
-			self.owned_tokens
-				.retain(|token_ownership| &token_ownership.owner != token_owner);
+			self.owned_tokens.retain(|(owner, _)| owner != token_owner);
 		}
 	}
 }

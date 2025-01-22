@@ -21,14 +21,6 @@ use crate::{
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{OriginChain, RoyaltiesSchedule, TokenCount};
 
-type OwnedTokens = BoundedVec<
-	TokenOwnership<
-		<Test as frame_system::Config>::AccountId,
-		<Test as Config>::MaxTokensPerCollection,
-	>,
-	<Test as Config>::MaxTokensPerCollection,
->;
-
 // Create an NFT collection
 // Returns the created `collection_id`
 fn setup_collection(owner: AccountId) -> CollectionUuid {
@@ -49,13 +41,16 @@ fn setup_collection(owner: AccountId) -> CollectionUuid {
 }
 
 /// Helper function to create bounded vec of TokenOwnership
-pub fn create_owned_tokens(owned_tokens: Vec<(AccountId, Vec<SerialNumber>)>) -> OwnedTokens {
-	let mut token_ownership: OwnedTokens = BoundedVec::default();
+pub fn create_ownership_info(
+	owned_tokens: Vec<(AccountId, Vec<SerialNumber>)>,
+) -> TokenOwnership<AccountId, MaxTokensPerCollection> {
+	let mut token_ownership: TokenOwnership<AccountId, MaxTokensPerCollection> =
+		TokenOwnership::default();
 	for (owner, serial_numbers) in owned_tokens {
 		let serial_numbers_bounded: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(serial_numbers).unwrap();
-		let new_token_ownership = TokenOwnership::new(owner, serial_numbers_bounded);
-		token_ownership.try_push(new_token_ownership).unwrap();
+		let owned_tokens = (owner, serial_numbers_bounded);
+		token_ownership.owned_tokens.try_push(owned_tokens).unwrap();
 	}
 	token_ownership
 }
@@ -198,7 +193,7 @@ fn create_collection() {
 			entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
 		};
 
-		let expected_tokens = create_owned_tokens(vec![(token_owner, vec![0, 1, 2, 3, 4])]);
+		let expected_ownership = create_ownership_info(vec![(token_owner, vec![0, 1, 2, 3, 4])]);
 		let expected_info = CollectionInformation {
 			owner: collection_owner,
 			name: bounded_string("test-collection"),
@@ -209,7 +204,6 @@ fn create_collection() {
 			origin_chain: OriginChain::Root,
 			next_serial_number: quantity,
 			collection_issuance: quantity,
-			owned_tokens: expected_tokens,
 			cross_chain_compatibility: CrossChainCompatibility::default(),
 		};
 
@@ -226,6 +220,7 @@ fn create_collection() {
 		));
 
 		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap(), expected_info);
+		assert_eq!(OwnershipInfo::<Test>::get(collection_id).unwrap(), expected_ownership);
 
 		// EVM pallet should have account code for collection
 		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(&H160::from_low_u64_be(
@@ -487,9 +482,7 @@ fn transfer() {
 
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 0);
 		assert_eq!(Nft::token_balance_of(&new_owner, collection_id), 1);
-		assert!(CollectionInfo::<Test>::get(collection_id)
-			.unwrap()
-			.is_token_owner(&new_owner, 0));
+		assert!(OwnershipInfo::<Test>::get(collection_id).unwrap().is_token_owner(&new_owner, 0));
 	});
 }
 
@@ -571,10 +564,15 @@ fn burn() {
 
 		assert_ok!(Nft::burn(Some(token_owner).into(), (collection_id, 1)));
 		System::assert_last_event(Event::<Test>::Burn { collection_id, serial_number: 1 }.into());
+		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 1);
+
 		assert_ok!(Nft::burn(Some(token_owner).into(), (collection_id, 2)));
 		System::assert_last_event(Event::<Test>::Burn { collection_id, serial_number: 2 }.into());
+		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 0);
 
 		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().collection_issuance, 0);
+		// Check owned tokens length is 0
+		assert_eq!(OwnershipInfo::<Test>::get(collection_id).unwrap().owned_tokens.len(), 0);
 		assert_eq!(Nft::owned_tokens(collection_id, &token_owner, 0, 1000), (0_u32, 0_u32, vec![]));
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 0);
 	});
@@ -1094,9 +1092,9 @@ fn mints_multiple_specified_tokens_by_id() {
 
 		// Ownership checks
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), token_ids.len() as u32);
-		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+		let ownership_info = OwnershipInfo::<Test>::get(collection_id).unwrap();
 		token_ids.iter().for_each(|&serial_number| {
-			assert!(collection_info.is_token_owner(&token_owner, serial_number));
+			assert!(ownership_info.is_token_owner(&token_owner, serial_number));
 		});
 
 		// Next serial number should be 0, origin chain is Ethereum so we don't count this
@@ -1136,9 +1134,9 @@ fn mint_duplicate_token_id_should_fail_silently() {
 		// We expect the token balance to be 5 as that is the number of unique token_ids in the vec
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 5);
 
-		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+		let ownership_info = OwnershipInfo::<Test>::get(collection_id).unwrap();
 		token_ids.iter().for_each(|&serial_number| {
-			assert!(collection_info.is_token_owner(&token_owner, serial_number));
+			assert!(ownership_info.is_token_owner(&token_owner, serial_number));
 		});
 
 		// Collection issuance should be 5 to indicate the 5 unique tokens
@@ -1155,9 +1153,9 @@ fn mint_duplicate_token_id_should_fail_silently() {
 		// We expect the token balance to be 3
 		assert_eq!(Nft::token_balance_of(&other_owner, collection_id), 3);
 
-		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+		let ownership_info = OwnershipInfo::<Test>::get(collection_id).unwrap();
 		[3000, 40005, 1234].iter().for_each(|&serial_number| {
-			assert!(collection_info.is_token_owner(&other_owner, serial_number));
+			assert!(ownership_info.is_token_owner(&other_owner, serial_number));
 		});
 	});
 }
@@ -1181,16 +1179,16 @@ fn token_exists_works() {
 			CrossChainCompatibility::default(),
 		));
 
-		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+		let ownership_info = OwnershipInfo::<Test>::get(collection_id).unwrap();
 
 		// Check that the tokens exist
 		for serial_number in 0..quantity {
-			assert!(collection_info.token_exists(serial_number));
+			assert!(ownership_info.token_exists(serial_number));
 		}
 
 		// Check that a non-existent token does not exist
 		for serial_number in quantity..1000 {
-			assert!(!collection_info.token_exists(serial_number));
+			assert!(!ownership_info.token_exists(serial_number));
 		}
 	});
 }
@@ -1231,88 +1229,79 @@ fn token_balance_of_works() {
 #[test]
 fn add_user_tokens_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let collection_owner = create_account(1);
 		let token_owner = create_account(2);
 		let tokens: Vec<SerialNumber> = vec![0, 1, 2, 3, 900, 1000, 101010101];
-		let collection_id = setup_collection(collection_owner);
-		let mut collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
-		let expected_owned_tokens: OwnedTokens = BoundedVec::default();
-		// Initially, owned tokens should be empty
-		assert_eq!(collection_info.owned_tokens, expected_owned_tokens);
+		let mut ownership_info = TokenOwnership::default();
 
 		// Add tokens to token_owner
 		let tokens_bounded: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(tokens.clone()).unwrap();
-		assert_ok!(collection_info.add_user_tokens(&token_owner, tokens_bounded.clone()));
+		assert_ok!(ownership_info.add_user_tokens(&token_owner, tokens_bounded.clone()));
 
-		let expected_owned_tokens = create_owned_tokens(vec![(token_owner, tokens.clone())]);
-		assert_eq!(collection_info.owned_tokens, expected_owned_tokens);
+		let expected_ownership_info = create_ownership_info(vec![(token_owner, tokens.clone())]);
+		assert_eq!(ownership_info, expected_ownership_info);
 
 		// Add tokens to token_owner_2
 		let token_owner_2 = create_account(3);
 		let tokens_2: Vec<SerialNumber> = vec![6, 9, 4, 2, 0];
 		let tokens_2_bounded: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(tokens_2.clone()).unwrap();
-		assert_ok!(collection_info.add_user_tokens(&token_owner_2, tokens_2_bounded.clone()));
+		assert_ok!(ownership_info.add_user_tokens(&token_owner_2, tokens_2_bounded.clone()));
 
-		let expected_owned_tokens =
-			create_owned_tokens(vec![(token_owner, tokens), (token_owner_2, tokens_2.clone())]);
-		assert_eq!(collection_info.owned_tokens, expected_owned_tokens);
+		let expected_ownership_info =
+			create_ownership_info(vec![(token_owner, tokens), (token_owner_2, tokens_2.clone())]);
+		assert_eq!(ownership_info, expected_ownership_info);
 
 		// Now remove some tokens from token_owner
 		let tokens_to_remove: Vec<SerialNumber> = vec![0, 1, 2, 3];
 		let tokens_to_remove_bounded: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(tokens_to_remove.clone()).unwrap();
-		collection_info.remove_user_tokens(&token_owner, tokens_to_remove_bounded);
-		let expected_owned_tokens = create_owned_tokens(vec![
+		ownership_info.remove_user_tokens(&token_owner, tokens_to_remove_bounded);
+		let expected_ownership_info = create_ownership_info(vec![
 			(token_owner, vec![900, 1000, 101010101]),
 			(token_owner_2, tokens_2),
 		]);
-		assert_eq!(collection_info.owned_tokens, expected_owned_tokens);
+		assert_eq!(ownership_info, expected_ownership_info);
 	});
 }
 
 #[test]
 fn add_user_tokens_over_token_limit_should_fail() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let collection_owner = create_account(1);
 		let token_owner = create_account(2);
 		let token_owner_2 = create_account(3);
-		let collection_id = setup_collection(collection_owner);
-		let mut collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+		let mut ownership_info = TokenOwnership::default();
 		let max = mock::MaxTokensPerCollection::get();
 
 		// Add tokens to token_owner
 		let serial_numbers_unbounded: Vec<SerialNumber> = (0..max).collect();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(serial_numbers_unbounded).unwrap();
-		assert_ok!(collection_info.add_user_tokens(&token_owner, serial_numbers.clone()));
+		assert_ok!(ownership_info.add_user_tokens(&token_owner, serial_numbers.clone()));
 
 		// Adding one more token to token_owner should fail
 		let serial_numbers_max: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![max]).unwrap();
 		assert_noop!(
-			collection_info.add_user_tokens(&token_owner, serial_numbers_max.clone()),
+			ownership_info.add_user_tokens(&token_owner, serial_numbers_max.clone()),
 			TokenOwnershipError::TokenLimitExceeded
 		);
 		// Adding tokens to different user still works
-		assert_ok!(collection_info.add_user_tokens(&token_owner_2, serial_numbers_max.clone()));
+		assert_ok!(ownership_info.add_user_tokens(&token_owner_2, serial_numbers_max.clone()));
 
 		// Now let's remove a token
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![1]).unwrap();
-		collection_info.remove_user_tokens(&token_owner, serial_numbers);
+		ownership_info.remove_user_tokens(&token_owner, serial_numbers);
 		// Adding one more token to token_owner should now work
-		assert_ok!(collection_info.add_user_tokens(&token_owner, serial_numbers_max));
+		assert_ok!(ownership_info.add_user_tokens(&token_owner, serial_numbers_max));
 	});
 }
 
 #[test]
 fn add_user_tokens_over_user_limit_should_fail() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let collection_owner = create_account(1);
-		let collection_id = setup_collection(collection_owner);
-		let mut collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+		let mut ownership_info = TokenOwnership::default();
 		let max = mock::MaxTokensPerCollection::get();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![100]).unwrap();
@@ -1320,12 +1309,12 @@ fn add_user_tokens_over_user_limit_should_fail() {
 		// Adding users up to max should work
 		for i in 0..max as u64 {
 			let account = create_account(i);
-			assert_ok!(collection_info.add_user_tokens(&account, serial_numbers.clone()));
+			assert_ok!(ownership_info.add_user_tokens(&account, serial_numbers.clone()));
 		}
 
 		// adding another user should fail
 		assert_noop!(
-			collection_info.add_user_tokens(&create_account(max as u64), serial_numbers),
+			ownership_info.add_user_tokens(&create_account(max as u64), serial_numbers),
 			TokenOwnershipError::TokenLimitExceeded
 		);
 	});
@@ -1453,7 +1442,6 @@ fn create_xls20_collection_works() {
 			None,
 			cross_chain_compatibility,
 		));
-		let expected_tokens = create_owned_tokens(vec![]);
 
 		System::assert_last_event(
 			Event::<Test>::CollectionCreate {
@@ -1482,7 +1470,6 @@ fn create_xls20_collection_works() {
 				origin_chain: OriginChain::Root,
 				next_serial_number: 0,
 				collection_issuance: 0,
-				owned_tokens: expected_tokens,
 				cross_chain_compatibility,
 			}
 		);

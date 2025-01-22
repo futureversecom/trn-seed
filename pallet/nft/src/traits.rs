@@ -18,7 +18,7 @@ use seed_primitives::CollectionUuid;
 use sp_runtime::DispatchError;
 use sp_std::fmt::Debug;
 
-use crate::CollectionInformation;
+use crate::{CollectionInformation, TokenOwnership};
 
 pub trait NFTCollectionInfo {
 	type AccountId: Debug + PartialEq + Clone;
@@ -27,8 +27,9 @@ pub trait NFTCollectionInfo {
 
 	fn get_collection_info(
 		collection_id: CollectionUuid,
-	) -> Result<
-		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
-		DispatchError,
-	>;
+	) -> Result<CollectionInformation<Self::AccountId, Self::StringLimit>, DispatchError>;
+
+	fn get_ownership_info(
+		collection_id: CollectionUuid,
+	) -> Result<TokenOwnership<Self::AccountId, Self::MaxTokensPerCollection>, DispatchError>;
 }
