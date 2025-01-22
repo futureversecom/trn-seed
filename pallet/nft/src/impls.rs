@@ -301,13 +301,12 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::TokenLimitExceeded
 		);
 
-		OwnershipInfo::<T>::try_mutate(collection_id, |maybe_ownership_info| -> DispatchResult {
-			let ownership_info = maybe_ownership_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
-			ownership_info
-				.add_user_tokens(token_owner, serial_numbers.clone())
-				.map_err(|e| Error::<T>::from(e))?;
-			Ok(())
-		})?;
+		let mut ownership_info = OwnershipInfo::<T>::get(collection_id).unwrap_or_default();
+		ownership_info
+			.add_user_tokens(token_owner, serial_numbers.clone())
+			.map_err(|e| Error::<T>::from(e))?;
+		<OwnershipInfo<T>>::insert(collection_id, ownership_info);
+
 		// Update CollectionInfo storage
 		<CollectionInfo<T>>::insert(collection_id, new_collection_info);
 		Ok(())

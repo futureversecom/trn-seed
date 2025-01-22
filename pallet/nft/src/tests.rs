@@ -789,6 +789,36 @@ fn mint_over_mint_limit_fails() {
 }
 
 #[test]
+fn mint_with_zero_issuance() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let collection_owner = create_account(1);
+		let collection_id = Nft::next_collection_uuid().unwrap();
+
+		// mint token Ids 0-4
+		assert_ok!(Nft::create_collection(
+			Some(collection_owner).into(),
+			bounded_string("test-collection"),
+			0, // 0 initial issuance
+			None,
+			None,
+			MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
+			None,
+			CrossChainCompatibility::default(),
+		));
+
+		// Should succeed even though no tokens exist in the collection
+		assert_ok!(
+			Nft::mint(
+				Some(collection_owner).into(),
+				collection_id,
+				1,
+				None
+			),
+		);
+	});
+}
+
+#[test]
 fn create_collection_over_mint_limit_fails() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let collection_owner = create_account(1);

@@ -154,6 +154,7 @@ pub mod pallet {
 		Twox64Concat,
 		CollectionUuid,
 		TokenOwnership<T::AccountId, T::MaxTokensPerCollection>,
+		OptionQuery,
 	>;
 
 	/// Map from collection to its public minting information
