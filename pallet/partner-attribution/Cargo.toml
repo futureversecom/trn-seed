@@ -14,13 +14,17 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true }
 scale-info = { workspace = true }
 
-frame-benchmarking = { workspace = true, optional = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+sp-core = { workspace = true }
 sp-std = { workspace = true }
+seed-primitives = { workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
 
 [dev-dependencies]
+sp-core = { workspace = true }
 sp-io = { workspace = true }
+pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
 seed-pallet-common = { workspace = true, default-features = true }
 
@@ -31,7 +35,9 @@ std = [
 	"scale-info/std",
 	"frame-support/std",
 	"frame-system/std",
+	"sp-core/std",
 	"sp-std/std",
+	"seed-primitives/std",
 	"frame-benchmarking?/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
