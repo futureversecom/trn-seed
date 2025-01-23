@@ -147,7 +147,39 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Register as a partner
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// Parameters:
+		/// - `account`: The account to register as a partner.
+		///
+		/// # <weight>
+		/// Weight is a constant value.
+		/// # </weight>
 		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO: add weight
+		pub fn register_partner(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			// increment the sale id, store it and use it
+			let partner_id = NextPartnerId::<T>::mutate(|id| -> Result<u128, DispatchError> {
+				let current_id = *id;
+				*id = id.checked_add(1).ok_or(Error::<T>::NoAvailableIds)?;
+				Ok(current_id)
+			})?;
+
+			let partner = PartnerInformation::<T::AccountId> {
+				owner: who,
+				account,
+				fee_percentage: None,
+				accumulated_fees: 0,
+			};
+			Partners::<T>::insert(partner_id, partner.clone());
+
+			Self::deposit_event(Event::PartnerRegistered { partner_id, partner });
+			Ok(())
+		}
 		#[pallet::weight(T::WeightInfo::set_chain_id())]
 		pub fn set_chain_id(
 			origin: OriginFor<T>,
