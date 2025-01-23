@@ -180,8 +180,59 @@ pub mod pallet {
 			Self::deposit_event(Event::PartnerRegistered { partner_id, partner });
 			Ok(())
 		}
+
+		/// Update or remove a partner account
+		///
+		/// The dispatch origin for this call must be _Signed_ and the caller must be the owner
+		/// of the partner account.
+		///
+		/// Parameters:
+		/// - `partner_id`: The ID of the partner to update
+		/// - `account`: If Some, updates the partner's account. If None, removes the partner entirely
+		///
+		/// # <weight>
+		/// Weight is a constant value.
+		/// # </weight>
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_chain_id())]
-		pub fn set_chain_id(
+		pub fn update_partner_account(
+			origin: OriginFor<T>,
+			#[pallet::compact] partner_id: u128,
+			account: Option<T::AccountId>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			// Get partner info and validate ownership
+			let partner = Partners::<T>::get(partner_id).ok_or(Error::<T>::PartnerNotFound)?;
+
+			ensure!(partner.owner == who, Error::<T>::Unauthorized);
+
+			match account {
+				Some(new_account) => {
+					// Update partner account
+					Partners::<T>::try_mutate(partner_id, |maybe_partner| -> DispatchResult {
+						let partner = maybe_partner.as_mut().ok_or(Error::<T>::PartnerNotFound)?;
+						partner.account = new_account.clone();
+
+						Self::deposit_event(Event::PartnerUpdated {
+							partner_id,
+							account: new_account,
+						});
+						Ok(())
+					})?;
+				},
+				None => {
+					// Remove partner entirely
+					Partners::<T>::remove(partner_id);
+					Self::deposit_event(Event::PartnerRemoved {
+						partner_id,
+						account: partner.account,
+					});
+				},
+			}
+
+			Ok(())
+		}
 			origin: OriginFor<T>,
 			#[pallet::compact] chain_id: u64,
 		) -> DispatchResult {
