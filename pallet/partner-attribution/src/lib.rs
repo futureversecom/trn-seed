@@ -155,7 +155,10 @@ pub mod pallet {
 		/// - `account`: The account to register as a partner.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO: add weight
-		pub fn register_partner_account(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
+		pub fn register_partner_account(
+			origin: OriginFor<T>,
+			account: T::AccountId,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			// increment the sale id, store it and use it
@@ -184,7 +187,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `partner_id`: The ID of the partner to update
-		/// - `account`: If Some, updates the partner's account. If None, removes the partner entirely
+		/// - `partner_account`: If Some, updates the partner's account. If None, removes the partner entirely
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_chain_id())]
 		pub fn update_partner_account(
@@ -194,24 +197,19 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			// Get partner info and validate ownership
+			// Get partner and verify ownership in one read
 			let partner = Partners::<T>::get(partner_id).ok_or(Error::<T>::PartnerNotFound)?;
-
 			ensure!(partner.owner == who, Error::<T>::Unauthorized);
 
 			match partner_account {
-				Some(new_account) => {
+				Some(account) => {
 					// Update partner account
-					Partners::<T>::try_mutate(partner_id, |maybe_partner| -> DispatchResult {
-						let partner = maybe_partner.as_mut().ok_or(Error::<T>::PartnerNotFound)?;
-						partner.account = new_account.clone();
-
-						Self::deposit_event(Event::PartnerUpdated {
-							partner_id,
-							account: new_account,
-						});
-						Ok(())
-					})?;
+					Partners::<T>::mutate(partner_id, |maybe_partner| {
+						if let Some(partner) = maybe_partner {
+							partner.account = account.clone();
+						}
+					});
+					Self::deposit_event(Event::PartnerUpdated { partner_id, account });
 				},
 				None => {
 					// Remove partner entirely
