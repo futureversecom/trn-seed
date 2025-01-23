@@ -36,11 +36,25 @@ mod weights;
 
 pub use weights::WeightInfo;
 
+/// The logging target for this pallet
+#[allow(dead_code)]
+pub(crate) const LOG_TARGET: &str = "partner_attribution";
+
+#[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+pub struct PartnerInformation<AccountId> {
+	/// The owner of the partner account
+	pub owner: AccountId,
+	/// The partner account address to recieve attribution
+	pub account: AccountId,
+	/// The fee percentage to be paid to the partner
+	pub fee_percentage: Option<Permill>,
+	/// The accumulated fees by all accounts attributed to this partner
+	pub accumulated_fees: Balance,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
@@ -54,31 +68,75 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Allowed origins to ease transition to council givernance
 		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-		/// The default chain ID to use if not set in the chain spec
-		type DefaultChainId: Get<u64>;
+		/// Ensure origin is a valid Futurepass account
+		type EnsureFuturepass: EnsureOrigin<Self::RuntimeOrigin, Success = H160>;
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
 	}
 
-	impl<T: Config> Get<u64> for Pallet<T> {
-		fn get() -> u64 {
-			ChainId::<T>::get()
-		}
-	}
-
 	#[pallet::type_value]
-	pub fn DefaultChainId<T: Config>() -> u64 {
-		T::DefaultChainId::get()
+	pub fn DefaultValue() -> u128 {
+		1
 	}
 
-	/// The EVM chain ID.
+	/// The next available partner id
 	#[pallet::storage]
-	pub type ChainId<T> = StorageValue<_, u64, ValueQuery, DefaultChainId<T>>;
+	pub type NextPartnerId<T> = StorageValue<_, u128, ValueQuery, DefaultValue>;
+
+	/// Partner information
+	#[pallet::storage]
+	pub type Partners<T: Config> =
+		StorageMap<_, Twox64Concat, u128, PartnerInformation<T::AccountId>>;
+
+	/// User-partner attributions
+	#[pallet::storage]
+	pub type Attributions<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, u128>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
-	pub enum Event<T> {
-		ChainIdSet(u64),
+	pub enum Event<T: Config> {
+		PartnerRegistered {
+			partner_id: u128,
+			partner: PartnerInformation<T::AccountId>,
+		},
+		PartnerUpdated {
+			partner_id: u128,
+			account: T::AccountId,
+		},
+		PartnerRemoved {
+			partner_id: u128,
+			account: T::AccountId,
+		},
+		PartnerUpgraded {
+			partner_id: u128,
+			account: T::AccountId,
+			fee_percentage: Permill,
+		},
+		AccountAttributed {
+			partner_id: u128,
+			account: T::AccountId,
+		},
+		AccountAttributionUpdated {
+			old_partner_id: u128,
+			new_partner_id: u128,
+			account: T::AccountId,
+		},
+		AccountAttributionRemoved {
+			partner_id: u128,
+			account: T::AccountId,
+		},
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// No available ids
+		NoAvailableIds,
+		/// Partner not found
+		PartnerNotFound,
+		/// Partner already exists
+		PartnerAlreadyExists,
+		/// Unauthorized
+		Unauthorized,
 	}
 
 	#[pallet::call]
