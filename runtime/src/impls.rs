@@ -926,6 +926,43 @@ where
 	}
 }
 
+/// Ensures that the origin is a Futurepass account
+pub struct EnsureFuturepass<AccountId>(sp_std::marker::PhantomData<AccountId>);
+
+impl<O, AccountId> EnsureOrigin<O> for EnsureFuturepass<AccountId>
+where
+	O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>,
+	AccountId: Clone + Into<H160> + From<H160>,
+{
+	type Success = H160;
+
+	fn try_origin(o: O) -> Result<Self::Success, O> {
+		o.into().and_then(|o| match o {
+			RawOrigin::Signed(who) => {
+				let address: H160 = who.clone().into();
+
+				// Check prefix for futurepass match
+				if address.as_bytes()[..4] != *FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX {
+					return Err(RawOrigin::Signed(who).into());
+				}
+
+				// Check if the Futurepass has an owner (must exist)
+				<ProxyPalletProvider as pallet_futurepass::ProxyProvider<Runtime>>::owner(
+					&address.into(),
+				)
+				.map(|_| address)
+				.ok_or_else(|| RawOrigin::Signed(who).into())
+			},
+			r => Err(r.into()),
+		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<O, ()> {
+		Ok(O::from(RawOrigin::Root))
+	}
+}
+
 pub struct DoughnutCallValidator;
 impl seed_pallet_common::ExtrinsicChecker for DoughnutCallValidator {
 	type Call = RuntimeCall;

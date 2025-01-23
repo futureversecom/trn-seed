@@ -1360,8 +1360,8 @@ impl pallet_vortex_distribution::Config for Runtime {
 impl pallet_partner_attribution::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ApproveOrigin = EnsureRoot<AccountId>;
-	type DefaultChainId = DefaultChainId;
-	// type WeightInfo = weights::pallet_partner_attribution::WeightInfo<Runtime>;
+	type EnsureFuturepass = impls::EnsureFuturepass<AccountId>;
+	// type WeightInfo = weights::pallet_partner_attribution::WeightInfo<Runtime>; // TODO
 	type WeightInfo = ();
 }
 
