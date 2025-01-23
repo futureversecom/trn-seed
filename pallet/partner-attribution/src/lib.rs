@@ -233,6 +233,64 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Attribute an account to a partner or update/remove an existing attribution.
+		/// - If `partner_id` is provided, the account will be attributed to the partner.
+		/// - If `partner_id` is not provided, the account will be removed from any existing attribution.
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// Parameters:
+		/// - `partner_id`: Optional partner id. If Some(id), creates new attribution or updates existing one.
+		///                 If None, removes existing attribution.
+		///
+		/// # <weight>
+		/// Weight is a constant value.
+		/// # </weight>
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO: update weight
+		pub fn attribute_account(origin: OriginFor<T>, partner_id: Option<u128>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			match (Attributions::<T>::get(&who), partner_id) {
+				// Case 1: No existing attribution, but partner_id provided - Create new attribution
+				(None, Some(new_partner_id)) => {
+					// Ensure partner exists
+					let _ =
+						Partners::<T>::get(new_partner_id).ok_or(Error::<T>::PartnerNotFound)?;
+					Attributions::<T>::insert(&who, new_partner_id);
+					Self::deposit_event(Event::AccountAttributed {
+						partner_id: new_partner_id,
+						account: who,
+					});
+				},
+				// Case 2: Existing attribution and new partner_id provided - Update attribution
+				(Some(old_partner_id), Some(new_partner_id)) => {
+					// Ensure new partner exists
+					let _ =
+						Partners::<T>::get(new_partner_id).ok_or(Error::<T>::PartnerNotFound)?;
+					Attributions::<T>::insert(who.clone(), new_partner_id);
+					Self::deposit_event(Event::AccountAttributionUpdated {
+						old_partner_id,
+						new_partner_id,
+						account: who,
+					});
+				},
+				// Case 3: Existing attribution and None provided - Remove attribution
+				(Some(old_partner_id), None) => {
+					Attributions::<T>::remove(&who);
+					Self::deposit_event(Event::AccountAttributionRemoved {
+						partner_id: old_partner_id,
+						account: who,
+					});
+				},
+				// Case 4: No existing attribution and None provided - Nothing to do
+				(None, None) => {
+					return Err(Error::<T>::PartnerNotFound.into());
+				},
+			}
+			Ok(())
+		}
 			origin: OriginFor<T>,
 			#[pallet::compact] chain_id: u64,
 		) -> DispatchResult {
