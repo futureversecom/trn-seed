@@ -17,13 +17,13 @@ use super::*;
 use crate::mock::{PartnerAttribution, System, Test};
 use seed_pallet_common::test_prelude::*;
 
-mod register_partner {
+mod register_partner_account {
 	use super::*;
 
 	#[test]
-	fn register_partner_succeeds() {
+	fn register_partner_account_succeeds() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
 
 			System::assert_last_event(
 				Event::PartnerRegistered {
@@ -52,9 +52,8 @@ mod register_partner {
 			// Put max sale_id
 			NextPartnerId::<Test>::put(u128::MAX);
 
-			// Initialize the crowdsale
 			assert_noop!(
-				PartnerAttribution::register_partner(Some(alice()).into(), alice(),),
+				PartnerAttribution::register_partner_account(Some(alice()).into(), alice(),),
 				Error::<Test>::NoAvailableIds
 			);
 		});
@@ -67,7 +66,7 @@ mod update_partner_account {
 	#[test]
 	fn update_partner_account_succeeds() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
 			assert_ok!(PartnerAttribution::update_partner_account(
 				Some(alice()).into(),
 				1,
@@ -86,7 +85,7 @@ mod update_partner_account {
 	#[test]
 	fn remove_partner_succeeds() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
 			assert_ok!(PartnerAttribution::update_partner_account(Some(alice()).into(), 1, None));
 
 			System::assert_last_event(
@@ -110,7 +109,7 @@ mod update_partner_account {
 	#[test]
 	fn remove_partner_without_permission_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
 			assert_noop!(
 				PartnerAttribution::update_partner_account(Some(bob()).into(), 1, None),
 				Error::<Test>::Unauthorized
@@ -125,7 +124,7 @@ mod attribute_account {
 	#[test]
 	fn attribute_account_succeeds() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
 			assert_ok!(PartnerAttribution::attribute_account(Some(bob()).into(), Some(1)));
 
 			System::assert_last_event(
@@ -139,8 +138,8 @@ mod attribute_account {
 	#[test]
 	fn update_account_attribution_succeeds() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner(Some(alice()).into(), alice()));
-			assert_ok!(PartnerAttribution::register_partner(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
 
 			assert_ok!(PartnerAttribution::attribute_account(Some(bob()).into(), Some(1)));
 			assert_ok!(PartnerAttribution::attribute_account(Some(bob()).into(), Some(2)));
@@ -161,7 +160,7 @@ mod attribute_account {
 	#[test]
 	fn remove_account_attribution_succeeds() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
 			assert_ok!(PartnerAttribution::attribute_account(Some(bob()).into(), Some(1)));
 
 			assert_ok!(PartnerAttribution::attribute_account(Some(bob()).into(), None));
@@ -195,7 +194,7 @@ mod upgrade_partner {
 	#[test]
 	fn upgrade_partner_succeeds() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
 			assert_ok!(PartnerAttribution::upgrade_partner(
 				RawOrigin::Root.into(),
 				1,
@@ -233,7 +232,7 @@ mod upgrade_partner {
 	#[test]
 	fn upgrade_partner_without_permission_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
 			assert_noop!(
 				PartnerAttribution::upgrade_partner(
 					Some(bob()).into(),

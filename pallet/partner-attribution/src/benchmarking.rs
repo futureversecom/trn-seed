@@ -24,7 +24,7 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 
 benchmarks! {
-	register_partner {
+	register_partner_account {
 		let acc: T::AccountId = account("acc", 0, 0);
 	}: _(RawOrigin::Signed(acc.clone()), acc.clone())
 	verify {
@@ -39,7 +39,7 @@ benchmarks! {
 	update_partner_account {
 		let acc: T::AccountId = account("acc", 0, 0);
 		let new_acc: T::AccountId = account("new_acc", 0, 0);
-		PartnerAttribution::<T>::register_partner(RawOrigin::Signed(acc.clone()).into(), acc.clone()).unwrap();
+		PartnerAttribution::<T>::register_partner_account(RawOrigin::Signed(acc.clone()).into(), acc.clone()).unwrap();
 	}: _(RawOrigin::Signed(acc.clone()), 1, Some(new_acc.clone()))
 	verify {
 		let partner = Partners::<T>::get(1).unwrap();
@@ -50,7 +50,7 @@ benchmarks! {
 	attribute_account {
 		let acc: T::AccountId = account("acc", 0, 0);
 		let partner_id: u128 = 1;
-		PartnerAttribution::<T>::register_partner(RawOrigin::Signed(acc.clone()).into(), acc.clone()).unwrap();
+		PartnerAttribution::<T>::register_partner_account(RawOrigin::Signed(acc.clone()).into(), acc.clone()).unwrap();
 	}: _(RawOrigin::Signed(acc.clone()), Some(partner_id))
 	verify {
 		let got_partner_id = Attributions::<T>::get(acc).unwrap();
@@ -59,7 +59,7 @@ benchmarks! {
 
 	upgrade_partner {
 		let acc: T::AccountId = account("acc", 0, 0);
-		PartnerAttribution::<T>::register_partner(RawOrigin::Signed(acc.clone()).into(), acc.clone()).unwrap();
+		PartnerAttribution::<T>::register_partner_account(RawOrigin::Signed(acc.clone()).into(), acc.clone()).unwrap();
 	}: _(RawOrigin::Root, 1, Permill::from_percent(10u32))
 	verify {
 		let partner = Partners::<T>::get(1).unwrap();

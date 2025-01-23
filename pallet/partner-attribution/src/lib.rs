@@ -159,7 +159,7 @@ pub mod pallet {
 		/// # </weight>
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO: add weight
-		pub fn register_partner(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
+		pub fn register_partner_account(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
 			// increment the sale id, store it and use it
