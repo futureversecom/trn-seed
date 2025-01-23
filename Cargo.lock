@@ -6161,10 +6161,13 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
+ "seed-primitives",
+ "sp-core",
  "sp-io",
  "sp-std",
 ]
