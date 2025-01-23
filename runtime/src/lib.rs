@@ -1454,7 +1454,7 @@ construct_runtime!(
 		Marketplace: pallet_marketplace = 44,
 		Preimage: pallet_preimage = 45,
 		VortexDistribution: pallet_vortex_distribution = 46,
-		PartnerAttribution: pallet_partner_attribution = 52,
+		PartnerAttribution: pallet_partner_attribution = 53,
 		FeeProxy: pallet_fee_proxy = 31,
 		FeeControl: pallet_fee_control = 40,
 		Xls20: pallet_xls20 = 42,
