@@ -23,8 +23,14 @@
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
 
 pub use pallet::*;
+
+use frame_support::{pallet_prelude::*, sp_runtime::Permill};
+use frame_system::pallet_prelude::*;
+use seed_primitives::Balance;
+use sp_core::H160;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
