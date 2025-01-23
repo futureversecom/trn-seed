@@ -190,7 +190,7 @@ pub mod pallet {
 		pub fn update_partner_account(
 			origin: OriginFor<T>,
 			#[pallet::compact] partner_id: u128,
-			account: Option<T::AccountId>,
+			partner_account: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -199,7 +199,7 @@ pub mod pallet {
 
 			ensure!(partner.owner == who, Error::<T>::Unauthorized);
 
-			match account {
+			match partner_account {
 				Some(new_account) => {
 					// Update partner account
 					Partners::<T>::try_mutate(partner_id, |maybe_partner| -> DispatchResult {
