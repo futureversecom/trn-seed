@@ -291,12 +291,39 @@ pub mod pallet {
 			}
 			Ok(())
 		}
+
+		/// Update a partner account's fee percentage
+		///
+		/// This is a privileged call that can only be called by an authorized futureverse account.
+		///
+		/// Parameters:
+		/// - `partner_id`: The partner id to update.
+		/// - `fee_percentage`: The new fee percentage to set for the partner.
+		///
+		/// # <weight>
+		/// Weight is a constant value.
+		/// # </weight>
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO: add weight
+		pub fn upgrade_partner(
 			origin: OriginFor<T>,
-			#[pallet::compact] chain_id: u64,
+			#[pallet::compact] partner_id: u128,
+			#[pallet::compact] fee_percentage: Permill,
 		) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
-			ChainId::<T>::put(chain_id);
-			Self::deposit_event(Event::<T>::ChainIdSet(chain_id));
+
+			Partners::<T>::mutate(partner_id, |maybe_partner| {
+				let Some(ref mut partner) = maybe_partner else {
+					return Err(Error::<T>::PartnerNotFound);
+				};
+				partner.fee_percentage = Some(fee_percentage);
+				Self::deposit_event(Event::PartnerUpgraded {
+					partner_id,
+					account: partner.clone().account,
+					fee_percentage,
+				});
+				Ok(())
+			})?;
 			Ok(())
 		}
 	}
