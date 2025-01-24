@@ -1361,8 +1361,7 @@ impl pallet_partner_attribution::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type EnsureFuturepass = impls::EnsureFuturepass<AccountId>;
-	// type WeightInfo = weights::pallet_partner_attribution::WeightInfo<Runtime>; // TODO
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_partner_attribution::WeightInfo<Runtime>;
 }
 
 impl pallet_maintenance_mode::Config for Runtime {

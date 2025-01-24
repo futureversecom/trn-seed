@@ -154,7 +154,7 @@ pub mod pallet {
 		/// Parameters:
 		/// - `account`: The account to register as a partner.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO: add weight
+		#[pallet::weight(T::WeightInfo::register_partner_account())]
 		pub fn register_partner_account(
 			origin: OriginFor<T>,
 			account: T::AccountId,
@@ -189,7 +189,7 @@ pub mod pallet {
 		/// - `partner_id`: The ID of the partner to update
 		/// - `partner_account`: If Some, updates the partner's account. If None, removes the partner entirely
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::set_chain_id())]
+		#[pallet::weight(T::WeightInfo::update_partner_account())]
 		pub fn update_partner_account(
 			origin: OriginFor<T>,
 			#[pallet::compact] partner_id: u128,
@@ -234,7 +234,7 @@ pub mod pallet {
 		/// - `partner_id`: Optional partner id. If Some(id), creates new attribution or updates existing one.
 		///                 If None, removes existing attribution.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO: update weight
+		#[pallet::weight(T::WeightInfo::attribute_account())]
 		pub fn attribute_account(origin: OriginFor<T>, partner_id: Option<u128>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -286,7 +286,7 @@ pub mod pallet {
 		/// - `partner_id`: The partner id to update.
 		/// - `fee_percentage`: The new fee percentage to set for the partner.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO: add weight
+		#[pallet::weight(T::WeightInfo::upgrade_partner())]
 		pub fn upgrade_partner(
 			origin: OriginFor<T>,
 			#[pallet::compact] partner_id: u128,
