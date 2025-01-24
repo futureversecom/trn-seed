@@ -43,6 +43,11 @@ impl EnsureOrigin<<Test as frame_system::Config>::RuntimeOrigin> for EnsureAny {
 			_ => Err(o),
 		}
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<<Test as frame_system::Config>::RuntimeOrigin, ()> {
+		Ok(RawOrigin::Root.into())
+	}
 }
 
 impl crate::Config for Test {
