@@ -24,8 +24,7 @@ use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_te
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_nft::{
-	CollectionInfo, CollectionInformation, OwnershipInfo, Pallet as Nft,
-	TokenOwnership,
+	CollectionInfo, CollectionInformation, OwnershipInfo, Pallet as Nft, TokenOwnership,
 };
 use seed_primitives::{CrossChainCompatibility, MetadataScheme};
 use sp_std::vec;

@@ -573,10 +573,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let mut collection_info =
 			<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-		ensure!(
-			collection_info.owner == previous_owner,
-			Error::<T>::NotCollectionOwner
-		);
+		ensure!(collection_info.owner == previous_owner, Error::<T>::NotCollectionOwner);
 		collection_info.owner = new_owner.clone();
 		<CollectionInfo<T>>::insert(collection_id, collection_info);
 		Self::deposit_event(Event::<T>::OwnerSet { collection_id, new_owner });

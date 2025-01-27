@@ -807,14 +807,7 @@ fn mint_with_zero_issuance() {
 		));
 
 		// Should succeed even though no tokens exist in the collection
-		assert_ok!(
-			Nft::mint(
-				Some(collection_owner).into(),
-				collection_id,
-				1,
-				None
-			),
-		);
+		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, None),);
 	});
 }
 
