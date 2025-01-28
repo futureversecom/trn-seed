@@ -125,7 +125,7 @@ mod attribute_account {
 	fn attribute_account_succeeds() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
-			assert_ok!(PartnerAttribution::attribute_account(Some(bob()).into(), Some(1)));
+			assert_ok!(PartnerAttribution::attribute_account(Some(bob()).into(), 1));
 
 			System::assert_last_event(
 				Event::AccountAttributed { partner_id: 1, account: bob() }.into(),
@@ -136,52 +136,10 @@ mod attribute_account {
 	}
 
 	#[test]
-	fn update_account_attribution_succeeds() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
-			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
-
-			assert_ok!(PartnerAttribution::attribute_account(Some(bob()).into(), Some(1)));
-			assert_ok!(PartnerAttribution::attribute_account(Some(bob()).into(), Some(2)));
-
-			System::assert_last_event(
-				Event::AccountAttributionUpdated {
-					old_partner_id: 1,
-					new_partner_id: 2,
-					account: bob(),
-				}
-				.into(),
-			);
-
-			assert_eq!(Attributions::<Test>::get(&bob()).unwrap(), 2);
-		});
-	}
-
-	#[test]
-	fn remove_account_attribution_succeeds() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
-			assert_ok!(PartnerAttribution::attribute_account(Some(bob()).into(), Some(1)));
-
-			assert_ok!(PartnerAttribution::attribute_account(Some(bob()).into(), None));
-
-			System::assert_last_event(
-				Event::AccountAttributionRemoved { partner_id: 1, account: bob() }.into(),
-			);
-
-			assert!(Attributions::<Test>::get(&bob()).is_none());
-		});
-	}
-
-	#[test]
 	fn remove_non_existent_account_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			assert_noop!(
-				PartnerAttribution::attribute_account(Some(bob()).into(), None),
-				Error::<Test>::PartnerNotFound
-			);
-			assert_noop!(
-				PartnerAttribution::attribute_account(Some(bob()).into(), Some(1)),
+				PartnerAttribution::attribute_account(Some(bob()).into(), 1),
 				Error::<Test>::PartnerNotFound
 			);
 		});
