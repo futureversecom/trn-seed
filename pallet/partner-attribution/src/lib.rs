@@ -101,36 +101,11 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
-		PartnerRegistered {
-			partner_id: u128,
-			partner: PartnerInformation<T::AccountId>,
-		},
-		PartnerUpdated {
-			partner_id: u128,
-			account: T::AccountId,
-		},
-		PartnerRemoved {
-			partner_id: u128,
-			account: T::AccountId,
-		},
-		PartnerUpgraded {
-			partner_id: u128,
-			account: T::AccountId,
-			fee_percentage: Permill,
-		},
-		AccountAttributed {
-			partner_id: u128,
-			account: T::AccountId,
-		},
-		AccountAttributionUpdated {
-			old_partner_id: u128,
-			new_partner_id: u128,
-			account: T::AccountId,
-		},
-		AccountAttributionRemoved {
-			partner_id: u128,
-			account: T::AccountId,
-		},
+		PartnerRegistered { partner_id: u128, partner: PartnerInformation<T::AccountId> },
+		PartnerUpdated { partner_id: u128, account: T::AccountId },
+		PartnerRemoved { partner_id: u128, account: T::AccountId },
+		PartnerUpgraded { partner_id: u128, account: T::AccountId, fee_percentage: Permill },
+		AccountAttributed { partner_id: u128, account: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -143,6 +118,10 @@ pub mod pallet {
 		PartnerAlreadyExists,
 		/// Unauthorized
 		Unauthorized,
+		/// Caller is not a futurepass account
+		CallerNotFuturepass,
+		/// Account already attributed to another partner
+		AccountAlreadyAttributed,
 	}
 
 	#[pallet::call]
@@ -161,7 +140,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			// increment the sale id, store it and use it
+			// increment the partner id, store it and use it
 			let partner_id = NextPartnerId::<T>::mutate(|id| -> Result<u128, DispatchError> {
 				let current_id = *id;
 				*id = id.checked_add(1).ok_or(Error::<T>::NoAvailableIds)?;
@@ -224,57 +203,34 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Attribute an account to a partner or update/remove an existing attribution.
-		/// - If `partner_id` is provided, the account will be attributed to the partner.
-		/// - If `partner_id` is not provided, the account will be removed from any existing attribution.
+		/// Attribute an account to a partner permanently
 		///
 		/// The dispatch origin for this call must be _Signed_.
+		/// The dispatch origin must be a futurepass account.
 		///
 		/// Parameters:
-		/// - `partner_id`: Optional partner id. If Some(id), creates new attribution or updates existing one.
-		///                 If None, removes existing attribution.
+		/// - `partner_id`: The partner id to attribute the account to.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::attribute_account())]
-		pub fn attribute_account(origin: OriginFor<T>, partner_id: Option<u128>) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+		pub fn attribute_account(origin: OriginFor<T>, partner_id: u128) -> DispatchResult {
+			let who = ensure_signed(origin.clone())?;
 
-			match (Attributions::<T>::get(&who), partner_id) {
-				// Case 1: No existing attribution, but partner_id provided - Create new attribution
-				(None, Some(new_partner_id)) => {
-					// Ensure partner exists
-					let _ =
-						Partners::<T>::get(new_partner_id).ok_or(Error::<T>::PartnerNotFound)?;
-					Attributions::<T>::insert(&who, new_partner_id);
-					Self::deposit_event(Event::AccountAttributed {
-						partner_id: new_partner_id,
-						account: who,
-					});
-				},
-				// Case 2: Existing attribution and new partner_id provided - Update attribution
-				(Some(old_partner_id), Some(new_partner_id)) => {
-					// Ensure new partner exists
-					let _ =
-						Partners::<T>::get(new_partner_id).ok_or(Error::<T>::PartnerNotFound)?;
-					Attributions::<T>::insert(who.clone(), new_partner_id);
-					Self::deposit_event(Event::AccountAttributionUpdated {
-						old_partner_id,
-						new_partner_id,
-						account: who,
-					});
-				},
-				// Case 3: Existing attribution and None provided - Remove attribution
-				(Some(old_partner_id), None) => {
-					Attributions::<T>::remove(&who);
-					Self::deposit_event(Event::AccountAttributionRemoved {
-						partner_id: old_partner_id,
-						account: who,
-					});
-				},
-				// Case 4: No existing attribution and None provided - Nothing to do
-				(None, None) => {
-					return Err(Error::<T>::PartnerNotFound.into());
-				},
+			// Ensure the caller is a futurepass account
+			let _ = <T as Config>::EnsureFuturepass::try_origin(origin)
+				.map_err(|_| Error::<T>::CallerNotFuturepass)?;
+
+			// Ensure partner exists
+			let _ = Partners::<T>::get(partner_id).ok_or(Error::<T>::PartnerNotFound)?;
+
+			// Ensure the account is not already attributed to another partner
+			if Attributions::<T>::get(&who).is_some() {
+				return Err(Error::<T>::AccountAlreadyAttributed.into());
 			}
+
+			// Attribute the account to the partner
+			Attributions::<T>::insert(&who, partner_id);
+			Self::deposit_event(Event::AccountAttributed { partner_id, account: who });
+
 			Ok(())
 		}
 
