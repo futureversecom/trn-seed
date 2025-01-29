@@ -46,8 +46,7 @@ impl EnsureOrigin<<Test as frame_system::Config>::RuntimeOrigin> for EnsureAny {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<<Test as frame_system::Config>::RuntimeOrigin, ()> {
-		let account = frame_benchmarking::account("caller", 0, 0);
-		Ok(frame_system::RawOrigin::Signed(account).into())
+		Ok(RawOrigin::Root.into())
 	}
 }
 

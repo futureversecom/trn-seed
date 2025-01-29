@@ -6164,6 +6164,7 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
+ "precompile-utils",
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",

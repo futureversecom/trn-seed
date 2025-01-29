@@ -24,6 +24,8 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 
 benchmarks! {
+	where_clause { where <T as frame_system::Config>::AccountId: From<sp_core::H160> }
+
 	register_partner_account {
 		let acc: T::AccountId = account("acc", 0, 0);
 	}: _(RawOrigin::Signed(acc.clone()), acc.clone())
@@ -52,10 +54,15 @@ benchmarks! {
 		let partner_id: u128 = 1;
 		PartnerAttribution::<T>::register_partner_account(RawOrigin::Signed(acc.clone()).into(), acc.clone()).unwrap();
 
-		let new_acc: T::AccountId = account("caller", 0, 0);
-	}: _(RawOrigin::Signed(new_acc.clone()), partner_id)
+		let futurepass_bytes = {
+			let mut bytes = [0u8; 20];
+			bytes[..4].copy_from_slice(precompile_utils::constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX);
+			bytes
+		};
+		let futurepass_account: T::AccountId = sp_core::H160::from(futurepass_bytes).into();
+	}: _(RawOrigin::Signed(futurepass_account.clone()), partner_id)
 	verify {
-		let got_partner_id = Attributions::<T>::get(new_acc).unwrap();
+		let got_partner_id = Attributions::<T>::get(futurepass_account).unwrap();
 		assert_eq!(got_partner_id, partner_id);
 	}
 

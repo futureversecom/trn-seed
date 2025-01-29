@@ -215,8 +215,7 @@ pub mod pallet {
 		pub fn attribute_account(origin: OriginFor<T>, partner_id: u128) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 
-			// Ensure the caller is a futurepass account; disabled in benchmarking
-			#[cfg(not(feature = "runtime-benchmarks"))]
+			// Ensure the caller is a futurepass account
 			let _ = <T as Config>::EnsureFuturepass::try_origin(origin)
 				.map_err(|_| Error::<T>::CallerNotFuturepass)?;
 

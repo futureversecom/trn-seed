@@ -20,6 +20,7 @@ sp-core = { workspace = true }
 sp-std = { workspace = true }
 seed-primitives = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
+precompile-utils = { workspace = true, optional = true }
 
 [dev-dependencies]
 sp-core = { workspace = true }
@@ -41,4 +42,4 @@ std = [
 	"frame-benchmarking?/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
-runtime-benchmarks = ["frame-benchmarking", "frame-support/runtime-benchmarks", "frame-system/runtime-benchmarks"]
+runtime-benchmarks = ["frame-benchmarking", "frame-support/runtime-benchmarks", "frame-system/runtime-benchmarks", "precompile-utils"]

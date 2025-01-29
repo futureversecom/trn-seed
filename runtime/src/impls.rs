@@ -947,11 +947,16 @@ where
 				}
 
 				// Check if the Futurepass has an owner (must exist)
-				<ProxyPalletProvider as pallet_futurepass::ProxyProvider<Runtime>>::owner(
+				// - not run in benchmarks as we need to create new dependencies in pallet-partner-attribution
+				#[cfg(not(feature = "runtime-benchmarks"))]
+				return <ProxyPalletProvider as pallet_futurepass::ProxyProvider<Runtime>>::owner(
 					&address.into(),
 				)
 				.map(|_| address)
-				.ok_or_else(|| RawOrigin::Signed(who).into())
+				.ok_or_else(|| RawOrigin::Signed(who).into());
+
+				#[cfg(feature = "runtime-benchmarks")]
+				return Ok(address);
 			},
 			r => Err(r.into()),
 		})
@@ -959,7 +964,7 @@ where
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<O, ()> {
-		Ok(O::from(RawOrigin::Root))
+		Ok(RawOrigin::Root.into())
 	}
 }
 
