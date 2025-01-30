@@ -99,4 +99,5 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type Xls20MintRequest = MockXls20MintRequest;
 	type NFIRequest = ();
+	type Migrator = ();
 }

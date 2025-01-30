@@ -263,6 +263,7 @@ macro_rules! impl_pallet_nft_config {
 			type WeightInfo = ();
 			type StringLimit = StringLimit;
 			type NFIRequest = ();
+			type Migrator = ();
 		}
 	};
 }

@@ -1,24 +1,20 @@
 use crate::*;
+use codec::{Decode, Encode, MaxEncodedLen};
+use core::fmt::Debug;
+use frame_support::{dispatch::GetStorageVersion, traits::StorageVersion, DefaultNoBound};
 use frame_support::{
-    dispatch::{GetStorageVersion},
-    traits::StorageVersion,
-    DefaultNoBound,
+    storage_alias, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, Twox64Concat,
 };
 use pallet_migration::WeightInfo;
 use pallet_nft::{CollectionInformation, TokenOwnership};
+use scale_info::TypeInfo;
 use seed_primitives::migration::{MigrationStep, MigrationStepResult};
 use seed_primitives::{
     CollectionUuid, CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule,
     SerialNumber, TokenCount,
 };
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{storage_alias, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, Twox64Concat};
-use scale_info::TypeInfo;
 use sp_runtime::BoundedVec;
-use core::fmt::Debug;
 
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
 use sp_std::marker::PhantomData;
 
 #[allow(dead_code)]
@@ -32,7 +28,11 @@ mod old {
         pallet_nft::Pallet<T>,
         Twox64Concat,
         CollectionUuid,
-        CollectionInformation<<T as frame_system::Config>::AccountId, <T as pallet_nft::Config>::MaxTokensPerCollection, <T as pallet_nft::Config>::StringLimit>,
+        CollectionInformation<
+            <T as frame_system::Config>::AccountId,
+            <T as pallet_nft::Config>::MaxTokensPerCollection,
+            <T as pallet_nft::Config>::StringLimit,
+        >,
     >;
 
     /// Information related to a specific collection
@@ -72,8 +72,10 @@ mod old {
         /// This collections compatibility with other chains
         pub cross_chain_compatibility: CrossChainCompatibility,
         /// All serial numbers owned by an account in a collection
-        pub owned_tokens:
-            BoundedVec<TokenOwnership<AccountId, MaxTokensPerCollection>, MaxTokensPerCollection>,
+        pub owned_tokens: BoundedVec<
+            old::TokenOwnership<AccountId, MaxTokensPerCollection>,
+            MaxTokensPerCollection,
+        >,
     }
 
     #[derive(
@@ -107,7 +109,6 @@ fn convert<T: pallet_nft::Config>(
     ),
     &'static str,
 > {
-
     // Construct ownership info out of old ownership info
     let token_ownership_old = old.owned_tokens;
     let mut token_ownership_new = TokenOwnership::default();
@@ -163,14 +164,14 @@ impl<T: pallet_nft::Config + pallet_migration::Config> MigrationStep for NftMigr
                 Ok((collection_info, token_ownership)) => {
                     pallet_nft::CollectionInfo::<T>::insert(key, collection_info);
                     pallet_nft::OwnershipInfo::<T>::insert(key, token_ownership);
-                }
+                },
                 Err(e) => {
                     // If we encounter an error during the conversion, we must insert some
                     // default value, we can't remove the token as it will cause unexpected results
                     // with the iter process
                     log::error!(target: LOG_TARGET, "🦆 Error migrating collection_id {:?} : {:?}", key, e);
                     // pallet_nft::CollectionInfo::<T>::insert(key, CollectionInfo::default());
-                }
+                },
             }
             let last_key = old::CollectionInfo::<T>::hashed_key_for(key);
             MigrationStepResult::continue_step(Self::max_step_weight(), last_key)
@@ -181,132 +182,244 @@ impl<T: pallet_nft::Config + pallet_migration::Config> MigrationStep for NftMigr
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::migrations::{tests::new_test_ext, Map};
-//     use frame_support::{StorageHasher, Twox64Concat};
-//     use hex_literal::hex;
-//
-//     /// Helper function to manually insert fake data into storage map
-//     fn insert_old_data(token_id: TokenId, old_value: old::Xls20TokenId) {
-//         let mut key = Twox64Concat::hash(&(token_id.0).encode());
-//         let key_2 = Twox64Concat::hash(&(token_id.1).encode());
-//         key.extend_from_slice(&key_2);
-//         Map::unsafe_storage_put::<old::Xls20TokenId>(b"Xls20", b"Xls20TokenMap", &key, old_value);
-//     }
-//
-//     #[test]
-//     fn convert_works() {
-//         new_test_ext().execute_with(|| {
-//             let old: [u8; 64] = "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"
-//                 .as_bytes()
-//                 .try_into()
-//                 .unwrap();
-//             let expected: [u8; 32] =
-//                 hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66");
-//             let new = convert(old).unwrap();
-//             assert_eq!(new, expected);
-//         });
-//     }
-//
-//     #[test]
-//     fn convert_works_explicit() {
-//         new_test_ext().execute_with(|| {
-//             // Original string: "000800003AE03CAAE14B04F03ACC3DB34EE0B13362C533A016E5C2F800000001"
-//             let old: [u8; 64] = [
-//                 48, 48, 48, 56, 48, 48, 48, 48, 51, 65, 69, 48, 51, 67, 65, 65, 69, 49, 52, 66, 48,
-//                 52, 70, 48, 51, 65, 67, 67, 51, 68, 66, 51, 52, 69, 69, 48, 66, 49, 51, 51, 54, 50,
-//                 67, 53, 51, 51, 65, 48, 49, 54, 69, 53, 67, 50, 70, 56, 48, 48, 48, 48, 48, 48, 48,
-//                 49,
-//             ];
-//             //  Manually convert above u8 array to hex array
-//             //  0,  0,  0,  8,  0,  0,  0,  0,  3,  A,  E,  0,  3,  C,  A,  A,  E,  1,  4,  B ...
-//             //  0x00,   0x08,   0x00,   0x00,   0x3A,   0xE0,   0x3C,   0xAA,   0xE1,   0x4B  ...
-//             //  0,      8,      0,      0,      58,     224,    60,     170,    225,    75    ...
-//
-//             let expected: [u8; 32] = [
-//                 0, 8, 0, 0, 58, 224, 60, 170, 225, 75, 4, 240, 58, 204, 61, 179, 78, 224, 177, 51,
-//                 98, 197, 51, 160, 22, 229, 194, 248, 0, 0, 0, 1,
-//             ];
-//             let new = convert(old).unwrap();
-//             assert_eq!(new, expected);
-//         });
-//     }
-//
-//     #[test]
-//     fn migrate_single_step() {
-//         new_test_ext().execute_with(|| {
-//             let old: [u8; 64] = "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"
-//                 .as_bytes()
-//                 .try_into()
-//                 .unwrap();
-//             let token_id: TokenId = (1, 2);
-//             insert_old_data(token_id, old);
-//
-//             let result = Xls20Migration::<Runtime>::step(None);
-//             assert!(!result.is_finished());
-//             let expected: [u8; 32] =
-//                 hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66");
-//             let new = pallet_xls20::Xls20TokenMap::<Runtime>::get(token_id.0, token_id.1).unwrap();
-//             assert_eq!(new, expected);
-//
-//             // Attempting to perform one more step should return Finished
-//             let last_key = result.last_key;
-//             let result = Xls20Migration::<Runtime>::step(last_key.clone());
-//             assert!(result.is_finished());
-//         });
-//     }
-//
-//     #[test]
-//     fn migrate_many_steps() {
-//         new_test_ext().execute_with(|| {
-//             // Insert 100 tokens in 10 different collections
-//             let collection_count = 10;
-//             let token_count = 100;
-//             for i in 0..collection_count {
-//                 for j in 0..token_count {
-//                     let token_id: TokenId = (i, j);
-//                     // insert collection_id and serial_number into first 2 bytes of old
-//                     let string = format!(
-//                         "{:0>8}{:0>8}{:0>48}",
-//                         token_id.0.to_string(),
-//                         token_id.1.to_string(),
-//                         0
-//                     );
-//                     let old: [u8; 64] = string.as_bytes().try_into().unwrap();
-//                     insert_old_data(token_id, old);
-//                 }
-//             }
-//
-//             // Perform migration
-//             let mut last_key = None;
-//             for _ in 0..collection_count * token_count {
-//                 let result = Xls20Migration::<Runtime>::step(last_key.clone());
-//                 assert!(!result.is_finished());
-//                 last_key = result.last_key;
-//             }
-//             // One last step to finish migration
-//             let result = Xls20Migration::<Runtime>::step(last_key.clone());
-//             assert!(result.is_finished());
-//
-//             // Check that all tokens have been migrated
-//             for i in 0..collection_count {
-//                 for j in 0..token_count {
-//                     let token_id: TokenId = (i, j);
-//                     let string = format!(
-//                         "{:0>8}{:0>8}{:0>48}",
-//                         token_id.0.to_string(),
-//                         token_id.1.to_string(),
-//                         0
-//                     );
-//                     let old: [u8; 64] = string.as_bytes().try_into().unwrap();
-//                     let expected = convert(old).unwrap();
-//                     let new = pallet_xls20::Xls20TokenMap::<Runtime>::get(token_id.0, token_id.1)
-//                         .unwrap();
-//                     assert_eq!(new, expected);
-//                 }
-//             }
-//         });
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::migrations::{tests::new_test_ext, Map};
+    use frame_support::{StorageHasher, Twox64Concat};
+    use pallet_nft::OwnedTokens;
+    use seed_pallet_common::test_prelude::create_account;
+
+    type AccountId = <Runtime as frame_system::Config>::AccountId;
+
+    /// Helper function to manually insert fake data into storage map
+    fn insert_old_data(
+        collection_id: CollectionUuid,
+        old_value: old::CollectionInformation<
+            AccountId,
+            MaxTokensPerCollection,
+            CollectionNameStringLimit,
+        >,
+    ) {
+        let key = Twox64Concat::hash(&(collection_id).encode());
+        Map::unsafe_storage_put::<
+            old::CollectionInformation<
+                AccountId,
+                MaxTokensPerCollection,
+                CollectionNameStringLimit,
+            >,
+        >(b"Nft", b"CollectionInfo", &key, old_value);
+    }
+
+    #[test]
+    fn convert_works() {
+        new_test_ext().execute_with(|| {
+            let old_token_ownership = old::TokenOwnership::<AccountId, MaxTokensPerCollection> {
+                owner: create_account(123),
+                owned_serials: BoundedVec::<SerialNumber, MaxTokensPerCollection>::truncate_from(
+                    vec![1, 2, 3],
+                ),
+            };
+            let old = old::CollectionInformation {
+                owner: create_account(123),
+                name: BoundedVec::<u8, CollectionNameStringLimit>::truncate_from(vec![1, 2, 3]),
+                metadata_scheme: MetadataScheme::try_from(b"metadata".as_slice()).unwrap(),
+                royalties_schedule: None,
+                max_issuance: Some(100),
+                origin_chain: OriginChain::Root,
+                next_serial_number: 1,
+                collection_issuance: 1,
+                cross_chain_compatibility: CrossChainCompatibility::default(),
+                owned_tokens: BoundedVec::<
+                    old::TokenOwnership<AccountId, MaxTokensPerCollection>,
+                    MaxTokensPerCollection,
+                >::truncate_from(vec![old_token_ownership]),
+            };
+            let (new_collection_info, new_token_ownership) = convert::<Runtime>(old).unwrap();
+            let expected_collection_info = CollectionInformation {
+                owner: create_account(123),
+                name: BoundedVec::<u8, CollectionNameStringLimit>::truncate_from(vec![1, 2, 3]),
+                metadata_scheme: MetadataScheme::try_from(b"metadata".as_slice()).unwrap(),
+                royalties_schedule: None,
+                max_issuance: Some(100),
+                origin_chain: OriginChain::Root,
+                next_serial_number: 1,
+                collection_issuance: 1,
+                cross_chain_compatibility: CrossChainCompatibility::default(),
+            };
+            let expected_token_ownership = TokenOwnership {
+                owned_tokens: BoundedVec::<
+                    OwnedTokens<AccountId, MaxTokensPerCollection>,
+                    MaxTokensPerCollection,
+                >::truncate_from(vec![(
+                    create_account(123),
+                    BoundedVec::<SerialNumber, MaxTokensPerCollection>::truncate_from(vec![
+                        1, 2, 3,
+                    ]),
+                )]),
+            };
+
+            assert_eq!(new_collection_info, expected_collection_info);
+            assert_eq!(new_token_ownership, expected_token_ownership);
+        });
+    }
+
+    #[test]
+    fn migrate_single_step() {
+        new_test_ext().execute_with(|| {
+            let old_token_ownership_1 = old::TokenOwnership::<AccountId, MaxTokensPerCollection> {
+                owner: create_account(123),
+                owned_serials: BoundedVec::<SerialNumber, MaxTokensPerCollection>::truncate_from(
+                    vec![1, 2, 3, 5],
+                ),
+            };
+            let old_token_ownership_2 = old::TokenOwnership::<AccountId, MaxTokensPerCollection> {
+                owner: create_account(126),
+                owned_serials: BoundedVec::<SerialNumber, MaxTokensPerCollection>::truncate_from(
+                    vec![6, 7, 8, 9],
+                ),
+            };
+            let old = old::CollectionInformation {
+                owner: create_account(126),
+                name: BoundedVec::<u8, CollectionNameStringLimit>::truncate_from(vec![1, 2, 3, 4]),
+                metadata_scheme: MetadataScheme::try_from(b"metadata".as_slice()).unwrap(),
+                royalties_schedule: None,
+                max_issuance: Some(500),
+                origin_chain: OriginChain::Root,
+                next_serial_number: 2,
+                collection_issuance: 5,
+                cross_chain_compatibility: CrossChainCompatibility::default(),
+                owned_tokens: BoundedVec::<
+                    old::TokenOwnership<AccountId, MaxTokensPerCollection>,
+                    MaxTokensPerCollection,
+                >::truncate_from(vec![old_token_ownership_1, old_token_ownership_2]),
+            };
+            let collection_id = 123;
+            insert_old_data(collection_id, old);
+
+            let result = NftMigration::<Runtime>::step(None);
+            assert!(!result.is_finished());
+            let expected_collection_info = CollectionInformation {
+                owner: create_account(126),
+                name: BoundedVec::<u8, CollectionNameStringLimit>::truncate_from(vec![1, 2, 3, 4]),
+                metadata_scheme: MetadataScheme::try_from(b"metadata".as_slice()).unwrap(),
+                royalties_schedule: None,
+                max_issuance: Some(500),
+                origin_chain: OriginChain::Root,
+                next_serial_number: 2,
+                collection_issuance: 5,
+                cross_chain_compatibility: CrossChainCompatibility::default(),
+            };
+            let expected_token_ownership = TokenOwnership {
+                owned_tokens: BoundedVec::<
+                    OwnedTokens<AccountId, MaxTokensPerCollection>,
+                    MaxTokensPerCollection,
+                >::truncate_from(vec![
+                    (
+                        create_account(123),
+                        BoundedVec::<SerialNumber, MaxTokensPerCollection>::truncate_from(vec![
+                            1, 2, 3, 5,
+                        ]),
+                    ),
+                    (
+                        create_account(126),
+                        BoundedVec::<SerialNumber, MaxTokensPerCollection>::truncate_from(vec![
+                            6, 7, 8, 9,
+                        ]),
+                    ),
+                ]),
+            };
+            let new_collection_info =
+                pallet_nft::CollectionInfo::<Runtime>::get(collection_id).unwrap();
+            assert_eq!(new_collection_info, expected_collection_info);
+
+            let new_token_ownership =
+                pallet_nft::OwnershipInfo::<Runtime>::get(collection_id).unwrap();
+            assert_eq!(new_token_ownership, expected_token_ownership);
+
+            // Attempting to perform one more step should return Finished
+            let last_key = result.last_key;
+            let result = NftMigration::<Runtime>::step(last_key.clone());
+            assert!(result.is_finished());
+        });
+    }
+
+    #[test]
+    fn migrate_many_steps() {
+        new_test_ext().execute_with(|| {
+            // Insert 100 collections
+            let collection_count: CollectionUuid = 100;
+            for i in 0..collection_count {
+                let old_token_ownership = old::TokenOwnership::<AccountId, MaxTokensPerCollection> {
+                    owner: create_account(1 + i as u64),
+                    owned_serials:
+                    BoundedVec::<SerialNumber, MaxTokensPerCollection>::truncate_from(vec![
+                        1, 2, 3, i,
+                    ]),
+                };
+                let old = old::CollectionInformation {
+                    owner: create_account(2 + i as u64),
+                    name: BoundedVec::<u8, CollectionNameStringLimit>::truncate_from(vec![
+                        1, 2, 3, 4,
+                    ]),
+                    metadata_scheme: MetadataScheme::try_from(b"metadata".as_slice()).unwrap(),
+                    royalties_schedule: None,
+                    max_issuance: Some(i),
+                    origin_chain: OriginChain::Root,
+                    next_serial_number: i + 4,
+                    collection_issuance: i + 5,
+                    cross_chain_compatibility: CrossChainCompatibility::default(),
+                    owned_tokens: BoundedVec::<
+                        old::TokenOwnership<AccountId, MaxTokensPerCollection>,
+                        MaxTokensPerCollection,
+                    >::truncate_from(vec![old_token_ownership]),
+                };
+                insert_old_data(i, old);
+            }
+
+            // Perform migration
+            let mut last_key = None;
+            for _ in 0..collection_count {
+                let result = NftMigration::<Runtime>::step(last_key.clone());
+                assert!(!result.is_finished());
+                last_key = result.last_key;
+            }
+            // One last step to finish migration
+            let result = NftMigration::<Runtime>::step(last_key.clone());
+            assert!(result.is_finished());
+
+            // Check that all collections have been migrated
+            for i in 0..collection_count {
+                let new_collection_info = pallet_nft::CollectionInfo::<Runtime>::get(i).unwrap();
+                let new_token_ownership = pallet_nft::OwnershipInfo::<Runtime>::get(i).unwrap();
+                let expected_token_ownership = TokenOwnership {
+                    owned_tokens: BoundedVec::<
+                        OwnedTokens<AccountId, MaxTokensPerCollection>,
+                        MaxTokensPerCollection,
+                    >::truncate_from(vec![(
+                        create_account(1 + i as u64),
+                        BoundedVec::<SerialNumber, MaxTokensPerCollection>::truncate_from(vec![
+                            1, 2, 3, i,
+                        ]),
+                    )]),
+                };
+                let expected_collection_info = CollectionInformation {
+                    owner: create_account(2 + i as u64),
+                    name: BoundedVec::<u8, CollectionNameStringLimit>::truncate_from(vec![
+                        1, 2, 3, 4,
+                    ]),
+                    metadata_scheme: MetadataScheme::try_from(b"metadata".as_slice()).unwrap(),
+                    royalties_schedule: None,
+                    max_issuance: Some(i),
+                    origin_chain: OriginChain::Root,
+                    next_serial_number: i + 4,
+                    collection_issuance: i + 5,
+                    cross_chain_compatibility: CrossChainCompatibility::default(),
+                };
+
+                assert_eq!(new_collection_info, expected_collection_info);
+                assert_eq!(new_token_ownership, expected_token_ownership);
+            }
+        });
+    }
+}

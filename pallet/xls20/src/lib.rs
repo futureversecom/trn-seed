@@ -375,8 +375,6 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 		receiver: &Self::AccountId,
 		xls20_token_id: Xls20TokenId,
 	) -> WeightedDispatchResult {
-		// Ensure the migration is complete
-		T::Migrator::ensure_migrated().map_err(|e| (Weight::zero(), e))?;
 		let xls20_token = Xls20Token::from(xls20_token_id);
 
 		// Check flag is not burnable, if the burnable flag is set then the issuer can
@@ -431,8 +429,6 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 	}
 
 	fn get_xls20_token_id(token_id: TokenId) -> Option<Xls20TokenId> {
-		// Ensure the migration is complete
-		T::Migrator::ensure_migrated().ok()?;
 		Xls20TokenMap::<T>::get(token_id.0, token_id.1)
 	}
 

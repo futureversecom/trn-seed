@@ -27,13 +27,17 @@ construct_runtime!(
 		System: frame_system,
 		Assets: pallet_assets,
 		Balances: pallet_balances,
+		AssetsExt: pallet_assets_ext,
 		Migration: pallet_migration,
+		Nft: pallet_nft,
 	}
 );
 
 impl_frame_system_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_balance_config!(Test);
+impl_pallet_assets_ext_config!(Test);
+impl_pallet_nft_config!(Test);
 
 pub const WEIGHT_PER_MIGRATION: u64 = 1000;
 

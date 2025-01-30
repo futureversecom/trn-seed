@@ -72,6 +72,7 @@ impl pallet_nft::Config for Test {
 	type WeightInfo = ();
 	type Xls20MintRequest = Xls20;
 	type NFIRequest = ();
+	type Migrator = ();
 }
 
 parameter_types! {

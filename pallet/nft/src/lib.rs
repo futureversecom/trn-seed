@@ -78,6 +78,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use seed_pallet_common::Migrator;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
@@ -136,6 +137,8 @@ pub mod pallet {
 		type Xls20MintRequest: Xls20MintRequest<AccountId = Self::AccountId>;
 		/// Interface for requesting extra meta storage items
 		type NFIRequest: NFIRequest<AccountId = Self::AccountId>;
+		/// Current Migrator handling the migration of storage values
+		type Migrator: Migrator;
 	}
 
 	/// Map from collection to its information
@@ -315,6 +318,7 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+			T::Migrator::ensure_migrated()?;
 
 			CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection| -> DispatchResult {
 				let collection = maybe_collection.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
@@ -342,6 +346,7 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 			Self::do_set_owner(who, collection_id, new_owner)
 		}
 
@@ -355,6 +360,7 @@ pub mod pallet {
 			max_issuance: TokenCount,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(!max_issuance.is_zero(), Error::<T>::InvalidMaxIssuance);
@@ -383,6 +389,7 @@ pub mod pallet {
 			base_uri: Vec<u8>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
@@ -430,6 +437,7 @@ pub mod pallet {
 			cross_chain_compatibility: CrossChainCompatibility,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 			Self::do_create_collection(
 				who,
 				name,
@@ -452,6 +460,7 @@ pub mod pallet {
 			enabled: bool,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 			let collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			// Only the owner can make this call
@@ -482,6 +491,7 @@ pub mod pallet {
 			pricing_details: Option<(AssetId, Balance)>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 			let collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			// Only the owner can make this call
@@ -532,6 +542,7 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 
 			ensure!(quantity <= T::MintLimit::get(), Error::<T>::MintLimitExceeded);
 			// minting flag must be enabled on the collection
@@ -604,6 +615,7 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 
 			Self::do_transfer(collection_id, serial_numbers, &who, &new_owner)
 		}
@@ -616,6 +628,7 @@ pub mod pallet {
 		#[transactional]
 		pub fn burn(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 			let (collection_id, serial_number) = token_id;
 
 			Self::do_burn(&who, collection_id, serial_number)?;
@@ -633,6 +646,7 @@ pub mod pallet {
 			name: BoundedVec<u8, T::StringLimit>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
@@ -656,6 +670,7 @@ pub mod pallet {
 			royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
@@ -690,6 +705,7 @@ pub mod pallet {
 			utility_flags: CollectionUtilityFlags,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			T::Migrator::ensure_migrated()?;
 			let collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
