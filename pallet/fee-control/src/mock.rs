@@ -22,6 +22,8 @@ use frame_support::{
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, GasWeightMapping};
 use precompile_utils::{Address, ErcIdConversion};
 use seed_pallet_common::test_prelude::*;
+use seed_pallet_common::ExtrinsicChecker;
+use sp_runtime::traits::{LookupError, StaticLookup};
 use sp_runtime::ConsensusEngineId;
 
 pub const MOCK_PAYMENT_ASSET_ID: AssetId = 100;
@@ -39,7 +41,11 @@ construct_runtime!(
 		Evm: pallet_evm,
 		Timestamp: pallet_timestamp,
 		Futurepass: pallet_futurepass,
+		Sylo: pallet_sylo_data_verification,
 		MockPallet: mock_pallet::pallet,
+		Xrpl: pallet_xrpl,
+		Utility: pallet_utility,
+		Proxy: pallet_proxy,
 		FeeControl: pallet_fee_control,
 	}
 );
@@ -54,6 +60,10 @@ impl_pallet_dex_config!(Test);
 impl_pallet_timestamp_config!(Test);
 impl_pallet_evm_config!(Test);
 impl_pallet_futurepass_config!(Test);
+impl_pallet_sylo_data_verification_config!(Test);
+impl_pallet_xrpl_config!(Test);
+impl_pallet_proxy_config!(Test);
+impl_pallet_utility_config!(Test);
 impl_pallet_fee_control_config!(Test);
 
 impl mock_pallet::pallet::Config for Test {}

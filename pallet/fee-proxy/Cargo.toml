@@ -23,6 +23,10 @@ pallet-evm = { workspace = true }
 pallet-assets-ext = { workspace = true }
 pallet-dex = { workspace = true }
 pallet-futurepass = { workspace = true }
+pallet-proxy = { workspace = true }
+pallet-utility = { workspace = true }
+pallet-xrpl = { workspace = true }
+pallet-sylo-data-verification = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 precompile-utils = { workspace = true }
 
@@ -44,7 +48,10 @@ std = [
     "precompile-utils/std",
     "pallet-assets-ext/std",
     "pallet-futurepass/std",
+    "pallet-proxy/std",
+	"pallet-utility/std",
     "pallet-evm/std",
+    "pallet-sylo-data-verification/std",
     "pallet-transaction-payment/std",
     "scale-info/std",
     "seed-primitives/std",

@@ -559,7 +559,9 @@ fn burn() {
 
 		// test
 		assert_ok!(Nft::burn(Some(token_owner).into(), (collection_id, 0)));
-		System::assert_last_event(Event::<Test>::Burn { collection_id, serial_number: 0 }.into());
+		System::assert_last_event(
+			Event::<Test>::Burn { token_owner, collection_id, serial_number: 0 }.into(),
+		);
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 2);
 
 		assert_ok!(Nft::burn(Some(token_owner).into(), (collection_id, 1)));
