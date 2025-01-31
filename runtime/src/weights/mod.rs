@@ -22,6 +22,7 @@ pub mod pallet_multisig;
 pub mod pallet_nfi;
 pub mod pallet_nft;
 pub mod pallet_nft_peg;
+pub mod pallet_partner_attribution;
 pub mod pallet_preimage;
 pub mod pallet_scheduler;
 pub mod pallet_session;

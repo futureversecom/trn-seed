@@ -21,6 +21,7 @@ mod evm_gas_costs;
 mod evm_tests;
 mod maintenance_mode;
 mod multiplier;
+mod partner_attribution;
 mod staker_payouts;
 mod sylo_fees;
 
