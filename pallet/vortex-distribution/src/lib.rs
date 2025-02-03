@@ -614,22 +614,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set assets list
-		///
-		/// `assets_list` - List of assets
-		/// `id` - The distribution id
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_assets_list(assets_list.len() as u32))]
-		// #[transactional]
-		pub fn set_assets_list(
-			origin: OriginFor<T>,
-			assets_list: BoundedVec<AssetId, T::MaxAssetPrices>, /* suppose max is also
-			                                                      * MaxAssetPrices */
-			id: T::VtxDistIdentifier,
-		) -> DispatchResultWithPostInfo {
-			Self::ensure_root_or_admin(origin)?;
-			Self::do_assets_list_setter(assets_list, id)
-		}
-
 		/// Set asset prices
 		///
 		/// `root_asset_prices` - root asset price
@@ -681,118 +665,7 @@ pub mod pallet {
 				_ => Err(Error::<T>::VtxDistDisabled)?,
 			}
 		}
-
-		/// Register effective balances and work points
-		/// length of vecotrs should align and with same set of accountid
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_eff_bal_n_wk_pts())]
-		#[transactional]
-		pub fn register_eff_bal_n_wk_pts(
-			origin: OriginFor<T>,
-			id: T::VtxDistIdentifier,
-			era: EraIndex,
-			balances: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
-			points: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
-			rates: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
-		) -> DispatchResult {
-			Self::ensure_root_or_admin(origin)?;
-
-			let s = VtxDistStatuses::<T>::get(id);
-
-			ensure!(s == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
-
-			//verify balances, points, and rates have the same length
-			ensure!(balances.len() == points.len(), Error::<T>::MismatchedBalancesAndPointsLength);
-			ensure!(balances.len() == rates.len(), Error::<T>::MismatchedBalancesAndRatesLength);
-
-			// Iterate through balances, points, and rates to ensure they have the same AccountId
-			for (((balance_account, _), (point_account, _)), (rate_account, _)) in
-				balances.iter().zip(points.iter()).zip(rates.iter())
-			{
-				ensure!(
-					balance_account == point_account && point_account == rate_account,
-					Error::<T>::MismatchedAccountIdLists
-				);
-			}
-
-			//record in storage
-			for ((balance, point), rate) in
-				balances.into_iter().zip(points.into_iter()).zip(rates.into_iter())
-			{
-				let penalty =
-					EffectiveBalancesWorkPoints::<T>::contains_key((id, era, balance.clone().0));
-				if penalty {
-					let (effective_balance, work_points, rates) =
-						EffectiveBalancesWorkPoints::<T>::get((id, era, balance.clone().0));
-					PenaltyEffectiveBalancesWorkPoints::<T>::insert(
-						(id, era, balance.clone().0),
-						(effective_balance, work_points, rates),
-					);
-				}
-
-				EffectiveBalancesWorkPoints::<T>::insert(
-					(id, era, balance.clone().0),
-					(balance.1, point.1, rate.1),
-				);
-			}
-
-			let mut total_effective_balance_era: BalanceOf<T> =
-				TotalEffectiveBalanceEra::<T>::get(id);
-			let mut total_work_points_era: BalanceOf<T> = TotalWorkPointsEra::<T>::get(id);
-
-			for (account_id, (effective_balance, work_points, rates)) in
-				EffectiveBalancesWorkPoints::<T>::iter_prefix((id, era))
-			{
-				let mut account_total_effective_balance: BalanceOf<T> =
-					AccountTotalEffectiveBalance::<T>::get(id, account_id.clone());
-				let mut account_total_work_points: BalanceOf<T> =
-					AccountTotalWorkPoints::<T>::get(id, account_id.clone());
-
-				let penalty = PenaltyEffectiveBalancesWorkPoints::<T>::contains_key((
-					id,
-					era,
-					account_id.clone(),
-				));
-				if penalty {
-					let (penalty_effective_balance, penalty_work_points, penalty_rates) =
-						PenaltyEffectiveBalancesWorkPoints::<T>::get((id, era, account_id.clone()));
-					//reverse total balance and points for the era
-					total_effective_balance_era = total_effective_balance_era
-						.saturating_sub(penalty_effective_balance.saturating_mul(penalty_rates));
-					total_work_points_era =
-						total_work_points_era.saturating_sub(penalty_work_points);
-					//reverse each account id's balance and points for the era
-					account_total_effective_balance = account_total_effective_balance
-						.saturating_sub(penalty_effective_balance.saturating_mul(penalty_rates));
-					account_total_work_points =
-						account_total_work_points.saturating_sub(penalty_work_points);
-				}
-
-				//accumulate total balance and points for the era
-				total_effective_balance_era = total_effective_balance_era
-					.saturating_add(effective_balance.saturating_mul(rates));
-				total_work_points_era = total_work_points_era.saturating_add(work_points);
-				//accumulate each account id's balance and points for the era
-				account_total_effective_balance = account_total_effective_balance
-					.saturating_add(effective_balance.saturating_mul(rates));
-				account_total_work_points = account_total_work_points.saturating_add(work_points);
-				AccountTotalEffectiveBalance::<T>::insert(
-					id,
-					account_id.clone(),
-					account_total_effective_balance,
-				);
-				AccountTotalWorkPoints::<T>::insert(
-					id,
-					account_id.clone(),
-					account_total_work_points,
-				);
-			}
-
-			TotalEffectiveBalanceEra::<T>::insert(id, total_effective_balance_era);
-			TotalWorkPointsEra::<T>::insert(id, total_work_points_era);
-
-			Ok(())
-		}
-
+		
 		/// Trigger distribution
 		///
 		/// `id` - The distribution id
@@ -863,6 +736,135 @@ pub mod pallet {
 				Precision::Exact,
 				Fortitude::Polite,
 			)?;
+			Ok(())
+		}
+
+		/// Set assets list
+		///
+		/// `assets_list` - List of assets
+		/// `id` - The distribution id
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_assets_list(assets_list.len() as u32))]
+		// #[transactional]
+		pub fn set_assets_list(
+			origin: OriginFor<T>,
+			assets_list: BoundedVec<AssetId, T::MaxAssetPrices>, /* suppose max is also
+			                                                      * MaxAssetPrices */
+			id: T::VtxDistIdentifier,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_root_or_admin(origin)?;
+			Self::do_assets_list_setter(assets_list, id)
+		}
+		
+		/// Register effective balances and work points
+		/// length of vecotrs should align and with same set of accountid
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_eff_bal_n_wk_pts())]
+		#[transactional]
+		pub fn register_eff_bal_n_wk_pts(
+			origin: OriginFor<T>,
+			id: T::VtxDistIdentifier,
+			era: EraIndex,
+			balances: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
+			points: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
+			rates: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
+		) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+
+			let s = VtxDistStatuses::<T>::get(id);
+
+			ensure!(s == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
+
+			//verify balances, points, and rates have the same length
+			ensure!(balances.len() == points.len(), Error::<T>::MismatchedBalancesAndPointsLength);
+			ensure!(balances.len() == rates.len(), Error::<T>::MismatchedBalancesAndRatesLength);
+
+			// Iterate through balances, points, and rates to ensure they have the same AccountId
+			for (((balance_account, _), (point_account, _)), (rate_account, _)) in
+			balances.iter().zip(points.iter()).zip(rates.iter())
+			{
+				ensure!(
+					balance_account == point_account && point_account == rate_account,
+					Error::<T>::MismatchedAccountIdLists
+				);
+			}
+
+			//record in storage
+			for ((balance, point), rate) in
+			balances.into_iter().zip(points.into_iter()).zip(rates.into_iter())
+			{
+				let penalty =
+					EffectiveBalancesWorkPoints::<T>::contains_key((id, era, balance.clone().0));
+				if penalty {
+					let (effective_balance, work_points, rates) =
+						EffectiveBalancesWorkPoints::<T>::get((id, era, balance.clone().0));
+					PenaltyEffectiveBalancesWorkPoints::<T>::insert(
+						(id, era, balance.clone().0),
+						(effective_balance, work_points, rates),
+					);
+				}
+
+				EffectiveBalancesWorkPoints::<T>::insert(
+					(id, era, balance.clone().0),
+					(balance.1, point.1, rate.1),
+				);
+			}
+
+			let mut total_effective_balance_era: BalanceOf<T> =
+				TotalEffectiveBalanceEra::<T>::get(id);
+			let mut total_work_points_era: BalanceOf<T> = TotalWorkPointsEra::<T>::get(id);
+
+			for (account_id, (effective_balance, work_points, rates)) in
+			EffectiveBalancesWorkPoints::<T>::iter_prefix((id, era))
+			{
+				let mut account_total_effective_balance: BalanceOf<T> =
+					AccountTotalEffectiveBalance::<T>::get(id, account_id.clone());
+				let mut account_total_work_points: BalanceOf<T> =
+					AccountTotalWorkPoints::<T>::get(id, account_id.clone());
+
+				let penalty = PenaltyEffectiveBalancesWorkPoints::<T>::contains_key((
+					id,
+					era,
+					account_id.clone(),
+				));
+				if penalty {
+					let (penalty_effective_balance, penalty_work_points, penalty_rates) =
+						PenaltyEffectiveBalancesWorkPoints::<T>::get((id, era, account_id.clone()));
+					//reverse total balance and points for the era
+					total_effective_balance_era = total_effective_balance_era
+						.saturating_sub(penalty_effective_balance.saturating_mul(penalty_rates));
+					total_work_points_era =
+						total_work_points_era.saturating_sub(penalty_work_points);
+					//reverse each account id's balance and points for the era
+					account_total_effective_balance = account_total_effective_balance
+						.saturating_sub(penalty_effective_balance.saturating_mul(penalty_rates));
+					account_total_work_points =
+						account_total_work_points.saturating_sub(penalty_work_points);
+				}
+
+				//accumulate total balance and points for the era
+				total_effective_balance_era = total_effective_balance_era
+					.saturating_add(effective_balance.saturating_mul(rates));
+				total_work_points_era = total_work_points_era.saturating_add(work_points);
+				//accumulate each account id's balance and points for the era
+				account_total_effective_balance = account_total_effective_balance
+					.saturating_add(effective_balance.saturating_mul(rates));
+				account_total_work_points = account_total_work_points.saturating_add(work_points);
+				AccountTotalEffectiveBalance::<T>::insert(
+					id,
+					account_id.clone(),
+					account_total_effective_balance,
+				);
+				AccountTotalWorkPoints::<T>::insert(
+					id,
+					account_id.clone(),
+					account_total_work_points,
+				);
+			}
+
+			TotalEffectiveBalanceEra::<T>::insert(id, total_effective_balance_era);
+			TotalWorkPointsEra::<T>::insert(id, total_work_points_era);
+
 			Ok(())
 		}
 	}
