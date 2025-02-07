@@ -146,15 +146,14 @@ fn start_vtx_dist_with_enabled_status_should_work() {
 		//set asset list
 		assert_ok!(Vortex::set_assets_list(
 			Origin::root(),
-			BoundedVec::try_from(vec![usdc, weth]).unwrap(),
+			BoundedVec::try_from(vec![usdc, weth, ROOT_ASSET_ID]).unwrap(),
 			vortex_dist_id,
 		));
 
 		//set asset price
 		assert_ok!(Vortex::set_asset_prices(
 			Origin::root(),
-			root_price,
-			BoundedVec::try_from(vec![(usdc, 100), (weth, 200)]).unwrap(),
+			BoundedVec::try_from(vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)]).unwrap(),
 			vortex_dist_id,
 		));
 
@@ -229,15 +228,14 @@ fn start_vtx_dist_with_already_paying_status_should_fail() {
 		//set asset list
 		assert_ok!(Vortex::set_assets_list(
 			Origin::root(),
-			BoundedVec::try_from(vec![usdc, weth]).unwrap(),
+			BoundedVec::try_from(vec![usdc, weth, ROOT_ASSET_ID]).unwrap(),
 			vortex_dist_id,
 		));
 
 		//set asset price
 		assert_ok!(Vortex::set_asset_prices(
 			Origin::root(),
-			root_price,
-			BoundedVec::try_from(vec![(usdc, 100), (weth, 200)]).unwrap(),
+			BoundedVec::try_from(vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)]).unwrap(),
 			vortex_dist_id,
 		));
 		assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id));
@@ -321,15 +319,14 @@ fn pay_unsigned_should_fail_if_status_is_not_paying() {
 			//set asset list
 			assert_ok!(Vortex::set_assets_list(
 				Origin::root(),
-				BoundedVec::try_from(vec![usdc, weth]).unwrap(),
+				BoundedVec::try_from(vec![usdc, weth, ROOT_ASSET_ID]).unwrap(),
 				vortex_dis_id,
 			));
 
 			//set asset price
 			assert_ok!(Vortex::set_asset_prices(
 				Origin::root(),
-				root_price,
-				BoundedVec::try_from(vec![(usdc, 100), (weth, 200)]).unwrap(),
+				BoundedVec::try_from(vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)]).unwrap(),
 				vortex_dis_id,
 			));
 
@@ -451,15 +448,14 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			//set asset list
 			assert_ok!(Vortex::set_assets_list(
 				Origin::root(),
-				BoundedVec::try_from(vec![usdc, weth]).unwrap(),
+				BoundedVec::try_from(vec![usdc, weth, ROOT_ASSET_ID]).unwrap(),
 				vortex_dis_id,
 			));
 
 			//set asset price
 			assert_ok!(Vortex::set_asset_prices(
 				Origin::root(),
-				root_price,
-				BoundedVec::try_from(vec![(usdc, 100), (weth, 200)]).unwrap(),
+				BoundedVec::try_from(vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)]).unwrap(),
 				vortex_dis_id,
 			));
 
@@ -623,21 +619,20 @@ fn set_asset_prices_should_work() {
 		let root_price: Balance = 1;
 
 		// Define some asset prices to be set.
-		let asset_prices: Vec<(AssetId, Balance)> = vec![(100, 500), (101, 300)];
+		let asset_prices: Vec<(AssetId, Balance)> = vec![(100, 500), (101, 300), (ROOT_ASSET_ID, root_price)];
 		let bounded_asset_prices: BoundedVec<_, _> =
 			BoundedVec::try_from(asset_prices.clone()).expect("Should not exceed limit");
 
 		//set asset list before set asset price
 		assert_ok!(Vortex::set_assets_list(
 			Origin::root(),
-			BoundedVec::try_from(vec![100, 101]).unwrap(),
+			BoundedVec::try_from(vec![100, 101, ROOT_ASSET_ID]).unwrap(),
 			vortex_dist_id.clone(),
 		));
 
 		// Set asset prices for the vortex distribution.
 		assert_ok!(Vortex::set_asset_prices(
 			Origin::root(),
-			root_price,
 			bounded_asset_prices.clone(),
 			vortex_dist_id
 		));
@@ -667,7 +662,6 @@ fn set_asset_prices_with_invalid_asset_id_should_fail() {
 		assert_noop!(
 			Vortex::set_asset_prices(
 				Origin::root(),
-				root_price,
 				bounded_invalid_asset_prices,
 				vortex_dist_id
 			),
@@ -686,7 +680,7 @@ fn set_asset_prices_without_permission_should_fail() {
 
 		// Non-admin account tries to set asset prices.
 		let non_admin = create_account(2);
-		let asset_prices: Vec<(AssetId, Balance)> = vec![(XRP_ASSET_ID, 500)];
+		let asset_prices: Vec<(AssetId, Balance)> = vec![(XRP_ASSET_ID, 500), (ROOT_ASSET_ID, root_price)];
 		let bounded_asset_prices: BoundedVec<_, _> =
 			BoundedVec::try_from(asset_prices).expect("Should not exceed limit");
 
@@ -694,7 +688,6 @@ fn set_asset_prices_without_permission_should_fail() {
 		assert_noop!(
 			Vortex::set_asset_prices(
 				Origin::signed(non_admin),
-				root_price,
 				bounded_asset_prices,
 				vortex_dist_id
 			),
@@ -733,15 +726,14 @@ fn register_rewards_with_invalid_distribution_id_should_fail() {
 			//set asset list
 			assert_ok!(Vortex::set_assets_list(
 				Origin::root(),
-				BoundedVec::try_from(vec![usdc, weth]).unwrap(),
+				BoundedVec::try_from(vec![usdc, weth, ROOT_ASSET_ID]).unwrap(),
 				vortex_dis_id,
 			));
 
 			//set asset price
 			assert_ok!(Vortex::set_asset_prices(
 				Origin::root(),
-				root_price,
-				BoundedVec::try_from(vec![(usdc, 100), (weth, 200)]).unwrap(),
+				BoundedVec::try_from(vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)]).unwrap(),
 				vortex_dis_id,
 			));
 			//trigger vortext reward calcuation and assets/root transfer to vault
@@ -871,15 +863,14 @@ fn trigger_vtx_distribution_should_work() {
 			//set asset list
 			assert_ok!(Vortex::set_assets_list(
 				Origin::root(),
-				BoundedVec::try_from(vec![usdc, weth]).unwrap(),
+				BoundedVec::try_from(vec![usdc, weth, ROOT_ASSET_ID]).unwrap(),
 				vortex_dist_id,
 			));
 
 			//set asset price
 			assert_ok!(Vortex::set_asset_prices(
 				Origin::root(),
-				root_price,
-				BoundedVec::try_from(vec![(usdc, 100), (weth, 200)]).unwrap(),
+				BoundedVec::try_from(vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)]).unwrap(),
 				vortex_dist_id,
 			));
 
@@ -945,15 +936,14 @@ fn trigger_vtx_distribution_should_fail_if_already_triggered() {
 		//set asset list
 		assert_ok!(Vortex::set_assets_list(
 			Origin::root(),
-			BoundedVec::try_from(vec![usdc, weth]).unwrap(),
+			BoundedVec::try_from(vec![usdc, weth, ROOT_ASSET_ID]).unwrap(),
 			vortex_dist_id,
 		));
 
 		//set asset price
 		assert_ok!(Vortex::set_asset_prices(
 			Origin::root(),
-			root_price,
-			BoundedVec::try_from(vec![(usdc, 100), (weth, 200)]).unwrap(),
+			BoundedVec::try_from(vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)]).unwrap(),
 			vortex_dist_id,
 		));
 
@@ -1054,11 +1044,10 @@ fn redeem_tokens_from_vault_should_work() {
 			//set asset price
 			assert_ok!(Vortex::set_asset_prices(
 				Origin::root(),
-				root_price,
 				BoundedVec::try_from(vec![
 					(usdc, 100),
 					(weth, 200),
-					(<Test as crate::Config>::NativeAssetId::get(), 100)
+					(<Test as crate::Config>::NativeAssetId::get(), root_price)
 				])
 				.unwrap(),
 				vortex_dis_id,
@@ -1195,8 +1184,7 @@ fn redeem_tokens_from_vault_should_work_without_root_token_in_asset_prices() {
 			//set asset price
 			assert_ok!(Vortex::set_asset_prices(
 				Origin::root(),
-				root_price,
-				BoundedVec::try_from(vec![(usdc, 100), (weth, 200),]).unwrap(),
+				BoundedVec::try_from(vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)]).unwrap(),
 				vortex_dis_id,
 			));
 
@@ -1319,15 +1307,14 @@ fn redeem_tokens_from_vault_should_fail_for_insufficient_balance() {
 			//set asset list
 			assert_ok!(Vortex::set_assets_list(
 				Origin::root(),
-				BoundedVec::try_from(vec![usdc, weth]).unwrap(),
+				BoundedVec::try_from(vec![usdc, weth, ROOT_ASSET_ID]).unwrap(),
 				vortex_dis_id,
 			));
 
 			//set asset price
 			assert_ok!(Vortex::set_asset_prices(
 				Origin::root(),
-				root_price,
-				BoundedVec::try_from(vec![(usdc, 100), (weth, 200)]).unwrap(),
+				BoundedVec::try_from(vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)]).unwrap(),
 				vortex_dis_id,
 			));
 
@@ -1443,15 +1430,14 @@ fn vortex_distribution_should_work() {
 			//set asset list
 			assert_ok!(Vortex::set_assets_list(
 				Origin::root(),
-				BoundedVec::try_from(vec![usdc, weth]).unwrap(),
+				BoundedVec::try_from(vec![usdc, weth, ROOT_ASSET_ID]).unwrap(),
 				vortex_dis_id,
 			));
 
 			//set asset price
 			assert_ok!(Vortex::set_asset_prices(
 				Origin::root(),
-				root_price,
-				BoundedVec::try_from(vec![(usdc, 100), (weth, 200)]).unwrap(),
+				BoundedVec::try_from(vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)]).unwrap(),
 				vortex_dis_id,
 			));
 
