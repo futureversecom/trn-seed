@@ -611,7 +611,6 @@ pub mod pallet {
 
 		/// Set asset prices
 		///
-		/// `root_asset_prices` - root asset price
 		/// `asset_prices` - List of asset prices
 		/// `id` - The distribution id
 		#[pallet::call_index(6)]
@@ -619,12 +618,11 @@ pub mod pallet {
 		#[transactional]
 		pub fn set_asset_prices(
 			origin: OriginFor<T>,
-			root_asset_price: BalanceOf<T>,
 			asset_prices: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 			id: T::VtxDistIdentifier,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_root_or_admin(origin)?;
-			Self::do_asset_price_setter(root_asset_price, asset_prices, id)
+			Self::do_asset_price_setter(asset_prices, id)
 		}
 
 		/// Register distribution rewards
@@ -922,7 +920,7 @@ pub mod pallet {
 			let total_vortex = TotalVortex::<T>::get(id);
 			T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vault_account, total_vortex)?;
 
-			TotalVortex::<T>::remove(id);
+			TotalVortex::<T>::remove(id);// spk - why remove?
 			VtxDistStatuses::<T>::mutate(id, |status| {
 				*status = VtxDistStatus::Paying;
 			});
@@ -949,12 +947,9 @@ pub mod pallet {
 
 		/// set asset prices
 		fn do_asset_price_setter(
-			root_asset_price: BalanceOf<T>,
 			asset_prices: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 			id: T::VtxDistIdentifier,
 		) -> DispatchResultWithPostInfo {
-			RootAssetPrice::<T>::insert(id, root_asset_price);
-
 			for (asset_id, price) in &asset_prices {
 				ensure!(
 					asset_id != &T::VtxAssetId::get(),
@@ -970,7 +965,7 @@ pub mod pallet {
 
 		// do collate rewards(assets and root) tokens in to vault account
 		fn do_collate_reward_tokens(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
-			let root_price = RootAssetPrice::<T>::get(id);
+			let root_price = AssetPrices::<T>::get(id, T::NativeAssetId::get());
 			ensure!(root_price > Zero::zero(), Error::<T>::RootPriceIsZero);
 
 			let vault_account = Self::get_vtx_vault_account();
