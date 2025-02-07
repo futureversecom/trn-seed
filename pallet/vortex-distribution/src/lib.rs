@@ -194,11 +194,6 @@ pub mod pallet {
 		ConstU32<{ u32::MAX }>,
 	>;
 
-	/// Stores the root asset price for each vortex distribution
-	#[pallet::storage]
-	pub type RootAssetPrice<T: Config> =
-		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, BalanceOf<T>, ValueQuery>;
-
 	/// Stores assets list for each vortex distribution
 	#[pallet::storage]
 	pub(super) type AssetsList<T: Config> = StorageMap<
