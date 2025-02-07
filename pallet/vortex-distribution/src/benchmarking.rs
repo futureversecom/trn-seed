@@ -80,8 +80,8 @@ benchmarks! {
 		let asset_ids = BoundedVec::try_from(vec![asset_id]).unwrap();
 		assert_ok!(VortexDistribution::<T>::set_assets_list(RawOrigin::Root.into(), asset_ids, vortex_dist_id.clone()));
 		let root_price = balance;
-		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into())]).unwrap();
-		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), root_price, asset_prices, vortex_dist_id));
+		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into()), (T::NativeAssetId::get(), balance.into())]).unwrap();
+		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), asset_prices, vortex_dist_id));
 
 		let vault_account = VortexDistribution::<T>::get_vtx_vault_account();
 		let root_vault = VortexDistribution::<T>::get_root_vault_account();
@@ -151,13 +151,13 @@ benchmarks! {
 			asset_ids_vec.push(asset_id);
 		}
 
-		let asset_prices = BoundedVec::try_from(asset_prices_vec).unwrap();
+		let asset_prices = BoundedVec::try_from([asset_prices_vec..(T::NativeAssetId::get(), balance.into())]).unwrap();
 		let asset_ids = BoundedVec::try_from(asset_ids_vec).unwrap();
 		let root_price = balance.into();
 		let vortex_dist_id = NextVortexId::<T>::get();
 		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
 		assert_ok!(VortexDistribution::<T>::set_assets_list(RawOrigin::Root.into(), asset_ids, vortex_dist_id.clone()));
-	}: _(RawOrigin::Root, root_price, asset_prices.clone(), vortex_dist_id)
+	}: _(RawOrigin::Root, asset_prices.clone(), vortex_dist_id)
 	verify {
 		for (asset_id, _) in asset_prices.into_iter() {
 			assert_eq!(AssetPrices::<T>::get(vortex_dist_id, asset_id), balance);
@@ -185,9 +185,9 @@ benchmarks! {
 		let asset_ids = BoundedVec::try_from(vec![asset_id]).unwrap();
 		assert_ok!(VortexDistribution::<T>::set_assets_list(RawOrigin::Root.into(), asset_ids, vortex_dist_id.clone()));
 		let root_price = balance;
-		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into())]).unwrap();
+		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into()), (T::NativeAssetId::get(), balance.into())]).unwrap();
 		let end_block: u32 = 500;
-		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), root_price, asset_prices, vortex_dist_id));
+		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), asset_prices, vortex_dist_id));
 		let vault_account = VortexDistribution::<T>::get_vtx_vault_account();
 		let root_vault = VortexDistribution::<T>::get_root_vault_account();
 		let fee_vault = VortexDistribution::<T>::get_fee_vault_account();
@@ -212,8 +212,8 @@ benchmarks! {
 		let asset_ids = BoundedVec::try_from(vec![asset_id]).unwrap();
 		assert_ok!(VortexDistribution::<T>::set_assets_list(RawOrigin::Root.into(), asset_ids, vortex_dist_id.clone()));
 		let root_price = balance;
-		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into())]).unwrap();
-		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), root_price, asset_prices, vortex_dist_id));
+		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into()), (T::NativeAssetId::get(), balance.into())]).unwrap();
+		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), asset_prices, vortex_dist_id));
 
 		let vault_account = VortexDistribution::<T>::get_vtx_vault_account();
 		let root_vault = VortexDistribution::<T>::get_root_vault_account();
@@ -241,9 +241,9 @@ benchmarks! {
 		let asset_ids = BoundedVec::try_from(vec![asset_id]).unwrap();
 		assert_ok!(VortexDistribution::<T>::set_assets_list(RawOrigin::Root.into(), asset_ids, vortex_dist_id.clone()));
 		let root_price = balance;
-		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into())]).unwrap();
+		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into()), (T::NativeAssetId::get(), balance.into())]).unwrap();
 		let end_block: u32 = 500;
-		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), root_price, asset_prices, vortex_dist_id));
+		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), asset_prices, vortex_dist_id));
 		let vault_account = VortexDistribution::<T>::get_vtx_vault_account();
 		let root_vault = VortexDistribution::<T>::get_root_vault_account();
 		let fee_vault = VortexDistribution::<T>::get_fee_vault_account();
@@ -293,9 +293,9 @@ benchmarks! {
 		let asset_ids = BoundedVec::try_from(vec![asset_id]).unwrap();
 		assert_ok!(VortexDistribution::<T>::set_assets_list(RawOrigin::Root.into(), asset_ids, vortex_dist_id.clone()));
 		let root_price = balance;
-		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into())]).unwrap();
+		let asset_prices = BoundedVec::try_from(vec![(asset_id, balance.into()), (T::NativeAssetId::get(), balance.into())]).unwrap();
 		let end_block: u32 = 500;
-		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), root_price, asset_prices, vortex_dist_id));
+		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), asset_prices, vortex_dist_id));
 		let vault_account = VortexDistribution::<T>::get_vtx_vault_account();
 		let root_vault = VortexDistribution::<T>::get_root_vault_account();
 		let fee_vault = VortexDistribution::<T>::get_fee_vault_account();
