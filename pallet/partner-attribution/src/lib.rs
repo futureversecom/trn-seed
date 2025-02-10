@@ -72,7 +72,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		/// Allowed origins to ease transition to council givernance
+		/// Allowed origin to perform privileged calls
 		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// Ensure origin is a valid Futurepass account
 		type EnsureFuturepass: EnsureOrigin<Self::RuntimeOrigin, Success = H160>;
