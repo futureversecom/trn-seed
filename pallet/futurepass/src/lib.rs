@@ -112,9 +112,6 @@ pub mod pallet {
 			Result = bool,
 		>;
 
-		/// Allowed origins to ease transition to council governance
-		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
 		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` filter.
 		/// The instance filter determines whether a given call may be proxied under this type.
 		///

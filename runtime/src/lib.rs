@@ -1319,7 +1319,6 @@ impl pallet_futurepass::Config for Runtime {
 	type Proxy = impls::ProxyPalletProvider;
 	type RuntimeCall = RuntimeCall;
 	type BlacklistedCallValidator = impls::FuturepassCallValidator;
-	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
 	type WeightInfo = weights::pallet_futurepass::WeightInfo<Self>;
 
