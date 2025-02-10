@@ -194,6 +194,30 @@ pub mod pallet {
 		ConstU32<{ u32::MAX }>,
 	>;
 
+	/// Stores reward points for each account, each vortex distribution
+	#[pallet::storage]
+	pub(super) type RewardPoints<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		T::VtxDistIdentifier,
+		Blake2_128Concat,
+		T::AccountId,
+		BalanceOf<T>, // balance is the reward points for each account
+		ValueQuery,
+	>;
+
+	/// Stores work points for each account, each vortex distribution
+	#[pallet::storage]
+	pub(super) type WorkPoints<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		T::VtxDistIdentifier,
+		Blake2_128Concat,
+		T::AccountId,
+		BalanceOf<T>, // balance is the work points for each account
+		ValueQuery,
+	>;
+
 	/// Stores assets list for each vortex distribution
 	#[pallet::storage]
 	pub(super) type AssetsList<T: Config> = StorageMap<
