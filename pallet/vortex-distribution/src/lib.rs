@@ -772,6 +772,48 @@ pub mod pallet {
 			Self::ensure_root_or_admin(origin)?;
 			Self::do_assets_list_setter(assets_list, id)
 		}
+
+		/// Register rewards point distribution
+		///
+		/// `id` - The distribution id
+		/// `reward_points` - Reward point list
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
+		pub fn register_reward_points(
+			origin: OriginFor<T>,
+			id: T::VtxDistIdentifier,
+			reward_points: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
+		) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+			let dst_status = VtxDistStatuses::<T>::get(id);
+			ensure!(dst_status == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
+			for (account, r_points) in reward_points {
+				RewardPoints::<T>::insert(id, account, r_points);
+			}
+
+			Ok(())
+		}
+
+		/// Register work point distribution
+		///
+		/// `id` - The distribution id
+		/// `work_points` - work point list
+		#[pallet::call_index(12)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
+		pub fn register_work_points(
+			origin: OriginFor<T>,
+			id: T::VtxDistIdentifier,
+			work_points: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
+		) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+			let dst_status = VtxDistStatuses::<T>::get(id);
+			ensure!(dst_status == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
+			for (account, w_points) in work_points {
+				WorkPoints::<T>::insert(id, account, w_points);
+			}
+
+			Ok(())
+		}
 		
 		/// Register effective balances and work points
 		/// length of vecotrs should align and with same set of accountid
