@@ -61,6 +61,7 @@ pub trait WeightInfo {
 	fn set_royalties_schedule() -> Weight;
 	fn set_utility_flags() -> Weight;
 	fn set_token_name() -> Weight;
+	fn set_token_transferable_flag() -> Weight;
 }
 
 /// Weights for pallet_sft using the Substrate node and recommended hardware.
@@ -204,6 +205,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Sft::SftCollectionInfo` (r:1 w:0)
+	/// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
+	/// Storage: `Sft::TokenInfo` (r:1 w:0)
+	/// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
+	/// Storage: `Sft::TokenUtilityFlags` (r:1 w:1)
+	/// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
+	fn set_token_transferable_flag() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `242`
+		//  Estimated: `52003569`
+		// Minimum execution time: 14_247_000 picoseconds.
+		Weight::from_parts(14_688_000, 0)
+			.saturating_add(Weight::from_parts(0, 52003569))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
 
 // For backwards compatibility and tests
@@ -344,6 +361,22 @@ impl WeightInfo for () {
 	fn set_token_name() -> Weight {
 		Weight::from_all(49_103_000)
 			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(1))
+	}
+	/// Storage: `Sft::SftCollectionInfo` (r:1 w:0)
+	/// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
+	/// Storage: `Sft::TokenInfo` (r:1 w:0)
+	/// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
+	/// Storage: `Sft::TokenUtilityFlags` (r:1 w:1)
+	/// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
+	fn set_token_transferable_flag() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `242`
+		//  Estimated: `52003569`
+		// Minimum execution time: 14_247_000 picoseconds.
+		Weight::from_parts(14_688_000, 0)
+			.saturating_add(Weight::from_parts(0, 52003569))
+			.saturating_add(RocksDbWeight::get().reads(3))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }
