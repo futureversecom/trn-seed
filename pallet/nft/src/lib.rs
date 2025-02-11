@@ -35,7 +35,7 @@ use frame_support::{
 	transactional, PalletId,
 };
 use seed_pallet_common::{
-	utils::{CollectionUtilityFlags, PublicMintInformation},
+	utils::{CollectionUtilityFlags, TokenUtilityFlags as TokenFlags, TokenBurnAuthority, PublicMintInformation},
 	NFIRequest, OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest,
 };
 use seed_primitives::{
@@ -165,6 +165,11 @@ pub mod pallet {
 	pub type UtilityFlags<T> =
 		StorageMap<_, Twox64Concat, CollectionUuid, CollectionUtilityFlags, ValueQuery>;
 
+	/// Map from a collection to additional utility flags
+	#[pallet::storage]
+	pub type TokenUtilityFlags<T> =
+	StorageMap<_, Twox64Concat, TokenId, TokenFlags, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -239,6 +244,8 @@ pub mod pallet {
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
 		/// Utility flags were set for a collection
 		UtilityFlagsSet { collection_id: CollectionUuid, utility_flags: CollectionUtilityFlags },
+		/// Token transferable flag was set
+		TokenTransferableFlagSet { token_id: TokenId, transferable: bool },
 	}
 
 	#[pallet::error]
@@ -701,6 +708,32 @@ pub mod pallet {
 			}
 
 			Self::deposit_event(Event::<T>::UtilityFlagsSet { collection_id, utility_flags });
+			Ok(())
+		}
+
+		/// Set transferable flag on a token, allowing or disallowing transfers
+		/// Caller must be the collection owner
+		#[pallet::call_index(13)]
+		#[pallet::weight(T::WeightInfo::set_utility_flags())]
+		#[transactional]
+		pub fn set_token_transferable_flag(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			transferable: bool,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<CollectionInfo<T>>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			// Check if the token exists
+			ensure!(collection_info.token_exists(token_id.1), Error::<T>::NoToken);
+
+			TokenUtilityFlags::<T>::mutate(token_id, |flags| {
+				flags.transferable = transferable;
+			});
+
+			Self::deposit_event(Event::<T>::TokenTransferableFlagSet { token_id, transferable });
 			Ok(())
 		}
 	}
