@@ -86,3 +86,38 @@ impl Default for CollectionUtilityFlags {
 		Self { transferable: true, burnable: true, mintable: true }
 	}
 }
+
+/// Permissions related to a token that determine whether it can be burned by the token_owner, collection_owner, or no one
+/// Currently no-op, this will be used when implementing soulbound NFTs with ERC5484 support
+/// Once set, the burn authority is immutable
+#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
+pub enum TokenBurnAuthority {
+	/// The burn permissions have not been set, only the token owner can burn the token
+	/// This is separated instead of using TokenOwner to determine whether the burn authority has
+	/// been set or not
+	NotSet,
+	/// The token can be burned by the token_owner
+	TokenOwner,
+	/// The token can be burned by the collection_owner
+	CollectionOwner,
+	/// The token can be burned by either token or collection owner
+	Both,
+	/// The token cannot be burned by anyone
+	Neither,
+}
+
+// Additional flags at a token level that determine whether that token can be transferred, or burned
+#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
+pub struct TokenUtilityFlags {
+	/// Whether the token can be transferred
+	pub transferable: bool,
+	/// What burn permissions the token has
+	pub burn_authority: TokenBurnAuthority,
+}
+
+impl Default for TokenUtilityFlags {
+	fn default() -> Self {
+		Self { transferable: true, burn_authority: TokenBurnAuthority::NotSet }
+	}
+}
+

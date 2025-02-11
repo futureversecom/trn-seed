@@ -108,6 +108,10 @@ impl<T: Config> Pallet<T> {
 					!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
 					Error::<T>::TokenLocked
 				);
+				ensure!(
+					<TokenUtilityFlags<T>>::get((collection_id, serial_number)).transferable,
+					Error::<T>::TransferUtilityBlocked
+				);
 			}
 
 			collection_info.remove_user_tokens(current_owner, serial_numbers.clone());
