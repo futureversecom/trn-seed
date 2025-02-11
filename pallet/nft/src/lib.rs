@@ -714,7 +714,7 @@ pub mod pallet {
 		/// Set transferable flag on a token, allowing or disallowing transfers
 		/// Caller must be the collection owner
 		#[pallet::call_index(13)]
-		#[pallet::weight(T::WeightInfo::set_utility_flags())]
+		#[pallet::weight(T::WeightInfo::set_token_transferable_flag())]
 		#[transactional]
 		pub fn set_token_transferable_flag(
 			origin: OriginFor<T>,

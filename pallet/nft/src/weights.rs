@@ -60,6 +60,7 @@ pub trait WeightInfo {
 	fn transfer() -> Weight;
 	fn burn() -> Weight;
 	fn set_utility_flags() -> Weight;
+	fn set_token_transferable_flag() -> Weight;
 }
 
 /// Weights for pallet_nft using the Substrate node and recommended hardware.
@@ -188,6 +189,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `Nft::CollectionInfo` (r:1 w:0)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::TokenUtilityFlags` (r:1 w:1)
+	/// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
+	fn set_token_transferable_flag() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `331`
+		//  Estimated: `3483`
+		// Minimum execution time: 12_944_000 picoseconds.
+		Weight::from_parts(13_385_000, 0)
+			.saturating_add(Weight::from_parts(0, 3483))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
 
 // For backwards compatibility and tests
@@ -314,6 +329,20 @@ impl WeightInfo for () {
 		Weight::from_all(48_518_000_u64)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Nft::CollectionInfo` (r:1 w:0)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::TokenUtilityFlags` (r:1 w:1)
+	/// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
+	fn set_token_transferable_flag() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `331`
+		//  Estimated: `3483`
+		// Minimum execution time: 12_944_000 picoseconds.
+		Weight::from_parts(13_385_000, 0)
+			.saturating_add(Weight::from_parts(0, 3483))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }
 

@@ -268,9 +268,9 @@ benchmarks! {
 	}
 
 	set_token_transferable_flag {
-		let collection_id = build_collection::<T>(None);
-		let token_id = (collection_id, 0);
-	}: _(origin::<T>(&account::<T>("Alice")), token_id, true)
+		let owner = account::<T>("Alice");
+		let token_id = build_token::<T>(Some(owner.clone()), 1);
+	}: _(origin::<T>(&owner), token_id, true)
 	verify {
 		assert_eq!(TokenUtilityFlags::<T>::get(token_id).transferable, true);
 	}
