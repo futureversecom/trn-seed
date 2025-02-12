@@ -92,10 +92,6 @@ impl Default for CollectionUtilityFlags {
 /// Once set, the burn authority is immutable
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
 pub enum TokenBurnAuthority {
-	/// The burn permissions have not been set, only the token owner can burn the token
-	/// This is separated instead of using TokenOwner to determine whether the burn authority has
-	/// been set or not
-	NotSet,
 	/// The token can be burned by the token_owner
 	TokenOwner,
 	/// The token can be burned by the collection_owner
@@ -112,11 +108,11 @@ pub struct TokenUtilityFlags {
 	/// Whether the token can be transferred
 	pub transferable: bool,
 	/// What burn permissions the token has
-	pub burn_authority: TokenBurnAuthority,
+	pub burn_authority: Option<TokenBurnAuthority>,
 }
 
 impl Default for TokenUtilityFlags {
 	fn default() -> Self {
-		Self { transferable: true, burn_authority: TokenBurnAuthority::NotSet }
+		Self { transferable: true, burn_authority: None }
 	}
 }
