@@ -57,7 +57,7 @@ pub trait WeightInfo {
 	fn toggle_public_mint() -> Weight;
 	fn set_mint_fee() -> Weight;
 	fn mint() -> Weight;
-	fn transfer() -> Weight;
+	fn transfer(p: u32) -> Weight;
 	fn burn() -> Weight;
 	fn set_utility_flags() -> Weight;
 	fn set_token_transferable_flag() -> Weight;
@@ -154,18 +154,31 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	// Storage: `Nft::UtilityFlags` (r:1 w:0)
-	// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
-	// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
-	// Storage: `Nft::TokenLocks` (r:1 w:0)
-	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
-	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:1)
-	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
-	fn transfer() -> Weight {
-		Weight::from_all(63_468_000_u64)
-			.saturating_add(T::DbWeight::get().reads(3_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+	/// Storage: `Nft::UtilityFlags` (r:1 w:0)
+	/// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::TokenLocks` (r:500 w:0)
+	/// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::TokenUtilityFlags` (r:500 w:0)
+	/// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
+	/// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:500)
+	/// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
+	/// The range of component `p` is `[1, 500]`.
+	fn transfer(p: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `332 + p * (4 ±0)`
+		//  Estimated: `3480 + p * (2508 ±0)`
+		// Minimum execution time: 17_974_000 picoseconds.
+		Weight::from_parts(18_556_000, 0)
+			.saturating_add(Weight::from_parts(0, 3480))
+			// Standard Error: 2_383
+			.saturating_add(Weight::from_parts(3_595_356, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(p.into())))
+			.saturating_add(T::DbWeight::get().writes(1))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 2508).saturating_mul(p.into()))
 	}
 	// Storage: `Nft::TokenLocks` (r:1 w:0)
 	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
@@ -295,18 +308,31 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	// Storage: `Nft::UtilityFlags` (r:1 w:0)
-	// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
-	// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
-	// Storage: `Nft::TokenLocks` (r:1 w:0)
-	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
-	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:1)
-	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
-	fn transfer() -> Weight {
-		Weight::from_all(63_468_000_u64)
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	/// Storage: `Nft::UtilityFlags` (r:1 w:0)
+	/// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::TokenLocks` (r:500 w:0)
+	/// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::TokenUtilityFlags` (r:500 w:0)
+	/// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(18), added: 2493, mode: `MaxEncodedLen`)
+	/// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:500)
+	/// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
+	/// The range of component `p` is `[1, 500]`.
+	fn transfer(p: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `332 + p * (4 ±0)`
+		//  Estimated: `3480 + p * (2508 ±0)`
+		// Minimum execution time: 17_974_000 picoseconds.
+		Weight::from_parts(18_556_000, 0)
+			.saturating_add(Weight::from_parts(0, 3480))
+			// Standard Error: 2_383
+			.saturating_add(Weight::from_parts(3_595_356, 0).saturating_mul(p.into()))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(p.into())))
+			.saturating_add(RocksDbWeight::get().writes(1))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 2508).saturating_mul(p.into()))
 	}
 	// Storage: `Nft::TokenLocks` (r:1 w:0)
 	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
