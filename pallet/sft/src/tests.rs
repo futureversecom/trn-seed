@@ -2896,8 +2896,7 @@ mod set_token_transferable_flag {
 			let token_id = create_test_token(collection_owner, collection_owner, 1);
 
 			// Ensure default is correct
-			let default_flags =
-				TokenFlags { transferable: true, burn_authority: TokenBurnAuthority::NotSet };
+			let default_flags = TokenFlags { transferable: true, burn_authority: None };
 			assert_eq!(TokenUtilityFlags::<Test>::get(token_id), default_flags);
 
 			// set to false
@@ -2906,8 +2905,7 @@ mod set_token_transferable_flag {
 				token_id,
 				false
 			));
-			let new_flags =
-				TokenFlags { transferable: false, burn_authority: TokenBurnAuthority::NotSet };
+			let new_flags = TokenFlags { transferable: false, burn_authority: None };
 			assert_eq!(TokenUtilityFlags::<Test>::get(token_id), new_flags);
 			System::assert_last_event(
 				Event::<Test>::TokenTransferableFlagSet { token_id, transferable: false }.into(),
@@ -2919,8 +2917,7 @@ mod set_token_transferable_flag {
 				token_id,
 				true
 			));
-			let new_flags =
-				TokenFlags { transferable: true, burn_authority: TokenBurnAuthority::NotSet };
+			let new_flags = TokenFlags { transferable: true, burn_authority: None };
 			assert_eq!(TokenUtilityFlags::<Test>::get(token_id), new_flags);
 			System::assert_last_event(
 				Event::<Test>::TokenTransferableFlagSet { token_id, transferable: true }.into(),
@@ -2940,8 +2937,7 @@ mod set_token_transferable_flag {
 				token_id,
 				false
 			));
-			let new_flags =
-				TokenFlags { transferable: false, burn_authority: TokenBurnAuthority::NotSet };
+			let new_flags = TokenFlags { transferable: false, burn_authority: None };
 			assert_eq!(TokenUtilityFlags::<Test>::get(token_id), new_flags);
 			System::assert_last_event(
 				Event::<Test>::TokenTransferableFlagSet { token_id, transferable: false }.into(),
