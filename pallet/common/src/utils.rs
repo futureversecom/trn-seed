@@ -120,4 +120,3 @@ impl Default for TokenUtilityFlags {
 		Self { transferable: true, burn_authority: TokenBurnAuthority::NotSet }
 	}
 }
-

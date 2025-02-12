@@ -2937,7 +2937,6 @@ mod set_utility_flags {
 	}
 }
 
-
 mod set_token_transferable_flag {
 	use super::*;
 
@@ -2946,16 +2945,12 @@ mod set_token_transferable_flag {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
-			assert_ok!(Nft::mint(
-				Some(collection_owner).into(),
-				collection_id,
-				1,
-				None,
-			));
+			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, None,));
 			let token_id = (collection_id, 0);
 
 			// Ensure default is correct
-			let default_flags = TokenFlags { transferable: true, burn_authority: TokenBurnAuthority::NotSet };
+			let default_flags =
+				TokenFlags { transferable: true, burn_authority: TokenBurnAuthority::NotSet };
 			assert_eq!(TokenUtilityFlags::<Test>::get(token_id), default_flags);
 
 			// set to false
@@ -2964,7 +2959,8 @@ mod set_token_transferable_flag {
 				token_id,
 				false
 			));
-			let new_flags = TokenFlags { transferable: false, burn_authority: TokenBurnAuthority::NotSet };
+			let new_flags =
+				TokenFlags { transferable: false, burn_authority: TokenBurnAuthority::NotSet };
 			assert_eq!(TokenUtilityFlags::<Test>::get(token_id), new_flags);
 			System::assert_last_event(
 				Event::<Test>::TokenTransferableFlagSet { token_id, transferable: false }.into(),
@@ -2976,7 +2972,8 @@ mod set_token_transferable_flag {
 				token_id,
 				true
 			));
-			let new_flags = TokenFlags { transferable: true, burn_authority: TokenBurnAuthority::NotSet };
+			let new_flags =
+				TokenFlags { transferable: true, burn_authority: TokenBurnAuthority::NotSet };
 			assert_eq!(TokenUtilityFlags::<Test>::get(token_id), new_flags);
 			System::assert_last_event(
 				Event::<Test>::TokenTransferableFlagSet { token_id, transferable: true }.into(),
@@ -2989,12 +2986,7 @@ mod set_token_transferable_flag {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
-			assert_ok!(Nft::mint(
-				Some(collection_owner).into(),
-				collection_id,
-				1,
-				None,
-			));
+			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, None,));
 			let token_id = (collection_id, 0);
 
 			// set to false
@@ -3003,7 +2995,8 @@ mod set_token_transferable_flag {
 				token_id,
 				false
 			));
-			let new_flags = TokenFlags { transferable: false, burn_authority: TokenBurnAuthority::NotSet };
+			let new_flags =
+				TokenFlags { transferable: false, burn_authority: TokenBurnAuthority::NotSet };
 			assert_eq!(TokenUtilityFlags::<Test>::get(token_id), new_flags);
 			System::assert_last_event(
 				Event::<Test>::TokenTransferableFlagSet { token_id, transferable: false }.into(),
@@ -3043,19 +3036,17 @@ mod set_token_transferable_flag {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
-			assert_ok!(Nft::mint(
-				Some(collection_owner).into(),
-				collection_id,
-				1,
-				None,
-			));
+			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, None,));
 			let token_id = (collection_id, 0);
 
-			assert_noop!(Nft::set_token_transferable_flag(
-				RawOrigin::Signed(create_account(11)).into(),
-				token_id,
-				false
-			), Error::<Test>::NotCollectionOwner);
+			assert_noop!(
+				Nft::set_token_transferable_flag(
+					RawOrigin::Signed(create_account(11)).into(),
+					token_id,
+					false
+				),
+				Error::<Test>::NotCollectionOwner
+			);
 		});
 	}
 
@@ -3065,11 +3056,14 @@ mod set_token_transferable_flag {
 			let collection_owner = create_account(10);
 			let token_id = (1, 0);
 
-			assert_noop!(Nft::set_token_transferable_flag(
-				RawOrigin::Signed(collection_owner).into(),
-				token_id,
-				false
-			), Error::<Test>::NoCollectionFound);
+			assert_noop!(
+				Nft::set_token_transferable_flag(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					false
+				),
+				Error::<Test>::NoCollectionFound
+			);
 		});
 	}
 
@@ -3080,11 +3074,14 @@ mod set_token_transferable_flag {
 			let collection_id = setup_collection(collection_owner);
 			let token_id = (collection_id, 0);
 
-			assert_noop!(Nft::set_token_transferable_flag(
-				RawOrigin::Signed(collection_owner).into(),
-				token_id,
-				false
-			), Error::<Test>::NoToken);
+			assert_noop!(
+				Nft::set_token_transferable_flag(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					false
+				),
+				Error::<Test>::NoToken
+			);
 		});
 	}
 }
