@@ -15,13 +15,13 @@
 
 use crate::{
 	mock::*, Config, Error, SftCollectionInfo, SftCollectionInformation, SftTokenBalance,
-	SftTokenInformation, TokenInfo, UtilityFlags, TokenUtilityFlags
+	SftTokenInformation, TokenInfo, TokenUtilityFlags, UtilityFlags,
 };
 use crate::{Event, PublicMintInfo};
 use seed_pallet_common::test_prelude::*;
-use seed_pallet_common::utils::{CollectionUtilityFlags, TokenBurnAuthority};
 use seed_pallet_common::utils::PublicMintInformation;
 use seed_pallet_common::utils::TokenUtilityFlags as TokenFlags;
+use seed_pallet_common::utils::{CollectionUtilityFlags, TokenBurnAuthority};
 use seed_primitives::AssetId;
 use seed_primitives::{OriginChain, RoyaltiesSchedule};
 
@@ -2896,7 +2896,8 @@ mod set_token_transferable_flag {
 			let token_id = create_test_token(collection_owner, collection_owner, 1);
 
 			// Ensure default is correct
-			let default_flags = TokenFlags { transferable: true, burn_authority: TokenBurnAuthority::NotSet };
+			let default_flags =
+				TokenFlags { transferable: true, burn_authority: TokenBurnAuthority::NotSet };
 			assert_eq!(TokenUtilityFlags::<Test>::get(token_id), default_flags);
 
 			// set to false
@@ -2905,7 +2906,8 @@ mod set_token_transferable_flag {
 				token_id,
 				false
 			));
-			let new_flags = TokenFlags { transferable: false, burn_authority: TokenBurnAuthority::NotSet };
+			let new_flags =
+				TokenFlags { transferable: false, burn_authority: TokenBurnAuthority::NotSet };
 			assert_eq!(TokenUtilityFlags::<Test>::get(token_id), new_flags);
 			System::assert_last_event(
 				Event::<Test>::TokenTransferableFlagSet { token_id, transferable: false }.into(),
@@ -2917,7 +2919,8 @@ mod set_token_transferable_flag {
 				token_id,
 				true
 			));
-			let new_flags = TokenFlags { transferable: true, burn_authority: TokenBurnAuthority::NotSet };
+			let new_flags =
+				TokenFlags { transferable: true, burn_authority: TokenBurnAuthority::NotSet };
 			assert_eq!(TokenUtilityFlags::<Test>::get(token_id), new_flags);
 			System::assert_last_event(
 				Event::<Test>::TokenTransferableFlagSet { token_id, transferable: true }.into(),
@@ -2937,7 +2940,8 @@ mod set_token_transferable_flag {
 				token_id,
 				false
 			));
-			let new_flags = TokenFlags { transferable: false, burn_authority: TokenBurnAuthority::NotSet };
+			let new_flags =
+				TokenFlags { transferable: false, burn_authority: TokenBurnAuthority::NotSet };
 			assert_eq!(TokenUtilityFlags::<Test>::get(token_id), new_flags);
 			System::assert_last_event(
 				Event::<Test>::TokenTransferableFlagSet { token_id, transferable: false }.into(),
@@ -2962,14 +2966,12 @@ mod set_token_transferable_flag {
 			));
 
 			// Transfer should work
-			assert_ok!(
-				Sft::transfer(
-					Some(collection_owner).into(),
-					token_id.0,
-					bounded_combined(vec![token_id.1], vec![1]),
-					bob()
-				)
-			);
+			assert_ok!(Sft::transfer(
+				Some(collection_owner).into(),
+				token_id.0,
+				bounded_combined(vec![token_id.1], vec![1]),
+				bob()
+			));
 			assert_eq!(TokenInfo::<Test>::get(token_id).unwrap().free_balance_of(&bob()), 1);
 		});
 	}
@@ -2980,11 +2982,14 @@ mod set_token_transferable_flag {
 			let collection_owner = create_account(10);
 			let token_id = create_test_token(collection_owner, collection_owner, 1);
 
-			assert_noop!(Sft::set_token_transferable_flag(
-				RawOrigin::Signed(create_account(11)).into(),
-				token_id,
-				false
-			), Error::<Test>::NotCollectionOwner);
+			assert_noop!(
+				Sft::set_token_transferable_flag(
+					RawOrigin::Signed(create_account(11)).into(),
+					token_id,
+					false
+				),
+				Error::<Test>::NotCollectionOwner
+			);
 		});
 	}
 
@@ -2994,11 +2999,14 @@ mod set_token_transferable_flag {
 			let collection_owner = create_account(10);
 			let token_id = (1, 0);
 
-			assert_noop!(Sft::set_token_transferable_flag(
-				RawOrigin::Signed(collection_owner).into(),
-				token_id,
-				false
-			), Error::<Test>::NoCollectionFound);
+			assert_noop!(
+				Sft::set_token_transferable_flag(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					false
+				),
+				Error::<Test>::NoCollectionFound
+			);
 		});
 	}
 
@@ -3008,11 +3016,14 @@ mod set_token_transferable_flag {
 			let collection_owner = create_account(10);
 			let collection_id = create_test_collection(collection_owner);
 
-			assert_noop!(Sft::set_token_transferable_flag(
-				RawOrigin::Signed(collection_owner).into(),
-				(collection_id, 0),
-				false
-			), Error::<Test>::NoToken);
+			assert_noop!(
+				Sft::set_token_transferable_flag(
+					RawOrigin::Signed(collection_owner).into(),
+					(collection_id, 0),
+					false
+				),
+				Error::<Test>::NoToken
+			);
 		});
 	}
 }

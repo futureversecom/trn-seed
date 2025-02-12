@@ -35,7 +35,7 @@ use frame_support::{
 	transactional, PalletId,
 };
 use seed_pallet_common::{
-	utils::{CollectionUtilityFlags, TokenUtilityFlags as TokenFlags, PublicMintInformation},
+	utils::{CollectionUtilityFlags, PublicMintInformation, TokenUtilityFlags as TokenFlags},
 	NFIRequest, OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest,
 };
 use seed_primitives::{
@@ -167,8 +167,7 @@ pub mod pallet {
 
 	/// Map from a token_id to transferable and burn authority flags
 	#[pallet::storage]
-	pub type TokenUtilityFlags<T> =
-	StorageMap<_, Twox64Concat, TokenId, TokenFlags, ValueQuery>;
+	pub type TokenUtilityFlags<T> = StorageMap<_, Twox64Concat, TokenId, TokenFlags, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]

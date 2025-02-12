@@ -116,7 +116,6 @@ pub mod pallet {
 	pub type UtilityFlags<T> =
 		StorageMap<_, Twox64Concat, CollectionUuid, CollectionUtilityFlags, ValueQuery>;
 
-
 	/// Map from a token_id to transferable and burn authority flags
 	#[pallet::storage]
 	pub type TokenUtilityFlags<T> = StorageMap<_, Twox64Concat, TokenId, TokenFlags, ValueQuery>;
@@ -535,7 +534,6 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			Self::do_set_token_name(who, token_id, token_name)
 		}
-
 
 		/// Set transferable flag on a token, allowing or disallowing transfers
 		/// Caller must be the collection owner
