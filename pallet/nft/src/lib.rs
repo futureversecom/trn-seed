@@ -595,7 +595,7 @@ pub mod pallet {
 		/// Transfer ownership of an NFT
 		/// Caller must be the token owner
 		#[pallet::call_index(8)]
-		#[pallet::weight(T::WeightInfo::transfer())]
+		#[pallet::weight(T::WeightInfo::transfer(serial_numbers.len() as u32))]
 		#[transactional]
 		pub fn transfer(
 			origin: OriginFor<T>,

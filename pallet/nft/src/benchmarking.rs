@@ -104,8 +104,22 @@ benchmarks! {
 
 	transfer {
 		let collection_id = build_collection::<T>(None);
-		let serial_numbers = BoundedVec::try_from(vec![0]).unwrap();
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, serial_numbers, account::<T>("Bob"))
+		let p in 1 .. (500);
+		assert_ok!(Nft::<T>::mint(
+			origin::<T>(&account::<T>("Alice")).into(),
+			collection_id,
+			p,
+			None,
+		));
+		let serial_numbers: Vec<SerialNumber> = (0..p).collect();
+		let serial_numbers = BoundedVec::try_from(serial_numbers).unwrap();
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, serial_numbers.clone(), account::<T>("Bob"))
+	verify {
+		let collection_info = CollectionInfo::<T>::get(collection_id).expect("Collection not found");
+		for serial_number in serial_numbers.iter() {
+			assert!(collection_info.is_token_owner(&account::<T>("Bob"), *serial_number));
+		}
+	}
 
 	burn {
 		let collection_id = build_collection::<T>(None);

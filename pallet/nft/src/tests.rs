@@ -20,6 +20,7 @@ use crate::{
 };
 use seed_pallet_common::test_prelude::*;
 use seed_pallet_common::utils::TokenUtilityFlags as TokenFlags;
+use seed_pallet_common::utils::TokenBurnAuthority;
 use seed_primitives::{OriginChain, RoyaltiesSchedule, TokenCount};
 
 type OwnedTokens = BoundedVec<
