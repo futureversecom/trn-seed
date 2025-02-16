@@ -67,11 +67,7 @@ mod update_partner_account {
 	fn update_partner_account_succeeds() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
-			assert_ok!(PartnerAttribution::update_partner_account(
-				Some(alice()).into(),
-				1,
-				Some(bob())
-			));
+			assert_ok!(PartnerAttribution::update_partner_account(Some(alice()).into(), 1, bob()));
 
 			System::assert_last_event(
 				Event::PartnerUpdated { partner_id: 1, account: bob() }.into(),
@@ -79,41 +75,6 @@ mod update_partner_account {
 
 			let partner = Partners::<Test>::get(1).unwrap();
 			assert_eq!(partner.account, bob());
-		});
-	}
-
-	#[test]
-	fn remove_partner_succeeds() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
-			assert_ok!(PartnerAttribution::update_partner_account(Some(alice()).into(), 1, None));
-
-			System::assert_last_event(
-				Event::PartnerRemoved { partner_id: 1, account: alice() }.into(),
-			);
-
-			assert!(Partners::<Test>::get(1).is_none());
-		});
-	}
-
-	#[test]
-	fn remove_non_existent_partner_fails() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			assert_noop!(
-				PartnerAttribution::update_partner_account(Some(alice()).into(), 1, None),
-				Error::<Test>::PartnerNotFound
-			);
-		});
-	}
-
-	#[test]
-	fn remove_partner_without_permission_fails() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
-			assert_noop!(
-				PartnerAttribution::update_partner_account(Some(bob()).into(), 1, None),
-				Error::<Test>::Unauthorized
-			);
 		});
 	}
 }
