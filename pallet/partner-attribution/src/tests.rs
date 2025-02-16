@@ -171,3 +171,81 @@ mod upgrade_partner {
 		});
 	}
 }
+
+mod create_futurepass_with_partner {
+	use super::*;
+
+	#[test]
+	fn create_futurepass_with_partner_succeeds() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			use crate::mock::RuntimeEvent;
+
+			// First register a partner
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
+
+			// Create a futurepass with that partner
+			assert_ok!(PartnerAttribution::create_futurepass_with_partner(
+				Some(charlie()).into(),
+				1,
+				bob()
+			));
+
+			// Get the futurepass address from the emitted event
+			let binding = System::events();
+			let event = binding.last().expect("Event should exist");
+			let futurepass = match event.event {
+				RuntimeEvent::PartnerAttribution(Event::AccountAttributed { account, .. }) => {
+					account
+				},
+				_ => panic!("Expected AccountAttributed event"),
+			};
+
+			// Verify the futurepass was attributed to the partner
+			assert_eq!(Attributions::<Test>::get(&futurepass).unwrap(), 1);
+
+			// Verify event was emitted
+			System::assert_last_event(
+				Event::AccountAttributed { partner_id: 1, account: futurepass }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn create_futurepass_with_nonexistent_partner_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			assert_noop!(
+				PartnerAttribution::create_futurepass_with_partner(
+					Some(charlie()).into(),
+					1,
+					bob()
+				),
+				Error::<Test>::PartnerNotFound
+			);
+		});
+	}
+
+	#[test]
+	fn create_futurepass_when_already_attributed_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// First register a partner
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
+
+			// Create first futurepass
+			assert_ok!(PartnerAttribution::create_futurepass_with_partner(
+				Some(charlie()).into(),
+				1,
+				bob()
+			));
+
+			// Attempt to create another futurepass with same account
+			assert_noop!(
+				PartnerAttribution::create_futurepass_with_partner(
+					Some(charlie()).into(),
+					1,
+					bob()
+				),
+				Error::<Test>::AccountAlreadyAttributed
+			);
+		});
+	}
+}
