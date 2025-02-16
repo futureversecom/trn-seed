@@ -49,6 +49,7 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn register_partner_account() -> Weight;
 	fn update_partner_account() -> Weight;
+	fn create_futurepass_with_partner() -> Weight;
 	fn attribute_account() -> Weight;
 	fn upgrade_partner() -> Weight;
 }
@@ -71,6 +72,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_all(43_054_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	// Storage: PartnerAttribution::Partners (r:1 w:0)
+	// Storage: PartnerAttribution::Attributions (r:1 w:1)
+	// Storage: Futurepass creation (r:1 w:2)
+	fn create_futurepass_with_partner() -> Weight {
+		Weight::from_all(60_000_000)
+				.saturating_add(T::DbWeight::get().reads(3))
+				.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: `PartnerAttribution::Partners` (r:1 w:0)
 	// Proof: `PartnerAttribution::Partners` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
@@ -107,6 +116,14 @@ impl WeightInfo for () {
 		Weight::from_all(43_054_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
+	}
+	// Storage: PartnerAttribution::Partners (r:1 w:0)
+	// Storage: PartnerAttribution::Attributions (r:1 w:1)
+	// Storage: Futurepass creation (r:1 w:2)
+	fn create_futurepass_with_partner() -> Weight {
+		Weight::from_all(60_000_000)
+				.saturating_add(RocksDbWeight::get().reads(3))
+				.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: `PartnerAttribution::Partners` (r:1 w:0)
 	// Proof: `PartnerAttribution::Partners` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)

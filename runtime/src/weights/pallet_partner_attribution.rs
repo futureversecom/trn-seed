@@ -58,6 +58,22 @@ impl<T: frame_system::Config> pallet_partner_attribution::WeightInfo for WeightI
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: PartnerAttribution::Partners (r:1 w:0)
+	/// Proof: PartnerAttribution::Partners (max_values: None, max_size: Some(85), added: 2560, mode: MaxEncodedLen)
+	/// Storage: PartnerAttribution::Attributions (r:1 w:1)
+	/// Proof: PartnerAttribution::Attributions (max_values: None, max_size: Some(44), added: 2519, mode: MaxEncodedLen)
+	/// Storage: Futurepass::Holders (r:1 w:1)
+	/// Storage: Futurepass::NextFuturepassId (r:1 w:1)
+	fn create_futurepass_with_partner() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `298`
+		//  Estimated: `4550`
+		// Minimum execution time: 65_000_000 picoseconds (estimated)
+		Weight::from_parts(66_000_000, 0)
+				.saturating_add(Weight::from_parts(0, 4550))
+				.saturating_add(T::DbWeight::get().reads(4))
+				.saturating_add(T::DbWeight::get().writes(3))
+	}
 	/// Storage: `PartnerAttribution::Partners` (r:1 w:0)
 	/// Proof: `PartnerAttribution::Partners` (`max_values`: None, `max_size`: Some(85), added: 2560, mode: `MaxEncodedLen`)
 	/// Storage: `PartnerAttribution::Attributions` (r:1 w:1)
