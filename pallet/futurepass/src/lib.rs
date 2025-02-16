@@ -36,7 +36,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use precompile_utils::constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
-use seed_pallet_common::{AccountProxy, ExtrinsicChecker};
+use seed_pallet_common::{AccountProxy, ExtrinsicChecker, FuturepassProvider};
 use sp_core::H160;
 use sp_io::hashing::keccak_256;
 use sp_runtime::traits::Dispatchable;
@@ -618,5 +618,19 @@ where
 {
 	fn primary_proxy(who: &T::AccountId) -> Option<T::AccountId> {
 		<DefaultProxy<T>>::get(who)
+	}
+}
+
+impl<T: Config> FuturepassProvider for Pallet<T>
+where
+	<T as frame_system::Config>::AccountId: From<H160>,
+{
+	type AccountId = T::AccountId;
+
+	fn create_futurepass(
+		funder: Self::AccountId,
+		owner: Self::AccountId,
+	) -> Result<Self::AccountId, DispatchError> {
+		Self::do_create_futurepass(funder, owner)
 	}
 }
