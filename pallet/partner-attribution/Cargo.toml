@@ -21,13 +21,13 @@ sp-std = { workspace = true }
 seed-primitives = { workspace = true }
 frame-benchmarking = { workspace = true, optional = true }
 precompile-utils = { workspace = true, optional = true }
+seed-pallet-common = { workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
-seed-pallet-common = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -39,6 +39,7 @@ std = [
 	"sp-core/std",
 	"sp-std/std",
 	"seed-primitives/std",
+	"seed-pallet-common/std",
 	"frame-benchmarking?/std",
 ]
 try-runtime = ["frame-support/try-runtime"]

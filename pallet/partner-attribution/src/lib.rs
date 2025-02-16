@@ -27,8 +27,9 @@ extern crate alloc;
 
 pub use pallet::*;
 
-use frame_support::{pallet_prelude::*, sp_runtime::Permill};
+use frame_support::{pallet_prelude::*, sp_runtime::Permill, transactional};
 use frame_system::pallet_prelude::*;
+use seed_pallet_common::FuturepassProvider;
 use seed_primitives::Balance;
 use sp_core::H160;
 
@@ -76,6 +77,8 @@ pub mod pallet {
 		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 		/// Ensure origin is a valid Futurepass account
 		type EnsureFuturepass: EnsureOrigin<Self::RuntimeOrigin, Success = H160>;
+		/// The futurepass creation interface
+		type FuturepassCreator: FuturepassProvider<AccountId = Self::AccountId>;
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
 	}
@@ -166,13 +169,13 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `partner_id`: The ID of the partner to update
-		/// - `partner_account`: If Some, updates the partner's account. If None, removes the partner entirely
+		/// - `partner_account`: Updates the partner's account
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::update_partner_account())]
 		pub fn update_partner_account(
 			origin: OriginFor<T>,
 			#[pallet::compact] partner_id: u128,
-			partner_account: Option<T::AccountId>,
+			partner_account: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -180,25 +183,49 @@ pub mod pallet {
 			let partner = Partners::<T>::get(partner_id).ok_or(Error::<T>::PartnerNotFound)?;
 			ensure!(partner.owner == who, Error::<T>::Unauthorized);
 
-			match partner_account {
-				Some(account) => {
-					// Update partner account
-					Partners::<T>::mutate(partner_id, |maybe_partner| {
-						if let Some(partner) = maybe_partner {
-							partner.account = account.clone();
-						}
-					});
-					Self::deposit_event(Event::PartnerUpdated { partner_id, account });
-				},
-				None => {
-					// Remove partner entirely
-					Partners::<T>::remove(partner_id);
-					Self::deposit_event(Event::PartnerRemoved {
-						partner_id,
-						account: partner.account,
-					});
-				},
-			}
+			// Update partner account
+			Partners::<T>::mutate(partner_id, |maybe_partner| {
+				if let Some(partner) = maybe_partner {
+					partner.account = partner_account.clone();
+				}
+			});
+			Self::deposit_event(Event::PartnerUpdated { partner_id, account: partner_account });
+
+			Ok(())
+		}
+
+		/// Create a futurepass account and attribute it to a partner permanently
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// Parameters:
+		/// - `partner_id`: The partner id to attribute the account to.
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::create_futurepass_with_partner())]
+		#[transactional]
+		pub fn create_futurepass_with_partner(
+			origin: OriginFor<T>,
+			partner_id: u128,
+			account: T::AccountId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			// Ensure partner exists
+			ensure!(Partners::<T>::contains_key(partner_id), Error::<T>::PartnerNotFound);
+
+			// Create the futurepass account
+			let futurepass = T::FuturepassCreator::create_futurepass(who.clone(), account)?;
+
+			// Ensure account is not already attributed
+			ensure!(
+				!Attributions::<T>::contains_key(&futurepass),
+				Error::<T>::AccountAlreadyAttributed
+			);
+
+			// Attribute the new futurepass account to the partner
+			Attributions::<T>::insert(&futurepass, partner_id);
+
+			Self::deposit_event(Event::AccountAttributed { partner_id, account: futurepass });
 
 			Ok(())
 		}
@@ -210,7 +237,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `partner_id`: The partner id to attribute the account to.
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::attribute_account())]
 		pub fn attribute_account(origin: OriginFor<T>, partner_id: u128) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
@@ -241,7 +268,7 @@ pub mod pallet {
 		/// Parameters:
 		/// - `partner_id`: The partner id to update.
 		/// - `fee_percentage`: The new fee percentage to set for the partner.
-		#[pallet::call_index(3)]
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::upgrade_partner())]
 		pub fn upgrade_partner(
 			origin: OriginFor<T>,
