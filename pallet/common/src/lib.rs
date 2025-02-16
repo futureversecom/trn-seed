@@ -651,6 +651,41 @@ pub trait SFTExt {
 	fn token_exists(token_id: TokenId) -> bool;
 }
 
+/// Trait for creating futurepass accounts
+pub trait FuturepassProvider {
+	type AccountId;
+
+	/// Create a futurepass account for the given owner
+	/// Returns the futurepass account ID on success
+	fn create_futurepass(
+		funder: Self::AccountId,
+		owner: Self::AccountId,
+	) -> Result<Self::AccountId, DispatchError>;
+}
+
+#[cfg(feature = "std")]
+impl FuturepassProvider for () {
+	type AccountId = AccountId;
+
+	fn create_futurepass(
+		_funder: Self::AccountId,
+		owner: Self::AccountId,
+	) -> Result<Self::AccountId, DispatchError> {
+		// Create a deterministic account by hashing the owner's address with a prefix
+		let mut input = Vec::with_capacity(24);
+		// Use a fixed prefix for futurepass accounts (first 4 bytes)
+		input.extend_from_slice(&[0xff, 0xff, 0xff, 0xff]);
+		// Add the owner's account bytes
+		input.extend_from_slice(&owner.encode());
+
+		// Hash the input to get a deterministic address
+		let hash = sp_io::hashing::blake2_256(&input);
+		let address = H160::from_slice(&hash[0..20]);
+
+		Ok(address.into())
+	}
+}
+
 // Migrator trait to be implemented by the migration pallet. Can be used to determine whether a
 // migration is in progress
 pub trait Migrator {
