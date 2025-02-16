@@ -54,5 +54,6 @@ impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 	type EnsureFuturepass = EnsureAny;
+	type FuturepassCreator = ();
 	type WeightInfo = ();
 }
