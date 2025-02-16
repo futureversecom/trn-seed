@@ -42,7 +42,7 @@ benchmarks! {
 		let acc: T::AccountId = account("acc", 0, 0);
 		let new_acc: T::AccountId = account("new_acc", 0, 0);
 		PartnerAttribution::<T>::register_partner_account(RawOrigin::Signed(acc.clone()).into(), acc.clone()).unwrap();
-	}: _(RawOrigin::Signed(acc.clone()), 1, Some(new_acc.clone()))
+	}: _(RawOrigin::Signed(acc.clone()), 1, new_acc.clone())
 	verify {
 		let partner = Partners::<T>::get(1).unwrap();
 		assert_eq!(partner.owner, acc);
