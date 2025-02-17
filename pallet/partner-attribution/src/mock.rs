@@ -51,7 +51,6 @@ impl EnsureOrigin<<Test as frame_system::Config>::RuntimeOrigin> for EnsureAny {
 	}
 }
 
-
 pub struct MockFuturepassProvider;
 
 impl FuturepassProvider for MockFuturepassProvider {
