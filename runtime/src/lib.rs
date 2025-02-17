@@ -1319,7 +1319,6 @@ impl pallet_futurepass::Config for Runtime {
 	type Proxy = impls::ProxyPalletProvider;
 	type RuntimeCall = RuntimeCall;
 	type BlacklistedCallValidator = impls::FuturepassCallValidator;
-	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
 	type WeightInfo = weights::pallet_futurepass::WeightInfo<Self>;
 
@@ -1361,7 +1360,11 @@ impl pallet_partner_attribution::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type EnsureFuturepass = impls::EnsureFuturepass<AccountId>;
+	type FuturepassCreator = Futurepass;
 	type WeightInfo = weights::pallet_partner_attribution::WeightInfo<Runtime>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type MultiCurrency = AssetsExt;
 }
 
 impl pallet_maintenance_mode::Config for Runtime {

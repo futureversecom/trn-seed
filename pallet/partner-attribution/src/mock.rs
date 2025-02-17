@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_partner_attribution;
+use codec::Encode;
 use frame_support::traits::EnsureOrigin;
 use seed_pallet_common::test_prelude::*;
 use sp_core::H160;
@@ -24,12 +25,16 @@ construct_runtime!(
 		Balances: pallet_balances,
 		Assets: pallet_assets,
 		PartnerAttribution: pallet_partner_attribution,
+		#[cfg(feature = "runtime-benchmarks")]
+		AssetsExt: pallet_assets_ext,
 	}
 );
 
 impl_frame_system_config!(Test);
 impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
+#[cfg(feature = "runtime-benchmarks")]
+impl_pallet_assets_ext_config!(Test);
 
 pub struct EnsureAny;
 
@@ -50,9 +55,36 @@ impl EnsureOrigin<<Test as frame_system::Config>::RuntimeOrigin> for EnsureAny {
 	}
 }
 
+pub struct MockFuturepassProvider;
+
+impl FuturepassProvider for MockFuturepassProvider {
+	type AccountId = AccountId;
+
+	fn create_futurepass(
+		_funder: Self::AccountId,
+		owner: Self::AccountId,
+	) -> Result<Self::AccountId, DispatchError> {
+		// Create a deterministic account by hashing the owner's address with a prefix
+		let mut input = Vec::with_capacity(24);
+		// Use a fixed prefix for futurepass accounts (first 4 bytes)
+		input.extend_from_slice(&[0xff, 0xff, 0xff, 0xff]);
+		// Add the owner's account bytes
+		input.extend_from_slice(&owner.encode());
+
+		// Hash the input to get a deterministic address
+		let hash = sp_io::hashing::blake2_256(&input);
+		let address = H160::from_slice(&hash[0..20]);
+
+		Ok(address.into())
+	}
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 	type EnsureFuturepass = EnsureAny;
+	type FuturepassCreator = MockFuturepassProvider;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type MultiCurrency = pallet_assets_ext::Pallet<Test>;
 }

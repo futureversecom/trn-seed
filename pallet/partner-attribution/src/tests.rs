@@ -67,11 +67,7 @@ mod update_partner_account {
 	fn update_partner_account_succeeds() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
-			assert_ok!(PartnerAttribution::update_partner_account(
-				Some(alice()).into(),
-				1,
-				Some(bob())
-			));
+			assert_ok!(PartnerAttribution::update_partner_account(Some(alice()).into(), 1, bob()));
 
 			System::assert_last_event(
 				Event::PartnerUpdated { partner_id: 1, account: bob() }.into(),
@@ -79,41 +75,6 @@ mod update_partner_account {
 
 			let partner = Partners::<Test>::get(1).unwrap();
 			assert_eq!(partner.account, bob());
-		});
-	}
-
-	#[test]
-	fn remove_partner_succeeds() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
-			assert_ok!(PartnerAttribution::update_partner_account(Some(alice()).into(), 1, None));
-
-			System::assert_last_event(
-				Event::PartnerRemoved { partner_id: 1, account: alice() }.into(),
-			);
-
-			assert!(Partners::<Test>::get(1).is_none());
-		});
-	}
-
-	#[test]
-	fn remove_non_existent_partner_fails() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			assert_noop!(
-				PartnerAttribution::update_partner_account(Some(alice()).into(), 1, None),
-				Error::<Test>::PartnerNotFound
-			);
-		});
-	}
-
-	#[test]
-	fn remove_partner_without_permission_fails() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
-			assert_noop!(
-				PartnerAttribution::update_partner_account(Some(bob()).into(), 1, None),
-				Error::<Test>::Unauthorized
-			);
 		});
 	}
 }
@@ -206,6 +167,84 @@ mod upgrade_partner {
 					Permill::from_percent(10)
 				),
 				BadOrigin
+			);
+		});
+	}
+}
+
+mod create_futurepass_with_partner {
+	use super::*;
+
+	#[test]
+	fn create_futurepass_with_partner_succeeds() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			use crate::mock::RuntimeEvent;
+
+			// First register a partner
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
+
+			// Create a futurepass with that partner
+			assert_ok!(PartnerAttribution::create_futurepass_with_partner(
+				Some(charlie()).into(),
+				1,
+				bob()
+			));
+
+			// Get the futurepass address from the emitted event
+			let binding = System::events();
+			let event = binding.last().expect("Event should exist");
+			let futurepass = match event.event {
+				RuntimeEvent::PartnerAttribution(Event::AccountAttributed { account, .. }) => {
+					account
+				},
+				_ => panic!("Expected AccountAttributed event"),
+			};
+
+			// Verify the futurepass was attributed to the partner
+			assert_eq!(Attributions::<Test>::get(&futurepass).unwrap(), 1);
+
+			// Verify event was emitted
+			System::assert_last_event(
+				Event::AccountAttributed { partner_id: 1, account: futurepass }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn create_futurepass_with_nonexistent_partner_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			assert_noop!(
+				PartnerAttribution::create_futurepass_with_partner(
+					Some(charlie()).into(),
+					1,
+					bob()
+				),
+				Error::<Test>::PartnerNotFound
+			);
+		});
+	}
+
+	#[test]
+	fn create_futurepass_when_already_attributed_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// First register a partner
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
+
+			// Create first futurepass
+			assert_ok!(PartnerAttribution::create_futurepass_with_partner(
+				Some(charlie()).into(),
+				1,
+				bob()
+			));
+
+			// Attempt to create another futurepass with same account
+			assert_noop!(
+				PartnerAttribution::create_futurepass_with_partner(
+					Some(charlie()).into(),
+					1,
+					bob()
+				),
+				Error::<Test>::AccountAlreadyAttributed
 			);
 		});
 	}
