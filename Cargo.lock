@@ -9061,7 +9061,6 @@ dependencies = [
  "scale-info",
  "seed-primitives",
  "sp-core",
- "sp-io",
  "sp-runtime",
  "sp-std",
 ]
