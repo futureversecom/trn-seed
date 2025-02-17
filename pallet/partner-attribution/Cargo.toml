@@ -28,6 +28,7 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-assets-ext = { workspace = true }
 
 [features]
 default = ["std"]
@@ -40,6 +41,7 @@ std = [
 	"sp-std/std",
 	"seed-primitives/std",
 	"seed-pallet-common/std",
+	"pallet-assets-ext/std",
 	"frame-benchmarking?/std",
 ]
 try-runtime = ["frame-support/try-runtime"]

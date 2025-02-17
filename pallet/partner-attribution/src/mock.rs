@@ -25,12 +25,16 @@ construct_runtime!(
 		Balances: pallet_balances,
 		Assets: pallet_assets,
 		PartnerAttribution: pallet_partner_attribution,
+		#[cfg(feature = "runtime-benchmarks")]
+		AssetsExt: pallet_assets_ext,
 	}
 );
 
 impl_frame_system_config!(Test);
 impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
+#[cfg(feature = "runtime-benchmarks")]
+impl_pallet_assets_ext_config!(Test);
 
 pub struct EnsureAny;
 
@@ -81,4 +85,6 @@ impl crate::Config for Test {
 	type EnsureFuturepass = EnsureAny;
 	type FuturepassCreator = MockFuturepassProvider;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type MultiCurrency = pallet_assets_ext::Pallet<Test>;
 }

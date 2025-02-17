@@ -1362,6 +1362,9 @@ impl pallet_partner_attribution::Config for Runtime {
 	type EnsureFuturepass = impls::EnsureFuturepass<AccountId>;
 	type FuturepassCreator = Futurepass;
 	type WeightInfo = weights::pallet_partner_attribution::WeightInfo<Runtime>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type MultiCurrency = AssetsExt;
 }
 
 impl pallet_maintenance_mode::Config for Runtime {
