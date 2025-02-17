@@ -255,41 +255,41 @@ pub mod pallet {
 			})?;
 			Ok(())
 		}
-	}
 
-	/// Create a futurepass account and attribute it to a partner permanently
-	///
-	/// The dispatch origin for this call must be _Signed_.
-	///
-	/// Parameters:
-	/// - `partner_id`: The partner id to attribute the account to.
-	#[pallet::call_index(4)]
-	#[pallet::weight(T::WeightInfo::create_futurepass_with_partner())]
-	#[transactional]
-	pub fn create_futurepass_with_partner(
-		origin: OriginFor<T>,
-		partner_id: u128,
-		account: T::AccountId,
-	) -> DispatchResult {
-		let who = ensure_signed(origin)?;
+		/// Create a futurepass account and attribute it to a partner permanently
+		///
+		/// The dispatch origin for this call must be _Signed_.
+		///
+		/// Parameters:
+		/// - `partner_id`: The partner id to attribute the account to.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::create_futurepass_with_partner())]
+		#[transactional]
+		pub fn create_futurepass_with_partner(
+			origin: OriginFor<T>,
+			partner_id: u128,
+			account: T::AccountId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
 
-		// Ensure partner exists
-		ensure!(Partners::<T>::contains_key(partner_id), Error::<T>::PartnerNotFound);
+			// Ensure partner exists
+			ensure!(Partners::<T>::contains_key(partner_id), Error::<T>::PartnerNotFound);
 
-		// Create the futurepass account
-		let futurepass = T::FuturepassCreator::create_futurepass(who.clone(), account)?;
+			// Create the futurepass account
+			let futurepass = T::FuturepassCreator::create_futurepass(who.clone(), account)?;
 
-		// Ensure account is not already attributed
-		ensure!(
-			!Attributions::<T>::contains_key(&futurepass),
-			Error::<T>::AccountAlreadyAttributed
-		);
+			// Ensure account is not already attributed
+			ensure!(
+				!Attributions::<T>::contains_key(&futurepass),
+				Error::<T>::AccountAlreadyAttributed
+			);
 
-		// Attribute the new futurepass account to the partner
-		Attributions::<T>::insert(&futurepass, partner_id);
+			// Attribute the new futurepass account to the partner
+			Attributions::<T>::insert(&futurepass, partner_id);
 
-		Self::deposit_event(Event::AccountAttributed { partner_id, account: futurepass });
+			Self::deposit_event(Event::AccountAttributed { partner_id, account: futurepass });
 
-		Ok(())
+			Ok(())
+		}
 	}
 }
