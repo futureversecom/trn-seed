@@ -78,6 +78,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use seed_pallet_common::utils::TokenBurnAuthority;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
@@ -169,6 +170,22 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TokenUtilityFlags<T> = StorageMap<_, Twox64Concat, TokenId, TokenFlags, ValueQuery>;
 
+	/// The next available incrementing issuance id
+	#[pallet::storage]
+	pub type NextPendingIssuanceId<T> =
+		StorageMap<_, Twox64Concat, CollectionUuid, u32, ValueQuery>;
+
+	// Map from a collection id and issuance id to a pending issuance
+	#[pallet::storage]
+	pub type PendingIssuances<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		CollectionUuid,
+		Twox64Concat,
+		u32,
+		PendingIssuance<T::AccountId>,
+	>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -245,6 +262,20 @@ pub mod pallet {
 		UtilityFlagsSet { collection_id: CollectionUuid, utility_flags: CollectionUtilityFlags },
 		/// Token transferable flag was set
 		TokenTransferableFlagSet { token_id: TokenId, transferable: bool },
+		/// A pending issuance for a soulbound token has been created
+		PendingIssuanceCreated {
+			collection_id: CollectionUuid,
+			issuance_id: u32,
+			token_owner: T::AccountId,
+			burn_authority: TokenBurnAuthority,
+		},
+		/// A soulbound token was successfully issued
+		Issued {
+			from: T::AccountId,
+			to: T::AccountId,
+			token_id: TokenId,
+			burn_auth: TokenBurnAuthority,
+		},
 	}
 
 	#[pallet::error]
@@ -300,6 +331,14 @@ pub mod pallet {
 		TransferUtilityBlocked,
 		/// Burning has been disabled for tokens within this collection
 		BurnUtilityBlocked,
+		/// Attempted to accept an issuance that does not exist, or is not
+		/// set for the caller
+		InvalidPendingIssuance,
+		/// Attempted to update the token utility flags for a soulbound token
+		CannotUpdateTokenUtility,
+		/// Attempted to burn a token from an account that does not adhere to
+		/// the token's burn authority
+		InvalidBurnAuthority,
 	}
 
 	#[pallet::call]
@@ -728,11 +767,129 @@ pub mod pallet {
 			// Check if the token exists
 			ensure!(collection_info.token_exists(token_id.1), Error::<T>::NoToken);
 
+			ensure!(
+				<TokenUtilityFlags<T>>::get(token_id).burn_authority.is_none(),
+				Error::<T>::CannotUpdateTokenUtility
+			);
+
 			TokenUtilityFlags::<T>::mutate(token_id, |flags| {
 				flags.transferable = transferable;
 			});
 
 			Self::deposit_event(Event::<T>::TokenTransferableFlagSet { token_id, transferable });
+			Ok(())
+		}
+
+		/// Issue a soulbound token. The issuance will be pending until the
+		/// token owner accepts the issuance.
+		#[pallet::call_index(14)]
+		#[pallet::weight(1_000)]
+		#[transactional]
+		pub fn issue(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			quantity: TokenCount,
+			token_owner: T::AccountId,
+			burn_authority: TokenBurnAuthority,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			// Only the owner can make this call
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			for _ in 0..quantity {
+				let issuance_id = <NextPendingIssuanceId<T>>::get(collection_id);
+
+				<PendingIssuances<T>>::insert(
+					collection_id,
+					issuance_id,
+					PendingIssuance { token_owner: token_owner.clone(), burn_authority },
+				);
+
+				Self::deposit_event(Event::<T>::PendingIssuanceCreated {
+					collection_id,
+					issuance_id,
+					token_owner: token_owner.clone(),
+					burn_authority,
+				});
+
+				<NextPendingIssuanceId<T>>::mutate(collection_id, |i| *i += u32::one());
+			}
+
+			Ok(())
+		}
+
+		/// Accept the issuance of a soulbound token.
+		#[pallet::call_index(15)]
+		#[pallet::weight(1_000)]
+		#[transactional]
+		pub fn accept_issuance(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			issuance_id: u32,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let pending_issuance = <PendingIssuances<T>>::get(collection_id, issuance_id)
+				.ok_or(Error::<T>::InvalidPendingIssuance)?;
+
+			if pending_issuance.token_owner != who {
+				Err(Error::<T>::InvalidPendingIssuance)?;
+			}
+
+			let quantity = 1;
+
+			let mut collection_info =
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
+			// Perform pre mint checks
+			// Note: We validate this mint as if it was being performed
+			// by the owner.
+			let serial_numbers =
+				Self::pre_mint(&collection_info.owner, quantity, &collection_info, false)?;
+			let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
+			let metadata_scheme = collection_info.metadata_scheme.clone();
+
+			// Increment next serial number
+			let next_serial_number = collection_info.next_serial_number;
+			collection_info.next_serial_number =
+				next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
+
+			let owner = collection_info.owner.clone();
+
+			// Perform the mint and update storage
+			Self::do_mint(collection_id, collection_info, &who, &serial_numbers)?;
+
+			// Check if this collection is XLS-20 compatible
+			if xls20_compatible {
+				// Pay XLS20 mint fee and send requests
+				T::Xls20MintRequest::request_xls20_mint(
+					&who,
+					collection_id,
+					serial_numbers.clone().into_inner(),
+					metadata_scheme,
+				)?;
+			}
+
+			// Request NFI storage if enabled
+			T::NFIRequest::request(&who, collection_id, serial_numbers.clone().into_inner())?;
+
+			let token_id = (collection_id, next_serial_number);
+
+			// Set the utility flags for the token
+			TokenUtilityFlags::<T>::mutate(token_id, |flags| {
+				flags.transferable = false;
+				flags.burn_authority = Some(pending_issuance.burn_authority);
+			});
+
+			Self::deposit_event(Event::<T>::Issued {
+				from: owner,
+				to: who,
+				token_id,
+				burn_auth: pending_issuance.burn_authority,
+			});
+
 			Ok(())
 		}
 	}
