@@ -24,7 +24,7 @@ use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	log,
 	utils::{next_asset_uuid, PublicMintInformation},
-	NFTExt, NFTMinter, OnNewAssetSubscriber, OnTransferSubscriber,
+	Migrator, NFTExt, NFTMinter, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
@@ -49,19 +49,25 @@ impl<T: Config> Pallet<T> {
 
 	/// Return whether the collection exists or not
 	pub fn collection_exists(collection_id: CollectionUuid) -> bool {
+		if T::Migrator::ensure_migrated().is_err() {
+			return false;
+		}
 		<CollectionInfo<T>>::contains_key(collection_id)
 	}
 
 	/// Returns number of tokens owned by an account in a collection
 	/// Used by the ERC721 precompile for balance_of
 	pub fn token_balance_of(who: &T::AccountId, collection_id: CollectionUuid) -> TokenCount {
-		match <CollectionInfo<T>>::get(collection_id) {
-			Some(collection_info) => {
-				let serial_numbers: Vec<SerialNumber> = collection_info
+		if T::Migrator::ensure_migrated().is_err() {
+			return 0;
+		}
+		match <OwnershipInfo<T>>::get(collection_id) {
+			Some(ownership_info) => {
+				let serial_numbers: Vec<SerialNumber> = ownership_info
 					.owned_tokens
 					.into_iter()
-					.find(|token_ownership| &token_ownership.owner == who)
-					.map(|token_ownership| token_ownership.owned_serials.clone().into_inner())
+					.find(|(owner, _)| owner == who)
+					.map(|(_, owned_serials)| owned_serials.clone().into_inner())
 					.unwrap_or_default();
 				serial_numbers.len() as TokenCount
 			},
@@ -72,6 +78,9 @@ impl<T: Config> Pallet<T> {
 	/// Construct & return the full metadata URI for a given `token_id` (analogous to ERC721
 	/// metadata token_uri)
 	pub fn token_uri(token_id: TokenId) -> Vec<u8> {
+		if T::Migrator::ensure_migrated().is_err() {
+			return Default::default();
+		}
 		let Some(collection_info) = <CollectionInfo<T>>::get(token_id.0) else {
 			// should not happen
 			log!(warn, "🃏 Unexpected empty metadata scheme: {:?}", token_id);
@@ -88,20 +97,22 @@ impl<T: Config> Pallet<T> {
 		current_owner: &T::AccountId,
 		new_owner: &T::AccountId,
 	) -> DispatchResult {
+		T::Migrator::ensure_migrated()?;
 		ensure!(current_owner != new_owner, Error::<T>::InvalidNewOwner);
 		ensure!(
 			<UtilityFlags<T>>::get(collection_id).transferable,
 			Error::<T>::TransferUtilityBlocked
 		);
+		ensure!(CollectionInfo::<T>::contains_key(collection_id), Error::<T>::NoCollectionFound);
 
-		CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection_info| -> DispatchResult {
-			let collection_info =
-				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
+		OwnershipInfo::<T>::try_mutate(collection_id, |maybe_ownership_info| -> DispatchResult {
+			let ownership_info =
+				maybe_ownership_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
 
 			// Check ownership and locks
 			for serial_number in serial_numbers.iter() {
 				ensure!(
-					collection_info.is_token_owner(current_owner, *serial_number),
+					ownership_info.is_token_owner(current_owner, *serial_number),
 					Error::<T>::NotTokenOwner
 				);
 				ensure!(
@@ -110,8 +121,8 @@ impl<T: Config> Pallet<T> {
 				);
 			}
 
-			collection_info.remove_user_tokens(current_owner, serial_numbers.clone());
-			collection_info
+			ownership_info.remove_user_tokens(current_owner, serial_numbers.clone());
+			ownership_info
 				.add_user_tokens(new_owner, serial_numbers.clone())
 				.map_err(Error::<T>::from)?;
 
@@ -137,6 +148,7 @@ impl<T: Config> Pallet<T> {
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
 	) -> WeightedDispatchResult {
+		T::Migrator::ensure_migrated().map_err(|e| (Weight::zero(), e))?;
 		if serial_numbers.is_empty() {
 			return Ok(Weight::zero());
 		};
@@ -152,10 +164,11 @@ impl<T: Config> Pallet<T> {
 		serial_numbers_trimmed.dedup();
 
 		// Trim the new serial_numbers and remove any that have already been minted
+		let ownership_info = OwnershipInfo::<T>::get(collection_id).unwrap_or_default();
 		serial_numbers_trimmed = serial_numbers_trimmed
 			.into_iter()
 			.filter(|serial_number| {
-				if collection_info.token_exists(*serial_number) {
+				if ownership_info.token_exists(*serial_number) {
 					// Since we don't want to error, throw a warning instead.
 					// If we error, then some tokens may be lost
 					log!(
@@ -202,18 +215,14 @@ impl<T: Config> Pallet<T> {
 	pub fn pre_mint(
 		who: &T::AccountId,
 		quantity: TokenCount,
-		collection_info: &CollectionInformation<
-			T::AccountId,
-			T::MaxTokensPerCollection,
-			T::StringLimit,
-		>,
+		collection_info: &CollectionInformation<T::AccountId, T::StringLimit>,
 		public_mint_enabled: bool,
 	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
 		// Quantity must be some
 		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 		// Caller must be collection_owner if public mint is disabled
 		ensure!(
-			collection_info.is_collection_owner(who) || public_mint_enabled,
+			&collection_info.owner == who || public_mint_enabled,
 			Error::<T>::PublicMintDisabled
 		);
 		// Check we don't exceed the token limit
@@ -287,14 +296,11 @@ impl<T: Config> Pallet<T> {
 	/// Perform the mint operation and update storage accordingly.
 	pub(crate) fn do_mint(
 		collection_id: CollectionUuid,
-		collection_info: CollectionInformation<
-			T::AccountId,
-			T::MaxTokensPerCollection,
-			T::StringLimit,
-		>,
+		collection_info: CollectionInformation<T::AccountId, T::StringLimit>,
 		token_owner: &T::AccountId,
 		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) -> DispatchResult {
+		T::Migrator::ensure_migrated()?;
 		let mut new_collection_info = collection_info;
 		// Update collection issuance
 		new_collection_info.collection_issuance = new_collection_info
@@ -307,9 +313,11 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::TokenLimitExceeded
 		);
 
-		new_collection_info
+		let mut ownership_info = OwnershipInfo::<T>::get(collection_id).unwrap_or_default();
+		ownership_info
 			.add_user_tokens(token_owner, serial_numbers.clone())
-			.map_err(Error::<T>::from)?;
+			.map_err(|e| Error::<T>::from(e))?;
+		<OwnershipInfo<T>>::insert(collection_id, ownership_info);
 
 		// Update CollectionInfo storage
 		<CollectionInfo<T>>::insert(collection_id, new_collection_info);
@@ -326,21 +334,20 @@ impl<T: Config> Pallet<T> {
 		cursor: SerialNumber,
 		limit: u16,
 	) -> (SerialNumber, TokenCount, Vec<SerialNumber>) {
-		let collection_info = match <CollectionInfo<T>>::get(collection_id) {
+		if T::Migrator::ensure_migrated().is_err() {
+			return (Default::default(), Default::default(), Default::default());
+		}
+		let ownership_info = match <OwnershipInfo<T>>::get(collection_id) {
 			Some(info) => info,
 			None => return (Default::default(), Default::default(), Default::default()),
 		};
 
 		// Collect all tokens owned by address
-		let mut owned_tokens: Vec<SerialNumber> = match collection_info
-			.owned_tokens
-			.into_inner()
-			.iter()
-			.find(|token_ownership| &token_ownership.owner == who)
-		{
-			Some(token_ownership) => token_ownership.owned_serials.clone().into_inner(),
-			None => vec![],
-		};
+		let mut owned_tokens: Vec<SerialNumber> =
+			match ownership_info.owned_tokens.into_inner().iter().find(|(owner, _)| owner == who) {
+				Some((_, owned_serials)) => owned_serials.clone().into_inner(),
+				None => vec![],
+			};
 
 		// Sort the vec to ensure no tokens are missed
 		owned_tokens.sort();
@@ -383,6 +390,7 @@ impl<T: Config> Pallet<T> {
 	where
 		<T as frame_system::Config>::AccountId: core::default::Default,
 	{
+		T::Migrator::ensure_migrated()?;
 		let collection_info =
 			<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		let collection_info = collection_info;
@@ -425,6 +433,7 @@ impl<T: Config> Pallet<T> {
 		origin_chain: OriginChain,
 		cross_chain_compatibility: CrossChainCompatibility,
 	) -> Result<u32, DispatchError> {
+		T::Migrator::ensure_migrated()?;
 		// Check we can issue the new tokens
 		let collection_uuid = Self::next_collection_uuid()?;
 
@@ -453,7 +462,6 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Now mint the collection tokens
-		let mut owned_tokens = BoundedVec::default();
 		if initial_issuance > Zero::zero() {
 			ensure!(initial_issuance <= T::MintLimit::get(), Error::<T>::MintLimitExceeded);
 			// XLS-20 compatible collections cannot have an initial issuance
@@ -467,10 +475,11 @@ impl<T: Config> Pallet<T> {
 			let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
 				BoundedVec::try_from(serial_numbers_unbounded)
 					.map_err(|_| Error::<T>::TokenLimitExceeded)?;
-			// Create token_ownership object with token_owner and initial serial_numbers
-			let token_ownership = TokenOwnership::new(token_owner, serial_numbers);
-			owned_tokens = BoundedVec::try_from(vec![token_ownership])
-				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+			// Create ownership_info object with token_owner and initial serial_numbers
+			let ownership_info = TokenOwnership::new(token_owner, serial_numbers);
+			<OwnershipInfo<T>>::insert(collection_uuid, ownership_info);
+		} else {
+			<OwnershipInfo<T>>::insert(collection_uuid, TokenOwnership::default());
 		}
 
 		let collection_info = CollectionInformation {
@@ -483,7 +492,6 @@ impl<T: Config> Pallet<T> {
 			next_serial_number: initial_issuance,
 			collection_issuance: initial_issuance,
 			cross_chain_compatibility,
-			owned_tokens,
 		};
 		<CollectionInfo<T>>::insert(collection_uuid, collection_info);
 
@@ -516,6 +524,7 @@ impl<T: Config> Pallet<T> {
 		collection_id: CollectionUuid,
 		serial_number: SerialNumber,
 	) -> DispatchResult {
+		T::Migrator::ensure_migrated()?;
 		ensure!(
 			!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
 			Error::<T>::TokenLocked
@@ -529,14 +538,24 @@ impl<T: Config> Pallet<T> {
 			let collection_info =
 				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
 
-			ensure!(collection_info.is_token_owner(who, serial_number), Error::<T>::NotTokenOwner);
 			collection_info.collection_issuance =
 				collection_info.collection_issuance.saturating_sub(1);
-			collection_info.owned_tokens.iter_mut().for_each(|token_ownership| {
-				if token_ownership.owner == *who {
-					token_ownership.owned_serials.retain(|&serial| serial != serial_number)
-				}
-			});
+
+			OwnershipInfo::<T>::try_mutate(
+				collection_id,
+				|maybe_ownership_info| -> DispatchResult {
+					let ownership_info =
+						maybe_ownership_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
+					ensure!(
+						ownership_info.is_token_owner(who, serial_number),
+						Error::<T>::NotTokenOwner
+					);
+					let serial_numbers = BoundedVec::truncate_from(vec![serial_number]);
+					ownership_info.remove_user_tokens(who, serial_numbers.clone());
+					Ok(())
+				},
+			)?;
+
 			// Remove approvals for this token
 			T::OnTransferSubscription::on_nft_transfer(&(collection_id, serial_number));
 			Ok(())
@@ -548,11 +567,12 @@ impl<T: Config> Pallet<T> {
 		who: T::AccountId,
 		collection_id: CollectionUuid,
 	) -> DispatchResult {
+		T::Migrator::ensure_migrated()?;
 		let mut collection_info =
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 		// Caller must be collection owner
-		ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+		ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
 		// Collection issuance must be 0 (i.e. no tokens minted)
 		ensure!(
 			collection_info.collection_issuance.is_zero(),
@@ -570,12 +590,10 @@ impl<T: Config> Pallet<T> {
 		collection_id: CollectionUuid,
 		new_owner: T::AccountId,
 	) -> DispatchResult {
+		T::Migrator::ensure_migrated()?;
 		let mut collection_info =
 			<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-		ensure!(
-			collection_info.is_collection_owner(&previous_owner),
-			Error::<T>::NotCollectionOwner
-		);
+		ensure!(collection_info.owner == previous_owner, Error::<T>::NotCollectionOwner);
 		collection_info.owner = new_owner.clone();
 		<CollectionInfo<T>>::insert(collection_id, collection_info);
 		Self::deposit_event(Event::<T>::OwnerSet { collection_id, new_owner });
@@ -598,6 +616,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 		quantity: TokenCount,
 		token_owner: Option<Self::AccountId>,
 	) -> DispatchResult {
+		T::Migrator::ensure_migrated()?;
 		Self::mint(RawOrigin::Signed(origin).into(), collection_id, quantity, token_owner)
 	}
 
@@ -607,6 +626,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 		serial_numbers: Vec<SerialNumber>,
 		new_owner: &Self::AccountId,
 	) -> DispatchResult {
+		T::Migrator::ensure_migrated()?;
 		let bounded_serials =
 			BoundedVec::try_from(serial_numbers).map_err(|_| Error::<T>::TokenLimitExceeded)?;
 		Self::do_transfer(collection_id, bounded_serials, origin, new_owner)
@@ -623,6 +643,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 		origin_chain: OriginChain,
 		cross_chain_compatibility: CrossChainCompatibility,
 	) -> Result<CollectionUuid, DispatchError> {
+		T::Migrator::ensure_migrated()?;
 		Self::do_create_collection(
 			owner,
 			name,
@@ -637,13 +658,21 @@ impl<T: Config> NFTExt for Pallet<T> {
 	}
 
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId> {
-		let collection = CollectionInfo::<T>::get(token_id.0)?;
-		collection.get_token_owner(token_id.1)
+		let ownership_info = OwnershipInfo::<T>::get(token_id.0)?;
+		ownership_info.get_token_owner(token_id.1)
+	}
+
+	fn token_exists(token_id: &TokenId) -> bool {
+		let Some(ownership_info) = OwnershipInfo::<T>::get(token_id.0) else {
+			return false;
+		};
+		ownership_info.token_exists(token_id.1)
 	}
 
 	fn get_collection_issuance(
 		collection_id: CollectionUuid,
 	) -> Result<(TokenCount, Option<TokenCount>), DispatchError> {
+		T::Migrator::ensure_migrated()?;
 		let collection_info =
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok((collection_info.collection_issuance, collection_info.max_issuance))
@@ -662,12 +691,14 @@ impl<T: Config> NFTExt for Pallet<T> {
 		collection_id: CollectionUuid,
 		new_owner: Self::AccountId,
 	) -> DispatchResult {
+		T::Migrator::ensure_migrated()?;
 		Self::do_set_owner(who, collection_id, new_owner)
 	}
 
 	fn get_royalties_schedule(
 		collection_id: CollectionUuid,
 	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError> {
+		T::Migrator::ensure_migrated()?;
 		let collection_info =
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok(collection_info.royalties_schedule)
@@ -677,6 +708,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 		who: Self::AccountId,
 		collection_id: CollectionUuid,
 	) -> DispatchResult {
+		T::Migrator::ensure_migrated()?;
 		Self::enable_xls20_compatibility(who, collection_id)
 	}
 
@@ -712,6 +744,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 	fn get_collection_owner(
 		collection_id: CollectionUuid,
 	) -> Result<Self::AccountId, DispatchError> {
+		T::Migrator::ensure_migrated()?;
 		let collection_info =
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok(collection_info.owner)
@@ -722,12 +755,14 @@ impl<T: Config> NFTExt for Pallet<T> {
 		collection_id: CollectionUuid,
 		serial_number: SerialNumber,
 	) -> DispatchResult {
+		T::Migrator::ensure_migrated()?;
 		Self::do_burn(&who, collection_id, serial_number)
 	}
 
 	fn get_cross_chain_compatibility(
 		collection_id: CollectionUuid,
 	) -> Result<CrossChainCompatibility, DispatchError> {
+		T::Migrator::ensure_migrated()?;
 		let collection_info =
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok(collection_info.cross_chain_compatibility)
@@ -741,11 +776,16 @@ impl<T: Config> NFTCollectionInfo for Pallet<T> {
 
 	fn get_collection_info(
 		collection_id: CollectionUuid,
-	) -> Result<
-		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
-		DispatchError,
-	> {
+	) -> Result<CollectionInformation<Self::AccountId, Self::StringLimit>, DispatchError> {
+		T::Migrator::ensure_migrated()?;
 		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
+	}
+
+	fn get_ownership_info(
+		collection_id: CollectionUuid,
+	) -> Result<TokenOwnership<Self::AccountId, Self::MaxTokensPerCollection>, DispatchError> {
+		T::Migrator::ensure_migrated()?;
+		OwnershipInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
 	}
 }
 
@@ -760,6 +800,7 @@ impl<T: Config> NFTMinter for Pallet<T> {
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
 	) -> WeightedDispatchResult {
+		T::Migrator::ensure_migrated().map_err(|e| (Weight::zero(), e))?;
 		Self::mint_bridged_token(owner, collection_id, serial_numbers)
 	}
 }
