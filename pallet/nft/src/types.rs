@@ -18,9 +18,10 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
+use seed_pallet_common::utils::TokenBurnAuthority;
 use seed_primitives::{
-	CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-	TokenCount,
+	CollectionUuid, CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule,
+	SerialNumber, TokenCount, TokenId,
 };
 use serde::{Deserialize, Serialize};
 use sp_runtime::{BoundedVec, Permill};
@@ -236,4 +237,16 @@ where
 				.retain(|token_ownership| &token_ownership.owner != token_owner);
 		}
 	}
+}
+
+#[derive(
+	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
+)]
+#[codec(mel_bound(AccountId: MaxEncodedLen))]
+pub struct PendingIssuance<AccountId>
+where
+	AccountId: Debug + PartialEq + Clone,
+{
+	pub token_owner: AccountId,
+	pub burn_authority: TokenBurnAuthority,
 }
