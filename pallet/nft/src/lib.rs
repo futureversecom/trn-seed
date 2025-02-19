@@ -270,12 +270,7 @@ pub mod pallet {
 			burn_authority: TokenBurnAuthority,
 		},
 		/// A soulbound token was successfully issued
-		Issued {
-			from: T::AccountId,
-			to: T::AccountId,
-			token_id: TokenId,
-			burn_auth: TokenBurnAuthority,
-		},
+		Issued { token_owner: T::AccountId, token_id: TokenId, burn_authority: TokenBurnAuthority },
 	}
 
 	#[pallet::error]
@@ -884,10 +879,9 @@ pub mod pallet {
 			});
 
 			Self::deposit_event(Event::<T>::Issued {
-				from: owner,
-				to: who,
+				token_owner: who,
 				token_id,
-				burn_auth: pending_issuance.burn_authority,
+				burn_authority: pending_issuance.burn_authority,
 			});
 
 			Ok(())

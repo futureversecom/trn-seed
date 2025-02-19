@@ -20,8 +20,8 @@ use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoB
 use scale_info::TypeInfo;
 use seed_pallet_common::utils::TokenBurnAuthority;
 use seed_primitives::{
-	CollectionUuid, CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId,
+	CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
+	TokenCount,
 };
 use serde::{Deserialize, Serialize};
 use sp_runtime::{BoundedVec, Permill};

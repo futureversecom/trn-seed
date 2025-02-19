@@ -108,8 +108,11 @@ impl<T: Config> Pallet<T> {
 					!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
 					Error::<T>::TokenLocked
 				);
+				let token_utility_flags =
+					<TokenUtilityFlags<T>>::get((collection_id, serial_number));
+				ensure!(token_utility_flags.transferable, Error::<T>::TransferUtilityBlocked);
 				ensure!(
-					<TokenUtilityFlags<T>>::get((collection_id, serial_number)).transferable,
+					token_utility_flags.burn_authority.is_none(),
 					Error::<T>::TransferUtilityBlocked
 				);
 			}
@@ -556,7 +559,6 @@ impl<T: Config> Pallet<T> {
 					TokenBurnAuthority::Neither => {
 						Err(Error::<T>::InvalidBurnAuthority)?;
 					},
-					_ => (),
 				}
 			} else {
 				ensure!(is_token_owner, Error::<T>::NotTokenOwner);
