@@ -159,7 +159,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 65,
+	spec_version: 66,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 13,
@@ -1319,7 +1319,6 @@ impl pallet_futurepass::Config for Runtime {
 	type Proxy = impls::ProxyPalletProvider;
 	type RuntimeCall = RuntimeCall;
 	type BlacklistedCallValidator = impls::FuturepassCallValidator;
-	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
 	type WeightInfo = weights::pallet_futurepass::WeightInfo<Self>;
 
@@ -1361,7 +1360,11 @@ impl pallet_partner_attribution::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type EnsureFuturepass = impls::EnsureFuturepass<AccountId>;
+	type FuturepassCreator = Futurepass;
 	type WeightInfo = weights::pallet_partner_attribution::WeightInfo<Runtime>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type MultiCurrency = AssetsExt;
 }
 
 impl pallet_maintenance_mode::Config for Runtime {

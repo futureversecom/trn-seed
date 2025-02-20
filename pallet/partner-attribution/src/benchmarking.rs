@@ -21,7 +21,17 @@ use super::*;
 use crate::Pallet as PartnerAttribution;
 
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
+use frame_support::{assert_ok, traits::fungibles::Mutate};
 use frame_system::RawOrigin;
+
+// fund account with ROOT
+pub fn fund<T: Config>(account: &T::AccountId)
+where
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+{
+	let root_asset_id: u32 = 1;
+	assert_ok!(T::MultiCurrency::mint_into(root_asset_id.into(), &account, 1_000_000u32.into()));
+}
 
 benchmarks! {
 	where_clause { where <T as frame_system::Config>::AccountId: From<sp_core::H160> }
@@ -42,7 +52,7 @@ benchmarks! {
 		let acc: T::AccountId = account("acc", 0, 0);
 		let new_acc: T::AccountId = account("new_acc", 0, 0);
 		PartnerAttribution::<T>::register_partner_account(RawOrigin::Signed(acc.clone()).into(), acc.clone()).unwrap();
-	}: _(RawOrigin::Signed(acc.clone()), 1, Some(new_acc.clone()))
+	}: _(RawOrigin::Signed(acc.clone()), 1, new_acc.clone())
 	verify {
 		let partner = Partners::<T>::get(1).unwrap();
 		assert_eq!(partner.owner, acc);
@@ -76,6 +86,25 @@ benchmarks! {
 		assert_eq!(partner.account, acc);
 		assert_eq!(partner.fee_percentage, Some(Permill::from_percent(10)));
 		assert_eq!(partner.accumulated_fees, 0);
+	}
+
+	create_futurepass_with_partner {
+		let acc: T::AccountId = account("acc", 0, 0);
+		fund::<T>(&acc); // fund acc to pay for futurepass creation
+
+		let delegated_acc: T::AccountId = account("delegated", 0, 0);
+		let partner_id: u128 = 1;
+
+		PartnerAttribution::<T>::register_partner_account(RawOrigin::Signed(acc.clone()).into(), acc.clone()).unwrap();
+
+		assert!(Attributions::<T>::iter().next().is_none());
+	}: _(RawOrigin::Signed(acc.clone()), partner_id, delegated_acc.clone())
+	verify {
+		// Verify attribution was created - by getting 1st element of the attributions map
+		let (_, got_partner_id) = Attributions::<T>::iter()
+			.next()
+			.expect("Attribution should exist");
+		assert_eq!(got_partner_id, partner_id);
 	}
 }
 

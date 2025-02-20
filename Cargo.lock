@@ -6162,6 +6162,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-assets",
+ "pallet-assets-ext",
  "pallet-balances",
  "parity-scale-codec",
  "precompile-utils",
