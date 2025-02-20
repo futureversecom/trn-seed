@@ -565,11 +565,25 @@ fn burn() {
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 2);
 
 		assert_ok!(Nft::burn(Some(token_owner).into(), (collection_id, 1)));
-		System::assert_last_event(Event::<Test>::Burn { collection_id, serial_number: 1 }.into());
+		System::assert_last_event(
+			Event::<Test>::Burn {
+				token_owner: token_owner.clone(),
+				collection_id,
+				serial_number: 1,
+			}
+			.into(),
+		);
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 1);
 
 		assert_ok!(Nft::burn(Some(token_owner).into(), (collection_id, 2)));
-		System::assert_last_event(Event::<Test>::Burn { collection_id, serial_number: 2 }.into());
+		System::assert_last_event(
+			Event::<Test>::Burn {
+				token_owner: token_owner.clone(),
+				collection_id,
+				serial_number: 2,
+			}
+			.into(),
+		);
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 0);
 
 		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().collection_issuance, 0);
