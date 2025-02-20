@@ -116,6 +116,17 @@ impl TryFrom<u8> for TokenBurnAuthority {
 	}
 }
 
+impl Into<u8> for TokenBurnAuthority {
+	fn into(self) -> u8 {
+		match self {
+			TokenBurnAuthority::TokenOwner => 0,
+			TokenBurnAuthority::CollectionOwner => 1,
+			TokenBurnAuthority::Both => 2,
+			TokenBurnAuthority::Neither => 3,
+		}
+	}
+}
+
 // Additional flags at a token level that determine whether that token can be transferred, or burned
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
 pub struct TokenUtilityFlags {

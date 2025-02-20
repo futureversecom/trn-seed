@@ -458,6 +458,7 @@ parameter_types! {
 	pub const WorldId: seed_primitives::ParachainId = 100;
 	pub const MaxTokensPerCollection: u32 = 1_000_000;
 	pub const MintLimit: u32 = 1_000;
+	pub const MaxPendingIssuances = 1_000_000;
 }
 impl pallet_nft::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -473,6 +474,7 @@ impl pallet_nft::Config for Runtime {
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
 	type NFIRequest = Nfi;
+	type MaxPendingIssuances = MaxPendingIssuances;
 }
 
 parameter_types! {
@@ -505,6 +507,7 @@ parameter_types! {
 	pub const SftPalletId: PalletId = PalletId(*b"sftokens");
 	pub const MaxTokensPerSftCollection: u32 = 1_000_000;
 	pub const MaxOwnersPerSftCollection: u32 = 1_000_000;
+	pub const MaxSftPendingIssuances = 1_000_000;
 	pub const MaxSerialsPerMint: u32 = 1000; // Higher values can be storage heavy
 }
 impl pallet_sft::Config for Runtime {
@@ -521,6 +524,7 @@ impl pallet_sft::Config for Runtime {
 	type MaxSerialsPerMint = MaxSerialsPerMint;
 	type MaxOwnersPerSftToken = MaxOwnersPerSftCollection;
 	type NFIRequest = Nfi;
+	type MaxSftPendingIssuances = MaxSftPendingIssuances;
 }
 
 parameter_types! {

@@ -769,13 +769,11 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	/// Returns the next issuance id
 	fn next_issuance_id() -> IssuanceId {
-		NextIssuanceId::<T>::get()
+		0
 	}
 
 	/// Increments the issuance id
 	fn increment_issuance_id() -> DispatchResult {
-		ensure!(<NextIssuanceId<T>>::get().checked_add(1).is_some(), Error::<T>::NoAvailableIds);
-		<NextIssuanceId<T>>::mutate(|i| *i += u32::one());
 		Ok(())
 	}
 }

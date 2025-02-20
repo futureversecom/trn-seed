@@ -3174,8 +3174,10 @@ mod soulbound_token {
 			);
 
 			assert_eq!(
-				PendingIssuances::<Test>::get((collection_id, &token_owner, issuance_id)),
-				Some(SftPendingIssuance { serial_number, balance })
+				PendingIssuances::<Test>::get(collection_id)
+					.map(|p| p.get_pending_issuance(&token_owner, issuance_id))
+					.flatten(),
+				Some(SftPendingIssuance { issuance_id, serial_number, balance })
 			);
 
 			assert_ok!(Sft::accept_issuance(
@@ -3310,6 +3312,24 @@ mod soulbound_token {
 					collection_id,
 					issuance_id
 				),
+				Error::<Test>::InvalidPendingIssuance
+			);
+		});
+	}
+
+	#[test]
+	fn cannot_accept_issuance_more_than_once() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_owner = create_account(11);
+
+			let burn_authority = TokenBurnAuthority::TokenOwner;
+
+			let (collection_id, _) =
+				issue_and_accept(collection_owner, token_owner, burn_authority, 1);
+
+			assert_noop!(
+				Sft::accept_issuance(RawOrigin::Signed(token_owner).into(), collection_id, 0),
 				Error::<Test>::InvalidPendingIssuance
 			);
 		});
