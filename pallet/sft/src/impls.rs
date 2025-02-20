@@ -260,6 +260,10 @@ impl<T: Config> Pallet<T> {
 		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
 			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
+			ensure!(
+				<TokenUtilityFlags<T>>::get((collection_id, serial_number)).transferable,
+				Error::<T>::TransferUtilityBlocked
+			);
 
 			let token_id: TokenId = (collection_id, *serial_number);
 			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;

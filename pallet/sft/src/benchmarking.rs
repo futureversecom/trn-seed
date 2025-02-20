@@ -266,6 +266,14 @@ benchmarks! {
 		let token = TokenInfo::<T>::get(token_id).unwrap();
 		assert_eq!(token.token_name, token_name);
 	}
+
+	set_token_transferable_flag {
+		let owner = account::<T>("Alice");
+		let token_id = build_token::<T>(Some(owner.clone()), 1);
+	}: _(origin::<T>(&owner), token_id, true)
+	verify {
+		assert_eq!(TokenUtilityFlags::<T>::get(token_id).transferable, true);
+	}
 }
 
 impl_benchmark_test_suite!(
