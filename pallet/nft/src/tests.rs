@@ -3092,7 +3092,9 @@ mod soulbound_token {
 		token_owner: AccountId,
 		burn_authority: TokenBurnAuthority,
 	) -> TokenId {
-		let issuance_id = NextIssuanceId::<Test>::get();
+		let issuance_id = PendingIssuances::<Test>::get(collection_id)
+			.map(|p| p.next_issuance_id)
+			.unwrap_or(0);
 		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
 
 		assert_ok!(Nft::issue(
@@ -3142,8 +3144,10 @@ mod soulbound_token {
 			);
 
 			assert_eq!(
-				PendingIssuances::<Test>::get((collection_id, &token_owner, issuance_id)),
-				Some(PendingIssuance { burn_authority })
+				PendingIssuances::<Test>::get(collection_id)
+					.map(|p| p.get_pending_issuance(&token_owner, issuance_id))
+					.flatten(),
+				Some(PendingIssuance { issuance_id, burn_authority })
 			);
 
 			assert_ok!(Nft::accept_issuance(
@@ -3192,8 +3196,10 @@ mod soulbound_token {
 				let token_id = (collection_id, i);
 
 				assert_eq!(
-					PendingIssuances::<Test>::get((collection_id, &token_owner, issuance_id)),
-					Some(PendingIssuance { burn_authority })
+					PendingIssuances::<Test>::get(collection_id)
+						.map(|p| p.get_pending_issuance(&token_owner, issuance_id))
+						.flatten(),
+					Some(PendingIssuance { issuance_id, burn_authority })
 				);
 
 				assert_ok!(Nft::accept_issuance(
@@ -3227,6 +3233,25 @@ mod soulbound_token {
 					collection_id,
 					issuance_id
 				),
+				Error::<Test>::InvalidPendingIssuance
+			);
+		});
+	}
+
+	#[test]
+	fn cannot_accept_issuance_more_than_once() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+
+			let token_owner = create_account(11);
+
+			let burn_authority = TokenBurnAuthority::TokenOwner;
+
+			issue_and_accept(collection_id, collection_owner, token_owner, burn_authority);
+
+			assert_noop!(
+				Nft::accept_issuance(RawOrigin::Signed(token_owner).into(), collection_id, 0,),
 				Error::<Test>::InvalidPendingIssuance
 			);
 		});

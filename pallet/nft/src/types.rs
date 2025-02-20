@@ -20,8 +20,8 @@ use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoB
 use scale_info::TypeInfo;
 use seed_pallet_common::utils::TokenBurnAuthority;
 use seed_primitives::{
-	CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-	TokenCount,
+	CrossChainCompatibility, IssuanceId, MetadataScheme, OriginChain, RoyaltiesSchedule,
+	SerialNumber, TokenCount,
 };
 use serde::{Deserialize, Serialize};
 use sp_runtime::{BoundedVec, Permill};
@@ -243,5 +243,112 @@ where
 	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
 pub struct PendingIssuance {
+	pub issuance_id: IssuanceId,
 	pub burn_authority: TokenBurnAuthority,
+}
+
+pub enum PendingIssuanceError {
+	PendingIssuanceLimitExceeded,
+}
+
+#[derive(
+	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
+)]
+#[codec(mel_bound(AccountId: MaxEncodedLen))]
+#[scale_info(skip_type_params(MaxPendingIssuances))]
+pub struct CollectionPendingIssuances<AccountId, MaxPendingIssuances: Get<u32>>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxPendingIssuances: Get<u32>,
+{
+	pub next_issuance_id: IssuanceId,
+	pub pending_issuances: BoundedVec<
+		(AccountId, BoundedVec<PendingIssuance, MaxPendingIssuances>),
+		MaxPendingIssuances,
+	>,
+}
+
+impl<AccountId, MaxPendingIssuances> CollectionPendingIssuances<AccountId, MaxPendingIssuances>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxPendingIssuances: Get<u32>,
+{
+	pub fn new() -> Self {
+		CollectionPendingIssuances { next_issuance_id: 0, pending_issuances: BoundedVec::new() }
+	}
+
+	pub fn insert_pending_issuance(
+		&mut self,
+		token_owner: &AccountId,
+		burn_authority: TokenBurnAuthority,
+	) -> Result<IssuanceId, PendingIssuanceError> {
+		let issuance_id = self.next_issuance_id;
+		let pending_issuance = PendingIssuance { issuance_id, burn_authority };
+
+		if self.pending_issuances.iter().any(|p| &p.0 == token_owner) {
+			for account_pending_issuances in self.pending_issuances.iter_mut() {
+				if &account_pending_issuances.0 != token_owner {
+					continue;
+				}
+
+				account_pending_issuances
+					.1
+					.try_push(pending_issuance)
+					.map_err(|_| PendingIssuanceError::PendingIssuanceLimitExceeded)?;
+
+				break;
+			}
+		} else {
+			// create new entry
+			let mut new_account_issuance = BoundedVec::new();
+			new_account_issuance.force_push(pending_issuance);
+
+			self.pending_issuances
+				.try_push((token_owner.clone(), new_account_issuance))
+				.map_err(|_| PendingIssuanceError::PendingIssuanceLimitExceeded)?;
+		}
+
+		self.next_issuance_id = self.next_issuance_id.saturating_add(1);
+
+		Ok(issuance_id)
+	}
+
+	pub fn get_pending_issuance(
+		&self,
+		token_owner: &AccountId,
+		issuance_id: IssuanceId,
+	) -> Option<PendingIssuance> {
+		let account_pending_issuances = self
+			.pending_issuances
+			.iter()
+			.find(|pending_issuance| &pending_issuance.0 == token_owner)?;
+
+		let pending_issuance =
+			account_pending_issuances.1.iter().find(|p| p.issuance_id == issuance_id)?;
+
+		Some(pending_issuance.clone())
+	}
+
+	pub fn remove_pending_issuance(&mut self, token_owner: &AccountId, issuance_id: IssuanceId) {
+		for account_pending_issuance in self.pending_issuances.iter_mut() {
+			if &account_pending_issuance.0 != token_owner {
+				continue;
+			}
+
+			account_pending_issuance.1.retain(|p| p.issuance_id != issuance_id);
+			break;
+		}
+	}
+
+	pub fn get_pending_issuances(&self, token_owner: &AccountId) -> Vec<PendingIssuance> {
+		if let Some(account_pending_issuances) = self
+			.pending_issuances
+			.iter()
+			.find(|pending_issuance| &pending_issuance.0 == token_owner)
+		{
+			return account_pending_issuances.1.to_vec();
+		}
+
+		vec![]
+	}
 }

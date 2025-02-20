@@ -54,7 +54,6 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use seed_pallet_common::utils::TokenBurnAuthority;
-	use seed_primitives::IssuanceId;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -97,6 +96,8 @@ pub mod pallet {
 		type MaxOwnersPerSftToken: Get<u32>;
 		/// Interface for requesting extra meta storage items
 		type NFIRequest: NFIRequest<AccountId = Self::AccountId>;
+		/// Max number of pending issuances for a collection
+		type MaxSftPendingIssuances: Get<u32>;
 	}
 
 	/// Map from collection to its information
@@ -131,16 +132,13 @@ pub mod pallet {
 		SftTokenInformation<T::AccountId, T::StringLimit, T::MaxOwnersPerSftToken>,
 	>;
 
-	// Map from a collection id and issuance id to a pending issuance
+	// Map from a collection id to a collection's pending issuances
 	#[pallet::storage]
-	pub type PendingIssuances<T: Config> = StorageNMap<
+	pub type PendingIssuances<T: Config> = StorageMap<
 		_,
-		(
-			NMapKey<Twox64Concat, CollectionUuid>,
-			NMapKey<Twox64Concat, T::AccountId>,
-			NMapKey<Twox64Concat, IssuanceId>,
-		),
-		SftPendingIssuance,
+		Twox64Concat,
+		CollectionUuid,
+		SftCollectionPendingIssuances<T::AccountId, T::MaxSftPendingIssuances>,
 	>;
 
 	#[pallet::event]
@@ -306,6 +304,8 @@ pub mod pallet {
 		/// Attempted to set burn authority for a token that has already
 		/// been issued
 		TokenAlreadyIssued,
+		/// The number of pending issuances has exceeded the max for a collection
+		PendingIssuanceLimitExceeded,
 		/// Attempted to issue a soulbound token where the burn authority
 		/// has not been set
 		NoBurnAuthority,
@@ -705,30 +705,40 @@ pub mod pallet {
 			// Only the owner can make this call
 			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
 
-			for (serial_number, balance) in serial_numbers.iter() {
-				// ensure burn authority has been pre declared
-				ensure!(
-					<TokenUtilityFlags<T>>::get((collection_id, serial_number))
-						.burn_authority
-						.is_some(),
-					Error::<T>::NoBurnAuthority
-				);
-
-				let issuance_id = T::NFTExt::next_issuance_id();
-
-				<PendingIssuances<T>>::insert(
-					(collection_id, &token_owner, issuance_id),
-					SftPendingIssuance { serial_number: *serial_number, balance: *balance },
-				);
-
-				Self::deposit_event(Event::<T>::PendingIssuanceCreated {
-					collection_id,
-					issuance_id,
-					token_owner: token_owner.clone(),
-				});
-
-				T::NFTExt::increment_issuance_id()?;
+			// Initialize the collection's pending issuances if needed
+			if <PendingIssuances<T>>::get(collection_id).is_none() {
+				<PendingIssuances<T>>::insert(collection_id, SftCollectionPendingIssuances::new())
 			}
+
+			<PendingIssuances<T>>::try_mutate(
+				collection_id,
+				|pending_issuances| -> DispatchResult {
+					let pending_issuances =
+						pending_issuances.as_mut().ok_or(Error::<T>::InvalidPendingIssuance)?;
+
+					for (serial_number, balance) in serial_numbers.iter() {
+						// ensure burn authority has been pre declared
+						ensure!(
+							<TokenUtilityFlags<T>>::get((collection_id, serial_number))
+								.burn_authority
+								.is_some(),
+							Error::<T>::NoBurnAuthority
+						);
+
+						let issuance_id = pending_issuances
+							.insert_pending_issuance(&token_owner, *serial_number, *balance)
+							.map_err(Error::<T>::from)?;
+
+						Self::deposit_event(Event::<T>::PendingIssuanceCreated {
+							collection_id,
+							issuance_id,
+							token_owner: token_owner.clone(),
+						});
+					}
+
+					Ok(())
+				},
+			)?;
 
 			Ok(())
 		}
@@ -744,7 +754,11 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let pending_issuance = <PendingIssuances<T>>::get((collection_id, &who, issuance_id))
+			let collection_pending_issuances = <PendingIssuances<T>>::get(collection_id)
+				.ok_or(Error::<T>::InvalidPendingIssuance)?;
+
+			let pending_issuance = collection_pending_issuances
+				.get_pending_issuance(&who, issuance_id)
 				.ok_or(Error::<T>::InvalidPendingIssuance)?;
 
 			let mut serial_numbers = BoundedVec::new();
@@ -761,12 +775,35 @@ pub mod pallet {
 			)?;
 
 			Self::deposit_event(Event::<T>::Issued {
-				token_owner: who,
+				token_owner: who.clone(),
 				token_id: (collection_id, pending_issuance.serial_number),
 				balance: pending_issuance.balance,
 			});
 
+			// remove the pending issuance
+			<PendingIssuances<T>>::try_mutate(
+				collection_id,
+				|pending_issuances| -> DispatchResult {
+					let pending_issuances =
+						pending_issuances.as_mut().ok_or(Error::<T>::InvalidPendingIssuance)?;
+
+					pending_issuances.remove_pending_issuance(&who, issuance_id);
+
+					Ok(())
+				},
+			)?;
+
 			Ok(())
+		}
+	}
+}
+
+impl<T: Config> From<SftPendingIssuanceError> for Error<T> {
+	fn from(val: SftPendingIssuanceError) -> Error<T> {
+		match val {
+			SftPendingIssuanceError::PendingIssuanceLimitExceeded => {
+				Error::<T>::PendingIssuanceLimitExceeded
+			},
 		}
 	}
 }

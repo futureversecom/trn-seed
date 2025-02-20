@@ -140,6 +140,8 @@ pub mod pallet {
 		type Xls20MintRequest: Xls20MintRequest<AccountId = Self::AccountId>;
 		/// Interface for requesting extra meta storage items
 		type NFIRequest: NFIRequest<AccountId = Self::AccountId>;
+		/// Max number of pending issuances for a collection
+		type MaxPendingIssuances: Get<u32>;
 	}
 
 	/// Map from collection to its information
@@ -173,20 +175,13 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TokenUtilityFlags<T> = StorageMap<_, Twox64Concat, TokenId, TokenFlags, ValueQuery>;
 
-	/// The next available incrementing issuance id
+	// Map from a collection id to a collection's pending issuances
 	#[pallet::storage]
-	pub type NextIssuanceId<T> = StorageValue<_, u32, ValueQuery>;
-
-	// Map from a collection id and issuance id to a pending issuance
-	#[pallet::storage]
-	pub type PendingIssuances<T: Config> = StorageNMap<
+	pub type PendingIssuances<T: Config> = StorageMap<
 		_,
-		(
-			NMapKey<Twox64Concat, CollectionUuid>,
-			NMapKey<Twox64Concat, T::AccountId>,
-			NMapKey<Twox64Concat, IssuanceId>,
-		),
-		PendingIssuance,
+		Twox64Concat,
+		CollectionUuid,
+		CollectionPendingIssuances<T::AccountId, T::MaxPendingIssuances>,
 	>;
 
 	#[pallet::event]
@@ -329,6 +324,8 @@ pub mod pallet {
 		TransferUtilityBlocked,
 		/// Burning has been disabled for tokens within this collection
 		BurnUtilityBlocked,
+		/// The number of pending issuances has exceeded the max for a collection
+		PendingIssuanceLimitExceeded,
 		/// Attempted to accept an issuance that does not exist, or is not
 		/// set for the caller
 		InvalidPendingIssuance,
@@ -796,28 +793,32 @@ pub mod pallet {
 			// Only the owner can make this call
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 
-			for _ in 0..quantity {
-				let issuance_id = <NextIssuanceId<T>>::get();
-
-				<PendingIssuances<T>>::insert(
-					(collection_id, &token_owner, issuance_id),
-					PendingIssuance { burn_authority },
-				);
-
-				Self::deposit_event(Event::<T>::PendingIssuanceCreated {
-					collection_id,
-					issuance_id,
-					token_owner: token_owner.clone(),
-					burn_authority,
-				});
-
-				ensure!(
-					<NextIssuanceId<T>>::get().checked_add(1).is_some(),
-					Error::<T>::NoAvailableIds
-				);
-
-				<NextIssuanceId<T>>::mutate(|i| *i += u32::one());
+			// Initialize the collection's pending issuances if needed
+			if <PendingIssuances<T>>::get(collection_id).is_none() {
+				<PendingIssuances<T>>::insert(collection_id, CollectionPendingIssuances::new())
 			}
+
+			<PendingIssuances<T>>::try_mutate(
+				collection_id,
+				|pending_issuances| -> DispatchResult {
+					let pending_issuances =
+						pending_issuances.as_mut().ok_or(Error::<T>::InvalidPendingIssuance)?;
+					for _ in 0..quantity {
+						let issuance_id = pending_issuances
+							.insert_pending_issuance(&token_owner, burn_authority)
+							.map_err(Error::<T>::from)?;
+
+						Self::deposit_event(Event::<T>::PendingIssuanceCreated {
+							collection_id,
+							issuance_id,
+							token_owner: token_owner.clone(),
+							burn_authority,
+						});
+					}
+
+					Ok(())
+				},
+			)?;
 
 			Ok(())
 		}
@@ -833,7 +834,11 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let pending_issuance = <PendingIssuances<T>>::get((collection_id, &who, issuance_id))
+			let collection_pending_issuances = <PendingIssuances<T>>::get(collection_id)
+				.ok_or(Error::<T>::InvalidPendingIssuance)?;
+
+			let pending_issuance = collection_pending_issuances
+				.get_pending_issuance(&who, issuance_id)
 				.ok_or(Error::<T>::InvalidPendingIssuance)?;
 
 			let quantity = 1;
@@ -880,10 +885,23 @@ pub mod pallet {
 			});
 
 			Self::deposit_event(Event::<T>::Issued {
-				token_owner: who,
+				token_owner: who.clone(),
 				token_id,
 				burn_authority: pending_issuance.burn_authority,
 			});
+
+			// remove the pending issuance
+			<PendingIssuances<T>>::try_mutate(
+				collection_id,
+				|pending_issuances| -> DispatchResult {
+					let pending_issuances =
+						pending_issuances.as_mut().ok_or(Error::<T>::InvalidPendingIssuance)?;
+
+					pending_issuances.remove_pending_issuance(&who, issuance_id);
+
+					Ok(())
+				},
+			)?;
 
 			Ok(())
 		}
@@ -894,6 +912,16 @@ impl<T: Config> From<TokenOwnershipError> for Error<T> {
 	fn from(val: TokenOwnershipError) -> Error<T> {
 		match val {
 			TokenOwnershipError::TokenLimitExceeded => Error::<T>::TokenLimitExceeded,
+		}
+	}
+}
+
+impl<T: Config> From<PendingIssuanceError> for Error<T> {
+	fn from(val: PendingIssuanceError) -> Error<T> {
+		match val {
+			PendingIssuanceError::PendingIssuanceLimitExceeded => {
+				Error::<T>::PendingIssuanceLimitExceeded
+			},
 		}
 	}
 }
