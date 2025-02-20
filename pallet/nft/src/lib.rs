@@ -172,8 +172,7 @@ pub mod pallet {
 
 	/// The next available incrementing issuance id
 	#[pallet::storage]
-	pub type NextPendingIssuanceId<T> =
-		StorageMap<_, Twox64Concat, CollectionUuid, u32, ValueQuery>;
+	pub type NextIssuanceId<T> = StorageValue<_, u32, ValueQuery>;
 
 	// Map from a collection id and issuance id to a pending issuance
 	#[pallet::storage]
@@ -794,7 +793,7 @@ pub mod pallet {
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 
 			for _ in 0..quantity {
-				let issuance_id = <NextPendingIssuanceId<T>>::get(collection_id);
+				let issuance_id = <NextIssuanceId<T>>::get();
 
 				<PendingIssuances<T>>::insert(
 					collection_id,
@@ -809,7 +808,12 @@ pub mod pallet {
 					burn_authority,
 				});
 
-				<NextPendingIssuanceId<T>>::mutate(collection_id, |i| *i += u32::one());
+				ensure!(
+					<NextIssuanceId<T>>::get().checked_add(1).is_some(),
+					Error::<T>::NoAvailableIds
+				);
+
+				<NextIssuanceId<T>>::mutate(|i| *i += u32::one());
 			}
 
 			Ok(())
@@ -850,8 +854,6 @@ pub mod pallet {
 			let next_serial_number = collection_info.next_serial_number;
 			collection_info.next_serial_number =
 				next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
-
-			let owner = collection_info.owner.clone();
 
 			// Perform the mint and update storage
 			Self::do_mint(collection_id, collection_info, &who, &serial_numbers)?;
