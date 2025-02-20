@@ -3174,8 +3174,8 @@ mod soulbound_token {
 			);
 
 			assert_eq!(
-				PendingIssuances::<Test>::get(collection_id, issuance_id),
-				Some(SftPendingIssuance { token_owner, serial_number, balance })
+				PendingIssuances::<Test>::get((collection_id, &token_owner, issuance_id)),
+				Some(SftPendingIssuance { serial_number, balance })
 			);
 
 			assert_ok!(Sft::accept_issuance(

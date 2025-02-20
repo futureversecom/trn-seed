@@ -54,6 +54,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use seed_pallet_common::utils::TokenBurnAuthority;
+	use seed_primitives::IssuanceId;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -132,13 +133,14 @@ pub mod pallet {
 
 	// Map from a collection id and issuance id to a pending issuance
 	#[pallet::storage]
-	pub type PendingIssuances<T: Config> = StorageDoubleMap<
+	pub type PendingIssuances<T: Config> = StorageNMap<
 		_,
-		Twox64Concat,
-		CollectionUuid,
-		Twox64Concat,
-		u32,
-		SftPendingIssuance<T::AccountId>,
+		(
+			NMapKey<Twox64Concat, CollectionUuid>,
+			NMapKey<Twox64Concat, T::AccountId>,
+			NMapKey<Twox64Concat, IssuanceId>,
+		),
+		SftPendingIssuance,
 	>;
 
 	#[pallet::event]
@@ -715,13 +717,8 @@ pub mod pallet {
 				let issuance_id = T::NFTExt::next_issuance_id();
 
 				<PendingIssuances<T>>::insert(
-					collection_id,
-					issuance_id,
-					SftPendingIssuance {
-						token_owner: token_owner.clone(),
-						serial_number: *serial_number,
-						balance: *balance,
-					},
+					(collection_id, &token_owner, issuance_id),
+					SftPendingIssuance { serial_number: *serial_number, balance: *balance },
 				);
 
 				Self::deposit_event(Event::<T>::PendingIssuanceCreated {
@@ -747,12 +744,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let pending_issuance = <PendingIssuances<T>>::get(collection_id, issuance_id)
+			let pending_issuance = <PendingIssuances<T>>::get((collection_id, &who, issuance_id))
 				.ok_or(Error::<T>::InvalidPendingIssuance)?;
-
-			if pending_issuance.token_owner != who {
-				Err(Error::<T>::InvalidPendingIssuance)?;
-			}
 
 			let mut serial_numbers = BoundedVec::new();
 			serial_numbers.force_push((pending_issuance.serial_number, pending_issuance.balance));
@@ -764,11 +757,11 @@ pub mod pallet {
 				sft_collection_info.collection_owner,
 				collection_id,
 				serial_numbers,
-				Some(who),
+				Some(who.clone()),
 			)?;
 
 			Self::deposit_event(Event::<T>::Issued {
-				token_owner: pending_issuance.token_owner,
+				token_owner: who,
 				token_id: (collection_id, pending_issuance.serial_number),
 				balance: pending_issuance.balance,
 			});

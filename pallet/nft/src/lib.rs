@@ -35,7 +35,10 @@ use frame_support::{
 	transactional, PalletId,
 };
 use seed_pallet_common::{
-	utils::{CollectionUtilityFlags, PublicMintInformation, TokenUtilityFlags as TokenFlags},
+	utils::{
+		CollectionUtilityFlags, PublicMintInformation, TokenBurnAuthority,
+		TokenUtilityFlags as TokenFlags,
+	},
 	NFIRequest, OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest,
 };
 use seed_primitives::{
@@ -78,7 +81,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use seed_pallet_common::utils::TokenBurnAuthority;
+	use seed_primitives::IssuanceId;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
@@ -176,13 +179,14 @@ pub mod pallet {
 
 	// Map from a collection id and issuance id to a pending issuance
 	#[pallet::storage]
-	pub type PendingIssuances<T: Config> = StorageDoubleMap<
+	pub type PendingIssuances<T: Config> = StorageNMap<
 		_,
-		Twox64Concat,
-		CollectionUuid,
-		Twox64Concat,
-		u32,
-		PendingIssuance<T::AccountId>,
+		(
+			NMapKey<Twox64Concat, CollectionUuid>,
+			NMapKey<Twox64Concat, T::AccountId>,
+			NMapKey<Twox64Concat, IssuanceId>,
+		),
+		PendingIssuance,
 	>;
 
 	#[pallet::event]
@@ -796,9 +800,8 @@ pub mod pallet {
 				let issuance_id = <NextIssuanceId<T>>::get();
 
 				<PendingIssuances<T>>::insert(
-					collection_id,
-					issuance_id,
-					PendingIssuance { token_owner: token_owner.clone(), burn_authority },
+					(collection_id, &token_owner, issuance_id),
+					PendingIssuance { burn_authority },
 				);
 
 				Self::deposit_event(Event::<T>::PendingIssuanceCreated {
@@ -830,12 +833,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let pending_issuance = <PendingIssuances<T>>::get(collection_id, issuance_id)
+			let pending_issuance = <PendingIssuances<T>>::get((collection_id, &who, issuance_id))
 				.ok_or(Error::<T>::InvalidPendingIssuance)?;
-
-			if pending_issuance.token_owner != who {
-				Err(Error::<T>::InvalidPendingIssuance)?;
-			}
 
 			let quantity = 1;
 
