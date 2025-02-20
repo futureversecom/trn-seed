@@ -27,8 +27,8 @@ use seed_pallet_common::{
 	NFTExt, NFTMinter, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{
-	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
-	TokenId, WeightedDispatchResult,
+	CollectionUuid, IssuanceId, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
+	TokenCount, TokenId, WeightedDispatchResult,
 };
 use seed_primitives::{CrossChainCompatibility, MAX_COLLECTION_ENTITLEMENTS};
 use sp_runtime::{
@@ -765,6 +765,18 @@ impl<T: Config> NFTExt for Pallet<T> {
 		let collection_info =
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok(collection_info.cross_chain_compatibility)
+	}
+
+	/// Returns the next issuance id
+	fn next_issuance_id() -> IssuanceId {
+		NextIssuanceId::<T>::get()
+	}
+
+	/// Increments the issuance id
+	fn increment_issuance_id() -> DispatchResult {
+		ensure!(<NextIssuanceId<T>>::get().checked_add(1).is_some(), Error::<T>::NoAvailableIds);
+		<NextIssuanceId<T>>::mutate(|i| *i += u32::one());
+		Ok(())
 	}
 }
 

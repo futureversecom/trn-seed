@@ -3092,7 +3092,7 @@ mod soulbound_token {
 		token_owner: AccountId,
 		burn_authority: TokenBurnAuthority,
 	) -> TokenId {
-		let issuance_id = NextPendingIssuanceId::<Test>::get(collection_id);
+		let issuance_id = NextIssuanceId::<Test>::get();
 		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
 
 		assert_ok!(Nft::issue(
@@ -3391,55 +3391,6 @@ mod soulbound_token {
 				Nft::burn(RawOrigin::Signed(collection_owner).into(), token_id),
 				Error::<Test>::InvalidBurnAuthority
 			);
-		});
-	}
-
-	#[test]
-	fn set_stoken_transferable_flag_prevents_transfer() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let collection_owner = create_account(10);
-			let collection_id = setup_collection(collection_owner);
-			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, None,));
-			let token_id = (collection_id, 0);
-
-			// set to false
-			assert_ok!(Nft::set_token_transferable_flag(
-				RawOrigin::Signed(collection_owner).into(),
-				token_id,
-				false
-			));
-			let new_flags = TokenFlags { transferable: false, burn_authority: None };
-			assert_eq!(TokenUtilityFlags::<Test>::get(token_id), new_flags);
-			System::assert_last_event(
-				Event::<Test>::TokenTransferableFlagSet { token_id, transferable: false }.into(),
-			);
-
-			// Transfer should fail
-			assert_noop!(
-				Nft::transfer(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-					BoundedVec::truncate_from(vec![0]),
-					bob()
-				),
-				Error::<Test>::TransferUtilityBlocked
-			);
-
-			// set back to true
-			assert_ok!(Nft::set_token_transferable_flag(
-				RawOrigin::Signed(collection_owner).into(),
-				token_id,
-				true
-			));
-
-			// Transfer should work
-			assert_ok!(Nft::transfer(
-				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
-				BoundedVec::truncate_from(vec![0]),
-				bob()
-			));
-			assert_eq!(Nft::token_balance_of(&bob(), collection_id), 1);
 		});
 	}
 }

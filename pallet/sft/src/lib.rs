@@ -53,6 +53,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use seed_pallet_common::utils::TokenBurnAuthority;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -129,6 +130,17 @@ pub mod pallet {
 		SftTokenInformation<T::AccountId, T::StringLimit, T::MaxOwnersPerSftToken>,
 	>;
 
+	// Map from a collection id and issuance id to a pending issuance
+	#[pallet::storage]
+	pub type PendingIssuances<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		CollectionUuid,
+		Twox64Concat,
+		u32,
+		SftPendingIssuance<T::AccountId>,
+	>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -142,7 +154,10 @@ pub mod pallet {
 			origin_chain: OriginChain,
 		},
 		/// Public minting was enabled/disabled for a collection
-		PublicMintToggle { token_id: TokenId, enabled: bool },
+		PublicMintToggle {
+			token_id: TokenId,
+			enabled: bool,
+		},
 		/// Token(s) were minted
 		Mint {
 			collection_id: CollectionUuid,
@@ -165,15 +180,30 @@ pub mod pallet {
 			mint_price: Option<Balance>,
 		},
 		/// A new owner was set
-		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
+		OwnerSet {
+			collection_id: CollectionUuid,
+			new_owner: T::AccountId,
+		},
 		/// Max issuance was set
-		MaxIssuanceSet { token_id: TokenId, max_issuance: Balance },
+		MaxIssuanceSet {
+			token_id: TokenId,
+			max_issuance: Balance,
+		},
 		/// Base URI was set
-		BaseUriSet { collection_id: CollectionUuid, metadata_scheme: MetadataScheme },
+		BaseUriSet {
+			collection_id: CollectionUuid,
+			metadata_scheme: MetadataScheme,
+		},
 		/// Name was set
-		NameSet { collection_id: CollectionUuid, collection_name: BoundedVec<u8, T::StringLimit> },
+		NameSet {
+			collection_id: CollectionUuid,
+			collection_name: BoundedVec<u8, T::StringLimit>,
+		},
 		/// Token name was set
-		TokenNameSet { token_id: TokenId, token_name: BoundedVec<u8, T::StringLimit> },
+		TokenNameSet {
+			token_id: TokenId,
+			token_name: BoundedVec<u8, T::StringLimit>,
+		},
 		/// Royalties schedule was set
 		RoyaltiesScheduleSet {
 			collection_id: CollectionUuid,
@@ -203,9 +233,31 @@ pub mod pallet {
 			owner: T::AccountId,
 		},
 		/// Utility flags were set for a collection
-		UtilityFlagsSet { collection_id: CollectionUuid, utility_flags: CollectionUtilityFlags },
+		UtilityFlagsSet {
+			collection_id: CollectionUuid,
+			utility_flags: CollectionUtilityFlags,
+		},
 		/// Token transferable flag was set
-		TokenTransferableFlagSet { token_id: TokenId, transferable: bool },
+		TokenTransferableFlagSet {
+			token_id: TokenId,
+			transferable: bool,
+		},
+		TokenBurnAuthoritySet {
+			token_id: TokenId,
+			burn_authority: TokenBurnAuthority,
+		},
+		/// A pending issuance for a soulbound token has been created
+		PendingIssuanceCreated {
+			collection_id: CollectionUuid,
+			issuance_id: u32,
+			token_owner: T::AccountId,
+		},
+		/// Soulbound tokens were successfully issued
+		Issued {
+			token_owner: T::AccountId,
+			token_id: TokenId,
+			balance: Balance,
+		},
 	}
 
 	#[pallet::error]
@@ -247,6 +299,22 @@ pub mod pallet {
 		TransferUtilityBlocked,
 		/// Burning has been disabled for tokens within this collection
 		BurnUtilityBlocked,
+		/// The burn authority for has already been and can't be changed
+		BurnAuthorityAlreadySet,
+		/// Attempted to set burn authority for a token that has already
+		/// been issued
+		TokenAlreadyIssued,
+		/// Attempted to issue a soulbound token where the burn authority
+		/// has not been set
+		NoBurnAuthority,
+		/// Attempted to accept an issuance that does not exist, or is not
+		/// set for the caller
+		InvalidPendingIssuance,
+		/// Attempted to update the token utility flags for a soulbound token
+		CannotUpdateTokenUtility,
+		/// Attempted to burn a token from an account that does not adhere to
+		/// the token's burn authority
+		InvalidBurnAuthority,
 	}
 
 	#[pallet::call]
@@ -330,7 +398,17 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_mint(who, collection_id, serial_numbers, token_owner)
+			Self::do_mint(who.clone(), collection_id, serial_numbers.clone(), token_owner.clone())?;
+
+			let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
+			Self::deposit_event(Event::<T>::Mint {
+				collection_id,
+				serial_numbers,
+				balances,
+				owner: token_owner.unwrap_or(who),
+			});
+
+			Ok(())
 		}
 
 		/// Transfer ownership of an SFT
@@ -360,7 +438,7 @@ pub mod pallet {
 			serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_burn(who, collection_id, serial_numbers)
+			Self::do_burn(&who, &who, collection_id, serial_numbers)
 		}
 
 		/// Set the owner of a collection
@@ -558,6 +636,143 @@ pub mod pallet {
 			});
 
 			Self::deposit_event(Event::<T>::TokenTransferableFlagSet { token_id, transferable });
+			Ok(())
+		}
+
+		/// Set burn authority on a token. This value will be immutable after
+		/// being set.
+		/// Caller must be the collection owner.
+		#[pallet::call_index(15)]
+		#[pallet::weight(1_000)]
+		#[transactional]
+		pub fn set_token_burn_authority(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			burn_authority: TokenBurnAuthority,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<SftCollectionInfo<T>>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
+
+			let token_info = <TokenInfo<T>>::get(token_id).ok_or(Error::<T>::NoToken)?;
+
+			ensure!(token_info.token_issuance == 0, Error::<T>::TokenAlreadyIssued);
+
+			TokenUtilityFlags::<T>::try_mutate(token_id, |flags| -> DispatchResult {
+				ensure!(flags.burn_authority.is_none(), Error::<T>::BurnAuthorityAlreadySet);
+				flags.burn_authority = Some(burn_authority);
+				Ok(())
+			})?;
+
+			Self::deposit_event(Event::<T>::TokenBurnAuthoritySet { token_id, burn_authority });
+			Ok(())
+		}
+
+		/// Burn a token as the collection owner.
+		///
+		/// The burn authority must have already been set and set to either
+		/// the collection owner or both.
+		#[pallet::call_index(16)]
+		#[pallet::weight(1_000)]
+		#[transactional]
+		pub fn burn_as_owner(
+			origin: OriginFor<T>,
+			token_owner: T::AccountId,
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_burn(&who, &token_owner, collection_id, serial_numbers)
+		}
+
+		/// Issue a soulbound token. The issuance will be pending until the
+		/// token owner accepts the issuance.
+		#[pallet::call_index(17)]
+		#[pallet::weight(1_000)]
+		#[transactional]
+		pub fn issue(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
+			token_owner: T::AccountId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<SftCollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			// Only the owner can make this call
+			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
+
+			for (serial_number, balance) in serial_numbers.iter() {
+				// ensure burn authority has been pre declared
+				ensure!(
+					<TokenUtilityFlags<T>>::get((collection_id, serial_number))
+						.burn_authority
+						.is_some(),
+					Error::<T>::NoBurnAuthority
+				);
+
+				let issuance_id = T::NFTExt::next_issuance_id();
+
+				<PendingIssuances<T>>::insert(
+					collection_id,
+					issuance_id,
+					SftPendingIssuance {
+						token_owner: token_owner.clone(),
+						serial_number: *serial_number,
+						balance: *balance,
+					},
+				);
+
+				Self::deposit_event(Event::<T>::PendingIssuanceCreated {
+					collection_id,
+					issuance_id,
+					token_owner: token_owner.clone(),
+				});
+
+				T::NFTExt::increment_issuance_id()?;
+			}
+
+			Ok(())
+		}
+
+		/// Accept the issuance of a soulbound token.
+		#[pallet::call_index(18)]
+		#[pallet::weight(1_000)]
+		#[transactional]
+		pub fn accept_issuance(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			issuance_id: u32,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let pending_issuance = <PendingIssuances<T>>::get(collection_id, issuance_id)
+				.ok_or(Error::<T>::InvalidPendingIssuance)?;
+
+			if pending_issuance.token_owner != who {
+				Err(Error::<T>::InvalidPendingIssuance)?;
+			}
+
+			let mut serial_numbers = BoundedVec::new();
+			serial_numbers.force_push((pending_issuance.serial_number, pending_issuance.balance));
+
+			let sft_collection_info =
+				SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
+			Self::do_mint(
+				sft_collection_info.collection_owner,
+				collection_id,
+				serial_numbers,
+				Some(who),
+			)?;
+
+			Self::deposit_event(Event::<T>::Issued {
+				token_owner: pending_issuance.token_owner,
+				token_id: (collection_id, pending_issuance.serial_number),
+				balance: pending_issuance.balance,
+			});
+
 			Ok(())
 		}
 	}

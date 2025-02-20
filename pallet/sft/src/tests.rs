@@ -3023,3 +3023,438 @@ mod set_token_transferable_flag {
 		});
 	}
 }
+
+mod soulbound_token {
+	use crate::{PendingIssuances, SftPendingIssuance};
+
+	use super::*;
+
+	fn issue_and_accept(
+		collection_owner: AccountId,
+		token_owner: AccountId,
+		burn_authority: TokenBurnAuthority,
+		balance: Balance,
+	) -> (CollectionUuid, SerialNumber) {
+		let (collection_id, serial_number) = create_test_token(collection_owner, token_owner, 0);
+
+		let token_id = (collection_id, serial_number);
+
+		assert_ok!(Sft::set_token_burn_authority(
+			RawOrigin::Signed(collection_owner).into(),
+			token_id,
+			burn_authority
+		));
+
+		let issuance_id = 0;
+
+		assert_ok!(Sft::issue(
+			RawOrigin::Signed(collection_owner).into(),
+			collection_id,
+			BoundedVec::try_from(vec![(serial_number, balance)]).unwrap(),
+			token_owner,
+		));
+
+		assert_ok!(Sft::accept_issuance(
+			RawOrigin::Signed(token_owner).into(),
+			collection_id,
+			issuance_id
+		));
+
+		(collection_id, serial_number)
+	}
+
+	#[test]
+	fn set_token_burn_authority_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+
+			let token_id = create_test_token(collection_owner, collection_owner, 0);
+
+			let burn_authority = TokenBurnAuthority::TokenOwner;
+
+			assert_ok!(Sft::set_token_burn_authority(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				burn_authority
+			));
+
+			System::assert_last_event(
+				Event::<Test>::TokenBurnAuthoritySet { token_id, burn_authority }.into(),
+			);
+
+			assert_eq!(
+				TokenUtilityFlags::<Test>::get(token_id).burn_authority,
+				Some(burn_authority)
+			);
+		});
+	}
+
+	#[test]
+	fn cannot_set_burn_authority_as_non_owner() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let non_owner = create_account(11);
+
+			let token_id = create_test_token(collection_owner, collection_owner, 0);
+
+			let burn_authority = TokenBurnAuthority::TokenOwner;
+
+			assert_noop!(
+				Sft::set_token_burn_authority(
+					RawOrigin::Signed(non_owner).into(),
+					token_id,
+					burn_authority
+				),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn cannot_set_burn_authority_once_set() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+
+			let token_id = create_test_token(collection_owner, collection_owner, 0);
+
+			let burn_authority = TokenBurnAuthority::TokenOwner;
+
+			assert_ok!(Sft::set_token_burn_authority(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				burn_authority
+			));
+
+			assert_noop!(
+				Sft::set_token_burn_authority(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					burn_authority
+				),
+				Error::<Test>::BurnAuthorityAlreadySet
+			);
+		});
+	}
+
+	#[test]
+	fn issue_and_accept_issuance_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_owner = create_account(11);
+
+			let (collection_id, serial_number) =
+				create_test_token(collection_owner, token_owner, 0);
+
+			let balance = 1;
+			let token_id = (collection_id, serial_number);
+			let burn_authority = TokenBurnAuthority::TokenOwner;
+
+			assert_ok!(Sft::set_token_burn_authority(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				burn_authority
+			));
+
+			let issuance_id = 0;
+
+			assert_ok!(Sft::issue(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				BoundedVec::try_from(vec![(serial_number, balance)]).unwrap(),
+				token_owner,
+			));
+
+			System::assert_last_event(
+				Event::<Test>::PendingIssuanceCreated {
+					collection_id,
+					issuance_id,
+					token_owner: token_owner.clone(),
+				}
+				.into(),
+			);
+
+			assert_eq!(
+				PendingIssuances::<Test>::get(collection_id, issuance_id),
+				Some(SftPendingIssuance { token_owner, serial_number, balance })
+			);
+
+			assert_ok!(Sft::accept_issuance(
+				RawOrigin::Signed(token_owner).into(),
+				collection_id,
+				issuance_id
+			));
+
+			System::assert_last_event(
+				Event::<Test>::Issued { token_owner, token_id, balance }.into(),
+			);
+
+			// assert ownership
+			assert_eq!(Sft::balance_of(&token_owner, token_id), balance);
+		});
+	}
+
+	#[test]
+	fn can_issue_multiple_tokens() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_owner = create_account(11);
+
+			let mut tokens = BoundedVec::new();
+
+			let collection_id = create_test_collection(collection_owner);
+			let burn_authority = TokenBurnAuthority::TokenOwner;
+
+			let balance = 1;
+
+			// create the tokens
+			for i in 0..5 {
+				let token_name = bounded_string(format!("test-token-{}", i).as_str());
+
+				assert_ok!(Sft::create_token(
+					Some(collection_owner).into(),
+					collection_id,
+					token_name,
+					0,
+					None,
+					Some(token_owner),
+				));
+
+				let token_id = (collection_id, i);
+
+				assert_ok!(Sft::set_token_burn_authority(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					burn_authority
+				));
+
+				// push (serial_number, balance)
+				tokens.force_push((i, balance));
+			}
+
+			// issue the tokens
+			assert_ok!(Sft::issue(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				tokens.clone(),
+				token_owner,
+			));
+
+			// accept the tokens
+			for (i, (serial_number, _)) in tokens.iter().enumerate() {
+				assert_ok!(Sft::accept_issuance(
+					RawOrigin::Signed(token_owner).into(),
+					collection_id,
+					i.try_into().unwrap()
+				));
+
+				// assert ownership
+				assert_eq!(Sft::balance_of(&token_owner, (collection_id, *serial_number)), balance);
+			}
+		});
+	}
+
+	#[test]
+	fn cannot_accept_non_existing_issuance() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_owner = create_account(11);
+
+			let (collection_id, _) = create_test_token(collection_owner, token_owner, 0);
+
+			let token_owner = create_account(11);
+
+			let issuance_id = 0;
+
+			assert_noop!(
+				Sft::accept_issuance(
+					RawOrigin::Signed(token_owner).into(),
+					collection_id,
+					issuance_id
+				),
+				Error::<Test>::InvalidPendingIssuance
+			);
+		});
+	}
+
+	#[test]
+	fn cannot_accept_issuance_as_non_owner() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_owner = create_account(11);
+			let non_token_owner = create_account(12);
+
+			let (collection_id, serial_number) =
+				create_test_token(collection_owner, token_owner, 0);
+
+			let token_id = (collection_id, serial_number);
+			let burn_authority = TokenBurnAuthority::TokenOwner;
+
+			assert_ok!(Sft::set_token_burn_authority(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				burn_authority
+			));
+
+			let issuance_id = 0;
+
+			assert_ok!(Sft::issue(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				BoundedVec::try_from(vec![(serial_number, 1)]).unwrap(),
+				token_owner,
+			));
+
+			assert_noop!(
+				Sft::accept_issuance(
+					RawOrigin::Signed(non_token_owner).into(),
+					collection_id,
+					issuance_id
+				),
+				Error::<Test>::InvalidPendingIssuance
+			);
+		});
+	}
+
+	#[test]
+	fn cannot_transfer_soulbound_token() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_owner = create_account(11);
+
+			let burn_authority = TokenBurnAuthority::TokenOwner;
+
+			let (collection_id, serial_number) =
+				issue_and_accept(collection_owner, token_owner, burn_authority, 1);
+
+			assert_noop!(
+				Sft::transfer(
+					RawOrigin::Signed(token_owner).into(),
+					collection_id,
+					BoundedVec::try_from(vec![(serial_number, 1)]).unwrap(),
+					collection_owner
+				),
+				Error::<Test>::TransferUtilityBlocked
+			);
+		});
+	}
+
+	#[test]
+	fn cannot_burn_token_unless_token_owner() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_owner = create_account(11);
+
+			let burn_authority = TokenBurnAuthority::TokenOwner;
+
+			let (collection_id, serial_number) =
+				issue_and_accept(collection_owner, token_owner, burn_authority, 1);
+			let serial_numbers = BoundedVec::try_from(vec![(serial_number, 1)]).unwrap();
+
+			assert_noop!(
+				Sft::burn_as_owner(
+					RawOrigin::Signed(collection_owner).into(),
+					token_owner,
+					collection_id,
+					serial_numbers.clone()
+				),
+				Error::<Test>::InvalidBurnAuthority
+			);
+
+			assert_ok!(Sft::burn(
+				RawOrigin::Signed(token_owner).into(),
+				collection_id,
+				serial_numbers
+			));
+		});
+	}
+
+	#[test]
+	fn cannot_burn_token_unless_collection_owner() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_owner = create_account(11);
+
+			let burn_authority = TokenBurnAuthority::CollectionOwner;
+
+			let (collection_id, serial_number) =
+				issue_and_accept(collection_owner, token_owner, burn_authority, 1);
+			let serial_numbers = BoundedVec::try_from(vec![(serial_number, 1)]).unwrap();
+
+			assert_noop!(
+				Sft::burn(
+					RawOrigin::Signed(token_owner).into(),
+					collection_id,
+					serial_numbers.clone()
+				),
+				Error::<Test>::InvalidBurnAuthority
+			);
+
+			assert_ok!(Sft::burn_as_owner(
+				RawOrigin::Signed(collection_owner).into(),
+				token_owner,
+				collection_id,
+				serial_numbers
+			));
+		});
+	}
+
+	#[test]
+	fn cannot_burn_token_as_token_or_collection_owner_if_both() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_owner = create_account(11);
+
+			let burn_authority = TokenBurnAuthority::Both;
+
+			let (collection_id, serial_number) =
+				issue_and_accept(collection_owner, token_owner, burn_authority, 2);
+			let serial_numbers = BoundedVec::try_from(vec![(serial_number, 1)]).unwrap();
+
+			assert_ok!(Sft::burn(
+				RawOrigin::Signed(token_owner).into(),
+				collection_id,
+				serial_numbers.clone()
+			));
+
+			assert_ok!(Sft::burn_as_owner(
+				RawOrigin::Signed(collection_owner).into(),
+				token_owner,
+				collection_id,
+				serial_numbers
+			));
+		});
+	}
+
+	#[test]
+	fn cannot_burn_token_if_none() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_owner = create_account(11);
+
+			let burn_authority = TokenBurnAuthority::Neither;
+
+			let (collection_id, serial_number) =
+				issue_and_accept(collection_owner, token_owner, burn_authority, 2);
+			let serial_numbers = BoundedVec::try_from(vec![(serial_number, 1)]).unwrap();
+
+			assert_noop!(
+				Sft::burn(
+					RawOrigin::Signed(token_owner).into(),
+					collection_id,
+					serial_numbers.clone()
+				),
+				Error::<Test>::InvalidBurnAuthority
+			);
+
+			assert_noop!(
+				Sft::burn_as_owner(
+					RawOrigin::Signed(collection_owner).into(),
+					token_owner,
+					collection_id,
+					serial_numbers
+				),
+				Error::<Test>::InvalidBurnAuthority
+			);
+		});
+	}
+}

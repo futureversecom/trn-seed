@@ -16,7 +16,10 @@
 use crate::*;
 use frame_support::{ensure, traits::tokens::Preservation};
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
-use seed_pallet_common::{utils::PublicMintInformation, NFIRequest, SFTExt};
+use seed_pallet_common::{
+	utils::{PublicMintInformation, TokenBurnAuthority},
+	NFIRequest, SFTExt,
+};
 use seed_primitives::{CollectionUuid, MAX_COLLECTION_ENTITLEMENTS};
 use sp_runtime::{traits::Zero, DispatchError};
 
@@ -233,9 +236,6 @@ impl<T: Config> Pallet<T> {
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
 
-		let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
-		Self::deposit_event(Event::<T>::Mint { collection_id, serial_numbers, balances, owner });
-
 		Ok(())
 	}
 
@@ -260,8 +260,11 @@ impl<T: Config> Pallet<T> {
 		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
 			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
+
+			let token_utility_flags = <TokenUtilityFlags<T>>::get((collection_id, serial_number));
+			ensure!(token_utility_flags.transferable, Error::<T>::TransferUtilityBlocked);
 			ensure!(
-				<TokenUtilityFlags<T>>::get((collection_id, serial_number)).transferable,
+				token_utility_flags.burn_authority.is_none(),
 				Error::<T>::TransferUtilityBlocked
 			);
 
@@ -291,7 +294,8 @@ impl<T: Config> Pallet<T> {
 	/// Note there is one storage read and write per serial number burned
 	#[transactional]
 	pub fn do_burn(
-		who: T::AccountId,
+		who: &T::AccountId,
+		token_owner: &T::AccountId,
 		collection_id: CollectionUuid,
 		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 	) -> DispatchResult {
@@ -303,11 +307,41 @@ impl<T: Config> Pallet<T> {
 			// Validate quantity
 			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
 
+			if let Some(burn_authority) =
+				TokenUtilityFlags::<T>::get((collection_id, serial_number)).burn_authority
+			{
+				let collection_info = SftCollectionInfo::<T>::get(collection_id)
+					.ok_or(Error::<T>::NoCollectionFound)?;
+
+				match burn_authority {
+					TokenBurnAuthority::TokenOwner => {
+						ensure!(who == token_owner, Error::<T>::InvalidBurnAuthority);
+					},
+					TokenBurnAuthority::CollectionOwner => {
+						ensure!(
+							*who == collection_info.collection_owner,
+							Error::<T>::InvalidBurnAuthority
+						);
+					},
+					TokenBurnAuthority::Both => {
+						ensure!(
+							who == token_owner || *who == collection_info.collection_owner,
+							Error::<T>::InvalidBurnAuthority
+						);
+					},
+					TokenBurnAuthority::Neither => {
+						Err(Error::<T>::InvalidBurnAuthority)?;
+					},
+				}
+			} else {
+				ensure!(who == token_owner, Error::<T>::InvalidBurnAuthority);
+			}
+
 			let token_id: TokenId = (collection_id, *serial_number);
 			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 
 			// Burn the balance
-			token_info.remove_balance(&who, *quantity).map_err(Error::<T>::from)?;
+			token_info.remove_balance(token_owner, *quantity).map_err(Error::<T>::from)?;
 			token_info.token_issuance = token_info.token_issuance.saturating_sub(*quantity);
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
@@ -317,7 +351,7 @@ impl<T: Config> Pallet<T> {
 			collection_id,
 			serial_numbers,
 			balances,
-			owner: who,
+			owner: token_owner.clone(),
 		});
 
 		Ok(())
@@ -465,7 +499,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Unzips the bounded vec of tuples (SerialNumber, Balance)
 	/// into two bounded vecs of SerialNumber and Balance
-	fn unzip_serial_numbers(
+	pub fn unzip_serial_numbers(
 		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 	) -> (BoundedVec<SerialNumber, T::MaxSerialsPerMint>, BoundedVec<Balance, T::MaxSerialsPerMint>)
 	{

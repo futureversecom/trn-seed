@@ -20,6 +20,7 @@ use crate::{Config, Error};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
+use seed_pallet_common::utils::TokenBurnAuthority;
 use seed_primitives::{Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber};
 use sp_runtime::BoundedVec;
 use sp_std::{fmt::Debug, prelude::*};
@@ -244,4 +245,17 @@ impl SftTokenBalance {
 		self.add_free_balance(amount)?;
 		Ok(())
 	}
+}
+
+#[derive(
+	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
+)]
+#[codec(mel_bound(AccountId: MaxEncodedLen))]
+pub struct SftPendingIssuance<AccountId>
+where
+	AccountId: Debug + PartialEq + Clone,
+{
+	pub token_owner: AccountId,
+	pub serial_number: SerialNumber,
+	pub balance: Balance,
 }
