@@ -20,7 +20,7 @@ sp-std = { workspace = true }
 
 seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
-pallet-nft = { workspace = true, features = ["runtime-benchmarks"] }
+pallet-nft = { workspace = true }
 
 [dev-dependencies]
 sp-runtime = { workspace = true }
