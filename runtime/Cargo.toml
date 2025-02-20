@@ -102,6 +102,7 @@ pallet-xls20 = { workspace = true }
 pallet-futurepass = { workspace = true }
 pallet-marketplace = { workspace = true }
 pallet-vortex-distribution = { workspace = true }
+pallet-partner-attribution = { workspace = true }
 pallet-doughnut = { workspace = true }
 pallet-maintenance-mode = { workspace = true }
 pallet-crowdsale = { workspace = true }
@@ -208,6 +209,7 @@ std = [
 	"pallet-futurepass/std",
 	"pallet-marketplace/std",
 	"pallet-vortex-distribution/std",
+	"pallet-partner-attribution/std",
 	"pallet-maintenance-mode/std",
 	"pallet-crowdsale/std",
 	"pallet-migration/std",
@@ -297,6 +299,7 @@ try-runtime = [
 	"pallet-futurepass/try-runtime",
 	"pallet-marketplace/try-runtime",
 	"pallet-vortex-distribution/try-runtime",
+	"pallet-partner-attribution/try-runtime",
 	"pallet-evm/try-runtime",
 	"pallet-fee-control/try-runtime",
 	"pallet-fee-proxy/try-runtime",
@@ -354,6 +357,7 @@ runtime-benchmarks = [
 	"pallet-futurepass/runtime-benchmarks",
 	"pallet-marketplace/runtime-benchmarks",
 	"pallet-vortex-distribution/runtime-benchmarks",
+	"pallet-partner-attribution/runtime-benchmarks",
 	"pallet-evm/runtime-benchmarks",
 	"pallet-fee-proxy/runtime-benchmarks",
 	"pallet-doughnut/runtime-benchmarks",

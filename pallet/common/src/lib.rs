@@ -654,6 +654,18 @@ pub trait SFTExt {
 	fn token_exists(token_id: TokenId) -> bool;
 }
 
+/// Trait for creating futurepass accounts
+pub trait FuturepassProvider {
+	type AccountId;
+
+	/// Create a futurepass account for the given owner
+	/// Returns the futurepass account ID on success
+	fn create_futurepass(
+		funder: Self::AccountId,
+		owner: Self::AccountId,
+	) -> Result<Self::AccountId, DispatchError>;
+}
+
 // Migrator trait to be implemented by the migration pallet. Can be used to determine whether a
 // migration is in progress
 pub trait Migrator {
