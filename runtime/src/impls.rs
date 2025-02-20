@@ -591,7 +591,7 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		// get proxy_definitions length + 1 (cost of upcoming insertion); cost to reserve
 		let new_reserve =
 			pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 + 1);
-		let mut extra_reserve_required = new_reserve - reserve_amount;
+		let extra_reserve_required = new_reserve - reserve_amount;
 
 		// Check if the futurepass account has balance less than the existential deposit
 		// If it does, fund with the ED to allow the Futurepass to reserve balance while still
