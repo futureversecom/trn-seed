@@ -102,6 +102,20 @@ pub enum TokenBurnAuthority {
 	Neither,
 }
 
+impl TryFrom<u8> for TokenBurnAuthority {
+	type Error = &'static str;
+
+	fn try_from(v: u8) -> Result<Self, Self::Error> {
+		match v {
+			0 => Ok(TokenBurnAuthority::TokenOwner),
+			1 => Ok(TokenBurnAuthority::CollectionOwner),
+			2 => Ok(TokenBurnAuthority::Both),
+			3 => Ok(TokenBurnAuthority::Neither),
+			_ => Err("Unrecognized burn authority"),
+		}
+	}
+}
+
 // Additional flags at a token level that determine whether that token can be transferred, or burned
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
 pub struct TokenUtilityFlags {

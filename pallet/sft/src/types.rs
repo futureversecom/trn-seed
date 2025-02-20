@@ -250,12 +250,7 @@ impl SftTokenBalance {
 #[derive(
 	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
-#[codec(mel_bound(AccountId: MaxEncodedLen))]
-pub struct SftPendingIssuance<AccountId>
-where
-	AccountId: Debug + PartialEq + Clone,
-{
-	pub token_owner: AccountId,
+pub struct SftPendingIssuance {
 	pub serial_number: SerialNumber,
 	pub balance: Balance,
 }
