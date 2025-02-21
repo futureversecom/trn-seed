@@ -803,6 +803,7 @@ pub mod pallet {
 				|pending_issuances| -> DispatchResult {
 					let pending_issuances =
 						pending_issuances.as_mut().ok_or(Error::<T>::InvalidPendingIssuance)?;
+
 					for _ in 0..quantity {
 						let issuance_id = pending_issuances
 							.insert_pending_issuance(&token_owner, burn_authority)

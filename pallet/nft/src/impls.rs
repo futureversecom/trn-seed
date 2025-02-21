@@ -766,16 +766,6 @@ impl<T: Config> NFTExt for Pallet<T> {
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok(collection_info.cross_chain_compatibility)
 	}
-
-	/// Returns the next issuance id
-	fn next_issuance_id() -> IssuanceId {
-		0
-	}
-
-	/// Increments the issuance id
-	fn increment_issuance_id() -> DispatchResult {
-		Ok(())
-	}
 }
 
 impl<T: Config> NFTCollectionInfo for Pallet<T> {

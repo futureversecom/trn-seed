@@ -24,6 +24,13 @@ const metadataPath = "https://example.com/nft/metadata/";
 const initialIssuance = 12;
 const maxIssuance = 100;
 
+enum BurnAuth {
+  TokenOwner = 0,
+  CollectionOwner,
+  Both,
+  Neither,
+}
+
 describe("ERC721 Precompile", function () {
   let node: NodeProcess;
 
@@ -731,5 +738,36 @@ describe("ERC721 Precompile", function () {
     // console.log("ERC721Burnable:", burnableId);
     // console.log("TRN721:", trn721Id);
     // console.log("Ownable:", ownableId);
+  });
+
+  it.only("can issue and accept soulbound tokens", async () => {
+    const receiverAddress = alithSigner.address;
+    const quantity = 3;
+    const receipt = await erc721Precompile.issue(receiverAddress, quantity, BurnAuth.Both).then((tx: any) => tx.wait());
+
+    for (let i = 0; i < quantity; i++) {
+      expect(receipt)
+        .to.emit(erc721Precompile, "PendingIssuanceCreated")
+        .withArgs(i /** issuanceId **/, receiverAddress, BurnAuth.Both);
+    }
+
+    const pendingIssuances = await erc721Precompile.pendingIssuances(receiverAddress);
+    expect(pendingIssuances[0]).to.deep.equal([0, 1, 2]);
+    expect(pendingIssuances[1]).to.deep.equal([BurnAuth.Both, BurnAuth.Both, BurnAuth.Both]);
+
+    for (const issuanceId of pendingIssuances[0]) {
+      const receipt = await erc721Precompile
+        .connect(alithSigner)
+        .acceptIssuance(issuanceId)
+        .then((tx: any) => tx.wait());
+
+      const tokenId = receipt.events[0].args.tokenId;
+
+      expect(receipt)
+        .to.emit(erc721Precompile, "Issued")
+        .withArgs(bobSigner.address, receiverAddress, tokenId, BurnAuth.Both);
+
+      expect(await erc721Precompile.burnAuth(tokenId)).to.equal(BurnAuth.Both);
+    }
   });
 });
