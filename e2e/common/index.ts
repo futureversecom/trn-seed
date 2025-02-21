@@ -366,6 +366,15 @@ export const ERC721_PRECOMPILE_ABI = [
 
   // ERC165
   ...ERC165_ABI,
+
+  // ERC5484
+  "event PendingIssuanceCreated(uint256 indexed issuanceId, address indexed to, uint8 burnAuth)",
+  "event Issued(address indexed from, address indexed to, uint256 indexed tokenId, uint8 burnAuth)",
+
+  "function issue(address,uint32,uint8)",
+  "function acceptIssuance(uint32)",
+  "function pendingIssuances(address) external view returns (uint256[] memory, uint8[] memory)",
+  "function burnAuth(uint256) external view returns (uint8)",
 ];
 
 export const ERC1155_PRECOMPILE_ABI = [
@@ -412,6 +421,15 @@ export const ERC1155_PRECOMPILE_ABI = [
 
   // ERC165
   ...ERC165_ABI,
+
+  // ERC5484
+  "event PendingIssuanceCreated(uint256 indexed issuanceId, address indexed to, uint8 burnAuth)",
+  "event Issued(address indexed from, address indexed to, uint256 indexed tokenId, uint8 burnAuth)",
+
+  "function issue(address,uint32,uint8)",
+  "function acceptIssuance(uint32)",
+  "function pendingIssuances(address) external view returns (uint256[] memory, uint8[] memory)",
+  "function burnAuth(uint256) external view returns (uint8)",
 ];
 
 export const FUTUREPASS_REGISTRAR_PRECOMPILE_ABI = [

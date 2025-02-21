@@ -619,12 +619,6 @@ pub trait NFTExt {
 	fn get_cross_chain_compatibility(
 		collection_id: CollectionUuid,
 	) -> Result<CrossChainCompatibility, DispatchError>;
-
-	/// Returns the next issuance id
-	fn next_issuance_id() -> IssuanceId;
-
-	/// Increments the issuance id
-	fn increment_issuance_id() -> DispatchResult;
 }
 
 pub trait SFTExt {
