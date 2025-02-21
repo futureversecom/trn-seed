@@ -129,6 +129,7 @@ pallet-nft = { path = "pallet/nft", default-features = false }
 pallet-nft-rpc = { path = "pallet/nft/rpc", default-features = false }
 pallet-nft-rpc-runtime-api = { path = "pallet/nft/rpc/runtime-api", default-features = false }
 pallet-nft-peg = { path = "pallet/nft-peg", default-features = false }
+pallet-partner-attribution = { path = "pallet/partner-attribution", default-features = false }
 pallet-sft = { path = "pallet/sft", default-features = false }
 pallet-sft-rpc = { path = "pallet/sft/rpc", default-features = false }
 pallet-sft-rpc-runtime-api = { path = "pallet/sft/rpc/runtime-api", default-features = false }

@@ -16,7 +16,7 @@
 //! Root runtime config
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
-#![recursion_limit = "256"]
+#![recursion_limit = "512"]
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -159,7 +159,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 64,
+	spec_version: 66,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 13,
@@ -1319,7 +1319,6 @@ impl pallet_futurepass::Config for Runtime {
 	type Proxy = impls::ProxyPalletProvider;
 	type RuntimeCall = RuntimeCall;
 	type BlacklistedCallValidator = impls::FuturepassCallValidator;
-	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
 	type WeightInfo = weights::pallet_futurepass::WeightInfo<Self>;
 
@@ -1355,6 +1354,17 @@ impl pallet_vortex_distribution::Config for Runtime {
 	type MaxRewards = MaxRewards;
 	type MaxStringLength = MaxStringLength;
 	type HistoryDepth = HistoryDepth;
+}
+
+impl pallet_partner_attribution::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ApproveOrigin = EnsureRoot<AccountId>;
+	type EnsureFuturepass = impls::EnsureFuturepass<AccountId>;
+	type FuturepassCreator = Futurepass;
+	type WeightInfo = weights::pallet_partner_attribution::WeightInfo<Runtime>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type MultiCurrency = AssetsExt;
 }
 
 impl pallet_maintenance_mode::Config for Runtime {
@@ -1446,6 +1456,7 @@ construct_runtime!(
 		Marketplace: pallet_marketplace = 44,
 		Preimage: pallet_preimage = 45,
 		VortexDistribution: pallet_vortex_distribution = 46,
+		PartnerAttribution: pallet_partner_attribution = 53,
 		FeeProxy: pallet_fee_proxy = 31,
 		FeeControl: pallet_fee_control = 40,
 		Xls20: pallet_xls20 = 42,
@@ -2374,6 +2385,7 @@ mod benches {
 		[pallet_xls20, Xls20]
 		[pallet_futurepass, Futurepass]
 		[pallet_vortex_distribution, VortexDistribution]
+		[pallet_partner_attribution, PartnerAttribution]
 		[pallet_dex, Dex]
 		[pallet_marketplace, Marketplace]
 		[pallet_doughnut, Doughnut]

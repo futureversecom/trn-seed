@@ -239,7 +239,6 @@ impl Config for Test {
 	type Proxy = ProxyPalletProvider;
 	type RuntimeCall = RuntimeCall;
 	type BlacklistedCallValidator = MockFuturepassCallValidator;
-	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = ProxyType;
 	type WeightInfo = ();
 

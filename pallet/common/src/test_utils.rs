@@ -653,7 +653,6 @@ macro_rules! impl_pallet_futurepass_config {
 			type Proxy = MockProxyProvider;
 			type RuntimeCall = RuntimeCall;
 			type BlacklistedCallValidator = MockFuturepassCallValidator;
-			type ApproveOrigin = EnsureRoot<AccountId>;
 			type ProxyType = ProxyType;
 			type WeightInfo = ();
 			#[cfg(feature = "runtime-benchmarks")]
