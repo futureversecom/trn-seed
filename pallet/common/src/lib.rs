@@ -30,9 +30,9 @@ use scale_info::TypeInfo;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	xrpl::Xls20TokenId,
-	AccountId, AssetId, Balance, CollectionUuid, CrossChainCompatibility, IssuanceId,
-	MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId,
-	TokenLockReason, WeightedDispatchResult,
+	AccountId, AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme,
+	OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
+	WeightedDispatchResult,
 };
 use sp_core::{bounded::BoundedVec, H160, U256};
 use sp_std::{fmt::Debug, vec::Vec};

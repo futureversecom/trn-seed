@@ -81,7 +81,6 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use seed_primitives::IssuanceId;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
@@ -778,7 +777,7 @@ pub mod pallet {
 		/// Issue a soulbound token. The issuance will be pending until the
 		/// token owner accepts the issuance.
 		#[pallet::call_index(14)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight(T::WeightInfo::issue(*quantity))]
 		#[transactional]
 		pub fn issue(
 			origin: OriginFor<T>,
@@ -826,7 +825,7 @@ pub mod pallet {
 
 		/// Accept the issuance of a soulbound token.
 		#[pallet::call_index(15)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight(T::WeightInfo::accept_issuance())]
 		#[transactional]
 		pub fn accept_issuance(
 			origin: OriginFor<T>,

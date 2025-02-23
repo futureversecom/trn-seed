@@ -24,6 +24,7 @@ use codec::Encode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
+use seed_pallet_common::utils::TokenBurnAuthority;
 use sp_runtime::Permill;
 
 /// This is a helper function to get an account.
@@ -143,6 +144,42 @@ benchmarks! {
 	}: _(origin::<T>(&account::<T>("Alice")), token_id, true)
 	verify {
 		assert_eq!(TokenUtilityFlags::<T>::get(token_id).transferable, true);
+	}
+
+	issue {
+		let p in 1 .. T::MintLimit::get();
+
+		let collection_id = build_collection::<T>(None);
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, p, account::<T>("Bob"), TokenBurnAuthority::Both)
+	verify {
+		let collection_issuances =
+			PendingIssuances::<T>::get(collection_id).map(|pend| pend.pending_issuances)
+				.unwrap();
+
+		let pending_issuances = &collection_issuances[0].1;
+
+		assert_eq!(
+			pending_issuances.len(),
+			<u32 as TryInto<usize>>::try_into(p).unwrap(),
+		)
+	}
+
+	accept_issuance {
+		let collection_id = build_collection::<T>(None);
+
+		let receiver = account::<T>("Bob");
+
+		assert_ok!(Nft::<T>::issue(
+			origin::<T>(&account::<T>("Alice")).into(),
+			collection_id,
+			1,
+			receiver.clone(),
+			TokenBurnAuthority::Both,
+		));
+	}: _(origin::<T>(&receiver.clone()), collection_id, 0)
+	verify {
+		let collection_info = CollectionInfo::<T>::get(collection_id).expect("Collection not found");
+		assert!(collection_info.is_token_owner(&receiver, 1))
 	}
 }
 
