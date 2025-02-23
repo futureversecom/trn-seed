@@ -27,10 +27,7 @@ use precompile_utils::{
 	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, ERC721_PRECOMPILE_ADDRESS_PREFIX},
 	prelude::*,
 };
-use seed_pallet_common::{
-	utils::{TokenBurnAuthority, TokenUtilityFlags},
-	NFTExt,
-};
+use seed_pallet_common::{utils::TokenBurnAuthority, NFTExt};
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId,
 };
@@ -1346,10 +1343,10 @@ where
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let burn_auth: u8 =
-			match pallet_nft::TokenUtilityFlags::<Runtime>::get((collection_id, token_id)) {
-				TokenUtilityFlags { burn_authority: Some(burn_authority), .. } => {
-					burn_authority.into()
-				},
+			match pallet_nft::TokenUtilityFlags::<Runtime>::get((collection_id, token_id))
+				.burn_authority
+			{
+				Some(burn_authority) => burn_authority.into(),
 				_ => 0, // default to TokenOwner
 			};
 
