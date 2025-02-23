@@ -20,7 +20,6 @@ use crate::{Config, Error};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use seed_pallet_common::utils::TokenBurnAuthority;
 use seed_primitives::{
 	Balance, IssuanceId, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
 };

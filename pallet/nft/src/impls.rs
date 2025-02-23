@@ -27,8 +27,8 @@ use seed_pallet_common::{
 	NFTExt, NFTMinter, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{
-	CollectionUuid, IssuanceId, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-	TokenCount, TokenId, WeightedDispatchResult,
+	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
+	TokenId, WeightedDispatchResult,
 };
 use seed_primitives::{CrossChainCompatibility, MAX_COLLECTION_ENTITLEMENTS};
 use sp_runtime::{

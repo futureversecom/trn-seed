@@ -277,6 +277,7 @@ macro_rules! impl_pallet_sft_config {
 			pub const MaxTokensPerSftCollection: u32 = 10_000;
 			pub const MaxSerialsPerSftMint: u32 = 100;
 			pub const MaxOwnersPerSftToken: u32 = 100;
+			pub const MaxSftPendingIssuances: u32 = 10_000;
 		}
 
 		impl pallet_sft::Config for Test {
@@ -293,6 +294,7 @@ macro_rules! impl_pallet_sft_config {
 			type MaxSerialsPerMint = MaxSerialsPerSftMint;
 			type MaxOwnersPerSftToken = MaxOwnersPerSftToken;
 			type NFIRequest = ();
+			type MaxSftPendingIssuances = MaxSftPendingIssuances;
 		}
 	};
 }

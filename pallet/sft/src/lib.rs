@@ -400,6 +400,18 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
+			// tokens with burn authority set should only be minted
+			// through issue/accept_issuance
+			ensure!(
+				serial_numbers.iter().all(|(serial_number, _)| {
+					TokenUtilityFlags::<T>::get((collection_id, serial_number))
+						.burn_authority
+						.is_none()
+				}),
+				Error::<T>::BurnAuthorityAlreadySet,
+			);
+
 			Self::do_mint(who.clone(), collection_id, serial_numbers.clone(), token_owner.clone())?;
 
 			let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
@@ -645,7 +657,7 @@ pub mod pallet {
 		/// being set.
 		/// Caller must be the collection owner.
 		#[pallet::call_index(15)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight(T::WeightInfo::set_token_burn_authority())]
 		#[transactional]
 		pub fn set_token_burn_authority(
 			origin: OriginFor<T>,
@@ -676,7 +688,7 @@ pub mod pallet {
 		/// The burn authority must have already been set and set to either
 		/// the collection owner or both.
 		#[pallet::call_index(16)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight(T::WeightInfo::burn_as_owner())]
 		#[transactional]
 		pub fn burn_as_owner(
 			origin: OriginFor<T>,
@@ -691,7 +703,7 @@ pub mod pallet {
 		/// Issue a soulbound token. The issuance will be pending until the
 		/// token owner accepts the issuance.
 		#[pallet::call_index(17)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight(T::WeightInfo::issue(serial_numbers.len() as u32))]
 		#[transactional]
 		pub fn issue(
 			origin: OriginFor<T>,
@@ -745,7 +757,7 @@ pub mod pallet {
 
 		/// Accept the issuance of a soulbound token.
 		#[pallet::call_index(18)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight(T::WeightInfo::accept_issuance())]
 		#[transactional]
 		pub fn accept_issuance(
 			origin: OriginFor<T>,
