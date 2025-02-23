@@ -9,6 +9,7 @@ import Web3 from "web3";
 import {
   ALITH_PRIVATE_KEY,
   BOB_PRIVATE_KEY,
+  BurnAuth,
   ERC721_PRECOMPILE_ABI,
   NFT_PRECOMPILE_ABI,
   NFT_PRECOMPILE_ADDRESS,
@@ -23,13 +24,6 @@ const name = "test-collection";
 const metadataPath = "https://example.com/nft/metadata/";
 const initialIssuance = 12;
 const maxIssuance = 100;
-
-enum BurnAuth {
-  TokenOwner = 0,
-  CollectionOwner,
-  Both,
-  Neither,
-}
 
 describe("ERC721 Precompile", function () {
   let node: NodeProcess;
@@ -740,7 +734,7 @@ describe("ERC721 Precompile", function () {
     // console.log("Ownable:", ownableId);
   });
 
-  it.only("can issue and accept soulbound tokens", async () => {
+  it("can issue and accept soulbound tokens", async () => {
     const receiverAddress = alithSigner.address;
     const quantity = 3;
     const receipt = await erc721Precompile.issue(receiverAddress, quantity, BurnAuth.Both).then((tx: any) => tx.wait());
@@ -766,6 +760,8 @@ describe("ERC721 Precompile", function () {
       expect(receipt)
         .to.emit(erc721Precompile, "Issued")
         .withArgs(bobSigner.address, receiverAddress, tokenId, BurnAuth.Both);
+
+      expect(await erc721Precompile.ownerOf(tokenId)).to.eq(receiverAddress);
 
       expect(await erc721Precompile.burnAuth(tokenId)).to.equal(BurnAuth.Both);
     }
