@@ -19,7 +19,7 @@
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2025-02-23, STEPS: `50`, REPEAT: 20, LOW RANGE: `[]`, HIGH RANGE: `[]`
-//! HOSTNAME: `Johns-Macbook-Pro.local`, CPU: `<UNKNOWN>`
+//! HOSTNAME: `ip-172-31-102-147`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
 //! EXECUTION: , WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
@@ -84,7 +84,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::SftCollectionInfo` (r:0 w:1)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
 	fn create_collection() -> Weight {
-		Weight::from_all(42_000_000)
+		Weight::from_all(97_266_000)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(5))
 	}
@@ -97,7 +97,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::TokenInfo` (r:0 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn create_token() -> Weight {
-		Weight::from_all(27_000_000)
+		Weight::from_all(70_205_000)
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -106,7 +106,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::PublicMintInfo` (r:1 w:1)
 	// Proof: `Sft::PublicMintInfo` (`max_values`: None, `max_size`: Some(38), added: 2513, mode: `MaxEncodedLen`)
 	fn toggle_public_mint() -> Weight {
-		Weight::from_all(17_000_000)
+		Weight::from_all(48_630_000)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -115,7 +115,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::PublicMintInfo` (r:1 w:1)
 	// Proof: `Sft::PublicMintInfo` (`max_values`: None, `max_size`: Some(38), added: 2513, mode: `MaxEncodedLen`)
 	fn set_mint_fee() -> Weight {
-		Weight::from_all(18_000_000)
+		Weight::from_all(48_825_000)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -130,7 +130,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn mint() -> Weight {
-		Weight::from_all(26_000_000)
+		Weight::from_all(68_761_000)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -142,9 +142,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn transfer(p: u32, ) -> Weight {
-		Weight::from_all(15_984_979)
-			// Standard Error: 10_540
-			.saturating_add(Weight::from_all(6_479_020_u64).saturating_mul(p as u64))
+		Weight::from_all(48_752_963)
+			// Standard Error: 33_840
+			.saturating_add(Weight::from_all(13_216_995_u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(p as u64)))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p as u64)))
@@ -156,14 +156,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn burn() -> Weight {
-		Weight::from_all(24_000_000)
+		Weight::from_all(61_701_000)
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `Sft::SftCollectionInfo` (r:1 w:1)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
 	fn set_owner() -> Weight {
-		Weight::from_all(17_000_000)
+		Weight::from_all(47_133_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -172,28 +172,28 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn set_max_issuance() -> Weight {
-		Weight::from_all(19_000_000)
+		Weight::from_all(49_725_000)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `Sft::SftCollectionInfo` (r:1 w:1)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
 	fn set_base_uri() -> Weight {
-		Weight::from_all(16_000_000)
+		Weight::from_all(44_059_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `Sft::SftCollectionInfo` (r:1 w:1)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
 	fn set_name() -> Weight {
-		Weight::from_all(16_000_000)
+		Weight::from_all(44_633_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `Sft::SftCollectionInfo` (r:1 w:1)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
 	fn set_royalties_schedule() -> Weight {
-		Weight::from_all(16_000_000)
+		Weight::from_all(44_695_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -202,7 +202,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::UtilityFlags` (r:0 w:1)
 	// Proof: `Sft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
 	fn set_utility_flags() -> Weight {
-		Weight::from_all(18_000_000)
+		Weight::from_all(49_141_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -211,7 +211,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn set_token_name() -> Weight {
-		Weight::from_all(19_000_000)
+		Weight::from_all(50_558_000)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -222,7 +222,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::TokenUtilityFlags` (r:1 w:1)
 	// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	fn set_token_transferable_flag() -> Weight {
-		Weight::from_all(20_000_000)
+		Weight::from_all(54_012_000)
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -233,7 +233,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::TokenUtilityFlags` (r:1 w:1)
 	// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	fn set_token_burn_authority() -> Weight {
-		Weight::from_all(21_000_000)
+		Weight::from_all(55_710_000)
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -245,9 +245,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 1000]`.
 	fn issue(p: u32, ) -> Weight {
-		Weight::from_all(23_373_642)
-			// Standard Error: 15_837
-			.saturating_add(Weight::from_all(6_847_988_u64).saturating_mul(p as u64))
+		Weight::from_all(85_096_547)
+			// Standard Error: 5_721
+			.saturating_add(Weight::from_all(12_782_184_u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(p as u64)))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -263,7 +263,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn accept_issuance() -> Weight {
-		Weight::from_all(31_000_000)
+		Weight::from_all(80_723_000)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -276,7 +276,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn burn_as_owner() -> Weight {
-		Weight::from_all(29_000_000)
+		Weight::from_all(72_191_000)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -297,7 +297,7 @@ impl WeightInfo for () {
 	// Storage: `Sft::SftCollectionInfo` (r:0 w:1)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
 	fn create_collection() -> Weight {
-		Weight::from_all(42_000_000)
+		Weight::from_all(97_266_000)
 			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(5))
 	}
@@ -310,7 +310,7 @@ impl WeightInfo for () {
 	// Storage: `Sft::TokenInfo` (r:0 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn create_token() -> Weight {
-		Weight::from_all(27_000_000)
+		Weight::from_all(70_205_000)
 			.saturating_add(RocksDbWeight::get().reads(3))
 			.saturating_add(RocksDbWeight::get().writes(2))
 	}
@@ -319,7 +319,7 @@ impl WeightInfo for () {
 	// Storage: `Sft::PublicMintInfo` (r:1 w:1)
 	// Proof: `Sft::PublicMintInfo` (`max_values`: None, `max_size`: Some(38), added: 2513, mode: `MaxEncodedLen`)
 	fn toggle_public_mint() -> Weight {
-		Weight::from_all(17_000_000)
+		Weight::from_all(48_630_000)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -328,7 +328,7 @@ impl WeightInfo for () {
 	// Storage: `Sft::PublicMintInfo` (r:1 w:1)
 	// Proof: `Sft::PublicMintInfo` (`max_values`: None, `max_size`: Some(38), added: 2513, mode: `MaxEncodedLen`)
 	fn set_mint_fee() -> Weight {
-		Weight::from_all(18_000_000)
+		Weight::from_all(48_825_000)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -343,7 +343,7 @@ impl WeightInfo for () {
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn mint() -> Weight {
-		Weight::from_all(26_000_000)
+		Weight::from_all(68_761_000)
 			.saturating_add(RocksDbWeight::get().reads(5))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -355,9 +355,9 @@ impl WeightInfo for () {
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn transfer(p: u32, ) -> Weight {
-		Weight::from_all(15_984_979)
-			// Standard Error: 10_540
-			.saturating_add(Weight::from_all(6_479_020_u64).saturating_mul(p as u64))
+		Weight::from_all(48_752_963)
+			// Standard Error: 33_840
+			.saturating_add(Weight::from_all(13_216_995_u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(p as u64)))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(p as u64)))
@@ -369,14 +369,14 @@ impl WeightInfo for () {
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn burn() -> Weight {
-		Weight::from_all(24_000_000)
+		Weight::from_all(61_701_000)
 			.saturating_add(RocksDbWeight::get().reads(3))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `Sft::SftCollectionInfo` (r:1 w:1)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
 	fn set_owner() -> Weight {
-		Weight::from_all(17_000_000)
+		Weight::from_all(47_133_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -385,28 +385,28 @@ impl WeightInfo for () {
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn set_max_issuance() -> Weight {
-		Weight::from_all(19_000_000)
+		Weight::from_all(49_725_000)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `Sft::SftCollectionInfo` (r:1 w:1)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
 	fn set_base_uri() -> Weight {
-		Weight::from_all(16_000_000)
+		Weight::from_all(44_059_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `Sft::SftCollectionInfo` (r:1 w:1)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
 	fn set_name() -> Weight {
-		Weight::from_all(16_000_000)
+		Weight::from_all(44_633_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `Sft::SftCollectionInfo` (r:1 w:1)
 	// Proof: `Sft::SftCollectionInfo` (`max_values`: None, `max_size`: Some(484), added: 2959, mode: `MaxEncodedLen`)
 	fn set_royalties_schedule() -> Weight {
-		Weight::from_all(16_000_000)
+		Weight::from_all(44_695_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -415,7 +415,7 @@ impl WeightInfo for () {
 	// Storage: `Sft::UtilityFlags` (r:0 w:1)
 	// Proof: `Sft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
 	fn set_utility_flags() -> Weight {
-		Weight::from_all(18_000_000)
+		Weight::from_all(49_141_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -424,7 +424,7 @@ impl WeightInfo for () {
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn set_token_name() -> Weight {
-		Weight::from_all(19_000_000)
+		Weight::from_all(50_558_000)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -435,7 +435,7 @@ impl WeightInfo for () {
 	// Storage: `Sft::TokenUtilityFlags` (r:1 w:1)
 	// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	fn set_token_transferable_flag() -> Weight {
-		Weight::from_all(20_000_000)
+		Weight::from_all(54_012_000)
 			.saturating_add(RocksDbWeight::get().reads(3))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -446,7 +446,7 @@ impl WeightInfo for () {
 	// Storage: `Sft::TokenUtilityFlags` (r:1 w:1)
 	// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	fn set_token_burn_authority() -> Weight {
-		Weight::from_all(21_000_000)
+		Weight::from_all(55_710_000)
 			.saturating_add(RocksDbWeight::get().reads(3))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -458,9 +458,9 @@ impl WeightInfo for () {
 	// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 1000]`.
 	fn issue(p: u32, ) -> Weight {
-		Weight::from_all(23_373_642)
-			// Standard Error: 15_837
-			.saturating_add(Weight::from_all(6_847_988_u64).saturating_mul(p as u64))
+		Weight::from_all(85_096_547)
+			// Standard Error: 5_721
+			.saturating_add(Weight::from_all(12_782_184_u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(p as u64)))
 			.saturating_add(RocksDbWeight::get().writes(1))
@@ -476,7 +476,7 @@ impl WeightInfo for () {
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn accept_issuance() -> Weight {
-		Weight::from_all(31_000_000)
+		Weight::from_all(80_723_000)
 			.saturating_add(RocksDbWeight::get().reads(5))
 			.saturating_add(RocksDbWeight::get().writes(2))
 	}
@@ -489,7 +489,7 @@ impl WeightInfo for () {
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
 	fn burn_as_owner() -> Weight {
-		Weight::from_all(29_000_000)
+		Weight::from_all(72_191_000)
 			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
