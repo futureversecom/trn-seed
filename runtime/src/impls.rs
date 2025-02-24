@@ -601,7 +601,7 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		let extra_reserve_required = extra_reserve_required.saturating_add(minimum_balance);
 		let missing_balance = extra_reserve_required.saturating_sub(account_balance);
 
-		// If the Futurepass cannot afford to pay for the proxy creation, fund it from the EoA
+		// If the Futurepass cannot afford to pay for the proxy creation, fund it from the funder account
 		if missing_balance > 0 {
 			<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
 				funder,
