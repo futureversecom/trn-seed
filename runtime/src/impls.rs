@@ -591,22 +591,26 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		// get proxy_definitions length + 1 (cost of upcoming insertion); cost to reserve
 		let new_reserve =
 			pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 + 1);
-		let mut extra_reserve_required = new_reserve - reserve_amount;
+		let extra_reserve_required = new_reserve - reserve_amount;
 
 		// Check if the futurepass account has balance less than the existential deposit
 		// If it does, fund with the ED to allow the Futurepass to reserve balance while still
 		// keeping the account alive
 		let account_balance = pallet_balances::Pallet::<Runtime>::balance(futurepass);
 		let minimum_balance = crate::ExistentialDeposit::get();
-		if account_balance < minimum_balance {
-			extra_reserve_required = extra_reserve_required.saturating_add(minimum_balance);
+		let extra_reserve_required = extra_reserve_required.saturating_add(minimum_balance);
+		let missing_balance = extra_reserve_required.saturating_sub(account_balance);
+
+		// If the Futurepass cannot afford to pay for the proxy creation, fund it from the funder account
+		if missing_balance > 0 {
+			<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
+				funder,
+				futurepass,
+				missing_balance,
+				ExistenceRequirement::KeepAlive,
+			)?;
 		}
-		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
-			funder,
-			futurepass,
-			extra_reserve_required,
-			ExistenceRequirement::KeepAlive,
-		)?;
+
 		let proxy_type = ProxyType::try_from(*proxy_type)?;
 
 		pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(futurepass, *delegate, proxy_type, 0)

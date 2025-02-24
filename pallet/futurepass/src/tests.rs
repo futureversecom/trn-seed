@@ -238,6 +238,106 @@ fn register_delegate_by_owner_works() {
 }
 
 #[test]
+fn register_delegate_uses_futurepass_balance() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::<Test>::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let owner = create_account(2);
+			let (signer, delegate) = create_random_pair();
+			let proxy_type = ProxyType::Any;
+			let deadline = 200;
+
+			// fund owner
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_CREATION_RESERVE + 1);
+			// create FP
+			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
+			let futurepass = Holders::<Test>::get(&owner).unwrap();
+
+			// check delegate is not a delegate yet
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)),
+				false
+			);
+			assert_ne!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), delegate);
+
+			// register delegate
+			// fund futurepass with FP_DELEGATE_RESERVE amount so that the futurepass can pay the creation fee
+			let owner_balance_before = AssetsExt::reducible_balance(
+				MOCK_NATIVE_ASSET_ID,
+				&owner,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, FP_DELEGATE_RESERVE);
+			assert_eq!(
+				AssetsExt::reducible_balance(
+					MOCK_NATIVE_ASSET_ID,
+					&futurepass,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				),
+				FP_DELEGATE_RESERVE
+			);
+			let signature = signer
+				.sign_prehashed(
+					&Futurepass::generate_add_delegate_eth_signed_message(
+						&futurepass,
+						&delegate,
+						&proxy_type,
+						&deadline,
+					)
+					.unwrap()
+					.1,
+				)
+				.0;
+
+			assert_ok!(Futurepass::register_delegate_with_signature(
+				RuntimeOrigin::signed(owner),
+				futurepass,
+				delegate,
+				proxy_type,
+				deadline,
+				signature,
+			));
+			// assert event
+			System::assert_has_event(
+				Event::<Test>::DelegateRegistered { futurepass, delegate, proxy_type }.into(),
+			);
+
+			// check delegate is a proxy of futurepass
+			assert!(<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)));
+			assert_eq!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), owner);
+			assert_ne!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), delegate);
+
+			// Check owner balance has not changed
+			assert_eq!(
+				AssetsExt::reducible_balance(
+					MOCK_NATIVE_ASSET_ID,
+					&owner,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				),
+				owner_balance_before
+			);
+			// Futurepass balance should be zero which shows that the Futurepass paid the creation fee
+			assert_eq!(
+				AssetsExt::reducible_balance(
+					MOCK_NATIVE_ASSET_ID,
+					&futurepass,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				),
+				0
+			);
+		});
+}
+
+#[test]
 fn register_delegate_by_non_delegate_fails() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
