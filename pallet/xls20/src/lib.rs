@@ -212,14 +212,17 @@ pub mod pallet {
 			let collection_info = T::NFTCollectionInfo::get_collection_info(collection_id)?;
 
 			// Caller must be collection owner
-			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
 
 			// Must be an XLS-20 compatible collection
 			ensure!(collection_info.cross_chain_compatibility.xrpl, Error::<T>::NotXLS20Compatible);
 
 			// Check whether token exists but mapping does not exist
 			for serial_number in serial_numbers.iter() {
-				ensure!(collection_info.token_exists(*serial_number), Error::<T>::NoToken);
+				ensure!(
+					T::NFTExt::token_exists(&(collection_id, *serial_number)),
+					Error::<T>::NoToken
+				);
 				ensure!(
 					!Xls20TokenMap::<T>::contains_key(collection_id, serial_number),
 					Error::<T>::MappingAlreadyExists
@@ -255,11 +258,14 @@ pub mod pallet {
 			// Ensure only relayer can call extrinsic
 			ensure!(Some(who) == Relayer::<T>::get(), Error::<T>::NotRelayer);
 
-			let collection_info = T::NFTCollectionInfo::get_collection_info(collection_id)?;
+			let _ = T::NFTCollectionInfo::get_collection_info(collection_id)?;
 
 			for (serial_number, xls20_token_id) in token_mappings.iter() {
 				// Ensure token exists on TRN
-				ensure!(collection_info.token_exists(*serial_number), Error::<T>::NoToken);
+				ensure!(
+					T::NFTExt::token_exists(&(collection_id, *serial_number)),
+					Error::<T>::NoToken
+				);
 				// Ensure mapping doesn't already exist
 				ensure!(
 					!Xls20TokenMap::<T>::contains_key(collection_id, serial_number),
@@ -369,8 +375,6 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 		receiver: &Self::AccountId,
 		xls20_token_id: Xls20TokenId,
 	) -> WeightedDispatchResult {
-		// Ensure the migration is complete
-		T::Migrator::ensure_migrated().map_err(|e| (Weight::zero(), e))?;
 		let xls20_token = Xls20Token::from(xls20_token_id);
 
 		// Check flag is not burnable, if the burnable flag is set then the issuer can
@@ -425,8 +429,6 @@ impl<T: Config> Xls20Ext for Pallet<T> {
 	}
 
 	fn get_xls20_token_id(token_id: TokenId) -> Option<Xls20TokenId> {
-		// Ensure the migration is complete
-		T::Migrator::ensure_migrated().ok()?;
 		Xls20TokenMap::<T>::get(token_id.0, token_id.1)
 	}
 

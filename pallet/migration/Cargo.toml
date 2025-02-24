@@ -20,12 +20,14 @@ sp-std = { workspace = true }
 
 seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
+pallet-nft = { workspace = true }
 
 [dev-dependencies]
 sp-runtime = { workspace = true }
 sp-io = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-assets = { workspace = true }
+pallet-assets-ext = { workspace = true }
 
 [features]
 default = ["std"]
@@ -40,6 +42,8 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "frame-benchmarking?/std",
+    "pallet-nft/std",
+    "pallet-assets-ext/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]
