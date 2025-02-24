@@ -117,13 +117,19 @@ pub mod pallet {
 		/// Multi-Block migration has been disabled
 		MigrationDisabled,
 		/// The current migration has completed
-		MigrationComplete { items_migrated: u32 },
+		MigrationComplete {
+			items_migrated: u32,
+		},
 		/// A Migration has been set
 		MigrationSet,
 		/// The block delay has been set
-		BlockDelaySet { block_delay: Option<u32> },
+		BlockDelaySet {
+			block_delay: Option<u32>,
+		},
 		/// The block limit has been set
-		BlockLimitSet { block_limit: u32 },
+		BlockLimitSet {
+			block_limit: u32,
+		},
 	}
 
 	#[pallet::error]
