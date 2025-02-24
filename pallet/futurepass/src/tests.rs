@@ -237,7 +237,6 @@ fn register_delegate_by_owner_works() {
 		});
 }
 
-
 #[test]
 fn register_delegate_uses_futurepass_balance() {
 	let funder = create_account(1);
@@ -292,8 +291,8 @@ fn register_delegate_uses_futurepass_balance() {
 						&proxy_type,
 						&deadline,
 					)
-						.unwrap()
-						.1,
+					.unwrap()
+					.1,
 				)
 				.0;
 
