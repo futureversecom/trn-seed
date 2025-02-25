@@ -139,6 +139,7 @@ pub mod pallet {
 		Twox64Concat,
 		CollectionUuid,
 		SftCollectionPendingIssuances<T::AccountId, T::MaxSftPendingIssuances>,
+		ValueQuery,
 	>;
 
 	#[pallet::event]
@@ -717,17 +718,9 @@ pub mod pallet {
 			// Only the owner can make this call
 			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
 
-			// Initialize the collection's pending issuances if needed
-			if <PendingIssuances<T>>::get(collection_id).is_none() {
-				<PendingIssuances<T>>::insert(collection_id, SftCollectionPendingIssuances::new())
-			}
-
 			<PendingIssuances<T>>::try_mutate(
 				collection_id,
 				|pending_issuances| -> DispatchResult {
-					let pending_issuances =
-						pending_issuances.as_mut().ok_or(Error::<T>::InvalidPendingIssuance)?;
-
 					for (serial_number, balance) in serial_numbers.iter() {
 						// ensure burn authority has been pre declared
 						ensure!(
@@ -766,10 +759,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let collection_pending_issuances = <PendingIssuances<T>>::get(collection_id)
-				.ok_or(Error::<T>::InvalidPendingIssuance)?;
-
-			let pending_issuance = collection_pending_issuances
+			let pending_issuance = <PendingIssuances<T>>::get(collection_id)
 				.get_pending_issuance(&who, issuance_id)
 				.ok_or(Error::<T>::InvalidPendingIssuance)?;
 
@@ -796,9 +786,6 @@ pub mod pallet {
 			<PendingIssuances<T>>::try_mutate(
 				collection_id,
 				|pending_issuances| -> DispatchResult {
-					let pending_issuances =
-						pending_issuances.as_mut().ok_or(Error::<T>::InvalidPendingIssuance)?;
-
 					pending_issuances.remove_pending_issuance(&who, issuance_id);
 
 					Ok(())

@@ -181,6 +181,7 @@ pub mod pallet {
 		Twox64Concat,
 		CollectionUuid,
 		CollectionPendingIssuances<T::AccountId, T::MaxPendingIssuances>,
+		ValueQuery,
 	>;
 
 	#[pallet::event]
@@ -264,10 +265,16 @@ pub mod pallet {
 			collection_id: CollectionUuid,
 			issuance_id: u32,
 			token_owner: T::AccountId,
+			quantity: u32,
 			burn_authority: TokenBurnAuthority,
 		},
-		/// A soulbound token was successfully issued
-		Issued { token_owner: T::AccountId, token_id: TokenId, burn_authority: TokenBurnAuthority },
+		/// Soulbound tokens were successfully issued
+		Issued {
+			token_owner: T::AccountId,
+			start: SerialNumber,
+			end: SerialNumber,
+			burn_authority: TokenBurnAuthority,
+		},
 	}
 
 	#[pallet::error]
@@ -788,29 +795,20 @@ pub mod pallet {
 			// Only the owner can make this call
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 
-			// Initialize the collection's pending issuances if needed
-			if <PendingIssuances<T>>::get(collection_id).is_none() {
-				<PendingIssuances<T>>::insert(collection_id, CollectionPendingIssuances::new())
-			}
-
 			<PendingIssuances<T>>::try_mutate(
 				collection_id,
 				|pending_issuances| -> DispatchResult {
-					let pending_issuances =
-						pending_issuances.as_mut().ok_or(Error::<T>::InvalidPendingIssuance)?;
+					let issuance_id = pending_issuances
+						.insert_pending_issuance(&token_owner, quantity, burn_authority)
+						.map_err(Error::<T>::from)?;
 
-					for _ in 0..quantity {
-						let issuance_id = pending_issuances
-							.insert_pending_issuance(&token_owner, burn_authority)
-							.map_err(Error::<T>::from)?;
-
-						Self::deposit_event(Event::<T>::PendingIssuanceCreated {
-							collection_id,
-							issuance_id,
-							token_owner: token_owner.clone(),
-							burn_authority,
-						});
-					}
+					Self::deposit_event(Event::<T>::PendingIssuanceCreated {
+						collection_id,
+						issuance_id,
+						token_owner: token_owner.clone(),
+						quantity,
+						burn_authority,
+					});
 
 					Ok(())
 				},
@@ -830,24 +828,20 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let collection_pending_issuances = <PendingIssuances<T>>::get(collection_id)
-				.ok_or(Error::<T>::InvalidPendingIssuance)?;
+			let collection_pending_issuances = <PendingIssuances<T>>::get(collection_id);
 
 			let pending_issuance = collection_pending_issuances
 				.get_pending_issuance(&who, issuance_id)
 				.ok_or(Error::<T>::InvalidPendingIssuance)?;
 
-			let quantity = 1;
-
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-
-			let next_serial_number = collection_info.next_serial_number;
 
 			// Perform pre mint checks
 			// Note: We validate this mint as if it was being performed
 			// by the owner.
-			let serial_numbers = Self::pre_mint(collection_id, &mut collection_info, quantity)?;
+			let serial_numbers =
+				Self::pre_mint(collection_id, &mut collection_info, pending_issuance.quantity)?;
 			let collection_owner = collection_info.owner.clone();
 			let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
 			let metadata_scheme = collection_info.metadata_scheme.clone();
@@ -873,17 +867,18 @@ pub mod pallet {
 				serial_numbers.clone().into_inner(),
 			)?;
 
-			let token_id = (collection_id, next_serial_number);
-
-			// Set the utility flags for the token
-			TokenUtilityFlags::<T>::mutate(token_id, |flags| {
-				flags.transferable = false;
-				flags.burn_authority = Some(pending_issuance.burn_authority);
-			});
+			// Set the utility flags for the tokens
+			for serial_number in serial_numbers.clone() {
+				TokenUtilityFlags::<T>::mutate((collection_id, serial_number), |flags| {
+					flags.transferable = false;
+					flags.burn_authority = Some(pending_issuance.burn_authority);
+				});
+			}
 
 			Self::deposit_event(Event::<T>::Issued {
 				token_owner: who.clone(),
-				token_id,
+				start: *serial_numbers.first().ok_or(Error::<T>::NoToken)?,
+				end: *serial_numbers.last().ok_or(Error::<T>::NoToken)?,
 				burn_authority: pending_issuance.burn_authority,
 			});
 
@@ -891,8 +886,8 @@ pub mod pallet {
 			<PendingIssuances<T>>::try_mutate(
 				collection_id,
 				|pending_issuances| -> DispatchResult {
-					let pending_issuances =
-						pending_issuances.as_mut().ok_or(Error::<T>::InvalidPendingIssuance)?;
+					// let pending_issuances =
+					// 	pending_issuances.as_mut().ok_or(Error::<T>::InvalidPendingIssuance)?;
 
 					pending_issuances.remove_pending_issuance(&who, issuance_id);
 

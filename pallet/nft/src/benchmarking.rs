@@ -147,20 +147,17 @@ benchmarks! {
 	}
 
 	issue {
-		let p in 1 .. T::MintLimit::get();
-
 		let collection_id = build_collection::<T>(None);
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, p, account::<T>("Bob"), TokenBurnAuthority::Both)
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 1, account::<T>("Bob"), TokenBurnAuthority::Both)
 	verify {
 		let collection_issuances =
-			PendingIssuances::<T>::get(collection_id).map(|pend| pend.pending_issuances)
-				.unwrap();
+			PendingIssuances::<T>::get(collection_id).pending_issuances;
 
 		let pending_issuances = &collection_issuances[0].1;
 
 		assert_eq!(
 			pending_issuances.len(),
-			<u32 as TryInto<usize>>::try_into(p).unwrap(),
+			<u32 as TryInto<usize>>::try_into(1).unwrap(),
 		)
 	}
 

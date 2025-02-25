@@ -1213,9 +1213,8 @@ where
 		let origin = handle.context().caller;
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let next_issuance_id = pallet_nft::PendingIssuances::<Runtime>::get(collection_id)
-			.map(|p| p.next_issuance_id)
-			.unwrap_or(0);
+		let next_issuance_id =
+			pallet_nft::PendingIssuances::<Runtime>::get(collection_id).next_issuance_id;
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -1258,8 +1257,7 @@ where
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let pending_issuances = pallet_nft::PendingIssuances::<Runtime>::get(collection_id)
-			.map(|p| p.get_pending_issuances(&owner.into()))
-			.unwrap_or(vec![]);
+			.get_pending_issuances(&owner.into());
 
 		let issuance_ids = pending_issuances.iter().map(|p| U256::from(p.issuance_id)).collect();
 		let burn_auths = pending_issuances.iter().map(|p| p.burn_authority.into()).collect();
@@ -1297,11 +1295,10 @@ where
 		let serial_number = collection.next_serial_number;
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let burn_authority = match pallet_nft::PendingIssuances::<Runtime>::get(collection_id)
-			.map(|p| p.get_pending_issuance(&origin.into(), issuance_id))
-			.flatten()
+		let pending_issuance = match pallet_nft::PendingIssuances::<Runtime>::get(collection_id)
+			.get_pending_issuance(&origin.into(), issuance_id)
 		{
-			Some(pending_issuance) => pending_issuance.burn_authority,
+			Some(pending_issuance) => pending_issuance,
 			None => return Err(revert("Issuance does not exist")),
 		};
 
@@ -1312,17 +1309,19 @@ where
 			pallet_nft::Call::<Runtime>::accept_issuance { collection_id, issuance_id },
 		)?;
 
-		log4(
-			handle.code_address(),
-			SELECTOR_ISSUED,
-			collection_owner.into(),
-			origin,
-			H256::from_low_u64_be(serial_number as u64),
-			EvmDataWriter::new()
-				.write(<TokenBurnAuthority as Into<u8>>::into(burn_authority))
-				.build(),
-		)
-		.record(handle)?;
+		for sn in serial_number..(serial_number + pending_issuance.quantity) {
+			log4(
+				handle.code_address(),
+				SELECTOR_ISSUED,
+				collection_owner.clone().into(),
+				origin,
+				H256::from_low_u64_be(sn as u64),
+				EvmDataWriter::new()
+					.write(<TokenBurnAuthority as Into<u8>>::into(pending_issuance.burn_authority))
+					.build(),
+			)
+			.record(handle)?;
+		}
 
 		Ok(succeed([]))
 	}

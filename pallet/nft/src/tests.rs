@@ -3092,9 +3092,7 @@ mod soulbound_token {
 		token_owner: AccountId,
 		burn_authority: TokenBurnAuthority,
 	) -> TokenId {
-		let issuance_id = PendingIssuances::<Test>::get(collection_id)
-			.map(|p| p.next_issuance_id)
-			.unwrap_or(0);
+		let issuance_id = PendingIssuances::<Test>::get(collection_id).next_issuance_id;
 		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
 
 		assert_ok!(Nft::issue(
@@ -3125,10 +3123,12 @@ mod soulbound_token {
 
 			let issuance_id = 0;
 
+			let quantity = 1;
+
 			assert_ok!(Nft::issue(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
-				1,
+				quantity,
 				token_owner,
 				burn_authority
 			));
@@ -3138,6 +3138,7 @@ mod soulbound_token {
 					collection_id,
 					issuance_id,
 					token_owner,
+					quantity,
 					burn_authority,
 				}
 				.into(),
@@ -3145,9 +3146,8 @@ mod soulbound_token {
 
 			assert_eq!(
 				PendingIssuances::<Test>::get(collection_id)
-					.map(|p| p.get_pending_issuance(&token_owner, issuance_id))
-					.flatten(),
-				Some(PendingIssuance { issuance_id, burn_authority })
+					.get_pending_issuance(&token_owner, issuance_id),
+				Some(PendingIssuance { issuance_id, quantity, burn_authority })
 			);
 
 			assert_ok!(Nft::accept_issuance(
@@ -3159,7 +3159,7 @@ mod soulbound_token {
 			let token_id = (collection_id, 0);
 
 			System::assert_last_event(
-				Event::<Test>::Issued { token_owner, token_id, burn_authority }.into(),
+				Event::<Test>::Issued { token_owner, start: 0, end: 0, burn_authority }.into(),
 			);
 
 			// assert ownership
@@ -3191,26 +3191,26 @@ mod soulbound_token {
 				burn_authority
 			));
 
+			let issuance_id = 0;
+
+			assert_eq!(
+				PendingIssuances::<Test>::get(collection_id)
+					.get_pending_issuance(&token_owner, issuance_id),
+				Some(PendingIssuance { issuance_id, quantity, burn_authority })
+			);
+
+			assert_ok!(Nft::accept_issuance(
+				RawOrigin::Signed(token_owner).into(),
+				collection_id,
+				issuance_id
+			));
+
+			System::assert_last_event(
+				Event::<Test>::Issued { token_owner, start: 0, end: 4, burn_authority }.into(),
+			);
+
 			for i in 0..quantity {
-				let issuance_id = i;
 				let token_id = (collection_id, i);
-
-				assert_eq!(
-					PendingIssuances::<Test>::get(collection_id)
-						.map(|p| p.get_pending_issuance(&token_owner, issuance_id))
-						.flatten(),
-					Some(PendingIssuance { issuance_id, burn_authority })
-				);
-
-				assert_ok!(Nft::accept_issuance(
-					RawOrigin::Signed(token_owner).into(),
-					collection_id,
-					issuance_id
-				));
-
-				System::assert_last_event(
-					Event::<Test>::Issued { token_owner, token_id, burn_authority }.into(),
-				);
 
 				assert_eq!(Nft::get_token_owner(&token_id), Some(token_owner));
 			}

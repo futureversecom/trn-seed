@@ -3175,8 +3175,7 @@ mod soulbound_token {
 
 			assert_eq!(
 				PendingIssuances::<Test>::get(collection_id)
-					.map(|p| p.get_pending_issuance(&token_owner, issuance_id))
-					.flatten(),
+					.get_pending_issuance(&token_owner, issuance_id),
 				Some(SftPendingIssuance { issuance_id, serial_number, balance })
 			);
 

@@ -267,7 +267,7 @@ pub enum SftPendingIssuanceError {
 )]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(MaxPendingIssuances))]
-pub struct SftCollectionPendingIssuances<AccountId, MaxPendingIssuances: Get<u32>>
+pub struct SftCollectionPendingIssuances<AccountId, MaxPendingIssuances>
 where
 	AccountId: Debug + PartialEq + Clone,
 	MaxPendingIssuances: Get<u32>,
@@ -279,17 +279,22 @@ where
 	>,
 }
 
+impl<AccountId, MaxPendingIssuances> Default
+	for SftCollectionPendingIssuances<AccountId, MaxPendingIssuances>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxPendingIssuances: Get<u32>,
+{
+	fn default() -> Self {
+		SftCollectionPendingIssuances { next_issuance_id: 0, pending_issuances: BoundedVec::new() }
+	}
+}
+
 impl<AccountId, MaxPendingIssuances> SftCollectionPendingIssuances<AccountId, MaxPendingIssuances>
 where
 	AccountId: Debug + PartialEq + Clone,
 	MaxPendingIssuances: Get<u32>,
 {
-	/// Creates a new instance of `SftCollectionPendingIssuances` with the next
-	/// issuance id set to 0, and an empty list of pending issuances
-	pub fn new() -> Self {
-		SftCollectionPendingIssuances { next_issuance_id: 0, pending_issuances: BoundedVec::new() }
-	}
-
 	/// Inserts a new pending issuance for a token owner
 	pub fn insert_pending_issuance(
 		&mut self,

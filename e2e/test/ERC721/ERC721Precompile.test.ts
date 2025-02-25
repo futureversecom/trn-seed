@@ -737,23 +737,27 @@ describe("ERC721 Precompile", function () {
   it("can issue and accept soulbound tokens", async () => {
     const receiverAddress = alithSigner.address;
     const quantity = 3;
-    const receipt = await erc721Precompile.issue(receiverAddress, quantity, BurnAuth.Both).then((tx: any) => tx.wait());
+    let receipt = await erc721Precompile.issue(receiverAddress, quantity, BurnAuth.Both).then((tx: any) => tx.wait());
 
     expect(receipt)
       .to.emit(erc721Precompile, "PendingIssuancesCreated")
       .withArgs(receiverAddress, [0, 1, 2], BurnAuth.Both);
 
     const pendingIssuances = await erc721Precompile.pendingIssuances(receiverAddress);
-    expect(pendingIssuances[0]).to.deep.equal([0, 1, 2]);
-    expect(pendingIssuances[1]).to.deep.equal([BurnAuth.Both, BurnAuth.Both, BurnAuth.Both]);
+    expect(pendingIssuances[0]).to.deep.equal([0]);
+    expect(pendingIssuances[1]).to.deep.equal([BurnAuth.Both]);
 
-    for (const issuanceId of pendingIssuances[0]) {
-      const receipt = await erc721Precompile
-        .connect(alithSigner)
-        .acceptIssuance(issuanceId)
-        .then((tx: any) => tx.wait());
+    console.log(receipt);
 
-      const tokenId = receipt.events[0].args.tokenId;
+    receipt = await erc721Precompile
+      .connect(alithSigner)
+      .acceptIssuance(0)
+      .then((tx: any) => tx.wait());
+
+    console.log(receipt);
+
+    for (let i = 0; i < 3; i++) {
+      const tokenId = receipt.events[i].args.tokenId;
 
       expect(receipt)
         .to.emit(erc721Precompile, "Issued")
@@ -761,7 +765,7 @@ describe("ERC721 Precompile", function () {
 
       expect(await erc721Precompile.ownerOf(tokenId)).to.eq(receiverAddress);
 
-      expect(await erc721Precompile.burnAuth(tokenId)).to.equal(BurnAuth.Both);
+      expect(await erc721Precompile.burnAuth(tokenId)).to.eq(BurnAuth.Both);
     }
   });
 });

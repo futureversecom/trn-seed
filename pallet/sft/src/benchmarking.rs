@@ -339,11 +339,8 @@ benchmarks! {
 		}
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, BoundedVec::try_from(tokens).unwrap(), account::<T>("Bob"))
 	verify {
-		let collection_issuances =
-			PendingIssuances::<T>::get(collection_id).map(|pend| pend.pending_issuances)
-				.unwrap();
-
-		let pending_issuances = &collection_issuances[0].1;
+		let pending_issuances =
+			&PendingIssuances::<T>::get(collection_id).pending_issuances[0].1;
 
 		assert_eq!(
 			pending_issuances.len(),

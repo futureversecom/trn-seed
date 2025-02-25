@@ -1286,9 +1286,8 @@ where
 			.map_err(|_| revert("ERC1155: Too many serial numbers in one issuance"))?;
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let next_issuance_id = pallet_sft::PendingIssuances::<Runtime>::get(collection_id)
-			.map(|p| p.next_issuance_id)
-			.unwrap_or(0);
+		let next_issuance_id =
+			pallet_sft::PendingIssuances::<Runtime>::get(collection_id).next_issuance_id;
 
 		let final_issuance_id = match <u32 as TryFrom<usize>>::try_from(serial_numbers.len()) {
 			Ok(i) => i + next_issuance_id,
@@ -1331,8 +1330,7 @@ where
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let pending_issuances = pallet_sft::PendingIssuances::<Runtime>::get(collection_id)
-			.map(|p| p.get_pending_issuances(&owner.into()))
-			.unwrap_or(vec![]);
+			.get_pending_issuances(&owner.into());
 
 		let issuance_ids = pending_issuances.iter().map(|p| U256::from(p.issuance_id)).collect();
 		let serial_numbers: Vec<SerialNumber> =
@@ -1393,8 +1391,7 @@ where
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let pending_issuance = match pallet_sft::PendingIssuances::<Runtime>::get(collection_id)
-			.map(|p| p.get_pending_issuance(&origin.into(), issuance_id))
-			.flatten()
+			.get_pending_issuance(&origin.into(), issuance_id)
 		{
 			Some(pending_issuance) => pending_issuance,
 			None => return Err(revert("Issuance does not exist")),

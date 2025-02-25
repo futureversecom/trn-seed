@@ -237,6 +237,7 @@ where
 )]
 pub struct PendingIssuance {
 	pub issuance_id: IssuanceId,
+	pub quantity: u32,
 	pub burn_authority: TokenBurnAuthority,
 }
 
@@ -262,6 +263,17 @@ where
 	>,
 }
 
+impl<AccountId, MaxPendingIssuances> Default
+	for CollectionPendingIssuances<AccountId, MaxPendingIssuances>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxPendingIssuances: Get<u32>,
+{
+	fn default() -> Self {
+		CollectionPendingIssuances { next_issuance_id: 0, pending_issuances: BoundedVec::new() }
+	}
+}
+
 impl<AccountId, MaxPendingIssuances> CollectionPendingIssuances<AccountId, MaxPendingIssuances>
 where
 	AccountId: Debug + PartialEq + Clone,
@@ -277,10 +289,11 @@ where
 	pub fn insert_pending_issuance(
 		&mut self,
 		token_owner: &AccountId,
+		quantity: u32,
 		burn_authority: TokenBurnAuthority,
 	) -> Result<IssuanceId, PendingIssuanceError> {
 		let issuance_id = self.next_issuance_id;
-		let pending_issuance = PendingIssuance { issuance_id, burn_authority };
+		let pending_issuance = PendingIssuance { issuance_id, quantity, burn_authority };
 
 		if let Some(account_pending_issuances) =
 			self.pending_issuances.iter_mut().find(|p| &p.0 == token_owner)
