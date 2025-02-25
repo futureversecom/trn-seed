@@ -192,19 +192,12 @@ where
 		token_owner: &AccountId,
 		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
 	) -> Result<(), TokenOwnershipError> {
-		if self
-			.owned_tokens
-			.iter()
-			.any(|token_ownership| &token_ownership.owner == token_owner)
+		if let Some(token_ownership) =
+			self.owned_tokens.iter_mut().find(|p| &p.owner == token_owner)
 		{
-			for token_ownership in self.owned_tokens.iter_mut() {
-				if &token_ownership.owner != token_owner {
-					continue;
-				}
-				// Add new serial numbers to existing owner
-				for serial_number in serial_numbers.iter() {
-					token_ownership.add(*serial_number)?;
-				}
+			// Add new serial numbers to existing owner
+			for serial_number in serial_numbers.iter() {
+				token_ownership.add(*serial_number)?;
 			}
 		} else {
 			// If token owner doesn't exist, create new entry
@@ -285,19 +278,13 @@ where
 		let issuance_id = self.next_issuance_id;
 		let pending_issuance = PendingIssuance { issuance_id, burn_authority };
 
-		if self.pending_issuances.iter().any(|p| &p.0 == token_owner) {
-			for account_pending_issuances in self.pending_issuances.iter_mut() {
-				if &account_pending_issuances.0 != token_owner {
-					continue;
-				}
-
-				account_pending_issuances
-					.1
-					.try_push(pending_issuance)
-					.map_err(|_| PendingIssuanceError::PendingIssuanceLimitExceeded)?;
-
-				break;
-			}
+		if let Some(account_pending_issuances) =
+			self.pending_issuances.iter_mut().find(|p| &p.0 == token_owner)
+		{
+			account_pending_issuances
+				.1
+				.try_push(pending_issuance)
+				.map_err(|_| PendingIssuanceError::PendingIssuanceLimitExceeded)?;
 		} else {
 			// create new entry
 			let mut new_account_issuance = BoundedVec::new();

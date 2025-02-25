@@ -296,19 +296,13 @@ where
 		let issuance_id = self.next_issuance_id;
 		let pending_issuance = SftPendingIssuance { issuance_id, serial_number, balance };
 
-		if self.pending_issuances.iter().any(|p| &p.0 == token_owner) {
-			for account_pending_issuances in self.pending_issuances.iter_mut() {
-				if &account_pending_issuances.0 != token_owner {
-					continue;
-				}
-
-				account_pending_issuances
-					.1
-					.try_push(pending_issuance)
-					.map_err(|_| SftPendingIssuanceError::PendingIssuanceLimitExceeded)?;
-
-				break;
-			}
+		if let Some(account_pending_issuances) =
+			self.pending_issuances.iter_mut().find(|p| &p.0 == token_owner)
+		{
+			account_pending_issuances
+				.1
+				.try_push(pending_issuance)
+				.map_err(|_| SftPendingIssuanceError::PendingIssuanceLimitExceeded)?;
 		} else {
 			// create new entry
 			let mut new_account_issuance = BoundedVec::new();
