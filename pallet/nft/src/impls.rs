@@ -543,8 +543,6 @@ impl<T: Config> Pallet<T> {
 			if let Some(burn_authority) =
 				TokenUtilityFlags::<T>::get((collection_id, serial_number)).burn_authority
 			{
-				let is_collection_owner = collection_info.is_collection_owner(who);
-
 				ensure!(
 					burn_authority.has_burn_authority(&collection_info.owner, &token_owner, who,),
 					Error::<T>::InvalidBurnAuthority

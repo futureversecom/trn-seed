@@ -74,8 +74,8 @@ pub const SELECTOR_LOG_PUBLIC_MINT_TOGGLED: [u8; 32] = keccak256!("PublicMintTog
 pub const SELECTOR_LOG_MINT_FEE_UPDATED: [u8; 32] =
 	keccak256!("MintFeeUpdated(uint32,address,uint128)");
 
-pub const SELECTOR_PENDING_ISSUANCE_CREATED: [u8; 32] =
-	keccak256!("PendingIssuanceCreated(address,uint256[],uint256[])");
+pub const SELECTOR_PENDING_ISSUANCES_CREATED: [u8; 32] =
+	keccak256!("PendingIssuancesCreated(address,uint256[],uint256[])");
 
 pub const SELECTOR_ISSUED: [u8; 32] = keccak256!("Issued(address,address,uint256,uint8)");
 
@@ -1310,7 +1310,7 @@ where
 
 		log2(
 			handle.code_address(),
-			SELECTOR_PENDING_ISSUANCE_CREATED,
+			SELECTOR_PENDING_ISSUANCES_CREATED,
 			receiver,
 			EvmDataWriter::new().write(issuance_ids).write(ids).build(),
 		)

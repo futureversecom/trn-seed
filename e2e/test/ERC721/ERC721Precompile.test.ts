@@ -739,11 +739,9 @@ describe("ERC721 Precompile", function () {
     const quantity = 3;
     const receipt = await erc721Precompile.issue(receiverAddress, quantity, BurnAuth.Both).then((tx: any) => tx.wait());
 
-    for (let i = 0; i < quantity; i++) {
-      expect(receipt)
-        .to.emit(erc721Precompile, "PendingIssuanceCreated")
-        .withArgs(i /** issuanceId **/, receiverAddress, BurnAuth.Both);
-    }
+    expect(receipt)
+      .to.emit(erc721Precompile, "PendingIssuancesCreated")
+      .withArgs(receiverAddress, [0, 1, 2], BurnAuth.Both);
 
     const pendingIssuances = await erc721Precompile.pendingIssuances(receiverAddress);
     expect(pendingIssuances[0]).to.deep.equal([0, 1, 2]);

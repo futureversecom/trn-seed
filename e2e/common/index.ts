@@ -368,7 +368,7 @@ export const ERC721_PRECOMPILE_ABI = [
   ...ERC165_ABI,
 
   // ERC5484
-  "event PendingIssuanceCreated(uint256 indexed issuanceId, address indexed to, uint8 burnAuth)",
+  "event PendingIssuancesCreated(address indexed to, uint256[] issuanceIds, uint8 burnAuth)",
   "event Issued(address indexed from, address indexed to, uint256 indexed tokenId, uint8 burnAuth)",
 
   "function issue(address,uint32,uint8)",
@@ -423,7 +423,7 @@ export const ERC1155_PRECOMPILE_ABI = [
   ...ERC165_ABI,
 
   // ERC5484
-  "event PendingIssuanceCreated(address indexed to, uint256[] issuanceIds, uint256[] tokenIds)",
+  "event PendingIssuancesCreated(address indexed to, uint256[] issuanceIds, uint256[] tokenIds)",
   "event Issued(address indexed from, address indexed to, uint256 indexed tokenId, uint8 burnAuth)",
 
   "function setBurnAuth(uint256,uint8)",

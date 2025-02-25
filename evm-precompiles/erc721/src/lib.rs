@@ -65,8 +65,8 @@ pub const SELECTOR_LOG_PUBLIC_MINT_TOGGLED: [u8; 32] = keccak256!("PublicMintTog
 
 pub const SELECTOR_LOG_MINT_FEE_UPDATED: [u8; 32] = keccak256!("MintFeeUpdated(address,uint128)");
 
-pub const SELECTOR_PENDING_ISSUANCE_CREATED: [u8; 32] =
-	keccak256!("PendingIssuanceCreated(uint256,address,u8)");
+pub const SELECTOR_PENDING_ISSUANCES_CREATED: [u8; 32] =
+	keccak256!("PendingIssuancesCreated(address,uint256[],u8)");
 
 pub const SELECTOR_ISSUED: [u8; 32] = keccak256!("Issued(address,address,uint256,uint8)");
 
@@ -1229,19 +1229,18 @@ where
 			},
 		)?;
 
-		for i in 0..quantity {
-			let issuance_id = H256::from_low_u64_be((next_issuance_id + i) as u64);
-			log3(
-				handle.code_address(),
-				SELECTOR_ISSUED,
-				issuance_id,
-				to,
-				EvmDataWriter::new()
-					.write(<TokenBurnAuthority as Into<u8>>::into(burn_authority))
-					.build(),
-			)
-			.record(handle)?;
-		}
+		let issuance_ids: Vec<u32> = (next_issuance_id..next_issuance_id + quantity).collect();
+
+		log2(
+			handle.code_address(),
+			SELECTOR_PENDING_ISSUANCES_CREATED,
+			to,
+			EvmDataWriter::new()
+				.write(issuance_ids)
+				.write(<TokenBurnAuthority as Into<u8>>::into(burn_authority))
+				.build(),
+		)
+		.record(handle)?;
 
 		// Build output.
 		Ok(succeed([]))

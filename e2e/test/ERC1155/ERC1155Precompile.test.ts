@@ -765,7 +765,7 @@ describe("ERC1155 Precompile", function () {
     // console.log("Ownable:", ownableId);
   });
 
-  it.only("can issue and accept issuance of soulbound tokens", async () => {
+  it("can issue and accept issuance of soulbound tokens", async () => {
     const receiverAddress = alithSigner.address;
 
     const tokens = [];
@@ -784,8 +784,10 @@ describe("ERC1155 Precompile", function () {
     const issuanceIds = [0, 1, 2];
 
     expect(receipt)
-      .to.emit(erc1155Precompile, "PendingIssuanceCreated")
+      .to.emit(erc1155Precompile, "PendingIssuancesCreated")
       .withArgs(receiverAddress, issuanceIds, amounts);
+
+    console.log(receipt.events[0].args);
 
     for (const issuanceId of issuanceIds) {
       const receipt = await erc1155Precompile
