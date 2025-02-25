@@ -303,6 +303,9 @@ impl<T: Config> Pallet<T> {
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 		ensure!(<UtilityFlags<T>>::get(collection_id).burnable, Error::<T>::BurnUtilityBlocked);
 
+		let collection_info =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
 		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
 			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
@@ -310,9 +313,6 @@ impl<T: Config> Pallet<T> {
 			if let Some(burn_authority) =
 				TokenUtilityFlags::<T>::get((collection_id, serial_number)).burn_authority
 			{
-				let collection_info = SftCollectionInfo::<T>::get(collection_id)
-					.ok_or(Error::<T>::NoCollectionFound)?;
-
 				match burn_authority {
 					TokenBurnAuthority::TokenOwner => {
 						ensure!(who == token_owner, Error::<T>::InvalidBurnAuthority);
