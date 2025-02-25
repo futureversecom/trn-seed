@@ -779,24 +779,26 @@ describe("ERC1155 Precompile", function () {
 
     const amounts = tokens.map((_) => 5);
 
-    const receipt = await erc1155Precompile.issue(receiverAddress, tokens, amounts).then((tx: any) => tx.wait());
+    let receipt = await erc1155Precompile.issue(receiverAddress, tokens, amounts).then((tx: any) => tx.wait());
 
-    const issuanceIds = [0, 1, 2];
+    expect(receipt).to.emit(erc1155Precompile, "PendingIssuanceCreated").withArgs(receiverAddress, 0, tokens, amounts);
 
-    expect(receipt)
-      .to.emit(erc1155Precompile, "PendingIssuancesCreated")
-      .withArgs(receiverAddress, issuanceIds, amounts);
+    const [issuanceIds, issuances] = await erc1155Precompile.pendingIssuances(receiverAddress);
 
-    console.log(receipt.events[0].args);
+    // check issuance id
+    expect(issuanceIds[0]).to.eq(0);
 
-    for (const issuanceId of issuanceIds) {
-      const receipt = await erc1155Precompile
-        .connect(alithSigner)
-        .acceptIssuance(issuanceId)
-        .then((tx: any) => tx.wait());
+    // check issuances
+    expect(issuances[0][0]).to.deep.eq([0, 1, 2]);
+    expect(issuances[0][1]).to.deep.eq([5, 5, 5]);
+    expect(issuances[0][2]).to.deep.eq([BurnAuth.Both, BurnAuth.Both, BurnAuth.Both]);
 
-      const tokenId = receipt.events[0].args.tokenId;
+    receipt = await erc1155Precompile
+      .connect(alithSigner)
+      .acceptIssuance(0)
+      .then((tx: any) => tx.wait());
 
+    for (const tokenId of tokens) {
       expect(receipt)
         .to.emit(erc1155Precompile, "Issued")
         .withArgs(bobSigner.address, receiverAddress, tokenId, BurnAuth.Both);
@@ -813,7 +815,7 @@ describe("ERC1155 Precompile", function () {
 
     expect(burnReceipt)
       .to.emit(erc1155Precompile, "TransferBatch")
-      .withArgs(bobSigner.address, constants.AddressZero, issuanceIds, amounts);
+      .withArgs(bobSigner.address, constants.AddressZero, tokens, amounts);
 
     for (const token of tokens) {
       expect(await erc1155Precompile.balanceOf(receiverAddress, token)).to.eq(0);

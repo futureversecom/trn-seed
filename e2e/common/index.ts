@@ -368,12 +368,12 @@ export const ERC721_PRECOMPILE_ABI = [
   ...ERC165_ABI,
 
   // ERC5484
-  "event PendingIssuancesCreated(address indexed to, uint256[] issuanceIds, uint8 burnAuth)",
+  "event PendingIssuanceCreated(address indexed to, uint256 issuanceId, uint256 quantity, uint8 burnAuth)",
   "event Issued(address indexed from, address indexed to, uint256 indexed tokenId, uint8 burnAuth)",
 
   "function issue(address,uint32,uint8)",
   "function acceptIssuance(uint32)",
-  "function pendingIssuances(address) external view returns (uint256[] memory, uint8[] memory)",
+  "function pendingIssuances(address) external view returns (uint256[] memory, (uint256 quantity, uint8)[] memory)",
   "function burnAuth(uint256) external view returns (uint8)",
 ];
 
@@ -423,13 +423,13 @@ export const ERC1155_PRECOMPILE_ABI = [
   ...ERC165_ABI,
 
   // ERC5484
-  "event PendingIssuancesCreated(address indexed to, uint256[] issuanceIds, uint256[] tokenIds)",
+  "event PendingIssuanceCreated(address indexed to, uint256 issuanceId, uint256[] tokenIds, uint256[] balances)",
   "event Issued(address indexed from, address indexed to, uint256 indexed tokenId, uint8 burnAuth)",
 
   "function setBurnAuth(uint256,uint8)",
   "function issue(address,uint256[],uint256[])",
   "function acceptIssuance(uint32)",
-  "function pendingIssuances(address) external view returns (uint256[] memory,uint256[] memory,uint256[] memory,uint8[] memory)",
+  "function pendingIssuances(address) external view returns (uint256[] memory,(uint256[] memory,uint256[] memory,uint8[] memory)[] memory)",
   "function burnAuth(uint256) external view returns (uint8)",
   "function burnAsOwner(address,uint256[],uint256[])",
 ];

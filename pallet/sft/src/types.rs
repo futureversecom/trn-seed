@@ -251,10 +251,10 @@ impl SftTokenBalance {
 #[derive(
 	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
-pub struct SftPendingIssuance {
+#[scale_info(skip_type_params(MaxSerialsPerMint))]
+pub struct SftPendingIssuance<MaxSerialsPerMint: Get<u32>> {
 	pub issuance_id: IssuanceId,
-	pub serial_number: SerialNumber,
-	pub balance: Balance,
+	pub serial_numbers: BoundedVec<(SerialNumber, Balance), MaxSerialsPerMint>,
 }
 
 pub enum SftPendingIssuanceError {
@@ -266,23 +266,25 @@ pub enum SftPendingIssuanceError {
 	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
-#[scale_info(skip_type_params(MaxPendingIssuances))]
-pub struct SftCollectionPendingIssuances<AccountId, MaxPendingIssuances>
+#[scale_info(skip_type_params(MaxSerialsPerMint, MaxPendingIssuances))]
+pub struct SftCollectionPendingIssuances<AccountId, MaxSerialsPerMint, MaxPendingIssuances>
 where
 	AccountId: Debug + PartialEq + Clone,
+	MaxSerialsPerMint: Get<u32>,
 	MaxPendingIssuances: Get<u32>,
 {
 	pub next_issuance_id: IssuanceId,
 	pub pending_issuances: BoundedVec<
-		(AccountId, BoundedVec<SftPendingIssuance, MaxPendingIssuances>),
+		(AccountId, BoundedVec<SftPendingIssuance<MaxSerialsPerMint>, MaxPendingIssuances>),
 		MaxPendingIssuances,
 	>,
 }
 
-impl<AccountId, MaxPendingIssuances> Default
-	for SftCollectionPendingIssuances<AccountId, MaxPendingIssuances>
+impl<AccountId, MaxSerialsPerMint, MaxPendingIssuances> Default
+	for SftCollectionPendingIssuances<AccountId, MaxSerialsPerMint, MaxPendingIssuances>
 where
 	AccountId: Debug + PartialEq + Clone,
+	MaxSerialsPerMint: Get<u32>,
 	MaxPendingIssuances: Get<u32>,
 {
 	fn default() -> Self {
@@ -290,20 +292,21 @@ where
 	}
 }
 
-impl<AccountId, MaxPendingIssuances> SftCollectionPendingIssuances<AccountId, MaxPendingIssuances>
+impl<AccountId, MaxSerialsPerMint, MaxPendingIssuances>
+	SftCollectionPendingIssuances<AccountId, MaxSerialsPerMint, MaxPendingIssuances>
 where
 	AccountId: Debug + PartialEq + Clone,
+	MaxSerialsPerMint: Get<u32>,
 	MaxPendingIssuances: Get<u32>,
 {
 	/// Inserts a new pending issuance for a token owner
 	pub fn insert_pending_issuance(
 		&mut self,
 		token_owner: &AccountId,
-		serial_number: SerialNumber,
-		balance: Balance,
+		serial_numbers: BoundedVec<(SerialNumber, Balance), MaxSerialsPerMint>,
 	) -> Result<IssuanceId, SftPendingIssuanceError> {
 		let issuance_id = self.next_issuance_id;
-		let pending_issuance = SftPendingIssuance { issuance_id, serial_number, balance };
+		let pending_issuance = SftPendingIssuance { issuance_id, serial_numbers };
 
 		if let Some(account_pending_issuances) =
 			self.pending_issuances.iter_mut().find(|p| &p.0 == token_owner)
@@ -332,7 +335,7 @@ where
 		&self,
 		token_owner: &AccountId,
 		issuance_id: IssuanceId,
-	) -> Option<SftPendingIssuance> {
+	) -> Option<SftPendingIssuance<MaxSerialsPerMint>> {
 		let account_pending_issuances = self
 			.pending_issuances
 			.iter()
@@ -357,7 +360,10 @@ where
 	}
 
 	/// Gets all pending issuances for a token owner
-	pub fn get_pending_issuances(&self, token_owner: &AccountId) -> Vec<SftPendingIssuance> {
+	pub fn get_pending_issuances(
+		&self,
+		token_owner: &AccountId,
+	) -> Vec<SftPendingIssuance<MaxSerialsPerMint>> {
 		if let Some(account_pending_issuances) = self
 			.pending_issuances
 			.iter()

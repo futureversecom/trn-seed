@@ -740,14 +740,14 @@ describe("ERC721 Precompile", function () {
     let receipt = await erc721Precompile.issue(receiverAddress, quantity, BurnAuth.Both).then((tx: any) => tx.wait());
 
     expect(receipt)
-      .to.emit(erc721Precompile, "PendingIssuancesCreated")
-      .withArgs(receiverAddress, [0, 1, 2], BurnAuth.Both);
+      .to.emit(erc721Precompile, "PendingIssuanceCreated")
+      .withArgs(receiverAddress, 0, quantity, BurnAuth.Both);
 
-    const pendingIssuances = await erc721Precompile.pendingIssuances(receiverAddress);
-    expect(pendingIssuances[0]).to.deep.equal([0]);
-    expect(pendingIssuances[1]).to.deep.equal([BurnAuth.Both]);
+    const [issuanceIds, issuances] = await erc721Precompile.pendingIssuances(receiverAddress);
+    expect(issuanceIds).to.deep.equal([0]);
 
-    console.log(receipt);
+    expect(issuances[0][0]).to.deep.equal(quantity);
+    expect(issuances[0][1]).to.deep.equal(BurnAuth.Both);
 
     receipt = await erc721Precompile
       .connect(alithSigner)

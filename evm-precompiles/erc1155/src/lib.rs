@@ -74,8 +74,8 @@ pub const SELECTOR_LOG_PUBLIC_MINT_TOGGLED: [u8; 32] = keccak256!("PublicMintTog
 pub const SELECTOR_LOG_MINT_FEE_UPDATED: [u8; 32] =
 	keccak256!("MintFeeUpdated(uint32,address,uint128)");
 
-pub const SELECTOR_PENDING_ISSUANCES_CREATED: [u8; 32] =
-	keccak256!("PendingIssuancesCreated(address,uint256[],uint256[])");
+pub const SELECTOR_PENDING_ISSUANCE_CREATED: [u8; 32] =
+	keccak256!("PendingIssuanceCreated(address,uint256,uint256[],uint256[])");
 
 pub const SELECTOR_ISSUED: [u8; 32] = keccak256!("Issued(address,address,uint256,uint8)");
 
@@ -1289,11 +1289,6 @@ where
 		let next_issuance_id =
 			pallet_sft::PendingIssuances::<Runtime>::get(collection_id).next_issuance_id;
 
-		let final_issuance_id = match <u32 as TryFrom<usize>>::try_from(serial_numbers.len()) {
-			Ok(i) => i + next_issuance_id,
-			Err(_) => return Err(revert("ERC1155: Could not parse issuance ids")),
-		};
-
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
@@ -1305,13 +1300,11 @@ where
 			},
 		)?;
 
-		let issuance_ids: Vec<u32> = (next_issuance_id..final_issuance_id).collect();
-
 		log2(
 			handle.code_address(),
-			SELECTOR_PENDING_ISSUANCES_CREATED,
+			SELECTOR_PENDING_ISSUANCE_CREATED,
 			receiver,
-			EvmDataWriter::new().write(issuance_ids).write(ids).build(),
+			EvmDataWriter::new().write(next_issuance_id).write(ids).write(amounts).build(),
 		)
 		.record(handle)?;
 
@@ -1333,37 +1326,37 @@ where
 			.get_pending_issuances(&owner.into());
 
 		let issuance_ids = pending_issuances.iter().map(|p| U256::from(p.issuance_id)).collect();
-		let serial_numbers: Vec<SerialNumber> =
-			pending_issuances.iter().map(|p| p.serial_number).collect();
-		let balances = pending_issuances.iter().map(|p| U256::from(p.balance)).collect();
 
-		let mut burn_auths = vec![];
-		for serial_number in serial_numbers.iter() {
-			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let issuances: Vec<(Vec<SerialNumber>, Vec<Balance>, Vec<u8>)> = pending_issuances
+			.iter()
+			.map(|p| -> EvmResult<(Vec<SerialNumber>, Vec<Balance>, Vec<u8>)> {
+				let (serial_numbers, balances): (Vec<SerialNumber>, Vec<Balance>) =
+					p.serial_numbers.clone().into_iter().unzip();
 
-			let burn_auth = match pallet_sft::TokenUtilityFlags::<Runtime>::get((
-				collection_id,
-				*serial_number,
-			))
-			.burn_authority
-			{
-				Some(burn_auth) => burn_auth.into(),
-				_ => 0 as u8,
-			};
+				let mut burn_auths = vec![];
+				for serial_number in serial_numbers.iter() {
+					handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
-			burn_auths.push(burn_auth);
-		}
+					let burn_auth = match pallet_sft::TokenUtilityFlags::<Runtime>::get((
+						collection_id,
+						*serial_number,
+					))
+					.burn_authority
+					{
+						Some(burn_auth) => burn_auth.into(),
+						_ => 0 as u8,
+					};
 
-		let serial_numbers = serial_numbers.iter().map(|s| U256::from(*s)).collect();
+					burn_auths.push(burn_auth);
+				}
 
-		Ok(succeed(
-			EvmDataWriter::new()
-				.write::<Vec<U256>>(issuance_ids)
-				.write::<Vec<U256>>(serial_numbers)
-				.write::<Vec<U256>>(balances)
-				.write::<Vec<u8>>(burn_auths)
-				.build(),
-		))
+				Ok((serial_numbers, balances, burn_auths))
+			})
+			.collect::<Vec<Result<_, _>>>()
+			.into_iter()
+			.collect::<Result<_, _>>()?;
+
+		Ok(succeed(EvmDataWriter::new().write::<Vec<U256>>(issuance_ids).write(issuances).build()))
 	}
 
 	fn accept_issuance(
@@ -1397,19 +1390,6 @@ where
 			None => return Err(revert("Issuance does not exist")),
 		};
 
-		let serial_number = pending_issuance.serial_number;
-
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let burn_authority = match pallet_sft::TokenUtilityFlags::<Runtime>::get((
-			collection_id,
-			pending_issuance.serial_number,
-		))
-		.burn_authority
-		{
-			Some(burn_auth) => burn_auth.into(),
-			_ => 0 as u8,
-		};
-
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
@@ -1417,15 +1397,26 @@ where
 			pallet_sft::Call::<Runtime>::accept_issuance { collection_id, issuance_id },
 		)?;
 
-		log4(
-			handle.code_address(),
-			SELECTOR_ISSUED,
-			collection_owner.into(),
-			origin,
-			H256::from_low_u64_be(serial_number as u64),
-			EvmDataWriter::new().write(burn_authority).build(),
-		)
-		.record(handle)?;
+		for (serial_number, _) in pending_issuance.serial_numbers {
+			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+			let burn_authority =
+				match pallet_sft::TokenUtilityFlags::<Runtime>::get((collection_id, serial_number))
+					.burn_authority
+				{
+					Some(burn_auth) => burn_auth.into(),
+					_ => 0 as u8,
+				};
+
+			log4(
+				handle.code_address(),
+				SELECTOR_ISSUED,
+				collection_owner.clone().into(),
+				origin,
+				H256::from_low_u64_be(serial_number as u64),
+				EvmDataWriter::new().write(burn_authority).build(),
+			)
+			.record(handle)?;
+		}
 
 		Ok(succeed([]))
 	}

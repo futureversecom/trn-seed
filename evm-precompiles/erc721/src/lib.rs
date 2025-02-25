@@ -65,8 +65,8 @@ pub const SELECTOR_LOG_PUBLIC_MINT_TOGGLED: [u8; 32] = keccak256!("PublicMintTog
 
 pub const SELECTOR_LOG_MINT_FEE_UPDATED: [u8; 32] = keccak256!("MintFeeUpdated(address,uint128)");
 
-pub const SELECTOR_PENDING_ISSUANCES_CREATED: [u8; 32] =
-	keccak256!("PendingIssuancesCreated(address,uint256[],u8)");
+pub const SELECTOR_PENDING_ISSUANCE_CREATED: [u8; 32] =
+	keccak256!("PendingIssuanceCreated(address,uint256,u8)");
 
 pub const SELECTOR_ISSUED: [u8; 32] = keccak256!("Issued(address,address,uint256,uint8)");
 
@@ -1228,14 +1228,13 @@ where
 			},
 		)?;
 
-		let issuance_ids: Vec<u32> = (next_issuance_id..next_issuance_id + quantity).collect();
-
 		log2(
 			handle.code_address(),
-			SELECTOR_PENDING_ISSUANCES_CREATED,
+			SELECTOR_PENDING_ISSUANCE_CREATED,
 			to,
 			EvmDataWriter::new()
-				.write(issuance_ids)
+				.write(next_issuance_id)
+				.write(quantity)
 				.write(<TokenBurnAuthority as Into<u8>>::into(burn_authority))
 				.build(),
 		)
@@ -1259,15 +1258,15 @@ where
 		let pending_issuances = pallet_nft::PendingIssuances::<Runtime>::get(collection_id)
 			.get_pending_issuances(&owner.into());
 
-		let issuance_ids = pending_issuances.iter().map(|p| U256::from(p.issuance_id)).collect();
-		let burn_auths = pending_issuances.iter().map(|p| p.burn_authority.into()).collect();
+		let issuance_ids: Vec<U256> =
+			pending_issuances.iter().map(|p| U256::from(p.issuance_id)).collect();
 
-		Ok(succeed(
-			EvmDataWriter::new()
-				.write::<Vec<U256>>(issuance_ids)
-				.write::<Vec<u8>>(burn_auths)
-				.build(),
-		))
+		let issuances: Vec<(U256, u8)> = pending_issuances
+			.iter()
+			.map(|p| (U256::from(p.quantity), p.burn_authority.into()))
+			.collect();
+
+		Ok(succeed(EvmDataWriter::new().write(issuance_ids).write(issuances).build()))
 	}
 
 	fn accept_issuance(

@@ -3157,26 +3157,32 @@ mod soulbound_token {
 
 			let issuance_id = 0;
 
+			let serial_numbers = BoundedVec::try_from(vec![(serial_number, balance)]).unwrap();
+
 			assert_ok!(Sft::issue(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
-				BoundedVec::try_from(vec![(serial_number, balance)]).unwrap(),
+				serial_numbers.clone(),
 				token_owner,
 			));
+
+			assert_eq!(
+				PendingIssuances::<Test>::get(collection_id)
+					.get_pending_issuance(&token_owner, issuance_id),
+				Some(SftPendingIssuance { issuance_id, serial_numbers: serial_numbers.clone() })
+			);
+
+			let (serial_numbers, balances) = Sft::unzip_serial_numbers(serial_numbers);
 
 			System::assert_last_event(
 				Event::<Test>::PendingIssuanceCreated {
 					collection_id,
 					issuance_id,
+					serial_numbers: serial_numbers.clone(),
+					balances: balances.clone(),
 					token_owner: token_owner.clone(),
 				}
 				.into(),
-			);
-
-			assert_eq!(
-				PendingIssuances::<Test>::get(collection_id)
-					.get_pending_issuance(&token_owner, issuance_id),
-				Some(SftPendingIssuance { issuance_id, serial_number, balance })
 			);
 
 			assert_ok!(Sft::accept_issuance(
@@ -3186,7 +3192,7 @@ mod soulbound_token {
 			));
 
 			System::assert_last_event(
-				Event::<Test>::Issued { token_owner, token_id, balance }.into(),
+				Event::<Test>::Issued { token_owner, serial_numbers, balances }.into(),
 			);
 
 			// assert ownership
@@ -3240,16 +3246,16 @@ mod soulbound_token {
 				token_owner,
 			));
 
-			// accept the tokens
-			for (i, (serial_number, _)) in tokens.iter().enumerate() {
-				assert_ok!(Sft::accept_issuance(
-					RawOrigin::Signed(token_owner).into(),
-					collection_id,
-					i.try_into().unwrap()
-				));
+			// accept the issuance
+			assert_ok!(Sft::accept_issuance(
+				RawOrigin::Signed(token_owner).into(),
+				collection_id,
+				0
+			));
 
-				// assert ownership
-				assert_eq!(Sft::balance_of(&token_owner, (collection_id, *serial_number)), balance);
+			// assert ownership
+			for serial_number in 0..5 {
+				assert_eq!(Sft::balance_of(&token_owner, (collection_id, serial_number)), balance);
 			}
 		});
 	}

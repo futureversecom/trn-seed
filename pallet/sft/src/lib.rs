@@ -138,7 +138,11 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		CollectionUuid,
-		SftCollectionPendingIssuances<T::AccountId, T::MaxSftPendingIssuances>,
+		SftCollectionPendingIssuances<
+			T::AccountId,
+			T::MaxSerialsPerMint,
+			T::MaxSftPendingIssuances,
+		>,
 		ValueQuery,
 	>;
 
@@ -251,13 +255,15 @@ pub mod pallet {
 		PendingIssuanceCreated {
 			collection_id: CollectionUuid,
 			issuance_id: u32,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
+			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			token_owner: T::AccountId,
 		},
 		/// Soulbound tokens were successfully issued
 		Issued {
 			token_owner: T::AccountId,
-			token_id: TokenId,
-			balance: Balance,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
+			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
 		},
 	}
 
@@ -721,7 +727,7 @@ pub mod pallet {
 			<PendingIssuances<T>>::try_mutate(
 				collection_id,
 				|pending_issuances| -> DispatchResult {
-					for (serial_number, balance) in serial_numbers.iter() {
+					for (serial_number, _) in serial_numbers.iter() {
 						// ensure burn authority has been pre declared
 						ensure!(
 							<TokenUtilityFlags<T>>::get((collection_id, serial_number))
@@ -729,17 +735,21 @@ pub mod pallet {
 								.is_some(),
 							Error::<T>::NoBurnAuthority
 						);
-
-						let issuance_id = pending_issuances
-							.insert_pending_issuance(&token_owner, *serial_number, *balance)
-							.map_err(Error::<T>::from)?;
-
-						Self::deposit_event(Event::<T>::PendingIssuanceCreated {
-							collection_id,
-							issuance_id,
-							token_owner: token_owner.clone(),
-						});
 					}
+
+					let issuance_id = pending_issuances
+						.insert_pending_issuance(&token_owner, serial_numbers.clone())
+						.map_err(Error::<T>::from)?;
+
+					let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
+
+					Self::deposit_event(Event::<T>::PendingIssuanceCreated {
+						collection_id,
+						issuance_id,
+						serial_numbers,
+						balances,
+						token_owner: token_owner.clone(),
+					});
 
 					Ok(())
 				},
@@ -763,23 +773,23 @@ pub mod pallet {
 				.get_pending_issuance(&who, issuance_id)
 				.ok_or(Error::<T>::InvalidPendingIssuance)?;
 
-			let mut serial_numbers = BoundedVec::new();
-			serial_numbers.force_push((pending_issuance.serial_number, pending_issuance.balance));
-
 			let sft_collection_info =
 				SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 			Self::do_mint(
 				sft_collection_info.collection_owner,
 				collection_id,
-				serial_numbers,
+				pending_issuance.serial_numbers.clone(),
 				Some(who.clone()),
 			)?;
 
+			let (serial_numbers, balances) =
+				Self::unzip_serial_numbers(pending_issuance.serial_numbers);
+
 			Self::deposit_event(Event::<T>::Issued {
 				token_owner: who.clone(),
-				token_id: (collection_id, pending_issuance.serial_number),
-				balance: pending_issuance.balance,
+				serial_numbers,
+				balances,
 			});
 
 			// remove the pending issuance
