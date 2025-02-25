@@ -5858,6 +5858,7 @@ dependencies = [
  "pallet-evm",
  "pallet-fee-control",
  "pallet-futurepass",
+ "pallet-partner-attribution",
  "pallet-proxy",
  "pallet-sylo-data-verification",
  "pallet-timestamp",
