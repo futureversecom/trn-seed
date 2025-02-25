@@ -244,6 +244,7 @@ pub enum PendingIssuanceError {
 	PendingIssuanceLimitExceeded,
 }
 
+/// The state of a collection's pending issuances
 #[derive(
 	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
@@ -266,10 +267,13 @@ where
 	AccountId: Debug + PartialEq + Clone,
 	MaxPendingIssuances: Get<u32>,
 {
+	/// Creates a new instance of `CollectionPendingIssuances` with the next
+	/// issuance id set to 0, and an empty list of pending issuances
 	pub fn new() -> Self {
 		CollectionPendingIssuances { next_issuance_id: 0, pending_issuances: BoundedVec::new() }
 	}
 
+	/// Inserts a new pending issuance for a token owner
 	pub fn insert_pending_issuance(
 		&mut self,
 		token_owner: &AccountId,
@@ -300,6 +304,7 @@ where
 		Ok(issuance_id)
 	}
 
+	/// Gets the pending issuance by the token owner and issuance id
 	pub fn get_pending_issuance(
 		&self,
 		token_owner: &AccountId,
@@ -316,6 +321,7 @@ where
 		Some(pending_issuance.clone())
 	}
 
+	/// Removes a pending issuance for a token owner
 	pub fn remove_pending_issuance(&mut self, token_owner: &AccountId, issuance_id: IssuanceId) {
 		for account_pending_issuance in self.pending_issuances.iter_mut() {
 			if &account_pending_issuance.0 != token_owner {
@@ -327,6 +333,7 @@ where
 		}
 	}
 
+	/// Gets all pending issuances for a token owner
 	pub fn get_pending_issuances(&self, token_owner: &AccountId) -> Vec<PendingIssuance> {
 		if let Some(account_pending_issuances) = self
 			.pending_issuances

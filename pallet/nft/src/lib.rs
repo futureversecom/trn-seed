@@ -566,25 +566,21 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			ensure!(quantity <= T::MintLimit::get(), Error::<T>::MintLimitExceeded);
-			// minting flag must be enabled on the collection
-			ensure!(<UtilityFlags<T>>::get(collection_id).mintable, Error::<T>::MintUtilityBlocked);
-
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
 			let public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
+			// Caller must be collection_owner if public mint is disabled
+			ensure!(
+				collection_info.is_collection_owner(&who) || public_mint_info.enabled,
+				Error::<T>::PublicMintDisabled
+			);
 
 			// Perform pre mint checks
-			let serial_numbers =
-				Self::pre_mint(&who, quantity, &collection_info, public_mint_info.enabled)?;
-			let owner = token_owner.unwrap_or(who.clone());
+			let serial_numbers = Self::pre_mint(collection_id, &mut collection_info, quantity)?;
 			let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
 			let metadata_scheme = collection_info.metadata_scheme.clone();
-
-			// Increment next serial number
-			let next_serial_number = collection_info.next_serial_number;
-			collection_info.next_serial_number =
-				next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
+			let owner = token_owner.unwrap_or(who.clone());
 
 			// Only charge mint fee if public mint enabled and caller is not collection owner
 			if public_mint_info.enabled && !collection_info.is_collection_owner(&who) {
@@ -846,18 +842,15 @@ pub mod pallet {
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
+			let next_serial_number = collection_info.next_serial_number;
+
 			// Perform pre mint checks
 			// Note: We validate this mint as if it was being performed
 			// by the owner.
-			let serial_numbers =
-				Self::pre_mint(&collection_info.owner, quantity, &collection_info, false)?;
+			let serial_numbers = Self::pre_mint(collection_id, &mut collection_info, quantity)?;
+			let collection_owner = collection_info.owner.clone();
 			let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
 			let metadata_scheme = collection_info.metadata_scheme.clone();
-
-			// Increment next serial number
-			let next_serial_number = collection_info.next_serial_number;
-			collection_info.next_serial_number =
-				next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
 
 			// Perform the mint and update storage
 			Self::do_mint(collection_id, collection_info, &who, &serial_numbers)?;
@@ -866,15 +859,19 @@ pub mod pallet {
 			if xls20_compatible {
 				// Pay XLS20 mint fee and send requests
 				T::Xls20MintRequest::request_xls20_mint(
-					&who,
+					&collection_owner,
 					collection_id,
 					serial_numbers.clone().into_inner(),
 					metadata_scheme,
 				)?;
 			}
 
-			// Request NFI storage if enabled
-			T::NFIRequest::request(&who, collection_id, serial_numbers.clone().into_inner())?;
+			// Request NFI storage if enabled as collection owner
+			T::NFIRequest::request(
+				&collection_owner,
+				collection_id,
+				serial_numbers.clone().into_inner(),
+			)?;
 
 			let token_id = (collection_id, next_serial_number);
 

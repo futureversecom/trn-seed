@@ -204,25 +204,23 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Perform validity checks on collection_info
-	/// Return bounded vec of serial numbers to mint
+	/// Perform validity checks on collection_info.
+	/// Returns a bounded vec of serial numbers to mint.
 	pub fn pre_mint(
-		who: &T::AccountId,
-		quantity: TokenCount,
-		collection_info: &CollectionInformation<
+		collection_id: CollectionUuid,
+		collection_info: &mut CollectionInformation<
 			T::AccountId,
 			T::MaxTokensPerCollection,
 			T::StringLimit,
 		>,
-		public_mint_enabled: bool,
+		quantity: TokenCount,
 	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
+		ensure!(quantity <= T::MintLimit::get(), Error::<T>::MintLimitExceeded);
+		// minting flag must be enabled on the collection
+		ensure!(<UtilityFlags<T>>::get(collection_id).mintable, Error::<T>::MintUtilityBlocked);
+
 		// Quantity must be some
 		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
-		// Caller must be collection_owner if public mint is disabled
-		ensure!(
-			collection_info.is_collection_owner(who) || public_mint_enabled,
-			Error::<T>::PublicMintDisabled
-		);
 		// Check we don't exceed the token limit
 		ensure!(
 			collection_info.collection_issuance.saturating_add(quantity)
@@ -255,6 +253,12 @@ impl<T: Config> Pallet<T> {
 		let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
 			BoundedVec::try_from(serial_numbers_unbounded)
 				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+
+		// Increment next serial number
+		let next_serial_number = collection_info.next_serial_number;
+		collection_info.next_serial_number =
+			next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
+
 		Ok(serial_numbers)
 	}
 
