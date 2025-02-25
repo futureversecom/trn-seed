@@ -3095,7 +3095,7 @@ mod soulbound_token {
 		let issuance_id = PendingIssuances::<Test>::get(collection_id).next_issuance_id;
 		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
 
-		assert_ok!(Nft::issue(
+		assert_ok!(Nft::issue_soulbound(
 			RawOrigin::Signed(collection_owner).into(),
 			collection_id,
 			1,
@@ -3125,7 +3125,7 @@ mod soulbound_token {
 
 			let quantity = 1;
 
-			assert_ok!(Nft::issue(
+			assert_ok!(Nft::issue_soulbound(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				quantity,
@@ -3183,7 +3183,7 @@ mod soulbound_token {
 			let burn_authority = TokenBurnAuthority::TokenOwner;
 
 			let quantity = 5;
-			assert_ok!(Nft::issue(
+			assert_ok!(Nft::issue_soulbound(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				quantity,
@@ -3270,7 +3270,7 @@ mod soulbound_token {
 
 			let issuance_id = 0;
 
-			assert_ok!(Nft::issue(
+			assert_ok!(Nft::issue_soulbound(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				1,

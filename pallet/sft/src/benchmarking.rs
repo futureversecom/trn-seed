@@ -102,7 +102,7 @@ pub fn issue_token<T: Config>(owner: T::AccountId, receiver: T::AccountId) -> To
 		TokenBurnAuthority::Both,
 	));
 
-	assert_ok!(Sft::<T>::issue(
+	assert_ok!(Sft::<T>::issue_soulbound(
 		origin::<T>(&owner).into(),
 		collection_id,
 		BoundedVec::try_from(vec![(serial_number, 1)]).unwrap(),
@@ -306,7 +306,7 @@ benchmarks! {
 		assert_eq!(TokenUtilityFlags::<T>::get(token_id).burn_authority, Some(burn_authority));
 	}
 
-	issue {
+	issue_soulbound {
 		let p in 1 .. T::MaxSerialsPerMint::get();
 
 		let owner = account::<T>("Alice");

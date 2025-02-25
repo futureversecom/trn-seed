@@ -63,7 +63,7 @@ pub trait WeightInfo {
 	fn set_token_name() -> Weight;
 	fn set_token_transferable_flag() -> Weight;
 	fn set_token_burn_authority() -> Weight;
-	fn issue(p: u32, ) -> Weight;
+	fn issue_soulbound(p: u32, ) -> Weight;
 	fn accept_issuance() -> Weight;
 	fn burn_as_owner() -> Weight;
 }
@@ -246,7 +246,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Sft::TokenUtilityFlags` (r:999 w:0)
 	// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 1000]`.
-	fn issue(p: u32, ) -> Weight {
+	fn issue_soulbound(p: u32, ) -> Weight {
 		Weight::from_all(22_000_000)
 			// Standard Error: 11_701
 			.saturating_add(Weight::from_all(6_930_047_u64).saturating_mul(p as u64))
@@ -461,7 +461,7 @@ impl WeightInfo for () {
 	// Storage: `Sft::TokenUtilityFlags` (r:999 w:0)
 	// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 1000]`.
-	fn issue(p: u32, ) -> Weight {
+	fn issue_soulbound(p: u32, ) -> Weight {
 		Weight::from_all(22_000_000)
 			// Standard Error: 11_701
 			.saturating_add(Weight::from_all(6_930_047_u64).saturating_mul(p as u64))

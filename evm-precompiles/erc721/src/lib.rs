@@ -121,7 +121,7 @@ pub enum Action {
 	// ERC165 - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/introspection/ERC165.sol
 	SupportsInterface = "supportsInterface(bytes4)",
 	// ERC5484 Soulbound tokens
-	Issue = "issue(address,uint32,uint8)",
+	IssueSoulbound = "issueSoulbound(address,uint32,uint8)",
 	AcceptIssuance = "acceptIssuance(uint32)",
 	PendingIssuances = "pendingIssuances(address)",
 	BurnAuth = "burnAuth(uint256)",
@@ -248,7 +248,7 @@ where
 						// ERC165
 						Action::SupportsInterface => Self::supports_interface(handle),
 						// ERC5484
-						Action::Issue => Self::issue(collection_id, handle),
+						Action::IssueSoulbound => Self::issue_soulbound(collection_id, handle),
 						Action::PendingIssuances => Self::pending_issuances(collection_id, handle),
 						Action::AcceptIssuance => Self::accept_issuance(collection_id, handle),
 						Action::BurnAuth => Self::burn_auth(collection_id, handle),
@@ -1179,7 +1179,7 @@ where
 		Ok(succeed(EvmDataWriter::new().write(true).build()))
 	}
 
-	fn issue(
+	fn issue_soulbound(
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
@@ -1220,7 +1220,7 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin.into()).into(),
-			pallet_nft::Call::<Runtime>::issue {
+			pallet_nft::Call::<Runtime>::issue_soulbound {
 				collection_id,
 				quantity,
 				token_owner: to.into(),

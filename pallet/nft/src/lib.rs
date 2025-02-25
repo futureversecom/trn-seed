@@ -780,9 +780,9 @@ pub mod pallet {
 		/// Issue a soulbound token. The issuance will be pending until the
 		/// token owner accepts the issuance.
 		#[pallet::call_index(14)]
-		#[pallet::weight(T::WeightInfo::issue(*quantity))]
+		#[pallet::weight(T::WeightInfo::issue_soulbound())]
 		#[transactional]
-		pub fn issue(
+		pub fn issue_soulbound(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
 			quantity: TokenCount,

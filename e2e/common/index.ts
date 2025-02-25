@@ -371,7 +371,7 @@ export const ERC721_PRECOMPILE_ABI = [
   "event PendingIssuanceCreated(address indexed to, uint256 issuanceId, uint256 quantity, uint8 burnAuth)",
   "event Issued(address indexed from, address indexed to, uint256 indexed tokenId, uint8 burnAuth)",
 
-  "function issue(address,uint32,uint8)",
+  "function issueSoulbound(address,uint32,uint8)",
   "function acceptIssuance(uint32)",
   "function pendingIssuances(address) external view returns (uint256[] memory, (uint256 quantity, uint8)[] memory)",
   "function burnAuth(uint256) external view returns (uint8)",
@@ -427,7 +427,7 @@ export const ERC1155_PRECOMPILE_ABI = [
   "event Issued(address indexed from, address indexed to, uint256 indexed tokenId, uint8 burnAuth)",
 
   "function setBurnAuth(uint256,uint8)",
-  "function issue(address,uint256[],uint256[])",
+  "function issueSoulbound(address,uint256[],uint256[])",
   "function acceptIssuance(uint32)",
   "function pendingIssuances(address) external view returns (uint256[] memory,(uint256[] memory,uint256[] memory,uint8[] memory)[] memory)",
   "function burnAuth(uint256) external view returns (uint8)",

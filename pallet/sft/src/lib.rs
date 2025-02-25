@@ -710,9 +710,9 @@ pub mod pallet {
 		/// Issue a soulbound token. The issuance will be pending until the
 		/// token owner accepts the issuance.
 		#[pallet::call_index(17)]
-		#[pallet::weight(T::WeightInfo::issue(serial_numbers.len() as u32))]
+		#[pallet::weight(T::WeightInfo::issue_soulbound(serial_numbers.len() as u32))]
 		#[transactional]
-		pub fn issue(
+		pub fn issue_soulbound(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
 			serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,

@@ -779,7 +779,7 @@ describe("ERC1155 Precompile", function () {
 
     const amounts = tokens.map((_) => 5);
 
-    let receipt = await erc1155Precompile.issue(receiverAddress, tokens, amounts).then((tx: any) => tx.wait());
+    let receipt = await erc1155Precompile.issueSoulbound(receiverAddress, tokens, amounts).then((tx: any) => tx.wait());
 
     expect(receipt).to.emit(erc1155Precompile, "PendingIssuanceCreated").withArgs(receiverAddress, 0, tokens, amounts);
 

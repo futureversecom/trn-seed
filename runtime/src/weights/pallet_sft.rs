@@ -288,7 +288,7 @@ impl<T: frame_system::Config> pallet_sft::WeightInfo for WeightInfo<T> {
 	/// Storage: `Sft::TokenUtilityFlags` (r:999 w:0)
 	/// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 1000]`.
-	fn issue(p: u32, ) -> Weight {
+	fn issue_soulbound(p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `256 + p * (22 ±0)`
 		//  Estimated: `3949 + p * (2494 ±0)`

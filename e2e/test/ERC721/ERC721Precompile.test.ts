@@ -737,7 +737,9 @@ describe("ERC721 Precompile", function () {
   it("can issue and accept soulbound tokens", async () => {
     const receiverAddress = alithSigner.address;
     const quantity = 3;
-    let receipt = await erc721Precompile.issue(receiverAddress, quantity, BurnAuth.Both).then((tx: any) => tx.wait());
+    let receipt = await erc721Precompile
+      .issueSoulbound(receiverAddress, quantity, BurnAuth.Both)
+      .then((tx: any) => tx.wait());
 
     expect(receipt)
       .to.emit(erc721Precompile, "PendingIssuanceCreated")

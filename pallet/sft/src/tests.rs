@@ -3047,7 +3047,7 @@ mod soulbound_token {
 
 		let issuance_id = 0;
 
-		assert_ok!(Sft::issue(
+		assert_ok!(Sft::issue_soulbound(
 			RawOrigin::Signed(collection_owner).into(),
 			collection_id,
 			BoundedVec::try_from(vec![(serial_number, balance)]).unwrap(),
@@ -3159,7 +3159,7 @@ mod soulbound_token {
 
 			let serial_numbers = BoundedVec::try_from(vec![(serial_number, balance)]).unwrap();
 
-			assert_ok!(Sft::issue(
+			assert_ok!(Sft::issue_soulbound(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				serial_numbers.clone(),
@@ -3239,7 +3239,7 @@ mod soulbound_token {
 			}
 
 			// issue the tokens
-			assert_ok!(Sft::issue(
+			assert_ok!(Sft::issue_soulbound(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				tokens.clone(),
@@ -3304,7 +3304,7 @@ mod soulbound_token {
 
 			let issuance_id = 0;
 
-			assert_ok!(Sft::issue(
+			assert_ok!(Sft::issue_soulbound(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
 				BoundedVec::try_from(vec![(serial_number, 1)]).unwrap(),

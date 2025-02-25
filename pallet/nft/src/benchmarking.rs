@@ -146,7 +146,7 @@ benchmarks! {
 		assert_eq!(TokenUtilityFlags::<T>::get(token_id).transferable, true);
 	}
 
-	issue {
+	issue_soulbound {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 1, account::<T>("Bob"), TokenBurnAuthority::Both)
 	verify {
@@ -166,7 +166,7 @@ benchmarks! {
 
 		let receiver = account::<T>("Bob");
 
-		assert_ok!(Nft::<T>::issue(
+		assert_ok!(Nft::<T>::issue_soulbound(
 			origin::<T>(&account::<T>("Alice")).into(),
 			collection_id,
 			1,

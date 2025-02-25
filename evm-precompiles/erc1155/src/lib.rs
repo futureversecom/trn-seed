@@ -127,7 +127,7 @@ pub enum Action {
 	SupportsInterface = "supportsInterface(bytes4)",
 	// ERC5484 Soulbound tokens
 	SetBurnAuth = "setBurnAuth(uint256,uint8)",
-	Issue = "issue(address,uint256[],uint256[])",
+	IssueSoulbound = "issueSoulbound(address,uint256[],uint256[])",
 	AcceptIssuance = "acceptIssuance(uint32)",
 	PendingIssuances = "pendingIssuances(address)",
 	BurnAsOwner = "burnAsOwner(address,uint256[],uint256[])",
@@ -239,7 +239,7 @@ where
 						Action::SupportsInterface => Self::supports_interface(handle),
 						// ERC5484
 						Action::SetBurnAuth => Self::set_burn_auth(collection_id, handle),
-						Action::Issue => Self::issue(collection_id, handle),
+						Action::IssueSoulbound => Self::issue_soulbound(collection_id, handle),
 						Action::AcceptIssuance => Self::accept_issuance(collection_id, handle),
 						Action::PendingIssuances => Self::pending_issuances(collection_id, handle),
 						Action::BurnAuth => Self::burn_auth(collection_id, handle),
@@ -1242,7 +1242,7 @@ where
 		Ok(succeed([]))
 	}
 
-	fn issue(
+	fn issue_soulbound(
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
@@ -1293,7 +1293,7 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin.into()).into(),
-			pallet_sft::Call::<Runtime>::issue {
+			pallet_sft::Call::<Runtime>::issue_soulbound {
 				collection_id,
 				serial_numbers,
 				token_owner: receiver.into(),
