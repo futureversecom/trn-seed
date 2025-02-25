@@ -17,7 +17,7 @@ use crate::*;
 use frame_support::{ensure, traits::tokens::Preservation};
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
-	utils::{PublicMintInformation, TokenBurnAuthority},
+	utils::{HasBurnAuthority, PublicMintInformation},
 	NFIRequest, SFTExt,
 };
 use seed_primitives::{CollectionUuid, MAX_COLLECTION_ENTITLEMENTS};
@@ -313,26 +313,14 @@ impl<T: Config> Pallet<T> {
 			if let Some(burn_authority) =
 				TokenUtilityFlags::<T>::get((collection_id, serial_number)).burn_authority
 			{
-				match burn_authority {
-					TokenBurnAuthority::TokenOwner => {
-						ensure!(who == token_owner, Error::<T>::InvalidBurnAuthority);
-					},
-					TokenBurnAuthority::CollectionOwner => {
-						ensure!(
-							*who == collection_info.collection_owner,
-							Error::<T>::InvalidBurnAuthority
-						);
-					},
-					TokenBurnAuthority::Both => {
-						ensure!(
-							who == token_owner || *who == collection_info.collection_owner,
-							Error::<T>::InvalidBurnAuthority
-						);
-					},
-					TokenBurnAuthority::Neither => {
-						Err(Error::<T>::InvalidBurnAuthority)?;
-					},
-				}
+				ensure!(
+					burn_authority.has_burn_authority(
+						&collection_info.collection_owner,
+						token_owner,
+						who
+					),
+					Error::<T>::InvalidBurnAuthority
+				);
 			} else {
 				ensure!(who == token_owner, Error::<T>::InvalidBurnAuthority);
 			}

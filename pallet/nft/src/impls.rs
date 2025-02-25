@@ -23,7 +23,7 @@ use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	log,
-	utils::{next_asset_uuid, PublicMintInformation, TokenBurnAuthority},
+	utils::{next_asset_uuid, HasBurnAuthority, PublicMintInformation},
 	NFTExt, NFTMinter, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{
@@ -536,32 +536,21 @@ impl<T: Config> Pallet<T> {
 			let collection_info =
 				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
 
-			let is_token_owner = collection_info.is_token_owner(who, serial_number);
+			let token_owner = collection_info
+				.get_token_owner(serial_number)
+				.ok_or(Error::<T>::InvalidBurnAuthority)?;
 
 			if let Some(burn_authority) =
 				TokenUtilityFlags::<T>::get((collection_id, serial_number)).burn_authority
 			{
 				let is_collection_owner = collection_info.is_collection_owner(who);
 
-				match burn_authority {
-					TokenBurnAuthority::TokenOwner => {
-						ensure!(is_token_owner, Error::<T>::InvalidBurnAuthority);
-					},
-					TokenBurnAuthority::CollectionOwner => {
-						ensure!(is_collection_owner, Error::<T>::InvalidBurnAuthority);
-					},
-					TokenBurnAuthority::Both => {
-						ensure!(
-							is_token_owner || is_collection_owner,
-							Error::<T>::InvalidBurnAuthority
-						);
-					},
-					TokenBurnAuthority::Neither => {
-						Err(Error::<T>::InvalidBurnAuthority)?;
-					},
-				}
+				ensure!(
+					burn_authority.has_burn_authority(&collection_info.owner, &token_owner, who,),
+					Error::<T>::InvalidBurnAuthority
+				);
 			} else {
-				ensure!(is_token_owner, Error::<T>::NotTokenOwner);
+				ensure!(who == &token_owner, Error::<T>::NotTokenOwner);
 			}
 
 			collection_info.collection_issuance =
