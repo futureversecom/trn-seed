@@ -16,7 +16,10 @@
 use crate::*;
 use frame_support::{ensure, traits::tokens::Preservation};
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
-use seed_pallet_common::{utils::PublicMintInformation, NFIRequest, SFTExt};
+use seed_pallet_common::{
+	utils::{HasBurnAuthority, PublicMintInformation},
+	NFIRequest, SFTExt,
+};
 use seed_primitives::{CollectionUuid, MAX_COLLECTION_ENTITLEMENTS};
 use sp_runtime::{traits::Zero, DispatchError};
 
@@ -169,20 +172,16 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Perform the mint operation and increase the quantity of the user
-	/// Note there is one storage read and write per serial number minted
-	pub fn do_mint(
+	/// Perform some validation checks to ensure minting of the specified
+	/// tokens is allowed.
+	pub fn pre_mint(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
+		collection_info: SftCollectionInformation<T::AccountId, T::StringLimit>,
 		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
-		token_owner: Option<T::AccountId>,
 	) -> DispatchResult {
 		// Must be some serial numbers to mint
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
-
-		let sft_collection_info =
-			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-		let owner = token_owner.unwrap_or(who.clone());
 
 		// minting flag must be enabled on the collection
 		ensure!(<UtilityFlags<T>>::get(collection_id).mintable, Error::<T>::MintUtilityBlocked);
@@ -195,24 +194,13 @@ impl<T: Config> Pallet<T> {
 
 			let public_mint_info = <PublicMintInfo<T>>::get(token_id).unwrap_or_default();
 
-			// Only charge mint fee if public mint enabled and caller is not collection owner
-			if public_mint_info.enabled && sft_collection_info.collection_owner != who {
-				// Charge the mint fee for the mint
-				Self::charge_mint_fee(
-					&who,
-					token_id,
-					&sft_collection_info.collection_owner,
-					public_mint_info,
-					*quantity,
-				)?;
-			}
-
 			// Caller must be collection_owner if public mint is disabled
 			ensure!(
-				sft_collection_info.collection_owner == who || public_mint_info.enabled,
+				collection_info.collection_owner == who || public_mint_info.enabled,
 				Error::<T>::PublicMintDisabled
 			);
-			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
+
+			let token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 			// Check for overflow
 			ensure!(
 				token_info.token_issuance.checked_add(*quantity).is_some(),
@@ -226,15 +214,46 @@ impl<T: Config> Pallet<T> {
 					Error::<T>::MaxIssuanceReached
 				);
 			}
+		}
+
+		Ok(())
+	}
+
+	/// Perform the mint operation and increase the quantity of the user
+	/// Note there is one storage read and write per serial number minted
+	pub fn do_mint(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		collection_info: SftCollectionInformation<T::AccountId, T::StringLimit>,
+		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
+		token_owner: Option<T::AccountId>,
+	) -> DispatchResult {
+		let owner = token_owner.unwrap_or(who.clone());
+
+		for (serial_number, quantity) in &serial_numbers {
+			let token_id: TokenId = (collection_id, *serial_number);
+
+			let public_mint_info = <PublicMintInfo<T>>::get(token_id).unwrap_or_default();
+
+			// Only charge mint fee if public mint enabled and caller is not collection owner
+			if public_mint_info.enabled && collection_info.collection_owner != who {
+				// Charge the mint fee for the mint
+				Self::charge_mint_fee(
+					&who,
+					token_id,
+					&collection_info.collection_owner,
+					public_mint_info,
+					*quantity,
+				)?;
+			}
+
+			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 
 			// Add the balance
 			token_info.add_balance(&owner, *quantity).map_err(Error::<T>::from)?;
 			token_info.token_issuance += quantity;
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
-
-		let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
-		Self::deposit_event(Event::<T>::Mint { collection_id, serial_numbers, balances, owner });
 
 		Ok(())
 	}
@@ -260,6 +279,13 @@ impl<T: Config> Pallet<T> {
 		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
 			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
+
+			let token_utility_flags = <TokenUtilityFlags<T>>::get((collection_id, serial_number));
+			ensure!(token_utility_flags.transferable, Error::<T>::TransferUtilityBlocked);
+			ensure!(
+				token_utility_flags.burn_authority.is_none(),
+				Error::<T>::TransferUtilityBlocked
+			);
 
 			let token_id: TokenId = (collection_id, *serial_number);
 			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
@@ -287,7 +313,8 @@ impl<T: Config> Pallet<T> {
 	/// Note there is one storage read and write per serial number burned
 	#[transactional]
 	pub fn do_burn(
-		who: T::AccountId,
+		who: &T::AccountId,
+		token_owner: &T::AccountId,
 		collection_id: CollectionUuid,
 		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 	) -> DispatchResult {
@@ -295,15 +322,33 @@ impl<T: Config> Pallet<T> {
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 		ensure!(<UtilityFlags<T>>::get(collection_id).burnable, Error::<T>::BurnUtilityBlocked);
 
+		let collection_info =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
 		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
 			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
+
+			if let Some(burn_authority) =
+				TokenUtilityFlags::<T>::get((collection_id, serial_number)).burn_authority
+			{
+				ensure!(
+					burn_authority.has_burn_authority(
+						&collection_info.collection_owner,
+						token_owner,
+						who
+					),
+					Error::<T>::InvalidBurnAuthority
+				);
+			} else {
+				ensure!(who == token_owner, Error::<T>::InvalidBurnAuthority);
+			}
 
 			let token_id: TokenId = (collection_id, *serial_number);
 			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 
 			// Burn the balance
-			token_info.remove_balance(&who, *quantity).map_err(Error::<T>::from)?;
+			token_info.remove_balance(token_owner, *quantity).map_err(Error::<T>::from)?;
 			token_info.token_issuance = token_info.token_issuance.saturating_sub(*quantity);
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
@@ -313,7 +358,7 @@ impl<T: Config> Pallet<T> {
 			collection_id,
 			serial_numbers,
 			balances,
-			owner: who,
+			owner: token_owner.clone(),
 		});
 
 		Ok(())
@@ -461,7 +506,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Unzips the bounded vec of tuples (SerialNumber, Balance)
 	/// into two bounded vecs of SerialNumber and Balance
-	fn unzip_serial_numbers(
+	pub fn unzip_serial_numbers(
 		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 	) -> (BoundedVec<SerialNumber, T::MaxSerialsPerMint>, BoundedVec<Balance, T::MaxSerialsPerMint>)
 	{

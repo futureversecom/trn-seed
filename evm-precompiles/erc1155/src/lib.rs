@@ -30,6 +30,7 @@ use precompile_utils::{
 	constants::{ERC1155_PRECOMPILE_ADDRESS_PREFIX, ERC20_PRECOMPILE_ADDRESS_PREFIX},
 	prelude::*,
 };
+use seed_pallet_common::utils::TokenBurnAuthority;
 use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId};
 use sp_core::{Encode, H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
@@ -72,6 +73,11 @@ pub const SELECTOR_LOG_PUBLIC_MINT_TOGGLED: [u8; 32] = keccak256!("PublicMintTog
 
 pub const SELECTOR_LOG_MINT_FEE_UPDATED: [u8; 32] =
 	keccak256!("MintFeeUpdated(uint32,address,uint128)");
+
+pub const SELECTOR_PENDING_ISSUANCE_CREATED: [u8; 32] =
+	keccak256!("PendingIssuanceCreated(address,uint256,uint256[],uint256[])");
+
+pub const SELECTOR_ISSUED: [u8; 32] = keccak256!("Issued(address,address,uint256,uint8)");
 
 /// Interface IDs for the ERC165, ERC1155, ERC1155Burnable, ERC1155Supply, ERC1155MetadataURI, Ownable and TRN1155 interfaces
 pub const ERC165_INTERFACE_IDS: &[u32] = &[
@@ -119,6 +125,13 @@ pub enum Action {
 	OnErc1155BatchReceived = "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)",
 	// ERC165 - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/introspection/ERC165.sol
 	SupportsInterface = "supportsInterface(bytes4)",
+	// ERC5484 Soulbound tokens
+	SetBurnAuth = "setBurnAuth(uint256,uint8)",
+	IssueSoulbound = "issueSoulbound(address,uint256[],uint256[])",
+	AcceptSoulboundIssuance = "acceptSouldboundIssuance(uint32)",
+	PendingIssuances = "pendingIssuances(address)",
+	BurnAsCollectionOwner = "burnAsCollectionOwner(address,uint256[],uint256[])",
+	BurnAuth = "burnAuth(uint256)",
 }
 
 /// The following distribution has been decided for the precompiles
@@ -224,6 +237,17 @@ where
 						Action::SetMintFee => Self::set_mint_fee(collection_id, handle),
 						// ERC165
 						Action::SupportsInterface => Self::supports_interface(handle),
+						// ERC5484
+						Action::SetBurnAuth => Self::set_burn_auth(collection_id, handle),
+						Action::IssueSoulbound => Self::issue_soulbound(collection_id, handle),
+						Action::AcceptSoulboundIssuance => {
+							Self::accept_soulbound_issuance(collection_id, handle)
+						},
+						Action::PendingIssuances => Self::pending_issuances(collection_id, handle),
+						Action::BurnAuth => Self::burn_auth(collection_id, handle),
+						Action::BurnAsCollectionOwner => {
+							Self::burn_as_collection_owner(collection_id, handle)
+						},
 						_ => return Some(Err(revert("ERC1155: Function not implemented"))),
 					}
 				};
@@ -1179,6 +1203,317 @@ where
 		.record(handle)?;
 
 		Ok(succeed([]))
+	}
+
+	fn set_burn_auth(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				token_id: U256, burn_authority: u8
+			}
+		);
+
+		if token_id > SerialNumber::MAX.into() {
+			return Err(revert("ERC1155: Expected token id <= 2^32"));
+		}
+		let token_id: SerialNumber = token_id.saturated_into();
+
+		if burn_authority > u8::MAX.into() {
+			return Err(revert("ERC1155: Expected burn authority <= 2^8"));
+		}
+		let burn_authority = match TokenBurnAuthority::try_from(burn_authority) {
+			Ok(b) => b,
+			_ => return Err(revert("ERC1155: Could not parse burn authority")),
+		};
+
+		let origin = handle.context().caller;
+
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_sft::Call::<Runtime>::set_token_burn_authority {
+				token_id: (collection_id, token_id),
+				burn_authority,
+			},
+		)?;
+
+		Ok(succeed([]))
+	}
+
+	fn issue_soulbound(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				to: Address, ids: Vec<U256>, amounts: Vec<U256>
+			}
+		);
+
+		let origin = handle.context().caller;
+
+		let receiver = H160::from(to);
+		let serial_numbers: Vec<SerialNumber> = ids
+			.iter()
+			.map(|id| {
+				ensure!(*id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+				Ok((*id).saturated_into())
+			})
+			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
+		let balances: Vec<Balance> = amounts
+			.iter()
+			.map(|amount| {
+				ensure!(
+					*amount <= Balance::MAX.into(),
+					revert("ERC1155: Expected amounts <= 2^128")
+				);
+				Ok((*amount).saturated_into())
+			})
+			.collect::<Result<Vec<Balance>, PrecompileFailure>>()?;
+
+		// Build input BoundedVec from serial_number and amount.
+		let combined = serial_numbers.into_iter().zip(balances).collect::<Vec<_>>();
+		let serial_numbers: BoundedVec<
+			(SerialNumber, Balance),
+			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
+		> = BoundedVec::try_from(combined)
+			.map_err(|_| revert("ERC1155: Too many serial numbers in one issuance"))?;
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let next_issuance_id =
+			pallet_sft::PendingIssuances::<Runtime>::get(collection_id).next_issuance_id;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_sft::Call::<Runtime>::issue_soulbound {
+				collection_id,
+				serial_numbers,
+				token_owner: receiver.into(),
+			},
+		)?;
+
+		log2(
+			handle.code_address(),
+			SELECTOR_PENDING_ISSUANCE_CREATED,
+			receiver,
+			EvmDataWriter::new().write(next_issuance_id).write(ids).write(amounts).build(),
+		)
+		.record(handle)?;
+
+		Ok(succeed([]))
+	}
+
+	fn pending_issuances(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		read_args!(handle, { owner: Address });
+
+		let owner: H160 = owner.into();
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let pending_issuances = pallet_sft::PendingIssuances::<Runtime>::get(collection_id)
+			.get_pending_issuances(&owner.into());
+
+		let issuance_ids = pending_issuances.iter().map(|p| U256::from(p.issuance_id)).collect();
+
+		let issuances: Vec<(Vec<SerialNumber>, Vec<Balance>, Vec<u8>)> = pending_issuances
+			.iter()
+			.map(|p| -> EvmResult<(Vec<SerialNumber>, Vec<Balance>, Vec<u8>)> {
+				let (serial_numbers, balances): (Vec<SerialNumber>, Vec<Balance>) =
+					p.serial_numbers.clone().into_iter().unzip();
+
+				let mut burn_auths = vec![];
+				for serial_number in serial_numbers.iter() {
+					handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+					let burn_auth = match pallet_sft::TokenUtilityFlags::<Runtime>::get((
+						collection_id,
+						*serial_number,
+					))
+					.burn_authority
+					{
+						Some(burn_auth) => burn_auth.into(),
+						_ => 0 as u8,
+					};
+
+					burn_auths.push(burn_auth);
+				}
+
+				Ok((serial_numbers, balances, burn_auths))
+			})
+			.collect::<Vec<Result<_, _>>>()
+			.into_iter()
+			.collect::<Result<_, _>>()?;
+
+		Ok(succeed(EvmDataWriter::new().write::<Vec<U256>>(issuance_ids).write(issuances).build()))
+	}
+
+	fn accept_soulbound_issuance(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		read_args!(handle, { issuance_id: U256 });
+
+		if issuance_id > u32::MAX.into() {
+			return Err(revert("ERC721: Expected issuance id <= 2^32"));
+		}
+		let issuance_id: u32 = issuance_id.saturated_into();
+
+		let origin = handle.context().caller;
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let collection = match pallet_sft::SftCollectionInfo::<Runtime>::get(collection_id) {
+			Some(collection_info) => collection_info,
+			None => return Err(revert("Collection does not exist")),
+		};
+
+		let collection_owner = collection.collection_owner;
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let pending_issuance = match pallet_sft::PendingIssuances::<Runtime>::get(collection_id)
+			.get_pending_issuance(&origin.into(), issuance_id)
+		{
+			Some(pending_issuance) => pending_issuance,
+			None => return Err(revert("Issuance does not exist")),
+		};
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_sft::Call::<Runtime>::accept_soulbound_issuance { collection_id, issuance_id },
+		)?;
+
+		for (serial_number, _) in pending_issuance.serial_numbers {
+			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+			let burn_authority =
+				match pallet_sft::TokenUtilityFlags::<Runtime>::get((collection_id, serial_number))
+					.burn_authority
+				{
+					Some(burn_auth) => burn_auth.into(),
+					_ => 0 as u8,
+				};
+
+			log4(
+				handle.code_address(),
+				SELECTOR_ISSUED,
+				collection_owner.clone().into(),
+				origin,
+				H256::from_low_u64_be(serial_number as u64),
+				EvmDataWriter::new().write(burn_authority).build(),
+			)
+			.record(handle)?;
+		}
+
+		Ok(succeed([]))
+	}
+
+	fn burn_as_collection_owner(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				token_owner: Address, ids: Vec<U256>, amounts: Vec<U256>
+			}
+		);
+
+		let origin = handle.context().caller;
+
+		let token_owner = H160::from(token_owner);
+		let serial_numbers: Vec<SerialNumber> = ids
+			.iter()
+			.map(|id| {
+				ensure!(*id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+				Ok((*id).saturated_into())
+			})
+			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
+		let balances: Vec<Balance> = amounts
+			.iter()
+			.map(|amount| {
+				ensure!(
+					*amount <= Balance::MAX.into(),
+					revert("ERC1155: Expected amounts <= 2^128")
+				);
+				Ok((*amount).saturated_into())
+			})
+			.collect::<Result<Vec<Balance>, PrecompileFailure>>()?;
+
+		// Build input BoundedVec from serial_number and amount.
+		let combined = serial_numbers.into_iter().zip(balances).collect::<Vec<_>>();
+		let serial_numbers: BoundedVec<
+			(SerialNumber, Balance),
+			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
+		> = BoundedVec::try_from(combined)
+			.map_err(|_| revert("ERC1155: Too many serial numbers in one burn"))?;
+
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_sft::Call::<Runtime>::burn_as_collection_owner {
+				token_owner: token_owner.into(),
+				collection_id,
+				serial_numbers,
+			},
+		)?;
+
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER_BATCH,
+			handle.context().caller,
+			token_owner,
+			H160::zero(),
+			EvmDataWriter::new().write(ids).write(amounts).build(),
+		)
+		.record(handle)?;
+
+		Ok(succeed([]))
+	}
+
+	fn burn_auth(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		read_args!(handle, { token_id: U256 });
+
+		if token_id > u32::MAX.into() {
+			return Err(revert("ERC721: Expected token id <= 2^32"));
+		}
+		let token_id: SerialNumber = token_id.saturated_into();
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let burn_auth: u8 =
+			match pallet_sft::TokenUtilityFlags::<Runtime>::get((collection_id, token_id))
+				.burn_authority
+			{
+				Some(burn_authority) => burn_authority.into(),
+				_ => 0, // default to TokenOwner
+			};
+
+		Ok(succeed(EvmDataWriter::new().write(burn_auth).build()))
 	}
 
 	fn supports_interface(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {

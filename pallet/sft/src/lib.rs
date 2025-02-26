@@ -19,7 +19,7 @@
 
 use frame_support::{traits::tokens::fungibles::Mutate, transactional, PalletId};
 use seed_pallet_common::{
-	utils::{CollectionUtilityFlags, PublicMintInformation},
+	utils::{CollectionUtilityFlags, PublicMintInformation, TokenUtilityFlags as TokenFlags},
 	NFIRequest, NFTExt, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{
@@ -53,6 +53,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use seed_pallet_common::utils::TokenBurnAuthority;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -95,6 +96,8 @@ pub mod pallet {
 		type MaxOwnersPerSftToken: Get<u32>;
 		/// Interface for requesting extra meta storage items
 		type NFIRequest: NFIRequest<AccountId = Self::AccountId>;
+		/// Max number of pending issuances for a collection
+		type MaxSftPendingIssuances: Get<u32>;
 	}
 
 	/// Map from collection to its information
@@ -116,6 +119,10 @@ pub mod pallet {
 	pub type UtilityFlags<T> =
 		StorageMap<_, Twox64Concat, CollectionUuid, CollectionUtilityFlags, ValueQuery>;
 
+	/// Map from a token_id to transferable and burn authority flags
+	#[pallet::storage]
+	pub type TokenUtilityFlags<T> = StorageMap<_, Twox64Concat, TokenId, TokenFlags, ValueQuery>;
+
 	/// Map from token to its token information, including ownership information
 	#[pallet::storage]
 	pub type TokenInfo<T: Config> = StorageMap<
@@ -123,6 +130,20 @@ pub mod pallet {
 		Twox64Concat,
 		TokenId,
 		SftTokenInformation<T::AccountId, T::StringLimit, T::MaxOwnersPerSftToken>,
+	>;
+
+	// Map from a collection id to a collection's pending issuances
+	#[pallet::storage]
+	pub type PendingIssuances<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		CollectionUuid,
+		SftCollectionPendingIssuances<
+			T::AccountId,
+			T::MaxSerialsPerMint,
+			T::MaxSftPendingIssuances,
+		>,
+		ValueQuery,
 	>;
 
 	#[pallet::event]
@@ -138,7 +159,10 @@ pub mod pallet {
 			origin_chain: OriginChain,
 		},
 		/// Public minting was enabled/disabled for a collection
-		PublicMintToggle { token_id: TokenId, enabled: bool },
+		PublicMintToggle {
+			token_id: TokenId,
+			enabled: bool,
+		},
 		/// Token(s) were minted
 		Mint {
 			collection_id: CollectionUuid,
@@ -161,15 +185,30 @@ pub mod pallet {
 			mint_price: Option<Balance>,
 		},
 		/// A new owner was set
-		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
+		OwnerSet {
+			collection_id: CollectionUuid,
+			new_owner: T::AccountId,
+		},
 		/// Max issuance was set
-		MaxIssuanceSet { token_id: TokenId, max_issuance: Balance },
+		MaxIssuanceSet {
+			token_id: TokenId,
+			max_issuance: Balance,
+		},
 		/// Base URI was set
-		BaseUriSet { collection_id: CollectionUuid, metadata_scheme: MetadataScheme },
+		BaseUriSet {
+			collection_id: CollectionUuid,
+			metadata_scheme: MetadataScheme,
+		},
 		/// Name was set
-		NameSet { collection_id: CollectionUuid, collection_name: BoundedVec<u8, T::StringLimit> },
+		NameSet {
+			collection_id: CollectionUuid,
+			collection_name: BoundedVec<u8, T::StringLimit>,
+		},
 		/// Token name was set
-		TokenNameSet { token_id: TokenId, token_name: BoundedVec<u8, T::StringLimit> },
+		TokenNameSet {
+			token_id: TokenId,
+			token_name: BoundedVec<u8, T::StringLimit>,
+		},
 		/// Royalties schedule was set
 		RoyaltiesScheduleSet {
 			collection_id: CollectionUuid,
@@ -199,7 +238,33 @@ pub mod pallet {
 			owner: T::AccountId,
 		},
 		/// Utility flags were set for a collection
-		UtilityFlagsSet { collection_id: CollectionUuid, utility_flags: CollectionUtilityFlags },
+		UtilityFlagsSet {
+			collection_id: CollectionUuid,
+			utility_flags: CollectionUtilityFlags,
+		},
+		/// Token transferable flag was set
+		TokenTransferableFlagSet {
+			token_id: TokenId,
+			transferable: bool,
+		},
+		TokenBurnAuthoritySet {
+			token_id: TokenId,
+			burn_authority: TokenBurnAuthority,
+		},
+		/// A pending issuance for a soulbound token has been created
+		PendingIssuanceCreated {
+			collection_id: CollectionUuid,
+			issuance_id: u32,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
+			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			token_owner: T::AccountId,
+		},
+		/// Soulbound tokens were successfully issued
+		Issued {
+			token_owner: T::AccountId,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
+			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
+		},
 	}
 
 	#[pallet::error]
@@ -241,6 +306,24 @@ pub mod pallet {
 		TransferUtilityBlocked,
 		/// Burning has been disabled for tokens within this collection
 		BurnUtilityBlocked,
+		/// The burn authority for has already been and can't be changed
+		BurnAuthorityAlreadySet,
+		/// Attempted to set burn authority for a token that has already
+		/// been issued
+		TokenAlreadyIssued,
+		/// The number of pending issuances has exceeded the max for a collection
+		PendingIssuanceLimitExceeded,
+		/// Attempted to issue a soulbound token where the burn authority
+		/// has not been set
+		NoBurnAuthority,
+		/// Attempted to accept an issuance that does not exist, or is not
+		/// set for the caller
+		InvalidPendingIssuance,
+		/// Attempted to update the token utility flags for a soulbound token
+		CannotUpdateTokenUtility,
+		/// Attempted to burn a token from an account that does not adhere to
+		/// the token's burn authority
+		InvalidBurnAuthority,
 	}
 
 	#[pallet::call]
@@ -324,7 +407,45 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_mint(who, collection_id, serial_numbers, token_owner)
+
+			// tokens with burn authority set should only be minted
+			// through issue/accept_soulbound_issuance
+			ensure!(
+				serial_numbers.iter().all(|(serial_number, _)| {
+					TokenUtilityFlags::<T>::get((collection_id, serial_number))
+						.burn_authority
+						.is_none()
+				}),
+				Error::<T>::BurnAuthorityAlreadySet,
+			);
+
+			let collection_info =
+				<SftCollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
+			Self::pre_mint(
+				who.clone(),
+				collection_id,
+				collection_info.clone(),
+				serial_numbers.clone(),
+			)?;
+
+			Self::do_mint(
+				who.clone(),
+				collection_id,
+				collection_info,
+				serial_numbers.clone(),
+				token_owner.clone(),
+			)?;
+
+			let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
+			Self::deposit_event(Event::<T>::Mint {
+				collection_id,
+				serial_numbers,
+				balances,
+				owner: token_owner.unwrap_or(who),
+			});
+
+			Ok(())
 		}
 
 		/// Transfer ownership of an SFT
@@ -354,7 +475,7 @@ pub mod pallet {
 			serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_burn(who, collection_id, serial_numbers)
+			Self::do_burn(&who, &who, collection_id, serial_numbers)
 		}
 
 		/// Set the owner of a collection
@@ -527,6 +648,202 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_set_token_name(who, token_id, token_name)
+		}
+
+		/// Set transferable flag on a token, allowing or disallowing transfers
+		/// Caller must be the collection owner
+		#[pallet::call_index(14)]
+		#[pallet::weight(T::WeightInfo::set_token_transferable_flag())]
+		#[transactional]
+		pub fn set_token_transferable_flag(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			transferable: bool,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<SftCollectionInfo<T>>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
+
+			// Check if the token exists
+			ensure!(<TokenInfo<T>>::contains_key(token_id), Error::<T>::NoToken);
+
+			TokenUtilityFlags::<T>::mutate(token_id, |flags| {
+				flags.transferable = transferable;
+			});
+
+			Self::deposit_event(Event::<T>::TokenTransferableFlagSet { token_id, transferable });
+			Ok(())
+		}
+
+		/// Set burn authority on a token. This value will be immutable after
+		/// being set.
+		/// Caller must be the collection owner.
+		#[pallet::call_index(15)]
+		#[pallet::weight(T::WeightInfo::set_token_burn_authority())]
+		#[transactional]
+		pub fn set_token_burn_authority(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			burn_authority: TokenBurnAuthority,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<SftCollectionInfo<T>>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
+
+			let token_info = <TokenInfo<T>>::get(token_id).ok_or(Error::<T>::NoToken)?;
+
+			ensure!(token_info.token_issuance == 0, Error::<T>::TokenAlreadyIssued);
+
+			TokenUtilityFlags::<T>::try_mutate(token_id, |flags| -> DispatchResult {
+				ensure!(flags.burn_authority.is_none(), Error::<T>::BurnAuthorityAlreadySet);
+				flags.burn_authority = Some(burn_authority);
+				Ok(())
+			})?;
+
+			Self::deposit_event(Event::<T>::TokenBurnAuthoritySet { token_id, burn_authority });
+			Ok(())
+		}
+
+		/// Burn a token as the collection owner.
+		///
+		/// The burn authority must have already been set and set to either
+		/// the collection owner or both.
+		#[pallet::call_index(16)]
+		#[pallet::weight(T::WeightInfo::burn_as_collection_owner())]
+		#[transactional]
+		pub fn burn_as_collection_owner(
+			origin: OriginFor<T>,
+			token_owner: T::AccountId,
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_burn(&who, &token_owner, collection_id, serial_numbers)
+		}
+
+		/// Issue a soulbound token. The issuance will be pending until the
+		/// token owner accepts the issuance.
+		#[pallet::call_index(17)]
+		#[pallet::weight(T::WeightInfo::issue_soulbound(serial_numbers.len() as u32))]
+		#[transactional]
+		pub fn issue_soulbound(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
+			token_owner: T::AccountId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				<SftCollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			// Only the owner can make this call
+			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
+
+			Self::pre_mint(
+				collection_info.collection_owner.clone(),
+				collection_id,
+				collection_info.clone(),
+				serial_numbers.clone(),
+			)?;
+
+			<PendingIssuances<T>>::try_mutate(
+				collection_id,
+				|pending_issuances| -> DispatchResult {
+					for (serial_number, _) in serial_numbers.iter() {
+						// ensure burn authority has been pre declared
+						ensure!(
+							<TokenUtilityFlags<T>>::get((collection_id, serial_number))
+								.burn_authority
+								.is_some(),
+							Error::<T>::NoBurnAuthority
+						);
+					}
+
+					let issuance_id = pending_issuances
+						.insert_pending_issuance(&token_owner, serial_numbers.clone())
+						.map_err(Error::<T>::from)?;
+
+					let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
+
+					Self::deposit_event(Event::<T>::PendingIssuanceCreated {
+						collection_id,
+						issuance_id,
+						serial_numbers,
+						balances,
+						token_owner: token_owner.clone(),
+					});
+
+					Ok(())
+				},
+			)?;
+
+			Ok(())
+		}
+
+		/// Accept the issuance of a soulbound token.
+		#[pallet::call_index(18)]
+		#[pallet::weight(T::WeightInfo::accept_soulbound_issuance())]
+		#[transactional]
+		pub fn accept_soulbound_issuance(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			issuance_id: u32,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let pending_issuance = <PendingIssuances<T>>::get(collection_id)
+				.get_pending_issuance(&who, issuance_id)
+				.ok_or(Error::<T>::InvalidPendingIssuance)?;
+
+			let sft_collection_info =
+				SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
+			Self::pre_mint(
+				sft_collection_info.collection_owner.clone(),
+				collection_id,
+				sft_collection_info.clone(),
+				pending_issuance.serial_numbers.clone(),
+			)?;
+
+			Self::do_mint(
+				sft_collection_info.collection_owner.clone(),
+				collection_id,
+				sft_collection_info,
+				pending_issuance.serial_numbers.clone(),
+				Some(who.clone()),
+			)?;
+
+			let (serial_numbers, balances) =
+				Self::unzip_serial_numbers(pending_issuance.serial_numbers);
+
+			Self::deposit_event(Event::<T>::Issued {
+				token_owner: who.clone(),
+				serial_numbers,
+				balances,
+			});
+
+			// remove the pending issuance
+			<PendingIssuances<T>>::try_mutate(
+				collection_id,
+				|pending_issuances| -> DispatchResult {
+					pending_issuances.remove_pending_issuance(&who, issuance_id);
+
+					Ok(())
+				},
+			)?;
+
+			Ok(())
+		}
+	}
+}
+
+impl<T: Config> From<SftPendingIssuanceError> for Error<T> {
+	fn from(val: SftPendingIssuanceError) -> Error<T> {
+		match val {
+			SftPendingIssuanceError::PendingIssuanceLimitExceeded => {
+				Error::<T>::PendingIssuanceLimitExceeded
+			},
 		}
 	}
 }

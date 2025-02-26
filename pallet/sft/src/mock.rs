@@ -40,6 +40,7 @@ parameter_types! {
 	pub const MaxTokensPerSftCollection: u32 = 10_000;
 	pub const MaxSerialsPerMint: u32 = 10;
 	pub const MaxOwnersPerSftToken: u32 = 100;
+	pub const MaxSftPendingIssuances: u32 = 10_000;
 }
 
 impl Config for Test {
@@ -56,4 +57,5 @@ impl Config for Test {
 	type MaxSerialsPerMint = MaxSerialsPerMint;
 	type MaxOwnersPerSftToken = MaxOwnersPerSftToken;
 	type NFIRequest = ();
+	type MaxSftPendingIssuances = MaxSftPendingIssuances;
 }

@@ -9,6 +9,7 @@ import Web3 from "web3";
 import {
   ALITH_PRIVATE_KEY,
   BOB_PRIVATE_KEY,
+  BurnAuth,
   ERC1155_PRECOMPILE_ABI,
   NodeProcess,
   ROOT_PRECOMPILE_ADDRESS,
@@ -65,7 +66,6 @@ describe("ERC1155 Precompile", function () {
                 erc1155PrecompileAddress = Web3.utils.toChecksumAddress(
                   `0xBBBBBBBB${collection_id_hex}000000000000000000000000`,
                 );
-                console.log(`SFT Collection Address: ${erc1155PrecompileAddress}`);
                 erc1155Precompile = new Contract(erc1155PrecompileAddress, ERC1155_PRECOMPILE_ABI, bobSigner);
                 resolve();
               }
@@ -763,5 +763,62 @@ describe("ERC1155 Precompile", function () {
     // console.log("ERC1155Supply:", erc1155SupplyId);
     // console.log("TRN1155:", trn1155Id);
     // console.log("Ownable:", ownableId);
+  });
+
+  it("can issue and accept issuance of soulbound tokens", async () => {
+    const receiverAddress = alithSigner.address;
+
+    const tokens = [];
+    for (let i = 0; i < 3; i++) {
+      const token = await createToken(0);
+
+      await erc1155Precompile.setBurnAuth(token, BurnAuth.Both).then((tx: any) => tx.wait());
+
+      tokens.push(token);
+    }
+
+    const amounts = tokens.map((_) => 5);
+
+    let receipt = await erc1155Precompile.issueSoulbound(receiverAddress, tokens, amounts).then((tx: any) => tx.wait());
+
+    expect(receipt).to.emit(erc1155Precompile, "PendingIssuanceCreated").withArgs(receiverAddress, 0, tokens, amounts);
+
+    const [issuanceIds, issuances] = await erc1155Precompile.pendingIssuances(receiverAddress);
+
+    // check issuance id
+    expect(issuanceIds[0]).to.eq(0);
+
+    // check issuances
+    expect(issuances[0][0]).to.deep.eq([0, 1, 2]);
+    expect(issuances[0][1]).to.deep.eq([5, 5, 5]);
+    expect(issuances[0][2]).to.deep.eq([BurnAuth.Both, BurnAuth.Both, BurnAuth.Both]);
+
+    receipt = await erc1155Precompile
+      .connect(alithSigner)
+      .acceptSoulboundIssuance(0)
+      .then((tx: any) => tx.wait());
+
+    for (const tokenId of tokens) {
+      expect(receipt)
+        .to.emit(erc1155Precompile, "Issued")
+        .withArgs(bobSigner.address, receiverAddress, tokenId, BurnAuth.Both);
+
+      expect(await erc1155Precompile.balanceOf(receiverAddress, tokenId)).to.eq(5);
+
+      expect(await erc1155Precompile.burnAuth(tokenId)).to.equal(BurnAuth.Both);
+    }
+
+    // burn as owner
+    const burnReceipt = await erc1155Precompile
+      .burnAsCollectionOwner(receiverAddress, tokens, amounts)
+      .then((tx: any) => tx.wait());
+
+    expect(burnReceipt)
+      .to.emit(erc1155Precompile, "TransferBatch")
+      .withArgs(bobSigner.address, constants.AddressZero, tokens, amounts);
+
+    for (const token of tokens) {
+      expect(await erc1155Precompile.balanceOf(receiverAddress, token)).to.eq(0);
+    }
   });
 });

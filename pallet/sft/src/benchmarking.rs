@@ -21,6 +21,7 @@ use crate::Pallet as Sft;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, traits::Get, BoundedVec};
 use frame_system::RawOrigin;
+use seed_pallet_common::utils::TokenBurnAuthority;
 use sp_runtime::Permill;
 
 /// This is a helper function to get an account.
@@ -88,6 +89,27 @@ pub fn max_bounded_string<T: Config>(bound: u32) -> BoundedVec<u8, <T as Config>
 		max_string.force_push(b'a');
 	}
 	max_string
+}
+
+/// Helper function to create and issue a token
+/// Returns the TokenId (CollectionId, SerialNumber)
+pub fn issue_token<T: Config>(owner: T::AccountId, receiver: T::AccountId) -> TokenId {
+	let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), 0);
+
+	assert_ok!(Sft::<T>::set_token_burn_authority(
+		origin::<T>(&owner).into(),
+		(collection_id, serial_number),
+		TokenBurnAuthority::Both,
+	));
+
+	assert_ok!(Sft::<T>::issue_soulbound(
+		origin::<T>(&owner).into(),
+		collection_id,
+		BoundedVec::try_from(vec![(serial_number, 1)]).unwrap(),
+		receiver.clone(),
+	));
+
+	(collection_id, serial_number)
 }
 
 benchmarks! {
@@ -265,6 +287,96 @@ benchmarks! {
 	verify {
 		let token = TokenInfo::<T>::get(token_id).unwrap();
 		assert_eq!(token.token_name, token_name);
+	}
+
+	set_token_transferable_flag {
+		let owner = account::<T>("Alice");
+		let token_id = build_token::<T>(Some(owner.clone()), 1);
+	}: _(origin::<T>(&owner), token_id, true)
+	verify {
+		assert_eq!(TokenUtilityFlags::<T>::get(token_id).transferable, true);
+	}
+
+	set_token_burn_authority {
+		let owner = account::<T>("Alice");
+		let token_id = build_token::<T>(Some(owner.clone()), 0);
+		let burn_authority = TokenBurnAuthority::Both;
+	}: _(origin::<T>(&owner), token_id, TokenBurnAuthority::Both)
+	verify {
+		assert_eq!(TokenUtilityFlags::<T>::get(token_id).burn_authority, Some(burn_authority));
+	}
+
+	issue_soulbound {
+		let p in 1 .. T::MaxSerialsPerMint::get();
+
+		let owner = account::<T>("Alice");
+
+		let mut tokens = vec![];
+
+		let collection_id = build_collection::<T>(Some(owner.clone()));
+
+		for serial_number in 0..p {
+			let token_name = bounded_string::<T>("test-token");
+
+			assert_ok!(Sft::<T>::create_token(
+				origin::<T>(&owner).into(),
+				collection_id,
+				token_name,
+				0,
+				None,
+				None,
+			));
+
+			let serial_numbers = (serial_number, u128::MAX);
+
+			tokens.push(serial_numbers);
+
+			assert_ok!(Sft::<T>::set_token_burn_authority(
+				origin::<T>(&owner).into(),
+				(collection_id, serial_number),
+				TokenBurnAuthority::Both,
+			));
+		}
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, BoundedVec::try_from(tokens).unwrap(), account::<T>("Bob"))
+	verify {
+		let pending_issuances =
+			&PendingIssuances::<T>::get(collection_id).pending_issuances[0].1;
+
+		assert_eq!(
+			pending_issuances.len(),
+			1,
+		)
+	}
+
+	accept_soulbound_issuance {
+		let owner = account::<T>("Alice");
+		let receiver = account::<T>("Bob");
+
+		let (collection_id, serial_number) = issue_token::<T>(owner.clone(), receiver.clone());
+	}: _(origin::<T>(&receiver.clone()), collection_id, 0)
+	verify {
+		let token = TokenInfo::<T>::get((collection_id, serial_number)).unwrap();
+		assert_eq!(token.free_balance_of(&receiver), 1);
+	}
+
+	burn_as_collection_owner {
+		let owner = account::<T>("Alice");
+		let receiver = account::<T>("Bob");
+
+		let (collection_id, serial_number) = issue_token::<T>(owner.clone(), receiver.clone());
+
+		assert_ok!(Sft::<T>::accept_soulbound_issuance(
+			origin::<T>(&receiver).into(),
+			collection_id,
+			0
+		));
+
+	}: _(origin::<T>(&owner), receiver, collection_id, BoundedVec::try_from(vec![(serial_number, 1)]).unwrap())
+	verify {
+		let token = TokenInfo::<T>::get((collection_id, serial_number));
+		assert!(token.is_some());
+		let token = token.unwrap();
+		assert_eq!(token.token_issuance, 0);
 	}
 }
 

@@ -23,7 +23,7 @@ use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	log,
-	utils::{next_asset_uuid, PublicMintInformation},
+	utils::{next_asset_uuid, HasBurnAuthority, PublicMintInformation},
 	NFTExt, NFTMinter, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{
@@ -98,7 +98,7 @@ impl<T: Config> Pallet<T> {
 			let collection_info =
 				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
 
-			// Check ownership and locks
+			// Check ownership anddo_ locks
 			for serial_number in serial_numbers.iter() {
 				ensure!(
 					collection_info.is_token_owner(current_owner, *serial_number),
@@ -107,6 +107,13 @@ impl<T: Config> Pallet<T> {
 				ensure!(
 					!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
 					Error::<T>::TokenLocked
+				);
+				let token_utility_flags =
+					<TokenUtilityFlags<T>>::get((collection_id, serial_number));
+				ensure!(token_utility_flags.transferable, Error::<T>::TransferUtilityBlocked);
+				ensure!(
+					token_utility_flags.burn_authority.is_none(),
+					Error::<T>::TransferUtilityBlocked
 				);
 			}
 
@@ -197,25 +204,23 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Perform validity checks on collection_info
-	/// Return bounded vec of serial numbers to mint
+	/// Perform validity checks on collection_info.
+	/// Returns a bounded vec of serial numbers to mint.
 	pub fn pre_mint(
-		who: &T::AccountId,
-		quantity: TokenCount,
-		collection_info: &CollectionInformation<
+		collection_id: CollectionUuid,
+		collection_info: &mut CollectionInformation<
 			T::AccountId,
 			T::MaxTokensPerCollection,
 			T::StringLimit,
 		>,
-		public_mint_enabled: bool,
+		quantity: TokenCount,
 	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
+		ensure!(quantity <= T::MintLimit::get(), Error::<T>::MintLimitExceeded);
+		// minting flag must be enabled on the collection
+		ensure!(<UtilityFlags<T>>::get(collection_id).mintable, Error::<T>::MintUtilityBlocked);
+
 		// Quantity must be some
 		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
-		// Caller must be collection_owner if public mint is disabled
-		ensure!(
-			collection_info.is_collection_owner(who) || public_mint_enabled,
-			Error::<T>::PublicMintDisabled
-		);
 		// Check we don't exceed the token limit
 		ensure!(
 			collection_info.collection_issuance.saturating_add(quantity)
@@ -248,6 +253,12 @@ impl<T: Config> Pallet<T> {
 		let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
 			BoundedVec::try_from(serial_numbers_unbounded)
 				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+
+		// Increment next serial number
+		let next_serial_number = collection_info.next_serial_number;
+		collection_info.next_serial_number =
+			next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
+
 		Ok(serial_numbers)
 	}
 
@@ -529,7 +540,24 @@ impl<T: Config> Pallet<T> {
 			let collection_info =
 				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
 
-			ensure!(collection_info.is_token_owner(who, serial_number), Error::<T>::NotTokenOwner);
+			if let Some(burn_authority) =
+				TokenUtilityFlags::<T>::get((collection_id, serial_number)).burn_authority
+			{
+				let token_owner = collection_info
+					.get_token_owner(serial_number)
+					.ok_or(Error::<T>::InvalidBurnAuthority)?;
+
+				ensure!(
+					burn_authority.has_burn_authority(&collection_info.owner, &token_owner, who,),
+					Error::<T>::InvalidBurnAuthority
+				);
+			} else {
+				ensure!(
+					collection_info.is_token_owner(who, serial_number),
+					Error::<T>::NotTokenOwner
+				);
+			}
+
 			collection_info.collection_issuance =
 				collection_info.collection_issuance.saturating_sub(1);
 			collection_info.owned_tokens.iter_mut().for_each(|token_ownership| {

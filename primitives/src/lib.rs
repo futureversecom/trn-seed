@@ -104,6 +104,9 @@ pub mod types {
 
 	/// DispatchResult that includes weight values
 	pub type WeightedDispatchResult = Result<Weight, (Weight, DispatchError)>;
+
+	/// Identifier for a pending issuance of a soulbound token
+	pub type IssuanceId = u32;
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know

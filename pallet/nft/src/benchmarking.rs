@@ -24,6 +24,7 @@ use codec::Encode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
+use seed_pallet_common::utils::TokenBurnAuthority;
 use sp_runtime::Permill;
 
 /// This is a helper function to get an account.
@@ -104,8 +105,22 @@ benchmarks! {
 
 	transfer {
 		let collection_id = build_collection::<T>(None);
-		let serial_numbers = BoundedVec::try_from(vec![0]).unwrap();
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, serial_numbers, account::<T>("Bob"))
+		let p in 1 .. (500);
+		assert_ok!(Nft::<T>::mint(
+			origin::<T>(&account::<T>("Alice")).into(),
+			collection_id,
+			p,
+			None,
+		));
+		let serial_numbers: Vec<SerialNumber> = (0..p).collect();
+		let serial_numbers = BoundedVec::try_from(serial_numbers).unwrap();
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, serial_numbers.clone(), account::<T>("Bob"))
+	verify {
+		let collection_info = CollectionInfo::<T>::get(collection_id).expect("Collection not found");
+		for serial_number in serial_numbers.iter() {
+			assert!(collection_info.is_token_owner(&account::<T>("Bob"), *serial_number));
+		}
+	}
 
 	burn {
 		let collection_id = build_collection::<T>(None);
@@ -121,6 +136,47 @@ benchmarks! {
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, utility_flags)
 	verify {
 		assert_eq!(UtilityFlags::<T>::get(collection_id), utility_flags)
+	}
+
+	set_token_transferable_flag {
+		let collection_id = build_collection::<T>(None);
+		let token_id = (collection_id, 0);
+	}: _(origin::<T>(&account::<T>("Alice")), token_id, true)
+	verify {
+		assert_eq!(TokenUtilityFlags::<T>::get(token_id).transferable, true);
+	}
+
+	issue_soulbound {
+		let collection_id = build_collection::<T>(None);
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 1, account::<T>("Bob"), TokenBurnAuthority::Both)
+	verify {
+		let collection_issuances =
+			PendingIssuances::<T>::get(collection_id).pending_issuances;
+
+		let pending_issuances = &collection_issuances[0].1;
+
+		assert_eq!(
+			pending_issuances.len(),
+			1,
+		)
+	}
+
+	accept_soulbound_issuance {
+		let collection_id = build_collection::<T>(None);
+
+		let receiver = account::<T>("Bob");
+
+		assert_ok!(Nft::<T>::issue_soulbound(
+			origin::<T>(&account::<T>("Alice")).into(),
+			collection_id,
+			1,
+			receiver.clone(),
+			TokenBurnAuthority::Both,
+		));
+	}: _(origin::<T>(&receiver.clone()), collection_id, 0)
+	verify {
+		let collection_info = CollectionInfo::<T>::get(collection_id).expect("Collection not found");
+		assert!(collection_info.is_token_owner(&receiver, 1))
 	}
 }
 
