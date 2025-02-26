@@ -43,6 +43,7 @@ parameter_types! {
 	pub const FeePotId: PalletId = PalletId(*b"txfeepot");
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 	pub const DefaultFeeTo: Option<PalletId> = None;
+	pub const MaxPendingIssuances: u32 = 10_000;
 }
 
 impl pallet_nft::Config for Test {
@@ -59,6 +60,7 @@ impl pallet_nft::Config for Test {
 	type WeightInfo = ();
 	type Xls20MintRequest = ();
 	type NFIRequest = Nfi;
+	type MaxPendingIssuances = MaxPendingIssuances;
 	type Migrator = ();
 }
 
@@ -83,6 +85,7 @@ impl pallet_sft::Config for Test {
 	type MaxSerialsPerMint = MaxSerialsPerSftMint;
 	type MaxOwnersPerSftToken = MaxOwnersPerSftToken;
 	type NFIRequest = Nfi;
+	type MaxSftPendingIssuances = MaxPendingIssuances;
 }
 
 parameter_types! {

@@ -366,6 +366,15 @@ export const ERC721_PRECOMPILE_ABI = [
 
   // ERC165
   ...ERC165_ABI,
+
+  // ERC5484
+  "event PendingIssuanceCreated(address indexed to, uint256 issuanceId, uint256 quantity, uint8 burnAuth)",
+  "event Issued(address indexed from, address indexed to, uint256 indexed tokenId, uint8 burnAuth)",
+
+  "function issueSoulbound(address,uint32,uint8)",
+  "function acceptSoulboundIssuance(uint32)",
+  "function pendingIssuances(address) external view returns (uint256[] memory, (uint256 quantity, uint8)[] memory)",
+  "function burnAuth(uint256) external view returns (uint8)",
 ];
 
 export const ERC1155_PRECOMPILE_ABI = [
@@ -412,6 +421,17 @@ export const ERC1155_PRECOMPILE_ABI = [
 
   // ERC165
   ...ERC165_ABI,
+
+  // ERC5484
+  "event PendingIssuanceCreated(address indexed to, uint256 issuanceId, uint256[] tokenIds, uint256[] balances)",
+  "event Issued(address indexed from, address indexed to, uint256 indexed tokenId, uint8 burnAuth)",
+
+  "function setBurnAuth(uint256,uint8)",
+  "function issueSoulbound(address,uint256[],uint256[])",
+  "function acceptSoulboundIssuance(uint32)",
+  "function pendingIssuances(address) external view returns (uint256[] memory,(uint256[] memory,uint256[] memory,uint8[] memory)[] memory)",
+  "function burnAuth(uint256) external view returns (uint8)",
+  "function burnAsCollectionOwner(address,uint256[],uint256[])",
 ];
 
 export const FUTUREPASS_REGISTRAR_PRECOMPILE_ABI = [
@@ -828,3 +848,10 @@ export const getPrefixLength = (encoded: SubmittableExtrinsic<any>): number => {
   if (encoded.encodedLength < 66) return 6;
   return 8;
 };
+
+export enum BurnAuth {
+  TokenOwner = 0,
+  CollectionOwner,
+  Both,
+  Neither,
+}

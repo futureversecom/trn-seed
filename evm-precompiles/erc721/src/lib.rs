@@ -27,7 +27,7 @@ use precompile_utils::{
 	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, ERC721_PRECOMPILE_ADDRESS_PREFIX},
 	prelude::*,
 };
-use seed_pallet_common::NFTExt;
+use seed_pallet_common::{utils::TokenBurnAuthority, NFTExt};
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId,
 };
@@ -64,6 +64,11 @@ pub const BASE_URI_UPDATED: [u8; 32] = keccak256!("BaseURIUpdated(string)");
 pub const SELECTOR_LOG_PUBLIC_MINT_TOGGLED: [u8; 32] = keccak256!("PublicMintToggled(bool)");
 
 pub const SELECTOR_LOG_MINT_FEE_UPDATED: [u8; 32] = keccak256!("MintFeeUpdated(address,uint128)");
+
+pub const SELECTOR_PENDING_ISSUANCE_CREATED: [u8; 32] =
+	keccak256!("PendingIssuanceCreated(address,uint256,u8)");
+
+pub const SELECTOR_ISSUED: [u8; 32] = keccak256!("Issued(address,address,uint256,uint8)");
 
 /// Solidity selector of the onERC721Received(address,address,uint256,bytes) function
 pub const ON_ERC721_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0x15, 0x0b, 0x7a, 0x02];
@@ -115,6 +120,11 @@ pub enum Action {
 	ReRequestXls20Mint = "reRequestXls20Mint(uint32[])",
 	// ERC165 - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/introspection/ERC165.sol
 	SupportsInterface = "supportsInterface(bytes4)",
+	// ERC5484 Soulbound tokens
+	IssueSoulbound = "issueSoulbound(address,uint32,uint8)",
+	AcceptSoulboundIssuance = "acceptSouldboundIssuance(uint32)",
+	PendingIssuances = "pendingIssuances(address)",
+	BurnAuth = "burnAuth(uint256)",
 }
 
 /// The following distribution has been decided for the precompiles
@@ -237,6 +247,13 @@ where
 						},
 						// ERC165
 						Action::SupportsInterface => Self::supports_interface(handle),
+						// ERC5484
+						Action::IssueSoulbound => Self::issue_soulbound(collection_id, handle),
+						Action::PendingIssuances => Self::pending_issuances(collection_id, handle),
+						Action::AcceptSoulboundIssuance => {
+							Self::accept_soulbound_issuance(collection_id, handle)
+						},
+						Action::BurnAuth => Self::burn_auth(collection_id, handle),
 						_ => return Some(Err(revert("ERC721: Function not implemented"))),
 					}
 				};
@@ -1162,6 +1179,177 @@ where
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))
+	}
+
+	fn issue_soulbound(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				to: Address,
+				quantity: U256,
+				burn_authority: u8
+			}
+		);
+		let to: H160 = to.into();
+
+		// Parse quantity
+		if quantity > TokenCount::MAX.into() {
+			return Err(revert("ERC721: Expected quantity <= 2^32"));
+		}
+		let quantity: TokenCount = quantity.saturated_into();
+
+		if burn_authority > u8::MAX.into() {
+			return Err(revert("ERC721: Expected burn authority <= 2^8"));
+		}
+		let burn_authority = match TokenBurnAuthority::try_from(burn_authority) {
+			Ok(b) => b,
+			_ => return Err(revert("ERC721: Could not parse burn authority")),
+		};
+
+		let origin = handle.context().caller;
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let next_issuance_id =
+			pallet_nft::PendingIssuances::<Runtime>::get(collection_id).next_issuance_id;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_nft::Call::<Runtime>::issue_soulbound {
+				collection_id,
+				quantity,
+				token_owner: to.into(),
+				burn_authority,
+			},
+		)?;
+
+		log2(
+			handle.code_address(),
+			SELECTOR_PENDING_ISSUANCE_CREATED,
+			to,
+			EvmDataWriter::new()
+				.write(next_issuance_id)
+				.write(quantity)
+				.write(<TokenBurnAuthority as Into<u8>>::into(burn_authority))
+				.build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed([]))
+	}
+
+	fn pending_issuances(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		read_args!(handle, { owner: Address });
+
+		let owner: H160 = owner.into();
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let pending_issuances = pallet_nft::PendingIssuances::<Runtime>::get(collection_id)
+			.get_pending_issuances(&owner.into());
+
+		let issuance_ids: Vec<U256> =
+			pending_issuances.iter().map(|p| U256::from(p.issuance_id)).collect();
+
+		let issuances: Vec<(U256, u8)> = pending_issuances
+			.iter()
+			.map(|p| (U256::from(p.quantity), p.burn_authority.into()))
+			.collect();
+
+		Ok(succeed(EvmDataWriter::new().write(issuance_ids).write(issuances).build()))
+	}
+
+	fn accept_soulbound_issuance(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		read_args!(handle, { issuance_id: U256 });
+
+		if issuance_id > u32::MAX.into() {
+			return Err(revert("ERC721: Expected issuance id <= 2^32"));
+		}
+		let issuance_id: u32 = issuance_id.saturated_into();
+
+		let origin = handle.context().caller;
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let collection = match pallet_nft::CollectionInfo::<Runtime>::get(collection_id) {
+			Some(collection_info) => collection_info,
+			None => return Err(revert("Collection does not exist")),
+		};
+
+		let collection_owner = collection.owner;
+		let serial_number = collection.next_serial_number;
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let pending_issuance = match pallet_nft::PendingIssuances::<Runtime>::get(collection_id)
+			.get_pending_issuance(&origin.into(), issuance_id)
+		{
+			Some(pending_issuance) => pending_issuance,
+			None => return Err(revert("Issuance does not exist")),
+		};
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_nft::Call::<Runtime>::accept_soulbound_issuance { collection_id, issuance_id },
+		)?;
+
+		for sn in serial_number..(serial_number + pending_issuance.quantity) {
+			log4(
+				handle.code_address(),
+				SELECTOR_ISSUED,
+				collection_owner.clone().into(),
+				origin,
+				H256::from_low_u64_be(sn as u64),
+				EvmDataWriter::new()
+					.write(<TokenBurnAuthority as Into<u8>>::into(pending_issuance.burn_authority))
+					.build(),
+			)
+			.record(handle)?;
+		}
+
+		Ok(succeed([]))
+	}
+
+	fn burn_auth(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		read_args!(handle, { token_id: U256 });
+
+		if token_id > u32::MAX.into() {
+			return Err(revert("ERC721: Expected token id <= 2^32"));
+		}
+		let token_id: SerialNumber = token_id.saturated_into();
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let burn_auth: u8 =
+			match pallet_nft::TokenUtilityFlags::<Runtime>::get((collection_id, token_id))
+				.burn_authority
+			{
+				Some(burn_authority) => burn_authority.into(),
+				_ => 0, // default to TokenOwner
+			};
+
+		Ok(succeed(EvmDataWriter::new().write(burn_auth).build()))
 	}
 
 	fn supports_interface(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {

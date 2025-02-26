@@ -57,9 +57,12 @@ pub trait WeightInfo {
 	fn toggle_public_mint() -> Weight;
 	fn set_mint_fee() -> Weight;
 	fn mint() -> Weight;
-	fn transfer() -> Weight;
+	fn transfer(p: u32, ) -> Weight;
 	fn burn() -> Weight;
 	fn set_utility_flags() -> Weight;
+	fn set_token_transferable_flag() -> Weight;
+	fn issue_soulbound() -> Weight;
+	fn accept_soulbound_issuance() -> Weight;
 }
 
 /// Weights for pallet_nft using the Substrate node and recommended hardware.
@@ -191,12 +194,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Nft::OwnershipInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	// Storage: `Nft::TokenLocks` (r:1 w:0)
 	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
-	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:1)
+	// Storage: `Nft::TokenUtilityFlags` (r:500 w:0)
+	// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
+	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:500)
 	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
-	fn transfer() -> Weight {
-		Weight::from_all(71_484_000)
-			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(2))
+	/// The range of component `p` is `[1, 500]`.
+	fn transfer(p: u32, ) -> Weight {
+		Weight::from_all(29_114_267)
+			// Standard Error: 8_975
+			.saturating_add(Weight::from_all(9_079_327_u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(p as u64)))
+			.saturating_add(T::DbWeight::get().writes(1))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Migration::Status` (r:1 w:0)
 	// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -226,9 +236,44 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `Nft::UtilityFlags` (r:0 w:1)
 	// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
 	fn set_utility_flags() -> Weight {
-		Weight::from_all(53_800_000)
+		Weight::from_all(52_410_000)
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	// Storage: `Nft::CollectionInfo` (r:1 w:0)
+	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	// Storage: `Nft::TokenUtilityFlags` (r:1 w:1)
+	// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
+	fn set_token_transferable_flag() -> Weight {
+		Weight::from_all(56_964_000)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	// Storage: `Nft::CollectionInfo` (r:1 w:0)
+	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	// Storage: `Nft::PendingIssuances` (r:1 w:1)
+	// Proof: `Nft::PendingIssuances` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	fn issue_soulbound() -> Weight {
+		Weight::from_all(54_786_000)
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	// Storage: `Nft::PendingIssuances` (r:1 w:1)
+	// Proof: `Nft::PendingIssuances` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	// Storage: `Nft::CollectionInfo` (r:1 w:1)
+	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	// Storage: `Nft::UtilityFlags` (r:1 w:0)
+	// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
+	// Storage: `EVMChainId::ChainId` (r:1 w:0)
+	// Proof: `EVMChainId::ChainId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	// Storage: `Nfi::NfiEnabled` (r:1 w:0)
+	// Proof: `Nfi::NfiEnabled` (`max_values`: None, `max_size`: Some(529), added: 3004, mode: `MaxEncodedLen`)
+	// Storage: `Nft::TokenUtilityFlags` (r:1 w:1)
+	// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
+	fn accept_soulbound_issuance() -> Weight {
+		Weight::from_all(90_260_000)
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 }
 
@@ -360,7 +405,9 @@ impl WeightInfo for () {
 	// Proof: `Nft::OwnershipInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	// Storage: `Nft::TokenLocks` (r:1 w:0)
 	// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
-	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:1)
+	// Storage: `Nft::TokenUtilityFlags` (r:500 w:0)
+	// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
+	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:500)
 	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	fn transfer() -> Weight {
 		Weight::from_all(71_484_000)
@@ -398,6 +445,41 @@ impl WeightInfo for () {
 		Weight::from_all(53_800_000)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
+	}
+	// Storage: `Nft::CollectionInfo` (r:1 w:0)
+	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	// Storage: `Nft::TokenUtilityFlags` (r:1 w:1)
+	// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
+	fn set_token_transferable_flag() -> Weight {
+		Weight::from_all(56_964_000)
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(1))
+	}
+	// Storage: `Nft::CollectionInfo` (r:1 w:0)
+	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	// Storage: `Nft::PendingIssuances` (r:1 w:1)
+	// Proof: `Nft::PendingIssuances` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	fn issue_soulbound() -> Weight {
+		Weight::from_all(54_786_000)
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(1))
+	}
+	// Storage: `Nft::PendingIssuances` (r:1 w:1)
+	// Proof: `Nft::PendingIssuances` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	// Storage: `Nft::CollectionInfo` (r:1 w:1)
+	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	// Storage: `Nft::UtilityFlags` (r:1 w:0)
+	// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
+	// Storage: `EVMChainId::ChainId` (r:1 w:0)
+	// Proof: `EVMChainId::ChainId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	// Storage: `Nfi::NfiEnabled` (r:1 w:0)
+	// Proof: `Nfi::NfiEnabled` (`max_values`: None, `max_size`: Some(529), added: 3004, mode: `MaxEncodedLen`)
+	// Storage: `Nft::TokenUtilityFlags` (r:1 w:1)
+	// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
+	fn accept_soulbound_issuance() -> Weight {
+		Weight::from_all(90_260_000)
+			.saturating_add(RocksDbWeight::get().reads(6))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 }
 

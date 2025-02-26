@@ -86,3 +86,86 @@ impl Default for CollectionUtilityFlags {
 		Self { transferable: true, burnable: true, mintable: true }
 	}
 }
+
+/// Permissions related to a token that determine whether it can be burned by the token_owner, collection_owner, or no one
+/// Currently no-op, this will be used when implementing soulbound NFTs with ERC5484 support
+/// Once set, the burn authority is immutable
+#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
+pub enum TokenBurnAuthority {
+	/// The token can be burned by the collection_owner
+	CollectionOwner,
+	/// The token can be burned by the token_owner
+	TokenOwner,
+	/// The token can be burned by either token or collection owner
+	Both,
+	/// The token cannot be burned by anyone
+	Neither,
+}
+
+impl TryFrom<u8> for TokenBurnAuthority {
+	type Error = &'static str;
+
+	fn try_from(v: u8) -> Result<Self, Self::Error> {
+		match v {
+			0 => Ok(TokenBurnAuthority::CollectionOwner),
+			1 => Ok(TokenBurnAuthority::TokenOwner),
+			2 => Ok(TokenBurnAuthority::Both),
+			3 => Ok(TokenBurnAuthority::Neither),
+			_ => Err("Unrecognized burn authority"),
+		}
+	}
+}
+
+impl Into<u8> for TokenBurnAuthority {
+	fn into(self) -> u8 {
+		match self {
+			TokenBurnAuthority::CollectionOwner => 0,
+			TokenBurnAuthority::TokenOwner => 1,
+			TokenBurnAuthority::Both => 2,
+			TokenBurnAuthority::Neither => 3,
+		}
+	}
+}
+
+pub trait HasBurnAuthority<AccountId> {
+	fn has_burn_authority(
+		self,
+		collection_owner: &AccountId,
+		token_owner: &AccountId,
+		burner: &AccountId,
+	) -> bool;
+}
+
+impl<AccountId> HasBurnAuthority<AccountId> for TokenBurnAuthority
+where
+	AccountId: PartialEq,
+{
+	fn has_burn_authority(
+		self,
+		collection_owner: &AccountId,
+		token_owner: &AccountId,
+		burner: &AccountId,
+	) -> bool {
+		match self {
+			TokenBurnAuthority::TokenOwner => burner == token_owner,
+			TokenBurnAuthority::CollectionOwner => burner == collection_owner,
+			TokenBurnAuthority::Both => burner == token_owner || burner == collection_owner,
+			TokenBurnAuthority::Neither => false,
+		}
+	}
+}
+
+// Additional flags at a token level that determine whether that token can be transferred, or burned
+#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
+pub struct TokenUtilityFlags {
+	/// Whether the token can be transferred
+	pub transferable: bool,
+	/// What burn permissions the token has
+	pub burn_authority: Option<TokenBurnAuthority>,
+}
+
+impl Default for TokenUtilityFlags {
+	fn default() -> Self {
+		Self { transferable: true, burn_authority: None }
+	}
+}

@@ -247,6 +247,7 @@ macro_rules! impl_pallet_nft_config {
 			pub const Xls20PaymentAsset: AssetId = 2;
 			pub const StringLimit: u32 = 50;
 			pub const FeePotId: PalletId = PalletId(*b"txfeepot");
+			pub const MaxPendingIssuances: u32 = 10_000;
 		}
 
 		impl pallet_nft::Config for Test {
@@ -263,6 +264,7 @@ macro_rules! impl_pallet_nft_config {
 			type WeightInfo = ();
 			type StringLimit = StringLimit;
 			type NFIRequest = ();
+			type MaxPendingIssuances = MaxPendingIssuances;
 			type Migrator = ();
 		}
 	};
@@ -276,6 +278,7 @@ macro_rules! impl_pallet_sft_config {
 			pub const MaxTokensPerSftCollection: u32 = 10_000;
 			pub const MaxSerialsPerSftMint: u32 = 100;
 			pub const MaxOwnersPerSftToken: u32 = 100;
+			pub const MaxSftPendingIssuances: u32 = 10_000;
 		}
 
 		impl pallet_sft::Config for Test {
@@ -292,6 +295,7 @@ macro_rules! impl_pallet_sft_config {
 			type MaxSerialsPerMint = MaxSerialsPerSftMint;
 			type MaxOwnersPerSftToken = MaxOwnersPerSftToken;
 			type NFIRequest = ();
+			type MaxSftPendingIssuances = MaxSftPendingIssuances;
 		}
 	};
 }

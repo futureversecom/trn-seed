@@ -9,6 +9,7 @@ import Web3 from "web3";
 import {
   ALITH_PRIVATE_KEY,
   BOB_PRIVATE_KEY,
+  BurnAuth,
   ERC721_PRECOMPILE_ABI,
   NFT_PRECOMPILE_ABI,
   NFT_PRECOMPILE_ADDRESS,
@@ -731,5 +732,42 @@ describe("ERC721 Precompile", function () {
     // console.log("ERC721Burnable:", burnableId);
     // console.log("TRN721:", trn721Id);
     // console.log("Ownable:", ownableId);
+  });
+
+  it("can issue and accept soulbound tokens", async () => {
+    const receiverAddress = alithSigner.address;
+    const quantity = 3;
+    let receipt = await erc721Precompile
+      .issueSoulbound(receiverAddress, quantity, BurnAuth.Both)
+      .then((tx: any) => tx.wait());
+
+    expect(receipt)
+      .to.emit(erc721Precompile, "PendingIssuanceCreated")
+      .withArgs(receiverAddress, 0, quantity, BurnAuth.Both);
+
+    const [issuanceIds, issuances] = await erc721Precompile.pendingIssuances(receiverAddress);
+    expect(issuanceIds).to.deep.equal([0]);
+
+    expect(issuances[0][0]).to.deep.equal(quantity);
+    expect(issuances[0][1]).to.deep.equal(BurnAuth.Both);
+
+    receipt = await erc721Precompile
+      .connect(alithSigner)
+      .acceptSoulboundIssuance(0)
+      .then((tx: any) => tx.wait());
+
+    console.log(receipt);
+
+    for (let i = 0; i < 3; i++) {
+      const tokenId = receipt.events[i].args.tokenId;
+
+      expect(receipt)
+        .to.emit(erc721Precompile, "Issued")
+        .withArgs(bobSigner.address, receiverAddress, tokenId, BurnAuth.Both);
+
+      expect(await erc721Precompile.ownerOf(tokenId)).to.eq(receiverAddress);
+
+      expect(await erc721Precompile.burnAuth(tokenId)).to.eq(BurnAuth.Both);
+    }
   });
 });

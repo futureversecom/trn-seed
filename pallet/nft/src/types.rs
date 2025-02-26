@@ -19,9 +19,10 @@ use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
+use seed_pallet_common::utils::TokenBurnAuthority;
 use seed_primitives::{
-	CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-	TokenCount,
+	CrossChainCompatibility, IssuanceId, MetadataScheme, OriginChain, RoyaltiesSchedule,
+	SerialNumber, TokenCount,
 };
 use serde::{Deserialize, Serialize};
 use sp_runtime::{BoundedVec, Permill};
@@ -188,22 +189,15 @@ where
 		token_owner: &AccountId,
 		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
 	) -> Result<(), TokenOwnershipError> {
-		if self
-			.owned_tokens
-			.iter()
-			.any(|token_ownership| &token_ownership.0 == token_owner)
+		if let Some((owner, owned_serials)) =
+			self.owned_tokens.iter_mut().find(|p| &p.0 == token_owner)
 		{
-			for (owner, owned_serials) in self.owned_tokens.iter_mut() {
-				if owner != token_owner {
-					continue;
-				}
-				// Add new serial numbers to existing owner
-				for serial_number in serial_numbers.iter() {
-					owned_serials
-						.try_push(*serial_number)
-						.map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
-					owned_serials.sort();
-				}
+			// Add new serial numbers to existing owner
+			for serial_number in serial_numbers.iter() {
+                owned_serials
+                    .try_push(*serial_number)
+                    .map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
+                owned_serials.sort();
 			}
 		} else {
 			// If token owner doesn't exist, create new entry
@@ -234,5 +228,133 @@ where
 		if removing_all_tokens {
 			self.owned_tokens.retain(|(owner, _)| owner != token_owner);
 		}
+	}
+}
+
+#[derive(
+	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
+)]
+pub struct PendingIssuance {
+	pub issuance_id: IssuanceId,
+	pub quantity: u32,
+	pub burn_authority: TokenBurnAuthority,
+}
+
+pub enum PendingIssuanceError {
+	PendingIssuanceLimitExceeded,
+}
+
+/// The state of a collection's pending issuances
+#[derive(
+	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
+)]
+#[codec(mel_bound(AccountId: MaxEncodedLen))]
+#[scale_info(skip_type_params(MaxPendingIssuances))]
+pub struct CollectionPendingIssuances<AccountId, MaxPendingIssuances: Get<u32>>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxPendingIssuances: Get<u32>,
+{
+	pub next_issuance_id: IssuanceId,
+	pub pending_issuances: BoundedVec<
+		(AccountId, BoundedVec<PendingIssuance, MaxPendingIssuances>),
+		MaxPendingIssuances,
+	>,
+}
+
+impl<AccountId, MaxPendingIssuances> Default
+	for CollectionPendingIssuances<AccountId, MaxPendingIssuances>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxPendingIssuances: Get<u32>,
+{
+	fn default() -> Self {
+		CollectionPendingIssuances { next_issuance_id: 0, pending_issuances: BoundedVec::new() }
+	}
+}
+
+impl<AccountId, MaxPendingIssuances> CollectionPendingIssuances<AccountId, MaxPendingIssuances>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxPendingIssuances: Get<u32>,
+{
+	/// Creates a new instance of `CollectionPendingIssuances` with the next
+	/// issuance id set to 0, and an empty list of pending issuances
+	pub fn new() -> Self {
+		CollectionPendingIssuances { next_issuance_id: 0, pending_issuances: BoundedVec::new() }
+	}
+
+	/// Inserts a new pending issuance for a token owner
+	pub fn insert_pending_issuance(
+		&mut self,
+		token_owner: &AccountId,
+		quantity: u32,
+		burn_authority: TokenBurnAuthority,
+	) -> Result<IssuanceId, PendingIssuanceError> {
+		let issuance_id = self.next_issuance_id;
+		let pending_issuance = PendingIssuance { issuance_id, quantity, burn_authority };
+
+		if let Some(account_pending_issuances) =
+			self.pending_issuances.iter_mut().find(|p| &p.0 == token_owner)
+		{
+			account_pending_issuances
+				.1
+				.try_push(pending_issuance)
+				.map_err(|_| PendingIssuanceError::PendingIssuanceLimitExceeded)?;
+		} else {
+			// create new entry
+			let mut new_account_issuance = BoundedVec::new();
+			new_account_issuance.force_push(pending_issuance);
+
+			self.pending_issuances
+				.try_push((token_owner.clone(), new_account_issuance))
+				.map_err(|_| PendingIssuanceError::PendingIssuanceLimitExceeded)?;
+		}
+
+		self.next_issuance_id = self.next_issuance_id.saturating_add(1);
+
+		Ok(issuance_id)
+	}
+
+	/// Gets the pending issuance by the token owner and issuance id
+	pub fn get_pending_issuance(
+		&self,
+		token_owner: &AccountId,
+		issuance_id: IssuanceId,
+	) -> Option<PendingIssuance> {
+		let account_pending_issuances = self
+			.pending_issuances
+			.iter()
+			.find(|pending_issuance| &pending_issuance.0 == token_owner)?;
+
+		let pending_issuance =
+			account_pending_issuances.1.iter().find(|p| p.issuance_id == issuance_id)?;
+
+		Some(pending_issuance.clone())
+	}
+
+	/// Removes a pending issuance for a token owner
+	pub fn remove_pending_issuance(&mut self, token_owner: &AccountId, issuance_id: IssuanceId) {
+		for account_pending_issuance in self.pending_issuances.iter_mut() {
+			if &account_pending_issuance.0 != token_owner {
+				continue;
+			}
+
+			account_pending_issuance.1.retain(|p| p.issuance_id != issuance_id);
+			break;
+		}
+	}
+
+	/// Gets all pending issuances for a token owner
+	pub fn get_pending_issuances(&self, token_owner: &AccountId) -> Vec<PendingIssuance> {
+		if let Some(account_pending_issuances) = self
+			.pending_issuances
+			.iter()
+			.find(|pending_issuance| &pending_issuance.0 == token_owner)
+		{
+			return account_pending_issuances.1.to_vec();
+		}
+
+		vec![]
 	}
 }
