@@ -47,6 +47,7 @@ construct_runtime!(
 		Utility: pallet_utility,
 		Proxy: pallet_proxy,
 		FeeControl: pallet_fee_control,
+		PartnerAttribution: pallet_partner_attribution,
 	}
 );
 
@@ -65,7 +66,7 @@ impl_pallet_xrpl_config!(Test);
 impl_pallet_proxy_config!(Test);
 impl_pallet_utility_config!(Test);
 impl_pallet_fee_control_config!(Test);
-
+impl_pallet_partner_attribution_config!(Test);
 impl mock_pallet::pallet::Config for Test {}
 // Mock pallet for testing extrinsics with a specific weight
 pub mod mock_pallet {

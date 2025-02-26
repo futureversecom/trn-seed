@@ -43,6 +43,7 @@ pallet-xrpl = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-utility = { workspace = true }
 seed-pallet-common= { workspace = true, default-features = true }
+pallet-partner-attribution = { workspace = true }
 
 [features]
 default = ["std"]
@@ -65,4 +66,4 @@ std = [
 	"frame-benchmarking?/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
-runtime-benchmarks = ["frame-benchmarking"]
+runtime-benchmarks = ["frame-benchmarking", "pallet-partner-attribution/runtime-benchmarks"]
