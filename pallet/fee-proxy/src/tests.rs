@@ -491,14 +491,8 @@ mod partner_fee_attribution {
 				)
 				.expect("Fee withdrawal should work");
 
-				// Verify partner's accumulated fees increased
+				// Verify partner's accumulated fees increased deterministically
 				let updated_partner = Partners::<Test>::get(partner_id).unwrap();
-				assert!(
-					updated_partner.accumulated_fees > 0,
-					"Partner should have accumulated fees"
-				);
-
-				// verify the exact fee amount if deterministic
 				assert_eq!(
 					updated_partner.accumulated_fees, fee,
 					"Partner should have accumulated correct fee amount"
