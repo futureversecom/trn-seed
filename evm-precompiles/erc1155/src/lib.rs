@@ -130,7 +130,7 @@ pub enum Action {
 	IssueSoulbound = "issueSoulbound(address,uint256[],uint256[])",
 	AcceptSoulboundIssuance = "acceptSouldboundIssuance(uint32)",
 	PendingIssuances = "pendingIssuances(address)",
-	BurnAsOwner = "burnAsOwner(address,uint256[],uint256[])",
+	BurnAsCollectionOwner = "burnAsCollectionOwner(address,uint256[],uint256[])",
 	BurnAuth = "burnAuth(uint256)",
 }
 
@@ -245,7 +245,9 @@ where
 						},
 						Action::PendingIssuances => Self::pending_issuances(collection_id, handle),
 						Action::BurnAuth => Self::burn_auth(collection_id, handle),
-						Action::BurnAsOwner => Self::burn_as_owner(collection_id, handle),
+						Action::BurnAsCollectionOwner => {
+							Self::burn_as_collection_owner(collection_id, handle)
+						},
 						_ => return Some(Err(revert("ERC1155: Function not implemented"))),
 					}
 				};
@@ -1423,7 +1425,7 @@ where
 		Ok(succeed([]))
 	}
 
-	fn burn_as_owner(
+	fn burn_as_collection_owner(
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
@@ -1469,7 +1471,7 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin.into()).into(),
-			pallet_sft::Call::<Runtime>::burn_as_owner {
+			pallet_sft::Call::<Runtime>::burn_as_collection_owner {
 				token_owner: token_owner.into(),
 				collection_id,
 				serial_numbers,

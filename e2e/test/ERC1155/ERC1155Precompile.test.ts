@@ -810,7 +810,7 @@ describe("ERC1155 Precompile", function () {
 
     // burn as owner
     const burnReceipt = await erc1155Precompile
-      .burnAsOwner(receiverAddress, tokens, amounts)
+      .burnAsCollectionOwner(receiverAddress, tokens, amounts)
       .then((tx: any) => tx.wait());
 
     expect(burnReceipt)

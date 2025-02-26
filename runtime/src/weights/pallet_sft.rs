@@ -330,7 +330,7 @@ impl<T: frame_system::Config> pallet_sft::WeightInfo for WeightInfo<T> {
 	/// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	/// Storage: `Sft::TokenInfo` (r:1 w:1)
 	/// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
-	fn burn_as_owner() -> Weight {
+	fn burn_as_collection_owner() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `370`
 		//  Estimated: `52003569`

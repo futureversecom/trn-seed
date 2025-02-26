@@ -431,7 +431,7 @@ export const ERC1155_PRECOMPILE_ABI = [
   "function acceptSoulboundIssuance(uint32)",
   "function pendingIssuances(address) external view returns (uint256[] memory,(uint256[] memory,uint256[] memory,uint8[] memory)[] memory)",
   "function burnAuth(uint256) external view returns (uint8)",
-  "function burnAsOwner(address,uint256[],uint256[])",
+  "function burnAsCollectionOwner(address,uint256[],uint256[])",
 ];
 
 export const FUTUREPASS_REGISTRAR_PRECOMPILE_ABI = [

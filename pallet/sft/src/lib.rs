@@ -711,9 +711,9 @@ pub mod pallet {
 		/// The burn authority must have already been set and set to either
 		/// the collection owner or both.
 		#[pallet::call_index(16)]
-		#[pallet::weight(T::WeightInfo::burn_as_owner())]
+		#[pallet::weight(T::WeightInfo::burn_as_collection_owner())]
 		#[transactional]
-		pub fn burn_as_owner(
+		pub fn burn_as_collection_owner(
 			origin: OriginFor<T>,
 			token_owner: T::AccountId,
 			collection_id: CollectionUuid,

@@ -359,7 +359,7 @@ benchmarks! {
 		assert_eq!(token.free_balance_of(&receiver), 1);
 	}
 
-	burn_as_owner {
+	burn_as_collection_owner {
 		let owner = account::<T>("Alice");
 		let receiver = account::<T>("Bob");
 

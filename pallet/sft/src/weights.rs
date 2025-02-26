@@ -65,7 +65,7 @@ pub trait WeightInfo {
 	fn set_token_burn_authority() -> Weight;
 	fn issue_soulbound(p: u32, ) -> Weight;
 	fn accept_soulbound_issuance() -> Weight;
-	fn burn_as_owner() -> Weight;
+	fn burn_as_collection_owner() -> Weight;
 }
 
 /// Weights for pallet_sft using the Substrate node and recommended hardware.
@@ -277,7 +277,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
-	fn burn_as_owner() -> Weight {
+	fn burn_as_collection_owner() -> Weight {
 		Weight::from_all(29_000_000)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -492,7 +492,7 @@ impl WeightInfo for () {
 	// Proof: `Sft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	// Storage: `Sft::TokenInfo` (r:1 w:1)
 	// Proof: `Sft::TokenInfo` (`max_values`: None, `max_size`: Some(52000104), added: 52002579, mode: `MaxEncodedLen`)
-	fn burn_as_owner() -> Weight {
+	fn burn_as_collection_owner() -> Weight {
 		Weight::from_all(29_000_000)
 			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(1))

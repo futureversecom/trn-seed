@@ -3380,7 +3380,7 @@ mod soulbound_token {
 			let serial_numbers = BoundedVec::try_from(vec![(serial_number, 1)]).unwrap();
 
 			assert_noop!(
-				Sft::burn_as_owner(
+				Sft::burn_as_collection_owner(
 					RawOrigin::Signed(collection_owner).into(),
 					token_owner,
 					collection_id,
@@ -3418,7 +3418,7 @@ mod soulbound_token {
 				Error::<Test>::InvalidBurnAuthority
 			);
 
-			assert_ok!(Sft::burn_as_owner(
+			assert_ok!(Sft::burn_as_collection_owner(
 				RawOrigin::Signed(collection_owner).into(),
 				token_owner,
 				collection_id,
@@ -3445,7 +3445,7 @@ mod soulbound_token {
 				serial_numbers.clone()
 			));
 
-			assert_ok!(Sft::burn_as_owner(
+			assert_ok!(Sft::burn_as_collection_owner(
 				RawOrigin::Signed(collection_owner).into(),
 				token_owner,
 				collection_id,
@@ -3476,7 +3476,7 @@ mod soulbound_token {
 			);
 
 			assert_noop!(
-				Sft::burn_as_owner(
+				Sft::burn_as_collection_owner(
 					RawOrigin::Signed(collection_owner).into(),
 					token_owner,
 					collection_id,
