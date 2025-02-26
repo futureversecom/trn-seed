@@ -888,9 +888,6 @@ pub mod pallet {
 			<PendingIssuances<T>>::try_mutate(
 				collection_id,
 				|pending_issuances| -> DispatchResult {
-					// let pending_issuances =
-					// 	pending_issuances.as_mut().ok_or(Error::<T>::InvalidPendingIssuance)?;
-
 					pending_issuances.remove_pending_issuance(&who, issuance_id);
 
 					Ok(())
