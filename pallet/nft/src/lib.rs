@@ -790,10 +790,12 @@ pub mod pallet {
 			burn_authority: TokenBurnAuthority,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let collection_info =
+			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			// Only the owner can make this call
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			let _ = Self::pre_mint(collection_id, &mut collection_info, quantity)?;
 
 			<PendingIssuances<T>>::try_mutate(
 				collection_id,

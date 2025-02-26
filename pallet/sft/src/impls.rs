@@ -172,20 +172,16 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Perform the mint operation and increase the quantity of the user
-	/// Note there is one storage read and write per serial number minted
-	pub fn do_mint(
+	/// Perform some validation checks to ensure minting of the specified
+	/// tokens is allowed.
+	pub fn pre_mint(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
+		collection_info: SftCollectionInformation<T::AccountId, T::StringLimit>,
 		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
-		token_owner: Option<T::AccountId>,
 	) -> DispatchResult {
 		// Must be some serial numbers to mint
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
-
-		let sft_collection_info =
-			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-		let owner = token_owner.unwrap_or(who.clone());
 
 		// minting flag must be enabled on the collection
 		ensure!(<UtilityFlags<T>>::get(collection_id).mintable, Error::<T>::MintUtilityBlocked);
@@ -198,24 +194,13 @@ impl<T: Config> Pallet<T> {
 
 			let public_mint_info = <PublicMintInfo<T>>::get(token_id).unwrap_or_default();
 
-			// Only charge mint fee if public mint enabled and caller is not collection owner
-			if public_mint_info.enabled && sft_collection_info.collection_owner != who {
-				// Charge the mint fee for the mint
-				Self::charge_mint_fee(
-					&who,
-					token_id,
-					&sft_collection_info.collection_owner,
-					public_mint_info,
-					*quantity,
-				)?;
-			}
-
 			// Caller must be collection_owner if public mint is disabled
 			ensure!(
-				sft_collection_info.collection_owner == who || public_mint_info.enabled,
+				collection_info.collection_owner == who || public_mint_info.enabled,
 				Error::<T>::PublicMintDisabled
 			);
-			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
+
+			let token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 			// Check for overflow
 			ensure!(
 				token_info.token_issuance.checked_add(*quantity).is_some(),
@@ -229,6 +214,40 @@ impl<T: Config> Pallet<T> {
 					Error::<T>::MaxIssuanceReached
 				);
 			}
+		}
+
+		Ok(())
+	}
+
+	/// Perform the mint operation and increase the quantity of the user
+	/// Note there is one storage read and write per serial number minted
+	pub fn do_mint(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		collection_info: SftCollectionInformation<T::AccountId, T::StringLimit>,
+		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
+		token_owner: Option<T::AccountId>,
+	) -> DispatchResult {
+		let owner = token_owner.unwrap_or(who.clone());
+
+		for (serial_number, quantity) in &serial_numbers {
+			let token_id: TokenId = (collection_id, *serial_number);
+
+			let public_mint_info = <PublicMintInfo<T>>::get(token_id).unwrap_or_default();
+
+			// Only charge mint fee if public mint enabled and caller is not collection owner
+			if public_mint_info.enabled && collection_info.collection_owner != who {
+				// Charge the mint fee for the mint
+				Self::charge_mint_fee(
+					&who,
+					token_id,
+					&collection_info.collection_owner,
+					public_mint_info,
+					*quantity,
+				)?;
+			}
+
+			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 
 			// Add the balance
 			token_info.add_balance(&owner, *quantity).map_err(Error::<T>::from)?;

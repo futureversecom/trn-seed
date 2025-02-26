@@ -419,7 +419,23 @@ pub mod pallet {
 				Error::<T>::BurnAuthorityAlreadySet,
 			);
 
-			Self::do_mint(who.clone(), collection_id, serial_numbers.clone(), token_owner.clone())?;
+			let collection_info =
+				<SftCollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
+			Self::pre_mint(
+				who.clone(),
+				collection_id,
+				collection_info.clone(),
+				serial_numbers.clone(),
+			)?;
+
+			Self::do_mint(
+				who.clone(),
+				collection_id,
+				collection_info,
+				serial_numbers.clone(),
+				token_owner.clone(),
+			)?;
 
 			let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
 			Self::deposit_event(Event::<T>::Mint {
@@ -724,6 +740,13 @@ pub mod pallet {
 			// Only the owner can make this call
 			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
 
+			Self::pre_mint(
+				collection_info.collection_owner.clone(),
+				collection_id,
+				collection_info.clone(),
+				serial_numbers.clone(),
+			)?;
+
 			<PendingIssuances<T>>::try_mutate(
 				collection_id,
 				|pending_issuances| -> DispatchResult {
@@ -776,9 +799,17 @@ pub mod pallet {
 			let sft_collection_info =
 				SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
-			Self::do_mint(
-				sft_collection_info.collection_owner,
+			Self::pre_mint(
+				sft_collection_info.collection_owner.clone(),
 				collection_id,
+				sft_collection_info.clone(),
+				pending_issuance.serial_numbers.clone(),
+			)?;
+
+			Self::do_mint(
+				sft_collection_info.collection_owner.clone(),
+				collection_id,
+				sft_collection_info,
 				pending_issuance.serial_numbers.clone(),
 				Some(who.clone()),
 			)?;
