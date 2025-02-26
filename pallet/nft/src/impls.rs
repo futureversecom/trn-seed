@@ -540,19 +540,22 @@ impl<T: Config> Pallet<T> {
 			let collection_info =
 				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
 
-			let token_owner = collection_info
-				.get_token_owner(serial_number)
-				.ok_or(Error::<T>::InvalidBurnAuthority)?;
-
 			if let Some(burn_authority) =
 				TokenUtilityFlags::<T>::get((collection_id, serial_number)).burn_authority
 			{
+				let token_owner = collection_info
+					.get_token_owner(serial_number)
+					.ok_or(Error::<T>::InvalidBurnAuthority)?;
+
 				ensure!(
 					burn_authority.has_burn_authority(&collection_info.owner, &token_owner, who,),
 					Error::<T>::InvalidBurnAuthority
 				);
 			} else {
-				ensure!(who == &token_owner, Error::<T>::NotTokenOwner);
+				ensure!(
+					collection_info.is_token_owner(who, serial_number),
+					Error::<T>::NotTokenOwner
+				);
 			}
 
 			collection_info.collection_issuance =
