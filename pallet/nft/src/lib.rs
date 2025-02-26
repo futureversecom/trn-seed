@@ -357,11 +357,11 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::claim_unowned_collection())]
 		/// Bridged collections from Ethereum will initially lack an owner. These collections will
 		/// be assigned to the pallet. This allows for claiming those collections assuming they were
 		/// assigned to the pallet
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::claim_unowned_collection())]
 		pub fn claim_unowned_collection(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -600,7 +600,7 @@ pub mod pallet {
 			let public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
 			// Caller must be collection_owner if public mint is disabled
 			ensure!(
-				collection_info.is_collection_owner(&who) || public_mint_info.enabled,
+				&collection_info.owner == &who || public_mint_info.enabled,
 				Error::<T>::PublicMintDisabled
 			);
 
@@ -783,13 +783,13 @@ pub mod pallet {
 			transferable: bool,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-            T::Migrator::ensure_migrated()?;
+			T::Migrator::ensure_migrated()?;
 			let collection_info =
 				<CollectionInfo<T>>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
-			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
-
+			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
 			// Check if the token exists
-			ensure!(collection_info.token_exists(token_id.1), Error::<T>::NoToken);
+			let ownership_info = OwnershipInfo::<T>::get(token_id.0).ok_or(Error::<T>::NoToken)?;
+			ensure!(ownership_info.token_exists(token_id.1), Error::<T>::NoToken);
 
 			ensure!(
 				<TokenUtilityFlags<T>>::get(token_id).burn_authority.is_none(),
@@ -817,11 +817,11 @@ pub mod pallet {
 			burn_authority: TokenBurnAuthority,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-            T::Migrator::ensure_migrated()?;
+			T::Migrator::ensure_migrated()?;
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			// Only the owner can make this call
-			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
 
 			let _ = Self::pre_mint(collection_id, &mut collection_info, quantity)?;
 
@@ -857,7 +857,7 @@ pub mod pallet {
 			issuance_id: u32,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-            T::Migrator::ensure_migrated()?;
+			T::Migrator::ensure_migrated()?;
 
 			let collection_pending_issuances = <PendingIssuances<T>>::get(collection_id);
 
@@ -926,14 +926,4 @@ pub mod pallet {
 			Ok(())
 		}
 	}
-}
-
-impl<T: Config> From<PendingIssuanceError> for Error<T> {
-    fn from(val: PendingIssuanceError) -> Error<T> {
-        match val {
-            PendingIssuanceError::PendingIssuanceLimitExceeded => {
-                Error::<T>::PendingIssuanceLimitExceeded
-            },
-        }
-    }
 }

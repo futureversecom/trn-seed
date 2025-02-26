@@ -409,10 +409,20 @@ impl WeightInfo for () {
 	// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:500)
 	// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
-	fn transfer() -> Weight {
-		Weight::from_all(71_484_000)
-			.saturating_add(RocksDbWeight::get().reads(5))
-			.saturating_add(RocksDbWeight::get().writes(2))
+	fn transfer(p: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `332 + p * (4 ±0)`
+		//  Estimated: `3480 + p * (2508 ±0)`
+		// Minimum execution time: 68_300_000 picoseconds.
+		Weight::from_parts(24_948_196, 0)
+			.saturating_add(Weight::from_parts(0, 3480))
+			// Standard Error: 17_815
+			.saturating_add(Weight::from_parts(9_257_771, 0).saturating_mul(p.into()))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(p.into())))
+			.saturating_add(RocksDbWeight::get().writes(1))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 2508).saturating_mul(p.into()))
 	}
 	// Storage: `Migration::Status` (r:1 w:0)
 	// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)

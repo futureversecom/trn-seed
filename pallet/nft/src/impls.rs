@@ -221,10 +221,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns a bounded vec of serial numbers to mint.
 	pub fn pre_mint(
 		collection_id: CollectionUuid,
-		collection_info: &mut CollectionInformation<
-			T::AccountId,
-			T::StringLimit,
-		>,
+		collection_info: &mut CollectionInformation<T::AccountId, T::StringLimit>,
 		quantity: TokenCount,
 	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
 		ensure!(quantity <= T::MintLimit::get(), Error::<T>::MintLimitExceeded);
@@ -558,22 +555,25 @@ impl<T: Config> Pallet<T> {
 			OwnershipInfo::<T>::try_mutate(
 				collection_id,
 				|maybe_ownership_info| -> DispatchResult {
-                    let ownership_info =
-                        maybe_ownership_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
-                    let token_owner = ownership_info.get_token_owner(serial_number);
-                    if let Some(burn_authority) =
-                        TokenUtilityFlags::<T>::get((collection_id, serial_number)).burn_authority
-                    {
-                        ensure!(
-                            burn_authority.has_burn_authority(&collection_info.owner, &token_owner, who,),
-                            Error::<T>::InvalidBurnAuthority
-                        );
-                    } else {
-                        ensure!(
-                            token_owner == who,
-                            Error::<T>::NotTokenOwner
-                        );
-                    }
+					let ownership_info =
+						maybe_ownership_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
+					let token_owner = ownership_info
+						.get_token_owner(serial_number)
+						.ok_or(Error::<T>::NotTokenOwner)?;
+					if let Some(burn_authority) =
+						TokenUtilityFlags::<T>::get((collection_id, serial_number)).burn_authority
+					{
+						ensure!(
+							burn_authority.has_burn_authority(
+								&collection_info.owner,
+								&token_owner,
+								who,
+							),
+							Error::<T>::InvalidBurnAuthority
+						);
+					} else {
+						ensure!(&token_owner == who, Error::<T>::NotTokenOwner);
+					}
 					let serial_numbers = BoundedVec::truncate_from(vec![serial_number]);
 					ownership_info.remove_user_tokens(who, serial_numbers.clone());
 					Ok(())

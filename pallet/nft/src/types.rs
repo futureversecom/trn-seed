@@ -15,7 +15,7 @@
 
 //! NFT module types
 
-use crate::Config;
+use crate::{Config, Error};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
@@ -189,15 +189,14 @@ where
 		token_owner: &AccountId,
 		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
 	) -> Result<(), TokenOwnershipError> {
-		if let Some((owner, owned_serials)) =
-			self.owned_tokens.iter_mut().find(|p| &p.0 == token_owner)
+		if let Some((_, owned_serials)) = self.owned_tokens.iter_mut().find(|p| &p.0 == token_owner)
 		{
 			// Add new serial numbers to existing owner
 			for serial_number in serial_numbers.iter() {
-                owned_serials
-                    .try_push(*serial_number)
-                    .map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
-                owned_serials.sort();
+				owned_serials
+					.try_push(*serial_number)
+					.map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
+				owned_serials.sort();
 			}
 		} else {
 			// If token owner doesn't exist, create new entry
@@ -242,6 +241,16 @@ pub struct PendingIssuance {
 
 pub enum PendingIssuanceError {
 	PendingIssuanceLimitExceeded,
+}
+
+impl<T: Config> From<PendingIssuanceError> for Error<T> {
+	fn from(val: PendingIssuanceError) -> Error<T> {
+		match val {
+			PendingIssuanceError::PendingIssuanceLimitExceeded => {
+				Error::<T>::PendingIssuanceLimitExceeded
+			},
+		}
+	}
 }
 
 /// The state of a collection's pending issuances

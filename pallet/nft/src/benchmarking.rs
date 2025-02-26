@@ -116,9 +116,9 @@ benchmarks! {
 		let serial_numbers = BoundedVec::try_from(serial_numbers).unwrap();
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, serial_numbers.clone(), account::<T>("Bob"))
 	verify {
-		let collection_info = CollectionInfo::<T>::get(collection_id).expect("Collection not found");
+		let ownership_info = OwnershipInfo::<T>::get(collection_id).expect("Collection not found");
 		for serial_number in serial_numbers.iter() {
-			assert!(collection_info.is_token_owner(&account::<T>("Bob"), *serial_number));
+			assert!(ownership_info.is_token_owner(&account::<T>("Bob"), *serial_number));
 		}
 	}
 
@@ -175,8 +175,8 @@ benchmarks! {
 		));
 	}: _(origin::<T>(&receiver.clone()), collection_id, 0)
 	verify {
-		let collection_info = CollectionInfo::<T>::get(collection_id).expect("Collection not found");
-		assert!(collection_info.is_token_owner(&receiver, 1))
+		let ownership_info = OwnershipInfo::<T>::get(collection_id).expect("Collection not found");
+		assert!(ownership_info.is_token_owner(&receiver, 1))
 	}
 }
 
