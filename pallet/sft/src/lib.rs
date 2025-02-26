@@ -409,7 +409,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			// tokens with burn authority set should only be minted
-			// through issue/accept_issuance
+			// through issue/accept_soulbound_issuance
 			ensure!(
 				serial_numbers.iter().all(|(serial_number, _)| {
 					TokenUtilityFlags::<T>::get((collection_id, serial_number))
@@ -760,9 +760,9 @@ pub mod pallet {
 
 		/// Accept the issuance of a soulbound token.
 		#[pallet::call_index(18)]
-		#[pallet::weight(T::WeightInfo::accept_issuance())]
+		#[pallet::weight(T::WeightInfo::accept_soulbound_issuance())]
 		#[transactional]
-		pub fn accept_issuance(
+		pub fn accept_soulbound_issuance(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
 			issuance_id: u32,

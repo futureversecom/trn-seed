@@ -753,7 +753,7 @@ describe("ERC721 Precompile", function () {
 
     receipt = await erc721Precompile
       .connect(alithSigner)
-      .acceptIssuance(0)
+      .acceptSoulboundIssuance(0)
       .then((tx: any) => tx.wait());
 
     console.log(receipt);

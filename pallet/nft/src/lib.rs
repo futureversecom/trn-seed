@@ -819,9 +819,9 @@ pub mod pallet {
 
 		/// Accept the issuance of a soulbound token.
 		#[pallet::call_index(15)]
-		#[pallet::weight(T::WeightInfo::accept_issuance())]
+		#[pallet::weight(T::WeightInfo::accept_soulbound_issuance())]
 		#[transactional]
-		pub fn accept_issuance(
+		pub fn accept_soulbound_issuance(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
 			issuance_id: u32,

@@ -128,7 +128,7 @@ pub enum Action {
 	// ERC5484 Soulbound tokens
 	SetBurnAuth = "setBurnAuth(uint256,uint8)",
 	IssueSoulbound = "issueSoulbound(address,uint256[],uint256[])",
-	AcceptIssuance = "acceptIssuance(uint32)",
+	AcceptSoulboundIssuance = "acceptSouldboundIssuance(uint32)",
 	PendingIssuances = "pendingIssuances(address)",
 	BurnAsOwner = "burnAsOwner(address,uint256[],uint256[])",
 	BurnAuth = "burnAuth(uint256)",
@@ -240,7 +240,9 @@ where
 						// ERC5484
 						Action::SetBurnAuth => Self::set_burn_auth(collection_id, handle),
 						Action::IssueSoulbound => Self::issue_soulbound(collection_id, handle),
-						Action::AcceptIssuance => Self::accept_issuance(collection_id, handle),
+						Action::AcceptSoulboundIssuance => {
+							Self::accept_soulbound_issuance(collection_id, handle)
+						},
 						Action::PendingIssuances => Self::pending_issuances(collection_id, handle),
 						Action::BurnAuth => Self::burn_auth(collection_id, handle),
 						Action::BurnAsOwner => Self::burn_as_owner(collection_id, handle),
@@ -1359,7 +1361,7 @@ where
 		Ok(succeed(EvmDataWriter::new().write::<Vec<U256>>(issuance_ids).write(issuances).build()))
 	}
 
-	fn accept_issuance(
+	fn accept_soulbound_issuance(
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
@@ -1394,7 +1396,7 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin.into()).into(),
-			pallet_sft::Call::<Runtime>::accept_issuance { collection_id, issuance_id },
+			pallet_sft::Call::<Runtime>::accept_soulbound_issuance { collection_id, issuance_id },
 		)?;
 
 		for (serial_number, _) in pending_issuance.serial_numbers {

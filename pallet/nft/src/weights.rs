@@ -62,7 +62,7 @@ pub trait WeightInfo {
 	fn set_utility_flags() -> Weight;
 	fn set_token_transferable_flag() -> Weight;
 	fn issue_soulbound() -> Weight;
-	fn accept_issuance() -> Weight;
+	fn accept_soulbound_issuance() -> Weight;
 }
 
 /// Weights for pallet_nft using the Substrate node and recommended hardware.
@@ -238,7 +238,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `Nfi::NfiEnabled` (`max_values`: None, `max_size`: Some(529), added: 3004, mode: `MaxEncodedLen`)
 	// Storage: `Nft::TokenUtilityFlags` (r:1 w:1)
 	// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
-	fn accept_issuance() -> Weight {
+	fn accept_soulbound_issuance() -> Weight {
 		Weight::from_all(36_000_000)
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -417,7 +417,7 @@ impl WeightInfo for () {
 	// Proof: `Nfi::NfiEnabled` (`max_values`: None, `max_size`: Some(529), added: 3004, mode: `MaxEncodedLen`)
 	// Storage: `Nft::TokenUtilityFlags` (r:1 w:1)
 	// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
-	fn accept_issuance() -> Weight {
+	fn accept_soulbound_issuance() -> Weight {
 		Weight::from_all(36_000_000)
 			.saturating_add(RocksDbWeight::get().reads(6))
 			.saturating_add(RocksDbWeight::get().writes(3))

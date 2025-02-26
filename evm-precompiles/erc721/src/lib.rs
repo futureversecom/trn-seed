@@ -122,7 +122,7 @@ pub enum Action {
 	SupportsInterface = "supportsInterface(bytes4)",
 	// ERC5484 Soulbound tokens
 	IssueSoulbound = "issueSoulbound(address,uint32,uint8)",
-	AcceptIssuance = "acceptIssuance(uint32)",
+	AcceptSoulboundIssuance = "acceptSouldboundIssuance(uint32)",
 	PendingIssuances = "pendingIssuances(address)",
 	BurnAuth = "burnAuth(uint256)",
 }
@@ -250,7 +250,9 @@ where
 						// ERC5484
 						Action::IssueSoulbound => Self::issue_soulbound(collection_id, handle),
 						Action::PendingIssuances => Self::pending_issuances(collection_id, handle),
-						Action::AcceptIssuance => Self::accept_issuance(collection_id, handle),
+						Action::AcceptSoulboundIssuance => {
+							Self::accept_soulbound_issuance(collection_id, handle)
+						},
 						Action::BurnAuth => Self::burn_auth(collection_id, handle),
 						_ => return Some(Err(revert("ERC721: Function not implemented"))),
 					}
@@ -1269,7 +1271,7 @@ where
 		Ok(succeed(EvmDataWriter::new().write(issuance_ids).write(issuances).build()))
 	}
 
-	fn accept_issuance(
+	fn accept_soulbound_issuance(
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
@@ -1305,7 +1307,7 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin.into()).into(),
-			pallet_nft::Call::<Runtime>::accept_issuance { collection_id, issuance_id },
+			pallet_nft::Call::<Runtime>::accept_soulbound_issuance { collection_id, issuance_id },
 		)?;
 
 		for sn in serial_number..(serial_number + pending_issuance.quantity) {

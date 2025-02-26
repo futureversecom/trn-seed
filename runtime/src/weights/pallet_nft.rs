@@ -278,7 +278,7 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 	/// Proof: `Nfi::NfiEnabled` (`max_values`: None, `max_size`: Some(529), added: 3004, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::TokenUtilityFlags` (r:1 w:1)
 	/// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
-	fn accept_issuance() -> Weight {
+	fn accept_soulbound_issuance() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `447`
 		//  Estimated: `3994`

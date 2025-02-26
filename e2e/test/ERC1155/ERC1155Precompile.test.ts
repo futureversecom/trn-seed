@@ -795,7 +795,7 @@ describe("ERC1155 Precompile", function () {
 
     receipt = await erc1155Precompile
       .connect(alithSigner)
-      .acceptIssuance(0)
+      .acceptSoulboundIssuance(0)
       .then((tx: any) => tx.wait());
 
     for (const tokenId of tokens) {

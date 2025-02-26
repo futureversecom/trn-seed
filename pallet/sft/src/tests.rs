@@ -3054,7 +3054,7 @@ mod soulbound_token {
 			token_owner,
 		));
 
-		assert_ok!(Sft::accept_issuance(
+		assert_ok!(Sft::accept_soulbound_issuance(
 			RawOrigin::Signed(token_owner).into(),
 			collection_id,
 			issuance_id
@@ -3137,7 +3137,7 @@ mod soulbound_token {
 	}
 
 	#[test]
-	fn issue_and_accept_issuance_works() {
+	fn issue_and_accept_soulbound_issuance_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let token_owner = create_account(11);
@@ -3185,7 +3185,7 @@ mod soulbound_token {
 				.into(),
 			);
 
-			assert_ok!(Sft::accept_issuance(
+			assert_ok!(Sft::accept_soulbound_issuance(
 				RawOrigin::Signed(token_owner).into(),
 				collection_id,
 				issuance_id
@@ -3247,7 +3247,7 @@ mod soulbound_token {
 			));
 
 			// accept the issuance
-			assert_ok!(Sft::accept_issuance(
+			assert_ok!(Sft::accept_soulbound_issuance(
 				RawOrigin::Signed(token_owner).into(),
 				collection_id,
 				0
@@ -3273,7 +3273,7 @@ mod soulbound_token {
 			let issuance_id = 0;
 
 			assert_noop!(
-				Sft::accept_issuance(
+				Sft::accept_soulbound_issuance(
 					RawOrigin::Signed(token_owner).into(),
 					collection_id,
 					issuance_id
@@ -3284,7 +3284,7 @@ mod soulbound_token {
 	}
 
 	#[test]
-	fn cannot_accept_issuance_as_non_owner() {
+	fn cannot_accept_soulbound_issuance_as_non_owner() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let token_owner = create_account(11);
@@ -3312,7 +3312,7 @@ mod soulbound_token {
 			));
 
 			assert_noop!(
-				Sft::accept_issuance(
+				Sft::accept_soulbound_issuance(
 					RawOrigin::Signed(non_token_owner).into(),
 					collection_id,
 					issuance_id
@@ -3323,7 +3323,7 @@ mod soulbound_token {
 	}
 
 	#[test]
-	fn cannot_accept_issuance_more_than_once() {
+	fn cannot_accept_soulbound_issuance_more_than_once() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let token_owner = create_account(11);
@@ -3334,7 +3334,11 @@ mod soulbound_token {
 				issue_and_accept(collection_owner, token_owner, burn_authority, 1);
 
 			assert_noop!(
-				Sft::accept_issuance(RawOrigin::Signed(token_owner).into(), collection_id, 0),
+				Sft::accept_soulbound_issuance(
+					RawOrigin::Signed(token_owner).into(),
+					collection_id,
+					0
+				),
 				Error::<Test>::InvalidPendingIssuance
 			);
 		});

@@ -344,11 +344,11 @@ benchmarks! {
 
 		assert_eq!(
 			pending_issuances.len(),
-			<u32 as TryInto<usize>>::try_into(p).unwrap(),
+			1,
 		)
 	}
 
-	accept_issuance {
+	accept_soulbound_issuance {
 		let owner = account::<T>("Alice");
 		let receiver = account::<T>("Bob");
 
@@ -365,7 +365,7 @@ benchmarks! {
 
 		let (collection_id, serial_number) = issue_token::<T>(owner.clone(), receiver.clone());
 
-		assert_ok!(Sft::<T>::accept_issuance(
+		assert_ok!(Sft::<T>::accept_soulbound_issuance(
 			origin::<T>(&receiver).into(),
 			collection_id,
 			0

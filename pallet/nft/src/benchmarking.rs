@@ -157,11 +157,11 @@ benchmarks! {
 
 		assert_eq!(
 			pending_issuances.len(),
-			<u32 as TryInto<usize>>::try_into(1).unwrap(),
+			1,
 		)
 	}
 
-	accept_issuance {
+	accept_soulbound_issuance {
 		let collection_id = build_collection::<T>(None);
 
 		let receiver = account::<T>("Bob");

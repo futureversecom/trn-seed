@@ -3102,7 +3102,7 @@ mod soulbound_token {
 			token_owner,
 			burn_authority
 		));
-		assert_ok!(Nft::accept_issuance(
+		assert_ok!(Nft::accept_soulbound_issuance(
 			RawOrigin::Signed(token_owner).into(),
 			collection_id,
 			issuance_id
@@ -3112,7 +3112,7 @@ mod soulbound_token {
 	}
 
 	#[test]
-	fn issue_and_accept_issuance_works() {
+	fn issue_and_accept_soulbound_issuance_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
@@ -3150,7 +3150,7 @@ mod soulbound_token {
 				Some(PendingIssuance { issuance_id, quantity, burn_authority })
 			);
 
-			assert_ok!(Nft::accept_issuance(
+			assert_ok!(Nft::accept_soulbound_issuance(
 				RawOrigin::Signed(token_owner).into(),
 				collection_id,
 				issuance_id
@@ -3199,7 +3199,7 @@ mod soulbound_token {
 				Some(PendingIssuance { issuance_id, quantity, burn_authority })
 			);
 
-			assert_ok!(Nft::accept_issuance(
+			assert_ok!(Nft::accept_soulbound_issuance(
 				RawOrigin::Signed(token_owner).into(),
 				collection_id,
 				issuance_id
@@ -3228,7 +3228,7 @@ mod soulbound_token {
 			let issuance_id = 0;
 
 			assert_noop!(
-				Nft::accept_issuance(
+				Nft::accept_soulbound_issuance(
 					RawOrigin::Signed(token_owner).into(),
 					collection_id,
 					issuance_id
@@ -3239,7 +3239,7 @@ mod soulbound_token {
 	}
 
 	#[test]
-	fn cannot_accept_issuance_more_than_once() {
+	fn cannot_accept_soulbound_issuance_more_than_once() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
@@ -3251,14 +3251,18 @@ mod soulbound_token {
 			issue_and_accept(collection_id, collection_owner, token_owner, burn_authority);
 
 			assert_noop!(
-				Nft::accept_issuance(RawOrigin::Signed(token_owner).into(), collection_id, 0,),
+				Nft::accept_soulbound_issuance(
+					RawOrigin::Signed(token_owner).into(),
+					collection_id,
+					0
+				),
 				Error::<Test>::InvalidPendingIssuance
 			);
 		});
 	}
 
 	#[test]
-	fn cannot_accept_issuance_as_non_owner() {
+	fn cannot_accept_soulbound_issuance_as_non_owner() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
@@ -3279,7 +3283,7 @@ mod soulbound_token {
 			));
 
 			assert_noop!(
-				Nft::accept_issuance(
+				Nft::accept_soulbound_issuance(
 					RawOrigin::Signed(non_token_owner).into(),
 					collection_id,
 					issuance_id
