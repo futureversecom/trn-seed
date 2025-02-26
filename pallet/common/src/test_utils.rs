@@ -811,6 +811,8 @@ macro_rules! impl_pallet_partner_attribution_config {
 					_ => Err(o),
 				}
 			}
+
+			// Add "pallet-partner-attribution/runtime-benchmarks" to runtime-benchmarks feature of dependent pallet
 			#[cfg(feature = "runtime-benchmarks")]
 			fn try_successful_origin() -> Result<<Test as frame_system::Config>::RuntimeOrigin, ()>
 			{
@@ -848,6 +850,8 @@ macro_rules! impl_pallet_partner_attribution_config {
 			type EnsureFuturepass = EnsureAny;
 			type FuturepassCreator = MockFuturepassProvider;
 			type WeightInfo = ();
+			#[cfg(feature = "runtime-benchmarks")]
+			type MultiCurrency = AssetsExt;
 		}
 	};
 }
