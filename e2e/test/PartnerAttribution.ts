@@ -100,6 +100,43 @@ describe("Partner Attribution", () => {
     expect(+attributedPartnerId.toString()).to.equal(partnerId);
   });
 
+  it("futurepass proxy-extrinsic attribution success", async () => {
+    // create and fund partner account
+    const partnerAccount = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey));
+    await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, partnerAccount.address, 10_000_000));
+
+    // get next partner id (to be created by registerPartnerAccount)
+    const partnerId = +(await api.query.partnerAttribution.nextPartnerId());
+
+    // create futurepass for random user
+    const user = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey));
+    await finalizeTx(alith, api.tx.futurepass.create(user.address));
+
+    // fund the futurepass account
+    const futurepassAddress = (await api.query.futurepass.holders(user.address)).toString();
+    await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, futurepassAddress, 10_000_000));
+
+    // create a partner
+    await finalizeTx(partnerAccount, api.tx.partnerAttribution.registerPartnerAccount(partnerAccount.address));
+
+    // ensure partner is created
+    const partner = await api.query.partnerAttribution.partners(partnerId);
+    expect(partner.toJSON()).to.deep.equal({
+      owner: partnerAccount.address,
+      account: partnerAccount.address,
+      feePercentage: null,
+      accumulatedFees: 0,
+    });
+
+    // attribute futurepass to partner
+    const innerCall = api.tx.partnerAttribution.attributeAccount(partnerId);
+    await finalizeTx(user, api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall));
+
+    // validate futurepass attribution
+    const attributedPartnerId = await api.query.partnerAttribution.attributions(futurepassAddress);
+    expect(+attributedPartnerId.toString()).to.equal(partnerId);
+  });
+
   it("batch create futurepass accounts and attribute to partner", async () => {
     // create and fund partner account
     const partnerAccount = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey));
@@ -139,5 +176,79 @@ describe("Partner Attribution", () => {
       futurepassAddresses[futurepassAddresses.length - 1],
     );
     expect(+lastAttributedPartnerId.toString()).to.equal(partnerId);
+  });
+
+  it("upgraded partner account accumulates attributed fees", async () => {
+    // create and fund partner account
+    const partnerAccount = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey));
+    await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, partnerAccount.address, 10_000_000));
+
+    // get next partner id (to be created by registerPartnerAccount)
+    const partnerId = +(await api.query.partnerAttribution.nextPartnerId());
+
+    // create futurepass for random user
+    const user = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(Wallet.createRandom().privateKey));
+    await finalizeTx(alith, api.tx.futurepass.create(user.address));
+
+    // fund the futurepass account
+    const futurepassAddress = (await api.query.futurepass.holders(user.address)).toString();
+    await finalizeTx(alith, api.tx.assets.transfer(GAS_TOKEN_ID, futurepassAddress, 10_000_000));
+
+    // create a partner
+    await finalizeTx(partnerAccount, api.tx.partnerAttribution.registerPartnerAccount(partnerAccount.address));
+
+    // ensure partner is created
+    let partner = await api.query.partnerAttribution.partners(partnerId);
+    expect(partner.toJSON()).to.deep.equal({
+      owner: partnerAccount.address,
+      account: partnerAccount.address,
+      feePercentage: null,
+      accumulatedFees: 0,
+    });
+
+    // attribute futurepass to partner
+    const innerCall = api.tx.partnerAttribution.attributeAccount(partnerId);
+    await finalizeTx(user, api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall));
+
+    // validate futurepass attribution
+    const attributedPartnerId = await api.query.partnerAttribution.attributions(futurepassAddress);
+    expect(+attributedPartnerId.toString()).to.equal(partnerId);
+
+    // perform a transaction that incurs fees from futurepass
+    const remarkCall = api.tx.system.remarkWithEvent("sup");
+    await finalizeTx(user, api.tx.futurepass.proxyExtrinsic(futurepassAddress, remarkCall));
+
+    // validate partner account is unchanged
+    partner = await api.query.partnerAttribution.partners(partnerId);
+    expect(partner.toJSON()).to.deep.equal({
+      owner: partnerAccount.address,
+      account: partnerAccount.address,
+      feePercentage: null,
+      accumulatedFees: 0,
+    });
+
+    // upgrade partner account - privileged call
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.partnerAttribution.upgradePartner(partnerId, 1000)));
+
+    // validate partner account is upgraded
+    partner = await api.query.partnerAttribution.partners(partnerId);
+    expect(partner.toJSON()).to.deep.equal({
+      owner: partnerAccount.address,
+      account: partnerAccount.address,
+      feePercentage: 1000,
+      accumulatedFees: 0,
+    });
+
+    // perform another transaction that incurs fees from futurepass
+    await finalizeTx(user, api.tx.futurepass.proxyExtrinsic(futurepassAddress, remarkCall));
+
+    // validate fee from futurepass tx is accumulated into accumulatedFees
+    partner = await api.query.partnerAttribution.partners(partnerId);
+    expect(partner.toJSON()).to.deep.equal({
+      owner: partnerAccount.address,
+      account: partnerAccount.address,
+      feePercentage: 1000,
+      accumulatedFees: 54441,
+    });
   });
 });

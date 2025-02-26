@@ -32,6 +32,7 @@ where
 		+ pallet_assets_ext::Config
 		+ pallet_futurepass::Config
 		+ pallet_sylo_data_verification::Config
+		+ pallet_partner_attribution::Config
 		+ pallet_proxy::Config
 		+ pallet_utility::Config
 		+ pallet_xrpl::Config,
@@ -81,6 +82,9 @@ where
 				who = futurepass;
 			}
 		}
+
+		// Attribute the fee to the partner if the caller is attributed to a partner
+		attribute_fee_to_partner::<T>(who, fee.into())?;
 
 		let do_fee_swap = |who: &T::AccountId,
 		                   payment_asset: &AssetId,
@@ -219,6 +223,28 @@ where
 			already_withdrawn,
 		)
 	}
+}
+
+/// Helper function to attribute a fee to a partner account if caller
+/// is attributed to a partner and the partner has a fee percentage.
+fn attribute_fee_to_partner<T>(
+	who: &T::AccountId,
+	fee: Balance,
+) -> Result<(), TransactionValidityError>
+where
+	T: Config + pallet_partner_attribution::Config,
+{
+	if let Some(partner_id) = pallet_partner_attribution::Attributions::<T>::get(who) {
+		pallet_partner_attribution::Partners::<T>::try_mutate(partner_id, |maybe_partner| {
+			if let Some(partner) = maybe_partner {
+				if partner.fee_percentage.is_some() {
+					partner.accumulated_fees = partner.accumulated_fees.saturating_add(fee);
+				}
+			}
+			Ok::<(), TransactionValidityError>(())
+		})?;
+	}
+	Ok(())
 }
 
 /// Helper function to determine if a call is a sylo pallet call that

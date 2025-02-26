@@ -440,3 +440,63 @@ mod calculate_total_gas {
 		});
 	}
 }
+
+mod partner_fee_attribution {
+	use super::*;
+	use crate::mock::{AssetsExt, RuntimeCall};
+	use frame_support::{dispatch::DispatchInfo, sp_runtime::Permill, traits::fungibles::Mutate};
+	use pallet_partner_attribution::{Attributions, PartnerInformation, Partners};
+	use pallet_transaction_payment::OnChargeTransaction;
+
+	#[test]
+	fn successful_partner_fee_attribution() {
+		TestExt::<Test>::default()
+			.with_asset(XRP_ASSET_ID, "XRP", &[]) // create XRP asset
+			.build()
+			.execute_with(|| {
+				// Setup
+				let caller: AccountId = create_account(1);
+				let partner_account: AccountId = create_account(2);
+				let partner_id = 1u128;
+				let initial_balance = 1_000_000;
+
+				// Give caller some balance - to perform tx (pay for fees)
+				assert_ok!(AssetsExt::mint_into(XRP_ASSET_ID, &caller, initial_balance));
+
+				// Register partner and set fee percentage
+				let partner = PartnerInformation {
+					owner: partner_account.clone(),
+					account: partner_account.clone(),
+					fee_percentage: Some(Permill::from_percent(10)),
+					accumulated_fees: 0,
+				};
+				Partners::<Test>::insert(partner_id, partner);
+
+				// Attribute caller to partner
+				Attributions::<Test>::insert(&caller, partner_id);
+
+				// Create a transaction that will incur fees
+				let call = RuntimeCall::System(frame_system::Call::remark {
+					remark: b"Test Transaction".to_vec(),
+				});
+
+				// Calculate and charge the fee
+				let fee = 500;
+				let _ = FeeProxy::withdraw_fee(
+					&caller,
+					&call,
+					&DispatchInfo::default(),
+					fee.into(),
+					0u32.into(),
+				)
+				.expect("Fee withdrawal should work");
+
+				// Verify partner's accumulated fees increased deterministically
+				let updated_partner = Partners::<Test>::get(partner_id).unwrap();
+				assert_eq!(
+					updated_partner.accumulated_fees, fee,
+					"Partner should have accumulated correct fee amount"
+				);
+			});
+	}
+}
