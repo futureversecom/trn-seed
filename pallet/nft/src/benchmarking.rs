@@ -100,8 +100,37 @@ benchmarks! {
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, pricing_details)
 
 	mint {
-		let collection_id = build_collection::<T>(None);
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 1, None)
+		let p in 1 .. (1000);
+		let owner = account::<T>("Alice");
+		let collection_id = build_collection::<T>(Some(owner.clone()));
+		let asset_id = 1;
+		let mint_fee: Balance = 100;
+
+		// Toggle public mint to traverse worst case scenario
+		assert_ok!(Nft::<T>::toggle_public_mint(
+		   origin::<T>(&owner).into(),
+		   collection_id,
+		   true
+		));
+		assert_ok!(Nft::<T>::set_mint_fee(
+		   origin::<T>(&owner).into(),
+		   collection_id,
+		   Some((1, 100))
+		));
+
+		// fund the mint account
+		let minter = account::<T>("Bob");
+		assert_ok!(T::MultiCurrency::mint_into(asset_id, &minter, mint_fee * 5u128 * p as u128));
+
+	}: _(origin::<T>(&minter), collection_id, p, Some(minter.clone()))
+	verify {
+		let collection_info = CollectionInfo::<T>::get(collection_id).expect("Collection not found");
+
+		assert_eq!(Nft::<T>::token_balance_of(&minter, collection_id), p);
+		for i in 1..=p {
+			assert!(collection_info.is_token_owner(&minter, i));
+		}
+	}
 
 	transfer {
 		let collection_id = build_collection::<T>(None);

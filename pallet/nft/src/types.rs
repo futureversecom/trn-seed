@@ -196,7 +196,6 @@ where
 				owned_serials
 					.try_push(*serial_number)
 					.map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
-				owned_serials.sort();
 			}
 		} else {
 			// If token owner doesn't exist, create new entry

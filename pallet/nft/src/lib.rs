@@ -583,7 +583,7 @@ pub mod pallet {
 		/// -----------
 		/// Weight is O(N) where N is `quantity`
 		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::mint())]
+		#[pallet::weight(T::WeightInfo::mint(*quantity as u32))]
 		#[transactional]
 		pub fn mint(
 			origin: OriginFor<T>,
