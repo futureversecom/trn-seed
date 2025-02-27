@@ -4,7 +4,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2025-02-27, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `Jasons-Ubuntu`, CPU: `AMD Ryzen 9 7950X 16-Core Processor`
+//! HOSTNAME: `ip-172-31-102-147`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
 //! EXECUTION: ``, WASM-EXECUTION: `Compiled`, CHAIN: `Some("dev")`, DB CACHE: 1024
 
 // Executed Command:
@@ -32,78 +32,92 @@ use core::marker::PhantomData;
 /// Weight functions for `pallet_nft`.
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
 	fn claim_unowned_collection() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `331`
-		//  Estimated: `3464`
-		// Minimum execution time: 10_610_000 picoseconds.
-		Weight::from_parts(11_151_000, 0)
-			.saturating_add(Weight::from_parts(0, 3464))
-			.saturating_add(T::DbWeight::get().reads(1))
+		//  Measured:  `342`
+		//  Estimated: `3959`
+		// Minimum execution time: 47_011_000 picoseconds.
+		Weight::from_parts(48_098_000, 0)
+			.saturating_add(Weight::from_parts(0, 3959))
+			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
 	fn set_owner() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `331`
-		//  Estimated: `3464`
-		// Minimum execution time: 11_652_000 picoseconds.
-		Weight::from_parts(12_033_000, 0)
-			.saturating_add(Weight::from_parts(0, 3464))
-			.saturating_add(T::DbWeight::get().reads(1))
+		//  Measured:  `342`
+		//  Estimated: `3959`
+		// Minimum execution time: 52_174_000 picoseconds.
+		Weight::from_parts(52_685_000, 0)
+			.saturating_add(Weight::from_parts(0, 3959))
+			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
 	fn set_max_issuance() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `331`
-		//  Estimated: `3464`
-		// Minimum execution time: 11_712_000 picoseconds.
-		Weight::from_parts(12_012_000, 0)
-			.saturating_add(Weight::from_parts(0, 3464))
-			.saturating_add(T::DbWeight::get().reads(1))
+		//  Measured:  `342`
+		//  Estimated: `3959`
+		// Minimum execution time: 50_836_000 picoseconds.
+		Weight::from_parts(51_629_000, 0)
+			.saturating_add(Weight::from_parts(0, 3959))
+			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
 	fn set_base_uri() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `331`
-		//  Estimated: `3464`
-		// Minimum execution time: 12_042_000 picoseconds.
-		Weight::from_parts(12_333_000, 0)
-			.saturating_add(Weight::from_parts(0, 3464))
-			.saturating_add(T::DbWeight::get().reads(1))
+		//  Measured:  `342`
+		//  Estimated: `3959`
+		// Minimum execution time: 52_444_000 picoseconds.
+		Weight::from_parts(53_500_000, 0)
+			.saturating_add(Weight::from_parts(0, 3959))
+			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
 	fn set_name() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `331`
-		//  Estimated: `3464`
-		// Minimum execution time: 11_862_000 picoseconds.
-		Weight::from_parts(12_203_000, 0)
-			.saturating_add(Weight::from_parts(0, 3464))
-			.saturating_add(T::DbWeight::get().reads(1))
+		//  Measured:  `342`
+		//  Estimated: `3959`
+		// Minimum execution time: 51_343_000 picoseconds.
+		Weight::from_parts(52_694_000, 0)
+			.saturating_add(Weight::from_parts(0, 3959))
+			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
 	fn set_royalties_schedule() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `331`
-		//  Estimated: `3464`
-		// Minimum execution time: 12_032_000 picoseconds.
-		Weight::from_parts(12_363_000, 0)
-			.saturating_add(Weight::from_parts(0, 3464))
-			.saturating_add(T::DbWeight::get().reads(1))
+		//  Measured:  `342`
+		//  Estimated: `3959`
+		// Minimum execution time: 52_749_000 picoseconds.
+		Weight::from_parts(53_636_000, 0)
+			.saturating_add(Weight::from_parts(0, 3959))
+			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::NextCollectionId` (r:1 w:1)
 	/// Proof: `Nft::NextCollectionId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `EVM::AccountCodes` (r:1 w:1)
@@ -115,53 +129,63 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 	/// Storage: `EVM::AccountCodesMetadata` (r:0 w:1)
 	/// Proof: `EVM::AccountCodesMetadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::CollectionInfo` (r:0 w:1)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::OwnershipInfo` (r:0 w:1)
+	/// Proof: `Nft::OwnershipInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	fn create_collection() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `282`
-		//  Estimated: `3747`
-		// Minimum execution time: 26_791_000 picoseconds.
-		Weight::from_parts(27_643_000, 0)
-			.saturating_add(Weight::from_parts(0, 3747))
-			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(5))
+		//  Measured:  `285`
+		//  Estimated: `3750`
+		// Minimum execution time: 106_457_000 picoseconds.
+		Weight::from_parts(108_362_000, 0)
+			.saturating_add(Weight::from_parts(0, 3750))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(6))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:0)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::PublicMintInfo` (r:1 w:1)
 	/// Proof: `Nft::PublicMintInfo` (`max_values`: None, `max_size`: Some(34), added: 2509, mode: `MaxEncodedLen`)
 	fn toggle_public_mint() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `331`
-		//  Estimated: `3499`
-		// Minimum execution time: 12_584_000 picoseconds.
-		Weight::from_parts(13_034_000, 0)
-			.saturating_add(Weight::from_parts(0, 3499))
-			.saturating_add(T::DbWeight::get().reads(2))
+		//  Measured:  `342`
+		//  Estimated: `3959`
+		// Minimum execution time: 54_240_000 picoseconds.
+		Weight::from_parts(55_559_000, 0)
+			.saturating_add(Weight::from_parts(0, 3959))
+			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:0)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::PublicMintInfo` (r:1 w:1)
 	/// Proof: `Nft::PublicMintInfo` (`max_values`: None, `max_size`: Some(34), added: 2509, mode: `MaxEncodedLen`)
 	fn set_mint_fee() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `331`
-		//  Estimated: `3499`
-		// Minimum execution time: 12_814_000 picoseconds.
-		Weight::from_parts(13_104_000, 0)
-			.saturating_add(Weight::from_parts(0, 3499))
-			.saturating_add(T::DbWeight::get().reads(2))
+		//  Measured:  `342`
+		//  Estimated: `3959`
+		// Minimum execution time: 54_777_000 picoseconds.
+		Weight::from_parts(55_982_000, 0)
+			.saturating_add(Weight::from_parts(0, 3959))
+			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::PublicMintInfo` (r:1 w:0)
 	/// Proof: `Nft::PublicMintInfo` (`max_values`: None, `max_size`: Some(34), added: 2509, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::UtilityFlags` (r:1 w:0)
 	/// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::OwnershipInfo` (r:1 w:1)
+	/// Proof: `Nft::OwnershipInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	/// Storage: `EVMChainId::ChainId` (r:1 w:0)
 	/// Proof: `EVMChainId::ChainId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Nfi::NfiEnabled` (r:1 w:0)
@@ -169,20 +193,24 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 	/// The range of component `p` is `[1, 1000]`.
 	fn mint(p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `599`
+		//  Measured:  `634`
 		//  Estimated: `6172`
-		// Minimum execution time: 62_649_000 picoseconds.
-		Weight::from_parts(64_822_850, 0)
+		// Minimum execution time: 208_629_000 picoseconds.
+		Weight::from_parts(215_408_601, 0)
 			.saturating_add(Weight::from_parts(0, 6172))
-			// Standard Error: 151
-			.saturating_add(Weight::from_parts(2_622, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(3))
+			// Standard Error: 384
+			.saturating_add(Weight::from_parts(592, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(9))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::UtilityFlags` (r:1 w:0)
 	/// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
-	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::CollectionInfo` (r:1 w:0)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::OwnershipInfo` (r:1 w:1)
+	/// Proof: `Nft::OwnershipInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::TokenLocks` (r:500 w:0)
 	/// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::TokenUtilityFlags` (r:500 w:0)
@@ -193,18 +221,20 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 	fn transfer(p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `332 + p * (4 ±0)`
-		//  Estimated: `3480 + p * (2508 ±0)`
-		// Minimum execution time: 18_495_000 picoseconds.
-		Weight::from_parts(1_245_840, 0)
-			.saturating_add(Weight::from_parts(0, 3480))
-			// Standard Error: 4_078
-			.saturating_add(Weight::from_parts(3_817_188, 0).saturating_mul(p.into()))
-			.saturating_add(T::DbWeight::get().reads(2))
+		//  Estimated: `3959 + p * (2508 ±0)`
+		// Minimum execution time: 78_297_000 picoseconds.
+		Weight::from_parts(31_187_477, 0)
+			.saturating_add(Weight::from_parts(0, 3959))
+			// Standard Error: 9_733
+			.saturating_add(Weight::from_parts(9_344_287, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(p.into())))
 			.saturating_add(T::DbWeight::get().writes(1))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p.into())))
 			.saturating_add(Weight::from_parts(0, 2508).saturating_mul(p.into()))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::TokenLocks` (r:1 w:0)
 	/// Proof: `Nft::TokenLocks` (`max_values`: None, `max_size`: Some(33), added: 2508, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::UtilityFlags` (r:1 w:0)
@@ -214,71 +244,85 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 	/// Storage: `Nfi::NfiData` (r:1 w:0)
 	/// Proof: `Nfi::NfiData` (`max_values`: None, `max_size`: Some(1166), added: 3641, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::OwnershipInfo` (r:1 w:1)
+	/// Proof: `Nft::OwnershipInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::TokenUtilityFlags` (r:1 w:0)
 	/// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	/// Storage: `TokenApprovals::ERC721Approvals` (r:0 w:1)
 	/// Proof: `TokenApprovals::ERC721Approvals` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	fn burn() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `377`
+		//  Measured:  `413`
 		//  Estimated: `4631`
-		// Minimum execution time: 21_520_000 picoseconds.
-		Weight::from_parts(21_992_000, 0)
+		// Minimum execution time: 96_901_000 picoseconds.
+		Weight::from_parts(97_596_000, 0)
 			.saturating_add(Weight::from_parts(0, 4631))
-			.saturating_add(T::DbWeight::get().reads(6))
-			.saturating_add(T::DbWeight::get().writes(2))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:0)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::UtilityFlags` (r:0 w:1)
 	/// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
 	fn set_utility_flags() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `331`
-		//  Estimated: `3464`
-		// Minimum execution time: 12_935_000 picoseconds.
-		Weight::from_parts(13_255_000, 0)
-			.saturating_add(Weight::from_parts(0, 3464))
-			.saturating_add(T::DbWeight::get().reads(1))
+		//  Measured:  `342`
+		//  Estimated: `3959`
+		// Minimum execution time: 55_528_000 picoseconds.
+		Weight::from_parts(56_576_000, 0)
+			.saturating_add(Weight::from_parts(0, 3959))
+			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:0)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::OwnershipInfo` (r:1 w:0)
+	/// Proof: `Nft::OwnershipInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::TokenUtilityFlags` (r:1 w:1)
 	/// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	fn set_token_transferable_flag() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `331`
-		//  Estimated: `3484`
-		// Minimum execution time: 14_347_000 picoseconds.
-		Weight::from_parts(14_808_000, 0)
-			.saturating_add(Weight::from_parts(0, 3484))
-			.saturating_add(T::DbWeight::get().reads(2))
+		//  Measured:  `367`
+		//  Estimated: `3959`
+		// Minimum execution time: 67_535_000 picoseconds.
+		Weight::from_parts(68_505_000, 0)
+			.saturating_add(Weight::from_parts(0, 3959))
+			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:0)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::UtilityFlags` (r:1 w:0)
 	/// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::PendingIssuances` (r:1 w:1)
 	/// Proof: `Nft::PendingIssuances` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	fn issue_soulbound() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `331`
-		//  Estimated: `3480`
-		// Minimum execution time: 15_169_000 picoseconds.
-		Weight::from_parts(15_489_000, 0)
-			.saturating_add(Weight::from_parts(0, 3480))
-			.saturating_add(T::DbWeight::get().reads(3))
+		//  Measured:  `342`
+		//  Estimated: `3959`
+		// Minimum execution time: 62_385_000 picoseconds.
+		Weight::from_parts(63_750_000, 0)
+			.saturating_add(Weight::from_parts(0, 3959))
+			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Migration::Status` (r:1 w:0)
+	/// Proof: `Migration::Status` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `Nft::PendingIssuances` (r:1 w:1)
 	/// Proof: `Nft::PendingIssuances` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
-	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::UtilityFlags` (r:1 w:0)
 	/// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::OwnershipInfo` (r:1 w:1)
+	/// Proof: `Nft::OwnershipInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
 	/// Storage: `EVMChainId::ChainId` (r:1 w:0)
 	/// Proof: `EVMChainId::ChainId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Nfi::NfiEnabled` (r:1 w:0)
@@ -287,12 +331,12 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 	/// Proof: `Nft::TokenUtilityFlags` (`max_values`: None, `max_size`: Some(19), added: 2494, mode: `MaxEncodedLen`)
 	fn accept_soulbound_issuance() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `447`
+		//  Measured:  `482`
 		//  Estimated: `3994`
-		// Minimum execution time: 25_058_000 picoseconds.
-		Weight::from_parts(25_719_000, 0)
+		// Minimum execution time: 108_621_000 picoseconds.
+		Weight::from_parts(109_872_000, 0)
 			.saturating_add(Weight::from_parts(0, 3994))
-			.saturating_add(T::DbWeight::get().reads(6))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 }
