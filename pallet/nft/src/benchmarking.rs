@@ -124,11 +124,10 @@ benchmarks! {
 
 	}: _(origin::<T>(&minter), collection_id, p, Some(minter.clone()))
 	verify {
-		let collection_info = CollectionInfo::<T>::get(collection_id).expect("Collection not found");
-
+		let ownership_info = OwnershipInfo::<T>::get(collection_id).expect("Collection not found");
 		assert_eq!(Nft::<T>::token_balance_of(&minter, collection_id), p);
 		for i in 1..=p {
-			assert!(collection_info.is_token_owner(&minter, i));
+			assert!(ownership_info.is_token_owner(&minter, i));
 		}
 	}
 
