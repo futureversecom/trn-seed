@@ -183,7 +183,7 @@ mod on_runtime_upgrade {
 			let used_weight = Migration::on_runtime_upgrade();
 			// Check storage updated
 			assert_eq!(Status::<Test>::get(), MigrationStatus::InProgress { steps_done: 0 });
-			System::assert_has_event(Event::MigrationStarted.into());
+			System::assert_has_event(Event::MigrationSet.into());
 			assert_eq!(used_weight, DbWeight::get().reads_writes(1, 1));
 			// Ensure migrated should fail as the migration is now in progress
 			assert_noop!(Pallet::<Test>::ensure_migrated(), Error::<Test>::MigrationInProgress);
@@ -248,6 +248,7 @@ mod migrate {
 			verify_new_data(data_count, None);
 			assert_eq!(Status::<Test>::get(), MigrationStatus::Completed);
 			assert_ok!(Pallet::<Test>::ensure_migrated());
+			assert_eq!(MigrationEnabled::<Test>::get(), false);
 			assert!(LastKey::<Test>::get().is_none());
 			assert!(<Test as Config>::CurrentMigration::version_check());
 		});

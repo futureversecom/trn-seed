@@ -145,7 +145,6 @@ mod migrations;
 mod weights;
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
-use seed_primitives::migration::NoopMigration;
 
 #[cfg(test)]
 mod tests;
@@ -475,6 +474,7 @@ impl pallet_nft::Config for Runtime {
 	type Xls20MintRequest = Xls20;
 	type NFIRequest = Nfi;
 	type MaxPendingIssuances = MaxPendingIssuances;
+	type Migrator = Migration;
 }
 
 parameter_types! {
@@ -1418,7 +1418,7 @@ parameter_types! {
 impl pallet_migration::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// Set to NoopMigration if no migration is in progress
-	type CurrentMigration = NoopMigration;
+	type CurrentMigration = migrations::nft_multi::NftMigration<Runtime>;
 	type MaxMigrationWeight = MaxMigrationWeight;
 	type WeightInfo = weights::pallet_migration::WeightInfo<Runtime>;
 }

@@ -101,4 +101,5 @@ impl crate::Config for Test {
 	type Xls20MintRequest = MockXls20MintRequest;
 	type NFIRequest = ();
 	type MaxPendingIssuances = MaxPendingIssuances;
+	type Migrator = ();
 }
