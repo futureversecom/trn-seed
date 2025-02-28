@@ -57,8 +57,7 @@ where
 		owner: AccountId,
 		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
 	) -> Self {
-		let mut owned_serials = serial_numbers.clone();
-		owned_serials.sort();
+		let owned_serials = serial_numbers.clone();
 		Self { owner, owned_serials }
 	}
 
@@ -67,7 +66,6 @@ where
 		self.owned_serials
 			.try_push(serial_number)
 			.map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
-		self.owned_serials.sort();
 		Ok(())
 	}
 
