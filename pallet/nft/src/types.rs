@@ -57,7 +57,7 @@ where
 		owner: AccountId,
 		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
 	) -> Self {
-		let mut owned_serials = serial_numbers.clone();
+		let owned_serials = serial_numbers.clone();
 		Self { owner, owned_serials }
 	}
 
