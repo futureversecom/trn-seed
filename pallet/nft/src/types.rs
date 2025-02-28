@@ -57,8 +57,7 @@ where
 		owner: AccountId,
 		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
 	) -> Self {
-		let owned_serials = serial_numbers.clone();
-		Self { owner, owned_serials }
+		Self { owner, owned_serials: serial_numbers }
 	}
 
 	/// Adds a serial to owned_serials and sorts the vec
