@@ -368,10 +368,16 @@ pub mod pallet {
 		/// Set distribution eras
 		SetVtxDistEras { id: T::VtxDistIdentifier, start_era: EraIndex, end_era: EraIndex },
 
-		/// Set assets list
-		SetAssetsList {
+		/// Set Fee pot asset balances
+		SetFeePotAssetBalances {
 			id: T::VtxDistIdentifier,
-			assets_list: BoundedVec<AssetId, T::MaxAssetPrices>,
+			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
+		},
+
+		/// Set Vtx vault asset balances
+		SetVtxVaultAssetBalances {
+			id: T::VtxDistIdentifier,
+			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 		},
 
 		/// Set asset prices
@@ -745,7 +751,7 @@ pub mod pallet {
 			);
 			ensure!(VtxDistStatuses::<T>::get(id) == VtxDistStatus::Done, Error::<T>::CannotRedeem);
 
-			for asset_id in AssetsList::<T>::get(id).into_iter() {
+			/*for asset_id in AssetsList::<T>::get(id).into_iter() {
 				// First, we calculate the ratio between the asset balance and the total vortex
 				// issue. then multiply it with the vortex token amount the user wants to reddem to
 				// get the resulting asset token amount.
@@ -753,7 +759,7 @@ pub mod pallet {
 				let redeem_amount = vortex_balance.saturating_mul(asset_balance) / total_vortex;
 
 				Self::safe_transfer(asset_id, &vault_account, &who, redeem_amount, false)?;
-			}
+			}*/
 
 			// Burn the vortex token
 			T::MultiCurrency::burn_from(
@@ -766,28 +772,43 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set assets list
+		/// Set fee pot assets balances
 		///
-		/// `assets_list` - List of assets
+		/// `assets_balances` - List of assets
 		/// `id` - The distribution id
 		#[pallet::call_index(10)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_assets_list(assets_list.len() as u32))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_assets_list(assets_balances.len() as u32))]
 		// #[transactional]
-		pub fn set_assets_list(
+		pub fn set_fee_pot_asset_balances(
 			origin: OriginFor<T>,
-			assets_list: BoundedVec<AssetId, T::MaxAssetPrices>, /* suppose max is also
-			                                                      * MaxAssetPrices */
+			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 			id: T::VtxDistIdentifier,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_root_or_admin(origin)?;
-			Self::do_assets_list_setter(assets_list, id)
+			Self::do_fee_pot_asset_balances_setter(assets_balances, id)
+		}
+
+		/// Set vtx vault assets balances
+		///
+		/// `assets_balances` - List of assets
+		/// `id` - The distribution id
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_assets_list(assets_balances.len() as u32))]
+		// #[transactional]
+		pub fn set_vtx_vault_asset_balances(
+			origin: OriginFor<T>,
+			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
+			id: T::VtxDistIdentifier,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_root_or_admin(origin)?;
+			Self::do_vtx_vault_asset_balances_setter(assets_balances, id)
 		}
 
 		/// Register rewards point distribution
 		///
 		/// `id` - The distribution id
 		/// `reward_points` - Reward point list
-		#[pallet::call_index(11)]
+		#[pallet::call_index(12)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
 		pub fn register_reward_points(
 			origin: OriginFor<T>,
@@ -808,7 +829,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `work_points` - work point list
-		#[pallet::call_index(12)]
+		#[pallet::call_index(13)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
 		pub fn register_work_points(
 			origin: OriginFor<T>,
@@ -827,7 +848,7 @@ pub mod pallet {
 		
 		/// Register effective balances and work points
 		/// length of vecotrs should align and with same set of accountid
-		#[pallet::call_index(13)]
+		#[pallet::call_index(14)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_eff_bal_n_wk_pts())]
 		#[transactional]
 		pub fn register_eff_bal_n_wk_pts(
@@ -1003,21 +1024,39 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// set assets list
-		fn do_assets_list_setter(
-			assets_list: BoundedVec<AssetId, T::MaxAssetPrices>,
+		/// set fee pot asset balances
+		fn do_fee_pot_asset_balances_setter(
+			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 			id: T::VtxDistIdentifier,
 		) -> DispatchResultWithPostInfo {
-			for asset_id in &assets_list {
+			for (asset_id, _) in &assets_balances {
 				ensure!(
 					asset_id != &T::VtxAssetId::get(),
 					Error::<T>::AssetsShouldNotIncludeVtxAsset
 				);
 			}
 
-			AssetsList::<T>::insert(id, assets_list.clone());
+			FeePotAssetsList::<T>::insert(id, assets_balances.clone());
 
-			Self::deposit_event(Event::SetAssetsList { id, assets_list });
+			Self::deposit_event(Event::SetFeePotAssetBalances { id, assets_balances });
+			Ok(().into())
+		}
+
+		/// set vtx vault asset balances
+		fn do_vtx_vault_asset_balances_setter(
+			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
+			id: T::VtxDistIdentifier,
+		) -> DispatchResultWithPostInfo {
+			for (asset_id, _) in &assets_balances {
+				ensure!(
+					asset_id != &T::VtxAssetId::get(),
+					Error::<T>::AssetsShouldNotIncludeVtxAsset
+				);
+			}
+
+			VtxVaultAssetsList::<T>::insert(id, assets_balances.clone());
+
+			Self::deposit_event(Event::SetVtxVaultAssetBalances { id, assets_balances });
 			Ok(().into())
 		}
 
@@ -1031,7 +1070,7 @@ pub mod pallet {
 					asset_id != &T::VtxAssetId::get(),
 					Error::<T>::AssetsShouldNotIncludeVtxAsset
 				);
-				ensure!(AssetsList::<T>::get(id).contains(asset_id), Error::<T>::AssetNotInList);
+				// ensure!(FeePotAssetsList::<T>::get(id).contains(asset_id), Error::<T>::AssetNotInList);
 				AssetPrices::<T>::insert(id, asset_id, price);
 			}
 
@@ -1052,7 +1091,7 @@ pub mod pallet {
 			// move all asset in fee_vault to get_vault_account based on asset list in AssetsList
 			let mut fee_vault_asset_value: BalanceOf<T> = 0u64.into();
 			let mut vault_asset_value: BalanceOf<T> = 0u64.into();
-			for asset_id in AssetsList::<T>::get(id).into_iter() {
+			/*for asset_id in AssetsList::<T>::get(id).into_iter() {
 				let asset_price = AssetPrices::<T>::get(id, asset_id);
 				let asset_balance = T::MultiCurrency::balance(asset_id, &fee_vault_account);
 				fee_vault_asset_value += asset_balance.saturating_mul(asset_price);
@@ -1065,7 +1104,7 @@ pub mod pallet {
 				)?;
 				let asset_balance_vault = T::MultiCurrency::balance(asset_id, &vault_account);
 				vault_asset_value += asset_balance_vault.saturating_mul(asset_price);
-			}
+			}*/
 
 			// move bootstrap incentive here
 			// move root token from fee_vault to vault_account
