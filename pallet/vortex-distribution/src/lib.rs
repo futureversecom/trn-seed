@@ -218,13 +218,23 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// Stores assets list for each vortex distribution
+	/// Stores Fee pot asset list for each vortex distribution
 	#[pallet::storage]
-	pub(super) type AssetsList<T: Config> = StorageMap<
+	pub(super) type FeePotAssetsList<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::VtxDistIdentifier,
-		BoundedVec<AssetId, T::MaxAssetPrices>,
+		BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
+		ValueQuery,
+	>;
+
+	/// Stores Vortex vault asset list for each vortex distribution
+	#[pallet::storage]
+	pub(super) type VtxVaultAssetsList<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::VtxDistIdentifier,
+		BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 		ValueQuery,
 	>;
 
@@ -817,7 +827,7 @@ pub mod pallet {
 		
 		/// Register effective balances and work points
 		/// length of vecotrs should align and with same set of accountid
-		#[pallet::call_index(11)]
+		#[pallet::call_index(13)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_eff_bal_n_wk_pts())]
 		#[transactional]
 		pub fn register_eff_bal_n_wk_pts(
