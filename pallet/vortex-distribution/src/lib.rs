@@ -180,6 +180,16 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Stores Vtx total supply for each vortex distribution
+	#[pallet::storage]
+	pub type VtxTotalSupply<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::VtxDistIdentifier,
+		BalanceOf<T>, 
+		ValueQuery,
+	>;
+
 	/// Stores order books for each vortex distribution
 	#[pallet::storage]
 	pub(super) type VtxDistOrderbook<T: Config> = StorageDoubleMap<
@@ -804,11 +814,29 @@ pub mod pallet {
 			Self::do_vtx_vault_asset_balances_setter(assets_balances, id)
 		}
 
+
+		/// Set vtx total supply for each vortex distribution
+		///
+		/// `supply` - Vtx total supply
+		/// `id` - The distribution id
+		#[pallet::call_index(12)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_assets_list(0 as u32))]
+		// #[transactional]
+		pub fn set_vtx_total_supply(
+			origin: OriginFor<T>,
+			supply: BalanceOf<T>,
+			id: T::VtxDistIdentifier,
+		) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+			VtxTotalSupply::<T>::set(id, supply);
+			Ok(())
+		}
+
 		/// Register rewards point distribution
 		///
 		/// `id` - The distribution id
 		/// `reward_points` - Reward point list
-		#[pallet::call_index(12)]
+		#[pallet::call_index(13)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
 		pub fn register_reward_points(
 			origin: OriginFor<T>,
@@ -829,7 +857,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `work_points` - work point list
-		#[pallet::call_index(13)]
+		#[pallet::call_index(14)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
 		pub fn register_work_points(
 			origin: OriginFor<T>,
@@ -848,7 +876,7 @@ pub mod pallet {
 		
 		/// Register effective balances and work points
 		/// length of vecotrs should align and with same set of accountid
-		#[pallet::call_index(14)]
+		#[pallet::call_index(15)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_eff_bal_n_wk_pts())]
 		#[transactional]
 		pub fn register_eff_bal_n_wk_pts(
