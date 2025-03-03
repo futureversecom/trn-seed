@@ -34,7 +34,7 @@ impl<T: frame_system::Config> pallet_liquidity_pools::WeightInfo for WeightInfo<
 	// Storage: LiquidityPools NextPoolId (r:1 w:1)
 	// Storage: LiquidityPools Pools (r:0 w:1)
 	fn create_pool() -> Weight {
-		Weight::from_ref_time(16_000_000 as u64)
+		Weight::from_all(16_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
@@ -42,21 +42,21 @@ impl<T: frame_system::Config> pallet_liquidity_pools::WeightInfo for WeightInfo<
 	// Storage: LiquidityPools RolloverPivot (r:0 w:1)
 	// Storage: LiquidityPools PoolRelationships (r:0 w:1)
 	fn close_pool() -> Weight {
-		Weight::from_ref_time(18_000_000 as u64)
+		Weight::from_all(18_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
 	// Storage: LiquidityPools Pools (r:2 w:0)
 	// Storage: LiquidityPools PoolRelationships (r:0 w:1)
 	fn set_pool_succession() -> Weight {
-		Weight::from_ref_time(18_000_000 as u64)
+		Weight::from_all(18_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: LiquidityPools Pools (r:1 w:0)
 	// Storage: LiquidityPools PoolUsers (r:1 w:1)
 	fn set_pool_rollover() -> Weight {
-		Weight::from_ref_time(22_000_000 as u64)
+		Weight::from_all(22_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -66,7 +66,7 @@ impl<T: frame_system::Config> pallet_liquidity_pools::WeightInfo for WeightInfo<
 	// Storage: System Account (r:1 w:1)
 	// Storage: LiquidityPools PoolUsers (r:1 w:1)
 	fn enter_pool() -> Weight {
-		Weight::from_ref_time(56_000_000 as u64)
+		Weight::from_all(56_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(6 as u64))
 			.saturating_add(T::DbWeight::get().writes(6 as u64))
 	}
@@ -76,7 +76,7 @@ impl<T: frame_system::Config> pallet_liquidity_pools::WeightInfo for WeightInfo<
 	// Storage: Assets Account (r:2 w:2)
 	// Storage: System Account (r:1 w:1)
 	fn exit_pool() -> Weight {
-		Weight::from_ref_time(55_000_000 as u64)
+		Weight::from_all(55_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(6 as u64))
 			.saturating_add(T::DbWeight::get().writes(6 as u64))
 	}
@@ -84,7 +84,7 @@ impl<T: frame_system::Config> pallet_liquidity_pools::WeightInfo for WeightInfo<
 	// Storage: LiquidityPools Pools (r:1 w:1)
 	// Storage: System Account (r:2 w:2)
 	fn claim_reward() -> Weight {
-		Weight::from_ref_time(50_000_000 as u64)
+		Weight::from_all(50_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(4 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
@@ -97,7 +97,7 @@ impl<T: frame_system::Config> pallet_liquidity_pools::WeightInfo for WeightInfo<
 	// Storage: System Account (r:1 w:1)
 	// Storage: LiquidityPools NextRolloverUnsignedAt (r:0 w:1)
 	fn rollover_unsigned() -> Weight {
-		Weight::from_ref_time(82_000_000 as u64)
+		Weight::from_all(82_000_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(10 as u64))
 			.saturating_add(T::DbWeight::get().writes(10 as u64))
 	}
