@@ -490,18 +490,15 @@ parameter_types! {
 }
 impl pallet_liquidity_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type PoolId = u32;
-	type ApproveOrigin =
-		EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<ApproveAdmin, AccountId>>;
-	type Currency = Balances;
-	type Assets = AssetsExt;
-	type ApproveAdmin = ApproveAdmin;
-	type NativeAssetId = RootAssetId;
 	type PalletId = LiquidityPoolsPalletId;
 	type UnsignedInterval = LiquidityPoolsUnsignedInterval;
-	type RolloverBatchSize = RolloverBatchSize;
+	type NativeAssetId = RootAssetId;
+	type ApproveOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<ApprovedAdmin, AccountId>>;
+	type PoolId = u32;
 	type MaxStringLength = MaxStringLength;
+	type RolloverBatchSize = RolloverBatchSize;
 	type InterestRateBasePoint = InterestRateBasePoint;
+	type MultiCurrency = AssetsExt;
 	type WeightInfo = weights::pallet_liquidity_pools::WeightInfo<Runtime>;
 }
 
