@@ -121,6 +121,7 @@ pallet-evm-chain-id = { path = "pallet/evm-chain-id", default-features = false }
 pallet-fee-control = { path = "pallet/fee-control", default-features = false }
 pallet-fee-proxy = { path = "pallet/fee-proxy", default-features = false }
 pallet-futurepass = { path = "pallet/futurepass", default-features = false }
+pallet-liquidity-pools = { path = "pallet/liquidity-pools", default-features = false }
 pallet-maintenance-mode = { path = "pallet/maintenance-mode", default-features = false }
 pallet-marketplace = { path = "pallet/marketplace", default-features = false }
 pallet-migration = { path = "pallet/migration", default-features = false }

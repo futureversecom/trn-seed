@@ -8,41 +8,41 @@ repository = "https://github.com/futureversecom/seed"
 description = "Root Network Liquidity Pools pallet"
 
 [dependencies]
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+codec = { workspace = true }
+scale-info = { workspace = true }
+sp-io = { workspace = true }
+sp-std = { workspace = true }
+sp-runtime = { workspace = true }
+sp-arithmetic = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
 
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-
-sp-io = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-frame-system = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", optional = true, default-features = false }
-
-pallet-assets-ext = { path = "../assets-ext", default-features = false }
-seed-primitives = { path = "../../primitives", default-features = false }
-seed-pallet-common = { path = "../common", default-features = false }
+seed-primitives = { workspace = true }
 
 [dev-dependencies]
-hex={ version = "0.4.3" }
-hex-literal = { version = "0.3.4" }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+hex = { workspace = true }
+hex-literal = { workspace = true }
+sp-core = { workspace = true }
+seed-pallet-common = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-assets-ext = { workspace = true }
+pallet-balances = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
     "codec/std",
     "scale-info/std",
-    "seed-primitives/std",
-    "seed-pallet-common/std",
-    "sp-core/std",
+    "sp-io/std",
     "sp-std/std",
+    "sp-runtime/std",
+    "sp-arithmetic/std",
     "frame-support/std",
     "frame-system/std",
+    "frame-benchmarking?/std",
+    "seed-primitives/std",
+    "pallet-assets-ext/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]
