@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
-
 #![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
+
 pub use pallet::*;
 
-#[cfg(feature = "runtime-benchmarks")]
-use frame_support::traits::fungibles::Mutate;
+use crate::alloc::{borrow::ToOwned, vec::Vec};
 use frame_support::{
 	log,
 	pallet_prelude::*,
 	sp_runtime::traits::One,
 	traits::{
-		fungibles::{Inspect, Transfer},
-		Currency,
+		fungibles::{metadata::Inspect as InspectMetadata, Inspect, Mutate},
+		tokens::Preservation,
 	},
 	transactional, PalletId,
 };
@@ -32,42 +32,54 @@ use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},
 	pallet_prelude::*,
 };
-#[cfg(feature = "runtime-benchmarks")]
-use seed_pallet_common::{CreateExt, Hold};
-use seed_primitives::{AccountId, AssetId, Balance, BlockNumber};
+use seed_primitives::{AccountId, AssetId, Balance};
 use sp_arithmetic::helpers_128bit::multiply_by_rational_with_rounding;
 use sp_io::hashing::blake2_256;
-use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, Zero};
-use sp_std::prelude::*;
+use sp_runtime::{
+	traits::{AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, ValidateUnsigned, Zero},
+	transaction_validity::{
+		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
+		ValidTransaction,
+	},
+};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
-pub mod mock;
+mod mock;
 #[cfg(test)]
 mod tests;
+
 mod types;
 use types::*;
 
 pub mod weights;
 pub use weights::WeightInfo;
 
+/// The logging target for this pallet
+#[allow(dead_code)]
+pub(crate) const LOG_TARGET: &str = "liquidity_pools";
+
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::traits::fungibles::InspectMetadata;
-
 	use super::*;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config:
 		frame_system::Config<AccountId = AccountId> + SendTransactionTypes<Call<Self>>
 	{
-		/// Event type
+		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// This pallet's Id, used for deriving a sovereign account ID
+		#[pallet::constant]
+		type PalletId: Get<PalletId>;
 
 		/// PoolId is used to distinguish between different pools that manage and facilitate
 		/// the attendence and rewarding of assets.
@@ -77,36 +89,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type NativeAssetId: Get<AssetId>;
 
-		#[pallet::constant]
-		type ApproveAdmin: Get<Self::AccountId>;
-
-		/// Admin origin
+		/// Allowed origin to perform privileged calls
 		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Currency type
-		type Currency: Currency<Self::AccountId, Balance = Balance>;
-
-		/// Assets pallet
-		#[cfg(not(feature = "runtime-benchmarks"))]
-		type Assets: Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
-			+ InspectMetadata<Self::AccountId, AssetId = AssetId>;
-
-		/// Assets pallet - for benchmarking to manipulate assets
-		#[cfg(feature = "runtime-benchmarks")]
-		type Assets: Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
-			+ Hold<AccountId = Self::AccountId>
-			+ Mutate<Self::AccountId, AssetId = AssetId>
-			+ CreateExt<AccountId = Self::AccountId>
-			+ Transfer<Self::AccountId, Balance = Balance>
-			+ InspectMetadata<Self::AccountId, AssetId = AssetId>;
-
-		/// Pallete ID
+		/// Unsigned transaction interval
 		#[pallet::constant]
-		type PalletId: Get<PalletId>;
-
-		/// Interval between unsigned transactions
-		#[pallet::constant]
-		type UnsignedInterval: Get<BlockNumber>;
+		type UnsignedInterval: Get<BlockNumberFor<Self>>;
 
 		/// Max number of users to rollover per block
 		#[pallet::constant]
@@ -121,7 +109,22 @@ pub mod pallet {
 		#[pallet::constant]
 		type InterestRateBasePoint: Get<u32>;
 
-		/// Provides the public call to weight mapping
+		/// Assets pallet
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		type MultiCurrency: Inspect<Self::AccountId, AssetId = AssetId>
+			+ InspectMetadata<Self::AccountId>
+			+ Mutate<Self::AccountId, Balance = Balance>;
+
+		/// Assets pallet - for benchmarking to manipulate assets
+		#[cfg(feature = "runtime-benchmarks")]
+		type MultiCurrency: Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
+			+ Hold<AccountId = Self::AccountId>
+			+ Mutate<Self::AccountId, AssetId = AssetId>
+			+ CreateExt<AccountId = Self::AccountId>
+			+ Transfer<Self::AccountId, Balance = Balance>
+			+ InspectMetadata<Self::AccountId, AssetId = AssetId>;
+
+		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
 	}
 
@@ -130,7 +133,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::PoolId,
-		PoolInfo<T::PoolId, AssetId, Balance, T::BlockNumber>,
+		PoolInfo<T::PoolId, AssetId, Balance, BlockNumberFor<T>>,
 	>;
 
 	#[pallet::storage]
@@ -161,8 +164,8 @@ pub mod pallet {
 			asset_id: AssetId,
 			interest_rate: u32,
 			max_tokens: Balance,
-			lock_start_block: T::BlockNumber,
-			lock_end_block: T::BlockNumber,
+			lock_start_block: BlockNumberFor<T>,
+			lock_end_block: BlockNumberFor<T>,
 		},
 		/// Pool starts to lock.
 		PoolStarted { pool_id: T::PoolId },
@@ -261,6 +264,7 @@ pub mod pallet {
 		/// - The `lock_end_block` must be greater than the `lock_start_block`.
 		///
 		/// Emits `PoolCreated` event when successful.
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::create_pool())]
 		#[transactional]
 		pub fn create_pool(
@@ -268,8 +272,8 @@ pub mod pallet {
 			asset_id: AssetId,
 			interest_rate: u32,
 			max_tokens: Balance,
-			lock_start_block: T::BlockNumber,
-			lock_end_block: T::BlockNumber,
+			lock_start_block: BlockNumberFor<T>,
+			lock_end_block: BlockNumberFor<T>,
 		) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
 
@@ -287,17 +291,17 @@ pub mod pallet {
 				0,
 				interest_rate,
 				T::InterestRateBasePoint::get(),
-				T::Assets::decimals(&asset_id),
-				T::Assets::decimals(&T::NativeAssetId::get()),
+				T::MultiCurrency::decimals(asset_id),
+				T::MultiCurrency::decimals(T::NativeAssetId::get()),
 			);
 
 			// Transfer max rewards to pool vault account
-			T::Assets::transfer(
+			T::MultiCurrency::transfer(
 				T::NativeAssetId::get(),
 				&Self::account_id(),
 				&Self::get_vault_account(id),
 				max_rewards,
-				false,
+				Preservation::Expendable,
 			)?;
 
 			let pool_info = PoolInfo {
@@ -348,6 +352,7 @@ pub mod pallet {
 		///   predecessor pool.
 		///
 		/// Emits `SetSuccession` event when successful.
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_pool_succession())]
 		pub fn set_pool_succession(
 			origin: OriginFor<T>,
@@ -403,6 +408,7 @@ pub mod pallet {
 		/// - The pool must be in the `Open` status, not yet active or closed.
 		///
 		/// Emits `UserInfoUpdated` event if the rollover preference is successfully updated.
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_pool_rollover())]
 		pub fn set_pool_rollover(
 			origin: OriginFor<T>,
@@ -443,6 +449,7 @@ pub mod pallet {
 		/// - The pool identified by `id` must exist.
 		///
 		/// Emits `PoolClosed` event when the pool is successfully closed.
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::close_pool())]
 		#[transactional]
 		pub fn close_pool(origin: OriginFor<T>, id: T::PoolId) -> DispatchResult {
@@ -453,21 +460,21 @@ pub mod pallet {
 			let main_vault_account = Self::account_id();
 			let pool_vault_account = Self::get_vault_account(id);
 			let native_asset_amount =
-				T::Assets::balance(T::NativeAssetId::get(), &pool_vault_account);
-			T::Assets::transfer(
+				T::MultiCurrency::balance(T::NativeAssetId::get(), &pool_vault_account);
+			T::MultiCurrency::transfer(
 				T::NativeAssetId::get(),
 				&pool_vault_account,
 				&main_vault_account,
 				native_asset_amount,
-				false,
+				Preservation::Expendable,
 			)?;
 
-			T::Assets::transfer(
+			T::MultiCurrency::transfer(
 				pool.asset_id,
 				&pool_vault_account,
 				&main_vault_account,
 				pool.locked_amount,
-				false,
+				Preservation::Expendable,
 			)?;
 
 			Pools::<T>::remove(id);
@@ -500,6 +507,7 @@ pub mod pallet {
 		///   `max_tokens`.
 		///
 		/// Emits `UserJoined` event if the user successfully joins the pool.
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::enter_pool())]
 		#[transactional]
 		pub fn enter_pool(
@@ -519,7 +527,13 @@ pub mod pallet {
 				Error::<T>::StakingLimitExceeded
 			);
 
-			T::Assets::transfer(pool.asset_id, &who, &vault_account, amount, false)?;
+			T::MultiCurrency::transfer(
+				pool.asset_id,
+				&who,
+				&vault_account,
+				amount,
+				Preservation::Expendable,
+			)?;
 
 			PoolUsers::<T>::mutate(pool_id, who, |pool_user| {
 				if let Some(pool_user) = pool_user {
@@ -552,6 +566,7 @@ pub mod pallet {
 		/// Emits `UserExited` event if the user successfully exits the pool and claims any rewards.
 		#[pallet::weight(T::WeightInfo::exit_pool())]
 		#[transactional]
+		#[pallet::call_index(5)]
 		pub fn exit_pool(origin: OriginFor<T>, id: T::PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let vault_account = Self::get_vault_account(id);
@@ -564,7 +579,13 @@ pub mod pallet {
 			ensure!(user_info.amount > Zero::zero(), Error::<T>::NoTokensStaked);
 
 			let amount = user_info.amount;
-			T::Assets::transfer(pool.asset_id, &vault_account, &who, amount, false)?;
+			T::MultiCurrency::transfer(
+				pool.asset_id,
+				&vault_account,
+				&who,
+				amount,
+				Preservation::Expendable,
+			)?;
 
 			Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
 				let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
@@ -594,6 +615,7 @@ pub mod pallet {
 		/// Emits `RewardsClaimed` event if the reward is successfully claimed by the user.
 		#[pallet::weight(T::WeightInfo::claim_reward())]
 		#[transactional]
+		#[pallet::call_index(6)]
 		pub fn claim_reward(origin: OriginFor<T>, id: T::PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let vault_account = Self::get_vault_account(id);
@@ -608,19 +630,19 @@ pub mod pallet {
 				user_info.reward_debt,
 				pool.interest_rate,
 				T::InterestRateBasePoint::get(),
-				T::Assets::decimals(&pool.asset_id),
-				T::Assets::decimals(&T::NativeAssetId::get()),
+				T::MultiCurrency::decimals(pool.asset_id),
+				T::MultiCurrency::decimals(T::NativeAssetId::get()),
 			);
 
 			if reward > Zero::zero() {
 				let amount = if user_info.should_rollover == false || user_info.rolled_over == false
 				{
-					T::Assets::transfer(
+					T::MultiCurrency::transfer(
 						pool.asset_id,
 						&vault_account,
 						&who,
 						user_info.amount,
-						false,
+						Preservation::Expendable,
 					)?;
 					user_info.amount
 				} else {
@@ -628,7 +650,13 @@ pub mod pallet {
 				};
 
 				// Transfer reward to user
-				T::Assets::transfer(T::NativeAssetId::get(), &vault_account, &who, reward, false)?;
+				T::MultiCurrency::transfer(
+					T::NativeAssetId::get(),
+					&vault_account,
+					&who,
+					reward,
+					Preservation::Expendable,
+				)?;
 
 				Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
 					let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
@@ -668,6 +696,7 @@ pub mod pallet {
 		///   `PoolMatured` if the pool is completed.
 		#[pallet::weight(T::WeightInfo::rollover_unsigned())]
 		#[transactional]
+		#[pallet::call_index(7)]
 		pub fn rollover_unsigned(
 			origin: OriginFor<T>,
 			id: T::PoolId,
@@ -709,11 +738,11 @@ pub mod pallet {
 							if successor_pool_info
 								.locked_amount
 								.saturating_add(rollover_amount)
-								.saturating_add(user_info.amount) >
-								successor_pool_info.max_tokens
+								.saturating_add(user_info.amount)
+								> successor_pool_info.max_tokens
 							{
 								predecessor_pool_status = PoolStatus::Matured;
-								break
+								break;
 							} else {
 								rollover_amount = rollover_amount.saturating_add(user_info.amount);
 							}
@@ -743,7 +772,7 @@ pub mod pallet {
 
 						count += 1;
 						if count > rollover_batch_size {
-							break
+							break;
 						}
 					}
 					let current_last_raw_key: BoundedVec<u8, T::MaxStringLength> =
@@ -754,12 +783,12 @@ pub mod pallet {
 					}
 					RolloverPivot::<T>::insert(id, current_last_raw_key);
 
-					T::Assets::transfer(
+					T::MultiCurrency::transfer(
 						pool_info.asset_id,
 						&vault_account,
 						&successor_vault_account,
 						rollover_amount,
-						false,
+						Preservation::Expendable,
 					)?;
 					Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
 						let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
@@ -796,32 +825,33 @@ pub mod pallet {
 		fn on_idle(now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			let mut cost_weight = T::DbWeight::get().reads(1u64);
 			if remaining_weight.all_lte(cost_weight) {
-				return Weight::zero()
+				return Weight::zero();
 			}
 
 			let mut pool_updates = Vec::new();
 
 			for (id, pool_info) in Pools::<T>::iter() {
 				match pool_info.pool_status {
-					PoolStatus::Open =>
+					PoolStatus::Open => {
 						if pool_info.lock_start_block <= now {
 							if remaining_weight.all_lte(
 								cost_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1)),
 							) {
-								return cost_weight
+								return cost_weight;
 							}
 
 							cost_weight =
 								cost_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
 							pool_updates.push((id, PoolStatus::Started, now));
-						},
+						}
+					},
 					PoolStatus::Started => {
 						if pool_info.lock_end_block <= now {
 							if remaining_weight.all_lte(
 								cost_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1)),
 							) {
-								return cost_weight
+								return cost_weight;
 							}
 
 							// Transfer remaining tokens back to vault account
@@ -852,12 +882,15 @@ pub mod pallet {
 							..pool_info.to_owned()
 						});
 						match status {
-							PoolStatus::Started =>
-								Self::deposit_event(Event::PoolStarted { pool_id: id }),
-							PoolStatus::Renewing =>
-								Self::deposit_event(Event::PoolRenewing { pool_id: id }),
-							PoolStatus::Matured =>
-								Self::deposit_event(Event::PoolMatured { pool_id: id }),
+							PoolStatus::Started => {
+								Self::deposit_event(Event::PoolStarted { pool_id: id })
+							},
+							PoolStatus::Renewing => {
+								Self::deposit_event(Event::PoolRenewing { pool_id: id })
+							},
+							PoolStatus::Matured => {
+								Self::deposit_event(Event::PoolMatured { pool_id: id })
+							},
 							_ => {},
 						}
 					}
@@ -897,12 +930,12 @@ pub mod pallet {
 						return InvalidTransaction::Custom(
 							ValidateError::WrongTransactionSource as u8,
 						)
-						.into()
+						.into();
 					}
 
 					let block_number = <frame_system::Pallet<T>>::block_number();
 					if &block_number < current_block {
-						return InvalidTransaction::Future.into()
+						return InvalidTransaction::Future.into();
 					}
 					ValidTransaction::with_tag_prefix("LiquidityPoolsChainWorker")
 						.priority(UNSIGNED_PRIORITY)
@@ -989,11 +1022,11 @@ pub mod pallet {
 
 		fn do_offchain_worker(now: BlockNumberFor<T>) -> DispatchResult {
 			if !sp_io::offchain::is_validator() {
-				return Err(Error::<T>::OffchainErrNotValidator)?
+				return Err(Error::<T>::OffchainErrNotValidator)?;
 			}
 			let next_rollover_unsigned_at = <NextRolloverUnsignedAt<T>>::get();
 			if next_rollover_unsigned_at > now {
-				return Err(Error::<T>::OffchainErrTooEarly)?
+				return Err(Error::<T>::OffchainErrTooEarly)?;
 			}
 
 			for (id, pool_info) in Pools::<T>::iter() {
@@ -1011,7 +1044,7 @@ pub mod pallet {
 							})?;
 						} else {
 							log::error!("confused state, should not be here");
-							return Err(Error::<T>::OffchainErrSubmitTransaction)?
+							return Err(Error::<T>::OffchainErrSubmitTransaction)?;
 						};
 					},
 					_ => continue,
@@ -1029,17 +1062,17 @@ pub mod pallet {
 				Zero::zero(),
 				pool_info.interest_rate,
 				T::InterestRateBasePoint::get(),
-				T::Assets::decimals(&pool_info.asset_id),
-				T::Assets::decimals(&T::NativeAssetId::get()),
+				T::MultiCurrency::decimals(pool_info.asset_id),
+				T::MultiCurrency::decimals(T::NativeAssetId::get()),
 			);
 			let pool_vault_account = Self::get_vault_account(pool_id);
 			if reward > Zero::zero() {
-				T::Assets::transfer(
+				T::MultiCurrency::transfer(
 					T::NativeAssetId::get(),
 					&pool_vault_account,
 					&Self::account_id(),
 					reward,
-					false,
+					Preservation::Expendable,
 				)?;
 			}
 			Ok(())
