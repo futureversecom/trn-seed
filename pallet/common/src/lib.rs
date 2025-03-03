@@ -612,7 +612,7 @@ pub trait NFTExt {
 	) -> DispatchResult;
 
 	/// Remove a token lock without performing checks
-	fn remove_token_lock(token_id: TokenId);
+	fn remove_token_lock(token_id: TokenId) -> DispatchResult;
 
 	fn get_collection_owner(
 		collection_id: CollectionUuid,

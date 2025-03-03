@@ -155,14 +155,26 @@ pub mod pallet {
 		CollectionInformation<T::AccountId, T::StringLimit>,
 	>;
 
-	/// Map from collection to its ownership information
+	/// Map from a token to its information, including owner, lock_status and utility_flags
 	#[pallet::storage]
-	pub type OwnershipInfo<T: Config> = StorageMap<
+	pub type TokenInfo<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		CollectionUuid,
-		TokenOwnership<T::AccountId, T::MaxTokensPerCollection>,
-		OptionQuery,
+		Twox64Concat,
+		SerialNumber,
+		TokenInformation<T::AccountId>
+	>;
+
+	/// All tokens owned by a single account
+	#[pallet::storage]
+	pub type OwnedTokens<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		Twox64Concat,
+		CollectionUuid,
+		BoundedVec<SerialNumber, T::MaxTokensPerCollection>
 	>;
 
 	/// Map from collection to its public minting information
@@ -174,18 +186,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextCollectionId<T> = StorageValue<_, u32, ValueQuery>;
 
-	/// Map from a token to lock status if any
-	#[pallet::storage]
-	pub type TokenLocks<T> = StorageMap<_, Twox64Concat, TokenId, TokenLockReason>;
-
 	/// Map from a collection to additional utility flags
 	#[pallet::storage]
 	pub type UtilityFlags<T> =
 		StorageMap<_, Twox64Concat, CollectionUuid, CollectionUtilityFlags, ValueQuery>;
-
-	/// Map from a token_id to transferable and burn authority flags
-	#[pallet::storage]
-	pub type TokenUtilityFlags<T> = StorageMap<_, Twox64Concat, TokenId, TokenFlags, ValueQuery>;
 
 	// Map from a collection id to a collection's pending issuances
 	#[pallet::storage]
@@ -623,7 +627,7 @@ pub mod pallet {
 			}
 
 			// Perform the mint and update storage
-			Self::do_mint(collection_id, collection_info, &owner, &serial_numbers)?;
+			Self::do_mint(collection_id, collection_info, &owner, &serial_numbers, TokenFlags::default())?;
 
 			// Check if this collection is XLS-20 compatible
 			if xls20_compatible {
@@ -787,18 +791,19 @@ pub mod pallet {
 			let collection_info =
 				<CollectionInfo<T>>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
-			// Check if the token exists
-			let ownership_info = OwnershipInfo::<T>::get(token_id.0).ok_or(Error::<T>::NoToken)?;
-			ensure!(ownership_info.token_exists(token_id.1), Error::<T>::NoToken);
 
-			ensure!(
-				<TokenUtilityFlags<T>>::get(token_id).burn_authority.is_none(),
-				Error::<T>::CannotUpdateTokenUtility
-			);
+			TokenInfo::<T>::try_mutate_exists(token_id.0, token_id.1, |maybe_token_info| -> DispatchResult {
+				let token_info = maybe_token_info.as_mut().ok_or(Error::<T>::NoToken)?;
+				// Don't set transferrable if we have a burn authority, this indicates that the token
+				// is soulbound
+				ensure!(
+					token_info.utility_flags.burn_authority.is_none(),
+					Error::<T>::CannotUpdateTokenUtility
+				);
 
-			TokenUtilityFlags::<T>::mutate(token_id, |flags| {
-				flags.transferable = transferable;
-			});
+				token_info.utility_flags.transferable = transferable;
+				Ok(())
+			})?;
 
 			Self::deposit_event(Event::<T>::TokenTransferableFlagSet { token_id, transferable });
 			Ok(())
@@ -878,7 +883,11 @@ pub mod pallet {
 			let metadata_scheme = collection_info.metadata_scheme.clone();
 
 			// Perform the mint and update storage
-			Self::do_mint(collection_id, collection_info, &who, &serial_numbers)?;
+			let token_flags = TokenFlags {
+				transferable: false,
+				burn_authority: Some(pending_issuance.burn_authority),
+			};
+			Self::do_mint(collection_id, collection_info, &who, &serial_numbers, token_flags)?;
 
 			// Check if this collection is XLS-20 compatible
 			if xls20_compatible {
@@ -897,14 +906,6 @@ pub mod pallet {
 				collection_id,
 				serial_numbers.clone().into_inner(),
 			)?;
-
-			// Set the utility flags for the tokens
-			for serial_number in serial_numbers.clone() {
-				TokenUtilityFlags::<T>::mutate((collection_id, serial_number), |flags| {
-					flags.transferable = false;
-					flags.burn_authority = Some(pending_issuance.burn_authority);
-				});
-			}
 
 			Self::deposit_event(Event::<T>::Issued {
 				token_owner: who.clone(),

@@ -18,18 +18,13 @@ use seed_primitives::CollectionUuid;
 use sp_runtime::DispatchError;
 use sp_std::fmt::Debug;
 
-use crate::{CollectionInformation, TokenOwnership};
+use crate::{CollectionInformation};
 
 pub trait NFTCollectionInfo {
 	type AccountId: Debug + PartialEq + Clone;
-	type MaxTokensPerCollection: Get<u32>;
 	type StringLimit: Get<u32>;
 
 	fn get_collection_info(
 		collection_id: CollectionUuid,
 	) -> Result<CollectionInformation<Self::AccountId, Self::StringLimit>, DispatchError>;
-
-	fn get_ownership_info(
-		collection_id: CollectionUuid,
-	) -> Result<TokenOwnership<Self::AccountId, Self::MaxTokensPerCollection>, DispatchError>;
 }

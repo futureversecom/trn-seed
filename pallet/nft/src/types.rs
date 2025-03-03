@@ -19,11 +19,8 @@ use crate::{Config, Error};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use seed_pallet_common::utils::TokenBurnAuthority;
-use seed_primitives::{
-	CrossChainCompatibility, IssuanceId, MetadataScheme, OriginChain, RoyaltiesSchedule,
-	SerialNumber, TokenCount,
-};
+use seed_pallet_common::utils::{TokenBurnAuthority, TokenUtilityFlags as TokenFlags};
+use seed_primitives::{CrossChainCompatibility, IssuanceId, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount, TokenLockReason};
 use serde::{Deserialize, Serialize};
 use sp_runtime::{BoundedVec, Permill};
 use sp_std::{fmt::Debug, prelude::*};
@@ -97,135 +94,31 @@ where
 	pub cross_chain_compatibility: CrossChainCompatibility,
 }
 
-#[derive(Decode, Encode, Debug, Clone, Copy, PartialEq, TypeInfo)]
-pub enum TokenOwnershipError {
-	TokenLimitExceeded,
-}
 
-impl<T: Config> From<TokenOwnershipError> for crate::Error<T> {
-	fn from(val: TokenOwnershipError) -> crate::Error<T> {
-		match val {
-			TokenOwnershipError::TokenLimitExceeded => crate::Error::<T>::TokenLimitExceeded,
-		}
-	}
-}
-
-/// Type to denote an account and it's owned serial numbers within a collection
-pub type OwnedTokens<AccountId, MaxTokensPerCollection> =
-	(AccountId, BoundedVec<SerialNumber, MaxTokensPerCollection>);
-
-/// Contains ownership info for all tokens within a collection
+/// Information related to a specific token
 #[derive(
-	PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, CloneNoBound, TypeInfo, MaxEncodedLen,
+	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
-#[scale_info(skip_type_params(MaxTokensPerCollection))]
-pub struct TokenOwnership<AccountId, MaxTokensPerCollection>
+pub struct TokenInformation<AccountId>
 where
 	AccountId: Debug + PartialEq + Clone,
-	MaxTokensPerCollection: Get<u32>,
 {
-	/// List of all token owners
-	pub owned_tokens:
-		BoundedVec<OwnedTokens<AccountId, MaxTokensPerCollection>, MaxTokensPerCollection>,
+	/// The owner of the token
+	pub owner: AccountId,
+	/// Does this token have any locks, i.e. locked for sale
+	pub lock_status: Option<TokenLockReason>,
+	/// transferable and burn authority flags
+	pub utility_flags: TokenFlags,
 }
 
-impl<AccountId, MaxTokensPerCollection> Default
-	for TokenOwnership<AccountId, MaxTokensPerCollection>
+impl<AccountId> TokenInformation<AccountId>
 where
 	AccountId: Debug + PartialEq + Clone,
-	MaxTokensPerCollection: Get<u32>,
 {
-	fn default() -> Self {
-		Self { owned_tokens: BoundedVec::default() }
-	}
-}
-
-impl<AccountId, MaxTokensPerCollection> TokenOwnership<AccountId, MaxTokensPerCollection>
-where
-	AccountId: Debug + PartialEq + Clone,
-	MaxTokensPerCollection: Get<u32>,
-{
-	pub fn new(
-		account: AccountId,
-		serials: BoundedVec<SerialNumber, MaxTokensPerCollection>,
-	) -> Self {
-		let owned_tokens = BoundedVec::truncate_from(vec![(account, serials)]);
-		Self { owned_tokens }
-	}
-	/// Check whether who owns the serial number in collection_info
-	pub fn is_token_owner(&self, who: &AccountId, serial_number: SerialNumber) -> bool {
-		self.owned_tokens.iter().any(|(owner, owned_serials)| {
-			if owner == who {
-				owned_serials.contains(&serial_number)
-			} else {
-				false
-			}
-		})
-	}
-
-	/// Retrieve the token owner of a specified serial number
-	pub fn get_token_owner(&self, serial_number: SerialNumber) -> Option<AccountId> {
-		let Some((token_owner, _)) = self
-			.owned_tokens
-			.iter()
-			.find(|(_, owned_serials)| owned_serials.contains(&serial_number))
-		else {
-			return None;
-		};
-		Some(token_owner.clone())
-	}
-
-	/// Check whether a token has been minted in a collection
-	pub fn token_exists(&self, serial_number: SerialNumber) -> bool {
-		self.owned_tokens
-			.iter()
-			.any(|(_, owned_serials)| owned_serials.contains(&serial_number))
-	}
-
-	/// Adds a list of tokens to a users balance in collection_info
-	pub fn add_user_tokens(
-		&mut self,
-		token_owner: &AccountId,
-		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
-	) -> Result<(), TokenOwnershipError> {
-		if let Some((_, owned_serials)) = self.owned_tokens.iter_mut().find(|p| &p.0 == token_owner)
-		{
-			// Add new serial numbers to existing owner
-			for serial_number in serial_numbers.iter() {
-				owned_serials
-					.try_push(*serial_number)
-					.map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
-			}
-		} else {
-			// If token owner doesn't exist, create new entry
-			let new_owned_tokens = (token_owner.clone(), serial_numbers);
-			self.owned_tokens
-				.try_push(new_owned_tokens)
-				.map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
-		}
-		Ok(())
-	}
-
-	/// Removes a list of tokens from a users balance in collection_info
-	pub fn remove_user_tokens(
-		&mut self,
-		token_owner: &AccountId,
-		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
-	) {
-		let mut removing_all_tokens: bool = false;
-		for (owner, owned_serials) in self.owned_tokens.iter_mut() {
-			if owner != token_owner {
-				continue;
-			}
-			owned_serials.retain(|serial| !serial_numbers.contains(serial));
-			removing_all_tokens = owned_serials.is_empty();
-			break;
-		}
-		// Check whether the owner has any tokens left, if not remove them from the collection
-		if removing_all_tokens {
-			self.owned_tokens.retain(|(owner, _)| owner != token_owner);
-		}
+	/// Creates a new instance of `TokenInformation` with the owner set to the provided account id
+	pub fn new(owner: AccountId, utility_flags: TokenFlags) -> Self {
+		TokenInformation { owner, lock_status: None, utility_flags }
 	}
 }
 
