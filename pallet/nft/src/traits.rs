@@ -18,7 +18,7 @@ use seed_primitives::CollectionUuid;
 use sp_runtime::DispatchError;
 use sp_std::fmt::Debug;
 
-use crate::{CollectionInformation};
+use crate::CollectionInformation;
 
 pub trait NFTCollectionInfo {
 	type AccountId: Debug + PartialEq + Clone;

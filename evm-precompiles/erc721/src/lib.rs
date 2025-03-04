@@ -1338,16 +1338,17 @@ where
 		if token_id > u32::MAX.into() {
 			return Err(revert("ERC721: Expected token id <= 2^32"));
 		}
-		let token_id: SerialNumber = token_id.saturated_into();
+		let serial_number: SerialNumber = token_id.saturated_into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let burn_auth: u8 =
-			match pallet_nft::TokenUtilityFlags::<Runtime>::get((collection_id, token_id))
-				.burn_authority
-			{
-				Some(burn_authority) => burn_authority.into(),
-				_ => 0, // default to TokenOwner
-			};
+		let token_info = match pallet_nft::TokenInfo::<Runtime>::get(collection_id, serial_number) {
+			Some(token_info) => token_info,
+			None => return Err(revert("ERC721: Token does not exist")),
+		};
+		let burn_auth: u8 = match token_info.utility_flags.burn_authority {
+			Some(burn_authority) => burn_authority.into(),
+			_ => 0, // default to TokenOwner
+		};
 
 		Ok(succeed(EvmDataWriter::new().write(burn_auth).build()))
 	}

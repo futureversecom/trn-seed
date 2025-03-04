@@ -4393,7 +4393,7 @@ fn withdraw_nft_more_failure_scenarios() {
 				(nft_collection_id, 0 + 100), // non existent
 				destination,
 			),
-			pallet_nft::Error::<Test>::NotTokenOwner
+			pallet_nft::Error::<Test>::NoToken
 		);
 	});
 }

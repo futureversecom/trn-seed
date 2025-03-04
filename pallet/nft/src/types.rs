@@ -20,7 +20,10 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_pallet_common::utils::{TokenBurnAuthority, TokenUtilityFlags as TokenFlags};
-use seed_primitives::{CrossChainCompatibility, IssuanceId, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount, TokenLockReason};
+use seed_primitives::{
+	CrossChainCompatibility, IssuanceId, MetadataScheme, OriginChain, RoyaltiesSchedule,
+	SerialNumber, TokenCount, TokenLockReason,
+};
 use serde::{Deserialize, Serialize};
 use sp_runtime::{BoundedVec, Permill};
 use sp_std::{fmt::Debug, prelude::*};
@@ -93,7 +96,6 @@ where
 	/// This collections compatibility with other chains
 	pub cross_chain_compatibility: CrossChainCompatibility,
 }
-
 
 /// Information related to a specific token
 #[derive(

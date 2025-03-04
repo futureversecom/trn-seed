@@ -42,7 +42,6 @@ fn setup_collection(owner: AccountId) -> CollectionUuid {
 	collection_id
 }
 
-
 // Helper function for creating the collection name type
 pub fn bounded_string(name: &str) -> BoundedVec<u8, <Test as Config>::StringLimit> {
 	BoundedVec::truncate_from(name.as_bytes().to_vec())
@@ -1132,7 +1131,10 @@ fn mints_multiple_specified_tokens_by_id() {
 		// Ownership checks
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), token_ids.len() as u32);
 		token_ids.iter().for_each(|&serial_number| {
-			assert_eq!(TokenInfo::<Test>::get(collection_id, serial_number).unwrap().owner, token_owner);
+			assert_eq!(
+				TokenInfo::<Test>::get(collection_id, serial_number).unwrap().owner,
+				token_owner
+			);
 		});
 
 		// Next serial number should be 0, origin chain is Ethereum so we don't count this
@@ -1173,7 +1175,10 @@ fn mint_duplicate_token_id_should_fail_silently() {
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 5);
 
 		token_ids.iter().for_each(|&serial_number| {
-			assert_eq!(TokenInfo::<Test>::get(collection_id, serial_number).unwrap().owner, token_owner);
+			assert_eq!(
+				TokenInfo::<Test>::get(collection_id, serial_number).unwrap().owner,
+				token_owner
+			);
 		});
 
 		// Collection issuance should be 5 to indicate the 5 unique tokens
@@ -1191,7 +1196,10 @@ fn mint_duplicate_token_id_should_fail_silently() {
 		assert_eq!(Nft::token_balance_of(&other_owner, collection_id), 3);
 
 		[3000, 40005, 1234].iter().for_each(|&serial_number| {
-			assert_eq!(TokenInfo::<Test>::get(collection_id, serial_number).unwrap().owner, other_owner);
+			assert_eq!(
+				TokenInfo::<Test>::get(collection_id, serial_number).unwrap().owner,
+				other_owner
+			);
 		});
 	});
 }
@@ -2870,7 +2878,10 @@ mod set_token_transferable_flag {
 
 			// Ensure default is correct
 			let default_flags = TokenFlags { transferable: true, burn_authority: None };
-			assert_eq!(TokenInfo::<Test>::get(collection_id, 0).unwrap().utility_flags, default_flags);
+			assert_eq!(
+				TokenInfo::<Test>::get(collection_id, 0).unwrap().utility_flags,
+				default_flags
+			);
 
 			// set to false
 			assert_ok!(Nft::set_token_transferable_flag(

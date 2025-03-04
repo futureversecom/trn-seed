@@ -61,9 +61,7 @@ impl<T: Config> Pallet<T> {
 			return 0;
 		}
 		match <OwnedTokens<T>>::get(who, collection_id) {
-			Some(owned_tokens) => {
-				owned_tokens.len() as TokenCount
-			},
+			Some(owned_tokens) => owned_tokens.len() as TokenCount,
 			None => TokenCount::zero(),
 		}
 	}
@@ -100,60 +98,66 @@ impl<T: Config> Pallet<T> {
 
 		// Update `TokenOwner` mapping and check token level restrictions
 		for &serial_number in &serial_numbers {
-			TokenInfo::<T>::try_mutate(collection_id, serial_number, |token_info| -> DispatchResult {
-				let token_info = token_info.as_mut().ok_or(Error::<T>::NoToken)?;
-				ensure!(
-					token_info.owner == current_owner.clone(),
-					Error::<T>::NotTokenOwner
-				);
-				ensure!(
-					token_info.lock_status.is_none(),
-					Error::<T>::TokenLocked
-				);
-				ensure!(
-					token_info.utility_flags.transferable,
-					Error::<T>::TransferUtilityBlocked
-				);
-				// Check if soulbound
-				ensure!(
-					token_info.utility_flags.burn_authority.is_none(),
-					Error::<T>::TransferUtilityBlocked
-				);
-				token_info.owner = new_owner.clone();
-				Ok(())
-			})?;
+			TokenInfo::<T>::try_mutate(
+				collection_id,
+				serial_number,
+				|token_info| -> DispatchResult {
+					let token_info = token_info.as_mut().ok_or(Error::<T>::NoToken)?;
+					ensure!(token_info.owner == current_owner.clone(), Error::<T>::NotTokenOwner);
+					ensure!(token_info.lock_status.is_none(), Error::<T>::TokenLocked);
+					ensure!(
+						token_info.utility_flags.transferable,
+						Error::<T>::TransferUtilityBlocked
+					);
+					// Check if soulbound
+					ensure!(
+						token_info.utility_flags.burn_authority.is_none(),
+						Error::<T>::TransferUtilityBlocked
+					);
+					token_info.owner = new_owner.clone();
+					Ok(())
+				},
+			)?;
 		}
 
 		// Update `OwnedTokens` for current owner
-		OwnedTokens::<T>::try_mutate(current_owner, collection_id, |maybe_owned_serials| -> DispatchResult {
-			if let Some(owned_serials) = maybe_owned_serials {
-				owned_serials.retain(|serial| !serial_numbers.contains(serial));
-				// If no tokens remain, remove the entry completely
-				if owned_serials.is_empty() {
-					*maybe_owned_serials = None;
+		OwnedTokens::<T>::try_mutate(
+			current_owner,
+			collection_id,
+			|maybe_owned_serials| -> DispatchResult {
+				if let Some(owned_serials) = maybe_owned_serials {
+					owned_serials.retain(|serial| !serial_numbers.contains(serial));
+					// If no tokens remain, remove the entry completely
+					if owned_serials.is_empty() {
+						*maybe_owned_serials = None;
+					}
+				} else {
+					Err(Error::<T>::NotTokenOwner)?;
 				}
-			} else {
-				Err(Error::<T>::NotTokenOwner)?;
-			}
-			Ok(())
-		})?;
+				Ok(())
+			},
+		)?;
 
 		// Update `OwnedTokens` for new owner
-		OwnedTokens::<T>::try_mutate(new_owner, collection_id, |owned_serials| -> DispatchResult {
-			match owned_serials.as_mut() {
-				Some(owned_serials) => {
-					for &serial_number in &serial_numbers {
-						owned_serials
-							.try_push(serial_number)
-							.map_err(|_| Error::<T>::TokenLimitExceeded)?;
-					}
-				},
-				None => {
-					*owned_serials = Some(serial_numbers.clone());
+		OwnedTokens::<T>::try_mutate(
+			new_owner,
+			collection_id,
+			|owned_serials| -> DispatchResult {
+				match owned_serials.as_mut() {
+					Some(owned_serials) => {
+						for &serial_number in &serial_numbers {
+							owned_serials
+								.try_push(serial_number)
+								.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+						}
+					},
+					None => {
+						*owned_serials = Some(serial_numbers.clone());
+					},
 				}
-			}
-			Ok(())
-		})?;
+				Ok(())
+			},
+		)?;
 
 		for serial_number in &serial_numbers {
 			T::OnTransferSubscription::on_nft_transfer(&(collection_id, *serial_number));
@@ -216,7 +220,13 @@ impl<T: Config> Pallet<T> {
 			BoundedVec::try_from(serial_numbers_trimmed);
 		match serial_numbers {
 			Ok(serial_numbers) => {
-				let mint = Self::do_mint(collection_id, collection_info, owner, &serial_numbers, TokenFlags::default());
+				let mint = Self::do_mint(
+					collection_id,
+					collection_info,
+					owner,
+					&serial_numbers,
+					TokenFlags::default(),
+				);
 
 				if mint.is_ok() {
 					// throw event, listing all serial numbers minted from bridging
@@ -331,7 +341,7 @@ impl<T: Config> Pallet<T> {
 		collection_info: CollectionInformation<T::AccountId, T::StringLimit>,
 		token_owner: &T::AccountId,
 		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
-		utility_flags: TokenFlags
+		utility_flags: TokenFlags,
 	) -> DispatchResult {
 		T::Migrator::ensure_migrated()?;
 		let mut new_collection_info = collection_info;
@@ -353,21 +363,25 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Update `OwnedTokens`
-		OwnedTokens::<T>::try_mutate(token_owner, collection_id, |owned_serials| -> DispatchResult {
-			match owned_serials.as_mut() {
-				Some(owned_serials) => {
-					for serial_number in serial_numbers {
-						owned_serials
-							.try_push(*serial_number)
-							.map_err(|_| Error::<T>::TokenLimitExceeded)?;
-					}
-				},
-				None => {
-					*owned_serials = Some(serial_numbers.clone());
+		OwnedTokens::<T>::try_mutate(
+			token_owner,
+			collection_id,
+			|owned_serials| -> DispatchResult {
+				match owned_serials.as_mut() {
+					Some(owned_serials) => {
+						for serial_number in serial_numbers {
+							owned_serials
+								.try_push(*serial_number)
+								.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+						}
+					},
+					None => {
+						*owned_serials = Some(serial_numbers.clone());
+					},
 				}
-			}
-			Ok(())
-		})?;
+				Ok(())
+			},
+		)?;
 
 		// Update CollectionInfo storage
 		<CollectionInfo<T>>::insert(collection_id, new_collection_info);
@@ -527,21 +541,25 @@ impl<T: Config> Pallet<T> {
 			}
 
 			// Update `OwnedTokens`
-			OwnedTokens::<T>::try_mutate(token_owner, collection_uuid, |owned_serials| -> DispatchResult {
-				match owned_serials.as_mut() {
-					Some(owned_serials) => {
-						for serial_number in serial_numbers {
-							owned_serials
-								.try_push(serial_number)
-								.map_err(|_| Error::<T>::TokenLimitExceeded)?;
-						}
-					},
-					None => {
-						*owned_serials = Some(serial_numbers.clone());
+			OwnedTokens::<T>::try_mutate(
+				token_owner,
+				collection_uuid,
+				|owned_serials| -> DispatchResult {
+					match owned_serials.as_mut() {
+						Some(owned_serials) => {
+							for serial_number in serial_numbers {
+								owned_serials
+									.try_push(serial_number)
+									.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+							}
+						},
+						None => {
+							*owned_serials = Some(serial_numbers.clone());
+						},
 					}
-				}
-				Ok(())
-			})?;
+					Ok(())
+				},
+			)?;
 		}
 
 		let collection_info = CollectionInformation {
@@ -600,11 +618,11 @@ impl<T: Config> Pallet<T> {
 				collection_id,
 				serial_number,
 				|maybe_token_info| -> DispatchResult {
-					let token_info = maybe_token_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
+					let token_info =
+						maybe_token_info.as_mut().ok_or(Error::<T>::NoToken)?;
 					let token_owner = &token_info.owner;
 					ensure!(token_info.lock_status.is_none(), Error::<T>::TokenLocked);
-					if let Some(burn_authority) = token_info.utility_flags.burn_authority
-					{
+					if let Some(burn_authority) = token_info.utility_flags.burn_authority {
 						ensure!(
 							burn_authority.has_burn_authority(
 								&collection_info.owner,
@@ -622,16 +640,20 @@ impl<T: Config> Pallet<T> {
 				},
 			)?;
 
-			OwnedTokens::<T>::try_mutate(who, collection_id, |maybe_owned_serials| -> DispatchResult {
-				if let Some(owned_serials) = maybe_owned_serials {
-					owned_serials.retain(|serial| serial != &serial_number);
-					// If no tokens remain, remove the entry completely
-					if owned_serials.is_empty() {
-						*maybe_owned_serials = None;
+			OwnedTokens::<T>::try_mutate(
+				who,
+				collection_id,
+				|maybe_owned_serials| -> DispatchResult {
+					if let Some(owned_serials) = maybe_owned_serials {
+						owned_serials.retain(|serial| serial != &serial_number);
+						// If no tokens remain, remove the entry completely
+						if owned_serials.is_empty() {
+							*maybe_owned_serials = None;
+						}
 					}
-				}
-				Ok(())
-			})?;
+					Ok(())
+				},
+			)?;
 
 			// Remove approvals for this token
 			T::OnTransferSubscription::on_nft_transfer(&(collection_id, serial_number));

@@ -163,7 +163,7 @@ pub mod pallet {
 		CollectionUuid,
 		Twox64Concat,
 		SerialNumber,
-		TokenInformation<T::AccountId>
+		TokenInformation<T::AccountId>,
 	>;
 
 	/// All tokens owned by a single account
@@ -174,7 +174,7 @@ pub mod pallet {
 		T::AccountId,
 		Twox64Concat,
 		CollectionUuid,
-		BoundedVec<SerialNumber, T::MaxTokensPerCollection>
+		BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	>;
 
 	/// Map from collection to its public minting information
@@ -627,7 +627,13 @@ pub mod pallet {
 			}
 
 			// Perform the mint and update storage
-			Self::do_mint(collection_id, collection_info, &owner, &serial_numbers, TokenFlags::default())?;
+			Self::do_mint(
+				collection_id,
+				collection_info,
+				&owner,
+				&serial_numbers,
+				TokenFlags::default(),
+			)?;
 
 			// Check if this collection is XLS-20 compatible
 			if xls20_compatible {
@@ -792,18 +798,22 @@ pub mod pallet {
 				<CollectionInfo<T>>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
 
-			TokenInfo::<T>::try_mutate_exists(token_id.0, token_id.1, |maybe_token_info| -> DispatchResult {
-				let token_info = maybe_token_info.as_mut().ok_or(Error::<T>::NoToken)?;
-				// Don't set transferrable if we have a burn authority, this indicates that the token
-				// is soulbound
-				ensure!(
-					token_info.utility_flags.burn_authority.is_none(),
-					Error::<T>::CannotUpdateTokenUtility
-				);
+			TokenInfo::<T>::try_mutate_exists(
+				token_id.0,
+				token_id.1,
+				|maybe_token_info| -> DispatchResult {
+					let token_info = maybe_token_info.as_mut().ok_or(Error::<T>::NoToken)?;
+					// Don't set transferrable if we have a burn authority, this indicates that the token
+					// is soulbound
+					ensure!(
+						token_info.utility_flags.burn_authority.is_none(),
+						Error::<T>::CannotUpdateTokenUtility
+					);
 
-				token_info.utility_flags.transferable = transferable;
-				Ok(())
-			})?;
+					token_info.utility_flags.transferable = transferable;
+					Ok(())
+				},
+			)?;
 
 			Self::deposit_event(Event::<T>::TokenTransferableFlagSet { token_id, transferable });
 			Ok(())
