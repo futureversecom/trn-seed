@@ -398,6 +398,12 @@ pub mod pallet {
 
 		/// Trigger distribution calculation
 		TriggerVtxDistribution { id: T::VtxDistIdentifier },
+
+		/// Set Vtx total supply
+		SetVtxTotalSupply {
+			id: T::VtxDistIdentifier,
+			total_supply: BalanceOf<T>,
+		},
 	}
 
 	#[pallet::hooks]
@@ -784,51 +790,53 @@ pub mod pallet {
 
 		/// Set fee pot assets balances
 		///
-		/// `assets_balances` - List of assets
 		/// `id` - The distribution id
+		/// `assets_balances` - List of asset balances
 		#[pallet::call_index(10)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_assets_list(assets_balances.len() as u32))]
 		// #[transactional]
 		pub fn set_fee_pot_asset_balances(
 			origin: OriginFor<T>,
-			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 			id: T::VtxDistIdentifier,
+			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_root_or_admin(origin)?;
-			Self::do_fee_pot_asset_balances_setter(assets_balances, id)
+			Self::do_fee_pot_asset_balances_setter(id, assets_balances)
 		}
 
 		/// Set vtx vault assets balances
 		///
-		/// `assets_balances` - List of assets
 		/// `id` - The distribution id
+		/// `assets_balances` - List of asset balances
 		#[pallet::call_index(11)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_assets_list(assets_balances.len() as u32))]
 		// #[transactional]
 		pub fn set_vtx_vault_asset_balances(
 			origin: OriginFor<T>,
-			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 			id: T::VtxDistIdentifier,
+			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_root_or_admin(origin)?;
-			Self::do_vtx_vault_asset_balances_setter(assets_balances, id)
+			Self::do_vtx_vault_asset_balances_setter(id, assets_balances)
 		}
 
 
 		/// Set vtx total supply for each vortex distribution
 		///
-		/// `supply` - Vtx total supply
 		/// `id` - The distribution id
+		/// `supply` - Vtx total supply
 		#[pallet::call_index(12)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_assets_list(0 as u32))]
 		// #[transactional]
 		pub fn set_vtx_total_supply(
 			origin: OriginFor<T>,
-			supply: BalanceOf<T>,
 			id: T::VtxDistIdentifier,
+			supply: BalanceOf<T>,
 		) -> DispatchResult {
 			Self::ensure_root_or_admin(origin)?;
 			VtxTotalSupply::<T>::set(id, supply);
+
+			Self::deposit_event(Event::SetVtxTotalSupply { id, total_supply: supply });
 			Ok(())
 		}
 
@@ -1054,8 +1062,8 @@ pub mod pallet {
 
 		/// set fee pot asset balances
 		fn do_fee_pot_asset_balances_setter(
-			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 			id: T::VtxDistIdentifier,
+			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 		) -> DispatchResultWithPostInfo {
 			for (asset_id, _) in &assets_balances {
 				ensure!(
@@ -1063,7 +1071,6 @@ pub mod pallet {
 					Error::<T>::AssetsShouldNotIncludeVtxAsset
 				);
 			}
-
 			FeePotAssetsList::<T>::insert(id, assets_balances.clone());
 
 			Self::deposit_event(Event::SetFeePotAssetBalances { id, assets_balances });
@@ -1072,8 +1079,8 @@ pub mod pallet {
 
 		/// set vtx vault asset balances
 		fn do_vtx_vault_asset_balances_setter(
-			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 			id: T::VtxDistIdentifier,
+			assets_balances: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 		) -> DispatchResultWithPostInfo {
 			for (asset_id, _) in &assets_balances {
 				ensure!(
@@ -1081,7 +1088,6 @@ pub mod pallet {
 					Error::<T>::AssetsShouldNotIncludeVtxAsset
 				);
 			}
-
 			VtxVaultAssetsList::<T>::insert(id, assets_balances.clone());
 
 			Self::deposit_event(Event::SetVtxVaultAssetBalances { id, assets_balances });
@@ -1098,7 +1104,7 @@ pub mod pallet {
 					asset_id != &T::VtxAssetId::get(),
 					Error::<T>::AssetsShouldNotIncludeVtxAsset
 				);
-				// ensure!(FeePotAssetsList::<T>::get(id).contains(asset_id), Error::<T>::AssetNotInList);
+				ensure!(Self::check_asset_exist_in_fee_pot_asset_list(id, asset_id), Error::<T>::AssetNotInList);
 				AssetPrices::<T>::insert(id, asset_id, price);
 			}
 
@@ -1304,6 +1310,19 @@ pub mod pallet {
 				},
 				None => Ok(None),
 			}
+		}
+		
+		fn check_asset_exist_in_fee_pot_asset_list(
+			vtx_id: T::VtxDistIdentifier,
+			asset_id: &AssetId,
+		) -> bool {
+			for (id, _) in FeePotAssetsList::<T>::get(vtx_id).iter() {
+				if (id == asset_id) {
+					return true;
+				}
+			}
+			
+			false
 		}
 	}
 }
