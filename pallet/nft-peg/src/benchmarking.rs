@@ -24,7 +24,7 @@ use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_te
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use pallet_nft::{
-	CollectionInfo, CollectionInformation, OwnershipInfo, Pallet as Nft, TokenOwnership,
+	CollectionInfo, CollectionInformation, Pallet as Nft, TokenInfo as TokenInformation,
 };
 use seed_primitives::{CrossChainCompatibility, MetadataScheme};
 use sp_std::vec;
@@ -68,16 +68,14 @@ benchmarks! {
 		assert_ok!(NftPeg::do_deposit(token_info, alice.clone().into()));
 
 		// Sanity Check
-		let ownership_info: TokenOwnership<T::AccountId, T::MaxTokensPerCollection> = OwnershipInfo::<T>::get(coll_id).expect("Collection exists");
 		for serial_id in &serial_numbers {
-			assert!(ownership_info.token_exists(*serial_id));
+			assert!(TokenInformation::<T>::contains_key(coll_id, *serial_id));
 		}
 
 	}: _(origin::<T>(&alice), collection_ids, bounded_serial_numbers, alice.clone().into())
 	verify {
-		let ownership_info: TokenOwnership<T::AccountId, T::MaxTokensPerCollection> = OwnershipInfo::<T>::get(coll_id).expect("Collection exists");
 		for serial_id in &serial_numbers {
-			assert!(!ownership_info.token_exists(*serial_id));
+			assert!(!TokenInformation::<T>::contains_key(coll_id, *serial_id));
 		}
 	}
 

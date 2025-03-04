@@ -121,13 +121,11 @@ benchmarks! {
 		// fund the mint account
 		let minter = account::<T>("Bob");
 		assert_ok!(T::MultiCurrency::mint_into(asset_id, &minter, mint_fee * 5u128 * p as u128));
-
 	}: _(origin::<T>(&minter), collection_id, p, Some(minter.clone()))
 	verify {
-		let ownership_info = OwnershipInfo::<T>::get(collection_id).expect("Collection not found");
 		assert_eq!(Nft::<T>::token_balance_of(&minter, collection_id), p);
 		for i in 1..=p {
-			assert!(ownership_info.is_token_owner(&minter, i));
+			assert_eq!(TokenInfo::<T>::get(collection_id, i).unwrap().owner, minter);
 		}
 	}
 
@@ -144,9 +142,8 @@ benchmarks! {
 		let serial_numbers = BoundedVec::try_from(serial_numbers).unwrap();
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, serial_numbers.clone(), account::<T>("Bob"))
 	verify {
-		let ownership_info = OwnershipInfo::<T>::get(collection_id).expect("Collection not found");
 		for serial_number in serial_numbers.iter() {
-			assert!(ownership_info.is_token_owner(&account::<T>("Bob"), *serial_number));
+			assert_eq!(TokenInfo::<T>::get(collection_id, *serial_number).unwrap().owner, account::<T>("Bob"));
 		}
 	}
 
@@ -171,7 +168,7 @@ benchmarks! {
 		let token_id = (collection_id, 0);
 	}: _(origin::<T>(&account::<T>("Alice")), token_id, true)
 	verify {
-		assert_eq!(TokenUtilityFlags::<T>::get(token_id).transferable, true);
+		assert!(TokenInfo::<T>::get(collection_id, 0).unwrap().utility_flags.transferable);
 	}
 
 	issue_soulbound {
@@ -191,7 +188,6 @@ benchmarks! {
 
 	accept_soulbound_issuance {
 		let collection_id = build_collection::<T>(None);
-
 		let receiver = account::<T>("Bob");
 
 		assert_ok!(Nft::<T>::issue_soulbound(
@@ -203,8 +199,7 @@ benchmarks! {
 		));
 	}: _(origin::<T>(&receiver.clone()), collection_id, 0)
 	verify {
-		let ownership_info = OwnershipInfo::<T>::get(collection_id).expect("Collection not found");
-		assert!(ownership_info.is_token_owner(&receiver, 1))
+		assert_eq!(TokenInfo::<T>::get(collection_id, 1).unwrap().owner, receiver);
 	}
 }
 
