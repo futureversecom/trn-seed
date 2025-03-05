@@ -4,7 +4,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2025-03-05, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `Jasons-Ubuntu`, CPU: `AMD Ryzen 9 7950X 16-Core Processor`
+//! HOSTNAME: `ip-172-31-102-147`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
 //! EXECUTION: ``, WASM-EXECUTION: `Compiled`, CHAIN: `Some("dev")`, DB CACHE: 1024
 
 // Executed Command:
@@ -50,18 +50,18 @@ impl<T: frame_system::Config> pallet_migration::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `258`
 		//  Estimated: `3959`
-		// Minimum execution time: 13_847_000 picoseconds.
-		Weight::from_parts(14_156_000, 0)
+		// Minimum execution time: 46_647_000 picoseconds.
+		Weight::from_parts(47_399_000, 0)
 			.saturating_add(Weight::from_parts(0, 3959))
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	/// Storage: `Nft::CollectionInfo` (r:2 w:1)
 	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
-	/// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b70d96583a751bd644fd42252931d83e5f` (r:50 w:0)
-	/// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b70d96583a751bd644fd42252931d83e5f` (r:50 w:0)
-	/// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b726db73e92fe0bb513cac8d5ccc97e899` (r:50 w:0)
-	/// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b726db73e92fe0bb513cac8d5ccc97e899` (r:50 w:0)
+	/// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b70d96583a751bd644fd42252931d83e5f` (r:50 w:50)
+	/// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b70d96583a751bd644fd42252931d83e5f` (r:50 w:50)
+	/// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b726db73e92fe0bb513cac8d5ccc97e899` (r:50 w:50)
+	/// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b726db73e92fe0bb513cac8d5ccc97e899` (r:50 w:50)
 	/// Storage: `Nft::OwnedTokens` (r:1 w:1)
 	/// Proof: `Nft::OwnedTokens` (`max_values`: None, `max_size`: Some(4000052), added: 4002527, mode: `MaxEncodedLen`)
 	/// Storage: `Nft::TokenInfo` (r:0 w:50)
@@ -71,15 +71,15 @@ impl<T: frame_system::Config> pallet_migration::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `340 + p * (65 ±0)`
 		//  Estimated: `4003517 + p * (2540 ±0)`
-		// Minimum execution time: 17_844_000 picoseconds.
-		Weight::from_parts(11_172_150, 0)
+		// Minimum execution time: 64_580_000 picoseconds.
+		Weight::from_parts(46_443_717, 0)
 			.saturating_add(Weight::from_parts(0, 4003517))
-			// Standard Error: 7_115
-			.saturating_add(Weight::from_parts(5_840_201, 0).saturating_mul(p.into()))
+			// Standard Error: 24_383
+			.saturating_add(Weight::from_parts(17_054_066, 0).saturating_mul(p.into()))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(p.into())))
 			.saturating_add(T::DbWeight::get().writes(2))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p.into())))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(p.into())))
 			.saturating_add(Weight::from_parts(0, 2540).saturating_mul(p.into()))
 	}
 	/// Storage: `Migration::MigrationEnabled` (r:0 w:1)
@@ -88,8 +88,8 @@ impl<T: frame_system::Config> pallet_migration::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 5_390_000 picoseconds.
-		Weight::from_parts(5_740_000, 0)
+		// Minimum execution time: 22_982_000 picoseconds.
+		Weight::from_parts(23_673_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -99,8 +99,8 @@ impl<T: frame_system::Config> pallet_migration::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 5_420_000 picoseconds.
-		Weight::from_parts(5_671_000, 0)
+		// Minimum execution time: 23_204_000 picoseconds.
+		Weight::from_parts(23_813_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -110,8 +110,8 @@ impl<T: frame_system::Config> pallet_migration::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 5_521_000 picoseconds.
-		Weight::from_parts(5_831_000, 0)
+		// Minimum execution time: 22_963_000 picoseconds.
+		Weight::from_parts(23_368_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
