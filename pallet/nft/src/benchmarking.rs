@@ -60,22 +60,45 @@ benchmarks! {
 	claim_unowned_collection {
 		let collection_id = build_collection::<T>(Some(Nft::<T>::account_id()));
 	}: _(RawOrigin::Root, collection_id, account::<T>("Alice"))
+	verify {
+		let collection_info = CollectionInfo::<T>::get(collection_id).unwrap();
+		assert_eq!(collection_info.owner,  account::<T>("Alice"));
+	}
 
 	set_owner {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, account::<T>("Bob"))
+	verify {
+		let collection_info = CollectionInfo::<T>::get(collection_id).unwrap();
+		assert_eq!(collection_info.owner,  account::<T>("Bob"));
+	}
 
 	set_max_issuance {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 32)
+	verify {
+		let collection_info = CollectionInfo::<T>::get(collection_id).unwrap();
+		assert_eq!(collection_info.max_issuance, Some(32));
+	}
 
 	set_base_uri {
 		let collection_id = build_collection::<T>(None);
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, "https://example.com/tokens/".into())
+		let metadata_uri: Vec<u8> = "https://example.com/tokens/".into();
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, metadata_uri.clone())
+	verify {
+		let collection_info = CollectionInfo::<T>::get(collection_id).unwrap();
+		let metadata_scheme: MetadataScheme = metadata_uri.as_slice().try_into().unwrap();
+		assert_eq!(collection_info.metadata_scheme, metadata_scheme);
+	}
 
 	set_name {
 		let collection_id = build_collection::<T>(None);
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, BoundedVec::truncate_from("New Name".encode()))
+		let name = BoundedVec::truncate_from("New Name".encode());
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, name.clone())
+	verify {
+		let collection_info = CollectionInfo::<T>::get(collection_id).unwrap();
+		assert_eq!(collection_info.name, name);
+	}
 
 	set_royalties_schedule {
 		let collection_id = build_collection::<T>(None);
@@ -83,24 +106,40 @@ benchmarks! {
 		let royalties_schedule = RoyaltiesSchedule {
 			entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
 		};
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, royalties_schedule)
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, royalties_schedule.clone())
+	verify {
+		let collection_info = CollectionInfo::<T>::get(collection_id).unwrap();
+		assert_eq!(collection_info.royalties_schedule, Some(royalties_schedule));
+	}
 
 	create_collection {
+		let p in 1 .. (500);
+		let collection_id = Nft::<T>::next_collection_uuid().unwrap();
 		let metadata = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 		let ccc = CrossChainCompatibility { xrpl: false };
-	}: _(origin::<T>(&account::<T>("Alice")), BoundedVec::truncate_from("Collection".encode()), 0, None, None, metadata, None, ccc)
+	}: _(origin::<T>(&account::<T>("Alice")), BoundedVec::truncate_from("Collection".encode()), p, None, None, metadata, None, ccc)
+	verify {
+		let collection_info = CollectionInfo::<T>::get(collection_id);
+		assert_eq!(collection_info.unwrap().collection_issuance, p);
+	}
 
 	toggle_public_mint {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, true)
+	verify {
+		assert!(PublicMintInfo::<T>::get(collection_id).unwrap().enabled);
+	}
 
 	set_mint_fee {
 		let collection_id = build_collection::<T>(None);
 		let pricing_details = Some((1, 100));
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, pricing_details)
+	verify {
+		assert_eq!(PublicMintInfo::<T>::get(collection_id).unwrap().pricing_details, pricing_details);
+	}
 
 	mint {
-		let p in 1 .. (1000);
+		let p in 1 .. (500);
 		let owner = account::<T>("Alice");
 		let collection_id = build_collection::<T>(Some(owner.clone()));
 		let asset_id = 1;
@@ -149,7 +188,11 @@ benchmarks! {
 
 	burn {
 		let collection_id = build_collection::<T>(None);
+		assert!(TokenInfo::<T>::get(collection_id, 0).is_some());
 	}: _(origin::<T>(&account::<T>("Alice")), TokenId::from((collection_id, 0)))
+	verify {
+		assert!(TokenInfo::<T>::get(collection_id, 0).is_none());
+	}
 
 	set_utility_flags {
 		let collection_id = build_collection::<T>(None);
