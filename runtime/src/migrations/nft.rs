@@ -30,17 +30,17 @@ impl OnRuntimeUpgrade for Upgrade {
 
         let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(2);
 
-        if onchain != 0 {
+        if onchain != 7 {
             log::info!(
 				target: "Migration",
-				"Nft: No migration was done, This migration should be on top of storage version 0. Migration code needs to be removed."
+				"Nft: No migration was done, This migration should be on top of storage version 7. Migration code needs to be removed."
 			);
             return weight;
         }
 
-        log::info!(target: "Migration", "Nft: Migrating from on-chain version {onchain:?} to on-chain version {current:?}.");
+        log::info!(target: "Migration", "Nft: Migrating from on-chain version {onchain:?} to on-chain version 8.");
         weight += v8::migrate::<Runtime>();
-        StorageVersion::new(1).put::<Nft>();
+        StorageVersion::new(8).put::<Nft>();
         log::info!(target: "Migration", "Nft: Migration successfully completed.");
         weight
     }
@@ -63,8 +63,8 @@ impl OnRuntimeUpgrade for Upgrade {
         log::info!(target: "Migration", "Nft: Upgrade to v8 Post Upgrade.");
         let current = Nft::current_storage_version();
         let onchain = Nft::on_chain_storage_version();
-        assert_eq!(current, 1);
-        assert_eq!(onchain, 1);
+        assert_eq!(current, 8);
+        assert_eq!(onchain, 8);
         Ok(())
     }
 }
@@ -173,7 +173,7 @@ pub mod v8 {
         fn migrate_with_data() {
             new_test_ext().execute_with(|| {
                 // Setup storage
-                StorageVersion::new(0).put::<Nft>();
+                StorageVersion::new(7).put::<Nft>();
                 let item_count = 10_u32;
                 for i in 0..item_count {
                     let pending_issuance = CollectionPendingIssuances {
@@ -194,7 +194,7 @@ pub mod v8 {
 
                 // Do runtime upgrade
                 let used_weight = Upgrade::on_runtime_upgrade();
-                assert_eq!(Nft::on_chain_storage_version(), 1);
+                assert_eq!(Nft::on_chain_storage_version(), 8);
 
                 // Check storage is removed
                 for i in 0..item_count {
