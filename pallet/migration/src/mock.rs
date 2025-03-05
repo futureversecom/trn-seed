@@ -87,7 +87,7 @@ impl<T: Config> MigrationStep for MockMigration<T> {
 			let new_value = (value + 1).to_string();
 			TestMap::<T>::insert(key, new_value);
 			let last_key = old::TestMap::<T>::hashed_key_for(key);
-			MigrationStepResult::continue_step(Self::max_step_weight(), last_key)
+			MigrationStepResult::continue_step(Self::max_step_weight(), Some(last_key))
 		} else {
 			MigrationStepResult::finish_step(Self::max_step_weight())
 		}

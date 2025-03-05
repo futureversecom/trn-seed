@@ -19,10 +19,8 @@ use crate::Pallet as Migration;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::StorageHasher;
 use frame_system::RawOrigin;
-use seed_primitives::{
-	CollectionUuid, CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule,
-	SerialNumber, TokenCount,
-};
+use seed_primitives::{CollectionUuid, CrossChainCompatibility, ListingId, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount, TokenLockReason};
+use seed_pallet_common::utils::{TokenBurnAuthority, TokenUtilityFlags as TokenFlags};
 
 benchmarks! {
 	where_clause { where T: pallet_nft::Config }
@@ -40,6 +38,8 @@ benchmarks! {
 	}
 
 	current_migration_step {
+		let p in 1 .. (50);
+
 		MigrationEnabled::<T>::put(true);
 
 		///Old Collection Info
@@ -65,7 +65,7 @@ benchmarks! {
 			pub owner: AccountId,
 			pub owned_serials: BoundedVec<SerialNumber, MaxTokensPerCollection>,
 		}
-
+		let serials = (1..=p).collect::<Vec<SerialNumber>>();
 		let key = Twox64Concat::hash(&(1 as CollectionUuid).encode());
 		let collection_info = OldCollectionInformation {
 			owner: T::AccountId::from(bench_account("test", 0, 0)),
@@ -79,10 +79,24 @@ benchmarks! {
 			cross_chain_compatibility: CrossChainCompatibility::default(),
 			owned_tokens: BoundedVec::truncate_from(vec![OldTokenOwnership {
 				owner: T::AccountId::from(bench_account("test", 0, 0)),
-				owned_serials: BoundedVec::truncate_from(vec![1, 2, 3]),
+				owned_serials: BoundedVec::truncate_from(serials.clone()),
 			}]),
 		};
 		frame_support::migration::put_storage_value::<OldCollectionInformation<T::AccountId,T::MaxTokensPerCollection,T::StringLimit>> (b"Nft", b"CollectionInfo", &key, collection_info);
+
+		// Insert data into TokenLocks and TokenUtilityFlags to benchmark worst case scenario
+		for serial in serials {
+			let token_id = (1 as CollectionUuid, serial);
+			let token_lock_reason = TokenLockReason::Listed(1 as ListingId);
+			let key = Twox64Concat::hash(&token_id.encode());
+			frame_support::migration::put_storage_value::<TokenLockReason> (b"Nft", b"TokenLocks", &key, token_lock_reason);
+			let token_flags = TokenFlags {
+				transferable: true,
+				burn_authority: Some(TokenBurnAuthority::Both),
+			};
+			frame_support::migration::put_storage_value::<TokenFlags> (b"Nft", b"TokenUtilityFlags", &key, token_flags);
+		}
+
 		Status::<T>::put(MigrationStatus::InProgress { steps_done: 0 });
 	}: {
 		// Call a single step to benchmark.
