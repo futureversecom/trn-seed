@@ -20,9 +20,7 @@ use crate::{Config, Error};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use seed_primitives::{
-	Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-};
+use seed_primitives::{Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber};
 use sp_runtime::BoundedVec;
 use sp_std::{fmt::Debug, prelude::*};
 

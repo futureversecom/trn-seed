@@ -19,8 +19,11 @@ use crate::Pallet as Migration;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::StorageHasher;
 use frame_system::RawOrigin;
-use seed_primitives::{CollectionUuid, CrossChainCompatibility, ListingId, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount, TokenLockReason};
 use seed_pallet_common::utils::{TokenBurnAuthority, TokenUtilityFlags as TokenFlags};
+use seed_primitives::{
+	CollectionUuid, CrossChainCompatibility, ListingId, MetadataScheme, OriginChain,
+	RoyaltiesSchedule, SerialNumber, TokenCount, TokenLockReason,
+};
 
 benchmarks! {
 	where_clause { where T: pallet_nft::Config }

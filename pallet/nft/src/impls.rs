@@ -618,8 +618,7 @@ impl<T: Config> Pallet<T> {
 				collection_id,
 				serial_number,
 				|maybe_token_info| -> DispatchResult {
-					let token_info =
-						maybe_token_info.as_mut().ok_or(Error::<T>::NoToken)?;
+					let token_info = maybe_token_info.as_mut().ok_or(Error::<T>::NoToken)?;
 					let token_owner = &token_info.owner;
 					ensure!(token_info.lock_status.is_none(), Error::<T>::TokenLocked);
 					if let Some(burn_authority) = token_info.utility_flags.burn_authority {

@@ -1,11 +1,11 @@
 use crate::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::fmt::Debug;
+use frame_support::traits::IsType;
 use frame_support::{dispatch::GetStorageVersion, traits::StorageVersion, DefaultNoBound};
 use frame_support::{
 	storage_alias, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, Twox64Concat,
 };
-use frame_support::traits::IsType;
 use pallet_migration::WeightInfo;
 use pallet_nft::{CollectionInformation, TokenInformation};
 use scale_info::TypeInfo;
@@ -43,11 +43,13 @@ mod old {
 	>;
 
 	#[storage_alias]
-	pub type TokenLocks<T: pallet_nft::Config> = StorageMap<pallet_nft::Pallet<T>, Twox64Concat, TokenId, TokenLockReason>;
+	pub type TokenLocks<T: pallet_nft::Config> =
+		StorageMap<pallet_nft::Pallet<T>, Twox64Concat, TokenId, TokenLockReason>;
 
 	/// Map from a token_id to transferable and burn authority flags
 	#[storage_alias]
-	pub type TokenUtilityFlags<T: pallet_nft::Config> = StorageMap<pallet_nft::Pallet<T>, Twox64Concat, TokenId, TokenFlags, ValueQuery>;
+	pub type TokenUtilityFlags<T: pallet_nft::Config> =
+		StorageMap<pallet_nft::Pallet<T>, Twox64Concat, TokenId, TokenFlags, ValueQuery>;
 
 	/// Information related to a specific collection
 	#[derive(
@@ -133,7 +135,6 @@ fn convert<T: pallet_nft::Config>(
 			};
 			pallet_nft::TokenInfo::<T>::insert(collection_id, serial_number, token_info);
 		}
-
 
 		// Update OwnedTokens with the migrated serials
 		let _ = pallet_nft::OwnedTokens::<T>::try_mutate(
@@ -232,7 +233,7 @@ impl<T: pallet_nft::Config + pallet_migration::Config> MigrationStep for NftMigr
 			// If we have completed the migration for this collection, we can move on to the next one
 			let last_key = match completed {
 				true => Some(old::CollectionInfo::<T>::hashed_key_for(key)),
-				false => last_key
+				false => last_key,
 			};
 			MigrationStepResult::continue_step(
 				<T as pallet_migration::Config>::WeightInfo::current_migration_step(migrated_count),
@@ -251,8 +252,8 @@ mod tests {
 	use crate::migrations::{tests::new_test_ext, Map};
 	use frame_support::{StorageHasher, Twox64Concat};
 	use seed_pallet_common::test_prelude::create_account;
-	use seed_primitives::{ListingId, TokenLockReason};
 	use seed_pallet_common::utils::TokenBurnAuthority;
+	use seed_primitives::{ListingId, TokenLockReason};
 	type AccountId = <Runtime as frame_system::Config>::AccountId;
 
 	/// Helper function to manually insert fake data into storage map
@@ -343,10 +344,12 @@ mod tests {
 				};
 				// assert!(!old::TokenLocks::<Runtime>::contains_key((123, serial_number)));
 				// assert!(!old::TokenUtilityFlags::<Runtime>::contains_key((123, serial_number)));
-				let token_info = pallet_nft::TokenInfo::<Runtime>::get(collection_id, serial_number).unwrap();
+				let token_info =
+					pallet_nft::TokenInfo::<Runtime>::get(collection_id, serial_number).unwrap();
 				assert_eq!(expected_token_info, token_info);
 			}
-			let owned_tokens = pallet_nft::OwnedTokens::<Runtime>::get(account, collection_id).unwrap();
+			let owned_tokens =
+				pallet_nft::OwnedTokens::<Runtime>::get(account, collection_id).unwrap();
 			assert_eq!(owned_tokens.into_inner(), serials);
 
 			// Collection info should now be the new format
@@ -406,7 +409,10 @@ mod tests {
 				owned_tokens: BoundedVec::<
 					old::TokenOwnership<AccountId, MaxTokensPerCollection>,
 					MaxTokensPerCollection,
-				>::truncate_from(vec![old_token_ownership_1.clone(), old_token_ownership_2]),
+				>::truncate_from(vec![
+					old_token_ownership_1.clone(),
+					old_token_ownership_2,
+				]),
 			};
 			let collection_id = 123;
 			insert_old_data(collection_id, old.clone());
@@ -417,10 +423,12 @@ mod tests {
 
 			// Check user 2 tokens
 			for serial_number in serials_2.clone() {
-				let token_info = pallet_nft::TokenInfo::<Runtime>::get(collection_id, serial_number).unwrap();
+				let token_info =
+					pallet_nft::TokenInfo::<Runtime>::get(collection_id, serial_number).unwrap();
 				assert_eq!(token_info.owner, account_2);
 			}
-			let owned_tokens = pallet_nft::OwnedTokens::<Runtime>::get(account_2, collection_id).unwrap();
+			let owned_tokens =
+				pallet_nft::OwnedTokens::<Runtime>::get(account_2, collection_id).unwrap();
 			assert_eq!(owned_tokens.into_inner(), serials_2);
 
 			// Old collection info still exists in the old format, but only has one user left to migrate
@@ -456,10 +464,12 @@ mod tests {
 
 			// Check user 1 tokens
 			for serial_number in serials_1.clone() {
-				let token_info = pallet_nft::TokenInfo::<Runtime>::get(collection_id, serial_number).unwrap();
+				let token_info =
+					pallet_nft::TokenInfo::<Runtime>::get(collection_id, serial_number).unwrap();
 				assert_eq!(token_info.owner, account_1);
 			}
-			let owned_tokens = pallet_nft::OwnedTokens::<Runtime>::get(account_1, collection_id).unwrap();
+			let owned_tokens =
+				pallet_nft::OwnedTokens::<Runtime>::get(account_1, collection_id).unwrap();
 			assert_eq!(owned_tokens.into_inner(), serials_1);
 
 			// Attempting to perform one more step should return Finished
@@ -492,7 +502,7 @@ mod tests {
 				let old_token_ownership = old::TokenOwnership::<AccountId, MaxTokensPerCollection> {
 					owner: create_account(1 + i as u64),
 					owned_serials:
-					BoundedVec::<SerialNumber, MaxTokensPerCollection>::truncate_from(serials),
+						BoundedVec::<SerialNumber, MaxTokensPerCollection>::truncate_from(serials),
 				};
 				let old = old::CollectionInformation {
 					owner: create_account(2 + i as u64),
@@ -559,7 +569,8 @@ mod tests {
 					};
 					assert!(!old::TokenLocks::<Runtime>::contains_key((i, serial_number)));
 					assert!(!old::TokenUtilityFlags::<Runtime>::contains_key((i, serial_number)));
-					let token_info = pallet_nft::TokenInfo::<Runtime>::get(i, serial_number).unwrap();
+					let token_info =
+						pallet_nft::TokenInfo::<Runtime>::get(i, serial_number).unwrap();
 					assert_eq!(token_info, expected_token_info);
 				}
 				let owned_tokens = pallet_nft::OwnedTokens::<Runtime>::get(account, i).unwrap();
@@ -605,14 +616,17 @@ mod tests {
 			// Check tokens
 			let migrated_serials = (1..=MAX_TOKENS_PER_STEP).collect::<Vec<u32>>();
 			for serial_number in migrated_serials.clone() {
-				let token_info = pallet_nft::TokenInfo::<Runtime>::get(collection_id, serial_number).unwrap();
+				let token_info =
+					pallet_nft::TokenInfo::<Runtime>::get(collection_id, serial_number).unwrap();
 				assert_eq!(token_info.owner, account_1);
 			}
-			let owned_tokens = pallet_nft::OwnedTokens::<Runtime>::get(account_1, collection_id).unwrap();
+			let owned_tokens =
+				pallet_nft::OwnedTokens::<Runtime>::get(account_1, collection_id).unwrap();
 			assert_eq!(owned_tokens.into_inner(), migrated_serials);
 
 			// Old collection info still exists in the old format, but the number of serials is reduced
-			let serials_to_migrate: Vec<u32> = (MAX_TOKENS_PER_STEP + 1..=MAX_TOKENS_PER_STEP * 2).collect();
+			let serials_to_migrate: Vec<u32> =
+				(MAX_TOKENS_PER_STEP + 1..=MAX_TOKENS_PER_STEP * 2).collect();
 			let old_token_ownership_1 = old::TokenOwnership::<AccountId, MaxTokensPerCollection> {
 				owner: account_1,
 				owned_serials: BoundedVec::<SerialNumber, MaxTokensPerCollection>::truncate_from(
@@ -636,10 +650,12 @@ mod tests {
 			// Check tokens
 			let migrated_serials = (1..=MAX_TOKENS_PER_STEP * 2).collect::<Vec<u32>>();
 			for serial_number in migrated_serials.clone() {
-				let token_info = pallet_nft::TokenInfo::<Runtime>::get(collection_id, serial_number).unwrap();
+				let token_info =
+					pallet_nft::TokenInfo::<Runtime>::get(collection_id, serial_number).unwrap();
 				assert_eq!(token_info.owner, account_1);
 			}
-			let owned_tokens = pallet_nft::OwnedTokens::<Runtime>::get(account_1, collection_id).unwrap();
+			let owned_tokens =
+				pallet_nft::OwnedTokens::<Runtime>::get(account_1, collection_id).unwrap();
 			assert_eq!(owned_tokens.into_inner(), migrated_serials);
 
 			// Collection info should now be the new format

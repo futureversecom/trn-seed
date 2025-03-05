@@ -849,11 +849,14 @@ pub mod pallet {
 
 			let issuance_id = NextIssuanceId::<T>::get();
 			let pending_issuance = PendingIssuance { quantity, burn_authority };
-			<PendingIssuances<T>>::insert((collection_id, &token_owner, issuance_id), pending_issuance);
+			<PendingIssuances<T>>::insert(
+				(collection_id, &token_owner, issuance_id),
+				pending_issuance,
+			);
 			Self::deposit_event(Event::<T>::PendingIssuanceCreated {
 				collection_id,
 				issuance_id,
-				token_owner: token_owner,
+				token_owner,
 				quantity,
 				burn_authority,
 			});

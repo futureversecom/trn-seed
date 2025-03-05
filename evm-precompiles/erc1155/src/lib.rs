@@ -31,7 +31,9 @@ use precompile_utils::{
 	prelude::*,
 };
 use seed_pallet_common::utils::TokenBurnAuthority;
-use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId};
+use seed_primitives::{
+	AssetId, Balance, CollectionUuid, IssuanceId, MetadataScheme, SerialNumber, TokenId,
+};
 use sp_core::{Encode, H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
@@ -1290,8 +1292,7 @@ where
 			.map_err(|_| revert("ERC1155: Too many serial numbers in one issuance"))?;
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let next_issuance_id =
-			pallet_sft::PendingIssuances::<Runtime>::get(collection_id).next_issuance_id;
+		let next_issuance_id = pallet_sft::NextIssuanceId::<Runtime>::get();
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -1325,18 +1326,15 @@ where
 
 		let owner: H160 = owner.into();
 
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let pending_issuances = pallet_sft::PendingIssuances::<Runtime>::get(collection_id)
-			.get_pending_issuances(&owner.into());
+		let (issuance_ids, issuances): (Vec<U256>, Vec<Vec<(u32, u128)>>) = pallet_sft::PendingIssuances::<Runtime>::iter_prefix((
+			collection_id,
+			Runtime::AccountId::from(owner),
+		)).map(|(p, q)| (U256::from(p), q.into_inner())).collect();
 
-		let issuance_ids = pending_issuances.iter().map(|p| U256::from(p.issuance_id)).collect();
-
-		let issuances: Vec<(Vec<SerialNumber>, Vec<Balance>, Vec<u8>)> = pending_issuances
-			.iter()
+		let issuances: Vec<(Vec<SerialNumber>, Vec<Balance>, Vec<u8>)> = issuances.into_iter()
 			.map(|p| -> EvmResult<(Vec<SerialNumber>, Vec<Balance>, Vec<u8>)> {
 				let (serial_numbers, balances): (Vec<SerialNumber>, Vec<Balance>) =
-					p.serial_numbers.clone().into_iter().unzip();
-
+					p.clone().into_iter().unzip();
 				let mut burn_auths = vec![];
 				for serial_number in serial_numbers.iter() {
 					handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -1371,10 +1369,10 @@ where
 
 		read_args!(handle, { issuance_id: U256 });
 
-		if issuance_id > u32::MAX.into() {
+		if issuance_id > IssuanceId::MAX.into() {
 			return Err(revert("ERC721: Expected issuance id <= 2^32"));
 		}
-		let issuance_id: u32 = issuance_id.saturated_into();
+		let issuance_id: IssuanceId = issuance_id.saturated_into();
 
 		let origin = handle.context().caller;
 
@@ -1387,11 +1385,12 @@ where
 		let collection_owner = collection.collection_owner;
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let pending_issuance = match pallet_sft::PendingIssuances::<Runtime>::get(collection_id)
-			.get_pending_issuance(&origin.into(), issuance_id)
-		{
-			Some(pending_issuance) => pending_issuance,
-			None => return Err(revert("Issuance does not exist")),
+		let Some(serial_numbers) = pallet_sft::PendingIssuances::<Runtime>::get((
+			collection_id,
+			&Runtime::AccountId::from(origin),
+			issuance_id,
+		)) else {
+			return Err(revert("Issuance does not exist"));
 		};
 
 		// Dispatch call (if enough gas).
@@ -1401,7 +1400,7 @@ where
 			pallet_sft::Call::<Runtime>::accept_soulbound_issuance { collection_id, issuance_id },
 		)?;
 
-		for (serial_number, _) in pending_issuance.serial_numbers {
+		for (serial_number, _) in serial_numbers {
 			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 			let burn_authority =
 				match pallet_sft::TokenUtilityFlags::<Runtime>::get((collection_id, serial_number))

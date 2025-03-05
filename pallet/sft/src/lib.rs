@@ -760,7 +760,10 @@ pub mod pallet {
 					Error::<T>::NoBurnAuthority
 				);
 			}
-			<PendingIssuances<T>>::insert((collection_id, &token_owner, issuance_id), &serial_numbers);
+			<PendingIssuances<T>>::insert(
+				(collection_id, &token_owner, issuance_id),
+				&serial_numbers,
+			);
 			let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
 			Self::deposit_event(Event::<T>::PendingIssuanceCreated {
 				collection_id,
@@ -805,8 +808,7 @@ pub mod pallet {
 				Some(who.clone()),
 			)?;
 
-			let (serial_numbers, balances) =
-				Self::unzip_serial_numbers(serial_numbers);
+			let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
 
 			Self::deposit_event(Event::<T>::Issued {
 				token_owner: who.clone(),

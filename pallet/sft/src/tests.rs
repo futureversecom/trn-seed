@@ -3025,7 +3025,7 @@ mod set_token_transferable_flag {
 }
 
 mod soulbound_token {
-	use crate::{PendingIssuances};
+	use crate::PendingIssuances;
 
 	use super::*;
 
@@ -3190,7 +3190,9 @@ mod soulbound_token {
 				issuance_id
 			));
 
-			assert!(PendingIssuances::<Test>::get((collection_id, &token_owner, issuance_id)).is_none());
+			assert!(
+				PendingIssuances::<Test>::get((collection_id, &token_owner, issuance_id)).is_none()
+			);
 
 			System::assert_last_event(
 				Event::<Test>::Issued { token_owner, serial_numbers, balances }.into(),

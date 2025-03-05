@@ -20,8 +20,8 @@ use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoB
 use scale_info::TypeInfo;
 use seed_pallet_common::utils::{TokenBurnAuthority, TokenUtilityFlags as TokenFlags};
 use seed_primitives::{
-	CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenLockReason,
+	CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
+	TokenCount, TokenLockReason,
 };
 use serde::{Deserialize, Serialize};
 use sp_runtime::{BoundedVec, Permill};
@@ -126,8 +126,7 @@ where
 #[derive(
 	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
-pub struct PendingIssuance
-{
+pub struct PendingIssuance {
 	pub quantity: u32,
 	pub burn_authority: TokenBurnAuthority,
 }

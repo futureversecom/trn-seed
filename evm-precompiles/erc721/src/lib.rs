@@ -29,7 +29,7 @@ use precompile_utils::{
 };
 use seed_pallet_common::{utils::TokenBurnAuthority, NFTExt};
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, CollectionUuid, EthAddress, IssuanceId, SerialNumber, TokenCount, TokenId,
 };
 use sp_core::{Encode, H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
@@ -1215,8 +1215,7 @@ where
 		let origin = handle.context().caller;
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let next_issuance_id =
-			pallet_nft::PendingIssuances::<Runtime>::get(collection_id).next_issuance_id;
+		let next_issuance_id = pallet_nft::NextIssuanceId::<Runtime>::get();
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -1257,16 +1256,13 @@ where
 		let owner: H160 = owner.into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let pending_issuances = pallet_nft::PendingIssuances::<Runtime>::get(collection_id)
-			.get_pending_issuances(&owner.into());
-
-		let issuance_ids: Vec<U256> =
-			pending_issuances.iter().map(|p| U256::from(p.issuance_id)).collect();
-
-		let issuances: Vec<(U256, u8)> = pending_issuances
-			.iter()
-			.map(|p| (U256::from(p.quantity), p.burn_authority.into()))
-			.collect();
+		let (issuance_ids, issuances): (Vec<IssuanceId>, Vec<(U256, u8)>) =
+			pallet_nft::PendingIssuances::<Runtime>::iter_prefix((
+				collection_id,
+				Runtime::AccountId::from(owner),
+			))
+				.map(|(p, q)| (p, (U256::from(q.quantity), q.burn_authority.into())))
+				.unzip();
 
 		Ok(succeed(EvmDataWriter::new().write(issuance_ids).write(issuances).build()))
 	}
@@ -1279,10 +1275,10 @@ where
 
 		read_args!(handle, { issuance_id: U256 });
 
-		if issuance_id > u32::MAX.into() {
-			return Err(revert("ERC721: Expected issuance id <= 2^32"));
+		if issuance_id > IssuanceId::MAX.into() {
+			return Err(revert("ERC721: Expected issuance id <= 2^64"));
 		}
-		let issuance_id: u32 = issuance_id.saturated_into();
+		let issuance_id: IssuanceId = issuance_id.saturated_into();
 
 		let origin = handle.context().caller;
 
@@ -1296,11 +1292,12 @@ where
 		let serial_number = collection.next_serial_number;
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let pending_issuance = match pallet_nft::PendingIssuances::<Runtime>::get(collection_id)
-			.get_pending_issuance(&origin.into(), issuance_id)
-		{
-			Some(pending_issuance) => pending_issuance,
-			None => return Err(revert("Issuance does not exist")),
+		let Some(pending_issuance) = pallet_nft::PendingIssuances::<Runtime>::get((
+			collection_id,
+			Runtime::AccountId::from(origin),
+			issuance_id,
+		)) else {
+			return Err(revert("Issuance does not exist"));
 		};
 
 		// Dispatch call (if enough gas).
