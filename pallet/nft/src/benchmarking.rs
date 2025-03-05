@@ -220,9 +220,8 @@ benchmarks! {
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 1, account::<T>("Bob"), TokenBurnAuthority::Both)
 	verify {
 		assert_eq!(
-			PendingIssuances::<T>::get(collection_id, issuance_id).unwrap(),
+			PendingIssuances::<T>::get((collection_id, &account::<T>("Bob"), issuance_id)).unwrap(),
 			PendingIssuance {
-				token_owner: account::<T>("Bob"),
 				quantity: 1,
 				burn_authority: TokenBurnAuthority::Both,
 			},

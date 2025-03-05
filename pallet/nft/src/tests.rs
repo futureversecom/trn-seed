@@ -3075,8 +3075,8 @@ mod soulbound_token {
 			);
 
 			assert_eq!(
-				PendingIssuances::<Test>::get(collection_id, issuance_id),
-				Some(PendingIssuance { token_owner, quantity, burn_authority })
+				PendingIssuances::<Test>::get((collection_id, &token_owner, issuance_id)),
+				Some(PendingIssuance { quantity, burn_authority })
 			);
 
 			assert_ok!(Nft::accept_soulbound_issuance(
@@ -3123,8 +3123,8 @@ mod soulbound_token {
 			let issuance_id = 0;
 
 			assert_eq!(
-				PendingIssuances::<Test>::get(collection_id, issuance_id),
-				Some(PendingIssuance { token_owner, quantity, burn_authority })
+				PendingIssuances::<Test>::get((collection_id, &token_owner, issuance_id)),
+				Some(PendingIssuance { quantity, burn_authority })
 			);
 
 			assert_ok!(Nft::accept_soulbound_issuance(

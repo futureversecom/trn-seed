@@ -194,14 +194,14 @@ pub mod pallet {
 
 	// Map from a collection id to a collection's pending issuances
 	#[pallet::storage]
-	pub type PendingIssuances<T: Config> = StorageDoubleMap<
+	pub type PendingIssuances<T: Config> = StorageNMap<
 		_,
-		Twox64Concat,
-		CollectionUuid,
-		Twox64Concat,
-		IssuanceId,
-		PendingIssuance<T::AccountId>,
-		OptionQuery,
+		(
+			NMapKey<Twox64Concat, CollectionUuid>,
+			NMapKey<Twox64Concat, T::AccountId>,
+			NMapKey<Twox64Concat, IssuanceId>,
+		),
+		PendingIssuance,
 	>;
 
 	/// The next available incrementing issuance ID, unique across all pending issuances
@@ -287,7 +287,7 @@ pub mod pallet {
 		/// A pending issuance for a soulbound token has been created
 		PendingIssuanceCreated {
 			collection_id: CollectionUuid,
-			issuance_id: u64,
+			issuance_id: IssuanceId,
 			token_owner: T::AccountId,
 			quantity: u32,
 			burn_authority: TokenBurnAuthority,
@@ -848,8 +848,8 @@ pub mod pallet {
 			let _ = Self::pre_mint(collection_id, &mut collection_info, quantity)?;
 
 			let issuance_id = NextIssuanceId::<T>::get();
-			let pending_issuance = PendingIssuance { token_owner: token_owner.clone(), quantity, burn_authority };
-			<PendingIssuances<T>>::insert(collection_id, issuance_id, pending_issuance);
+			let pending_issuance = PendingIssuance { quantity, burn_authority };
+			<PendingIssuances<T>>::insert((collection_id, &token_owner, issuance_id), pending_issuance);
 			Self::deposit_event(Event::<T>::PendingIssuanceCreated {
 				collection_id,
 				issuance_id,
@@ -873,9 +873,9 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			T::Migrator::ensure_migrated()?;
 
-			let pending_issuance = <PendingIssuances<T>>::get(collection_id, issuance_id)
+			let pending_issuance = <PendingIssuances<T>>::get((collection_id, &who, issuance_id))
 				.ok_or(Error::<T>::InvalidPendingIssuance)?;
-			ensure!(&pending_issuance.token_owner == &who, Error::<T>::InvalidPendingIssuance);
+			// ensure!(&pending_issuance.token_owner == &who, Error::<T>::InvalidPendingIssuance);
 
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
@@ -922,7 +922,7 @@ pub mod pallet {
 			});
 
 			// remove the pending issuance
-			<PendingIssuances<T>>::remove(collection_id, issuance_id);
+			<PendingIssuances<T>>::remove((collection_id, who, issuance_id));
 
 			Ok(())
 		}

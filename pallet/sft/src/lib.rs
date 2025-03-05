@@ -54,6 +54,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use seed_pallet_common::utils::TokenBurnAuthority;
+	use seed_primitives::IssuanceId;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -134,17 +135,19 @@ pub mod pallet {
 
 	// Map from a collection id to a collection's pending issuances
 	#[pallet::storage]
-	pub type PendingIssuances<T: Config> = StorageMap<
+	pub type PendingIssuances<T: Config> = StorageNMap<
 		_,
-		Twox64Concat,
-		CollectionUuid,
-		SftCollectionPendingIssuances<
-			T::AccountId,
-			T::MaxSerialsPerMint,
-			T::MaxSftPendingIssuances,
-		>,
-		ValueQuery,
+		(
+			NMapKey<Twox64Concat, CollectionUuid>,
+			NMapKey<Twox64Concat, T::AccountId>,
+			NMapKey<Twox64Concat, IssuanceId>,
+		),
+		BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 	>;
+
+	/// The next available incrementing issuance ID, unique across all pending issuances
+	#[pallet::storage]
+	pub type NextIssuanceId<T> = StorageValue<_, IssuanceId, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -254,7 +257,7 @@ pub mod pallet {
 		/// A pending issuance for a soulbound token has been created
 		PendingIssuanceCreated {
 			collection_id: CollectionUuid,
-			issuance_id: u32,
+			issuance_id: IssuanceId,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
 			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			token_owner: T::AccountId,
@@ -747,36 +750,25 @@ pub mod pallet {
 				serial_numbers.clone(),
 			)?;
 
-			<PendingIssuances<T>>::try_mutate(
+			let issuance_id = NextIssuanceId::<T>::get();
+			for (serial_number, _) in serial_numbers.iter() {
+				// ensure burn authority has been pre declared
+				ensure!(
+					<TokenUtilityFlags<T>>::get((collection_id, serial_number))
+						.burn_authority
+						.is_some(),
+					Error::<T>::NoBurnAuthority
+				);
+			}
+			<PendingIssuances<T>>::insert((collection_id, &token_owner, issuance_id), &serial_numbers);
+			let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
+			Self::deposit_event(Event::<T>::PendingIssuanceCreated {
 				collection_id,
-				|pending_issuances| -> DispatchResult {
-					for (serial_number, _) in serial_numbers.iter() {
-						// ensure burn authority has been pre declared
-						ensure!(
-							<TokenUtilityFlags<T>>::get((collection_id, serial_number))
-								.burn_authority
-								.is_some(),
-							Error::<T>::NoBurnAuthority
-						);
-					}
-
-					let issuance_id = pending_issuances
-						.insert_pending_issuance(&token_owner, serial_numbers.clone())
-						.map_err(Error::<T>::from)?;
-
-					let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
-
-					Self::deposit_event(Event::<T>::PendingIssuanceCreated {
-						collection_id,
-						issuance_id,
-						serial_numbers,
-						balances,
-						token_owner: token_owner.clone(),
-					});
-
-					Ok(())
-				},
-			)?;
+				issuance_id,
+				serial_numbers,
+				balances,
+				token_owner: token_owner.clone(),
+			});
 
 			Ok(())
 		}
@@ -788,12 +780,11 @@ pub mod pallet {
 		pub fn accept_soulbound_issuance(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			issuance_id: u32,
+			issuance_id: IssuanceId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let pending_issuance = <PendingIssuances<T>>::get(collection_id)
-				.get_pending_issuance(&who, issuance_id)
+			let serial_numbers = <PendingIssuances<T>>::get((collection_id, &who, issuance_id))
 				.ok_or(Error::<T>::InvalidPendingIssuance)?;
 
 			let sft_collection_info =
@@ -803,19 +794,19 @@ pub mod pallet {
 				sft_collection_info.collection_owner.clone(),
 				collection_id,
 				sft_collection_info.clone(),
-				pending_issuance.serial_numbers.clone(),
+				serial_numbers.clone(),
 			)?;
 
 			Self::do_mint(
 				sft_collection_info.collection_owner.clone(),
 				collection_id,
 				sft_collection_info,
-				pending_issuance.serial_numbers.clone(),
+				serial_numbers.clone(),
 				Some(who.clone()),
 			)?;
 
 			let (serial_numbers, balances) =
-				Self::unzip_serial_numbers(pending_issuance.serial_numbers);
+				Self::unzip_serial_numbers(serial_numbers);
 
 			Self::deposit_event(Event::<T>::Issued {
 				token_owner: who.clone(),
@@ -824,26 +815,9 @@ pub mod pallet {
 			});
 
 			// remove the pending issuance
-			<PendingIssuances<T>>::try_mutate(
-				collection_id,
-				|pending_issuances| -> DispatchResult {
-					pending_issuances.remove_pending_issuance(&who, issuance_id);
-
-					Ok(())
-				},
-			)?;
+			<PendingIssuances<T>>::remove((collection_id, &who, issuance_id));
 
 			Ok(())
-		}
-	}
-}
-
-impl<T: Config> From<SftPendingIssuanceError> for Error<T> {
-	fn from(val: SftPendingIssuanceError) -> Error<T> {
-		match val {
-			SftPendingIssuanceError::PendingIssuanceLimitExceeded => {
-				Error::<T>::PendingIssuanceLimitExceeded
-			},
 		}
 	}
 }

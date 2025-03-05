@@ -126,12 +126,8 @@ where
 #[derive(
 	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
-#[codec(mel_bound(AccountId: MaxEncodedLen))]
-pub struct PendingIssuance<AccountId>
-where
-	AccountId: Debug + PartialEq + Clone,
+pub struct PendingIssuance
 {
 	pub quantity: u32,
-	pub token_owner: AccountId,
 	pub burn_authority: TokenBurnAuthority,
 }
