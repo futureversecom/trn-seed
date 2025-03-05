@@ -165,6 +165,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type NextVortexId<T: Config> = StorageValue<_, T::VtxDistIdentifier, ValueQuery>;
 
+	/// Stores balance consideration criteria, current or stored
+	#[pallet::storage]
+	pub(super) type ConsiderCurrentBalance<T: Config> = StorageValue<_, bool, ValueQuery>;
+
 	/// Stores status of each vortex distribution
 	#[pallet::storage]
 	pub type VtxDistStatuses<T: Config> =
@@ -404,6 +408,9 @@ pub mod pallet {
 			id: T::VtxDistIdentifier,
 			total_supply: BalanceOf<T>,
 		},
+
+		/// Set ConsiderCurrentBalance
+		SetConsiderCurrentBalance { value: bool },
 	}
 
 	#[pallet::hooks]
@@ -881,10 +888,22 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Set ConsiderCurrentBalance storage item
+		/// If set to true, token balances at the current block will be taken into account for reward calculation
+		#[pallet::call_index(15)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_admin())]
+		pub fn set_consider_current_balance(origin: OriginFor<T>, value: bool) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+
+			ConsiderCurrentBalance::<T>::put(value);
+			Self::deposit_event(Event::SetConsiderCurrentBalance {value});
+			Ok(())
+		}
 		
 		/// Register effective balances and work points
 		/// length of vecotrs should align and with same set of accountid
-		#[pallet::call_index(15)]
+		#[pallet::call_index(16)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_eff_bal_n_wk_pts())]
 		#[transactional]
 		pub fn register_eff_bal_n_wk_pts(
