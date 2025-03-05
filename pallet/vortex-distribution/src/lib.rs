@@ -190,7 +190,17 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::VtxDistIdentifier,
-		BalanceOf<T>, 
+		BalanceOf<T>,
+		ValueQuery,
+	>;
+
+	/// Stores Vtx price each vortex distribution
+	#[pallet::storage]
+	pub type VtxPrice<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::VtxDistIdentifier,
+		BalanceOf<T>,
 		ValueQuery,
 	>;
 
@@ -739,7 +749,9 @@ pub mod pallet {
 				Error::<T>::CannotTrigger
 			);
 
-			Self::do_collate_reward_tokens(id)?;
+			Self::do_calculate_vortex_price(id)?;
+
+			// Self::do_collate_reward_tokens(id)?;
 			Self::do_reward_calculation(id)?;
 
 			VtxDistStatuses::<T>::mutate(id, |status| {
@@ -1131,35 +1143,71 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		/// Calculate vortex price
+		fn do_calculate_vortex_price(
+			id: T::VtxDistIdentifier,
+		) -> DispatchResultWithPostInfo {
+			let vtx_vault_account = Self::get_vtx_vault_account();
+
+			let mut vtx_vault_asset_value: BalanceOf<T> = 0u64.into();
+			for (asset_id, amount) in VtxVaultAssetsList::<T>::get(id).into_iter() {
+				let asset_price = AssetPrices::<T>::get(id, asset_id);
+				if asset_price == Default::default() { continue;}
+				let asset_balance = match ConsiderCurrentBalance::<T>::get() {
+					true => T::MultiCurrency::balance(asset_id, &vtx_vault_account),
+					false => amount,
+				};
+				vtx_vault_asset_value += asset_balance.saturating_mul(asset_price);
+			}
+
+			let vtx_existing_supply = match ConsiderCurrentBalance::<T>::get() {
+				true => T::MultiCurrency::total_issuance(T::VtxAssetId::get()),
+				false => VtxTotalSupply::<T>::get(id),
+			};
+
+			let vortex_price = if vtx_existing_supply == Zero::zero() {
+				1u64.into() // should be still 1 not matter decimal points (6 decimal)
+			} else {
+				vtx_vault_asset_value / vtx_existing_supply
+			};
+			ensure!(vortex_price > Zero::zero(), Error::<T>::VortexPriceIsZero);
+			VtxPrice::<T>::set(id, vortex_price);// spk
+
+			Ok(().into())
+		}
+
 		// do collate rewards(assets and root) tokens in to vault account
-		fn do_collate_reward_tokens(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
+		/*fn do_collate_reward_tokens(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
 			let root_price = AssetPrices::<T>::get(id, T::NativeAssetId::get());
 			ensure!(root_price > Zero::zero(), Error::<T>::RootPriceIsZero);
 
-			let vault_account = Self::get_vtx_vault_account();
+			let vtx_vault_account = Self::get_vtx_vault_account();
 			let root_vault_account = Self::get_root_vault_account();
 			let fee_vault_account = Self::get_fee_vault_account();
 
-			// move gas & network fee to a vault here
-			// move all asset in fee_vault to get_vault_account based on asset list in AssetsList
+			// move gas & network fee to  vtx vault here
+			// move all asset in fee_vault to vtx_vault_account based on asset list in FeePotAssetsList
 			let mut fee_vault_asset_value: BalanceOf<T> = 0u64.into();
-			let mut vault_asset_value: BalanceOf<T> = 0u64.into();
-			/*for asset_id in AssetsList::<T>::get(id).into_iter() {
+			let mut vtx_vault_asset_value: BalanceOf<T> = 0u64.into();
+			for (asset_id, amount) in FeePotAssetsList::<T>::get(id).into_iter() {
 				let asset_price = AssetPrices::<T>::get(id, asset_id);
-				let asset_balance = T::MultiCurrency::balance(asset_id, &fee_vault_account);
+				let asset_balance = match ConsiderCurrentBalance::<T>::get() {
+					true => T::MultiCurrency::balance(asset_id, &fee_vault_account),
+					false => amount,
+				};
 				fee_vault_asset_value += asset_balance.saturating_mul(asset_price);
 				Self::safe_transfer(
 					asset_id,
 					&fee_vault_account,
-					&vault_account,
+					&vtx_vault_account,
 					asset_balance,
 					false,
 				)?;
-				let asset_balance_vault = T::MultiCurrency::balance(asset_id, &vault_account);
-				vault_asset_value += asset_balance_vault.saturating_mul(asset_price);
-			}*/
+				let asset_balance_vault = T::MultiCurrency::balance(asset_id, &vtx_vault_account);
+				vtx_vault_asset_value += asset_balance_vault.saturating_mul(asset_price);
+			}
 
-			// move bootstrap incentive here
+			/*// move bootstrap incentive here
 			// move root token from fee_vault to vault_account
 			let fee_vault_root_token_balance =
 				T::MultiCurrency::balance(T::NativeAssetId::get(), &fee_vault_account);
@@ -1173,20 +1221,21 @@ pub mod pallet {
 					fee_vault_root_token_balance,
 					false,
 				)?;
-			}
+			}*/
 
-			// move root token from root_vault to get_vault_account
+			// bootstrap - move root token from root_vault to vtx_vault_account
 			let root_vault_root_token_balance =
 				T::MultiCurrency::balance(T::NativeAssetId::get(), &root_vault_account);
 			let root_vault_root_value: BalanceOf<T> = root_vault_root_token_balance * root_price;
-
 			Self::safe_transfer(
 				T::NativeAssetId::get(),
 				&root_vault_account,
-				&vault_account,
+				&vtx_vault_account,
 				root_vault_root_token_balance,
 				false,
 			)?;
+
+
 			// let mut vault_root_value: BalanceOf<T> = (fee_vault_root_token_balance +
 			// root_vault_root_token_balance) * root_price;
 			let vault_root_value: BalanceOf<T> =
@@ -1213,7 +1262,7 @@ pub mod pallet {
 			TotalBootstrapReward::<T>::insert(id, total_vortex_bootstrap);
 
 			Ok(().into())
-		}
+		}*/
 
 		fn do_reward_calculation(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
 			//get era info for this reward cycle
@@ -1330,17 +1379,17 @@ pub mod pallet {
 				None => Ok(None),
 			}
 		}
-		
+
 		fn check_asset_exist_in_fee_pot_asset_list(
 			vtx_id: T::VtxDistIdentifier,
 			asset_id: &AssetId,
 		) -> bool {
 			for (id, _) in FeePotAssetsList::<T>::get(vtx_id).iter() {
-				if (id == asset_id) {
+				if id == asset_id {
 					return true;
 				}
 			}
-			
+
 			false
 		}
 	}
