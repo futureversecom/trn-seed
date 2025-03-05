@@ -205,7 +205,7 @@ pub struct NftMigration<T: pallet_nft::Config> {
 }
 
 impl<T: pallet_nft::Config + pallet_migration::Config> MigrationStep for NftMigration<T> {
-	const TARGET_VERSION: u16 = 8;
+	const TARGET_VERSION: u16 = 9;
 
 	fn version_check() -> bool {
 		Nft::on_chain_storage_version() == Self::TARGET_VERSION
