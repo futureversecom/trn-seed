@@ -44,6 +44,7 @@ construct_runtime!(
 		Xrpl: pallet_xrpl,
 		Utility: pallet_utility,
 		Proxy: pallet_proxy,
+		PartnerAttribution: pallet_partner_attribution,
 	}
 );
 
@@ -61,6 +62,7 @@ impl_pallet_sylo_data_verification_config!(Test);
 impl_pallet_xrpl_config!(Test);
 impl_pallet_proxy_config!(Test);
 impl_pallet_utility_config!(Test);
+impl_pallet_partner_attribution_config!(Test);
 
 // Mock ErcIdConversion for testing purposes
 impl<RuntimeId> ErcIdConversion<RuntimeId> for Test

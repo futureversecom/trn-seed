@@ -27,6 +27,7 @@ pallet-proxy = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-xrpl = { workspace = true }
 pallet-sylo-data-verification = { workspace = true }
+pallet-partner-attribution = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 precompile-utils = { workspace = true }
 
@@ -52,6 +53,7 @@ std = [
 	"pallet-utility/std",
     "pallet-evm/std",
     "pallet-sylo-data-verification/std",
+    "pallet-partner-attribution/std",
     "pallet-transaction-payment/std",
     "scale-info/std",
     "seed-primitives/std",
@@ -63,5 +65,5 @@ std = [
     "frame-system/std",
     "frame-benchmarking?/std",
 ]
-runtime-benchmarks = ["frame-benchmarking"]
+runtime-benchmarks = ["frame-benchmarking", "pallet-partner-attribution/runtime-benchmarks"]
 try-runtime = ["frame-support/try-runtime"]

@@ -803,6 +803,65 @@ macro_rules! impl_pallet_xrpl_config {
 }
 
 #[macro_export]
+macro_rules! impl_pallet_partner_attribution_config {
+	($test:ident) => {
+		pub struct EnsureAny;
+		impl EnsureOrigin<<Test as frame_system::Config>::RuntimeOrigin> for EnsureAny {
+			type Success = H160;
+			fn try_origin(
+				o: <Test as frame_system::Config>::RuntimeOrigin,
+			) -> Result<Self::Success, <Test as frame_system::Config>::RuntimeOrigin> {
+				match o.clone().into() {
+					Ok(RawOrigin::Signed(who)) => Ok(who.into()),
+					_ => Err(o),
+				}
+			}
+
+			// Add "pallet-partner-attribution/runtime-benchmarks" to runtime-benchmarks feature of dependent pallet
+			#[cfg(feature = "runtime-benchmarks")]
+			fn try_successful_origin() -> Result<<Test as frame_system::Config>::RuntimeOrigin, ()>
+			{
+				Ok(RawOrigin::Root.into())
+			}
+		}
+
+		pub struct MockFuturepassProvider;
+
+		impl FuturepassProvider for MockFuturepassProvider {
+			type AccountId = AccountId;
+
+			fn create_futurepass(
+				_funder: Self::AccountId,
+				owner: Self::AccountId,
+			) -> Result<Self::AccountId, DispatchError> {
+				// Create a deterministic account by hashing the owner's address with a prefix
+				let mut input = Vec::with_capacity(24);
+				// Use a fixed prefix for futurepass accounts (first 4 bytes)
+				input.extend_from_slice(&[0xff, 0xff, 0xff, 0xff]);
+				// Add the owner's account bytes
+				input.extend_from_slice(&owner.encode());
+
+				// Hash the input to get a deterministic address
+				let hash = sp_core::hashing::blake2_256(&input);
+				let address = H160::from_slice(&hash[0..20]);
+
+				Ok(address.into())
+			}
+		}
+
+		impl pallet_partner_attribution::Config for Test {
+			type RuntimeEvent = RuntimeEvent;
+			type ApproveOrigin = EnsureRoot<AccountId>;
+			type EnsureFuturepass = EnsureAny;
+			type FuturepassCreator = MockFuturepassProvider;
+			type WeightInfo = ();
+			#[cfg(feature = "runtime-benchmarks")]
+			type MultiCurrency = AssetsExt;
+		}
+	};
+}
+
+#[macro_export]
 macro_rules! impl_pallet_utility_config {
 	($test:ident) => {
 		impl pallet_utility::Config for Test {
