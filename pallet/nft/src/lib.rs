@@ -82,6 +82,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use seed_pallet_common::Migrator;
+	use seed_primitives::IssuanceId;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
@@ -193,13 +194,19 @@ pub mod pallet {
 
 	// Map from a collection id to a collection's pending issuances
 	#[pallet::storage]
-	pub type PendingIssuances<T: Config> = StorageMap<
+	pub type PendingIssuances<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		CollectionUuid,
-		CollectionPendingIssuances<T::AccountId, T::MaxPendingIssuances>,
-		ValueQuery,
+		Twox64Concat,
+		IssuanceId,
+		PendingIssuance<T::AccountId>,
+		OptionQuery,
 	>;
+
+	/// The next available incrementing issuance ID, unique across all pending issuances
+	#[pallet::storage]
+	pub type NextIssuanceId<T> = StorageValue<_, IssuanceId, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -280,7 +287,7 @@ pub mod pallet {
 		/// A pending issuance for a soulbound token has been created
 		PendingIssuanceCreated {
 			collection_id: CollectionUuid,
-			issuance_id: u32,
+			issuance_id: u64,
 			token_owner: T::AccountId,
 			quantity: u32,
 			burn_authority: TokenBurnAuthority,
@@ -840,24 +847,16 @@ pub mod pallet {
 
 			let _ = Self::pre_mint(collection_id, &mut collection_info, quantity)?;
 
-			<PendingIssuances<T>>::try_mutate(
+			let issuance_id = NextIssuanceId::<T>::get();
+			let pending_issuance = PendingIssuance { token_owner: token_owner.clone(), quantity, burn_authority };
+			<PendingIssuances<T>>::insert(collection_id, issuance_id, pending_issuance);
+			Self::deposit_event(Event::<T>::PendingIssuanceCreated {
 				collection_id,
-				|pending_issuances| -> DispatchResult {
-					let issuance_id = pending_issuances
-						.insert_pending_issuance(&token_owner, quantity, burn_authority)
-						.map_err(Error::<T>::from)?;
-
-					Self::deposit_event(Event::<T>::PendingIssuanceCreated {
-						collection_id,
-						issuance_id,
-						token_owner: token_owner.clone(),
-						quantity,
-						burn_authority,
-					});
-
-					Ok(())
-				},
-			)?;
+				issuance_id,
+				token_owner: token_owner,
+				quantity,
+				burn_authority,
+			});
 
 			Ok(())
 		}
@@ -869,16 +868,14 @@ pub mod pallet {
 		pub fn accept_soulbound_issuance(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			issuance_id: u32,
+			issuance_id: IssuanceId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			T::Migrator::ensure_migrated()?;
 
-			let collection_pending_issuances = <PendingIssuances<T>>::get(collection_id);
-
-			let pending_issuance = collection_pending_issuances
-				.get_pending_issuance(&who, issuance_id)
+			let pending_issuance = <PendingIssuances<T>>::get(collection_id, issuance_id)
 				.ok_or(Error::<T>::InvalidPendingIssuance)?;
+			ensure!(&pending_issuance.token_owner == &who, Error::<T>::InvalidPendingIssuance);
 
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
@@ -925,14 +922,7 @@ pub mod pallet {
 			});
 
 			// remove the pending issuance
-			<PendingIssuances<T>>::try_mutate(
-				collection_id,
-				|pending_issuances| -> DispatchResult {
-					pending_issuances.remove_pending_issuance(&who, issuance_id);
-
-					Ok(())
-				},
-			)?;
+			<PendingIssuances<T>>::remove(collection_id, issuance_id);
 
 			Ok(())
 		}

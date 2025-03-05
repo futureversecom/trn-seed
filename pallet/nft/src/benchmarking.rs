@@ -216,16 +216,16 @@ benchmarks! {
 
 	issue_soulbound {
 		let collection_id = build_collection::<T>(None);
+		let issuance_id = NextIssuanceId::<T>::get();
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 1, account::<T>("Bob"), TokenBurnAuthority::Both)
 	verify {
-		let collection_issuances =
-			PendingIssuances::<T>::get(collection_id).pending_issuances;
-
-		let pending_issuances = &collection_issuances[0].1;
-
 		assert_eq!(
-			pending_issuances.len(),
-			1,
+			PendingIssuances::<T>::get(collection_id, issuance_id).unwrap(),
+			PendingIssuance {
+				token_owner: account::<T>("Bob"),
+				quantity: 1,
+				burn_authority: TokenBurnAuthority::Both,
+			},
 		)
 	}
 
