@@ -19,7 +19,7 @@
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2025-03-05, STEPS: `50`, REPEAT: 20, LOW RANGE: `[]`, HIGH RANGE: `[]`
-//! HOSTNAME: `Jasons-Ubuntu`, CPU: `AMD Ryzen 9 7950X 16-Core Processor`
+//! HOSTNAME: `ip-172-31-102-147`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
 //! EXECUTION: , WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
@@ -72,46 +72,46 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b74e7b9012096b41c4eb3aaf947f6ea429` (r:0 w:1)
 	// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b74e7b9012096b41c4eb3aaf947f6ea429` (r:0 w:1)
 	fn migrate() -> Weight {
-		Weight::from_all(14_758_000)
+		Weight::from_all(46_909_000)
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	// Storage: `Nft::CollectionInfo` (r:2 w:1)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
-	// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b70d96583a751bd644fd42252931d83e5f` (r:50 w:0)
-	// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b70d96583a751bd644fd42252931d83e5f` (r:50 w:0)
-	// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b726db73e92fe0bb513cac8d5ccc97e899` (r:50 w:0)
-	// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b726db73e92fe0bb513cac8d5ccc97e899` (r:50 w:0)
+	// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b70d96583a751bd644fd42252931d83e5f` (r:50 w:50)
+	// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b70d96583a751bd644fd42252931d83e5f` (r:50 w:50)
+	// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b726db73e92fe0bb513cac8d5ccc97e899` (r:50 w:50)
+	// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b726db73e92fe0bb513cac8d5ccc97e899` (r:50 w:50)
 	// Storage: `Nft::OwnedTokens` (r:1 w:1)
 	// Proof: `Nft::OwnedTokens` (`max_values`: None, `max_size`: Some(4000052), added: 4002527, mode: `MaxEncodedLen`)
 	// Storage: `Nft::TokenInfo` (r:0 w:50)
 	// Proof: `Nft::TokenInfo` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn current_migration_step(p: u32, ) -> Weight {
-		Weight::from_all(12_201_731)
-			// Standard Error: 6_677
-			.saturating_add(Weight::from_all(5_789_966_u64).saturating_mul(p as u64))
+		Weight::from_all(45_451_449)
+			// Standard Error: 20_013
+			.saturating_add(Weight::from_all(16_452_621_u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(p as u64)))
 			.saturating_add(T::DbWeight::get().writes(2))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(p as u64)))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Migration::MigrationEnabled` (r:0 w:1)
 	// Proof: `Migration::MigrationEnabled` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn enable_migration() -> Weight {
-		Weight::from_all(5_731_000)
+		Weight::from_all(36_263_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `Migration::BlockDelay` (r:0 w:1)
 	// Proof: `Migration::BlockDelay` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_block_delay() -> Weight {
-		Weight::from_all(5_661_000)
+		Weight::from_all(23_123_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `Migration::BlockLimit` (r:0 w:1)
 	// Proof: `Migration::BlockLimit` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_block_limit() -> Weight {
-		Weight::from_all(5_741_000)
+		Weight::from_all(22_991_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }
@@ -133,46 +133,46 @@ impl WeightInfo for () {
 	// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b74e7b9012096b41c4eb3aaf947f6ea429` (r:0 w:1)
 	// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b74e7b9012096b41c4eb3aaf947f6ea429` (r:0 w:1)
 	fn migrate() -> Weight {
-		Weight::from_all(14_758_000)
+		Weight::from_all(46_909_000)
 			.saturating_add(RocksDbWeight::get().reads(6))
 			.saturating_add(RocksDbWeight::get().writes(4))
 	}
 	// Storage: `Nft::CollectionInfo` (r:2 w:1)
 	// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(494), added: 2969, mode: `MaxEncodedLen`)
-	// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b70d96583a751bd644fd42252931d83e5f` (r:50 w:0)
-	// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b70d96583a751bd644fd42252931d83e5f` (r:50 w:0)
-	// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b726db73e92fe0bb513cac8d5ccc97e899` (r:50 w:0)
-	// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b726db73e92fe0bb513cac8d5ccc97e899` (r:50 w:0)
+	// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b70d96583a751bd644fd42252931d83e5f` (r:50 w:50)
+	// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b70d96583a751bd644fd42252931d83e5f` (r:50 w:50)
+	// Storage: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b726db73e92fe0bb513cac8d5ccc97e899` (r:50 w:50)
+	// Proof: UNKNOWN KEY `0xf43ffbe61ef468749d3617ac1a63c4b726db73e92fe0bb513cac8d5ccc97e899` (r:50 w:50)
 	// Storage: `Nft::OwnedTokens` (r:1 w:1)
 	// Proof: `Nft::OwnedTokens` (`max_values`: None, `max_size`: Some(4000052), added: 4002527, mode: `MaxEncodedLen`)
 	// Storage: `Nft::TokenInfo` (r:0 w:50)
 	// Proof: `Nft::TokenInfo` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 50]`.
 	fn current_migration_step(p: u32, ) -> Weight {
-		Weight::from_all(12_201_731)
-			// Standard Error: 6_677
-			.saturating_add(Weight::from_all(5_789_966_u64).saturating_mul(p as u64))
+		Weight::from_all(45_451_449)
+			// Standard Error: 20_013
+			.saturating_add(Weight::from_all(16_452_621_u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(3))
 			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(p as u64)))
 			.saturating_add(RocksDbWeight::get().writes(2))
-			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(p as u64)))
+			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(p as u64)))
 	}
 	// Storage: `Migration::MigrationEnabled` (r:0 w:1)
 	// Proof: `Migration::MigrationEnabled` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn enable_migration() -> Weight {
-		Weight::from_all(5_731_000)
+		Weight::from_all(36_263_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `Migration::BlockDelay` (r:0 w:1)
 	// Proof: `Migration::BlockDelay` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_block_delay() -> Weight {
-		Weight::from_all(5_661_000)
+		Weight::from_all(23_123_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `Migration::BlockLimit` (r:0 w:1)
 	// Proof: `Migration::BlockLimit` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	fn set_block_limit() -> Weight {
-		Weight::from_all(5_741_000)
+		Weight::from_all(22_991_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }
