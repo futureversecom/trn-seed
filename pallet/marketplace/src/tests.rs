@@ -21,7 +21,7 @@ use crate::mock::{
 };
 use core::ops::Mul;
 use frame_support::traits::{fungibles::Inspect, OnInitialize};
-use pallet_nft::{test_utils::NftBuilder, TokenLocks};
+use pallet_nft::test_utils::NftBuilder;
 use pallet_sft::{test_utils::sft_balance_of, test_utils::SftBuilder, TokenInfo};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::{CrossChainCompatibility, MetadataScheme, RoyaltiesSchedule, TokenCount};
@@ -171,8 +171,8 @@ fn sell() {
 
 			for serial_number in serial_numbers.iter() {
 				assert_eq!(
-					TokenLocks::<Test>::get((collection_id, serial_number)).unwrap(),
-					TokenLockReason::Listed(listing_id)
+					<Test as Config>::NFTExt::get_token_lock((collection_id, *serial_number)),
+					Some(TokenLockReason::Listed(listing_id))
 				);
 			}
 
@@ -296,7 +296,10 @@ fn sell_multiple() {
 			close: System::block_number() + DefaultListingDuration::get(),
 		}));
 
-		assert_eq!(TokenLocks::<Test>::get(token_id).unwrap(), TokenLockReason::Listed(listing_id));
+		assert_eq!(
+			<Test as Config>::NFTExt::get_token_lock(token_id),
+			Some(TokenLockReason::Listed(listing_id))
+		);
 		assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).unwrap());
 
 		let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
@@ -1021,7 +1024,7 @@ fn buy() {
 			.is_none());
 
 			// ownership changed
-			assert!(TokenLocks::<Test>::get(token_id).is_none());
+			assert!(<Test as Config>::NFTExt::get_token_lock(token_id).is_none());
 			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
@@ -1082,7 +1085,7 @@ fn buy_with_xrp() {
 			.is_none());
 
 			// ownership changed
-			assert!(TokenLocks::<Test>::get(token_id).is_none());
+			assert!(<Test as Config>::NFTExt::get_token_lock(token_id).is_none());
 			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
@@ -1415,8 +1418,8 @@ fn auction_bundle() {
 			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).unwrap());
 			for serial_number in serial_numbers.iter() {
 				assert_eq!(
-					TokenLocks::<Test>::get((collection_id, serial_number)).unwrap(),
-					TokenLockReason::Listed(listing_id)
+					<Test as Config>::NFTExt::get_token_lock((collection_id, *serial_number)),
+					Some(TokenLockReason::Listed(listing_id))
 				);
 			}
 
@@ -1479,8 +1482,8 @@ fn auction_bundle_no_bids() {
 			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).unwrap());
 			for serial_number in serial_numbers.iter() {
 				assert_eq!(
-					TokenLocks::<Test>::get((collection_id, serial_number)).unwrap(),
-					TokenLockReason::Listed(listing_id)
+					<Test as Config>::NFTExt::get_token_lock((collection_id, *serial_number)),
+					Some(TokenLockReason::Listed(listing_id))
 				);
 			}
 
@@ -1492,7 +1495,8 @@ fn auction_bundle_no_bids() {
 			assert!(!OpenCollectionListings::<Test>::contains_key(collection_id, listing_id));
 			// Token locks should be removed
 			for serial_number in serial_numbers.iter() {
-				assert_eq!(TokenLocks::<Test>::get((collection_id, serial_number)), None);
+				assert!(<Test as Config>::NFTExt::get_token_lock((collection_id, *serial_number))
+					.is_none());
 			}
 		})
 }
@@ -1546,8 +1550,8 @@ fn auction() {
 				None,
 			));
 			assert_eq!(
-				TokenLocks::<Test>::get(token_id).unwrap(),
-				TokenLockReason::Listed(listing_id)
+				<Test as Config>::NFTExt::get_token_lock(token_id),
+				Some(TokenLockReason::Listed(listing_id))
 			);
 			assert_eq!(NextListingId::<Test>::get(), listing_id + 1);
 			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).unwrap());
@@ -1605,7 +1609,7 @@ fn auction() {
 			);
 
 			// ownership changed
-			assert!(TokenLocks::<Test>::get(token_id).is_none());
+			assert!(<Test as Config>::NFTExt::get_token_lock(token_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &bidder_2, 0, 1000),
 				(0_u32, 1, vec![token_id.1])
@@ -1651,8 +1655,8 @@ fn auction_with_xrp_asset() {
 				None,
 			));
 			assert_eq!(
-				TokenLocks::<Test>::get(token_id).unwrap(),
-				TokenLockReason::Listed(listing_id)
+				<Test as Config>::NFTExt::get_token_lock(token_id),
+				Some(TokenLockReason::Listed(listing_id))
 			);
 			assert_eq!(NextListingId::<Test>::get(), listing_id + 1);
 			assert!(OpenCollectionListings::<Test>::get(collection_id, listing_id).unwrap());
@@ -1694,7 +1698,7 @@ fn auction_with_xrp_asset() {
 			);
 
 			// ownership changed
-			assert!(TokenLocks::<Test>::get(token_id).is_none());
+			assert!(<Test as Config>::NFTExt::get_token_lock(token_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &bidder_2, 0, 1000),
 				(0_u32, 1, vec![token_id.1])
@@ -1934,7 +1938,7 @@ fn auction_fails_prechecks() {
 				Some(1),
 				None,
 			),
-			pallet_nft::Error::<Test>::NotTokenOwner
+			pallet_nft::Error::<Test>::NoToken
 		);
 
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
@@ -2271,7 +2275,10 @@ fn make_simple_offer_on_fixed_price_listing() {
 			));
 			// Sanity check
 			assert!(Listings::<Test>::get(listing_id).is_some());
-			assert!(TokenLocks::<Test>::get(token_id).is_some());
+			assert_eq!(
+				<Test as Config>::NFTExt::get_token_lock(token_id),
+				Some(TokenLockReason::Listed(listing_id))
+			);
 
 			let (offer_id, _) = make_new_simple_offer(offer_amount, token_id, buyer, None);
 			// Check funds have been locked
@@ -2288,7 +2295,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 
 			// Check that fixed price listing and locks are now removed
 			assert!(Listings::<Test>::get(listing_id).is_none());
-			assert!(TokenLocks::<Test>::get(token_id).is_none());
+			assert!(<Test as Config>::NFTExt::get_token_lock(token_id).is_none());
 			// Check offer storage has been removed
 			assert!(TokenOffers::<Test>::get(token_id).is_none());
 			assert!(Offers::<Test>::get(offer_id).is_none());
@@ -3686,7 +3693,7 @@ mod listing_tokens {
 			});
 			assert_noop!(
 				tokens.lock_tokens(&create_account(1), 1),
-				pallet_nft::Error::<Test>::NotTokenOwner
+				pallet_nft::Error::<Test>::NoToken
 			);
 
 			// Lock tokens not token owner
@@ -3702,7 +3709,10 @@ mod listing_tokens {
 
 			// Lock tokens works
 			assert_ok!(tokens.lock_tokens(&token_owner, 1));
-			assert_eq!(TokenLocks::<Test>::get(token_id).unwrap(), TokenLockReason::Listed(1));
+			assert_eq!(
+				<Test as Config>::NFTExt::get_token_lock(token_id),
+				Some(TokenLockReason::Listed(1))
+			);
 
 			// Lock tokens token already locked
 			assert_noop!(
@@ -3765,12 +3775,15 @@ mod listing_tokens {
 			assert_ok!(tokens.lock_tokens(&token_owner, 1));
 
 			// Sanity check
-			assert_eq!(TokenLocks::<Test>::get(token_id).unwrap(), TokenLockReason::Listed(1));
+			assert_eq!(
+				<Test as Config>::NFTExt::get_token_lock(token_id),
+				Some(TokenLockReason::Listed(1))
+			);
 
 			// Unlock tokens works
 			assert_ok!(tokens.unlock_tokens(&token_owner));
 
-			assert!(!TokenLocks::<Test>::contains_key(token_id));
+			assert!(<Test as Config>::NFTExt::get_token_lock(token_id).is_none());
 		});
 	}
 
@@ -3826,13 +3839,16 @@ mod listing_tokens {
 			assert_ok!(tokens.lock_tokens(&token_owner, 1));
 
 			// Sanity check
-			assert_eq!(TokenLocks::<Test>::get(token_id).unwrap(), TokenLockReason::Listed(1));
+			assert_eq!(
+				<Test as Config>::NFTExt::get_token_lock(token_id),
+				Some(TokenLockReason::Listed(1))
+			);
 
 			// Unlock and transfer tokens works
 			let recipient = create_account(1123);
 			assert_ok!(tokens.unlock_and_transfer(&token_owner, &recipient));
 
-			assert!(!TokenLocks::<Test>::contains_key(token_id));
+			assert!(<Test as Config>::NFTExt::get_token_lock(token_id).is_none());
 
 			// Verify owner of token is recipient
 			assert_eq!(
@@ -3867,8 +3883,8 @@ mod listing_tokens {
 			// Sanity check
 			for serial_number in serial_numbers.clone() {
 				assert_eq!(
-					TokenLocks::<Test>::get((collection_id, serial_number)).unwrap(),
-					TokenLockReason::Listed(1)
+					<Test as Config>::NFTExt::get_token_lock((collection_id, serial_number)),
+					Some(TokenLockReason::Listed(1))
 				);
 			}
 
@@ -3876,7 +3892,7 @@ mod listing_tokens {
 			let recipient = create_account(1123);
 			assert_ok!(tokens.unlock_and_transfer(&token_owner, &recipient));
 
-			assert!(!TokenLocks::<Test>::contains_key(token_id));
+			assert!(<Test as Config>::NFTExt::get_token_lock(token_id).is_none());
 
 			// Verify owner of token is recipient
 			assert_eq!(

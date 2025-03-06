@@ -29,7 +29,7 @@ use precompile_utils::{
 };
 use seed_pallet_common::{utils::TokenBurnAuthority, NFTExt};
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, CollectionUuid, EthAddress, IssuanceId, SerialNumber, TokenCount, TokenId,
 };
 use sp_core::{Encode, H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
@@ -1215,8 +1215,7 @@ where
 		let origin = handle.context().caller;
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let next_issuance_id =
-			pallet_nft::PendingIssuances::<Runtime>::get(collection_id).next_issuance_id;
+		let next_issuance_id = pallet_nft::NextIssuanceId::<Runtime>::get();
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -1256,17 +1255,22 @@ where
 
 		let owner: H160 = owner.into();
 
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let pending_issuances = pallet_nft::PendingIssuances::<Runtime>::get(collection_id)
-			.get_pending_issuances(&owner.into());
+		let mut iter = pallet_nft::PendingIssuances::<Runtime>::iter_prefix((
+			collection_id,
+			Runtime::AccountId::from(owner),
+		));
 
-		let issuance_ids: Vec<U256> =
-			pending_issuances.iter().map(|p| U256::from(p.issuance_id)).collect();
+		let mut issuance_ids: Vec<IssuanceId> = Vec::new();
+		let mut issuances: Vec<(U256, u8)> = Vec::new();
 
-		let issuances: Vec<(U256, u8)> = pending_issuances
-			.iter()
-			.map(|p| (U256::from(p.quantity), p.burn_authority.into()))
-			.collect();
+		while let Some((p, q)) = iter.next() {
+			// Record gas cost before processing the item
+			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+			// Process and store the values
+			issuance_ids.push(p);
+			issuances.push((U256::from(q.quantity), q.burn_authority.into()));
+		}
 
 		Ok(succeed(EvmDataWriter::new().write(issuance_ids).write(issuances).build()))
 	}
@@ -1279,10 +1283,10 @@ where
 
 		read_args!(handle, { issuance_id: U256 });
 
-		if issuance_id > u32::MAX.into() {
-			return Err(revert("ERC721: Expected issuance id <= 2^32"));
+		if issuance_id > IssuanceId::MAX.into() {
+			return Err(revert("ERC721: Expected issuance id <= 2^64"));
 		}
-		let issuance_id: u32 = issuance_id.saturated_into();
+		let issuance_id: IssuanceId = issuance_id.saturated_into();
 
 		let origin = handle.context().caller;
 
@@ -1296,11 +1300,12 @@ where
 		let serial_number = collection.next_serial_number;
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let pending_issuance = match pallet_nft::PendingIssuances::<Runtime>::get(collection_id)
-			.get_pending_issuance(&origin.into(), issuance_id)
-		{
-			Some(pending_issuance) => pending_issuance,
-			None => return Err(revert("Issuance does not exist")),
+		let Some(pending_issuance) = pallet_nft::PendingIssuances::<Runtime>::get((
+			collection_id,
+			Runtime::AccountId::from(origin),
+			issuance_id,
+		)) else {
+			return Err(revert("Issuance does not exist"));
 		};
 
 		// Dispatch call (if enough gas).
@@ -1338,16 +1343,17 @@ where
 		if token_id > u32::MAX.into() {
 			return Err(revert("ERC721: Expected token id <= 2^32"));
 		}
-		let token_id: SerialNumber = token_id.saturated_into();
+		let serial_number: SerialNumber = token_id.saturated_into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let burn_auth: u8 =
-			match pallet_nft::TokenUtilityFlags::<Runtime>::get((collection_id, token_id))
-				.burn_authority
-			{
-				Some(burn_authority) => burn_authority.into(),
-				_ => 0, // default to TokenOwner
-			};
+		let token_info = match pallet_nft::TokenInfo::<Runtime>::get(collection_id, serial_number) {
+			Some(token_info) => token_info,
+			None => return Err(revert("ERC721: Token does not exist")),
+		};
+		let burn_auth: u8 = match token_info.utility_flags.burn_authority {
+			Some(burn_authority) => burn_authority.into(),
+			_ => 0, // default to TokenOwner
+		};
 
 		Ok(succeed(EvmDataWriter::new().write(burn_auth).build()))
 	}

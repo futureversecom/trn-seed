@@ -314,6 +314,7 @@ benchmarks! {
 		let mut tokens = vec![];
 
 		let collection_id = build_collection::<T>(Some(owner.clone()));
+		let issuance_id = NextIssuanceId::<T>::get();
 
 		for serial_number in 0..p {
 			let token_name = bounded_string::<T>("test-token");
@@ -328,7 +329,6 @@ benchmarks! {
 			));
 
 			let serial_numbers = (serial_number, u128::MAX);
-
 			tokens.push(serial_numbers);
 
 			assert_ok!(Sft::<T>::set_token_burn_authority(
@@ -337,14 +337,12 @@ benchmarks! {
 				TokenBurnAuthority::Both,
 			));
 		}
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, BoundedVec::try_from(tokens).unwrap(), account::<T>("Bob"))
+		let bounded_serials = BoundedVec::truncate_from(tokens);
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, bounded_serials.clone(), account::<T>("Bob"))
 	verify {
-		let pending_issuances =
-			&PendingIssuances::<T>::get(collection_id).pending_issuances[0].1;
-
 		assert_eq!(
-			pending_issuances.len(),
-			1,
+			PendingIssuances::<T>::get((collection_id, & account::<T>("Bob"), issuance_id)),
+			Some(bounded_serials),
 		)
 	}
 

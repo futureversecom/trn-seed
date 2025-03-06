@@ -561,6 +561,9 @@ pub trait NFTExt {
 	/// Returns Some(token_owner) for a token if the owner exists
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId>;
 
+	/// Returns whether the token exists
+	fn token_exists(token_id: &TokenId) -> bool;
+
 	/// Returns collection current issuance and max issuance
 	fn get_collection_issuance(
 		collection_id: CollectionUuid,
@@ -609,7 +612,7 @@ pub trait NFTExt {
 	) -> DispatchResult;
 
 	/// Remove a token lock without performing checks
-	fn remove_token_lock(token_id: TokenId);
+	fn remove_token_lock(token_id: TokenId) -> DispatchResult;
 
 	fn get_collection_owner(
 		collection_id: CollectionUuid,

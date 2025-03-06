@@ -22,13 +22,9 @@ use crate::CollectionInformation;
 
 pub trait NFTCollectionInfo {
 	type AccountId: Debug + PartialEq + Clone;
-	type MaxTokensPerCollection: Get<u32>;
 	type StringLimit: Get<u32>;
 
 	fn get_collection_info(
 		collection_id: CollectionUuid,
-	) -> Result<
-		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
-		DispatchError,
-	>;
+	) -> Result<CollectionInformation<Self::AccountId, Self::StringLimit>, DispatchError>;
 }

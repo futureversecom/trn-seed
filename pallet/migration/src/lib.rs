@@ -111,18 +111,25 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event {
+		MigrationRuntimeUpgrade,
 		/// Multi-Block migration has been enabled
 		MigrationEnabled,
 		/// Multi-Block migration has been disabled
 		MigrationDisabled,
 		/// The current migration has completed
-		MigrationComplete { items_migrated: u32 },
-		/// A Migration has started
-		MigrationStarted,
+		MigrationComplete {
+			items_migrated: u32,
+		},
+		/// A Migration has been set
+		MigrationSet,
 		/// The block delay has been set
-		BlockDelaySet { block_delay: Option<u32> },
+		BlockDelaySet {
+			block_delay: Option<u32>,
+		},
 		/// The block limit has been set
-		BlockLimitSet { block_limit: u32 },
+		BlockLimitSet {
+			block_limit: u32,
+		},
 	}
 
 	#[pallet::error]
@@ -161,7 +168,7 @@ pub mod pallet {
 
 			// Return read for Status within migration_in_progress function
 			Status::<T>::put(MigrationStatus::InProgress { steps_done: 0 });
-			Self::deposit_event(Event::MigrationStarted);
+			Self::deposit_event(Event::MigrationSet);
 			log::debug!(target: LOG_TARGET, "🦆 A new multi-block migration has started");
 			DbWeight::get().reads_writes(1, 1)
 		}
@@ -294,6 +301,7 @@ impl<T: Config> Pallet<T> {
 		Status::<T>::put(MigrationStatus::Completed);
 		LastKey::<T>::kill();
 		T::CurrentMigration::on_complete();
+		MigrationEnabled::<T>::put(false);
 		log::debug!(target: LOG_TARGET, "🦆 Migration completed successfully");
 		log::debug!(target: LOG_TARGET, "🦆 Total items migrated: {}", total_steps);
 		Self::deposit_event(Event::MigrationComplete { items_migrated: total_steps });

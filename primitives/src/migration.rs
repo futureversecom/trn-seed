@@ -11,8 +11,8 @@ pub struct MigrationStepResult {
 
 impl MigrationStepResult {
 	/// Generate a MigrationStepResult for a non-final step
-	pub fn continue_step(weight_consumed: Weight, last_key: Vec<u8>) -> Self {
-		Self { is_finished: false, weight_consumed, last_key: Some(last_key) }
+	pub fn continue_step(weight_consumed: Weight, last_key: Option<Vec<u8>>) -> Self {
+		Self { is_finished: false, weight_consumed, last_key }
 	}
 
 	/// Generate a MigrationStepResult for the final step
