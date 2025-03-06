@@ -1325,38 +1325,40 @@ where
 		read_args!(handle, { owner: Address });
 
 		let owner: H160 = owner.into();
-
-		let (issuance_ids, issuances): (Vec<U256>, Vec<Vec<(u32, u128)>>) = pallet_sft::PendingIssuances::<Runtime>::iter_prefix((
+		let mut iter = pallet_sft::PendingIssuances::<Runtime>::iter_prefix((
 			collection_id,
 			Runtime::AccountId::from(owner),
-		)).map(|(p, q)| (U256::from(p), q.into_inner())).collect();
+		));
 
-		let issuances: Vec<(Vec<SerialNumber>, Vec<Balance>, Vec<u8>)> = issuances.into_iter()
-			.map(|p| -> EvmResult<(Vec<SerialNumber>, Vec<Balance>, Vec<u8>)> {
-				let (serial_numbers, balances): (Vec<SerialNumber>, Vec<Balance>) =
-					p.clone().into_iter().unzip();
-				let mut burn_auths = vec![];
-				for serial_number in serial_numbers.iter() {
-					handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let mut issuance_ids: Vec<U256> = Vec::new();
+		let mut issuances: Vec<(Vec<SerialNumber>, Vec<Balance>, Vec<u8>)> = Vec::new();
 
-					let burn_auth = match pallet_sft::TokenUtilityFlags::<Runtime>::get((
-						collection_id,
-						*serial_number,
-					))
+		while let Some((p, q)) = iter.next() {
+			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+			let mut burn_auths = Vec::new();
+			let mut serial_numbers = Vec::new();
+			let mut balances = Vec::new();
+			for (serial_number, balance) in q.into_inner() {
+				handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+				let burn_auth = match pallet_sft::TokenUtilityFlags::<Runtime>::get((
+					collection_id,
+					serial_number,
+				))
 					.burn_authority
-					{
-						Some(burn_auth) => burn_auth.into(),
-						_ => 0 as u8,
-					};
+				{
+					Some(burn_auth) => burn_auth.into(),
+					_ => 0 as u8,
+				};
 
-					burn_auths.push(burn_auth);
-				}
+				burn_auths.push(burn_auth);
+				serial_numbers.push(serial_number);
+				balances.push(balance);
+			}
 
-				Ok((serial_numbers, balances, burn_auths))
-			})
-			.collect::<Vec<Result<_, _>>>()
-			.into_iter()
-			.collect::<Result<_, _>>()?;
+			issuance_ids.push(U256::from(p));
+			issuances.push((serial_numbers, balances, burn_auths));
+		}
 
 		Ok(succeed(EvmDataWriter::new().write::<Vec<U256>>(issuance_ids).write(issuances).build()))
 	}

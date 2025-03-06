@@ -1255,14 +1255,22 @@ where
 
 		let owner: H160 = owner.into();
 
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let (issuance_ids, issuances): (Vec<IssuanceId>, Vec<(U256, u8)>) =
-			pallet_nft::PendingIssuances::<Runtime>::iter_prefix((
-				collection_id,
-				Runtime::AccountId::from(owner),
-			))
-				.map(|(p, q)| (p, (U256::from(q.quantity), q.burn_authority.into())))
-				.unzip();
+		let mut iter = pallet_nft::PendingIssuances::<Runtime>::iter_prefix((
+			collection_id,
+			Runtime::AccountId::from(owner),
+		));
+
+		let mut issuance_ids: Vec<IssuanceId> = Vec::new();
+		let mut issuances: Vec<(U256, u8)> = Vec::new();
+
+		while let Some((p, q)) = iter.next() {
+			// Record gas cost before processing the item
+			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+			// Process and store the values
+			issuance_ids.push(p);
+			issuances.push((U256::from(q.quantity), q.burn_authority.into()));
+		}
 
 		Ok(succeed(EvmDataWriter::new().write(issuance_ids).write(issuances).build()))
 	}
