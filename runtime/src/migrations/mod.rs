@@ -13,9 +13,9 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+mod nft;
 pub mod nft_multi;
 mod sft;
-mod nft;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
