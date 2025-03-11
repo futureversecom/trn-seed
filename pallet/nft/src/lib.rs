@@ -457,7 +457,7 @@ pub mod pallet {
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will
 		/// apply to all tokens in the collection by default.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::create_collection())]
+		#[pallet::weight(T::WeightInfo::create_collection(*initial_issuance))]
 		#[transactional]
 		pub fn create_collection(
 			origin: OriginFor<T>,
@@ -561,9 +561,9 @@ pub mod pallet {
 		/// `token_owner` - the token owner, defaults to the caller if unspecified
 		/// Caller must be the collection owner
 		/// -----------
-		/// Weight is O(N) where N is `quantity`
 		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::mint())]
+		#[pallet::weight(T::WeightInfo::mint(*quantity).saturating_add(T::DbWeight::get().reads_writes(*quantity as u64, *quantity as u64))
+		)]
 		#[transactional]
 		pub fn mint(
 			origin: OriginFor<T>,

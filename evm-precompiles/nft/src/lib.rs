@@ -174,7 +174,7 @@ where
 
 		// Manually record gas
 		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-			<Runtime as pallet_nft::Config>::WeightInfo::create_collection(),
+			<Runtime as pallet_nft::Config>::WeightInfo::create_collection(0_u32),
 		))?;
 
 		// Dispatch call
