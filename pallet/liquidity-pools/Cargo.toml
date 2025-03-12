@@ -1,30 +1,34 @@
 [package]
 name = "pallet-liquidity-pools"
 version = "1.0.0"
-authors = ["The Root Network Team"]
-edition = "2021"
-license = "GPL-3.0"
-repository = "https://github.com/futureversecom/seed"
-description = "Root Network Liquidity Pools pallet"
+description = "Liquidity Pools pallet"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
 scale-info = { workspace = true }
+seed-primitives = { workspace = true }
+sp-arithmetic = { workspace = true }
 sp-io = { workspace = true }
 sp-std = { workspace = true }
 sp-runtime = { workspace = true }
-sp-arithmetic = { workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-frame-benchmarking = { workspace = true, optional = true }
 
-seed-primitives = { workspace = true }
+sp-core = { workspace = true, optional = true }
+frame-benchmarking = { workspace = true, optional = true }
+seed-pallet-common = { workspace = true, optional = true }
 
 [dev-dependencies]
 hex = { workspace = true }
 hex-literal = { workspace = true }
 sp-core = { workspace = true }
-seed-pallet-common = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-assets-ext = { workspace = true }
 pallet-balances = { workspace = true }
@@ -33,16 +37,17 @@ pallet-balances = { workspace = true }
 default = ["std"]
 std = [
     "codec/std",
+    "frame-support/std",
+    "frame-system/std",
+    "pallet-assets-ext/std",
     "scale-info/std",
+    "seed-primitives/std",
+    "sp-arithmetic/std",
     "sp-io/std",
     "sp-std/std",
     "sp-runtime/std",
-    "sp-arithmetic/std",
-    "frame-support/std",
-    "frame-system/std",
+	"seed-pallet-common/std",
     "frame-benchmarking?/std",
-    "seed-primitives/std",
-    "pallet-assets-ext/std",
 ]
-runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]
+runtime-benchmarks = ["frame-benchmarking", "seed-pallet-common/runtime-benchmarks"]
