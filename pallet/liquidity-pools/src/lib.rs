@@ -44,6 +44,9 @@ use sp_runtime::{
 };
 
 #[cfg(feature = "runtime-benchmarks")]
+use seed_pallet_common::CreateExt;
+
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
 mod mock;
@@ -58,7 +61,7 @@ pub use weights::WeightInfo;
 
 /// The logging target for this pallet
 #[allow(dead_code)]
-pub(crate) const LOG_TARGET: &str = "liquidity_pools";
+pub(crate) const LOG_TARGET: &str = "liquidity-pools";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -117,12 +120,10 @@ pub mod pallet {
 
 		/// Assets pallet - for benchmarking to manipulate assets
 		#[cfg(feature = "runtime-benchmarks")]
-		type MultiCurrency: Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
-			+ Hold<AccountId = Self::AccountId>
-			+ Mutate<Self::AccountId, AssetId = AssetId>
-			+ CreateExt<AccountId = Self::AccountId>
-			+ Transfer<Self::AccountId, Balance = Balance>
-			+ InspectMetadata<Self::AccountId, AssetId = AssetId>;
+		type MultiCurrency: Inspect<Self::AccountId, AssetId = AssetId>
+			+ InspectMetadata<Self::AccountId>
+			+ Mutate<Self::AccountId, Balance = Balance>
+			+ CreateExt<AccountId = Self::AccountId>;
 
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
@@ -277,8 +278,11 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
 
-			let id = NextPoolId::<T>::get();
-			let next_pool_id = id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailablePoolId)?;
+			let id = NextPoolId::<T>::mutate(|id| -> Result<T::PoolId, DispatchError> {
+				let current_id = *id;
+				*id = id.checked_add(&One::one()).ok_or(Error::<T>::NoAvailablePoolId)?;
+				Ok(current_id)
+			})?;
 
 			ensure!(
 				lock_start_block > frame_system::Pallet::<T>::block_number(),
@@ -296,13 +300,15 @@ pub mod pallet {
 			);
 
 			// Transfer max rewards to pool vault account
-			T::MultiCurrency::transfer(
-				T::NativeAssetId::get(),
-				&Self::account_id(),
-				&Self::get_vault_account(id),
-				max_rewards,
-				Preservation::Expendable,
-			)?;
+			if max_rewards > 0 {
+				T::MultiCurrency::transfer(
+					T::NativeAssetId::get(),
+					&Self::account_id(),
+					&Self::get_vault_account(id),
+					max_rewards,
+					Preservation::Expendable,
+				)?;
+			}
 
 			let pool_info = PoolInfo {
 				id,
@@ -315,11 +321,6 @@ pub mod pallet {
 				locked_amount: Zero::zero(),
 				pool_status: PoolStatus::Open,
 			};
-
-			NextPoolId::<T>::mutate(|id| {
-				*id = next_pool_id;
-			});
-
 			Pools::<T>::insert(id, pool_info);
 
 			Self::deposit_event(Event::PoolOpen {
@@ -457,25 +458,27 @@ pub mod pallet {
 
 			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
-			let main_vault_account = Self::account_id();
-			let pool_vault_account = Self::get_vault_account(id);
+			let (pallet_vault, pool_vault_account) =
+				(Self::account_id(), Self::get_vault_account(id));
 			let native_asset_amount =
 				T::MultiCurrency::balance(T::NativeAssetId::get(), &pool_vault_account);
 			T::MultiCurrency::transfer(
 				T::NativeAssetId::get(),
 				&pool_vault_account,
-				&main_vault_account,
+				&pallet_vault,
 				native_asset_amount,
 				Preservation::Expendable,
 			)?;
 
-			T::MultiCurrency::transfer(
-				pool.asset_id,
-				&pool_vault_account,
-				&main_vault_account,
-				pool.locked_amount,
-				Preservation::Expendable,
-			)?;
+			if pool.locked_amount > 0 {
+				T::MultiCurrency::transfer(
+					pool.asset_id,
+					&pool_vault_account,
+					&pallet_vault,
+					pool.locked_amount,
+					Preservation::Expendable,
+				)?;
+			}
 
 			Pools::<T>::remove(id);
 			PoolUsers::<T>::drain_prefix(id);
@@ -486,7 +489,7 @@ pub mod pallet {
 				pool_id: id,
 				native_asset_amount,
 				reward_asset_amount: pool.locked_amount,
-				reciever: main_vault_account,
+				reciever: pallet_vault,
 			});
 			Ok(())
 		}
@@ -569,7 +572,7 @@ pub mod pallet {
 		#[pallet::call_index(5)]
 		pub fn exit_pool(origin: OriginFor<T>, id: T::PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let vault_account = Self::get_vault_account(id);
+			let pool_vault_account = Self::get_vault_account(id);
 
 			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
@@ -581,7 +584,7 @@ pub mod pallet {
 			let amount = user_info.amount;
 			T::MultiCurrency::transfer(
 				pool.asset_id,
-				&vault_account,
+				&pool_vault_account,
 				&who,
 				amount,
 				Preservation::Expendable,
@@ -618,13 +621,13 @@ pub mod pallet {
 		#[pallet::call_index(6)]
 		pub fn claim_reward(origin: OriginFor<T>, id: T::PoolId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let vault_account = Self::get_vault_account(id);
 
-			let user_info = PoolUsers::<T>::get(id, &who).ok_or(Error::<T>::NoTokensStaked)?;
+			let pool_vault_account = Self::get_vault_account(id);
+
 			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
-
 			ensure!(pool.pool_status == PoolStatus::Matured, Error::<T>::NotReadyForClaimingReward);
 
+			let user_info = PoolUsers::<T>::get(id, &who).ok_or(Error::<T>::NoTokensStaked)?;
 			let reward = Self::calculate_reward(
 				user_info.amount,
 				user_info.reward_debt,
@@ -639,7 +642,7 @@ pub mod pallet {
 				{
 					T::MultiCurrency::transfer(
 						pool.asset_id,
-						&vault_account,
+						&pool_vault_account,
 						&who,
 						user_info.amount,
 						Preservation::Expendable,
@@ -652,7 +655,7 @@ pub mod pallet {
 				// Transfer reward to user
 				T::MultiCurrency::transfer(
 					T::NativeAssetId::get(),
-					&vault_account,
+					&pool_vault_account,
 					&who,
 					reward,
 					Preservation::Expendable,
@@ -703,10 +706,13 @@ pub mod pallet {
 			_current_block: BlockNumberFor<T>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
-			let pool_info = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
+
 			log::warn!("start processing the rollover");
+
+			let pool_info = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
+
 			if let PoolStatus::Renewing = pool_info.pool_status {
-				let vault_account = Self::get_vault_account(id);
+				let pool_vault_account = Self::get_vault_account(id);
 				// Check for successor
 				let successor_id = PoolRelationships::<T>::get(id).unwrap_or_default().successor_id;
 
@@ -785,7 +791,7 @@ pub mod pallet {
 
 					T::MultiCurrency::transfer(
 						pool_info.asset_id,
-						&vault_account,
+						&pool_vault_account,
 						&successor_vault_account,
 						rollover_amount,
 						Preservation::Expendable,
@@ -903,12 +909,12 @@ pub mod pallet {
 		fn offchain_worker(now: BlockNumberFor<T>) {
 			match Self::do_offchain_worker(now) {
 				Ok(_) => log::debug!(
-				  target: "liquidity_pools offchain worker",
+				  target: "liquidity-pools offchain worker",
 				  "offchain worker start at block: {:?} already done!",
 				  now,
 				),
 				Err(e) => log::error!(
-					target: "liquidity_pools offchain worker",
+					target: "liquidity-pools offchain worker",
 					"error happened in offchain worker at {:?}: {:?}",
 					now,
 					e,
@@ -954,6 +960,18 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		pub fn account_id() -> T::AccountId {
+			T::PalletId::get().into_account_truncating()
+		}
+
+		/// Generate a unique, deterministic vault account for a pool
+		pub fn get_vault_account(pool_id: T::PoolId) -> T::AccountId {
+			let entropy =
+				(T::PalletId::get().0, Self::account_id(), pool_id).using_encoded(blake2_256);
+			T::AccountId::decode(&mut &entropy[..])
+				.expect("Created account ID is always valid; qed")
+		}
+
 		/// Calculates the reward amount for a user based on the amount staked in an asset,
 		/// the interest rate, and the already accumulated reward debt.
 		///
@@ -1004,20 +1022,7 @@ pub mod pallet {
 				reward = reward
 					.saturating_mul(10_u128.pow((native_decimals - asset_decimals).into()).into());
 			}
-
 			reward
-		}
-
-		pub fn get_vault_account(pool_id: T::PoolId) -> T::AccountId {
-			// use the module account id and offered asset id as entropy to generate reward
-			// vault id.
-			let entropy =
-				(T::PalletId::get().0, Self::account_id(), pool_id).using_encoded(blake2_256);
-			T::AccountId::decode(&mut &entropy[..]).unwrap_or_default()
-		}
-
-		pub fn account_id() -> T::AccountId {
-			T::PalletId::get().into_account_truncating()
 		}
 
 		fn do_offchain_worker(now: BlockNumberFor<T>) -> DispatchResult {
