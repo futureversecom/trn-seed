@@ -24,7 +24,7 @@ use sp_std::prelude::*;
 /// Defines the length limit of the type MetadataScheme.
 /// To avoid overly complex primitives, local const is used here instead of a runtime configurable
 /// constant
-const METADATA_SCHEME_LIMIT: u32 = 200;
+pub const METADATA_SCHEME_LIMIT: u32 = 200;
 
 /// The maximum number of entitlements any royalties schedule can have in totality
 pub const MAX_ENTITLEMENTS: u32 = 8;
