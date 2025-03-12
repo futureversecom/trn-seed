@@ -76,6 +76,14 @@ where
 		self
 	}
 
+	/// Configures the root native asset to be created in the genesis config.
+	/// We need to do this because the native asset is not created by default.
+	/// This also ensures correct decimals are set for the native asset.
+	pub fn configure_root(mut self) -> Self {
+		self.assets.push(AssetsFixture::new(1.into(), "ROOT".as_bytes(), &[]));
+		self
+	}
+
 	/// Configure an asset with id, name and some endowments
 	/// total supply = sum(endowments)
 	pub fn with_asset(
