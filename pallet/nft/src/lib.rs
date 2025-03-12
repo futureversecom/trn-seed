@@ -562,8 +562,12 @@ pub mod pallet {
 		/// Caller must be the collection owner
 		/// -----------
 		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::mint(*quantity).saturating_add(T::DbWeight::get().reads_writes(*quantity as u64, *quantity as u64))
-		)]
+		#[pallet::weight({
+		let q = *quantity as u64;
+		let extra_weight = T::DbWeight::get().reads_writes(q, q)
+			.saturating_add(Weight::from_all(1_400_000_000_u64).saturating_mul(q));
+		T::WeightInfo::mint(*quantity).saturating_add(extra_weight)
+		})]
 		#[transactional]
 		pub fn mint(
 			origin: OriginFor<T>,
