@@ -1450,6 +1450,7 @@ mod claim_reward {
 
 		TestExt::<Test>::default()
 			.with_balances(&[(LiquidityPools::account_id(), initial_balance)])
+			.configure_root()
 			.with_asset(XRP_ASSET_ID, "XRP", &endowments)
 			.build()
 			.execute_with(|| {
@@ -1460,6 +1461,8 @@ mod claim_reward {
 				let lock_start_block = System::block_number() + 1;
 				let lock_end_block = lock_start_block + reward_period;
 
+				let pool_id = NextPoolId::<Test>::get();
+
 				assert_ok!(LiquidityPools::create_pool(
 					RuntimeOrigin::root(),
 					asset_id,
@@ -1469,7 +1472,6 @@ mod claim_reward {
 					lock_end_block
 				));
 
-				let pool_id = NextPoolId::<Test>::get() - 1;
 				let amount = 10;
 
 				for account_id in 1..100 {
@@ -1481,14 +1483,15 @@ mod claim_reward {
 					));
 				}
 
+				// progress time to end of reward period
 				let remaining_weight: Weight = ParityDbWeight::get()
 					.reads(100u64)
 					.saturating_add(ParityDbWeight::get().writes(100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 				LiquidityPools::on_idle(lock_end_block, remaining_weight);
-				System::set_block_number(lock_end_block + 1);
 
+				System::set_block_number(lock_end_block + 1);
 				assert_ok!(LiquidityPools::rollover_unsigned(
 					RuntimeOrigin::none(),
 					pool_id,
@@ -1510,7 +1513,6 @@ mod claim_reward {
 	}
 
 	#[test]
-	#[ignore]
 	fn claim_reward_should_work_when_not_rollover() {
 		let user_balance = 100;
 		let initial_balance = user_balance * 100;
@@ -1521,6 +1523,7 @@ mod claim_reward {
 
 		TestExt::<Test>::default()
 			.with_balances(&[(LiquidityPools::account_id(), initial_balance)])
+			.configure_root()
 			.with_asset(XRP_ASSET_ID, "XRP", &endowments)
 			.build()
 			.execute_with(|| {
@@ -1531,6 +1534,7 @@ mod claim_reward {
 				let lock_start_block = System::block_number() + 1;
 				let lock_end_block = lock_start_block + reward_period;
 
+				let pool_id = NextPoolId::<Test>::get();
 				assert_ok!(LiquidityPools::create_pool(
 					RuntimeOrigin::root(),
 					asset_id,
@@ -1540,9 +1544,7 @@ mod claim_reward {
 					lock_end_block
 				));
 
-				let pool_id = NextPoolId::<Test>::get() - 1;
 				let amount = 10;
-
 				for account_id in 1..100 {
 					let user: AccountId = create_account(account_id);
 					assert_ok!(LiquidityPools::enter_pool(
@@ -1557,12 +1559,12 @@ mod claim_reward {
 					));
 				}
 
+				// progress time to end of reward period
 				let remaining_weight: Weight = ParityDbWeight::get()
 					.reads(100u64)
 					.saturating_add(ParityDbWeight::get().writes(100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
-
 				LiquidityPools::on_idle(lock_end_block, remaining_weight);
 				System::set_block_number(lock_end_block + 1);
 
@@ -1597,6 +1599,8 @@ mod claim_reward {
 				let lock_start_block = System::block_number() + 1;
 				let lock_end_block = lock_start_block + reward_period;
 
+				let pool_id = NextPoolId::<Test>::get();
+
 				assert_ok!(LiquidityPools::create_pool(
 					RuntimeOrigin::root(),
 					asset_id,
@@ -1606,13 +1610,12 @@ mod claim_reward {
 					lock_end_block
 				));
 
-				let pool_id = NextPoolId::<Test>::get() - 1;
-
+				// progress time to end of reward period
 				let remaining_weight: Weight = ParityDbWeight::get()
 					.reads(100u64)
 					.saturating_add(ParityDbWeight::get().writes(100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
-				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
+				LiquidityPools::on_idle(lock_end_block, remaining_weight);
 
 				assert_noop!(
 					LiquidityPools::claim_reward(RuntimeOrigin::signed(user), pool_id),
@@ -1686,7 +1689,6 @@ mod rollover_unsigned {
 	use super::*;
 
 	#[test]
-	#[ignore] // TODO - fix ignored tests
 	fn rollover_should_work() {
 		let user_balance = 100;
 		let user_amount = 100;
@@ -1698,6 +1700,7 @@ mod rollover_unsigned {
 
 		TestExt::<Test>::default()
 			.with_balances(&[(LiquidityPools::account_id(), user_balance * 100)])
+			.configure_root()
 			.with_asset(XRP_ASSET_ID, "XRP", &endowments)
 			.build()
 			.execute_with(|| {
@@ -1716,10 +1719,11 @@ mod rollover_unsigned {
 					lock_start_block,
 					lock_end_block
 				));
-
 				let predecessor_id = NextPoolId::<Test>::get() - 1;
+
 				let amount = 10;
 
+				// 100 users default opt-in to rollover
 				for account_id in 1..=user_amount {
 					let user: AccountId = create_account(account_id);
 					assert_ok!(LiquidityPools::enter_pool(
@@ -1728,8 +1732,8 @@ mod rollover_unsigned {
 						amount
 					));
 				}
-				// 10 user opt-out rollover should be left over when rollover
-				for account_id in user_amount + 1..=user_amount + opt_out_rollover_amount {
+				// 10 users explicitly opted out of rollover
+				for account_id in (user_amount + 1)..=(user_amount + opt_out_rollover_amount) {
 					let user: AccountId = create_account(account_id);
 					assert_ok!(LiquidityPools::enter_pool(
 						RuntimeOrigin::signed(user),
@@ -1743,17 +1747,7 @@ mod rollover_unsigned {
 					));
 				}
 
-				let lock_start_block = lock_end_block + 1;
-				let lock_end_block = lock_start_block + reward_period;
-				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
-					asset_id,
-					interest_rate,
-					max_tokens,
-					lock_start_block,
-					lock_end_block
-				));
-
+				// Check that the pool is open and has accumulated the correct amount of locked tokens
 				assert_eq!(
 					Pools::<Test>::get(predecessor_id),
 					Some(PoolInfo {
@@ -1769,14 +1763,27 @@ mod rollover_unsigned {
 					})
 				);
 
+				// Create successor pool for the next period
+				let lock_start_block = lock_end_block + 1;
+				let lock_end_block = lock_start_block + reward_period;
+				assert_ok!(LiquidityPools::create_pool(
+					RuntimeOrigin::root(),
+					asset_id,
+					interest_rate,
+					max_tokens,
+					lock_start_block,
+					lock_end_block
+				));
 				let successor_id = NextPoolId::<Test>::get() - 1;
 
+				// Set the successor pool for the next period
 				assert_ok!(LiquidityPools::set_pool_succession(
 					RuntimeOrigin::root(),
 					predecessor_id,
 					successor_id
 				));
 
+				// Progress time to end of reward period
 				let remaining_weight: Weight = ParityDbWeight::get()
 					.reads(100u64)
 					.saturating_add(ParityDbWeight::get().writes(100u64));
@@ -1823,7 +1830,7 @@ mod rollover_unsigned {
 					assert_eq!(AssetsExt::balance(asset_id, &user), user_balance - amount);
 				}
 				// 10 user opt-out rollover should be refunded joined asset amount
-				for account_id in user_amount + 1..=user_amount + opt_out_rollover_amount {
+				for account_id in (user_amount + 1)..=(user_amount + opt_out_rollover_amount) {
 					let user: AccountId = create_account(account_id);
 					assert_ok!(LiquidityPools::claim_reward(
 						RuntimeOrigin::signed(user),
