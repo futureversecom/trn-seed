@@ -27,10 +27,10 @@ pallet-liquidity-pools = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nomination-pools = { workspace = true }
 pallet-offences = { workspace = true }
+pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-recovery = { workspace = true }
 pallet-scheduler = { workspace = true }
-pallet-preimage = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-sudo = { workspace = true }
