@@ -46,7 +46,6 @@ parameter_types! {
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type PoolId = u32;
-	type ApproveOrigin = EnsureRoot<AccountId>;
 	type InterestRateBasePoint = InterestRateBasePoint;
 	type MultiCurrency = AssetsExt;
 	type NativeAssetId = RootAssetId;

@@ -92,9 +92,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type NativeAssetId: Get<AssetId>;
 
-		/// Allowed origin to perform privileged calls
-		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
 		/// Unsigned transaction interval
 		#[pallet::constant]
 		type UnsignedInterval: Get<BlockNumberFor<Self>>;
@@ -203,6 +200,8 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Not pool creator
+		NotPoolCreator,
 		/// Invalid block range
 		InvalidBlockRange,
 		/// Pool already exists
@@ -276,7 +275,7 @@ pub mod pallet {
 			lock_start_block: BlockNumberFor<T>,
 			lock_end_block: BlockNumberFor<T>,
 		) -> DispatchResult {
-			T::ApproveOrigin::ensure_origin(origin)?;
+			let creator = ensure_signed(origin)?;
 
 			let id = NextPoolId::<T>::mutate(|id| -> Result<T::PoolId, DispatchError> {
 				let current_id = *id;
@@ -303,7 +302,7 @@ pub mod pallet {
 			if max_rewards > 0 {
 				T::MultiCurrency::transfer(
 					T::NativeAssetId::get(),
-					&Self::account_id(),
+					&creator,
 					&Self::get_vault_account(id),
 					max_rewards,
 					Preservation::Expendable,
@@ -312,6 +311,7 @@ pub mod pallet {
 
 			let pool_info = PoolInfo {
 				id,
+				creator,
 				asset_id,
 				interest_rate,
 				max_tokens,
@@ -360,14 +360,17 @@ pub mod pallet {
 			predecessor_pool_id: T::PoolId,
 			successor_pool_id: T::PoolId,
 		) -> DispatchResult {
-			T::ApproveOrigin::ensure_origin(origin)?;
+			let creator = ensure_signed(origin)?;
 
 			// Check that predecessor exists
 			let predecessor_pool = Pools::<T>::get(predecessor_pool_id)
 				.ok_or(Error::<T>::PredecessorPoolDoesNotExist)?;
+			ensure!(predecessor_pool.creator == creator, Error::<T>::NotPoolCreator);
+
 			// Check that successor exists
 			let successor_pool =
 				Pools::<T>::get(successor_pool_id).ok_or(Error::<T>::SuccessorPoolDoesNotExist)?;
+			ensure!(successor_pool.creator == creator, Error::<T>::NotPoolCreator);
 
 			// Check successor max_tokens is greater than predecessor max_tokens
 			ensure!(
@@ -454,27 +457,30 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::close_pool())]
 		#[transactional]
 		pub fn close_pool(origin: OriginFor<T>, id: T::PoolId) -> DispatchResult {
-			T::ApproveOrigin::ensure_origin(origin)?;
+			let creator = ensure_signed(origin)?;
 
 			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
+			ensure!(pool.creator == creator, Error::<T>::NotPoolCreator);
 
-			let (pallet_vault, pool_vault_account) =
-				(Self::account_id(), Self::get_vault_account(id));
+			let pool_vault_account = Self::get_vault_account(id);
 			let native_asset_amount =
 				T::MultiCurrency::balance(T::NativeAssetId::get(), &pool_vault_account);
-			T::MultiCurrency::transfer(
-				T::NativeAssetId::get(),
-				&pool_vault_account,
-				&pallet_vault,
-				native_asset_amount,
-				Preservation::Expendable,
-			)?;
+
+			if native_asset_amount > 0 {
+				T::MultiCurrency::transfer(
+					T::NativeAssetId::get(),
+					&pool_vault_account,
+					&creator,
+					native_asset_amount,
+					Preservation::Expendable,
+				)?;
+			}
 
 			if pool.locked_amount > 0 {
 				T::MultiCurrency::transfer(
 					pool.asset_id,
 					&pool_vault_account,
-					&pallet_vault,
+					&creator,
 					pool.locked_amount,
 					Preservation::Expendable,
 				)?;
@@ -489,7 +495,7 @@ pub mod pallet {
 				pool_id: id,
 				native_asset_amount,
 				reward_asset_amount: pool.locked_amount,
-				reciever: pallet_vault,
+				reciever: creator,
 			});
 			Ok(())
 		}
@@ -753,6 +759,7 @@ pub mod pallet {
 								rollover_amount = rollover_amount.saturating_add(user_info.amount);
 							}
 
+							// Update rolled over status of predecessor pool
 							PoolUsers::<T>::mutate(id, who, |pool_user| {
 								if let Some(pool_user) = pool_user {
 									pool_user.rolled_over = true;
@@ -766,6 +773,7 @@ pub mod pallet {
 								amount: user_info.amount,
 							});
 
+							// Update amount of successor pool
 							PoolUsers::<T>::mutate(successor_id, who, |pool_user| {
 								if let Some(pool_user) = pool_user {
 									pool_user.amount =
@@ -789,6 +797,7 @@ pub mod pallet {
 					}
 					RolloverPivot::<T>::insert(id, current_last_raw_key);
 
+					// Transfer rollover amount to successor pool
 					T::MultiCurrency::transfer(
 						pool_info.asset_id,
 						&pool_vault_account,
@@ -796,6 +805,8 @@ pub mod pallet {
 						rollover_amount,
 						Preservation::Expendable,
 					)?;
+
+					// Update predecessor pool
 					Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
 						let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
 						pool_info.last_updated = frame_system::Pallet::<T>::block_number();
@@ -807,6 +818,8 @@ pub mod pallet {
 					if predecessor_pool_status == PoolStatus::Matured {
 						Self::deposit_event(Event::PoolMatured { pool_id: id });
 					}
+
+					// Update successor pool
 					Pools::<T>::try_mutate(successor_id, |pool_info| -> DispatchResult {
 						let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
 						pool_info.last_updated = frame_system::Pallet::<T>::block_number();
@@ -960,14 +973,10 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn account_id() -> T::AccountId {
-			T::PalletId::get().into_account_truncating()
-		}
-
 		/// Generate a unique, deterministic vault account for a pool
 		pub fn get_vault_account(pool_id: T::PoolId) -> T::AccountId {
-			let entropy =
-				(T::PalletId::get().0, Self::account_id(), pool_id).using_encoded(blake2_256);
+			let account_id: T::AccountId = T::PalletId::get().into_account_truncating();
+			let entropy = (T::PalletId::get().0, account_id, pool_id).using_encoded(blake2_256);
 			T::AccountId::decode(&mut &entropy[..])
 				.expect("Created account ID is always valid; qed")
 		}
@@ -1075,7 +1084,7 @@ pub mod pallet {
 				T::MultiCurrency::transfer(
 					T::NativeAssetId::get(),
 					&pool_vault_account,
-					&Self::account_id(),
+					&pool_info.creator,
 					reward,
 					Preservation::Expendable,
 				)?;

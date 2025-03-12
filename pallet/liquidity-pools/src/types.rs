@@ -7,6 +7,7 @@ use scale_info::TypeInfo;
 #[scale_info(skip_type_params(T))]
 pub struct PoolInfo<PoolId, AssetId, Balance, BlockNumber> {
 	pub id: PoolId,
+	pub creator: crate::AccountId,
 	pub asset_id: AssetId,
 	pub interest_rate: u32,
 	pub max_tokens: Balance,
