@@ -479,7 +479,7 @@ impl pallet_nft::Config for Runtime {
 }
 
 ord_parameter_types! {
-	pub const ApproveAdmin: AccountId = AccountId::from(hex_literal::hex!("E5B42cb91a16C8f8a0F4e04E8017d0be6EC5e3DA"));
+	pub const ApprovedAdmin: AccountId = AccountId::from(hex_literal::hex!("E5B42cb91a16C8f8a0F4e04E8017d0be6EC5e3DA"));
 }
 parameter_types! {
 	pub const LiquidityPoolsPalletId: PalletId = PalletId(*b"lqdpools");
@@ -493,7 +493,8 @@ impl pallet_liquidity_pools::Config for Runtime {
 	type PalletId = LiquidityPoolsPalletId;
 	type UnsignedInterval = LiquidityPoolsUnsignedInterval;
 	type NativeAssetId = RootAssetId;
-	type ApproveOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<ApprovedAdmin, AccountId>>;
+	type ApproveOrigin =
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureSignedBy<ApprovedAdmin, AccountId>>;
 	type PoolId = u32;
 	type MaxStringLength = MaxStringLength;
 	type RolloverBatchSize = RolloverBatchSize;
