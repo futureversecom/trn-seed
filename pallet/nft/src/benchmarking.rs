@@ -25,8 +25,8 @@ use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_te
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
 use seed_pallet_common::utils::TokenBurnAuthority;
-use sp_runtime::Permill;
 use seed_primitives::METADATA_SCHEME_LIMIT;
+use sp_runtime::Permill;
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
