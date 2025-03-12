@@ -36,7 +36,7 @@ impl_pallet_assets_ext_config!(Test);
 
 parameter_types! {
 	pub const LiquidityPoolsPalletId: PalletId = PalletId(*b"lqdpools");
-	pub const RootAssetId: AssetId = 1;
+	pub const RootAssetId: AssetId = ROOT_ASSET_ID;
 	pub const InterestRateBasePoint: u32 = 1_000_000;
 	pub const UnsignedInterval: u32 =  5;
 	pub const RolloverBatchSize: u32 = 10;
