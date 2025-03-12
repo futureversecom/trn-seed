@@ -27,34 +27,6 @@ mod create_pool {
 	use super::*;
 
 	#[test]
-	fn non_admin_cannot_create_pool() {
-		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
-			.build()
-			.execute_with(|| {
-				let asset_id = 1;
-				let interest_rate = 1_000_000;
-				let max_tokens = 100;
-				let reward_period = 100;
-				let lock_start_block = System::block_number() + 1;
-				let lock_end_block = lock_start_block + reward_period;
-				let alice: AccountId = create_account(1);
-
-				assert_noop!(
-					LiquidityPools::create_pool(
-						RuntimeOrigin::signed(alice),
-						asset_id,
-						interest_rate,
-						max_tokens,
-						lock_start_block,
-						lock_end_block
-					),
-					BadOrigin
-				);
-			});
-	}
-
-	#[test]
 	fn pool_creation_fails_with_next_pool_id_out_of_bounds() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let asset_id = 1;
@@ -68,7 +40,7 @@ mod create_pool {
 
 			assert_noop!(
 				LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -83,7 +55,7 @@ mod create_pool {
 	#[test]
 	fn pool_creation_fails_with_invalid_block() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -95,7 +67,7 @@ mod create_pool {
 
 				assert_noop!(
 					LiquidityPools::create_pool(
-						RuntimeOrigin::root(),
+						RuntimeOrigin::signed(alice()),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -110,7 +82,7 @@ mod create_pool {
 
 				assert_noop!(
 					LiquidityPools::create_pool(
-						RuntimeOrigin::root(),
+						RuntimeOrigin::signed(alice()),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -134,7 +106,7 @@ mod create_pool {
 
 			assert_noop!(
 				LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -147,9 +119,9 @@ mod create_pool {
 	}
 
 	#[test]
-	fn admin_can_create_pool_successfully() {
+	fn user_can_create_pool_successfully() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -160,7 +132,7 @@ mod create_pool {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -183,6 +155,7 @@ mod create_pool {
 					Pools::<Test>::get(pool_id),
 					Some(PoolInfo {
 						id: pool_id,
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -195,17 +168,14 @@ mod create_pool {
 				);
 				assert_eq!(NextPoolId::<Test>::get(), pool_id + 1);
 				assert_eq!(PoolRelationships::<Test>::get(0), None);
-				assert_eq!(
-					AssetsExt::balance(NativeAssetId::get(), &LiquidityPools::account_id()),
-					0
-				);
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice()), 0);
 			});
 	}
 
 	#[test]
 	fn admin_can_create_multiple_pools_successfully() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 1000)])
+			.with_balances(&vec![(alice(), 1000)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -218,7 +188,7 @@ mod create_pool {
 				let pool_id = NextPoolId::<Test>::get();
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -230,6 +200,7 @@ mod create_pool {
 					Pools::<Test>::get(pool_id),
 					Some(PoolInfo {
 						id: pool_id,
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -244,7 +215,7 @@ mod create_pool {
 
 				let pool_id = NextPoolId::<Test>::get();
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -255,6 +226,7 @@ mod create_pool {
 					Pools::<Test>::get(pool_id),
 					Some(PoolInfo {
 						id: pool_id,
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -274,26 +246,9 @@ mod set_pool_succession {
 	use super::*;
 
 	#[test]
-	fn non_admin_cannot_set_pool_succession() {
-		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
-			.build()
-			.execute_with(|| {
-				assert_noop!(
-					LiquidityPools::set_pool_succession(
-						RuntimeOrigin::signed(create_account(1)),
-						10,
-						11
-					),
-					BadOrigin
-				);
-			});
-	}
-
-	#[test]
 	fn cannot_set_pool_succession_with_non_existent_predecessor() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -304,7 +259,7 @@ mod set_pool_succession {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -316,7 +271,7 @@ mod set_pool_succession {
 				let non_existent_predecessor_id = successor_id + 1;
 				assert_noop!(
 					LiquidityPools::set_pool_succession(
-						RuntimeOrigin::root(),
+						RuntimeOrigin::signed(alice()),
 						non_existent_predecessor_id,
 						successor_id
 					),
@@ -328,7 +283,7 @@ mod set_pool_succession {
 	#[test]
 	fn cannot_set_pool_succession_with_non_existent_successor() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -339,7 +294,7 @@ mod set_pool_succession {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -351,7 +306,7 @@ mod set_pool_succession {
 				let non_existent_successor_id = predecessor_id + 1;
 				assert_noop!(
 					LiquidityPools::set_pool_succession(
-						RuntimeOrigin::root(),
+						RuntimeOrigin::signed(alice()),
 						predecessor_id,
 						non_existent_successor_id
 					),
@@ -363,7 +318,7 @@ mod set_pool_succession {
 	#[test]
 	fn cannot_set_pool_succession_when_successor_max_tokens_less_than_predecessor() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 1000)])
+			.with_balances(&vec![(alice(), 1000)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -374,7 +329,7 @@ mod set_pool_succession {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -387,7 +342,7 @@ mod set_pool_succession {
 				let max_tokens = max_tokens - 1;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -399,7 +354,7 @@ mod set_pool_succession {
 
 				assert_noop!(
 					LiquidityPools::set_pool_succession(
-						RuntimeOrigin::root(),
+						RuntimeOrigin::signed(alice()),
 						predecessor_id,
 						successor_id
 					),
@@ -412,7 +367,7 @@ mod set_pool_succession {
 	fn cannot_set_pool_succession_when_successor_lock_start_block_less_than_predecessor_lock_end_block(
 	) {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 1000)])
+			.with_balances(&vec![(alice(), 1000)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -423,7 +378,7 @@ mod set_pool_succession {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -436,7 +391,7 @@ mod set_pool_succession {
 				let max_tokens = max_tokens - 1;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -448,7 +403,7 @@ mod set_pool_succession {
 
 				assert_noop!(
 					LiquidityPools::set_pool_succession(
-						RuntimeOrigin::root(),
+						RuntimeOrigin::signed(alice()),
 						predecessor_id,
 						successor_id
 					),
@@ -460,7 +415,7 @@ mod set_pool_succession {
 	#[test]
 	fn admin_can_set_pool_succession_successfully() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 1000)])
+			.with_balances(&vec![(alice(), 1000)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -471,7 +426,7 @@ mod set_pool_succession {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -486,7 +441,7 @@ mod set_pool_succession {
 				let lock_start_block = lock_end_block + 1;
 				let lock_end_block = lock_start_block + reward_period;
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -497,7 +452,7 @@ mod set_pool_succession {
 				let successor_id = NextPoolId::<Test>::get() - 1;
 
 				assert_ok!(LiquidityPools::set_pool_succession(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					predecessor_id,
 					successor_id
 				));
@@ -523,7 +478,7 @@ mod set_pool_rollover {
 		let user: AccountId = create_account(1);
 		let user_balance = 100;
 		TestExt::<Test>::default()
-			.with_balances(&[(user, user_balance), (LiquidityPools::account_id(), user_balance)])
+			.with_balances(&[(user, user_balance), (alice(), user_balance)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -534,7 +489,7 @@ mod set_pool_rollover {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -575,23 +530,20 @@ mod set_pool_rollover {
 
 	#[test]
 	fn set_pool_rollover_fails_if_pool_does_not_exist() {
-		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
-			.build()
-			.execute_with(|| {
-				let user: AccountId = create_account(1);
-				let non_existent_pool_id = 999;
+		TestExt::<Test>::default().build().execute_with(|| {
+			let user: AccountId = create_account(1);
+			let non_existent_pool_id = 999;
 
-				// Try to set rollover preference on a non-existent pool
-				assert_noop!(
-					LiquidityPools::set_pool_rollover(
-						RuntimeOrigin::signed(user),
-						non_existent_pool_id,
-						true
-					),
-					Error::<Test>::PoolDoesNotExist
-				);
-			});
+			// Try to set rollover preference on a non-existent pool
+			assert_noop!(
+				LiquidityPools::set_pool_rollover(
+					RuntimeOrigin::signed(user),
+					non_existent_pool_id,
+					true
+				),
+				Error::<Test>::PoolDoesNotExist
+			);
+		});
 	}
 
 	#[test]
@@ -599,7 +551,7 @@ mod set_pool_rollover {
 		let user: AccountId = create_account(1);
 		let user_balance = 100;
 		TestExt::<Test>::default()
-			.with_balances(&[(user, user_balance), (LiquidityPools::account_id(), user_balance)])
+			.with_balances(&[(user, user_balance), (alice(), user_balance)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -610,7 +562,7 @@ mod set_pool_rollover {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -644,12 +596,13 @@ mod set_pool_rollover {
 	#[test]
 	fn set_pool_rollover_fails_if_user_has_no_tokens_staked() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let pool_id = NextPoolId::<Test>::get();
 				let pool_info = PoolInfo {
 					id: pool_id,
+					creator: alice(),
 					asset_id: 1,
 					interest_rate: 1_000_000,
 					max_tokens: 100,
@@ -675,12 +628,13 @@ mod set_pool_rollover {
 	#[test]
 	fn set_pool_rollover_fails_due_to_bad_origin() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let pool_id = NextPoolId::<Test>::get();
 				let pool_info = PoolInfo {
 					id: pool_id,
+					creator: alice(),
 					asset_id: 1,
 					interest_rate: 1_000_000,
 					max_tokens: 100,
@@ -708,7 +662,7 @@ mod set_pool_rollover {
 		let user: AccountId = create_account(1);
 		let user_balance = 100;
 		TestExt::<Test>::default()
-			.with_balances(&[(user, user_balance), (LiquidityPools::account_id(), user_balance)])
+			.with_balances(&[(user, user_balance), (alice(), user_balance)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -719,7 +673,7 @@ mod set_pool_rollover {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -764,18 +718,15 @@ mod set_pool_rollover {
 
 	#[test]
 	fn should_not_update_for_non_existent_pool() {
-		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
-			.build()
-			.execute_with(|| {
-				let pool_id = 1;
-				let user: AccountId = create_account(1);
+		TestExt::<Test>::default().build().execute_with(|| {
+			let pool_id = 1;
+			let user: AccountId = create_account(1);
 
-				assert_noop!(
-					LiquidityPools::set_pool_rollover(RuntimeOrigin::signed(user), pool_id, false),
-					Error::<Test>::PoolDoesNotExist
-				);
-			});
+			assert_noop!(
+				LiquidityPools::set_pool_rollover(RuntimeOrigin::signed(user), pool_id, false),
+				Error::<Test>::PoolDoesNotExist
+			);
+		});
 	}
 
 	#[test]
@@ -783,7 +734,7 @@ mod set_pool_rollover {
 		let user: AccountId = create_account(1);
 		let user_balance = 100;
 		TestExt::<Test>::default()
-			.with_balances(&[(user, user_balance), (LiquidityPools::account_id(), user_balance)])
+			.with_balances(&[(user, user_balance), (alice(), user_balance)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -797,6 +748,7 @@ mod set_pool_rollover {
 					NextPoolId::<Test>::get(),
 					PoolInfo {
 						id: NextPoolId::<Test>::get(),
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -822,7 +774,7 @@ mod set_pool_rollover {
 		let user: AccountId = create_account(1);
 		let user_balance = 100;
 		TestExt::<Test>::default()
-			.with_balances(&[(user, user_balance), (LiquidityPools::account_id(), user_balance)])
+			.with_balances(&[(user, user_balance), (alice(), user_balance)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -833,7 +785,7 @@ mod set_pool_rollover {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -855,27 +807,44 @@ mod close_pool {
 	use super::*;
 
 	#[test]
-	fn non_admin_cannot_close_pool() {
+	fn cannot_close_non_existent_pool() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				assert_noop!(
-					LiquidityPools::close_pool(RuntimeOrigin::signed(create_account(1)), 0),
-					BadOrigin
+					LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), 10),
+					Error::<Test>::PoolDoesNotExist
 				);
 			});
 	}
 
 	#[test]
-	fn cannot_close_non_existent_pool() {
+	fn not_pool_creator_cannot_close_pool() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
+				let asset_id = 1;
+				let interest_rate = 1_000_000;
+				let max_tokens = 100;
+				let reward_period = 100;
+				let lock_start_block = System::block_number() + 1;
+				let lock_end_block = lock_start_block + reward_period;
+
+				let pool_id = NextPoolId::<Test>::get();
+				assert_ok!(LiquidityPools::create_pool(
+					RuntimeOrigin::signed(alice()),
+					asset_id,
+					interest_rate,
+					max_tokens,
+					lock_start_block,
+					lock_end_block
+				));
+
 				assert_noop!(
-					LiquidityPools::close_pool(RuntimeOrigin::root(), 10),
-					Error::<Test>::PoolDoesNotExist
+					LiquidityPools::close_pool(RuntimeOrigin::signed(bob()), pool_id),
+					Error::<Test>::NotPoolCreator
 				);
 			});
 	}
@@ -883,7 +852,7 @@ mod close_pool {
 	#[test]
 	fn admin_can_close_pool_successfully() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -894,7 +863,7 @@ mod close_pool {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -902,7 +871,7 @@ mod close_pool {
 					lock_end_block
 				));
 
-				assert_eq!(Balances::free_balance(LiquidityPools::account_id()), 0);
+				assert_eq!(Balances::free_balance(alice()), 0);
 
 				let pool_id = NextPoolId::<Test>::get() - 1;
 
@@ -910,6 +879,7 @@ mod close_pool {
 					Pools::<Test>::get(pool_id),
 					Some(PoolInfo {
 						id: pool_id,
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -921,19 +891,19 @@ mod close_pool {
 					})
 				);
 
-				assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::root(), pool_id));
+				assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id));
 
 				System::assert_last_event(MockEvent::LiquidityPools(crate::Event::PoolClosed {
 					pool_id,
 					native_asset_amount: 100,
 					reward_asset_amount: 0,
-					reciever: LiquidityPools::account_id(),
+					reciever: alice(),
 				}));
 
 				assert_eq!(Pools::<Test>::get(pool_id), None);
 				assert_eq!(RolloverPivot::<Test>::get(pool_id), vec![]);
 				assert_eq!(PoolRelationships::<Test>::get(pool_id), None);
-				assert_eq!(Balances::free_balance(LiquidityPools::account_id()), 100);
+				assert_eq!(Balances::free_balance(alice()), 100);
 			});
 	}
 }
@@ -943,22 +913,19 @@ mod enter_pool {
 
 	#[test]
 	fn invalid_origin_cannot_enter_pool() {
-		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
-			.build()
-			.execute_with(|| {
-				assert_noop!(LiquidityPools::enter_pool(RuntimeOrigin::none(), 0, 100), BadOrigin);
-			});
+		TestExt::<Test>::default().build().execute_with(|| {
+			assert_noop!(LiquidityPools::enter_pool(RuntimeOrigin::none(), 0, 100), BadOrigin);
+		});
 	}
 
 	#[test]
 	fn cannot_join_non_existent_pool() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				assert_noop!(
-					LiquidityPools::enter_pool(RuntimeOrigin::signed(create_account(1)), 0, 100),
+					LiquidityPools::enter_pool(RuntimeOrigin::signed(alice()), 0, 100),
 					Error::<Test>::PoolDoesNotExist
 				);
 			});
@@ -967,7 +934,7 @@ mod enter_pool {
 	#[test]
 	fn cannot_enter_pool_after_lock_end_block() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -982,6 +949,7 @@ mod enter_pool {
 					pool_id,
 					PoolInfo {
 						id: pool_id,
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -994,11 +962,7 @@ mod enter_pool {
 				);
 
 				assert_noop!(
-					LiquidityPools::enter_pool(
-						RuntimeOrigin::signed(create_account(1)),
-						pool_id,
-						10
-					),
+					LiquidityPools::enter_pool(RuntimeOrigin::signed(alice()), pool_id, 10),
 					Error::<Test>::PoolNotOpen
 				);
 			});
@@ -1007,7 +971,7 @@ mod enter_pool {
 	#[test]
 	fn cannot_enter_pool_if_token_limit_exceeded() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -1018,7 +982,7 @@ mod enter_pool {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1030,7 +994,7 @@ mod enter_pool {
 
 				assert_noop!(
 					LiquidityPools::enter_pool(
-						RuntimeOrigin::signed(create_account(1)),
+						RuntimeOrigin::signed(alice()),
 						pool_id,
 						max_tokens + 1
 					),
@@ -1042,7 +1006,7 @@ mod enter_pool {
 	#[test]
 	fn cannot_enter_pool_when_not_provisioning() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -1053,7 +1017,7 @@ mod enter_pool {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1073,11 +1037,7 @@ mod enter_pool {
 				});
 
 				assert_noop!(
-					LiquidityPools::enter_pool(
-						RuntimeOrigin::signed(create_account(1)),
-						pool_id,
-						amount
-					),
+					LiquidityPools::enter_pool(RuntimeOrigin::signed(alice()), pool_id, amount),
 					Error::<Test>::PoolNotOpen
 				);
 			});
@@ -1086,7 +1046,7 @@ mod enter_pool {
 	#[test]
 	fn cannot_enter_pool_without_sufficient_root_balance() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -1097,7 +1057,7 @@ mod enter_pool {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1108,11 +1068,7 @@ mod enter_pool {
 				let pool_id = NextPoolId::<Test>::get() - 1;
 
 				assert_noop!(
-					LiquidityPools::enter_pool(
-						RuntimeOrigin::signed(create_account(1)),
-						pool_id,
-						10
-					),
+					LiquidityPools::enter_pool(RuntimeOrigin::signed(alice()), pool_id, 10),
 					TokenError::FundsUnavailable
 				);
 			});
@@ -1123,7 +1079,7 @@ mod enter_pool {
 		let user: AccountId = create_account(1);
 		let user_balance = 100;
 		TestExt::<Test>::default()
-			.with_balances(&[(user, user_balance), (LiquidityPools::account_id(), 100)])
+			.with_balances(&[(user, user_balance), (alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -1134,7 +1090,7 @@ mod enter_pool {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1163,6 +1119,7 @@ mod enter_pool {
 					Pools::<Test>::get(pool_id),
 					Some(PoolInfo {
 						id: pool_id,
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -1193,7 +1150,7 @@ fn can_refund_back_when_pool_is_done() {
 	let user_balance = 100;
 	let vault_balance = 1000;
 	TestExt::<Test>::default()
-		.with_balances(&[(user, user_balance), (LiquidityPools::account_id(), vault_balance)])
+		.with_balances(&[(user, user_balance), (alice(), vault_balance)])
 		.build()
 		.execute_with(|| {
 			let asset_id = 1;
@@ -1204,7 +1161,7 @@ fn can_refund_back_when_pool_is_done() {
 			let lock_end_block = lock_start_block + reward_period;
 
 			assert_ok!(LiquidityPools::create_pool(
-				RuntimeOrigin::root(),
+				RuntimeOrigin::signed(alice()),
 				asset_id,
 				interest_rate,
 				max_tokens,
@@ -1212,10 +1169,7 @@ fn can_refund_back_when_pool_is_done() {
 				lock_end_block
 			));
 
-			assert_eq!(
-				Balances::free_balance(LiquidityPools::account_id()),
-				vault_balance - max_tokens
-			);
+			assert_eq!(Balances::free_balance(alice()), vault_balance - max_tokens);
 
 			let pool_id = NextPoolId::<Test>::get() - 1;
 			let amount = 10;
@@ -1229,10 +1183,7 @@ fn can_refund_back_when_pool_is_done() {
 
 			LiquidityPools::on_idle(lock_end_block, remaining_weight);
 
-			assert_eq!(
-				Balances::free_balance(LiquidityPools::account_id()),
-				vault_balance - amount
-			);
+			assert_eq!(Balances::free_balance(alice()), vault_balance - amount);
 		});
 }
 
@@ -1241,22 +1192,19 @@ mod exit_pool {
 
 	#[test]
 	fn invalid_origin_cannot_exit_pool() {
-		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
-			.build()
-			.execute_with(|| {
-				assert_noop!(LiquidityPools::exit_pool(RuntimeOrigin::none(), 0), BadOrigin);
-			});
+		TestExt::<Test>::default().build().execute_with(|| {
+			assert_noop!(LiquidityPools::exit_pool(RuntimeOrigin::none(), 0), BadOrigin);
+		});
 	}
 
 	#[test]
 	fn cannot_exit_non_existent_pool() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				assert_noop!(
-					LiquidityPools::exit_pool(RuntimeOrigin::signed(create_account(1)), 0),
+					LiquidityPools::exit_pool(RuntimeOrigin::signed(alice()), 0),
 					Error::<Test>::PoolDoesNotExist
 				);
 			});
@@ -1265,7 +1213,7 @@ mod exit_pool {
 	#[test]
 	fn cannot_exit_pool_when_not_joined() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -1276,7 +1224,7 @@ mod exit_pool {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1293,7 +1241,7 @@ mod exit_pool {
 				});
 
 				assert_noop!(
-					LiquidityPools::exit_pool(RuntimeOrigin::signed(create_account(1)), pool_id),
+					LiquidityPools::exit_pool(RuntimeOrigin::signed(alice()), pool_id),
 					Error::<Test>::NoTokensStaked
 				);
 			});
@@ -1302,7 +1250,7 @@ mod exit_pool {
 	#[test]
 	fn cannot_exit_pool_with_wrong_pool_status() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -1317,6 +1265,7 @@ mod exit_pool {
 					pool_id,
 					PoolInfo {
 						id: pool_id,
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -1329,7 +1278,7 @@ mod exit_pool {
 				);
 
 				assert_noop!(
-					LiquidityPools::exit_pool(RuntimeOrigin::signed(create_account(1)), pool_id),
+					LiquidityPools::exit_pool(RuntimeOrigin::signed(alice()), pool_id),
 					Error::<Test>::PoolNotOpen
 				);
 			});
@@ -1338,7 +1287,7 @@ mod exit_pool {
 	#[test]
 	fn cannot_exit_pool_without_previously_depositing_token() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -1349,7 +1298,7 @@ mod exit_pool {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1360,14 +1309,14 @@ mod exit_pool {
 				let pool_id = NextPoolId::<Test>::get() - 1;
 
 				assert_noop!(
-					LiquidityPools::exit_pool(RuntimeOrigin::signed(create_account(1)), pool_id),
+					LiquidityPools::exit_pool(RuntimeOrigin::signed(alice()), pool_id),
 					Error::<Test>::NoTokensStaked
 				);
 
 				PoolUsers::<Test>::insert(pool_id, create_account(1), UserInfo::default());
 
 				assert_noop!(
-					LiquidityPools::exit_pool(RuntimeOrigin::signed(create_account(1)), pool_id),
+					LiquidityPools::exit_pool(RuntimeOrigin::signed(alice()), pool_id),
 					Error::<Test>::NoTokensStaked
 				);
 			});
@@ -1378,7 +1327,7 @@ mod exit_pool {
 		let user: AccountId = create_account(1);
 		let user_balance = 100;
 		TestExt::<Test>::default()
-			.with_balances(&[(user, user_balance), (LiquidityPools::account_id(), user_balance)])
+			.with_balances(&[(user, user_balance), (alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let asset_id = 1;
@@ -1389,7 +1338,7 @@ mod exit_pool {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1420,6 +1369,7 @@ mod exit_pool {
 					Pools::<Test>::get(pool_id),
 					Some(PoolInfo {
 						id: pool_id,
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -1449,7 +1399,7 @@ mod claim_reward {
 			.collect::<Vec<_>>();
 
 		TestExt::<Test>::default()
-			.with_balances(&[(LiquidityPools::account_id(), initial_balance)])
+			.with_balances(&[(alice(), initial_balance)])
 			.configure_root()
 			.with_asset(XRP_ASSET_ID, "XRP", &endowments)
 			.build()
@@ -1464,7 +1414,7 @@ mod claim_reward {
 				let pool_id = NextPoolId::<Test>::get();
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1522,7 +1472,7 @@ mod claim_reward {
 			.collect::<Vec<_>>();
 
 		TestExt::<Test>::default()
-			.with_balances(&[(LiquidityPools::account_id(), initial_balance)])
+			.with_balances(&[(alice(), initial_balance)])
 			.configure_root()
 			.with_asset(XRP_ASSET_ID, "XRP", &endowments)
 			.build()
@@ -1536,7 +1486,7 @@ mod claim_reward {
 
 				let pool_id = NextPoolId::<Test>::get();
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1588,7 +1538,7 @@ mod claim_reward {
 		let user_balance = 100;
 
 		TestExt::<Test>::default()
-			.with_balances(&[(user, user_balance), (LiquidityPools::account_id(), user_balance)])
+			.with_balances(&[(user, user_balance), (alice(), user_balance)])
 			.with_asset(XRP_ASSET_ID, "XRP", &[(user, user_balance)])
 			.build()
 			.execute_with(|| {
@@ -1602,7 +1552,7 @@ mod claim_reward {
 				let pool_id = NextPoolId::<Test>::get();
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1627,7 +1577,7 @@ mod claim_reward {
 	#[test]
 	fn claim_reward_should_fail_if_pool_does_not_exist() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let pool_id = 1;
@@ -1647,7 +1597,7 @@ mod claim_reward {
 		let user: AccountId = create_account(1);
 
 		TestExt::<Test>::default()
-			.with_balances(&[(LiquidityPools::account_id(), user_balance)])
+			.with_balances(&[(alice(), user_balance)])
 			.with_asset(XRP_ASSET_ID, "XRP", &[(user, user_balance)])
 			.build()
 			.execute_with(|| {
@@ -1659,7 +1609,7 @@ mod claim_reward {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1699,7 +1649,7 @@ mod rollover_unsigned {
 			.collect::<Vec<_>>();
 
 		TestExt::<Test>::default()
-			.with_balances(&[(LiquidityPools::account_id(), user_balance * 100)])
+			.with_balances(&[(alice(), user_balance * 100)])
 			.configure_root()
 			.with_asset(XRP_ASSET_ID, "XRP", &endowments)
 			.build()
@@ -1712,7 +1662,7 @@ mod rollover_unsigned {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1752,6 +1702,7 @@ mod rollover_unsigned {
 					Pools::<Test>::get(predecessor_id),
 					Some(PoolInfo {
 						id: predecessor_id,
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -1767,7 +1718,7 @@ mod rollover_unsigned {
 				let lock_start_block = lock_end_block + 1;
 				let lock_end_block = lock_start_block + reward_period;
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1778,7 +1729,7 @@ mod rollover_unsigned {
 
 				// Set the successor pool for the next period
 				assert_ok!(LiquidityPools::set_pool_succession(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					predecessor_id,
 					successor_id
 				));
@@ -1809,6 +1760,7 @@ mod rollover_unsigned {
 					Pools::<Test>::get(predecessor_id),
 					Some(PoolInfo {
 						id: predecessor_id,
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -1851,7 +1803,7 @@ mod rollover_unsigned {
 			.collect::<Vec<_>>();
 
 		TestExt::<Test>::default()
-			.with_balances(&[(LiquidityPools::account_id(), user_balance * 100)])
+			.with_balances(&[(alice(), user_balance * 100)])
 			.with_asset(XRP_ASSET_ID, "XRP", &endowments)
 			.build()
 			.execute_with(|| {
@@ -1863,7 +1815,7 @@ mod rollover_unsigned {
 				let lock_end_block = lock_start_block + reward_period;
 
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1876,7 +1828,7 @@ mod rollover_unsigned {
 				let lock_start_block = lock_end_block + 1;
 				let lock_end_block_2 = lock_end_block + 100;
 				assert_ok!(LiquidityPools::create_pool(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					asset_id,
 					interest_rate,
 					max_tokens,
@@ -1899,7 +1851,7 @@ mod rollover_unsigned {
 
 				// Join the successor pool
 				assert_ok!(LiquidityPools::enter_pool(
-					RuntimeOrigin::signed(create_account(1)),
+					RuntimeOrigin::signed(endowments[0].0),
 					successor_id,
 					max_tokens - amount * (user_amount as u128 / 2),
 				));
@@ -1908,6 +1860,7 @@ mod rollover_unsigned {
 					Pools::<Test>::get(predecessor_id),
 					Some(PoolInfo {
 						id: predecessor_id,
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -1920,7 +1873,7 @@ mod rollover_unsigned {
 				);
 
 				assert_ok!(LiquidityPools::set_pool_succession(
-					RuntimeOrigin::root(),
+					RuntimeOrigin::signed(alice()),
 					predecessor_id,
 					successor_id
 				));
@@ -1950,6 +1903,7 @@ mod rollover_unsigned {
 					Pools::<Test>::get(predecessor_id),
 					Some(PoolInfo {
 						id: predecessor_id,
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -1965,6 +1919,7 @@ mod rollover_unsigned {
 					Pools::<Test>::get(successor_id),
 					Some(PoolInfo {
 						id: successor_id,
+						creator: alice(),
 						asset_id,
 						interest_rate,
 						max_tokens,
@@ -1981,7 +1936,7 @@ mod rollover_unsigned {
 	#[test]
 	fn rollover_should_fail_when_pool_not_exist() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				assert_noop!(
@@ -1998,7 +1953,7 @@ mod rollover_unsigned {
 	#[test]
 	fn rollover_should_fail_when_successor_pool_not_exist() {
 		TestExt::<Test>::default()
-			.with_balances(&vec![(LiquidityPools::account_id(), 100)])
+			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
 				let precessor_pool_id = 1;
@@ -2006,6 +1961,7 @@ mod rollover_unsigned {
 					precessor_pool_id,
 					PoolInfo {
 						id: precessor_pool_id,
+						creator: alice(),
 						asset_id: 1,
 						interest_rate: 1_000_000,
 						max_tokens: 100,
