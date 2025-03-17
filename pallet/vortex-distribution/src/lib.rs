@@ -51,7 +51,6 @@ use sp_runtime::{
 	traits::{AccountIdConversion, CheckedAdd, One, Saturating, StaticLookup, Zero},
 	Perbill, RuntimeDebug,
 };
-use sp_staking::EraIndex;
 use sp_std::{convert::TryInto, prelude::*};
 
 pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::MAX / 2;
@@ -194,16 +193,6 @@ pub mod pallet {
 	pub type VtxDistStatuses<T: Config> =
 		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, VtxDistStatus, ValueQuery>;
 
-	/// Stores start and end eras of each vortex distribution
-	#[pallet::storage]
-	pub type VtxDistEras<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::VtxDistIdentifier,
-		(EraIndex, EraIndex), //start and end era, inclusive
-		ValueQuery,
-	>;
-
 	/// Stores Vtx total supply for each vortex distribution
 	#[pallet::storage]
 	pub type VtxTotalSupply<T: Config> = StorageMap<
@@ -294,40 +283,13 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Stores total network reward for each distribution
 	#[pallet::storage]
-	#[pallet::getter(fn effective_balances_work_points)]
-	pub type EffectiveBalancesWorkPoints<T: Config> = StorageNMap<
-		_,
-		(
-			NMapKey<Blake2_128Concat, T::VtxDistIdentifier>,
-			NMapKey<Blake2_128Concat, EraIndex>,
-			NMapKey<Blake2_128Concat, T::AccountId>,
-		),
-		(BalanceOf<T>, BalanceOf<T>, BalanceOf<T>), //effective balance, workpoints, rates
-		ValueQuery,
-	>;
-
-	/// Stores penalty effective balances, work points, and rates for each vortex distribution
-	#[pallet::storage]
-	pub type PenaltyEffectiveBalancesWorkPoints<T: Config> = StorageNMap<
-		_,
-		(
-			NMapKey<Blake2_128Concat, T::VtxDistIdentifier>,
-			NMapKey<Blake2_128Concat, EraIndex>,
-			NMapKey<Blake2_128Concat, T::AccountId>,
-		),
-		(BalanceOf<T>, BalanceOf<T>, BalanceOf<T>), /* penalty effective balance, penalty work
-		                                             * points, rates */
-		ValueQuery,
-	>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn total_nw_reward)]
 	pub(super) type TotalNetworkReward<T: Config> =
 		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, BalanceOf<T>, ValueQuery>;
 
+	/// Stores total bootstrap reward for each distribution
 	#[pallet::storage]
-	#[pallet::getter(fn total_bs_reward)]
 	pub(super) type TotalBootstrapReward<T: Config> =
 		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, BalanceOf<T>, ValueQuery>;
 
@@ -335,38 +297,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type TotalVortex<T: Config> =
 		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, BalanceOf<T>, ValueQuery>;
-
-	/// Storing total effective balance for each era
-	#[pallet::storage]
-	pub(super) type TotalEffectiveBalanceEra<T: Config> =
-		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, BalanceOf<T>, ValueQuery>;
-
-	#[pallet::storage]
-	pub(super) type TotalWorkPointsEra<T: Config> =
-		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, BalanceOf<T>, ValueQuery>;
-
-	/// Generate code for storing account total effective balance and total work points
-	#[pallet::storage]
-	pub(super) type AccountTotalEffectiveBalance<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::VtxDistIdentifier,
-		Twox64Concat,
-		T::AccountId,
-		BalanceOf<T>,
-		ValueQuery,
-	>;
-
-	#[pallet::storage]
-	pub(super) type AccountTotalWorkPoints<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::VtxDistIdentifier,
-		Twox64Concat,
-		T::AccountId,
-		BalanceOf<T>,
-		ValueQuery,
-	>;
 
 	/// Stores next unsigned tx block number
 	#[pallet::storage]
@@ -388,12 +318,6 @@ pub mod pallet {
 		/// Admin Account changed
 		AdminAccountChanged { old_key: Option<T::AccountId>, new_key: T::AccountId },
 
-		/// Rewards registered
-		RewardRegistered {
-			id: T::VtxDistIdentifier,
-			rewards: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
-		},
-
 		/// Distribution created
 		VtxDistCreated { id: T::VtxDistIdentifier },
 
@@ -408,9 +332,6 @@ pub mod pallet {
 
 		/// Distribution started
 		VtxDistStarted { id: T::VtxDistIdentifier },
-
-		/// Set distribution eras
-		SetVtxDistEras { id: T::VtxDistIdentifier, start_era: EraIndex, end_era: EraIndex },
 
 		/// Set Fee pot asset balances
 		SetFeePotAssetBalances {
@@ -478,9 +399,6 @@ pub mod pallet {
 		/// Vortex distribution disabled
 		VtxDistDisabled,
 
-		/// Invalid end block
-		InvalidEndBlock,
-
 		/// No Vtx asset minted
 		NoVtxAssetMinted,
 
@@ -511,20 +429,8 @@ pub mod pallet {
 		/// Vortex distribution not triggered
 		NotTriggered,
 
-		/// balances and points vector length not match
-		MismatchedBalancesAndPointsLength,
-
-		/// balances and rates vector length not match
-		MismatchedBalancesAndRatesLength,
-
-		/// account id list not match
-		MismatchedAccountIdLists,
-
 		/// out of max reward vecotor bound
 		ExceededMaxRewards,
-
-		/// wrong era
-		WrongEra,
 
 		/// asset (price set) is not in assets list
 		AssetNotInList,
@@ -680,28 +586,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set distribution eras
-		///
-		/// `id` - The distribution id
-		/// `start_era` - Start era
-		/// `end_era` - End era
-		#[pallet::call_index(5)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_vtx_dist_eras())]
-		#[transactional]
-		pub fn set_vtx_dist_eras(
-			origin: OriginFor<T>,
-			id: T::VtxDistIdentifier,
-			start_era: EraIndex,
-			end_era: EraIndex,
-		) -> DispatchResult {
-			Self::ensure_root_or_admin(origin)?;
-			ensure!(start_era <= end_era, Error::<T>::InvalidEndBlock);
-			VtxDistEras::<T>::insert(id, (start_era, end_era));
-
-			Self::deposit_event(Event::SetVtxDistEras { id, start_era, end_era });
-			Ok(())
-		}
-
 		/// Set asset prices
 		///
 		/// `asset_prices` - List of asset prices
@@ -718,44 +602,10 @@ pub mod pallet {
 			Self::do_asset_price_setter(asset_prices, id)
 		}
 
-		/// Register distribution rewards
-		///
-		/// `id` - The distribution id
-		/// `rewards` - Rewards list
-		#[pallet::call_index(7)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
-		pub fn register_rewards(
-			origin: OriginFor<T>,
-			id: T::VtxDistIdentifier,
-			rewards: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
-		) -> DispatchResult {
-			Self::ensure_root_or_admin(origin)?;
-
-			let s = VtxDistStatuses::<T>::get(id);
-
-			match s {
-				VtxDistStatus::Enabled => {
-					let mut total_rewards: BalanceOf<T> = Zero::zero();
-					for (who, amount) in rewards.iter() {
-						total_rewards += *amount;
-						VtxDistOrderbook::<T>::mutate(id, who.clone(), |entry| {
-							*entry = (*amount, false);
-						});
-					}
-					TotalVortex::<T>::mutate(id, |total_vortex| {
-						*total_vortex = total_vortex.saturating_add(total_rewards);
-					});
-					Self::deposit_event(Event::RewardRegistered { id, rewards });
-					Ok(())
-				},
-				_ => Err(Error::<T>::VtxDistDisabled)?,
-			}
-		}
-		
 		/// Trigger distribution
 		///
 		/// `id` - The distribution id
-		#[pallet::call_index(8)]
+		#[pallet::call_index(7)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution())]
 		#[transactional]
 		pub fn trigger_vtx_distribution(
@@ -785,7 +635,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `vortex_token_amount` - Amount of vortex to redeem
-		#[pallet::call_index(9)]
+		#[pallet::call_index(8)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::redeem_tokens_from_vault())]
 		#[transactional]
 		pub fn redeem_tokens_from_vault(
@@ -830,7 +680,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `assets_balances` - List of asset balances
-		#[pallet::call_index(10)]
+		#[pallet::call_index(9)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_assets_list(assets_balances.len() as u32))]
 		// #[transactional]
 		pub fn set_fee_pot_asset_balances(
@@ -846,7 +696,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `assets_balances` - List of asset balances
-		#[pallet::call_index(11)]
+		#[pallet::call_index(10)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_assets_list(assets_balances.len() as u32))]
 		// #[transactional]
 		pub fn set_vtx_vault_asset_balances(
@@ -863,7 +713,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `supply` - Vtx total supply
-		#[pallet::call_index(12)]
+		#[pallet::call_index(11)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_assets_list(0 as u32))]
 		// #[transactional]
 		pub fn set_vtx_total_supply(
@@ -882,7 +732,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `reward_points` - Reward point list
-		#[pallet::call_index(13)]
+		#[pallet::call_index(12)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
 		pub fn register_reward_points(
 			origin: OriginFor<T>,
@@ -914,7 +764,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `work_points` - work point list
-		#[pallet::call_index(14)]
+		#[pallet::call_index(13)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
 		pub fn register_work_points(
 			origin: OriginFor<T>,
@@ -944,125 +794,13 @@ pub mod pallet {
 
 		/// Set ConsiderCurrentBalance storage item
 		/// If set to true, token balances at the current block will be taken into account for reward calculation
-		#[pallet::call_index(15)]
+		#[pallet::call_index(14)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_admin())]
 		pub fn set_consider_current_balance(origin: OriginFor<T>, value: bool) -> DispatchResult {
 			Self::ensure_root_or_admin(origin)?;
 
 			ConsiderCurrentBalance::<T>::put(value);
 			Self::deposit_event(Event::SetConsiderCurrentBalance {value});
-			Ok(())
-		}
-		
-		/// Register effective balances and work points
-		/// length of vecotrs should align and with same set of accountid
-		#[pallet::call_index(16)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_eff_bal_n_wk_pts())]
-		#[transactional]
-		pub fn register_eff_bal_n_wk_pts(
-			origin: OriginFor<T>,
-			id: T::VtxDistIdentifier,
-			era: EraIndex,
-			balances: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
-			points: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
-			rates: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
-		) -> DispatchResult {
-			Self::ensure_root_or_admin(origin)?;
-
-			let s = VtxDistStatuses::<T>::get(id);
-
-			ensure!(s == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
-
-			//verify balances, points, and rates have the same length
-			ensure!(balances.len() == points.len(), Error::<T>::MismatchedBalancesAndPointsLength);
-			ensure!(balances.len() == rates.len(), Error::<T>::MismatchedBalancesAndRatesLength);
-
-			// Iterate through balances, points, and rates to ensure they have the same AccountId
-			for (((balance_account, _), (point_account, _)), (rate_account, _)) in
-			balances.iter().zip(points.iter()).zip(rates.iter())
-			{
-				ensure!(
-					balance_account == point_account && point_account == rate_account,
-					Error::<T>::MismatchedAccountIdLists
-				);
-			}
-
-			//record in storage
-			for ((balance, point), rate) in
-			balances.into_iter().zip(points.into_iter()).zip(rates.into_iter())
-			{
-				let penalty =
-					EffectiveBalancesWorkPoints::<T>::contains_key((id, era, balance.clone().0));
-				if penalty {
-					let (effective_balance, work_points, rates) =
-						EffectiveBalancesWorkPoints::<T>::get((id, era, balance.clone().0));
-					PenaltyEffectiveBalancesWorkPoints::<T>::insert(
-						(id, era, balance.clone().0),
-						(effective_balance, work_points, rates),
-					);
-				}
-
-				EffectiveBalancesWorkPoints::<T>::insert(
-					(id, era, balance.clone().0),
-					(balance.1, point.1, rate.1),
-				);
-			}
-
-			let mut total_effective_balance_era: BalanceOf<T> =
-				TotalEffectiveBalanceEra::<T>::get(id);
-			let mut total_work_points_era: BalanceOf<T> = TotalWorkPointsEra::<T>::get(id);
-
-			for (account_id, (effective_balance, work_points, rates)) in
-			EffectiveBalancesWorkPoints::<T>::iter_prefix((id, era))
-			{
-				let mut account_total_effective_balance: BalanceOf<T> =
-					AccountTotalEffectiveBalance::<T>::get(id, account_id.clone());
-				let mut account_total_work_points: BalanceOf<T> =
-					AccountTotalWorkPoints::<T>::get(id, account_id.clone());
-
-				let penalty = PenaltyEffectiveBalancesWorkPoints::<T>::contains_key((
-					id,
-					era,
-					account_id.clone(),
-				));
-				if penalty {
-					let (penalty_effective_balance, penalty_work_points, penalty_rates) =
-						PenaltyEffectiveBalancesWorkPoints::<T>::get((id, era, account_id.clone()));
-					//reverse total balance and points for the era
-					total_effective_balance_era = total_effective_balance_era
-						.saturating_sub(penalty_effective_balance.saturating_mul(penalty_rates));
-					total_work_points_era =
-						total_work_points_era.saturating_sub(penalty_work_points);
-					//reverse each account id's balance and points for the era
-					account_total_effective_balance = account_total_effective_balance
-						.saturating_sub(penalty_effective_balance.saturating_mul(penalty_rates));
-					account_total_work_points =
-						account_total_work_points.saturating_sub(penalty_work_points);
-				}
-
-				//accumulate total balance and points for the era
-				total_effective_balance_era = total_effective_balance_era
-					.saturating_add(effective_balance.saturating_mul(rates));
-				total_work_points_era = total_work_points_era.saturating_add(work_points);
-				//accumulate each account id's balance and points for the era
-				account_total_effective_balance = account_total_effective_balance
-					.saturating_add(effective_balance.saturating_mul(rates));
-				account_total_work_points = account_total_work_points.saturating_add(work_points);
-				AccountTotalEffectiveBalance::<T>::insert(
-					id,
-					account_id.clone(),
-					account_total_effective_balance,
-				);
-				AccountTotalWorkPoints::<T>::insert(
-					id,
-					account_id.clone(),
-					account_total_work_points,
-				);
-			}
-
-			TotalEffectiveBalanceEra::<T>::insert(id, total_effective_balance_era);
-			TotalWorkPointsEra::<T>::insert(id, total_work_points_era);
-
 			Ok(())
 		}
 	}
