@@ -170,23 +170,13 @@ pub mod pallet {
 
 	/// Stores total Reward points for each cycle when the rewards are registered.
 	#[pallet::storage]
-	pub(super) type TotalRewardPoints<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::VtxDistIdentifier,
-		BalanceOf<T>,
-		ValueQuery,
-	>;
+	pub(super) type TotalRewardPoints<T: Config> =
+		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, BalanceOf<T>, ValueQuery>;
 
 	/// Stores total work points for each cycle when the work points are registered.
 	#[pallet::storage]
-	pub(super) type TotalWorkPoints<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::VtxDistIdentifier,
-		BalanceOf<T>,
-		ValueQuery,
-	>;
+	pub(super) type TotalWorkPoints<T: Config> =
+		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, BalanceOf<T>, ValueQuery>;
 
 	/// Stores status of each vortex distribution
 	#[pallet::storage]
@@ -195,23 +185,13 @@ pub mod pallet {
 
 	/// Stores Vtx total supply for each vortex distribution
 	#[pallet::storage]
-	pub type VtxTotalSupply<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::VtxDistIdentifier,
-		BalanceOf<T>,
-		ValueQuery,
-	>;
+	pub type VtxTotalSupply<T: Config> =
+		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, BalanceOf<T>, ValueQuery>;
 
 	/// Stores Vtx price each vortex distribution
 	#[pallet::storage]
-	pub type VtxPrice<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::VtxDistIdentifier,
-		BalanceOf<T>,
-		ValueQuery,
-	>;
+	pub type VtxPrice<T: Config> =
+		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, BalanceOf<T>, ValueQuery>;
 
 	/// Stores order books for each vortex distribution
 	#[pallet::storage]
@@ -355,10 +335,7 @@ pub mod pallet {
 		TriggerVtxDistribution { id: T::VtxDistIdentifier },
 
 		/// Set Vtx total supply
-		SetVtxTotalSupply {
-			id: T::VtxDistIdentifier,
-			total_supply: BalanceOf<T>,
-		},
+		SetVtxTotalSupply { id: T::VtxDistIdentifier, total_supply: BalanceOf<T> },
 
 		/// Set ConsiderCurrentBalance
 		SetConsiderCurrentBalance { value: bool },
@@ -574,7 +551,7 @@ pub mod pallet {
 					VtxDistStatuses::<T>::mutate(id, |status| {
 						*status = VtxDistStatus::Done;
 					});
-					VtxDistOrderbook::<T>::drain_prefix(id);// spk - should we keep it for reference purpose. might need delayed pruning mechanism.
+					VtxDistOrderbook::<T>::drain_prefix(id); // spk - should we keep it for reference purpose. might need delayed pruning mechanism.
 					Self::deposit_event(Event::VtxDistDone { id });
 				}
 				VtxDistPayoutPivot::<T>::insert(id, current_last_raw_key);
@@ -708,7 +685,6 @@ pub mod pallet {
 			Self::do_vtx_vault_asset_balances_setter(id, assets_balances)
 		}
 
-
 		/// Set vtx total supply for each vortex distribution
 		///
 		/// `id` - The distribution id
@@ -745,12 +721,13 @@ pub mod pallet {
 			let mut total_reward_points = TotalRewardPoints::<T>::get(id);
 			for (account, r_points) in reward_points {
 				let current_r_points = RewardPoints::<T>::get(id, account.clone());
-				if  current_r_points != Default::default() {
+				if current_r_points != Default::default() {
 					// means we need to minus the current_r_points and plus r_points from the total_reward_points
-					total_reward_points = total_reward_points.saturating_sub(current_r_points).saturating_add(r_points);
-				}
-				else {
-					// just add 
+					total_reward_points = total_reward_points
+						.saturating_sub(current_r_points)
+						.saturating_add(r_points);
+				} else {
+					// just add
 					total_reward_points = total_reward_points.saturating_add(r_points);
 				}
 				RewardPoints::<T>::insert(id, account, r_points);
@@ -777,12 +754,13 @@ pub mod pallet {
 			let mut total_work_points = TotalRewardPoints::<T>::get(id);
 			for (account, w_points) in work_points {
 				let current_work_points = WorkPoints::<T>::get(id, account.clone());
-				if  current_work_points != Default::default() {
+				if current_work_points != Default::default() {
 					// means we need to minus the current_work_points and plus w_points from the total_reward_points
-					total_work_points = total_work_points.saturating_sub(current_work_points).saturating_add(w_points);
-				}
-				else {
-					// just add 
+					total_work_points = total_work_points
+						.saturating_sub(current_work_points)
+						.saturating_add(w_points);
+				} else {
+					// just add
 					total_work_points = total_work_points.saturating_add(w_points);
 				}
 				WorkPoints::<T>::insert(id, account, w_points);
@@ -800,7 +778,7 @@ pub mod pallet {
 			Self::ensure_root_or_admin(origin)?;
 
 			ConsiderCurrentBalance::<T>::put(value);
-			Self::deposit_event(Event::SetConsiderCurrentBalance {value});
+			Self::deposit_event(Event::SetConsiderCurrentBalance { value });
 			Ok(())
 		}
 	}
@@ -913,7 +891,10 @@ pub mod pallet {
 					asset_id != &T::VtxAssetId::get(),
 					Error::<T>::AssetsShouldNotIncludeVtxAsset
 				);
-				ensure!(Self::check_asset_exist_in_fee_pot_asset_list(id, asset_id), Error::<T>::AssetNotInList);
+				ensure!(
+					Self::check_asset_exist_in_fee_pot_asset_list(id, asset_id),
+					Error::<T>::AssetNotInList
+				);
 				AssetPrices::<T>::insert(id, asset_id, price);
 			}
 
@@ -922,15 +903,15 @@ pub mod pallet {
 		}
 
 		/// Calculate vortex price
-		fn do_calculate_vortex_price(
-			id: T::VtxDistIdentifier,
-		) -> DispatchResultWithPostInfo {
+		fn do_calculate_vortex_price(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
 			let vtx_vault_account = Self::get_vtx_vault_account();
 
 			let mut vtx_vault_asset_value: BalanceOf<T> = 0u64.into();
 			for (asset_id, amount) in VtxVaultAssetsList::<T>::get(id).into_iter() {
 				let asset_price = AssetPrices::<T>::get(id, asset_id);
-				if asset_price == Default::default() { continue;}
+				if asset_price == Default::default() {
+					continue;
+				}
 				let asset_balance = match ConsiderCurrentBalance::<T>::get() {
 					true => T::MultiCurrency::balance(asset_id, &vtx_vault_account),
 					false => amount,
@@ -949,7 +930,7 @@ pub mod pallet {
 				vtx_vault_asset_value / vtx_existing_supply
 			};
 			ensure!(vortex_price > Zero::zero(), Error::<T>::VortexPriceIsZero);
-			VtxPrice::<T>::set(id, vortex_price);// spk
+			VtxPrice::<T>::set(id, vortex_price); // spk
 
 			Ok(().into())
 		}
@@ -1002,7 +983,7 @@ pub mod pallet {
 			ensure!(vortex_price > Zero::zero(), Error::<T>::VortexPriceIsZero);
 
 			//calculate total rewards
-			let total_vortex_network_reward = fee_vault_asset_value/ vortex_price;
+			let total_vortex_network_reward = fee_vault_asset_value / vortex_price;
 			let total_vortex_bootstrap = root_vault_root_value / vortex_price;
 			let total_vortex = total_vortex_network_reward + total_vortex_bootstrap;
 			TotalVortex::<T>::insert(id, total_vortex);
@@ -1022,17 +1003,15 @@ pub mod pallet {
 			let total_workpoints_pool = Perbill::from_percent(70) * total_network_reward; // 70% of network rewards
 			let total_staker_points = TotalRewardPoints::<T>::get(id);
 			let total_work_points = TotalWorkPoints::<T>::get(id);
-			
+
 			let mut account_ids: BoundedVec<T::AccountId, T::MaxRewards> = BoundedVec::default();
 			// Iterate RewardPoints to capture all the accounts in this reward cycle.
 			// This means all validators, nominators and stakers should be in this map.
-			// Note that all accounts, even with 0 staker rewards must be registered onchain 
+			// Note that all accounts, even with 0 staker rewards must be registered onchain
 			// as this is the reference to capture all accounts for this cycle.
 			for (account_id, _) in RewardPoints::<T>::iter_prefix(id) {
 				if !account_ids.contains(&account_id) {
-					account_ids
-						.try_push(account_id)
-						.map_err(|_| Error::<T>::ExceededMaxRewards)?;
+					account_ids.try_push(account_id).map_err(|_| Error::<T>::ExceededMaxRewards)?;
 				}
 			}
 
@@ -1043,13 +1022,11 @@ pub mod pallet {
 				let account_work_points: BalanceOf<T> =
 					WorkPoints::<T>::get(id, account_id.clone());
 
-				let staker_point_portion = Perbill::from_rational(
-					account_staker_points,
-					total_staker_points,
-				);
+				let staker_point_portion =
+					Perbill::from_rational(account_staker_points, total_staker_points);
 				let work_points_portion =
 					Perbill::from_rational(account_work_points, total_work_points);
-				
+
 				let account_work_point_reward = work_points_portion * total_workpoints_pool;
 				let account_staker_reward = staker_point_portion * total_staker_pool;
 				let final_reward = account_work_point_reward + account_staker_reward;
