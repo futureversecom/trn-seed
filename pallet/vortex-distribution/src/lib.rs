@@ -169,6 +169,26 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type ConsiderCurrentBalance<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+	/// Stores total Reward points for each cycle when the rewards are registered.
+	#[pallet::storage]
+	pub(super) type TotalRewardPoints<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::VtxDistIdentifier,
+		BalanceOf<T>,
+		ValueQuery,
+	>;
+
+	/// Stores total work points for each cycle when the work points are registered.
+	#[pallet::storage]
+	pub(super) type TotalWorkPoints<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::VtxDistIdentifier,
+		BalanceOf<T>,
+		ValueQuery,
+	>;
+
 	/// Stores status of each vortex distribution
 	#[pallet::storage]
 	pub type VtxDistStatuses<T: Config> =
@@ -873,9 +893,20 @@ pub mod pallet {
 			Self::ensure_root_or_admin(origin)?;
 			let dst_status = VtxDistStatuses::<T>::get(id);
 			ensure!(dst_status == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
+			let mut total_reward_points = TotalRewardPoints::<T>::get(id);
 			for (account, r_points) in reward_points {
+				let current_r_points = RewardPoints::<T>::get(id, account.clone());
+				if  current_r_points != Default::default() {
+					// means we need to minus the current_r_points and plus r_points from the total_reward_points
+					total_reward_points = total_reward_points.saturating_sub(current_r_points).saturating_add(r_points);
+				}
+				else {
+					// just add 
+					total_reward_points = total_reward_points.saturating_add(r_points);
+				}
 				RewardPoints::<T>::insert(id, account, r_points);
 			}
+			TotalRewardPoints::<T>::set(id, total_reward_points);
 
 			Ok(())
 		}
@@ -894,9 +925,20 @@ pub mod pallet {
 			Self::ensure_root_or_admin(origin)?;
 			let dst_status = VtxDistStatuses::<T>::get(id);
 			ensure!(dst_status == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
+			let mut total_work_points = TotalRewardPoints::<T>::get(id);
 			for (account, w_points) in work_points {
+				let current_work_points = WorkPoints::<T>::get(id, account.clone());
+				if  current_work_points != Default::default() {
+					// means we need to minus the current_work_points and plus w_points from the total_reward_points
+					total_work_points = total_work_points.saturating_sub(current_work_points).saturating_add(w_points);
+				}
+				else {
+					// just add 
+					total_work_points = total_work_points.saturating_add(w_points);
+				}
 				WorkPoints::<T>::insert(id, account, w_points);
 			}
+			TotalWorkPoints::<T>::set(id, total_work_points);
 
 			Ok(())
 		}
