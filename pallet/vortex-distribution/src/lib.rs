@@ -620,7 +620,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_none(origin)?;
 			if let VtxDistStatus::Paying = VtxDistStatuses::<T>::get(id) {
-				let vault_account = Self::get_vtx_held_account();
+				let vtx_held_account = Self::get_vtx_held_account();
 				let start_key = VtxDistPayoutPivot::<T>::get(id);
 				let payout_pivot: Vec<u8> = start_key.clone().into_inner();
 
@@ -639,7 +639,7 @@ pub mod pallet {
 					let share = entry.0;
 					let transfer_result = Self::safe_transfer(
 						T::VtxAssetId::get(),
-						&vault_account,
+						&vtx_held_account,
 						&who,
 						share,
 						false,
@@ -668,7 +668,7 @@ pub mod pallet {
 					VtxDistStatuses::<T>::mutate(id, |status| {
 						*status = VtxDistStatus::Done;
 					});
-					VtxDistOrderbook::<T>::drain_prefix(id);
+					VtxDistOrderbook::<T>::drain_prefix(id);// spk - should we keep it for reference purpose. might need delayed pruning mechanism.
 					Self::deposit_event(Event::VtxDistDone { id });
 				}
 				VtxDistPayoutPivot::<T>::insert(id, current_last_raw_key);
@@ -1121,11 +1121,10 @@ pub mod pallet {
 
 		/// start a distribution
 		fn do_start_vtx_dist(id: T::VtxDistIdentifier) -> DispatchResult {
-			let vault_account = Self::get_vtx_held_account();
+			let vtx_held_account = Self::get_vtx_held_account();
 			let total_vortex = TotalVortex::<T>::get(id);
-			T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vault_account, total_vortex)?;
+			T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vtx_held_account, total_vortex)?;
 
-			TotalVortex::<T>::remove(id);// spk - why remove?
 			VtxDistStatuses::<T>::mutate(id, |status| {
 				*status = VtxDistStatus::Paying;
 			});
