@@ -770,8 +770,7 @@ pub mod pallet {
 			);
 
 			Self::do_calculate_vortex_price(id)?;
-
-			// Self::do_collate_reward_tokens(id)?;
+			Self::do_collate_reward_tokens(id)?;
 			Self::do_reward_calculation(id)?;
 
 			VtxDistStatuses::<T>::mutate(id, |status| {
@@ -1218,8 +1217,8 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		// do collate rewards(assets and root) tokens in to vault account
-		/*fn do_collate_reward_tokens(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
+		// do collate assets into the vtx vault account
+		fn do_collate_reward_tokens(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
 			let root_price = AssetPrices::<T>::get(id, T::NativeAssetId::get());
 			ensure!(root_price > Zero::zero(), Error::<T>::RootPriceIsZero);
 
@@ -1249,22 +1248,6 @@ pub mod pallet {
 				vtx_vault_asset_value += asset_balance_vault.saturating_mul(asset_price);
 			}
 
-			/*// move bootstrap incentive here
-			// move root token from fee_vault to vault_account
-			let fee_vault_root_token_balance =
-				T::MultiCurrency::balance(T::NativeAssetId::get(), &fee_vault_account);
-			let fee_vault_root_value: BalanceOf<T> = fee_vault_root_token_balance * root_price;
-
-			if fee_vault_root_token_balance > Zero::zero() {
-				Self::safe_transfer(
-					T::NativeAssetId::get(),
-					&fee_vault_account,
-					&vault_account,
-					fee_vault_root_token_balance,
-					false,
-				)?;
-			}*/
-
 			// bootstrap - move root token from root_vault to vtx_vault_account
 			let root_vault_root_token_balance =
 				T::MultiCurrency::balance(T::NativeAssetId::get(), &root_vault_account);
@@ -1277,82 +1260,62 @@ pub mod pallet {
 				false,
 			)?;
 
-
-			// let mut vault_root_value: BalanceOf<T> = (fee_vault_root_token_balance +
-			// root_vault_root_token_balance) * root_price;
-			let vault_root_value: BalanceOf<T> =
-				T::MultiCurrency::balance(T::NativeAssetId::get(), &vault_account) * root_price;
-
-			//calculate vortex price
-			let vault_total_assets_root_value = vault_asset_value + vault_root_value;
-			let existing_vortex_supply = T::MultiCurrency::total_issuance(T::VtxAssetId::get());
-			let vortex_price = if existing_vortex_supply == Zero::zero() {
-				1u64.into() // should be still 1 not matter decimal points (6 decimal)
-			} else {
-				vault_total_assets_root_value / existing_vortex_supply
-			};
-
+			// fetch calculated vortex price
+			let vortex_price = VtxPrice::<T>::get(id);
 			ensure!(vortex_price > Zero::zero(), Error::<T>::VortexPriceIsZero);
-			//calculate total rewards
-			let total_vortex_network_reward =
-				(fee_vault_asset_value + fee_vault_root_value) / vortex_price;
-			let total_vortex_bootstrap = root_vault_root_value / vortex_price;
 
+			//calculate total rewards
+			let total_vortex_network_reward = fee_vault_asset_value/ vortex_price;
+			let total_vortex_bootstrap = root_vault_root_value / vortex_price;
 			let total_vortex = total_vortex_network_reward + total_vortex_bootstrap;
 			TotalVortex::<T>::insert(id, total_vortex);
 			TotalNetworkReward::<T>::insert(id, total_vortex_network_reward);
 			TotalBootstrapReward::<T>::insert(id, total_vortex_bootstrap);
 
 			Ok(().into())
-		}*/
+		}
 
 		fn do_reward_calculation(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
-			//get era info for this reward cycle
-			let (era_start, era_end) = VtxDistEras::<T>::get(id);
-			//calc total reward points and total effective balance
-			let total_effective_balance = TotalEffectiveBalanceEra::<T>::get(id);
-			let total_work_points = TotalWorkPointsEra::<T>::get(id);
+			// fetch and calculate reward pool balances
+			let total_network_reward = TotalNetworkReward::<T>::get(id);
+			let total_bootstrap_reward = TotalBootstrapReward::<T>::get(id);
+			// Ref -> https://docs.therootnetwork.com/intro/learn/tokenomics#how-are-rewards-distributed
+			let total_staker_pool =
+				total_bootstrap_reward + Perbill::from_percent(30) * total_network_reward; // bootstrap + 30% of network rewards
+			let total_workpoints_pool = Perbill::from_percent(70) * total_network_reward; // 70% of network rewards
+			let total_staker_points = TotalRewardPoints::<T>::get(id);
+			let total_work_points = TotalWorkPoints::<T>::get(id);
+			
 			let mut account_ids: BoundedVec<T::AccountId, T::MaxRewards> = BoundedVec::default();
-			for era in era_start..=era_end {
-				for (account_id, _) in EffectiveBalancesWorkPoints::<T>::iter_prefix((id, era)) {
-					if !account_ids.contains(&account_id) {
-						account_ids
-							.try_push(account_id)
-							.map_err(|_| Error::<T>::ExceededMaxRewards)?;
-					}
+			// Iterate RewardPoints to capture all the accounts in this reward cycle.
+			// This means all validators, nominators and stakers should be in this map.
+			// Note that all accounts, even with 0 staker rewards must be registered onchain 
+			// as this is the reference to capture all accounts for this cycle.
+			for (account_id, _) in RewardPoints::<T>::iter_prefix(id) {
+				if !account_ids.contains(&account_id) {
+					account_ids
+						.try_push(account_id)
+						.map_err(|_| Error::<T>::ExceededMaxRewards)?;
 				}
 			}
 
-			//calc each account id's reward portion
+			// Calculate and register each account's reward portion
 			for account_id in &account_ids {
-				let account_total_effective_balance: BalanceOf<T> =
-					AccountTotalEffectiveBalance::<T>::get(id, account_id.clone());
-				let account_total_work_points: BalanceOf<T> =
-					AccountTotalWorkPoints::<T>::get(id, account_id.clone());
+				let account_staker_points: BalanceOf<T> =
+					RewardPoints::<T>::get(id, account_id.clone());
+				let account_work_points: BalanceOf<T> =
+					WorkPoints::<T>::get(id, account_id.clone());
 
-				let balance_portion = Perbill::from_rational(
-					account_total_effective_balance,
-					total_effective_balance,
+				let staker_point_portion = Perbill::from_rational(
+					account_staker_points,
+					total_staker_points,
 				);
 				let work_points_portion =
-					Perbill::from_rational(account_total_work_points, total_work_points);
-
-				let total_vortex_network_reward = TotalNetworkReward::<T>::get(id);
-				let ind_vortex_balance_network_reward =
-					balance_portion * Perbill::from_percent(30) * total_vortex_network_reward;
-				let ind_vortex_wk_points_network_reward =
-					work_points_portion * Perbill::from_percent(70) * total_vortex_network_reward;
-
-				let total_vortex_bootstrap_reward = TotalBootstrapReward::<T>::get(id);
-				// let reward_work_points_portion = work_points_portion * Perbill::from_percent(70)
-				// * total_bootstrap_reward;
-
-				let ind_vortex_network_reward =
-					ind_vortex_balance_network_reward + ind_vortex_wk_points_network_reward;
-
-				let ind_vortex_bootstrap_reward = balance_portion * total_vortex_bootstrap_reward;
-
-				let final_reward = ind_vortex_network_reward + ind_vortex_bootstrap_reward;
+					Perbill::from_rational(account_work_points, total_work_points);
+				
+				let account_work_point_reward = work_points_portion * total_workpoints_pool;
+				let account_staker_reward = staker_point_portion * total_staker_pool;
+				let final_reward = account_work_point_reward + account_staker_reward;
 				VtxDistOrderbook::<T>::mutate(id, account_id, |entry| {
 					*entry = (entry.0.saturating_add(final_reward), entry.1);
 				});
