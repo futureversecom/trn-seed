@@ -73,7 +73,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `LiquidityPools::Pools` (r:0 w:1)
 	// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
 	fn create_pool() -> Weight {
-		Weight::from_all(53_000_000)
+		Weight::from_all(54_000_000)
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
@@ -90,7 +90,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `LiquidityPools::PoolRelationships` (r:0 w:1)
 	// Proof: `LiquidityPools::PoolRelationships` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
 	fn close_pool() -> Weight {
-		Weight::from_all(94_000_000)
+		Weight::from_all(96_000_000)
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(11))
 	}
@@ -123,7 +123,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `LiquidityPools::PoolUsers` (r:1 w:1)
 	// Proof: `LiquidityPools::PoolUsers` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
 	fn enter_pool() -> Weight {
-		Weight::from_all(57_000_000)
+		Weight::from_all(60_000_000)
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(7))
 	}
@@ -155,7 +155,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn claim_reward() -> Weight {
-		Weight::from_all(92_000_000)
+		Weight::from_all(94_000_000)
 			.saturating_add(T::DbWeight::get().reads(12))
 			.saturating_add(T::DbWeight::get().writes(10))
 	}
@@ -185,7 +185,7 @@ impl WeightInfo for () {
 	// Storage: `LiquidityPools::Pools` (r:0 w:1)
 	// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
 	fn create_pool() -> Weight {
-		Weight::from_all(53_000_000)
+		Weight::from_all(54_000_000)
 			.saturating_add(RocksDbWeight::get().reads(7))
 			.saturating_add(RocksDbWeight::get().writes(6))
 	}
@@ -202,7 +202,7 @@ impl WeightInfo for () {
 	// Storage: `LiquidityPools::PoolRelationships` (r:0 w:1)
 	// Proof: `LiquidityPools::PoolRelationships` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
 	fn close_pool() -> Weight {
-		Weight::from_all(94_000_000)
+		Weight::from_all(96_000_000)
 			.saturating_add(RocksDbWeight::get().reads(9))
 			.saturating_add(RocksDbWeight::get().writes(11))
 	}
@@ -235,7 +235,7 @@ impl WeightInfo for () {
 	// Storage: `LiquidityPools::PoolUsers` (r:1 w:1)
 	// Proof: `LiquidityPools::PoolUsers` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
 	fn enter_pool() -> Weight {
-		Weight::from_all(57_000_000)
+		Weight::from_all(60_000_000)
 			.saturating_add(RocksDbWeight::get().reads(7))
 			.saturating_add(RocksDbWeight::get().writes(7))
 	}
@@ -267,7 +267,7 @@ impl WeightInfo for () {
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn claim_reward() -> Weight {
-		Weight::from_all(92_000_000)
+		Weight::from_all(94_000_000)
 			.saturating_add(RocksDbWeight::get().reads(12))
 			.saturating_add(RocksDbWeight::get().writes(10))
 	}
