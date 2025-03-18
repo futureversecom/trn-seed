@@ -15,7 +15,9 @@
 
 use crate as pallet_vortex_distribution;
 use frame_support::traits::{ConstU32, Hooks};
+use pallet_staking::BalanceOf;
 use seed_pallet_common::test_prelude::*;
+use sp_runtime::traits::Zero;
 use sp_runtime::{testing::TestXt, BuildStorage};
 use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 
@@ -30,6 +32,42 @@ pub fn run_to_block(n: u64) {
 		Vortex::on_initialize(System::block_number());
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME);
 	}
+}
+
+pub fn calculate_vtx_price(
+	assets: &Vec<(AssetId, Balance)>,
+	prices: &Vec<(AssetId, Balance)>,
+	vtx_total_supply: BalanceOf<Test>,
+) -> Balance {
+	let mut asset_value_usd = 0_u128;
+	for i in 0..assets.len() {
+		asset_value_usd += assets[i].1 * prices[i].1;
+	}
+	let vtx_price = if vtx_total_supply == Zero::zero() {
+		1u128.into()
+	} else {
+		asset_value_usd / vtx_total_supply
+	};
+	vtx_price
+}
+
+pub fn calculate_vtx(
+	assets: &Vec<(AssetId, Balance)>,
+	prices: &Vec<(AssetId, Balance)>,
+	bootstrap_root: BalanceOf<Test>,
+	root_price: BalanceOf<Test>,
+	vtx_price: BalanceOf<Test>,
+) -> (Balance, Balance, Balance) {
+	let mut fee_vault_asset_value = 0_u128;
+	for i in 0..assets.len() {
+		fee_vault_asset_value += assets[i].1 * prices[i].1;
+	}
+	let bootstrap_asset_value = bootstrap_root * root_price;
+	let total_vortex_network_reward = fee_vault_asset_value / vtx_price;
+	let total_vortex_bootstrap = bootstrap_asset_value / vtx_price;
+	let total_vortex = total_vortex_network_reward + total_vortex_bootstrap;
+
+	(total_vortex_network_reward, total_vortex_bootstrap, total_vortex)
 }
 
 construct_runtime!(
