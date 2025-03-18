@@ -972,8 +972,8 @@ pub mod pallet {
 		/// - `interest_rate`: The interest rate for the pool, expressed in basis points.
 		/// - `interest_rate_base_point`: The divisor used to convert the basis point interest rate
 		///   into a proportion.
-		/// - `asset_decimals`: The number of decimal places used for the asset token.
-		/// - `native_decimals`: The number of decimal places used for the native token.
+		/// - `staked_asset_decimals`: The number of decimal places used for the asset token.
+		/// - `reward_asset_decimals`: The number of decimal places used for the native token.
 		///
 		/// Returns:
 		/// - The calculated reward amount in native tokens, after adjusting for decimal places and
@@ -983,8 +983,8 @@ pub mod pallet {
 			reward_debt: Balance,
 			interest_rate: u32,
 			interest_rate_base_point: u32,
-			asset_decimals: u8,
-			native_decimals: u8,
+			staked_asset_decimals: u8,
+			reward_asset_decimals: u8,
 		) -> Balance {
 			// Calculate reward in asset token
 			let mut reward = multiply_by_rational_with_rounding(
@@ -998,12 +998,14 @@ pub mod pallet {
 			reward = reward.saturating_sub(reward_debt);
 
 			// Convert reward to native token based on decimals
-			if asset_decimals > native_decimals {
-				reward = reward
-					.saturating_div(10_u128.pow((asset_decimals - native_decimals).into()).into());
-			} else if asset_decimals < native_decimals {
-				reward = reward
-					.saturating_mul(10_u128.pow((native_decimals - asset_decimals).into()).into());
+			if staked_asset_decimals > reward_asset_decimals {
+				reward = reward.saturating_div(
+					10_u128.pow((staked_asset_decimals - reward_asset_decimals).into()).into(),
+				);
+			} else if staked_asset_decimals < reward_asset_decimals {
+				reward = reward.saturating_mul(
+					10_u128.pow((reward_asset_decimals - staked_asset_decimals).into()).into(),
+				);
 			}
 			reward
 		}
