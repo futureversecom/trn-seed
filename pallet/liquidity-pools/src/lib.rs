@@ -17,7 +17,7 @@ extern crate alloc;
 
 pub use pallet::*;
 
-use crate::alloc::{borrow::ToOwned, vec::Vec};
+use crate::alloc::vec::Vec;
 use frame_support::{
 	log,
 	pallet_prelude::*,
@@ -847,73 +847,58 @@ pub mod pallet {
 				return Weight::zero();
 			}
 
-			let mut pool_updates = Vec::new();
-
+			// Iterate through all pools once and update directly
 			for (id, pool_info) in Pools::<T>::iter() {
-				match pool_info.pool_status {
-					PoolStatus::Open => {
-						if pool_info.lock_start_block <= now {
-							if remaining_weight.all_lte(
-								cost_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1)),
-							) {
-								return cost_weight;
-							}
+				let update_cost = T::DbWeight::get().reads_writes(1, 1);
 
-							cost_weight =
-								cost_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
-
-							pool_updates.push((id, PoolStatus::Started, now));
-						}
-					},
-					PoolStatus::Started => {
-						if pool_info.lock_end_block <= now {
-							if remaining_weight.all_lte(
-								cost_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1)),
-							) {
-								return cost_weight;
-							}
-
-							// Transfer remaining tokens back to vault account
-							Self::refund_surplus_reward(id, &pool_info).unwrap_or_default();
-
-							cost_weight =
-								cost_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
-							// Check for successor
-							let successor_id =
-								PoolRelationships::<T>::get(id).unwrap_or_default().successor_id;
-							if successor_id.is_some() {
-								pool_updates.push((id, PoolStatus::Renewing, now));
-							} else {
-								pool_updates.push((id, PoolStatus::Matured, now));
-							}
-						}
-					},
-					_ => continue,
+				// Check if we have enough weight left
+				if remaining_weight.all_lte(cost_weight.saturating_add(update_cost)) {
+					return cost_weight;
 				}
-			}
 
-			for (id, status, last_updated) in pool_updates {
-				Pools::<T>::mutate(id, |pool| {
-					if let Some(pool_info) = pool {
-						*pool = Some(PoolInfo {
-							pool_status: status,
-							last_updated,
-							..pool_info.to_owned()
+				match pool_info.pool_status {
+					PoolStatus::Open if pool_info.lock_start_block <= now => {
+						// Update pool to Started status
+						Pools::<T>::mutate(id, |pool| {
+							pool.as_mut().map(|pool_info| {
+								pool_info.pool_status = PoolStatus::Started;
+								pool_info.last_updated = now;
+								Self::deposit_event(Event::PoolStarted { pool_id: id });
+							});
 						});
-						match status {
-							PoolStatus::Started => {
-								Self::deposit_event(Event::PoolStarted { pool_id: id })
-							},
-							PoolStatus::Renewing => {
-								Self::deposit_event(Event::PoolRenewing { pool_id: id })
-							},
-							PoolStatus::Matured => {
-								Self::deposit_event(Event::PoolMatured { pool_id: id })
-							},
-							_ => {},
-						}
-					}
-				});
+						cost_weight = cost_weight.saturating_add(update_cost);
+					},
+					PoolStatus::Started if pool_info.lock_end_block <= now => {
+						// Transfer remaining tokens back to vault account
+						Self::refund_surplus_reward(id, &pool_info).unwrap_or_default();
+
+						// Check for successor
+						let has_successor = PoolRelationships::<T>::get(id)
+							.unwrap_or_default()
+							.successor_id
+							.is_some();
+						if has_successor {
+							Pools::<T>::mutate(id, |pool| {
+								pool.as_mut().map(|pool_info| {
+									pool_info.pool_status = PoolStatus::Renewing;
+									pool_info.last_updated = now;
+									Self::deposit_event(Event::PoolRenewing { pool_id: id });
+								});
+							});
+						} else {
+							Pools::<T>::mutate(id, |pool| {
+								pool.as_mut().map(|pool_info| {
+									pool_info.pool_status = PoolStatus::Matured;
+									pool_info.last_updated = now;
+									Self::deposit_event(Event::PoolMatured { pool_id: id });
+								});
+							});
+						};
+
+						cost_weight = cost_weight.saturating_add(update_cost);
+					},
+					_ => {}, // No update needed
+				}
 			}
 
 			cost_weight
