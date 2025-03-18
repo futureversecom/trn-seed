@@ -572,8 +572,8 @@ pub mod pallet {
 		#[transactional]
 		pub fn set_asset_prices(
 			origin: OriginFor<T>,
-			asset_prices: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 			id: T::VtxDistIdentifier,
+			asset_prices: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_root_or_admin(origin)?;
 			Self::do_asset_price_setter(asset_prices, id)
@@ -751,7 +751,7 @@ pub mod pallet {
 			Self::ensure_root_or_admin(origin)?;
 			let dst_status = VtxDistStatuses::<T>::get(id);
 			ensure!(dst_status == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
-			let mut total_work_points = TotalRewardPoints::<T>::get(id);
+			let mut total_work_points = TotalWorkPoints::<T>::get(id);
 			for (account, w_points) in work_points {
 				let current_work_points = WorkPoints::<T>::get(id, account.clone());
 				if current_work_points != Default::default() {
