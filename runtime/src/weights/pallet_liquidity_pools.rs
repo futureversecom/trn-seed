@@ -36,72 +36,76 @@ impl<T: frame_system::Config> pallet_liquidity_pools::WeightInfo for WeightInfo<
 	/// Proof: `LiquidityPools::NextPoolId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Assets::Metadata` (r:2 w:0)
 	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:2 w:2)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
-	/// Storage: `LiquidityPools::Pools` (r:0 w:1)
-	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
-	fn create_pool() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `468`
-		//  Estimated: `6220`
-		// Minimum execution time: 64_000_000 picoseconds.
-		Weight::from_parts(65_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 6220))
-			.saturating_add(T::DbWeight::get().reads(5))
-			.saturating_add(T::DbWeight::get().writes(4))
-	}
-	/// Storage: `LiquidityPools::Pools` (r:1 w:1)
-	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:2 w:2)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
 	/// Storage: `Assets::Account` (r:2 w:2)
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
+	/// Storage: `LiquidityPools::Pools` (r:0 w:1)
+	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
+	fn create_pool() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `640`
+		//  Estimated: `6220`
+		// Minimum execution time: 52_000_000 picoseconds.
+		Weight::from_parts(53_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6220))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(6))
+	}
+	/// Storage: `LiquidityPools::Pools` (r:1 w:1)
+	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:4 w:4)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Asset` (r:2 w:2)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// Storage: `LiquidityPools::RolloverPivot` (r:0 w:1)
 	/// Proof: `LiquidityPools::RolloverPivot` (`max_values`: None, `max_size`: Some(1014), added: 3489, mode: `MaxEncodedLen`)
 	/// Storage: `LiquidityPools::PoolRelationships` (r:0 w:1)
 	/// Proof: `LiquidityPools::PoolRelationships` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
 	fn close_pool() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `856`
-		//  Estimated: `6172`
-		// Minimum execution time: 95_000_000 picoseconds.
-		Weight::from_parts(96_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 6172))
-			.saturating_add(T::DbWeight::get().reads(6))
-			.saturating_add(T::DbWeight::get().writes(8))
+		//  Measured:  `1261`
+		//  Estimated: `11330`
+		// Minimum execution time: 88_000_000 picoseconds.
+		Weight::from_parts(90_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 11330))
+			.saturating_add(T::DbWeight::get().reads(9))
+			.saturating_add(T::DbWeight::get().writes(11))
 	}
 	/// Storage: `LiquidityPools::Pools` (r:2 w:0)
-	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
+	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
 	/// Storage: `LiquidityPools::PoolRelationships` (r:0 w:1)
 	/// Proof: `LiquidityPools::PoolRelationships` (`max_values`: None, `max_size`: Some(17), added: 2492, mode: `MaxEncodedLen`)
 	fn set_pool_succession() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `319`
-		//  Estimated: `6118`
+		//  Measured:  `327`
+		//  Estimated: `6126`
 		// Minimum execution time: 13_000_000 picoseconds.
 		Weight::from_parts(14_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 6118))
+			.saturating_add(Weight::from_parts(0, 6126))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `LiquidityPools::Pools` (r:1 w:0)
-	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
+	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
 	/// Storage: `LiquidityPools::PoolUsers` (r:1 w:1)
 	/// Proof: `LiquidityPools::PoolUsers` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
 	fn set_pool_rollover() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `315`
-		//  Estimated: `3554`
+		//  Measured:  `319`
+		//  Estimated: `3558`
 		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(13_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3554))
+		Weight::from_parts(14_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 3558))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `LiquidityPools::Pools` (r:1 w:1)
-	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
+	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
 	/// Storage: `Assets::Account` (r:2 w:2)
@@ -112,16 +116,16 @@ impl<T: frame_system::Config> pallet_liquidity_pools::WeightInfo for WeightInfo<
 	/// Proof: `LiquidityPools::PoolUsers` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
 	fn enter_pool() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `911`
+		//  Measured:  `982`
 		//  Estimated: `6172`
-		// Minimum execution time: 59_000_000 picoseconds.
-		Weight::from_parts(59_000_000, 0)
+		// Minimum execution time: 55_000_000 picoseconds.
+		Weight::from_parts(58_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 6172))
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(7))
 	}
 	/// Storage: `LiquidityPools::Pools` (r:1 w:1)
-	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
+	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
 	/// Storage: `LiquidityPools::PoolUsers` (r:1 w:1)
 	/// Proof: `LiquidityPools::PoolUsers` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
 	/// Storage: `Assets::Asset` (r:1 w:1)
@@ -132,47 +136,47 @@ impl<T: frame_system::Config> pallet_liquidity_pools::WeightInfo for WeightInfo<
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn exit_pool() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `919`
+		//  Measured:  `990`
 		//  Estimated: `6172`
 		// Minimum execution time: 57_000_000 picoseconds.
-		Weight::from_parts(60_000_000, 0)
+		Weight::from_parts(59_000_000, 0)
 			.saturating_add(Weight::from_parts(0, 6172))
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(7))
 	}
 	/// Storage: `LiquidityPools::Pools` (r:1 w:1)
-	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
+	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
 	/// Storage: `LiquidityPools::PoolUsers` (r:1 w:1)
 	/// Proof: `LiquidityPools::PoolUsers` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
 	/// Storage: `Assets::Metadata` (r:2 w:0)
 	/// Proof: `Assets::Metadata` (`max_values`: None, `max_size`: Some(140), added: 2615, mode: `MaxEncodedLen`)
-	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Storage: `Assets::Asset` (r:2 w:2)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
-	/// Storage: `Assets::Account` (r:2 w:2)
+	/// Storage: `Assets::Account` (r:4 w:4)
 	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn claim_reward() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1028`
-		//  Estimated: `6220`
-		// Minimum execution time: 95_000_000 picoseconds.
-		Weight::from_parts(101_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 6220))
-			.saturating_add(T::DbWeight::get().reads(9))
-			.saturating_add(T::DbWeight::get().writes(7))
+		//  Measured:  `1263`
+		//  Estimated: `11330`
+		// Minimum execution time: 90_000_000 picoseconds.
+		Weight::from_parts(92_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 11330))
+			.saturating_add(T::DbWeight::get().reads(12))
+			.saturating_add(T::DbWeight::get().writes(10))
 	}
 	/// Storage: `LiquidityPools::Pools` (r:1 w:0)
-	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(89), added: 2564, mode: `MaxEncodedLen`)
+	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
 	/// Storage: `LiquidityPools::NextRolloverUnsignedAt` (r:0 w:1)
 	/// Proof: `LiquidityPools::NextRolloverUnsignedAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn rollover_unsigned() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `323`
-		//  Estimated: `3554`
+		//  Measured:  `327`
+		//  Estimated: `3558`
 		// Minimum execution time: 12_000_000 picoseconds.
 		Weight::from_parts(13_000_000, 0)
-			.saturating_add(Weight::from_parts(0, 3554))
+			.saturating_add(Weight::from_parts(0, 3558))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
