@@ -908,12 +908,12 @@ pub mod pallet {
 			match Self::do_offchain_worker(now) {
 				Ok(_) => log::debug!(
 				  target: "liquidity-pools offchain worker",
-				  "offchain worker start at block: {:?} already done!",
+				  "🤖 offchain worker start at block: {:?}; done.",
 				  now,
 				),
 				Err(e) => log::error!(
 					target: "liquidity-pools offchain worker",
-					"error happened in offchain worker at {:?}: {:?}",
+					"⛔️ offchain worker error at block [{:?}]: {:?}",
 					now,
 					e,
 				),
@@ -927,16 +927,9 @@ pub mod pallet {
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 
-		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			match call {
 				Call::rollover_unsigned { id, current_block } => {
-					if !matches!(source, TransactionSource::Local) {
-						return InvalidTransaction::Custom(
-							ValidateError::WrongTransactionSource as u8,
-						)
-						.into();
-					}
-
 					let block_number = <frame_system::Pallet<T>>::block_number();
 					if &block_number < current_block {
 						return InvalidTransaction::Future.into();
@@ -951,10 +944,6 @@ pub mod pallet {
 				_ => InvalidTransaction::Call.into(),
 			}
 		}
-	}
-
-	enum ValidateError {
-		WrongTransactionSource,
 	}
 
 	impl<T: Config> Pallet<T> {
