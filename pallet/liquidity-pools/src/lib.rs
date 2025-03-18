@@ -88,10 +88,6 @@ pub mod pallet {
 		/// the attendence and rewarding of assets.
 		type PoolId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 
-		/// The native token asset Id (managed by pallet-balances)
-		#[pallet::constant]
-		type NativeAssetId: Get<AssetId>;
-
 		/// Unsigned transaction interval
 		#[pallet::constant]
 		type UnsignedInterval: Get<BlockNumberFor<Self>>;
@@ -159,7 +155,8 @@ pub mod pallet {
 		/// Reward pool created, user could join pool
 		PoolOpen {
 			pool_id: T::PoolId,
-			asset_id: AssetId,
+			reward_asset_id: AssetId,
+			staked_asset_id: AssetId,
 			interest_rate: u32,
 			max_tokens: Balance,
 			lock_start_block: BlockNumberFor<T>,
@@ -174,8 +171,8 @@ pub mod pallet {
 		/// Pool closed, no more users can join.
 		PoolClosed {
 			pool_id: T::PoolId,
-			native_asset_amount: Balance,
 			reward_asset_amount: Balance,
+			staked_asset_amount: Balance,
 			reciever: T::AccountId,
 		},
 		/// Set pool successor, when predecessor pool is done, users will be rolled over to
@@ -269,7 +266,8 @@ pub mod pallet {
 		#[transactional]
 		pub fn create_pool(
 			origin: OriginFor<T>,
-			asset_id: AssetId,
+			reward_asset_id: AssetId,
+			staked_asset_id: AssetId,
 			interest_rate: u32,
 			max_tokens: Balance,
 			lock_start_block: BlockNumberFor<T>,
@@ -294,14 +292,14 @@ pub mod pallet {
 				0,
 				interest_rate,
 				T::InterestRateBasePoint::get(),
-				T::MultiCurrency::decimals(asset_id),
-				T::MultiCurrency::decimals(T::NativeAssetId::get()),
+				T::MultiCurrency::decimals(staked_asset_id),
+				T::MultiCurrency::decimals(reward_asset_id),
 			);
 
 			// Transfer max rewards to pool vault account
 			if max_rewards > 0 {
 				T::MultiCurrency::transfer(
-					T::NativeAssetId::get(),
+					reward_asset_id,
 					&creator,
 					&Self::get_vault_account(id),
 					max_rewards,
@@ -312,7 +310,8 @@ pub mod pallet {
 			let pool_info = PoolInfo {
 				id,
 				creator,
-				asset_id,
+				reward_asset_id,
+				staked_asset_id,
 				interest_rate,
 				max_tokens,
 				last_updated: frame_system::Pallet::<T>::block_number(),
@@ -325,7 +324,8 @@ pub mod pallet {
 
 			Self::deposit_event(Event::PoolOpen {
 				pool_id: id,
-				asset_id,
+				reward_asset_id,
+				staked_asset_id,
 				interest_rate,
 				max_tokens,
 				lock_start_block,
@@ -382,7 +382,7 @@ pub mod pallet {
 				Error::<T>::SuccessorPoolSizeShouldBeLockedAfterPredecessor
 			);
 			ensure!(
-				successor_pool.asset_id == predecessor_pool.asset_id,
+				successor_pool.staked_asset_id == predecessor_pool.staked_asset_id,
 				Error::<T>::RolloverPoolsShouldBeTheSameAsset
 			);
 
@@ -463,22 +463,22 @@ pub mod pallet {
 			ensure!(pool.creator == creator, Error::<T>::NotPoolCreator);
 
 			let pool_vault_account = Self::get_vault_account(id);
-			let native_asset_amount =
-				T::MultiCurrency::balance(T::NativeAssetId::get(), &pool_vault_account);
+			let reward_asset_amount =
+				T::MultiCurrency::balance(pool.reward_asset_id, &pool_vault_account);
 
-			if native_asset_amount > 0 {
+			if reward_asset_amount > 0 {
 				T::MultiCurrency::transfer(
-					T::NativeAssetId::get(),
+					pool.reward_asset_id,
 					&pool_vault_account,
 					&creator,
-					native_asset_amount,
+					reward_asset_amount,
 					Preservation::Expendable,
 				)?;
 			}
 
 			if pool.locked_amount > 0 {
 				T::MultiCurrency::transfer(
-					pool.asset_id,
+					pool.staked_asset_id,
 					&pool_vault_account,
 					&creator,
 					pool.locked_amount,
@@ -493,8 +493,8 @@ pub mod pallet {
 
 			Self::deposit_event(Event::PoolClosed {
 				pool_id: id,
-				native_asset_amount,
-				reward_asset_amount: pool.locked_amount,
+				reward_asset_amount,
+				staked_asset_amount: pool.locked_amount,
 				reciever: creator,
 			});
 			Ok(())
@@ -537,7 +537,7 @@ pub mod pallet {
 			);
 
 			T::MultiCurrency::transfer(
-				pool.asset_id,
+				pool.staked_asset_id,
 				&who,
 				&vault_account,
 				amount,
@@ -589,7 +589,7 @@ pub mod pallet {
 
 			let amount = user_info.amount;
 			T::MultiCurrency::transfer(
-				pool.asset_id,
+				pool.staked_asset_id,
 				&pool_vault_account,
 				&who,
 				amount,
@@ -639,15 +639,15 @@ pub mod pallet {
 				user_info.reward_debt,
 				pool.interest_rate,
 				T::InterestRateBasePoint::get(),
-				T::MultiCurrency::decimals(pool.asset_id),
-				T::MultiCurrency::decimals(T::NativeAssetId::get()),
+				T::MultiCurrency::decimals(pool.staked_asset_id),
+				T::MultiCurrency::decimals(pool.reward_asset_id),
 			);
 
 			if reward > Zero::zero() {
 				let amount = if user_info.should_rollover == false || user_info.rolled_over == false
 				{
 					T::MultiCurrency::transfer(
-						pool.asset_id,
+						pool.staked_asset_id,
 						&pool_vault_account,
 						&who,
 						user_info.amount,
@@ -660,7 +660,7 @@ pub mod pallet {
 
 				// Transfer reward to user
 				T::MultiCurrency::transfer(
-					T::NativeAssetId::get(),
+					pool.reward_asset_id,
 					&pool_vault_account,
 					&who,
 					reward,
@@ -799,7 +799,7 @@ pub mod pallet {
 
 					// Transfer rollover amount to successor pool
 					T::MultiCurrency::transfer(
-						pool_info.asset_id,
+						pool_info.staked_asset_id,
 						&pool_vault_account,
 						&successor_vault_account,
 						rollover_amount,
@@ -1076,13 +1076,13 @@ pub mod pallet {
 				Zero::zero(),
 				pool_info.interest_rate,
 				T::InterestRateBasePoint::get(),
-				T::MultiCurrency::decimals(pool_info.asset_id),
-				T::MultiCurrency::decimals(T::NativeAssetId::get()),
+				T::MultiCurrency::decimals(pool_info.staked_asset_id),
+				T::MultiCurrency::decimals(pool_info.reward_asset_id),
 			);
 			let pool_vault_account = Self::get_vault_account(pool_id);
 			if reward > Zero::zero() {
 				T::MultiCurrency::transfer(
-					T::NativeAssetId::get(),
+					pool_info.reward_asset_id,
 					&pool_vault_account,
 					&pool_info.creator,
 					reward,

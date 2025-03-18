@@ -488,7 +488,6 @@ impl pallet_liquidity_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = LiquidityPoolsPalletId;
 	type UnsignedInterval = LiquidityPoolsUnsignedInterval;
-	type NativeAssetId = RootAssetId;
 	type PoolId = u32;
 	type MaxStringLength = MaxStringLength;
 	type RolloverBatchSize = RolloverBatchSize;

@@ -36,7 +36,6 @@ impl_pallet_assets_ext_config!(Test);
 
 parameter_types! {
 	pub const LiquidityPoolsPalletId: PalletId = PalletId(*b"lqdpools");
-	pub const RootAssetId: AssetId = ROOT_ASSET_ID;
 	pub const InterestRateBasePoint: u32 = 1_000_000;
 	pub const UnsignedInterval: u32 =  5;
 	pub const RolloverBatchSize: u32 = 10;
@@ -48,7 +47,6 @@ impl crate::Config for Test {
 	type PoolId = u32;
 	type InterestRateBasePoint = InterestRateBasePoint;
 	type MultiCurrency = AssetsExt;
-	type NativeAssetId = RootAssetId;
 	type PalletId = LiquidityPoolsPalletId;
 	type UnsignedInterval = UnsignedInterval;
 	type RolloverBatchSize = RolloverBatchSize;
