@@ -39,35 +39,40 @@ fn mint_asset<T: Config>() -> AssetId {
 benchmarks! {
 
 	create_pool {
+		let reward_asset_id = mint_asset::<T>();
+		let staked_asset_id = mint_asset::<T>();
+
 		let creator = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get().into(), &creator, 100_000_000u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, 100_000_000u32.into()));
 
 		let next_pool_id = NextPoolId::<T>::get();
-		let asset_id = mint_asset::<T>();
 		let interest_rate = 1_000_000;
 		let max_tokens = 100u32.into();
 		let start_block = 10u32.into();
 		let end_block = 50u32.into();
-	}: _(RawOrigin::Signed(creator), asset_id, interest_rate, max_tokens, start_block, end_block)
+	}: _(RawOrigin::Signed(creator), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block)
 	verify {
 		assert!(Pools::<T>::get(next_pool_id).is_some());
 	}
 
 	close_pool {
+		let reward_asset_id = mint_asset::<T>();
+		let staked_asset_id = mint_asset::<T>();
+
 		let creator = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get().into(), &creator, 100_000_000u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, 100_000_000u32.into()));
 
 		let next_pool_id = NextPoolId::<T>::get();
-		let asset_id = mint_asset::<T>();
+
 		let interest_rate = 1_000_000;
 		let max_tokens = 100u32.into();
 		let start_block = 10u32.into();
 		let end_block = 50u32.into();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 
 		// create pool user; enter pool as a user
 		let user = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(asset_id.into(), &user, 10u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(staked_asset_id.into(), &user, 10u32.into()));
 
 		// Open pool
 		Pools::<T>::mutate(next_pool_id, |pool| {
@@ -85,23 +90,25 @@ benchmarks! {
 	}
 
 	set_pool_succession {
+		let reward_asset_id = mint_asset::<T>();
+		let staked_asset_id = mint_asset::<T>();
+
 		let creator = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get().into(), &creator, 300_000_000u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, 300_000_000u32.into()));
 
 		// Insert test pools
-		let asset_id = mint_asset::<T>();
 		let interest_rate = 1_000_000;
 		let max_tokens = 100u32.into();
 		let start_block = 4u32.into();
 		let end_block = 5u32.into();
 
 		let predecessor_id = NextPoolId::<T>::get();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 
 		let successor_id = NextPoolId::<T>::get();
 		let start_block = 6u32.into();
 		let end_block = 7u32.into();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 	}: _(RawOrigin::Signed(creator), predecessor_id, successor_id)
 	verify {
 		assert_eq!(PoolRelationships::<T>::get(predecessor_id).unwrap().successor_id, Some(successor_id));
@@ -109,14 +116,15 @@ benchmarks! {
 
 	// Update user rollover preference
 	set_pool_rollover {
-		let asset_id = mint_asset::<T>();
+		let reward_asset_id = mint_asset::<T>();
+		let staked_asset_id = mint_asset::<T>();
 
 		let creator = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get().into(), &creator, 100_000_000u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, 100_000_000u32.into()));
 
 		// Mint asset to user
 		let user = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(asset_id.into(), &user, 10u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(staked_asset_id.into(), &user, 10u32.into()));
 
 		// Insert test pool user
 		let id = NextPoolId::<T>::get();
@@ -124,7 +132,7 @@ benchmarks! {
 		let max_tokens = 100u32.into();
 		let start_block = 10u32.into();
 		let end_block = 50u32.into();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 
 		// Open pool
 		Pools::<T>::mutate(id, |pool| {
@@ -142,15 +150,16 @@ benchmarks! {
 	}
 
 	enter_pool {
-		let asset_id = mint_asset::<T>();
+		let reward_asset_id = mint_asset::<T>();
+		let staked_asset_id = mint_asset::<T>();
 
 		// Mint asset to creator
 		let creator = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get().into(), &creator, 100_000_000u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, 100_000_000u32.into()));
 
 		// Mint asset to user
 		let user = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(asset_id.into(), &user, 10u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(staked_asset_id.into(), &user, 10u32.into()));
 
 		// Create pool
 		let id = NextPoolId::<T>::get();
@@ -158,7 +167,7 @@ benchmarks! {
 		let max_tokens = 100u32.into();
 		let start_block = 10u32.into();
 		let end_block = 50u32.into();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 
 		// Manually open pool
 		Pools::<T>::mutate(id, |pool| {
@@ -175,15 +184,16 @@ benchmarks! {
 	}
 
 	exit_pool {
-		let asset_id = mint_asset::<T>();
+		let reward_asset_id = mint_asset::<T>();
+		let staked_asset_id = mint_asset::<T>();
 
 		// Mint asset to creator
 		let creator = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get().into(), &creator, 100_000_000u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, 100_000_000u32.into()));
 
 		// Mint asset to user
 		let user = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(asset_id.into(), &user, 10u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(staked_asset_id.into(), &user, 10u32.into()));
 
 		// Create pool
 		let id = NextPoolId::<T>::get();
@@ -191,7 +201,7 @@ benchmarks! {
 		let max_tokens = 100u32.into();
 		let start_block = 10u32.into();
 		let end_block = 50u32.into();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 
 		// Manually open pool
 		Pools::<T>::mutate(id, |pool| {
@@ -209,15 +219,16 @@ benchmarks! {
 	}
 
 	claim_reward {
-		let asset_id = mint_asset::<T>();
+		let reward_asset_id = mint_asset::<T>();
+		let staked_asset_id = mint_asset::<T>();
 
 		// Mint asset to creator
 		let creator = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get().into(), &creator, 100_000_000u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, 100_000_000u32.into()));
 
 		// Mint asset to user
 		let user = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(asset_id.into(), &user, 10u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(staked_asset_id.into(), &user, 10u32.into()));
 
 		// Create pool
 		let id = NextPoolId::<T>::get();
@@ -225,7 +236,7 @@ benchmarks! {
 		let max_tokens = 100u32.into();
 		let start_block = 10u32.into();
 		let end_block = 50u32.into();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 
 		// Manually open pool
 		Pools::<T>::mutate(id, |pool| {
@@ -252,13 +263,14 @@ benchmarks! {
 
 	// Unsigned rollover transaction
 	rollover_unsigned {
-		let asset_id = mint_asset::<T>();
+		let reward_asset_id = mint_asset::<T>();
+		let staked_asset_id = mint_asset::<T>();
 
 		let creator = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get().into(), &creator, 200_000_000u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, 200_000_000u32.into()));
 
 		let user = account::<T>();
-		assert_ok!(T::MultiCurrency::mint_into(asset_id.into(), &user, 10u32.into()));
+		assert_ok!(T::MultiCurrency::mint_into(staked_asset_id.into(), &user, 10u32.into()));
 
 		// Insert test pool user
 		let id = NextPoolId::<T>::get();
@@ -266,12 +278,12 @@ benchmarks! {
 		let max_tokens = 100u32.into();
 		let start_block = 10u32.into();
 		let end_block = 50u32.into();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 
 		let successor_id = NextPoolId::<T>::get();
 		let start_block = 51u32.into();
 		let end_block = 60u32.into();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 		assert_ok!(LiquidityPools::<T>::set_pool_succession(RawOrigin::Signed(creator).into(), id, successor_id));
 
 		Pools::<T>::mutate(id, |pool| {
