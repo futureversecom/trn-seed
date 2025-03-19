@@ -617,7 +617,6 @@ pub mod pallet {
 		#[transactional]
 		pub fn redeem_tokens_from_vault(
 			origin: OriginFor<T>,
-			id: T::VtxDistIdentifier,
 			vortex_token_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -630,7 +629,7 @@ pub mod pallet {
 					&& vortex_balance <= T::MultiCurrency::balance(T::VtxAssetId::get(), &who),
 				Error::<T>::InvalidAmount
 			);
-			ensure!(VtxDistStatuses::<T>::get(id) == VtxDistStatus::Done, Error::<T>::CannotRedeem);
+			// ensure!(VtxDistStatuses::<T>::get(id) == VtxDistStatus::Done, Error::<T>::CannotRedeem);
 
 			/*for asset_id in AssetsList::<T>::get(id).into_iter() {
 				// First, we calculate the ratio between the asset balance and the total vortex
@@ -658,7 +657,7 @@ pub mod pallet {
 		/// `id` - The distribution id
 		/// `assets_balances` - List of asset balances
 		#[pallet::call_index(9)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_assets_list(assets_balances.len() as u32))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_fee_pot_asset_balances(assets_balances.len() as u32))]
 		// #[transactional]
 		pub fn set_fee_pot_asset_balances(
 			origin: OriginFor<T>,
@@ -674,7 +673,7 @@ pub mod pallet {
 		/// `id` - The distribution id
 		/// `assets_balances` - List of asset balances
 		#[pallet::call_index(10)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_assets_list(assets_balances.len() as u32))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_vtx_vault_asset_balances(assets_balances.len() as u32))]
 		// #[transactional]
 		pub fn set_vtx_vault_asset_balances(
 			origin: OriginFor<T>,
@@ -690,7 +689,7 @@ pub mod pallet {
 		/// `id` - The distribution id
 		/// `supply` - Vtx total supply
 		#[pallet::call_index(11)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_assets_list(0 as u32))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_vtx_total_supply())]
 		// #[transactional]
 		pub fn set_vtx_total_supply(
 			origin: OriginFor<T>,
@@ -709,7 +708,7 @@ pub mod pallet {
 		/// `id` - The distribution id
 		/// `reward_points` - Reward point list
 		#[pallet::call_index(12)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_reward_points(reward_points.len() as u32))]
 		pub fn register_reward_points(
 			origin: OriginFor<T>,
 			id: T::VtxDistIdentifier,
@@ -742,7 +741,7 @@ pub mod pallet {
 		/// `id` - The distribution id
 		/// `work_points` - work point list
 		#[pallet::call_index(13)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_work_points(work_points.len() as u32))]
 		pub fn register_work_points(
 			origin: OriginFor<T>,
 			id: T::VtxDistIdentifier,
@@ -773,7 +772,7 @@ pub mod pallet {
 		/// Set ConsiderCurrentBalance storage item
 		/// If set to true, token balances at the current block will be taken into account for reward calculation
 		#[pallet::call_index(14)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_admin())]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_consider_current_balance())]
 		pub fn set_consider_current_balance(origin: OriginFor<T>, value: bool) -> DispatchResult {
 			Self::ensure_root_or_admin(origin)?;
 
