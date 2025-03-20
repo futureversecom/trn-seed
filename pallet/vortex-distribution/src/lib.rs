@@ -331,6 +331,18 @@ pub mod pallet {
 			asset_prices: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
 		},
 
+		/// Vtx work points registered
+		VtxWorkPointRegistered {
+			id: T::VtxDistIdentifier,
+			work_points: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
+		},
+
+		/// Vtx staker reward points registered
+		VtxRewardPointRegistered {
+			id: T::VtxDistIdentifier,
+			reward_points: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
+		},
+
 		/// Trigger distribution calculation
 		TriggerVtxDistribution { id: T::VtxDistIdentifier },
 
@@ -718,7 +730,7 @@ pub mod pallet {
 			let dst_status = VtxDistStatuses::<T>::get(id);
 			ensure!(dst_status == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
 			let mut total_reward_points = TotalRewardPoints::<T>::get(id);
-			for (account, r_points) in reward_points {
+			for (account, r_points) in reward_points.clone() {
 				let current_r_points = RewardPoints::<T>::get(id, account.clone());
 				if current_r_points != Default::default() {
 					// means we need to minus the current_r_points and plus r_points from the total_reward_points
@@ -732,6 +744,7 @@ pub mod pallet {
 				RewardPoints::<T>::insert(id, account, r_points);
 			}
 			TotalRewardPoints::<T>::set(id, total_reward_points);
+			Self::deposit_event(Event::VtxRewardPointRegistered { id, reward_points });
 
 			Ok(())
 		}
@@ -751,7 +764,7 @@ pub mod pallet {
 			let dst_status = VtxDistStatuses::<T>::get(id);
 			ensure!(dst_status == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
 			let mut total_work_points = TotalWorkPoints::<T>::get(id);
-			for (account, w_points) in work_points {
+			for (account, w_points) in work_points.clone() {
 				let current_work_points = WorkPoints::<T>::get(id, account.clone());
 				if current_work_points != Default::default() {
 					// means we need to minus the current_work_points and plus w_points from the total_reward_points
@@ -765,6 +778,7 @@ pub mod pallet {
 				WorkPoints::<T>::insert(id, account, w_points);
 			}
 			TotalWorkPoints::<T>::set(id, total_work_points);
+			Self::deposit_event(Event::VtxWorkPointRegistered { id, work_points });
 
 			Ok(())
 		}
