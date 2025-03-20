@@ -168,6 +168,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type ConsiderCurrentBalance<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+	/// Stores disable redeem
+	#[pallet::storage]
+	pub(super) type DisableRedeem<T: Config> = StorageValue<_, bool, ValueQuery>;
+
 	/// Stores total Reward points for each cycle when the rewards are registered.
 	#[pallet::storage]
 	pub(super) type TotalRewardPoints<T: Config> =
@@ -351,6 +355,9 @@ pub mod pallet {
 
 		/// Set ConsiderCurrentBalance
 		SetConsiderCurrentBalance { value: bool },
+
+		/// Set DisableRedeem
+		SetDisableRedeem { value: bool },
 	}
 
 	#[pallet::hooks]
@@ -429,6 +436,9 @@ pub mod pallet {
 
 		/// root price is zero
 		RootPriceIsZero,
+
+		/// Vtx redeem disabled
+		VtxRedeemDisabled,
 	}
 
 	#[pallet::call]
@@ -632,6 +642,7 @@ pub mod pallet {
 			vortex_token_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(DisableRedeem::<T>::get(), Error::<T>::VtxRedeemDisabled);
 			let vault_account = Self::get_vtx_vault_account();
 			let total_vortex = T::MultiCurrency::total_issuance(T::VtxAssetId::get());
 			let vortex_balance = vortex_token_amount;
@@ -792,6 +803,18 @@ pub mod pallet {
 
 			ConsiderCurrentBalance::<T>::put(value);
 			Self::deposit_event(Event::SetConsiderCurrentBalance { value });
+			Ok(())
+		}
+
+		/// Set DisableRedeem storage item
+		/// If set to true, users would not be able to redeem Vtx tokens
+		#[pallet::call_index(15)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_consider_current_balance())]
+		pub fn set_disable_redeem(origin: OriginFor<T>, value: bool) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+
+			DisableRedeem::<T>::put(value);
+			Self::deposit_event(crate::pallet::Event::SetDisableRedeem { value });
 			Ok(())
 		}
 	}
