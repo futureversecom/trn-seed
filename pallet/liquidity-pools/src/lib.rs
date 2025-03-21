@@ -85,7 +85,7 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 
 		/// PoolId is used to distinguish between different pools that manage and facilitate
-		/// the attendence and rewarding of assets.
+		/// the attendance and rewarding of assets.
 		type PoolId: Parameter + Member + AtLeast32BitUnsigned + Default + Copy + MaxEncodedLen;
 
 		/// Unsigned transaction interval
@@ -173,7 +173,7 @@ pub mod pallet {
 			pool_id: T::PoolId,
 			reward_asset_amount: Balance,
 			staked_asset_amount: Balance,
-			reciever: T::AccountId,
+			receiver: T::AccountId,
 		},
 		/// Set pool successor, when predecessor pool is done, users will be rolled over to
 		/// successor pool.
@@ -242,12 +242,10 @@ pub mod pallet {
 		/// Creates a liquidity pool for a specified asset over a range of future blocks.
 		///
 		/// The pool created by this function allows users to stake specified assets and,
-		/// depending on the pool's performance, receive rewards in the form of native tokens
-		/// (ROOT). This function can only be called by an admin user who has the necessary
-		/// permissions.
+		/// depending on the pool's performance, receive rewards in the reward asset.
 		///
 		/// Parameters:
-		/// - `origin`: The origin account that is creating the pool. Must be an admin.
+		/// - `origin`: The origin account that is creating the pool.
 		/// - `asset_id`: The ID of the asset for which the pool is being created.
 		/// - `interest_rate`: The interest rate for the pool, dictating the reward distribution.
 		/// - `max_tokens`: The maximum amount of tokens that can be staked in this pool.
@@ -405,7 +403,7 @@ pub mod pallet {
 		/// Parameters:
 		/// - `origin`: The account of the user setting the rollover preference.
 		/// - `id`: The ID of the pool for which the rollover preference is being set.
-		/// - `should_roll_over`: A boolean indicating whether the user's stake should rollover to a
+		/// - `should_rollover`: A boolean indicating whether the user's stake should rollover to a
 		///   successor pool.
 		///
 		/// Restrictions:
@@ -495,7 +493,7 @@ pub mod pallet {
 				pool_id: id,
 				reward_asset_amount,
 				staked_asset_amount: pool.locked_amount,
-				reciever: creator,
+				receiver: creator,
 			});
 			Ok(())
 		}
@@ -610,7 +608,7 @@ pub mod pallet {
 
 		/// Claims the reward for a user from a pool that has ended.
 		///
-		/// Users who have staked tokens in a pool that has reached the `Mutured` status
+		/// Users who have staked tokens in a pool that has reached the `Matured` status
 		/// can call this function to claim their share of the reward.
 		///
 		/// Parameters:
@@ -618,7 +616,7 @@ pub mod pallet {
 		/// - `id`: The ID of the pool from which the reward is being claimed.
 		///
 		/// Restrictions:
-		/// - The pool must be in the `Mutured` status.
+		/// - The pool must be in the `Matured` status.
 		/// - The user must have staked tokens in the pool and not already claimed their reward.
 		///
 		/// Emits `RewardsClaimed` event if the reward is successfully claimed by the user.

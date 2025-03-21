@@ -950,7 +950,7 @@ mod close_pool {
 					pool_id,
 					reward_asset_amount: 100,
 					staked_asset_amount: 0,
-					reciever: alice(),
+					receiver: alice(),
 				}));
 
 				assert_eq!(Pools::<Test>::get(pool_id), None);
