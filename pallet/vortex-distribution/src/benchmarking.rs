@@ -83,6 +83,14 @@ benchmarks! {
 		assert_eq!(ConsiderCurrentBalance::<T>::get(), true);
 	}
 
+	set_disable_redeem {
+		let vortex_dist_id = NextVortexId::<T>::get();
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
+	}: _(RawOrigin::Root, true)
+	verify {
+		assert_eq!(DisableRedeem::<T>::get(), true);
+	}
+
 	start_vtx_dist {
 		let vortex_dist_id = NextVortexId::<T>::get();
 		let root_price = <T as pallet_staking::Config>::CurrencyBalance::one();
