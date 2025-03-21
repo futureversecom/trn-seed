@@ -642,7 +642,7 @@ pub mod pallet {
 			vortex_token_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(DisableRedeem::<T>::get(), Error::<T>::VtxRedeemDisabled);
+			ensure!(!DisableRedeem::<T>::get(), Error::<T>::VtxRedeemDisabled);
 			let vault_account = Self::get_vtx_vault_account();
 			let total_vortex = T::MultiCurrency::total_issuance(T::VtxAssetId::get());
 			let vortex_balance = vortex_token_amount;
@@ -809,7 +809,7 @@ pub mod pallet {
 		/// Set DisableRedeem storage item
 		/// If set to true, users would not be able to redeem Vtx tokens
 		#[pallet::call_index(15)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_consider_current_balance())]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_disable_redeem())]
 		pub fn set_disable_redeem(origin: OriginFor<T>, value: bool) -> DispatchResult {
 			Self::ensure_root_or_admin(origin)?;
 
