@@ -441,7 +441,6 @@ fn vortex_distribution_success() {
 		});
 }
 
-/*
 #[test]
 fn pay_unsigned_with_multiple_payout_blocks() {
 	let alice: AccountId = create_account(1);
@@ -451,9 +450,8 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 	let end_block = 1000;
 
 	TestExt::default()
-		.with_balances(&[(alice, 1_000_000)])
-		.with_asset(<Test as crate::Config>::NativeAssetId::get(), "ROOT", &[(alice, 1_000_000)])
-		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(alice, 0)])
+		.with_balances(&[(alice, 2_000_000)])
+		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(charlie, 5)])
 		.build()
 		.execute_with(|| {
 			// create 2 tokens
@@ -464,101 +462,138 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 
 			let vortex_dis_id = NextVortexId::<Test>::get();
 
-			// mint tokens to user - fee vault
-			assert_ok!(AssetsExt::mint_into(usdc, &alice, 1_000_000)); //fee vault
-			assert_ok!(AssetsExt::mint_into(weth, &alice, 1_000_000)); //fee vault
+			// mint tokens to user
+			assert_ok!(AssetsExt::mint_into(usdc, &alice, 1_000_000));
+			assert_ok!(AssetsExt::mint_into(weth, &alice, 1_000_000));
 
-			// move token to vaults
+			// Transfer bootstrap
 			let root_vault = Vortex::get_root_vault_account();
+			let bootstrap_root = 1_000_000;
 			assert_ok!(Vortex::safe_transfer(
 				NativeAssetId::get(),
 				&alice,
 				&root_vault,
+				bootstrap_root.clone(),
+				false
+			));
+
+			// Transfer fee pot assets
+			let fee_vault = Vortex::get_fee_vault_account();
+			assert_ok!(Vortex::safe_transfer(usdc, &alice, &fee_vault, 1_000_000, false));
+			assert_ok!(Vortex::safe_transfer(weth, &alice, &fee_vault, 1_000_000, false));
+			assert_ok!(Vortex::safe_transfer(
+				NativeAssetId::get(),
+				&alice,
+				&fee_vault,
 				1_000_000,
 				false
 			));
-			let fee_vault = Vortex::get_fee_vault_account();
-			assert_ok!(Vortex::safe_transfer(usdc, &alice, &fee_vault, 1_000_000, false));
 
-			assert_ok!(Vortex::safe_transfer(weth, &alice, &fee_vault, 1_000_000, false));
-
-			// list vortex distribution
+			// create vortex distribution
 			assert_ok!(Vortex::create_vtx_dist(Origin::root()));
 
-			// set distribution eras
-			let start_era: EraIndex = 1;
-			let end_era: EraIndex = 10;
-			assert_ok!(Vortex::set_vtx_dist_eras(
+			// set vortex vault asset balances
+			let vtx_vault_asset_balances = vec![(usdc, 5), (weth, 5), (ROOT_ASSET_ID, 100)];
+			assert_ok!(Vortex::set_vtx_vault_asset_balances(
 				Origin::root(),
 				vortex_dis_id,
-				start_era,
-				end_era
+				BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap(),
+			));
+			// set Vtx current supply
+			let vtx_current_supply = 5;
+			assert_ok!(Vortex::set_vtx_total_supply(
+				Origin::root(),
+				vortex_dis_id,
+				vtx_current_supply,
 			));
 
-			//set asset list
-			assert_ok!(Vortex::set_assets_list(
+			// set fee pot asset balances
+			let fee_pot_asset_balances = vec![(usdc, 100), (weth, 100), (ROOT_ASSET_ID, 100)];
+			assert_ok!(Vortex::set_fee_pot_asset_balances(
 				Origin::root(),
-				BoundedVec::try_from(vec![usdc, weth, ROOT_ASSET_ID]).unwrap(),
 				vortex_dis_id,
+				BoundedVec::try_from(fee_pot_asset_balances.clone()).unwrap(),
 			));
 
 			//set asset price
+			let asset_prices = vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)];
 			assert_ok!(Vortex::set_asset_prices(
 				Origin::root(),
-				BoundedVec::try_from(vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)])
-					.unwrap(),
 				vortex_dis_id,
+				BoundedVec::try_from(asset_prices.clone()).unwrap(),
 			));
 
-			// register effective balance and work points
-			let mut balances_vec = vec![(bob, 100_000), (charlie, 100_000)];
+			// register reward and work points
+			let mut reward_points_vec = vec![(bob, 100_000), (charlie, 100_000)];
+			let mut total_reward_points = 100_000 + 100_000;
 			for i in 0..5000 {
-				balances_vec.push((create_account(i + 4), 100_000));
+				reward_points_vec.push((create_account(i + 4), 100_000));
+				total_reward_points += 100_000;
 			}
-			let balances = BoundedVec::try_from(balances_vec).unwrap();
+			let reward_points = BoundedVec::try_from(reward_points_vec).unwrap();
 
-			let mut points_vec = vec![(bob, 10), (charlie, 10)];
+			let mut work_points_vec = vec![(bob, 10), (charlie, 10)];
+			let mut total_work_points = 10 + 10;
 			for i in 0..5000 {
-				points_vec.push((create_account(i + 4), 10));
+				work_points_vec.push((create_account(i + 4), 10));
+				total_work_points += 10;
 			}
-			let points = BoundedVec::try_from(points_vec).unwrap();
-
-			let mut rates_vec = vec![(bob, 1), (charlie, 1)];
-			for i in 0..5000 {
-				rates_vec.push((create_account(i + 4), 1));
-			}
-			let rates = BoundedVec::try_from(rates_vec).unwrap();
-
-			for era in start_era..=end_era {
-				assert_ok!(Vortex::register_eff_bal_n_wk_pts(
-					Origin::root(),
-					vortex_dis_id,
-					era,
-					balances.clone(),
-					points.clone(),
-					rates.clone(),
-				));
-			}
-
-			// // register vortex token rewards for everyone
-			// let mut rewards_vec = vec![(bob, 500_000), (charlie, 500_000)];
-			// for i in 0..5000 {
-			// 	rewards_vec.push((create_account(i + 4), 100));
-			// }
-
-			// assert_ok!(Vortex::register_rewards(
-			// 	Origin::root(),
-			// 	vortex_dis_id,
-			// 	BoundedVec::try_from(rewards_vec).unwrap()
-			// ));
+			let work_points = BoundedVec::try_from(work_points_vec).unwrap();
+			assert_ok!(Vortex::register_reward_points(
+				Origin::root(),
+				vortex_dis_id,
+				reward_points
+			));
+			assert_ok!(Vortex::register_work_points(Origin::root(), vortex_dis_id, work_points));
 
 			//trigger vortext reward calcuation and assets/root transfer to vault
 			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dis_id,));
 
+			// check VtxPrice tally
+			let vtx_price_calculted =
+				calculate_vtx_price(&vtx_vault_asset_balances, &asset_prices, vtx_current_supply);
+			assert_eq!(VtxPrice::<Test>::get(vortex_dis_id), vtx_price_calculted);
+			println!("vtx_price_calculted: {:?}", vtx_price_calculted);
+			// check vtx amounts tally
+			let (total_vortex_network_reward, total_vortex_bootstrap, total_vortex) = calculate_vtx(
+				&fee_pot_asset_balances,
+				&asset_prices,
+				bootstrap_root,
+				root_price,
+				vtx_price_calculted,
+			);
+			assert_eq!(TotalVortex::<Test>::get(vortex_dis_id), total_vortex);
+			assert_eq!(TotalNetworkReward::<Test>::get(vortex_dis_id), total_vortex_network_reward);
+			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dis_id), total_vortex_bootstrap);
+			println!("total_vortex: {:?}", total_vortex);
+			println!("total_vortex_network_reward: {:?}", total_vortex_network_reward);
+			println!("total_vortex_bootstrap: {:?}", total_vortex_bootstrap);
+
+			// check bob got the vortex reward registered
+			let staker_pool =
+				total_vortex_bootstrap + (Perbill::from_percent(30) * total_vortex_network_reward);
+			let workpoint_pool = Perbill::from_percent(70) * total_vortex_network_reward;
+			let bob_staker_point_portion =
+				Perbill::from_rational(100_000_u128, total_reward_points);
+			let bob_work_points_portion = Perbill::from_rational(10_u128, total_work_points);
+			println!("bob_staker_point_portion: {:?}", bob_staker_point_portion);
+			println!("bob_work_points_portion: {:?}", bob_work_points_portion);
+			println!("staker_pool: {:?}", staker_pool);
+			println!("workpoint_pool: {:?}", workpoint_pool);
+
+			let bob_vtx_reward_calculated = (bob_staker_point_portion * staker_pool)
+				+ (bob_work_points_portion * workpoint_pool);
+			println!("bob stker rewards: {:?}", bob_staker_point_portion * staker_pool);
+			println!("bob workpoint rewards: {:?}", bob_work_points_portion * workpoint_pool);
+
+			assert_eq!(
+				VtxDistOrderbook::<Test>::get(vortex_dis_id, bob),
+				(bob_vtx_reward_calculated, false)
+			);
+			println!("bob_vtx_reward_calculated: {:?}", bob_vtx_reward_calculated);
+
 			//start the vortex distribution
 			assert_ok!(Vortex::start_vtx_dist(Origin::root(), vortex_dis_id,));
-
-			assert_eq!(VtxDistOrderbook::<Test>::get(vortex_dis_id, bob), (60575, false));
 
 			while System::block_number() < end_block {
 				System::set_block_number(System::block_number() + 1);
@@ -586,16 +621,23 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 				}),
 				"No payouts should occur as the distribution status is not 'Paying'."
 			);
-			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &bob), 60575);
+			assert_eq!(
+				AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &bob),
+				bob_vtx_reward_calculated
+			);
 			assert_eq!(
 				AssetsExt::total_issuance(<Test as crate::Config>::VtxAssetId::get()),
-				303000000
+				total_vortex + vtx_current_supply
 			);
 
-			assert_eq!(VtxDistOrderbook::<Test>::get(vortex_dis_id, bob), (60575, true));
+			assert_eq!(
+				VtxDistOrderbook::<Test>::get(vortex_dis_id, bob),
+				(bob_vtx_reward_calculated, true)
+			);
 		});
 }
 
+/*
 #[test]
 fn set_vtx_dist_eras_should_work() {
 	TestExt::default().build().execute_with(|| {
