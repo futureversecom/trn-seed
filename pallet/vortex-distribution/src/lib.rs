@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg_attr(not(feature = "std"), no_std)]
+
 pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -34,10 +35,13 @@ use frame_support::{
 	log,
 	pallet_prelude::*,
 	traits::{
-		tokens::fungibles::{self, Inspect, Mutate},
+		tokens::{
+			fungibles::{self, Inspect, Mutate},
+			Fortitude, Precision, Preservation,
+		},
 		Get,
 	},
-	PalletId,
+	transactional, PalletId,
 };
 use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},
@@ -48,7 +52,9 @@ use scale_info::TypeInfo;
 use seed_pallet_common::CreateExt;
 use seed_primitives::{AssetId, OffchainErr};
 use sp_runtime::{
-	traits::{AccountIdConversion, CheckedAdd, One, Saturating, StaticLookup, Zero},
+	traits::{
+		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, One, Saturating, StaticLookup, Zero,
+	},
 	Perbill, RuntimeDebug,
 };
 use sp_std::{convert::TryInto, prelude::*};
@@ -76,13 +82,10 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{
-		traits::tokens::{Fortitude, Precision, Preservation},
-		transactional,
-	};
-	use sp_runtime::traits::AtLeast32BitUnsigned;
-
 	use super::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config:
@@ -154,9 +157,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type HistoryDepth: Get<u32>;
 	}
-
-	#[pallet::pallet]
-	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
 	pub(super) type AdminAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
