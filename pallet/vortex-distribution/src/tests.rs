@@ -22,7 +22,36 @@ use crate::mock::{
 use seed_pallet_common::test_prelude::*;
 
 #[test]
-fn create_vtx_dist_with_valid_amount_should_work() {
+fn set_admin_works_with_root_account() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		let admin_account = create_account(2);
+		assert_ok!(Vortex::set_admin(Origin::root(), admin_account));
+
+		System::assert_last_event(MockEvent::Vortex(crate::Event::AdminAccountChanged {
+			old_key: None,
+			new_key: admin_account,
+		}));
+
+		assert_eq!(AdminAccount::<Test>::get(), Some(admin_account));
+	});
+}
+
+#[test]
+fn set_admin_fails_without_root_account() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+		let admin_account = create_account(2);
+		assert_noop!(
+			Vortex::set_admin(Origin::signed(create_account(3)), admin_account),
+			BadOrigin
+		);
+	});
+}
+
+#[test]
+fn create_vtx_dist_with_valid_account_should_work() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
@@ -40,7 +69,7 @@ fn create_vtx_dist_with_valid_amount_should_work() {
 }
 
 #[test]
-fn create_vtx_dist_without_root_origin_should_fail() {
+fn create_vtx_dist_without_valid_origin_should_fail() {
 	TestExt::default().build().execute_with(|| {
 		let non_admin = create_account(2);
 		System::set_block_number(1);
@@ -56,7 +85,6 @@ fn create_vtx_dist_without_root_origin_should_fail() {
 fn create_vtx_dist_with_exceed_u32_vtx_dist_id_should_fail() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
-
 		NextVortexId::<Test>::put(u32::MAX);
 
 		assert_noop!(
@@ -71,15 +99,12 @@ fn disable_vtx_dist_should_work() {
 	TestExt::default().build().execute_with(|| {
 		// Simulate the admin account
 		System::set_block_number(1);
-
 		let vortex_dist_id = NextVortexId::<Test>::get();
 
 		// Create a vortex distribution
 		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
-
 		// Disable the vortex distribution
 		assert_ok!(Vortex::disable_vtx_dist(Origin::root(), vortex_dist_id));
-
 		assert_eq!(VtxDistStatuses::<Test>::get(vortex_dist_id), VtxDistStatus::Disabled);
 
 		// Check for the VtxDistDisabled event
@@ -107,13 +132,191 @@ fn disable_vtx_dist_without_permission_should_fail() {
 	TestExt::default().build().execute_with(|| {
 		let vortex_dist_id = NextVortexId::<Test>::get();
 		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
-
 		// Non-admin attempts to disable the distribution
 		let non_admin = create_account(2);
 
 		assert_noop!(
 			Vortex::disable_vtx_dist(Origin::signed(non_admin), vortex_dist_id),
 			crate::Error::<Test>::RequireAdmin
+		);
+	});
+}
+
+#[test]
+fn set_fee_pot_asset_balances_works() {
+	let alice: AccountId = create_account(1);
+	TestExt::default().build().execute_with(|| {
+		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+
+		// create 2 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
+		// set fee pot asset balances
+		let fee_pot_asset_balances = vec![(usdc, 10), (weth, 10), (ROOT_ASSET_ID, 10)];
+		let fee_pot_asset_balances_bounded =
+			BoundedVec::try_from(fee_pot_asset_balances.clone()).unwrap();
+		assert_ok!(Vortex::set_fee_pot_asset_balances(
+			Origin::root(),
+			vortex_dist_id,
+			fee_pot_asset_balances_bounded.clone(),
+		));
+
+		// Check for the SetFeePotAssetBalances event
+		System::assert_last_event(MockEvent::Vortex(crate::Event::SetFeePotAssetBalances {
+			id: vortex_dist_id,
+			assets_balances: fee_pot_asset_balances_bounded,
+		}));
+	});
+}
+
+#[test]
+fn set_fee_pot_asset_balances_fails() {
+	let alice: AccountId = create_account(1);
+	TestExt::default().build().execute_with(|| {
+		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+
+		// create 2 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
+		// set fee pot asset balances
+		let fee_pot_asset_balances = vec![(usdc, 10), (weth, 10), (ROOT_ASSET_ID, 10)];
+		let mut fee_pot_asset_balances_bounded =
+			BoundedVec::try_from(fee_pot_asset_balances.clone()).unwrap();
+
+		// fails if not authorized account
+		assert_noop!(
+			Vortex::set_fee_pot_asset_balances(
+				Origin::signed(create_account(5)),
+				vortex_dist_id,
+				fee_pot_asset_balances_bounded,
+			),
+			Error::<Test>::RequireAdmin
+		);
+
+		// fail if Vtx asset id is included
+		fee_pot_asset_balances_bounded = BoundedVec::try_from(vec![
+			(<Test as Config>::VtxAssetId::get(), 10),
+			(weth, 10),
+			(ROOT_ASSET_ID, 10),
+		])
+		.unwrap();
+		assert_noop!(
+			Vortex::set_fee_pot_asset_balances(
+				Origin::root(),
+				vortex_dist_id,
+				fee_pot_asset_balances_bounded,
+			),
+			Error::<Test>::AssetsShouldNotIncludeVtxAsset
+		);
+	});
+}
+
+#[test]
+fn set_vtx_vault_asset_balances_works() {
+	let alice: AccountId = create_account(1);
+	TestExt::default().build().execute_with(|| {
+		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+
+		// create 2 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
+		// set fee pot asset balances
+		let vtx_vault_asset_balances = vec![(usdc, 10), (weth, 10), (ROOT_ASSET_ID, 10)];
+		let vtx_vault_asset_balances_bounded =
+			BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap();
+		assert_ok!(Vortex::set_vtx_vault_asset_balances(
+			Origin::root(),
+			vortex_dist_id,
+			vtx_vault_asset_balances_bounded.clone(),
+		));
+
+		// Check for the SetVtxVaultAssetBalances event
+		System::assert_last_event(MockEvent::Vortex(crate::Event::SetVtxVaultAssetBalances {
+			id: vortex_dist_id,
+			assets_balances: vtx_vault_asset_balances_bounded,
+		}));
+	});
+}
+
+#[test]
+fn set_vtx_vault_asset_balances_fails() {
+	let alice: AccountId = create_account(1);
+	TestExt::default().build().execute_with(|| {
+		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+
+		// create 2 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
+		// set fee pot asset balances
+		let vtx_vault_asset_balances = vec![(usdc, 10), (weth, 10), (ROOT_ASSET_ID, 10)];
+		let mut vtx_vault_asset_balances_bounded =
+			BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap();
+
+		// fails if not authorized account
+		assert_noop!(
+			Vortex::set_vtx_vault_asset_balances(
+				Origin::signed(create_account(5)),
+				vortex_dist_id,
+				vtx_vault_asset_balances_bounded,
+			),
+			Error::<Test>::RequireAdmin
+		);
+
+		// fail if Vtx asset id is included
+		vtx_vault_asset_balances_bounded = BoundedVec::try_from(vec![
+			(<Test as Config>::VtxAssetId::get(), 10),
+			(weth, 10),
+			(ROOT_ASSET_ID, 10),
+		])
+		.unwrap();
+		assert_noop!(
+			Vortex::set_vtx_vault_asset_balances(
+				Origin::root(),
+				vortex_dist_id,
+				vtx_vault_asset_balances_bounded,
+			),
+			Error::<Test>::AssetsShouldNotIncludeVtxAsset
+		);
+	});
+}
+
+#[test]
+fn set_vtx_total_supply_works() {
+	TestExt::default().build().execute_with(|| {
+		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+		let vtx_current_supply = 1_000;
+		assert_ok!(Vortex::set_vtx_total_supply(
+			Origin::root(),
+			vortex_dist_id,
+			vtx_current_supply,
+		));
+
+		// Check for the SetVtxTotalSupply event
+		System::assert_last_event(MockEvent::Vortex(crate::Event::SetVtxTotalSupply {
+			id: vortex_dist_id,
+			total_supply: vtx_current_supply,
+		}));
+	});
+}
+
+#[test]
+fn set_vtx_total_supply_fails() {
+	TestExt::default().build().execute_with(|| {
+		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+		let vtx_current_supply = 1_000;
+		assert_noop!(
+			Vortex::set_vtx_total_supply(
+				Origin::signed(create_account(5)),
+				vortex_dist_id,
+				vtx_current_supply,
+			),
+			Error::<Test>::RequireAdmin
 		);
 	});
 }
@@ -216,57 +419,7 @@ fn start_vtx_dist_without_root_origin_should_fail() {
 		);
 	});
 }
-/*
-#[test]
-fn start_vtx_dist_with_already_paying_status_should_fail() {
-	TestExt::default().build().execute_with(|| {
-		// create user account
-		let alice: AccountId = create_account(1);
 
-		// create 2 tokens
-		let usdc = AssetsExt::create(&alice, None).unwrap();
-		let weth = AssetsExt::create(&alice, None).unwrap();
-
-		// set root price
-		let root_price: Balance = 3;
-
-		// set distribution eras
-		let start_era: EraIndex = 1;
-		let end_era: EraIndex = 10;
-
-		// Create a vortex distribution
-		let vortex_dist_id = NextVortexId::<Test>::get();
-		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
-
-		assert_ok!(Vortex::set_vtx_dist_eras(Origin::root(), vortex_dist_id, start_era, end_era));
-
-		//set asset list
-		assert_ok!(Vortex::set_assets_list(
-			Origin::root(),
-			BoundedVec::try_from(vec![usdc, weth, ROOT_ASSET_ID]).unwrap(),
-			vortex_dist_id,
-		));
-
-		//set asset price
-		assert_ok!(Vortex::set_asset_prices(
-			Origin::root(),
-			BoundedVec::try_from(vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)])
-				.unwrap(),
-			vortex_dist_id,
-		));
-		assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id));
-
-		// Start the vortex distribution
-		assert_ok!(Vortex::start_vtx_dist(Origin::root(), vortex_dist_id));
-
-		// Attempt to start the same distribution again
-		assert_noop!(
-			Vortex::start_vtx_dist(Origin::root(), vortex_dist_id),
-			crate::Error::<Test>::NotTriggered
-		);
-	});
-}
-*/
 #[test]
 fn pay_unsigned_should_fail_when_called_by_signed_origin() {
 	TestExt::default().build().execute_with(|| {
@@ -299,7 +452,7 @@ fn vortex_distribution_success() {
 
 			let root_price: Balance = 3;
 
-			let vortex_dis_id = NextVortexId::<Test>::get();
+			let vortex_dist_id = NextVortexId::<Test>::get();
 
 			// mint tokens to user
 			assert_ok!(AssetsExt::mint_into(usdc, &alice, 1_000_000));
@@ -335,14 +488,14 @@ fn vortex_distribution_success() {
 			let vtx_vault_asset_balances = vec![(usdc, 5), (weth, 5), (ROOT_ASSET_ID, 100)];
 			assert_ok!(Vortex::set_vtx_vault_asset_balances(
 				Origin::root(),
-				vortex_dis_id,
+				vortex_dist_id,
 				BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap(),
 			));
 			// set Vtx current supply
 			let vtx_current_supply = 5;
 			assert_ok!(Vortex::set_vtx_total_supply(
 				Origin::root(),
-				vortex_dis_id,
+				vortex_dist_id,
 				vtx_current_supply,
 			));
 
@@ -350,7 +503,7 @@ fn vortex_distribution_success() {
 			let fee_pot_asset_balances = vec![(usdc, 10), (weth, 10), (ROOT_ASSET_ID, 10)];
 			assert_ok!(Vortex::set_fee_pot_asset_balances(
 				Origin::root(),
-				vortex_dis_id,
+				vortex_dist_id,
 				BoundedVec::try_from(fee_pot_asset_balances.clone()).unwrap(),
 			));
 
@@ -358,7 +511,7 @@ fn vortex_distribution_success() {
 			let asset_prices = vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)];
 			assert_ok!(Vortex::set_asset_prices(
 				Origin::root(),
-				vortex_dis_id,
+				vortex_dist_id,
 				BoundedVec::try_from(asset_prices.clone()).unwrap(),
 			));
 
@@ -368,18 +521,18 @@ fn vortex_distribution_success() {
 			let work_points = BoundedVec::try_from(vec![(bob, 10), (charlie, 10)]).unwrap();
 			assert_ok!(Vortex::register_reward_points(
 				Origin::root(),
-				vortex_dis_id,
+				vortex_dist_id,
 				reward_points
 			));
-			assert_ok!(Vortex::register_work_points(Origin::root(), vortex_dis_id, work_points));
+			assert_ok!(Vortex::register_work_points(Origin::root(), vortex_dist_id, work_points));
 
 			// trigger vortex distribution and do the preparations for distribution
-			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dis_id));
+			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id));
 
 			// check VtxPrice tally
 			let vtx_price_calculted =
 				calculate_vtx_price(&vtx_vault_asset_balances, &asset_prices, vtx_current_supply);
-			assert_eq!(VtxPrice::<Test>::get(vortex_dis_id), vtx_price_calculted);
+			assert_eq!(VtxPrice::<Test>::get(vortex_dist_id), vtx_price_calculted);
 			// check vtx amounts tally
 			let (total_vortex_network_reward, total_vortex_bootstrap, total_vortex) = calculate_vtx(
 				&fee_pot_asset_balances,
@@ -388,9 +541,12 @@ fn vortex_distribution_success() {
 				root_price,
 				vtx_price_calculted,
 			);
-			assert_eq!(TotalVortex::<Test>::get(vortex_dis_id), total_vortex);
-			assert_eq!(TotalNetworkReward::<Test>::get(vortex_dis_id), total_vortex_network_reward);
-			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dis_id), total_vortex_bootstrap);
+			assert_eq!(TotalVortex::<Test>::get(vortex_dist_id), total_vortex);
+			assert_eq!(
+				TotalNetworkReward::<Test>::get(vortex_dist_id),
+				total_vortex_network_reward
+			);
+			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), total_vortex_bootstrap);
 
 			// check bob got the vortex reward registered
 			let staker_pool =
@@ -402,19 +558,19 @@ fn vortex_distribution_success() {
 			let bob_vtx_reward_calculated = (bob_staker_point_portion * staker_pool)
 				+ (bob_work_points_portion * workpoint_pool);
 			assert_eq!(
-				VtxDistOrderbook::<Test>::get(vortex_dis_id, bob),
+				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
 				(bob_vtx_reward_calculated, false)
 			);
 
 			//start the vortex distribution
-			assert_ok!(Vortex::start_vtx_dist(Origin::root(), vortex_dis_id,));
+			assert_ok!(Vortex::start_vtx_dist(Origin::root(), vortex_dist_id,));
 			let vtx_held_vault = Vortex::get_vtx_held_account();
 			assert_eq!(
 				AssetsExt::balance(<Test as Config>::VtxAssetId::get(), &vtx_held_vault),
 				total_vortex
 			);
 			run_to_block(end_block);
-			assert_ok!(Vortex::pay_unsigned(Origin::none(), vortex_dis_id, end_block));
+			assert_ok!(Vortex::pay_unsigned(Origin::none(), vortex_dist_id, end_block));
 			assert!(
 				!System::events().iter().all(|record| {
 					match record.event {
@@ -435,7 +591,7 @@ fn vortex_distribution_success() {
 			);
 			// orderbook entry should be disabled once paid
 			assert_eq!(
-				VtxDistOrderbook::<Test>::get(vortex_dis_id, bob),
+				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
 				(bob_vtx_reward_calculated, true)
 			);
 		});
@@ -637,124 +793,78 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 		});
 }
 
-/*
-#[test]
-fn set_vtx_dist_eras_should_work() {
-	TestExt::default().build().execute_with(|| {
-		// Retrieve the ID of the newly created vortex distribution.
-		let vortex_dist_id = NextVortexId::<Test>::get();
-		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
-
-		// Define the start and end eras for the distribution.
-		let start_era: EraIndex = 1;
-		let end_era: EraIndex = 10;
-
-		// Set the eras for the vortex distribution.
-		assert_ok!(Vortex::set_vtx_dist_eras(Origin::root(), vortex_dist_id, start_era, end_era));
-
-		// Check that the correct event was emitted.
-		System::assert_last_event(MockEvent::Vortex(crate::Event::SetVtxDistEras {
-			id: vortex_dist_id,
-			start_era,
-			end_era,
-		}));
-	});
-}
-
-#[test]
-fn set_vtx_dist_eras_with_invalid_era_should_fail() {
-	TestExt::default().build().execute_with(|| {
-		let vortex_dist_id = NextVortexId::<Test>::get();
-		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
-
-		// Attempt to set end era before the start era, which should fail.
-		let start_era: EraIndex = 10;
-		let end_era: EraIndex = 1;
-
-		assert_noop!(
-			Vortex::set_vtx_dist_eras(Origin::root(), vortex_dist_id, start_era, end_era),
-			Error::<Test>::InvalidEndBlock
-		);
-	});
-}
-
-#[test]
-fn set_vtx_dist_eras_without_permission_should_fail() {
-	TestExt::default().build().execute_with(|| {
-		let vortex_dist_id = NextVortexId::<Test>::get();
-		// Create a new vortex distribution.
-		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
-
-		// Attempt to set the eras for the distribution without the required permissions.
-		let start_era: EraIndex = 1;
-		let end_era: EraIndex = 10;
-		let non_admin = create_account(2);
-
-		assert_noop!(
-			Vortex::set_vtx_dist_eras(
-				Origin::signed(non_admin),
-				vortex_dist_id,
-				start_era,
-				end_era
-			),
-			crate::Error::<Test>::RequireAdmin
-		);
-	});
-}
-
 #[test]
 fn set_asset_prices_should_work() {
+	let alice: AccountId = create_account(1);
+
 	TestExt::default().build().execute_with(|| {
 		// Retrieve the ID of the newly created vortex distribution.
 		let vortex_dist_id = NextVortexId::<Test>::get();
 		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
 
-		let root_price: Balance = 1;
+		// create 2 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
 
-		// Define some asset prices to be set.
-		let asset_prices: Vec<(AssetId, Balance)> =
-			vec![(100, 500), (101, 300), (ROOT_ASSET_ID, root_price)];
-		let bounded_asset_prices: BoundedVec<_, _> =
-			BoundedVec::try_from(asset_prices.clone()).expect("Should not exceed limit");
-
-		//set asset list before set asset price
-		assert_ok!(Vortex::set_assets_list(
+		// set fee pot asset balances
+		let fee_pot_asset_balances = vec![(usdc, 100), (weth, 100), (ROOT_ASSET_ID, 100)];
+		assert_ok!(Vortex::set_fee_pot_asset_balances(
 			Origin::root(),
-			BoundedVec::try_from(vec![100, 101, ROOT_ASSET_ID]).unwrap(),
-			vortex_dist_id.clone(),
+			vortex_dist_id,
+			BoundedVec::try_from(fee_pot_asset_balances.clone()).unwrap(),
 		));
 
-		// Set asset prices for the vortex distribution.
+		//set asset price
+		let asset_prices = vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, 100)];
+		let asset_prices_bounded = BoundedVec::try_from(asset_prices.clone()).unwrap();
 		assert_ok!(Vortex::set_asset_prices(
 			Origin::root(),
-			bounded_asset_prices.clone(),
-			vortex_dist_id
+			vortex_dist_id,
+			asset_prices_bounded.clone()
 		));
 
 		// Check that the correct event was emitted.
 		System::assert_last_event(MockEvent::Vortex(crate::Event::SetAssetPrices {
 			id: vortex_dist_id,
-			asset_prices: bounded_asset_prices,
+			asset_prices: asset_prices_bounded,
 		}));
 	});
 }
 
 #[test]
 fn set_asset_prices_with_invalid_asset_id_should_fail() {
+	let alice: AccountId = create_account(1);
 	TestExt::default().build().execute_with(|| {
 		let vortex_dist_id = NextVortexId::<Test>::get();
 		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
 
-		let root_price: Balance = 1;
+		// create 2 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
 
-		// Define an invalid asset price (e.g., using the VTX asset ID which should not be allowed).
-		let invalid_asset_prices: Vec<(AssetId, Balance)> = vec![(VTX_ASSET_ID, 500)];
-		let bounded_invalid_asset_prices: BoundedVec<_, _> =
-			BoundedVec::try_from(invalid_asset_prices).expect("Should not exceed limit");
+		// set fee pot asset balances
+		let fee_pot_asset_balances = vec![(usdc, 100), (weth, 100), (ROOT_ASSET_ID, 100)];
+		assert_ok!(Vortex::set_fee_pot_asset_balances(
+			Origin::root(),
+			vortex_dist_id,
+			BoundedVec::try_from(fee_pot_asset_balances.clone()).unwrap(),
+		));
 
-		// Attempt to set asset prices with an invalid asset ID, which should fail.
+		// set asset price
+		// asset_prices vector includes (120, 100) where asset id 120 is not in the fee pot balances
+		let asset_prices = vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, 100), (120, 100)];
+		let asset_prices_bounded = BoundedVec::try_from(asset_prices.clone()).unwrap();
 		assert_noop!(
-			Vortex::set_asset_prices(Origin::root(), bounded_invalid_asset_prices, vortex_dist_id),
+			Vortex::set_asset_prices(Origin::root(), vortex_dist_id, asset_prices_bounded),
+			Error::<Test>::AssetNotInFeePotList
+		);
+
+		// set asset price
+		// asset_prices vector includes VTX_ASSET_ID which is invalid
+		let invalid_asset_prices = vec![(VTX_ASSET_ID, 500)];
+		let bounded_invalid_asset_prices = BoundedVec::try_from(invalid_asset_prices).unwrap();
+		assert_noop!(
+			Vortex::set_asset_prices(Origin::root(), vortex_dist_id, bounded_invalid_asset_prices),
 			Error::<Test>::AssetsShouldNotIncludeVtxAsset
 		);
 	});
@@ -762,31 +872,40 @@ fn set_asset_prices_with_invalid_asset_id_should_fail() {
 
 #[test]
 fn set_asset_prices_without_permission_should_fail() {
+	let alice: AccountId = create_account(1);
 	TestExt::default().build().execute_with(|| {
 		let vortex_dist_id = NextVortexId::<Test>::get();
 		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
 
-		let root_price: Balance = 1;
+		// create 2 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
 
-		// Non-admin account tries to set asset prices.
-		let non_admin = create_account(2);
-		let asset_prices: Vec<(AssetId, Balance)> =
-			vec![(XRP_ASSET_ID, 500), (ROOT_ASSET_ID, root_price)];
-		let bounded_asset_prices: BoundedVec<_, _> =
-			BoundedVec::try_from(asset_prices).expect("Should not exceed limit");
+		// set fee pot asset balances
+		let fee_pot_asset_balances = vec![(usdc, 100), (weth, 100), (ROOT_ASSET_ID, 100)];
+		assert_ok!(Vortex::set_fee_pot_asset_balances(
+			Origin::root(),
+			vortex_dist_id,
+			BoundedVec::try_from(fee_pot_asset_balances.clone()).unwrap(),
+		));
+
+		//set asset price
+		let asset_prices = vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, 100)];
+		let asset_prices_bounded = BoundedVec::try_from(asset_prices.clone()).unwrap();
 
 		// Attempt to set asset prices without the required permissions.
 		assert_noop!(
 			Vortex::set_asset_prices(
-				Origin::signed(non_admin),
-				bounded_asset_prices,
-				vortex_dist_id
+				Origin::signed(create_account(2)),
+				vortex_dist_id,
+				asset_prices_bounded,
 			),
 			crate::Error::<Test>::RequireAdmin
 		);
 	});
 }
 
+/*
 #[test]
 fn register_rewards_with_invalid_distribution_id_should_fail() {
 	let alice: AccountId = create_account(1);
