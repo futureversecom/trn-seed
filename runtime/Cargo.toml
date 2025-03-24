@@ -23,13 +23,14 @@ pallet-bags-list = { workspace = true }
 pallet-election-provider-multi-phase = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-im-online = { workspace = true }
+pallet-liquidity-pools = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-nomination-pools = { workspace = true }
 pallet-offences = { workspace = true }
+pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-recovery = { workspace = true }
 pallet-scheduler = { workspace = true }
-pallet-preimage = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-sudo = { workspace = true }
@@ -196,6 +197,7 @@ std = [
 	"pallet-ethy/std",
 	"pallet-fee-proxy/std",
 	"pallet-nfi/std",
+	"pallet-liquidity-pools/std",
 	"pallet-nft/std",
 	"pallet-nft-rpc-runtime-api/std",
 	"pallet-sft/std",
@@ -284,6 +286,7 @@ try-runtime = [
 	"pallet-assets-ext/try-runtime",
 	"pallet-dex/try-runtime",
 	"pallet-nfi/try-runtime",
+	"pallet-liquidity-pools/try-runtime",
 	"pallet-nft/try-runtime",
 	"pallet-sft/try-runtime",
 	"pallet-sylo-data-verification/try-runtime",
@@ -345,6 +348,7 @@ runtime-benchmarks = [
 	"pallet-xrpl-bridge/runtime-benchmarks",
 	"pallet-xrpl/runtime-benchmarks",
 	"pallet-dex/runtime-benchmarks",
+	"pallet-liquidity-pools/runtime-benchmarks",
 	"pallet-fee-control/runtime-benchmarks",
 	"pallet-nft-peg/runtime-benchmarks",
 	"pallet-erc20-peg/runtime-benchmarks",

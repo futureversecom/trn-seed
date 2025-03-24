@@ -13,7 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate as pallet_vortex_distrobution;
+use crate as pallet_vortex_distribution;
 use frame_support::traits::{ConstU32, Hooks};
 use seed_pallet_common::test_prelude::*;
 use sp_runtime::{testing::TestXt, BuildStorage};
@@ -44,7 +44,7 @@ construct_runtime!(
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
 		Timestamp: pallet_timestamp,
-		Vortex: pallet_vortex_distrobution,
+		Vortex: pallet_vortex_distribution,
 		Staking: pallet_staking,
 	}
 );

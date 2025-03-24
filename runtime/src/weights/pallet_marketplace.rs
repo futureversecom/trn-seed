@@ -31,6 +31,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `pallet_marketplace`.
 pub struct WeightInfo<T>(PhantomData<T>);
+
 impl<T: frame_system::Config> pallet_marketplace::WeightInfo for WeightInfo<T> {
 	/// Storage: `Marketplace::NextMarketplaceId` (r:1 w:1)
 	/// Proof: `Marketplace::NextMarketplaceId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)

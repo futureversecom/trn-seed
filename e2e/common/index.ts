@@ -4,9 +4,9 @@ import { SignerOptions, SubmittableExtrinsic } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
 import { BigNumber } from "ethers";
-import fs, { writeFileSync } from "fs";
+import { writeFileSync } from "fs";
 import { CliPrettify } from "markdown-table-prettify";
-import path, { join } from "path";
+import { join } from "path";
 import web3 from "web3";
 
 export * from "./node";
@@ -825,23 +825,9 @@ export const executeForPreviousEvent = async (
   }
 };
 
-export const loadTestUsers = (userAmount?: number): KeyringPair[] => {
-  const content = fs.readFileSync(path.resolve(__dirname, "./generated_users.txt"), "utf-8");
-  const mnemonics = content
-    .replace(/\n{2,}/g, "\n")
-    .toString()
-    .split("\n");
+export const generateTestUsers = (userAmount: number): KeyringPair[] => {
   const keyring = new Keyring({ type: "ethereum" });
-  const keypairs: KeyringPair[] = [];
-
-  for (let i = 0; i < mnemonics.length; i++) {
-    const mnemonic = mnemonics[i];
-    if (mnemonic !== "" && (userAmount === undefined || i < userAmount)) {
-      keypairs.push(keyring.addFromMnemonic(mnemonic, {}));
-    }
-  }
-  console.log(`loaded ${keypairs.length} users`);
-  return keypairs;
+  return Array.from({ length: userAmount }, () => keyring.addFromUri(`${Math.random().toString(36).substring(2)}`));
 };
 
 export const getPrefixLength = (encoded: SubmittableExtrinsic<any>): number => {
