@@ -91,6 +91,7 @@ pallet-nft = { workspace = true }
 pallet-nft-rpc-runtime-api = { workspace = true }
 pallet-sft = { workspace = true }
 pallet-sylo-data-verification = { workspace = true }
+pallet-sylo-data-permissions = { workspace = true }
 pallet-sft-rpc-runtime-api = { workspace = true }
 pallet-token-approvals = { workspace = true }
 pallet-tx-fee-pot = { workspace = true }

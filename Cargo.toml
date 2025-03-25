@@ -135,6 +135,7 @@ pallet-sft = { path = "pallet/sft", default-features = false }
 pallet-sft-rpc = { path = "pallet/sft/rpc", default-features = false }
 pallet-sft-rpc-runtime-api = { path = "pallet/sft/rpc/runtime-api", default-features = false }
 pallet-sylo-data-verification = { path = "pallet/sylo-data-verification", default-features = false }
+pallet-sylo-data-permissions = { path = "pallet/sylo-data-permissions", default-features = false}
 pallet-token-approvals = { path = "pallet/token-approvals", default-features = false }
 pallet-tx-fee-pot = { path = "pallet/tx-fee-pot", default-features = false }
 pallet-vortex-distribution = { path = "pallet/vortex-distribution", default-features = false }
