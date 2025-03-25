@@ -1742,9 +1742,10 @@ impl_runtime_apis! {
 			path: Vec<AssetId>,
 		) -> Result<Vec<Balance>, sp_runtime::DispatchError> {
 			Dex::get_amounts_in(amount_out, &path).map_err(|e| match e {
-				sp_runtime::DispatchError::Arithmetic(_)  =>
-					sp_runtime::DispatchError::Other("Insufficient Liquidity"),
-					e => e,
+				_ => sp_runtime::DispatchError::Other("Insufficient Liquidity"),
+				// sp_runtime::DispatchError::Arithmetic(_)  =>
+				// 	sp_runtime::DispatchError::Other("Insufficient Liquidity"),
+				// 	e => e,
 			})
 		}
 

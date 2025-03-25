@@ -6398,6 +6398,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-sylo-data-permissions"
+version = "0.0.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-sylo-data-verification"
 version = "0.0.1"
 dependencies = [
@@ -9205,6 +9228,7 @@ dependencies = [
  "pallet-sft-rpc-runtime-api",
  "pallet-staking",
  "pallet-sudo",
+ "pallet-sylo-data-permissions",
  "pallet-sylo-data-verification",
  "pallet-timestamp",
  "pallet-token-approvals",
