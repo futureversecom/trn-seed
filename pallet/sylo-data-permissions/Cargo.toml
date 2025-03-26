@@ -24,6 +24,7 @@ sp-std = { workspace = true }
 
 seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
+pallet-sylo-data-verification = { workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true }
