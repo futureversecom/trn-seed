@@ -6408,6 +6408,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
+ "pallet-sylo-data-verification",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",

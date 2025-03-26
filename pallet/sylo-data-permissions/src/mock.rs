@@ -32,7 +32,16 @@ impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 
+parameter_types! {
+	pub const MaxPermissions: u32 = 100;
+	pub const MaxTags: u32 = 10;
+	pub const StringLimit: u32 = 250;
+}
+
 impl Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
+	type MaxPermissions = MaxPermissions;
+	type MaxTags = MaxTags;
+	type StringLimit = StringLimit;
 }

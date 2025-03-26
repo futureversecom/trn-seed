@@ -124,7 +124,7 @@ pub mod pallet {
 		Twox64Concat,
 		T::AccountId,
 		Twox64Concat,
-		BoundedVec<u8, T::StringLimit>,
+		DataId<T::StringLimit>,
 		ValidationRecord<
 			T::AccountId,
 			BlockNumberFor<T>,

@@ -69,6 +69,8 @@ where
 	pub service_endpoints: BoundedVec<ServiceEndpoint<StringLimit>, MaxServiceEndpoints>,
 }
 
+pub type DataId<StringLimit> = BoundedVec<u8, StringLimit>;
+
 #[derive(
 	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
