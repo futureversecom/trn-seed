@@ -13,11 +13,55 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use alloc::{format, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	traits::Get, BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-};
+use frame_support::{traits::Get, BoundedVec, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use sp_core::H256;
 use sp_std::{fmt::Debug, prelude::*};
+
+#[derive(
+	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+)]
+pub enum DataPermission {
+	VIEW,
+	MODIFY,
+	DISTRIBUTE,
+}
+
+#[derive(
+	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+)]
+pub struct PermissionRecord<BlockNumber>
+where
+	BlockNumber: Debug + PartialEq + Clone,
+{
+	permission: DataPermission,
+	block: BlockNumber,
+	expiry: Option<BlockNumber>,
+}
+
+#[derive(
+	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(MaxTags, StringLimit))]
+pub struct TaggedPermissionRecord<BlockNumber, MaxTags, StringLimit>
+where
+	BlockNumber: Debug + PartialEq + Clone,
+	MaxTags: Get<u32>,
+	StringLimit: Get<u32>,
+{
+	permissoin: DataPermission,
+	tags: BoundedVec<BoundedVec<u8, StringLimit>, MaxTags>,
+	block: BlockNumber,
+	expiry: Option<BlockNumber>,
+}
+
+#[derive(
+	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(StringLimit))]
+pub struct PermissionReference<StringLimit>
+where
+	StringLimit: Get<u32>,
+{
+	permission_record_id: BoundedVec<u8, StringLimit>,
+}

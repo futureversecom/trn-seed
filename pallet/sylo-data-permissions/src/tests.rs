@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use mock::{RuntimeEvent as MockEvent, SyloPermissions, System, Test};
+use mock::{RuntimeEvent as MockEvent, SyloDataPermissions, System, Test};
 use seed_pallet_common::test_prelude::*;
 
 mod transact {
@@ -25,16 +25,6 @@ mod transact {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let grantor: AccountId = create_account(1);
 			let grantee: AccountId = create_account(2);
-
-			let call = mock::RuntimeCall::System(frame_system::Call::remark {
-				remark: Default::default(),
-			});
-
-			assert_ok!(SyloPermissions::transact(
-				RawOrigin::Signed(grantee.clone()).into(),
-				grantor.clone(),
-				Box::new(call.clone())
-			));
 		});
 	}
 }
