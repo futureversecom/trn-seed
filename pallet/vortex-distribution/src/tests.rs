@@ -16,10 +16,9 @@
 use super::*;
 use crate::mock::{
 	calculate_vtx, calculate_vtx_price, calculate_vtx_redeem, run_to_block, AssetsExt, Balances,
-	NativeAssetId, RuntimeEvent as MockEvent, RuntimeEvent, RuntimeOrigin as Origin, System, Test,
+	NativeAssetId, RuntimeEvent as MockEvent, RuntimeOrigin as Origin, System, Test,
 	TestExt, Timestamp, Vortex, BLOCK_TIME,
 };
-use frame_support::storage::child::len;
 use seed_pallet_common::test_prelude::*;
 
 #[test]
@@ -1442,12 +1441,12 @@ fn redeem_tokens_from_vault_works() {
 			));
 
 			// register reward and work points
-			let mut reward_points_vec = vec![(bob, 1000_000), (charlie, 100_000)];
-			let mut total_reward_points = 1000_000 + 100_000;
+			let  reward_points_vec = vec![(bob, 1000_000), (charlie, 100_000)];
+			let  total_reward_points = 1000_000 + 100_000;
 			let reward_points = BoundedVec::try_from(reward_points_vec).unwrap();
 
-			let mut work_points_vec = vec![(bob, 100), (charlie, 10)];
-			let mut total_work_points = 100 + 10;
+			let  work_points_vec = vec![(bob, 100), (charlie, 10)];
+			let  total_work_points = 100 + 10;
 			let work_points = BoundedVec::try_from(work_points_vec).unwrap();
 			assert_ok!(Vortex::register_reward_points(
 				Origin::root(),

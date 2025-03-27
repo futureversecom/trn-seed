@@ -76,7 +76,6 @@ pub fn calculate_vtx_redeem(
 	total_vortex: Balance,
 ) -> Vec<(AssetId, Balance)> {
 	let mut redeem = vec![];
-	let vtx_vault_account = Vortex::get_vtx_vault_account();
 	for (asset_id, asset_balance) in redeem_asset_list.into_iter() {
 		// First, we calculate the ratio between the asset balance and the total vortex
 		// issued. then multiply it with the vortex token amount the user wants to redeem to
