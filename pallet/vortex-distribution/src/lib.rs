@@ -691,7 +691,7 @@ pub mod pallet {
 		///
 		/// `assets_list` - List of assets available to redeem
 		#[pallet::call_index(12)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_vtx_vault_asset_balances(assets_list.len() as u32))]
+		#[pallet::weight(<T as Config>::WeightInfo::set_vtx_vault_redeem_asset_list(assets_list.len() as u32))]
 		pub fn set_vtx_vault_redeem_asset_list(
 			origin: OriginFor<T>,
 			assets_list: BoundedVec<AssetId, T::MaxAssetPrices>,
