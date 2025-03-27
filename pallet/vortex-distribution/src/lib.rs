@@ -508,7 +508,6 @@ pub mod pallet {
 		/// `assets_balances` - List of asset balances
 		#[pallet::call_index(3)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_fee_pot_asset_balances(assets_balances.len() as u32))]
-		// #[transactional]
 		pub fn set_fee_pot_asset_balances(
 			origin: OriginFor<T>,
 			id: T::VtxDistIdentifier,
@@ -524,7 +523,6 @@ pub mod pallet {
 		/// `assets_balances` - List of asset balances
 		#[pallet::call_index(4)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_vtx_vault_asset_balances(assets_balances.len() as u32))]
-		// #[transactional]
 		pub fn set_vtx_vault_asset_balances(
 			origin: OriginFor<T>,
 			id: T::VtxDistIdentifier,
@@ -708,9 +706,8 @@ pub mod pallet {
 		/// Start distributing vortex
 		///
 		/// `id` - The distribution id
-		#[pallet::call_index(12)]
+		#[pallet::call_index(13)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::start_vtx_dist())]
-		#[transactional]
 		pub fn start_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
 			Self::ensure_root_or_admin(origin)?;
 			ensure!(
@@ -727,7 +724,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `current_block` - Current block number
-		#[pallet::call_index(13)]
+		#[pallet::call_index(14)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::pay_unsigned().saturating_mul(T::PayoutBatchSize::get().into()))]
 		#[transactional]
 		pub fn pay_unsigned(
@@ -801,7 +798,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `vortex_token_amount` - Amount of vortex to redeem
-		#[pallet::call_index(14)]
+		#[pallet::call_index(15)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::redeem_tokens_from_vault())]
 		#[transactional]
 		pub fn redeem_tokens_from_vault(
@@ -819,17 +816,16 @@ pub mod pallet {
 					&& vortex_balance <= T::MultiCurrency::balance(T::VtxAssetId::get(), &who),
 				Error::<T>::InvalidAmount
 			);
-			// ensure!(VtxDistStatuses::<T>::get(id) == VtxDistStatus::Done, Error::<T>::CannotRedeem);
 
-			/*for asset_id in AssetsList::<T>::get(id).into_iter() {
+			for asset_id in VtxVaultRedeemAssetList::<T>::get().into_iter() {
 				// First, we calculate the ratio between the asset balance and the total vortex
-				// issue. then multiply it with the vortex token amount the user wants to reddem to
+				// issued. then multiply it with the vortex token amount the user wants to redeem to
 				// get the resulting asset token amount.
 				let asset_balance = T::MultiCurrency::balance(asset_id, &vault_account);
 				let redeem_amount = vortex_balance.saturating_mul(asset_balance) / total_vortex;
 
 				Self::safe_transfer(asset_id, &vault_account, &who, redeem_amount, false)?;
-			}*/
+			}
 
 			// Burn the vortex token
 			T::MultiCurrency::burn_from(
@@ -839,6 +835,8 @@ pub mod pallet {
 				Precision::Exact,
 				Fortitude::Polite,
 			)?;
+			Self::deposit_event(Event::VtxRedeemed { who, amount: vortex_balance });
+
 			Ok(())
 		}
 	}
@@ -998,7 +996,6 @@ pub mod pallet {
 		// do collate assets into the vtx vault account
 		fn do_collate_reward_tokens(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
 			let root_price = AssetPrices::<T>::get(id, T::NativeAssetId::get());
-			ensure!(root_price > Zero::zero(), Error::<T>::RootPriceIsZero);
 
 			let vtx_vault_account = Self::get_vtx_vault_account();
 			let root_vault_account = Self::get_root_vault_account();
