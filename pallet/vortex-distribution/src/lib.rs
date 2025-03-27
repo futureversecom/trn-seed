@@ -172,6 +172,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type DisableRedeem<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+	/// Stores VtxVault latest asset id list that can be redeemed.
+	#[pallet::storage]
+	pub(super) type VtxVaultRedeemAssetList<T: Config> =
+		StorageValue<_, BoundedVec<AssetId, T::MaxAssetPrices>, ValueQuery>;
+
 	/// Stores total Reward points for each cycle when the rewards are registered.
 	#[pallet::storage]
 	pub(super) type TotalRewardPoints<T: Config> =
@@ -358,6 +363,12 @@ pub mod pallet {
 
 		/// Set DisableRedeem
 		SetDisableRedeem { value: bool },
+
+		/// Set VtxVaultRedeemAssetList
+		SetVtxVaultRedeemAssetList { asset_list: BoundedVec<AssetId, T::MaxAssetPrices> },
+
+		/// Vortex redeemed
+		VtxRedeemed { who: T::AccountId, amount: BalanceOf<T> },
 	}
 
 	#[pallet::hooks]
@@ -676,6 +687,22 @@ pub mod pallet {
 			Self::deposit_event(Event::TriggerVtxDistribution { id });
 
 			Ok(().into())
+		}
+
+		/// Set vtx vault redeem assets list
+		///
+		/// `assets_list` - List of assets available to redeem
+		#[pallet::call_index(12)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_vtx_vault_asset_balances(assets_list.len() as u32))]
+		pub fn set_vtx_vault_redeem_asset_list(
+			origin: OriginFor<T>,
+			assets_list: BoundedVec<AssetId, T::MaxAssetPrices>,
+		) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+			VtxVaultRedeemAssetList::<T>::set(assets_list.clone());
+			Self::deposit_event(Event::SetVtxVaultRedeemAssetList { asset_list: assets_list });
+
+			Ok(())
 		}
 
 		/// Start distributing vortex
