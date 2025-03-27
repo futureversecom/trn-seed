@@ -379,6 +379,21 @@ benchmarks! {
 	verify {
 		assert_eq!(T::MultiCurrency::balance(T::VtxAssetId::get(), &account::<T>("test")), 1u32.into());
 	}
+
+	set_vtx_vault_redeem_asset_list {
+		let b in 1..500;
+
+		let mut vtx_vault_redeem_asset_list_vec = vec![];
+		for i in 0..b {
+			vtx_vault_redeem_asset_list_vec.push(i);
+		}
+
+		let vtx_vault_redeem_asset_list = BoundedVec::try_from(vtx_vault_redeem_asset_list_vec).unwrap();
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
+	}: _(RawOrigin::Root, vtx_vault_redeem_asset_list.clone())
+	verify {
+			assert_eq!(VtxVaultRedeemAssetList::<T>::get(), vtx_vault_redeem_asset_list);
+	}
 }
 impl_benchmark_test_suite!(
 	VortexDistribution,
