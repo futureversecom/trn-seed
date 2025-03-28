@@ -15,17 +15,15 @@
 
 use crate as pallet_vortex_distribution;
 use frame_support::traits::{ConstU32, Hooks};
+use pallet_staking::BalanceOf;
 use seed_pallet_common::test_prelude::*;
+use sp_runtime::traits::Zero;
 use sp_runtime::{testing::TestXt, BuildStorage};
 use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-
-pub fn to_eth(amount: u128) -> u128 {
-	amount * 1_000_000_000_000_000_000_u128
-}
 
 pub const BLOCK_TIME: u64 = 1000;
 pub fn run_to_block(n: u64) {
@@ -34,6 +32,60 @@ pub fn run_to_block(n: u64) {
 		Vortex::on_initialize(System::block_number());
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME);
 	}
+}
+
+pub fn calculate_vtx_price(
+	assets: &Vec<(AssetId, Balance)>,
+	prices: &Vec<(AssetId, Balance)>,
+	vtx_total_supply: BalanceOf<Test>,
+) -> Balance {
+	let mut asset_value_usd = 0_u128;
+	for i in 0..assets.len() {
+		asset_value_usd += assets[i].1 * prices[i].1;
+	}
+	let vtx_price = if vtx_total_supply == Zero::zero() {
+		1u128.into()
+	} else {
+		asset_value_usd / vtx_total_supply
+	};
+	vtx_price
+}
+
+pub fn calculate_vtx(
+	assets: &Vec<(AssetId, Balance)>,
+	prices: &Vec<(AssetId, Balance)>,
+	bootstrap_root: BalanceOf<Test>,
+	root_price: BalanceOf<Test>,
+	vtx_price: BalanceOf<Test>,
+) -> (Balance, Balance, Balance) {
+	let mut fee_vault_asset_value = 0_u128;
+	for i in 0..assets.len() {
+		fee_vault_asset_value += assets[i].1 * prices[i].1;
+	}
+	let bootstrap_asset_value = bootstrap_root * root_price;
+	let total_vortex_network_reward = fee_vault_asset_value / vtx_price;
+	let total_vortex_bootstrap = bootstrap_asset_value / vtx_price;
+	let total_vortex = total_vortex_network_reward + total_vortex_bootstrap;
+
+	(total_vortex_network_reward, total_vortex_bootstrap, total_vortex)
+}
+
+pub fn calculate_vtx_redeem(
+	redeem_asset_list: &Vec<(AssetId, Balance)>,
+	redeem_vtx_amount: Balance,
+	total_vortex: Balance,
+) -> Vec<(AssetId, Balance)> {
+	let mut redeem = vec![];
+	for (asset_id, asset_balance) in redeem_asset_list.into_iter() {
+		// First, we calculate the ratio between the asset balance and the total vortex
+		// issued. then multiply it with the vortex token amount the user wants to redeem to
+		// get the resulting asset token amount.
+		let redeem_amount = redeem_vtx_amount.saturating_mul(*asset_balance) / total_vortex;
+
+		redeem.push((*asset_id, redeem_amount));
+	}
+
+	redeem
 }
 
 construct_runtime!(
@@ -117,6 +169,7 @@ where
 }
 
 parameter_types! {
+	pub const VtxHeldPotId: PalletId = PalletId(*b"vtx/hpot");
 	pub const VtxVortexPotId: PalletId = PalletId(*b"vtx/vpot");
 	pub const VtxRootPotId: PalletId = PalletId(*b"vtx/rpot");
 	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
@@ -133,6 +186,7 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	type NativeAssetId = RootAssetId;
 	type VtxAssetId = VortexAssetId;
+	type VtxHeldPotId = VtxHeldPotId;
 	type VtxDistPotId = VtxVortexPotId;
 	type RootPotId = VtxRootPotId;
 	type TxFeePotId = TxFeePotId;

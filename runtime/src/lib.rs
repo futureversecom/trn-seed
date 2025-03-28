@@ -1350,6 +1350,7 @@ impl pallet_futurepass::Config for Runtime {
 }
 
 parameter_types! {
+	pub const VtxHeldPotId: PalletId = PalletId(*b"vtx/hpot");
 	pub const VtxVortexPotId: PalletId = PalletId(*b"vtx/vpot");
 	pub const VtxRootPotId: PalletId = PalletId(*b"vtx/rpot");
 	pub const VtxTxFeePotId: PalletId = PalletId(*b"vtx/fpot");
@@ -1366,6 +1367,7 @@ impl pallet_vortex_distribution::Config for Runtime {
 	type WeightInfo = weights::pallet_vortex_distribution::WeightInfo<Runtime>;
 	type NativeAssetId = RootAssetId;
 	type VtxAssetId = VortexAssetId;
+	type VtxHeldPotId = VtxHeldPotId;
 	type VtxDistPotId = VtxVortexPotId;
 	type RootPotId = VtxRootPotId;
 	type TxFeePotId = VtxTxFeePotId;
