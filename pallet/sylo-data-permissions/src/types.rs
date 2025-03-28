@@ -19,7 +19,17 @@ use scale_info::TypeInfo;
 use sp_std::{fmt::Debug, prelude::*};
 
 #[derive(
-	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	RuntimeDebugNoBound,
+	PartialOrd,
+	Ord,
+	PartialEqNoBound,
+	Eq,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 pub enum DataPermission {
 	VIEW,
@@ -30,13 +40,16 @@ pub enum DataPermission {
 #[derive(
 	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
-pub struct PermissionRecord<BlockNumber>
+pub struct PermissionRecord<AccountId, BlockNumber>
 where
+	AccountId: Debug + PartialEq + Clone,
 	BlockNumber: Debug + PartialEq + Clone,
 {
-	permission: DataPermission,
-	block: BlockNumber,
-	expiry: Option<BlockNumber>,
+	pub grantor: AccountId,
+	pub permission: DataPermission,
+	pub block: BlockNumber,
+	pub expiry: Option<BlockNumber>,
+	pub irrevocable: bool,
 }
 
 #[derive(
@@ -49,10 +62,10 @@ where
 	MaxTags: Get<u32>,
 	StringLimit: Get<u32>,
 {
-	permissoin: DataPermission,
-	tags: BoundedVec<BoundedVec<u8, StringLimit>, MaxTags>,
-	block: BlockNumber,
-	expiry: Option<BlockNumber>,
+	pub permissoin: DataPermission,
+	pub tags: BoundedVec<BoundedVec<u8, StringLimit>, MaxTags>,
+	pub block: BlockNumber,
+	pub expiry: Option<BlockNumber>,
 }
 
 #[derive(
@@ -63,5 +76,5 @@ pub struct PermissionReference<StringLimit>
 where
 	StringLimit: Get<u32>,
 {
-	permission_record_id: BoundedVec<u8, StringLimit>,
+	pub permission_record_id: BoundedVec<u8, StringLimit>,
 }

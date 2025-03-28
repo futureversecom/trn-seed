@@ -23,6 +23,7 @@ use frame_support::{
 	traits::IsSubType,
 };
 use frame_system::pallet_prelude::*;
+use seed_pallet_common::SyloDataVerificationProvider;
 use seed_primitives::AssetId;
 use sp_core::H256;
 use sp_std::prelude::*;
@@ -503,5 +504,17 @@ pub mod pallet {
 
 			Ok(())
 		}
+	}
+}
+
+impl<T: Config> SyloDataVerificationProvider for Pallet<T> {
+	type AccountId = T::AccountId;
+	type StringLimit = T::StringLimit;
+
+	fn validation_record_exists(
+		author: T::AccountId,
+		data_id: BoundedVec<u8, T::StringLimit>,
+	) -> bool {
+		<ValidationRecords<T>>::get(author, data_id).is_some()
 	}
 }
