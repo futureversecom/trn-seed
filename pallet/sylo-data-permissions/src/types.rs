@@ -62,10 +62,11 @@ where
 	MaxTags: Get<u32>,
 	StringLimit: Get<u32>,
 {
-	pub permissoin: DataPermission,
+	pub permission: DataPermission,
 	pub tags: BoundedVec<BoundedVec<u8, StringLimit>, MaxTags>,
 	pub block: BlockNumber,
 	pub expiry: Option<BlockNumber>,
+	pub irrevocable: bool,
 }
 
 #[derive(
