@@ -67,9 +67,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxPermissions: Get<u32>;
 
-		/// The maximum number of tags in a data validation record.
+		/// The maximum number of tags that can be used in a tagged permission
+		/// record
 		#[pallet::constant]
 		type MaxTags: Get<u32>;
+
+		/// The maximum number of tagged permission records that can be granted
+		/// to an account
+		#[pallet::constant]
+		type MaxTaggedPermissions: Get<u32>;
 
 		/// The max length used for data ids
 		#[pallet::constant]
@@ -88,13 +94,20 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
+	pub type NextTaggedPermissionRecordId<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	#[pallet::storage]
 	pub type TaggedPermissionRecords<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
 		Twox64Concat,
 		T::AccountId,
-		TaggedPermissionRecord<BlockNumberFor<T>, T::MaxTags, T::StringLimit>,
+		BoundedVec<
+			(u32, TaggedPermissionRecord<BlockNumberFor<T>, T::MaxTags, T::StringLimit>),
+			T::MaxTaggedPermissions,
+		>,
+		ValueQuery,
 	>;
 
 	#[pallet::storage]
@@ -126,6 +139,11 @@ pub mod pallet {
 		/// Only the account that granted a permission or the data author
 		/// themselves can revoke a permission
 		NotPermissionGrantor,
+		/// Cannot revoke a permission that does not exist
+		PermissionNotFound,
+		/// The number of tagged permission records granted to a single account
+		/// has been exceeded
+		TaggedPermissionsLimitExceeded,
 	}
 
 	#[pallet::event]
@@ -133,6 +151,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// An account has been granted permission for a given data record
 		DataPermissionGranted {
+			data_author: T::AccountId,
 			grantor: T::AccountId,
 			grantee: T::AccountId,
 			data_id: Vec<u8>,
@@ -142,6 +161,22 @@ pub mod pallet {
 		},
 		/// An account's permission has been revoked for a given data record
 		DataPermissionRevoked { revoker: T::AccountId, grantee: T::AccountId, data_id: Vec<u8> },
+		/// An account has been granted tagged permissions
+		TaggedDataPermissionsGranted {
+			grantor: T::AccountId,
+			grantee: T::AccountId,
+			permission: DataPermission,
+			tags: Vec<Vec<u8>>,
+			expiry: Option<BlockNumberFor<T>>,
+			irrevocable: bool,
+		},
+		/// One of the tagged permissions for an account has been revoked
+		TaggedDataPermissionsRevoked {
+			grantor: T::AccountId,
+			grantee: T::AccountId,
+			permission: DataPermission,
+			tags: Vec<Vec<u8>>,
+		},
 	}
 
 	#[pallet::call]
@@ -225,6 +260,7 @@ pub mod pallet {
 				)?;
 
 				Self::deposit_event(Event::DataPermissionGranted {
+					data_author: who.clone(),
 					grantor: who.clone(),
 					grantee: grantee.clone(),
 					data_id: data_id.clone().to_vec(),
@@ -279,6 +315,84 @@ pub mod pallet {
 					data_id: data_id.clone().to_vec(),
 				});
 			}
+
+			Ok(())
+		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(1_000)]
+		pub fn grant_tagged_permissions(
+			origin: OriginFor<T>,
+			grantee: T::AccountId,
+			permission: DataPermission,
+			tags: BoundedVec<BoundedVec<u8, T::StringLimit>, T::MaxTags>,
+			expiry: Option<BlockNumberFor<T>>,
+			irrevocable: bool,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let tagged_permission_record = TaggedPermissionRecord {
+				permission,
+				block: <frame_system::Pallet<T>>::block_number(),
+				tags: tags.clone(),
+				expiry,
+				irrevocable,
+			};
+
+			let next_id = <NextTaggedPermissionRecordId<T>>::get();
+
+			<TaggedPermissionRecords<T>>::try_mutate(
+				&who,
+				&grantee,
+				|tagged_permission_records| {
+					tagged_permission_records
+						.try_push((next_id, tagged_permission_record))
+						.map_err(|_| Error::<T>::TaggedPermissionsLimitExceeded)
+				},
+			)?;
+
+			<NextTaggedPermissionRecordId<T>>::mutate(|i| *i += 1);
+
+			Self::deposit_event(Event::TaggedDataPermissionsGranted {
+				grantor: who,
+				grantee,
+				permission,
+				tags: tags.iter().map(|v| v.to_vec()).collect(),
+				expiry,
+				irrevocable,
+			});
+
+			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(1_000)]
+		pub fn revoke_tagged_permissions(
+			origin: OriginFor<T>,
+			grantee: T::AccountId,
+			permission_id: u32,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let records = <TaggedPermissionRecords<T>>::get(&who, &grantee);
+
+			let (_, tagged_permission_record) = records
+				.iter()
+				.find(|(id, _)| *id == permission_id)
+				.ok_or(Error::<T>::PermissionNotFound)?;
+
+			ensure!(!tagged_permission_record.irrevocable, Error::<T>::PermissionIrrevocable);
+
+			<TaggedPermissionRecords<T>>::mutate(&who, &grantee, |tagged_permission_records| {
+				tagged_permission_records.retain(|(id, _)| *id != permission_id)
+			});
+
+			Self::deposit_event(Event::TaggedDataPermissionsRevoked {
+				grantor: who,
+				grantee,
+				permission: tagged_permission_record.permission,
+				tags: tagged_permission_record.tags.iter().map(|v| v.to_vec()).collect(),
+			});
 
 			Ok(())
 		}

@@ -36,6 +36,7 @@ impl_pallet_sylo_data_verification_config!(Test);
 
 parameter_types! {
 	pub const MaxPermissions: u32 = 100;
+	pub const MaxTaggedPermissions: u32 = 100;
 }
 
 impl Config for Test {
@@ -44,5 +45,6 @@ impl Config for Test {
 	type SyloDataVerificationProvider = SyloDataVerification;
 	type MaxPermissions = MaxPermissions;
 	type MaxTags = MaxTags;
+	type MaxTaggedPermissions = MaxTaggedPermissions;
 	type StringLimit = StringLimit;
 }
