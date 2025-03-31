@@ -37,6 +37,8 @@ pub use types::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use sp_core::H256;
+
 	use super::*;
 
 	/// The current storage version.
@@ -75,12 +77,16 @@ pub mod pallet {
 		/// The maximum number of tagged permission records that can be granted
 		/// to an account
 		#[pallet::constant]
-		type MaxTaggedPermissions: Get<u32>;
+		type MaxPermissionRecords: Get<u32>;
 
 		/// The max length used for data ids
 		#[pallet::constant]
 		type StringLimit: Get<u32>;
 	}
+
+	#[pallet::storage]
+	pub type NextPermissionRecordId<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, u32, ValueQuery>;
 
 	#[pallet::storage]
 	pub type PermissionRecords<T: Config> = StorageNMap<
@@ -90,11 +96,12 @@ pub mod pallet {
 			NMapKey<Twox64Concat, DataId<T::StringLimit>>,
 			NMapKey<Twox64Concat, T::AccountId>,
 		),
-		PermissionRecord<T::AccountId, BlockNumberFor<T>>,
+		BoundedVec<
+			(u32, PermissionRecord<T::AccountId, BlockNumberFor<T>>),
+			T::MaxPermissionRecords,
+		>,
+		ValueQuery,
 	>;
-
-	#[pallet::storage]
-	pub type NextTaggedPermissionRecordId<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::storage]
 	pub type TaggedPermissionRecords<T: Config> = StorageDoubleMap<
@@ -105,7 +112,7 @@ pub mod pallet {
 		T::AccountId,
 		BoundedVec<
 			(u32, TaggedPermissionRecord<BlockNumberFor<T>, T::MaxTags, T::StringLimit>),
-			T::MaxTaggedPermissions,
+			T::MaxPermissionRecords,
 		>,
 		ValueQuery,
 	>;
@@ -129,6 +136,9 @@ pub mod pallet {
 		/// A permission that is set to irrevocable cannot also set to have an
 		/// expiry
 		IrrevocableCannotBeExpirable,
+		/// Exceeded the maximum number of record permissions granted to a given
+		/// account
+		ExceededMaxPermissions,
 		/// Attempted to grant a permission as a delegate without the required
 		/// DISTRIBUTE permission
 		MissingDistributePermission,
@@ -141,9 +151,9 @@ pub mod pallet {
 		NotPermissionGrantor,
 		/// Cannot revoke a permission that does not exist
 		PermissionNotFound,
-		/// The number of tagged permission records granted to a single account
-		/// has been exceeded
-		TaggedPermissionsLimitExceeded,
+		/// An accompanying validation record for the offchain permission does
+		/// not exist
+		MissingValidationRecord,
 	}
 
 	#[pallet::event]
@@ -194,25 +204,24 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let permission_record = PermissionRecord {
-				grantor: who.clone(),
-				permission,
-				block: <frame_system::Pallet<T>>::block_number(),
-				expiry,
-				irrevocable,
-			};
+			let block = <frame_system::Pallet<T>>::block_number();
+
+			let permission_record =
+				PermissionRecord { grantor: who.clone(), permission, block, expiry, irrevocable };
 
 			if irrevocable {
 				ensure!(expiry.is_none(), Error::<T>::IrrevocableCannotBeExpirable);
 			}
 
 			for data_id in data_ids.iter() {
+				let next_id = <NextPermissionRecordId<T>>::get(&data_author);
+
 				let data_id = data_id.clone();
 
 				ensure!(
 					T::SyloDataVerificationProvider::validation_record_exists(
-						data_author.clone(),
-						data_id.clone()
+						&data_author,
+						&data_id
 					),
 					Error::<T>::DataRecordDoesNotExist
 				);
@@ -221,13 +230,14 @@ pub mod pallet {
 				// data author, then ensure the account has been granted the DISTRIBUTE
 				// permission
 				if who != data_author {
-					let distribution_permission =
-						<PermissionRecords<T>>::get((&data_author, &data_id, &who))
-							.ok_or(Error::<T>::MissingDistributePermission)?;
-
 					ensure!(
-						distribution_permission.permission == DataPermission::DISTRIBUTE,
-						Error::<T>::MissingDistributePermission,
+						Self::has_permission(
+							&data_author,
+							&data_id,
+							&grantee,
+							DataPermission::DISTRIBUTE
+						),
+						Error::<T>::MissingDistributePermission
 					);
 
 					ensure!(
@@ -238,26 +248,14 @@ pub mod pallet {
 
 				<PermissionRecords<T>>::try_mutate(
 					(&data_author, &data_id, &grantee),
-					|maybe_record| -> DispatchResult {
-						match maybe_record {
-							Some(record) if record.irrevocable => {
-								// for existing permission records that are irrevocable, we allow the grantor
-								// to upgrade the permission, but not downgrade
-								ensure!(
-									permission >= record.permission,
-									Error::<T>::PermissionIrrevocable,
-								);
-
-								ensure!(expiry.is_none(), Error::<T>::IrrevocableCannotBeExpirable);
-							},
-							_ => (),
-						}
-
-						*maybe_record = Some(permission_record.clone());
-
-						Ok(())
+					|records| {
+						records
+							.try_push((next_id, permission_record.clone()))
+							.map_err(|_| Error::<T>::ExceededMaxPermissions)
 					},
 				)?;
+
+				<NextPermissionRecordId<T>>::mutate(&data_author, |i| *i += 1);
 
 				Self::deposit_event(Event::DataPermissionGranted {
 					data_author: who.clone(),
@@ -278,6 +276,7 @@ pub mod pallet {
 		pub fn revoke_data_permissions(
 			origin: OriginFor<T>,
 			data_author: T::AccountId,
+			permission_id: u32,
 			grantee: T::AccountId,
 			data_ids: BoundedVec<DataId<T::StringLimit>, T::MaxPermissions>,
 		) -> DispatchResult {
@@ -286,28 +285,18 @@ pub mod pallet {
 			for data_id in data_ids.iter() {
 				let data_id = data_id.clone();
 
-				<PermissionRecords<T>>::try_mutate(
-					(&data_author, &data_id, &grantee),
-					|maybe_record| -> DispatchResult {
-						match maybe_record {
-							Some(record) if record.irrevocable => {
-								Err(Error::<T>::PermissionIrrevocable)
-							},
+				let records = <PermissionRecords<T>>::get((&data_author, &data_id, &grantee));
 
-							// the data author can always revoke a permission, however
-							// if this called by a delegate, then they can only revoke
-							// a record that they also granted
-							Some(record) if record.grantor != who && who != data_author => {
-								Err(Error::<T>::NotPermissionGrantor)
-							},
-							_ => Ok(()),
-						}?;
+				let (_, permission_record) = records
+					.iter()
+					.find(|(id, _)| *id == permission_id)
+					.ok_or(Error::<T>::PermissionNotFound)?;
 
-						*maybe_record = None;
+				ensure!(!permission_record.irrevocable, Error::<T>::PermissionIrrevocable);
 
-						Ok(())
-					},
-				)?;
+				<PermissionRecords<T>>::mutate((&data_author, &data_id, &grantee), |records| {
+					records.retain(|(id, _)| *id != permission_id)
+				});
 
 				Self::deposit_event(Event::DataPermissionRevoked {
 					revoker: who.clone(),
@@ -339,7 +328,7 @@ pub mod pallet {
 				irrevocable,
 			};
 
-			let next_id = <NextTaggedPermissionRecordId<T>>::get();
+			let next_id = <NextPermissionRecordId<T>>::get(&who);
 
 			<TaggedPermissionRecords<T>>::try_mutate(
 				&who,
@@ -347,11 +336,11 @@ pub mod pallet {
 				|tagged_permission_records| {
 					tagged_permission_records
 						.try_push((next_id, tagged_permission_record))
-						.map_err(|_| Error::<T>::TaggedPermissionsLimitExceeded)
+						.map_err(|_| Error::<T>::ExceededMaxPermissions)
 				},
 			)?;
 
-			<NextTaggedPermissionRecordId<T>>::mutate(|i| *i += 1);
+			<NextPermissionRecordId<T>>::mutate(&who, |i| *i += 1);
 
 			Self::deposit_event(Event::TaggedDataPermissionsGranted {
 				grantor: who,
@@ -395,6 +384,57 @@ pub mod pallet {
 			});
 
 			Ok(())
+		}
+
+		#[pallet::call_index(4)]
+		#[pallet::weight(1_000)]
+		pub fn grant_permission_reference(
+			origin: OriginFor<T>,
+			grantee: T::AccountId,
+			permission_record_id: BoundedVec<u8, T::StringLimit>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			ensure!(
+				T::SyloDataVerificationProvider::validation_record_exists(
+					&who,
+					&permission_record_id
+				),
+				Error::<T>::MissingValidationRecord,
+			);
+
+			<PermissionReferences<T>>::insert(
+				&who,
+				&grantee,
+				PermissionReference { permission_record_id },
+			);
+
+			Ok(())
+		}
+
+		#[pallet::call_index(5)]
+		#[pallet::weight(1_000)]
+		pub fn revoke_permission_reference(
+			origin: OriginFor<T>,
+			grantee: T::AccountId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			<PermissionReferences<T>>::remove(&who, &grantee);
+
+			Ok(())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		pub fn has_permission(
+			data_author: &T::AccountId,
+			data_id: &DataId<T::StringLimit>,
+			grantee: &T::AccountId,
+			permission: DataPermission,
+		) -> bool {
+			return true;
+			// let permissions = <PermissionRecord<>
 		}
 	}
 }

@@ -674,13 +674,17 @@ impl Migrator for () {
 		Ok(())
 	}
 }
-
 pub trait SyloDataVerificationProvider {
 	type AccountId;
 	type StringLimit: Get<u32>;
 
+	// fn get_validation_record(
+	// 	author: &Self::AccountId,
+	// 	data_id: &BoundedVec<u8, Self::StringLimit>,
+	// ) -> bool
+
 	fn validation_record_exists(
-		author: Self::AccountId,
-		data_id: BoundedVec<u8, Self::StringLimit>,
+		author: &Self::AccountId,
+		data_id: &BoundedVec<u8, Self::StringLimit>,
 	) -> bool;
 }
