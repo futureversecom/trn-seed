@@ -512,8 +512,8 @@ impl<T: Config> SyloDataVerificationProvider for Pallet<T> {
 	type StringLimit = T::StringLimit;
 
 	fn validation_record_exists(
-		author: T::AccountId,
-		data_id: BoundedVec<u8, T::StringLimit>,
+		author: &T::AccountId,
+		data_id: &BoundedVec<u8, T::StringLimit>,
 	) -> bool {
 		<ValidationRecords<T>>::get(author, data_id).is_some()
 	}
