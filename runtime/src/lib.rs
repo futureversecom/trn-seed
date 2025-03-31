@@ -1353,7 +1353,7 @@ parameter_types! {
 	pub const VtxHeldPotId: PalletId = PalletId(*b"vtx/hpot");
 	pub const VtxVortexPotId: PalletId = PalletId(*b"vtx/vpot");
 	pub const VtxRootPotId: PalletId = PalletId(*b"vtx/rpot");
-	pub const VtxTxFeePotId: PalletId = PalletId(*b"vtx/fpot");
+	pub const FeePotId: PalletId = TxFeePotId::get();
 	pub const UnsignedInterval: BlockNumber =  MINUTES / 2;
 	pub const PayoutBatchSize: u32 =  99;
 	pub const VortexAssetId: AssetId = VTX_ASSET_ID;
@@ -1370,7 +1370,7 @@ impl pallet_vortex_distribution::Config for Runtime {
 	type VtxHeldPotId = VtxHeldPotId;
 	type VtxDistPotId = VtxVortexPotId;
 	type RootPotId = VtxRootPotId;
-	type TxFeePotId = VtxTxFeePotId;
+	type TxFeePotId = FeePotId;
 	type UnsignedInterval = UnsignedInterval;
 	type PayoutBatchSize = PayoutBatchSize;
 	type VtxDistIdentifier = u32;

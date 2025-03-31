@@ -123,7 +123,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type RootPotId: Get<PalletId>;
 
-		/// Vortex fee pot id
+		/// Tx fee pot id
 		#[pallet::constant]
 		type TxFeePotId: Get<PalletId>;
 
