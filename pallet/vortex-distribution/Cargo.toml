@@ -32,6 +32,7 @@ frame-election-provider-support = { workspace = true }
 pallet-session = { workspace = true }
 pallet-bags-list = { workspace = true }
 pallet-staking-reward-curve = { workspace = true }
+hex-literal = { workspace = true }
 
 [features]
 default = ["std"]

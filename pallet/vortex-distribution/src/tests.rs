@@ -19,6 +19,7 @@ use crate::mock::{
 	NativeAssetId, RuntimeEvent as MockEvent, RuntimeOrigin as Origin, System, Test, TestExt,
 	Timestamp, Vortex, BLOCK_TIME,
 };
+use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
 
 #[test]
@@ -1613,6 +1614,58 @@ fn redeem_tokens_from_vault_works() {
 			}
 			assert_eq!(AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &bob), 0);
 		});
+}
+
+// given the required inputs, this will print the reward breakdown for the specified account
+// run with "cargo test -p pallet-vortex-distribution "print_reward_details_for_account" -- --nocapture"
+#[test]
+fn print_reward_details_for_account() {
+	// inputs
+	let vtx_vault_asset_balances = vec![(1, 100_000_000), (2, 10_000_000)];
+	let asset_prices = vec![(1, 16_140), (2, 2_461_300)];
+	let vtx_current_supply = 10_000_000;
+	let fee_pot_asset_balances = vec![(1, 200_000_000), (2, 10_000_000)];
+	let bootstrap_root = 3_000_000;
+	let root_price = asset_prices[0].1;
+	let account = AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"));
+	let account_staker_reward_points = 2_000_000_u128;
+	let account_worker_points = 10_000_000_u128;
+	let total_staker_reward_points = 3_000_000;
+	let total_worker_points = 11_000_000;
+
+	// check VtxPrice tally
+	let vtx_price_calculted =
+		calculate_vtx_price(&vtx_vault_asset_balances, &asset_prices, vtx_current_supply);
+	println!("vtx_price_calculted: {:?}", vtx_price_calculted);
+	// check vtx amounts tally
+	let (total_vortex_network_reward, total_vortex_bootstrap, total_vortex) = calculate_vtx(
+		&fee_pot_asset_balances,
+		&asset_prices,
+		bootstrap_root,
+		root_price,
+		vtx_price_calculted,
+	);
+	println!("total_vortex_network_reward: {:?}", total_vortex_network_reward);
+	println!("total_vortex_bootstrap: {:?}", total_vortex_bootstrap);
+	println!("total_vortex: {:?}", total_vortex);
+
+	// check vortex reward for the account
+	let staker_pool =
+		total_vortex_bootstrap + (Perbill::from_percent(30) * total_vortex_network_reward);
+	let workpoint_pool = Perbill::from_percent(70) * total_vortex_network_reward;
+	println!("staker_pool: {:?}", staker_pool);
+	println!("workpoint_pool: {:?}", workpoint_pool);
+
+	let account_staker_point_portion =
+		Perbill::from_rational(account_staker_reward_points, total_staker_reward_points);
+	let account_work_points_portion =
+		Perbill::from_rational(account_worker_points, total_worker_points);
+	println!("account_staker_point_portion: {:?}", account_staker_point_portion);
+	println!("account_work_points_portion: {:?}", account_work_points_portion);
+
+	let account_vtx_reward_calculated = (account_staker_point_portion * staker_pool)
+		+ (account_work_points_portion * workpoint_pool);
+	println!("account_vtx_reward_calculated: {:?}", account_vtx_reward_calculated);
 }
 /*
 #[test]
