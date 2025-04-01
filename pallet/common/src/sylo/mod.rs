@@ -44,7 +44,7 @@ impl<T: Get<u32>> ResolverId<T> {
 pub type ServiceEndpoint<StringLimit> = BoundedVec<u8, StringLimit>;
 
 #[derive(
-	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+	CloneNoBound, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxServiceEndpoints, StringLimit))]
 pub struct Resolver<AccountId, MaxServiceEndpoints, StringLimit>
@@ -71,7 +71,7 @@ where
 }
 
 #[derive(
-	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+	CloneNoBound, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxResolvers, MaxTags, MaxEntries, StringLimit))]
 pub struct ValidationRecord<AccountId, BlockNumber, MaxResolvers, MaxTags, MaxEntries, StringLimit>
@@ -91,16 +91,24 @@ where
 }
 
 pub trait SyloDataVerificationProvider {
-	type AccountId;
+	type AccountId: Debug + PartialEq + Clone;
+	type BlockNumber: Debug + PartialEq + Clone;
+	type MaxResolvers: Get<u32>;
+	type MaxTags: Get<u32>;
+	type MaxEntries: Get<u32>;
 	type StringLimit: Get<u32>;
 
-	// fn get_validation_record(
-	// 	author: &Self::AccountId,
-	// 	data_id: &BoundedVec<u8, Self::StringLimit>,
-	// ) -> bool
-
-	fn validation_record_exists(
+	fn get_validation_record(
 		author: &Self::AccountId,
 		data_id: &BoundedVec<u8, Self::StringLimit>,
-	) -> bool;
+	) -> Option<
+		ValidationRecord<
+			Self::AccountId,
+			Self::BlockNumber,
+			Self::MaxResolvers,
+			Self::MaxTags,
+			Self::MaxEntries,
+			Self::StringLimit,
+		>,
+	>;
 }

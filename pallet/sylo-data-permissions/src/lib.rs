@@ -36,8 +36,6 @@ pub use types::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use sp_core::H256;
-
 	use super::*;
 
 	/// The current storage version.
@@ -130,8 +128,6 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Attempted to grant permissions for a data record that does not exist
 		DataRecordDoesNotExist,
-		/// Cannot revoke a permission that has not been previously granted
-		PermissionDoesNotExist,
 		/// A permission that is set to irrevocable cannot also set to have an
 		/// expiry
 		IrrevocableCannotBeExpirable,
@@ -143,6 +139,8 @@ pub mod pallet {
 		MissingDistributePermission,
 		/// Distribute permissions can only be granted by the data author
 		CannotGrantDistributePermission,
+		/// Irrevocable permissions can only be granted by the data author
+		CannotGrantIrrevocablePermission,
 		/// An irrevocable permission can not be revoked
 		PermissionIrrevocable,
 		/// Only the account that granted a permission or the data author
@@ -169,7 +167,12 @@ pub mod pallet {
 			irrevocable: bool,
 		},
 		/// An account's permission has been revoked for a given data record
-		DataPermissionRevoked { revoker: T::AccountId, grantee: T::AccountId, data_id: Vec<u8> },
+		DataPermissionRevoked {
+			revoker: T::AccountId,
+			grantee: T::AccountId,
+			permission: DataPermission,
+			data_id: Vec<u8>,
+		},
 		/// An account has been granted tagged permissions
 		TaggedDataPermissionsGranted {
 			grantor: T::AccountId,
@@ -181,10 +184,22 @@ pub mod pallet {
 		},
 		/// One of the tagged permissions for an account has been revoked
 		TaggedDataPermissionsRevoked {
-			grantor: T::AccountId,
+			revoker: T::AccountId,
 			grantee: T::AccountId,
 			permission: DataPermission,
 			tags: Vec<Vec<u8>>,
+		},
+		/// An account has been granted a permission reference
+		PermissionReferenceGranted {
+			grantor: T::AccountId,
+			grantee: T::AccountId,
+			permission_record_id: Vec<u8>,
+		},
+		/// An account's permission reference has been revoked
+		PermissionReferenceRevoked {
+			grantor: T::AccountId,
+			grantee: T::AccountId,
+			permission_record_id: Vec<u8>,
 		},
 	}
 
@@ -218,10 +233,8 @@ pub mod pallet {
 				let data_id = data_id.clone();
 
 				ensure!(
-					T::SyloDataVerificationProvider::validation_record_exists(
-						&data_author,
-						&data_id
-					),
+					T::SyloDataVerificationProvider::get_validation_record(&data_author, &data_id)
+						.is_some(),
 					Error::<T>::DataRecordDoesNotExist
 				);
 
@@ -233,7 +246,7 @@ pub mod pallet {
 						Self::has_permission(
 							&data_author,
 							&data_id,
-							&grantee,
+							&who,
 							DataPermission::DISTRIBUTE
 						),
 						Error::<T>::MissingDistributePermission
@@ -243,6 +256,8 @@ pub mod pallet {
 						permission != DataPermission::DISTRIBUTE,
 						Error::<T>::CannotGrantDistributePermission
 					);
+
+					ensure!(!irrevocable, Error::<T>::CannotGrantIrrevocablePermission);
 				}
 
 				<PermissionRecords<T>>::try_mutate(
@@ -277,32 +292,36 @@ pub mod pallet {
 			data_author: T::AccountId,
 			permission_id: u32,
 			grantee: T::AccountId,
-			data_ids: BoundedVec<DataId<T::StringLimit>, T::MaxPermissions>,
+			data_id: DataId<T::StringLimit>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			for data_id in data_ids.iter() {
-				let data_id = data_id.clone();
+			let records = <PermissionRecords<T>>::get((&data_author, &data_id, &grantee));
 
-				let records = <PermissionRecords<T>>::get((&data_author, &data_id, &grantee));
+			let (_, permission_record) = records
+				.iter()
+				.find(|(id, _)| *id == permission_id)
+				.ok_or(Error::<T>::PermissionNotFound)?;
 
-				let (_, permission_record) = records
-					.iter()
-					.find(|(id, _)| *id == permission_id)
-					.ok_or(Error::<T>::PermissionNotFound)?;
+			ensure!(!permission_record.irrevocable, Error::<T>::PermissionIrrevocable);
 
-				ensure!(!permission_record.irrevocable, Error::<T>::PermissionIrrevocable);
+			// a distributor can only revoke permissions they have granted themselves,
+			// though a data author can always revoke a permission
+			ensure!(
+				permission_record.grantor == who || who == data_author,
+				Error::<T>::NotPermissionGrantor
+			);
 
-				<PermissionRecords<T>>::mutate((&data_author, &data_id, &grantee), |records| {
-					records.retain(|(id, _)| *id != permission_id)
-				});
+			<PermissionRecords<T>>::mutate((&data_author, &data_id, &grantee), |records| {
+				records.retain(|(id, _)| *id != permission_id)
+			});
 
-				Self::deposit_event(Event::DataPermissionRevoked {
-					revoker: who.clone(),
-					grantee: grantee.clone(),
-					data_id: data_id.clone().to_vec(),
-				});
-			}
+			Self::deposit_event(Event::DataPermissionRevoked {
+				revoker: who.clone(),
+				grantee: grantee.clone(),
+				permission: permission_record.permission,
+				data_id: data_id.clone().to_vec(),
+			});
 
 			Ok(())
 		}
@@ -376,7 +395,7 @@ pub mod pallet {
 			});
 
 			Self::deposit_event(Event::TaggedDataPermissionsRevoked {
-				grantor: who,
+				revoker: who,
 				grantee,
 				permission: tagged_permission_record.permission,
 				tags: tagged_permission_record.tags.iter().map(|v| v.to_vec()).collect(),
@@ -395,18 +414,22 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			ensure!(
-				T::SyloDataVerificationProvider::validation_record_exists(
-					&who,
-					&permission_record_id
-				),
+				T::SyloDataVerificationProvider::get_validation_record(&who, &permission_record_id)
+					.is_some(),
 				Error::<T>::MissingValidationRecord,
 			);
 
 			<PermissionReferences<T>>::insert(
 				&who,
 				&grantee,
-				PermissionReference { permission_record_id },
+				PermissionReference { permission_record_id: permission_record_id.clone() },
 			);
+
+			Self::deposit_event(Event::PermissionReferenceGranted {
+				grantor: who.clone(),
+				grantee: grantee.clone(),
+				permission_record_id: permission_record_id.to_vec(),
+			});
 
 			Ok(())
 		}
@@ -419,7 +442,16 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
+			let record = <PermissionReferences<T>>::get(&who, &grantee)
+				.ok_or(Error::<T>::PermissionNotFound)?;
+
 			<PermissionReferences<T>>::remove(&who, &grantee);
+
+			Self::deposit_event(Event::PermissionReferenceRevoked {
+				grantor: who.clone(),
+				grantee: grantee.clone(),
+				permission_record_id: record.permission_record_id.to_vec(),
+			});
 
 			Ok(())
 		}
@@ -432,8 +464,63 @@ pub mod pallet {
 			grantee: &T::AccountId,
 			permission: DataPermission,
 		) -> bool {
-			return true;
-			// let permissions = <PermissionRecord<>
+			let block = <frame_system::Pallet<T>>::block_number();
+
+			let permissions = <PermissionRecords<T>>::get((data_author, data_id, grantee));
+
+			// try find a direct permission that is valid
+			let has_direct_permission = permissions
+				.iter()
+				.find(|(_, record)| {
+					// check for expiry
+					if let Some(expiry) = record.expiry {
+						if expiry <= block {
+							return false;
+						}
+					}
+
+					return record.permission >= permission;
+				})
+				.is_some();
+
+			if has_direct_permission {
+				return true;
+			}
+
+			// check for tagged permissions
+			if let Some(validation_record) =
+				T::SyloDataVerificationProvider::get_validation_record(&data_author, &data_id)
+			{
+				let tagged_permissions = <TaggedPermissionRecords<T>>::get(data_author, grantee);
+
+				return tagged_permissions
+					.iter()
+					.find(|(_, record)| {
+						// check for expiry
+						if let Some(expiry) = record.expiry {
+							if expiry <= block {
+								return false;
+							}
+						}
+
+						// check if any of the tags in the permission record
+						// matches any of the tags in data record
+						return record
+							.tags
+							.iter()
+							.find(|permission_tag| {
+								validation_record
+									.tags
+									.iter()
+									.find(|record_tag| permission_tag == record_tag)
+									.is_some()
+							})
+							.is_some() && record.permission >= permission;
+					})
+					.is_some();
+			}
+
+			false
 		}
 	}
 }
