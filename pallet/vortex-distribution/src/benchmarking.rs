@@ -394,6 +394,36 @@ benchmarks! {
 	verify {
 			assert_eq!(VtxVaultRedeemAssetList::<T>::get(), vtx_vault_redeem_asset_list);
 	}
+
+	register_rewards {
+		let b in 1..500;
+
+		let balance =  <T as pallet_staking::Config>::CurrencyBalance::one();
+		let mut rewards_vec = vec![];
+		for i in 0..b {
+			let account: T::AccountId = bench_account("account", i, 0);
+			rewards_vec.push((account, balance.into()));
+		}
+
+		let rewards = BoundedVec::try_from(rewards_vec).unwrap();
+		let vortex_dist_id = NextVortexId::<T>::get();
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
+		assert_ok!(VortexDistribution::<T>::set_enable_manual_reward_input(RawOrigin::Root.into(), true));
+	}: _(RawOrigin::Root, vortex_dist_id, rewards)
+	verify {
+		let first_account: T::AccountId = bench_account("account", 0, 0);
+		let reward = VtxDistOrderbook::<T>::get(vortex_dist_id, first_account);
+		assert_eq!(reward, (balance, false));
+	}
+
+	set_enable_manual_reward_input {
+		let vortex_dist_id = NextVortexId::<T>::get();
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
+	}: _(RawOrigin::Root, true)
+	verify {
+		assert_eq!(EnableManualRewardInput::<T>::get(), true);
+	}
+
 }
 impl_benchmark_test_suite!(
 	VortexDistribution,

@@ -1667,6 +1667,39 @@ fn print_reward_details_for_account() {
 		+ (account_work_points_portion * workpoint_pool);
 	println!("account_vtx_reward_calculated: {:?}", account_vtx_reward_calculated);
 }
+
+#[test]
+fn set_enable_manual_reward_input_works() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+		let enable_manual_reward_input = true;
+		assert_ok!(Vortex::set_enable_manual_reward_input(
+			Origin::root(),
+			enable_manual_reward_input
+		));
+		System::assert_last_event(MockEvent::Vortex(crate::Event::SetEnableManualRewardInput {
+			value: enable_manual_reward_input,
+		}));
+
+		assert_eq!(EnableManualRewardInput::<Test>::get(), enable_manual_reward_input);
+	});
+}
+
+#[test]
+fn set_enable_manual_reward_input_fails_without_approved_origin() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+		let enable_manual_reward_input = true;
+		assert_noop!(
+			Vortex::set_enable_manual_reward_input(
+				Origin::signed(create_account(3)),
+				enable_manual_reward_input
+			),
+			Error::<Test>::RequireAdmin
+		);
+	});
+}
+
 /*
 #[test]
 fn redeem_tokens_from_vault_should_work_without_root_token_in_asset_prices() {

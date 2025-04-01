@@ -172,6 +172,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type DisableRedeem<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+	/// Stores enabling manual reward input
+	#[pallet::storage]
+	pub(super) type EnableManualRewardInput<T: Config> = StorageValue<_, bool, ValueQuery>;
+
 	/// Stores VtxVault latest asset id list that can be redeemed.
 	#[pallet::storage]
 	pub(super) type VtxVaultRedeemAssetList<T: Config> =
@@ -369,6 +373,15 @@ pub mod pallet {
 
 		/// Vortex redeemed
 		VtxRedeemed { who: T::AccountId, amount: BalanceOf<T> },
+
+		/// Set EnableManualRewardInput
+		SetEnableManualRewardInput { value: bool },
+
+		/// Rewards registered
+		RewardRegistered {
+			id: T::VtxDistIdentifier,
+			rewards: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
+		},
 	}
 
 	#[pallet::hooks]
@@ -450,6 +463,9 @@ pub mod pallet {
 
 		/// Vtx redeem disabled
 		VtxRedeemDisabled,
+
+		/// Manual reward input is disabled
+		ManualRewardInputDisabled,
 	}
 
 	#[pallet::call]
@@ -637,8 +653,20 @@ pub mod pallet {
 		pub fn set_disable_redeem(origin: OriginFor<T>, value: bool) -> DispatchResult {
 			Self::ensure_root_or_admin(origin)?;
 
-			DisableRedeem::<T>::put(value);
+			crate::pallet::DisableRedeem::<T>::put(value);
 			Self::deposit_event(crate::pallet::Event::SetDisableRedeem { value });
+			Ok(())
+		}
+
+		/// Set EnableManualRewardInput storage item
+		/// If set to true, reward inputs can be given externally, this supports the legacy method
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_enable_manual_reward_input())]
+		pub fn set_enable_manual_reward_input(origin: OriginFor<T>, value: bool) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+
+			EnableManualRewardInput::<T>::put(value);
+			Self::deposit_event(crate::pallet::Event::SetEnableManualRewardInput { value });
 			Ok(())
 		}
 
@@ -646,7 +674,7 @@ pub mod pallet {
 		///
 		/// `asset_prices` - List of asset prices
 		/// `id` - The distribution id
-		#[pallet::call_index(10)]
+		#[pallet::call_index(11)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_asset_prices(asset_prices.len() as u32))]
 		#[transactional]
 		pub fn set_asset_prices(
@@ -661,7 +689,7 @@ pub mod pallet {
 		/// Trigger distribution
 		///
 		/// `id` - The distribution id
-		#[pallet::call_index(11)]
+		#[pallet::call_index(12)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution())]
 		#[transactional]
 		pub fn trigger_vtx_distribution(
@@ -677,7 +705,10 @@ pub mod pallet {
 
 			Self::do_calculate_vortex_price(id)?;
 			Self::do_collate_reward_tokens(id)?;
-			Self::do_reward_calculation(id)?;
+			// Do the reward calculation if the EnableManualRewardInput is disabled.
+			if !EnableManualRewardInput::<T>::get() {
+				Self::do_reward_calculation(id)?;
+			}
 
 			VtxDistStatuses::<T>::mutate(id, |status| {
 				*status = VtxDistStatus::Triggered;
@@ -690,7 +721,7 @@ pub mod pallet {
 		/// Set vtx vault redeem assets list
 		///
 		/// `assets_list` - List of assets available to redeem
-		#[pallet::call_index(12)]
+		#[pallet::call_index(13)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_vtx_vault_redeem_asset_list(assets_list.len() as u32))]
 		pub fn set_vtx_vault_redeem_asset_list(
 			origin: OriginFor<T>,
@@ -706,7 +737,7 @@ pub mod pallet {
 		/// Start distributing vortex
 		///
 		/// `id` - The distribution id
-		#[pallet::call_index(13)]
+		#[pallet::call_index(14)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::start_vtx_dist())]
 		pub fn start_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
 			Self::ensure_root_or_admin(origin)?;
@@ -724,7 +755,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `current_block` - Current block number
-		#[pallet::call_index(14)]
+		#[pallet::call_index(15)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::pay_unsigned().saturating_mul(T::PayoutBatchSize::get().into()))]
 		#[transactional]
 		pub fn pay_unsigned(
@@ -798,7 +829,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `vortex_token_amount` - Amount of vortex to redeem
-		#[pallet::call_index(15)]
+		#[pallet::call_index(16)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::redeem_tokens_from_vault())]
 		#[transactional]
 		pub fn redeem_tokens_from_vault(
@@ -838,6 +869,39 @@ pub mod pallet {
 			Self::deposit_event(Event::VtxRedeemed { who, amount: vortex_balance });
 
 			Ok(())
+		}
+
+		/// Register rewards( manual input)
+		///
+		/// `id` - The distribution id
+		/// `rewards` - Rewards list
+		#[pallet::call_index(17)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards(rewards.len() as u32))]
+		pub fn register_rewards(
+			origin: OriginFor<T>,
+			id: T::VtxDistIdentifier,
+			rewards: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
+		) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+			ensure!(EnableManualRewardInput::<T>::get(), Error::<T>::ManualRewardInputDisabled);
+			let s = VtxDistStatuses::<T>::get(id);
+			match s {
+				VtxDistStatus::Enabled => {
+					let mut total_rewards: BalanceOf<T> = Zero::zero();
+					for (who, amount) in rewards.iter() {
+						total_rewards += *amount;
+						VtxDistOrderbook::<T>::mutate(id, who.clone(), |entry| {
+							*entry = (*amount, false);
+						});
+					}
+					TotalVortex::<T>::mutate(id, |total_vortex| {
+						*total_vortex = total_vortex.saturating_add(total_rewards);
+					});
+					Self::deposit_event(Event::RewardRegistered { id, rewards });
+					Ok(())
+				},
+				_ => Err(Error::<T>::VtxDistDisabled)?,
+			}
 		}
 	}
 
@@ -913,7 +977,7 @@ pub mod pallet {
 			for (asset_id, _) in &assets_balances {
 				ensure!(
 					asset_id != &T::VtxAssetId::get(),
-					Error::<T>::AssetsShouldNotIncludeVtxAsset
+					Error::<T>::AssetsShouldNotIncludeVtxAsset // spk - is this true always
 				);
 			}
 			FeePotAssetsList::<T>::insert(id, assets_balances.clone());
@@ -1043,7 +1107,13 @@ pub mod pallet {
 			let total_vortex_network_reward = fee_vault_asset_value / vortex_price;
 			let total_vortex_bootstrap = root_vault_root_value / vortex_price;
 			let total_vortex = total_vortex_network_reward + total_vortex_bootstrap;
-			TotalVortex::<T>::insert(id, total_vortex);
+
+			// store TotalVortex only if EnableManualRewardInput is false
+			// otherwise in manual mode the TotalVortex will be calculated from the input.
+			if !EnableManualRewardInput::<T>::get() {
+				TotalVortex::<T>::insert(id, total_vortex);
+			}
+
 			TotalNetworkReward::<T>::insert(id, total_vortex_network_reward);
 			TotalBootstrapReward::<T>::insert(id, total_vortex_bootstrap);
 
