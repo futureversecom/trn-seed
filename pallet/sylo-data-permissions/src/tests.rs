@@ -144,7 +144,7 @@ mod grant_data_permissions {
 	}
 
 	#[test]
-	fn grant_same_permission_overrides() {
+	fn grant_same_permission_adds_another_record() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let grantor: AccountId = create_account(1);
 			let grantee: AccountId = create_account(2);
@@ -177,9 +177,9 @@ mod grant_data_permissions {
 			));
 
 			let permission_record = PermissionRecords::<Test>::get((&grantor, &data_id, &grantee))
-				.into_iter()
-				.next()
+				.get(1)
 				.unwrap()
+				.clone()
 				.1;
 
 			let expected_permission_record = PermissionRecord {

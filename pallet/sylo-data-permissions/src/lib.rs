@@ -23,8 +23,7 @@ use frame_support::{
 	traits::IsSubType,
 };
 use frame_system::pallet_prelude::*;
-use pallet_sylo_data_verification::DataId;
-use seed_pallet_common::SyloDataVerificationProvider;
+use seed_pallet_common::sylo::*;
 use sp_std::{convert::TryInto, vec};
 
 #[cfg(test)]

@@ -23,7 +23,7 @@ use frame_support::{
 	traits::IsSubType,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::SyloDataVerificationProvider;
+use seed_pallet_common::sylo::*;
 use seed_primitives::AssetId;
 use sp_core::H256;
 use sp_std::prelude::*;
@@ -35,9 +35,6 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
-pub mod types;
-
-pub use types::*;
 
 pub mod weights;
 pub use weights::WeightInfo;

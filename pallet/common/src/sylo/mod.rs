@@ -1,17 +1,5 @@
-// Copyright 2022-2023 Futureverse Corporation Limited
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-// You may obtain a copy of the License at the root of this project source code
+#![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
 
 use alloc::{format, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -100,4 +88,19 @@ where
 	pub data_type: BoundedVec<u8, StringLimit>,
 	pub tags: BoundedVec<BoundedVec<u8, StringLimit>, MaxTags>,
 	pub entries: BoundedVec<ValidationEntry<BlockNumber>, MaxEntries>,
+}
+
+pub trait SyloDataVerificationProvider {
+	type AccountId;
+	type StringLimit: Get<u32>;
+
+	// fn get_validation_record(
+	// 	author: &Self::AccountId,
+	// 	data_id: &BoundedVec<u8, Self::StringLimit>,
+	// ) -> bool
+
+	fn validation_record_exists(
+		author: &Self::AccountId,
+		data_id: &BoundedVec<u8, Self::StringLimit>,
+	) -> bool;
 }
