@@ -506,12 +506,25 @@ pub mod pallet {
 
 impl<T: Config> SyloDataVerificationProvider for Pallet<T> {
 	type AccountId = T::AccountId;
+	type BlockNumber = BlockNumberFor<T>;
+	type MaxResolvers = T::MaxResolvers;
+	type MaxTags = T::MaxTags;
+	type MaxEntries = T::MaxEntries;
 	type StringLimit = T::StringLimit;
 
-	fn validation_record_exists(
-		author: &T::AccountId,
-		data_id: &BoundedVec<u8, T::StringLimit>,
-	) -> bool {
-		<ValidationRecords<T>>::get(author, data_id).is_some()
+	fn get_validation_record(
+		author: &Self::AccountId,
+		data_id: &BoundedVec<u8, Self::StringLimit>,
+	) -> Option<
+		ValidationRecord<
+			Self::AccountId,
+			Self::BlockNumber,
+			Self::MaxResolvers,
+			Self::MaxTags,
+			Self::MaxEntries,
+			Self::StringLimit,
+		>,
+	> {
+		<ValidationRecords<T>>::get(author, data_id)
 	}
 }

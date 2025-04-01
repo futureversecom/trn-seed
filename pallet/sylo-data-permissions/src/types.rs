@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{traits::Get, BoundedVec, PartialEqNoBound, RuntimeDebugNoBound};
+use frame_support::{traits::Get, BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use sp_std::{fmt::Debug, prelude::*};
 
@@ -53,7 +53,7 @@ where
 }
 
 #[derive(
-	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+	CloneNoBound, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxTags, StringLimit))]
 pub struct TaggedPermissionRecord<BlockNumber, MaxTags, StringLimit>
@@ -70,7 +70,7 @@ where
 }
 
 #[derive(
-	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+	CloneNoBound, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(StringLimit))]
 pub struct PermissionReference<StringLimit>
