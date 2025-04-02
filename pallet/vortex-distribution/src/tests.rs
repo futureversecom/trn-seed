@@ -1348,11 +1348,38 @@ fn redeem_fails_if_amount_exceeds_user_balance() {
 		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(alice, 1_000_000)])
 		.build()
 		.execute_with(|| {
-			Vortex::create_vtx_dist(Origin::root()).unwrap();
-
+			assert_ok!(Vortex::create_vtx_dist(Origin::root()));
 			assert_noop!(
 				Vortex::redeem_tokens_from_vault(Origin::signed(bob), 1200),
 				Error::<Test>::InvalidAmount
+			);
+		});
+}
+
+#[test]
+fn redeem_fails_if_no_vtx() {
+	let bob: AccountId = create_account(2);
+	TestExt::default().build().execute_with(|| {
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+		assert_noop!(
+			Vortex::redeem_tokens_from_vault(Origin::signed(bob), 1200),
+			Error::<Test>::NoVtxAssetMinted
+		);
+	});
+}
+
+#[test]
+fn redeem_fails_if_disabled() {
+	let alice: AccountId = create_account(1);
+	TestExt::default()
+		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(alice, 1_000_000)])
+		.build()
+		.execute_with(|| {
+			Vortex::create_vtx_dist(Origin::root()).unwrap();
+			assert_ok!(Vortex::set_disable_redeem(Origin::root(), true,));
+			assert_noop!(
+				Vortex::redeem_tokens_from_vault(Origin::signed(alice), 1200),
+				Error::<Test>::VtxRedeemDisabled
 			);
 		});
 }
@@ -1661,6 +1688,38 @@ fn register_rewards_fails() {
 		assert_noop!(
 			Vortex::register_rewards(Origin::root(), vortex_dist_id, reward_points.clone()),
 			Error::<Test>::VtxDistDisabled
+		);
+	});
+}
+
+#[test]
+fn set_vtx_vault_redeem_asset_list_works() {
+	TestExt::default().build().execute_with(|| {
+		// register reward points
+		let redeem_asset_list = BoundedVec::try_from(vec![1, 2, 3]).unwrap();
+		assert_ok!(Vortex::set_vtx_vault_redeem_asset_list(
+			Origin::root(),
+			redeem_asset_list.clone()
+		));
+
+		// Check for the SetVtxVaultRedeemAssetList event
+		System::assert_last_event(MockEvent::Vortex(crate::Event::SetVtxVaultRedeemAssetList {
+			asset_list: redeem_asset_list,
+		}));
+	});
+}
+
+#[test]
+fn set_vtx_vault_redeem_asset_list_fails_with_non_authorized_origin() {
+	TestExt::default().build().execute_with(|| {
+		// register reward points
+		let redeem_asset_list = BoundedVec::try_from(vec![1, 2, 3]).unwrap();
+		assert_noop!(
+			Vortex::set_vtx_vault_redeem_asset_list(
+				Origin::signed(create_account(3)),
+				redeem_asset_list.clone()
+			),
+			Error::<Test>::RequireAdmin
 		);
 	});
 }
