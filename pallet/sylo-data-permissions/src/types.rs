@@ -13,29 +13,12 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+use super::*;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use sp_std::{fmt::Debug, prelude::*};
-
-#[derive(
-	Clone,
-	Copy,
-	Encode,
-	Decode,
-	RuntimeDebugNoBound,
-	PartialOrd,
-	Ord,
-	PartialEqNoBound,
-	Eq,
-	TypeInfo,
-	MaxEncodedLen,
-)]
-pub enum DataPermission {
-	VIEW,
-	MODIFY,
-	DISTRIBUTE,
-}
 
 #[derive(
 	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,

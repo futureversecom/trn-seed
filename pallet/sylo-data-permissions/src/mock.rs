@@ -32,19 +32,4 @@ impl_frame_system_config!(Test);
 impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
-impl_pallet_sylo_data_verification_config!(Test);
-
-parameter_types! {
-	pub const MaxPermissions: u32 = 100;
-	pub const MaxPermissionRecords: u32 = 100;
-}
-
-impl Config for Test {
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type SyloDataVerificationProvider = SyloDataVerification;
-	type MaxPermissions = MaxPermissions;
-	type MaxTags = MaxTags;
-	type MaxPermissionRecords = MaxPermissionRecords;
-	type StringLimit = StringLimit;
-}
+impl_pallet_sylo_configs!(Test);

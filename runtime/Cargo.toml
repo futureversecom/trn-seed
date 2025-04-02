@@ -204,6 +204,7 @@ std = [
 	"pallet-sft/std",
 	"pallet-sft-rpc-runtime-api/std",
 	"pallet-sylo-data-verification/std",
+	"pallet-sylo-data-permissions/std",
 	"pallet-xrpl-bridge/std",
 	"pallet-xrpl/std",
 	"pallet-tx-fee-pot/std",

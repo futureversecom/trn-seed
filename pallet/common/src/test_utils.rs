@@ -740,6 +740,7 @@ macro_rules! impl_pallet_sylo_data_verification_config {
 		impl pallet_sylo_data_verification::Config for Test {
 			type RuntimeCall = RuntimeCall;
 			type RuntimeEvent = RuntimeEvent;
+			type SyloDataPermissionsProvider = SyloDataPermissions;
 			type ApproveOrigin = EnsureRoot<AccountId>;
 			type MaxResolvers = MaxResolvers;
 			type MaxTags = MaxTags;
@@ -747,6 +748,43 @@ macro_rules! impl_pallet_sylo_data_verification_config {
 			type MaxServiceEndpoints = MaxServiceEndpoints;
 			type StringLimit = StringLimit;
 			type WeightInfo = ();
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_pallet_sylo_configs {
+	($test:ident) => {
+		parameter_types! {
+			pub const MaxResolvers: u32 = 10;
+			pub const MaxTags: u32 = 10;
+			pub const MaxEntries: u32 = 100;
+			pub const MaxServiceEndpoints: u32 = 10;
+			pub const StringLimit: u32 = 500;
+
+			pub const MaxPermissions: u32 = 100;
+			pub const MaxPermissionRecords: u32 = 100;
+		}
+		impl pallet_sylo_data_verification::Config for Test {
+			type RuntimeCall = RuntimeCall;
+			type RuntimeEvent = RuntimeEvent;
+			type SyloDataPermissionsProvider = SyloDataPermissions;
+			type ApproveOrigin = EnsureRoot<AccountId>;
+			type MaxResolvers = MaxResolvers;
+			type MaxTags = MaxTags;
+			type MaxEntries = MaxEntries;
+			type MaxServiceEndpoints = MaxServiceEndpoints;
+			type StringLimit = StringLimit;
+			type WeightInfo = ();
+		}
+		impl pallet_sylo_data_permissions::Config for Test {
+			type RuntimeCall = RuntimeCall;
+			type RuntimeEvent = RuntimeEvent;
+			type SyloDataVerificationProvider = SyloDataVerification;
+			type MaxPermissions = MaxPermissions;
+			type MaxTags = MaxTags;
+			type MaxPermissionRecords = MaxPermissionRecords;
+			type StringLimit = StringLimit;
 		}
 	};
 }
