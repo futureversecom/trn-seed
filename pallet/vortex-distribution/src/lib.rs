@@ -1100,9 +1100,9 @@ pub mod pallet {
 			ensure!(vortex_price > Zero::zero(), Error::<T>::VortexPriceIsZero);
 
 			//calculate total rewards
-			let total_vortex_network_reward = fee_vault_asset_value / vortex_price;
-			let total_vortex_bootstrap = root_vault_root_value / vortex_price;
-			let total_vortex = total_vortex_network_reward + total_vortex_bootstrap;
+			let total_vortex_network_reward: BalanceOf<T> = fee_vault_asset_value / vortex_price;
+			let total_vortex_bootstrap: BalanceOf<T> = root_vault_root_value / vortex_price;
+			let total_vortex = total_vortex_network_reward.saturating_add(total_vortex_bootstrap);
 
 			// store TotalVortex only if EnableManualRewardInput is false
 			// otherwise in manual mode the TotalVortex will be calculated from the input.
@@ -1120,8 +1120,8 @@ pub mod pallet {
 			let total_network_reward = TotalNetworkReward::<T>::get(id);
 			let total_bootstrap_reward = TotalBootstrapReward::<T>::get(id);
 			// Ref -> https://docs.therootnetwork.com/intro/learn/tokenomics#how-are-rewards-distributed
-			let total_staker_pool =
-				total_bootstrap_reward + Perbill::from_percent(30) * total_network_reward; // bootstrap + 30% of network rewards
+			let total_staker_pool = total_bootstrap_reward
+				.saturating_add(Perbill::from_percent(30) * total_network_reward); // bootstrap + 30% of network rewards
 			let total_workpoints_pool = Perbill::from_percent(70) * total_network_reward; // 70% of network rewards
 			let total_staker_points = TotalRewardPoints::<T>::get(id);
 			let total_work_points = TotalWorkPoints::<T>::get(id);
@@ -1151,7 +1151,7 @@ pub mod pallet {
 
 				let account_work_point_reward = work_points_portion * total_workpoints_pool;
 				let account_staker_reward = staker_point_portion * total_staker_pool;
-				let final_reward = account_work_point_reward + account_staker_reward;
+				let final_reward = account_work_point_reward.saturating_add(account_staker_reward);
 				VtxDistOrderbook::<T>::mutate(id, account_id, |entry| {
 					*entry = (entry.0.saturating_add(final_reward), entry.1);
 				});
