@@ -1067,7 +1067,6 @@ pub mod pallet {
 			// move gas & network fee to  vtx vault here
 			// move all asset in fee_vault to vtx_vault_account based on asset list in FeePotAssetsList
 			let mut fee_vault_asset_value: BalanceOf<T> = 0u64.into();
-			let mut vtx_vault_asset_value: BalanceOf<T> = 0u64.into();
 			for (asset_id, amount) in FeePotAssetsList::<T>::get(id).into_iter() {
 				let asset_price = AssetPrices::<T>::get(id, asset_id);
 				let asset_balance = match ConsiderCurrentBalance::<T>::get() {
@@ -1082,8 +1081,6 @@ pub mod pallet {
 					asset_balance,
 					false,
 				)?;
-				let asset_balance_vault = T::MultiCurrency::balance(asset_id, &vtx_vault_account);
-				vtx_vault_asset_value += asset_balance_vault.saturating_mul(asset_price);
 			}
 
 			// bootstrap - move root token from root_vault to vtx_vault_account
@@ -1112,7 +1109,6 @@ pub mod pallet {
 			if !EnableManualRewardInput::<T>::get() {
 				TotalVortex::<T>::insert(id, total_vortex);
 			}
-
 			TotalNetworkReward::<T>::insert(id, total_vortex_network_reward);
 			TotalBootstrapReward::<T>::insert(id, total_vortex_bootstrap);
 
