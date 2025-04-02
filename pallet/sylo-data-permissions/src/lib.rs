@@ -456,20 +456,53 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+}
 
-	impl<T: Config> Pallet<T> {
-		pub fn has_permission(
-			data_author: &T::AccountId,
-			data_id: &DataId<T::StringLimit>,
-			grantee: &T::AccountId,
-			permission: DataPermission,
-		) -> bool {
-			let block = <frame_system::Pallet<T>>::block_number();
+impl<T: Config> SyloDataPermissionsProvider for Pallet<T> {
+	type AccountId = T::AccountId;
+	type StringLimit = T::StringLimit;
 
-			let permissions = <PermissionRecords<T>>::get((data_author, data_id, grantee));
+	fn has_permission(
+		data_author: &T::AccountId,
+		data_id: &DataId<T::StringLimit>,
+		grantee: &T::AccountId,
+		permission: DataPermission,
+	) -> bool {
+		// both the MODIFY and DISTRIBUTE permissions also imply
+		// having the VIEW permission
+		let is_sufficient_permission =
+			|p: DataPermission| p == permission || permission == DataPermission::VIEW;
 
-			// try find a direct permission that is valid
-			let has_direct_permission = permissions
+		let block = <frame_system::Pallet<T>>::block_number();
+
+		let permissions = <PermissionRecords<T>>::get((data_author, data_id, grantee));
+
+		// try find a direct permission that is valid
+		let has_direct_permission = permissions
+			.iter()
+			.find(|(_, record)| {
+				// check for expiry
+				if let Some(expiry) = record.expiry {
+					if expiry <= block {
+						return false;
+					}
+				}
+
+				return is_sufficient_permission(record.permission);
+			})
+			.is_some();
+
+		if has_direct_permission {
+			return true;
+		}
+
+		// check for tagged permissions
+		if let Some(validation_record) =
+			T::SyloDataVerificationProvider::get_validation_record(&data_author, &data_id)
+		{
+			let tagged_permissions = <TaggedPermissionRecords<T>>::get(data_author, grantee);
+
+			return tagged_permissions
 				.iter()
 				.find(|(_, record)| {
 					// check for expiry
@@ -479,48 +512,23 @@ pub mod pallet {
 						}
 					}
 
-					return record.permission >= permission;
+					// check if any of the tags in the permission record
+					// matches any of the tags in data record
+					return record
+						.tags
+						.iter()
+						.find(|permission_tag| {
+							validation_record
+								.tags
+								.iter()
+								.find(|record_tag| permission_tag == record_tag)
+								.is_some()
+						})
+						.is_some() && is_sufficient_permission(record.permission);
 				})
 				.is_some();
-
-			if has_direct_permission {
-				return true;
-			}
-
-			// check for tagged permissions
-			if let Some(validation_record) =
-				T::SyloDataVerificationProvider::get_validation_record(&data_author, &data_id)
-			{
-				let tagged_permissions = <TaggedPermissionRecords<T>>::get(data_author, grantee);
-
-				return tagged_permissions
-					.iter()
-					.find(|(_, record)| {
-						// check for expiry
-						if let Some(expiry) = record.expiry {
-							if expiry <= block {
-								return false;
-							}
-						}
-
-						// check if any of the tags in the permission record
-						// matches any of the tags in data record
-						return record
-							.tags
-							.iter()
-							.find(|permission_tag| {
-								validation_record
-									.tags
-									.iter()
-									.find(|record_tag| permission_tag == record_tag)
-									.is_some()
-							})
-							.is_some() && record.permission >= permission;
-					})
-					.is_some();
-			}
-
-			false
 		}
+
+		false
 	}
 }

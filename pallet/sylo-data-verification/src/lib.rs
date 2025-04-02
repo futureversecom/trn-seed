@@ -59,6 +59,11 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>;
 
+		type SyloDataPermissionsProvider: SyloDataPermissionsProvider<
+			AccountId = Self::AccountId,
+			StringLimit = Self::StringLimit,
+		>;
+
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -145,6 +150,9 @@ pub mod pallet {
 		RecordAlreadyCreated,
 		/// The validation record to be updated has not been created
 		NoValidationRecord,
+		/// The account does not have the permission to update the validation
+		/// record
+		MissingModifyPermission,
 	}
 
 	#[pallet::event]
@@ -366,34 +374,51 @@ pub mod pallet {
 		///
 		/// The current block will be used as the entry's block number.
 		///
-		/// Caller must be the author of the record.
+		/// Caller must be the author of the record, or an account that has
+		/// been granted the MODIFY permission.
 		#[pallet::call_index(6)]
 		#[pallet::weight({
 			T::WeightInfo::add_validation_record_entry()
 		})]
 		pub fn add_validation_record_entry(
 			origin: OriginFor<T>,
+			data_author: T::AccountId,
 			data_id: BoundedVec<u8, T::StringLimit>,
 			checksum: H256,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			<ValidationRecords<T>>::try_mutate(&who, &data_id, |record| -> DispatchResult {
-				let record = record.as_mut().ok_or(Error::<T>::NoValidationRecord)?;
+			ensure!(
+				who == data_author
+					|| T::SyloDataPermissionsProvider::has_permission(
+						&data_author,
+						&data_id,
+						&who,
+						DataPermission::MODIFY
+					),
+				Error::<T>::MissingModifyPermission
+			);
 
-				record.entries.force_push(ValidationEntry {
-					checksum,
-					block: <frame_system::Pallet<T>>::block_number(),
-				});
+			<ValidationRecords<T>>::try_mutate(
+				&data_author,
+				&data_id,
+				|record| -> DispatchResult {
+					let record = record.as_mut().ok_or(Error::<T>::NoValidationRecord)?;
 
-				Self::deposit_event(Event::ValidationEntryAdded {
-					author: who.clone(),
-					id: data_id.to_vec(),
-					checksum,
-				});
+					record.entries.force_push(ValidationEntry {
+						checksum,
+						block: <frame_system::Pallet<T>>::block_number(),
+					});
 
-				Ok(())
-			})?;
+					Self::deposit_event(Event::ValidationEntryAdded {
+						author: data_author.clone(),
+						id: data_id.to_vec(),
+						checksum,
+					});
+
+					Ok(())
+				},
+			)?;
 
 			Ok(())
 		}

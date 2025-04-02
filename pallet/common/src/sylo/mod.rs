@@ -112,3 +112,24 @@ pub trait SyloDataVerificationProvider {
 		>,
 	>;
 }
+
+#[derive(
+	Clone, Copy, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+)]
+pub enum DataPermission {
+	VIEW,
+	MODIFY,
+	DISTRIBUTE,
+}
+
+pub trait SyloDataPermissionsProvider {
+	type AccountId: Debug + PartialEq + Clone;
+	type StringLimit: Get<u32>;
+
+	fn has_permission(
+		data_author: &Self::AccountId,
+		data_id: &DataId<Self::StringLimit>,
+		grantee: &Self::AccountId,
+		permission: DataPermission,
+	) -> bool;
+}

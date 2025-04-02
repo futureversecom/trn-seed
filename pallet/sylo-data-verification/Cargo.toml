@@ -30,6 +30,7 @@ sp-io = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-assets-ext = { workspace = true, default-features = true }
+pallet-sylo-data-permissions = { workspace = true }
 
 [features]
 default = ["std"]
@@ -42,7 +43,8 @@ std = [
     "seed-primitives/std",
     "seed-pallet-common/std",
     "sp-io/std",
-    "frame-benchmarking?/std"
+    "frame-benchmarking?/std",
+    "pallet-sylo-data-permissions/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]
