@@ -1700,6 +1700,60 @@ fn set_enable_manual_reward_input_fails_without_approved_origin() {
 	});
 }
 
+#[test]
+fn register_rewards_works() {
+	let bob: AccountId = create_account(2);
+	let charlie: AccountId = create_account(3);
+	TestExt::default().build().execute_with(|| {
+		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+		assert_ok!(Vortex::set_enable_manual_reward_input(RawOrigin::Root.into(), true));
+		// register reward points
+		let rewards = BoundedVec::try_from(vec![(bob, 100_000), (charlie, 100_000)]).unwrap();
+		assert_ok!(Vortex::register_rewards(Origin::root(), vortex_dist_id, rewards.clone()));
+
+		// Check for the RewardRegistered event
+		System::assert_last_event(MockEvent::Vortex(crate::Event::RewardRegistered {
+			id: vortex_dist_id,
+			rewards,
+		}));
+	});
+}
+
+#[test]
+fn register_rewards_fails() {
+	let bob: AccountId = create_account(2);
+	let charlie: AccountId = create_account(3);
+	TestExt::default().build().execute_with(|| {
+		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+		// register reward points
+		let reward_points = BoundedVec::try_from(vec![(bob, 100_000), (charlie, 100_000)]).unwrap();
+
+		// fails if not authorized account
+		assert_noop!(
+			Vortex::register_rewards(Origin::signed(bob), vortex_dist_id, reward_points.clone()),
+			Error::<Test>::RequireAdmin
+		);
+
+		// fails if EnableManualRewardInput is set to false
+		assert_noop!(
+			Vortex::register_rewards(Origin::root(), vortex_dist_id, reward_points.clone()),
+			Error::<Test>::ManualRewardInputDisabled
+		);
+
+		assert_ok!(Vortex::set_enable_manual_reward_input(RawOrigin::Root.into(), true));
+		// fails if status != VtxDistStatus::Enabled
+		// disable the vortex_dist_id
+		assert_ok!(Vortex::disable_vtx_dist(Origin::root(), vortex_dist_id));
+		assert_eq!(VtxDistStatuses::<Test>::get(vortex_dist_id), VtxDistStatus::Disabled);
+		assert_noop!(
+			Vortex::register_rewards(Origin::root(), vortex_dist_id, reward_points.clone()),
+			Error::<Test>::VtxDistDisabled
+		);
+	});
+}
+
 /*
 #[test]
 fn redeem_tokens_from_vault_should_work_without_root_token_in_asset_prices() {
