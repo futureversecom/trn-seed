@@ -1126,21 +1126,12 @@ pub mod pallet {
 			let total_staker_points = TotalRewardPoints::<T>::get(id);
 			let total_work_points = TotalWorkPoints::<T>::get(id);
 
-			let mut account_ids: BoundedVec<T::AccountId, T::MaxRewards> = BoundedVec::default();
 			// Iterate RewardPoints to capture all the accounts in this reward cycle.
 			// This means all validators, nominators and stakers should be in this map.
 			// Note that all accounts, even with 0 staker rewards must be registered onchain
 			// as this is the reference to capture all accounts for this cycle.
-			for (account_id, _) in RewardPoints::<T>::iter_prefix(id) {
-				if !account_ids.contains(&account_id) {
-					account_ids.try_push(account_id).map_err(|_| Error::<T>::ExceededMaxRewards)?;
-				}
-			}
-
-			// Calculate and register each account's reward portion
-			for account_id in &account_ids {
-				let account_staker_points: BalanceOf<T> =
-					RewardPoints::<T>::get(id, account_id.clone());
+			// Then calculate and register each account's reward portion
+			for (account_id, account_staker_points) in RewardPoints::<T>::iter_prefix(id) {
 				let account_work_points: BalanceOf<T> =
 					WorkPoints::<T>::get(id, account_id.clone());
 
