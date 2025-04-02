@@ -813,7 +813,6 @@ pub mod pallet {
 					VtxDistStatuses::<T>::mutate(id, |status| {
 						*status = VtxDistStatus::Done;
 					});
-					VtxDistOrderbook::<T>::drain_prefix(id); // spk - should we keep it for reference purpose. might need delayed pruning mechanism.
 					Self::deposit_event(Event::VtxDistDone { id });
 				}
 				VtxDistPayoutPivot::<T>::insert(id, current_last_raw_key);
