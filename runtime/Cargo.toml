@@ -292,6 +292,7 @@ try-runtime = [
 	"pallet-nft/try-runtime",
 	"pallet-sft/try-runtime",
 	"pallet-sylo-data-verification/try-runtime",
+	# "pallet-sylo-data-permissions/try-runtime",
 	"pallet-xrpl-bridge/try-runtime",
 	"pallet-xrpl/try-runtime",
 	"pallet-token-approvals/try-runtime",

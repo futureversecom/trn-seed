@@ -265,6 +265,7 @@ fn create_sylo_calls() -> Vec<<Runtime as pallet_sylo_data_verification::Config>
 		),
 		crate::RuntimeCall::SyloDataVerification(
 			pallet_sylo_data_verification::Call::add_validation_record_entry {
+				data_author: alice(),
 				data_id: BoundedVec::new(),
 				checksum: H256::from_low_u64_be(123),
 			},
