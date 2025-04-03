@@ -17,6 +17,7 @@ extern crate alloc;
 
 pub use pallet::*;
 
+use alloc::vec::Vec;
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
