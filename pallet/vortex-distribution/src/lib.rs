@@ -885,17 +885,22 @@ pub mod pallet {
 			ensure!(EnableManualRewardInput::<T>::get(), Error::<T>::ManualRewardInputDisabled);
 			let s = VtxDistStatuses::<T>::get(id);
 			match s {
-				VtxDistStatus::Enabled => {
-					let mut total_rewards: BalanceOf<T> = Zero::zero();
+				VtxDistStatus::Enabled | VtxDistStatus::Triggered => {
+					let mut total_rewards = TotalVortex::<T>::get(id);
 					for (who, amount) in rewards.iter() {
-						total_rewards += *amount;
-						VtxDistOrderbook::<T>::mutate(id, who.clone(), |entry| {
-							*entry = (*amount, false);
-						});
+						let current_reward = VtxDistOrderbook::<T>::get(id, who.clone()).0;
+						if current_reward != Default::default() {
+							// means we need to minus the current_reward and plus amount from the total_rewards
+							total_rewards = total_rewards
+								.saturating_sub(current_reward)
+								.saturating_add(*amount);
+						} else {
+							// just add
+							total_rewards = total_rewards.saturating_add(*amount);
+						}
+						VtxDistOrderbook::<T>::insert(id, who, (*amount, false));
 					}
-					TotalVortex::<T>::mutate(id, |total_vortex| {
-						*total_vortex = total_vortex.saturating_add(total_rewards);
-					});
+					TotalVortex::<T>::set(id, total_rewards);
 					Self::deposit_event(Event::RewardRegistered { id, rewards });
 					Ok(())
 				},
