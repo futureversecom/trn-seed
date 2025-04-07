@@ -653,6 +653,7 @@ impl pallet_sylo_data_permissions::Config for Runtime {
 	type MaxTags = MaxTags;
 	type MaxPermissionRecords = MaxPermissionRecords;
 	type StringLimit = SyloStringLimit;
+	type WeightInfo = weights::pallet_sylo_data_permissions::WeightInfo<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -2440,5 +2441,6 @@ mod benches {
 		[pallet_evm, EVM]
 		[pallet_migration, Migration]
 		[pallet_sylo_data_verification, SyloDataVerification]
+		[pallet_sylo_data_permissions, SyloDataPermissions]
 	);
 }

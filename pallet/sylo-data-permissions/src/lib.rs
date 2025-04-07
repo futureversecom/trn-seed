@@ -27,13 +27,18 @@ use frame_system::pallet_prelude::*;
 use seed_pallet_common::sylo::*;
 use sp_std::{convert::TryInto, vec};
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
-pub mod types;
 
+pub mod types;
 pub use types::*;
+
+pub mod weights;
+pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -58,6 +63,10 @@ pub mod pallet {
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		/// Interface to access weight values
+		type WeightInfo: WeightInfo;
+
+		/// Provides functionality to retrieve data validation records
 		type SyloDataVerificationProvider: SyloDataVerificationProvider<
 			AccountId = Self::AccountId,
 			StringLimit = Self::StringLimit,
@@ -149,7 +158,7 @@ pub mod pallet {
 		NotPermissionGrantor,
 		/// Cannot revoke a permission that does not exist
 		PermissionNotFound,
-		/// An accompanying validation record for the offchain permission does
+		/// An accompanying verification record for the offchain permission does
 		/// not exist
 		MissingValidationRecord,
 	}
@@ -207,7 +216,9 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight({
+			T::WeightInfo::grant_data_permissions(data_ids.len() as u32)
+		})]
 		pub fn grant_data_permissions(
 			origin: OriginFor<T>,
 			data_author: T::AccountId,
@@ -287,8 +298,10 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(1_000)]
-		pub fn revoke_data_permissions(
+		#[pallet::weight({
+			T::WeightInfo::revoke_data_permission()
+		})]
+		pub fn revoke_data_permission(
 			origin: OriginFor<T>,
 			data_author: T::AccountId,
 			permission_id: u32,
@@ -328,7 +341,9 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(2)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight({
+			T::WeightInfo::grant_tagged_permissions(tags.len() as u32)
+		})]
 		pub fn grant_tagged_permissions(
 			origin: OriginFor<T>,
 			grantee: T::AccountId,
@@ -374,7 +389,9 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(3)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight({
+			T::WeightInfo::revoke_tagged_permissions()
+		})]
 		pub fn revoke_tagged_permissions(
 			origin: OriginFor<T>,
 			grantee: T::AccountId,
@@ -406,7 +423,9 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(4)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight({
+			T::WeightInfo::grant_permission_reference()
+		})]
 		pub fn grant_permission_reference(
 			origin: OriginFor<T>,
 			grantee: T::AccountId,
@@ -436,7 +455,9 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(5)]
-		#[pallet::weight(1_000)]
+		#[pallet::weight({
+			T::WeightInfo::revoke_permission_reference()
+		})]
 		pub fn revoke_permission_reference(
 			origin: OriginFor<T>,
 			grantee: T::AccountId,
@@ -498,7 +519,7 @@ impl<T: Config> SyloDataPermissionsProvider for Pallet<T> {
 		}
 
 		// check for tagged permissions
-		if let Some(validation_record) =
+		if let Some(verification_record) =
 			T::SyloDataVerificationProvider::get_validation_record(&data_author, &data_id)
 		{
 			let tagged_permissions = <TaggedPermissionRecords<T>>::get(data_author, grantee);
@@ -519,7 +540,7 @@ impl<T: Config> SyloDataPermissionsProvider for Pallet<T> {
 						.tags
 						.iter()
 						.find(|permission_tag| {
-							validation_record
+							verification_record
 								.tags
 								.iter()
 								.find(|record_tag| permission_tag == record_tag)
