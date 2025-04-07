@@ -760,6 +760,7 @@ macro_rules! impl_pallet_sylo_configs {
 			type MaxTags = MaxTags;
 			type MaxPermissionRecords = MaxPermissionRecords;
 			type StringLimit = StringLimit;
+			type WeightInfo = ();
 		}
 	};
 }

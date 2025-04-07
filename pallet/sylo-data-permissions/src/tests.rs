@@ -371,11 +371,11 @@ mod grant_data_permissions {
 	}
 }
 
-mod revoke_data_permissions {
+mod revoke_data_permission {
 	use super::*;
 
 	#[test]
-	fn revoke_data_permissions_works() {
+	fn revoke_data_permission_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let grantor: AccountId = create_account(1);
 			let grantee: AccountId = create_account(2);
@@ -396,7 +396,7 @@ mod revoke_data_permissions {
 
 			let permission_id = 0;
 
-			assert_ok!(SyloDataPermissions::revoke_data_permissions(
+			assert_ok!(SyloDataPermissions::revoke_data_permission(
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				permission_id,
@@ -418,7 +418,7 @@ mod revoke_data_permissions {
 	}
 
 	#[test]
-	fn revoke_data_permissions_as_distributor_works() {
+	fn revoke_data_permission_as_distributor_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let grantor: AccountId = create_account(1);
 			let grantee: AccountId = create_account(2);
@@ -449,7 +449,7 @@ mod revoke_data_permissions {
 			));
 
 			// revoke permission as distributor
-			assert_ok!(SyloDataPermissions::revoke_data_permissions(
+			assert_ok!(SyloDataPermissions::revoke_data_permission(
 				RawOrigin::Signed(distributor.clone()).into(),
 				grantor.clone(),
 				1,
@@ -482,7 +482,7 @@ mod revoke_data_permissions {
 			let permission_id = 0;
 
 			assert_noop!(
-				SyloDataPermissions::revoke_data_permissions(
+				SyloDataPermissions::revoke_data_permission(
 					RawOrigin::Signed(grantor.clone()).into(),
 					grantor.clone(),
 					permission_id,
@@ -515,7 +515,7 @@ mod revoke_data_permissions {
 			));
 
 			assert_noop!(
-				SyloDataPermissions::revoke_data_permissions(
+				SyloDataPermissions::revoke_data_permission(
 					RawOrigin::Signed(grantor.clone()).into(),
 					grantor.clone(),
 					1, // wrong permission id
@@ -560,7 +560,7 @@ mod revoke_data_permissions {
 
 			// attempt to revoke permission as distributor
 			assert_noop!(
-				SyloDataPermissions::revoke_data_permissions(
+				SyloDataPermissions::revoke_data_permission(
 					RawOrigin::Signed(distributor.clone()).into(),
 					grantor.clone(),
 					1,
@@ -604,7 +604,7 @@ mod revoke_data_permissions {
 			));
 
 			// revoke as data author
-			assert_ok!(SyloDataPermissions::revoke_data_permissions(
+			assert_ok!(SyloDataPermissions::revoke_data_permission(
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				1,
