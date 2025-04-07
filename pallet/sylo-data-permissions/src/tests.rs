@@ -764,11 +764,11 @@ mod grant_tagged_permissions {
 	}
 }
 
-mod revoke_tagged_permissions {
+mod revoke_tagged_permission {
 	use super::*;
 
 	#[test]
-	fn revoke_tagged_permissions_works() {
+	fn revoke_tagged_permission_works() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let grantor: AccountId = create_account(1);
 			let grantee: AccountId = create_account(2);
@@ -789,7 +789,7 @@ mod revoke_tagged_permissions {
 				irrevocable
 			));
 
-			assert_ok!(SyloDataPermissions::revoke_tagged_permissions(
+			assert_ok!(SyloDataPermissions::revoke_tagged_permission(
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantee.clone(),
 				0,
@@ -832,7 +832,7 @@ mod revoke_tagged_permissions {
 				));
 			}
 
-			assert_ok!(SyloDataPermissions::revoke_tagged_permissions(
+			assert_ok!(SyloDataPermissions::revoke_tagged_permission(
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantee.clone(),
 				1,
@@ -853,7 +853,7 @@ mod revoke_tagged_permissions {
 			let grantee: AccountId = create_account(2);
 
 			assert_noop!(
-				SyloDataPermissions::revoke_tagged_permissions(
+				SyloDataPermissions::revoke_tagged_permission(
 					RawOrigin::Signed(grantor.clone()).into(),
 					grantee.clone(),
 					1,
@@ -882,7 +882,7 @@ mod revoke_tagged_permissions {
 			));
 
 			assert_noop!(
-				SyloDataPermissions::revoke_tagged_permissions(
+				SyloDataPermissions::revoke_tagged_permission(
 					RawOrigin::Signed(grantor.clone()).into(),
 					grantee.clone(),
 					0,

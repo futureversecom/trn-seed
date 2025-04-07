@@ -235,7 +235,7 @@ fn setup_sylo_liquidity(new_account: AccountId) -> u32 {
 }
 
 /// Creates a list of calls for all sylo extrinsics which should be charged in Sylo Tokens
-fn create_sylo_calls() -> Vec<<Runtime as pallet_sylo_data_verification::Config>::RuntimeCall> {
+fn create_sylo_calls() -> Vec<crate::RuntimeCall> {
 	vec![
 		crate::RuntimeCall::SyloDataVerification(
 			pallet_sylo_data_verification::Call::register_resolver {
@@ -282,6 +282,48 @@ fn create_sylo_calls() -> Vec<<Runtime as pallet_sylo_data_verification::Config>
 			pallet_sylo_data_verification::Call::delete_validation_record {
 				data_id: BoundedVec::new(),
 			},
+		),
+		crate::RuntimeCall::SyloDataPermissions(
+			pallet_sylo_data_permissions::Call::grant_data_permissions {
+				data_author: alice(),
+				grantee: alice(),
+				data_ids: BoundedVec::new(),
+				permission: seed_pallet_common::sylo::DataPermission::VIEW,
+				expiry: None,
+				irrevocable: false,
+			},
+		),
+		crate::RuntimeCall::SyloDataPermissions(
+			pallet_sylo_data_permissions::Call::revoke_data_permission {
+				data_author: alice(),
+				permission_id: 0,
+				grantee: alice(),
+				data_id: BoundedVec::new(),
+			},
+		),
+		crate::RuntimeCall::SyloDataPermissions(
+			pallet_sylo_data_permissions::Call::grant_tagged_permissions {
+				grantee: alice(),
+				permission: seed_pallet_common::sylo::DataPermission::VIEW,
+				tags: BoundedVec::new(),
+				expiry: None,
+				irrevocable: false,
+			},
+		),
+		crate::RuntimeCall::SyloDataPermissions(
+			pallet_sylo_data_permissions::Call::revoke_tagged_permission {
+				grantee: alice(),
+				permission_id: 0,
+			},
+		),
+		crate::RuntimeCall::SyloDataPermissions(
+			pallet_sylo_data_permissions::Call::grant_permission_reference {
+				grantee: alice(),
+				permission_record_id: BoundedVec::new(),
+			},
+		),
+		crate::RuntimeCall::SyloDataPermissions(
+			pallet_sylo_data_permissions::Call::revoke_permission_reference { grantee: alice() },
 		),
 	]
 }

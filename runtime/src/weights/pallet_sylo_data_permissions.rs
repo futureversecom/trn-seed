@@ -82,7 +82,7 @@ impl<T: frame_system::Config> pallet_sylo_data_permissions::WeightInfo for Weigh
 	}
 	/// Storage: `SyloDataPermissions::TaggedPermissionRecords` (r:1 w:1)
 	/// Proof: `SyloDataPermissions::TaggedPermissionRecords` (`max_values`: None, `max_size`: Some(503658), added: 506133, mode: `MaxEncodedLen`)
-	fn revoke_tagged_permissions() -> Weight {
+	fn revoke_tagged_permission() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `207`
 		//  Estimated: `507123`

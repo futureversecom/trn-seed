@@ -390,9 +390,9 @@ pub mod pallet {
 
 		#[pallet::call_index(3)]
 		#[pallet::weight({
-			T::WeightInfo::revoke_tagged_permissions()
+			T::WeightInfo::revoke_tagged_permission()
 		})]
-		pub fn revoke_tagged_permissions(
+		pub fn revoke_tagged_permission(
 			origin: OriginFor<T>,
 			grantee: T::AccountId,
 			permission_id: u32,

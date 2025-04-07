@@ -143,7 +143,7 @@ benchmarks! {
 		);
 	}
 
-	revoke_tagged_permissions {
+	revoke_tagged_permission {
 		let alice = account::<T>("Alice");
 		let bob = account::<T>("Bob");
 

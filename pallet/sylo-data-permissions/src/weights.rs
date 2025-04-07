@@ -50,7 +50,7 @@ pub trait WeightInfo {
 	fn grant_data_permissions(p: u32, ) -> Weight;
 	fn revoke_data_permission() -> Weight;
 	fn grant_tagged_permissions(p: u32, ) -> Weight;
-	fn revoke_tagged_permissions() -> Weight;
+	fn revoke_tagged_permission() -> Weight;
 	fn grant_permission_reference() -> Weight;
 	fn revoke_permission_reference() -> Weight;
 }
@@ -93,7 +93,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	// Storage: `SyloDataPermissions::TaggedPermissionRecords` (r:1 w:1)
 	// Proof: `SyloDataPermissions::TaggedPermissionRecords` (`max_values`: None, `max_size`: Some(503658), added: 506133, mode: `MaxEncodedLen`)
-	fn revoke_tagged_permissions() -> Weight {
+	fn revoke_tagged_permission() -> Weight {
 		Weight::from_all(17_000_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -153,7 +153,7 @@ impl WeightInfo for () {
 	}
 	// Storage: `SyloDataPermissions::TaggedPermissionRecords` (r:1 w:1)
 	// Proof: `SyloDataPermissions::TaggedPermissionRecords` (`max_values`: None, `max_size`: Some(503658), added: 506133, mode: `MaxEncodedLen`)
-	fn revoke_tagged_permissions() -> Weight {
+	fn revoke_tagged_permission() -> Weight {
 		Weight::from_all(17_000_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))

@@ -32,6 +32,7 @@ where
 		+ pallet_assets_ext::Config
 		+ pallet_futurepass::Config
 		+ pallet_sylo_data_verification::Config
+		+ pallet_sylo_data_permissions::Config
 		+ pallet_partner_attribution::Config
 		+ pallet_proxy::Config
 		+ pallet_utility::Config
@@ -39,18 +40,21 @@ where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<crate::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
 	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
 	<T as pallet_futurepass::Config>::RuntimeCall:
 		IsSubType<pallet_sylo_data_verification::Call<T>>,
+	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
 	<T as Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
 	Balance: From<<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance>,
@@ -279,16 +283,19 @@ where
 		+ pallet_xrpl::Config
 		+ pallet_proxy::Config
 		+ pallet_utility::Config
-		+ pallet_sylo_data_verification::Config,
+		+ pallet_sylo_data_verification::Config
+		+ pallet_sylo_data_permissions::Config,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<crate::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as pallet_futurepass::Config>::RuntimeCall:
 		IsSubType<pallet_sylo_data_verification::Call<T>>,
@@ -301,6 +308,18 @@ where
 		Some(pallet_sylo_data_verification::Call::add_validation_record_entry { .. }) => true,
 		Some(pallet_sylo_data_verification::Call::update_validation_record { .. }) => true,
 		Some(pallet_sylo_data_verification::Call::delete_validation_record { .. }) => true,
+		_ => false,
+	} {
+		return Ok(true);
+	}
+
+	if match call.is_sub_type() {
+		Some(pallet_sylo_data_permissions::Call::grant_data_permissions { .. }) => true,
+		Some(pallet_sylo_data_permissions::Call::revoke_data_permission { .. }) => true,
+		Some(pallet_sylo_data_permissions::Call::grant_tagged_permissions { .. }) => true,
+		Some(pallet_sylo_data_permissions::Call::revoke_tagged_permission { .. }) => true,
+		Some(pallet_sylo_data_permissions::Call::grant_permission_reference { .. }) => true,
+		Some(pallet_sylo_data_permissions::Call::revoke_permission_reference { .. }) => true,
 		_ => false,
 	} {
 		return Ok(true);
