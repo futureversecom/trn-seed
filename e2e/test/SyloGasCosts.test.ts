@@ -28,6 +28,12 @@ const PROXY_TYPE = {
   Any: 1,
 };
 
+const DATA_PERMISSION = {
+  VIEW: 1,
+  MODIFY: 2,
+  DISTRIBUTE: 3,
+};
+
 const TRN_PERMISSION_DOMAIN: string = "trn";
 
 describe("Sylo", () => {
@@ -52,6 +58,9 @@ describe("Sylo", () => {
 
     keyring = new Keyring({ type: "ethereum" });
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
+  });
+
+  beforeEach(async () => {
     userPrivateKey = Wallet.createRandom().privateKey;
     user = keyring.addFromSeed(hexToU8a(userPrivateKey));
 
@@ -98,6 +107,7 @@ describe("Sylo", () => {
       "0x0000000000000000000000000000000000000000000000000000000000000000",
     ),
     api.tx.syloDataVerification.addValidationRecordEntry(
+      user.address,
       "data-id",
       "0x0000000000000000000000000000000000000000000000000000000000000000",
     ),
@@ -108,6 +118,27 @@ describe("Sylo", () => {
       ["tag-2"],
     ),
     api.tx.syloDataVerification.deleteValidationRecord("data-id"),
+
+    api.tx.syloDataVerification.createValidationRecord(
+      "data-id",
+      [{ method: "sylo-resolver", identifier: "id" }],
+      "data-type",
+      ["tag"],
+      "0x0000000000000000000000000000000000000000000000000000000000000000",
+    ),
+    api.tx.syloDataPermissions.grantDataPermissions(
+      user.address,
+      alith.address,
+      ["data-id"],
+      DATA_PERMISSION.VIEW,
+      null,
+      false,
+    ),
+    api.tx.syloDataPermissions.revokeDataPermission(user.address, 0, alith.address, "data-id"),
+    api.tx.syloDataPermissions.grantTaggedPermissions(alith.address, DATA_PERMISSION.VIEW, [], null, false),
+    api.tx.syloDataPermissions.revokeTaggedPermission(alith.address, 1),
+    api.tx.syloDataPermissions.grantPermissionReference(alith.address, "data-id"),
+    api.tx.syloDataPermissions.revokePermissionReference(alith.address),
   ];
 
   it("can submit sylo extrinsic and pay with sylo tokens", async () => {
