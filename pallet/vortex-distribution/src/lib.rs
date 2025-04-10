@@ -576,7 +576,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			id: T::VtxDistIdentifier,
 			reward_points: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			Self::ensure_root_or_admin(origin)?;
 			let dst_status = VtxDistStatuses::<T>::get(id);
 			ensure!(dst_status == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
@@ -597,7 +597,7 @@ pub mod pallet {
 			TotalRewardPoints::<T>::set(id, total_reward_points);
 			Self::deposit_event(Event::VtxRewardPointRegistered { id, reward_points });
 
-			Ok(())
+			Ok(Pays::No.into())
 		}
 
 		/// Register work point distribution
@@ -610,7 +610,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			id: T::VtxDistIdentifier,
 			work_points: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			Self::ensure_root_or_admin(origin)?;
 			let dst_status = VtxDistStatuses::<T>::get(id);
 			ensure!(dst_status == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
@@ -631,7 +631,7 @@ pub mod pallet {
 			TotalWorkPoints::<T>::set(id, total_work_points);
 			Self::deposit_event(Event::VtxWorkPointRegistered { id, work_points });
 
-			Ok(())
+			Ok(Pays::No.into())
 		}
 
 		/// Set ConsiderCurrentBalance storage item
@@ -690,7 +690,8 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		#[pallet::call_index(12)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution())]
+		// 10_000 is the maximum number distinct reward account entries we expect for now
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution().saturating_mul(10_000))]
 		#[transactional]
 		pub fn trigger_vtx_distribution(
 			origin: OriginFor<T>,
@@ -715,7 +716,7 @@ pub mod pallet {
 			});
 			Self::deposit_event(Event::TriggerVtxDistribution { id });
 
-			Ok(().into())
+			Ok(Pays::No.into())
 		}
 
 		/// Set vtx vault redeem assets list
@@ -726,12 +727,12 @@ pub mod pallet {
 		pub fn set_vtx_vault_redeem_asset_list(
 			origin: OriginFor<T>,
 			assets_list: BoundedVec<AssetId, T::MaxAssetPrices>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			Self::ensure_root_or_admin(origin)?;
 			VtxVaultRedeemAssetList::<T>::set(assets_list.clone());
 			Self::deposit_event(Event::SetVtxVaultRedeemAssetList { asset_list: assets_list });
 
-			Ok(())
+			Ok(Pays::No.into())
 		}
 
 		/// Start distributing vortex
@@ -880,7 +881,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			id: T::VtxDistIdentifier,
 			rewards: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			Self::ensure_root_or_admin(origin)?;
 			ensure!(EnableManualRewardInput::<T>::get(), Error::<T>::ManualRewardInputDisabled);
 			let s = VtxDistStatuses::<T>::get(id);
@@ -902,7 +903,7 @@ pub mod pallet {
 					}
 					TotalVortex::<T>::set(id, total_rewards);
 					Self::deposit_event(Event::RewardRegistered { id, rewards });
-					Ok(())
+					Ok(Pays::No.into())
 				},
 				_ => Err(Error::<T>::VtxDistDisabled)?,
 			}
@@ -987,7 +988,7 @@ pub mod pallet {
 			FeePotAssetsList::<T>::insert(id, assets_balances.clone());
 
 			Self::deposit_event(Event::SetFeePotAssetBalances { id, assets_balances });
-			Ok(().into())
+			Ok(Pays::No.into())
 		}
 
 		/// set vtx vault asset balances
@@ -1004,7 +1005,7 @@ pub mod pallet {
 			VtxVaultAssetsList::<T>::insert(id, assets_balances.clone());
 
 			Self::deposit_event(Event::SetVtxVaultAssetBalances { id, assets_balances });
-			Ok(().into())
+			Ok(Pays::No.into())
 		}
 
 		/// set asset prices
@@ -1025,7 +1026,7 @@ pub mod pallet {
 			}
 
 			Self::deposit_event(Event::SetAssetPrices { id, asset_prices });
-			Ok(().into())
+			Ok(Pays::No.into())
 		}
 
 		/// Calculate vortex price
