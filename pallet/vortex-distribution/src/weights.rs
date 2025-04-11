@@ -19,7 +19,7 @@
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2025-04-11, STEPS: `50`, REPEAT: 20, LOW RANGE: `[]`, HIGH RANGE: `[]`
-//! HOSTNAME: `Surangas-MacBook-Pro.local`, CPU: `<UNKNOWN>`
+//! HOSTNAME: `ip-172-31-102-147`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
 //! EXECUTION: , WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
@@ -73,7 +73,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `VortexDistribution::AdminAccount` (r:1 w:1)
 	// Proof: `VortexDistribution::AdminAccount` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_admin() -> Weight {
-		Weight::from_all(9_000_000)
+		Weight::from_all(29_814_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -82,33 +82,33 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `VortexDistribution::VtxDistStatuses` (r:0 w:1)
 	// Proof: `VortexDistribution::VtxDistStatuses` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `MaxEncodedLen`)
 	fn create_vtx_dist() -> Weight {
-		Weight::from_all(12_000_000)
+		Weight::from_all(39_833_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: `VortexDistribution::VtxDistStatuses` (r:1 w:1)
 	// Proof: `VortexDistribution::VtxDistStatuses` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `MaxEncodedLen`)
 	fn disable_vtx_dist() -> Weight {
-		Weight::from_all(13_000_000)
+		Weight::from_all(40_439_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::VtxTotalSupply` (r:0 w:1)
 	// Proof: `VortexDistribution::VtxTotalSupply` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	fn set_vtx_total_supply() -> Weight {
-		Weight::from_all(7_000_000)
+		Weight::from_all(25_432_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::ConsiderCurrentBalance` (r:0 w:1)
 	// Proof: `VortexDistribution::ConsiderCurrentBalance` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn set_consider_current_balance() -> Weight {
-		Weight::from_all(7_000_000)
+		Weight::from_all(23_242_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::DisableRedeem` (r:0 w:1)
 	// Proof: `VortexDistribution::DisableRedeem` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn set_disable_redeem() -> Weight {
-		Weight::from_all(7_000_000)
+		Weight::from_all(23_301_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::VtxDistStatuses` (r:1 w:1)
@@ -122,7 +122,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn start_vtx_dist() -> Weight {
-		Weight::from_all(45_000_000)
+		Weight::from_all(120_169_000)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
@@ -130,18 +130,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `VortexDistribution::FeePotAssetsList` (`max_values`: None, `max_size`: Some(10014), added: 12489, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn set_fee_pot_asset_balances(b: u32, ) -> Weight {
-		Weight::from_all(15_458_332)
-			// Standard Error: 1_788
-			.saturating_add(Weight::from_all(51_122_u64).saturating_mul(b as u64))
+		Weight::from_all(35_162_864)
+			// Standard Error: 1_531
+			.saturating_add(Weight::from_all(60_397_u64).saturating_mul(b as u64))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::VtxVaultAssetsList` (r:0 w:1)
 	// Proof: `VortexDistribution::VtxVaultAssetsList` (`max_values`: None, `max_size`: Some(10014), added: 12489, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn set_vtx_vault_asset_balances(b: u32, ) -> Weight {
-		Weight::from_all(12_909_603)
-			// Standard Error: 1_495
-			.saturating_add(Weight::from_all(54_349_u64).saturating_mul(b as u64))
+		Weight::from_all(35_275_072)
+			// Standard Error: 1_172
+			.saturating_add(Weight::from_all(61_579_u64).saturating_mul(b as u64))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::FeePotAssetsList` (r:1 w:0)
@@ -150,9 +150,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `VortexDistribution::AssetPrices` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn set_asset_prices(b: u32, ) -> Weight {
-		Weight::from_all(16_000_000)
-			// Standard Error: 27_804
-			.saturating_add(Weight::from_all(5_329_843_u64).saturating_mul(b as u64))
+		Weight::from_all(51_900_000)
+			// Standard Error: 76_046
+			.saturating_add(Weight::from_all(13_288_697_u64).saturating_mul(b as u64))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(b as u64)))
 	}
@@ -164,9 +164,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `VortexDistribution::RewardPoints` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn register_reward_points(b: u32, ) -> Weight {
-		Weight::from_all(16_000_000)
-			// Standard Error: 7_451
-			.saturating_add(Weight::from_all(3_999_347_u64).saturating_mul(b as u64))
+		Weight::from_all(39_035_675)
+			// Standard Error: 5_267
+			.saturating_add(Weight::from_all(8_333_484_u64).saturating_mul(b as u64))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(b as u64)))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -180,9 +180,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `VortexDistribution::WorkPoints` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn register_work_points(b: u32, ) -> Weight {
-		Weight::from_all(16_000_000)
-			// Standard Error: 5_484
-			.saturating_add(Weight::from_all(3_968_972_u64).saturating_mul(b as u64))
+		Weight::from_all(72_929_986)
+			// Standard Error: 12_352
+			.saturating_add(Weight::from_all(8_312_766_u64).saturating_mul(b as u64))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(b as u64)))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -217,7 +217,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `VortexDistribution::VtxPrice` (r:0 w:1)
 	// Proof: `VortexDistribution::VtxPrice` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	fn trigger_vtx_distribution() -> Weight {
-		Weight::from_all(182_000_000)
+		Weight::from_all(445_433_000)
 			.saturating_add(T::DbWeight::get().reads(14))
 			.saturating_add(T::DbWeight::get().writes(11))
 	}
@@ -232,7 +232,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn redeem_tokens_from_vault() -> Weight {
-		Weight::from_all(59_000_000)
+		Weight::from_all(152_831_000)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -251,7 +251,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `VortexDistribution::NextUnsignedAt` (r:0 w:1)
 	// Proof: `VortexDistribution::NextUnsignedAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn pay_unsigned() -> Weight {
-		Weight::from_all(84_000_000)
+		Weight::from_all(228_755_000)
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
@@ -259,9 +259,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `VortexDistribution::VtxVaultRedeemAssetList` (`max_values`: Some(1), `max_size`: Some(2002), added: 2497, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn set_vtx_vault_redeem_asset_list(b: u32, ) -> Weight {
-		Weight::from_all(7_205_841)
-			// Standard Error: 294
-			.saturating_add(Weight::from_all(2_904_u64).saturating_mul(b as u64))
+		Weight::from_all(26_609_486)
+			// Standard Error: 108
+			.saturating_add(Weight::from_all(10_061_u64).saturating_mul(b as u64))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::EnableManualRewardInput` (r:1 w:0)
@@ -274,9 +274,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `VortexDistribution::VtxDistOrderbook` (`max_values`: Some(4294967295), `max_size`: Some(73), added: 4033, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn register_rewards(b: u32, ) -> Weight {
-		Weight::from_all(19_000_000)
-			// Standard Error: 5_195
-			.saturating_add(Weight::from_all(4_019_193_u64).saturating_mul(b as u64))
+		Weight::from_all(46_323_217)
+			// Standard Error: 7_032
+			.saturating_add(Weight::from_all(8_814_315_u64).saturating_mul(b as u64))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(b as u64)))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -285,7 +285,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `VortexDistribution::EnableManualRewardInput` (r:0 w:1)
 	// Proof: `VortexDistribution::EnableManualRewardInput` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn set_enable_manual_reward_input() -> Weight {
-		Weight::from_all(6_000_000)
+		Weight::from_all(24_250_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }
@@ -295,7 +295,7 @@ impl WeightInfo for () {
 	// Storage: `VortexDistribution::AdminAccount` (r:1 w:1)
 	// Proof: `VortexDistribution::AdminAccount` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
 	fn set_admin() -> Weight {
-		Weight::from_all(9_000_000)
+		Weight::from_all(29_814_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -304,33 +304,33 @@ impl WeightInfo for () {
 	// Storage: `VortexDistribution::VtxDistStatuses` (r:0 w:1)
 	// Proof: `VortexDistribution::VtxDistStatuses` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `MaxEncodedLen`)
 	fn create_vtx_dist() -> Weight {
-		Weight::from_all(12_000_000)
+		Weight::from_all(39_833_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: `VortexDistribution::VtxDistStatuses` (r:1 w:1)
 	// Proof: `VortexDistribution::VtxDistStatuses` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `MaxEncodedLen`)
 	fn disable_vtx_dist() -> Weight {
-		Weight::from_all(13_000_000)
+		Weight::from_all(40_439_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::VtxTotalSupply` (r:0 w:1)
 	// Proof: `VortexDistribution::VtxTotalSupply` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	fn set_vtx_total_supply() -> Weight {
-		Weight::from_all(7_000_000)
+		Weight::from_all(25_432_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::ConsiderCurrentBalance` (r:0 w:1)
 	// Proof: `VortexDistribution::ConsiderCurrentBalance` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn set_consider_current_balance() -> Weight {
-		Weight::from_all(7_000_000)
+		Weight::from_all(23_242_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::DisableRedeem` (r:0 w:1)
 	// Proof: `VortexDistribution::DisableRedeem` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn set_disable_redeem() -> Weight {
-		Weight::from_all(7_000_000)
+		Weight::from_all(23_301_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::VtxDistStatuses` (r:1 w:1)
@@ -344,7 +344,7 @@ impl WeightInfo for () {
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn start_vtx_dist() -> Weight {
-		Weight::from_all(45_000_000)
+		Weight::from_all(120_169_000)
 			.saturating_add(RocksDbWeight::get().reads(5))
 			.saturating_add(RocksDbWeight::get().writes(4))
 	}
@@ -352,18 +352,18 @@ impl WeightInfo for () {
 	// Proof: `VortexDistribution::FeePotAssetsList` (`max_values`: None, `max_size`: Some(10014), added: 12489, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn set_fee_pot_asset_balances(b: u32, ) -> Weight {
-		Weight::from_all(15_458_332)
-			// Standard Error: 1_788
-			.saturating_add(Weight::from_all(51_122_u64).saturating_mul(b as u64))
+		Weight::from_all(35_162_864)
+			// Standard Error: 1_531
+			.saturating_add(Weight::from_all(60_397_u64).saturating_mul(b as u64))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::VtxVaultAssetsList` (r:0 w:1)
 	// Proof: `VortexDistribution::VtxVaultAssetsList` (`max_values`: None, `max_size`: Some(10014), added: 12489, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn set_vtx_vault_asset_balances(b: u32, ) -> Weight {
-		Weight::from_all(12_909_603)
-			// Standard Error: 1_495
-			.saturating_add(Weight::from_all(54_349_u64).saturating_mul(b as u64))
+		Weight::from_all(35_275_072)
+			// Standard Error: 1_172
+			.saturating_add(Weight::from_all(61_579_u64).saturating_mul(b as u64))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::FeePotAssetsList` (r:1 w:0)
@@ -372,9 +372,9 @@ impl WeightInfo for () {
 	// Proof: `VortexDistribution::AssetPrices` (`max_values`: None, `max_size`: Some(40), added: 2515, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn set_asset_prices(b: u32, ) -> Weight {
-		Weight::from_all(16_000_000)
-			// Standard Error: 27_804
-			.saturating_add(Weight::from_all(5_329_843_u64).saturating_mul(b as u64))
+		Weight::from_all(51_900_000)
+			// Standard Error: 76_046
+			.saturating_add(Weight::from_all(13_288_697_u64).saturating_mul(b as u64))
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(b as u64)))
 	}
@@ -386,9 +386,9 @@ impl WeightInfo for () {
 	// Proof: `VortexDistribution::RewardPoints` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn register_reward_points(b: u32, ) -> Weight {
-		Weight::from_all(16_000_000)
-			// Standard Error: 7_451
-			.saturating_add(Weight::from_all(3_999_347_u64).saturating_mul(b as u64))
+		Weight::from_all(39_035_675)
+			// Standard Error: 5_267
+			.saturating_add(Weight::from_all(8_333_484_u64).saturating_mul(b as u64))
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(b as u64)))
 			.saturating_add(RocksDbWeight::get().writes(1))
@@ -402,9 +402,9 @@ impl WeightInfo for () {
 	// Proof: `VortexDistribution::WorkPoints` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn register_work_points(b: u32, ) -> Weight {
-		Weight::from_all(16_000_000)
-			// Standard Error: 5_484
-			.saturating_add(Weight::from_all(3_968_972_u64).saturating_mul(b as u64))
+		Weight::from_all(72_929_986)
+			// Standard Error: 12_352
+			.saturating_add(Weight::from_all(8_312_766_u64).saturating_mul(b as u64))
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(b as u64)))
 			.saturating_add(RocksDbWeight::get().writes(1))
@@ -439,7 +439,7 @@ impl WeightInfo for () {
 	// Storage: `VortexDistribution::VtxPrice` (r:0 w:1)
 	// Proof: `VortexDistribution::VtxPrice` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
 	fn trigger_vtx_distribution() -> Weight {
-		Weight::from_all(182_000_000)
+		Weight::from_all(445_433_000)
 			.saturating_add(RocksDbWeight::get().reads(14))
 			.saturating_add(RocksDbWeight::get().writes(11))
 	}
@@ -454,7 +454,7 @@ impl WeightInfo for () {
 	// Storage: `System::Account` (r:1 w:1)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn redeem_tokens_from_vault() -> Weight {
-		Weight::from_all(59_000_000)
+		Weight::from_all(152_831_000)
 			.saturating_add(RocksDbWeight::get().reads(5))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}
@@ -473,7 +473,7 @@ impl WeightInfo for () {
 	// Storage: `VortexDistribution::NextUnsignedAt` (r:0 w:1)
 	// Proof: `VortexDistribution::NextUnsignedAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn pay_unsigned() -> Weight {
-		Weight::from_all(84_000_000)
+		Weight::from_all(228_755_000)
 			.saturating_add(RocksDbWeight::get().reads(9))
 			.saturating_add(RocksDbWeight::get().writes(8))
 	}
@@ -481,9 +481,9 @@ impl WeightInfo for () {
 	// Proof: `VortexDistribution::VtxVaultRedeemAssetList` (`max_values`: Some(1), `max_size`: Some(2002), added: 2497, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn set_vtx_vault_redeem_asset_list(b: u32, ) -> Weight {
-		Weight::from_all(7_205_841)
-			// Standard Error: 294
-			.saturating_add(Weight::from_all(2_904_u64).saturating_mul(b as u64))
+		Weight::from_all(26_609_486)
+			// Standard Error: 108
+			.saturating_add(Weight::from_all(10_061_u64).saturating_mul(b as u64))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `VortexDistribution::EnableManualRewardInput` (r:1 w:0)
@@ -496,9 +496,9 @@ impl WeightInfo for () {
 	// Proof: `VortexDistribution::VtxDistOrderbook` (`max_values`: Some(4294967295), `max_size`: Some(73), added: 4033, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 500]`.
 	fn register_rewards(b: u32, ) -> Weight {
-		Weight::from_all(19_000_000)
-			// Standard Error: 5_195
-			.saturating_add(Weight::from_all(4_019_193_u64).saturating_mul(b as u64))
+		Weight::from_all(46_323_217)
+			// Standard Error: 7_032
+			.saturating_add(Weight::from_all(8_814_315_u64).saturating_mul(b as u64))
 			.saturating_add(RocksDbWeight::get().reads(3))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(b as u64)))
 			.saturating_add(RocksDbWeight::get().writes(1))
@@ -507,7 +507,7 @@ impl WeightInfo for () {
 	// Storage: `VortexDistribution::EnableManualRewardInput` (r:0 w:1)
 	// Proof: `VortexDistribution::EnableManualRewardInput` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	fn set_enable_manual_reward_input() -> Weight {
-		Weight::from_all(6_000_000)
+		Weight::from_all(24_250_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }

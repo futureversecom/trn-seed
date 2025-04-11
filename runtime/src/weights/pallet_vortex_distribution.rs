@@ -4,7 +4,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2025-04-11, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `Surangas-MacBook-Pro.local`, CPU: `<UNKNOWN>`
+//! HOSTNAME: `ip-172-31-102-147`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
 //! EXECUTION: ``, WASM-EXECUTION: `Compiled`, CHAIN: `Some("dev")`, DB CACHE: 1024
 
 // Executed Command:
@@ -38,8 +38,8 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `142`
 		//  Estimated: `1505`
-		// Minimum execution time: 8_000_000 picoseconds.
-		Weight::from_parts(9_000_000, 0)
+		// Minimum execution time: 29_869_000 picoseconds.
+		Weight::from_parts(30_244_000, 0)
 			.saturating_add(Weight::from_parts(0, 1505))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -52,8 +52,8 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `142`
 		//  Estimated: `1489`
-		// Minimum execution time: 12_000_000 picoseconds.
-		Weight::from_parts(12_000_000, 0)
+		// Minimum execution time: 38_651_000 picoseconds.
+		Weight::from_parts(40_868_000, 0)
 			.saturating_add(Weight::from_parts(0, 1489))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))
@@ -64,8 +64,8 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `202`
 		//  Estimated: `3478`
-		// Minimum execution time: 12_000_000 picoseconds.
-		Weight::from_parts(14_000_000, 0)
+		// Minimum execution time: 40_201_000 picoseconds.
+		Weight::from_parts(40_999_000, 0)
 			.saturating_add(Weight::from_parts(0, 3478))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -76,8 +76,8 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(7_000_000, 0)
+		// Minimum execution time: 25_677_000 picoseconds.
+		Weight::from_parts(26_149_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -87,8 +87,8 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(7_000_000, 0)
+		// Minimum execution time: 23_256_000 picoseconds.
+		Weight::from_parts(23_755_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -98,8 +98,8 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 0)
+		// Minimum execution time: 23_355_000 picoseconds.
+		Weight::from_parts(23_999_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -117,8 +117,8 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `1122`
 		//  Estimated: `3627`
-		// Minimum execution time: 42_000_000 picoseconds.
-		Weight::from_parts(43_000_000, 0)
+		// Minimum execution time: 117_740_000 picoseconds.
+		Weight::from_parts(119_251_000, 0)
 			.saturating_add(Weight::from_parts(0, 3627))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(4))
@@ -130,11 +130,11 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 7_000_000 picoseconds.
-		Weight::from_parts(7_663_481, 0)
+		// Minimum execution time: 30_235_000 picoseconds.
+		Weight::from_parts(34_203_738, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 1_165
-			.saturating_add(Weight::from_parts(65_356, 0).saturating_mul(b.into()))
+			// Standard Error: 1_207
+			.saturating_add(Weight::from_parts(60_324, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `VortexDistribution::VtxVaultAssetsList` (r:0 w:1)
@@ -144,11 +144,11 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 8_000_000 picoseconds.
-		Weight::from_parts(15_627_367, 0)
+		// Minimum execution time: 30_654_000 picoseconds.
+		Weight::from_parts(35_358_686, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 1_503
-			.saturating_add(Weight::from_parts(48_582, 0).saturating_mul(b.into()))
+			// Standard Error: 1_257
+			.saturating_add(Weight::from_parts(59_684, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `VortexDistribution::FeePotAssetsList` (r:1 w:0)
@@ -160,11 +160,11 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `242 + b * (20 ±0)`
 		//  Estimated: `13479`
-		// Minimum execution time: 15_000_000 picoseconds.
-		Weight::from_parts(16_000_000, 0)
+		// Minimum execution time: 51_520_000 picoseconds.
+		Weight::from_parts(52_231_000, 0)
 			.saturating_add(Weight::from_parts(0, 13479))
-			// Standard Error: 27_091
-			.saturating_add(Weight::from_parts(5_379_145, 0).saturating_mul(b.into()))
+			// Standard Error: 74_186
+			.saturating_add(Weight::from_parts(12_942_172, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(b.into())))
 	}
@@ -179,11 +179,11 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `202`
 		//  Estimated: `3493 + b * (2547 ±0)`
-		// Minimum execution time: 16_000_000 picoseconds.
-		Weight::from_parts(16_000_000, 0)
+		// Minimum execution time: 50_040_000 picoseconds.
+		Weight::from_parts(36_636_559, 0)
 			.saturating_add(Weight::from_parts(0, 3493))
-			// Standard Error: 5_764
-			.saturating_add(Weight::from_parts(3_924_098, 0).saturating_mul(b.into()))
+			// Standard Error: 5_595
+			.saturating_add(Weight::from_parts(8_058_068, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(b.into())))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -201,11 +201,11 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `202`
 		//  Estimated: `3493 + b * (2547 ±0)`
-		// Minimum execution time: 16_000_000 picoseconds.
-		Weight::from_parts(16_000_000, 0)
+		// Minimum execution time: 49_934_000 picoseconds.
+		Weight::from_parts(22_627_359, 0)
 			.saturating_add(Weight::from_parts(0, 3493))
-			// Standard Error: 4_654
-			.saturating_add(Weight::from_parts(3_884_466, 0).saturating_mul(b.into()))
+			// Standard Error: 9_245
+			.saturating_add(Weight::from_parts(8_105_134, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(b.into())))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -244,8 +244,8 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `1640`
 		//  Estimated: `13479`
-		// Minimum execution time: 172_000_000 picoseconds.
-		Weight::from_parts(178_000_000, 0)
+		// Minimum execution time: 432_112_000 picoseconds.
+		Weight::from_parts(437_536_000, 0)
 			.saturating_add(Weight::from_parts(0, 13479))
 			.saturating_add(T::DbWeight::get().reads(14))
 			.saturating_add(T::DbWeight::get().writes(11))
@@ -264,8 +264,8 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `1214`
 		//  Estimated: `3627`
-		// Minimum execution time: 54_000_000 picoseconds.
-		Weight::from_parts(56_000_000, 0)
+		// Minimum execution time: 148_856_000 picoseconds.
+		Weight::from_parts(150_868_000, 0)
 			.saturating_add(Weight::from_parts(0, 3627))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
@@ -288,8 +288,8 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `1504`
 		//  Estimated: `9056`
-		// Minimum execution time: 81_000_000 picoseconds.
-		Weight::from_parts(86_000_000, 0)
+		// Minimum execution time: 222_785_000 picoseconds.
+		Weight::from_parts(224_490_000, 0)
 			.saturating_add(Weight::from_parts(0, 9056))
 			.saturating_add(T::DbWeight::get().reads(9))
 			.saturating_add(T::DbWeight::get().writes(8))
@@ -301,11 +301,11 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(7_205_734, 0)
+		// Minimum execution time: 24_846_000 picoseconds.
+		Weight::from_parts(26_694_725, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 135
-			.saturating_add(Weight::from_parts(2_976, 0).saturating_mul(b.into()))
+			// Standard Error: 115
+			.saturating_add(Weight::from_parts(10_373, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `VortexDistribution::EnableManualRewardInput` (r:1 w:0)
@@ -321,11 +321,11 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `224`
 		//  Estimated: `3493 + b * (4033 ±0)`
-		// Minimum execution time: 18_000_000 picoseconds.
-		Weight::from_parts(19_000_000, 0)
+		// Minimum execution time: 58_266_000 picoseconds.
+		Weight::from_parts(37_128_794, 0)
 			.saturating_add(Weight::from_parts(0, 3493))
-			// Standard Error: 6_582
-			.saturating_add(Weight::from_parts(3_995_662, 0).saturating_mul(b.into()))
+			// Standard Error: 6_708
+			.saturating_add(Weight::from_parts(8_221_264, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(b.into())))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -338,8 +338,8 @@ impl<T: frame_system::Config> pallet_vortex_distribution::WeightInfo for WeightI
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 6_000_000 picoseconds.
-		Weight::from_parts(7_000_000, 0)
+		// Minimum execution time: 23_792_000 picoseconds.
+		Weight::from_parts(24_338_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
