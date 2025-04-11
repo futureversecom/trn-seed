@@ -931,6 +931,115 @@ fn start_vtx_dist_without_root_origin_should_fail() {
 }
 
 #[test]
+fn start_vtx_dist_fails_during_reward_calculations_ongoing_period() {
+	let alice: AccountId = create_account(1);
+	let bob: AccountId = create_account(2);
+	let charlie: AccountId = create_account(3);
+	let end_block = 10;
+
+	TestExt::default()
+		.with_balances(&[(alice, 2_000_000)])
+		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(charlie, 5)])
+		.build()
+		.execute_with(|| {
+			// create 2 tokens
+			let usdc = AssetsExt::create(&alice, None).unwrap();
+			let weth = AssetsExt::create(&alice, None).unwrap();
+
+			let root_price: Balance = 3;
+
+			let vortex_dist_id = NextVortexId::<Test>::get();
+
+			// mint tokens to user
+			assert_ok!(AssetsExt::mint_into(usdc, &alice, 1_000_000));
+			assert_ok!(AssetsExt::mint_into(weth, &alice, 1_000_000));
+
+			// Transfer bootstrap
+			let root_vault = Vortex::get_root_vault_account();
+			let bootstrap_root = 1_000_000;
+			assert_ok!(Vortex::safe_transfer(
+				NativeAssetId::get(),
+				&alice,
+				&root_vault,
+				bootstrap_root.clone(),
+				false
+			));
+
+			// Transfer fee pot assets
+			let fee_vault = Vortex::get_fee_vault_account();
+			assert_ok!(Vortex::safe_transfer(usdc, &alice, &fee_vault, 1_000_000, false));
+			assert_ok!(Vortex::safe_transfer(weth, &alice, &fee_vault, 1_000_000, false));
+			assert_ok!(Vortex::safe_transfer(
+				NativeAssetId::get(),
+				&alice,
+				&fee_vault,
+				1_000_000,
+				false
+			));
+
+			// create vortex distribution
+			assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+
+			// set vortex vault asset balances
+			let vtx_vault_asset_balances = vec![(usdc, 5), (weth, 5), (ROOT_ASSET_ID, 100)];
+			assert_ok!(Vortex::set_vtx_vault_asset_balances(
+				Origin::root(),
+				vortex_dist_id,
+				BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap(),
+			));
+			// set Vtx current supply
+			let vtx_current_supply = 5;
+			assert_ok!(Vortex::set_vtx_total_supply(
+				Origin::root(),
+				vortex_dist_id,
+				vtx_current_supply,
+			));
+
+			// set fee pot asset balances
+			let fee_pot_asset_balances = vec![(usdc, 10), (weth, 10), (ROOT_ASSET_ID, 10)];
+			assert_ok!(Vortex::set_fee_pot_asset_balances(
+				Origin::root(),
+				vortex_dist_id,
+				BoundedVec::try_from(fee_pot_asset_balances.clone()).unwrap(),
+			));
+
+			//set asset price
+			let asset_prices = vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, root_price)];
+			assert_ok!(Vortex::set_asset_prices(
+				Origin::root(),
+				vortex_dist_id,
+				BoundedVec::try_from(asset_prices.clone()).unwrap(),
+			));
+
+			// register reward and work points
+			let reward_points =
+				BoundedVec::try_from(vec![(bob, 100_000), (charlie, 100_000)]).unwrap();
+			let work_points = BoundedVec::try_from(vec![(bob, 10), (charlie, 10)]).unwrap();
+			assert_ok!(Vortex::register_reward_points(
+				Origin::root(),
+				vortex_dist_id,
+				reward_points
+			));
+			assert_ok!(Vortex::register_work_points(Origin::root(), vortex_dist_id, work_points));
+
+			// trigger vortex distribution and do the preparations for distribution
+			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id));
+			// run one block to start reward calculation
+			System::set_block_number(2_u32.into());
+			Vortex::on_idle(2_u32.into(), Weight::from_all(1_000_000_000_000_u64));
+
+			// try to do start_vtx_dist should fail since the reward calculation is not finished yet
+			assert_ne!(VtxDistStatuses::<Test>::get(vortex_dist_id), VtxDistStatus::Triggered);
+			assert_eq!(VtxDistStatuses::<Test>::get(vortex_dist_id), VtxDistStatus::Triggering);
+
+			assert_noop!(
+				Vortex::start_vtx_dist(Origin::root(), vortex_dist_id),
+				crate::Error::<Test>::NotTriggered
+			);
+		});
+}
+
+#[test]
 fn start_vtx_dist_success() {
 	let alice: AccountId = create_account(1);
 	let bob: AccountId = create_account(2);
@@ -1867,6 +1976,12 @@ fn set_enable_manual_reward_input_can_be_used_for_legacy_flow_before_trigger() {
 
 			// trigger vortex distribution and do the preparations for distribution
 			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id));
+
+			// Vtx status directly goes to the Triggered, as no need to calculate the rewards
+			System::assert_last_event(MockEvent::Vortex(crate::Event::VtxDistributionTriggered {
+				id: vortex_dist_id,
+			}));
+			assert_eq!(VtxDistStatuses::<Test>::get(vortex_dist_id), VtxDistStatus::Triggered);
 
 			// check VtxPrice tally
 			let vtx_price_calculted =
