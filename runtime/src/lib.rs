@@ -1760,10 +1760,9 @@ impl_runtime_apis! {
 			path: Vec<AssetId>,
 		) -> Result<Vec<Balance>, sp_runtime::DispatchError> {
 			Dex::get_amounts_in(amount_out, &path).map_err(|e| match e {
-				_ => sp_runtime::DispatchError::Other("Insufficient Liquidity"),
-				// sp_runtime::DispatchError::Arithmetic(_)  =>
-				// 	sp_runtime::DispatchError::Other("Insufficient Liquidity"),
-				// 	e => e,
+				sp_runtime::DispatchError::Arithmetic(_)  =>
+					sp_runtime::DispatchError::Other("Insufficient Liquidity"),
+					e => e,
 			})
 		}
 
@@ -1822,6 +1821,22 @@ impl_runtime_apis! {
 	impl pallet_sft_rpc_runtime_api::SftApi<Block, Runtime> for Runtime {
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Sft::token_uri(token_id)
+		}
+	}
+
+	impl pallet_sylo_data_permissions_rpc_runtime_api::SyloDataPermissionsApi<Block, AccountId> for Runtime {
+		fn has_permission_query(
+			data_author: AccountId,
+			grantee: AccountId,
+			data_id: String,
+			permission: seed_pallet_common::sylo::DataPermission
+		) -> Result<pallet_sylo_data_permissions::HasPermissionQueryResult, sp_runtime::DispatchError> {
+			SyloDataPermissions::has_permission_query(
+				data_author,
+				grantee,
+				data_id.as_bytes().to_vec(),
+				permission
+			)
 		}
 	}
 

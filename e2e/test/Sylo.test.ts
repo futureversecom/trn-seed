@@ -19,6 +19,7 @@ import {
   finalizeTx,
   getNextAssetId,
   getPrefixLength,
+  rpcs,
   startNode,
   stringToHex,
   typedefs,
@@ -29,14 +30,14 @@ const PROXY_TYPE = {
 };
 
 const DATA_PERMISSION = {
-  VIEW: 1,
-  MODIFY: 2,
-  DISTRIBUTE: 3,
+  VIEW: "VIEW",
+  MODIFY: "MODIFY",
+  DISTRIBUTE: "DISTRIBUTE",
 };
 
 const TRN_PERMISSION_DOMAIN: string = "trn";
 
-describe("Sylo", () => {
+describe("Sylo Gas Costs", () => {
   let node: NodeProcess;
   let api: ApiPromise;
   let keyring: Keyring;
@@ -51,7 +52,7 @@ describe("Sylo", () => {
     node = await startNode();
 
     const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
-    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
     genesisHash = api.genesisHash.toHex().slice(2);
 
     provider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
@@ -489,5 +490,199 @@ describe("Sylo", () => {
     });
 
     console.error("doughtnut err:", doughnutErr);
+  });
+});
+
+describe("Sylo RPC", () => {
+  let node: NodeProcess;
+  let api: ApiPromise;
+  let keyring: Keyring;
+  let alith: KeyringPair;
+  let userPrivateKey: string;
+  let user: KeyringPair;
+  let provider: JsonRpcProvider;
+  let genesisHash: string;
+  let feeTokenAssetId: number;
+
+  before(async () => {
+    node = await startNode();
+
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
+    genesisHash = api.genesisHash.toHex().slice(2);
+
+    provider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
+
+    keyring = new Keyring({ type: "ethereum" });
+    alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
+
+    userPrivateKey = Wallet.createRandom().privateKey;
+    user = keyring.addFromSeed(hexToU8a(userPrivateKey));
+
+    feeTokenAssetId = await getNextAssetId(api);
+
+    // add liquidity for XRP/SYLO token and set up user funds
+    const txs = [
+      api.tx.assetsExt.createAsset("sylo", "SYLO", 18, 1, alith.address),
+      api.tx.assets.mint(feeTokenAssetId, alith.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(feeTokenAssetId, user.address, 2_000_000_000_000_000),
+      api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 1), // avoids xrp balance increase due to preservation rules
+      api.tx.dex.addLiquidity(
+        feeTokenAssetId,
+        GAS_TOKEN_ID,
+        100_000_000_000,
+        100_000_000_000,
+        100_000_000_000,
+        100_000_000_000,
+        null,
+        null,
+      ),
+    ];
+    await finalizeTx(alith, api.tx.utility.batch(txs));
+
+    // set payment asset
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.syloDataVerification.setPaymentAsset(feeTokenAssetId)));
+
+    console.log("liquidity setup complete...");
+  });
+
+  it("has_permission_query returns correctly if no permission granted", async () => {
+    const res = await (api.rpc as any).syloDataPermissions.has_permission_query(
+      user.address,
+      alith.address,
+      "data-id",
+      DATA_PERMISSION.VIEW,
+    );
+
+    expect(res.toJSON()).to.deep.equal({
+      Ok: {
+        onchain: false,
+        permission_reference: null,
+      },
+    });
+  });
+
+  it("has_permission_query returns onchain permission if permission granted", async () => {
+    await finalizeTx(
+      user,
+      api.tx.syloDataVerification.createValidationRecord(
+        "data-id",
+        [],
+        "data-type",
+        [],
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      ),
+    );
+
+    // grant data permission
+    await finalizeTx(
+      user,
+      api.tx.syloDataPermissions.grantDataPermissions(
+        user.address,
+        alith.address,
+        ["data-id"],
+        DATA_PERMISSION.VIEW,
+        null,
+        false,
+      ),
+    );
+
+    const res = await (api.rpc as any).syloDataPermissions.has_permission_query(
+      user.address,
+      alith.address,
+      "data-id",
+      DATA_PERMISSION.VIEW,
+    );
+
+    expect(res.toJSON()).to.deep.equal({
+      Ok: {
+        onchain: true,
+        permission_reference: null,
+      },
+    });
+  });
+
+  it("has_permission_query returns onchain permission if tagged granted", async () => {
+    await finalizeTx(
+      user,
+      api.tx.syloDataVerification.createValidationRecord(
+        "data-id-2",
+        [{ method: "sylo-resolver", identifier: "id" }],
+        "data-type",
+        ["tag"],
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      ),
+    );
+
+    // grant data permission
+    await finalizeTx(
+      user,
+      api.tx.syloDataPermissions.grantTaggedPermissions(alith.address, DATA_PERMISSION.VIEW, ["tag"], null, false),
+    );
+
+    const res = await (api.rpc as any).syloDataPermissions.has_permission_query(
+      user.address,
+      alith.address,
+      "data-id-2",
+      DATA_PERMISSION.VIEW,
+    );
+
+    expect(res.toJSON()).to.deep.equal({
+      Ok: {
+        onchain: true,
+        permission_reference: null,
+      },
+    });
+  });
+
+  it("has_permission_query returns permission reference if it exists", async () => {
+    await finalizeTx(user, api.tx.syloDataVerification.registerResolver("permission-resolver", ["endpoint"]));
+
+    // create offchain permission record
+    await finalizeTx(
+      user,
+      api.tx.syloDataVerification.createValidationRecord(
+        "offchain-permission",
+        [{ method: "sylo-data", identifier: "permission-resolver" }],
+        "data-type",
+        ["tag"],
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      ),
+    );
+
+    // grant data permission
+    await finalizeTx(user, api.tx.syloDataPermissions.grantPermissionReference(alith.address, "offchain-permission"));
+
+    const res = await (api.rpc as any).syloDataPermissions.has_permission_query(
+      user.address,
+      alith.address,
+      "data-id-3",
+      DATA_PERMISSION.VIEW,
+    );
+
+    console.log(res.toJSON().Ok.permission_reference.resolvers);
+
+    expect(res.toJSON()).to.deep.equal({
+      Ok: {
+        onchain: false,
+        permission_reference: {
+          permission_record_id: "offchain-permission",
+          resolvers: [["did:sylo-data:permission-resolver", ["endpoint"]]],
+        },
+      },
+    });
+  });
+
+  it("has_permission_query returns error if data id is too large", async () => {
+    const dataId = Array(1000).fill("a").concat();
+
+    const res = await (api.rpc as any).syloDataPermissions.has_permission_query(
+      user.address,
+      alith.address,
+      dataId,
+      DATA_PERMISSION.VIEW,
+    );
+
+    expect(res.toJSON().Err).to.not.be.null;
   });
 });

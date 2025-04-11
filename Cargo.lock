@@ -6401,7 +6401,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-sylo-data-permissions"
-version = "0.0.1"
+version = "1.0.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6419,6 +6419,35 @@ dependencies = [
  "sp-arithmetic",
  "sp-core",
  "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-sylo-data-permissions-rpc"
+version = "1.0.0"
+dependencies = [
+ "jsonrpsee",
+ "pallet-sylo-data-permissions",
+ "pallet-sylo-data-permissions-rpc-runtime-api",
+ "parity-scale-codec",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-sylo-data-permissions-rpc-runtime-api"
+version = "1.0.0"
+dependencies = [
+ "pallet-sylo-data-permissions",
+ "parity-scale-codec",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-api",
  "sp-runtime",
  "sp-std",
 ]
@@ -9065,6 +9094,7 @@ dependencies = [
  "pallet-maintenance-mode",
  "pallet-nft-rpc",
  "pallet-sft-rpc",
+ "pallet-sylo-data-permissions-rpc",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "sc-basic-authorship",
@@ -9114,6 +9144,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "seed-primitives",
+ "serde",
  "sp-core",
  "sp-runtime",
  "sp-std",
@@ -9233,6 +9264,7 @@ dependencies = [
  "pallet-staking",
  "pallet-sudo",
  "pallet-sylo-data-permissions",
+ "pallet-sylo-data-permissions-rpc-runtime-api",
  "pallet-sylo-data-verification",
  "pallet-timestamp",
  "pallet-token-approvals",

@@ -92,6 +92,7 @@ pallet-nft-rpc-runtime-api = { workspace = true }
 pallet-sft = { workspace = true }
 pallet-sylo-data-verification = { workspace = true }
 pallet-sylo-data-permissions = { workspace = true }
+pallet-sylo-data-permissions-rpc-runtime-api = { workspace = true }
 pallet-sft-rpc-runtime-api = { workspace = true }
 pallet-token-approvals = { workspace = true }
 pallet-tx-fee-pot = { workspace = true }
@@ -205,6 +206,7 @@ std = [
 	"pallet-sft-rpc-runtime-api/std",
 	"pallet-sylo-data-verification/std",
 	"pallet-sylo-data-permissions/std",
+	"pallet-sylo-data-permissions-rpc-runtime-api/std",
 	"pallet-xrpl-bridge/std",
 	"pallet-xrpl/std",
 	"pallet-tx-fee-pot/std",

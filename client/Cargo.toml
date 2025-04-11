@@ -84,6 +84,7 @@ pallet-dex-rpc = { workspace = true, default-features = true }
 pallet-nft-rpc = { workspace = true, default-features = true }
 pallet-sft-rpc = { workspace = true, default-features = true }
 pallet-assets-ext-rpc = { workspace = true, default-features = true }
+pallet-sylo-data-permissions-rpc = { workspace = true, default-features = true }
 
 # Try Runtime
 frame-try-runtime = { workspace = true, optional = true }
