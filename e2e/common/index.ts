@@ -179,6 +179,31 @@ export const rpcs = {
       type: "CollectionDetail",
     },
   },
+  syloDataPermissions: {
+    has_permission_query: {
+      description:
+        "Determine if a grantee has been granted a specific permission onchain, and returns the permission reference if it exists",
+      params: [
+        {
+          name: "dataAuthor",
+          type: "AccountId",
+        },
+        {
+          name: "grantee",
+          type: "AccountId",
+        },
+        {
+          name: "dataId",
+          type: "Text",
+        },
+        {
+          name: "permission",
+          type: "DataPermission",
+        },
+      ],
+      type: "Json",
+    },
+  },
 };
 export const typedefs = {
   AccountId: "EthereumAccountId",
@@ -187,6 +212,7 @@ export const typedefs = {
   Address: "AccountId",
   LookupSource: "AccountId",
   Lookup0: "AccountId",
+  DataPermission: "Text",
   EthereumSignature: {
     r: "H256",
     s: "H256",

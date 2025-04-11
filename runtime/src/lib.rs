@@ -630,6 +630,7 @@ parameter_types! {
 impl pallet_sylo_data_verification::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
+	type SyloDataPermissionsProvider = pallet_sylo_data_permissions::Pallet<Runtime>;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type MaxResolvers = MaxResolvers;
 	type MaxTags = MaxTags;
@@ -637,6 +638,22 @@ impl pallet_sylo_data_verification::Config for Runtime {
 	type MaxServiceEndpoints = MaxServiceEndpoints;
 	type StringLimit = SyloStringLimit;
 	type WeightInfo = weights::pallet_sylo_data_verification::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	pub const MaxPermissions: u32 = 100;
+	pub const MaxPermissionRecords: u32 = 100;
+}
+
+impl pallet_sylo_data_permissions::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type SyloDataVerificationProvider = pallet_sylo_data_verification::Pallet<Runtime>;
+	type MaxPermissions = MaxPermissions;
+	type MaxTags = MaxTags;
+	type MaxPermissionRecords = MaxPermissionRecords;
+	type StringLimit = SyloStringLimit;
+	type WeightInfo = weights::pallet_sylo_data_permissions::WeightInfo<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -1492,6 +1509,7 @@ construct_runtime!(
 		Migration: pallet_migration = 51,
 		SyloDataVerification: pallet_sylo_data_verification = 52,
 		LiquidityPools: pallet_liquidity_pools = 54,
+		SyloDataPermissions: pallet_sylo_data_permissions = 55,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -1803,6 +1821,22 @@ impl_runtime_apis! {
 	impl pallet_sft_rpc_runtime_api::SftApi<Block, Runtime> for Runtime {
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Sft::token_uri(token_id)
+		}
+	}
+
+	impl pallet_sylo_data_permissions_rpc_runtime_api::SyloDataPermissionsApi<Block, AccountId> for Runtime {
+		fn has_permission_query(
+			data_author: AccountId,
+			grantee: AccountId,
+			data_id: String,
+			permission: seed_pallet_common::sylo::DataPermission
+		) -> Result<pallet_sylo_data_permissions::HasPermissionQueryResult, sp_runtime::DispatchError> {
+			SyloDataPermissions::has_permission_query(
+				data_author,
+				grantee,
+				data_id.as_bytes().to_vec(),
+				permission
+			)
 		}
 	}
 
@@ -2422,5 +2456,6 @@ mod benches {
 		[pallet_evm, EVM]
 		[pallet_migration, Migration]
 		[pallet_sylo_data_verification, SyloDataVerification]
+		[pallet_sylo_data_permissions, SyloDataPermissions]
 	);
 }

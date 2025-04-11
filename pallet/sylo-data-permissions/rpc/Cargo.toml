@@ -1,0 +1,22 @@
+
+[package]
+name = "pallet-sylo-data-permissions-rpc"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+codec = { workspace = true }
+jsonrpsee = { workspace = true }
+
+sp-api = { workspace = true }
+sp-blockchain = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+pallet-sylo-data-permissions = { workspace = true }
+pallet-sylo-data-permissions-rpc-runtime-api = { workspace = true }
+seed-primitives = { workspace = true }
+seed-pallet-common = { workspace = true }

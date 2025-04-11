@@ -1,17 +1,4 @@
-// Copyright 2022-2023 Futureverse Corporation Limited
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-// You may obtain a copy of the License at the root of this project source code
+extern crate alloc;
 
 use alloc::{format, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -19,6 +6,7 @@ use frame_support::{
 	traits::Get, BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use sp_std::{fmt::Debug, prelude::*};
 
@@ -56,7 +44,7 @@ impl<T: Get<u32>> ResolverId<T> {
 pub type ServiceEndpoint<StringLimit> = BoundedVec<u8, StringLimit>;
 
 #[derive(
-	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+	CloneNoBound, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxServiceEndpoints, StringLimit))]
 pub struct Resolver<AccountId, MaxServiceEndpoints, StringLimit>
@@ -68,6 +56,8 @@ where
 	pub controller: AccountId,
 	pub service_endpoints: BoundedVec<ServiceEndpoint<StringLimit>, MaxServiceEndpoints>,
 }
+
+pub type DataId<StringLimit> = BoundedVec<u8, StringLimit>;
 
 #[derive(
 	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
@@ -81,7 +71,7 @@ where
 }
 
 #[derive(
-	Clone, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+	CloneNoBound, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(MaxResolvers, MaxTags, MaxEntries, StringLimit))]
 pub struct ValidationRecord<AccountId, BlockNumber, MaxResolvers, MaxTags, MaxEntries, StringLimit>
@@ -98,4 +88,76 @@ where
 	pub data_type: BoundedVec<u8, StringLimit>,
 	pub tags: BoundedVec<BoundedVec<u8, StringLimit>, MaxTags>,
 	pub entries: BoundedVec<ValidationEntry<BlockNumber>, MaxEntries>,
+}
+
+pub trait SyloDataVerificationProvider {
+	type AccountId: Debug + PartialEq + Clone;
+	type BlockNumber: Debug + PartialEq + Clone;
+	type MaxResolvers: Get<u32>;
+	type MaxTags: Get<u32>;
+	type MaxEntries: Get<u32>;
+	type MaxServiceEndpoints: Get<u32>;
+	type StringLimit: Get<u32>;
+
+	fn get_validation_record(
+		author: &Self::AccountId,
+		data_id: &BoundedVec<u8, Self::StringLimit>,
+	) -> Option<
+		ValidationRecord<
+			Self::AccountId,
+			Self::BlockNumber,
+			Self::MaxResolvers,
+			Self::MaxTags,
+			Self::MaxEntries,
+			Self::StringLimit,
+		>,
+	>;
+
+	fn get_record_resolver_endpoints(
+		record: ValidationRecord<
+			Self::AccountId,
+			Self::BlockNumber,
+			Self::MaxResolvers,
+			Self::MaxTags,
+			Self::MaxEntries,
+			Self::StringLimit,
+		>,
+	) -> BoundedVec<
+		(
+			ResolverId<Self::StringLimit>,
+			BoundedVec<ServiceEndpoint<Self::StringLimit>, Self::MaxServiceEndpoints>,
+		),
+		Self::MaxResolvers,
+	>;
+}
+
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	Serialize,
+	Deserialize,
+	RuntimeDebugNoBound,
+	PartialEqNoBound,
+	Eq,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub enum DataPermission {
+	VIEW,
+	MODIFY,
+	DISTRIBUTE,
+}
+
+pub trait SyloDataPermissionsProvider {
+	type AccountId: Debug + PartialEq + Clone;
+	type StringLimit: Get<u32>;
+
+	fn has_permission(
+		data_author: &Self::AccountId,
+		data_id: &DataId<Self::StringLimit>,
+		grantee: &Self::AccountId,
+		permission: DataPermission,
+	) -> bool;
 }

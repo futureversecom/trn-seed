@@ -41,7 +41,8 @@ construct_runtime!(
 		Evm: pallet_evm,
 		Timestamp: pallet_timestamp,
 		Futurepass: pallet_futurepass,
-		Sylo: pallet_sylo_data_verification,
+		SyloDataVerification: pallet_sylo_data_verification,
+		SyloDataPermissions: pallet_sylo_data_permissions,
 		MockPallet: mock_pallet::pallet,
 		Xrpl: pallet_xrpl,
 		Utility: pallet_utility,
@@ -61,7 +62,7 @@ impl_pallet_dex_config!(Test);
 impl_pallet_timestamp_config!(Test);
 impl_pallet_evm_config!(Test);
 impl_pallet_futurepass_config!(Test);
-impl_pallet_sylo_data_verification_config!(Test);
+impl_pallet_sylo_configs!(Test);
 impl_pallet_xrpl_config!(Test);
 impl_pallet_proxy_config!(Test);
 impl_pallet_utility_config!(Test);
