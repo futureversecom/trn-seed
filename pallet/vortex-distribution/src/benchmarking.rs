@@ -236,6 +236,9 @@ benchmarks! {
 	}
 
 	trigger_vtx_distribution {
+		// x is number of unique accounts within a reward cycle.
+		let x in 0..5000;
+
 		let vortex_dist_id = NextVortexId::<T>::get();
 		let root_price = <T as pallet_staking::Config>::CurrencyBalance::one();
 		let vortex_price = <T as pallet_staking::Config>::CurrencyBalance::one();
@@ -264,14 +267,29 @@ benchmarks! {
 		// set currrent vtx supply
 		assert_ok!(VortexDistribution::<T>::set_vtx_total_supply(RawOrigin::Root.into(), vortex_dist_id.clone(), mint_amount));
 
-		let reward_points = BoundedVec::try_from(vec![(account::<T>("test"), 100u32.into())]).unwrap();
-		let work_points = BoundedVec::try_from(vec![(account::<T>("test"), 10u32.into())]).unwrap();
-		assert_ok!(VortexDistribution::<T>::register_reward_points(
-				RawOrigin::Root.into(),
-				vortex_dist_id,
-				reward_points
-			));
-		assert_ok!(VortexDistribution::<T>::register_work_points(RawOrigin::Root.into(), vortex_dist_id, work_points));
+		let mut reward_points_vec = vec![];
+		let mut work_points_vec = vec![];
+		let balance = <T as pallet_staking::Config>::CurrencyBalance::one();
+		let max_reward_length_per_batch = 500;
+		for i in 0..=x {
+			let account: T::AccountId = bench_account("test", i, 0);
+			reward_points_vec.push((account.clone(), balance.into()));
+			work_points_vec.push((account.clone(), balance.into()));
+
+			if i != 0 && (i % max_reward_length_per_batch == 0) {
+				let start = (i - max_reward_length_per_batch) as usize;
+				let end = i as usize;
+				let reward_points = BoundedVec::try_from(reward_points_vec[start..end].to_vec()).unwrap();
+				let work_points = BoundedVec::try_from(work_points_vec[start..end].to_vec()).unwrap();
+
+				assert_ok!(VortexDistribution::<T>::register_reward_points(
+						RawOrigin::Root.into(),
+						vortex_dist_id,
+						reward_points
+					));
+				assert_ok!(VortexDistribution::<T>::register_work_points(RawOrigin::Root.into(), vortex_dist_id, work_points));
+			}
+		}
 
 	}: _(RawOrigin::Root, vortex_dist_id)
 	verify {

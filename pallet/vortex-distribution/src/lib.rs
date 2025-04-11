@@ -690,8 +690,8 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		#[pallet::call_index(12)]
-		// 10_000 is the maximum number distinct reward account entries we expect for now
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution().saturating_mul(10_000))]
+		// 5_000 is the maximum number distinct reward account entries we expect for now
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution(5_000))]
 		#[transactional]
 		pub fn trigger_vtx_distribution(
 			origin: OriginFor<T>,
@@ -706,9 +706,11 @@ pub mod pallet {
 
 			Self::do_calculate_vortex_price(id)?;
 			Self::do_collate_reward_tokens(id)?;
+			let mut actual_weight: DispatchResultWithPostInfo =
+				Ok(Some(Weight::from_all(0)).into());
 			// Do the reward calculation if the EnableManualRewardInput is disabled.
 			if !EnableManualRewardInput::<T>::get() {
-				Self::do_reward_calculation(id)?;
+				actual_weight = Self::do_reward_calculation(id);
 			}
 
 			VtxDistStatuses::<T>::mutate(id, |status| {
@@ -716,7 +718,7 @@ pub mod pallet {
 			});
 			Self::deposit_event(Event::TriggerVtxDistribution { id });
 
-			Ok(Pays::No.into())
+			actual_weight
 		}
 
 		/// Set vtx vault redeem assets list
@@ -1137,7 +1139,9 @@ pub mod pallet {
 			// Note that all accounts, even with 0 staker rewards must be registered onchain
 			// as this is the reference to capture all accounts for this cycle.
 			// Then calculate and register each account's reward portion
+			let mut number_of_entries = 0;
 			for (account_id, account_staker_points) in RewardPoints::<T>::iter_prefix(id) {
+				number_of_entries += 1;
 				let account_work_points: BalanceOf<T> =
 					WorkPoints::<T>::get(id, account_id.clone());
 
@@ -1153,7 +1157,10 @@ pub mod pallet {
 					*entry = (entry.0.saturating_add(final_reward), entry.1);
 				});
 			}
-			Ok(().into())
+			let actual_weight =
+				<T as Config>::WeightInfo::trigger_vtx_distribution(number_of_entries as u32);
+
+			Ok(Some(actual_weight).into())
 		}
 
 		/// offchain worker for unsigned tx
