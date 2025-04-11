@@ -92,6 +92,7 @@ benchmarks! {
 	}
 
 	start_vtx_dist {
+		System::<T>::set_block_number(1_u32.into());
 		let vortex_dist_id = NextVortexId::<T>::get();
 		let root_price = <T as pallet_staking::Config>::CurrencyBalance::one();
 		let vortex_price = <T as pallet_staking::Config>::CurrencyBalance::one();
@@ -130,6 +131,11 @@ benchmarks! {
 		assert_ok!(VortexDistribution::<T>::register_work_points(RawOrigin::Root.into(), vortex_dist_id, work_points));
 
 		assert_ok!(VortexDistribution::<T>::trigger_vtx_distribution(RawOrigin::Root.into(), vortex_dist_id));
+		// run a few blocks to move the Vtx status from Triggering to Triggered
+		for i in 2_u32..10 {
+			System::<T>::set_block_number(i.into());
+			VortexDistribution::<T>::on_idle(i.into(), Weight::from_all(1_000_000_000_000_u64));
+		}
 	}: _(RawOrigin::Root, vortex_dist_id)
 	verify {
 		assert_eq!(VtxDistStatuses::<T>::get(vortex_dist_id), VtxDistStatus::Paying);
@@ -275,7 +281,7 @@ benchmarks! {
 
 	}: _(RawOrigin::Root, vortex_dist_id)
 	verify {
-		assert_eq!(VtxDistStatuses::<T>::get(vortex_dist_id), VtxDistStatus::Triggered);
+		assert_eq!(VtxDistStatuses::<T>::get(vortex_dist_id), VtxDistStatus::Triggering);
 	}
 
 	redeem_tokens_from_vault {
@@ -316,6 +322,11 @@ benchmarks! {
 			));
 		assert_ok!(VortexDistribution::<T>::register_work_points(RawOrigin::Root.into(), vortex_dist_id, work_points));
 		assert_ok!(VortexDistribution::<T>::trigger_vtx_distribution(RawOrigin::Root.into(), vortex_dist_id));
+		// run a few blocks to move the Vtx status from Triggering to Triggered
+		for i in 2_u32..4 {
+			System::<T>::set_block_number(i.into());
+			VortexDistribution::<T>::on_idle(i.into(), Weight::from_all(1_000_000_000_000_u64));
+		}
 		assert_ok!(VortexDistribution::<T>::start_vtx_dist(RawOrigin::Root.into(), vortex_dist_id));
 		let end_block: u32 = 500;
 		System::<T>::set_block_number(end_block.into());
@@ -372,6 +383,11 @@ benchmarks! {
 			));
 		assert_ok!(VortexDistribution::<T>::register_work_points(RawOrigin::Root.into(), vortex_dist_id, work_points));
 		assert_ok!(VortexDistribution::<T>::trigger_vtx_distribution(RawOrigin::Root.into(), vortex_dist_id));
+		// run a few blocks to move the Vtx status from Triggering to Triggered
+		for i in 2_u32..4 {
+			System::<T>::set_block_number(i.into());
+			VortexDistribution::<T>::on_idle(i.into(), Weight::from_all(1_000_000_000_000_u64));
+		}
 		assert_ok!(VortexDistribution::<T>::start_vtx_dist(RawOrigin::Root.into(), vortex_dist_id));
 		let end_block: u32 = 500;
 		System::<T>::set_block_number(end_block.into());
