@@ -698,7 +698,15 @@ fn trigger_vtx_distribution_works() {
 			// trigger vortex distribution and do the preparations for distribution
 			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id));
 			// Check that the correct event was emitted.
-			System::assert_last_event(MockEvent::Vortex(crate::Event::TriggerVtxDistribution {
+			System::assert_last_event(MockEvent::Vortex(crate::Event::VtxDistributionTriggering {
+				id: vortex_dist_id,
+			}));
+			// run a few blocks to move the Vtx status from Triggering to Triggered
+			for i in 2_u32..4 {
+				System::set_block_number(i.into());
+				Vortex::on_idle(i.into(), Weight::from_all(1_000_000_000_000_u64));
+			}
+			System::assert_last_event(MockEvent::Vortex(crate::Event::VtxDistributionTriggered {
 				id: vortex_dist_id,
 			}));
 
@@ -851,7 +859,16 @@ fn trigger_vtx_distribution_should_fail_if_already_triggered() {
 			// trigger vortex distribution and do the preparations for distribution
 			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id));
 			// Check that the correct event was emitted.
-			System::assert_last_event(MockEvent::Vortex(crate::Event::TriggerVtxDistribution {
+			// Check that the correct event was emitted.
+			System::assert_last_event(MockEvent::Vortex(crate::Event::VtxDistributionTriggering {
+				id: vortex_dist_id,
+			}));
+			// run a few blocks to move the Vtx status from Triggering to Triggered
+			for i in 2_u32..4 {
+				System::set_block_number(i.into());
+				Vortex::on_idle(i.into(), Weight::from_all(1_000_000_000_000_u64));
+			}
+			System::assert_last_event(MockEvent::Vortex(crate::Event::VtxDistributionTriggered {
 				id: vortex_dist_id,
 			}));
 
@@ -1007,6 +1024,11 @@ fn start_vtx_dist_success() {
 
 			// trigger vortex distribution and do the preparations for distribution
 			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id));
+			// run a few blocks to move the Vtx status from Triggering to Triggered
+			for i in 2_u32..4 {
+				System::set_block_number(i.into());
+				Vortex::on_idle(i.into(), Weight::from_all(1_000_000_000_000_u64));
+			}
 
 			// check VtxPrice tally
 			let vtx_price_calculted =
@@ -1200,6 +1222,11 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 
 			//trigger vortext reward calcuation and assets/root transfer to vault
 			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dis_id,));
+			// run a few blocks to move the Vtx status from Triggering to Triggered
+			for i in 2_u32..10 {
+				System::set_block_number(i.into());
+				Vortex::on_idle(i.into(), Weight::from_all(1_000_000_000_000_u64));
+			}
 
 			// check VtxPrice tally
 			let vtx_price_calculted =
@@ -1481,6 +1508,11 @@ fn redeem_tokens_from_vault_works() {
 
 			//trigger vortext reward calcuation and assets/root transfer to vault
 			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dis_id,));
+			// run a few blocks to move the Vtx status from Triggering to Triggered
+			for i in 2_u32..4 {
+				System::set_block_number(i.into());
+				Vortex::on_idle(i.into(), Weight::from_all(1_000_000_000_000_u64));
+			}
 
 			let bob_vtx_reward = VtxDistOrderbook::<Test>::get(vortex_dis_id, bob).0;
 			let total_vtx_to_be_minted = TotalVortex::<Test>::get(vortex_dis_id);

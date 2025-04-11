@@ -715,8 +715,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		#[pallet::call_index(12)]
-		// 5_000 is the maximum number distinct reward account entries we expect for now
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution(100))]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution())]
 		#[transactional]
 		pub fn trigger_vtx_distribution(
 			origin: OriginFor<T>,
@@ -1233,7 +1232,7 @@ pub mod pallet {
 					BoundedVec::try_from(map_iterator.last_raw_key().to_vec())
 				else {
 					// Unlikely to happen. We can not error here, emit an event and return the consumed weight
-					Self::deposit_event(Event::PivotStringTooLong { id});
+					Self::deposit_event(Event::PivotStringTooLong { id });
 					return used_weight;
 				};
 				if current_last_raw_key == start_key.clone() {
