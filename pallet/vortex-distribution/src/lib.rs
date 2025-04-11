@@ -41,7 +41,9 @@ use frame_support::{
 		},
 		Get,
 	},
-	transactional, PalletId,
+	transactional,
+	weights::constants::RocksDbWeight as DbWeight,
+	PalletId,
 };
 use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},
@@ -67,6 +69,7 @@ pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority:
 pub enum VtxDistStatus {
 	Disabled,
 	Enabled,
+	Triggering,
 	Triggered,
 	Paying,
 	Done,
@@ -305,6 +308,16 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Stores reward calculation pivot block for each vortex distribution
+	#[pallet::storage]
+	pub(super) type VtxRewardCalculationPivot<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::VtxDistIdentifier,
+		BoundedVec<u8, T::MaxStringLength>,
+		ValueQuery,
+	>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -356,8 +369,11 @@ pub mod pallet {
 			reward_points: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
 		},
 
-		/// Trigger distribution calculation
-		TriggerVtxDistribution { id: T::VtxDistIdentifier },
+		/// Vtx distribution triggered
+		VtxDistributionTriggered { id: T::VtxDistIdentifier },
+
+		/// Vtx distribution triggering
+		VtxDistributionTriggering { id: T::VtxDistIdentifier },
 
 		/// Set Vtx total supply
 		SetVtxTotalSupply { id: T::VtxDistIdentifier, total_supply: BalanceOf<T> },
@@ -382,11 +398,20 @@ pub mod pallet {
 			id: T::VtxDistIdentifier,
 			rewards: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
 		},
+
+		/// Pivot key string is too long and exceeds MaxStringLength
+		PivotStringTooLong { id: T::VtxDistIdentifier },
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		// incentive calculation
+		// vtx reward calculation
+		fn on_idle(_now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			let calculation_weight = Self::do_reward_calculation(remaining_weight);
+			calculation_weight
+		}
+
+		// Vtx reward distribution
 		fn offchain_worker(now: BlockNumberFor<T>) {
 			if let Err(e) = Self::vtx_dist_offchain_worker(now) {
 				log::info!(
@@ -691,7 +716,7 @@ pub mod pallet {
 		/// `id` - The distribution id
 		#[pallet::call_index(12)]
 		// 5_000 is the maximum number distinct reward account entries we expect for now
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution(5_000))]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution(100))]
 		#[transactional]
 		pub fn trigger_vtx_distribution(
 			origin: OriginFor<T>,
@@ -706,19 +731,20 @@ pub mod pallet {
 
 			Self::do_calculate_vortex_price(id)?;
 			Self::do_collate_reward_tokens(id)?;
-			let mut actual_weight: DispatchResultWithPostInfo =
-				Ok(Some(Weight::from_all(0)).into());
 			// Do the reward calculation if the EnableManualRewardInput is disabled.
 			if !EnableManualRewardInput::<T>::get() {
-				actual_weight = Self::do_reward_calculation(id);
+				VtxDistStatuses::<T>::mutate(id, |status| {
+					*status = VtxDistStatus::Triggering;
+				});
+				Self::deposit_event(Event::VtxDistributionTriggering { id });
+			} else {
+				VtxDistStatuses::<T>::mutate(id, |status| {
+					*status = VtxDistStatus::Triggered;
+				});
+				Self::deposit_event(Event::VtxDistributionTriggered { id });
 			}
 
-			VtxDistStatuses::<T>::mutate(id, |status| {
-				*status = VtxDistStatus::Triggered;
-			});
-			Self::deposit_event(Event::TriggerVtxDistribution { id });
-
-			actual_weight
+			Ok(Pays::No.into())
 		}
 
 		/// Set vtx vault redeem assets list
@@ -1123,7 +1149,27 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		fn do_reward_calculation(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
+		fn do_reward_calculation(remaining_weight: Weight) -> Weight {
+			// Initial reads and writes for the following:
+			// Read: NextVortexId, TotalNetworkReward, TotalBootstrapReward, TotalRewardPoints,
+			// TotalWorkPoints, VtxDistStatuses, VtxRewardCalculationPivot * 2,
+			// Write: VtxDistStatuses, VtxRewardCalculationPivot
+			let base_process_weight = DbWeight::get().reads_writes(8u64, 2);
+			// the weight per transaction is at least two writes
+			// Reads: reading map_iterator RewardPoints, WorkPoints,
+			// Writes: VtxDistOrderbook
+			let min_weight_per_index = DbWeight::get().reads_writes(2, 1);
+
+			// Ensure we have enough weight to perform the initial reads + at least one clear
+			if remaining_weight.ref_time()
+				<= (base_process_weight + min_weight_per_index).ref_time()
+			{
+				return Weight::zero();
+			}
+
+			// get the current vtx distribution id
+			let id = NextVortexId::<T>::get().saturating_sub(One::one());
+
 			// fetch and calculate reward pool balances
 			let total_network_reward = TotalNetworkReward::<T>::get(id);
 			let total_bootstrap_reward = TotalBootstrapReward::<T>::get(id);
@@ -1134,33 +1180,72 @@ pub mod pallet {
 			let total_staker_points = TotalRewardPoints::<T>::get(id);
 			let total_work_points = TotalWorkPoints::<T>::get(id);
 
-			// Iterate RewardPoints to capture all the accounts in this reward cycle.
-			// This means all validators, nominators and stakers should be in this map.
-			// Note that all accounts, even with 0 staker rewards must be registered onchain
-			// as this is the reference to capture all accounts for this cycle.
-			// Then calculate and register each account's reward portion
-			let mut number_of_entries = 0;
-			for (account_id, account_staker_points) in RewardPoints::<T>::iter_prefix(id) {
-				number_of_entries += 1;
-				let account_work_points: BalanceOf<T> =
-					WorkPoints::<T>::get(id, account_id.clone());
+			let mut used_weight = base_process_weight;
 
-				let staker_point_portion =
-					Perbill::from_rational(account_staker_points, total_staker_points);
-				let work_points_portion =
-					Perbill::from_rational(account_work_points, total_work_points);
+			if let VtxDistStatus::Triggering = VtxDistStatuses::<T>::get(id) {
+				let start_key = VtxRewardCalculationPivot::<T>::get(id);
+				let payout_pivot: Vec<u8> = start_key.clone().into_inner();
 
-				let account_work_point_reward = work_points_portion * total_workpoints_pool;
-				let account_staker_reward = staker_point_portion * total_staker_pool;
-				let final_reward = account_work_point_reward.saturating_add(account_staker_reward);
-				VtxDistOrderbook::<T>::mutate(id, account_id, |entry| {
-					*entry = (entry.0.saturating_add(final_reward), entry.1);
-				});
+				let mut map_iterator = match VtxRewardCalculationPivot::<T>::contains_key(id) {
+					true => <RewardPoints<T>>::iter_prefix_from(id, payout_pivot),
+					false => <RewardPoints<T>>::iter_prefix(id),
+				};
+
+				let mut count = 0u32;
+				for (account_id, account_staker_points) in map_iterator.by_ref() {
+					// Add weight for reading map_iterator
+					used_weight = used_weight.saturating_add(DbWeight::get().reads(1));
+
+					if remaining_weight.ref_time()
+						<= used_weight.saturating_add(DbWeight::get().reads_writes(1, 1)).ref_time()
+					{
+						break;
+					}
+
+					// Add weight for reading WorkPoints
+					used_weight = used_weight.saturating_add(DbWeight::get().reads(1));
+					let account_work_points: BalanceOf<T> =
+						WorkPoints::<T>::get(id, account_id.clone());
+
+					let staker_point_portion =
+						Perbill::from_rational(account_staker_points, total_staker_points);
+					let work_points_portion =
+						Perbill::from_rational(account_work_points, total_work_points);
+
+					let account_work_point_reward = work_points_portion * total_workpoints_pool;
+					let account_staker_reward = staker_point_portion * total_staker_pool;
+					let final_reward =
+						account_work_point_reward.saturating_add(account_staker_reward);
+
+					// Add weight for writing VtxDistOrderbook
+					used_weight = used_weight.saturating_add(DbWeight::get().writes(1));
+					VtxDistOrderbook::<T>::mutate(id, account_id.clone(), |entry| {
+						*entry = (entry.0.saturating_add(final_reward), entry.1);
+					});
+
+					count += 1;
+					if count > T::MaxRewards::get() {
+						break;
+					}
+				}
+
+				let Ok(current_last_raw_key) =
+					BoundedVec::try_from(map_iterator.last_raw_key().to_vec())
+				else {
+					// Unlikely to happen. We can not error here, emit an event and return the consumed weight
+					Self::deposit_event(Event::PivotStringTooLong { id});
+					return used_weight;
+				};
+				if current_last_raw_key == start_key.clone() {
+					VtxDistStatuses::<T>::mutate(id, |status| {
+						*status = VtxDistStatus::Triggered;
+					});
+					Self::deposit_event(Event::VtxDistributionTriggered { id });
+				}
+				VtxRewardCalculationPivot::<T>::insert(id, current_last_raw_key);
 			}
-			let actual_weight =
-				<T as Config>::WeightInfo::trigger_vtx_distribution(number_of_entries as u32);
 
-			Ok(Some(actual_weight).into())
+			used_weight
 		}
 
 		/// offchain worker for unsigned tx
