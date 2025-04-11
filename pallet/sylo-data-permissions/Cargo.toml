@@ -1,6 +1,6 @@
 [package]
 name = "pallet-sylo-data-permissions"
-version = "0.0.1"
+version = "1.0.0"
 description = "Root Network Sylo Data Permissions Pallet"
 authors.workspace = true
 edition.workspace = true

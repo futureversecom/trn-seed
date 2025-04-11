@@ -6,6 +6,7 @@ use frame_support::{
 	traits::Get, BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use sp_std::{fmt::Debug, prelude::*};
 
@@ -95,6 +96,7 @@ pub trait SyloDataVerificationProvider {
 	type MaxResolvers: Get<u32>;
 	type MaxTags: Get<u32>;
 	type MaxEntries: Get<u32>;
+	type MaxServiceEndpoints: Get<u32>;
 	type StringLimit: Get<u32>;
 
 	fn get_validation_record(
@@ -110,10 +112,37 @@ pub trait SyloDataVerificationProvider {
 			Self::StringLimit,
 		>,
 	>;
+
+	fn get_record_resolver_endpoints(
+		record: ValidationRecord<
+			Self::AccountId,
+			Self::BlockNumber,
+			Self::MaxResolvers,
+			Self::MaxTags,
+			Self::MaxEntries,
+			Self::StringLimit,
+		>,
+	) -> BoundedVec<
+		(
+			ResolverId<Self::StringLimit>,
+			BoundedVec<ServiceEndpoint<Self::StringLimit>, Self::MaxServiceEndpoints>,
+		),
+		Self::MaxResolvers,
+	>;
 }
 
 #[derive(
-	Clone, Copy, Encode, Decode, RuntimeDebugNoBound, PartialEqNoBound, Eq, TypeInfo, MaxEncodedLen,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	Serialize,
+	Deserialize,
+	RuntimeDebugNoBound,
+	PartialEqNoBound,
+	Eq,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 pub enum DataPermission {
 	VIEW,

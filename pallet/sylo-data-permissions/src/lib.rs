@@ -17,7 +17,10 @@ extern crate alloc;
 
 pub use pallet::*;
 
-use alloc::vec::Vec;
+use alloc::{
+	string::{FromUtf8Error, String},
+	vec::Vec,
+};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
@@ -161,6 +164,9 @@ pub mod pallet {
 		/// An accompanying verification record for the offchain permission does
 		/// not exist
 		MissingValidationRecord,
+		/// String values in an RPC call, in either the inputs or outputs are
+		/// invalid
+		InvalidString,
 	}
 
 	#[pallet::event]
@@ -552,5 +558,58 @@ impl<T: Config> SyloDataPermissionsProvider for Pallet<T> {
 		}
 
 		false
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	pub fn has_permission_query(
+		data_author: T::AccountId,
+		grantee: T::AccountId,
+		data_id: Vec<u8>,
+		permission: DataPermission,
+	) -> Result<HasPermissionQueryResult, DispatchError> {
+		let data_id = BoundedVec::try_from(data_id).map_err(|_| Error::<T>::InvalidString)?;
+
+		let onchain = <Self as SyloDataPermissionsProvider>::has_permission(
+			&data_author,
+			&data_id,
+			&grantee,
+			permission,
+		);
+
+		let permission_reference = <PermissionReferences<T>>::get(&data_author, &grantee)
+			.map(|record| {
+				T::SyloDataVerificationProvider::get_validation_record(
+					&data_author,
+					&record.permission_record_id,
+				)
+				.map(|v| {
+					let resolvers =
+						T::SyloDataVerificationProvider::get_record_resolver_endpoints(v);
+
+					let permission_record_id =
+						String::from_utf8(record.permission_record_id.to_vec())?;
+
+					let resolvers = resolvers
+						.iter()
+						.map(|(resolver_id, service_endpoints)| {
+							let resolver_id = String::from_utf8(resolver_id.to_did())?;
+							let service_endpoints = service_endpoints
+								.iter()
+								.map(|s| String::from_utf8(s.to_vec()))
+								.collect::<Result<Vec<String>, _>>()?;
+
+							Ok::<_, FromUtf8Error>((resolver_id, service_endpoints))
+						})
+						.collect::<Result<Vec<_>, _>>()?;
+
+					Ok(PermissionReferenceRecord { permission_record_id, resolvers })
+				})
+			})
+			.flatten()
+			.transpose()
+			.map_err(|_: FromUtf8Error| Error::<T>::InvalidString)?;
+
+		Ok(HasPermissionQueryResult { onchain, permission_reference })
 	}
 }

@@ -535,6 +535,7 @@ impl<T: Config> SyloDataVerificationProvider for Pallet<T> {
 	type MaxResolvers = T::MaxResolvers;
 	type MaxTags = T::MaxTags;
 	type MaxEntries = T::MaxEntries;
+	type MaxServiceEndpoints = T::MaxServiceEndpoints;
 	type StringLimit = T::StringLimit;
 
 	fn get_validation_record(
@@ -551,5 +552,45 @@ impl<T: Config> SyloDataVerificationProvider for Pallet<T> {
 		>,
 	> {
 		<ValidationRecords<T>>::get(author, data_id)
+	}
+
+	fn get_record_resolver_endpoints(
+		record: ValidationRecord<
+			Self::AccountId,
+			Self::BlockNumber,
+			Self::MaxResolvers,
+			Self::MaxTags,
+			Self::MaxEntries,
+			Self::StringLimit,
+		>,
+	) -> BoundedVec<
+		(
+			ResolverId<Self::StringLimit>,
+			BoundedVec<ServiceEndpoint<Self::StringLimit>, Self::MaxServiceEndpoints>,
+		),
+		Self::MaxResolvers,
+	> {
+		BoundedVec::try_from(
+			record
+				.resolvers
+				.iter()
+				.map(|r| {
+					let resolver_id = r.clone();
+					// for sylo resolvers, we retrieve their registered
+					// service endpoints
+					if r.method == <SyloResolverMethod<T>>::get() {
+						return (
+							resolver_id,
+							Resolvers::<T>::get(r.identifier.clone())
+								.map(|resolver| resolver.service_endpoints)
+								.unwrap_or(BoundedVec::new()),
+						);
+					} else {
+						return (resolver_id, BoundedVec::new());
+					}
+				})
+				.collect::<Vec<_>>(),
+		)
+		.unwrap() // safe to unwrap here
 	}
 }

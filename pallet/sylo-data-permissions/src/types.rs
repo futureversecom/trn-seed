@@ -18,6 +18,7 @@ use super::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_std::{fmt::Debug, prelude::*};
 
 #[derive(
@@ -61,4 +62,36 @@ where
 	StringLimit: Get<u32>,
 {
 	pub permission_record_id: BoundedVec<u8, StringLimit>,
+}
+
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	Serialize,
+	Deserialize,
+	RuntimeDebugNoBound,
+	PartialEqNoBound,
+	Eq,
+	TypeInfo,
+)]
+pub struct PermissionReferenceRecord {
+	pub permission_record_id: String,
+	pub resolvers: Vec<(String, Vec<String>)>,
+}
+
+#[derive(
+	Clone,
+	Encode,
+	Decode,
+	Serialize,
+	Deserialize,
+	RuntimeDebugNoBound,
+	PartialEqNoBound,
+	Eq,
+	TypeInfo,
+)]
+pub struct HasPermissionQueryResult {
+	pub onchain: bool,
+	pub permission_reference: Option<PermissionReferenceRecord>,
 }
