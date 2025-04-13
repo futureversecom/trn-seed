@@ -1149,39 +1149,42 @@ pub mod pallet {
 		}
 
 		fn do_reward_calculation(remaining_weight: Weight) -> Weight {
-			// Initial reads and writes for the following:
-			// Read: NextVortexId, TotalNetworkReward, TotalBootstrapReward, TotalRewardPoints,
-			// TotalWorkPoints, VtxDistStatuses, VtxRewardCalculationPivot * 2,
-			// Write: VtxDistStatuses, VtxRewardCalculationPivot
-			let base_process_weight = DbWeight::get().reads_writes(8u64, 2);
-			// the weight per transaction is at least two writes
-			// Reads: reading map_iterator RewardPoints, WorkPoints,
-			// Writes: VtxDistOrderbook
-			let min_weight_per_index = DbWeight::get().reads_writes(2, 1);
-
-			// Ensure we have enough weight to perform the initial reads + at least one clear
-			if remaining_weight.ref_time()
-				<= (base_process_weight + min_weight_per_index).ref_time()
-			{
-				return Weight::zero();
-			}
-
+			// Read: NextVortexId,
 			// get the current vtx distribution id
 			let id = NextVortexId::<T>::get().saturating_sub(One::one());
-
-			// fetch and calculate reward pool balances
-			let total_network_reward = TotalNetworkReward::<T>::get(id);
-			let total_bootstrap_reward = TotalBootstrapReward::<T>::get(id);
-			// Ref -> https://docs.therootnetwork.com/intro/learn/tokenomics#how-are-rewards-distributed
-			let total_staker_pool = total_bootstrap_reward
-				.saturating_add(Perbill::from_percent(30) * total_network_reward); // bootstrap + 30% of network rewards
-			let total_workpoints_pool = Perbill::from_percent(70) * total_network_reward; // 70% of network rewards
-			let total_staker_points = TotalRewardPoints::<T>::get(id);
-			let total_work_points = TotalWorkPoints::<T>::get(id);
-
-			let mut used_weight = base_process_weight;
+			if remaining_weight.ref_time() <= (DbWeight::get().reads(1)).ref_time() {
+				return Weight::zero();
+			}
+			let mut used_weight = DbWeight::get().reads(1);
 
 			if let VtxDistStatus::Triggering = VtxDistStatuses::<T>::get(id) {
+				// Initial reads and writes for the following:
+				// Read: TotalNetworkReward, TotalBootstrapReward, TotalRewardPoints,
+				// TotalWorkPoints, VtxDistStatuses, VtxRewardCalculationPivot * 2,
+				// Write: VtxDistStatuses, VtxRewardCalculationPivot
+				let base_process_weight = DbWeight::get().reads_writes(7u64, 2);
+				// the weight per transaction is at least two writes
+				// Reads: reading map_iterator RewardPoints, WorkPoints,
+				// Writes: VtxDistOrderbook
+				let min_weight_per_index = DbWeight::get().reads_writes(2, 1);
+				// Ensure we have enough weight to perform the initial reads + at least one clear
+				if remaining_weight.ref_time()
+					<= (base_process_weight + min_weight_per_index).ref_time()
+				{
+					return Weight::zero();
+				}
+
+				// fetch and calculate reward pool balances
+				let total_network_reward = TotalNetworkReward::<T>::get(id);
+				let total_bootstrap_reward = TotalBootstrapReward::<T>::get(id);
+				// Ref -> https://docs.therootnetwork.com/intro/learn/tokenomics#how-are-rewards-distributed
+				let total_staker_pool = total_bootstrap_reward
+					.saturating_add(Perbill::from_percent(30) * total_network_reward); // bootstrap + 30% of network rewards
+				let total_workpoints_pool = Perbill::from_percent(70) * total_network_reward; // 70% of network rewards
+				let total_staker_points = TotalRewardPoints::<T>::get(id);
+				let total_work_points = TotalWorkPoints::<T>::get(id);
+
+				// start key
 				let start_key = VtxRewardCalculationPivot::<T>::get(id);
 				let payout_pivot: Vec<u8> = start_key.clone().into_inner();
 
@@ -1189,6 +1192,7 @@ pub mod pallet {
 					true => <RewardPoints<T>>::iter_prefix_from(id, payout_pivot),
 					false => <RewardPoints<T>>::iter_prefix(id),
 				};
+				used_weight = base_process_weight;
 
 				let mut count = 0u32;
 				for (account_id, account_staker_points) in map_iterator.by_ref() {
