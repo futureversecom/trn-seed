@@ -500,8 +500,6 @@ describe("Sylo RPC", () => {
   let alith: KeyringPair;
   let userPrivateKey: string;
   let user: KeyringPair;
-  let provider: JsonRpcProvider;
-  let genesisHash: string;
   let feeTokenAssetId: number;
 
   before(async () => {
@@ -659,8 +657,6 @@ describe("Sylo RPC", () => {
       "data-id-3",
       DATA_PERMISSION.VIEW,
     );
-
-    console.log(res.toJSON().Ok.permission_reference.resolvers);
 
     expect(res.toJSON()).to.deep.equal({
       Ok: {

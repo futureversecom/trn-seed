@@ -88,7 +88,7 @@ benchmarks! {
 	}: _(origin::<T>(&alice), alice.clone(), bob.clone(), data_ids.clone(), DataPermission::VIEW, None, false)
 	verify {
 		assert_eq!(
-			PermissionRecords::<T>::get((&alice, data_id, &bob)).len(),
+			PermissionRecords::<T>::get((&alice, &bob, data_id)).len(),
 			<u32 as TryInto<usize>>::try_into(p).unwrap(),
 		);
 	}
@@ -119,7 +119,7 @@ benchmarks! {
 	}: _(origin::<T>(&alice), alice.clone(), 0, bob.clone(), data_id.clone())
 	verify {
 		assert_eq!(
-			PermissionRecords::<T>::get((&alice, data_id, &bob)).len(),
+			PermissionRecords::<T>::get((&alice, &bob, data_id)).len(),
 			0,
 		);
 	}

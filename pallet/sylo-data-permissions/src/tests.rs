@@ -75,7 +75,7 @@ mod grant_data_permissions {
 				},
 			));
 
-			let permission_record = PermissionRecords::<Test>::get((&grantor, &data_id, &grantee))
+			let permission_record = PermissionRecords::<Test>::get((&grantor, &grantee, &data_id))
 				.into_iter()
 				.next()
 				.unwrap()
@@ -124,7 +124,7 @@ mod grant_data_permissions {
 
 			for data_id in data_ids.iter() {
 				let permission_record =
-					PermissionRecords::<Test>::get((&grantor, data_id, &grantee))
+					PermissionRecords::<Test>::get((&grantor, &grantee, data_id))
 						.into_iter()
 						.next()
 						.unwrap()
@@ -176,7 +176,7 @@ mod grant_data_permissions {
 				irrevocable
 			));
 
-			let permission_record = PermissionRecords::<Test>::get((&grantor, &data_id, &grantee))
+			let permission_record = PermissionRecords::<Test>::get((&grantor, &grantee, &data_id))
 				.get(1)
 				.unwrap()
 				.clone()
@@ -413,7 +413,7 @@ mod revoke_data_permission {
 				},
 			));
 
-			assert_eq!(PermissionRecords::<Test>::get((&grantor, &data_id, &grantee)).len(), 0);
+			assert_eq!(PermissionRecords::<Test>::get((&grantor, &grantee, &data_id)).len(), 0);
 		});
 	}
 

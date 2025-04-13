@@ -102,9 +102,9 @@ pub mod pallet {
 	pub type PermissionRecords<T: Config> = StorageNMap<
 		_,
 		(
-			NMapKey<Twox64Concat, T::AccountId>,
-			NMapKey<Twox64Concat, DataId<T::StringLimit>>,
-			NMapKey<Twox64Concat, T::AccountId>,
+			NMapKey<Twox64Concat, T::AccountId>,           // data author
+			NMapKey<Twox64Concat, T::AccountId>,           // grantee
+			NMapKey<Twox64Concat, DataId<T::StringLimit>>, // data id
 		),
 		BoundedVec<
 			(u32, PermissionRecord<T::AccountId, BlockNumberFor<T>>),
@@ -221,6 +221,13 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Grant another account permissions for a specific data record.
+		///
+		/// The caller must be the data author, or an account that has also
+		/// been granted the DISTRIBUTE permission.
+		///
+		/// Granting a permission will create a new entry in an existing list
+		/// of permission records, and be assigned a permission record id.
 		#[pallet::call_index(0)]
 		#[pallet::weight({
 			T::WeightInfo::grant_data_permissions(data_ids.len() as u32)
@@ -279,7 +286,7 @@ pub mod pallet {
 				}
 
 				<PermissionRecords<T>>::try_mutate(
-					(&data_author, &data_id, &grantee),
+					(&data_author, &grantee, &data_id),
 					|records| {
 						records
 							.try_push((next_id, permission_record.clone()))
@@ -303,6 +310,11 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Revoke a permission for an account.
+		///
+		/// The caller must be the original grantor, or the data author themselves.
+		///
+		/// The permission to revoke is identified via the permission_id.
 		#[pallet::call_index(1)]
 		#[pallet::weight({
 			T::WeightInfo::revoke_data_permission()
@@ -316,7 +328,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let records = <PermissionRecords<T>>::get((&data_author, &data_id, &grantee));
+			let records = <PermissionRecords<T>>::get((&data_author, &grantee, &data_id));
 
 			let (_, permission_record) = records
 				.iter()
@@ -332,7 +344,7 @@ pub mod pallet {
 				Error::<T>::NotPermissionGrantor
 			);
 
-			<PermissionRecords<T>>::mutate((&data_author, &data_id, &grantee), |records| {
+			<PermissionRecords<T>>::mutate((&data_author, &grantee, &data_id), |records| {
 				records.retain(|(id, _)| *id != permission_id)
 			});
 
@@ -346,6 +358,14 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Grant another account permissions using tags. The permission
+		/// will apply to all validation records that share at least one of
+		/// the tags specified in this call.
+		///
+		/// The permission will only apply to caller's validation records.
+		///
+		/// Granting a permission will create a new entry in an existing list
+		/// of tagged permission records.
 		#[pallet::call_index(2)]
 		#[pallet::weight({
 			T::WeightInfo::grant_tagged_permissions(tags.len() as u32)
@@ -394,6 +414,11 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Revoke previously granted tagged permissions.
+		///
+		/// The caller must be the data author.
+		///
+		/// The permission to revoke is identified via the permission_id.
 		#[pallet::call_index(3)]
 		#[pallet::weight({
 			T::WeightInfo::revoke_tagged_permission()
@@ -428,6 +453,10 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Grant another account an off-chain permission reference.
+		///
+		/// The permission reference must have an accompanying on-chain
+		/// validation record already created by the caller.
 		#[pallet::call_index(4)]
 		#[pallet::weight({
 			T::WeightInfo::grant_permission_reference()
@@ -460,6 +489,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Grant an account's off-chain permission reference.
 		#[pallet::call_index(5)]
 		#[pallet::weight({
 			T::WeightInfo::revoke_permission_reference()
@@ -503,7 +533,7 @@ impl<T: Config> SyloDataPermissionsProvider for Pallet<T> {
 
 		let block = <frame_system::Pallet<T>>::block_number();
 
-		let permissions = <PermissionRecords<T>>::get((data_author, data_id, grantee));
+		let permissions = <PermissionRecords<T>>::get((data_author, grantee, data_id));
 
 		// try find a direct permission that is valid
 		let has_direct_permission = permissions
