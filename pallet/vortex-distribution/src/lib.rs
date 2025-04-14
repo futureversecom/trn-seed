@@ -1149,29 +1149,29 @@ pub mod pallet {
 		}
 
 		fn do_reward_calculation(remaining_weight: Weight) -> Weight {
-			// Read: NextVortexId,
+			// Read: NextVortexId, VtxDistStatuses
+			let mut used_weight = DbWeight::get().reads(2);
+			if remaining_weight.ref_time() <= DbWeight::get().reads(2).ref_time() {
+				return used_weight;
+			}
 			// get the current vtx distribution id
 			let id = NextVortexId::<T>::get().saturating_sub(One::one());
-			if remaining_weight.ref_time() <= (DbWeight::get().reads(1)).ref_time() {
-				return Weight::zero();
-			}
-			let mut used_weight = DbWeight::get().reads(1);
 
 			if let VtxDistStatus::Triggering = VtxDistStatuses::<T>::get(id) {
 				// Initial reads and writes for the following:
 				// Read: TotalNetworkReward, TotalBootstrapReward, TotalRewardPoints,
-				// TotalWorkPoints, VtxDistStatuses, VtxRewardCalculationPivot * 2,
+				// TotalWorkPoints, VtxRewardCalculationPivot * 2,
 				// Write: VtxDistStatuses, VtxRewardCalculationPivot
-				let base_process_weight = DbWeight::get().reads_writes(7u64, 2);
+				let base_process_weight = DbWeight::get().reads_writes(6u64, 2);
 				// the weight per transaction is at least two writes
 				// Reads: reading map_iterator RewardPoints, WorkPoints,
 				// Writes: VtxDistOrderbook
 				let min_weight_per_index = DbWeight::get().reads_writes(2, 1);
-				// Ensure we have enough weight to perform the initial reads + at least one clear
+				// Ensure we have enough weight to perform the initial reads + at least one reward calculation
 				if remaining_weight.ref_time()
 					<= (base_process_weight + min_weight_per_index).ref_time()
 				{
-					return Weight::zero();
+					return used_weight;
 				}
 
 				// fetch and calculate reward pool balances
@@ -1199,12 +1199,6 @@ pub mod pallet {
 					// Add weight for reading map_iterator
 					used_weight = used_weight.saturating_add(DbWeight::get().reads(1));
 
-					if remaining_weight.ref_time()
-						<= used_weight.saturating_add(DbWeight::get().reads_writes(1, 1)).ref_time()
-					{
-						break;
-					}
-
 					// Add weight for reading WorkPoints
 					used_weight = used_weight.saturating_add(DbWeight::get().reads(1));
 					let account_work_points: BalanceOf<T> =
@@ -1226,6 +1220,13 @@ pub mod pallet {
 						*entry = (entry.0.saturating_add(final_reward), entry.1);
 					});
 
+					// if no remaining_weight for the next entry iteration, brek
+					if remaining_weight.ref_time()
+						<= used_weight.saturating_add(min_weight_per_index).ref_time()
+					{
+						break;
+					}
+					// if exceeds T::MaxRewards, break
 					count += 1;
 					if count > T::MaxRewards::get() {
 						break;
