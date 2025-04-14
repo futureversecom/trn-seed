@@ -1160,9 +1160,9 @@ pub mod pallet {
 			if let VtxDistStatus::Triggering = VtxDistStatuses::<T>::get(id) {
 				// Initial reads and writes for the following:
 				// Read: TotalNetworkReward, TotalBootstrapReward, TotalRewardPoints,
-				// TotalWorkPoints, VtxRewardCalculationPivot * 2,
+				// TotalWorkPoints, VtxRewardCalculationPivot,
 				// Write: VtxDistStatuses, VtxRewardCalculationPivot
-				let base_process_weight = DbWeight::get().reads_writes(6u64, 2);
+				let base_process_weight = DbWeight::get().reads_writes(5u64, 2);
 				// the weight per transaction is at least two writes
 				// Reads: reading map_iterator RewardPoints, WorkPoints,
 				// Writes: VtxDistOrderbook
@@ -1186,11 +1186,11 @@ pub mod pallet {
 
 				// start key
 				let start_key = VtxRewardCalculationPivot::<T>::get(id);
-				let payout_pivot: Vec<u8> = start_key.clone().into_inner();
+				let calculation_pivot: Vec<u8> = start_key.clone().into_inner();
 
-				let mut map_iterator = match VtxRewardCalculationPivot::<T>::contains_key(id) {
-					true => <RewardPoints<T>>::iter_prefix_from(id, payout_pivot),
-					false => <RewardPoints<T>>::iter_prefix(id),
+				let mut map_iterator = match start_key.is_empty() {
+					true => <RewardPoints<T>>::iter_prefix(id),
+					false => <RewardPoints<T>>::iter_prefix_from(id, calculation_pivot),
 				};
 				used_weight = base_process_weight;
 
