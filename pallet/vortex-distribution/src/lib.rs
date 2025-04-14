@@ -1009,7 +1009,7 @@ pub mod pallet {
 			for (asset_id, _) in &assets_balances {
 				ensure!(
 					asset_id != &T::VtxAssetId::get(),
-					Error::<T>::AssetsShouldNotIncludeVtxAsset // spk - is this true always
+					Error::<T>::AssetsShouldNotIncludeVtxAsset
 				);
 			}
 			FeePotAssetsList::<T>::insert(id, assets_balances.clone());
@@ -1084,7 +1084,7 @@ pub mod pallet {
 				vtx_vault_asset_value / vtx_existing_supply
 			};
 			ensure!(vortex_price > Zero::zero(), Error::<T>::VortexPriceIsZero);
-			VtxPrice::<T>::set(id, vortex_price); // spk
+			VtxPrice::<T>::set(id, vortex_price);
 
 			Ok(().into())
 		}
