@@ -196,7 +196,7 @@ impl crate::Config for Test {
 	type MultiCurrency = AssetsExt;
 	type HistoryDepth = HistoryDepth;
 	type MaxAssetPrices = ConstU32<1000>;
-	type MaxRewards = ConstU32<10_000>;
+	type MaxRewards = ConstU32<2_100>;
 	type MaxStringLength = ConstU32<1000>;
 }
 

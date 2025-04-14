@@ -1117,6 +1117,8 @@ pub mod pallet {
 			}
 
 			// bootstrap - move root token from root_vault to vtx_vault_account
+			// TODO: change this to move only the required balance from the root vault account once
+			// we let go of the legacy system
 			let root_vault_root_token_balance =
 				T::MultiCurrency::balance(T::NativeAssetId::get(), &root_vault_account);
 			let root_vault_root_value: BalanceOf<T> = root_vault_root_token_balance * root_price;
@@ -1219,6 +1221,7 @@ pub mod pallet {
 					VtxDistOrderbook::<T>::mutate(id, account_id.clone(), |entry| {
 						*entry = (entry.0.saturating_add(final_reward), entry.1);
 					});
+					count += 1;
 
 					// if no remaining_weight for the next entry iteration, brek
 					if remaining_weight.ref_time()
@@ -1227,8 +1230,7 @@ pub mod pallet {
 						break;
 					}
 					// if exceeds T::MaxRewards, break
-					count += 1;
-					if count > T::MaxRewards::get() {
+					if count >= T::MaxRewards::get() {
 						break;
 					}
 				}
