@@ -1180,9 +1180,11 @@ pub mod pallet {
 				let total_network_reward = TotalNetworkReward::<T>::get(id);
 				let total_bootstrap_reward = TotalBootstrapReward::<T>::get(id);
 				// Ref -> https://docs.therootnetwork.com/intro/learn/tokenomics#how-are-rewards-distributed
+				const STAKER_REWARD_PORTION: Perbill = Perbill::from_percent(30); // 30% of network rewards
+				const WORK_POINTS_REWARD_PORTION: Perbill = Perbill::from_percent(70); // 70% of network rewards
 				let total_staker_pool = total_bootstrap_reward
-					.saturating_add(Perbill::from_percent(30) * total_network_reward); // bootstrap + 30% of network rewards
-				let total_workpoints_pool = Perbill::from_percent(70) * total_network_reward; // 70% of network rewards
+					.saturating_add(STAKER_REWARD_PORTION * total_network_reward); // bootstrap + 30% of network rewards
+				let total_workpoints_pool = WORK_POINTS_REWARD_PORTION * total_network_reward; // 70% of network rewards
 				let total_staker_points = TotalRewardPoints::<T>::get(id);
 				let total_work_points = TotalWorkPoints::<T>::get(id);
 
