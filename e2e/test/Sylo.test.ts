@@ -507,9 +507,6 @@ describe("Sylo RPC", () => {
 
     const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
-    genesisHash = api.genesisHash.toHex().slice(2);
-
-    provider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
 
     keyring = new Keyring({ type: "ethereum" });
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
@@ -544,23 +541,18 @@ describe("Sylo RPC", () => {
     console.log("liquidity setup complete...");
   });
 
-  it("has_permission_query returns correctly if no permission granted", async () => {
-    const res = await (api.rpc as any).syloDataPermissions.has_permission_query(
-      user.address,
-      alith.address,
-      "data-id",
-      DATA_PERMISSION.VIEW,
-    );
+  it("get_permissions returns correctly if no permission granted", async () => {
+    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, ["data-id"]);
 
     expect(res.toJSON()).to.deep.equal({
       Ok: {
-        onchain: false,
+        permissions: [["data-id", []]],
         permission_reference: null,
       },
     });
   });
 
-  it("has_permission_query returns onchain permission if permission granted", async () => {
+  it("get_permissions returns onchain permissions if permission granted", async () => {
     await finalizeTx(
       user,
       api.tx.syloDataVerification.createValidationRecord(
@@ -585,22 +577,17 @@ describe("Sylo RPC", () => {
       ),
     );
 
-    const res = await (api.rpc as any).syloDataPermissions.has_permission_query(
-      user.address,
-      alith.address,
-      "data-id",
-      DATA_PERMISSION.VIEW,
-    );
+    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, ["data-id"]);
 
     expect(res.toJSON()).to.deep.equal({
       Ok: {
-        onchain: true,
+        permissions: [["data-id", ["VIEW"]]],
         permission_reference: null,
       },
     });
   });
 
-  it("has_permission_query returns onchain permission if tagged granted", async () => {
+  it("get_permissions returns onchain permission if tagged granted", async () => {
     await finalizeTx(
       user,
       api.tx.syloDataVerification.createValidationRecord(
@@ -615,25 +602,80 @@ describe("Sylo RPC", () => {
     // grant data permission
     await finalizeTx(
       user,
-      api.tx.syloDataPermissions.grantTaggedPermissions(alith.address, DATA_PERMISSION.VIEW, ["tag"], null, false),
+      api.tx.syloDataPermissions.grantTaggedPermissions(alith.address, DATA_PERMISSION.MODIFY, ["tag"], null, false),
     );
 
-    const res = await (api.rpc as any).syloDataPermissions.has_permission_query(
-      user.address,
-      alith.address,
-      "data-id-2",
-      DATA_PERMISSION.VIEW,
-    );
+    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, ["data-id-2"]);
 
     expect(res.toJSON()).to.deep.equal({
       Ok: {
-        onchain: true,
+        permissions: [["data-id-2", ["MODIFY"]]],
         permission_reference: null,
       },
     });
   });
 
-  it("has_permission_query returns permission reference if it exists", async () => {
+  it("get_permissions correctly returns multiple permissions", async () => {
+    await finalizeTx(
+      user,
+      api.tx.syloDataVerification.createValidationRecord(
+        "data-id-3",
+        [{ method: "sylo-resolver", identifier: "id" }],
+        "data-type",
+        ["tag"],
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      ),
+    );
+
+    // grant data permission
+    await finalizeTx(
+      user,
+      api.tx.syloDataPermissions.grantDataPermissions(
+        user.address,
+        alith.address,
+        ["data-id-3"],
+        DATA_PERMISSION.VIEW,
+        null,
+        false,
+      ),
+    );
+
+    // grant tagged permissions
+    await finalizeTx(
+      user,
+      api.tx.syloDataPermissions.grantTaggedPermissions(user.address, DATA_PERMISSION.DISTRIBUTE, ["tag"], null, false),
+    );
+
+    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, ["data-id-3"]);
+
+    expect(res.toJSON()).to.deep.equal({
+      Ok: {
+        permissions: [["data-id-3", ["VIEW", "MODIFY"]]],
+        permission_reference: null,
+      },
+    });
+  });
+
+  it("get_permissions can query for multiple data ids", async () => {
+    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, [
+      "data-id",
+      "data-id-2",
+      "data-id-3",
+    ]);
+
+    expect(res.toJSON()).to.deep.equal({
+      Ok: {
+        permissions: [
+          ["data-id", ["VIEW"]],
+          ["data-id-2", ["MODIFY"]],
+          ["data-id-3", ["VIEW", "MODIFY"]],
+        ],
+        permission_reference: null,
+      },
+    });
+  });
+
+  it("get_permissions returns permission reference if it exists", async () => {
     await finalizeTx(user, api.tx.syloDataVerification.registerResolver("permission-resolver", ["endpoint"]));
 
     // create offchain permission record
@@ -651,16 +693,11 @@ describe("Sylo RPC", () => {
     // grant data permission
     await finalizeTx(user, api.tx.syloDataPermissions.grantPermissionReference(alith.address, "offchain-permission"));
 
-    const res = await (api.rpc as any).syloDataPermissions.has_permission_query(
-      user.address,
-      alith.address,
-      "data-id-3",
-      DATA_PERMISSION.VIEW,
-    );
+    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, []);
 
     expect(res.toJSON()).to.deep.equal({
       Ok: {
-        onchain: false,
+        permissions: [],
         permission_reference: {
           permission_record_id: "offchain-permission",
           resolvers: [["did:sylo-data:permission-resolver", ["endpoint"]]],
@@ -669,15 +706,10 @@ describe("Sylo RPC", () => {
     });
   });
 
-  it("has_permission_query returns error if data id is too large", async () => {
+  it("get_permissions returns error if data id is too large", async () => {
     const dataId = Array(1000).fill("a").concat();
 
-    const res = await (api.rpc as any).syloDataPermissions.has_permission_query(
-      user.address,
-      alith.address,
-      dataId,
-      DATA_PERMISSION.VIEW,
-    );
+    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, [dataId]);
 
     expect(res.toJSON().Err).to.not.be.null;
   });

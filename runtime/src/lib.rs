@@ -24,7 +24,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 extern crate alloc;
 
-use alloc::string::String;
+use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode};
 use fp_evm::weight_per_gas;
 use fp_rpc::TransactionStatus;
@@ -1825,17 +1825,15 @@ impl_runtime_apis! {
 	}
 
 	impl pallet_sylo_data_permissions_rpc_runtime_api::SyloDataPermissionsApi<Block, AccountId> for Runtime {
-		fn has_permission_query(
+		fn get_permissions(
 			data_author: AccountId,
 			grantee: AccountId,
-			data_id: String,
-			permission: seed_pallet_common::sylo::DataPermission
-		) -> Result<pallet_sylo_data_permissions::HasPermissionQueryResult, sp_runtime::DispatchError> {
-			SyloDataPermissions::has_permission_query(
+			data_ids: Vec<String>,
+		) -> Result<pallet_sylo_data_permissions::GetPermissionsResult, sp_runtime::DispatchError> {
+			SyloDataPermissions::get_permissions(
 				data_author,
 				grantee,
-				data_id.as_bytes().to_vec(),
-				permission
+				data_ids,
 			)
 		}
 	}

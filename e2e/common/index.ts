@@ -180,9 +180,8 @@ export const rpcs = {
     },
   },
   syloDataPermissions: {
-    has_permission_query: {
-      description:
-        "Determine if a grantee has been granted a specific permission onchain, and returns the permission reference if it exists",
+    get_permissions: {
+      description: "Get all permissions granted to a grantee by a data author for a given set of data ids",
       params: [
         {
           name: "dataAuthor",
@@ -193,12 +192,8 @@ export const rpcs = {
           type: "AccountId",
         },
         {
-          name: "dataId",
-          type: "Text",
-        },
-        {
-          name: "permission",
-          type: "DataPermission",
+          name: "dataIds",
+          type: "Vec<Text>",
         },
       ],
       type: "Json",
