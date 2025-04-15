@@ -15,6 +15,7 @@
 
 use super::*;
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
@@ -91,7 +92,7 @@ pub struct PermissionReferenceRecord {
 	Eq,
 	TypeInfo,
 )]
-pub struct HasPermissionQueryResult {
-	pub onchain: bool,
+pub struct GetPermissionsResult {
+	pub permissions: Vec<(String, Vec<DataPermission>)>,
 	pub permission_reference: Option<PermissionReferenceRecord>,
 }

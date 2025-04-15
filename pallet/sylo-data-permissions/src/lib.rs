@@ -560,31 +560,20 @@ impl<T: Config> SyloDataPermissionsProvider for Pallet<T> {
 		{
 			let tagged_permissions = <TaggedPermissionRecords<T>>::get(data_author, grantee);
 
-			return tagged_permissions
-				.iter()
-				.find(|(_, record)| {
-					// check for expiry
-					if let Some(expiry) = record.expiry {
-						if expiry <= block {
-							return false;
-						}
+			return tagged_permissions.iter().any(|(_, record)| {
+				// check for expiry
+				if let Some(expiry) = record.expiry {
+					if expiry <= block {
+						return false;
 					}
+				}
 
-					// check if any of the tags in the permission record
-					// matches any of the tags in data record
-					return record
-						.tags
-						.iter()
-						.find(|permission_tag| {
-							verification_record
-								.tags
-								.iter()
-								.find(|record_tag| permission_tag == record_tag)
-								.is_some()
-						})
-						.is_some() && is_sufficient_permission(record.permission);
-				})
-				.is_some();
+				// check if any of the tags in the permission record
+				// matches any of the tags in data record
+				return record.tags.iter().any(|permission_tag| {
+					verification_record.tags.iter().any(|record_tag| permission_tag == record_tag)
+				}) && is_sufficient_permission(record.permission);
+			});
 		}
 
 		false
@@ -592,20 +581,76 @@ impl<T: Config> SyloDataPermissionsProvider for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn has_permission_query(
+	pub fn get_permissions(
 		data_author: T::AccountId,
 		grantee: T::AccountId,
-		data_id: Vec<u8>,
-		permission: DataPermission,
-	) -> Result<HasPermissionQueryResult, DispatchError> {
-		let data_id = BoundedVec::try_from(data_id).map_err(|_| Error::<T>::InvalidString)?;
+		data_ids: Vec<String>,
+	) -> Result<GetPermissionsResult, DispatchError> {
+		let current_block = <frame_system::Pallet<T>>::block_number();
 
-		let onchain = <Self as SyloDataPermissionsProvider>::has_permission(
-			&data_author,
-			&data_id,
-			&grantee,
-			permission,
-		);
+		let permissions = data_ids
+			.into_iter()
+			.map(|data_id| -> Result<_, DispatchError> {
+				let bounded_data_id = BoundedVec::try_from(data_id.clone().into_bytes())
+					.map_err(|_| Error::<T>::InvalidString)?;
+
+				let mut permissions = vec![];
+
+				let permission_records =
+					<PermissionRecords<T>>::get((&data_author, &grantee, &bounded_data_id));
+
+				for permission_record in permission_records.iter() {
+					if let Some(expiry) = permission_record.1.expiry {
+						// permission has expired
+						if expiry <= current_block {
+							continue;
+						}
+					}
+
+					if permissions.iter().any(|p| p == &permission_record.1.permission) {
+						continue;
+					}
+
+					permissions.push(permission_record.1.permission);
+				}
+
+				// check for tagged permissions
+				if let Some(verification_record) =
+					T::SyloDataVerificationProvider::get_validation_record(
+						&data_author,
+						&bounded_data_id,
+					) {
+					let tagged_permissions =
+						<TaggedPermissionRecords<T>>::get(&data_author, &grantee);
+
+					for tagged_permission in tagged_permissions.iter() {
+						if let Some(expiry) = tagged_permission.1.expiry {
+							// permission has expired
+							if expiry <= current_block {
+								continue;
+							}
+						}
+
+						// check if any of the tags in the permission record
+						// matches any of the tags in data record
+						if tagged_permission.1.tags.iter().any(|permission_tag| {
+							verification_record
+								.tags
+								.iter()
+								.any(|record_tag| permission_tag == record_tag)
+						}) {
+							if permissions.iter().any(|p| p == &tagged_permission.1.permission) {
+								continue;
+							}
+
+							permissions.push(tagged_permission.1.permission);
+						}
+					}
+				}
+
+				Ok((data_id, permissions))
+			})
+			.collect::<Result<Vec<_>, _>>()?;
 
 		let permission_reference = <PermissionReferences<T>>::get(&data_author, &grantee)
 			.map(|record| {
@@ -640,6 +685,6 @@ impl<T: Config> Pallet<T> {
 			.transpose()
 			.map_err(|_: FromUtf8Error| Error::<T>::InvalidString)?;
 
-		Ok(HasPermissionQueryResult { onchain, permission_reference })
+		Ok(GetPermissionsResult { permissions, permission_reference })
 	}
 }

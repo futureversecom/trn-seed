@@ -18,10 +18,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-use alloc::string::String;
+use alloc::{string::String, vec::Vec};
 use codec::Codec;
-use pallet_sylo_data_permissions::HasPermissionQueryResult;
-use seed_pallet_common::sylo::DataPermission;
+use pallet_sylo_data_permissions::GetPermissionsResult;
 use sp_runtime::DispatchError;
 
 sp_api::decl_runtime_apis! {
@@ -29,19 +28,20 @@ sp_api::decl_runtime_apis! {
 	pub trait SyloDataPermissionsApi<AccountId> where
 		AccountId: Codec,
 	{
-		/// Checks if an account has the given permission for the given
-		/// data_id. This will query both the onchain Permission Records, and
-		/// also the Tagged Permission Records.
+		/// Queries the pallet's storage for all available permissions
+		/// for the given data ids that have been granted to a specific account.
 		///
-		/// This query will also return the offchain permission record if one
-		/// exists, and the resolver endpoints for the offchain record.
+		/// The response value will include a mapping from each data id to a
+		/// vector of the onchain permissions that have been granted to that
+		/// account.It will also include the off-chain permission reference if it
+		/// exists.
 		///
-		/// Use this RPC call to avoid making multiple queries to onchain storage.
-		fn has_permission_query(
+		/// Clients can use this RPC call to avoid making multiple separate queries
+		/// to onchain storage.
+		fn get_permissions(
 			data_author: AccountId,
 			grantee: AccountId,
-			data_id: String,
-			permission: DataPermission
-		) -> Result<HasPermissionQueryResult, DispatchError>;
+			data_ids: Vec<String>,
+		) -> Result<GetPermissionsResult, DispatchError>;
 	}
 }

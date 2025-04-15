@@ -18,7 +18,7 @@ extern crate alloc;
 
 use std::sync::Arc;
 
-use alloc::string::String;
+use alloc::{string::String, vec::Vec};
 use codec::Codec;
 use jsonrpsee::{
 	core::{async_trait, Error as RpcError, RpcResult},
@@ -29,7 +29,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
 use sp_runtime::DispatchError;
 
-use pallet_sylo_data_permissions::HasPermissionQueryResult;
+use pallet_sylo_data_permissions::GetPermissionsResult;
 pub use pallet_sylo_data_permissions_rpc_runtime_api::{
 	self as runtime_api, SyloDataPermissionsApi as SyloDataPermissionsRuntimeApi,
 };
@@ -38,14 +38,13 @@ use seed_pallet_common::sylo::DataPermission;
 /// SyloDataPermissions RPC methods.
 #[rpc(client, server, namespace = "syloDataPermissions")]
 pub trait SyloDataPermissionsApi<AccountId> {
-	#[method(name = "has_permission_query")]
-	fn has_permission_query(
+	#[method(name = "get_permissions")]
+	fn get_permissions(
 		&self,
 		data_author: AccountId,
 		grantee: AccountId,
-		data_id: String,
-		permission: DataPermission,
-	) -> RpcResult<Result<HasPermissionQueryResult, DispatchError>>;
+		data_ids: Vec<String>,
+	) -> RpcResult<Result<GetPermissionsResult, DispatchError>>;
 }
 
 /// An implementation of SyloDataPermissions specific RPC methods.
@@ -69,16 +68,15 @@ where
 	C::Api: SyloDataPermissionsRuntimeApi<Block, AccountId>,
 	AccountId: Codec,
 {
-	fn has_permission_query(
+	fn get_permissions(
 		&self,
 		data_author: AccountId,
 		grantee: AccountId,
-		data_id: String,
-		permission: DataPermission,
-	) -> RpcResult<Result<HasPermissionQueryResult, DispatchError>> {
+		data_ids: Vec<String>,
+	) -> RpcResult<Result<GetPermissionsResult, DispatchError>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
-		api.has_permission_query(best, data_author, grantee, data_id, permission)
+		api.get_permissions(best, data_author, grantee, data_ids)
 			.map_err(RpcError::to_call_error)
 	}
 }
