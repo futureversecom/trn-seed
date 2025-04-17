@@ -477,9 +477,6 @@ pub mod pallet {
 		/// out of max reward vecotor bound
 		ExceededMaxRewards,
 
-		/// asset (price set) is not in the fee pot assets list
-		AssetNotInFeePotList,
-
 		/// vortex price is zero
 		VortexPriceIsZero,
 
@@ -1045,10 +1042,6 @@ pub mod pallet {
 					asset_id != &T::VtxAssetId::get(),
 					Error::<T>::AssetsShouldNotIncludeVtxAsset
 				);
-				ensure!(
-					Self::check_asset_exist_in_fee_pot_asset_list(id, asset_id),
-					Error::<T>::AssetNotInFeePotList
-				);
 				AssetPrices::<T>::insert(id, asset_id, price);
 			}
 
@@ -1316,19 +1309,6 @@ pub mod pallet {
 				},
 				None => Ok(None),
 			}
-		}
-
-		fn check_asset_exist_in_fee_pot_asset_list(
-			vtx_id: T::VtxDistIdentifier,
-			asset_id: &AssetId,
-		) -> bool {
-			for (id, _) in FeePotAssetsList::<T>::get(vtx_id).iter() {
-				if id == asset_id {
-					return true;
-				}
-			}
-
-			false
 		}
 	}
 }
