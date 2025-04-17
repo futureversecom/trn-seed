@@ -477,9 +477,6 @@ pub mod pallet {
 		/// out of max reward vecotor bound
 		ExceededMaxRewards,
 
-		/// asset (price set) is not in the fee pot assets list
-		AssetNotInFeePotList,
-
 		/// vortex price is zero
 		VortexPriceIsZero,
 

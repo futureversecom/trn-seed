@@ -524,6 +524,50 @@ fn set_asset_prices_should_work() {
 }
 
 #[test]
+fn set_asset_prices_should_work_even_if_asset_id_is_not_in_fee_pot_list() {
+	let alice: AccountId = create_account(1);
+
+	TestExt::default().build().execute_with(|| {
+		// Retrieve the ID of the newly created vortex distribution.
+		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+
+		// create 2 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
+
+		// set fee pot asset balances
+		let fee_pot_asset_balances = vec![(usdc, 100), (weth, 100), (ROOT_ASSET_ID, 100)];
+		assert_ok!(Vortex::set_fee_pot_asset_balances(
+			Origin::root(),
+			vortex_dist_id,
+			BoundedVec::try_from(fee_pot_asset_balances.clone()).unwrap(),
+		));
+
+		//set asset price
+		let asset_id_not_in_feepot_list = 100;
+		let asset_prices = vec![
+			(usdc, 100),
+			(weth, 200),
+			(ROOT_ASSET_ID, 100),
+			(asset_id_not_in_feepot_list, 200),
+		];
+		let asset_prices_bounded = BoundedVec::try_from(asset_prices.clone()).unwrap();
+		assert_ok!(Vortex::set_asset_prices(
+			Origin::root(),
+			vortex_dist_id,
+			asset_prices_bounded.clone()
+		));
+
+		// Check that the correct event was emitted.
+		System::assert_last_event(MockEvent::Vortex(crate::Event::SetAssetPrices {
+			id: vortex_dist_id,
+			asset_prices: asset_prices_bounded,
+		}));
+	});
+}
+
+#[test]
 fn set_asset_prices_with_invalid_asset_id_should_fail() {
 	let alice: AccountId = create_account(1);
 	TestExt::default().build().execute_with(|| {
@@ -541,15 +585,6 @@ fn set_asset_prices_with_invalid_asset_id_should_fail() {
 			vortex_dist_id,
 			BoundedVec::try_from(fee_pot_asset_balances.clone()).unwrap(),
 		));
-
-		// set asset price
-		// asset_prices vector includes (120, 100) where asset id 120 is not in the fee pot balances
-		let asset_prices = vec![(usdc, 100), (weth, 200), (ROOT_ASSET_ID, 100), (120, 100)];
-		let asset_prices_bounded = BoundedVec::try_from(asset_prices.clone()).unwrap();
-		assert_noop!(
-			Vortex::set_asset_prices(Origin::root(), vortex_dist_id, asset_prices_bounded),
-			Error::<Test>::AssetNotInFeePotList
-		);
 
 		// set asset price
 		// asset_prices vector includes VTX_ASSET_ID which is invalid
