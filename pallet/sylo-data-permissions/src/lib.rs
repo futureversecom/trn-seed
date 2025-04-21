@@ -164,6 +164,8 @@ pub mod pallet {
 		/// An accompanying verification record for the offchain permission does
 		/// not exist
 		MissingValidationRecord,
+		/// Expiry value for permission record is invalid
+		InvalidExpiry,
 		/// String values in an RPC call, in either the inputs or outputs are
 		/// invalid
 		InvalidString,
@@ -250,6 +252,11 @@ pub mod pallet {
 
 			if irrevocable {
 				ensure!(expiry.is_none(), Error::<T>::IrrevocableCannotBeExpirable);
+			}
+
+			if let Some(expiry) = expiry {
+				// ensure valid expiry
+				ensure!(expiry > block, Error::<T>::InvalidExpiry);
 			}
 
 			for data_id in data_ids.iter() {
@@ -379,6 +386,13 @@ pub mod pallet {
 			irrevocable: bool,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
+			let block = <frame_system::Pallet<T>>::block_number();
+
+			if let Some(expiry) = expiry {
+				// ensure valid expiry
+				ensure!(expiry > block, Error::<T>::InvalidExpiry);
+			}
 
 			let tagged_permission_record = TaggedPermissionRecord {
 				permission,
@@ -541,7 +555,7 @@ impl<T: Config> SyloDataPermissionsProvider for Pallet<T> {
 			.find(|(_, record)| {
 				// check for expiry
 				if let Some(expiry) = record.expiry {
-					if expiry <= block {
+					if expiry < block {
 						return false;
 					}
 				}
@@ -626,7 +640,7 @@ impl<T: Config> Pallet<T> {
 					for tagged_permission in tagged_permissions.iter() {
 						if let Some(expiry) = tagged_permission.1.expiry {
 							// permission has expired
-							if expiry <= current_block {
+							if expiry < current_block {
 								continue;
 							}
 						}

@@ -241,6 +241,44 @@ mod grant_data_permissions {
 	}
 
 	#[test]
+	fn cannot_grant_permission_with_invalid_expiry() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+
+			let data_id = create_validation_record(grantor.clone(), "data-id");
+
+			assert_noop!(
+				SyloDataPermissions::grant_data_permissions(
+					RawOrigin::Signed(grantor.clone()).into(),
+					grantor.clone(),
+					grantee.clone(),
+					BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+					DataPermission::VIEW,
+					Some(0),
+					false
+				),
+				Error::<Test>::InvalidExpiry
+			);
+
+			System::set_block_number(100);
+
+			assert_noop!(
+				SyloDataPermissions::grant_data_permissions(
+					RawOrigin::Signed(grantor.clone()).into(),
+					grantor.clone(),
+					grantee.clone(),
+					BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+					DataPermission::VIEW,
+					Some(50),
+					false
+				),
+				Error::<Test>::InvalidExpiry
+			);
+		});
+	}
+
+	#[test]
 	fn can_grant_permission_as_distributor() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let grantor: AccountId = create_account(1);
@@ -760,6 +798,43 @@ mod grant_tagged_permissions {
 				.iter()
 				.find(|(_, record)| record.tags == tags_two)
 				.is_some());
+		});
+	}
+
+	#[test]
+	fn cannot_grant_permission_with_invalid_expiry() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+
+			let tags = BoundedVec::try_from(vec![bounded_string("tag-1"), bounded_string("tag-2")])
+				.unwrap();
+
+			assert_noop!(
+				SyloDataPermissions::grant_tagged_permissions(
+					RawOrigin::Signed(grantor.clone()).into(),
+					grantee.clone(),
+					DataPermission::VIEW,
+					tags.clone(),
+					Some(0),
+					false
+				),
+				Error::<Test>::InvalidExpiry
+			);
+
+			System::set_block_number(100);
+
+			assert_noop!(
+				SyloDataPermissions::grant_tagged_permissions(
+					RawOrigin::Signed(grantor.clone()).into(),
+					grantee.clone(),
+					DataPermission::VIEW,
+					tags.clone(),
+					Some(50),
+					false
+				),
+				Error::<Test>::InvalidExpiry
+			);
 		});
 	}
 }

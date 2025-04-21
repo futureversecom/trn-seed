@@ -33,7 +33,6 @@ use pallet_sylo_data_permissions::GetPermissionsResult;
 pub use pallet_sylo_data_permissions_rpc_runtime_api::{
 	self as runtime_api, SyloDataPermissionsApi as SyloDataPermissionsRuntimeApi,
 };
-use seed_pallet_common::sylo::DataPermission;
 
 /// SyloDataPermissions RPC methods.
 #[rpc(client, server, namespace = "syloDataPermissions")]
