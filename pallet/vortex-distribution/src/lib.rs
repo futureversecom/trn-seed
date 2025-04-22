@@ -30,6 +30,7 @@ pub mod weights;
 pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, HasCompact};
+use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
 use frame_support::{
 	dispatch::DispatchResult,
 	log,
@@ -60,6 +61,7 @@ use sp_runtime::{
 	Perbill, RuntimeDebug,
 };
 use sp_std::{convert::TryInto, prelude::*};
+use std::ops::Div;
 
 pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::MAX / 2;
 
@@ -86,6 +88,7 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use seed_pallet_common::test_prelude::VTX_ASSET_ID;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -1056,6 +1059,8 @@ pub mod pallet {
 			let mut vtx_vault_asset_value: BalanceOf<T> = 0u64.into();
 			for (asset_id, amount) in VtxVaultAssetsList::<T>::get(id).into_iter() {
 				let asset_price = AssetPrices::<T>::get(id, asset_id);
+				let asset_decimals = T::MultiCurrency::decimals(asset_id); // NOTE: ROOT still gets the correct result 6 onchain
+				let decimal_factor: BalanceOf<T> = 10u64.pow(asset_decimals as u32).into();
 				if asset_price == Default::default() {
 					continue;
 				}
@@ -1063,12 +1068,18 @@ pub mod pallet {
 					true => T::MultiCurrency::balance(asset_id, &vtx_vault_account),
 					false => amount,
 				};
-				vtx_vault_asset_value += asset_balance.saturating_mul(asset_price);
+
+				// here any asset that makes less than 1 contribution will be ignored.
+				vtx_vault_asset_value +=
+					asset_balance.saturating_mul(asset_price).div(decimal_factor);
 			}
 
+			let vtx_decimal_factor: BalanceOf<T> =
+				10u64.pow(T::MultiCurrency::decimals(VTX_ASSET_ID) as u32).into();
+			// get the total supply of VTX in standard units
 			let vtx_existing_supply = match ConsiderCurrentBalance::<T>::get() {
-				true => T::MultiCurrency::total_issuance(T::VtxAssetId::get()),
-				false => VtxTotalSupply::<T>::get(id),
+				true => T::MultiCurrency::total_issuance(T::VtxAssetId::get()) / vtx_decimal_factor,
+				false => VtxTotalSupply::<T>::get(id) / vtx_decimal_factor,
 			};
 
 			let vortex_price = if vtx_existing_supply == Zero::zero() {
