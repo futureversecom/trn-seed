@@ -30,6 +30,7 @@ pub mod weights;
 pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, HasCompact};
+use core::ops::Div;
 use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
 use frame_support::{
 	dispatch::DispatchResult,
@@ -61,7 +62,6 @@ use sp_runtime::{
 	Perbill, RuntimeDebug,
 };
 use sp_std::{convert::TryInto, prelude::*};
-use std::ops::Div;
 
 pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::MAX / 2;
 
@@ -88,7 +88,6 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use seed_pallet_common::test_prelude::VTX_ASSET_ID;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -1075,7 +1074,7 @@ pub mod pallet {
 			}
 
 			let vtx_decimal_factor: BalanceOf<T> =
-				10u64.pow(T::MultiCurrency::decimals(VTX_ASSET_ID) as u32).into();
+				10u64.pow(T::MultiCurrency::decimals(T::VtxAssetId::get()) as u32).into();
 			// get the total supply of VTX in standard units
 			let vtx_existing_supply = match ConsiderCurrentBalance::<T>::get() {
 				true => T::MultiCurrency::total_issuance(T::VtxAssetId::get()) / vtx_decimal_factor,
