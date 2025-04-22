@@ -144,6 +144,8 @@ pub mod pallet {
 		/// A permission that is set to irrevocable cannot also set to have an
 		/// expiry
 		IrrevocableCannotBeExpirable,
+		/// Expiry value for permission record is invalid
+		InvalidExpiry,
 		/// Exceeded the maximum number of record permissions granted to a given
 		/// account
 		ExceededMaxPermissions,
@@ -164,8 +166,8 @@ pub mod pallet {
 		/// An accompanying verification record for the offchain permission does
 		/// not exist
 		MissingValidationRecord,
-		/// Expiry value for permission record is invalid
-		InvalidExpiry,
+		/// An existing permission reference has already been granted
+		PermissionReferenceAlreadyExists,
 		/// String values in an RPC call, in either the inputs or outputs are
 		/// invalid
 		InvalidString,
@@ -488,6 +490,11 @@ pub mod pallet {
 				Error::<T>::MissingValidationRecord,
 			);
 
+			ensure!(
+				<PermissionReferences<T>>::get(&who, &grantee).is_none(),
+				Error::<T>::PermissionReferenceAlreadyExists
+			);
+
 			<PermissionReferences<T>>::insert(
 				&who,
 				&grantee,
@@ -577,7 +584,7 @@ impl<T: Config> SyloDataPermissionsProvider for Pallet<T> {
 			return tagged_permissions.iter().any(|(_, record)| {
 				// check for expiry
 				if let Some(expiry) = record.expiry {
-					if expiry <= block {
+					if expiry < block {
 						return false;
 					}
 				}
@@ -616,7 +623,7 @@ impl<T: Config> Pallet<T> {
 				for permission_record in permission_records.iter() {
 					if let Some(expiry) = permission_record.1.expiry {
 						// permission has expired
-						if expiry <= current_block {
+						if expiry < current_block {
 							continue;
 						}
 					}

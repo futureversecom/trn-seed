@@ -966,6 +966,32 @@ mod revoke_tagged_permission {
 			);
 		});
 	}
+
+	#[test]
+	fn cannot_grant_permission_reference_if_already_existing() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+
+			let permission_record_id =
+				create_validation_record(grantor.clone(), "permission-record-id");
+
+			assert_ok!(SyloDataPermissions::grant_permission_reference(
+				RawOrigin::Signed(grantor.clone()).into(),
+				grantee.clone(),
+				permission_record_id.clone()
+			));
+
+			assert_noop!(
+				SyloDataPermissions::grant_permission_reference(
+					RawOrigin::Signed(grantor.clone()).into(),
+					grantee.clone(),
+					permission_record_id.clone()
+				),
+				Error::<Test>::PermissionReferenceAlreadyExists
+			);
+		});
+	}
 }
 
 mod grant_permission_reference {
