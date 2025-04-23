@@ -30,6 +30,8 @@ pub mod weights;
 pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, HasCompact};
+use core::ops::Div;
+use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
 use frame_support::{
 	dispatch::DispatchResult,
 	log,
@@ -692,7 +694,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set asset prices
+		/// Set asset prices, prices should be with multiplier 10**6
 		///
 		/// `asset_prices` - List of asset prices
 		/// `id` - The distribution id
@@ -719,7 +721,6 @@ pub mod pallet {
 			id: T::VtxDistIdentifier,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_root_or_admin(origin)?;
-
 			ensure!(
 				VtxDistStatuses::<T>::get(id) == VtxDistStatus::Enabled,
 				Error::<T>::CannotTrigger
@@ -1056,6 +1057,10 @@ pub mod pallet {
 			let mut vtx_vault_asset_value: BalanceOf<T> = 0u64.into();
 			for (asset_id, amount) in VtxVaultAssetsList::<T>::get(id).into_iter() {
 				let asset_price = AssetPrices::<T>::get(id, asset_id);
+				let asset_decimals = T::MultiCurrency::decimals(asset_id); // NOTE: ROOT still gets the correct result 6 onchain
+				// // atm this is
+				// ensure!(asset_decimals < 20, Error::<T>::RootPriceIsZero);
+				let decimal_factor: BalanceOf<T> = 10u64.pow(asset_decimals as u32).into();
 				if asset_price == Default::default() {
 					continue;
 				}
@@ -1063,12 +1068,18 @@ pub mod pallet {
 					true => T::MultiCurrency::balance(asset_id, &vtx_vault_account),
 					false => amount,
 				};
-				vtx_vault_asset_value += asset_balance.saturating_mul(asset_price);
+
+				// here any asset that makes less than 1 contribution will be ignored.
+				vtx_vault_asset_value +=
+					asset_balance.saturating_mul(asset_price).div(decimal_factor);
 			}
 
+			let vtx_decimal_factor: BalanceOf<T> =
+				10u64.pow(T::MultiCurrency::decimals(T::VtxAssetId::get()) as u32).into();
+			// get the total supply of VTX in standard units
 			let vtx_existing_supply = match ConsiderCurrentBalance::<T>::get() {
-				true => T::MultiCurrency::total_issuance(T::VtxAssetId::get()),
-				false => VtxTotalSupply::<T>::get(id),
+				true => T::MultiCurrency::total_issuance(T::VtxAssetId::get()) / vtx_decimal_factor,
+				false => VtxTotalSupply::<T>::get(id) / vtx_decimal_factor,
 			};
 
 			let vortex_price = if vtx_existing_supply == Zero::zero() {
