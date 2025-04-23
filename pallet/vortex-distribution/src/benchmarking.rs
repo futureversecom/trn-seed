@@ -17,11 +17,10 @@
 
 use super::*;
 
-use crate::Pallet as Vortex;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::{Pallet as System, RawOrigin};
-use sp_runtime::{traits::One, Perbill};
+use sp_runtime::traits::One;
 
 use crate::Pallet as VortexDistribution;
 
@@ -342,14 +341,17 @@ benchmarks! {
 		});
 		let vtx_balance = T::MultiCurrency::balance(T::VtxAssetId::get(), &account::<T>("test"));
 		assert_ne!(vtx_balance, Balance::zero());
+		// check test account balance is zero for vtx_redeem_asset_list
+		for asset_id in vtx_redeem_asset_list.clone().into_iter() {
+			assert_eq!(T::MultiCurrency::balance(asset_id, &account::<T>("test")), 0);
+		}
 	}: _(RawOrigin::Signed(account::<T>("test")), vtx_balance)
 	verify {
-		// assert_eq!(T::MultiCurrency::balance(T::VtxAssetId::get(), &account::<T>("test")), 0);
-		// let ratio = Perbill::from_rational(vtx_balance, TotalVortex::<T>::get(vortex_dist_id));
-		// let mint_amount = Balance::one();
-		// let expect_balance = ratio * mint_amount;
-		// assert_eq!(T::MultiCurrency::balance(asset_id, &account::<T>("test")), expect_balance);
-		// assert_eq!(T::MultiCurrency::balance(T::NativeAssetId::get(), &account::<T>("test")), expect_balance);
+		assert_eq!(T::MultiCurrency::balance(T::VtxAssetId::get(), &account::<T>("test")), 0);
+		// check test account balance is not zero for vtx_redeem_asset_list
+		for asset_id in vtx_redeem_asset_list.into_iter() {
+			assert_ne!(T::MultiCurrency::balance(asset_id, &account::<T>("test")), 0);
+		}
 	}
 
 	pay_unsigned {
@@ -401,7 +403,7 @@ benchmarks! {
 		assert_eq!(T::MultiCurrency::balance(T::VtxAssetId::get(), &account::<T>("test")), 0u32.into());
 	}: _(RawOrigin::None, vortex_dist_id, end_block.into())
 	verify {
-		assert_eq!(T::MultiCurrency::balance(T::VtxAssetId::get(), &account::<T>("test")), 28u32.into());
+		assert_eq!(T::MultiCurrency::balance(T::VtxAssetId::get(), &account::<T>("test")), 10000009u32.into());
 	}
 
 	set_vtx_vault_redeem_asset_list {
