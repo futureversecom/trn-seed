@@ -647,16 +647,17 @@ fn trigger_vtx_distribution_works() {
 	let usdc_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let weth_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let root_vtx_vault_balance = 100_u128 * 10_u128.pow(6);
+	let vtx_current_supply = 1_000_u128 * 10_u128.pow(6);
 
 	// fee pot asset balance
 	let fee_vault = Vortex::get_fee_vault_account();
-	let usdc_fee_pot_balance = 1_000_000;
-	let weth_fee_pot_balance = 1_000_000;
-	let root_fee_pot_balance = 1_000_000;
+	let usdc_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let weth_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let root_fee_pot_balance = 1_u128 * 10_u128.pow(6);
 
-	// Transfer bootstrap
+	// bootstrap balance
 	let root_vault = Vortex::get_root_vault_account();
-	let bootstrap_root = 1_000_000;
+	let bootstrap_root = 100_u128 * 10_u128.pow(6);
 
 	TestExt::default()
 		.with_balances(&[
@@ -665,7 +666,11 @@ fn trigger_vtx_distribution_works() {
 			(vortex_vault, root_vtx_vault_balance),
 			(root_vault, bootstrap_root),
 		])
-		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(charlie, 1_000_000)])
+		.with_asset(
+			<Test as crate::Config>::VtxAssetId::get(),
+			"VORTEX",
+			&[(charlie, vtx_current_supply)],
+		)
 		.with_asset_decimals(
 			usdc_asset_id,
 			"USDC",
@@ -723,7 +728,6 @@ fn trigger_vtx_distribution_works() {
 				BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap(),
 			));
 			// set Vtx current supply
-			let vtx_current_supply = 1_000_000;
 			assert_ok!(Vortex::set_vtx_total_supply(
 				Origin::root(),
 				vortex_dist_id,
@@ -823,8 +827,13 @@ fn trigger_vtx_distribution_works() {
 			println!("vtx_price_calculted: {}", vtx_price_calculted);
 			assert_eq!(VtxPrice::<Test>::get(vortex_dist_id), vtx_price_calculted);
 			// check vtx amounts tally
+			let fee_pot_asset_balances_with_decimals = vec![
+				(usdc_asset_id, usdc_fee_pot_balance, 18),
+				(weth_asset_id, weth_fee_pot_balance, 18),
+				(ROOT_ASSET_ID, root_fee_pot_balance, 6),
+			];
 			let (total_vortex_network_reward, total_vortex_bootstrap, total_vortex) = calculate_vtx(
-				&fee_pot_asset_balances,
+				&fee_pot_asset_balances_with_decimals,
 				&asset_prices,
 				bootstrap_root,
 				root_price,
@@ -868,16 +877,17 @@ fn trigger_vtx_distribution_should_fail_if_already_triggered() {
 	let usdc_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let weth_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let root_vtx_vault_balance = 100_u128 * 10_u128.pow(6);
+	let vtx_current_supply = 1_000_u128 * 10_u128.pow(6);
 
 	// fee pot asset balance
 	let fee_vault = Vortex::get_fee_vault_account();
-	let usdc_fee_pot_balance = 1_000_000;
-	let weth_fee_pot_balance = 1_000_000;
-	let root_fee_pot_balance = 1_000_000;
+	let usdc_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let weth_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let root_fee_pot_balance = 1_u128 * 10_u128.pow(6);
 
-	// Transfer bootstrap
+	// bootstrap balance
 	let root_vault = Vortex::get_root_vault_account();
-	let bootstrap_root = 1_000_000;
+	let bootstrap_root = 100_u128 * 10_u128.pow(6);
 
 	TestExt::default()
 		.with_balances(&[
@@ -886,7 +896,11 @@ fn trigger_vtx_distribution_should_fail_if_already_triggered() {
 			(vortex_vault, root_vtx_vault_balance),
 			(root_vault, bootstrap_root),
 		])
-		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(charlie, 1_000_000)])
+		.with_asset(
+			<Test as crate::Config>::VtxAssetId::get(),
+			"VORTEX",
+			&[(charlie, vtx_current_supply)],
+		)
 		.with_asset_decimals(
 			usdc_asset_id,
 			"USDC",
@@ -944,7 +958,6 @@ fn trigger_vtx_distribution_should_fail_if_already_triggered() {
 				BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap(),
 			));
 			// set Vtx current supply
-			let vtx_current_supply = 1_000_000;
 			assert_ok!(Vortex::set_vtx_total_supply(
 				Origin::root(),
 				vortex_dist_id,
@@ -1044,8 +1057,13 @@ fn trigger_vtx_distribution_should_fail_if_already_triggered() {
 			println!("vtx_price_calculted: {}", vtx_price_calculted);
 			assert_eq!(VtxPrice::<Test>::get(vortex_dist_id), vtx_price_calculted);
 			// check vtx amounts tally
+			let fee_pot_asset_balances_with_decimals = vec![
+				(usdc_asset_id, usdc_fee_pot_balance, 18),
+				(weth_asset_id, weth_fee_pot_balance, 18),
+				(ROOT_ASSET_ID, root_fee_pot_balance, 6),
+			];
 			let (total_vortex_network_reward, total_vortex_bootstrap, total_vortex) = calculate_vtx(
-				&fee_pot_asset_balances,
+				&fee_pot_asset_balances_with_decimals,
 				&asset_prices,
 				bootstrap_root,
 				root_price,
@@ -1197,16 +1215,17 @@ fn start_vtx_dist_fails_during_reward_calculations_ongoing_period() {
 	let usdc_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let weth_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let root_vtx_vault_balance = 100_u128 * 10_u128.pow(6);
+	let vtx_current_supply = 1_000_u128 * 10_u128.pow(6);
 
 	// fee pot asset balance
 	let fee_vault = Vortex::get_fee_vault_account();
-	let usdc_fee_pot_balance = 1_000_000;
-	let weth_fee_pot_balance = 1_000_000;
-	let root_fee_pot_balance = 1_000_000;
+	let usdc_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let weth_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let root_fee_pot_balance = 1_u128 * 10_u128.pow(6);
 
-	// Transfer bootstrap
+	// bootstrap balance
 	let root_vault = Vortex::get_root_vault_account();
-	let bootstrap_root = 1_000_000;
+	let bootstrap_root = 100_u128 * 10_u128.pow(6);
 
 	TestExt::default()
 		.with_balances(&[
@@ -1215,7 +1234,11 @@ fn start_vtx_dist_fails_during_reward_calculations_ongoing_period() {
 			(vortex_vault, root_vtx_vault_balance),
 			(root_vault, bootstrap_root),
 		])
-		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(charlie, 1_000_000)])
+		.with_asset(
+			<Test as crate::Config>::VtxAssetId::get(),
+			"VORTEX",
+			&[(charlie, vtx_current_supply)],
+		)
 		.with_asset_decimals(
 			usdc_asset_id,
 			"USDC",
@@ -1273,7 +1296,6 @@ fn start_vtx_dist_fails_during_reward_calculations_ongoing_period() {
 				BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap(),
 			));
 			// set Vtx current supply
-			let vtx_current_supply = 1_000_000;
 			assert_ok!(Vortex::set_vtx_total_supply(
 				Origin::root(),
 				vortex_dist_id,
@@ -1358,16 +1380,17 @@ fn start_vtx_dist_success() {
 	let usdc_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let weth_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let root_vtx_vault_balance = 100_u128 * 10_u128.pow(6);
+	let vtx_current_supply = 1_000_u128 * 10_u128.pow(6);
 
 	// fee pot asset balance
 	let fee_vault = Vortex::get_fee_vault_account();
-	let usdc_fee_pot_balance = 1_000_000;
-	let weth_fee_pot_balance = 1_000_000;
-	let root_fee_pot_balance = 1_000_000;
+	let usdc_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let weth_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let root_fee_pot_balance = 1_u128 * 10_u128.pow(6);
 
-	// Transfer bootstrap
+	// bootstrap balance
 	let root_vault = Vortex::get_root_vault_account();
-	let bootstrap_root = 1_000_000;
+	let bootstrap_root = 100_u128 * 10_u128.pow(6);
 
 	TestExt::default()
 		.with_balances(&[
@@ -1376,7 +1399,11 @@ fn start_vtx_dist_success() {
 			(vortex_vault, root_vtx_vault_balance),
 			(root_vault, bootstrap_root),
 		])
-		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(charlie, 1_000_000)])
+		.with_asset(
+			<Test as crate::Config>::VtxAssetId::get(),
+			"VORTEX",
+			&[(charlie, vtx_current_supply)],
+		)
 		.with_asset_decimals(
 			usdc_asset_id,
 			"USDC",
@@ -1434,7 +1461,6 @@ fn start_vtx_dist_success() {
 				BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap(),
 			));
 			// set Vtx current supply
-			let vtx_current_supply = 1_000_000;
 			assert_ok!(Vortex::set_vtx_total_supply(
 				Origin::root(),
 				vortex_dist_id,
@@ -1541,16 +1567,17 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 	let usdc_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let weth_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let root_vtx_vault_balance = 100_u128 * 10_u128.pow(6);
+	let vtx_current_supply = 1_000_u128 * 10_u128.pow(6);
 
 	// fee pot asset balance
 	let fee_vault = Vortex::get_fee_vault_account();
-	let usdc_fee_pot_balance = 1_000_000;
-	let weth_fee_pot_balance = 1_000_000;
-	let root_fee_pot_balance = 1_000_000;
+	let usdc_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let weth_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let root_fee_pot_balance = 1_u128 * 10_u128.pow(6);
 
-	// Transfer bootstrap
+	// bootstrap balance
 	let root_vault = Vortex::get_root_vault_account();
-	let bootstrap_root = 1_000_000;
+	let bootstrap_root = 100_u128 * 10_u128.pow(6);
 
 	let end_block = 1000;
 
@@ -1561,7 +1588,11 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			(vortex_vault, root_vtx_vault_balance),
 			(root_vault, bootstrap_root),
 		])
-		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(charlie, 1_000_000)])
+		.with_asset(
+			<Test as crate::Config>::VtxAssetId::get(),
+			"VORTEX",
+			&[(charlie, vtx_current_supply)],
+		)
 		.with_asset_decimals(
 			usdc_asset_id,
 			"USDC",
@@ -1619,7 +1650,6 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 				BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap(),
 			));
 			// set Vtx current supply
-			let vtx_current_supply = 1_000_000;
 			assert_ok!(Vortex::set_vtx_total_supply(
 				Origin::root(),
 				vortex_dist_id,
@@ -1698,8 +1728,13 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			assert_eq!(VtxPrice::<Test>::get(vortex_dist_id), vtx_price_calculted);
 			println!("vtx_price_calculted: {:?}", vtx_price_calculted);
 			// check vtx amounts tally
+			let fee_pot_asset_balances_with_decimals = vec![
+				(usdc_asset_id, usdc_fee_pot_balance, 18),
+				(weth_asset_id, weth_fee_pot_balance, 18),
+				(ROOT_ASSET_ID, root_fee_pot_balance, 6),
+			];
 			let (total_vortex_network_reward, total_vortex_bootstrap, total_vortex) = calculate_vtx(
-				&fee_pot_asset_balances,
+				&fee_pot_asset_balances_with_decimals,
 				&asset_prices,
 				bootstrap_root,
 				root_price,
@@ -1897,16 +1932,17 @@ fn redeem_tokens_from_vault_works() {
 	let usdc_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let weth_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let root_vtx_vault_balance = 100_u128 * 10_u128.pow(6);
+	let vtx_current_supply = 1_000_u128 * 10_u128.pow(6);
 
 	// fee pot asset balance
 	let fee_vault = Vortex::get_fee_vault_account();
-	let usdc_fee_pot_balance = 1_000_000;
-	let weth_fee_pot_balance = 1_000_000;
-	let root_fee_pot_balance = 1_000_000;
+	let usdc_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let weth_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let root_fee_pot_balance = 1_u128 * 10_u128.pow(6);
 
 	// Transfer bootstrap
 	let root_vault = Vortex::get_root_vault_account();
-	let bootstrap_root = 1_000_000;
+	let bootstrap_root = 100_u128 * 10_u128.pow(6);
 
 	TestExt::default()
 		.with_balances(&[
@@ -1915,7 +1951,11 @@ fn redeem_tokens_from_vault_works() {
 			(vortex_vault, root_vtx_vault_balance),
 			(root_vault, bootstrap_root),
 		])
-		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(charlie, 1_000_000)])
+		.with_asset(
+			<Test as crate::Config>::VtxAssetId::get(),
+			"VORTEX",
+			&[(charlie, vtx_current_supply)],
+		)
 		.with_asset_decimals(
 			usdc_asset_id,
 			"USDC",
@@ -1973,7 +2013,6 @@ fn redeem_tokens_from_vault_works() {
 				BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap(),
 			));
 			// set Vtx current supply
-			let vtx_current_supply = 1_000_000;
 			assert_ok!(Vortex::set_vtx_total_supply(
 				Origin::root(),
 				vortex_dist_id,
@@ -2141,8 +2180,9 @@ fn print_reward_details_for_account() {
 	);
 	println!("vtx_price_calculted: {:?}", vtx_price_calculted);
 	// check vtx amounts tally
+	let fee_pot_asset_balances_with_decimals = vec![(1, 200_000_000, 18), (2, 10_000_000, 18)];
 	let (total_vortex_network_reward, total_vortex_bootstrap, total_vortex) = calculate_vtx(
-		&fee_pot_asset_balances,
+		&fee_pot_asset_balances_with_decimals,
 		&asset_prices,
 		bootstrap_root,
 		root_price,
@@ -2304,16 +2344,17 @@ fn set_enable_manual_reward_input_can_be_used_for_legacy_flow_before_trigger() {
 	let usdc_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let weth_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
 	let root_vtx_vault_balance = 100_u128 * 10_u128.pow(6);
+	let vtx_current_supply = 1_000_u128 * 10_u128.pow(6);
 
 	// fee pot asset balance
 	let fee_vault = Vortex::get_fee_vault_account();
-	let usdc_fee_pot_balance = 1_000_000;
-	let weth_fee_pot_balance = 1_000_000;
-	let root_fee_pot_balance = 1_000_000;
+	let usdc_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let weth_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let root_fee_pot_balance = 1_u128 * 10_u128.pow(6);
 
 	// Transfer bootstrap
 	let root_vault = Vortex::get_root_vault_account();
-	let bootstrap_root = 1_000_000;
+	let bootstrap_root = 100_u128 * 10_u128.pow(6);
 
 	let end_block = 10;
 
@@ -2324,7 +2365,11 @@ fn set_enable_manual_reward_input_can_be_used_for_legacy_flow_before_trigger() {
 			(vortex_vault, root_vtx_vault_balance),
 			(root_vault, bootstrap_root),
 		])
-		.with_asset(<Test as crate::Config>::VtxAssetId::get(), "VORTEX", &[(charlie, 1_000_000)])
+		.with_asset(
+			<Test as crate::Config>::VtxAssetId::get(),
+			"VORTEX",
+			&[(charlie, vtx_current_supply)],
+		)
 		.with_asset_decimals(
 			usdc_asset_id,
 			"USDC",
@@ -2382,7 +2427,6 @@ fn set_enable_manual_reward_input_can_be_used_for_legacy_flow_before_trigger() {
 				BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap(),
 			));
 			// set Vtx current supply
-			let vtx_current_supply = 1_000_000;
 			assert_ok!(Vortex::set_vtx_total_supply(
 				Origin::root(),
 				vortex_dist_id,
@@ -2432,8 +2476,8 @@ fn set_enable_manual_reward_input_can_be_used_for_legacy_flow_before_trigger() {
 
 			// register rewards manually pre trigger
 			assert_ok!(Vortex::set_enable_manual_reward_input(Origin::root(), true));
-			let bob_reward = 100_000;
-			let charlie_reward = 200_000;
+			let bob_reward = 10_000_000; // in drops
+			let charlie_reward = 20_000_000; // in drops
 			let rewards =
 				BoundedVec::try_from(vec![(bob, bob_reward), (charlie, charlie_reward)]).unwrap();
 			assert_ok!(Vortex::register_rewards(Origin::root(), vortex_dist_id, rewards));
@@ -2461,8 +2505,13 @@ fn set_enable_manual_reward_input_can_be_used_for_legacy_flow_before_trigger() {
 			);
 			assert_eq!(VtxPrice::<Test>::get(vortex_dist_id), vtx_price_calculted);
 			// check vtx amounts tally
+			let fee_pot_asset_balances_with_decimals = vec![
+				(usdc_asset_id, usdc_fee_pot_balance, 18),
+				(weth_asset_id, weth_fee_pot_balance, 18),
+				(ROOT_ASSET_ID, root_fee_pot_balance, 6),
+			];
 			let (total_vortex_network_reward, total_vortex_bootstrap, total_vortex) = calculate_vtx(
-				&fee_pot_asset_balances,
+				&fee_pot_asset_balances_with_decimals,
 				&asset_prices,
 				bootstrap_root,
 				root_price,
@@ -2755,8 +2804,15 @@ fn vtx_price_calculation_cuycle_5() {
 			println!("vtx_price_calculted: {}", vtx_price_calculted);
 			assert_eq!(VtxPrice::<Test>::get(vortex_dist_id), vtx_price_calculted);
 			// check vtx amounts tally
+			let fee_pot_asset_balances_with_decimals = vec![
+				(root_asset_id, root_fee_pot_balance, 6),
+				(xrp_asset_id, xrp_fee_pot_balance, 6),
+				(asto_asset_id, asto_fee_pot_balance, 18),
+				(sylo_asset_id, sylo_fee_pot_balance, 18),
+				(eth_asset_id, eth_fee_pot_balance, 18),
+			];
 			let (total_vortex_network_reward, total_vortex_bootstrap, total_vortex) = calculate_vtx(
-				&fee_pot_asset_balances,
+				&fee_pot_asset_balances_with_decimals,
 				&asset_prices,
 				bootstrap_root,
 				root_price,
@@ -2768,6 +2824,251 @@ fn vtx_price_calculation_cuycle_5() {
 				total_vortex_network_reward
 			);
 			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), total_vortex_bootstrap);
+
+			// check bob got the vortex reward registered
+			let staker_pool =
+				total_vortex_bootstrap + (Perbill::from_percent(30) * total_vortex_network_reward);
+			let workpoint_pool = Perbill::from_percent(70) * total_vortex_network_reward;
+			let bob_staker_point_portion =
+				Perbill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
+			let bob_work_points_portion = Perbill::from_rational(10_u128, 10_u128 + 10_u128);
+			let bob_vtx_reward_calculated = (bob_staker_point_portion * staker_pool)
+				+ (bob_work_points_portion * workpoint_pool);
+			assert_eq!(
+				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
+				(bob_vtx_reward_calculated, false)
+			);
+		});
+}
+
+#[test]
+fn trigger_vtx_distribution_with_high_vtx_price() {
+	let alice: AccountId = create_account(1);
+	let bob: AccountId = create_account(2);
+	let charlie: AccountId = create_account(3);
+
+	// asset ids
+	let usdc_asset_id = 10;
+	let weth_asset_id = 11;
+
+	// vortex vault pre asset balances
+	let vortex_vault = Vortex::get_vtx_vault_account();
+	let usdc_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
+	let weth_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
+	let root_vtx_vault_balance = 100_u128 * 10_u128.pow(6);
+	// lowering  vtx_current_supply would shoot up the vtx price
+	let vtx_current_supply = 1_u128 * 10_u128.pow(6);
+
+	// fee pot asset balance
+	let fee_vault = Vortex::get_fee_vault_account();
+	let usdc_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let weth_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let root_fee_pot_balance = 1_u128 * 10_u128.pow(6);
+
+	// bootstrap balance
+	let root_vault = Vortex::get_root_vault_account();
+	let bootstrap_root = 100_u128 * 10_u128.pow(6);
+
+	TestExt::default()
+		.with_balances(&[
+			(alice, 2_000_000),
+			(fee_vault, root_fee_pot_balance),
+			(vortex_vault, root_vtx_vault_balance),
+			(root_vault, bootstrap_root),
+		])
+		.with_asset(
+			<Test as crate::Config>::VtxAssetId::get(),
+			"VORTEX",
+			&[(charlie, vtx_current_supply)],
+		)
+		.with_asset_decimals(
+			usdc_asset_id,
+			"USDC",
+			18,
+			&[
+				(alice, 1_000_000),
+				(vortex_vault, usdc_vtx_vault_balance),
+				(fee_vault, usdc_fee_pot_balance),
+			],
+		)
+		.with_asset_decimals(
+			weth_asset_id,
+			"WETH",
+			18,
+			&[
+				(alice, 1_000_000),
+				(vortex_vault, weth_vtx_vault_balance),
+				(fee_vault, weth_fee_pot_balance),
+			],
+		)
+		.with_asset_decimals(
+			ROOT_ASSET_ID,
+			"ROOT",
+			6,
+			&[(alice, 1_000_000), (vortex_vault, root_vtx_vault_balance)], // this is just for the metadata
+		)
+		.build()
+		.execute_with(|| {
+			let vortex_dist_id = NextVortexId::<Test>::get();
+
+			// check account have correct balances
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &root_vault), bootstrap_root);
+			assert_eq!(AssetsExt::balance(usdc_asset_id, &fee_vault), usdc_fee_pot_balance);
+			assert_eq!(AssetsExt::balance(weth_asset_id, &fee_vault), weth_fee_pot_balance);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &fee_vault), root_fee_pot_balance);
+			assert_eq!(
+				AssetsExt::balance(NativeAssetId::get(), &vortex_vault),
+				root_vtx_vault_balance
+			);
+			assert_eq!(AssetsExt::balance(usdc_asset_id, &vortex_vault), usdc_vtx_vault_balance);
+			assert_eq!(AssetsExt::balance(weth_asset_id, &vortex_vault), weth_vtx_vault_balance);
+
+			// create vortex distribution
+			assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+
+			// set vortex vault pre asset balances
+			let vtx_vault_asset_balances = vec![
+				(usdc_asset_id, usdc_vtx_vault_balance),
+				(weth_asset_id, weth_vtx_vault_balance),
+				(ROOT_ASSET_ID, root_vtx_vault_balance),
+			];
+			assert_ok!(Vortex::set_vtx_vault_asset_balances(
+				Origin::root(),
+				vortex_dist_id,
+				BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap(),
+			));
+			// set Vtx current supply
+			assert_ok!(Vortex::set_vtx_total_supply(
+				Origin::root(),
+				vortex_dist_id,
+				vtx_current_supply,
+			));
+
+			// set fee pot asset balances
+			let fee_pot_asset_balances = vec![
+				(usdc_asset_id, usdc_fee_pot_balance),
+				(weth_asset_id, weth_fee_pot_balance),
+				(ROOT_ASSET_ID, root_fee_pot_balance),
+			];
+			assert_ok!(Vortex::set_fee_pot_asset_balances(
+				Origin::root(),
+				vortex_dist_id,
+				BoundedVec::try_from(fee_pot_asset_balances.clone()).unwrap(),
+			));
+
+			//set asset price. prices should be multiplied by the usd factor 10**6
+			let usdc_price: Balance = 100_u128 * 10_u128.pow(6);
+			let weth_price: Balance = 200_u128 * 10_u128.pow(6);
+			let root_price: Balance = 3_u128 * 10_u128.pow(6);
+			let asset_prices = vec![
+				(usdc_asset_id, usdc_price),
+				(weth_asset_id, weth_price),
+				(ROOT_ASSET_ID, root_price),
+			];
+			assert_ok!(Vortex::set_asset_prices(
+				Origin::root(),
+				vortex_dist_id,
+				BoundedVec::try_from(asset_prices.clone()).unwrap(),
+			));
+
+			// register reward and work points
+			let reward_points =
+				BoundedVec::try_from(vec![(bob, 100_000), (charlie, 100_000)]).unwrap();
+			let work_points = BoundedVec::try_from(vec![(bob, 10), (charlie, 10)]).unwrap();
+			assert_ok!(Vortex::register_reward_points(
+				Origin::root(),
+				vortex_dist_id,
+				reward_points
+			));
+			assert_ok!(Vortex::register_work_points(Origin::root(), vortex_dist_id, work_points));
+
+			// check fee pot and bootstrap root account has correct balances
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &root_vault), bootstrap_root);
+			assert_eq!(AssetsExt::balance(usdc_asset_id, &fee_vault), usdc_fee_pot_balance);
+			assert_eq!(AssetsExt::balance(weth_asset_id, &fee_vault), weth_fee_pot_balance);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &fee_vault), root_fee_pot_balance);
+
+			// trigger vortex distribution and do the preparations for distribution
+			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id));
+			// Check that the correct event was emitted.
+			System::assert_last_event(MockEvent::Vortex(crate::Event::VtxDistributionTriggering {
+				id: vortex_dist_id,
+			}));
+			// run a few blocks to move the Vtx status from Triggering to Triggered
+			for i in 2_u32..4 {
+				System::set_block_number(i.into());
+				Vortex::on_idle(i.into(), Weight::from_all(1_000_000_000_000_u64));
+			}
+			System::assert_last_event(MockEvent::Vortex(crate::Event::VtxDistributionTriggered {
+				id: vortex_dist_id,
+			}));
+
+			// check balances have been transferred to vtx vault account
+			// check fee pot and bootstrap root account has correct balances
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &root_vault), 0);
+			assert_eq!(AssetsExt::balance(usdc_asset_id, &fee_vault), 0);
+			assert_eq!(AssetsExt::balance(weth_asset_id, &fee_vault), 0);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &fee_vault), 0);
+			let vtx_vault_account = Vortex::get_vtx_vault_account();
+			assert_eq!(
+				AssetsExt::balance(NativeAssetId::get(), &vtx_vault_account),
+				root_vtx_vault_balance + bootstrap_root + root_fee_pot_balance
+			);
+			assert_eq!(
+				AssetsExt::balance(usdc_asset_id, &vtx_vault_account),
+				usdc_fee_pot_balance + usdc_vtx_vault_balance
+			);
+			assert_eq!(
+				AssetsExt::balance(weth_asset_id, &vtx_vault_account),
+				weth_fee_pot_balance + weth_vtx_vault_balance
+			);
+
+			// check VtxPrice tally
+			let vtx_vault_asset_balances_with_decimals = vec![
+				(usdc_asset_id, usdc_vtx_vault_balance, 18),
+				(weth_asset_id, weth_vtx_vault_balance, 18),
+				(ROOT_ASSET_ID, root_vtx_vault_balance, 6),
+			];
+			let vtx_price_calculted = calculate_vtx_price(
+				&vtx_vault_asset_balances_with_decimals,
+				&asset_prices,
+				vtx_current_supply,
+			);
+			println!("vtx_price_calculted: {}", vtx_price_calculted);
+			assert_eq!(VtxPrice::<Test>::get(vortex_dist_id), vtx_price_calculted);
+			assert_eq!(VtxPrice::<Test>::get(vortex_dist_id), 1800000000); // price is 1800 in standard units. i.e USD
+															   // check vtx amounts tally
+			let fee_pot_asset_balances_with_decimals = vec![
+				(usdc_asset_id, usdc_fee_pot_balance, 18),
+				(weth_asset_id, weth_fee_pot_balance, 18),
+				(ROOT_ASSET_ID, root_fee_pot_balance, 6),
+			];
+			let (total_vortex_network_reward, total_vortex_bootstrap, total_vortex) = calculate_vtx(
+				&fee_pot_asset_balances_with_decimals,
+				&asset_prices,
+				bootstrap_root,
+				root_price,
+				vtx_price_calculted,
+			);
+			assert_eq!(TotalVortex::<Test>::get(vortex_dist_id), total_vortex);
+			assert_eq!(
+				TotalNetworkReward::<Test>::get(vortex_dist_id),
+				total_vortex_network_reward
+			);
+			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), total_vortex_bootstrap);
+			println!(
+				"total_vortex_network_reward: {}",
+				TotalNetworkReward::<Test>::get(vortex_dist_id)
+			);
+			println!(
+				"total_vortex_bootstrap: {}",
+				TotalBootstrapReward::<Test>::get(vortex_dist_id)
+			);
+			println!("total_vortex: {}", TotalVortex::<Test>::get(vortex_dist_id));
+			// check the values below, onchain calculations supports upto 1 drop precision
+			assert_eq!(TotalVortex::<Test>::get(vortex_dist_id), 334999);
+			assert_eq!(TotalNetworkReward::<Test>::get(vortex_dist_id), 168333);
+			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), 166666);
 
 			// check bob got the vortex reward registered
 			let staker_pool =

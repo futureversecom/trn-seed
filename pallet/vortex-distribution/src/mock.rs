@@ -56,7 +56,7 @@ pub fn calculate_vtx_price(
 }
 
 pub fn calculate_vtx(
-	assets: &Vec<(AssetId, Balance)>,
+	assets: &Vec<(AssetId, Balance, u8)>,
 	prices: &Vec<(AssetId, Balance)>,
 	bootstrap_root: Balance,
 	root_price: Balance,
@@ -64,12 +64,19 @@ pub fn calculate_vtx(
 ) -> (Balance, Balance, Balance) {
 	let mut fee_vault_asset_value = 0_u128;
 	for i in 0..assets.len() {
-		fee_vault_asset_value += assets[i].1 * prices[i].1;
+		let decimal_factor: Balance = 10u128.pow(assets[i].2 as u32).into();
+		fee_vault_asset_value += assets[i].1.saturating_mul(prices[i].1).div(decimal_factor);
 	}
-	let bootstrap_asset_value = bootstrap_root * root_price;
-	let total_vortex_network_reward = fee_vault_asset_value / vtx_price;
-	let total_vortex_bootstrap = bootstrap_asset_value / vtx_price;
-	let total_vortex = total_vortex_network_reward + total_vortex_bootstrap;
+	let root_decimal_factor: Balance = 10u128.pow(6).into();
+	let bootstrap_asset_value = bootstrap_root.saturating_mul(root_price).div(root_decimal_factor);
+
+	// calculate in drops for higher precision
+	let vtx_decimal_factor: Balance = 10u128.pow(6).into();
+	let total_vortex_network_reward =
+		fee_vault_asset_value.saturating_mul(vtx_decimal_factor).div(vtx_price);
+	let total_vortex_bootstrap =
+		bootstrap_asset_value.saturating_mul(vtx_decimal_factor).div(vtx_price);
+	let total_vortex = total_vortex_network_reward.saturating_add(total_vortex_bootstrap);
 
 	(total_vortex_network_reward, total_vortex_bootstrap, total_vortex)
 }
