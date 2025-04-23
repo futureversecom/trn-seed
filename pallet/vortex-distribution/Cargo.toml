@@ -17,9 +17,7 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
-sp-staking = { workspace = true }
 
-pallet-staking = { workspace = true }
 seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
 
@@ -33,6 +31,8 @@ pallet-session = { workspace = true }
 pallet-bags-list = { workspace = true }
 pallet-staking-reward-curve = { workspace = true }
 hex-literal = { workspace = true }
+pallet-staking = { workspace = true }
+sp-staking = { workspace = true }
 
 [features]
 default = ["std"]

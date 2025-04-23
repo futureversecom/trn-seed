@@ -15,11 +15,11 @@
 
 use crate as pallet_vortex_distribution;
 use frame_support::traits::{ConstU32, Hooks};
-use pallet_staking::BalanceOf;
 use seed_pallet_common::test_prelude::*;
 use sp_runtime::traits::Zero;
 use sp_runtime::{testing::TestXt, BuildStorage};
 use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
+use std::ops::Div;
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;
@@ -35,14 +35,18 @@ pub fn run_to_block(n: u64) {
 }
 
 pub fn calculate_vtx_price(
-	assets: &Vec<(AssetId, Balance)>,
+	assets: &Vec<(AssetId, Balance, u8)>,
 	prices: &Vec<(AssetId, Balance)>,
-	vtx_total_supply: BalanceOf<Test>,
+	vtx_total_supply: Balance,
 ) -> Balance {
 	let mut asset_value_usd = 0_u128;
 	for i in 0..assets.len() {
-		asset_value_usd += assets[i].1 * prices[i].1;
+		let decimal_factor: Balance = 10u128.pow(assets[i].2 as u32).into();
+		asset_value_usd += assets[i].1.saturating_mul(prices[i].1).div(decimal_factor);
 	}
+
+	let vtx_decimal_factor: Balance = 10u128.pow(6).into(); // VTX 6 decimal points
+	let vtx_total_supply = vtx_total_supply.div(vtx_decimal_factor);
 	let vtx_price = if vtx_total_supply == Zero::zero() {
 		1u128.into()
 	} else {
@@ -52,20 +56,27 @@ pub fn calculate_vtx_price(
 }
 
 pub fn calculate_vtx(
-	assets: &Vec<(AssetId, Balance)>,
+	assets: &Vec<(AssetId, Balance, u8)>,
 	prices: &Vec<(AssetId, Balance)>,
-	bootstrap_root: BalanceOf<Test>,
-	root_price: BalanceOf<Test>,
-	vtx_price: BalanceOf<Test>,
+	bootstrap_root: Balance,
+	root_price: Balance,
+	vtx_price: Balance,
 ) -> (Balance, Balance, Balance) {
 	let mut fee_vault_asset_value = 0_u128;
 	for i in 0..assets.len() {
-		fee_vault_asset_value += assets[i].1 * prices[i].1;
+		let decimal_factor: Balance = 10u128.pow(assets[i].2 as u32).into();
+		fee_vault_asset_value += assets[i].1.saturating_mul(prices[i].1).div(decimal_factor);
 	}
-	let bootstrap_asset_value = bootstrap_root * root_price;
-	let total_vortex_network_reward = fee_vault_asset_value / vtx_price;
-	let total_vortex_bootstrap = bootstrap_asset_value / vtx_price;
-	let total_vortex = total_vortex_network_reward + total_vortex_bootstrap;
+	let root_decimal_factor: Balance = 10u128.pow(6).into();
+	let bootstrap_asset_value = bootstrap_root.saturating_mul(root_price).div(root_decimal_factor);
+
+	// calculate in drops for higher precision
+	let vtx_decimal_factor: Balance = 10u128.pow(6).into();
+	let total_vortex_network_reward =
+		fee_vault_asset_value.saturating_mul(vtx_decimal_factor).div(vtx_price);
+	let total_vortex_bootstrap =
+		bootstrap_asset_value.saturating_mul(vtx_decimal_factor).div(vtx_price);
+	let total_vortex = total_vortex_network_reward.saturating_add(total_vortex_bootstrap);
 
 	(total_vortex_network_reward, total_vortex_bootstrap, total_vortex)
 }
@@ -204,12 +215,13 @@ impl crate::Config for Test {
 struct AssetsFixture {
 	pub id: AssetId,
 	pub symbol: Vec<u8>,
+	pub decimals: u8,
 	pub endowments: Vec<(AccountId, Balance)>,
 }
 
 impl AssetsFixture {
-	fn new(id: AssetId, symbol: &[u8], endowments: &[(AccountId, Balance)]) -> Self {
-		Self { id, symbol: symbol.to_vec(), endowments: endowments.to_vec() }
+	fn new(id: AssetId, symbol: &[u8], decimals: u8, endowments: &[(AccountId, Balance)]) -> Self {
+		Self { id, symbol: symbol.to_vec(), decimals, endowments: endowments.to_vec() }
 	}
 }
 #[derive(Default)]
@@ -219,15 +231,26 @@ pub struct TestExt {
 }
 
 impl TestExt {
-	/// Configure an asset with id, name and some endowments
+	/// Configure an asset with id, name, decimals and some endowments
 	/// total supply = sum(endowments)
+	pub fn with_asset_decimals(
+		mut self,
+		id: AssetId,
+		name: &str,
+		decimals: u8,
+		endowments: &[(AccountId, Balance)],
+	) -> Self {
+		self.assets.push(AssetsFixture::new(id, name.as_bytes(), decimals, endowments));
+		self
+	}
+	/// with decimals defaulted to 6
 	pub fn with_asset(
 		mut self,
 		id: AssetId,
 		name: &str,
 		endowments: &[(AccountId, Balance)],
 	) -> Self {
-		self.assets.push(AssetsFixture::new(id, name.as_bytes(), endowments));
+		self.assets.push(AssetsFixture::new(id, name.as_bytes(), 6, endowments));
 		self
 	}
 	/// Configure some native token balances
@@ -258,9 +281,9 @@ impl TestExt {
 			let mut accounts = Vec::<(AssetId, AccountId, Balance)>::default();
 
 			let default_owner = create_account(1);
-			for AssetsFixture { id, symbol, endowments } in self.assets {
+			for AssetsFixture { id, symbol, decimals, endowments } in self.assets {
 				assets.push((id, default_owner, true, 1));
-				metadata.push((id, symbol.clone(), symbol, 6));
+				metadata.push((id, symbol.clone(), symbol, decimals));
 				for (payee, balance) in endowments {
 					accounts.push((id, payee, balance));
 				}
