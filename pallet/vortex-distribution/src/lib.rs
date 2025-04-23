@@ -539,7 +539,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set fee pot assets balances
+		/// Set fee pot assets balances, balances expected to be in drops
 		///
 		/// `id` - The distribution id
 		/// `assets_balances` - List of asset balances
@@ -554,7 +554,7 @@ pub mod pallet {
 			Self::do_fee_pot_asset_balances_setter(id, assets_balances)
 		}
 
-		/// Set vtx vault assets balances
+		/// Set vtx vault assets balances, balances expected to be in drops
 		///
 		/// `id` - The distribution id
 		/// `assets_balances` - List of asset balances
@@ -569,7 +569,7 @@ pub mod pallet {
 			Self::do_vtx_vault_asset_balances_setter(id, assets_balances)
 		}
 
-		/// Set vtx total supply for each vortex distribution
+		/// Set vtx total supply for each vortex distribution, supply expected to be in drops
 		///
 		/// `id` - The distribution id
 		/// `supply` - Vtx total supply
@@ -691,7 +691,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set asset prices, prices should be with multiplier 10**6
+		/// Set asset prices, prices expected to be with a multiplier 10**6
 		///
 		/// `asset_prices` - List of asset prices
 		/// `id` - The distribution id
@@ -1077,8 +1077,9 @@ pub mod pallet {
 				false => VtxTotalSupply::<T>::get(id) / vtx_decimal_factor,
 			};
 
+			// vortex_price should be with a multiplier 10**6
 			let vortex_price = if vtx_existing_supply == Zero::zero() {
-				1u64.into() // should be still 1 not matter decimal points (6 decimal)
+				1u128.saturating_mul(10u128.pow(6)) // TODO: check the reference
 			} else {
 				vtx_vault_asset_value / vtx_existing_supply
 			};
@@ -1101,11 +1102,15 @@ pub mod pallet {
 			let mut fee_vault_asset_value: Balance = 0u64.into();
 			for (asset_id, amount) in FeePotAssetsList::<T>::get(id).into_iter() {
 				let asset_price = AssetPrices::<T>::get(id, asset_id);
+				let asset_decimals = T::MultiCurrency::decimals(asset_id); // NOTE: ROOT still gets the correct result 6 onchain
+				let decimal_factor: Balance = 10_u128.pow(asset_decimals.into());
+
 				let asset_balance = match ConsiderCurrentBalance::<T>::get() {
 					true => T::MultiCurrency::balance(asset_id, &fee_vault_account),
 					false => amount,
 				};
-				fee_vault_asset_value += asset_balance.saturating_mul(asset_price);
+				fee_vault_asset_value +=
+					asset_balance.saturating_mul(asset_price).div(decimal_factor);
 				Self::safe_transfer(
 					asset_id,
 					&fee_vault_account,
@@ -1118,9 +1123,13 @@ pub mod pallet {
 			// bootstrap - move root token from root_vault to vtx_vault_account
 			// TODO: change this to move only the required balance from the root vault account once
 			// we let go of the legacy system
+			let root_decimal_factor: Balance =
+				10u128.pow(T::MultiCurrency::decimals(T::NativeAssetId::get()) as u32);
 			let root_vault_root_token_balance =
 				T::MultiCurrency::balance(T::NativeAssetId::get(), &root_vault_account);
-			let root_vault_root_value: Balance = root_vault_root_token_balance * root_price;
+			let root_vault_root_value: Balance = root_vault_root_token_balance
+				.saturating_mul(root_price)
+				.div(root_decimal_factor);
 			Self::safe_transfer(
 				T::NativeAssetId::get(),
 				&root_vault_account,
@@ -1134,9 +1143,14 @@ pub mod pallet {
 			ensure!(vortex_price > Zero::zero(), Error::<T>::VortexPriceIsZero);
 
 			//calculate total rewards
-			let total_vortex_network_reward: Balance = fee_vault_asset_value / vortex_price;
-			let total_vortex_bootstrap: Balance = root_vault_root_value / vortex_price;
-			let total_vortex = total_vortex_network_reward.saturating_add(total_vortex_bootstrap);
+			let vtx_decimal_factor: Balance =
+				10u128.pow(T::MultiCurrency::decimals(T::VtxAssetId::get()) as u32);
+			// multiply vault asset values by vtx_decimal_factor to get the value in drops for higher precision
+			let total_vortex_network_reward: Balance =
+				fee_vault_asset_value.saturating_mul(vtx_decimal_factor).div(vortex_price);
+			let total_vortex_bootstrap: Balance =
+				root_vault_root_value.saturating_mul(vtx_decimal_factor).div(vortex_price);
+			let total_vortex = total_vortex_network_reward.saturating_add(total_vortex_bootstrap); // in drops
 
 			// store TotalVortex only if EnableManualRewardInput is false
 			// otherwise in manual mode the TotalVortex will be calculated from the input.
@@ -1206,6 +1220,8 @@ pub mod pallet {
 					used_weight = used_weight.saturating_add(DbWeight::get().reads(1));
 					let account_work_points: Balance = WorkPoints::<T>::get(id, account_id.clone());
 
+					// here both account_staker_points and total_staker_points are in same units. could be drops or standard units
+					// drops would give an opportunity to the accounts with smaller reward points than 1 standard unit.
 					let staker_point_portion =
 						Perbill::from_rational(account_staker_points, total_staker_points);
 					let work_points_portion =
@@ -1214,7 +1230,7 @@ pub mod pallet {
 					let account_work_point_reward = work_points_portion * total_workpoints_pool;
 					let account_staker_reward = staker_point_portion * total_staker_pool;
 					let final_reward =
-						account_work_point_reward.saturating_add(account_staker_reward);
+						account_work_point_reward.saturating_add(account_staker_reward); // This is in drops
 
 					// Add weight for writing VtxDistOrderbook
 					used_weight = used_weight.saturating_add(DbWeight::get().writes(1));
