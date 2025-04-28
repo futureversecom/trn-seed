@@ -339,6 +339,9 @@ pub mod pallet {
 		/// Distribution paid out
 		VtxDistPaidOut { id: T::VtxDistIdentifier, who: T::AccountId, amount: Balance },
 
+		/// Distribution payment failed
+		VtxDistPayFailed { id: T::VtxDistIdentifier, who: T::AccountId, amount: Balance },
+
 		/// Distribution started
 		VtxDistStarted { id: T::VtxDistIdentifier },
 
@@ -491,6 +494,9 @@ pub mod pallet {
 
 		/// Manual reward input is disabled
 		ManualRewardInputDisabled,
+
+		/// Vtx reward payout failed
+		VtxRewardPayoutFailed,
 	}
 
 	#[pallet::call]
@@ -809,24 +815,33 @@ pub mod pallet {
 					}
 
 					let share = entry.0;
-					let transfer_result = Self::safe_transfer(
+					match Self::safe_transfer(
 						T::VtxAssetId::get(),
 						&vtx_held_account,
 						&who,
 						share,
 						false,
-					);
+					) {
+						Ok(_) => {
+							Self::deposit_event(Event::VtxDistPaidOut {
+								id,
+								who: who.clone(),
+								amount: share,
+							});
+							VtxDistOrderbook::<T>::mutate(id, who.clone(), |entry| {
+								*entry = (entry.0, true);
+							});
+						},
+						Err(_) => {
+							Self::deposit_event(Event::VtxDistPayFailed {
+								id,
+								who: who.clone(),
+								amount: share,
+							});
+							// return Err(Error::<T>::VtxRewardPayoutFailed);
+						},
+					};
 
-					if transfer_result.is_ok() {
-						Self::deposit_event(Event::VtxDistPaidOut {
-							id,
-							who: who.clone(),
-							amount: share,
-						});
-					}
-					VtxDistOrderbook::<T>::mutate(id, who.clone(), |entry| {
-						*entry = (entry.0, true);
-					});
 					count += 1;
 					if count > T::PayoutBatchSize::get() {
 						break;
