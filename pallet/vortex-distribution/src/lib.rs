@@ -1235,7 +1235,7 @@ pub mod pallet {
 					// Add weight for writing VtxDistOrderbook
 					used_weight = used_weight.saturating_add(DbWeight::get().writes(1));
 					VtxDistOrderbook::<T>::mutate(id, account_id.clone(), |entry| {
-						*entry = (entry.0.saturating_add(final_reward), entry.1);
+						*entry = (final_reward, entry.1);
 					});
 					count += 1;
 
