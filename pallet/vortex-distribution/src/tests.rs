@@ -1753,21 +1753,22 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			println!("total_vortex_bootstrap: {:?}", total_vortex_bootstrap);
 
 			// check bob got the vortex reward registered
-			let staker_pool = total_vortex_bootstrap
-				+ (Perquintill::from_percent(30) * total_vortex_network_reward);
-			let workpoint_pool = Perquintill::from_percent(70) * total_vortex_network_reward;
-			let bob_staker_point_portion =
-				Perquintill::from_rational(100_000_u128, total_reward_points);
-			let bob_work_points_portion = Perquintill::from_rational(10_u128, total_work_points);
-			println!("bob_staker_point_portion: {:?}", bob_staker_point_portion);
-			println!("bob_work_points_portion: {:?}", bob_work_points_portion);
+			let staker_pool =
+				total_vortex_bootstrap + (30.saturating_mul(total_vortex_network_reward).div(100));
+			let workpoint_pool = 70.saturating_mul(total_vortex_network_reward).div(100);
+			// let bob_staker_point_portion =
+			// 	Perquintill::from_rational(100_000_u128, total_reward_points);
+			// let bob_work_points_portion = Perquintill::from_rational(10_u128, total_work_points);
+			// println!("bob_staker_point_portion: {:?}", bob_staker_point_portion);
+			// println!("bob_work_points_portion: {:?}", bob_work_points_portion);
 			println!("staker_pool: {:?}", staker_pool);
 			println!("workpoint_pool: {:?}", workpoint_pool);
 
-			let bob_vtx_reward_calculated = (bob_staker_point_portion * staker_pool)
-				+ (bob_work_points_portion * workpoint_pool);
-			println!("bob stker rewards: {:?}", bob_staker_point_portion * staker_pool);
-			println!("bob workpoint rewards: {:?}", bob_work_points_portion * workpoint_pool);
+			let bob_vtx_reward_calculated =
+				(100_000_u128.saturating_mul(staker_pool).div(total_reward_points))
+					+ (10_u128.saturating_mul(workpoint_pool).div(total_work_points));
+			// println!("bob stker rewards: {:?}", bob_staker_point_portion * staker_pool);
+			// println!("bob workpoint rewards: {:?}", bob_work_points_portion * workpoint_pool);
 
 			assert_eq!(
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
@@ -1790,6 +1791,11 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			let num_reward_registered_accounts =
 				VtxDistOrderbook::<Test>::iter_prefix(vortex_dist_id).count();
 			assert_eq!(num_reward_registered_accounts, num_reward_accounts);
+			let held_pot = Vortex::get_vtx_held_account();
+			println!(
+				"held_pot: {:?}",
+				AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &held_pot)
+			);
 			// run pay_unsigned one time, assert not everybody got the rewards at first run
 			let mut acconts_got_paid = vec![];
 			assert_ok!(Vortex::pay_unsigned(
@@ -1797,6 +1803,11 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 				vortex_dist_id,
 				System::block_number()
 			));
+			println!(
+				"held_pot: {:?}",
+				AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &held_pot)
+			);
+
 			// Iterate VtxDistPaidOut events
 			System::events().iter().for_each(|record| match record.event {
 				MockEvent::Vortex(crate::Event::VtxDistPaidOut { who, .. }) => {
@@ -1828,12 +1839,23 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 					vortex_dist_id,
 					System::block_number()
 				));
+				println!(
+					"held_pot: {:?}",
+					AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &held_pot)
+				);
+
 				System::events().iter().for_each(|record| match record.event {
 					MockEvent::Vortex(crate::Event::VtxDistPaidOut { who, .. }) => {
 						acconts_got_paid.push(who)
 					},
 					MockEvent::Vortex(Event::VtxDistDone { .. }) => {
 						dist_done = true;
+					},
+					MockEvent::Vortex(Event::VtxDistPayFailed { who, amount, id }) => {
+						println!(
+							"VtxDistPayFailed for {:?}, amount: {:?}, id: {:?}",
+							who, amount, id
+						);
 					},
 					_ => {},
 				});
@@ -1844,7 +1866,12 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			assert_eq!(VtxDistStatuses::<Test>::get(vortex_dist_id), VtxDistStatus::Done);
 			// check the number of accounts that got rewards
 			// TODO: check why this is failing 2001 to 2002, check all accounts get paid in a manual test
-			// assert_eq!(acconts_got_paid.len(), num_reward_accounts);
+			assert_eq!(acconts_got_paid.len(), num_reward_accounts);
+			println!("bob_vtx_reward_calculated: {:?}", bob_vtx_reward_calculated);
+			println!(
+				"held_pot: {:?}",
+				AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &held_pot)
+			);
 
 			// check bob received the reward
 			assert_eq!(
@@ -3339,4 +3366,16 @@ fn test_precision_in_perwuintill_from_rational() {
 		Perquintill::from_rational(account_staker_points, total_staker_points);
 
 	assert_eq!(staker_point_portion, Perquintill::from_float(0.000000000000058625_f64));
+}
+
+#[test]
+fn test_precision_in_perwuintill_from_rational_2() {
+	let account_work_points = 9_u128;
+	let total_work_points = 33_u128;
+	let total_workpoints_pool = 1000_u128;
+
+	let account_work_point_reward =
+		account_work_points.saturating_mul(total_workpoints_pool).div(total_work_points);
+
+	// assert_eq!(account_work_point_reward, 4357);
 }

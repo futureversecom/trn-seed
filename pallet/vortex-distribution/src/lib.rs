@@ -1208,11 +1208,11 @@ pub mod pallet {
 				let total_network_reward = TotalNetworkReward::<T>::get(id);
 				let total_bootstrap_reward = TotalBootstrapReward::<T>::get(id);
 				// Ref -> https://docs.therootnetwork.com/intro/learn/tokenomics#how-are-rewards-distributed
-				const STAKER_REWARD_PORTION: Perquintill = Perquintill::from_percent(30); // 30% of network rewards
-				const WORK_POINTS_REWARD_PORTION: Perquintill = Perquintill::from_percent(70); // 70% of network rewards
+				// const STAKER_REWARD_PORTION: Perquintill = Perquintill::from_percent(30); // 30% of network rewards
+				// const WORK_POINTS_REWARD_PORTION: Perquintill = Perquintill::from_percent(70); // 70% of network rewards
 				let total_staker_pool = total_bootstrap_reward
-					.saturating_add(STAKER_REWARD_PORTION * total_network_reward); // bootstrap + 30% of network rewards
-				let total_workpoints_pool = WORK_POINTS_REWARD_PORTION * total_network_reward; // 70% of network rewards
+					.saturating_add(30.saturating_mul(total_network_reward).div(100)); // bootstrap + 30% of network rewards
+				let total_workpoints_pool = 70.saturating_mul(total_network_reward).div(100); // 70% of network rewards
 				let total_staker_points = TotalRewardPoints::<T>::get(id);
 				let total_work_points = TotalWorkPoints::<T>::get(id);
 
@@ -1237,13 +1237,17 @@ pub mod pallet {
 
 					// here both account_staker_points and total_staker_points are in same units. could be drops or standard units
 					// drops would give an opportunity to the accounts with smaller reward points than 1 standard unit.
-					let staker_point_portion =
-						Perquintill::from_rational(account_staker_points, total_staker_points);
-					let work_points_portion =
-						Perquintill::from_rational(account_work_points, total_work_points);
+					// let staker_point_portion =
+					// 	Perquintill::from_rational(account_staker_points, total_staker_points);
+					// let work_points_portion =
+					// 	Perquintill::from_rational(account_work_points, total_work_points);
 
-					let account_work_point_reward = work_points_portion * total_workpoints_pool;
-					let account_staker_reward = staker_point_portion * total_staker_pool;
+					let account_work_point_reward = account_work_points
+						.saturating_mul(total_workpoints_pool)
+						.div(total_work_points);
+					let account_staker_reward = account_staker_points
+						.saturating_mul(total_staker_pool)
+						.div(total_staker_points);
 					let final_reward =
 						account_work_point_reward.saturating_add(account_staker_reward); // This is in drops
 
