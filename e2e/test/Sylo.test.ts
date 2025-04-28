@@ -541,8 +541,8 @@ describe("Sylo RPC", () => {
     console.log("liquidity setup complete...");
   });
 
-  it("get_permissions returns correctly if no permission granted", async () => {
-    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, ["data-id"]);
+  it("getPermissions returns correctly if no permission granted", async () => {
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, ["data-id"]);
 
     expect(res.toJSON()).to.deep.equal({
       Ok: {
@@ -552,7 +552,7 @@ describe("Sylo RPC", () => {
     });
   });
 
-  it("get_permissions returns onchain permissions if permission granted", async () => {
+  it("getPermissions returns onchain permissions if permission granted", async () => {
     await finalizeTx(
       user,
       api.tx.syloDataVerification.createValidationRecord(
@@ -577,7 +577,7 @@ describe("Sylo RPC", () => {
       ),
     );
 
-    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, ["data-id"]);
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, ["data-id"]);
 
     expect(res.toJSON()).to.deep.equal({
       Ok: {
@@ -587,7 +587,7 @@ describe("Sylo RPC", () => {
     });
   });
 
-  it("get_permissions returns onchain permission if tagged granted", async () => {
+  it("getPermissions returns onchain permission if tagged granted", async () => {
     await finalizeTx(
       user,
       api.tx.syloDataVerification.createValidationRecord(
@@ -605,7 +605,7 @@ describe("Sylo RPC", () => {
       api.tx.syloDataPermissions.grantTaggedPermissions(alith.address, DATA_PERMISSION.MODIFY, ["tag"], null, false),
     );
 
-    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, ["data-id-2"]);
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, ["data-id-2"]);
 
     expect(res.toJSON()).to.deep.equal({
       Ok: {
@@ -615,7 +615,7 @@ describe("Sylo RPC", () => {
     });
   });
 
-  it("get_permissions correctly returns multiple permissions", async () => {
+  it("getPermissions correctly returns multiple permissions", async () => {
     await finalizeTx(
       user,
       api.tx.syloDataVerification.createValidationRecord(
@@ -646,7 +646,7 @@ describe("Sylo RPC", () => {
       api.tx.syloDataPermissions.grantTaggedPermissions(user.address, DATA_PERMISSION.DISTRIBUTE, ["tag"], null, false),
     );
 
-    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, ["data-id-3"]);
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, ["data-id-3"]);
 
     expect(res.toJSON()).to.deep.equal({
       Ok: {
@@ -656,8 +656,8 @@ describe("Sylo RPC", () => {
     });
   });
 
-  it("get_permissions can query for multiple data ids", async () => {
-    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, [
+  it("getPermissions can query for multiple data ids", async () => {
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, [
       "data-id",
       "data-id-2",
       "data-id-3",
@@ -675,7 +675,7 @@ describe("Sylo RPC", () => {
     });
   });
 
-  it("get_permissions returns permission reference if it exists", async () => {
+  it("getPermissions returns permission reference if it exists", async () => {
     await finalizeTx(user, api.tx.syloDataVerification.registerResolver("permission-resolver", ["endpoint"]));
 
     // create offchain permission record
@@ -693,7 +693,7 @@ describe("Sylo RPC", () => {
     // grant data permission
     await finalizeTx(user, api.tx.syloDataPermissions.grantPermissionReference(alith.address, "offchain-permission"));
 
-    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, []);
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, []);
 
     expect(res.toJSON()).to.deep.equal({
       Ok: {
@@ -706,10 +706,10 @@ describe("Sylo RPC", () => {
     });
   });
 
-  it("get_permissions returns error if data id is too large", async () => {
+  it("getPermissions returns error if data id is too large", async () => {
     const dataId = Array(1000).fill("a").concat();
 
-    const res = await (api.rpc as any).syloDataPermissions.get_permissions(user.address, alith.address, [dataId]);
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, [dataId]);
 
     expect(res.toJSON().Err).to.not.be.null;
   });

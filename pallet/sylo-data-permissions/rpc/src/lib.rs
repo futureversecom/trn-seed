@@ -37,7 +37,7 @@ pub use pallet_sylo_data_permissions_rpc_runtime_api::{
 /// SyloDataPermissions RPC methods.
 #[rpc(client, server, namespace = "syloDataPermissions")]
 pub trait SyloDataPermissionsApi<AccountId> {
-	#[method(name = "get_permissions")]
+	#[method(name = "getPermissions")]
 	fn get_permissions(
 		&self,
 		data_author: AccountId,
