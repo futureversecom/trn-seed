@@ -1234,9 +1234,20 @@ pub mod pallet {
 
 					// Add weight for writing VtxDistOrderbook
 					used_weight = used_weight.saturating_add(DbWeight::get().writes(1));
-					VtxDistOrderbook::<T>::mutate(id, account_id.clone(), |entry| {
-						*entry = (final_reward, entry.1);
-					});
+					log::info!(
+						"RewardCalculation - Account: {:?}, wkr: {:?}, rpr: {:?}, total r: {:?}",
+						account_id,
+						account_work_point_reward,
+						account_staker_reward,
+						final_reward
+					);
+					VtxDistOrderbook::<T>::mutate(
+						id,
+						account_id.clone(),
+						|entry: &mut (u128, bool)| {
+							*entry = (final_reward, entry.1);
+						},
+					);
 					count += 1;
 
 					// if no remaining_weight for the next entry iteration, brek
