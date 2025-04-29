@@ -1566,20 +1566,20 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 
 	// vortex vault pre asset balances
 	let vortex_vault = Vortex::get_vtx_vault_account();
-	let usdc_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
-	let weth_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
-	let root_vtx_vault_balance = 100_u128 * 10_u128.pow(6);
+	let usdc_vtx_vault_balance = 50_u128 * 10_u128.pow(18);
+	let weth_vtx_vault_balance = 25_u128 * 10_u128.pow(18);
+	let root_vtx_vault_balance = 25_u128 * 10_u128.pow(6);
 	let vtx_current_supply = 1_000_u128 * 10_u128.pow(6);
 
 	// fee pot asset balance
 	let fee_vault = Vortex::get_fee_vault_account();
-	let usdc_fee_pot_balance = 1_u128 * 10_u128.pow(18);
-	let weth_fee_pot_balance = 1_u128 * 10_u128.pow(18);
-	let root_fee_pot_balance = 1_u128 * 10_u128.pow(6);
+	let usdc_fee_pot_balance = 51_u128 * 10_u128.pow(18);
+	let weth_fee_pot_balance = 23_u128 * 10_u128.pow(18);
+	let root_fee_pot_balance = 27_u128 * 10_u128.pow(6);
 
 	// bootstrap balance
 	let root_vault = Vortex::get_root_vault_account();
-	let bootstrap_root = 100_u128 * 10_u128.pow(6);
+	let bootstrap_root = 101_u128 * 10_u128.pow(6);
 
 	let end_block = 1000;
 
@@ -1671,9 +1671,9 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			));
 
 			//set asset price. prices should be multiplied by the usd factor 10**6
-			let usdc_price: Balance = 100_u128 * 10_u128.pow(6);
-			let weth_price: Balance = 200_u128 * 10_u128.pow(6);
-			let root_price: Balance = 3_u128 * 10_u128.pow(6);
+			let usdc_price: Balance = 1_u128 * 10_u128.pow(6);
+			let weth_price: Balance = 1_u128 * 10_u128.pow(6);
+			let root_price: Balance = 1_u128 * 10_u128.pow(6);
 			let asset_prices = vec![
 				(usdc_asset_id, usdc_price),
 				(weth_asset_id, weth_price),
@@ -1688,7 +1688,8 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			// register reward and work points
 			let mut reward_points_vec = vec![(bob, 100_000), (charlie, 100_000)];
 			let mut total_reward_points = 100_000 + 100_000;
-			for i in 0..2000 {
+			let account_count = 3000;
+			for i in 0..account_count {
 				reward_points_vec.push((create_account(i + 4), 100_000));
 				total_reward_points += 100_000;
 			}
@@ -1696,7 +1697,7 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 
 			let mut work_points_vec = vec![(bob, 10), (charlie, 10)];
 			let mut total_work_points = 10 + 10;
-			for i in 0..2000 {
+			for i in 0..account_count {
 				work_points_vec.push((create_account(i + 4), 10));
 				total_work_points += 10;
 			}
@@ -1765,8 +1766,9 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			println!("workpoint_pool: {:?}", workpoint_pool);
 
 			let bob_vtx_reward_calculated =
-				(100_000_u128.saturating_mul(staker_pool).div(total_reward_points))
-					+ (10_u128.saturating_mul(workpoint_pool).div(total_work_points));
+				((100_000_u128.saturating_mul(staker_pool).div(total_reward_points))
+					+ (10_u128.saturating_mul(workpoint_pool).div(total_work_points)))
+				.div(PRECISION_MULTIPLIER);
 			// println!("bob stker rewards: {:?}", bob_staker_point_portion * staker_pool);
 			// println!("bob workpoint rewards: {:?}", bob_work_points_portion * workpoint_pool);
 
@@ -1777,7 +1779,7 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			println!("bob_vtx_reward_calculated: {:?}", bob_vtx_reward_calculated);
 
 			// check if the last account entry balance
-			let last_account_entry = create_account(1999 + 4);
+			let last_account_entry = create_account(account_count - 1 + 4);
 			let last_account_entry_vtx_balance_before =
 				AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &last_account_entry);
 			assert_eq!(last_account_entry_vtx_balance_before, 0);
@@ -1898,7 +1900,7 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 
 			assert_eq!(
 				AssetsExt::total_issuance(<Test as crate::Config>::VtxAssetId::get()),
-				total_vortex + vtx_current_supply
+				total_vortex.div(PRECISION_MULTIPLIER) + vtx_current_supply
 			);
 		});
 }
@@ -2222,20 +2224,22 @@ fn print_reward_details_for_account() {
 
 	// check vortex reward for the account
 	let staker_pool =
-		total_vortex_bootstrap + (Perquintill::from_percent(30) * total_vortex_network_reward);
-	let workpoint_pool = Perquintill::from_percent(70) * total_vortex_network_reward;
+		total_vortex_bootstrap + (30.saturating_mul(total_vortex_network_reward).div(100));
+	let workpoint_pool = 70.saturating_mul(total_vortex_network_reward).div(100);
 	println!("staker_pool: {:?}", staker_pool);
 	println!("workpoint_pool: {:?}", workpoint_pool);
 
-	let account_staker_point_portion =
-		Perquintill::from_rational(account_staker_reward_points, total_staker_reward_points);
-	let account_work_points_portion =
-		Perquintill::from_rational(account_worker_points, total_worker_points);
-	println!("account_staker_point_portion: {:?}", account_staker_point_portion);
-	println!("account_work_points_portion: {:?}", account_work_points_portion);
+	// let account_staker_point_portion =
+	// 	Perquintill::from_rational(account_staker_reward_points, total_staker_reward_points);
+	// let account_work_points_portion =
+	// 	Perquintill::from_rational(account_worker_points, total_worker_points);
+	// println!("account_staker_point_portion: {:?}", account_staker_point_portion);
+	// println!("account_work_points_portion: {:?}", account_work_points_portion);
 
-	let account_vtx_reward_calculated = (account_staker_point_portion * staker_pool)
-		+ (account_work_points_portion * workpoint_pool);
+	let account_vtx_reward_calculated = account_staker_reward_points
+		.saturating_mul(staker_pool)
+		.div(total_staker_reward_points)
+		+ account_worker_points.saturating_mul(workpoint_pool).div(total_worker_points);
 	println!("account_vtx_reward_calculated: {:?}", account_vtx_reward_calculated);
 }
 
@@ -2854,14 +2858,15 @@ fn vtx_price_calculation_cycle_5() {
 			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), total_vortex_bootstrap);
 
 			// check bob got the vortex reward registered
-			let staker_pool = total_vortex_bootstrap
-				+ (Perquintill::from_percent(30) * total_vortex_network_reward);
-			let workpoint_pool = Perquintill::from_percent(70) * total_vortex_network_reward;
-			let bob_staker_point_portion =
-				Perquintill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
-			let bob_work_points_portion = Perquintill::from_rational(10_u128, 10_u128 + 10_u128);
-			let bob_vtx_reward_calculated = (bob_staker_point_portion * staker_pool)
-				+ (bob_work_points_portion * workpoint_pool);
+			let staker_pool =
+				total_vortex_bootstrap + (30.saturating_mul(total_vortex_network_reward).div(100));
+			let workpoint_pool = 70.saturating_mul(total_vortex_network_reward).div(100);
+			// let bob_staker_point_portion =
+			// 	Perquintill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
+			// let bob_work_points_portion = Perquintill::from_rational(10_u128, 10_u128 + 10_u128);
+			let bob_vtx_reward_calculated =
+				100_000_u128.saturating_mul(staker_pool).div(100_000 + 100_000)
+					+ 10_u128.saturating_mul(workpoint_pool).div(10 + 10);
 			assert_eq!(
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
 				(bob_vtx_reward_calculated, false)
@@ -3099,14 +3104,15 @@ fn trigger_vtx_distribution_with_high_vtx_price() {
 			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), 166666);
 
 			// check bob got the vortex reward registered
-			let staker_pool = total_vortex_bootstrap
-				+ (Perquintill::from_percent(30) * total_vortex_network_reward);
-			let workpoint_pool = Perquintill::from_percent(70) * total_vortex_network_reward;
-			let bob_staker_point_portion =
-				Perquintill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
-			let bob_work_points_portion = Perquintill::from_rational(10_u128, 10_u128 + 10_u128);
-			let bob_vtx_reward_calculated = (bob_staker_point_portion * staker_pool)
-				+ (bob_work_points_portion * workpoint_pool);
+			let staker_pool =
+				total_vortex_bootstrap + (30.saturating_mul(total_vortex_network_reward).div(100));
+			let workpoint_pool = 70.saturating_mul(total_vortex_network_reward).div(100);
+			// let bob_staker_point_portion =
+			// 	Perquintill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
+			// let bob_work_points_portion = Perquintill::from_rational(10_u128, 10_u128 + 10_u128);
+			let bob_vtx_reward_calculated =
+				100_000_u128.saturating_mul(staker_pool).div(100_000 + 100_000)
+					+ 10_u128.saturating_mul(workpoint_pool).div(10 + 10);
 			assert_eq!(
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
 				(bob_vtx_reward_calculated, false)
@@ -3340,16 +3346,17 @@ fn vtx_price_calculation_cycle_5_real_data() {
 			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), total_vortex_bootstrap);
 
 			// check bob got the vortex reward registered
-			let staker_pool = total_vortex_bootstrap
-				+ (Perquintill::from_percent(30) * total_vortex_network_reward);
-			let workpoint_pool = Perquintill::from_percent(70) * total_vortex_network_reward;
-			let bob_staker_point_portion =
-				Perquintill::from_rational(24600_u128, 17_057_331_103_329);
-			let bob_work_points_portion = Perquintill::from_rational(0_u128, 39180127080137_u128);
-			let bob_staker_reward_calculated = bob_staker_point_portion * staker_pool;
-			let bob_work_points_reward_calculated = bob_work_points_portion * workpoint_pool;
+			let staker_pool =
+				total_vortex_bootstrap + (30.saturating_mul(total_vortex_network_reward).div(100));
+			let workpoint_pool = 70.saturating_mul(total_vortex_network_reward).div(100);
+			// let bob_staker_point_portion =
+			// 	Perquintill::from_rational(24600_u128, 17_057_331_103_329);
+			// let bob_work_points_portion = Perquintill::from_rational(0_u128, 39180127080137_u128);
+			// let bob_staker_reward_calculated = bob_staker_point_portion * staker_pool;
+			// let bob_work_points_reward_calculated = bob_work_points_portion * workpoint_pool;
 			let bob_vtx_reward_calculated =
-				bob_staker_reward_calculated + bob_work_points_reward_calculated;
+				24600_u128.saturating_mul(staker_pool).div(17_057_331_103_329)
+					+ 0_u128.saturating_mul(workpoint_pool).div(39180127080137);
 			assert_eq!(
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
 				(bob_vtx_reward_calculated, false)
@@ -3357,16 +3364,16 @@ fn vtx_price_calculation_cycle_5_real_data() {
 		});
 }
 
-#[test]
-fn test_precision_in_perwuintill_from_rational() {
-	let account_staker_points = 1_u128;
-	let total_staker_points = 17057331103329_u128;
+// #[test]
+// fn test_precision_in_perwuintill_from_rational() {
+// 	let account_staker_points = 1_u128;
+// 	let total_staker_points = 17057331103329_u128;
 
-	let staker_point_portion =
-		Perquintill::from_rational(account_staker_points, total_staker_points);
+// 	let staker_point_portion =
+// 		Perquintill::from_rational(account_staker_points, total_staker_points);
 
-	assert_eq!(staker_point_portion, Perquintill::from_float(0.000000000000058625_f64));
-}
+// 	assert_eq!(staker_point_portion, Perquintill::from_float(0.000000000000058625_f64));
+// }
 
 #[test]
 fn test_precision_in_perwuintill_from_rational_2() {
