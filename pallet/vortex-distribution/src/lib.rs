@@ -1252,21 +1252,39 @@ pub mod pallet {
 					let account_work_point_reward = account_work_points
 						.saturating_mul(total_workpoints_pool)
 						.div(total_work_points);
+					let account_work_point_reward_float: f64 = account_work_points
+						.saturating_mul(total_workpoints_pool)
+						.div(total_work_points * PRECISION_MULTIPLIER)
+						as f64;
 					let account_staker_reward = account_staker_points
 						.saturating_mul(total_staker_pool)
 						.div(total_staker_points);
+					let account_staker_reward_float: f64 = account_staker_points
+						.saturating_mul(total_staker_pool)
+						.div(total_staker_points * PRECISION_MULTIPLIER)
+						as f64;
 					let final_reward = account_work_point_reward
 						.saturating_add(account_staker_reward)
 						.div(PRECISION_MULTIPLIER); // This is in drops
+					let final_reward_float: f64 =
+						account_work_point_reward_float + account_staker_reward_float; // This is in drops
 
 					// Add weight for writing VtxDistOrderbook
 					used_weight = used_weight.saturating_add(DbWeight::get().writes(1));
 					log::info!(
-						"RewardCalculation - Account: {:?}, wkr: {:?}, rpr: {:?}, total r: {:?}",
+						"RewardCalculationInt - Account: {:?}, wkr: {:?}, rpr: {:?}, total r: {:?}",
 						account_id,
 						account_work_point_reward,
 						account_staker_reward,
 						final_reward
+					);
+					log::info!(
+						"RewardCalculationFloat - Account: {:?}, wkr: {:?}, rpr: {:?}, total r: {:?}, diff: {:?}",
+						account_id,
+						account_work_point_reward_float,
+						account_staker_reward_float,
+						final_reward_float,
+						final_reward_float - final_reward as f64,
 					);
 					VtxDistOrderbook::<T>::mutate(
 						id,
