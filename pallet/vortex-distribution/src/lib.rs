@@ -63,7 +63,7 @@ use sp_runtime::{
 use sp_std::{convert::TryInto, prelude::*};
 
 pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::MAX / 2;
-pub const PRECISION_MULTIPLIER: u128 = 10u128.pow(6);
+pub const PRECISION_MULTIPLIER: u128 = 10u128.pow(10);
 
 #[derive(
 	Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, PartialOrd, Eq, TypeInfo, MaxEncodedLen,
@@ -1161,15 +1161,14 @@ pub mod pallet {
 			//calculate total rewards
 			let vtx_decimal_factor: Balance =
 				10u128.pow(T::MultiCurrency::decimals(T::VtxAssetId::get()) as u32);
-			let precision_multiplier = 10u128.pow(6);
 			// multiply vault asset values by vtx_decimal_factor to get the value in drops for higher precision
 			let total_vortex_network_reward: Balance = fee_vault_asset_value
 				.saturating_mul(vtx_decimal_factor)
-				.saturating_mul(precision_multiplier)
+				.saturating_mul(PRECISION_MULTIPLIER)
 				.div(vortex_price);
 			let total_vortex_bootstrap: Balance = root_vault_root_value
 				.saturating_mul(vtx_decimal_factor)
-				.saturating_mul(precision_multiplier)
+				.saturating_mul(PRECISION_MULTIPLIER)
 				.div(vortex_price);
 			let total_vortex = total_vortex_network_reward.saturating_add(total_vortex_bootstrap); // in drops
 
@@ -1252,17 +1251,15 @@ pub mod pallet {
 					let account_work_point_reward = account_work_points
 						.saturating_mul(total_workpoints_pool)
 						.div(total_work_points);
-					let account_work_point_reward_float: f64 = account_work_points
-						.saturating_mul(total_workpoints_pool)
-						.div(total_work_points * PRECISION_MULTIPLIER)
-						as f64;
+					let account_work_point_reward_float: f64 =
+						account_work_points.saturating_mul(total_workpoints_pool) as f64
+							/ (total_work_points * PRECISION_MULTIPLIER) as f64;
 					let account_staker_reward = account_staker_points
 						.saturating_mul(total_staker_pool)
 						.div(total_staker_points);
-					let account_staker_reward_float: f64 = account_staker_points
-						.saturating_mul(total_staker_pool)
-						.div(total_staker_points * PRECISION_MULTIPLIER)
-						as f64;
+					let account_staker_reward_float: f64 =
+						account_staker_points.saturating_mul(total_staker_pool) as f64
+							/ (total_staker_points * crate::PRECISION_MULTIPLIER) as f64;
 					let final_reward = account_work_point_reward
 						.saturating_add(account_staker_reward)
 						.div(PRECISION_MULTIPLIER); // This is in drops
