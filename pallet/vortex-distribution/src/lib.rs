@@ -1299,6 +1299,18 @@ pub mod pallet {
 						final_reward_float,
 						final_reward_float - final_reward as f64,
 					);
+
+					if final_reward == 0 {
+						log::info!(
+							"RewardCalculationZeros - Account: {:?}, wkp: {:?}, rp: {:?}, wkr: {:?}, rpr: {:?}",
+							account_id,
+							account_work_points,
+							account_staker_points,
+							account_work_point_reward,
+							account_staker_reward,
+						);
+					}
+
 					VtxDistOrderbook::<T>::mutate(
 						id,
 						account_id.clone(),
