@@ -835,7 +835,11 @@ pub mod pallet {
 								who: who.clone(),
 								amount: share,
 							});
-							// return Err(Error::<T>::VtxRewardPayoutFailed);
+							log::info!(
+								" VtxDistPayFailed - Account: {:?}, share: {:?}",
+								who,
+								share,
+							); // return Err(Error::<T>::VtxRewardPayoutFailed);
 						},
 					};
 
