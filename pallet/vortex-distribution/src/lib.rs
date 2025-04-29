@@ -63,7 +63,7 @@ use sp_runtime::{
 use sp_std::{convert::TryInto, prelude::*};
 
 pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::MAX / 2;
-pub const PRECISION_MULTIPLIER: u128 = 10u128.pow(10);
+pub const PRECISION_MULTIPLIER: u128 = 10u128.pow(6);
 
 #[derive(
 	Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, PartialOrd, Eq, TypeInfo, MaxEncodedLen,
@@ -1218,9 +1218,21 @@ pub mod pallet {
 				// const WORK_POINTS_REWARD_PORTION: Perquintill = Perquintill::from_percent(70); // 70% of network rewards
 				let total_staker_pool = total_bootstrap_reward
 					.saturating_add(30.saturating_mul(total_network_reward).div(100)); // bootstrap + 30% of network rewards
-				let total_workpoints_pool = 70.saturating_mul(total_network_reward).div(100); // 70% of network rewards
+				let total_workpoints_pool: u128 = 70.saturating_mul(total_network_reward).div(100); // 70% of network rewards
 				let total_staker_points = TotalRewardPoints::<T>::get(id);
 				let total_work_points = TotalWorkPoints::<T>::get(id);
+
+				let total_staker_pool_float: f64 =
+					total_bootstrap_reward as f64 + 0.3 * total_network_reward as f64;
+				let total_workpoints_pool_float: f64 = 0.7 * total_network_reward as f64; // 70% of network rewards
+
+				log::info!(
+						"RewardCalculationPools - total_staker_pool : {:?}, total_workpoints_pool: {:?}, total_staker_pool_float: {:?}, total_workpoints_pool_float r: {:?}",
+						total_staker_pool,
+						total_workpoints_pool,
+						total_staker_pool_float,
+						total_workpoints_pool_float,
+					);
 
 				// start key
 				let start_key = VtxRewardCalculationPivot::<T>::get(id);
