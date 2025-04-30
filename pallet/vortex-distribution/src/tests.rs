@@ -21,7 +21,6 @@ use crate::mock::{
 };
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
-use sp_runtime::PerThing;
 
 #[test]
 fn set_admin_works_with_root_account() {
@@ -384,6 +383,13 @@ fn register_work_points_works() {
 	TestExt::default().build().execute_with(|| {
 		let vortex_dist_id = NextVortexId::<Test>::get();
 		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+		// register reward points as this is required for work points registration
+		let reward_points = BoundedVec::try_from(vec![(bob, 100_000), (charlie, 100_000)]).unwrap();
+		assert_ok!(Vortex::register_reward_points(
+			Origin::root(),
+			vortex_dist_id,
+			reward_points.clone()
+		));
 		// register work points
 		let work_points = BoundedVec::try_from(vec![(bob, 100_000), (charlie, 100_000)]).unwrap();
 		assert_ok!(Vortex::register_work_points(
@@ -397,6 +403,52 @@ fn register_work_points_works() {
 			id: vortex_dist_id,
 			work_points,
 		}));
+	});
+}
+
+#[test]
+fn register_work_points_works_with_zero_reward_points_registered() {
+	let bob: AccountId = create_account(2);
+	let charlie: AccountId = create_account(3);
+	TestExt::default().build().execute_with(|| {
+		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+		// register reward points as this is required for work points registration
+		let reward_points = BoundedVec::try_from(vec![(bob, 0), (charlie, 0)]).unwrap();
+		assert_ok!(Vortex::register_reward_points(
+			Origin::root(),
+			vortex_dist_id,
+			reward_points.clone()
+		));
+		// register work points
+		let work_points = BoundedVec::try_from(vec![(bob, 100_000), (charlie, 100_000)]).unwrap();
+		assert_ok!(Vortex::register_work_points(
+			Origin::root(),
+			vortex_dist_id,
+			work_points.clone()
+		));
+
+		// Check for the VtxWorkPointRegistered event
+		System::assert_last_event(MockEvent::Vortex(crate::Event::VtxWorkPointRegistered {
+			id: vortex_dist_id,
+			work_points,
+		}));
+	});
+}
+
+#[test]
+fn register_work_points_fails_if_no_reward_points_registered() {
+	let bob: AccountId = create_account(2);
+	let charlie: AccountId = create_account(3);
+	TestExt::default().build().execute_with(|| {
+		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+		// register work points
+		let work_points = BoundedVec::try_from(vec![(bob, 100_000), (charlie, 100_000)]).unwrap();
+		assert_noop!(
+			Vortex::register_work_points(Origin::root(), vortex_dist_id, work_points.clone()),
+			Error::<Test>::RewardPointsNotRegistered
+		);
 	});
 }
 

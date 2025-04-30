@@ -497,6 +497,9 @@ pub mod pallet {
 
 		/// Vtx reward payout failed
 		VtxRewardPayoutFailed,
+
+		/// Reward points not registered
+		RewardPointsNotRegistered,
 	}
 
 	#[pallet::call]
@@ -647,6 +650,10 @@ pub mod pallet {
 			ensure!(dst_status == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
 			let mut total_work_points = TotalWorkPoints::<T>::get(id);
 			for (account, w_points) in work_points.clone() {
+				ensure!(
+					RewardPoints::<T>::contains_key(id, account.clone()),
+					Error::<T>::RewardPointsNotRegistered
+				);
 				let current_work_points = WorkPoints::<T>::get(id, account.clone());
 				if current_work_points != Default::default() {
 					// means we need to minus the current_work_points and plus w_points from the total_reward_points
@@ -1271,7 +1278,7 @@ pub mod pallet {
 						&& (account_work_point_reward != 0 || account_staker_reward != 0)
 					{
 						log::info!(
-							"RewardCalculationLost - Account: {:?}, wkp: {:?}, rp: {:?}, wkr: {:?}, rpr: {:?}",
+							"RewardCalculationReachedZero - Account: {:?}, wkp: {:?}, rp: {:?}, wkr: {:?}, rpr: {:?}",
 							account_id,
 							account_work_points,
 							account_staker_points,
