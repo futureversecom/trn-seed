@@ -383,6 +383,13 @@ fn register_work_points_works() {
 	TestExt::default().build().execute_with(|| {
 		let vortex_dist_id = NextVortexId::<Test>::get();
 		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+		// register reward points as this is required for work points registration
+		let reward_points = BoundedVec::try_from(vec![(bob, 100_000), (charlie, 100_000)]).unwrap();
+		assert_ok!(Vortex::register_reward_points(
+			Origin::root(),
+			vortex_dist_id,
+			reward_points.clone()
+		));
 		// register work points
 		let work_points = BoundedVec::try_from(vec![(bob, 100_000), (charlie, 100_000)]).unwrap();
 		assert_ok!(Vortex::register_work_points(
@@ -396,6 +403,52 @@ fn register_work_points_works() {
 			id: vortex_dist_id,
 			work_points,
 		}));
+	});
+}
+
+#[test]
+fn register_work_points_works_with_zero_reward_points_registered() {
+	let bob: AccountId = create_account(2);
+	let charlie: AccountId = create_account(3);
+	TestExt::default().build().execute_with(|| {
+		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+		// register reward points as this is required for work points registration
+		let reward_points = BoundedVec::try_from(vec![(bob, 0), (charlie, 0)]).unwrap();
+		assert_ok!(Vortex::register_reward_points(
+			Origin::root(),
+			vortex_dist_id,
+			reward_points.clone()
+		));
+		// register work points
+		let work_points = BoundedVec::try_from(vec![(bob, 100_000), (charlie, 100_000)]).unwrap();
+		assert_ok!(Vortex::register_work_points(
+			Origin::root(),
+			vortex_dist_id,
+			work_points.clone()
+		));
+
+		// Check for the VtxWorkPointRegistered event
+		System::assert_last_event(MockEvent::Vortex(crate::Event::VtxWorkPointRegistered {
+			id: vortex_dist_id,
+			work_points,
+		}));
+	});
+}
+
+#[test]
+fn register_work_points_fails_if_no_reward_points_registered() {
+	let bob: AccountId = create_account(2);
+	let charlie: AccountId = create_account(3);
+	TestExt::default().build().execute_with(|| {
+		let vortex_dist_id = NextVortexId::<Test>::get();
+		assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+		// register work points
+		let work_points = BoundedVec::try_from(vec![(bob, 100_000), (charlie, 100_000)]).unwrap();
+		assert_noop!(
+			Vortex::register_work_points(Origin::root(), vortex_dist_id, work_points.clone()),
+			Error::<Test>::RewardPointsNotRegistered
+		);
 	});
 }
 
@@ -847,17 +900,17 @@ fn trigger_vtx_distribution_works() {
 			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), total_vortex_bootstrap);
 
 			// check bob got the vortex reward registered
-			let staker_pool =
-				total_vortex_bootstrap + (Perbill::from_percent(30) * total_vortex_network_reward);
-			let workpoint_pool = Perbill::from_percent(70) * total_vortex_network_reward;
+			let staker_pool = total_vortex_bootstrap
+				+ (Perquintill::from_percent(30) * total_vortex_network_reward);
+			let workpoint_pool = Perquintill::from_percent(70) * total_vortex_network_reward;
 			let bob_staker_point_portion =
-				Perbill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
-			let bob_work_points_portion = Perbill::from_rational(10_u128, 10_u128 + 10_u128);
+				Perquintill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
+			let bob_work_points_portion = Perquintill::from_rational(10_u128, 10_u128 + 10_u128);
 			let bob_vtx_reward_calculated = (bob_staker_point_portion * staker_pool)
 				+ (bob_work_points_portion * workpoint_pool);
 			assert_eq!(
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
-				(bob_vtx_reward_calculated, false)
+				(bob_vtx_reward_calculated.div(PRECISION_MULTIPLIER), false)
 			);
 		});
 }
@@ -1077,17 +1130,17 @@ fn trigger_vtx_distribution_should_fail_if_already_triggered() {
 			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), total_vortex_bootstrap);
 
 			// check bob got the vortex reward registered
-			let staker_pool =
-				total_vortex_bootstrap + (Perbill::from_percent(30) * total_vortex_network_reward);
-			let workpoint_pool = Perbill::from_percent(70) * total_vortex_network_reward;
+			let staker_pool = total_vortex_bootstrap
+				+ (Perquintill::from_percent(30) * total_vortex_network_reward);
+			let workpoint_pool = Perquintill::from_percent(70) * total_vortex_network_reward;
 			let bob_staker_point_portion =
-				Perbill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
-			let bob_work_points_portion = Perbill::from_rational(10_u128, 10_u128 + 10_u128);
+				Perquintill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
+			let bob_work_points_portion = Perquintill::from_rational(10_u128, 10_u128 + 10_u128);
 			let bob_vtx_reward_calculated = (bob_staker_point_portion * staker_pool)
 				+ (bob_work_points_portion * workpoint_pool);
 			assert_eq!(
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
-				(bob_vtx_reward_calculated, false)
+				(bob_vtx_reward_calculated.div(PRECISION_MULTIPLIER), false)
 			);
 			// Trigger again should fail
 			assert_noop!(
@@ -1687,7 +1740,8 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			// register reward and work points
 			let mut reward_points_vec = vec![(bob, 100_000), (charlie, 100_000)];
 			let mut total_reward_points = 100_000 + 100_000;
-			for i in 0..2000 {
+			let account_count = 3000;
+			for i in 0..account_count {
 				reward_points_vec.push((create_account(i + 4), 100_000));
 				total_reward_points += 100_000;
 			}
@@ -1695,7 +1749,7 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 
 			let mut work_points_vec = vec![(bob, 10), (charlie, 10)];
 			let mut total_work_points = 10 + 10;
-			for i in 0..2000 {
+			for i in 0..account_count {
 				work_points_vec.push((create_account(i + 4), 10));
 				total_work_points += 10;
 			}
@@ -1752,19 +1806,20 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			println!("total_vortex_bootstrap: {:?}", total_vortex_bootstrap);
 
 			// check bob got the vortex reward registered
-			let staker_pool =
-				total_vortex_bootstrap + (Perbill::from_percent(30) * total_vortex_network_reward);
-			let workpoint_pool = Perbill::from_percent(70) * total_vortex_network_reward;
+			let staker_pool = total_vortex_bootstrap
+				+ (Perquintill::from_percent(30) * total_vortex_network_reward);
+			let workpoint_pool = Perquintill::from_percent(70) * total_vortex_network_reward;
 			let bob_staker_point_portion =
-				Perbill::from_rational(100_000_u128, total_reward_points);
-			let bob_work_points_portion = Perbill::from_rational(10_u128, total_work_points);
+				Perquintill::from_rational(100_000_u128, total_reward_points);
+			let bob_work_points_portion = Perquintill::from_rational(10_u128, total_work_points);
 			println!("bob_staker_point_portion: {:?}", bob_staker_point_portion);
 			println!("bob_work_points_portion: {:?}", bob_work_points_portion);
 			println!("staker_pool: {:?}", staker_pool);
 			println!("workpoint_pool: {:?}", workpoint_pool);
 
-			let bob_vtx_reward_calculated = (bob_staker_point_portion * staker_pool)
-				+ (bob_work_points_portion * workpoint_pool);
+			let bob_vtx_reward_calculated = ((bob_staker_point_portion * staker_pool)
+				+ (bob_work_points_portion * workpoint_pool))
+				.div(PRECISION_MULTIPLIER);
 			println!("bob stker rewards: {:?}", bob_staker_point_portion * staker_pool);
 			println!("bob workpoint rewards: {:?}", bob_work_points_portion * workpoint_pool);
 
@@ -1775,7 +1830,7 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			println!("bob_vtx_reward_calculated: {:?}", bob_vtx_reward_calculated);
 
 			// check if the last account entry balance
-			let last_account_entry = create_account(1999 + 4);
+			let last_account_entry = create_account(account_count - 1 + 4);
 			let last_account_entry_vtx_balance_before =
 				AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &last_account_entry);
 			assert_eq!(last_account_entry_vtx_balance_before, 0);
@@ -1843,7 +1898,14 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			assert_eq!(VtxDistStatuses::<Test>::get(vortex_dist_id), VtxDistStatus::Done);
 			// check the number of accounts that got rewards
 			// TODO: check why this is failing 2001 to 2002, check all accounts get paid in a manual test
-			// assert_eq!(acconts_got_paid.len(), num_reward_accounts);
+			println!(
+				"vtx held pot: {:?}",
+				AssetsExt::balance(
+					<Test as crate::Config>::VtxAssetId::get(),
+					&Vortex::get_vtx_held_account()
+				)
+			);
+			assert_eq!(acconts_got_paid.len(), num_reward_accounts);
 
 			// check bob received the reward
 			assert_eq!(
@@ -1870,7 +1932,7 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 
 			assert_eq!(
 				AssetsExt::total_issuance(<Test as crate::Config>::VtxAssetId::get()),
-				total_vortex + vtx_current_supply
+				total_vortex.div(PRECISION_MULTIPLIER) + vtx_current_supply
 			);
 		});
 }
@@ -2122,7 +2184,7 @@ fn redeem_tokens_from_vault_works() {
 
 			assert_eq!(
 				AssetsExt::total_issuance(<Test as crate::Config>::VtxAssetId::get()),
-				total_vtx_to_be_minted + vtx_current_supply
+				total_vtx_to_be_minted.div(PRECISION_MULTIPLIER) + vtx_current_supply
 			);
 
 			// Try redeem
@@ -2194,15 +2256,15 @@ fn print_reward_details_for_account() {
 
 	// check vortex reward for the account
 	let staker_pool =
-		total_vortex_bootstrap + (Perbill::from_percent(30) * total_vortex_network_reward);
-	let workpoint_pool = Perbill::from_percent(70) * total_vortex_network_reward;
+		total_vortex_bootstrap + (Perquintill::from_percent(30) * total_vortex_network_reward);
+	let workpoint_pool = Perquintill::from_percent(70) * total_vortex_network_reward;
 	println!("staker_pool: {:?}", staker_pool);
 	println!("workpoint_pool: {:?}", workpoint_pool);
 
 	let account_staker_point_portion =
-		Perbill::from_rational(account_staker_reward_points, total_staker_reward_points);
+		Perquintill::from_rational(account_staker_reward_points, total_staker_reward_points);
 	let account_work_points_portion =
-		Perbill::from_rational(account_worker_points, total_worker_points);
+		Perquintill::from_rational(account_worker_points, total_worker_points);
 	println!("account_staker_point_portion: {:?}", account_staker_point_portion);
 	println!("account_work_points_portion: {:?}", account_work_points_portion);
 
@@ -2518,7 +2580,10 @@ fn set_enable_manual_reward_input_can_be_used_for_legacy_flow_before_trigger() {
 				vtx_price_calculted,
 			);
 			assert_ne!(TotalVortex::<Test>::get(vortex_dist_id), total_vortex);
-			assert_eq!(TotalVortex::<Test>::get(vortex_dist_id), total_vtx_manual_input);
+			assert_eq!(
+				TotalVortex::<Test>::get(vortex_dist_id),
+				total_vtx_manual_input.saturating_mul(PRECISION_MULTIPLIER)
+			);
 			assert_eq!(
 				TotalNetworkReward::<Test>::get(vortex_dist_id),
 				total_vortex_network_reward
@@ -2535,7 +2600,10 @@ fn set_enable_manual_reward_input_can_be_used_for_legacy_flow_before_trigger() {
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, charlie),
 				(charlie_adjusted_reward, false)
 			);
-			assert_eq!(TotalVortex::<Test>::get(vortex_dist_id), total_vtx_manual_input_adjusted);
+			assert_eq!(
+				TotalVortex::<Test>::get(vortex_dist_id),
+				total_vtx_manual_input_adjusted.saturating_mul(PRECISION_MULTIPLIER)
+			);
 
 			//start the vortex distribution
 			assert_ok!(Vortex::start_vtx_dist(Origin::root(), vortex_dist_id,));
@@ -2550,15 +2618,6 @@ fn set_enable_manual_reward_input_can_be_used_for_legacy_flow_before_trigger() {
 			);
 			run_to_block(end_block);
 			assert_ok!(Vortex::pay_unsigned(Origin::none(), vortex_dist_id, end_block));
-			assert!(
-				!System::events().iter().all(|record| {
-					match record.event {
-						MockEvent::Vortex(crate::Event::VtxDistPaidOut { .. }) => false,
-						_ => true,
-					}
-				}),
-				"No payouts should occur as the distribution status is not 'Paying'."
-			);
 			assert_eq!(
 				AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &bob),
 				bob_reward
@@ -2580,7 +2639,7 @@ fn set_enable_manual_reward_input_can_be_used_for_legacy_flow_before_trigger() {
 // vortex price should be 1  if vtx_existing_supply is 0
 
 #[test]
-fn vtx_price_calculation_cuycle_5() {
+fn vtx_price_calculation_cycle_5() {
 	let alice: AccountId = create_account(1);
 	let bob: AccountId = create_account(2);
 	let charlie: AccountId = create_account(3);
@@ -2826,17 +2885,17 @@ fn vtx_price_calculation_cuycle_5() {
 			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), total_vortex_bootstrap);
 
 			// check bob got the vortex reward registered
-			let staker_pool =
-				total_vortex_bootstrap + (Perbill::from_percent(30) * total_vortex_network_reward);
-			let workpoint_pool = Perbill::from_percent(70) * total_vortex_network_reward;
+			let staker_pool = total_vortex_bootstrap
+				+ (Perquintill::from_percent(30) * total_vortex_network_reward);
+			let workpoint_pool = Perquintill::from_percent(70) * total_vortex_network_reward;
 			let bob_staker_point_portion =
-				Perbill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
-			let bob_work_points_portion = Perbill::from_rational(10_u128, 10_u128 + 10_u128);
+				Perquintill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
+			let bob_work_points_portion = Perquintill::from_rational(10_u128, 10_u128 + 10_u128);
 			let bob_vtx_reward_calculated = (bob_staker_point_portion * staker_pool)
 				+ (bob_work_points_portion * workpoint_pool);
 			assert_eq!(
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
-				(bob_vtx_reward_calculated, false)
+				(bob_vtx_reward_calculated.div(PRECISION_MULTIPLIER), false)
 			);
 		});
 }
@@ -3066,22 +3125,282 @@ fn trigger_vtx_distribution_with_high_vtx_price() {
 			);
 			println!("total_vortex: {}", TotalVortex::<Test>::get(vortex_dist_id));
 			// check the values below, onchain calculations supports upto 1 drop precision
-			assert_eq!(TotalVortex::<Test>::get(vortex_dist_id), 334999);
-			assert_eq!(TotalNetworkReward::<Test>::get(vortex_dist_id), 168333);
-			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), 166666);
+			assert_eq!(TotalVortex::<Test>::get(vortex_dist_id).div(PRECISION_MULTIPLIER), 334999);
+			assert_eq!(
+				TotalNetworkReward::<Test>::get(vortex_dist_id).div(PRECISION_MULTIPLIER),
+				168333
+			);
+			assert_eq!(
+				TotalBootstrapReward::<Test>::get(vortex_dist_id).div(PRECISION_MULTIPLIER),
+				166666
+			);
 
 			// check bob got the vortex reward registered
-			let staker_pool =
-				total_vortex_bootstrap + (Perbill::from_percent(30) * total_vortex_network_reward);
-			let workpoint_pool = Perbill::from_percent(70) * total_vortex_network_reward;
+			let staker_pool = total_vortex_bootstrap
+				+ (Perquintill::from_percent(30) * total_vortex_network_reward);
+			let workpoint_pool = Perquintill::from_percent(70) * total_vortex_network_reward;
 			let bob_staker_point_portion =
-				Perbill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
-			let bob_work_points_portion = Perbill::from_rational(10_u128, 10_u128 + 10_u128);
+				Perquintill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
+			let bob_work_points_portion = Perquintill::from_rational(10_u128, 10_u128 + 10_u128);
 			let bob_vtx_reward_calculated = (bob_staker_point_portion * staker_pool)
 				+ (bob_work_points_portion * workpoint_pool);
 			assert_eq!(
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
-				(bob_vtx_reward_calculated, false)
+				(bob_vtx_reward_calculated.div(PRECISION_MULTIPLIER), false)
 			);
 		});
+}
+
+#[test]
+fn vtx_price_calculation_cycle_5_real_data() {
+	let alice: AccountId = create_account(1);
+	let bob: AccountId = create_account(2);
+	let charlie: AccountId = create_account(3);
+
+	// asset ids
+	let asto_asset_id = 4_196;
+	let sylo_asset_id = 2_148;
+	let eth_asset_id = 1_124;
+	let xrp_asset_id = 2;
+	let root_asset_id = 1;
+	let vtx_asset_id = <Test as crate::Config>::VtxAssetId::get();
+	// vortex vault pre asset balances - same as cycle 5
+	let vortex_vault = Vortex::get_vtx_vault_account();
+	let root_balance_in_vtx_vault = 12768121398776_u128;
+	let asto_balance_in_vtx_vault = 3319193139068424549_u128;
+	let xrp_balance_in_vtx_vault = 33360272058_u128;
+	let sylo_balance_in_vtx_vault = 1598213439551632365_u128;
+	let eth_balance_in_vtx_vault = 459527286806489_u128;
+	let vtx_total_supply = 870428149751_u128;
+
+	// fee pot asset balance
+	let fee_vault = Vortex::get_fee_vault_account();
+	let asto_fee_pot_balance = 6_750_001_162_780_848_574;
+	let xrp_fee_pot_balance = 14_694_106_335;
+	let root_fee_pot_balance = 18_631_164_600;
+
+	let root_vault = Vortex::get_root_vault_account();
+	let bootstrap_root = 17_057_331_103_329;
+
+	// prices should be multiplied by the usd factor 10**6
+	let root_price = (0.01614 * 1000000.00) as u128;
+	let xrp_price = (2.4613 * 1000000.00) as u128;
+	let sylo_price = (0.0006042 * 1000000.00) as u128;
+	let asto_price = (0.01746 * 1000000.00) as u128;
+	let eth_price = (2681.04 * 1000000.00) as u128;
+
+	TestExt::default()
+		.with_balances(&[
+			(alice, 2_000_000),
+			(vortex_vault, root_balance_in_vtx_vault),
+			(fee_vault, root_fee_pot_balance),
+			(root_vault, bootstrap_root),
+		])
+		.with_asset_decimals(root_asset_id, "ROOT", 6, &[(alice, 1_000_000)]) // note this is just to create the ROOT asset in the system
+		.with_asset_decimals(
+			xrp_asset_id,
+			"XRP",
+			6,
+			&[
+				(alice, 1_000_000),
+				(vortex_vault, xrp_balance_in_vtx_vault),
+				(fee_vault, xrp_fee_pot_balance),
+			],
+		)
+		.with_asset_decimals(
+			asto_asset_id,
+			"ASTO",
+			18,
+			&[
+				(alice, 1_000_000),
+				(vortex_vault, asto_balance_in_vtx_vault),
+				(fee_vault, asto_fee_pot_balance),
+			],
+		)
+		.with_asset_decimals(
+			sylo_asset_id,
+			"SYLO",
+			18,
+			&[(alice, 5), (vortex_vault, sylo_balance_in_vtx_vault)],
+		)
+		.with_asset_decimals(
+			eth_asset_id,
+			"ETH",
+			18,
+			&[(alice, 1_000_000), (vortex_vault, eth_balance_in_vtx_vault)],
+		)
+		.with_asset_decimals(vtx_asset_id, "VTX", 6, &[(alice, vtx_total_supply)])
+		.build()
+		.execute_with(|| {
+			let vortex_dist_id = NextVortexId::<Test>::get();
+
+			// check accounts has correct balances
+			assert_eq!(AssetsExt::balance(root_asset_id, &vortex_vault), root_balance_in_vtx_vault);
+			assert_eq!(AssetsExt::balance(xrp_asset_id, &vortex_vault), xrp_balance_in_vtx_vault);
+			assert_eq!(AssetsExt::balance(asto_asset_id, &vortex_vault), asto_balance_in_vtx_vault);
+			assert_eq!(AssetsExt::balance(sylo_asset_id, &vortex_vault), sylo_balance_in_vtx_vault);
+			assert_eq!(AssetsExt::balance(eth_asset_id, &vortex_vault), eth_balance_in_vtx_vault);
+			assert_eq!(AssetsExt::balance(asto_asset_id, &fee_vault), asto_fee_pot_balance);
+			assert_eq!(AssetsExt::balance(xrp_asset_id, &fee_vault), xrp_fee_pot_balance);
+			assert_eq!(AssetsExt::balance(root_asset_id, &fee_vault), root_fee_pot_balance);
+			assert_eq!(AssetsExt::balance(root_asset_id, &root_vault), bootstrap_root);
+			// create vortex distribution
+			assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+
+			// set vortex vault pre asset balances
+			let vtx_vault_asset_balances = vec![
+				(root_asset_id, root_balance_in_vtx_vault),
+				(xrp_asset_id, xrp_balance_in_vtx_vault),
+				(asto_asset_id, asto_balance_in_vtx_vault),
+				(sylo_asset_id, sylo_balance_in_vtx_vault),
+				(eth_asset_id, eth_balance_in_vtx_vault),
+			];
+			assert_ok!(Vortex::set_vtx_vault_asset_balances(
+				Origin::root(),
+				vortex_dist_id,
+				BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap(),
+			));
+			// set Vtx current supply
+			assert_ok!(Vortex::set_vtx_total_supply(
+				Origin::root(),
+				vortex_dist_id,
+				vtx_total_supply,
+			));
+
+			// set fee pot asset balances
+			let fee_pot_asset_balances = vec![
+				(asto_asset_id, asto_fee_pot_balance),
+				(xrp_asset_id, xrp_fee_pot_balance),
+				(root_asset_id, root_fee_pot_balance),
+			];
+			assert_ok!(Vortex::set_fee_pot_asset_balances(
+				Origin::root(),
+				vortex_dist_id,
+				BoundedVec::try_from(fee_pot_asset_balances.clone()).unwrap(),
+			));
+
+			//set asset price
+			let asset_prices = vec![
+				(root_asset_id, root_price),
+				(xrp_asset_id, xrp_price),
+				(asto_asset_id, asto_price),
+				(sylo_asset_id, sylo_price),
+				(eth_asset_id, eth_price),
+			];
+			assert_ok!(Vortex::set_asset_prices(
+				Origin::root(),
+				vortex_dist_id,
+				BoundedVec::try_from(asset_prices.clone()).unwrap(),
+			));
+
+			// register reward and work points
+			let reward_points =
+				BoundedVec::try_from(vec![(bob, 24600), (charlie, 17057331103329 - 24600)])
+					.unwrap();
+			let work_points = BoundedVec::try_from(vec![(charlie, 39180127080137)]).unwrap();
+			assert_ok!(Vortex::register_reward_points(
+				Origin::root(),
+				vortex_dist_id,
+				reward_points
+			));
+			assert_ok!(Vortex::register_work_points(Origin::root(), vortex_dist_id, work_points));
+
+			// trigger vortex distribution and do the preparations for distribution
+			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id));
+			// Check that the correct event was emitted.
+			System::assert_last_event(MockEvent::Vortex(crate::Event::VtxDistributionTriggering {
+				id: vortex_dist_id,
+			}));
+			// run a few blocks to move the Vtx status from Triggering to Triggered
+			for i in 2_u32..4 {
+				System::set_block_number(i.into());
+				Vortex::on_idle(i.into(), Weight::from_all(1_000_000_000_000_u64));
+			}
+			System::assert_last_event(MockEvent::Vortex(crate::Event::VtxDistributionTriggered {
+				id: vortex_dist_id,
+			}));
+
+			// check balances have been transferred to vtx vault account
+			// check fee pot and bootstrap root account has correct balances
+			assert_eq!(AssetsExt::balance(root_asset_id, &root_vault), 0);
+			assert_eq!(AssetsExt::balance(xrp_asset_id, &fee_vault), 0);
+			assert_eq!(AssetsExt::balance(eth_asset_id, &fee_vault), 0);
+			assert_eq!(AssetsExt::balance(asto_asset_id, &fee_vault), 0);
+			assert_eq!(AssetsExt::balance(sylo_asset_id, &fee_vault), 0);
+			assert_eq!(
+				AssetsExt::balance(root_asset_id, &vortex_vault),
+				root_balance_in_vtx_vault + bootstrap_root + root_fee_pot_balance
+			);
+			assert_eq!(
+				AssetsExt::balance(xrp_asset_id, &vortex_vault),
+				xrp_balance_in_vtx_vault + xrp_fee_pot_balance
+			);
+			assert_eq!(AssetsExt::balance(eth_asset_id, &vortex_vault), eth_balance_in_vtx_vault);
+			assert_eq!(
+				AssetsExt::balance(asto_asset_id, &vortex_vault),
+				asto_balance_in_vtx_vault + asto_fee_pot_balance
+			);
+			assert_eq!(AssetsExt::balance(sylo_asset_id, &vortex_vault), sylo_balance_in_vtx_vault);
+			// check VtxPrice tally
+			let vtx_vault_asset_balances_with_decimals = vec![
+				(root_asset_id, root_balance_in_vtx_vault, 6),
+				(xrp_asset_id, xrp_balance_in_vtx_vault, 6),
+				(asto_asset_id, asto_balance_in_vtx_vault, 18),
+				(sylo_asset_id, sylo_balance_in_vtx_vault, 18),
+				(eth_asset_id, eth_balance_in_vtx_vault, 18),
+			];
+			let vtx_price_calculted = calculate_vtx_price(
+				&vtx_vault_asset_balances_with_decimals,
+				&asset_prices,
+				vtx_total_supply,
+			);
+			println!("vtx_price_calculted: {}", vtx_price_calculted);
+			assert_eq!(VtxPrice::<Test>::get(vortex_dist_id), vtx_price_calculted);
+			// check vtx amounts tally
+			let fee_pot_asset_balances_with_decimals = vec![
+				(root_asset_id, root_fee_pot_balance, 6),
+				(xrp_asset_id, xrp_fee_pot_balance, 6),
+				(asto_asset_id, asto_fee_pot_balance, 18),
+			];
+			let (total_vortex_network_reward, total_vortex_bootstrap, total_vortex) = calculate_vtx(
+				&fee_pot_asset_balances_with_decimals,
+				&asset_prices,
+				bootstrap_root,
+				root_price,
+				vtx_price_calculted,
+			);
+			assert_eq!(TotalVortex::<Test>::get(vortex_dist_id), total_vortex);
+			assert_eq!(
+				TotalNetworkReward::<Test>::get(vortex_dist_id),
+				total_vortex_network_reward
+			);
+			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), total_vortex_bootstrap);
+
+			// check bob got the vortex reward registered
+			let staker_pool = total_vortex_bootstrap
+				+ (Perquintill::from_percent(30) * total_vortex_network_reward);
+			let workpoint_pool = Perquintill::from_percent(70) * total_vortex_network_reward;
+			let bob_staker_point_portion =
+				Perquintill::from_rational(24600_u128, 17_057_331_103_329);
+			let bob_work_points_portion = Perquintill::from_rational(0_u128, 39180127080137_u128);
+			let bob_staker_reward_calculated = bob_staker_point_portion * staker_pool;
+			let bob_work_points_reward_calculated = bob_work_points_portion * workpoint_pool;
+			let bob_vtx_reward_calculated =
+				bob_staker_reward_calculated + bob_work_points_reward_calculated;
+			assert_eq!(
+				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
+				(bob_vtx_reward_calculated.div(PRECISION_MULTIPLIER), false)
+			);
+		});
+}
+
+#[test]
+fn test_precision_in_perwuintill_from_rational() {
+	let account_staker_points = 1_u128;
+	let total_staker_points = 17057331103329_u128;
+
+	let staker_point_portion =
+		Perquintill::from_rational(account_staker_points, total_staker_points);
+
+	assert_eq!(staker_point_portion, Perquintill::from_float(0.000000000000058625_f64));
 }

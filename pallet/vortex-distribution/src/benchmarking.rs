@@ -224,14 +224,18 @@ benchmarks! {
 
 		let balance =  Balance::one();
 		let mut work_points_vec = vec![];
+		let mut reward_points_vec = vec![];
 		for i in 0..b {
 			let account: T::AccountId = bench_account("account", i, 0);
+			reward_points_vec.push((account.clone(), balance.into()));
 			work_points_vec.push((account, balance.into()));
 		}
 
 		let work_points = BoundedVec::try_from(work_points_vec).unwrap();
+		let reward_points = BoundedVec::try_from(reward_points_vec).unwrap();
 		let vortex_dist_id = NextVortexId::<T>::get();
 		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
+		assert_ok!(VortexDistribution::<T>::register_reward_points(RawOrigin::Root.into(), vortex_dist_id, reward_points));
 	}: _(RawOrigin::Root, vortex_dist_id, work_points)
 	verify {
 		for i in 0..b {

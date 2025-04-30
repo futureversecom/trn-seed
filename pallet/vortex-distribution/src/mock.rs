@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_vortex_distribution;
+use crate::PRECISION_MULTIPLIER;
 use frame_support::traits::{ConstU32, Hooks};
 use seed_pallet_common::test_prelude::*;
 use sp_runtime::traits::Zero;
@@ -72,10 +73,14 @@ pub fn calculate_vtx(
 
 	// calculate in drops for higher precision
 	let vtx_decimal_factor: Balance = 10u128.pow(6).into();
-	let total_vortex_network_reward =
-		fee_vault_asset_value.saturating_mul(vtx_decimal_factor).div(vtx_price);
-	let total_vortex_bootstrap =
-		bootstrap_asset_value.saturating_mul(vtx_decimal_factor).div(vtx_price);
+	let total_vortex_network_reward = fee_vault_asset_value
+		.saturating_mul(vtx_decimal_factor)
+		.saturating_mul(PRECISION_MULTIPLIER)
+		.div(vtx_price);
+	let total_vortex_bootstrap = bootstrap_asset_value
+		.saturating_mul(vtx_decimal_factor)
+		.saturating_mul(PRECISION_MULTIPLIER)
+		.div(vtx_price);
 	let total_vortex = total_vortex_network_reward.saturating_add(total_vortex_bootstrap);
 
 	(total_vortex_network_reward, total_vortex_bootstrap, total_vortex)
@@ -207,7 +212,7 @@ impl crate::Config for Test {
 	type MultiCurrency = AssetsExt;
 	type HistoryDepth = HistoryDepth;
 	type MaxAssetPrices = ConstU32<1000>;
-	type MaxRewards = ConstU32<2_100>;
+	type MaxRewards = ConstU32<3_100>;
 	type MaxStringLength = ConstU32<1000>;
 }
 
