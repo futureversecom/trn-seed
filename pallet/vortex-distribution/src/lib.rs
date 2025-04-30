@@ -63,6 +63,10 @@ use sp_runtime::{
 use sp_std::{convert::TryInto, prelude::*};
 
 pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::MAX / 2;
+// the precision multipler to reduce the precision loss due to integer math
+pub const PRECISION_MULTIPLIER: u128 = 10u128.pow(6);
+// Asset price multiplier
+pub const PRICE_MULTIPLIER: u128 = 10u128.pow(6);
 
 #[derive(
 	Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, PartialOrd, Eq, TypeInfo, MaxEncodedLen,
@@ -216,7 +220,7 @@ pub mod pallet {
 		T::VtxDistIdentifier,
 		Blake2_128Concat,
 		T::AccountId,
-		(Balance, bool), //here balance is the reward amount to payout
+		(Balance, bool), //here balance is the reward amount to payout in drops
 		ValueQuery,
 		GetDefault,
 		ConstU32<{ u32::MAX }>,
@@ -252,7 +256,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::VtxDistIdentifier,
-		BoundedVec<(AssetId, Balance), T::MaxAssetPrices>,
+		BoundedVec<(AssetId, Balance), T::MaxAssetPrices>, // the balance is in drops
 		ValueQuery,
 	>;
 
@@ -262,7 +266,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		T::VtxDistIdentifier,
-		BoundedVec<(AssetId, Balance), T::MaxAssetPrices>,
+		BoundedVec<(AssetId, Balance), T::MaxAssetPrices>, // the balance is in drops
 		ValueQuery,
 	>;
 
@@ -274,21 +278,21 @@ pub mod pallet {
 		T::VtxDistIdentifier,
 		Twox64Concat,
 		AssetId,
-		Balance,
+		Balance, // the balance is the asset price multiplied by PRICE_MULTIPLIER
 		ValueQuery,
 	>;
 
-	/// Stores total network reward for each distribution
+	/// Stores total network reward for each distribution, this is in drops multiplied by PRECISION_MULTIPLIER
 	#[pallet::storage]
 	pub(super) type TotalNetworkReward<T: Config> =
 		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
 
-	/// Stores total bootstrap reward for each distribution
+	/// Stores total bootstrap reward for each distribution, this is in drops multiplied by PRECISION_MULTIPLIER
 	#[pallet::storage]
 	pub(super) type TotalBootstrapReward<T: Config> =
 		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
 
-	/// Stores total vortex amount for each distribution
+	/// Stores total vortex amount for each distribution, this is in drops multiplied by PRECISION_MULTIPLIER
 	#[pallet::storage]
 	pub(super) type TotalVortex<T: Config> =
 		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
@@ -691,7 +695,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set asset prices, prices expected to be with a multiplier 10**6
+		/// Set asset prices, prices expected to be with the PRICE_MULTIPLIER
 		///
 		/// `asset_prices` - List of asset prices
 		/// `id` - The distribution id
@@ -896,7 +900,7 @@ pub mod pallet {
 		/// Register rewards( manual input)
 		///
 		/// `id` - The distribution id
-		/// `rewards` - Rewards list
+		/// `rewards` - Rewards list, balance is in drops
 		#[pallet::call_index(17)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards(rewards.len() as u32))]
 		pub fn register_rewards(
@@ -909,17 +913,21 @@ pub mod pallet {
 			let s = VtxDistStatuses::<T>::get(id);
 			match s {
 				VtxDistStatus::Enabled | VtxDistStatus::Triggered => {
-					let mut total_rewards = TotalVortex::<T>::get(id);
+					let mut total_rewards = TotalVortex::<T>::get(id); // this is in drops multiplied by PRECISION_MULTIPLIER
 					for (who, amount) in rewards.iter() {
-						let current_reward = VtxDistOrderbook::<T>::get(id, who.clone()).0;
+						// amount is in drops
+						let current_reward = VtxDistOrderbook::<T>::get(id, who.clone()).0; // this is in drops
+						let current_reward_with_multiplier =
+							current_reward.saturating_mul(PRECISION_MULTIPLIER);
+						let amount_with_multiplier = amount.saturating_mul(PRECISION_MULTIPLIER);
 						if current_reward != Default::default() {
 							// means we need to minus the current_reward and plus amount from the total_rewards
 							total_rewards = total_rewards
-								.saturating_sub(current_reward)
-								.saturating_add(*amount);
+								.saturating_sub(current_reward_with_multiplier)
+								.saturating_add(amount_with_multiplier);
 						} else {
 							// just add
-							total_rewards = total_rewards.saturating_add(*amount);
+							total_rewards = total_rewards.saturating_add(amount_with_multiplier);
 						}
 						VtxDistOrderbook::<T>::insert(id, who, (*amount, false));
 					}
@@ -987,7 +995,7 @@ pub mod pallet {
 		/// start a distribution
 		fn do_start_vtx_dist(id: T::VtxDistIdentifier) -> DispatchResult {
 			let vtx_held_account = Self::get_vtx_held_account();
-			let total_vortex = TotalVortex::<T>::get(id);
+			let total_vortex = TotalVortex::<T>::get(id).div(PRECISION_MULTIPLIER);
 			T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vtx_held_account, total_vortex)?;
 
 			VtxDistStatuses::<T>::mutate(id, |status| {
@@ -1077,9 +1085,9 @@ pub mod pallet {
 				false => VtxTotalSupply::<T>::get(id) / vtx_decimal_factor,
 			};
 
-			// vortex_price should be with a multiplier 10**6
+			// vortex_price should be with a multiplier PRICE_MULTIPLIER
 			let vortex_price = if vtx_existing_supply == Zero::zero() {
-				1u128.saturating_mul(10u128.pow(6)) // TODO: check the reference
+				1u128.saturating_mul(PRICE_MULTIPLIER) // TODO: check the reference
 			} else {
 				vtx_vault_asset_value / vtx_existing_supply
 			};
@@ -1146,10 +1154,14 @@ pub mod pallet {
 			let vtx_decimal_factor: Balance =
 				10u128.pow(T::MultiCurrency::decimals(T::VtxAssetId::get()) as u32);
 			// multiply vault asset values by vtx_decimal_factor to get the value in drops for higher precision
-			let total_vortex_network_reward: Balance =
-				fee_vault_asset_value.saturating_mul(vtx_decimal_factor).div(vortex_price);
-			let total_vortex_bootstrap: Balance =
-				root_vault_root_value.saturating_mul(vtx_decimal_factor).div(vortex_price);
+			let total_vortex_network_reward: Balance = fee_vault_asset_value
+				.saturating_mul(vtx_decimal_factor)
+				.saturating_mul(PRECISION_MULTIPLIER)
+				.div(vortex_price);
+			let total_vortex_bootstrap: Balance = root_vault_root_value
+				.saturating_mul(vtx_decimal_factor)
+				.saturating_mul(PRECISION_MULTIPLIER)
+				.div(vortex_price);
 			let total_vortex = total_vortex_network_reward.saturating_add(total_vortex_bootstrap); // in drops
 
 			// store TotalVortex only if EnableManualRewardInput is false
@@ -1229,8 +1241,9 @@ pub mod pallet {
 
 					let account_work_point_reward = work_points_portion * total_workpoints_pool;
 					let account_staker_reward = staker_point_portion * total_staker_pool;
-					let final_reward =
-						account_work_point_reward.saturating_add(account_staker_reward); // This is in drops
+					let final_reward = account_work_point_reward
+						.saturating_add(account_staker_reward)
+						.div(PRECISION_MULTIPLIER); // This is in drops
 
 					// Add weight for writing VtxDistOrderbook
 					used_weight = used_weight.saturating_add(DbWeight::get().writes(1));

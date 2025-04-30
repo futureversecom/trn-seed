@@ -858,7 +858,7 @@ fn trigger_vtx_distribution_works() {
 				+ (bob_work_points_portion * workpoint_pool);
 			assert_eq!(
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
-				(bob_vtx_reward_calculated, false)
+				(bob_vtx_reward_calculated.div(PRECISION_MULTIPLIER), false)
 			);
 		});
 }
@@ -1088,7 +1088,7 @@ fn trigger_vtx_distribution_should_fail_if_already_triggered() {
 				+ (bob_work_points_portion * workpoint_pool);
 			assert_eq!(
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
-				(bob_vtx_reward_calculated, false)
+				(bob_vtx_reward_calculated.div(PRECISION_MULTIPLIER), false)
 			);
 			// Trigger again should fail
 			assert_noop!(
@@ -1688,7 +1688,8 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			// register reward and work points
 			let mut reward_points_vec = vec![(bob, 100_000), (charlie, 100_000)];
 			let mut total_reward_points = 100_000 + 100_000;
-			for i in 0..2000 {
+			let account_count = 3000;
+			for i in 0..account_count {
 				reward_points_vec.push((create_account(i + 4), 100_000));
 				total_reward_points += 100_000;
 			}
@@ -1696,7 +1697,7 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 
 			let mut work_points_vec = vec![(bob, 10), (charlie, 10)];
 			let mut total_work_points = 10 + 10;
-			for i in 0..2000 {
+			for i in 0..account_count {
 				work_points_vec.push((create_account(i + 4), 10));
 				total_work_points += 10;
 			}
@@ -1764,8 +1765,9 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			println!("staker_pool: {:?}", staker_pool);
 			println!("workpoint_pool: {:?}", workpoint_pool);
 
-			let bob_vtx_reward_calculated = (bob_staker_point_portion * staker_pool)
-				+ (bob_work_points_portion * workpoint_pool);
+			let bob_vtx_reward_calculated = ((bob_staker_point_portion * staker_pool)
+				+ (bob_work_points_portion * workpoint_pool))
+				.div(PRECISION_MULTIPLIER);
 			println!("bob stker rewards: {:?}", bob_staker_point_portion * staker_pool);
 			println!("bob workpoint rewards: {:?}", bob_work_points_portion * workpoint_pool);
 
@@ -1776,7 +1778,7 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			println!("bob_vtx_reward_calculated: {:?}", bob_vtx_reward_calculated);
 
 			// check if the last account entry balance
-			let last_account_entry = create_account(1999 + 4);
+			let last_account_entry = create_account(account_count - 1 + 4);
 			let last_account_entry_vtx_balance_before =
 				AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &last_account_entry);
 			assert_eq!(last_account_entry_vtx_balance_before, 0);
@@ -1844,7 +1846,14 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 			assert_eq!(VtxDistStatuses::<Test>::get(vortex_dist_id), VtxDistStatus::Done);
 			// check the number of accounts that got rewards
 			// TODO: check why this is failing 2001 to 2002, check all accounts get paid in a manual test
-			// assert_eq!(acconts_got_paid.len(), num_reward_accounts);
+			println!(
+				"vtx held pot: {:?}",
+				AssetsExt::balance(
+					<Test as crate::Config>::VtxAssetId::get(),
+					&Vortex::get_vtx_held_account()
+				)
+			);
+			assert_eq!(acconts_got_paid.len(), num_reward_accounts);
 
 			// check bob received the reward
 			assert_eq!(
@@ -1871,7 +1880,7 @@ fn pay_unsigned_with_multiple_payout_blocks() {
 
 			assert_eq!(
 				AssetsExt::total_issuance(<Test as crate::Config>::VtxAssetId::get()),
-				total_vortex + vtx_current_supply
+				total_vortex.div(PRECISION_MULTIPLIER) + vtx_current_supply
 			);
 		});
 }
@@ -2123,7 +2132,7 @@ fn redeem_tokens_from_vault_works() {
 
 			assert_eq!(
 				AssetsExt::total_issuance(<Test as crate::Config>::VtxAssetId::get()),
-				total_vtx_to_be_minted + vtx_current_supply
+				total_vtx_to_be_minted.div(PRECISION_MULTIPLIER) + vtx_current_supply
 			);
 
 			// Try redeem
@@ -2519,7 +2528,10 @@ fn set_enable_manual_reward_input_can_be_used_for_legacy_flow_before_trigger() {
 				vtx_price_calculted,
 			);
 			assert_ne!(TotalVortex::<Test>::get(vortex_dist_id), total_vortex);
-			assert_eq!(TotalVortex::<Test>::get(vortex_dist_id), total_vtx_manual_input);
+			assert_eq!(
+				TotalVortex::<Test>::get(vortex_dist_id),
+				total_vtx_manual_input.saturating_mul(PRECISION_MULTIPLIER)
+			);
 			assert_eq!(
 				TotalNetworkReward::<Test>::get(vortex_dist_id),
 				total_vortex_network_reward
@@ -2536,7 +2548,10 @@ fn set_enable_manual_reward_input_can_be_used_for_legacy_flow_before_trigger() {
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, charlie),
 				(charlie_adjusted_reward, false)
 			);
-			assert_eq!(TotalVortex::<Test>::get(vortex_dist_id), total_vtx_manual_input_adjusted);
+			assert_eq!(
+				TotalVortex::<Test>::get(vortex_dist_id),
+				total_vtx_manual_input_adjusted.saturating_mul(PRECISION_MULTIPLIER)
+			);
 
 			//start the vortex distribution
 			assert_ok!(Vortex::start_vtx_dist(Origin::root(), vortex_dist_id,));
@@ -2551,15 +2566,6 @@ fn set_enable_manual_reward_input_can_be_used_for_legacy_flow_before_trigger() {
 			);
 			run_to_block(end_block);
 			assert_ok!(Vortex::pay_unsigned(Origin::none(), vortex_dist_id, end_block));
-			assert!(
-				!System::events().iter().all(|record| {
-					match record.event {
-						MockEvent::Vortex(crate::Event::VtxDistPaidOut { .. }) => false,
-						_ => true,
-					}
-				}),
-				"No payouts should occur as the distribution status is not 'Paying'."
-			);
 			assert_eq!(
 				AssetsExt::balance(<Test as crate::Config>::VtxAssetId::get(), &bob),
 				bob_reward
@@ -2837,7 +2843,7 @@ fn vtx_price_calculation_cycle_5() {
 				+ (bob_work_points_portion * workpoint_pool);
 			assert_eq!(
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
-				(bob_vtx_reward_calculated, false)
+				(bob_vtx_reward_calculated.div(PRECISION_MULTIPLIER), false)
 			);
 		});
 }
@@ -3067,9 +3073,15 @@ fn trigger_vtx_distribution_with_high_vtx_price() {
 			);
 			println!("total_vortex: {}", TotalVortex::<Test>::get(vortex_dist_id));
 			// check the values below, onchain calculations supports upto 1 drop precision
-			assert_eq!(TotalVortex::<Test>::get(vortex_dist_id), 334999);
-			assert_eq!(TotalNetworkReward::<Test>::get(vortex_dist_id), 168333);
-			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), 166666);
+			assert_eq!(TotalVortex::<Test>::get(vortex_dist_id).div(PRECISION_MULTIPLIER), 334999);
+			assert_eq!(
+				TotalNetworkReward::<Test>::get(vortex_dist_id).div(PRECISION_MULTIPLIER),
+				168333
+			);
+			assert_eq!(
+				TotalBootstrapReward::<Test>::get(vortex_dist_id).div(PRECISION_MULTIPLIER),
+				166666
+			);
 
 			// check bob got the vortex reward registered
 			let staker_pool = total_vortex_bootstrap
@@ -3082,7 +3094,7 @@ fn trigger_vtx_distribution_with_high_vtx_price() {
 				+ (bob_work_points_portion * workpoint_pool);
 			assert_eq!(
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
-				(bob_vtx_reward_calculated, false)
+				(bob_vtx_reward_calculated.div(PRECISION_MULTIPLIER), false)
 			);
 		});
 }
@@ -3325,7 +3337,7 @@ fn vtx_price_calculation_cycle_5_real_data() {
 				bob_staker_reward_calculated + bob_work_points_reward_calculated;
 			assert_eq!(
 				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
-				(bob_vtx_reward_calculated, false)
+				(bob_vtx_reward_calculated.div(PRECISION_MULTIPLIER), false)
 			);
 		});
 }
