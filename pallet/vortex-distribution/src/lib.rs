@@ -832,12 +832,19 @@ pub mod pallet {
 								*entry = (entry.0, true);
 							});
 						},
-						Err(_) => {
+						Err(e) => {
 							Self::deposit_event(Event::VtxDistPayFailed {
 								id,
 								who: who.clone(),
 								amount: share,
 							});
+							log::error!(
+								"VtxDistPayFailed - Account: {:?}, share: {:?}, error: {:?}",
+								who,
+								share,
+								e,
+							);
+							// NOTE: We would not return error here, will continue to pay the rest of the accounts.
 							// return Err(Error::<T>::VtxRewardPayoutFailed);
 						},
 					};
