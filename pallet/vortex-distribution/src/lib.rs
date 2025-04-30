@@ -1267,6 +1267,19 @@ pub mod pallet {
 						.saturating_add(account_staker_reward)
 						.div(PRECISION_MULTIPLIER); // This is in drops
 
+					if final_reward == 0
+						&& (account_work_point_reward != 0 || account_staker_reward != 0)
+					{
+						log::info!(
+							"RewardCalculationLost - Account: {:?}, wkp: {:?}, rp: {:?}, wkr: {:?}, rpr: {:?}",
+							account_id,
+							account_work_points,
+							account_staker_points,
+							account_work_point_reward,
+							account_staker_reward,
+						);
+					}
+
 					// Add weight for writing VtxDistOrderbook
 					used_weight = used_weight.saturating_add(DbWeight::get().writes(1));
 					VtxDistOrderbook::<T>::mutate(id, account_id.clone(), |entry| {
