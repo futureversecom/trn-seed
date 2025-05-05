@@ -2,6 +2,7 @@ extern crate alloc;
 
 use alloc::{format, string::String, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::dispatch::DispatchResult;
 use frame_support::{
 	traits::Get, BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
@@ -173,4 +174,13 @@ pub trait SyloDataPermissionsProvider {
 		grantee: &Self::AccountId,
 		permission: DataPermission,
 	) -> bool;
+
+	fn grant_tagged_permissions(
+		data_author: Self::AccountId,
+		grantee: Self::AccountId,
+		permission: DataPermission,
+		tags: BoundedVec<BoundedVec<u8, Self::StringLimit>, Self::MaxTags>,
+		expiry: Option<Self::BlockNumber>,
+		irrevocable: bool,
+	) -> DispatchResult;
 }

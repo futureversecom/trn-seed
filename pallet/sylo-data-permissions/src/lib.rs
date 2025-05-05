@@ -405,45 +405,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let block = <frame_system::Pallet<T>>::block_number();
-
-			if let Some(expiry) = expiry {
-				// ensure valid expiry
-				ensure!(expiry > block, Error::<T>::InvalidExpiry);
-			}
-
-			let tagged_permission_record = TaggedPermissionRecord {
-				permission,
-				block: <frame_system::Pallet<T>>::block_number(),
-				tags: tags.clone(),
-				expiry,
-				irrevocable,
-			};
-
-			let next_id = <NextPermissionRecordId<T>>::get(&who);
-
-			<TaggedPermissionRecords<T>>::try_mutate(
-				&who,
-				&grantee,
-				|tagged_permission_records| {
-					tagged_permission_records
-						.try_push((next_id, tagged_permission_record))
-						.map_err(|_| Error::<T>::ExceededMaxPermissions)
-				},
-			)?;
-
-			<NextPermissionRecordId<T>>::mutate(&who, |i| *i += 1);
-
-			Self::deposit_event(Event::TaggedDataPermissionsGranted {
-				grantor: who,
-				grantee,
-				permission,
-				tags: tags.iter().map(|v| v.to_vec()).collect(),
-				expiry,
-				irrevocable,
-			});
-
-			Ok(())
+			Self::do_grant_tagged_permissions(who, grantee, permission, tags, expiry, irrevocable)
 		}
 
 		/// Revoke previously granted tagged permissions.
@@ -620,6 +582,24 @@ impl<T: Config> SyloDataPermissionsProvider for Pallet<T> {
 				});
 		})
 	}
+
+	fn grant_tagged_permissions(
+		data_author: Self::AccountId,
+		grantee: Self::AccountId,
+		permission: DataPermission,
+		tags: BoundedVec<BoundedVec<u8, Self::StringLimit>, Self::MaxTags>,
+		expiry: Option<BlockNumberFor<T>>,
+		irrevocable: bool,
+	) -> DispatchResult {
+		Self::do_grant_tagged_permissions(
+			data_author,
+			grantee,
+			permission,
+			tags,
+			expiry,
+			irrevocable,
+		)
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -728,5 +708,50 @@ impl<T: Config> Pallet<T> {
 			.map_err(|_: FromUtf8Error| Error::<T>::InvalidString)?;
 
 		Ok(GetPermissionsResult { permissions, permission_reference })
+	}
+
+	pub fn do_grant_tagged_permissions(
+		who: T::AccountId,
+		grantee: T::AccountId,
+		permission: DataPermission,
+		tags: BoundedVec<BoundedVec<u8, T::StringLimit>, T::MaxTags>,
+		expiry: Option<BlockNumberFor<T>>,
+		irrevocable: bool,
+	) -> DispatchResult {
+		let block = <frame_system::Pallet<T>>::block_number();
+
+		if let Some(expiry) = expiry {
+			// ensure valid expiry
+			ensure!(expiry > block, Error::<T>::InvalidExpiry);
+		}
+
+		let tagged_permission_record = TaggedPermissionRecord {
+			permission,
+			block: <frame_system::Pallet<T>>::block_number(),
+			tags: tags.clone(),
+			expiry,
+			irrevocable,
+		};
+
+		let next_id = <NextPermissionRecordId<T>>::get(&who);
+
+		<TaggedPermissionRecords<T>>::try_mutate(&who, &grantee, |tagged_permission_records| {
+			tagged_permission_records
+				.try_push((next_id, tagged_permission_record))
+				.map_err(|_| Error::<T>::ExceededMaxPermissions)
+		})?;
+
+		<NextPermissionRecordId<T>>::mutate(&who, |i| *i += 1);
+
+		Self::deposit_event(Event::TaggedDataPermissionsGranted {
+			grantor: who,
+			grantee,
+			permission,
+			tags: tags.iter().map(|v| v.to_vec()).collect(),
+			expiry,
+			irrevocable,
+		});
+
+		Ok(())
 	}
 }
