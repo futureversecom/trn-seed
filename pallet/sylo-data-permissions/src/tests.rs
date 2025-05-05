@@ -57,7 +57,7 @@ mod grant_data_permissions {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				grantee.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				permission,
 				expiry,
 				irrevocable
@@ -116,7 +116,7 @@ mod grant_data_permissions {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				grantee.clone(),
-				BoundedVec::try_from(data_ids.clone()).unwrap(),
+				BoundedVec::truncate_from(data_ids.clone()),
 				permission,
 				expiry,
 				irrevocable
@@ -157,7 +157,7 @@ mod grant_data_permissions {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				grantee.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				DataPermission::VIEW,
 				None,
 				irrevocable
@@ -170,7 +170,7 @@ mod grant_data_permissions {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				grantee.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				new_permission,
 				new_expiry,
 				irrevocable
@@ -207,7 +207,7 @@ mod grant_data_permissions {
 					RawOrigin::Signed(grantor.clone()).into(),
 					grantor.clone(),
 					grantee.clone(),
-					BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+					BoundedVec::truncate_from(vec![data_id.clone()]),
 					DataPermission::VIEW,
 					Some(2000),
 					true
@@ -230,7 +230,7 @@ mod grant_data_permissions {
 					RawOrigin::Signed(grantor.clone()).into(),
 					grantor.clone(),
 					grantee.clone(),
-					BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+					BoundedVec::truncate_from(vec![data_id.clone()]),
 					DataPermission::VIEW,
 					None,
 					false
@@ -253,7 +253,7 @@ mod grant_data_permissions {
 					RawOrigin::Signed(grantor.clone()).into(),
 					grantor.clone(),
 					grantee.clone(),
-					BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+					BoundedVec::truncate_from(vec![data_id.clone()]),
 					DataPermission::VIEW,
 					Some(0),
 					false
@@ -268,7 +268,7 @@ mod grant_data_permissions {
 					RawOrigin::Signed(grantor.clone()).into(),
 					grantor.clone(),
 					grantee.clone(),
-					BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+					BoundedVec::truncate_from(vec![data_id.clone()]),
 					DataPermission::VIEW,
 					Some(50),
 					false
@@ -292,7 +292,7 @@ mod grant_data_permissions {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				distributor.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				DataPermission::DISTRIBUTE,
 				None,
 				false
@@ -303,7 +303,7 @@ mod grant_data_permissions {
 				RawOrigin::Signed(distributor.clone()).into(),
 				grantor.clone(),
 				grantee.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				DataPermission::VIEW,
 				None,
 				false
@@ -326,7 +326,7 @@ mod grant_data_permissions {
 					RawOrigin::Signed(distributor.clone()).into(),
 					grantor.clone(),
 					grantee.clone(),
-					BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+					BoundedVec::truncate_from(vec![data_id.clone()]),
 					DataPermission::VIEW,
 					None,
 					false
@@ -350,7 +350,7 @@ mod grant_data_permissions {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				distributor.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				DataPermission::DISTRIBUTE,
 				None,
 				false
@@ -362,7 +362,7 @@ mod grant_data_permissions {
 					RawOrigin::Signed(distributor.clone()).into(),
 					grantor.clone(),
 					grantee.clone(),
-					BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+					BoundedVec::truncate_from(vec![data_id.clone()]),
 					DataPermission::DISTRIBUTE,
 					None,
 					false
@@ -386,7 +386,7 @@ mod grant_data_permissions {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				distributor.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				DataPermission::DISTRIBUTE,
 				None,
 				false
@@ -398,7 +398,7 @@ mod grant_data_permissions {
 					RawOrigin::Signed(distributor.clone()).into(),
 					grantor.clone(),
 					grantee.clone(),
-					BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+					BoundedVec::truncate_from(vec![data_id.clone()]),
 					DataPermission::VIEW,
 					None,
 					true
@@ -426,7 +426,7 @@ mod revoke_data_permission {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				grantee.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				permission,
 				None,
 				false
@@ -469,7 +469,7 @@ mod revoke_data_permission {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				distributor.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				DataPermission::DISTRIBUTE,
 				None,
 				false
@@ -480,7 +480,7 @@ mod revoke_data_permission {
 				RawOrigin::Signed(distributor.clone()).into(),
 				grantor.clone(),
 				grantee.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				DataPermission::VIEW,
 				None,
 				false
@@ -511,7 +511,7 @@ mod revoke_data_permission {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				grantee.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				permission,
 				None,
 				true
@@ -546,7 +546,7 @@ mod revoke_data_permission {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				grantee.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				permission,
 				None,
 				false
@@ -579,7 +579,7 @@ mod revoke_data_permission {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				distributor.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				DataPermission::DISTRIBUTE,
 				None,
 				false
@@ -590,7 +590,7 @@ mod revoke_data_permission {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				grantee.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				DataPermission::VIEW,
 				None,
 				false
@@ -624,7 +624,7 @@ mod revoke_data_permission {
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantor.clone(),
 				distributor.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				DataPermission::DISTRIBUTE,
 				None,
 				false
@@ -635,7 +635,7 @@ mod revoke_data_permission {
 				RawOrigin::Signed(distributor.clone()).into(),
 				grantor.clone(),
 				grantee.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				DataPermission::VIEW,
 				None,
 				false
@@ -662,8 +662,8 @@ mod grant_tagged_permissions {
 			let grantor: AccountId = create_account(1);
 			let grantee: AccountId = create_account(2);
 
-			let tags = BoundedVec::try_from(vec![bounded_string("tag-1"), bounded_string("tag-2")])
-				.unwrap();
+			let tags =
+				BoundedVec::truncate_from(vec![bounded_string("tag-1"), bounded_string("tag-2")]);
 
 			let permission = DataPermission::MODIFY;
 			let expiry = Some(2000);
@@ -714,8 +714,8 @@ mod grant_tagged_permissions {
 			let grantee: AccountId = create_account(2);
 			let distributor: AccountId = create_account(3);
 
-			let tags = BoundedVec::try_from(vec![bounded_string("tag-1"), bounded_string("tag-2")])
-				.unwrap();
+			let tags =
+				BoundedVec::truncate_from(vec![bounded_string("tag-1"), bounded_string("tag-2")]);
 
 			// grant distributor permission for those tags
 			assert_ok!(SyloDataPermissions::grant_tagged_permissions(
@@ -744,7 +744,7 @@ mod grant_tagged_permissions {
 				RawOrigin::Signed(distributor.clone()).into(),
 				grantor.clone(),
 				grantee.clone(),
-				BoundedVec::try_from(vec![data_id]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id]),
 				DataPermission::VIEW,
 				None,
 				false
@@ -763,8 +763,7 @@ mod grant_tagged_permissions {
 			let irrevocable = false;
 
 			let tags_one =
-				BoundedVec::try_from(vec![bounded_string("tag-1"), bounded_string("tag-2")])
-					.unwrap();
+				BoundedVec::truncate_from(vec![bounded_string("tag-1"), bounded_string("tag-2")]);
 
 			assert_ok!(SyloDataPermissions::grant_tagged_permissions(
 				RawOrigin::Signed(grantor.clone()).into(),
@@ -776,8 +775,7 @@ mod grant_tagged_permissions {
 			));
 
 			let tags_two =
-				BoundedVec::try_from(vec![bounded_string("tag-2"), bounded_string("tag-2")])
-					.unwrap();
+				BoundedVec::truncate_from(vec![bounded_string("tag-2"), bounded_string("tag-2")]);
 
 			assert_ok!(SyloDataPermissions::grant_tagged_permissions(
 				RawOrigin::Signed(grantor.clone()).into(),
@@ -807,8 +805,8 @@ mod grant_tagged_permissions {
 			let grantor: AccountId = create_account(1);
 			let grantee: AccountId = create_account(2);
 
-			let tags = BoundedVec::try_from(vec![bounded_string("tag-1"), bounded_string("tag-2")])
-				.unwrap();
+			let tags =
+				BoundedVec::truncate_from(vec![bounded_string("tag-1"), bounded_string("tag-2")]);
 
 			assert_noop!(
 				SyloDataPermissions::grant_tagged_permissions(
@@ -848,8 +846,8 @@ mod revoke_tagged_permission {
 			let grantor: AccountId = create_account(1);
 			let grantee: AccountId = create_account(2);
 
-			let tags = BoundedVec::try_from(vec![bounded_string("tag-1"), bounded_string("tag-2")])
-				.unwrap();
+			let tags =
+				BoundedVec::truncate_from(vec![bounded_string("tag-1"), bounded_string("tag-2")]);
 
 			let permission = DataPermission::MODIFY;
 			let expiry = Some(2000);
@@ -889,8 +887,8 @@ mod revoke_tagged_permission {
 			let grantor: AccountId = create_account(1);
 			let grantee: AccountId = create_account(2);
 
-			let tags = BoundedVec::try_from(vec![bounded_string("tag-1"), bounded_string("tag-2")])
-				.unwrap();
+			let tags =
+				BoundedVec::truncate_from(vec![bounded_string("tag-1"), bounded_string("tag-2")]);
 
 			let permission = DataPermission::MODIFY;
 			let expiry = Some(2000);
@@ -944,8 +942,8 @@ mod revoke_tagged_permission {
 			let grantor: AccountId = create_account(1);
 			let grantee: AccountId = create_account(2);
 
-			let tags = BoundedVec::try_from(vec![bounded_string("tag-1"), bounded_string("tag-2")])
-				.unwrap();
+			let tags =
+				BoundedVec::truncate_from(vec![bounded_string("tag-1"), bounded_string("tag-2")]);
 
 			assert_ok!(SyloDataPermissions::grant_tagged_permissions(
 				RawOrigin::Signed(grantor.clone()).into(),

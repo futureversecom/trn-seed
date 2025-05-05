@@ -61,6 +61,11 @@ pub mod pallet {
 
 		type SyloDataPermissionsProvider: SyloDataPermissionsProvider<
 			AccountId = Self::AccountId,
+			BlockNumber = BlockNumberFor<Self>,
+			MaxResolvers = Self::MaxResolvers,
+			MaxServiceEndpoints = Self::MaxServiceEndpoints,
+			MaxTags = Self::MaxTags,
+			MaxEntries = Self::MaxEntries,
 			StringLimit = Self::StringLimit,
 		>;
 
@@ -388,22 +393,23 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			ensure!(
-				who == data_author
-					|| T::SyloDataPermissionsProvider::has_permission(
-						&data_author,
-						&data_id,
-						&who,
-						DataPermission::MODIFY
-					),
-				Error::<T>::MissingModifyPermission
-			);
-
 			<ValidationRecords<T>>::try_mutate(
 				&data_author,
 				&data_id,
 				|record| -> DispatchResult {
 					let record = record.as_mut().ok_or(Error::<T>::NoValidationRecord)?;
+
+					ensure!(
+						who == data_author
+							|| T::SyloDataPermissionsProvider::has_permission(
+								&data_author,
+								&data_id,
+								record,
+								&who,
+								DataPermission::MODIFY
+							),
+						Error::<T>::MissingModifyPermission
+					);
 
 					record.entries.force_push(ValidationEntry {
 						checksum,
@@ -570,7 +576,7 @@ impl<T: Config> SyloDataVerificationProvider for Pallet<T> {
 		),
 		Self::MaxResolvers,
 	> {
-		BoundedVec::try_from(
+		BoundedVec::truncate_from(
 			record
 				.resolvers
 				.iter()
@@ -591,6 +597,5 @@ impl<T: Config> SyloDataVerificationProvider for Pallet<T> {
 				})
 				.collect::<Vec<_>>(),
 		)
-		.unwrap() // safe to unwrap here
 	}
 }

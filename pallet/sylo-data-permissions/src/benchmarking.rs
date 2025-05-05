@@ -78,7 +78,7 @@ benchmarks! {
 		let data_id = setup_validation_record::<T>(alice.clone(), BoundedVec::new());
 
 		let data_id: Vec<u8> = data_id.into();
-		let data_id = BoundedVec::try_from(data_id).unwrap();
+		let data_id = BoundedVec::truncate_from(data_id);
 
 		let mut data_ids = BoundedVec::new();
 		for _ in 0..p {
@@ -100,11 +100,11 @@ benchmarks! {
 		let data_id = setup_validation_record::<T>(alice.clone(), BoundedVec::new());
 
 		let data_id: Vec<u8> = data_id.into();
-		let data_id = BoundedVec::try_from(data_id).unwrap();
+		let data_id = BoundedVec::truncate_from(data_id);
 
-		let data_ids = BoundedVec::<_, <T as pallet::Config>::MaxPermissions>::try_from(
+		let data_ids = BoundedVec::<_, <T as pallet::Config>::MaxPermissions>::truncate_from(
 			vec![data_id.clone()]
-		).unwrap();
+		);
 
 		assert_ok!(SyloDataPermissions::<T>::grant_data_permissions(
 			RawOrigin::Signed(alice.clone()).into(),
@@ -173,7 +173,7 @@ benchmarks! {
 		let permission_record_id = setup_validation_record::<T>(alice.clone(), BoundedVec::new());
 
 		let permission_record_id: Vec<u8> = permission_record_id.into();
-		let permission_record_id = BoundedVec::try_from(permission_record_id).unwrap();
+		let permission_record_id = BoundedVec::truncate_from(permission_record_id);
 
 	}: _(origin::<T>(&alice), bob.clone(), permission_record_id.clone())
 	verify {
@@ -189,7 +189,7 @@ benchmarks! {
 		let permission_record_id = setup_validation_record::<T>(alice.clone(), BoundedVec::new());
 
 		let permission_record_id: Vec<u8> = permission_record_id.into();
-		let permission_record_id = BoundedVec::try_from(permission_record_id).unwrap();
+		let permission_record_id = BoundedVec::truncate_from(permission_record_id);
 
 		assert_ok!(SyloDataPermissions::<T>::grant_permission_reference(
 			RawOrigin::Signed(alice.clone()).into(),

@@ -31,8 +31,7 @@ fn create_and_register_resolver(
 	let controller: AccountId = create_account(1);
 
 	let service_endpoints =
-		BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::try_from(service_endpoints)
-			.unwrap();
+		BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::truncate_from(service_endpoints);
 
 	assert_ok!(SyloDataVerification::register_resolver(
 		RawOrigin::Signed(controller.clone()).into(),
@@ -263,7 +262,7 @@ mod resolver_update {
 			let identifier = bounded_string("test-resolver");
 
 			let service_endpoints =
-				BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::try_from(vec![]).unwrap();
+				BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::truncate_from(vec![]);
 
 			assert_noop!(
 				SyloDataVerification::update_resolver(
@@ -748,7 +747,7 @@ mod add_validation_record_entry {
 				RawOrigin::Signed(alice.clone()).into(),
 				alice.clone(),
 				bob.clone(),
-				BoundedVec::try_from(vec![data_id.clone()]).unwrap(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
 				DataPermission::MODIFY,
 				None,
 				false

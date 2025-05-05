@@ -650,7 +650,10 @@ impl pallet_sylo_data_permissions::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SyloDataVerificationProvider = pallet_sylo_data_verification::Pallet<Runtime>;
 	type MaxPermissions = MaxPermissions;
+	type MaxResolvers = MaxResolvers;
 	type MaxTags = MaxTags;
+	type MaxEntries = MaxEntries;
+	type MaxServiceEndpoints = MaxServiceEndpoints;
 	type MaxPermissionRecords = MaxPermissionRecords;
 	type StringLimit = SyloStringLimit;
 	type WeightInfo = weights::pallet_sylo_data_permissions::WeightInfo<Runtime>;

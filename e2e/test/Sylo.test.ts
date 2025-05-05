@@ -493,7 +493,7 @@ describe("Sylo Gas Costs", () => {
   });
 });
 
-describe("Sylo RPC", () => {
+describe.only("Sylo RPC", () => {
   let node: NodeProcess;
   let api: ApiPromise;
   let keyring: Keyring;
@@ -654,6 +654,8 @@ describe("Sylo RPC", () => {
         permission_reference: null,
       },
     });
+
+    console.log(user.address, alith.address);
   });
 
   it("getPermissions can query for multiple data ids", async () => {

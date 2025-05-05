@@ -72,6 +72,11 @@ pub mod pallet {
 		/// Provides functionality to retrieve data validation records
 		type SyloDataVerificationProvider: SyloDataVerificationProvider<
 			AccountId = Self::AccountId,
+			BlockNumber = BlockNumberFor<Self>,
+			MaxResolvers = Self::MaxResolvers,
+			MaxServiceEndpoints = Self::MaxServiceEndpoints,
+			MaxTags = Self::MaxTags,
+			MaxEntries = Self::MaxEntries,
 			StringLimit = Self::StringLimit,
 		>;
 
@@ -83,6 +88,18 @@ pub mod pallet {
 		/// record
 		#[pallet::constant]
 		type MaxTags: Get<u32>;
+
+		/// The maximim number of resolvers in a validation record.
+		#[pallet::constant]
+		type MaxResolvers: Get<u32>;
+
+		/// The maximum number of entries in a validation record.
+		#[pallet::constant]
+		type MaxEntries: Get<u32>;
+
+		/// The maximum number of service endpoints for a registered resolver.
+		#[pallet::constant]
+		type MaxServiceEndpoints: Get<u32>;
 
 		/// The maximum number of tagged permission records that can be granted
 		/// to an account
@@ -266,11 +283,9 @@ pub mod pallet {
 
 				let data_id = data_id.clone();
 
-				ensure!(
+				let validation_record =
 					T::SyloDataVerificationProvider::get_validation_record(&data_author, &data_id)
-						.is_some(),
-					Error::<T>::DataRecordDoesNotExist
-				);
+						.ok_or(Error::<T>::DataRecordDoesNotExist)?;
 
 				// if this permission is being granted by an account other than the
 				// data author, then ensure the account has been granted the DISTRIBUTE
@@ -280,6 +295,7 @@ pub mod pallet {
 						Self::has_permission(
 							&data_author,
 							&data_id,
+							&validation_record,
 							&who,
 							DataPermission::DISTRIBUTE
 						),
@@ -539,11 +555,24 @@ pub mod pallet {
 
 impl<T: Config> SyloDataPermissionsProvider for Pallet<T> {
 	type AccountId = T::AccountId;
+	type BlockNumber = BlockNumberFor<T>;
+	type MaxResolvers = T::MaxResolvers;
+	type MaxTags = T::MaxTags;
+	type MaxEntries = T::MaxEntries;
+	type MaxServiceEndpoints = T::MaxServiceEndpoints;
 	type StringLimit = T::StringLimit;
 
 	fn has_permission(
 		data_author: &T::AccountId,
 		data_id: &DataId<T::StringLimit>,
+		validation_record: &ValidationRecord<
+			Self::AccountId,
+			Self::BlockNumber,
+			Self::MaxResolvers,
+			Self::MaxTags,
+			Self::MaxEntries,
+			Self::StringLimit,
+		>,
 		grantee: &T::AccountId,
 		permission: DataPermission,
 	) -> bool {
@@ -557,47 +586,39 @@ impl<T: Config> SyloDataPermissionsProvider for Pallet<T> {
 		let permissions = <PermissionRecords<T>>::get((data_author, grantee, data_id));
 
 		// try find a direct permission that is valid
-		let has_direct_permission = permissions
-			.iter()
-			.find(|(_, record)| {
-				// check for expiry
-				if let Some(expiry) = record.expiry {
-					if expiry < block {
-						return false;
-					}
+		let has_direct_permission = permissions.iter().any(|(_, record)| {
+			// check for expiry
+			if let Some(expiry) = record.expiry {
+				if expiry < block {
+					return false;
 				}
+			}
 
-				return is_sufficient_permission(record.permission);
-			})
-			.is_some();
+			return is_sufficient_permission(record.permission);
+		});
 
 		if has_direct_permission {
 			return true;
 		}
 
 		// check for tagged permissions
-		if let Some(verification_record) =
-			T::SyloDataVerificationProvider::get_validation_record(&data_author, &data_id)
-		{
-			let tagged_permissions = <TaggedPermissionRecords<T>>::get(data_author, grantee);
+		let tagged_permissions = <TaggedPermissionRecords<T>>::get(data_author, grantee);
 
-			return tagged_permissions.iter().any(|(_, record)| {
-				// check for expiry
-				if let Some(expiry) = record.expiry {
-					if expiry < block {
-						return false;
-					}
+		tagged_permissions.iter().any(|(_, record)| {
+			// check for expiry
+			if let Some(expiry) = record.expiry {
+				if expiry < block {
+					return false;
 				}
+			}
 
-				// check if any of the tags in the permission record
-				// matches any of the tags in data record
-				return record.tags.iter().any(|permission_tag| {
-					verification_record.tags.iter().any(|record_tag| permission_tag == record_tag)
-				}) && is_sufficient_permission(record.permission);
-			});
-		}
-
-		false
+			// check if any of the tags in the permission record
+			// matches any of the tags in data record
+			return is_sufficient_permission(record.permission)
+				&& record.tags.iter().any(|permission_tag| {
+					validation_record.tags.iter().any(|record_tag| permission_tag == record_tag)
+				});
+		})
 	}
 }
 

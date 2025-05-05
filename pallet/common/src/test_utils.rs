@@ -757,7 +757,10 @@ macro_rules! impl_pallet_sylo_configs {
 			type RuntimeEvent = RuntimeEvent;
 			type SyloDataVerificationProvider = SyloDataVerification;
 			type MaxPermissions = MaxPermissions;
+			type MaxResolvers = MaxResolvers;
 			type MaxTags = MaxTags;
+			type MaxEntries = MaxEntries;
+			type MaxServiceEndpoints = MaxServiceEndpoints;
 			type MaxPermissionRecords = MaxPermissionRecords;
 			type StringLimit = StringLimit;
 			type WeightInfo = ();

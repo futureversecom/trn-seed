@@ -152,11 +152,24 @@ pub enum DataPermission {
 
 pub trait SyloDataPermissionsProvider {
 	type AccountId: Debug + PartialEq + Clone;
+	type BlockNumber: Debug + PartialEq + Clone;
+	type MaxResolvers: Get<u32>;
+	type MaxTags: Get<u32>;
+	type MaxEntries: Get<u32>;
+	type MaxServiceEndpoints: Get<u32>;
 	type StringLimit: Get<u32>;
 
 	fn has_permission(
 		data_author: &Self::AccountId,
 		data_id: &DataId<Self::StringLimit>,
+		validation_record: &ValidationRecord<
+			Self::AccountId,
+			Self::BlockNumber,
+			Self::MaxResolvers,
+			Self::MaxTags,
+			Self::MaxEntries,
+			Self::StringLimit,
+		>,
 		grantee: &Self::AccountId,
 		permission: DataPermission,
 	) -> bool;

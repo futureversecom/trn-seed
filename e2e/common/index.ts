@@ -180,7 +180,7 @@ export const rpcs = {
     },
   },
   syloDataPermissions: {
-    get_permissions: {
+    getPermissions: {
       description: "Get all permissions granted to a grantee by a data author for a given set of data ids",
       params: [
         {
