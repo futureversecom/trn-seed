@@ -39,7 +39,7 @@ fn prepare_test() -> TestData {
 	let metadata_scheme = MetadataScheme::try_from(
 		b"ethereum://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".as_slice(),
 	)
-		.expect("Failed to create metadata scheme");
+	.expect("Failed to create metadata scheme");
 
 	let coll_id = Nft::do_create_collection(
 		coll_owner,
@@ -52,7 +52,7 @@ fn prepare_test() -> TestData {
 		OriginChain::Root,
 		Default::default(),
 	)
-		.expect("Failed to create collection");
+	.expect("Failed to create collection");
 
 	let origin = RawOrigin::Signed(alice).into();
 	let count = 10u32;
