@@ -14,7 +14,10 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use mock::{RuntimeEvent as MockEvent, SyloDataPermissions, SyloDataVerification, System, Test};
+use mock::{
+	PermissionRemovalDelay, RuntimeEvent as MockEvent, SyloDataPermissions, SyloDataVerification,
+	System, Test,
+};
 use seed_pallet_common::test_prelude::*;
 
 fn bounded_string(str: &str) -> BoundedVec<u8, <Test as Config>::StringLimit> {
@@ -1098,5 +1101,82 @@ mod revoke_permission_reference {
 				Error::<Test>::PermissionNotFound
 			);
 		})
+	}
+}
+
+mod expired_permission_removals {
+	use super::*;
+
+	#[test]
+	fn expired_permissions_are_removed() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+
+			let data_id = create_validation_record(grantor.clone(), "data-id");
+
+			let permission = DataPermission::VIEW;
+			let expiry = 100;
+			let irrevocable = false;
+
+			assert_ok!(SyloDataPermissions::grant_data_permissions(
+				RawOrigin::Signed(grantor.clone()).into(),
+				grantor.clone(),
+				grantee.clone(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
+				permission,
+				Some(expiry),
+				irrevocable
+			));
+
+			SyloDataPermissions::on_initialize(expiry + (PermissionRemovalDelay::get() as u64));
+
+			assert!(PermissionRecords::<Test>::get((&grantor, &grantee, &data_id)).is_empty());
+
+			System::assert_last_event(MockEvent::SyloDataPermissions(
+				crate::Event::ExpiredDataPermissionRemoved {
+					data_author: grantor.clone(),
+					grantee: grantee.clone(),
+					data_id: data_id.to_vec(),
+					permission_id: 0,
+				},
+			));
+		});
+	}
+
+	#[test]
+	fn expired_tagged_permissions_are_removed() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+
+			let tags =
+				BoundedVec::truncate_from(vec![bounded_string("tag-1"), bounded_string("tag-2")]);
+
+			let permission = DataPermission::MODIFY;
+			let expiry = 100;
+			let irrevocable = false;
+
+			assert_ok!(SyloDataPermissions::grant_tagged_permissions(
+				RawOrigin::Signed(grantor.clone()).into(),
+				grantee.clone(),
+				permission,
+				tags.clone(),
+				Some(expiry),
+				irrevocable
+			));
+
+			SyloDataPermissions::on_initialize(expiry + (PermissionRemovalDelay::get() as u64));
+
+			assert!(TaggedPermissionRecords::<Test>::get(&grantor, &grantee).is_empty());
+
+			System::assert_last_event(MockEvent::SyloDataPermissions(
+				crate::Event::ExpiredTaggedPermissionRemoved {
+					data_author: grantor.clone(),
+					grantee: grantee.clone(),
+					permission_id: 0,
+				},
+			));
+		});
 	}
 }

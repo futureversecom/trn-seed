@@ -20,6 +20,7 @@ use super::*;
 use crate::Pallet as SyloDataPermissions;
 
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
+use frame_support::sp_runtime::Saturating;
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
 use pallet_sylo_data_verification::Pallet as SyloDataVerification;
@@ -204,6 +205,57 @@ benchmarks! {
 			None,
 		);
 	}
+
+	on_initialize {
+		let p in 1..T::MaxExpiringPermissions::get();
+		let q in 1..T::MaxExpiringPermissions::get();
+
+		let alice = account::<T>("Alice");
+		let bob = account::<T>("Bob");
+
+		let data_id = setup_validation_record::<T>(alice.clone(), BoundedVec::new());
+
+		let data_id: Vec<u8> = data_id.into();
+		let data_id = BoundedVec::truncate_from(data_id);
+
+		let data_ids = BoundedVec::<_, <T as pallet::Config>::MaxPermissions>::truncate_from(
+			vec![data_id.clone()]
+		);
+
+		let expiry = <frame_system::Pallet<T>>::block_number().saturating_add(1u32.into());
+
+		for _ in 0..p {
+			assert_ok!(SyloDataPermissions::<T>::grant_data_permissions(
+				RawOrigin::Signed(alice.clone()).into(),
+				alice.clone(),
+				bob.clone(),
+				data_ids.clone(),
+				DataPermission::VIEW,
+				Some(expiry),
+				false
+			));
+		}
+
+		let tags = BoundedVec::new();
+		for _ in 0..p {
+			assert_ok!(SyloDataPermissions::<T>::grant_tagged_permissions(
+				RawOrigin::Signed(alice.clone()).into(),
+				bob.clone(),
+				DataPermission::VIEW,
+				tags.clone(),
+				Some(expiry),
+				false
+			));
+		}
+
+		let block = expiry + T::PermissionRemovalDelay::get().into();
+
+	}:  {SyloDataPermissions::<T>::on_initialize(block.into());}
+	verify {
+		assert!(PermissionRecords::<T>::get((&alice, &bob, &data_id)).is_empty());
+		assert!(TaggedPermissionRecords::<T>::get(&alice, &bob).is_empty());
+	}
+
 }
 
 impl_benchmark_test_suite!(

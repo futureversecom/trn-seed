@@ -643,6 +643,8 @@ impl pallet_sylo_data_verification::Config for Runtime {
 parameter_types! {
 	pub const MaxPermissions: u32 = 100;
 	pub const MaxPermissionRecords: u32 = 100;
+	pub const MaxExpiringPermissions: u32 = 10;
+	pub const PermissionRemovalDelay: u32 = 648000; // 30 days
 }
 
 impl pallet_sylo_data_permissions::Config for Runtime {
@@ -655,6 +657,8 @@ impl pallet_sylo_data_permissions::Config for Runtime {
 	type MaxEntries = MaxEntries;
 	type MaxServiceEndpoints = MaxServiceEndpoints;
 	type MaxPermissionRecords = MaxPermissionRecords;
+	type MaxExpiringPermissions = MaxExpiringPermissions;
+	type PermissionRemovalDelay = PermissionRemovalDelay;
 	type StringLimit = SyloStringLimit;
 	type WeightInfo = weights::pallet_sylo_data_permissions::WeightInfo<Runtime>;
 }

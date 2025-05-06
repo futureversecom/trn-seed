@@ -739,6 +739,8 @@ macro_rules! impl_pallet_sylo_configs {
 
 			pub const MaxPermissions: u32 = 100;
 			pub const MaxPermissionRecords: u32 = 100;
+			pub const MaxExpiringPermissions: u32 = 10;
+			pub const PermissionRemovalDelay: u32 = 5;
 		}
 		impl pallet_sylo_data_verification::Config for Test {
 			type RuntimeCall = RuntimeCall;
@@ -762,7 +764,9 @@ macro_rules! impl_pallet_sylo_configs {
 			type MaxEntries = MaxEntries;
 			type MaxServiceEndpoints = MaxServiceEndpoints;
 			type MaxPermissionRecords = MaxPermissionRecords;
+			type MaxExpiringPermissions = MaxExpiringPermissions;
 			type StringLimit = StringLimit;
+			type PermissionRemovalDelay = PermissionRemovalDelay;
 			type WeightInfo = ();
 		}
 	};

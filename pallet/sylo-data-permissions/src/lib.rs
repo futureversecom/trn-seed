@@ -84,6 +84,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxPermissions: Get<u32>;
 
+		/// Limits the number of permissions that can expire on the same block
+		#[pallet::constant]
+		type MaxExpiringPermissions: Get<u32>;
+
 		/// The maximum number of tags that can be used in a tagged permission
 		/// record
 		#[pallet::constant]
@@ -109,6 +113,11 @@ pub mod pallet {
 		/// The max length used for data ids
 		#[pallet::constant]
 		type StringLimit: Get<u32>;
+
+		/// The number of blocks an expired permission will persist on-chain
+		/// before being automatically removed
+		#[pallet::constant]
+		type PermissionRemovalDelay: Get<u32>;
 	}
 
 	#[pallet::storage]
@@ -131,6 +140,18 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
+	pub type ExpiringPermissionRecords<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		BlockNumberFor<T>,
+		BoundedVec<
+			(T::AccountId, T::AccountId, DataId<T::StringLimit>, u32),
+			T::MaxExpiringPermissions,
+		>,
+		ValueQuery,
+	>;
+
+	#[pallet::storage]
 	pub type TaggedPermissionRecords<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -141,6 +162,15 @@ pub mod pallet {
 			(u32, TaggedPermissionRecord<BlockNumberFor<T>, T::MaxTags, T::StringLimit>),
 			T::MaxPermissionRecords,
 		>,
+		ValueQuery,
+	>;
+
+	#[pallet::storage]
+	pub type ExpiringTaggedPermissionRecords<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		BlockNumberFor<T>,
+		BoundedVec<(T::AccountId, T::AccountId, u32), T::MaxExpiringPermissions>,
 		ValueQuery,
 	>;
 
@@ -185,6 +215,9 @@ pub mod pallet {
 		MissingValidationRecord,
 		/// An existing permission reference has already been granted
 		PermissionReferenceAlreadyExists,
+		/// Exceeded the maximum number of permissions that can expired on the same
+		/// block
+		ExceededMaxExpiringPermissions,
 		/// String values in an RPC call, in either the inputs or outputs are
 		/// invalid
 		InvalidString,
@@ -238,6 +271,33 @@ pub mod pallet {
 			grantee: T::AccountId,
 			permission_record_id: Vec<u8>,
 		},
+		/// An expired permission has been automatically removed
+		ExpiredDataPermissionRemoved {
+			data_author: T::AccountId,
+			grantee: T::AccountId,
+			data_id: Vec<u8>,
+			permission_id: u32,
+		},
+		/// An expired tagged permission has been automatically removed
+		ExpiredTaggedPermissionRemoved {
+			data_author: T::AccountId,
+			grantee: T::AccountId,
+			permission_id: u32,
+		},
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// Check and close all expired listings
+		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+			let (removed_permissions, removed_tagged_permissions) =
+				Self::do_remove_expired_permissions(now);
+
+			<T as Config>::WeightInfo::on_initialize(
+				removed_permissions,
+				removed_tagged_permissions,
+			)
+		}
 	}
 
 	#[pallet::call]
@@ -320,6 +380,20 @@ pub mod pallet {
 				)?;
 
 				<NextPermissionRecordId<T>>::mutate(&data_author, |i| *i += 1);
+
+				if let Some(expiry) = expiry {
+					let remove_block = expiry + T::PermissionRemovalDelay::get().into();
+					<ExpiringPermissionRecords<T>>::try_mutate(remove_block, |records| {
+						records
+							.try_push((
+								data_author.clone(),
+								grantee.clone(),
+								data_id.clone(),
+								next_id,
+							))
+							.map_err(|_| Error::<T>::ExceededMaxExpiringPermissions)
+					})?;
+				}
 
 				Self::deposit_event(Event::DataPermissionGranted {
 					data_author: who.clone(),
@@ -743,6 +817,15 @@ impl<T: Config> Pallet<T> {
 
 		<NextPermissionRecordId<T>>::mutate(&who, |i| *i += 1);
 
+		if let Some(expiry) = expiry {
+			let remove_block = expiry + T::PermissionRemovalDelay::get().into();
+			<ExpiringTaggedPermissionRecords<T>>::try_mutate(remove_block, |records| {
+				records
+					.try_push((who.clone(), grantee.clone(), next_id))
+					.map_err(|_| Error::<T>::ExceededMaxExpiringPermissions)
+			})?;
+		}
+
 		Self::deposit_event(Event::TaggedDataPermissionsGranted {
 			grantor: who,
 			grantee,
@@ -753,5 +836,54 @@ impl<T: Config> Pallet<T> {
 		});
 
 		Ok(())
+	}
+
+	/// Removes all data permissions and tagged permissions that have expired.
+	/// Returns the number of permissions removed for both sets.
+	pub fn do_remove_expired_permissions(now: BlockNumberFor<T>) -> (u32, u32) {
+		let mut removed_permissions = 0;
+
+		<ExpiringPermissionRecords<T>>::mutate(now, |records| {
+			for (data_author, grantee, data_id, permission_id) in records.iter() {
+				<PermissionRecords<T>>::mutate((data_author, grantee, data_id), |records| {
+					records.retain(|(id, _)| *id != *permission_id)
+				});
+
+				Self::deposit_event(Event::ExpiredDataPermissionRemoved {
+					data_author: data_author.clone(),
+					grantee: grantee.clone(),
+					data_id: data_id.clone().to_vec(),
+					permission_id: *permission_id,
+				});
+
+				removed_permissions += 1;
+			}
+			records.clear();
+		});
+
+		let mut removed_tagged_permissions = 0;
+
+		<ExpiringTaggedPermissionRecords<T>>::mutate(now, |records| {
+			for (data_author, grantee, permission_id) in records.iter() {
+				<TaggedPermissionRecords<T>>::mutate(
+					data_author,
+					grantee,
+					|tagged_permission_records| {
+						tagged_permission_records.retain(|(id, _)| *id != *permission_id)
+					},
+				);
+
+				Self::deposit_event(Event::ExpiredTaggedPermissionRemoved {
+					data_author: data_author.clone(),
+					grantee: grantee.clone(),
+					permission_id: *permission_id,
+				});
+
+				removed_tagged_permissions += 1;
+			}
+			records.clear();
+		});
+
+		(removed_permissions, removed_tagged_permissions)
 	}
 }
