@@ -123,11 +123,10 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::erc721_approval())]
 		pub fn erc721_approval(
 			origin: OriginFor<T>,
-			caller: T::AccountId,
 			operator_account: T::AccountId,
 			token_id: TokenId,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			let caller = ensure_signed(origin)?;
 			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
 			// Check that origin owns NFT or is approved_for_all
 			let token_owner = match T::NFTExt::get_token_owner(&token_id) {
@@ -150,10 +149,10 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::erc721_remove_approval())]
 		pub fn erc721_remove_approval(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let caller = ensure_signed(origin)?;
 			ensure!(ERC721Approvals::<T>::contains_key(token_id), Error::<T>::ApprovalDoesntExist);
 			ensure!(
-				T::NFTExt::get_token_owner(&token_id) == Some(origin),
+				T::NFTExt::get_token_owner(&token_id) == Some(caller),
 				Error::<T>::NotTokenOwner
 			);
 			Self::remove_erc721_approval(&token_id);
@@ -167,12 +166,11 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::erc20_approval())]
 		pub fn erc20_approval(
 			origin: OriginFor<T>,
-			caller: T::AccountId,
 			spender: T::AccountId,
 			asset_id: AssetId,
 			amount: Balance,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			let caller = ensure_signed(origin)?;
 			ensure!(caller != spender, Error::<T>::CallerNotOperator);
 			ERC20Approvals::<T>::insert((&caller, asset_id), &spender, amount);
 			Ok(())
@@ -184,12 +182,11 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::erc20_update_approval())]
 		pub fn erc20_update_approval(
 			origin: OriginFor<T>,
-			caller: T::AccountId,
 			spender: T::AccountId,
 			asset_id: AssetId,
 			amount: Balance,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			let caller = ensure_signed(origin)?;
 			let new_approved_amount = ERC20Approvals::<T>::get((&caller, asset_id), &spender)
 				.ok_or(Error::<T>::CallerNotApproved)?
 				.checked_sub(amount)
@@ -208,12 +205,11 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::erc721_approval_for_all())]
 		pub fn erc721_approval_for_all(
 			origin: OriginFor<T>,
-			caller: T::AccountId,
 			operator_account: T::AccountId,
 			collection_uuid: CollectionUuid,
 			approved: bool,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			let caller = ensure_signed(origin)?;
 			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
 			if approved {
 				ERC721ApprovalsForAll::<T>::insert(
@@ -233,12 +229,11 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::erc1155_approval_for_all())]
 		pub fn erc1155_approval_for_all(
 			origin: OriginFor<T>,
-			caller: T::AccountId,
 			operator_account: T::AccountId,
 			collection_uuid: CollectionUuid,
 			approved: bool,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			let caller = ensure_signed(origin)?;
 			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
 			if approved {
 				ERC1155ApprovalsForAll::<T>::insert(
