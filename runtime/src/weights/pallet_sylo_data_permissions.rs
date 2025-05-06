@@ -4,7 +4,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2025-05-06, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `Johns-Macbook-Pro.local`, CPU: `<UNKNOWN>`
+//! HOSTNAME: `ip-172-31-102-147`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
 //! EXECUTION: ``, WASM-EXECUTION: `Compiled`, CHAIN: `Some("dev")`, DB CACHE: 1024
 
 // Executed Command:
@@ -43,11 +43,11 @@ impl<T: frame_system::Config> pallet_sylo_data_permissions::WeightInfo for Weigh
 		// Proof Size summary in bytes:
 		//  Measured:  `294`
 		//  Estimated: `23189`
-		// Minimum execution time: 26_000_000 picoseconds.
-		Weight::from_parts(20_577_179, 0)
+		// Minimum execution time: 68_609_000 picoseconds.
+		Weight::from_parts(68_921_000, 0)
 			.saturating_add(Weight::from_parts(0, 23189))
-			// Standard Error: 96_170
-			.saturating_add(Weight::from_parts(15_972_387, 0).saturating_mul(p.into()))
+			// Standard Error: 37_100
+			.saturating_add(Weight::from_parts(29_776_155, 0).saturating_mul(p.into()))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -57,8 +57,8 @@ impl<T: frame_system::Config> pallet_sylo_data_permissions::WeightInfo for Weigh
 		// Proof Size summary in bytes:
 		//  Measured:  `240`
 		//  Estimated: `7533`
-		// Minimum execution time: 21_000_000 picoseconds.
-		Weight::from_parts(23_000_000, 0)
+		// Minimum execution time: 53_468_000 picoseconds.
+		Weight::from_parts(54_450_000, 0)
 			.saturating_add(Weight::from_parts(0, 7533))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -68,13 +68,15 @@ impl<T: frame_system::Config> pallet_sylo_data_permissions::WeightInfo for Weigh
 	/// Storage: `SyloDataPermissions::TaggedPermissionRecords` (r:1 w:1)
 	/// Proof: `SyloDataPermissions::TaggedPermissionRecords` (`max_values`: None, `max_size`: Some(503658), added: 506133, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 100]`.
-	fn grant_tagged_permissions(_p: u32, ) -> Weight {
+	fn grant_tagged_permissions(p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `76`
 		//  Estimated: `507123`
-		// Minimum execution time: 18_000_000 picoseconds.
-		Weight::from_parts(22_915_934, 0)
+		// Minimum execution time: 46_385_000 picoseconds.
+		Weight::from_parts(55_220_481, 0)
 			.saturating_add(Weight::from_parts(0, 507123))
+			// Standard Error: 2_471
+			.saturating_add(Weight::from_parts(29_399, 0).saturating_mul(p.into()))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -84,8 +86,8 @@ impl<T: frame_system::Config> pallet_sylo_data_permissions::WeightInfo for Weigh
 		// Proof Size summary in bytes:
 		//  Measured:  `207`
 		//  Estimated: `507123`
-		// Minimum execution time: 17_000_000 picoseconds.
-		Weight::from_parts(18_000_000, 0)
+		// Minimum execution time: 43_526_000 picoseconds.
+		Weight::from_parts(44_356_000, 0)
 			.saturating_add(Weight::from_parts(0, 507123))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -98,8 +100,8 @@ impl<T: frame_system::Config> pallet_sylo_data_permissions::WeightInfo for Weigh
 		// Proof Size summary in bytes:
 		//  Measured:  `294`
 		//  Estimated: `23189`
-		// Minimum execution time: 20_000_000 picoseconds.
-		Weight::from_parts(20_000_000, 0)
+		// Minimum execution time: 51_488_000 picoseconds.
+		Weight::from_parts(53_060_000, 0)
 			.saturating_add(Weight::from_parts(0, 23189))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -110,8 +112,8 @@ impl<T: frame_system::Config> pallet_sylo_data_permissions::WeightInfo for Weigh
 		// Proof Size summary in bytes:
 		//  Measured:  `166`
 		//  Estimated: `4023`
-		// Minimum execution time: 15_000_000 picoseconds.
-		Weight::from_parts(16_000_000, 0)
+		// Minimum execution time: 40_800_000 picoseconds.
+		Weight::from_parts(41_047_000, 0)
 			.saturating_add(Weight::from_parts(0, 4023))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -130,11 +132,11 @@ impl<T: frame_system::Config> pallet_sylo_data_permissions::WeightInfo for Weigh
 		// Proof Size summary in bytes:
 		//  Measured:  `365 + p * (147 ±0)`
 		//  Estimated: `507123`
-		// Minimum execution time: 31_000_000 picoseconds.
-		Weight::from_parts(15_285_959, 0)
+		// Minimum execution time: 71_544_000 picoseconds.
+		Weight::from_parts(48_406_692, 0)
 			.saturating_add(Weight::from_parts(0, 507123))
-			// Standard Error: 27_553
-			.saturating_add(Weight::from_parts(17_112_767, 0).saturating_mul(p.into()))
+			// Standard Error: 13_505
+			.saturating_add(Weight::from_parts(30_228_749, 0).saturating_mul(p.into()))
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}

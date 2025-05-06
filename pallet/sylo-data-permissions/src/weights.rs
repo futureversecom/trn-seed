@@ -19,7 +19,7 @@
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2025-05-06, STEPS: `50`, REPEAT: 20, LOW RANGE: `[]`, HIGH RANGE: `[]`
-//! HOSTNAME: `Johns-Macbook-Pro.local`, CPU: `<UNKNOWN>`
+//! HOSTNAME: `ip-172-31-102-147`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
 //! EXECUTION: , WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
@@ -67,16 +67,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `SyloDataPermissions::PermissionRecords` (`max_values`: None, `max_size`: Some(4068), added: 6543, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 100]`.
 	fn grant_data_permissions(p: u32, ) -> Weight {
-		Weight::from_all(27_000_000)
-			// Standard Error: 105_003
-			.saturating_add(Weight::from_all(17_586_694_u64).saturating_mul(p as u64))
+		Weight::from_all(65_908_000)
+			// Standard Error: 39_196
+			.saturating_add(Weight::from_all(28_845_875_u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: `SyloDataPermissions::PermissionRecords` (r:1 w:1)
 	// Proof: `SyloDataPermissions::PermissionRecords` (`max_values`: None, `max_size`: Some(4068), added: 6543, mode: `MaxEncodedLen`)
 	fn revoke_data_permission() -> Weight {
-		Weight::from_all(21_000_000)
+		Weight::from_all(53_519_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -86,16 +86,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `SyloDataPermissions::TaggedPermissionRecords` (`max_values`: None, `max_size`: Some(503658), added: 506133, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 100]`.
 	fn grant_tagged_permissions(p: u32, ) -> Weight {
-		Weight::from_all(22_074_487)
-			// Standard Error: 1_480
-			.saturating_add(Weight::from_all(2_869_u64).saturating_mul(p as u64))
+		Weight::from_all(54_603_182)
+			// Standard Error: 2_367
+			.saturating_add(Weight::from_all(27_065_u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: `SyloDataPermissions::TaggedPermissionRecords` (r:1 w:1)
 	// Proof: `SyloDataPermissions::TaggedPermissionRecords` (`max_values`: None, `max_size`: Some(503658), added: 506133, mode: `MaxEncodedLen`)
 	fn revoke_tagged_permission() -> Weight {
-		Weight::from_all(17_000_000)
+		Weight::from_all(45_132_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -104,14 +104,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `SyloDataPermissions::PermissionReferences` (r:1 w:1)
 	// Proof: `SyloDataPermissions::PermissionReferences` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `MaxEncodedLen`)
 	fn grant_permission_reference() -> Weight {
-		Weight::from_all(20_000_000)
+		Weight::from_all(53_076_000)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `SyloDataPermissions::PermissionReferences` (r:1 w:1)
 	// Proof: `SyloDataPermissions::PermissionReferences` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `MaxEncodedLen`)
 	fn revoke_permission_reference() -> Weight {
-		Weight::from_all(16_000_000)
+		Weight::from_all(42_329_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -126,9 +126,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `p` is `[1, 10]`.
 	/// The range of component `q` is `[1, 10]`.
 	fn on_initialize(p: u32, _q: u32, ) -> Weight {
-		Weight::from_all(17_316_344)
-			// Standard Error: 29_797
-			.saturating_add(Weight::from_all(16_721_899_u64).saturating_mul(p as u64))
+		Weight::from_all(50_766_028)
+			// Standard Error: 38_752
+			.saturating_add(Weight::from_all(29_718_004_u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
@@ -144,16 +144,16 @@ impl WeightInfo for () {
 	// Proof: `SyloDataPermissions::PermissionRecords` (`max_values`: None, `max_size`: Some(4068), added: 6543, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 100]`.
 	fn grant_data_permissions(p: u32, ) -> Weight {
-		Weight::from_all(27_000_000)
-			// Standard Error: 105_003
-			.saturating_add(Weight::from_all(17_586_694_u64).saturating_mul(p as u64))
+		Weight::from_all(65_908_000)
+			// Standard Error: 39_196
+			.saturating_add(Weight::from_all(28_845_875_u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(3))
 			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: `SyloDataPermissions::PermissionRecords` (r:1 w:1)
 	// Proof: `SyloDataPermissions::PermissionRecords` (`max_values`: None, `max_size`: Some(4068), added: 6543, mode: `MaxEncodedLen`)
 	fn revoke_data_permission() -> Weight {
-		Weight::from_all(21_000_000)
+		Weight::from_all(53_519_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -163,16 +163,16 @@ impl WeightInfo for () {
 	// Proof: `SyloDataPermissions::TaggedPermissionRecords` (`max_values`: None, `max_size`: Some(503658), added: 506133, mode: `MaxEncodedLen`)
 	/// The range of component `p` is `[1, 100]`.
 	fn grant_tagged_permissions(p: u32, ) -> Weight {
-		Weight::from_all(22_074_487)
-			// Standard Error: 1_480
-			.saturating_add(Weight::from_all(2_869_u64).saturating_mul(p as u64))
+		Weight::from_all(54_603_182)
+			// Standard Error: 2_367
+			.saturating_add(Weight::from_all(27_065_u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: `SyloDataPermissions::TaggedPermissionRecords` (r:1 w:1)
 	// Proof: `SyloDataPermissions::TaggedPermissionRecords` (`max_values`: None, `max_size`: Some(503658), added: 506133, mode: `MaxEncodedLen`)
 	fn revoke_tagged_permission() -> Weight {
-		Weight::from_all(17_000_000)
+		Weight::from_all(45_132_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -181,14 +181,14 @@ impl WeightInfo for () {
 	// Storage: `SyloDataPermissions::PermissionReferences` (r:1 w:1)
 	// Proof: `SyloDataPermissions::PermissionReferences` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `MaxEncodedLen`)
 	fn grant_permission_reference() -> Weight {
-		Weight::from_all(20_000_000)
+		Weight::from_all(53_076_000)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `SyloDataPermissions::PermissionReferences` (r:1 w:1)
 	// Proof: `SyloDataPermissions::PermissionReferences` (`max_values`: None, `max_size`: Some(558), added: 3033, mode: `MaxEncodedLen`)
 	fn revoke_permission_reference() -> Weight {
-		Weight::from_all(16_000_000)
+		Weight::from_all(42_329_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -203,9 +203,9 @@ impl WeightInfo for () {
 	/// The range of component `p` is `[1, 10]`.
 	/// The range of component `q` is `[1, 10]`.
 	fn on_initialize(p: u32, _q: u32, ) -> Weight {
-		Weight::from_all(17_316_344)
-			// Standard Error: 29_797
-			.saturating_add(Weight::from_all(16_721_899_u64).saturating_mul(p as u64))
+		Weight::from_all(50_766_028)
+			// Standard Error: 38_752
+			.saturating_add(Weight::from_all(29_718_004_u64).saturating_mul(p as u64))
 			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(4))
 	}
