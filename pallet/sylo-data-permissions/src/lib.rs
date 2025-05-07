@@ -145,6 +145,7 @@ pub mod pallet {
 		Twox64Concat,
 		BlockNumberFor<T>,
 		BoundedVec<
+			// data author, grantee, data id, permission record id
 			(T::AccountId, T::AccountId, DataId<T::StringLimit>, u32),
 			T::MaxExpiringPermissions,
 		>,
@@ -170,7 +171,11 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		BlockNumberFor<T>,
-		BoundedVec<(T::AccountId, T::AccountId, u32), T::MaxExpiringPermissions>,
+		BoundedVec<
+			// data author, grantee, permission record id
+			(T::AccountId, T::AccountId, u32),
+			T::MaxExpiringPermissions,
+		>,
 		ValueQuery,
 	>;
 
@@ -843,46 +848,42 @@ impl<T: Config> Pallet<T> {
 	pub fn do_remove_expired_permissions(now: BlockNumberFor<T>) -> (u32, u32) {
 		let mut removed_permissions = 0;
 
-		<ExpiringPermissionRecords<T>>::mutate(now, |records| {
-			for (data_author, grantee, data_id, permission_id) in records.iter() {
-				<PermissionRecords<T>>::mutate((data_author, grantee, data_id), |records| {
-					records.retain(|(id, _)| *id != *permission_id)
-				});
+		let expiring_records = <ExpiringPermissionRecords<T>>::take(now);
+		for (data_author, grantee, data_id, permission_id) in expiring_records.into_iter() {
+			<PermissionRecords<T>>::mutate((&data_author, &grantee, &data_id), |records| {
+				records.retain(|(id, _)| *id != permission_id)
+			});
 
-				Self::deposit_event(Event::ExpiredDataPermissionRemoved {
-					data_author: data_author.clone(),
-					grantee: grantee.clone(),
-					data_id: data_id.clone().to_vec(),
-					permission_id: *permission_id,
-				});
+			Self::deposit_event(Event::ExpiredDataPermissionRemoved {
+				data_author,
+				grantee,
+				data_id: data_id.to_vec(),
+				permission_id,
+			});
 
-				removed_permissions += 1;
-			}
-			records.clear();
-		});
+			removed_permissions += 1;
+		}
 
 		let mut removed_tagged_permissions = 0;
 
-		<ExpiringTaggedPermissionRecords<T>>::mutate(now, |records| {
-			for (data_author, grantee, permission_id) in records.iter() {
-				<TaggedPermissionRecords<T>>::mutate(
-					data_author,
-					grantee,
-					|tagged_permission_records| {
-						tagged_permission_records.retain(|(id, _)| *id != *permission_id)
-					},
-				);
+		let expiring_tagged_records = <ExpiringTaggedPermissionRecords<T>>::take(now);
+		for (data_author, grantee, permission_id) in expiring_tagged_records.into_iter() {
+			<TaggedPermissionRecords<T>>::mutate(
+				&data_author,
+				&grantee,
+				|tagged_permission_records| {
+					tagged_permission_records.retain(|(id, _)| *id != permission_id)
+				},
+			);
 
-				Self::deposit_event(Event::ExpiredTaggedPermissionRemoved {
-					data_author: data_author.clone(),
-					grantee: grantee.clone(),
-					permission_id: *permission_id,
-				});
+			Self::deposit_event(Event::ExpiredTaggedPermissionRemoved {
+				data_author,
+				grantee,
+				permission_id,
+			});
 
-				removed_tagged_permissions += 1;
-			}
-			records.clear();
-		});
+			removed_tagged_permissions += 1;
+		}
 
 		(removed_permissions, removed_tagged_permissions)
 	}

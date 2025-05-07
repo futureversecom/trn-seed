@@ -1129,9 +1129,18 @@ mod expired_permission_removals {
 				irrevocable
 			));
 
-			SyloDataPermissions::on_initialize(expiry + (PermissionRemovalDelay::get() as u64));
+			let removal_block = expiry + (PermissionRemovalDelay::get() as u64);
+
+			assert_eq!(
+				ExpiringPermissionRecords::<Test>::get(removal_block).get(0),
+				Some(&(grantor, grantee, data_id.clone(), 0))
+			);
+
+			SyloDataPermissions::on_initialize(removal_block);
 
 			assert!(PermissionRecords::<Test>::get((&grantor, &grantee, &data_id)).is_empty());
+
+			assert!(ExpiringPermissionRecords::<Test>::get(removal_block).is_empty());
 
 			System::assert_last_event(MockEvent::SyloDataPermissions(
 				crate::Event::ExpiredDataPermissionRemoved {
@@ -1166,9 +1175,18 @@ mod expired_permission_removals {
 				irrevocable
 			));
 
+			let removal_block = expiry + (PermissionRemovalDelay::get() as u64);
+
+			assert_eq!(
+				ExpiringTaggedPermissionRecords::<Test>::get(removal_block).get(0),
+				Some(&(grantor, grantee, 0))
+			);
+
 			SyloDataPermissions::on_initialize(expiry + (PermissionRemovalDelay::get() as u64));
 
 			assert!(TaggedPermissionRecords::<Test>::get(&grantor, &grantee).is_empty());
+
+			assert!(ExpiringPermissionRecords::<Test>::get(removal_block).is_empty());
 
 			System::assert_last_event(MockEvent::SyloDataPermissions(
 				crate::Event::ExpiredTaggedPermissionRemoved {
