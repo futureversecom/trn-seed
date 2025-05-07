@@ -69,7 +69,7 @@ benchmarks! {
 
 	erc721_remove_approval {
 		let ( alice, _, token_id ) = build_collection::<T>();
-		assert_ok!(TokenApprovals::<T>::erc721_approval(RawOrigin::None.into(), alice.clone(), account::<T>("Operator_Account"), token_id.clone()));
+		assert_ok!(TokenApprovals::<T>::erc721_approval(origin::<T>(&alice).into(), account::<T>("Operator_Account"), token_id.clone()));
 	}: _(origin::<T>(&alice), token_id.clone())
 
 	erc20_approval {
@@ -81,7 +81,7 @@ benchmarks! {
 		let spender  = account::<T>("Spender");
 		let asset_id = 100;
 
-		assert_ok!(TokenApprovals::<T>::erc20_approval(RawOrigin::None.into(), alice.clone(), spender.clone(), asset_id, Balance::from(10u32)));
+		assert_ok!(TokenApprovals::<T>::erc20_approval(origin::<T>(&alice).into(), spender.clone(), asset_id, Balance::from(10u32)));
 	}: _(origin::<T>(&alice), spender, asset_id, Balance::from(2u32))
 
 	erc721_approval_for_all {
