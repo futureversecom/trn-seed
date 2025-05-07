@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use crate::{self as pallet_sylo_data_verification};
+use crate::{self as pallet_sylo_data_permissions};
 use seed_pallet_common::test_prelude::*;
 
 construct_runtime!(

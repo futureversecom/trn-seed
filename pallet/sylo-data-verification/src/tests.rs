@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use mock::{RuntimeEvent as MockEvent, SyloDataVerification, System, Test};
+use mock::{RuntimeEvent as MockEvent, SyloDataPermissions, SyloDataVerification, System, Test};
 use seed_pallet_common::test_prelude::*;
 
 fn create_and_register_resolver(
@@ -31,8 +31,7 @@ fn create_and_register_resolver(
 	let controller: AccountId = create_account(1);
 
 	let service_endpoints =
-		BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::try_from(service_endpoints)
-			.unwrap();
+		BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::truncate_from(service_endpoints);
 
 	assert_ok!(SyloDataVerification::register_resolver(
 		RawOrigin::Signed(controller.clone()).into(),
@@ -263,7 +262,7 @@ mod resolver_update {
 			let identifier = bounded_string("test-resolver");
 
 			let service_endpoints =
-				BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::try_from(vec![]).unwrap();
+				BoundedVec::<_, <Test as Config>::MaxServiceEndpoints>::truncate_from(vec![]);
 
 			assert_noop!(
 				SyloDataVerification::update_resolver(
@@ -639,6 +638,7 @@ mod add_validation_record_entry {
 
 				assert_ok!(SyloDataVerification::add_validation_record_entry(
 					RawOrigin::Signed(alice.clone()).into(),
+					alice.clone(),
 					data_id.clone(),
 					checksum.clone()
 				));
@@ -671,6 +671,7 @@ mod add_validation_record_entry {
 			assert_noop!(
 				SyloDataVerification::add_validation_record_entry(
 					RawOrigin::Signed(alice.clone()).into(),
+					alice.clone(),
 					data_id.clone(),
 					checksum.clone()
 				),
@@ -680,7 +681,7 @@ mod add_validation_record_entry {
 	}
 
 	#[test]
-	fn only_author_can_add_validation_entry() {
+	fn only_author_or_modifier_can_add_validation_entry() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let alice: AccountId = create_account(2);
 
@@ -707,10 +708,155 @@ mod add_validation_record_entry {
 			assert_noop!(
 				SyloDataVerification::add_validation_record_entry(
 					RawOrigin::Signed(bob.clone()).into(),
+					alice.clone(),
 					data_id,
 					checksum
 				),
-				Error::<Test>::NoValidationRecord
+				Error::<Test>::MissingModifyPermission
+			);
+		});
+	}
+
+	#[test]
+	fn add_validation_entry_as_modifier_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let alice: AccountId = create_account(2);
+
+			let (data_id, resolvers, data_type, tags, checksum, _) =
+				create_initial_validation_record(
+					alice,
+					"data_id",
+					vec![("method-1", "resolver-1")],
+					"data_type",
+					vec!["tag-1", "tag-2"],
+				);
+
+			assert_ok!(SyloDataVerification::create_validation_record(
+				RawOrigin::Signed(alice.clone()).into(),
+				data_id.clone(),
+				resolvers.clone(),
+				data_type.clone(),
+				tags.clone(),
+				checksum.clone()
+			));
+
+			let bob: AccountId = create_account(3);
+
+			// grant bob the MODIFY permission
+			assert_ok!(SyloDataPermissions::grant_data_permissions(
+				RawOrigin::Signed(alice.clone()).into(),
+				alice.clone(),
+				bob.clone(),
+				BoundedVec::truncate_from(vec![data_id.clone()]),
+				DataPermission::MODIFY,
+				None,
+				false
+			));
+
+			assert_ok!(SyloDataVerification::add_validation_record_entry(
+				RawOrigin::Signed(bob.clone()).into(),
+				alice.clone(),
+				data_id.clone(),
+				checksum.clone()
+			));
+		});
+	}
+
+	#[test]
+	fn add_validation_entry_as_modifier_via_tagged_permission_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let alice: AccountId = create_account(2);
+
+			let (data_id, resolvers, data_type, tags, checksum, _) =
+				create_initial_validation_record(
+					alice,
+					"data_id",
+					vec![("method-1", "resolver-1")],
+					"data_type",
+					vec!["tag-1", "tag-2"],
+				);
+
+			assert_ok!(SyloDataVerification::create_validation_record(
+				RawOrigin::Signed(alice.clone()).into(),
+				data_id.clone(),
+				resolvers.clone(),
+				data_type.clone(),
+				tags.clone(),
+				checksum.clone()
+			));
+
+			let bob: AccountId = create_account(3);
+
+			// grant bob the MODIFY permission using tags
+			assert_ok!(SyloDataPermissions::grant_tagged_permissions(
+				RawOrigin::Signed(alice.clone()).into(),
+				bob.clone(),
+				DataPermission::MODIFY,
+				tags.clone(),
+				None,
+				false
+			));
+
+			assert_ok!(SyloDataVerification::add_validation_record_entry(
+				RawOrigin::Signed(bob.clone()).into(),
+				alice.clone(),
+				data_id.clone(),
+				checksum.clone()
+			));
+		});
+	}
+
+	#[test]
+	fn modifier_must_have_modify_permission() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let alice: AccountId = create_account(2);
+
+			let (data_id, resolvers, data_type, tags, checksum, _) =
+				create_initial_validation_record(
+					alice,
+					"data_id",
+					vec![("method-1", "resolver-1")],
+					"data_type",
+					vec!["tag-1", "tag-2"],
+				);
+
+			assert_ok!(SyloDataVerification::create_validation_record(
+				RawOrigin::Signed(alice.clone()).into(),
+				data_id.clone(),
+				resolvers.clone(),
+				data_type.clone(),
+				tags.clone(),
+				checksum.clone()
+			));
+
+			let bob: AccountId = create_account(3);
+
+			// grant bob the VIEW and DISTRIBUTE permissions
+			assert_ok!(SyloDataPermissions::grant_tagged_permissions(
+				RawOrigin::Signed(alice.clone()).into(),
+				bob.clone(),
+				DataPermission::VIEW,
+				tags.clone(),
+				None,
+				false
+			));
+			assert_ok!(SyloDataPermissions::grant_tagged_permissions(
+				RawOrigin::Signed(alice.clone()).into(),
+				bob.clone(),
+				DataPermission::DISTRIBUTE,
+				tags.clone(),
+				None,
+				false
+			));
+
+			assert_noop!(
+				SyloDataVerification::add_validation_record_entry(
+					RawOrigin::Signed(bob.clone()).into(),
+					alice.clone(),
+					data_id,
+					checksum
+				),
+				Error::<Test>::MissingModifyPermission
 			);
 		});
 	}

@@ -39,6 +39,7 @@ pallet-dex = { workspace = true }
 pallet-assets-ext = { workspace = true }
 pallet-futurepass = { workspace = true }
 pallet-sylo-data-verification = { workspace = true }
+pallet-sylo-data-permissions = { workspace = true }
 pallet-xrpl = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-utility = { workspace = true }
@@ -56,6 +57,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-proxy/std",
 	"pallet-utility/std",
+	"pallet-sylo-data-permissions/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"seed-pallet-common/std",

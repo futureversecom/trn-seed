@@ -20,7 +20,6 @@
 use super::*;
 
 use crate::Pallet as Nft;
-use codec::Encode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;

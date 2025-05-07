@@ -5828,6 +5828,7 @@ dependencies = [
  "pallet-futurepass",
  "pallet-partner-attribution",
  "pallet-proxy",
+ "pallet-sylo-data-permissions",
  "pallet-sylo-data-verification",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -5861,6 +5862,7 @@ dependencies = [
  "pallet-futurepass",
  "pallet-partner-attribution",
  "pallet-proxy",
+ "pallet-sylo-data-permissions",
  "pallet-sylo-data-verification",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -6398,6 +6400,59 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-sylo-data-permissions"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-sylo-data-verification",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-sylo-data-permissions-rpc"
+version = "1.0.0"
+dependencies = [
+ "jsonrpsee",
+ "pallet-sylo-data-permissions",
+ "pallet-sylo-data-permissions-rpc-runtime-api",
+ "parity-scale-codec",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-sylo-data-permissions-rpc-runtime-api"
+version = "1.0.0"
+dependencies = [
+ "pallet-sylo-data-permissions",
+ "parity-scale-codec",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-sylo-data-verification"
 version = "0.0.1"
 dependencies = [
@@ -6408,6 +6463,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
+ "pallet-sylo-data-permissions",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
@@ -9038,6 +9094,7 @@ dependencies = [
  "pallet-maintenance-mode",
  "pallet-nft-rpc",
  "pallet-sft-rpc",
+ "pallet-sylo-data-permissions-rpc",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "sc-basic-authorship",
@@ -9087,6 +9144,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "seed-primitives",
+ "serde",
  "sp-core",
  "sp-runtime",
  "sp-std",
@@ -9205,6 +9263,8 @@ dependencies = [
  "pallet-sft-rpc-runtime-api",
  "pallet-staking",
  "pallet-sudo",
+ "pallet-sylo-data-permissions",
+ "pallet-sylo-data-permissions-rpc-runtime-api",
  "pallet-sylo-data-verification",
  "pallet-timestamp",
  "pallet-token-approvals",

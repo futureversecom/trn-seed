@@ -68,11 +68,12 @@ pub fn setup_resolver<T: Config>(
 
 pub fn setup_validation_record<T: Config>(
 	caller: T::AccountId,
+	tags: Option<BoundedVec<BoundedVec<u8, <T as Config>::StringLimit>, <T as Config>::MaxTags>>,
 ) -> BoundedVec<u8, <T as Config>::StringLimit> {
 	let data_id = bounded_string::<T>("data-id");
 	let resolvers = BoundedVec::new();
 	let data_type = bounded_string::<T>("data-type");
-	let tags = BoundedVec::new();
+	let tags = tags.unwrap_or(BoundedVec::new());
 	let checksum = H256::from_low_u64_be(123);
 
 	assert_ok!(Sylo::<T>::create_validation_record(
@@ -199,17 +200,29 @@ benchmarks! {
 
 	add_validation_record_entry {
 		let alice = account::<T>("Alice");
+		let bob = account::<T>("Bob");
 
-		let data_id = setup_validation_record::<T>(alice.clone());
+		let tags = BoundedVec::truncate_from(vec![bounded_string::<T>("tag")]);
+		let data_id = setup_validation_record::<T>(alice.clone(), Some(tags.clone()));
+
+		// add modify permission for bob via tagged permissions
+		assert_ok!(T::SyloDataPermissionsProvider::grant_tagged_permissions(
+			alice.clone(),
+			bob.clone(),
+			DataPermission::MODIFY,
+			tags.clone(),
+			None,
+			false,
+		));
 
 		let checksum = H256::from_low_u64_be(123);
-	}: _(origin::<T>(&alice), data_id.clone(), checksum.clone())
+	}: _(origin::<T>(&bob), alice.clone(), data_id.clone(), checksum.clone())
 	verify {
 		assert_eq!(ValidationRecords::<T>::get(&alice, &data_id), Some(ValidationRecord {
 			author: alice,
 			resolvers: BoundedVec::new(),
 			data_type: bounded_string::<T>("data-type"),
-			tags: BoundedVec::new(),
+			tags,
 			entries: BoundedVec::truncate_from(vec![ValidationEntry {
 				checksum,
 				block: 0_u32.into(),
@@ -226,7 +239,7 @@ benchmarks! {
 
 		let alice = account::<T>("Alice");
 
-		let data_id = setup_validation_record::<T>(alice.clone());
+		let data_id = setup_validation_record::<T>(alice.clone(), None);
 
 		let mut resolvers = BoundedVec::new();
 		for i in 1 .. q {
@@ -265,7 +278,7 @@ benchmarks! {
 	delete_validation_record {
 		let alice = account::<T>("Alice");
 
-		let data_id = setup_validation_record::<T>(alice.clone());
+		let data_id = setup_validation_record::<T>(alice.clone(), None);
 	}: _(origin::<T>(&alice), data_id.clone())
 	verify {
 		assert_eq!(ValidationRecords::<T>::get(&alice, &data_id), None);
