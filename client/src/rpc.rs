@@ -194,6 +194,7 @@ where
 	C::Api: pallet_nft_rpc::NftRuntimeApi<Block, AccountId, Runtime>,
 	C::Api: pallet_sft_rpc::SftRuntimeApi<Block, Runtime>,
 	C::Api: pallet_assets_ext_rpc::AssetsExtRuntimeApi<Block, AccountId>,
+	C::Api: pallet_sylo_data_permissions_rpc::SyloDataPermissionsRuntimeApi<Block, AccountId>,
 	P: TransactionPool<Block = Block> + 'static,
 	SC: SelectChain<Block> + 'static,
 {
@@ -205,6 +206,7 @@ where
 	use pallet_dex_rpc::{Dex, DexApiServer};
 	use pallet_nft_rpc::{Nft, NftApiServer};
 	use pallet_sft_rpc::{Sft, SftApiServer};
+	use pallet_sylo_data_permissions_rpc::{SyloDataPermissions, SyloDataPermissionsApiServer};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use sc_consensus_babe_rpc::{Babe, BabeApiServer};
 	use sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
@@ -298,6 +300,7 @@ where
 	io.merge(Nft::new(client.clone()).into_rpc())?;
 	io.merge(Sft::new(client.clone()).into_rpc())?;
 	io.merge(AssetsExt::new(client.clone()).into_rpc())?;
+	io.merge(SyloDataPermissions::new(client.clone()).into_rpc())?;
 
 	// Ethereum compatible RPCs
 	io.merge(

@@ -1,5 +1,4 @@
-# Assets-ext pallet supported RPC
-
+# Sylo Data Permissions pallet supported RPC
 
 ## Supported RPCs
 

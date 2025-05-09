@@ -179,6 +179,26 @@ export const rpcs = {
       type: "CollectionDetail",
     },
   },
+  syloDataPermissions: {
+    getPermissions: {
+      description: "Get all permissions granted to a grantee by a data author for a given set of data ids",
+      params: [
+        {
+          name: "dataAuthor",
+          type: "AccountId",
+        },
+        {
+          name: "grantee",
+          type: "AccountId",
+        },
+        {
+          name: "dataIds",
+          type: "Vec<Text>",
+        },
+      ],
+      type: "Json",
+    },
+  },
 };
 export const typedefs = {
   AccountId: "EthereumAccountId",
@@ -187,6 +207,7 @@ export const typedefs = {
   Address: "AccountId",
   LookupSource: "AccountId",
   Lookup0: "AccountId",
+  DataPermission: "Text",
   EthereumSignature: {
     r: "H256",
     s: "H256",
