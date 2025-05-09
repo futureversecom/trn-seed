@@ -250,13 +250,12 @@ where
 		let spender: H160 = spender.into();
 		// Amount saturate if too high.
 		let amount: Balance = amount.saturated_into();
-
+		let caller = handle.context().caller;
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
-			None.into(),
+			Some(Runtime::AccountId::from(caller)).into(),
 			pallet_token_approvals::Call::<Runtime>::erc20_approval {
-				caller: handle.context().caller.into(),
 				spender: spender.into(),
 				asset_id,
 				amount,
@@ -340,9 +339,8 @@ where
 			// will error if no approval exists or approval is of insufficient amount
 			RuntimeHelper::<Runtime>::try_dispatch(
 				handle,
-				None.into(),
+				Some(from.clone()).into(),
 				pallet_token_approvals::Call::<Runtime>::erc20_update_approval {
-					caller: from.clone(),
 					spender: caller,
 					asset_id,
 					amount,
