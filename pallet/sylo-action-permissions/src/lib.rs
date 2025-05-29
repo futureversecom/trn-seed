@@ -21,7 +21,7 @@ pub use pallet::*;
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo},
 	pallet_prelude::*,
-	traits::{Currency, InstanceFilter, IsSubType},
+	traits::IsSubType,
 };
 use frame_system::pallet_prelude::*;
 use sp_core::H160;
@@ -29,9 +29,10 @@ use sp_core::H160;
 pub mod types;
 pub use types::*;
 
-pub trait CreateProxyAccount<AccountId> {
-	fn create_proxy_account(grantor: &AccountId, grantee: &AccountId) -> AccountId;
-}
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -48,8 +49,6 @@ pub mod pallet {
 	where
 		<Self as frame_system::Config>::AccountId: From<H160>,
 	{
-		type Currency: Currency<Self::AccountId>;
-
 		/// The overarching call type.
 		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
@@ -58,18 +57,11 @@ pub mod pallet {
 			+ IsSubType<Call<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
 
-		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` filter.
-		/// The instance filter determines whether a given call may be proxied under this type.
-		///
-		/// IMPORTANT: `Default` must be provided and MUST BE the *most permissive* value.
-		type ProxyType: Parameter
-			+ Member
-			+ Ord
-			+ PartialOrd
-			+ InstanceFilter<<Self as Config>::RuntimeCall>
-			+ Default
-			+ MaxEncodedLen
-			+ Into<u8>;
+		/// The system event type
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// Interface to access weight values
+		// type WeightInfo: WeightInfo;
 
 		/// The maximum number of modules allowed in a dispatch permission.
 		#[pallet::constant]
@@ -93,6 +85,12 @@ pub mod pallet {
 		ActionPermissionRecord<T::ModuleLimit, BlockNumberFor<T>>, // Value
 		OptionQuery,
 	>;
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
+	pub enum Event<T: Config>
+	where
+		<T as frame_system::Config>::AccountId: From<H160>, {}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
@@ -122,7 +120,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(10_000)]
+		#[pallet::weight(1000)]
 		pub fn execute_action(
 			origin: OriginFor<T>,
 			grantor: T::AccountId,
