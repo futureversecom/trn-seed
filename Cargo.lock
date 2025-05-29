@@ -6400,6 +6400,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-sylo-action-permissions"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-sylo-data-permissions"
 version = "1.0.0"
 dependencies = [
@@ -12258,7 +12281,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde_json",
- "syn 1.0.109",
+ "syn 2.0.68",
 ]
 
 [[package]]
