@@ -42,6 +42,7 @@ construct_runtime!(
 		FeeControl: pallet_fee_control,
 		SyloDataVerification: pallet_sylo_data_verification,
 		SyloDataPermissions: pallet_sylo_data_permissions,
+		SyloActionPermissions: pallet_sylo_action_permissions,
 		Xrpl: pallet_xrpl,
 		Utility: pallet_utility,
 		Proxy: pallet_proxy,

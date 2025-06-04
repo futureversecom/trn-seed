@@ -31,8 +31,9 @@ pub enum Spender {
 	CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound, PartialEqNoBound, Eq,
 )]
 #[scale_info(skip_type_params(ModuleLimit))]
-pub struct DispatchPermission<ModuleLimit>
+pub struct DispatchPermission<BlockNumber, ModuleLimit>
 where
+	BlockNumber: Debug + PartialEq + Clone,
 	ModuleLimit: Get<u32>,
 {
 	// Whether the extrinsic will be paid from the grantor or grantee
@@ -45,6 +46,12 @@ where
 	// Optional list of modules (pallet + extrinsic name) that this dispatch
 	// permission is valid for. If None, then all extrinsics are allowed.
 	pub modules: Option<BoundedBTreeSet<u8, ModuleLimit>>,
+
+	// The block number this permission was established
+	pub block: BlockNumber,
+
+	// An optional expiry for this permission
+	pub expiry: Option<BlockNumber>,
 }
 
 // #[derive(Encode, Decode, TypeInfo, Debug, Clone, RuntimeDebugNoBound, PartialEqNoBound, Eq)]
@@ -52,16 +59,16 @@ where
 // 	Dispatch,
 // }
 
-#[derive(
-	CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound, PartialEqNoBound, Eq,
-)]
-#[scale_info(skip_type_params(ModuleLimit))]
-pub struct ActionPermissionRecord<ModuleLimit, BlockNumber>
-where
-	BlockNumber: Debug + PartialEq + Clone,
-	ModuleLimit: Get<u32>,
-{
-	pub permission: DispatchPermission<ModuleLimit>,
-	pub block: BlockNumber, // The block number this permission was established
-	pub expiry: Option<BlockNumber>, // An optional expiry value
-}
+// #[derive(
+// 	CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound, PartialEqNoBound, Eq,
+// )]
+// #[scale_info(skip_type_params(ModuleLimit))]
+// pub struct ActionPermissionRecord<ModuleLimit, BlockNumber>
+// where
+// 	BlockNumber: Debug + PartialEq + Clone,
+// 	ModuleLimit: Get<u32>,
+// {
+// 	pub permission: DispatchPermission<ModuleLimit>,
+// 	pub block: BlockNumber, // The block number this permission was established
+// 	pub expiry: Option<BlockNumber>, // An optional expiry value
+// }

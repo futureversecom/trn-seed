@@ -16,6 +16,10 @@ mod grant_action_permission {
 			assert_ok!(SyloActionPermissions::grant_action_permission(
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantee, // grantee
+				Spender::Grantee,
+				None,
+				None,
+				None,
 			));
 
 			// Verify permission exists
@@ -25,11 +29,11 @@ mod grant_action_permission {
 	}
 }
 
-mod execute_action {
+mod transact {
 	use super::*;
 
 	#[test]
-	fn test_execute_action_with_permission() {
+	fn test_transact_with_permission() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let grantor: AccountId = create_account(1);
 			let grantee: AccountId = create_account(2);
@@ -37,13 +41,17 @@ mod execute_action {
 			assert_ok!(SyloActionPermissions::grant_action_permission(
 				RawOrigin::Signed(grantor.clone()).into(),
 				grantee.clone(),
+				Spender::Grantee,
+				None,
+				None,
+				None,
 			));
 
 			// Execute action
 			let call: <Test as Config>::RuntimeCall =
 				frame_system::Call::remark { remark: vec![] }.into();
 
-			assert_ok!(SyloActionPermissions::execute_action(
+			assert_ok!(SyloActionPermissions::transact(
 				RawOrigin::Signed(grantee.clone()).into(),
 				grantor, // grantor
 				Box::new(call),
@@ -52,7 +60,7 @@ mod execute_action {
 	}
 
 	#[test]
-	fn test_execute_action_without_permission() {
+	fn test_transact_without_permission() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let grantor: AccountId = create_account(1);
 			let grantee: AccountId = create_account(2);
@@ -61,7 +69,7 @@ mod execute_action {
 			let call: <Test as Config>::RuntimeCall =
 				frame_system::Call::remark { remark: vec![] }.into();
 			assert_noop!(
-				SyloActionPermissions::execute_action(
+				SyloActionPermissions::transact(
 					RawOrigin::Signed(grantee.clone()).into(),
 					grantor, // grantor
 					Box::new(call),

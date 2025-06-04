@@ -110,6 +110,7 @@ pallet-doughnut = { workspace = true }
 pallet-maintenance-mode = { workspace = true }
 pallet-crowdsale = { workspace = true }
 pallet-migration = { workspace = true }
+pallet-sylo-action-permissions = { workspace = true }
 
 seed-pallet-common = { workspace = true }
 seed-primitives = { workspace = true }

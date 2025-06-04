@@ -16,6 +16,7 @@
 use crate::{Call::call_with_fee_preferences, *};
 use frame_support::traits::{fungibles::Inspect, IsSubType};
 use pallet_futurepass::ProxyProvider;
+use pallet_sylo_action_permissions::Spender;
 use pallet_transaction_payment::OnChargeTransaction;
 use precompile_utils::{Address, ErcIdConversion};
 use seed_primitives::{AccountId, AssetId, Balance};
@@ -33,6 +34,7 @@ where
 		+ pallet_futurepass::Config
 		+ pallet_sylo_data_verification::Config
 		+ pallet_sylo_data_permissions::Config
+		+ pallet_sylo_action_permissions::Config
 		+ pallet_partner_attribution::Config
 		+ pallet_proxy::Config
 		+ pallet_utility::Config
@@ -41,6 +43,7 @@ where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_action_permissions::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
@@ -48,6 +51,7 @@ where
 	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_action_permissions::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
@@ -89,6 +93,35 @@ where
 
 		// Attribute the fee to the partner if the caller is attributed to a partner
 		attribute_fee_to_partner::<T>(who, fee.into())?;
+
+		// if the call is an action permissions transact call, we need to determine
+		// if the spender should be the grantor or grantee
+		if let Some(grantor) = is_action_permission_execute_call::<T>(call) {
+			pallet_sylo_action_permissions::DispatchPermissions::<T>::try_mutate(
+				grantor,
+				who,
+				|maybe_permission| {
+					if let Some(permission) = maybe_permission {
+						if permission.spender == Spender::Grantor {
+							// set the spender as the grantor
+							who = &grantor;
+
+							// if the fee payer is the grantor, we should detract from
+							// the spending balance if it exists
+							if let Some(spending_balance) = permission.spending_balance.as_mut() {
+								if *spending_balance < fee.into() {
+									return Err(InvalidTransaction::Payment.into());
+								}
+
+								*spending_balance = spending_balance.saturating_sub(fee.into());
+							}
+						}
+					}
+
+					Ok::<(), TransactionValidityError>(())
+				},
+			)?;
+		}
 
 		let do_fee_swap = |who: &T::AccountId,
 		                   payment_asset: &AssetId,
@@ -384,4 +417,74 @@ where
 	}
 
 	Ok(false)
+}
+
+/// Helper function to determine if a call is an action permissions execute
+/// call. This is needed as the transaction will be paid by either the
+/// grantor or the grantee, depending on the permission record. This function
+/// will attempt to unwrap any proxy-like calls and check the inner call.
+///
+/// Returns the grantor if the call is an action permission execute call,
+fn is_action_permission_execute_call<T>(
+	call: &<T as frame_system::Config>::RuntimeCall,
+) -> Option<&AccountId>
+where
+	T: Config
+		+ frame_system::Config<AccountId = AccountId>
+		+ pallet_futurepass::Config
+		+ pallet_xrpl::Config
+		+ pallet_proxy::Config
+		+ pallet_utility::Config
+		+ pallet_sylo_data_verification::Config
+		+ pallet_sylo_data_permissions::Config
+		+ pallet_sylo_action_permissions::Config,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<crate::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_action_permissions::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_action_permissions::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
+	<T as pallet_futurepass::Config>::RuntimeCall:
+		IsSubType<pallet_sylo_data_verification::Call<T>>,
+{
+	if let Some(pallet_sylo_action_permissions::Call::transact { grantor, .. }) = call.is_sub_type()
+	{
+		return Some(grantor);
+	}
+
+	// check if the inner call of a futurepass call is a sylo call
+	if let Some(pallet_futurepass::Call::proxy_extrinsic { call, .. }) = call.is_sub_type() {
+		return is_action_permission_execute_call::<T>(call.as_ref().into_ref());
+	}
+
+	// check if the inner call of a xrpl call is a sylo call
+	if let Some(pallet_xrpl::Call::transact { call, .. }) = call.is_sub_type() {
+		return is_action_permission_execute_call::<T>(call.as_ref().into_ref());
+	}
+
+	// check if the inner call of a proxy pallet call is a sylo call
+	match call.is_sub_type() {
+		Some(pallet_proxy::Call::proxy { call, .. }) => {
+			return is_action_permission_execute_call::<T>(call.as_ref().into_ref());
+		},
+		Some(pallet_proxy::Call::proxy_announced { call, .. }) => {
+			return is_action_permission_execute_call::<T>(call.as_ref().into_ref());
+		},
+		_ => {},
+	};
+
+	// check if the inner call is a fee proxy call
+	if let Some(call_with_fee_preferences { call, .. }) = call.is_sub_type() {
+		return is_action_permission_execute_call::<T>(call.as_ref().into_ref());
+	}
+
+	return None;
 }

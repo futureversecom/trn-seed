@@ -28,6 +28,7 @@ pallet-utility = { workspace = true }
 pallet-xrpl = { workspace = true }
 pallet-sylo-data-verification = { workspace = true }
 pallet-sylo-data-permissions = { workspace = true }
+pallet-sylo-action-permissions = { workspace = true }
 pallet-partner-attribution = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 precompile-utils = { workspace = true }
