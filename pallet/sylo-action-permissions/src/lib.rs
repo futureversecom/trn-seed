@@ -18,13 +18,16 @@ extern crate alloc;
 
 pub use pallet::*;
 
+use alloc::boxed::Box;
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo},
 	pallet_prelude::*,
 	traits::IsSubType,
 };
 use frame_system::pallet_prelude::*;
+use seed_primitives::Balance;
 use sp_core::H160;
+use sp_runtime::BoundedBTreeSet;
 
 pub mod types;
 pub use types::*;
@@ -36,6 +39,7 @@ mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
+
 	use super::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -76,13 +80,13 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn permissions)]
-	pub type Permissions<T: Config> = StorageDoubleMap<
+	pub type DispatchPermissions<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AccountId, // Grantor
 		Blake2_128Concat,
-		T::AccountId,                                              // Grantee
-		ActionPermissionRecord<T::ModuleLimit, BlockNumberFor<T>>, // Value
+		T::AccountId,                                          // Grantee
+		DispatchPermission<BlockNumberFor<T>, T::ModuleLimit>, // Value
 		OptionQuery,
 	>;
 
@@ -102,38 +106,35 @@ pub mod pallet {
 		pub fn grant_action_permission(
 			origin: OriginFor<T>,
 			grantee: T::AccountId,
+			spender: Spender,
+			spending_balance: Option<Balance>,
+			modules: Option<BoundedBTreeSet<u8, T::ModuleLimit>>,
+			expiry: Option<BlockNumberFor<T>>,
 		) -> DispatchResult {
 			let grantor = ensure_signed(origin)?;
 
-			let permission_record = ActionPermissionRecord {
-				permission: DispatchPermission {
-					spender: Spender::Grantor,
-					spending_balance: None,
-					modules: None,
-				},
+			let permission_record = DispatchPermission {
+				spender,
+				spending_balance,
+				modules,
 				block: frame_system::Pallet::<T>::block_number(),
-				expiry: None,
+				expiry,
 			};
 
-			Permissions::<T>::insert(&grantor, &grantee, permission_record);
+			DispatchPermissions::<T>::insert(&grantor, &grantee, permission_record);
 			Ok(())
 		}
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(1000)]
-		pub fn execute_action(
+		pub fn transact(
 			origin: OriginFor<T>,
 			grantor: T::AccountId,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			let grantee = ensure_signed(origin.clone())?;
-			let permission_record = Permissions::<T>::get(&grantor, &grantee)
+			let permission_record = DispatchPermissions::<T>::get(&grantor, &grantee)
 				.ok_or(Error::<T>::PermissionNotGranted)?;
-
-			ensure!(
-				permission_record.permission.spender == Spender::Grantor,
-				Error::<T>::NotAuthorized
-			);
 
 			// Dispatch the call directly
 			call.dispatch(frame_system::RawOrigin::Signed(grantor).into())

@@ -663,6 +663,16 @@ impl pallet_sylo_data_permissions::Config for Runtime {
 	type WeightInfo = weights::pallet_sylo_data_permissions::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	pub const SyloActionPermissionsModuleLimit: u32 = 1000;
+}
+
+impl pallet_sylo_action_permissions::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type ModuleLimit = SyloActionPermissionsModuleLimit;
+}
+
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -1517,6 +1527,7 @@ construct_runtime!(
 		SyloDataVerification: pallet_sylo_data_verification = 52,
 		LiquidityPools: pallet_liquidity_pools = 54,
 		SyloDataPermissions: pallet_sylo_data_permissions = 55,
+		SyloActionPermissions: pallet_sylo_action_permissions = 56,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
