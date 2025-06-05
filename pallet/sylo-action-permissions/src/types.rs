@@ -19,7 +19,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_primitives::Balance;
-use sp_runtime::BoundedBTreeSet;
+use sp_runtime::{BoundedBTreeSet, BoundedVec};
 
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Clone, PartialEq, Eq)]
 pub enum Spender {
@@ -27,14 +27,18 @@ pub enum Spender {
 	Grantee,
 }
 
+// Tuple of pallet name and extrinsic name which identifies a specific runtime call.
+pub type CallId<StringLimit> = (BoundedVec<u8, StringLimit>, BoundedVec<u8, StringLimit>);
+
 #[derive(
 	CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound, PartialEqNoBound, Eq,
 )]
-#[scale_info(skip_type_params(ModuleLimit))]
-pub struct DispatchPermission<BlockNumber, ModuleLimit>
+#[scale_info(skip_type_params(MaxCallIds, StringLimit))]
+pub struct DispatchPermission<BlockNumber, MaxCallIds, StringLimit>
 where
 	BlockNumber: Debug + PartialEq + Clone,
-	ModuleLimit: Get<u32>,
+	MaxCallIds: Get<u32>,
+	StringLimit: Get<u32>,
 {
 	// Whether the extrinsic will be paid from the grantor or grantee
 	pub spender: Spender,
@@ -43,9 +47,9 @@ where
 	// amount the grantee is allowed to spend
 	pub spending_balance: Option<Balance>,
 
-	// Optional list of modules (pallet + extrinsic name) that this dispatch
+	// Optional set of calls (pallet, extrinsic name) that this dispatch
 	// permission is valid for. If None, then all extrinsics are allowed.
-	pub modules: Option<BoundedBTreeSet<u8, ModuleLimit>>,
+	pub allowed_calls: BoundedBTreeSet<CallId<StringLimit>, MaxCallIds>,
 
 	// The block number this permission was established
 	pub block: BlockNumber,
@@ -53,22 +57,3 @@ where
 	// An optional expiry for this permission
 	pub expiry: Option<BlockNumber>,
 }
-
-// #[derive(Encode, Decode, TypeInfo, Debug, Clone, RuntimeDebugNoBound, PartialEqNoBound, Eq)]
-// pub enum ActionPermission {
-// 	Dispatch,
-// }
-
-// #[derive(
-// 	CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound, PartialEqNoBound, Eq,
-// )]
-// #[scale_info(skip_type_params(ModuleLimit))]
-// pub struct ActionPermissionRecord<ModuleLimit, BlockNumber>
-// where
-// 	BlockNumber: Debug + PartialEq + Clone,
-// 	ModuleLimit: Get<u32>,
-// {
-// 	pub permission: DispatchPermission<ModuleLimit>,
-// 	pub block: BlockNumber, // The block number this permission was established
-// 	pub expiry: Option<BlockNumber>, // An optional expiry value
-// }

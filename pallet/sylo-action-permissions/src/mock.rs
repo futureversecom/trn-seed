@@ -18,12 +18,14 @@ impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 
 parameter_types! {
-	pub const ModuleLimit: u32 = 100;
+	pub const MaxCallIds: u32 = 100;
+	pub const StringLimit: u32 = 100;
 }
 
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
-	type ModuleLimit = ModuleLimit;
+	type MaxCallIds = MaxCallIds;
+	type StringLimit = StringLimit;
 	// type WeightInfo = ();
 }
