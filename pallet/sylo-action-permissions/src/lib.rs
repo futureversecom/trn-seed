@@ -18,7 +18,7 @@ extern crate alloc;
 
 pub use pallet::*;
 
-use alloc::boxed::Box;
+use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo},
 	pallet_prelude::*,
@@ -39,9 +39,6 @@ mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
-
-	use std::collections::BTreeSet;
-
 	use super::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -86,6 +83,8 @@ pub mod pallet {
 		NotAuthorizedCall,
 		PermissionExpired,
 		InvalidExpiry,
+		PermissionAlreadyExists,
+		InvalidSpendingBalance,
 	}
 
 	#[pallet::storage]
@@ -105,7 +104,31 @@ pub mod pallet {
 	pub enum Event<T: Config>
 	where
 		<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
-		<T as frame_system::Config>::AccountId: From<H160>, {}
+		<T as frame_system::Config>::AccountId: From<H160>,
+	{
+		/// A dispatch permission was granted.
+		DispatchPermissionGranted {
+			grantor: T::AccountId,
+			grantee: T::AccountId,
+			spender: Spender,
+			spending_balance: Option<Balance>,
+			allowed_calls: Vec<CallId<T::StringLimit>>,
+			expiry: Option<BlockNumberFor<T>>,
+		},
+		/// A permissioned transaction was executed.
+		PermissionTransactExecuted { grantor: T::AccountId, grantee: T::AccountId },
+		/// A dispatch permission was updated.
+		DispatchPermissionUpdated {
+			grantor: T::AccountId,
+			grantee: T::AccountId,
+			spender: Spender,
+			spending_balance: Option<Balance>,
+			allowed_calls: Vec<CallId<T::StringLimit>>,
+			expiry: Option<BlockNumberFor<T>>,
+		},
+		/// A dispatch permission was revoked.
+		DispatchPermissionRevoked { grantor: T::AccountId, grantee: T::AccountId },
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
@@ -115,7 +138,7 @@ pub mod pallet {
 	{
 		#[pallet::call_index(0)]
 		#[pallet::weight(10_000)]
-		pub fn grant_action_permission(
+		pub fn grant_dispatch_permission(
 			origin: OriginFor<T>,
 			grantee: T::AccountId,
 			spender: Spender,
@@ -125,14 +148,27 @@ pub mod pallet {
 		) -> DispatchResult {
 			let grantor = ensure_signed(origin)?;
 
-			// Ensure expiry is not in the past
-			if let Some(expiry_block) = expiry {
-				let current_block = frame_system::Pallet::<T>::block_number();
-				ensure!(expiry_block >= current_block, Error::<T>::InvalidExpiry);
+			// Ensure spending_balance is only specified if spender is Grantor
+			if let Some(_) = spending_balance {
+				ensure!(matches!(spender, Spender::Grantor), Error::<T>::InvalidSpendingBalance);
 			}
 
-			// normalize the pallet and function names to lowercase
-			let allowed_calls = BoundedBTreeSet::try_from(
+			let block = frame_system::Pallet::<T>::block_number();
+
+			// Ensure expiry is not in the past
+			if let Some(expiry_block) = expiry {
+				ensure!(expiry_block >= block, Error::<T>::InvalidExpiry);
+			}
+
+			// Check if a non-expired permission already exists
+			if let Some(existing_permission) = DispatchPermissions::<T>::get(&grantor, &grantee) {
+				if let Some(existing_expiry) = existing_permission.expiry {
+					ensure!(block > existing_expiry, Error::<T>::PermissionAlreadyExists);
+				}
+			}
+
+			// Normalize the pallet and function names to lowercase
+			let normalized_allowed_calls = BoundedBTreeSet::try_from(
 				allowed_calls
 					.into_iter()
 					.map(|(pallet, function)| {
@@ -144,21 +180,91 @@ pub mod pallet {
 					})
 					.collect::<BTreeSet<_>>(),
 			)
-			.unwrap(); // safe unwrap as the size is already bounded
+			.unwrap(); // Safe unwrap as the size is already bounded
 
 			let permission_record = DispatchPermission {
 				spender,
 				spending_balance,
-				allowed_calls,
+				allowed_calls: normalized_allowed_calls.clone(),
 				block: frame_system::Pallet::<T>::block_number(),
 				expiry,
 			};
 
 			DispatchPermissions::<T>::insert(&grantor, &grantee, permission_record);
+
+			// Emit event
+			Self::deposit_event(Event::DispatchPermissionGranted {
+				grantor,
+				grantee,
+				spender,
+				spending_balance,
+				allowed_calls: normalized_allowed_calls.into_iter().collect(),
+				expiry,
+			});
+
 			Ok(())
 		}
 
 		#[pallet::call_index(1)]
+		#[pallet::weight(10_000)]
+		pub fn update_dispatch_permission(
+			origin: OriginFor<T>,
+			grantee: T::AccountId,
+			spender: Option<Spender>,
+			spending_balance: Option<Option<Balance>>,
+			allowed_calls: Option<BoundedBTreeSet<CallId<T::StringLimit>, T::MaxCallIds>>,
+			expiry: Option<Option<BlockNumberFor<T>>>,
+		) -> DispatchResult {
+			let grantor = ensure_signed(origin)?;
+
+			// Update the permission record
+			DispatchPermissions::<T>::try_mutate(&grantor, &grantee, |permission| {
+				let permission_record =
+					permission.as_mut().ok_or(Error::<T>::PermissionNotGranted)?;
+
+				// Update spender if provided
+				if let Some(new_spender) = spender {
+					permission_record.spender = new_spender;
+				}
+
+				// Ensure spending_balance is only specified if spender is Grantor
+				if let Some(Some(_)) = spending_balance {
+					ensure!(
+						matches!(permission_record.spender, Spender::Grantor),
+						Error::<T>::InvalidSpendingBalance
+					);
+				}
+
+				// Update fields if provided
+				if let Some(new_spending_balance) = spending_balance {
+					permission_record.spending_balance = new_spending_balance;
+				}
+				if let Some(new_allowed_calls) = allowed_calls {
+					permission_record.allowed_calls = new_allowed_calls;
+				}
+				if let Some(new_expiry) = expiry {
+					if let Some(expiry_block) = new_expiry {
+						let current_block = frame_system::Pallet::<T>::block_number();
+						ensure!(expiry_block >= current_block, Error::<T>::InvalidExpiry);
+					}
+					permission_record.expiry = new_expiry;
+				}
+
+				// Emit event with updated fields
+				Self::deposit_event(Event::DispatchPermissionUpdated {
+					grantor: grantor.clone(),
+					grantee: grantee.clone(),
+					spender: permission_record.spender.clone(),
+					spending_balance: permission_record.spending_balance,
+					allowed_calls: permission_record.allowed_calls.clone().into_iter().collect(),
+					expiry: permission_record.expiry,
+				});
+
+				Ok(())
+			})
+		}
+
+		#[pallet::call_index(2)]
 		#[pallet::weight(1000)]
 		pub fn transact(
 			origin: OriginFor<T>,
@@ -182,8 +288,28 @@ pub mod pallet {
 			);
 
 			// Dispatch the call directly
-			call.dispatch(frame_system::RawOrigin::Signed(grantor).into())
+			call.dispatch(frame_system::RawOrigin::Signed(grantor.clone()).into())
 				.map_err(|e| e.error)?;
+
+			// Emit event
+			Self::deposit_event(Event::PermissionTransactExecuted { grantor, grantee });
+
+			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(10_000)]
+		pub fn revoke_dispatch_permission(
+			origin: OriginFor<T>,
+			grantee: T::AccountId,
+		) -> DispatchResult {
+			let grantor = ensure_signed(origin)?;
+
+			// Remove the permission if it exists
+			let removed = DispatchPermissions::<T>::take(&grantor, &grantee);
+			ensure!(removed.is_some(), Error::<T>::PermissionNotGranted);
+
+			Self::deposit_event(Event::DispatchPermissionRevoked { grantor, grantee });
 
 			Ok(())
 		}
@@ -199,8 +325,6 @@ pub mod pallet {
 			allowed_calls: BoundedBTreeSet<CallId<T::StringLimit>, T::MaxCallIds>,
 		) -> bool {
 			let CallMetadata { function_name, pallet_name } = call.get_call_metadata();
-
-			println!("{} {}", function_name, pallet_name);
 
 			let pallet_name: BoundedVec<u8, T::StringLimit> =
 				BoundedVec::truncate_from(pallet_name.as_bytes().to_ascii_lowercase());

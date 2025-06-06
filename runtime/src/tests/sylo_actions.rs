@@ -33,6 +33,8 @@ use crate::constants::XRP_ASSET_ID;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use seed_primitives::{AccountId, Balance};
 use sp_runtime::traits::SignedExtension;
+use sp_runtime::BoundedBTreeSet;
+use sp_std::collections::btree_set::BTreeSet;
 
 fn create_transact_call() -> crate::RuntimeCall {
 	let remark = b"hello";
@@ -125,12 +127,12 @@ fn transact_spends_from_futurepass() {
 		assert_ok!(Futurepass::create(RuntimeOrigin::signed(alice()), bob()));
 		let futurepass = pallet_futurepass::Holders::<Runtime>::get(bob()).unwrap();
 
-		assert_ok!(SyloActionPermissions::grant_action_permission(
+		assert_ok!(SyloActionPermissions::grant_dispatch_permission(
 			RawOrigin::Signed(alice()).into(),
 			futurepass.clone(),
 			Spender::Grantee,
 			None,
-			None,
+			BoundedBTreeSet::new(),
 			None,
 		));
 
@@ -257,12 +259,12 @@ fn transact_works_with_fee_proxy_and_futurepass() {
 fn transact_spends_from_grantor() {
 	ExtBuilder::default().build().execute_with(|| {
 		// configure the permission record to state the grantor is the spender
-		assert_ok!(SyloActionPermissions::grant_action_permission(
+		assert_ok!(SyloActionPermissions::grant_dispatch_permission(
 			RawOrigin::Signed(alice()).into(),
 			bob(),
 			Spender::Grantor,
 			None,
-			None,
+			BoundedBTreeSet::new(),
 			None,
 		));
 
@@ -293,12 +295,12 @@ fn transact_deducts_from_spending_balance() {
 		let initial_spending_balance: Balance = 100_000_000;
 
 		// configure the permission record to state the grantor is the spender
-		assert_ok!(SyloActionPermissions::grant_action_permission(
+		assert_ok!(SyloActionPermissions::grant_dispatch_permission(
 			RawOrigin::Signed(alice()).into(),
 			bob(),
 			Spender::Grantor,
 			Some(initial_spending_balance),
-			None,
+			BoundedBTreeSet::new(),
 			None,
 		));
 
@@ -339,12 +341,12 @@ fn transact_deducts_from_spending_balance() {
 fn transact_fails_with_insufficient_spending_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		// configure the permission record to state the grantor is the spender
-		assert_ok!(SyloActionPermissions::grant_action_permission(
+		assert_ok!(SyloActionPermissions::grant_dispatch_permission(
 			RawOrigin::Signed(alice()).into(),
 			bob(),
 			Spender::Grantor,
 			Some(1000), // Set a low spending balance
-			None,
+			BoundedBTreeSet::new(),
 			None,
 		));
 
@@ -374,12 +376,12 @@ fn transact_deducts_from_spending_balance_with_fee_proxy() {
 		let initial_spending_balance: Balance = 100_000_000;
 
 		// configure the permission record to state the grantor is the spender
-		assert_ok!(SyloActionPermissions::grant_action_permission(
+		assert_ok!(SyloActionPermissions::grant_dispatch_permission(
 			RawOrigin::Signed(alice()).into(),
 			bob(),
 			Spender::Grantor,
 			Some(initial_spending_balance),
-			None,
+			BoundedBTreeSet::new(),
 			None,
 		));
 
@@ -405,7 +407,7 @@ fn transact_deducts_from_spending_balance_with_fee_proxy() {
 			1,
 		));
 
-		let grantee_xrp_balance_after = XrpCurrency::balance(&alice());
+		let grantee_xrp_balance_after = XrpCurrency::balance(&bob());
 
 		let updated_spending_balance =
 			<pallet_sylo_action_permissions::DispatchPermissions<Runtime>>::get(&alice(), &bob())

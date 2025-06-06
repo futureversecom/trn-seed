@@ -741,6 +741,8 @@ macro_rules! impl_pallet_sylo_configs {
 			pub const MaxPermissionRecords: u32 = 100;
 			pub const MaxExpiringPermissions: u32 = 10;
 			pub const PermissionRemovalDelay: u32 = 5;
+
+			pub const MaxCallIds: u32 = 100;
 		}
 		impl pallet_sylo_data_verification::Config for Test {
 			type RuntimeCall = RuntimeCall;
@@ -768,6 +770,13 @@ macro_rules! impl_pallet_sylo_configs {
 			type StringLimit = StringLimit;
 			type PermissionRemovalDelay = PermissionRemovalDelay;
 			type WeightInfo = ();
+		}
+		impl pallet_sylo_action_permissions::Config for Test {
+			type RuntimeEvent = RuntimeEvent;
+			type RuntimeCall = RuntimeCall;
+			type MaxCallIds = MaxCallIds;
+			type StringLimit = StringLimit;
+			// type WeightInfo = ();
 		}
 	};
 }

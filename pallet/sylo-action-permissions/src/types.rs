@@ -21,7 +21,7 @@ use scale_info::TypeInfo;
 use seed_primitives::Balance;
 use sp_runtime::{BoundedBTreeSet, BoundedVec};
 
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Copy, MaxEncodedLen, Debug, Clone, PartialEq, Eq)]
 pub enum Spender {
 	Grantor,
 	Grantee,

@@ -664,13 +664,14 @@ impl pallet_sylo_data_permissions::Config for Runtime {
 }
 
 parameter_types! {
-	pub const SyloActionPermissionsModuleLimit: u32 = 1000;
+	pub const MaxCallIds: u32 = 1000;
 }
 
 impl pallet_sylo_action_permissions::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
-	type ModuleLimit = SyloActionPermissionsModuleLimit;
+	type MaxCallIds = MaxCallIds;
+	type StringLimit = SyloStringLimit;
 }
 
 impl pallet_utility::Config for Runtime {
