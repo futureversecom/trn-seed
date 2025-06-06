@@ -41,6 +41,28 @@ mod grant_action_permission {
 			assert!(permission.is_some());
 		});
 	}
+
+	#[test]
+	fn test_grant_action_permission_with_invalid_expiry() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+
+			// Attempt to grant permission with an expiry in the past
+			let expired_block = frame_system::Pallet::<Test>::block_number() - 1;
+			assert_noop!(
+				SyloActionPermissions::grant_action_permission(
+					RawOrigin::Signed(grantor.clone()).into(),
+					grantee,
+					Spender::Grantee,
+					None,
+					all_allowed_calls(),
+					Some(expired_block),
+				),
+				Error::<Test>::InvalidExpiry
+			);
+		});
+	}
 }
 
 mod transact {
@@ -247,6 +269,68 @@ mod transact {
 				),
 				Error::<Test>::NotAuthorizedCall
 			);
+		});
+	}
+
+	#[test]
+	fn test_transact_with_expired_permission() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+
+			// Grant permission with a valid expiry in the future
+			let expiry_block = frame_system::Pallet::<Test>::block_number() + 5;
+			assert_ok!(SyloActionPermissions::grant_action_permission(
+				RawOrigin::Signed(grantor.clone()).into(),
+				grantee.clone(),
+				Spender::Grantee,
+				None,
+				all_allowed_calls(),
+				Some(expiry_block),
+			));
+
+			// Simulate advancing the block number past the expiry
+			frame_system::Pallet::<Test>::set_block_number(expiry_block + 1);
+
+			// Attempt to execute an action
+			let call: <Test as Config>::RuntimeCall =
+				frame_system::Call::remark { remark: vec![] }.into();
+			assert_noop!(
+				SyloActionPermissions::transact(
+					RawOrigin::Signed(grantee.clone()).into(),
+					grantor,
+					Box::new(call),
+				),
+				Error::<Test>::PermissionExpired
+			);
+		});
+	}
+
+	#[test]
+	fn test_transact_with_not_expired_permission() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+
+			// Grant permission with a valid expiry in the future
+			let future_block = frame_system::Pallet::<Test>::block_number() + 10;
+			assert_ok!(SyloActionPermissions::grant_action_permission(
+				RawOrigin::Signed(grantor.clone()).into(),
+				grantee.clone(),
+				Spender::Grantee,
+				None,
+				all_allowed_calls(),
+				Some(future_block),
+			));
+
+			// Execute an action
+			let call: <Test as Config>::RuntimeCall =
+				frame_system::Call::remark { remark: vec![] }.into();
+			assert_ok!(SyloActionPermissions::transact(
+				RawOrigin::Signed(grantee.clone()).into(),
+				grantor,
+				Box::new(call),
+			));
 		});
 	}
 }
