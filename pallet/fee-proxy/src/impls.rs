@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{Call::call_with_fee_preferences, *};
-use frame_support::traits::{fungibles::Inspect, IsSubType};
+use frame_support::traits::{fungibles::Inspect, GetCallMetadata, IsSubType};
 use pallet_futurepass::ProxyProvider;
 use pallet_sylo_action_permissions::Spender;
 use pallet_transaction_payment::OnChargeTransaction;
@@ -61,6 +61,7 @@ where
 	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
 	<T as Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
+	<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 	Balance: From<<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance>,
 {
 	type Balance = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
@@ -452,6 +453,7 @@ where
 	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_action_permissions::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 	<T as pallet_futurepass::Config>::RuntimeCall:
 		IsSubType<pallet_sylo_data_verification::Call<T>>,
 {
