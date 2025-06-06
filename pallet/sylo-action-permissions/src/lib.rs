@@ -84,6 +84,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		PermissionNotGranted,
 		NotAuthorizedCall,
+		PermissionExpired,
+		InvalidExpiry,
 	}
 
 	#[pallet::storage]
@@ -123,6 +125,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			let grantor = ensure_signed(origin)?;
 
+			// Ensure expiry is not in the past
+			if let Some(expiry_block) = expiry {
+				let current_block = frame_system::Pallet::<T>::block_number();
+				ensure!(expiry_block >= current_block, Error::<T>::InvalidExpiry);
+			}
+
 			// normalize the pallet and function names to lowercase
 			let allowed_calls = BoundedBTreeSet::try_from(
 				allowed_calls
@@ -161,6 +169,12 @@ pub mod pallet {
 
 			let permission_record = DispatchPermissions::<T>::get(&grantor, &grantee)
 				.ok_or(Error::<T>::PermissionNotGranted)?;
+
+			// Check if the permission has expired
+			if let Some(expiry) = permission_record.expiry {
+				let current_block = frame_system::Pallet::<T>::block_number();
+				ensure!(current_block <= expiry, Error::<T>::PermissionExpired);
+			}
 
 			ensure!(
 				Self::is_call_allowed(&*call, permission_record.allowed_calls),
