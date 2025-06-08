@@ -159,7 +159,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 74,
+	spec_version: 88,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -1332,15 +1332,15 @@ impl pallet_recovery::Config for Runtime {
 
 parameter_types! {
 	// One storage item; key size 32, value size 8
-	pub ProxyDepositBase: Balance = deposit(1, 8);
+	pub ProxyDepositBase: Balance = deposit(0, 0);
 	// Additional storage item size of 21 bytes (20 bytes AccountId + 1 byte sizeof(ProxyType)).
-	pub ProxyDepositFactor: Balance = deposit(0, 21);
-	pub AnnouncementDepositBase: Balance = deposit(1, 8);
+	pub ProxyDepositFactor: Balance = deposit(0, 0);
+	pub AnnouncementDepositBase: Balance = deposit(0, 0);
 	// Additional storage item size of 56 bytes:
 	// - 20 bytes AccountId
 	// - 32 bytes Hasher (Blake2256)
 	// - 4 bytes BlockNumber (u32)
-	pub AnnouncementDepositFactor: Balance = deposit(0, 56);
+	pub AnnouncementDepositFactor: Balance = deposit(0, 0);
 	pub const MaxProxies: u32 = 32;
 	pub const MaxPending: u32 = 32;
 }

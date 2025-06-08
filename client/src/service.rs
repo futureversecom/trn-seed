@@ -312,6 +312,17 @@ pub fn new_full(
 			),
 	} = new_partial(&config, cli, rpc_config)?;
 
+	let hwbench = (true)
+		.then_some(config.database.path().map(|database_path| {
+			let _ = std::fs::create_dir_all(&database_path);
+			sc_sysinfo::gather_hwbench(Some(database_path))
+		}))
+		.flatten();
+
+	if let Some(hwbench) = hwbench {
+		sc_sysinfo::print_hwbench(&hwbench);
+	}
+
 	// Set eth http bridge config
 	// the config is stored into the offchain context where it can
 	// be accessed later by the crml-eth-bridge offchain worker.

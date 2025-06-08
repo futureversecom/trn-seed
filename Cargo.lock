@@ -2836,6 +2836,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs4"
+version = "0.6.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eeb4ed9e12f43b7fa0baae3f9cdda28352770132ef2e09a23760c29cae8bd47"
+dependencies = [
+ "rustix 0.38.34",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8764,6 +8774,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-storage-monitor"
+version = "0.1.0"
+source = "git+https://github.com/paritytech/substrate?branch=polkadot-v1.0.0#948fbd2fd1233dc26dbb9f9bbc1d2cca2c03945d"
+dependencies = [
+ "clap",
+ "fs4",
+ "log",
+ "sc-client-db",
+ "sp-core",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "sc-sysinfo"
 version = "6.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
@@ -9112,6 +9136,8 @@ dependencies = [
  "sc-rpc",
  "sc-rpc-api",
  "sc-service",
+ "sc-storage-monitor",
+ "sc-sysinfo",
  "sc-telemetry",
  "sc-transaction-pool",
  "sc-transaction-pool-api",

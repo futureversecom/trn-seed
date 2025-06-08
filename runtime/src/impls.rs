@@ -587,29 +587,29 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 	) -> DispatchResult {
 		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which
 		// executes proxy creation)
-		let (proxy_definitions, reserve_amount) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
+		// let (proxy_definitions, reserve_amount) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
 		// get proxy_definitions length + 1 (cost of upcoming insertion); cost to reserve
 		let new_reserve =
-			pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 + 1);
-		let extra_reserve_required = new_reserve - reserve_amount;
+			pallet_proxy::Pallet::<Runtime>::deposit(0_u32 + 1);
+		let extra_reserve_required = new_reserve - 0;
 
 		// Check if the futurepass account has balance less than the existential deposit
 		// If it does, fund with the ED to allow the Futurepass to reserve balance while still
 		// keeping the account alive
-		let account_balance = pallet_balances::Pallet::<Runtime>::balance(futurepass);
-		let minimum_balance = crate::ExistentialDeposit::get();
-		let extra_reserve_required = extra_reserve_required.saturating_add(minimum_balance);
-		let missing_balance = extra_reserve_required.saturating_sub(account_balance);
+		// let account_balance = pallet_balances::Pallet::<Runtime>::balance(futurepass);
+		// let minimum_balance = crate::ExistentialDeposit::get();
+		// let extra_reserve_required = extra_reserve_required.saturating_add(minimum_balance);
+		// let missing_balance = extra_reserve_required.saturating_sub(account_balance);
 
 		// If the Futurepass cannot afford to pay for the proxy creation, fund it from the funder account
-		if missing_balance > 0 {
-			<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
-				funder,
-				futurepass,
-				missing_balance,
-				ExistenceRequirement::KeepAlive,
-			)?;
-		}
+		// if missing_balance > 0 {
+		// 	<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
+		// 		funder,
+		// 		futurepass,
+		// 		missing_balance,
+		// 		ExistenceRequirement::KeepAlive,
+		// 	)?;
+		// }
 
 		let proxy_type = ProxyType::try_from(*proxy_type)?;
 

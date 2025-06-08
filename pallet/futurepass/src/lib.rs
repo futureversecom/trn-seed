@@ -552,7 +552,7 @@ where
 		funder: T::AccountId,
 		account: T::AccountId,
 	) -> Result<T::AccountId, DispatchError> {
-		ensure!(!Holders::<T>::contains_key(&account), Error::<T>::AccountAlreadyRegistered);
+		// ensure!(!Holders::<T>::contains_key(&account), Error::<T>::AccountAlreadyRegistered);
 		let futurepass = Self::generate_futurepass_account();
 		Holders::<T>::set(&account, Some(futurepass.clone()));
 		T::Proxy::add_delegate(&funder, &futurepass, &account, &255)?; // owner is maxu8

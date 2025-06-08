@@ -50,6 +50,8 @@ sp-transaction-storage-proof = { workspace = true }
 frame-system = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 sc-offchain = { workspace = true }
+sc-sysinfo = { workspace = true }
+sc-storage-monitor = { workspace = true }
 
 # Frontier
 fc-consensus = { workspace = true }
