@@ -672,6 +672,7 @@ impl pallet_sylo_action_permissions::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type MaxCallIds = MaxCallIds;
 	type StringLimit = SyloStringLimit;
+	type WeightInfo = weights::pallet_sylo_action_permissions::WeightInfo<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -2474,5 +2475,6 @@ mod benches {
 		[pallet_migration, Migration]
 		[pallet_sylo_data_verification, SyloDataVerification]
 		[pallet_sylo_data_permissions, SyloDataPermissions]
+		[pallet_sylo_action_permissions, SyloActionPermissions]
 	);
 }

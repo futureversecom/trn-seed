@@ -32,6 +32,11 @@ use sp_runtime::BoundedBTreeSet;
 pub mod types;
 pub use types::*;
 
+pub mod weights;
+pub use weights::WeightInfo;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -66,7 +71,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Interface to access weight values
-		// type WeightInfo: WeightInfo;
+		type WeightInfo: WeightInfo;
 
 		/// The maximum number of modules allowed in a dispatch permission.
 		#[pallet::constant]
@@ -88,7 +93,6 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	// #[pallet::getter(fn permissions)]
 	pub type DispatchPermissions<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
@@ -137,7 +141,9 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
 		#[pallet::call_index(0)]
-		#[pallet::weight(10_000)]
+		#[pallet::weight({
+			T::WeightInfo::grant_dispatch_permission(allowed_calls.len() as u32)
+		})]
 		pub fn grant_dispatch_permission(
 			origin: OriginFor<T>,
 			grantee: T::AccountId,
@@ -206,7 +212,9 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(10_000)]
+		#[pallet::weight({
+			T::WeightInfo::update_dispatch_permission(allowed_calls.as_ref().map(|a| a.len() as u32).unwrap_or(0))
+		})]
 		pub fn update_dispatch_permission(
 			origin: OriginFor<T>,
 			grantee: T::AccountId,
@@ -265,7 +273,29 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(2)]
-		#[pallet::weight(1000)]
+		#[pallet::weight({
+			T::WeightInfo::revoke_dispatch_permission()
+		})]
+		pub fn revoke_dispatch_permission(
+			origin: OriginFor<T>,
+			grantee: T::AccountId,
+		) -> DispatchResult {
+			let grantor = ensure_signed(origin)?;
+
+			// Remove the permission if it exists
+			let removed = DispatchPermissions::<T>::take(&grantor, &grantee);
+			ensure!(removed.is_some(), Error::<T>::PermissionNotGranted);
+
+			Self::deposit_event(Event::DispatchPermissionRevoked { grantor, grantee });
+
+			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight({
+			let dispatch_info = call.get_dispatch_info();
+			T::WeightInfo::transact().saturating_add(dispatch_info.weight)
+		})]
 		pub fn transact(
 			origin: OriginFor<T>,
 			grantor: T::AccountId,
@@ -293,23 +323,6 @@ pub mod pallet {
 
 			// Emit event
 			Self::deposit_event(Event::PermissionTransactExecuted { grantor, grantee });
-
-			Ok(())
-		}
-
-		#[pallet::call_index(3)]
-		#[pallet::weight(10_000)]
-		pub fn revoke_dispatch_permission(
-			origin: OriginFor<T>,
-			grantee: T::AccountId,
-		) -> DispatchResult {
-			let grantor = ensure_signed(origin)?;
-
-			// Remove the permission if it exists
-			let removed = DispatchPermissions::<T>::take(&grantor, &grantee);
-			ensure!(removed.is_some(), Error::<T>::PermissionNotGranted);
-
-			Self::deposit_event(Event::DispatchPermissionRevoked { grantor, grantee });
 
 			Ok(())
 		}
