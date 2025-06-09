@@ -27,5 +27,5 @@ impl Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type MaxCallIds = MaxCallIds;
 	type StringLimit = StringLimit;
-	// type WeightInfo = ();
+	type WeightInfo = ();
 }
