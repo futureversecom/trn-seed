@@ -1331,16 +1331,16 @@ impl pallet_recovery::Config for Runtime {
 }
 
 parameter_types! {
-	// One storage item; key size 32, value size 8
-	pub ProxyDepositBase: Balance = deposit(0, 0);
+	// One storage item; key size 32, value size 8Add commentMore actions
+	pub ProxyDepositBase: Balance = deposit(1, 8);
 	// Additional storage item size of 21 bytes (20 bytes AccountId + 1 byte sizeof(ProxyType)).
-	pub ProxyDepositFactor: Balance = deposit(0, 0);
-	pub AnnouncementDepositBase: Balance = deposit(0, 0);
+	pub ProxyDepositFactor: Balance = deposit(0, 21);
+	pub AnnouncementDepositBase: Balance = deposit(1, 8);
 	// Additional storage item size of 56 bytes:
 	// - 20 bytes AccountId
 	// - 32 bytes Hasher (Blake2256)
 	// - 4 bytes BlockNumber (u32)
-	pub AnnouncementDepositFactor: Balance = deposit(0, 0);
+	pub AnnouncementDepositFactor: Balance = deposit(0, 56);
 	pub const MaxProxies: u32 = 32;
 	pub const MaxPending: u32 = 32;
 }
