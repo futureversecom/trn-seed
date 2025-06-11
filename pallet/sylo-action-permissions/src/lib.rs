@@ -21,13 +21,18 @@ pub use pallet::*;
 use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo},
+	log::{info, warn},
 	pallet_prelude::*,
 	traits::{CallMetadata, GetCallMetadata, IsSubType},
 };
 use frame_system::pallet_prelude::*;
+use seed_pallet_common::log;
 use seed_primitives::Balance;
-use sp_core::H160;
+use sp_core::{H160, U256};
+use sp_runtime::traits::StaticLookup;
 use sp_runtime::BoundedBTreeSet;
+
+pub(crate) const LOG_TARGET: &str = "sylo";
 
 pub mod types;
 pub use types::*;
@@ -44,6 +49,7 @@ mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
+
 	use super::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -56,7 +62,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config
 	where
 		<Self as frame_system::Config>::RuntimeCall: GetCallMetadata,
-		<Self as frame_system::Config>::AccountId: From<H160>,
+		<Self as frame_system::Config>::AccountId: From<H160> + Into<H160>,
 	{
 		/// The overarching call type.
 		type RuntimeCall: Parameter
@@ -73,13 +79,24 @@ pub mod pallet {
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
 
-		/// The maximum number of modules allowed in a dispatch permission.
+		/// The maximum number of modules allowed in a transact permission.
 		#[pallet::constant]
 		type MaxCallIds: Get<u32>;
 
-		/// The maximum number of modules allowed in a dispatch permission.
+		/// The maximum number of modules allowed in a transact permission.
 		#[pallet::constant]
 		type StringLimit: Get<u32>;
+
+		/// The maximum bounded length for the XRPL signed message/transaction.
+		#[pallet::constant]
+		type XrplMaxMessageLength: Get<u32>;
+
+		/// The maximum bounded length for the XRPL signature.
+		#[pallet::constant]
+		type XrplMaxSignatureLength: Get<u32>;
+
+		/// A lookup to get the futurepass account id for a futurepass holder.
+		type FuturepassLookup: StaticLookup<Source = H160, Target = H160>;
 	}
 
 	#[pallet::error]
@@ -90,17 +107,31 @@ pub mod pallet {
 		InvalidExpiry,
 		PermissionAlreadyExists,
 		InvalidSpendingBalance,
+		InvalidTokenSignature,
+		GrantorDoesNotMatch,
+		GranteeDoesNotMatch,
+		NonceAlreadyUsed,
+		InvalidTokenFuturepass,
 	}
 
 	#[pallet::storage]
-	pub type DispatchPermissions<T: Config> = StorageDoubleMap<
+	pub type TransactPermissions<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AccountId, // Grantor
 		Blake2_128Concat,
 		T::AccountId, // Grantee
-		DispatchPermission<BlockNumberFor<T>, T::MaxCallIds, T::StringLimit>,
+		TransactPermission<BlockNumberFor<T>, T::MaxCallIds, T::StringLimit>,
 		OptionQuery,
+	>;
+
+	#[pallet::storage]
+	pub type TokenSignatureNonces<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		U256, // Nonce
+		bool,
+		ValueQuery,
 	>;
 
 	#[pallet::event]
@@ -108,10 +139,10 @@ pub mod pallet {
 	pub enum Event<T: Config>
 	where
 		<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
-		<T as frame_system::Config>::AccountId: From<H160>,
+		<T as frame_system::Config>::AccountId: From<H160> + Into<H160>,
 	{
-		/// A dispatch permission was granted.
-		DispatchPermissionGranted {
+		/// A transact permission was granted.
+		TransactPermissionGranted {
 			grantor: T::AccountId,
 			grantee: T::AccountId,
 			spender: Spender,
@@ -121,8 +152,8 @@ pub mod pallet {
 		},
 		/// A permissioned transaction was executed.
 		PermissionTransactExecuted { grantor: T::AccountId, grantee: T::AccountId },
-		/// A dispatch permission was updated.
-		DispatchPermissionUpdated {
+		/// A transact permission was updated.
+		TransactPermissionUpdated {
 			grantor: T::AccountId,
 			grantee: T::AccountId,
 			spender: Spender,
@@ -130,21 +161,23 @@ pub mod pallet {
 			allowed_calls: Vec<CallId<T::StringLimit>>,
 			expiry: Option<BlockNumberFor<T>>,
 		},
-		/// A dispatch permission was revoked.
-		DispatchPermissionRevoked { grantor: T::AccountId, grantee: T::AccountId },
+		/// A transact permission was revoked.
+		TransactPermissionRevoked { grantor: T::AccountId, grantee: T::AccountId },
+		/// A transact permission was accepted.
+		TransactPermissionAccepted { grantor: T::AccountId, grantee: T::AccountId },
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
 	where
 		<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
-		<T as frame_system::Config>::AccountId: From<H160>,
+		<T as frame_system::Config>::AccountId: From<H160> + Into<H160>,
 	{
 		#[pallet::call_index(0)]
 		#[pallet::weight({
-			T::WeightInfo::grant_dispatch_permission(allowed_calls.len() as u32)
+			T::WeightInfo::grant_transact_permission(allowed_calls.len() as u32)
 		})]
-		pub fn grant_dispatch_permission(
+		pub fn grant_transact_permission(
 			origin: OriginFor<T>,
 			grantee: T::AccountId,
 			spender: Spender,
@@ -154,68 +187,30 @@ pub mod pallet {
 		) -> DispatchResult {
 			let grantor = ensure_signed(origin)?;
 
-			// Ensure spending_balance is only specified if spender is Grantor
-			if let Some(_) = spending_balance {
-				ensure!(matches!(spender, Spender::Grantor), Error::<T>::InvalidSpendingBalance);
-			}
-
 			let block = frame_system::Pallet::<T>::block_number();
 
-			// Ensure expiry is not in the past
-			if let Some(expiry_block) = expiry {
-				ensure!(expiry_block >= block, Error::<T>::InvalidExpiry);
-			}
-
 			// Check if a non-expired permission already exists
-			if let Some(existing_permission) = DispatchPermissions::<T>::get(&grantor, &grantee) {
+			if let Some(existing_permission) = TransactPermissions::<T>::get(&grantor, &grantee) {
 				if let Some(existing_expiry) = existing_permission.expiry {
 					ensure!(block > existing_expiry, Error::<T>::PermissionAlreadyExists);
 				}
 			}
 
-			// Normalize the pallet and function names to lowercase
-			let normalized_allowed_calls = BoundedBTreeSet::try_from(
-				allowed_calls
-					.into_iter()
-					.map(|(pallet, function)| {
-						let pallet_name: BoundedVec<u8, T::StringLimit> =
-							BoundedVec::truncate_from(pallet.to_ascii_lowercase());
-						let function_name: BoundedVec<u8, T::StringLimit> =
-							BoundedVec::truncate_from(function.to_ascii_lowercase());
-						(pallet_name, function_name)
-					})
-					.collect::<BTreeSet<_>>(),
-			)
-			.unwrap(); // Safe unwrap as the size is already bounded
-
-			let permission_record = DispatchPermission {
-				spender,
-				spending_balance,
-				allowed_calls: normalized_allowed_calls.clone(),
-				block: frame_system::Pallet::<T>::block_number(),
-				expiry,
-			};
-
-			DispatchPermissions::<T>::insert(&grantor, &grantee, permission_record);
-
-			// Emit event
-			Self::deposit_event(Event::DispatchPermissionGranted {
+			Self::do_grant_transact_permission(
 				grantor,
 				grantee,
 				spender,
 				spending_balance,
-				allowed_calls: normalized_allowed_calls.into_iter().collect(),
+				allowed_calls,
 				expiry,
-			});
-
-			Ok(())
+			)
 		}
 
 		#[pallet::call_index(1)]
 		#[pallet::weight({
-			T::WeightInfo::update_dispatch_permission(allowed_calls.as_ref().map(|a| a.len() as u32).unwrap_or(0))
+			T::WeightInfo::update_transact_permission(allowed_calls.as_ref().map(|a| a.len() as u32).unwrap_or(0))
 		})]
-		pub fn update_dispatch_permission(
+		pub fn update_transact_permission(
 			origin: OriginFor<T>,
 			grantee: T::AccountId,
 			spender: Option<Spender>,
@@ -226,7 +221,7 @@ pub mod pallet {
 			let grantor = ensure_signed(origin)?;
 
 			// Update the permission record
-			DispatchPermissions::<T>::try_mutate(&grantor, &grantee, |permission| {
+			TransactPermissions::<T>::try_mutate(&grantor, &grantee, |permission| {
 				let permission_record =
 					permission.as_mut().ok_or(Error::<T>::PermissionNotGranted)?;
 
@@ -238,7 +233,7 @@ pub mod pallet {
 				// Ensure spending_balance is only specified if spender is Grantor
 				if let Some(Some(_)) = spending_balance {
 					ensure!(
-						matches!(permission_record.spender, Spender::Grantor),
+						matches!(permission_record.spender, Spender::GRANTOR),
 						Error::<T>::InvalidSpendingBalance
 					);
 				}
@@ -259,7 +254,7 @@ pub mod pallet {
 				}
 
 				// Emit event with updated fields
-				Self::deposit_event(Event::DispatchPermissionUpdated {
+				Self::deposit_event(Event::TransactPermissionUpdated {
 					grantor: grantor.clone(),
 					grantee: grantee.clone(),
 					spender: permission_record.spender.clone(),
@@ -274,24 +269,97 @@ pub mod pallet {
 
 		#[pallet::call_index(2)]
 		#[pallet::weight({
-			T::WeightInfo::revoke_dispatch_permission()
+			T::WeightInfo::revoke_transact_permission()
 		})]
-		pub fn revoke_dispatch_permission(
+		pub fn revoke_transact_permission(
 			origin: OriginFor<T>,
 			grantee: T::AccountId,
 		) -> DispatchResult {
 			let grantor = ensure_signed(origin)?;
 
 			// Remove the permission if it exists
-			let removed = DispatchPermissions::<T>::take(&grantor, &grantee);
+			let removed = TransactPermissions::<T>::take(&grantor, &grantee);
 			ensure!(removed.is_some(), Error::<T>::PermissionNotGranted);
 
-			Self::deposit_event(Event::DispatchPermissionRevoked { grantor, grantee });
+			Self::deposit_event(Event::TransactPermissionRevoked { grantor, grantee });
 
 			Ok(())
 		}
 
 		#[pallet::call_index(3)]
+		#[pallet::weight({
+			T::WeightInfo::accept_transact_permission()
+		})]
+		pub fn accept_transact_permission(
+			origin: OriginFor<T>,
+			grantor: T::AccountId,
+			permission_token: TransactPermissionToken<
+				T::AccountId,
+				BlockNumberFor<T>,
+				T::MaxCallIds,
+				T::StringLimit,
+			>,
+			token_signature: TransactPermissionTokenSignature<
+				T::XrplMaxMessageLength,
+				T::XrplMaxSignatureLength,
+			>,
+		) -> DispatchResult {
+			let grantee = ensure_signed(origin)?;
+
+			let mut permission_grantor = grantor.clone();
+
+			// Check if the futurepass field is specified, and if the grantor
+			// is the owner of the futurepass, set the grantor to the futurepass account
+			if let Some(futurepass) = &permission_token.futurepass {
+				let owner = T::FuturepassLookup::lookup(futurepass.clone().into())
+					.map_err(|_| Error::<T>::InvalidTokenFuturepass)?;
+				ensure!(owner == grantor.into(), Error::<T>::InvalidTokenFuturepass);
+
+				permission_grantor = futurepass.clone();
+			}
+
+			// Verify the signature
+			let token_signer = token_signature
+				.verify_signature(&permission_token)
+				.map_err(|_| Error::<T>::InvalidTokenSignature)?;
+
+			// Ensure the grantor matches the token signer
+			ensure!(permission_grantor == token_signer, Error::<T>::GrantorDoesNotMatch);
+
+			// Ensure the origin is the grantee
+			ensure!(grantee == permission_token.grantee, Error::<T>::GranteeDoesNotMatch);
+
+			// Validate the nonce
+			ensure!(
+				!TokenSignatureNonces::<T>::contains_key(permission_token.nonce),
+				Error::<T>::NonceAlreadyUsed
+			);
+
+			// Grant the transact permission.
+			// This will overwrite any existing permission allowing the grantor/grantee
+			// to update the permission by calling this again
+			Self::do_grant_transact_permission(
+				permission_grantor.clone(),
+				grantee.clone(),
+				permission_token.spender,
+				permission_token.spending_balance,
+				permission_token.allowed_calls,
+				permission_token.expiry,
+			)?;
+
+			// Mark the nonce as used
+			TokenSignatureNonces::<T>::insert(permission_token.nonce, true);
+
+			// Emit event
+			Self::deposit_event(Event::TransactPermissionAccepted {
+				grantor: permission_grantor,
+				grantee,
+			});
+
+			Ok(())
+		}
+
+		#[pallet::call_index(4)]
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			T::WeightInfo::transact().saturating_add(dispatch_info.weight)
@@ -303,7 +371,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let grantee = ensure_signed(origin.clone())?;
 
-			let permission_record = DispatchPermissions::<T>::get(&grantor, &grantee)
+			let permission_record = TransactPermissions::<T>::get(&grantor, &grantee)
 				.ok_or(Error::<T>::PermissionNotGranted)?;
 
 			// Check if the permission has expired
@@ -313,7 +381,7 @@ pub mod pallet {
 			}
 
 			ensure!(
-				Self::is_call_allowed(&*call, permission_record.allowed_calls),
+				Self::is_call_allowed(&*call, permission_record.allowed_calls.clone()),
 				Error::<T>::NotAuthorizedCall
 			);
 
@@ -331,7 +399,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T>
 	where
 		<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
-		<T as frame_system::Config>::AccountId: From<H160>,
+		<T as frame_system::Config>::AccountId: From<H160> + Into<H160>,
 	{
 		fn is_call_allowed(
 			call: &<T as Config>::RuntimeCall,
@@ -355,6 +423,64 @@ pub mod pallet {
 
 				false
 			})
+		}
+
+		pub fn do_grant_transact_permission(
+			grantor: T::AccountId,
+			grantee: T::AccountId,
+			spender: Spender,
+			spending_balance: Option<Balance>,
+			allowed_calls: BoundedBTreeSet<CallId<T::StringLimit>, T::MaxCallIds>,
+			expiry: Option<BlockNumberFor<T>>,
+		) -> DispatchResult {
+			// Ensure spending_balance is only specified if spender is Grantor
+			if let Some(_) = spending_balance {
+				ensure!(matches!(spender, Spender::GRANTOR), Error::<T>::InvalidSpendingBalance);
+			}
+
+			let block = frame_system::Pallet::<T>::block_number();
+
+			// Ensure expiry is not in the past
+			if let Some(expiry_block) = expiry {
+				ensure!(expiry_block >= block, Error::<T>::InvalidExpiry);
+			}
+
+			// Normalize the pallet and function names to lowercase
+			let normalized_allowed_calls = BoundedBTreeSet::try_from(
+				allowed_calls
+					.into_iter()
+					.map(|(pallet, function)| {
+						let pallet_name: BoundedVec<u8, T::StringLimit> =
+							BoundedVec::truncate_from(pallet.to_ascii_lowercase());
+						let function_name: BoundedVec<u8, T::StringLimit> =
+							BoundedVec::truncate_from(function.to_ascii_lowercase());
+						(pallet_name, function_name)
+					})
+					.collect::<BTreeSet<_>>(),
+			)
+			.unwrap(); // Safe unwrap as the size is already bounded
+
+			let permission_record = TransactPermission {
+				spender,
+				spending_balance,
+				allowed_calls: normalized_allowed_calls.clone(),
+				block,
+				expiry,
+			};
+
+			TransactPermissions::<T>::insert(&grantor, &grantee, permission_record);
+
+			// Emit event
+			Self::deposit_event(Event::TransactPermissionGranted {
+				grantor,
+				grantee,
+				spender,
+				spending_balance,
+				allowed_calls: normalized_allowed_calls.into_iter().collect(),
+				expiry,
+			});
+
+			Ok(())
 		}
 	}
 }

@@ -6408,9 +6408,12 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
+ "libsecp256k1",
+ "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
+ "pallet-xrpl",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
@@ -6421,6 +6424,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "xrpl_types",
 ]
 
 [[package]]

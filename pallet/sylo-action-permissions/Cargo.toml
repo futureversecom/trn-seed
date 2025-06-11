@@ -12,6 +12,9 @@ hex = { workspace = true }
 serde = { workspace = true }
 scale-info = { workspace = true }
 codec = { workspace = true }
+libsecp256k1 = { workspace = true }
+log = { workspace = true }
+xrpl_types = { git = "https://github.com/futureversecom/xrpl-sdk-rust", default-features = false }
 
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -21,6 +24,7 @@ sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 sp-arithmetic = { workspace = true }
 sp-std = { workspace = true }
+pallet-xrpl = { workspace = true }
 
 seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
