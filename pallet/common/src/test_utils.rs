@@ -743,6 +743,8 @@ macro_rules! impl_pallet_sylo_configs {
 			pub const PermissionRemovalDelay: u32 = 5;
 
 			pub const MaxCallIds: u32 = 100;
+			pub const XrplMaxMessageLength: u32 = 1000;
+			pub const XrplMaxSignatureLength: u32 = 1000;
 		}
 		impl pallet_sylo_data_verification::Config for Test {
 			type RuntimeCall = RuntimeCall;
@@ -771,12 +773,28 @@ macro_rules! impl_pallet_sylo_configs {
 			type PermissionRemovalDelay = PermissionRemovalDelay;
 			type WeightInfo = ();
 		}
+
+		pub struct FuturepassIdentityLookup;
+		impl StaticLookup for FuturepassIdentityLookup {
+			type Source = H160;
+			type Target = H160;
+			fn lookup(s: Self::Source) -> Result<Self::Target, LookupError> {
+				Ok(s)
+			}
+			fn unlookup(t: Self::Target) -> Self::Source {
+				t
+			}
+		}
+
 		impl pallet_sylo_action_permissions::Config for Test {
 			type RuntimeEvent = RuntimeEvent;
 			type RuntimeCall = RuntimeCall;
 			type MaxCallIds = MaxCallIds;
 			type StringLimit = StringLimit;
-			// type WeightInfo = ();
+			type FuturepassLookup = FuturepassIdentityLookup;
+			type XrplMaxMessageLength = XrplMaxMessageLength;
+			type XrplMaxSignatureLength = XrplMaxSignatureLength;
+			type WeightInfo = ();
 		}
 	};
 }

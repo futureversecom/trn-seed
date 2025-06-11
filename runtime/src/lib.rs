@@ -664,14 +664,19 @@ impl pallet_sylo_data_permissions::Config for Runtime {
 }
 
 parameter_types! {
-	pub const MaxCallIds: u32 = 1000;
+	pub const MaxCallIds: u32 = 200;
+	pub const XrplMaxMessageLength: u32 = 2048;
+	pub const XrplMaxSignatureLength: u32 = 2048;
 }
 
 impl pallet_sylo_action_permissions::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
+	type FuturepassLookup = impls::FuturepassLookup;
 	type MaxCallIds = MaxCallIds;
 	type StringLimit = SyloStringLimit;
+	type XrplMaxMessageLength = XrplMaxMessageLength;
+	type XrplMaxSignatureLength = XrplMaxSignatureLength;
 	type WeightInfo = weights::pallet_sylo_action_permissions::WeightInfo<Runtime>;
 }
 

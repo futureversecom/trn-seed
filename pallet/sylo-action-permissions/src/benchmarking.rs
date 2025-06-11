@@ -66,13 +66,13 @@ benchmarks! {
 			<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	}
 
-	grant_dispatch_permission {
+	grant_transact_permission {
 		let c in 1 .. T::MaxCallIds::get();
 
 		let grantor = account::<T>("Grantor");
 		let grantee = account::<T>("Grantee");
 
-		let spender = Spender::Grantor;
+		let spender = Spender::GRANTOR;
 		let spending_balance = Some(100);
 
 		let mut allowed_calls = BoundedBTreeSet::new();
@@ -85,20 +85,20 @@ benchmarks! {
 		let expiry = Some(<frame_system::Pallet<T>>::block_number().saturating_add(1u32.into()));
 	}: _(origin::<T>(&grantor), grantee.clone(), spender.clone(), spending_balance, allowed_calls.clone(), expiry)
 	verify {
-		let permission = DispatchPermissions::<T>::get(&grantor, &grantee).unwrap();
+		let permission = TransactPermissions::<T>::get(&grantor, &grantee).unwrap();
 		assert_eq!(permission.spender, spender);
 		assert_eq!(permission.spending_balance, spending_balance);
 		assert_eq!(permission.allowed_calls, allowed_calls);
 		assert_eq!(permission.expiry, expiry);
 	}
 
-	update_dispatch_permission {
+	update_transact_permission {
 		let c in 1 .. T::MaxCallIds::get();
 
 		let grantor = account::<T>("Grantor");
 		let grantee = account::<T>("Grantee");
 
-		let spender = Spender::Grantor;
+		let spender = Spender::GRANTOR;
 		let spending_balance = Some(100);
 
 		let mut initial_allowed_calls = BoundedBTreeSet::new();
@@ -106,7 +106,7 @@ benchmarks! {
 
 		let expiry = Some(<frame_system::Pallet<T>>::block_number().saturating_add(1u32.into()));
 
-		assert_ok!(SyloActionPermissions::<T>::grant_dispatch_permission(
+		assert_ok!(SyloActionPermissions::<T>::grant_transact_permission(
 			origin::<T>(&grantor).into(),
 			grantee.clone(),
 			spender.clone(),
@@ -126,18 +126,18 @@ benchmarks! {
 		let updated_spending_balance = Some(200);
 	}: _(origin::<T>(&grantor), grantee.clone(), Some(spender.clone()), Some(updated_spending_balance), Some(updated_allowed_calls.clone()), Some(updated_expiry))
 	verify {
-		let permission = DispatchPermissions::<T>::get(&grantor, &grantee).unwrap();
+		let permission = TransactPermissions::<T>::get(&grantor, &grantee).unwrap();
 		assert_eq!(permission.spender, spender);
 		assert_eq!(permission.spending_balance, updated_spending_balance);
 		assert_eq!(permission.allowed_calls, updated_allowed_calls);
 		assert_eq!(permission.expiry, updated_expiry);
 	}
 
-	revoke_dispatch_permission {
+	revoke_transact_permission {
 		let grantor = account::<T>("Grantor");
 		let grantee = account::<T>("Grantee");
 
-		let spender = Spender::Grantor;
+		let spender = Spender::GRANTOR;
 		let spending_balance = Some(100);
 
 		let mut allowed_calls = BoundedBTreeSet::new();
@@ -145,7 +145,7 @@ benchmarks! {
 
 		let expiry = Some(<frame_system::Pallet<T>>::block_number().saturating_add(1u32.into()));
 
-		assert_ok!(SyloActionPermissions::<T>::grant_dispatch_permission(
+		assert_ok!(SyloActionPermissions::<T>::grant_transact_permission(
 			origin::<T>(&grantor).into(),
 			grantee.clone(),
 			spender.clone(),
@@ -156,14 +156,23 @@ benchmarks! {
 
 	}: _(origin::<T>(&grantor), grantee.clone())
 	verify {
-		assert!(DispatchPermissions::<T>::get(&grantor, &grantee).is_none());
+		assert!(TransactPermissions::<T>::get(&grantor, &grantee).is_none());
+	}
+
+	accept_transact_permission {
+		let grantor = account::<T>("Grantor");
+		let grantee = account::<T>("Grantee");
+	}: _(origin::<T>(&grantor))
+	verify {
+
+
 	}
 
 	transact {
 		let grantor = account::<T>("Grantor");
 		let grantee = account::<T>("Grantee");
 
-		let spender = Spender::Grantor;
+		let spender = Spender::GRANTOR;
 		let spending_balance = Some(100);
 
 		let mut allowed_calls = BoundedBTreeSet::new();
@@ -171,10 +180,10 @@ benchmarks! {
 
 		let expiry = Some(<frame_system::Pallet<T>>::block_number().saturating_add(1u32.into()));
 
-		assert_ok!(SyloActionPermissions::<T>::grant_dispatch_permission(
+		assert_ok!(SyloActionPermissions::<T>::grant_transact_permission(
 			origin::<T>(&grantor).into(),
 			grantee.clone(),
-			Spender::Grantee,
+			Spender::GRANTEE,
 			None,
 			allowed_calls,
 			None,

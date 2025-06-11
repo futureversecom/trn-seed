@@ -98,12 +98,12 @@ where
 		// if the call is an action permissions transact call, we need to determine
 		// if the spender should be the grantor or grantee
 		if let Some(grantor) = is_action_permission_execute_call::<T>(call) {
-			pallet_sylo_action_permissions::DispatchPermissions::<T>::try_mutate(
+			pallet_sylo_action_permissions::TransactPermissions::<T>::try_mutate(
 				grantor,
 				who,
 				|maybe_permission| {
 					if let Some(permission) = maybe_permission {
-						if permission.spender == Spender::Grantor {
+						if permission.spender == Spender::GRANTOR {
 							// set the spender as the grantor
 							who = &grantor;
 
