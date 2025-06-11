@@ -92,7 +92,7 @@ describe("Sylo Actions", () => {
     await finalizeTx(grantee, tx);
   });
 
-  it("can accept transact permission using xrpl signature - ecdsa", async () => {
+  it.only("can accept transact permission using xrpl signature - ecdsa", async () => {
     const grantor = alice;
 
     const grantee = alith;
@@ -134,14 +134,14 @@ describe("Sylo Actions", () => {
     const encodedSigningMessage = encodeForSigning(xamanJsonTx);
     const signature = sign(encodedSigningMessage, ALICE_PRIVATE_KEY.slice(2));
 
-    console.log(signature, signature.length);
-
     const xrplSig = {
       XRPL: {
         encodedMsg: `0x${encode(xamanJsonTx)}`,
         signature: `0x${signature}`,
       },
     };
+
+    console.log(alith.address, alice.address, xrplSig);
 
     // Submit the accept_transact_permission extrinsic
     await finalizeTx(

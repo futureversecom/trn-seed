@@ -25,12 +25,11 @@ use frame_support::sp_runtime::Saturating;
 use frame_support::{assert_ok, traits::GetCallMetadata, BoundedVec};
 use frame_system::RawOrigin;
 use sp_core::H160;
-use sp_std::collections::btree_set::BTreeSet;
 
 /// Helper function to create an account for benchmarking.
 fn account<T: Config>(name: &'static str) -> T::AccountId
 where
-	T::AccountId: From<H160>,
+	T::AccountId: From<H160> + Into<H160>,
 	<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 {
 	bench_account(name, 0, 0)
@@ -38,7 +37,7 @@ where
 
 fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId>
 where
-	T::AccountId: From<H160>,
+	T::AccountId: From<H160> + Into<H160>,
 	<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 {
 	RawOrigin::Signed(acc.clone())
@@ -53,7 +52,7 @@ fn to_call_id<T: Get<u32>>(pallet: &str, function: &str) -> CallId<T> {
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent)
 where
-	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+	<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
@@ -160,12 +159,36 @@ benchmarks! {
 	}
 
 	accept_transact_permission {
-		let grantor = account::<T>("Grantor");
+		let grantor: T::AccountId =
+				H160::from_slice(&hex::decode("b68aefb20c4010f1e7e8f16eecb4ca3eef62dde8").unwrap()).into();
+
 		let grantee = account::<T>("Grantee");
-	}: _(origin::<T>(&grantor))
+
+		let nonce = U256::from(1);
+		let mut allowed_calls = BoundedBTreeSet::new();
+		allowed_calls.try_insert(to_call_id("system", "*")).unwrap();
+		let permission_token = TransactPermissionToken {
+			grantee: grantee.clone(),
+			futurepass: None,
+			spender: Spender::GRANTOR,
+			spending_balance: Some(100),
+			allowed_calls: allowed_calls.clone(),
+			expiry: None,
+			nonce,
+		};
+
+		let token_signature = TransactPermissionTokenSignature::EIP191(
+			hex::decode(
+				"f33687858bb34d0f6ae1ee5f5eaf7827d83f4a7c5ff41cb96d6340b1e56faf067cfbb5649c4537d71ef229a823752c16eb90315ce76c5c8da669750141ba611101"
+			).unwrap().try_into().unwrap()
+		);
+	}: _(origin::<T>(&grantee), grantor.clone(), permission_token, token_signature)
 	verify {
-
-
+		let permission = TransactPermissions::<T>::get(&grantor, &grantee).unwrap();
+		assert_eq!(permission.spender, Spender::GRANTOR);
+		assert_eq!(permission.spending_balance, Some(100));
+		assert_eq!(permission.allowed_calls, allowed_calls);
+		assert_eq!(permission.expiry, None);
 	}
 
 	transact {
