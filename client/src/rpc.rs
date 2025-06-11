@@ -23,6 +23,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use fp_rpc::EthereumRuntimeRPCApi;
+use seed_runtime::RuntimeEvent;
 
 use jsonrpsee::RpcModule;
 // Substrate
@@ -47,21 +48,24 @@ use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Block as BlockT;
+use precompile_utils::
+	constants::ERC20_PRECOMPILE_ADDRESS_PREFIX;
 
 // Frontier
 use fc_rpc::{
 	pending::ConsensusDataProvider, EthBlockDataCacheTask, OverrideHandle,
 	RuntimeApiStorageOverride,
 };
-use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
+use fc_rpc_core::types::{BlockNumber as BlockNo, FeeHistoryCache, FeeHistoryCacheLimit, Filter, FilterPool};
+use frame_system::Event;
 use sc_network_sync::SyncingService;
-use sp_core::H256;
+use sp_core::{H160, H256};
 use sp_transaction_storage_proof::IndexedBody;
 
 // Runtime
 use ethy_gadget::notification::EthyEventProofStream;
 use ethy_gadget_rpc::{EthyApiServer, EthyRpcHandler};
-use seed_primitives::{ethy::EthyApi, opaque::Block, AccountId, Balance, BlockNumber, Hash, Nonce};
+use seed_primitives::{ethy::EthyApi, opaque::Block, AccountId, Balance, BlockNumber, Hash, Nonce, AssetId};
 use seed_runtime::Runtime;
 
 /// Extra RPC deps for Ethy
@@ -365,4 +369,365 @@ where
 	io.merge(Web3::new(client).into_rpc())?;
 
 	Ok(io)
+}
+
+pub trait EventCheckerT {
+	// block_hash: H256,
+	// 		block_number: BlockNumber,
+	fn check_event(&self, events: RuntimeEvent, block_hash: H256, block_number: BlockNumber);
+
+	fn create_asset_transfer_log(&self, token: H160, from: AccountId, to: AccountId, amount: u64, block_hash: H256, block_number: BlockNumber, log_index: u32);
+}
+
+pub struct EventChecker;
+
+impl<Runtime> EventCheckerT<Runtime> for EventChecker {
+	// type RuntimeEvent = RuntimeEvent;
+	fn check_event(&self, events: RuntimeEvent, block_hash: H256, block_number: BlockNumber) {
+		let mut logs = Vec::new();
+
+		// // Resolve block range from filter
+		// // let (from_block, to_block) = self.resolve_block_range(filter.from_block, filter.to_block).await?;
+		// let from_block = filter.from_block.unwrap();
+		// let to_block = filter.to_block.unwrap();
+		//
+		// // Process each block in the range
+		// for block_number in from_block..=to_block {
+		//
+		// 	T::BlockHashMapping::block_hash(number.as_u32())
+		// 	BlockNo::Num(block_number)
+		// 	let block_hash = self.client.block_hash(block_number)
+		// 		.ok_or_else(|| internal_err("Block hash not found"))?;
+		//
+		// 	// Get all events for this block
+		// 	let events = self.client.runtime_api().events(block_hash)?;
+
+			// Process asset transfer events
+			for (index, event_record) in events.into_iter().enumerate() {
+
+				// match event_record.event {
+				// 	Some(idx) => claim_ids.drain(..idx - 1),
+				// 	None => claim_ids.drain(..claim_ids.len() - 1), // we need the last element to remain
+				// };
+				// need to convert the following if else to switch
+				if let RuntimeEvent::Assets(pallet_assets_ext::Event::<Runtime>::Transferred {
+												asset_id,
+												from,
+												to,
+												amount
+											}) = event_record.event {
+					// Get EVM address for this asset - using AssetAddress mapping from impls.rs
+
+					let asset_address =
+						Runtime::runtime_id_to_evm_id(asset_id, ERC20_PRECOMPILE_ADDRESS_PREFIX);
+
+
+
+					// let asset_address = match AssetAddress::<Runtime>::asset_to_address(asset_id) {
+					// 	Some(address) => address,
+					// 	None => continue, // Skip assets without EVM address
+					// };
+
+					// Filter by address if specified
+					// if let Some(addresses) = &filter.address {
+					// 	if !addresses.contains(&asset_address) {
+					// 		continue;
+					// 	}
+					// }
+
+					// Create synthetic log
+					let log = self.create_asset_transfer_log(
+						asset_address,
+						from,
+						to,
+						amount,
+						block_hash,
+						block_number,
+						index as u32
+					)?;
+
+					logs.push(log);
+				}
+				// balances.Transfer
+				else if let RuntimeEvent::Balances(pallet_balances::Event::<Runtime>::Transfer {
+													   from,
+													   to,
+													   amount
+												   }) = event_record.event {
+					let asset_id = 1;
+					// Get EVM address for this asset - using AssetAddress mapping from impls.rs
+					let asset_address: H160 = <Runtime as ErcIdConversion<AssetId>>::runtime_id_to_evm_id(
+						asset_id,
+						ERC20_PRECOMPILE_ADDRESS_PREFIX,
+					)
+						.into();
+					// let asset_address = match AssetAddress::<Runtime>::asset_to_address(asset_id) {
+					// 	Some(address) => address,
+					// 	None => continue, // Skip assets without EVM address
+					// };
+
+					// Filter by address if specified
+					// if let Some(addresses) = &filter.address {
+					// 	if !addresses.contains(&asset_address) {
+					// 		continue;
+					// 	}
+					// }
+
+					// Create synthetic log
+					let log = self.create_asset_transfer_log(
+						asset_address,
+						from,
+						to,
+						amount,
+						block_hash,
+						block_number,
+						index as u32
+					)?;
+
+					logs.push(log);
+				}
+				else if let RuntimeEvent::Assets(pallet_assets::Event::<Runtime>::Burned {
+													 asset_id,
+													 owner,
+													 balance
+												 }) = event_record.event {
+					let from = owner;
+					let to = "0x0000000000000000000000000000000000000000";
+					// Get EVM address for this asset - using AssetAddress mapping from impls.rs
+					let asset_address: H160 = <Runtime as ErcIdConversion<AssetId>>::runtime_id_to_evm_id(
+						asset_id,
+						ERC20_PRECOMPILE_ADDRESS_PREFIX,
+					)
+						.into();
+					// let asset_address = match AssetAddress::<Runtime>::asset_to_address(asset_id) {
+					// 	Some(address) => address,
+					// 	None => continue, // Skip assets without EVM address
+					// };
+
+					// Filter by address if specified
+					// if let Some(addresses) = &filter.address {
+					// 	if !addresses.contains(&asset_address) {
+					// 		continue;
+					// 	}
+					// }
+
+					// Create synthetic log
+					let log = self.create_asset_transfer_log(
+						asset_address,
+						from,
+						to,
+						balance,
+						block_hash,
+						block_number,
+						index as u32
+					)?;
+
+					logs.push(log);
+				}
+				else if let RuntimeEvent::Assets(pallet_assets::Event::<Runtime>::Issued {
+													 asset_id,
+													 owner,
+													 amount
+												 }) = event_record.event {
+					let to = owner;
+					let from = "0x0000000000000000000000000000000000000000";
+					// Get EVM address for this asset - using AssetAddress mapping from impls.rs
+					let asset_address: H160 = <Runtime as ErcIdConversion<AssetId>>::runtime_id_to_evm_id(
+						asset_id,
+						ERC20_PRECOMPILE_ADDRESS_PREFIX,
+					)
+						.into();
+					// let asset_address = match AssetAddress::<Runtime>::asset_to_address(asset_id) {
+					// 	Some(address) => address,
+					// 	None => continue, // Skip assets without EVM address
+					// };
+
+					// Filter by address if specified
+					// if let Some(addresses) = &filter.address {
+					// 	if !addresses.contains(&asset_address) {
+					// 		continue;
+					// 	}
+					// }
+
+					// Create synthetic log
+					let log = self.create_asset_transfer_log(
+						asset_address,
+						from,
+						to,
+						amount,
+						block_hash,
+						block_number,
+						index as u32
+					)?;
+
+					logs.push(log);
+				}
+				else if let RuntimeEvent::AssetsExt(pallet_assets_ext::Event::<Runtime>::InternalWithdraw { // gas fee paid
+														asset_id,
+														who,
+														amount
+													}) = event_record.event {
+					let from = owner;
+					let to = "0x0000000000000000000000000000000000000000";
+					// Get EVM address for this asset - using AssetAddress mapping from impls.rs
+					let asset_address: H160 = <Runtime as ErcIdConversion<AssetId>>::runtime_id_to_evm_id(
+						asset_id,
+						ERC20_PRECOMPILE_ADDRESS_PREFIX,
+					)
+						.into();
+					// let asset_address = match AssetAddress::<Runtime>::asset_to_address(asset_id) {
+					// 	Some(address) => address,
+					// 	None => continue, // Skip assets without EVM address
+					// };
+
+					// Filter by address if specified
+					// if let Some(addresses) = &filter.address {
+					// 	if !addresses.contains(&asset_address) {
+					// 		continue;
+					// 	}
+					// }
+
+					// Create synthetic log
+					let log = self.create_asset_transfer_log(
+						asset_address,
+						from,
+						to,
+						amount,
+						block_hash,
+						block_number,
+						index as u32
+					)?;
+
+					logs.push(log);
+				}
+				else if let RuntimeEvent::AssetsExt(pallet_assets_ext::Event::<Runtime>::InternalWithdraw { // gas fee paid
+														asset_id,
+														who,
+														amount
+													}) = event_record.event {
+					let from = who;
+					let to = "0x0000000000000000000000000000000000000000";
+					// Get EVM address for this asset - using AssetAddress mapping from impls.rs
+					let asset_address: H160 = <Runtime as ErcIdConversion<AssetId>>::runtime_id_to_evm_id(
+						asset_id,
+						ERC20_PRECOMPILE_ADDRESS_PREFIX,
+					)
+						.into();
+					// let asset_address = match AssetAddress::<Runtime>::asset_to_address(asset_id) {
+					// 	Some(address) => address,
+					// 	None => continue, // Skip assets without EVM address
+					// };
+
+					// Filter by address if specified
+					// if let Some(addresses) = &filter.address {
+					// 	if !addresses.contains(&asset_address) {
+					// 		continue;
+					// 	}
+					// }
+
+					// Create synthetic log
+					let log = self.create_asset_transfer_log(
+						asset_address,
+						from,
+						to,
+						amount,
+						block_hash,
+						block_number,
+						index as u32
+					)?;
+
+					logs.push(log);
+				}
+				else if let RuntimeEvent::AssetsExt(pallet_assets_ext::Event::<Runtime>::InternalDeposit { // gas fee paid
+														asset_id,
+														who,
+														amount
+													}) = event_record.event {
+					let to = who;
+					let from = "0x0000000000000000000000000000000000000000";
+					// Get EVM address for this asset - using AssetAddress mapping from impls.rs
+					let asset_address: H160 = <Runtime as ErcIdConversion<AssetId>>::runtime_id_to_evm_id(
+						asset_id,
+						ERC20_PRECOMPILE_ADDRESS_PREFIX,
+					)
+						.into();
+					// let asset_address = match AssetAddress::<Runtime>::asset_to_address(asset_id) {
+					// 	Some(address) => address,
+					// 	None => continue, // Skip assets without EVM address
+					// };
+
+					// Filter by address if specified
+					// if let Some(addresses) = &filter.address {
+					// 	if !addresses.contains(&asset_address) {
+					// 		continue;
+					// 	}
+					// }
+
+					// Create synthetic log
+					let log = self.create_asset_transfer_log(
+						asset_address,
+						from,
+						to,
+						amount,
+						block_hash,
+						block_number,
+						index as u32
+					)?;
+
+					logs.push(log);
+				}
+			}
+		// }
+
+		// Ok(logs)
+	}
+
+	fn create_asset_transfer_log(
+		&self,
+		token: H160,
+		from: AccountId,
+		to: AccountId,
+		amount: AssetBalance,
+		block_hash: H256,
+		block_number: BlockNumber,
+		log_index: u32
+	) -> RpcResult<Log> {
+		// Convert Substrate accounts to EVM addresses using the provided mappings
+		let from_address = Runtime::AddressMapping::into_account_id(from); // Runtime::AddressMapping::into_account_id(from);
+		let to_address = Runtime::AddressMapping::into_account_id(to); // Runtime::AddressMapping::into_account_id(to);
+
+		// ERC20 Transfer event signature: keccak256("Transfer(address,address,uint256)")
+		let signature = H256::from_slice(
+			&hex::decode("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
+				.expect("Valid hex")
+		);
+
+		// Create event topics
+		let mut topics = Vec::new();
+		topics.push(signature);
+		topics.push(H256::from(from_address.as_fixed_bytes()));
+		topics.push(H256::from(to_address.as_fixed_bytes()));
+
+		// Encode amount as bytes - using the proper balance type from pallet-assets-ext
+		let mut data = vec![0u8; 32];
+		// Convert AssetBalance to U256 - taking into account potential decimal differences
+		let evm_amount = U256::from(amount.saturated_into::<u128>());
+		evm_amount.to_big_endian(&mut data);
+
+		// Create synthetic log
+		let log = Log {
+			address: token,
+			topics,
+			data: Bytes(data),
+			block_hash: Some(block_hash),
+			block_number: Some(block_number.into()),
+			transaction_hash: None,
+			transaction_index: None,
+			log_index: Some(U256::from(log_index)),
+			transaction_log_index: None,
+			removed: false,
+		};
+
+		Ok(log)
+	}
 }
