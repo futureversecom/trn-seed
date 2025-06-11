@@ -4,7 +4,7 @@ use super::*;
 use frame_support::{assert_noop, assert_ok};
 use mock::*;
 use seed_pallet_common::test_prelude::*;
-use sp_core::{ecdsa, H160, U256};
+use sp_core::U256;
 
 fn to_call_id(method: &str, extrinsic: &str) -> CallId<<Test as Config>::StringLimit> {
 	(
@@ -651,18 +651,35 @@ mod accept_transact_permission {
 			let (signer, grantor) = create_random_pair();
 			let grantee: AccountId = create_account(2);
 
+			println!("Grantor: {:?}", hex::encode(grantor.encode()));
+
+			let address =
+				H160::from_slice(&hex::decode("fc536afb319aebbf5492f3ef81c8f9e08ff98c8c").unwrap());
+
 			let nonce = U256::from(1);
 			let expiry = Some(frame_system::Pallet::<Test>::block_number() + 10);
-			let allowed_calls = all_allowed_calls();
+			let mut allowed_calls = BoundedBTreeSet::new();
+			allowed_calls.try_insert(to_call_id("system", "*")).unwrap();
 			let permission_token = TransactPermissionToken {
-				grantee: grantee.clone(),
+				grantee: address.into(),
 				futurepass: None,
 				spender: Spender::GRANTOR,
 				spending_balance: Some(100),
 				allowed_calls: allowed_calls.clone(),
-				expiry,
+				expiry: None,
 				nonce,
 			};
+
+			let b: [u8; 65] = signer
+				.sign_prehashed(&keccak_256(
+					seed_primitives::ethereum_signed_message(
+						Encode::encode(&permission_token).as_bytes_ref(),
+					)
+					.as_ref(),
+				))
+				.into();
+
+			println!("Signature: {:?}", hex::encode(b));
 
 			let token_signature = TransactPermissionTokenSignature::EIP191(
 				signer

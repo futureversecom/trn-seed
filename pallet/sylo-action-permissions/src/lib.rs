@@ -287,9 +287,10 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(3)]
-		#[pallet::weight({
-			T::WeightInfo::accept_transact_permission()
-		})]
+		#[pallet::weight(10_000)]
+		// #[pallet::weight({
+		// 	T::WeightInfo::accept_transact_permission()
+		// })]
 		pub fn accept_transact_permission(
 			origin: OriginFor<T>,
 			grantor: T::AccountId,
