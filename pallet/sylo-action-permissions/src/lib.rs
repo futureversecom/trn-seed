@@ -44,13 +44,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-pub(crate) const LOG_TARGET: &str = "sylo";
-
 #[frame_support::pallet]
 pub mod pallet {
-
-	use seed_pallet_common::log;
-
 	use super::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -118,16 +113,27 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// The permission does not exist or has not been granted.
 		PermissionNotGranted,
+		/// The call is not authorized under the granted permission.
 		NotAuthorizedCall,
+		/// The permission has expired and is no longer valid.
 		PermissionExpired,
+		/// The provided expiry block is in the past.
 		InvalidExpiry,
+		/// A permission already exists and has not yet expired.
 		PermissionAlreadyExists,
+		/// The specified spending balance is not allowed.
 		InvalidSpendingBalance,
+		/// The provided token signature is invalid or cannot be verified.
 		InvalidTokenSignature,
+		/// The grantor does not match the signer.
 		GrantorDoesNotMatch,
+		/// The grantee in the token does not match the caller.
 		GranteeDoesNotMatch,
+		/// The nonce provided in the token has already been used.
 		NonceAlreadyUsed,
+		/// The futurepass in the token is not owned by the grantor.
 		InvalidFuturepassInToken,
 	}
 
