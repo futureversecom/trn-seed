@@ -44,8 +44,12 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+pub(crate) const LOG_TARGET: &str = "sylo";
+
 #[frame_support::pallet]
 pub mod pallet {
+
+	use seed_pallet_common::log;
 
 	use super::*;
 
@@ -124,7 +128,7 @@ pub mod pallet {
 		GrantorDoesNotMatch,
 		GranteeDoesNotMatch,
 		NonceAlreadyUsed,
-		InvalidTokenFuturepass,
+		InvalidFuturepassInToken,
 	}
 
 	#[pallet::storage]
@@ -255,9 +259,11 @@ pub mod pallet {
 				if let Some(new_spending_balance) = spending_balance {
 					permission_record.spending_balance = new_spending_balance;
 				}
+
 				if let Some(new_allowed_calls) = allowed_calls {
 					permission_record.allowed_calls = new_allowed_calls;
 				}
+
 				if let Some(new_expiry) = expiry {
 					if let Some(expiry_block) = new_expiry {
 						let current_block = frame_system::Pallet::<T>::block_number();
@@ -319,25 +325,25 @@ pub mod pallet {
 		) -> DispatchResult {
 			let grantee = ensure_signed(origin)?;
 
-			let mut permission_grantor = grantor.clone();
-
-			// Check if the futurepass field is specified, and if the grantor
-			// is the owner of the futurepass, set the grantor to the futurepass account
-			if let Some(futurepass) = &permission_token.futurepass {
-				let owner = T::FuturepassLookup::lookup(futurepass.clone().into())
-					.map_err(|_| Error::<T>::InvalidTokenFuturepass)?;
-				ensure!(owner == grantor.into(), Error::<T>::InvalidTokenFuturepass);
-
-				permission_grantor = futurepass.clone();
-			}
-
 			// Verify the signature
 			let token_signer = token_signature
 				.verify_signature(&permission_token)
 				.map_err(|_| Error::<T>::InvalidTokenSignature)?;
 
 			// Ensure the grantor matches the token signer
-			ensure!(permission_grantor == token_signer, Error::<T>::GrantorDoesNotMatch);
+			ensure!(grantor == token_signer, Error::<T>::GrantorDoesNotMatch);
+
+			let mut grantor = grantor.clone();
+
+			// Check if the futurepass field is specified, and if the grantor
+			// is the owner of the futurepass, set the grantor to the futurepass account
+			if let Some(futurepass) = &permission_token.futurepass {
+				let fp = T::FuturepassLookup::lookup(grantor.clone().into())
+					.map_err(|_| Error::<T>::InvalidFuturepassInToken)?;
+				ensure!(fp == futurepass.clone().into(), Error::<T>::InvalidFuturepassInToken);
+
+				grantor = futurepass.clone();
+			}
 
 			// Ensure the origin is the grantee
 			ensure!(grantee == permission_token.grantee, Error::<T>::GranteeDoesNotMatch);
@@ -352,7 +358,7 @@ pub mod pallet {
 			// This will overwrite any existing permission allowing the grantor/grantee
 			// to update the permission by calling this again
 			Self::do_grant_transact_permission(
-				permission_grantor.clone(),
+				grantor.clone(),
 				grantee.clone(),
 				permission_token.spender,
 				permission_token.spending_balance,
@@ -364,10 +370,7 @@ pub mod pallet {
 			TokenSignatureNonces::<T>::insert(permission_token.nonce, true);
 
 			// Emit event
-			Self::deposit_event(Event::TransactPermissionAccepted {
-				grantor: permission_grantor,
-				grantee,
-			});
+			Self::deposit_event(Event::TransactPermissionAccepted { grantor, grantee });
 
 			Ok(())
 		}
