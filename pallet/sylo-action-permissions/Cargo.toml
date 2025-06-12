@@ -18,6 +18,7 @@ xrpl_types = { git = "https://github.com/futureversecom/xrpl-sdk-rust", default-
 
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+
 frame-benchmarking = { workspace = true, optional = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
@@ -34,6 +35,10 @@ sp-io = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-assets-ext = { workspace = true, default-features = true }
+pallet-futurepass = { workspace = true }
+
+pallet-proxy = { workspace = true, default-features = true }
+pallet-sudo = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

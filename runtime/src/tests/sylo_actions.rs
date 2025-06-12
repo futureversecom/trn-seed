@@ -34,8 +34,6 @@ use pallet_transaction_payment::ChargeTransactionPayment;
 use seed_primitives::{AccountId, Balance};
 use sp_runtime::traits::SignedExtension;
 use sp_runtime::BoundedBTreeSet;
-use sp_std::collections::btree_set::BTreeSet;
-
 fn create_transact_call() -> crate::RuntimeCall {
 	let remark = b"hello";
 	let inner_call = crate::RuntimeCall::System(frame_system::Call::remark_with_event {

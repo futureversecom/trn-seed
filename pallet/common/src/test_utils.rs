@@ -728,7 +728,7 @@ macro_rules! impl_pallet_scheduler_config {
 }
 
 #[macro_export]
-macro_rules! impl_pallet_sylo_configs {
+macro_rules! impl_pallet_sylo_data_configs {
 	($test:ident) => {
 		parameter_types! {
 			pub const MaxResolvers: u32 = 10;
@@ -741,10 +741,6 @@ macro_rules! impl_pallet_sylo_configs {
 			pub const MaxPermissionRecords: u32 = 100;
 			pub const MaxExpiringPermissions: u32 = 10;
 			pub const PermissionRemovalDelay: u32 = 5;
-
-			pub const MaxCallIds: u32 = 100;
-			pub const XrplMaxMessageLength: u32 = 1000;
-			pub const XrplMaxSignatureLength: u32 = 1000;
 		}
 		impl pallet_sylo_data_verification::Config for Test {
 			type RuntimeCall = RuntimeCall;
@@ -773,24 +769,23 @@ macro_rules! impl_pallet_sylo_configs {
 			type PermissionRemovalDelay = PermissionRemovalDelay;
 			type WeightInfo = ();
 		}
+	};
+}
 
-		pub struct FuturepassIdentityLookup;
-		impl StaticLookup for FuturepassIdentityLookup {
-			type Source = H160;
-			type Target = H160;
-			fn lookup(s: Self::Source) -> Result<Self::Target, LookupError> {
-				Ok(s)
-			}
-			fn unlookup(t: Self::Target) -> Self::Source {
-				t
-			}
+#[macro_export]
+macro_rules! impl_pallet_sylo_action_config {
+	($test:ident) => {
+		parameter_types! {
+			pub const ActionStringLimit: u32 = 500;
+			pub const MaxCallIds: u32 = 100;
+			pub const XrplMaxMessageLength: u32 = 1000;
+			pub const XrplMaxSignatureLength: u32 = 1000;
 		}
-
 		impl pallet_sylo_action_permissions::Config for Test {
 			type RuntimeEvent = RuntimeEvent;
 			type RuntimeCall = RuntimeCall;
 			type MaxCallIds = MaxCallIds;
-			type StringLimit = StringLimit;
+			type StringLimit = ActionStringLimit;
 			type FuturepassLookup = FuturepassIdentityLookup;
 			type XrplMaxMessageLength = XrplMaxMessageLength;
 			type XrplMaxSignatureLength = XrplMaxSignatureLength;

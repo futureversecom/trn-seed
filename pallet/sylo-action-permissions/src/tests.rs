@@ -1,3 +1,18 @@
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 use std::collections::BTreeSet;
 
 use super::*;
@@ -448,6 +463,54 @@ mod transact {
 			);
 		});
 	}
+
+	#[test]
+	fn test_transact_blacklisted_calls_are_rejected() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+
+			// Grant permission with all_allowed_calls
+			assert_ok!(SyloActionPermissions::grant_transact_permission(
+				RawOrigin::Signed(grantor.clone()).into(),
+				grantee.clone(),
+				Spender::GRANTEE,
+				None,
+				all_allowed_calls(),
+				None,
+			));
+
+			let blacklisted_calls: Vec<<Test as Config>::RuntimeCall> = vec![
+				pallet_sudo::Call::sudo {
+					call: Box::new(frame_system::Call::remark { remark: vec![] }.into()),
+				}
+				.into(),
+				pallet_futurepass::Call::proxy_extrinsic {
+					futurepass: create_account(3),
+					call: Box::new(frame_system::Call::remark { remark: vec![] }.into()),
+				}
+				.into(),
+				pallet_proxy::Call::proxy {
+					real: create_account(3),
+					force_proxy_type: None,
+					call: Box::new(frame_system::Call::remark { remark: vec![] }.into()),
+				}
+				.into(),
+			];
+
+			// Ensure each blacklisted call is rejected
+			for call in blacklisted_calls.iter() {
+				assert_noop!(
+					SyloActionPermissions::transact(
+						RawOrigin::Signed(grantee.clone()).into(),
+						grantor.clone(),
+						Box::new(call.clone()),
+					),
+					Error::<Test>::NotAuthorizedCall
+				);
+			}
+		});
+	}
 }
 
 mod update_transact_permission {
@@ -651,17 +714,11 @@ mod accept_transact_permission {
 			let (signer, grantor) = create_random_pair();
 			let grantee: AccountId = create_account(2);
 
-			println!("Grantor: {:?}", hex::encode(grantor.encode()));
-
-			let address =
-				H160::from_slice(&hex::decode("fc536afb319aebbf5492f3ef81c8f9e08ff98c8c").unwrap());
-
 			let nonce = U256::from(1);
-			let expiry = Some(frame_system::Pallet::<Test>::block_number() + 10);
 			let mut allowed_calls = BoundedBTreeSet::new();
 			allowed_calls.try_insert(to_call_id("system", "*")).unwrap();
 			let permission_token = TransactPermissionToken {
-				grantee: address.into(),
+				grantee: grantee.clone(),
 				futurepass: None,
 				spender: Spender::GRANTOR,
 				spending_balance: Some(100),
@@ -669,17 +726,6 @@ mod accept_transact_permission {
 				expiry: None,
 				nonce,
 			};
-
-			let b: [u8; 65] = signer
-				.sign_prehashed(&keccak_256(
-					seed_primitives::ethereum_signed_message(
-						Encode::encode(&permission_token).as_bytes_ref(),
-					)
-					.as_ref(),
-				))
-				.into();
-
-			println!("Signature: {:?}", hex::encode(b));
 
 			let token_signature = TransactPermissionTokenSignature::EIP191(
 				signer

@@ -40,6 +40,16 @@ pub enum Spender {
 // Tuple of pallet name and extrinsic name which identifies a specific runtime call.
 pub type CallId<StringLimit> = (BoundedVec<u8, StringLimit>, BoundedVec<u8, StringLimit>);
 
+pub fn to_call_id<StringLimit>(pallet: &str, function: &str) -> CallId<StringLimit>
+where
+	StringLimit: Get<u32>,
+{
+	(
+		BoundedVec::truncate_from(pallet.as_bytes().to_vec()),
+		BoundedVec::truncate_from(function.as_bytes().to_vec()),
+	)
+}
+
 #[derive(
 	CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen, RuntimeDebugNoBound, PartialEqNoBound, Eq,
 )]
