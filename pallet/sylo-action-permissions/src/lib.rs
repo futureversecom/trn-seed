@@ -21,18 +21,15 @@ pub use pallet::*;
 use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo},
-	log::{info, warn},
 	pallet_prelude::*,
 	traits::{CallMetadata, GetCallMetadata, IsSubType},
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::log;
 use seed_primitives::Balance;
 use sp_core::{H160, U256};
 use sp_runtime::traits::StaticLookup;
 use sp_runtime::BoundedBTreeSet;
-
-pub(crate) const LOG_TARGET: &str = "sylo";
+use sp_std::vec;
 
 pub mod types;
 pub use types::*;
@@ -97,6 +94,22 @@ pub mod pallet {
 
 		/// A lookup to get the futurepass account id for a futurepass holder.
 		type FuturepassLookup: StaticLookup<Source = H160, Target = H160>;
+	}
+
+	/// A set of calls that will always be blocked from being used in a transact
+	/// call. In general we forbid any calls that can be used to submit an
+	/// extrinsic as another account.
+	#[pallet::type_value]
+	pub fn BlacklistedCalls<T: Config>() -> BoundedVec<CallId<T::StringLimit>, T::MaxCallIds>
+	where
+		<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
+		<T as frame_system::Config>::AccountId: From<H160> + Into<H160>,
+	{
+		BoundedVec::truncate_from(vec![
+			to_call_id("sudo", "*"),
+			to_call_id("futurepass", "*"),
+			to_call_id("proxy", "*"),
+		])
 	}
 
 	#[pallet::error]
@@ -287,10 +300,9 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(3)]
-		#[pallet::weight(10_000)]
-		// #[pallet::weight({
-		// 	T::WeightInfo::accept_transact_permission()
-		// })]
+		#[pallet::weight({
+			T::WeightInfo::accept_transact_permission()
+		})]
 		pub fn accept_transact_permission(
 			origin: OriginFor<T>,
 			grantor: T::AccountId,
@@ -415,6 +427,16 @@ pub mod pallet {
 
 			let wildcard: BoundedVec<u8, T::StringLimit> = BoundedVec::truncate_from(b"*".to_vec());
 
+			// Deny if the call matches any of the BlacklistedCalls
+			let blacklisted_calls = BlacklistedCalls::<T>::get();
+			if blacklisted_calls.iter().any(|(pallet, function)| {
+				(pallet == &pallet_name || pallet == &wildcard)
+					&& (function == &function_name || function == &wildcard)
+			}) {
+				return false;
+			}
+
+			// Check if the call is allowed
 			allowed_calls.iter().any(|(pallet, function)| {
 				if pallet == &pallet_name || pallet == &wildcard {
 					if function == &function_name || function == &wildcard {
