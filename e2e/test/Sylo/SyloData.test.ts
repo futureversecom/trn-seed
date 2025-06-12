@@ -23,7 +23,7 @@ import {
   startNode,
   stringToHex,
   typedefs,
-} from "../common";
+} from "../../common";
 
 const PROXY_TYPE = {
   Any: 1,

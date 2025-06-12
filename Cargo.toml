@@ -134,6 +134,7 @@ pallet-partner-attribution = { path = "pallet/partner-attribution", default-feat
 pallet-sft = { path = "pallet/sft", default-features = false }
 pallet-sft-rpc = { path = "pallet/sft/rpc", default-features = false }
 pallet-sft-rpc-runtime-api = { path = "pallet/sft/rpc/runtime-api", default-features = false }
+pallet-sylo-action-permissions = { path = "pallet/sylo-action-permissions", default-features = false }
 pallet-sylo-data-verification = { path = "pallet/sylo-data-verification", default-features = false }
 pallet-sylo-data-permissions = { path = "pallet/sylo-data-permissions", default-features = false }
 pallet-sylo-data-permissions-rpc = { path = "pallet/sylo-data-permissions/rpc", default-features = false }

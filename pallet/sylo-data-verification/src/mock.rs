@@ -32,4 +32,4 @@ impl_frame_system_config!(Test);
 impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
-impl_pallet_sylo_configs!(Test);
+impl_pallet_sylo_data_configs!(Test);

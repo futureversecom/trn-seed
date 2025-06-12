@@ -686,9 +686,9 @@ export const finalizeTx = (
 
   return new Promise<any[]>((resolve, reject) => {
     if (opts) {
-      extrinsic.signAndSend(signer, opts, sendCb(resolve, reject));
+      extrinsic.signAndSend(signer, opts, sendCb(resolve, reject)).catch(reject);
     } else {
-      extrinsic.signAndSend(signer, sendCb(resolve, reject));
+      extrinsic.signAndSend(signer, sendCb(resolve, reject)).catch(reject);
     }
   });
 };

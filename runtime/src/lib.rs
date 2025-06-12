@@ -663,6 +663,23 @@ impl pallet_sylo_data_permissions::Config for Runtime {
 	type WeightInfo = weights::pallet_sylo_data_permissions::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	pub const MaxCallIds: u32 = 200;
+	pub const XrplMaxMessageLength: u32 = 2048;
+	pub const XrplMaxSignatureLength: u32 = 2048;
+}
+
+impl pallet_sylo_action_permissions::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type FuturepassLookup = impls::FuturepassLookup;
+	type MaxCallIds = MaxCallIds;
+	type StringLimit = SyloStringLimit;
+	type XrplMaxMessageLength = XrplMaxMessageLength;
+	type XrplMaxSignatureLength = XrplMaxSignatureLength;
+	type WeightInfo = weights::pallet_sylo_action_permissions::WeightInfo<Runtime>;
+}
+
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -1517,6 +1534,7 @@ construct_runtime!(
 		SyloDataVerification: pallet_sylo_data_verification = 52,
 		LiquidityPools: pallet_liquidity_pools = 54,
 		SyloDataPermissions: pallet_sylo_data_permissions = 55,
+		SyloActionPermissions: pallet_sylo_action_permissions = 56,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -2462,5 +2480,6 @@ mod benches {
 		[pallet_migration, Migration]
 		[pallet_sylo_data_verification, SyloDataVerification]
 		[pallet_sylo_data_permissions, SyloDataPermissions]
+		[pallet_sylo_action_permissions, SyloActionPermissions]
 	);
 }
