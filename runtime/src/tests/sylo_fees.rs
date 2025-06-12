@@ -32,8 +32,8 @@ use seed_pallet_common::test_prelude::create_account;
 use crate::constants::XRP_ASSET_ID;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use seed_primitives::{AccountId, Balance};
-use sp_core::H256;
-use sp_runtime::{traits::SignedExtension, BoundedVec};
+use sp_core::{H256, U256};
+use sp_runtime::{traits::SignedExtension, BoundedBTreeSet, BoundedVec};
 
 #[test]
 fn sylo_extrinsic_works_with_sylo_token() {
@@ -325,5 +325,48 @@ fn create_sylo_calls() -> Vec<crate::RuntimeCall> {
 		crate::RuntimeCall::SyloDataPermissions(
 			pallet_sylo_data_permissions::Call::revoke_permission_reference { grantee: alice() },
 		),
+		crate::RuntimeCall::SyloActionPermissions(
+			pallet_sylo_action_permissions::Call::grant_transact_permission {
+				grantee: alice(),
+				spender: pallet_sylo_action_permissions::Spender::GRANTEE,
+				spending_balance: None,
+				allowed_calls: BoundedBTreeSet::new(),
+				expiry: None,
+			},
+		),
+		crate::RuntimeCall::SyloActionPermissions(
+			pallet_sylo_action_permissions::Call::update_transact_permission {
+				grantee: alice(),
+				spender: None,
+				spending_balance: None,
+				allowed_calls: None,
+				expiry: None,
+			},
+		),
+		crate::RuntimeCall::SyloActionPermissions(
+			pallet_sylo_action_permissions::Call::revoke_transact_permission {
+				grantee: alice(),
+			},
+		),
+		crate::RuntimeCall::SyloActionPermissions(
+			pallet_sylo_action_permissions::Call::accept_transact_permission {
+				grantor: alice(),
+				permission_token: pallet_sylo_action_permissions::TransactPermissionToken {
+					grantee: alice(),
+					futurepass: None,
+					spender: pallet_sylo_action_permissions::Spender::GRANTEE,
+					spending_balance: None,
+					allowed_calls: BoundedBTreeSet::new(),
+					expiry: None,
+					nonce: U256::from(1),
+				},
+				token_signature: pallet_sylo_action_permissions::TransactPermissionTokenSignature::EIP191(
+					hex::decode(
+						"f33687858bb34d0f6ae1ee5f5eaf7827d83f4a7c5ff41cb96d6340b1e56faf067cfbb5649c4537d71ef229a823752c16eb90315ce76c5c8da669750141ba611101"
+					).unwrap().try_into().unwrap()
+				),
+			},
+		),
+
 	]
 }
