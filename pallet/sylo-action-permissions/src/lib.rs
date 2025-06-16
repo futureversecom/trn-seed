@@ -135,6 +135,8 @@ pub mod pallet {
 		NonceAlreadyUsed,
 		/// The futurepass in the token is not owned by the grantor.
 		InvalidFuturepassInToken,
+		/// The spending balance is insufficient to cover the transaction fee.
+		InsufficientSpendingBalance,
 	}
 
 	#[pallet::storage]
@@ -513,6 +515,39 @@ pub mod pallet {
 			});
 
 			Ok(())
+		}
+
+		pub fn validate_spending_balance<'a>(
+			grantor: &'a T::AccountId,
+			grantee: &'a T::AccountId,
+			fee: Balance,
+		) -> Result<&'a T::AccountId, Error<T>> {
+			let mut spender = grantee;
+			TransactPermissions::<T>::try_mutate(grantor, grantee, |maybe_permission| {
+				if let Some(permission) = maybe_permission {
+					if permission.spender == Spender::GRANTOR {
+						// Set the spender as the grantor of the permission. This allows the
+						// fee to be deducted from the grantor's balance.
+						spender = grantor;
+
+						// if the fee payer is the grantor, we should detract from
+						// the spending balance if it exists
+						if let Some(spending_balance) = permission.spending_balance.as_mut() {
+							if *spending_balance < fee.into() {
+								return Err(Error::<T>::InsufficientSpendingBalance);
+							}
+
+							*spending_balance = spending_balance.saturating_sub(fee.into());
+						}
+					}
+				} else {
+					Err(Error::<T>::PermissionNotGranted)?;
+				}
+
+				Ok::<(), Error<T>>(())
+			})?;
+
+			Ok(spender)
 		}
 	}
 }

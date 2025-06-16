@@ -95,33 +95,16 @@ where
 		// Attribute the fee to the partner if the caller is attributed to a partner
 		attribute_fee_to_partner::<T>(who, fee.into())?;
 
-		// if the call is an action permissions transact call, we need to determine
-		// if the spender should be the grantor or grantee
+		// Validate spending balance if the call is an action permissions transact call
 		if let Some(grantor) = is_action_permission_execute_call::<T>(call) {
-			pallet_sylo_action_permissions::TransactPermissions::<T>::try_mutate(
+			// This will also update the spender of the transaction based on the
+			// transact permission record.
+			who = pallet_sylo_action_permissions::Pallet::<T>::validate_spending_balance(
 				grantor,
 				who,
-				|maybe_permission| {
-					if let Some(permission) = maybe_permission {
-						if permission.spender == Spender::GRANTOR {
-							// set the spender as the grantor
-							who = &grantor;
-
-							// if the fee payer is the grantor, we should detract from
-							// the spending balance if it exists
-							if let Some(spending_balance) = permission.spending_balance.as_mut() {
-								if *spending_balance < fee.into() {
-									return Err(InvalidTransaction::Payment.into());
-								}
-
-								*spending_balance = spending_balance.saturating_sub(fee.into());
-							}
-						}
-					}
-
-					Ok::<(), TransactionValidityError>(())
-				},
-			)?;
+				fee.into(),
+			)
+			.map_err(|_| InvalidTransaction::Payment)?;
 		}
 
 		let do_fee_swap = |who: &T::AccountId,

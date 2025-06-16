@@ -128,7 +128,7 @@ describe("XRPL pallet", () => {
     console.log("signature", signature);
   });
 
-  it.only("can submit system remark extrinsic - using ecdsa signature", async () => {
+  it("can submit system remark extrinsic - using ecdsa signature", async () => {
     const user = Wallet.createRandom();
     const publicKey = computePublicKey(user.publicKey, true);
 
