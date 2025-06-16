@@ -21,9 +21,9 @@ use mock::*;
 use seed_pallet_common::test_prelude::*;
 use sp_core::U256;
 
-fn to_call_id(method: &str, extrinsic: &str) -> CallId<<Test as Config>::StringLimit> {
+fn to_call_id(pallet: &str, extrinsic: &str) -> CallId<<Test as Config>::StringLimit> {
 	(
-		BoundedVec::truncate_from(method.as_bytes().to_vec()),
+		BoundedVec::truncate_from(pallet.as_bytes().to_vec()),
 		BoundedVec::truncate_from(extrinsic.as_bytes().to_vec()),
 	)
 }

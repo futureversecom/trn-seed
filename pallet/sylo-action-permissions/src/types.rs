@@ -89,12 +89,26 @@ where
 	MaxCallIds: Get<u32>,
 	StringLimit: Get<u32>,
 {
+	// Specifies the intended grantee of the permission that will be created
 	pub grantee: AccountId,
+
+	// Optional field that indicates that the futurepass account of the permission grantor
+	// should be used, instead of the account recovered from the signature.
 	pub futurepass: Option<AccountId>,
+
+	// The spender of transact fee
 	pub spender: Spender,
+
+	// The spending balance if the spender is set as the grantor
 	pub spending_balance: Option<Balance>,
+
+	// Optional set of allowed calls
 	pub allowed_calls: BoundedBTreeSet<CallId<StringLimit>, MaxCallIds>,
+
+	// An optional expiry for this permission
 	pub expiry: Option<BlockNumber>,
+
+	// A randomly generated 32 byte nonce to prevent replays
 	pub nonce: U256,
 }
 

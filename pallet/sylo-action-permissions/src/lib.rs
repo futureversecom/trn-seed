@@ -139,6 +139,7 @@ pub mod pallet {
 		InsufficientSpendingBalance,
 	}
 
+	/// Holds transact permission records.
 	#[pallet::storage]
 	pub type TransactPermissions<T: Config> = StorageDoubleMap<
 		_,
@@ -150,6 +151,7 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	/// Nonces that have already been used for token signatures.
 	#[pallet::storage]
 	pub type TokenSignatureNonces<T: Config> = StorageMap<
 		_,
@@ -198,6 +200,11 @@ pub mod pallet {
 		<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 		<T as frame_system::Config>::AccountId: From<H160> + Into<H160>,
 	{
+		/// Will create ands store a new transact permission to for the given
+		/// grantor and grantee.
+		///
+		/// Results in an error if the permission already exists and has not expired.
+		/// If the spending balance is specified, the spender must be the grantor.
 		#[pallet::call_index(0)]
 		#[pallet::weight({
 			T::WeightInfo::grant_transact_permission(allowed_calls.len() as u32)
@@ -231,6 +238,9 @@ pub mod pallet {
 			)
 		}
 
+		/// Updates an existing transact permission record.
+		///
+		/// This must be called by the grantor of the permission.
 		#[pallet::call_index(1)]
 		#[pallet::weight({
 			T::WeightInfo::update_transact_permission(allowed_calls.as_ref().map(|a| a.len() as u32).unwrap_or(0))
@@ -294,6 +304,9 @@ pub mod pallet {
 			})
 		}
 
+		/// Revokes a transact permission for a grantee.
+		///
+		/// This must be called by the grantor of the permission.
 		#[pallet::call_index(2)]
 		#[pallet::weight({
 			T::WeightInfo::revoke_transact_permission()
@@ -313,6 +326,13 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Accepts a transact permission using a signed token.
+		///
+		/// This is intended to by called by the grantee of the permission. The caller
+		/// must provide a permission token that contains the details of the permission,
+		/// which has also been signed by the grantor.
+		///
+		/// Accepts a signature either in the form of a EIP191 or XRPL signed message.
 		#[pallet::call_index(3)]
 		#[pallet::weight({
 			T::WeightInfo::accept_transact_permission()
@@ -383,6 +403,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Executes a permissioned transaction on behalf of the grantor.
 		#[pallet::call_index(4)]
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
