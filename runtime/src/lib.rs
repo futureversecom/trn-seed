@@ -458,6 +458,7 @@ parameter_types! {
 	pub const WorldId: seed_primitives::ParachainId = 100;
 	pub const MaxTokensPerCollection: u32 = 1_000_000;
 	pub const MintLimit: u32 = 1_000;
+	pub const TransferLimit: u32 = 1_000;
 	pub const MaxPendingIssuances: u32 = 1_000_000;
 }
 impl pallet_nft::Config for Runtime {
@@ -465,6 +466,7 @@ impl pallet_nft::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
+	type TransferLimit = TransferLimit;
 	type OnTransferSubscription = TokenApprovals;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type MultiCurrency = AssetsExt;

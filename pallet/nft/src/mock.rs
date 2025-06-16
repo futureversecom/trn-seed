@@ -81,6 +81,7 @@ parameter_types! {
 	pub const MaxOffers: u32 = 10;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const MintLimit: u32 = 5000;
+	pub const TransferLimit: u32 = 5000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
 	pub const StringLimit: u32 = 50;
 	pub const MaxPendingIssuances: u32 = 10_000;
@@ -91,6 +92,7 @@ impl crate::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
+	type TransferLimit = TransferLimit;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type MultiCurrency = AssetsExt;

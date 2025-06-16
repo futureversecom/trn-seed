@@ -80,11 +80,22 @@ impl<T: Config> Pallet<T> {
 		collection_info.metadata_scheme.construct_token_uri(token_id.1)
 	}
 
+	/// Checks if all tokens in a list are unique.
+	pub fn check_unique(
+		serial_numbers: Vec<SerialNumber>
+	) -> bool {
+		let original_length = serial_numbers.len();
+		let mut serial_numbers_trimmed = serial_numbers;
+		serial_numbers_trimmed.sort_unstable();
+		serial_numbers_trimmed.dedup();
+		serial_numbers_trimmed.len() == original_length
+	}
+
 	/// Transfer the given token from `current_owner` to `new_owner`
 	/// Does no verification
 	pub fn do_transfer(
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+		serial_numbers: BoundedVec<SerialNumber, T::TransferLimit>,
 		current_owner: &T::AccountId,
 		new_owner: &T::AccountId,
 	) -> DispatchResult {
@@ -93,12 +104,13 @@ impl<T: Config> Pallet<T> {
 			<UtilityFlags<T>>::get(collection_id).transferable,
 			Error::<T>::TransferUtilityBlocked
 		);
+		ensure!(Self::check_unique(serial_numbers.clone().into_inner()), Error::<T>::SerialNumbersNotUnique);
 
 		CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection_info| -> DispatchResult {
 			let collection_info =
 				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
 
-			// Check ownership anddo_ locks
+			// Check ownership and do locks
 			for serial_number in serial_numbers.iter() {
 				ensure!(
 					collection_info.is_token_owner(current_owner, *serial_number),
@@ -116,19 +128,21 @@ impl<T: Config> Pallet<T> {
 					Error::<T>::TransferUtilityBlocked
 				);
 			}
-
-			collection_info.remove_user_tokens(current_owner, serial_numbers.clone());
+			let bounded_serials: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
+				BoundedVec::try_from(serial_numbers.into_inner())
+					.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+			collection_info.remove_user_tokens(current_owner, bounded_serials.clone());
 			collection_info
-				.add_user_tokens(new_owner, serial_numbers.clone())
+				.add_user_tokens(new_owner, bounded_serials.clone())
 				.map_err(Error::<T>::from)?;
 
-			for serial_number in serial_numbers.clone().iter() {
+			for serial_number in bounded_serials.clone().iter() {
 				T::OnTransferSubscription::on_nft_transfer(&(collection_id, *serial_number));
 			}
 			Self::deposit_event(Event::<T>::Transfer {
 				previous_owner: current_owner.clone(),
 				collection_id,
-				serial_numbers: serial_numbers.into_inner(),
+				serial_numbers: bounded_serials.into_inner(),
 				new_owner: new_owner.clone(),
 			});
 			Ok(())

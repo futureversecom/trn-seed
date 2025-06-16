@@ -1095,6 +1095,27 @@ mod transfer {
 	}
 
 	#[test]
+	fn transfer_duplicate_serials_should_fail() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_owner = bob();
+			let initial_issuance = 1000;
+			let token_id = create_test_token(collection_owner, token_owner, initial_issuance);
+			let (collection_id, serial_number) = token_id;
+			let quantity = 460;
+			let new_owner = charlie();
+
+			// Perform transfer
+			assert_noop!(Sft::transfer(
+				Some(token_owner).into(),
+				collection_id,
+				bounded_combined(vec![serial_number, serial_number], vec![quantity, quantity]),
+				new_owner,
+			), Error::<Test>::SerialNumbersNotUnique);
+		});
+	}
+
+	#[test]
 	fn transfer_multiple_insufficient_balance_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let collection_owner = alice();

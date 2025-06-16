@@ -244,6 +244,7 @@ macro_rules! impl_pallet_nft_config {
 			pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 			pub const MaxTokensPerCollection: u32 = 10_000;
 			pub const MintLimit: u32 = 1000;
+			pub const TransferLimit: u32 = 1000;
 			pub const Xls20PaymentAsset: AssetId = 2;
 			pub const StringLimit: u32 = 50;
 			pub const FeePotId: PalletId = PalletId(*b"txfeepot");
@@ -255,6 +256,7 @@ macro_rules! impl_pallet_nft_config {
 			type RuntimeCall = RuntimeCall;
 			type MaxTokensPerCollection = MaxTokensPerCollection;
 			type MintLimit = MintLimit;
+			type TransferLimit = TransferLimit;
 			type OnTransferSubscription = ();
 			type OnNewAssetSubscription = ();
 			type MultiCurrency = AssetsExt;

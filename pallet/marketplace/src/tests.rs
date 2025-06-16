@@ -14,11 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
-use crate::mock::{
-	AssetsExt, DefaultListingDuration, FeePotId, Marketplace, MarketplaceNetworkFeePercentage,
-	MarketplacePalletId, MaxTokensPerCollection, MaxTokensPerListing, NativeAssetId, Nft,
-	RuntimeEvent as MockEvent, Sft, System, Test,
-};
+use crate::mock::{AssetsExt, DefaultListingDuration, FeePotId, Marketplace, MarketplaceNetworkFeePercentage, MarketplacePalletId, MaxTokensPerListing, NativeAssetId, Nft, RuntimeEvent as MockEvent, Sft, System, Test, TransferLimit};
 use core::ops::Mul;
 use frame_support::traits::{fungibles::Inspect, OnInitialize};
 use pallet_nft::{test_utils::NftBuilder, TokenLocks};
@@ -328,7 +324,7 @@ fn sell_multiple() {
 		.unwrap());
 
 		// Can't transfer while listed for sale
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
 		assert_noop!(
 			Nft::transfer(
@@ -466,7 +462,7 @@ fn cancel_sell() {
 		.is_none());
 
 		// it should be free to operate on the token
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
 		let new_owner = create_account(6);
 		assert_ok!(Nft::transfer(
@@ -511,7 +507,7 @@ fn sell_closes_on_schedule() {
 
 		// should be free to transfer now
 		let new_owner = create_account(8);
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
 		assert_ok!(Nft::transfer(
 			Some(token_owner).into(),
@@ -1363,7 +1359,7 @@ fn cancel_auction() {
 		assert!(ListingEndSchedule::<Test>::get(System::block_number() + 1, listing_id).is_none());
 
 		// it should be free to operate on the token
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
 		assert_ok!(Nft::transfer(
 			Some(token_owner).into(),
@@ -1517,6 +1513,121 @@ fn auction_bundle_fails() {
 			),
 			Error::<Test>::EmptyTokens
 		);
+	})
+}
+
+#[test]
+fn auction_duplicate_nfts_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let collection_owner = create_account(1);
+		let collection_id = NftBuilder::<Test>::new(collection_owner).build();
+		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
+
+		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+			BoundedVec::truncate_from(vec![1, 1]);
+		let nft_token = ListingTokens::Nft(NftListing {
+			collection_id,
+			serial_numbers,
+		});
+
+		// duplicate tokens fails
+		assert_noop!(
+			Marketplace::auction(
+				Some(collection_owner).into(),
+				nft_token,
+				NativeAssetId::get(),
+				1_000,
+				None,
+				None
+			),
+			Error::<Test>::DuplicateTokens
+		);
+	})
+}
+
+#[test]
+fn auction_duplicate_sfts_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let collection_owner = create_account(1);
+		let collection_id = NftBuilder::<Test>::new(collection_owner).build();
+		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
+
+		let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
+			BoundedVec::truncate_from(vec![(1, 100), (1, 200)]);
+		let sft_token = ListingTokens::Sft(SftListing {
+			collection_id,
+			serial_numbers,
+		});
+
+		// duplicate tokens fails
+		assert_noop!(
+			Marketplace::auction(
+				Some(collection_owner).into(),
+				sft_token,
+				NativeAssetId::get(),
+				1_000,
+				None,
+				None
+			),
+			Error::<Test>::DuplicateTokens
+		);
+	})
+}
+
+#[test]
+fn sell_duplicate_nfts_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let collection_owner = create_account(1);
+		let collection_id = NftBuilder::<Test>::new(collection_owner).build();
+		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
+
+		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+			BoundedVec::truncate_from(vec![1, 1]);
+		let nft_token = ListingTokens::Nft(NftListing {
+			collection_id,
+			serial_numbers,
+		});
+		assert_noop!(
+				Marketplace::sell(
+					Some(collection_owner).into(),
+					nft_token,
+					None,
+					NativeAssetId::get(),
+					1_000,
+					None,
+					None,
+				),
+				Error::<Test>::DuplicateTokens
+			);
+	})
+}
+
+
+#[test]
+fn sell_duplicate_sfts_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let collection_owner = create_account(1);
+		let collection_id = NftBuilder::<Test>::new(collection_owner).build();
+		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
+
+		let serial_numbers: BoundedVec<(SerialNumber, Balance), MaxTokensPerListing> =
+			BoundedVec::truncate_from(vec![(1, 100), (1, 200)]);
+		let sft_token = ListingTokens::Sft(SftListing {
+			collection_id,
+			serial_numbers,
+		});
+		assert_noop!(
+				Marketplace::sell(
+					Some(collection_owner).into(),
+					sft_token,
+					None,
+					NativeAssetId::get(),
+					1_000,
+					None,
+					None,
+				),
+				Error::<Test>::DuplicateTokens
+			);
 	})
 }
 

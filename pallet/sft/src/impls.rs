@@ -258,6 +258,19 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Checks if all tokens in a list are unique.
+	pub fn check_unique(
+		serial_numbers: Vec<(SerialNumber, Balance)>
+	) -> bool {
+		let serial_numbers: Vec<SerialNumber> =
+			serial_numbers.iter().map(|(sn, _)| *sn).collect();
+		let original_length = serial_numbers.len();
+		let mut serial_numbers_trimmed = serial_numbers;
+		serial_numbers_trimmed.sort_unstable();
+		serial_numbers_trimmed.dedup();
+		serial_numbers_trimmed.len() == original_length
+	}
+
 	/// Perform the transfer operation and move quantities from one user to another
 	/// Note there is one storage read and write per serial number transferred
 	pub fn do_transfer(
@@ -275,6 +288,8 @@ impl<T: Config> Pallet<T> {
 			<UtilityFlags<T>>::get(collection_id).transferable,
 			Error::<T>::TransferUtilityBlocked
 		);
+		// Check that all serial numbers are unique
+		ensure!(Self::check_unique(serial_numbers.to_vec()), Error::<T>::SerialNumbersNotUnique);
 
 		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
