@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
+use crate::mock::TransferLimit;
 use crate::{
 	mock::{MaxTokensPerCollection, Nft, RuntimeEvent as MockEvent, System, Test},
 	CollectionInfo, Event as NftEvent, TokenLocks,
@@ -22,7 +23,6 @@ use seed_pallet_common::test_prelude::*;
 use seed_pallet_common::utils::TokenBurnAuthority;
 use seed_pallet_common::utils::TokenUtilityFlags as TokenFlags;
 use seed_primitives::{OriginChain, RoyaltiesSchedule, TokenCount};
-use crate::mock::TransferLimit;
 
 type OwnedTokens = BoundedVec<
 	TokenOwnership<
@@ -517,12 +517,15 @@ fn transfer_duplicate_serials_should_fail() {
 		let new_owner = create_account(3);
 		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(vec![0, 0]).unwrap();
-		assert_noop!(Nft::transfer(
-			Some(token_owner).into(),
-			collection_id,
-			serial_numbers.clone(),
-			new_owner
-		), Error::<Test>::SerialNumbersNotUnique);
+		assert_noop!(
+			Nft::transfer(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers.clone(),
+				new_owner
+			),
+			Error::<Test>::SerialNumbersNotUnique
+		);
 	});
 }
 

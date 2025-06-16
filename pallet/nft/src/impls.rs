@@ -81,9 +81,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Checks if all tokens in a list are unique.
-	pub fn check_unique(
-		serial_numbers: Vec<SerialNumber>
-	) -> bool {
+	pub fn check_unique(serial_numbers: Vec<SerialNumber>) -> bool {
 		let original_length = serial_numbers.len();
 		let mut serial_numbers_trimmed = serial_numbers;
 		serial_numbers_trimmed.sort_unstable();
@@ -104,7 +102,10 @@ impl<T: Config> Pallet<T> {
 			<UtilityFlags<T>>::get(collection_id).transferable,
 			Error::<T>::TransferUtilityBlocked
 		);
-		ensure!(Self::check_unique(serial_numbers.clone().into_inner()), Error::<T>::SerialNumbersNotUnique);
+		ensure!(
+			Self::check_unique(serial_numbers.clone().into_inner()),
+			Error::<T>::SerialNumbersNotUnique
+		);
 
 		CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection_info| -> DispatchResult {
 			let collection_info =

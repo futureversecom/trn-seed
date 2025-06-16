@@ -1106,12 +1106,15 @@ mod transfer {
 			let new_owner = charlie();
 
 			// Perform transfer
-			assert_noop!(Sft::transfer(
-				Some(token_owner).into(),
-				collection_id,
-				bounded_combined(vec![serial_number, serial_number], vec![quantity, quantity]),
-				new_owner,
-			), Error::<Test>::SerialNumbersNotUnique);
+			assert_noop!(
+				Sft::transfer(
+					Some(token_owner).into(),
+					collection_id,
+					bounded_combined(vec![serial_number, serial_number], vec![quantity, quantity]),
+					new_owner,
+				),
+				Error::<Test>::SerialNumbersNotUnique
+			);
 		});
 	}
 

@@ -259,11 +259,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Checks if all tokens in a list are unique.
-	pub fn check_unique(
-		serial_numbers: Vec<(SerialNumber, Balance)>
-	) -> bool {
-		let serial_numbers: Vec<SerialNumber> =
-			serial_numbers.iter().map(|(sn, _)| *sn).collect();
+	pub fn check_unique(serial_numbers: Vec<(SerialNumber, Balance)>) -> bool {
+		let serial_numbers: Vec<SerialNumber> = serial_numbers.iter().map(|(sn, _)| *sn).collect();
 		let original_length = serial_numbers.len();
 		let mut serial_numbers_trimmed = serial_numbers;
 		serial_numbers_trimmed.sort_unstable();
