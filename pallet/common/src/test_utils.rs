@@ -794,7 +794,7 @@ macro_rules! impl_pallet_sylo_action_config {
 		impl pallet_sylo_action_permissions::Config for Test {
 			type RuntimeEvent = RuntimeEvent;
 			type RuntimeCall = RuntimeCall;
-			type BlacklistedCallValidator = MockSyloCallValidator;
+			type BlacklistedCallProvider = MockSyloCallValidator;
 			type MaxCallIds = MaxCallIds;
 			type StringLimit = ActionStringLimit;
 			type FuturepassLookup = FuturepassIdentityLookup;
