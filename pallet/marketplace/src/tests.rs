@@ -2964,17 +2964,17 @@ mod sell_sft {
 				BoundedVec::truncate_from(vec![(1, 100), (1, 200)]);
 			let sft_token = ListingTokens::Sft(SftListing { collection_id, serial_numbers });
 			assert_noop!(
-			Marketplace::sell(
-				Some(collection_owner).into(),
-				sft_token,
-				None,
-				NativeAssetId::get(),
-				1_000,
-				None,
-				None,
-			),
-			Error::<Test>::DuplicateTokens
-		);
+				Marketplace::sell(
+					Some(collection_owner).into(),
+					sft_token,
+					None,
+					NativeAssetId::get(),
+					1_000,
+					None,
+					None,
+				),
+				Error::<Test>::DuplicateTokens
+			);
 		})
 	}
 }
@@ -3551,16 +3551,16 @@ mod auction_sft {
 
 			// duplicate tokens fails
 			assert_noop!(
-			Marketplace::auction(
-				Some(collection_owner).into(),
-				sft_token,
-				NativeAssetId::get(),
-				1_000,
-				None,
-				None
-			),
-			Error::<Test>::DuplicateTokens
-		);
+				Marketplace::auction(
+					Some(collection_owner).into(),
+					sft_token,
+					NativeAssetId::get(),
+					1_000,
+					None,
+					None
+				),
+				Error::<Test>::DuplicateTokens
+			);
 		})
 	}
 }
