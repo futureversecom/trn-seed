@@ -1169,7 +1169,7 @@ mod transfer {
 				Sft::transfer(
 					Some(collection_owner).into(),
 					collection_id,
-					bounded_combined(vec![serial_number, serial_number], vec![100, 0]),
+					bounded_combined(vec![serial_number], vec![0]),
 					new_owner,
 				),
 				Error::<Test>::InvalidQuantity
