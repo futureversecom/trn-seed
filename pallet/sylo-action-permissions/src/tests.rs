@@ -650,6 +650,38 @@ mod update_transact_permission {
 			);
 		});
 	}
+
+	#[test]
+	fn test_update_transact_permission_only_grantor_can_update() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+			let non_grantor: AccountId = create_account(3);
+
+			// Grant initial permission
+			assert_ok!(SyloActionPermissions::grant_transact_permission(
+				RawOrigin::Signed(grantor.clone()).into(),
+				grantee.clone(),
+				Spender::GRANTOR,
+				Some(100),
+				all_allowed_calls(),
+				Some(frame_system::Pallet::<Test>::block_number() + 10),
+			));
+
+			// Attempt to update the permission as a non-grantor
+			assert_noop!(
+				SyloActionPermissions::update_transact_permission(
+					RawOrigin::Signed(non_grantor.clone()).into(),
+					grantee.clone(),
+					Some(Spender::GRANTOR),
+					Some(Some(200)),
+					None,
+					None,
+				),
+				Error::<Test>::PermissionNotGranted
+			);
+		});
+	}
 }
 
 mod revoke_transact_permission {
