@@ -775,6 +775,16 @@ macro_rules! impl_pallet_sylo_data_configs {
 #[macro_export]
 macro_rules! impl_pallet_sylo_action_config {
 	($test:ident) => {
+		pub struct MockSyloCallValidator;
+		impl seed_pallet_common::ExtrinsicChecker for MockSyloCallValidator {
+			type Call = RuntimeCall;
+			type Extra = ();
+			type Result = bool;
+			fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+				false
+			}
+		}
+
 		parameter_types! {
 			pub const ActionStringLimit: u32 = 500;
 			pub const MaxCallIds: u32 = 100;
@@ -784,6 +794,7 @@ macro_rules! impl_pallet_sylo_action_config {
 		impl pallet_sylo_action_permissions::Config for Test {
 			type RuntimeEvent = RuntimeEvent;
 			type RuntimeCall = RuntimeCall;
+			type BlacklistedCallValidator = MockSyloCallValidator;
 			type MaxCallIds = MaxCallIds;
 			type StringLimit = ActionStringLimit;
 			type FuturepassLookup = FuturepassIdentityLookup;

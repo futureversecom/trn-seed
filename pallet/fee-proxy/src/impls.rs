@@ -16,7 +16,6 @@
 use crate::{Call::call_with_fee_preferences, *};
 use frame_support::traits::{fungibles::Inspect, GetCallMetadata, IsSubType};
 use pallet_futurepass::ProxyProvider;
-use pallet_sylo_action_permissions::Spender;
 use pallet_transaction_payment::OnChargeTransaction;
 use precompile_utils::{Address, ErcIdConversion};
 use seed_primitives::{AccountId, AssetId, Balance};
@@ -72,7 +71,7 @@ where
 	/// pallet_fee_proxy.call_with_fee_preferences().
 	///
 	/// This also additionally will force the Sylo token as the gas token if the call
-	/// is detected as  a extrinsic for the sylo pallet.
+	/// is detected as an extrinsic for the sylo pallet.
 	fn withdraw_fee(
 		who: &T::AccountId,
 		call: &<T as frame_system::Config>::RuntimeCall,

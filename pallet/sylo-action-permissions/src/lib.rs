@@ -25,6 +25,7 @@ use frame_support::{
 	traits::{CallMetadata, GetCallMetadata, IsSubType},
 };
 use frame_system::pallet_prelude::*;
+use seed_pallet_common::ExtrinsicChecker;
 use seed_primitives::Balance;
 use sp_core::{H160, U256};
 use sp_runtime::traits::StaticLookup;
@@ -46,6 +47,7 @@ mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
+
 	use super::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -68,6 +70,13 @@ pub mod pallet {
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
+
+		/// Provides a way to check if a call is blacklisted.
+		type BlacklistedCallProvider: ExtrinsicChecker<
+			Call = <Self as pallet::Config>::RuntimeCall,
+			Extra = (),
+			Result = bool,
+		>;
 
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -93,22 +102,6 @@ pub mod pallet {
 
 		/// A lookup to get the futurepass account id for a futurepass holder.
 		type FuturepassLookup: StaticLookup<Source = H160, Target = H160>;
-	}
-
-	/// A set of calls that will always be blocked from being used in a transact
-	/// call. In general we forbid any calls that can be used to submit an
-	/// extrinsic as another account.
-	#[pallet::type_value]
-	pub fn BlacklistedCalls<T: Config>() -> BoundedVec<CallId<T::StringLimit>, T::MaxCallIds>
-	where
-		<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
-		<T as frame_system::Config>::AccountId: From<H160> + Into<H160>,
-	{
-		BoundedVec::truncate_from(vec![
-			to_call_id("sudo", "*"),
-			to_call_id("futurepass", "*"),
-			to_call_id("proxy", "*"),
-		])
 	}
 
 	#[pallet::error]
@@ -450,6 +443,11 @@ pub mod pallet {
 			call: &<T as Config>::RuntimeCall,
 			allowed_calls: BoundedBTreeSet<CallId<T::StringLimit>, T::MaxCallIds>,
 		) -> bool {
+			// Deny if the call is blacklisted
+			if T::BlacklistedCallProvider::check_extrinsic(call, &()) {
+				return false;
+			}
+
 			let CallMetadata { function_name, pallet_name } = call.get_call_metadata();
 
 			let pallet_name: BoundedVec<u8, T::StringLimit> =
@@ -458,15 +456,6 @@ pub mod pallet {
 				BoundedVec::truncate_from(function_name.as_bytes().to_ascii_lowercase());
 
 			let wildcard: BoundedVec<u8, T::StringLimit> = BoundedVec::truncate_from(b"*".to_vec());
-
-			// Deny if the call matches any of the BlacklistedCalls
-			let blacklisted_calls = BlacklistedCalls::<T>::get();
-			if blacklisted_calls.iter().any(|(pallet, function)| {
-				(pallet == &pallet_name || pallet == &wildcard)
-					&& (function == &function_name || function == &wildcard)
-			}) {
-				return false;
-			}
 
 			// Check if the call is allowed
 			allowed_calls.iter().any(|(pallet, function)| {
@@ -561,8 +550,6 @@ pub mod pallet {
 							*spending_balance = spending_balance.saturating_sub(fee.into());
 						}
 					}
-				} else {
-					Err(Error::<T>::PermissionNotGranted)?;
 				}
 
 				Ok::<(), Error<T>>(())

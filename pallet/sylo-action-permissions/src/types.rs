@@ -108,7 +108,7 @@ where
 	// An optional expiry for this permission
 	pub expiry: Option<BlockNumber>,
 
-	// A randomly generated 32 byte nonce to prevent replays
+	// A randomly generated 32 byte nonce used to prevent replays
 	pub nonce: U256,
 }
 

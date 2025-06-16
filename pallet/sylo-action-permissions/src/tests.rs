@@ -463,54 +463,6 @@ mod transact {
 			);
 		});
 	}
-
-	#[test]
-	fn test_transact_blacklisted_calls_are_rejected() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let grantor: AccountId = create_account(1);
-			let grantee: AccountId = create_account(2);
-
-			// Grant permission with all_allowed_calls
-			assert_ok!(SyloActionPermissions::grant_transact_permission(
-				RawOrigin::Signed(grantor.clone()).into(),
-				grantee.clone(),
-				Spender::GRANTEE,
-				None,
-				all_allowed_calls(),
-				None,
-			));
-
-			let blacklisted_calls: Vec<<Test as Config>::RuntimeCall> = vec![
-				pallet_sudo::Call::sudo {
-					call: Box::new(frame_system::Call::remark { remark: vec![] }.into()),
-				}
-				.into(),
-				pallet_futurepass::Call::proxy_extrinsic {
-					futurepass: create_account(3),
-					call: Box::new(frame_system::Call::remark { remark: vec![] }.into()),
-				}
-				.into(),
-				pallet_proxy::Call::proxy {
-					real: create_account(3),
-					force_proxy_type: None,
-					call: Box::new(frame_system::Call::remark { remark: vec![] }.into()),
-				}
-				.into(),
-			];
-
-			// Ensure each blacklisted call is rejected
-			for call in blacklisted_calls.iter() {
-				assert_noop!(
-					SyloActionPermissions::transact(
-						RawOrigin::Signed(grantee.clone()).into(),
-						grantor.clone(),
-						Box::new(call.clone()),
-					),
-					Error::<Test>::NotAuthorizedCall
-				);
-			}
-		});
-	}
 }
 
 mod update_transact_permission {

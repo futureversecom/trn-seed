@@ -673,6 +673,7 @@ impl pallet_sylo_action_permissions::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type FuturepassLookup = impls::FuturepassLookup;
+	type BlacklistedCallProvider = impls::SyloActionsCallValidator;
 	type MaxCallIds = MaxCallIds;
 	type StringLimit = SyloStringLimit;
 	type XrplMaxMessageLength = XrplMaxMessageLength;

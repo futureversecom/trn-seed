@@ -467,6 +467,51 @@ describe("Sylo Actions", () => {
     expect(tokenBalanceAfter).to.be.lessThan(tokenBalanceBefore);
   });
 
+  it("rejects blacklisted calls", async () => {
+    const grantor = alith;
+    const grantee = alice;
+
+    const futurepassAddress = (await api.query.futurepass.holders(grantee.address)).toString();
+
+    // all calls are allowed ('*', '*'), but the following should always be rejected
+    const blacklistedCalls = [
+      // test sudo calls
+      api.tx.sudo.sudo(api.tx.system.remark("Hello, Sylo!")),
+
+      // test futurepass calls
+      api.tx.futurepass.proxyExtrinsic(futurepassAddress, api.tx.system.remark("Hello, Sylo!")),
+
+      // test proxy calls
+      api.tx.proxy.proxy(futurepassAddress, null, api.tx.system.remark("Hello, Sylo!")),
+
+      // test calls to sylo-action-permissions
+      api.tx.syloActionPermissions.updateTransactPermission(grantee.address, SPENDER_TYPE.Grantor, null, null, null),
+
+      // test batch calls. A batch call that contains an invalid call
+      // should be rejected
+      api.tx.utility.batch([
+        api.tx.system.remark("Hello, Sylo!"),
+        api.tx.sudo.sudo(api.tx.system.remark("This should be rejected")),
+      ]),
+      api.tx.utility.batchAll([
+        api.tx.system.remark("Hello, Sylo!"),
+        api.tx.sudo.sudo(api.tx.system.remark("This should be rejected")),
+      ]),
+      api.tx.utility.forceBatch([
+        api.tx.system.remark("Hello, Sylo!"),
+        api.tx.sudo.sudo(api.tx.system.remark("This should be rejected")),
+      ]),
+      api.tx.utility.asDerivative(0, api.tx.sudo.sudo(api.tx.system.remark("This should be rejected"))),
+    ];
+
+    for (const call of blacklistedCalls) {
+      const err = await expect(finalizeTx(grantee, api.tx.syloActionPermissions.transact(grantor.address, call))).to.be
+        .rejected;
+      expect(err.section).to.equal("syloActionPermissions");
+      expect(err.name).to.equal("NotAuthorizedCall");
+    }
+  });
+
   it("can accept transact permission using eip191", async () => {
     const grantor = Wallet.createRandom();
 

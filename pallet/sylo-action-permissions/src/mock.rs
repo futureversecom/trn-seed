@@ -65,9 +65,20 @@ impl StaticLookup for FuturepassIdentityLookup {
 	}
 }
 
+pub struct MockCallValidator;
+impl seed_pallet_common::ExtrinsicChecker for MockCallValidator {
+	type Call = RuntimeCall;
+	type Extra = ();
+	type Result = bool;
+	fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+		false
+	}
+}
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
+	type BlacklistedCallProvider = MockCallValidator;
 	type FuturepassLookup = FuturepassIdentityLookup;
 	type MaxCallIds = MaxCallIds;
 	type StringLimit = StringLimit;
