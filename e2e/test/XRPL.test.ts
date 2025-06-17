@@ -46,7 +46,7 @@ describe("XRPL pallet", () => {
   after(async () => await node.stop());
 
   // NOTE: use this test to generate a valid xaman tx (msg + signature) for mock runtime tests
-  it.skip("debug ECDSA tx message and signature", async () => {
+  it("debug ECDSA tx message and signature", async () => {
     // const user = Wallet.createRandom();
     const publicKey = computePublicKey(alith.publicKey, true);
     // console.log(hexToU8a(publicKey));

@@ -5828,6 +5828,7 @@ dependencies = [
  "pallet-futurepass",
  "pallet-partner-attribution",
  "pallet-proxy",
+ "pallet-sylo-action-permissions",
  "pallet-sylo-data-permissions",
  "pallet-sylo-data-verification",
  "pallet-timestamp",
@@ -5862,6 +5863,7 @@ dependencies = [
  "pallet-futurepass",
  "pallet-partner-attribution",
  "pallet-proxy",
+ "pallet-sylo-action-permissions",
  "pallet-sylo-data-permissions",
  "pallet-sylo-data-verification",
  "pallet-timestamp",
@@ -6397,6 +6399,36 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-sylo-action-permissions"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "libsecp256k1",
+ "log",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-futurepass",
+ "pallet-proxy",
+ "pallet-sudo",
+ "pallet-xrpl",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "xrpl_types",
 ]
 
 [[package]]
@@ -9263,6 +9295,7 @@ dependencies = [
  "pallet-sft-rpc-runtime-api",
  "pallet-staking",
  "pallet-sudo",
+ "pallet-sylo-action-permissions",
  "pallet-sylo-data-permissions",
  "pallet-sylo-data-permissions-rpc-runtime-api",
  "pallet-sylo-data-verification",

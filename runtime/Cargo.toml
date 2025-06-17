@@ -90,6 +90,7 @@ pallet-nfi = { workspace = true }
 pallet-nft = { workspace = true }
 pallet-nft-rpc-runtime-api = { workspace = true }
 pallet-sft = { workspace = true }
+pallet-sylo-action-permissions = { workspace = true }
 pallet-sylo-data-verification = { workspace = true }
 pallet-sylo-data-permissions = { workspace = true }
 pallet-sylo-data-permissions-rpc-runtime-api = { workspace = true }
@@ -204,6 +205,7 @@ std = [
 	"pallet-nft-rpc-runtime-api/std",
 	"pallet-sft/std",
 	"pallet-sft-rpc-runtime-api/std",
+	"pallet-sylo-action-permissions/std",
 	"pallet-sylo-data-verification/std",
 	"pallet-sylo-data-permissions/std",
 	"pallet-sylo-data-permissions-rpc-runtime-api/std",
@@ -295,6 +297,7 @@ try-runtime = [
 	"pallet-sft/try-runtime",
 	"pallet-sylo-data-verification/try-runtime",
 	"pallet-sylo-data-permissions/try-runtime",
+	"pallet-sylo-action-permissions/try-runtime",
 	"pallet-xrpl-bridge/try-runtime",
 	"pallet-xrpl/try-runtime",
 	"pallet-token-approvals/try-runtime",
@@ -351,6 +354,7 @@ runtime-benchmarks = [
 	"pallet-sft/runtime-benchmarks",
 	"pallet-sylo-data-verification/runtime-benchmarks",
 	"pallet-sylo-data-permissions/runtime-benchmarks",
+	"pallet-sylo-action-permissions/runtime-benchmarks",
 	"pallet-xrpl-bridge/runtime-benchmarks",
 	"pallet-xrpl/runtime-benchmarks",
 	"pallet-dex/runtime-benchmarks",

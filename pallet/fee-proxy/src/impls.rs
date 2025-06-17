@@ -14,7 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{Call::call_with_fee_preferences, *};
-use frame_support::traits::{fungibles::Inspect, IsSubType};
+use frame_support::traits::{fungibles::Inspect, GetCallMetadata, IsSubType};
 use pallet_futurepass::ProxyProvider;
 use pallet_transaction_payment::OnChargeTransaction;
 use precompile_utils::{Address, ErcIdConversion};
@@ -33,6 +33,7 @@ where
 		+ pallet_futurepass::Config
 		+ pallet_sylo_data_verification::Config
 		+ pallet_sylo_data_permissions::Config
+		+ pallet_sylo_action_permissions::Config
 		+ pallet_partner_attribution::Config
 		+ pallet_proxy::Config
 		+ pallet_utility::Config
@@ -41,6 +42,7 @@ where
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_action_permissions::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
@@ -48,6 +50,7 @@ where
 	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_action_permissions::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
@@ -57,6 +60,7 @@ where
 	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
 	<T as Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
+	<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 	Balance: From<<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance>,
 {
 	type Balance = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
@@ -67,7 +71,7 @@ where
 	/// pallet_fee_proxy.call_with_fee_preferences().
 	///
 	/// This also additionally will force the Sylo token as the gas token if the call
-	/// is detected as  a extrinsic for the sylo pallet.
+	/// is detected as an extrinsic for the sylo pallet.
 	fn withdraw_fee(
 		who: &T::AccountId,
 		call: &<T as frame_system::Config>::RuntimeCall,
@@ -89,6 +93,18 @@ where
 
 		// Attribute the fee to the partner if the caller is attributed to a partner
 		attribute_fee_to_partner::<T>(who, fee.into())?;
+
+		// Validate spending balance if the call is an action permissions transact call
+		if let Some(grantor) = is_action_permission_execute_call::<T>(call) {
+			// This will also update the spender of the transaction based on the
+			// transact permission record.
+			who = pallet_sylo_action_permissions::Pallet::<T>::validate_spending_balance(
+				grantor,
+				who,
+				fee.into(),
+			)
+			.map_err(|_| InvalidTransaction::Payment)?;
+		}
 
 		let do_fee_swap = |who: &T::AccountId,
 		                   payment_asset: &AssetId,
@@ -284,11 +300,13 @@ where
 		+ pallet_proxy::Config
 		+ pallet_utility::Config
 		+ pallet_sylo_data_verification::Config
-		+ pallet_sylo_data_permissions::Config,
+		+ pallet_sylo_data_permissions::Config
+		+ pallet_sylo_action_permissions::Config,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<crate::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_action_permissions::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
@@ -296,9 +314,11 @@ where
 	<T as Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_action_permissions::Call<T>>,
 	<T as Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
 	<T as pallet_futurepass::Config>::RuntimeCall:
 		IsSubType<pallet_sylo_data_verification::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 {
 	if match call.is_sub_type() {
 		Some(pallet_sylo_data_verification::Call::register_resolver { .. }) => true,
@@ -320,6 +340,16 @@ where
 		Some(pallet_sylo_data_permissions::Call::revoke_tagged_permission { .. }) => true,
 		Some(pallet_sylo_data_permissions::Call::grant_permission_reference { .. }) => true,
 		Some(pallet_sylo_data_permissions::Call::revoke_permission_reference { .. }) => true,
+		_ => false,
+	} {
+		return Ok(true);
+	}
+
+	if match call.is_sub_type() {
+		Some(pallet_sylo_action_permissions::Call::grant_transact_permission { .. }) => true,
+		Some(pallet_sylo_action_permissions::Call::revoke_transact_permission { .. }) => true,
+		Some(pallet_sylo_action_permissions::Call::update_transact_permission { .. }) => true,
+		Some(pallet_sylo_action_permissions::Call::accept_transact_permission { .. }) => true,
 		_ => false,
 	} {
 		return Ok(true);
@@ -384,4 +414,75 @@ where
 	}
 
 	Ok(false)
+}
+
+/// Helper function to determine if a call is an action permissions execute
+/// call. This is needed as the transaction will be paid by either the
+/// grantor or the grantee, depending on the permission record. This function
+/// will attempt to unwrap any proxy-like calls and check the inner call.
+///
+/// Returns the grantor if the call is an action permission execute call,
+fn is_action_permission_execute_call<T>(
+	call: &<T as frame_system::Config>::RuntimeCall,
+) -> Option<&AccountId>
+where
+	T: Config
+		+ frame_system::Config<AccountId = AccountId>
+		+ pallet_futurepass::Config
+		+ pallet_xrpl::Config
+		+ pallet_proxy::Config
+		+ pallet_utility::Config
+		+ pallet_sylo_data_verification::Config
+		+ pallet_sylo_data_permissions::Config
+		+ pallet_sylo_action_permissions::Config,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<crate::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sylo_action_permissions::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_proxy::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_xrpl::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_verification::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_sylo_action_permissions::Call<T>>,
+	<T as Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
+	<T as pallet_futurepass::Config>::RuntimeCall:
+		IsSubType<pallet_sylo_data_verification::Call<T>>,
+{
+	if let Some(pallet_sylo_action_permissions::Call::transact { grantor, .. }) = call.is_sub_type()
+	{
+		return Some(grantor);
+	}
+
+	// check if the inner call of a futurepass call is a sylo call
+	if let Some(pallet_futurepass::Call::proxy_extrinsic { call, .. }) = call.is_sub_type() {
+		return is_action_permission_execute_call::<T>(call.as_ref().into_ref());
+	}
+
+	// check if the inner call of a xrpl call is a sylo call
+	if let Some(pallet_xrpl::Call::transact { call, .. }) = call.is_sub_type() {
+		return is_action_permission_execute_call::<T>(call.as_ref().into_ref());
+	}
+
+	// check if the inner call of a proxy pallet call is a sylo call
+	match call.is_sub_type() {
+		Some(pallet_proxy::Call::proxy { call, .. }) => {
+			return is_action_permission_execute_call::<T>(call.as_ref().into_ref());
+		},
+		Some(pallet_proxy::Call::proxy_announced { call, .. }) => {
+			return is_action_permission_execute_call::<T>(call.as_ref().into_ref());
+		},
+		_ => {},
+	};
+
+	// check if the inner call is a fee proxy call
+	if let Some(call_with_fee_preferences { call, .. }) = call.is_sub_type() {
+		return is_action_permission_execute_call::<T>(call.as_ref().into_ref());
+	}
+
+	return None;
 }

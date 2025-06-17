@@ -30,6 +30,7 @@ pub mod pallet_session;
 pub mod pallet_sft;
 pub mod pallet_staking;
 pub mod pallet_sudo;
+pub mod pallet_sylo_action_permissions;
 pub mod pallet_sylo_data_permissions;
 pub mod pallet_sylo_data_verification;
 pub mod pallet_timestamp;

@@ -730,7 +730,7 @@ macro_rules! impl_pallet_scheduler_config {
 }
 
 #[macro_export]
-macro_rules! impl_pallet_sylo_configs {
+macro_rules! impl_pallet_sylo_data_configs {
 	($test:ident) => {
 		parameter_types! {
 			pub const MaxResolvers: u32 = 10;
@@ -769,6 +769,39 @@ macro_rules! impl_pallet_sylo_configs {
 			type MaxExpiringPermissions = MaxExpiringPermissions;
 			type StringLimit = StringLimit;
 			type PermissionRemovalDelay = PermissionRemovalDelay;
+			type WeightInfo = ();
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_pallet_sylo_action_config {
+	($test:ident) => {
+		pub struct MockSyloCallValidator;
+		impl seed_pallet_common::ExtrinsicChecker for MockSyloCallValidator {
+			type Call = RuntimeCall;
+			type Extra = ();
+			type Result = bool;
+			fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+				false
+			}
+		}
+
+		parameter_types! {
+			pub const ActionStringLimit: u32 = 500;
+			pub const MaxCallIds: u32 = 100;
+			pub const XrplMaxMessageLength: u32 = 1000;
+			pub const XrplMaxSignatureLength: u32 = 1000;
+		}
+		impl pallet_sylo_action_permissions::Config for Test {
+			type RuntimeEvent = RuntimeEvent;
+			type RuntimeCall = RuntimeCall;
+			type BlacklistedCallProvider = MockSyloCallValidator;
+			type MaxCallIds = MaxCallIds;
+			type StringLimit = ActionStringLimit;
+			type FuturepassLookup = FuturepassIdentityLookup;
+			type XrplMaxMessageLength = XrplMaxMessageLength;
+			type XrplMaxSignatureLength = XrplMaxSignatureLength;
 			type WeightInfo = ();
 		}
 	};

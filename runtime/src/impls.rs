@@ -551,6 +551,52 @@ impl seed_pallet_common::ExtrinsicChecker for FuturepassCallValidator {
 	}
 }
 
+pub struct SyloActionsCallValidator;
+impl seed_pallet_common::ExtrinsicChecker for SyloActionsCallValidator {
+	type Call = <Runtime as frame_system::Config>::RuntimeCall;
+	type Extra = ();
+	type Result = bool;
+
+	// Returns true if the calls is blacklisted
+	fn check_extrinsic(call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+		// Block all calls to sudo, futurepass, and proxy pallets. This is to ensure
+		// that the transact permission could only allow calls to be executed on the
+		// grantor's behalf, and not any other accounts that the grantor controls.
+		// The sylo-action-permissions pallet itself is blacklisted, to prevent the
+		// grantee from modifying the permission record themselves.
+		match call {
+			RuntimeCall::Sudo(_)
+			| RuntimeCall::Futurepass(_)
+			| RuntimeCall::Proxy(_)
+			| RuntimeCall::SyloActionPermissions(_) => return true,
+			_ => (),
+		};
+
+		match call {
+			RuntimeCall::Utility(pallet_utility::Call::batch { calls })
+			| RuntimeCall::Utility(pallet_utility::Call::force_batch { calls })
+			| RuntimeCall::Utility(pallet_utility::Call::batch_all { calls }) => {
+				// Check if any of the calls in a batch is blacklisted
+				if calls.iter().any(|c| Self::check_extrinsic(c, &())) {
+					return true;
+				}
+
+				()
+			},
+			RuntimeCall::Utility(pallet_utility::Call::as_derivative { call, .. }) => {
+				// Check if the derivative call is blacklisted
+				if Self::check_extrinsic(call, &()) {
+					return true;
+				}
+			},
+			_ => (),
+		};
+
+		// finally check if the call is paused in maintenance mode
+		pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(call)
+	}
+}
+
 pub struct ProxyPalletProvider;
 
 impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {

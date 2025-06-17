@@ -40,6 +40,7 @@ pallet-assets-ext = { workspace = true }
 pallet-futurepass = { workspace = true }
 pallet-sylo-data-verification = { workspace = true }
 pallet-sylo-data-permissions = { workspace = true }
+pallet-sylo-action-permissions = { workspace = true }
 pallet-xrpl = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-utility = { workspace = true }
