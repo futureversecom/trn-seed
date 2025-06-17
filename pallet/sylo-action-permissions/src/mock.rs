@@ -58,7 +58,9 @@ impl StaticLookup for FuturepassIdentityLookup {
 	type Source = H160;
 	type Target = H160;
 	fn lookup(s: Self::Source) -> Result<Self::Target, LookupError> {
-		Ok(s)
+		pallet_futurepass::Holders::<Test>::get::<AccountId>(s.into())
+			.map(|futurepass| futurepass.into())
+			.ok_or(LookupError)
 	}
 	fn unlookup(t: Self::Target) -> Self::Source {
 		t
