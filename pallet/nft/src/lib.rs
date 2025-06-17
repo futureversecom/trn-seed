@@ -119,6 +119,8 @@ pub mod pallet {
 		type MaxTokensPerCollection: Get<u32>;
 		/// Max quantity of NFTs that can be minted in one transaction
 		type MintLimit: Get<u32>;
+		/// Max quantity of NFTs that can be transferred in one transaction
+		type TransferLimit: Get<u32>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an NFT collection has been created
@@ -340,6 +342,8 @@ pub mod pallet {
 		/// Attempted to burn a token from an account that does not adhere to
 		/// the token's burn authority
 		InvalidBurnAuthority,
+		/// The SerialNumbers attempting to be transferred are not unique
+		SerialNumbersNotUnique,
 	}
 
 	#[pallet::call]
@@ -640,7 +644,7 @@ pub mod pallet {
 		pub fn transfer(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+			serial_numbers: BoundedVec<SerialNumber, T::TransferLimit>,
 			new_owner: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;

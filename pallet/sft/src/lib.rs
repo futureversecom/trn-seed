@@ -324,6 +324,8 @@ pub mod pallet {
 		/// Attempted to burn a token from an account that does not adhere to
 		/// the token's burn authority
 		InvalidBurnAuthority,
+		/// The SerialNumbers attempting to be transferred are not unique
+		SerialNumbersNotUnique,
 	}
 
 	#[pallet::call]

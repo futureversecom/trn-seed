@@ -391,7 +391,7 @@ where
 			let serial_numbers_unbounded: Vec<SerialNumber> = vec![serial_number];
 			let serial_numbers: BoundedVec<
 				SerialNumber,
-				<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
+				<Runtime as pallet_nft::Config>::TransferLimit,
 			> = BoundedVec::try_from(serial_numbers_unbounded).expect("Should not fail");
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
@@ -517,7 +517,7 @@ where
 		let serial_numbers_unbounded: Vec<SerialNumber> = vec![serial_number];
 		let serial_numbers: BoundedVec<
 			SerialNumber,
-			<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
+			<Runtime as pallet_nft::Config>::TransferLimit,
 		> = BoundedVec::try_from(serial_numbers_unbounded).expect("Should not fail");
 
 		RuntimeHelper::<Runtime>::try_dispatch(

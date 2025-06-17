@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
+use crate::mock::TransferLimit;
 use crate::{
 	mock::{MaxTokensPerCollection, Nft, RuntimeEvent as MockEvent, System, Test},
 	CollectionInfo, Event as NftEvent, TokenLocks,
@@ -469,7 +470,7 @@ fn transfer() {
 		));
 
 		let new_owner = create_account(3);
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(vec![0]).unwrap();
 		assert_ok!(Nft::transfer(
 			Some(token_owner).into(),
@@ -496,6 +497,39 @@ fn transfer() {
 }
 
 #[test]
+fn transfer_duplicate_serials_should_fail() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		// setup token collection + one token
+		let collection_owner = create_account(1);
+		let collection_id = Nft::next_collection_uuid().unwrap();
+		let token_owner = create_account(2);
+		assert_ok!(Nft::create_collection(
+			Some(collection_owner).into(),
+			bounded_string("test-collection"),
+			1,
+			None,
+			Some(token_owner),
+			MetadataScheme::try_from(b"<CID>".as_slice()).unwrap(),
+			None,
+			CrossChainCompatibility::default(),
+		));
+
+		let new_owner = create_account(3);
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
+			BoundedVec::try_from(vec![0, 0]).unwrap();
+		assert_noop!(
+			Nft::transfer(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers.clone(),
+				new_owner
+			),
+			Error::<Test>::SerialNumbersNotUnique
+		);
+	});
+}
+
+#[test]
 fn transfer_fails_prechecks() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		// setup token collection + one token
@@ -503,7 +537,7 @@ fn transfer_fails_prechecks() {
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let token_owner = create_account(2);
 		let new_owner = create_account(3);
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(vec![0]).unwrap();
 
 		// no token yet
@@ -866,7 +900,7 @@ fn transfer_to_signer_address() {
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), initial_quantity);
 
 		// Transfer 2 tokens to signer address
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(vec![0, 1]).unwrap();
 		assert_noop!(
 			Nft::transfer(Some(token_owner).into(), collection_id, serial_numbers, token_owner),
@@ -921,7 +955,7 @@ fn transfer_changes_token_balance() {
 		assert_eq!(Nft::token_balance_of(&new_owner, collection_id), 0);
 
 		// Transfer 2 tokens
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(vec![0, 1]).unwrap();
 		let transfer_quantity: u32 = serial_numbers.len() as u32;
 		assert_ok!(Nft::transfer(
@@ -965,7 +999,7 @@ fn transfer_many_tokens_changes_token_balance() {
 
 		for i in 0_u32..initial_quantity {
 			// Transfer token
-			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+			let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 				BoundedVec::try_from(vec![i]).unwrap();
 			assert_ok!(Nft::transfer(
 				Some(token_owner).into(),
@@ -1011,7 +1045,7 @@ fn transfer_many_tokens_at_once_changes_token_balance() {
 
 		// Transfer tokens
 		let serial_numbers_unbounded: Vec<SerialNumber> = (0..transfer_quantity).collect();
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(serial_numbers_unbounded.clone()).unwrap();
 		assert_ok!(Nft::transfer(
 			Some(token_owner).into(),
