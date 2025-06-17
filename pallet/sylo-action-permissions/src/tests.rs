@@ -846,7 +846,7 @@ mod accept_transact_permission {
 	}
 
 	#[test]
-	fn test_accept_transact_permission_signature_must_match_token() {
+	fn test_accept_transact_permission_grantor_must_match() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let (signer, grantor) = create_random_pair();
 			let grantee: AccountId = create_account(2);
@@ -895,6 +895,40 @@ mod accept_transact_permission {
 					token_signature.clone(),
 				),
 				Error::<Test>::GrantorDoesNotMatch
+			);
+		});
+	}
+
+	#[test]
+	fn test_accept_transact_permission_invalid_signature_should_fail() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let (_, grantor) = create_random_pair();
+			let grantee: AccountId = create_account(2);
+
+			let nonce = U256::from(1);
+			let expiry = Some(frame_system::Pallet::<Test>::block_number() + 10);
+			let allowed_calls = all_allowed_calls();
+			let permission_token = TransactPermissionToken {
+				grantee: grantee.clone(),
+				futurepass: None,
+				spender: Spender::GRANTOR,
+				spending_balance: Some(100),
+				allowed_calls: allowed_calls.clone(),
+				expiry,
+				nonce,
+			};
+
+			let invalid_token_signature = TransactPermissionTokenSignature::EIP191([0; 65]);
+
+			// Attempt to accept the permission with a mismatched signature
+			assert_noop!(
+				SyloActionPermissions::accept_transact_permission(
+					RawOrigin::Signed(grantee.clone()).into(),
+					grantor.clone(),
+					permission_token.clone(),
+					invalid_token_signature.clone(),
+				),
+				Error::<Test>::InvalidTokenSignature
 			);
 		});
 	}
