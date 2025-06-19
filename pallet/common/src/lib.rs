@@ -679,3 +679,12 @@ impl Migrator for () {
 }
 
 pub mod sylo;
+
+/// Trait to provide attribution data as a vector of (account, accumulated_fees)
+pub trait AttributionProvider<AccountId, Balance> {
+	/// Returns a vector of (account, accumulated_fees) for all partners
+	fn get_attributions() -> Vec<(AccountId, Balance)>;
+	/// Reset accumulated fees for all partners
+	fn reset_balances();
+}
+
