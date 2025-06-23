@@ -300,6 +300,16 @@ pub mod pallet {
 	pub(super) type TotalNetworkReward<T: Config> =
 		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
 
+/// Stores partner attribution rewards for each distribution, this is in drops multiplied by PRECISION_MULTIPLIER
+	#[pallet::storage]
+	pub(super) type PartnerAttributionRewards<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::VtxDistIdentifier,
+		BoundedVec<(T::AccountId, Balance), T::MaxAttributionPartners>,
+		ValueQuery,
+	>;
+
 	/// Stores total bootstrap reward for each distribution, this is in drops multiplied by PRECISION_MULTIPLIER
 	#[pallet::storage]
 	pub(super) type TotalBootstrapReward<T: Config> =
@@ -333,6 +343,11 @@ pub mod pallet {
 		BoundedVec<u8, T::MaxStringLength>,
 		ValueQuery,
 	>;
+
+/// Stores total attribution rewards for each distribution in drops multiplied by PRECISION_MULTIPLIER
+	#[pallet::storage]
+	pub(super) type TotalAttributionRewards<T: Config> =
+		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
