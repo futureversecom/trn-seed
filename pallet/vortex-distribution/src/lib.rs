@@ -58,7 +58,7 @@ use sp_runtime::{
 	traits::{
 		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, One, Saturating, StaticLookup, Zero,
 	},
-	Perquintill, RuntimeDebug, Perbill,
+	Permill, Perquintill, RuntimeDebug,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
@@ -67,8 +67,6 @@ pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority:
 pub const PRECISION_MULTIPLIER: u128 = 10u128.pow(6);
 // Asset price multiplier
 pub const PRICE_MULTIPLIER: u128 = 10u128.pow(6);
-// Atribution realization percentage
-pub const ATTRIBUTION_REALIZATION_PERCENTAGE: Perbill = Perbill::from_percent(1);
 
 #[derive(
 	Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, PartialOrd, Eq, TypeInfo, MaxEncodedLen,
@@ -349,6 +347,16 @@ pub mod pallet {
 	pub(super) type TotalAttributionRewards<T: Config> =
 		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
 
+	/// Stores partner attributions for each distribution
+	#[pallet::storage]
+	pub(super) type PartnerAttributions<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::VtxDistIdentifier,
+		BoundedVec<(T::AccountId, Balance, Option<Permill>), T::MaxAttributionPartners>,
+		ValueQuery,
+	>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -538,6 +546,9 @@ pub mod pallet {
 
 		/// Exceeded max attribution partners
 		ExceededMaxPartners,
+
+		/// Invalid partner fee percentage
+		InvalidPartnerFeePercentage,
 	}
 
 	#[pallet::call]
@@ -1433,22 +1444,30 @@ pub mod pallet {
 
 		fn do_calculate_partner_attribution_rewards(id: T::VtxDistIdentifier) -> DispatchResult {
 			let attributions = T::PartnerAttributionProvider::get_attributions();
+
+			// Convert Vec to BoundedVec and save in storage
+			let bounded_attributions = BoundedVec::try_from(attributions.clone())
+				.map_err(|_| Error::<T>::ExceededMaxPartners)?;
+			PartnerAttributions::<T>::insert(id, bounded_attributions);
+			// call reset_balances on partner attribution pallet
+			T::PartnerAttributionProvider::reset_balances();
+
 			let vortex_price = VtxPrice::<T>::get(id); // with price multiplier
 			let fee_vault_asset_value = TotalNetworkReward::<T>::get(id)
-				.saturating_div(PRECISION_MULTIPLIER)
-				.saturating_mul(vortex_price); // in drops with price multiplier
+				.saturating_mul(vortex_price)
+				.saturating_div(PRECISION_MULTIPLIER); // in drops with price multiplier
 			let mut partner_attribution_rewards =
 				BoundedVec::<(T::AccountId, Balance), T::MaxAttributionPartners>::new();
 			let xrp_price = AssetPrices::<T>::get(id, T::GasAssetId::get()); // with price multiplier
-			for attribution in attributions {
-				let attibution_fee_usd_value = attribution.1.saturating_mul(xrp_price);
-				let attribution_value_percentage: Perbill =
-					Perbill::from_rational(attibution_fee_usd_value, fee_vault_asset_value);
+			for (account, amount, fee_percentage) in attributions {
+				let attibution_fee_value_usd = amount.saturating_mul(xrp_price);
+				let attribution_value_percentage: Permill =
+					Permill::from_rational(attibution_fee_value_usd, fee_vault_asset_value);
 				let vtx_attribution_reward = attribution_value_percentage
-					.saturating_mul(ATTRIBUTION_REALIZATION_PERCENTAGE)
+					.saturating_mul(fee_percentage.ok_or(Error::<T>::InvalidPartnerFeePercentage)?)
 					* TotalNetworkReward::<T>::get(id);
 				partner_attribution_rewards
-					.try_push((attribution.0, vtx_attribution_reward))
+					.try_push((account, vtx_attribution_reward))
 					.map_err(|_| Error::<T>::ExceededMaxPartners)?;
 			}
 			PartnerAttributionRewards::<T>::insert(id, partner_attribution_rewards);
