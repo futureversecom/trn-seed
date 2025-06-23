@@ -27,9 +27,10 @@ extern crate alloc;
 
 pub use pallet::*;
 
+use alloc::vec::Vec;
 use frame_support::{pallet_prelude::*, sp_runtime::Permill, transactional};
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::FuturepassProvider;
+use seed_pallet_common::{AttributionProvider, FuturepassProvider};
 use seed_primitives::Balance;
 use sp_core::H160;
 
@@ -81,7 +82,6 @@ pub mod pallet {
 		type FuturepassCreator: FuturepassProvider<AccountId = Self::AccountId>;
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
-
 		#[cfg(feature = "runtime-benchmarks")]
 		/// Handles a multi-currency fungible asset system for benchmarking.
 		type MultiCurrency: frame_support::traits::fungibles::Inspect<
@@ -298,5 +298,24 @@ pub mod pallet {
 
 			Ok(())
 		}
+	}
+}
+
+impl<T: Config> AttributionProvider<T::AccountId, Balance> for Pallet<T> {
+	fn get_attributions() -> Vec<(T::AccountId, Balance)> {
+		Partners::<T>::iter()
+			.filter(|(_id, partner)| partner.accumulated_fees != 0)
+			.map(|(_id, partner)| (partner.account.clone(), partner.accumulated_fees))
+			.collect()
+	}
+
+	fn reset_balances() {
+		Partners::<T>::iter_keys().for_each(|id| {
+			Partners::<T>::mutate(id, |maybe_partner| {
+				if let Some(partner) = maybe_partner {
+					partner.accumulated_fees = 0;
+				}
+			});
+		});
 	}
 }
