@@ -52,13 +52,13 @@ use frame_system::{
 	pallet_prelude::*,
 };
 use scale_info::TypeInfo;
-use seed_pallet_common::CreateExt;
+use seed_pallet_common::{AttributionProvider, CreateExt};
 use seed_primitives::{AssetId, Balance, OffchainErr};
 use sp_runtime::{
 	traits::{
 		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, One, Saturating, StaticLookup, Zero,
 	},
-	Perquintill, RuntimeDebug,
+	Perquintill, RuntimeDebug, Perbill,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
@@ -67,6 +67,8 @@ pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority:
 pub const PRECISION_MULTIPLIER: u128 = 10u128.pow(6);
 // Asset price multiplier
 pub const PRICE_MULTIPLIER: u128 = 10u128.pow(6);
+// Atribution realization percentage
+pub const ATTRIBUTION_REALIZATION_PERCENTAGE: Perbill = Perbill::from_percent(1);
 
 #[derive(
 	Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, PartialOrd, Eq, TypeInfo, MaxEncodedLen,
@@ -162,6 +164,17 @@ pub mod pallet {
 		/// History depth
 		#[pallet::constant]
 		type HistoryDepth: Get<u32>;
+
+		/// Partner attribution provider
+		type PartnerAttributionProvider: AttributionProvider<Self::AccountId, Balance>;
+
+		/// Gas asset Id
+		#[pallet::constant]
+		type GasAssetId: Get<AssetId>;
+
+		/// Max Attribution partners
+		#[pallet::constant]
+		type MaxAttributionPartners: Get<u32>;
 	}
 
 	#[pallet::storage]
