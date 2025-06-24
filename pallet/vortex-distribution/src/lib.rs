@@ -164,7 +164,7 @@ pub mod pallet {
 		type HistoryDepth: Get<u32>;
 
 		/// Partner attribution provider
-		type PartnerAttributionProvider: AttributionProvider<Self::AccountId, Balance>;
+		type PartnerAttributionProvider: AttributionProvider<Self::AccountId>;
 
 		/// Gas asset Id
 		#[pallet::constant]

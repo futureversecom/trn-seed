@@ -15,7 +15,8 @@
 
 use crate as pallet_vortex_distribution;
 use crate::PRECISION_MULTIPLIER;
-use frame_support::traits::{ConstU32, Hooks};
+use codec::Encode;
+use frame_support::traits::{ConstU32, EnsureOrigin, Hooks};
 use seed_pallet_common::test_prelude::*;
 use sp_runtime::traits::Zero;
 use sp_runtime::{testing::TestXt, BuildStorage};
@@ -32,6 +33,7 @@ pub fn run_to_block(n: u64) {
 		System::set_block_number(System::block_number() + 1);
 		Vortex::on_initialize(System::block_number());
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME);
+		PartnerAttribution::on_initialize(System::block_number());
 	}
 }
 
@@ -114,6 +116,7 @@ construct_runtime!(
 		Timestamp: pallet_timestamp,
 		Vortex: pallet_vortex_distribution,
 		Staking: pallet_staking,
+		PartnerAttribution: pallet_partner_attribution,
 	}
 );
 
@@ -122,6 +125,7 @@ impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 impl_pallet_timestamp_config!(Test);
+impl_pallet_partner_attribution_config!(Test);
 
 pallet_staking_reward_curve::build! {
 	const I_NPOS: sp_runtime::curve::PiecewiseLinear<'static> = curve!(
@@ -214,6 +218,9 @@ impl crate::Config for Test {
 	type MaxAssetPrices = ConstU32<1000>;
 	type MaxRewards = ConstU32<3_100>;
 	type MaxStringLength = ConstU32<1000>;
+	type PartnerAttributionProvider = PartnerAttribution;
+	type GasAssetId = XrpAssetId;
+	type MaxAttributionPartners = ConstU32<200>;
 }
 
 #[derive(Default)]
