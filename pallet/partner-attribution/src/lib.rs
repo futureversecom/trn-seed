@@ -301,7 +301,7 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> AttributionProvider<T::AccountId, Balance> for Pallet<T> {
+impl<T: Config> AttributionProvider<T::AccountId> for Pallet<T> {
 	fn get_attributions() -> Vec<(T::AccountId, Balance, Option<Permill>)> {
 		Partners::<T>::iter()
 			.filter(|(_id, partner)| partner.accumulated_fees != 0)
