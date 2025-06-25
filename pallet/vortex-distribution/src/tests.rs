@@ -15,9 +15,10 @@
 
 use super::*;
 use crate::mock::{
-	calculate_vtx, calculate_vtx_price, calculate_vtx_redeem, run_to_block, AssetsExt, Balances,
-	NativeAssetId, RuntimeEvent as MockEvent, RuntimeOrigin as Origin, System, Test, TestExt,
-	Timestamp, Vortex, BLOCK_TIME,
+	calculate_attribution_rewards, calculate_vtx, calculate_vtx_price, calculate_vtx_redeem,
+	run_to_block, AssetsExt, Balances, MockPartnerAttribution, NativeAssetId,
+	RuntimeEvent as MockEvent, RuntimeOrigin as Origin, System, Test, TestExt, Timestamp, Vortex,
+	BLOCK_TIME,
 };
 use hex_literal::hex;
 use seed_pallet_common::test_prelude::*;
@@ -1219,6 +1220,295 @@ fn trigger_vtx_distribution_should_fail_vortex_price_zero() {
 			assert_noop!(
 				Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id),
 				crate::Error::<Test>::VortexPriceIsZero
+			);
+		});
+}
+
+#[test]
+fn trigger_vtx_distribution_works_with_attributions() {
+	let alice: AccountId = create_account(1);
+	let bob: AccountId = create_account(2);
+	let charlie: AccountId = create_account(3);
+	let partner1: AccountId = create_account(4);
+	let partner2: AccountId = create_account(5);
+
+	// asset ids
+	let usdc_asset_id = 10;
+	let weth_asset_id = 11;
+
+	// vortex vault pre asset balances
+	let vortex_vault = Vortex::get_vtx_vault_account();
+	let usdc_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
+	let weth_vtx_vault_balance = 5_u128 * 10_u128.pow(18);
+	let root_vtx_vault_balance = 100_u128 * 10_u128.pow(6);
+	let xrp_vtx_vault_balance = 100_u128 * 10_u128.pow(6);
+	let vtx_current_supply = 1_000_u128 * 10_u128.pow(6);
+
+	// fee pot asset balance
+	let fee_vault = Vortex::get_fee_vault_account();
+	let usdc_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let weth_fee_pot_balance = 1_u128 * 10_u128.pow(18);
+	let root_fee_pot_balance = 1_u128 * 10_u128.pow(6);
+	let xrp_fee_pot_balance = 10_u128 * 10_u128.pow(6);
+
+	// bootstrap balance
+	let root_vault = Vortex::get_root_vault_account();
+	let bootstrap_root = 100_u128 * 10_u128.pow(6);
+
+	// attributions
+	let attributions = vec![
+		(partner1, 1_000_000, Some(Permill::from_percent(5))),
+		(partner2, 2_000_000, Some(Permill::from_percent(10))),
+	];
+
+	TestExt::default()
+		.with_balances(&[
+			(alice, 2_000_000),
+			(fee_vault, root_fee_pot_balance),
+			(vortex_vault, root_vtx_vault_balance),
+			(root_vault, bootstrap_root),
+		])
+		.with_asset(
+			<Test as crate::Config>::VtxAssetId::get(),
+			"VORTEX",
+			&[(charlie, vtx_current_supply)],
+		)
+		.with_asset_decimals(
+			usdc_asset_id,
+			"USDC",
+			18,
+			&[
+				(alice, 1_000_000),
+				(vortex_vault, usdc_vtx_vault_balance),
+				(fee_vault, usdc_fee_pot_balance),
+			],
+		)
+		.with_asset_decimals(
+			weth_asset_id,
+			"WETH",
+			18,
+			&[
+				(alice, 1_000_000),
+				(vortex_vault, weth_vtx_vault_balance),
+				(fee_vault, weth_fee_pot_balance),
+			],
+		)
+		.with_asset_decimals(
+			XRP_ASSET_ID,
+			"XRP",
+			6,
+			&[(vortex_vault, xrp_vtx_vault_balance), (fee_vault, xrp_fee_pot_balance)],
+		)
+		.with_asset_decimals(
+			ROOT_ASSET_ID,
+			"ROOT",
+			6,
+			&[(alice, 1_000_000), (vortex_vault, root_vtx_vault_balance)], // this is just for the metadata
+		)
+		.with_attributions(&attributions)
+		.build()
+		.execute_with(|| {
+			let vortex_dist_id = NextVortexId::<Test>::get();
+
+			// check account have correct balances
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &root_vault), bootstrap_root);
+			assert_eq!(AssetsExt::balance(usdc_asset_id, &fee_vault), usdc_fee_pot_balance);
+			assert_eq!(AssetsExt::balance(weth_asset_id, &fee_vault), weth_fee_pot_balance);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &fee_vault), root_fee_pot_balance);
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &fee_vault), xrp_fee_pot_balance);
+			assert_eq!(
+				AssetsExt::balance(NativeAssetId::get(), &vortex_vault),
+				root_vtx_vault_balance
+			);
+			assert_eq!(AssetsExt::balance(usdc_asset_id, &vortex_vault), usdc_vtx_vault_balance);
+			assert_eq!(AssetsExt::balance(weth_asset_id, &vortex_vault), weth_vtx_vault_balance);
+
+			// create vortex distribution
+			assert_ok!(Vortex::create_vtx_dist(Origin::root()));
+
+			// set vortex vault pre asset balances
+			let vtx_vault_asset_balances = vec![
+				(usdc_asset_id, usdc_vtx_vault_balance),
+				(weth_asset_id, weth_vtx_vault_balance),
+				(ROOT_ASSET_ID, root_vtx_vault_balance),
+				(XRP_ASSET_ID, xrp_vtx_vault_balance),
+			];
+			assert_ok!(Vortex::set_vtx_vault_asset_balances(
+				Origin::root(),
+				vortex_dist_id,
+				BoundedVec::try_from(vtx_vault_asset_balances.clone()).unwrap(),
+			));
+			// set Vtx current supply
+			assert_ok!(Vortex::set_vtx_total_supply(
+				Origin::root(),
+				vortex_dist_id,
+				vtx_current_supply,
+			));
+
+			// set fee pot asset balances
+			let fee_pot_asset_balances = vec![
+				(usdc_asset_id, usdc_fee_pot_balance),
+				(weth_asset_id, weth_fee_pot_balance),
+				(ROOT_ASSET_ID, root_fee_pot_balance),
+				(XRP_ASSET_ID, xrp_fee_pot_balance),
+			];
+			assert_ok!(Vortex::set_fee_pot_asset_balances(
+				Origin::root(),
+				vortex_dist_id,
+				BoundedVec::try_from(fee_pot_asset_balances.clone()).unwrap(),
+			));
+
+			//set asset price. prices should be multiplied by the usd factor 10**6
+			let usdc_price: Balance = 100_u128 * 10_u128.pow(6);
+			let weth_price: Balance = 200_u128 * 10_u128.pow(6);
+			let root_price: Balance = 3_u128 * 10_u128.pow(6);
+			let xrp_price: Balance = 100_u128 * 10_u128.pow(6); // Example price for XRP
+			let asset_prices = vec![
+				(usdc_asset_id, usdc_price),
+				(weth_asset_id, weth_price),
+				(ROOT_ASSET_ID, root_price),
+				(XRP_ASSET_ID, xrp_price), // Example asset ID for XRP
+			];
+			assert_ok!(Vortex::set_asset_prices(
+				Origin::root(),
+				vortex_dist_id,
+				BoundedVec::try_from(asset_prices.clone()).unwrap(),
+			));
+
+			// register reward and work points
+			let reward_points =
+				BoundedVec::try_from(vec![(bob, 100_000), (charlie, 100_000)]).unwrap();
+			let work_points = BoundedVec::try_from(vec![(bob, 10), (charlie, 10)]).unwrap();
+			assert_ok!(Vortex::register_reward_points(
+				Origin::root(),
+				vortex_dist_id,
+				reward_points
+			));
+			assert_ok!(Vortex::register_work_points(Origin::root(), vortex_dist_id, work_points));
+
+			// check fee pot and bootstrap root account has correct balances
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &root_vault), bootstrap_root);
+			assert_eq!(AssetsExt::balance(usdc_asset_id, &fee_vault), usdc_fee_pot_balance);
+			assert_eq!(AssetsExt::balance(weth_asset_id, &fee_vault), weth_fee_pot_balance);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &fee_vault), root_fee_pot_balance);
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &fee_vault), xrp_fee_pot_balance);
+
+			// trigger vortex distribution and do the preparations for distribution
+			assert_ok!(Vortex::trigger_vtx_distribution(Origin::root(), vortex_dist_id));
+			// Check that the correct events were emitted.
+			System::assert_has_event(MockEvent::Vortex(crate::Event::VtxDistributionTriggering {
+				id: vortex_dist_id,
+			}));
+			System::assert_has_event(MockEvent::Vortex(crate::Event::PartnerAttributionsUpdated {
+				vtx_id: vortex_dist_id,
+			}));
+			// run a few blocks to move the Vtx status from Triggering to Triggered
+			for i in 2_u32..4 {
+				System::set_block_number(i.into());
+				Vortex::on_idle(i.into(), Weight::from_all(1_000_000_000_000_u64));
+			}
+			System::assert_last_event(MockEvent::Vortex(crate::Event::VtxDistributionTriggered {
+				id: vortex_dist_id,
+			}));
+
+			// check balances have been transferred to vtx vault account
+			// check fee pot and bootstrap root account has correct balances
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &root_vault), 0);
+			assert_eq!(AssetsExt::balance(usdc_asset_id, &fee_vault), 0);
+			assert_eq!(AssetsExt::balance(weth_asset_id, &fee_vault), 0);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &fee_vault), 0);
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &fee_vault), 0);
+			let vtx_vault_account = Vortex::get_vtx_vault_account();
+			assert_eq!(
+				AssetsExt::balance(NativeAssetId::get(), &vtx_vault_account),
+				root_vtx_vault_balance + bootstrap_root + root_fee_pot_balance
+			);
+			assert_eq!(
+				AssetsExt::balance(usdc_asset_id, &vtx_vault_account),
+				usdc_fee_pot_balance + usdc_vtx_vault_balance
+			);
+			assert_eq!(
+				AssetsExt::balance(weth_asset_id, &vtx_vault_account),
+				weth_fee_pot_balance + weth_vtx_vault_balance
+			);
+			assert_eq!(
+				AssetsExt::balance(XRP_ASSET_ID, &vtx_vault_account),
+				xrp_fee_pot_balance + xrp_vtx_vault_balance
+			);
+
+			// check VtxPrice tally
+			let vtx_vault_asset_balances_with_decimals = vec![
+				(usdc_asset_id, usdc_vtx_vault_balance, 18),
+				(weth_asset_id, weth_vtx_vault_balance, 18),
+				(ROOT_ASSET_ID, root_vtx_vault_balance, 6),
+				(XRP_ASSET_ID, xrp_vtx_vault_balance, 6),
+			];
+			let vtx_price_calculted = calculate_vtx_price(
+				&vtx_vault_asset_balances_with_decimals,
+				&asset_prices,
+				vtx_current_supply,
+			);
+			println!("vtx_price_calculted: {}", vtx_price_calculted);
+			assert_eq!(VtxPrice::<Test>::get(vortex_dist_id), vtx_price_calculted);
+			// check vtx amounts tally
+			let fee_pot_asset_balances_with_decimals = vec![
+				(usdc_asset_id, usdc_fee_pot_balance, 18),
+				(weth_asset_id, weth_fee_pot_balance, 18),
+				(ROOT_ASSET_ID, root_fee_pot_balance, 6),
+				(XRP_ASSET_ID, xrp_fee_pot_balance, 6),
+			];
+			let (total_vortex_network_reward, total_vortex_bootstrap, total_vortex) = calculate_vtx(
+				&fee_pot_asset_balances_with_decimals,
+				&asset_prices,
+				bootstrap_root,
+				root_price,
+				vtx_price_calculted,
+			);
+			assert_eq!(TotalVortex::<Test>::get(vortex_dist_id), total_vortex);
+			assert_eq!(
+				TotalNetworkReward::<Test>::get(vortex_dist_id),
+				total_vortex_network_reward
+			);
+			assert_eq!(TotalBootstrapReward::<Test>::get(vortex_dist_id), total_vortex_bootstrap);
+
+			// check attributions
+			// attributions are noted onchain for future reference
+			assert_eq!(PartnerAttributions::<Test>::get(vortex_dist_id), attributions);
+			// check attributions on partner attribution pallet is reset
+			assert_eq!(MockPartnerAttribution::get_current_attributions(), Vec::new());
+			// calculate attribution rewards
+			let attribution_rewards_calculated = calculate_attribution_rewards(
+				&attributions,
+				xrp_price,
+				vtx_price_calculted,
+				total_vortex_network_reward,
+			);
+			// assert with onchain value
+			assert_eq!(
+				PartnerAttributionRewards::<Test>::get(vortex_dist_id),
+				attribution_rewards_calculated
+			);
+			let total_attribution_reward: Balance =
+				attribution_rewards_calculated.iter().map(|(_, r)| r).sum();
+			assert_eq!(
+				total_attribution_reward,
+				TotalAttributionRewards::<Test>::get(vortex_dist_id)
+			);
+
+			// check bob got the vortex reward registered
+			let net_network_reward =
+				total_vortex_network_reward.saturating_sub(total_attribution_reward);
+			let staker_pool =
+				total_vortex_bootstrap + (Perquintill::from_percent(30) * net_network_reward);
+			let workpoint_pool = Perquintill::from_percent(70) * net_network_reward;
+			let bob_staker_point_portion =
+				Perquintill::from_rational(100_000_u128, 100_000_u128 + 100_000_u128);
+			let bob_work_points_portion = Perquintill::from_rational(10_u128, 10_u128 + 10_u128);
+			let bob_vtx_reward_calculated = (bob_staker_point_portion * staker_pool)
+				+ (bob_work_points_portion * workpoint_pool);
+			assert_eq!(
+				VtxDistOrderbook::<Test>::get(vortex_dist_id, bob),
+				(bob_vtx_reward_calculated.div(PRECISION_MULTIPLIER), false)
 			);
 		});
 }
