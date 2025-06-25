@@ -15,12 +15,16 @@
 
 use crate as pallet_vortex_distribution;
 use crate::PRECISION_MULTIPLIER;
-use codec::Encode;
-use frame_support::traits::{ConstU32, EnsureOrigin, Hooks};
+use frame_support::traits::{ConstU32, Hooks};
 use seed_pallet_common::test_prelude::*;
-use sp_runtime::traits::Zero;
+use seed_pallet_common::AttributionProvider;
 use sp_runtime::{testing::TestXt, BuildStorage};
+use sp_runtime::{
+	traits::{Saturating, Zero},
+	Permill,
+};
 use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
+use std::cell::RefCell;
 use std::ops::Div;
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
@@ -33,7 +37,6 @@ pub fn run_to_block(n: u64) {
 		System::set_block_number(System::block_number() + 1);
 		Vortex::on_initialize(System::block_number());
 		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME);
-		PartnerAttribution::on_initialize(System::block_number());
 	}
 }
 
@@ -106,6 +109,39 @@ pub fn calculate_vtx_redeem(
 	redeem
 }
 
+/// Calculate partner attribution rewards for testing
+/// This mirrors the logic in the pallet's do_calculate_partner_attribution_rewards function
+pub fn calculate_attribution_rewards(
+	attributions: &[(AccountId, Balance, Option<Permill>)],
+	xrp_price: Balance,
+	vtx_price: Balance,
+	total_network_reward: Balance,
+) -> Vec<(AccountId, Balance)> {
+	let fee_vault_asset_value = total_network_reward
+		.saturating_mul(vtx_price)
+		.saturating_div(PRECISION_MULTIPLIER); // in drops with price multiplier
+
+	let mut partner_attribution_rewards = Vec::new();
+
+	for (account, amount, fee_percentage) in attributions {
+		// Skip attributions without fee percentage
+		if fee_percentage.is_none() {
+			continue;
+		}
+
+		let attribution_fee_value_usd = amount.saturating_mul(xrp_price);
+		let attribution_value_percentage: Permill =
+			Permill::from_rational(attribution_fee_value_usd, fee_vault_asset_value);
+
+		let vtx_attribution_reward = attribution_value_percentage
+			.saturating_mul(fee_percentage.unwrap())
+			* total_network_reward;
+		partner_attribution_rewards.push((*account, vtx_attribution_reward));
+	}
+
+	partner_attribution_rewards
+}
+
 construct_runtime!(
 	pub enum Test
 	{
@@ -116,7 +152,6 @@ construct_runtime!(
 		Timestamp: pallet_timestamp,
 		Vortex: pallet_vortex_distribution,
 		Staking: pallet_staking,
-		PartnerAttribution: pallet_partner_attribution,
 	}
 );
 
@@ -125,7 +160,6 @@ impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 impl_pallet_timestamp_config!(Test);
-impl_pallet_partner_attribution_config!(Test);
 
 pallet_staking_reward_curve::build! {
 	const I_NPOS: sp_runtime::curve::PiecewiseLinear<'static> = curve!(
@@ -201,6 +235,48 @@ parameter_types! {
 	pub const XrpAssetId: seed_primitives::AssetId = XRP_ASSET_ID;
 }
 
+/// Thread local storage for test attributions.
+thread_local! {
+	static TEST_ATTRIBUTIONS: RefCell<Vec<(AccountId, Balance, Option<Permill>)>> = RefCell::new(Vec::new());
+}
+
+/// Mock implementation of AttributionProvider for testing
+pub struct MockPartnerAttribution;
+impl MockPartnerAttribution {
+	/// Set the test attributions for the mock
+	pub fn set_test_attributions(attributions: Vec<(AccountId, Balance, Option<Permill>)>) {
+		TEST_ATTRIBUTIONS.with(|cell| {
+			*cell.borrow_mut() = attributions;
+		});
+	}
+
+	/// Clear all test attributions
+	pub fn clear_test_attributions() {
+		TEST_ATTRIBUTIONS.with(|cell| {
+			cell.borrow_mut().clear();
+		});
+	}
+
+	/// Get current test attributions (for debugging)
+	pub fn get_current_attributions() -> Vec<(AccountId, Balance, Option<Permill>)> {
+		TEST_ATTRIBUTIONS.with(|cell| cell.borrow().clone())
+	}
+}
+
+impl AttributionProvider<AccountId> for MockPartnerAttribution {
+	fn get_attributions() -> Vec<(AccountId, Balance, Option<Permill>)> {
+		// Return mock attribution data for testing
+		TEST_ATTRIBUTIONS.with(|cell| cell.borrow().clone())
+	}
+
+	fn reset_balances() {
+		// Mock implementation - clear the test attributions
+		TEST_ATTRIBUTIONS.with(|cell| {
+			cell.borrow_mut().clear();
+		});
+	}
+}
+
 impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
@@ -218,7 +294,7 @@ impl crate::Config for Test {
 	type MaxAssetPrices = ConstU32<1000>;
 	type MaxRewards = ConstU32<3_100>;
 	type MaxStringLength = ConstU32<1000>;
-	type PartnerAttributionProvider = PartnerAttribution;
+	type PartnerAttributionProvider = MockPartnerAttribution;
 	type GasAssetId = XrpAssetId;
 	type MaxAttributionPartners = ConstU32<200>;
 }
@@ -240,6 +316,7 @@ impl AssetsFixture {
 pub struct TestExt {
 	assets: Vec<AssetsFixture>,
 	balances: Vec<(AccountId, Balance)>,
+	attributions: Vec<(AccountId, Balance, Option<Permill>)>,
 }
 
 impl TestExt {
@@ -268,6 +345,14 @@ impl TestExt {
 	/// Configure some native token balances
 	pub fn with_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
 		self.balances = balances.to_vec();
+		self
+	}
+	/// Configure some attributions
+	pub fn with_attributions(
+		mut self,
+		attributions: &[(AccountId, Balance, Option<Permill>)],
+	) -> Self {
+		self.attributions = attributions.to_vec();
 		self
 	}
 
@@ -311,6 +396,11 @@ impl TestExt {
 				.assimilate_storage(&mut ext)
 				.unwrap();
 		}
+
+		// Clear existing attributions first to ensure clean state
+		MockPartnerAttribution::clear_test_attributions();
+		// Set new attributions
+		MockPartnerAttribution::set_test_attributions(self.attributions);
 
 		let mut ext: sp_io::TestExternalities = ext.into();
 		ext.execute_with(|| {
