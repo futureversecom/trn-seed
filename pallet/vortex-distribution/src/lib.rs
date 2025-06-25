@@ -450,6 +450,9 @@ pub mod pallet {
 			account: T::AccountId,
 			amount: Balance,
 		},
+
+		/// Emitted when partner attributions are updated for a distribution
+		PartnerAttributionsUpdated { vtx_id: T::VtxDistIdentifier },
 	}
 
 	#[pallet::hooks]
@@ -1444,7 +1447,6 @@ pub mod pallet {
 
 		fn do_calculate_partner_attribution_rewards(id: T::VtxDistIdentifier) -> DispatchResult {
 			let attributions = T::PartnerAttributionProvider::get_attributions();
-
 			// Convert Vec to BoundedVec and save in storage
 			let bounded_attributions = BoundedVec::try_from(attributions.clone())
 				.map_err(|_| Error::<T>::ExceededMaxPartners)?;
@@ -1459,6 +1461,7 @@ pub mod pallet {
 			let mut partner_attribution_rewards =
 				BoundedVec::<(T::AccountId, Balance), T::MaxAttributionPartners>::new();
 			let xrp_price = AssetPrices::<T>::get(id, T::GasAssetId::get()); // with price multiplier
+			let mut total_attribution_rewards: u128 = 0;
 			for (account, amount, fee_percentage) in attributions {
 				let attibution_fee_value_usd = amount.saturating_mul(xrp_price);
 				let attribution_value_percentage: Permill =
@@ -1469,18 +1472,20 @@ pub mod pallet {
 				partner_attribution_rewards
 					.try_push((account, vtx_attribution_reward))
 					.map_err(|_| Error::<T>::ExceededMaxPartners)?;
+				total_attribution_rewards =
+					total_attribution_rewards.saturating_add(vtx_attribution_reward);
 			}
+
 			PartnerAttributionRewards::<T>::insert(id, partner_attribution_rewards);
+			TotalAttributionRewards::<T>::insert(id, total_attribution_rewards);
+			Self::deposit_event(Event::PartnerAttributionsUpdated { vtx_id: id });
 			Ok(())
 		}
 
 		fn do_distribute_partner_attribution_rewards(id: T::VtxDistIdentifier) -> DispatchResult {
 			let rewards = PartnerAttributionRewards::<T>::get(id);
-			let mut total_attribution_rewards: u128 = 0;
 			for (account, amount) in rewards.iter() {
 				let vtx_amout_drops = amount.saturating_div(PRECISION_MULTIPLIER);
-				total_attribution_rewards =
-					total_attribution_rewards.saturating_add(vtx_amout_drops);
 				Self::safe_transfer(
 					T::VtxAssetId::get(),
 					&Self::get_vtx_held_account(),
@@ -1494,10 +1499,6 @@ pub mod pallet {
 					amount: vtx_amout_drops,
 				});
 			}
-			TotalAttributionRewards::<T>::insert(
-				id,
-				total_attribution_rewards.saturating_mul(PRECISION_MULTIPLIER),
-			);
 			Ok(())
 		}
 	}
