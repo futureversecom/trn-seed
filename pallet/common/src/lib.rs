@@ -686,4 +686,6 @@ pub trait AttributionProvider<AccountId> {
 	fn get_attributions() -> Vec<(AccountId, Balance, Option<Permill>)>;
 	/// Reset accumulated fees for all partners
 	fn reset_balances();
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_attributions(_attributions: Vec<(AccountId, Balance, Option<Permill>)>) {}
 }
