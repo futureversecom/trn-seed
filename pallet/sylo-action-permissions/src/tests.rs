@@ -105,6 +105,40 @@ mod grant_transact_permission {
 			let spender = Spender::GRANTOR;
 			let spending_balance = Some(100);
 			let allowed_calls = all_allowed_calls();
+
+			// Grant permission
+			assert_ok!(SyloActionPermissions::grant_transact_permission(
+				RawOrigin::Signed(grantor.clone()).into(),
+				grantee.clone(),
+				spender.clone(),
+				spending_balance,
+				allowed_calls.clone(),
+				None,
+			));
+
+			// attempt to grant the same permission again
+			assert_noop!(
+				SyloActionPermissions::grant_transact_permission(
+					RawOrigin::Signed(grantor.clone()).into(),
+					grantee.clone(),
+					spender.clone(),
+					spending_balance,
+					allowed_calls.clone(),
+					None,
+				),
+				Error::<Test>::PermissionAlreadyExists
+			);
+		});
+	}
+
+	#[test]
+	fn test_grant_not_expired_transact_permission_already_exists() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+			let spender = Spender::GRANTOR;
+			let spending_balance = Some(100);
+			let allowed_calls = all_allowed_calls();
 			let expiry = Some(frame_system::Pallet::<Test>::block_number() + 10);
 
 			// Grant permission
@@ -129,6 +163,42 @@ mod grant_transact_permission {
 				),
 				Error::<Test>::PermissionAlreadyExists
 			);
+		});
+	}
+
+	#[test]
+	fn test_grant_with_expired_transact_permission_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+			let spender = Spender::GRANTOR;
+			let spending_balance = Some(100);
+			let allowed_calls = all_allowed_calls();
+			let expiry_block = frame_system::Pallet::<Test>::block_number() + 10;
+			let expiry = Some(expiry_block);
+
+			// Grant permission
+			assert_ok!(SyloActionPermissions::grant_transact_permission(
+				RawOrigin::Signed(grantor.clone()).into(),
+				grantee.clone(),
+				spender.clone(),
+				spending_balance,
+				allowed_calls.clone(),
+				expiry,
+			));
+
+			// Simulate advancing the block number past the expiry
+			frame_system::Pallet::<Test>::set_block_number(expiry_block + 1);
+
+			// Should allow overwriting the expired permission
+			assert_ok!(SyloActionPermissions::grant_transact_permission(
+				RawOrigin::Signed(grantor.clone()).into(),
+				grantee.clone(),
+				spender.clone(),
+				spending_balance,
+				allowed_calls.clone(),
+				None,
+			));
 		});
 	}
 

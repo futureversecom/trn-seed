@@ -218,6 +218,8 @@ pub mod pallet {
 			if let Some(existing_permission) = TransactPermissions::<T>::get(&grantor, &grantee) {
 				if let Some(existing_expiry) = existing_permission.expiry {
 					ensure!(block > existing_expiry, Error::<T>::PermissionAlreadyExists);
+				} else {
+					Err(Error::<T>::PermissionAlreadyExists)?;
 				}
 			}
 
