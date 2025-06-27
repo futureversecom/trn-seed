@@ -773,7 +773,7 @@ mod accept_transact_permission {
 			allowed_calls.try_insert(to_call_id("system", "*")).unwrap();
 			let permission_token = TransactPermissionToken {
 				grantee: grantee.clone(),
-				futurepass: None,
+				use_futurepass: false,
 				spender: Spender::GRANTOR,
 				spending_balance: Some(100),
 				allowed_calls: allowed_calls.clone(),
@@ -795,7 +795,6 @@ mod accept_transact_permission {
 			// Accept the permission
 			assert_ok!(SyloActionPermissions::accept_transact_permission(
 				RawOrigin::Signed(grantee.clone()).into(),
-				grantor.clone(),
 				permission_token.clone(),
 				token_signature.clone(),
 			));
@@ -832,7 +831,7 @@ mod accept_transact_permission {
 			let allowed_calls = all_allowed_calls();
 			let permission_token = TransactPermissionToken {
 				grantee: grantee.clone(),
-				futurepass: None,
+				use_futurepass: false,
 				spender: Spender::GRANTOR,
 				spending_balance: Some(100),
 				allowed_calls: allowed_calls.clone(),
@@ -855,7 +854,6 @@ mod accept_transact_permission {
 			assert_noop!(
 				SyloActionPermissions::accept_transact_permission(
 					RawOrigin::Signed(invalid_grantee.clone()).into(),
-					grantor.clone(),
 					permission_token.clone(),
 					token_signature.clone(),
 				),
@@ -875,7 +873,7 @@ mod accept_transact_permission {
 			let allowed_calls = all_allowed_calls();
 			let permission_token = TransactPermissionToken {
 				grantee: grantee.clone(),
-				futurepass: None,
+				use_futurepass: false,
 				spender: Spender::GRANTOR,
 				spending_balance: Some(100),
 				allowed_calls: allowed_calls.clone(),
@@ -897,7 +895,6 @@ mod accept_transact_permission {
 			// Accept the permission
 			assert_ok!(SyloActionPermissions::accept_transact_permission(
 				RawOrigin::Signed(grantee.clone()).into(),
-				grantor.clone(),
 				permission_token.clone(),
 				token_signature.clone(),
 			));
@@ -906,65 +903,10 @@ mod accept_transact_permission {
 			assert_noop!(
 				SyloActionPermissions::accept_transact_permission(
 					RawOrigin::Signed(grantee.clone()).into(),
-					grantor.clone(),
 					permission_token.clone(),
 					token_signature.clone(),
 				),
 				Error::<Test>::NonceAlreadyUsed
-			);
-		});
-	}
-
-	#[test]
-	fn test_accept_transact_permission_grantor_must_match() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let (signer, grantor) = create_random_pair();
-			let grantee: AccountId = create_account(2);
-
-			let nonce = U256::from(1);
-			let expiry = Some(frame_system::Pallet::<Test>::block_number() + 10);
-			let allowed_calls = all_allowed_calls();
-			let permission_token = TransactPermissionToken {
-				grantee: grantee.clone(),
-				futurepass: None,
-				spender: Spender::GRANTOR,
-				spending_balance: Some(100),
-				allowed_calls: allowed_calls.clone(),
-				expiry,
-				nonce,
-			};
-
-			// Create a signature for a different token
-			let invalid_permission_token = TransactPermissionToken {
-				grantee: grantee.clone(),
-				futurepass: None,
-				spender: Spender::GRANTEE, // Different spender
-				spending_balance: None,
-				allowed_calls: allowed_calls.clone(),
-				expiry,
-				nonce,
-			};
-
-			let token_signature = TransactPermissionTokenSignature::EIP191(
-				signer
-					.sign_prehashed(&keccak_256(
-						seed_primitives::ethereum_signed_message(
-							Encode::encode(&permission_token).as_bytes_ref(),
-						)
-						.as_ref(),
-					))
-					.into(),
-			);
-
-			// Attempt to accept the permission with a mismatched signature
-			assert_noop!(
-				SyloActionPermissions::accept_transact_permission(
-					RawOrigin::Signed(grantee.clone()).into(),
-					grantor.clone(),
-					invalid_permission_token.clone(),
-					token_signature.clone(),
-				),
-				Error::<Test>::GrantorDoesNotMatch
 			);
 		});
 	}
@@ -980,7 +922,7 @@ mod accept_transact_permission {
 			let allowed_calls = all_allowed_calls();
 			let permission_token = TransactPermissionToken {
 				grantee: grantee.clone(),
-				futurepass: None,
+				use_futurepass: false,
 				spender: Spender::GRANTOR,
 				spending_balance: Some(100),
 				allowed_calls: allowed_calls.clone(),
@@ -994,7 +936,6 @@ mod accept_transact_permission {
 			assert_noop!(
 				SyloActionPermissions::accept_transact_permission(
 					RawOrigin::Signed(grantee.clone()).into(),
-					grantor.clone(),
 					permission_token.clone(),
 					invalid_token_signature.clone(),
 				),
@@ -1017,7 +958,7 @@ mod accept_transact_permission {
 			let allowed_calls = all_allowed_calls();
 			let permission_token = TransactPermissionToken {
 				grantee: grantee.clone(),
-				futurepass: Some(futurepass.clone()),
+				use_futurepass: true,
 				spender: Spender::GRANTEE,
 				spending_balance: None,
 				allowed_calls: allowed_calls.clone(),
@@ -1038,7 +979,6 @@ mod accept_transact_permission {
 
 			assert_ok!(SyloActionPermissions::accept_transact_permission(
 				RawOrigin::Signed(grantee.clone()).into(),
-				grantor.clone(),
 				permission_token.clone(),
 				token_signature.clone(),
 			));
@@ -1070,7 +1010,7 @@ mod accept_transact_permission {
 			let allowed_calls = all_allowed_calls();
 			let permission_token = TransactPermissionToken {
 				grantee: grantee.clone(),
-				futurepass: Some(futurepass.clone()),
+				use_futurepass: true,
 				spender: Spender::GRANTEE,
 				spending_balance: None,
 				allowed_calls: allowed_calls.clone(),
@@ -1093,7 +1033,6 @@ mod accept_transact_permission {
 			assert_noop!(
 				SyloActionPermissions::accept_transact_permission(
 					RawOrigin::Signed(grantee.clone()).into(),
-					grantor.clone(),
 					permission_token.clone(),
 					token_signature.clone(),
 				),
@@ -1103,16 +1042,12 @@ mod accept_transact_permission {
 			// Create futurepass for actual grantor account
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(grantor), grantor));
 
-			// Futurepass in token should still cause mismatch
-			assert_noop!(
-				SyloActionPermissions::accept_transact_permission(
-					RawOrigin::Signed(grantee.clone()).into(),
-					grantor.clone(),
-					permission_token.clone(),
-					token_signature.clone(),
-				),
-				Error::<Test>::InvalidFuturepassInToken
-			);
+			// token should now be valid
+			assert_ok!(SyloActionPermissions::accept_transact_permission(
+				RawOrigin::Signed(grantee.clone()).into(),
+				permission_token.clone(),
+				token_signature.clone(),
+			));
 		});
 	}
 }

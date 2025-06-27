@@ -120,8 +120,6 @@ pub mod pallet {
 		InvalidSpendingBalance,
 		/// The provided token signature is invalid or cannot be verified.
 		InvalidTokenSignature,
-		/// The grantor does not match the signer.
-		GrantorDoesNotMatch,
 		/// The grantee in the token does not match the caller.
 		GranteeDoesNotMatch,
 		/// The nonce provided in the token has already been used.
@@ -334,7 +332,6 @@ pub mod pallet {
 		})]
 		pub fn accept_transact_permission(
 			origin: OriginFor<T>,
-			grantor: T::AccountId,
 			permission_token: TransactPermissionToken<
 				T::AccountId,
 				BlockNumberFor<T>,
@@ -353,19 +350,15 @@ pub mod pallet {
 				.verify_signature(&permission_token)
 				.map_err(|_| Error::<T>::InvalidTokenSignature)?;
 
-			// Ensure the grantor matches the token signer
-			ensure!(grantor == token_signer, Error::<T>::GrantorDoesNotMatch);
-
-			let mut grantor = grantor.clone();
+			let mut grantor = token_signer;
 
 			// Check if the futurepass field is specified, and if the grantor
 			// is the owner of the futurepass, set the grantor to the futurepass account
-			if let Some(futurepass) = &permission_token.futurepass {
-				let fp = T::FuturepassLookup::lookup(grantor.clone().into())
+			if permission_token.use_futurepass {
+				let futurepass = T::FuturepassLookup::lookup(grantor.clone().into())
 					.map_err(|_| Error::<T>::InvalidFuturepassInToken)?;
-				ensure!(fp == futurepass.clone().into(), Error::<T>::InvalidFuturepassInToken);
 
-				grantor = futurepass.clone();
+				grantor = futurepass.into();
 			}
 
 			// Ensure the origin is the grantee

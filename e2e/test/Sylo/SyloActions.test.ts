@@ -196,17 +196,6 @@ describe("Sylo Actions", () => {
     const grantor = alith;
     const grantee = alice;
 
-    await finalizeTx(
-      grantor,
-      api.tx.syloActionPermissions.grantTransactPermission(
-        grantee.address,
-        SPENDER_TYPE.Grantee,
-        null, // spending_balance
-        [["*", "*"]],
-        null, // expiry
-      ),
-    );
-
     const tokenBalanceBefore =
       ((await api.query.assets.account(feeTokenAssetId, grantee.address)).toJSON() as any)?.balance ?? 0;
 
@@ -540,10 +529,7 @@ describe("Sylo Actions", () => {
     const eip191Sig = { EIP191: signature };
 
     // Submit the accept_transact_permission extrinsic
-    await finalizeTx(
-      grantee,
-      api.tx.syloActionPermissions.acceptTransactPermission(grantor.address, permissionToken, eip191Sig),
-    );
+    await finalizeTx(grantee, api.tx.syloActionPermissions.acceptTransactPermission(permissionToken, eip191Sig));
 
     // Verify the permission was accepted
     const permissionRecord = await api.query.syloActionPermissions.transactPermissions(
@@ -567,7 +553,7 @@ describe("Sylo Actions", () => {
 
     const permissionToken = {
       grantee: grantee.address,
-      futurepass: null,
+      use_futurepass: false,
       spender: SPENDER_TYPE.Grantee,
       spending_balance: null,
       allowed_calls: allowedCalls,
@@ -608,10 +594,7 @@ describe("Sylo Actions", () => {
     };
 
     // Submit the accept_transact_permission extrinsic
-    await finalizeTx(
-      grantee,
-      api.tx.syloActionPermissions.acceptTransactPermission(grantor.address, permissionToken, xrplSig),
-    );
+    await finalizeTx(grantee, api.tx.syloActionPermissions.acceptTransactPermission(permissionToken, xrplSig));
 
     // Verify the permission was accepted
     const permissionRecord = await api.query.syloActionPermissions.transactPermissions(
@@ -640,7 +623,7 @@ describe("Sylo Actions", () => {
 
     const permissionToken = {
       grantee: grantee.address,
-      futurepass: null,
+      use_futurepass: false,
       spender: SPENDER_TYPE.Grantee,
       spending_balance: null,
       allowed_calls: allowedCalls,
@@ -679,7 +662,7 @@ describe("Sylo Actions", () => {
     };
 
     // Submit the accept_transact_permission extrinsic
-    await finalizeTx(grantee, api.tx.syloActionPermissions.acceptTransactPermission(grantor, permissionToken, xrplSig));
+    await finalizeTx(grantee, api.tx.syloActionPermissions.acceptTransactPermission(permissionToken, xrplSig));
 
     // Verify the permission was accepted
     const permissionRecord = await api.query.syloActionPermissions.transactPermissions(grantor, grantee.address);
@@ -699,7 +682,7 @@ describe("Sylo Actions", () => {
     const allowedCalls = [["system", "remark"]];
     const permissionToken = {
       grantee: alith.address,
-      futurepass: futurepassAddress,
+      use_futurepass: true,
       spender: SPENDER_TYPE.Grantee,
       spending_balance: null,
       allowed_calls: allowedCalls,
@@ -718,7 +701,7 @@ describe("Sylo Actions", () => {
     // accept the transact permission
     await finalizeTx(
       alith,
-      api.tx.syloActionPermissions.acceptTransactPermission(grantor.address, permissionToken, {
+      api.tx.syloActionPermissions.acceptTransactPermission(permissionToken, {
         EIP191: signature,
       }),
     );
