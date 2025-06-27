@@ -1433,6 +1433,7 @@ impl pallet_vortex_distribution::Config for Runtime {
 	type HistoryDepth = HistoryDepth;
 	type GasAssetId = GasAssetId;
 	type PartnerAttributionProvider = PartnerAttribution;
+	type MaxAttributionPartners = MaxAttributionPartners;
 }
 
 impl pallet_partner_attribution::Config for Runtime {
