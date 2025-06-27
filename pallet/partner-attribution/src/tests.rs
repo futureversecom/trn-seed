@@ -280,6 +280,246 @@ mod create_futurepass_with_partner {
 	}
 }
 
+mod remove_partner {
+	use super::*;
+
+	#[test]
+	fn remove_partner_succeeds() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Register a partner first
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
+
+			// Verify partner exists and count is correct
+			assert!(Partners::<Test>::contains_key(1));
+			assert_eq!(PartnerCount::<Test>::get(), 1);
+
+			// Remove the partner
+			assert_ok!(PartnerAttribution::remove_partner(RawOrigin::Root.into(), 1));
+
+			// Verify event was emitted
+			System::assert_last_event(
+				Event::PartnerRemoved { partner_id: 1, account: alice() }.into(),
+			);
+
+			// Verify partner was removed
+			assert!(!Partners::<Test>::contains_key(1));
+			assert_eq!(PartnerCount::<Test>::get(), 0);
+		});
+	}
+
+	#[test]
+	fn remove_partner_without_permission_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Register a partner first
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
+
+			// Try to remove with non-root origin
+			assert_noop!(PartnerAttribution::remove_partner(Some(alice()).into(), 1), BadOrigin);
+			assert_noop!(PartnerAttribution::remove_partner(Some(bob()).into(), 1), BadOrigin);
+
+			// Verify partner still exists
+			assert!(Partners::<Test>::contains_key(1));
+			assert_eq!(PartnerCount::<Test>::get(), 1);
+		});
+	}
+
+	#[test]
+	fn remove_nonexistent_partner_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Try to remove a partner that doesn't exist
+			assert_noop!(
+				PartnerAttribution::remove_partner(RawOrigin::Root.into(), 1),
+				Error::<Test>::PartnerNotFound
+			);
+
+			// Verify count remains at 0
+			assert_eq!(PartnerCount::<Test>::get(), 0);
+		});
+	}
+
+	#[test]
+	fn remove_partner_decrements_count_correctly() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Register multiple partners
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::register_partner_account(Some(bob()).into(), bob()));
+			assert_ok!(PartnerAttribution::register_partner_account(
+				Some(charlie()).into(),
+				charlie()
+			));
+
+			// Verify initial count
+			assert_eq!(PartnerCount::<Test>::get(), 3);
+
+			// Remove one partner
+			assert_ok!(PartnerAttribution::remove_partner(RawOrigin::Root.into(), 2));
+
+			// Verify count is decremented
+			assert_eq!(PartnerCount::<Test>::get(), 2);
+
+			// Verify only the removed partner is gone
+			assert!(Partners::<Test>::contains_key(1));
+			assert!(!Partners::<Test>::contains_key(2));
+			assert!(Partners::<Test>::contains_key(3));
+		});
+	}
+
+	#[test]
+	fn remove_partner_preserves_other_partners() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Register multiple partners
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::register_partner_account(Some(bob()).into(), bob()));
+			assert_ok!(PartnerAttribution::register_partner_account(
+				Some(charlie()).into(),
+				charlie()
+			));
+
+			// Upgrade partners with fee percentages
+			assert_ok!(PartnerAttribution::upgrade_partner(
+				RawOrigin::Root.into(),
+				1,
+				Permill::from_percent(5)
+			));
+			assert_ok!(PartnerAttribution::upgrade_partner(
+				RawOrigin::Root.into(),
+				2,
+				Permill::from_percent(10)
+			));
+			assert_ok!(PartnerAttribution::upgrade_partner(
+				RawOrigin::Root.into(),
+				3,
+				Permill::from_percent(15)
+			));
+
+			// Set accumulated fees
+			Partners::<Test>::mutate(1, |maybe_partner| {
+				if let Some(partner) = maybe_partner {
+					partner.accumulated_fees = 1000;
+				}
+			});
+			Partners::<Test>::mutate(2, |maybe_partner| {
+				if let Some(partner) = maybe_partner {
+					partner.accumulated_fees = 2000;
+				}
+			});
+			Partners::<Test>::mutate(3, |maybe_partner| {
+				if let Some(partner) = maybe_partner {
+					partner.accumulated_fees = 3000;
+				}
+			});
+
+			// Remove partner 2
+			assert_ok!(PartnerAttribution::remove_partner(RawOrigin::Root.into(), 2));
+
+			// Verify partner 1 is preserved with all its data
+			let partner1 = Partners::<Test>::get(1).unwrap();
+			assert_eq!(partner1.owner, alice());
+			assert_eq!(partner1.account, alice());
+			assert_eq!(partner1.fee_percentage, Some(Permill::from_percent(5)));
+			assert_eq!(partner1.accumulated_fees, 1000);
+
+			// Verify partner 3 is preserved with all its data
+			let partner3 = Partners::<Test>::get(3).unwrap();
+			assert_eq!(partner3.owner, charlie());
+			assert_eq!(partner3.account, charlie());
+			assert_eq!(partner3.fee_percentage, Some(Permill::from_percent(15)));
+			assert_eq!(partner3.accumulated_fees, 3000);
+
+			// Verify partner 2 is gone
+			assert!(!Partners::<Test>::contains_key(2));
+		});
+	}
+
+	#[test]
+	fn remove_partner_handles_attributed_accounts() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Register a partner
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
+
+			// Attribute an account to the partner
+			assert_ok!(PartnerAttribution::attribute_account(Some(bob()).into(), 1));
+			assert_eq!(Attributions::<Test>::get(&bob()).unwrap(), 1);
+
+			// Remove the partner
+			assert_ok!(PartnerAttribution::remove_partner(RawOrigin::Root.into(), 1));
+
+			// Verify partner is removed
+			assert!(!Partners::<Test>::contains_key(1));
+			assert_eq!(PartnerCount::<Test>::get(), 0);
+
+			// Note: Attributions are not automatically cleaned up when partners are removed
+			// This is by design - attributions remain even if the partner is removed
+			assert_eq!(Attributions::<Test>::get(&bob()).unwrap(), 1);
+		});
+	}
+
+	#[test]
+	fn remove_partner_works_with_zero_count() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Ensure no partners exist
+			assert_eq!(PartnerCount::<Test>::get(), 0);
+
+			// Try to remove a partner when none exist
+			assert_noop!(
+				PartnerAttribution::remove_partner(RawOrigin::Root.into(), 1),
+				Error::<Test>::PartnerNotFound
+			);
+
+			// Verify count remains at 0
+			assert_eq!(PartnerCount::<Test>::get(), 0);
+		});
+	}
+
+	#[test]
+	fn remove_partner_maintains_next_partner_id() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Register multiple partners
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::register_partner_account(Some(bob()).into(), bob()));
+			assert_ok!(PartnerAttribution::register_partner_account(
+				Some(charlie()).into(),
+				charlie()
+			));
+
+			// Verify NextPartnerId is at 4
+			assert_eq!(NextPartnerId::<Test>::get(), 4);
+
+			// Remove partner 2
+			assert_ok!(PartnerAttribution::remove_partner(RawOrigin::Root.into(), 2));
+
+			// NextPartnerId should remain at 4 (it doesn't decrease when partners are removed)
+			assert_eq!(NextPartnerId::<Test>::get(), 4);
+
+			// Register a new partner - it should get ID 4
+			assert_ok!(PartnerAttribution::register_partner_account(Some(dave()).into(), dave()));
+			assert_eq!(NextPartnerId::<Test>::get(), 5);
+			assert!(Partners::<Test>::contains_key(4));
+		});
+	}
+
+	#[test]
+	fn remove_partner_handles_large_partner_id() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Set NextPartnerId to a large value
+			NextPartnerId::<Test>::put(1000);
+
+			// Register a partner (should get ID 1000)
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
+			assert_eq!(NextPartnerId::<Test>::get(), 1001);
+			assert!(Partners::<Test>::contains_key(1000));
+
+			// Remove the partner
+			assert_ok!(PartnerAttribution::remove_partner(RawOrigin::Root.into(), 1000));
+
+			// Verify partner is removed and count is correct
+			assert!(!Partners::<Test>::contains_key(1000));
+			assert_eq!(PartnerCount::<Test>::get(), 0);
+			assert_eq!(NextPartnerId::<Test>::get(), 1001);
+		});
+	}
+}
+
 // ===== AttributionProvider Trait Tests =====
 
 mod attribution_provider_trait {
