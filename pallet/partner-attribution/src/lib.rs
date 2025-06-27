@@ -101,6 +101,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextPartnerId<T> = StorageValue<_, u128, ValueQuery, DefaultValue>;
 
+	/// Current number of partners
+	#[pallet::storage]
+	pub type PartnerCount<T> = StorageValue<_, u32, ValueQuery>;
+
 	/// Partner information
 	#[pallet::storage]
 	pub type Partners<T: Config> =
@@ -156,7 +160,7 @@ pub mod pallet {
 
 			// Ensure we don't exceed the maximum number of partners
 			ensure!(
-				Partners::<T>::iter().count() < T::MaxPartners::get() as usize,
+				PartnerCount::<T>::get() < T::MaxPartners::get(),
 				Error::<T>::MaxPartnersExceeded
 			);
 
@@ -174,6 +178,9 @@ pub mod pallet {
 				accumulated_fees: 0,
 			};
 			Partners::<T>::insert(partner_id, partner.clone());
+
+			// Increment partner count
+			PartnerCount::<T>::mutate(|count| *count = count.saturating_add(1));
 
 			Self::deposit_event(Event::PartnerRegistered { partner_id, partner });
 			Ok(())
@@ -308,6 +315,34 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Remove a partner (privileged call)
+		///
+		/// This is a privileged call that can only be called by an authorized futureverse account.
+		///
+		/// Parameters:
+		/// - `partner_id`: The partner id to remove.
+		#[pallet::call_index(5)]
+		#[pallet::weight(T::WeightInfo::remove_partner())]
+		pub fn remove_partner(
+			origin: OriginFor<T>,
+			#[pallet::compact] partner_id: u128,
+		) -> DispatchResult {
+			T::ApproveOrigin::ensure_origin(origin)?;
+
+			// Ensure partner exists
+			let partner = Partners::<T>::get(partner_id).ok_or(Error::<T>::PartnerNotFound)?;
+
+			// Remove the partner
+			Partners::<T>::remove(partner_id);
+
+			// Decrement partner count
+			PartnerCount::<T>::mutate(|count| *count = count.saturating_sub(1));
+
+			Self::deposit_event(Event::PartnerRemoved { partner_id, account: partner.account });
+
+			Ok(())
+		}
 	}
 }
 
@@ -331,5 +366,33 @@ impl<T: Config> AttributionProvider<T::AccountId> for Pallet<T> {
 				}
 			});
 		});
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_attributions(attributions: Vec<(T::AccountId, Balance, Option<Permill>)>) {
+		// Clear existing partners first
+		let _ = Partners::<T>::clear(1000, None);
+		NextPartnerId::<T>::put(1);
+		PartnerCount::<T>::put(0);
+
+		// Set up new partners from the provided attributions
+		for (account, accumulated_fees, fee_percentage) in attributions.clone() {
+			let partner_id = NextPartnerId::<T>::mutate(|id| {
+				let current_id = *id;
+				*id = id.saturating_add(1);
+				current_id
+			});
+
+			let partner = PartnerInformation::<T::AccountId> {
+				owner: account.clone(),
+				account,
+				fee_percentage,
+				accumulated_fees,
+			};
+			Partners::<T>::insert(partner_id, partner);
+		}
+
+		// Update partner count
+		PartnerCount::<T>::put(attributions.len() as u32);
 	}
 }
