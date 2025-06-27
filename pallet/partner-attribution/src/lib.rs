@@ -88,6 +88,8 @@ pub mod pallet {
 				Self::AccountId,
 				AssetId = seed_primitives::AssetId,
 			> + frame_support::traits::fungibles::Mutate<Self::AccountId>;
+		/// The maximum number of partners
+		type MaxPartners: Get<u32>;
 	}
 
 	#[pallet::type_value]
@@ -132,6 +134,8 @@ pub mod pallet {
 		CallerNotFuturepass,
 		/// Account already attributed to another partner
 		AccountAlreadyAttributed,
+		/// Maximum number of partners exceeded
+		MaxPartnersExceeded,
 	}
 
 	#[pallet::call]
@@ -149,6 +153,12 @@ pub mod pallet {
 			account: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
+			// Ensure we don't exceed the maximum number of partners
+			ensure!(
+				Partners::<T>::iter().count() < T::MaxPartners::get() as usize,
+				Error::<T>::MaxPartnersExceeded
+			);
 
 			// increment the partner id, store it and use it
 			let partner_id = NextPartnerId::<T>::mutate(|id| -> Result<u128, DispatchError> {

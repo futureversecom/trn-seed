@@ -1405,6 +1405,7 @@ parameter_types! {
 	pub const GasAssetId: AssetId = XRP_ASSET_ID;
 	pub const MaxAssetPrices: u32 = 500;
 	pub const MaxRewards: u32 = 500;
+	// Maximum number of partners for attribution. The value was decided by the team after looking at the future projections.
 	pub const MaxAttributionPartners: u32 = 200;
 	pub const MaxStringLength: u32 = 1_000;
 }
@@ -1428,7 +1429,6 @@ impl pallet_vortex_distribution::Config for Runtime {
 	type HistoryDepth = HistoryDepth;
 	type GasAssetId = GasAssetId;
 	type PartnerAttributionProvider = PartnerAttribution;
-	type MaxAttributionPartners = MaxAttributionPartners;
 }
 
 impl pallet_partner_attribution::Config for Runtime {
@@ -1437,6 +1437,7 @@ impl pallet_partner_attribution::Config for Runtime {
 	type EnsureFuturepass = impls::EnsureFuturepass<AccountId>;
 	type FuturepassCreator = Futurepass;
 	type WeightInfo = weights::pallet_partner_attribution::WeightInfo<Runtime>;
+	type MaxPartners = MaxAttributionPartners;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type MultiCurrency = AssetsExt;

@@ -58,6 +58,36 @@ mod register_partner_account {
 			);
 		});
 	}
+
+	#[test]
+	fn max_partners_exceeded_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Register exactly 200 partners (the MaxPartners limit)
+			for i in 0..200 {
+				let account = create_account(i);
+				assert_ok!(PartnerAttribution::register_partner_account(
+					Some(account).into(),
+					account
+				));
+			}
+
+			// Verify we have exactly 200 partners
+			assert_eq!(Partners::<Test>::iter().count(), 200);
+
+			// Try to register one more partner - this should fail
+			let extra_account = create_account(200);
+			assert_noop!(
+				PartnerAttribution::register_partner_account(
+					Some(extra_account).into(),
+					extra_account
+				),
+				Error::<Test>::MaxPartnersExceeded
+			);
+
+			// Verify we still have exactly 200 partners
+			assert_eq!(Partners::<Test>::iter().count(), 200);
+		});
+	}
 }
 
 mod update_partner_account {
