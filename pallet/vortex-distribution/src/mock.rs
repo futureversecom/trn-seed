@@ -275,6 +275,13 @@ impl AttributionProvider<AccountId> for MockPartnerAttribution {
 			cell.borrow_mut().clear();
 		});
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_attributions(attributions: Vec<(AccountId, Balance, Option<Permill>)>) {
+		TEST_ATTRIBUTIONS.with(|cell| {
+			*cell.borrow_mut() = attributions;
+		});
+	}
 }
 
 impl crate::Config for Test {

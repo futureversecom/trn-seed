@@ -780,7 +780,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		#[pallet::call_index(12)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution())]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution(T::MaxAssetPrices::get(), T::MaxAttributionPartners::get()))]
 		#[transactional]
 		pub fn trigger_vtx_distribution(
 			origin: OriginFor<T>,
