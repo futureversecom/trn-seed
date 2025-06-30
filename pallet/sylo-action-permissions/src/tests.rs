@@ -822,7 +822,7 @@ mod accept_transact_permission {
 	#[test]
 	fn test_accept_transact_permission_grantee_must_match_origin() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (signer, grantor) = create_random_pair();
+			let (signer, _) = create_random_pair();
 			let grantee: AccountId = create_account(2);
 			let invalid_grantee: AccountId = create_account(3);
 
@@ -865,7 +865,7 @@ mod accept_transact_permission {
 	#[test]
 	fn test_accept_transact_permission_nonce_cannot_be_reused() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (signer, grantor) = create_random_pair();
+			let (signer, _) = create_random_pair();
 			let grantee: AccountId = create_account(2);
 
 			let nonce = U256::from(1);
@@ -914,7 +914,7 @@ mod accept_transact_permission {
 	#[test]
 	fn test_accept_transact_permission_invalid_signature_should_fail() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (_, grantor) = create_random_pair();
+			let (_, _) = create_random_pair();
 			let grantee: AccountId = create_account(2);
 
 			let nonce = U256::from(1);
@@ -1003,7 +1003,6 @@ mod accept_transact_permission {
 
 			// grant futurepass to random_account
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(random_account), random_account));
-			let futurepass = pallet_futurepass::Holders::<Test>::get(&random_account).unwrap();
 
 			let nonce = U256::from(1);
 			let expiry = Some(frame_system::Pallet::<Test>::block_number() + 10);
