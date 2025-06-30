@@ -350,10 +350,9 @@ fn create_sylo_calls() -> Vec<crate::RuntimeCall> {
 		),
 		crate::RuntimeCall::SyloActionPermissions(
 			pallet_sylo_action_permissions::Call::accept_transact_permission {
-				grantor: alice(),
 				permission_token: pallet_sylo_action_permissions::TransactPermissionToken {
 					grantee: alice(),
-					futurepass: None,
+					use_futurepass: false,
 					spender: pallet_sylo_action_permissions::Spender::GRANTEE,
 					spending_balance: None,
 					allowed_calls: BoundedBTreeSet::new(),

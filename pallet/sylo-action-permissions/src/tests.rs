@@ -105,6 +105,40 @@ mod grant_transact_permission {
 			let spender = Spender::GRANTOR;
 			let spending_balance = Some(100);
 			let allowed_calls = all_allowed_calls();
+
+			// Grant permission
+			assert_ok!(SyloActionPermissions::grant_transact_permission(
+				RawOrigin::Signed(grantor.clone()).into(),
+				grantee.clone(),
+				spender.clone(),
+				spending_balance,
+				allowed_calls.clone(),
+				None,
+			));
+
+			// attempt to grant the same permission again
+			assert_noop!(
+				SyloActionPermissions::grant_transact_permission(
+					RawOrigin::Signed(grantor.clone()).into(),
+					grantee.clone(),
+					spender.clone(),
+					spending_balance,
+					allowed_calls.clone(),
+					None,
+				),
+				Error::<Test>::PermissionAlreadyExists
+			);
+		});
+	}
+
+	#[test]
+	fn test_grant_not_expired_transact_permission_already_exists() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+			let spender = Spender::GRANTOR;
+			let spending_balance = Some(100);
+			let allowed_calls = all_allowed_calls();
 			let expiry = Some(frame_system::Pallet::<Test>::block_number() + 10);
 
 			// Grant permission
@@ -129,6 +163,42 @@ mod grant_transact_permission {
 				),
 				Error::<Test>::PermissionAlreadyExists
 			);
+		});
+	}
+
+	#[test]
+	fn test_grant_with_expired_transact_permission_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let grantor: AccountId = create_account(1);
+			let grantee: AccountId = create_account(2);
+			let spender = Spender::GRANTOR;
+			let spending_balance = Some(100);
+			let allowed_calls = all_allowed_calls();
+			let expiry_block = frame_system::Pallet::<Test>::block_number() + 10;
+			let expiry = Some(expiry_block);
+
+			// Grant permission
+			assert_ok!(SyloActionPermissions::grant_transact_permission(
+				RawOrigin::Signed(grantor.clone()).into(),
+				grantee.clone(),
+				spender.clone(),
+				spending_balance,
+				allowed_calls.clone(),
+				expiry,
+			));
+
+			// Simulate advancing the block number past the expiry
+			frame_system::Pallet::<Test>::set_block_number(expiry_block + 1);
+
+			// Should allow overwriting the expired permission
+			assert_ok!(SyloActionPermissions::grant_transact_permission(
+				RawOrigin::Signed(grantor.clone()).into(),
+				grantee.clone(),
+				spender.clone(),
+				spending_balance,
+				allowed_calls.clone(),
+				None,
+			));
 		});
 	}
 
@@ -703,7 +773,7 @@ mod accept_transact_permission {
 			allowed_calls.try_insert(to_call_id("system", "*")).unwrap();
 			let permission_token = TransactPermissionToken {
 				grantee: grantee.clone(),
-				futurepass: None,
+				use_futurepass: false,
 				spender: Spender::GRANTOR,
 				spending_balance: Some(100),
 				allowed_calls: allowed_calls.clone(),
@@ -725,7 +795,6 @@ mod accept_transact_permission {
 			// Accept the permission
 			assert_ok!(SyloActionPermissions::accept_transact_permission(
 				RawOrigin::Signed(grantee.clone()).into(),
-				grantor.clone(),
 				permission_token.clone(),
 				token_signature.clone(),
 			));
@@ -753,7 +822,7 @@ mod accept_transact_permission {
 	#[test]
 	fn test_accept_transact_permission_grantee_must_match_origin() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (signer, grantor) = create_random_pair();
+			let (signer, _) = create_random_pair();
 			let grantee: AccountId = create_account(2);
 			let invalid_grantee: AccountId = create_account(3);
 
@@ -762,7 +831,7 @@ mod accept_transact_permission {
 			let allowed_calls = all_allowed_calls();
 			let permission_token = TransactPermissionToken {
 				grantee: grantee.clone(),
-				futurepass: None,
+				use_futurepass: false,
 				spender: Spender::GRANTOR,
 				spending_balance: Some(100),
 				allowed_calls: allowed_calls.clone(),
@@ -785,7 +854,6 @@ mod accept_transact_permission {
 			assert_noop!(
 				SyloActionPermissions::accept_transact_permission(
 					RawOrigin::Signed(invalid_grantee.clone()).into(),
-					grantor.clone(),
 					permission_token.clone(),
 					token_signature.clone(),
 				),
@@ -797,7 +865,7 @@ mod accept_transact_permission {
 	#[test]
 	fn test_accept_transact_permission_nonce_cannot_be_reused() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (signer, grantor) = create_random_pair();
+			let (signer, _) = create_random_pair();
 			let grantee: AccountId = create_account(2);
 
 			let nonce = U256::from(1);
@@ -805,7 +873,7 @@ mod accept_transact_permission {
 			let allowed_calls = all_allowed_calls();
 			let permission_token = TransactPermissionToken {
 				grantee: grantee.clone(),
-				futurepass: None,
+				use_futurepass: false,
 				spender: Spender::GRANTOR,
 				spending_balance: Some(100),
 				allowed_calls: allowed_calls.clone(),
@@ -827,7 +895,6 @@ mod accept_transact_permission {
 			// Accept the permission
 			assert_ok!(SyloActionPermissions::accept_transact_permission(
 				RawOrigin::Signed(grantee.clone()).into(),
-				grantor.clone(),
 				permission_token.clone(),
 				token_signature.clone(),
 			));
@@ -836,7 +903,6 @@ mod accept_transact_permission {
 			assert_noop!(
 				SyloActionPermissions::accept_transact_permission(
 					RawOrigin::Signed(grantee.clone()).into(),
-					grantor.clone(),
 					permission_token.clone(),
 					token_signature.clone(),
 				),
@@ -846,63 +912,9 @@ mod accept_transact_permission {
 	}
 
 	#[test]
-	fn test_accept_transact_permission_grantor_must_match() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			let (signer, grantor) = create_random_pair();
-			let grantee: AccountId = create_account(2);
-
-			let nonce = U256::from(1);
-			let expiry = Some(frame_system::Pallet::<Test>::block_number() + 10);
-			let allowed_calls = all_allowed_calls();
-			let permission_token = TransactPermissionToken {
-				grantee: grantee.clone(),
-				futurepass: None,
-				spender: Spender::GRANTOR,
-				spending_balance: Some(100),
-				allowed_calls: allowed_calls.clone(),
-				expiry,
-				nonce,
-			};
-
-			// Create a signature for a different token
-			let invalid_permission_token = TransactPermissionToken {
-				grantee: grantee.clone(),
-				futurepass: None,
-				spender: Spender::GRANTEE, // Different spender
-				spending_balance: None,
-				allowed_calls: allowed_calls.clone(),
-				expiry,
-				nonce,
-			};
-
-			let token_signature = TransactPermissionTokenSignature::EIP191(
-				signer
-					.sign_prehashed(&keccak_256(
-						seed_primitives::ethereum_signed_message(
-							Encode::encode(&permission_token).as_bytes_ref(),
-						)
-						.as_ref(),
-					))
-					.into(),
-			);
-
-			// Attempt to accept the permission with a mismatched signature
-			assert_noop!(
-				SyloActionPermissions::accept_transact_permission(
-					RawOrigin::Signed(grantee.clone()).into(),
-					grantor.clone(),
-					invalid_permission_token.clone(),
-					token_signature.clone(),
-				),
-				Error::<Test>::GrantorDoesNotMatch
-			);
-		});
-	}
-
-	#[test]
 	fn test_accept_transact_permission_invalid_signature_should_fail() {
 		TestExt::<Test>::default().build().execute_with(|| {
-			let (_, grantor) = create_random_pair();
+			let (_, _) = create_random_pair();
 			let grantee: AccountId = create_account(2);
 
 			let nonce = U256::from(1);
@@ -910,7 +922,7 @@ mod accept_transact_permission {
 			let allowed_calls = all_allowed_calls();
 			let permission_token = TransactPermissionToken {
 				grantee: grantee.clone(),
-				futurepass: None,
+				use_futurepass: false,
 				spender: Spender::GRANTOR,
 				spending_balance: Some(100),
 				allowed_calls: allowed_calls.clone(),
@@ -924,7 +936,6 @@ mod accept_transact_permission {
 			assert_noop!(
 				SyloActionPermissions::accept_transact_permission(
 					RawOrigin::Signed(grantee.clone()).into(),
-					grantor.clone(),
 					permission_token.clone(),
 					invalid_token_signature.clone(),
 				),
@@ -947,7 +958,7 @@ mod accept_transact_permission {
 			let allowed_calls = all_allowed_calls();
 			let permission_token = TransactPermissionToken {
 				grantee: grantee.clone(),
-				futurepass: Some(futurepass.clone()),
+				use_futurepass: true,
 				spender: Spender::GRANTEE,
 				spending_balance: None,
 				allowed_calls: allowed_calls.clone(),
@@ -968,7 +979,6 @@ mod accept_transact_permission {
 
 			assert_ok!(SyloActionPermissions::accept_transact_permission(
 				RawOrigin::Signed(grantee.clone()).into(),
-				grantor.clone(),
 				permission_token.clone(),
 				token_signature.clone(),
 			));
@@ -993,14 +1003,13 @@ mod accept_transact_permission {
 
 			// grant futurepass to random_account
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(random_account), random_account));
-			let futurepass = pallet_futurepass::Holders::<Test>::get(&random_account).unwrap();
 
 			let nonce = U256::from(1);
 			let expiry = Some(frame_system::Pallet::<Test>::block_number() + 10);
 			let allowed_calls = all_allowed_calls();
 			let permission_token = TransactPermissionToken {
 				grantee: grantee.clone(),
-				futurepass: Some(futurepass.clone()),
+				use_futurepass: true,
 				spender: Spender::GRANTEE,
 				spending_balance: None,
 				allowed_calls: allowed_calls.clone(),
@@ -1023,7 +1032,6 @@ mod accept_transact_permission {
 			assert_noop!(
 				SyloActionPermissions::accept_transact_permission(
 					RawOrigin::Signed(grantee.clone()).into(),
-					grantor.clone(),
 					permission_token.clone(),
 					token_signature.clone(),
 				),
@@ -1033,16 +1041,12 @@ mod accept_transact_permission {
 			// Create futurepass for actual grantor account
 			assert_ok!(Futurepass::create(RuntimeOrigin::signed(grantor), grantor));
 
-			// Futurepass in token should still cause mismatch
-			assert_noop!(
-				SyloActionPermissions::accept_transact_permission(
-					RawOrigin::Signed(grantee.clone()).into(),
-					grantor.clone(),
-					permission_token.clone(),
-					token_signature.clone(),
-				),
-				Error::<Test>::InvalidFuturepassInToken
-			);
+			// token should now be valid
+			assert_ok!(SyloActionPermissions::accept_transact_permission(
+				RawOrigin::Signed(grantee.clone()).into(),
+				permission_token.clone(),
+				token_signature.clone(),
+			));
 		});
 	}
 }

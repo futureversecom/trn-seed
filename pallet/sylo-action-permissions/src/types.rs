@@ -92,9 +92,10 @@ where
 	// Specifies the intended grantee of the permission that will be created
 	pub grantee: AccountId,
 
-	// Optional field that indicates that the futurepass account of the permission grantor
-	// should be used, instead of the account recovered from the signature.
-	pub futurepass: Option<AccountId>,
+	// Indicates that the futurepass account of the signer of the token
+	// should be used as the grantor, instead of the account recovered from the
+	// signature.
+	pub use_futurepass: bool,
 
 	// The spender of transact fee
 	pub spender: Spender,

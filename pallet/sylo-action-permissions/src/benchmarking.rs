@@ -169,7 +169,7 @@ benchmarks! {
 		allowed_calls.try_insert(to_call_id("system", "*")).unwrap();
 		let permission_token = TransactPermissionToken {
 			grantee: grantee.clone(),
-			futurepass: None,
+			use_futurepass: false,
 			spender: Spender::GRANTOR,
 			spending_balance: Some(100),
 			allowed_calls: allowed_calls.clone(),
@@ -182,7 +182,7 @@ benchmarks! {
 				"f33687858bb34d0f6ae1ee5f5eaf7827d83f4a7c5ff41cb96d6340b1e56faf067cfbb5649c4537d71ef229a823752c16eb90315ce76c5c8da669750141ba611101"
 			).unwrap().try_into().unwrap()
 		);
-	}: _(origin::<T>(&grantee), grantor.clone(), permission_token, token_signature)
+	}: _(origin::<T>(&grantee), permission_token, token_signature)
 	verify {
 		let permission = TransactPermissions::<T>::get(&grantor, &grantee).unwrap();
 		assert_eq!(permission.spender, Spender::GRANTOR);
