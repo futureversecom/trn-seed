@@ -91,20 +91,42 @@ benchmarks! {
 	}
 
 	start_vtx_dist {
+		let b in 1..(T::MaxAssetPrices::get() - 1);
+		let p in 1..(T::MaxAttributionPartners::get() - 1);
+
 		System::<T>::set_block_number(1_u32.into());
 		let vortex_dist_id = NextVortexId::<T>::get();
 		let root_price = Balance::one().saturating_mul(10_u128.pow(6));
 		let vortex_price = Balance::one().saturating_mul(10_u128.pow(6));
 		let root_vault = account::<T>("root_vault");
 		let fee_vault = account::<T>("fee_vault");
-		let asset_id = mint_asset::<T>();
-		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
+
+		// Create variable number of assets for benchmarking
 		let balance = Balance::one().saturating_mul(10).saturating_mul(10_u128.pow(6));
-		let asset_balances = BoundedVec::try_from(vec![(asset_id, balance), (T::NativeAssetId::get(), balance.into())]).unwrap();
+		let asset_price = Balance::one().saturating_mul(10_u128.pow(6));
+
+		let mut asset_balances_vec = vec![];
+		let mut asset_prices_vec = vec![];
+		let mut additional_assets = vec![];
+
+		// Add native asset first
+		asset_balances_vec.push((T::NativeAssetId::get(), balance.into()));
+		asset_prices_vec.push((T::NativeAssetId::get(), asset_price));
+
+		// Add variable number of additional assets
+		for _ in 0..b {
+			let asset_id = mint_asset::<T>();
+			additional_assets.push(asset_id);
+			asset_balances_vec.push((asset_id, balance));
+			asset_prices_vec.push((asset_id, asset_price));
+		}
+
+		let asset_balances = BoundedVec::try_from(asset_balances_vec).unwrap();
+		let asset_prices = BoundedVec::try_from(asset_prices_vec).unwrap();
+
+		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
 		assert_ok!(VortexDistribution::<T>::set_vtx_vault_asset_balances(RawOrigin::Root.into(), vortex_dist_id.clone(), asset_balances.clone()));
 		assert_ok!(VortexDistribution::<T>::set_fee_pot_asset_balances(RawOrigin::Root.into(), vortex_dist_id.clone(), asset_balances));
-		let asset_price = Balance::one().saturating_mul(10_u128.pow(6));
-		let asset_prices = BoundedVec::try_from(vec![(asset_id, asset_price), (T::NativeAssetId::get(), asset_price)]).unwrap();
 		assert_ok!(VortexDistribution::<T>::set_asset_prices(RawOrigin::Root.into(), vortex_dist_id, asset_prices));
 
 		let vtx_vault = VortexDistribution::<T>::get_vtx_vault_account();
@@ -112,9 +134,17 @@ benchmarks! {
 		let fee_vault = VortexDistribution::<T>::get_fee_vault_account();
 
 		let mint_amount = Balance::one().saturating_mul(10).saturating_mul(10_u128.pow(6));
-		assert_ok!(T::MultiCurrency::mint_into(asset_id, &fee_vault, mint_amount.into()));
+
+		// Mint native asset into fee vault and root vault
 		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get(), &fee_vault, mint_amount));
 		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get(), &root_vault, mint_amount));
+
+		// Mint all additional assets into fee vault and VTX vault
+		for asset_id in additional_assets {
+			assert_ok!(T::MultiCurrency::mint_into(asset_id, &fee_vault, mint_amount.into()));
+			assert_ok!(T::MultiCurrency::mint_into(asset_id, &vtx_vault, mint_amount.into()));
+		}
+
 		assert_ok!(T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vtx_vault, mint_amount));
 
 		// set currrent vtx supply
@@ -129,6 +159,16 @@ benchmarks! {
 			));
 		assert_ok!(VortexDistribution::<T>::register_work_points(RawOrigin::Root.into(), vortex_dist_id, work_points));
 
+		// Set up partners for attribution testing using set_attributions
+		let mut attributions = vec![];
+		for i in 0..p {
+			let partner_account = bench_account("partner", i, 0);
+			let accumulated_fees = Balance::one().saturating_mul(1000).saturating_mul(10_u128.pow(6));
+			let fee_percentage = Some(Permill::from_percent(5));
+			attributions.push((partner_account, accumulated_fees, fee_percentage));
+		}
+		T::PartnerAttributionProvider::set_attributions(attributions);
+
 		assert_ok!(VortexDistribution::<T>::trigger_vtx_distribution(RawOrigin::Root.into(), vortex_dist_id));
 		// run a few blocks to move the Vtx status from Triggering to Triggered
 		for i in 2_u32..10 {
@@ -138,6 +178,8 @@ benchmarks! {
 	}: _(RawOrigin::Root, vortex_dist_id)
 	verify {
 		assert_eq!(VtxDistStatuses::<T>::get(vortex_dist_id), VtxDistStatus::Paying);
+		// Note: This benchmark measures the computational cost for different numbers of asset prices and partners
+		// The actual processing overhead depends on the number of assets, their prices, and partner attribution operations
 	}
 
 	set_fee_pot_asset_balances {
