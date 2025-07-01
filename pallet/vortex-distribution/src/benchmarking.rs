@@ -91,7 +91,6 @@ benchmarks! {
 	}
 
 	start_vtx_dist {
-		let b in 1..(T::MaxAssetPrices::get() - 1);
 		let p in 1..(T::MaxAttributionPartners::get() - 1);
 
 		System::<T>::set_block_number(1_u32.into());
@@ -101,28 +100,12 @@ benchmarks! {
 		let root_vault = account::<T>("root_vault");
 		let fee_vault = account::<T>("fee_vault");
 
-		// Create variable number of assets for benchmarking
+		// Create a single asset for the benchmark (start_vtx_dist doesn't process multiple assets)
+		let asset_id = mint_asset::<T>();
 		let balance = Balance::one().saturating_mul(10).saturating_mul(10_u128.pow(6));
+		let asset_balances = BoundedVec::try_from(vec![(asset_id, balance), (T::NativeAssetId::get(), balance.into())]).unwrap();
 		let asset_price = Balance::one().saturating_mul(10_u128.pow(6));
-
-		let mut asset_balances_vec = vec![];
-		let mut asset_prices_vec = vec![];
-		let mut additional_assets = vec![];
-
-		// Add native asset first
-		asset_balances_vec.push((T::NativeAssetId::get(), balance.into()));
-		asset_prices_vec.push((T::NativeAssetId::get(), asset_price));
-
-		// Add variable number of additional assets
-		for _ in 0..b {
-			let asset_id = mint_asset::<T>();
-			additional_assets.push(asset_id);
-			asset_balances_vec.push((asset_id, balance));
-			asset_prices_vec.push((asset_id, asset_price));
-		}
-
-		let asset_balances = BoundedVec::try_from(asset_balances_vec).unwrap();
-		let asset_prices = BoundedVec::try_from(asset_prices_vec).unwrap();
+		let asset_prices = BoundedVec::try_from(vec![(asset_id, asset_price), (T::NativeAssetId::get(), asset_price)]).unwrap();
 
 		assert_ok!(VortexDistribution::<T>::create_vtx_dist(RawOrigin::Root.into()));
 		assert_ok!(VortexDistribution::<T>::set_vtx_vault_asset_balances(RawOrigin::Root.into(), vortex_dist_id.clone(), asset_balances.clone()));
@@ -134,17 +117,9 @@ benchmarks! {
 		let fee_vault = VortexDistribution::<T>::get_fee_vault_account();
 
 		let mint_amount = Balance::one().saturating_mul(10).saturating_mul(10_u128.pow(6));
-
-		// Mint native asset into fee vault and root vault
+		assert_ok!(T::MultiCurrency::mint_into(asset_id, &fee_vault, mint_amount.into()));
 		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get(), &fee_vault, mint_amount));
 		assert_ok!(T::MultiCurrency::mint_into(T::NativeAssetId::get(), &root_vault, mint_amount));
-
-		// Mint all additional assets into fee vault and VTX vault
-		for asset_id in additional_assets {
-			assert_ok!(T::MultiCurrency::mint_into(asset_id, &fee_vault, mint_amount.into()));
-			assert_ok!(T::MultiCurrency::mint_into(asset_id, &vtx_vault, mint_amount.into()));
-		}
-
 		assert_ok!(T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vtx_vault, mint_amount));
 
 		// set currrent vtx supply
@@ -178,8 +153,8 @@ benchmarks! {
 	}: _(RawOrigin::Root, vortex_dist_id)
 	verify {
 		assert_eq!(VtxDistStatuses::<T>::get(vortex_dist_id), VtxDistStatus::Paying);
-		// Note: This benchmark measures the computational cost for different numbers of asset prices and partners
-		// The actual processing overhead depends on the number of assets, their prices, and partner attribution operations
+		// Note: This benchmark measures the computational cost for different numbers of partners
+		// The actual processing overhead depends on the number of partners and their attribution operations
 	}
 
 	set_fee_pot_asset_balances {
