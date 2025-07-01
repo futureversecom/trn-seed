@@ -959,6 +959,136 @@ mod close_pool {
 				assert_eq!(Balances::free_balance(alice()), 100);
 			});
 	}
+	#[test]
+	fn cannot_close_pool_with_active_user_stakes_frn_67_fix() {
+		let reward_asset_id = 1;
+		let staked_asset_id = 2;
+		
+		TestExt::<Test>::default()
+			.with_balances(&vec![(alice(), 200)])
+			.with_asset(reward_asset_id, "REWARD", &[(alice(), 100)])
+			.with_asset(staked_asset_id, "STAKE", &[(alice(), 100), (bob(), 100)])
+			.build()
+			.execute_with(|| {
+				let interest_rate = 1_000_000;
+				let max_tokens = 100;
+				let reward_period = 100;
+				let lock_start_block = System::block_number() + 1;
+				let lock_end_block = lock_start_block + reward_period;
+
+				// Alice creates a pool
+				let pool_id = NextPoolId::<Test>::get();
+				assert_ok!(LiquidityPools::create_pool(
+					RuntimeOrigin::signed(alice()),
+					reward_asset_id,
+					staked_asset_id,
+					interest_rate,
+					max_tokens,
+					lock_start_block,
+					lock_end_block
+				));
+
+				// Bob joins the pool with his funds
+				assert_ok!(LiquidityPools::enter_pool(
+					RuntimeOrigin::signed(bob()),
+					pool_id,
+					50
+				));
+
+				// Verify Bob's funds are locked in the pool
+				let pool_vault_account = LiquidityPools::get_vault_account(pool_id);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 50);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 50);
+
+				// Alice (creator) tries to close the pool while Bob still has active stakes
+				// This should fail due to FRN-67 security fix
+				assert_noop!(
+					LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id),
+					Error::<Test>::CannotClosePoolWithActiveUsers
+				);
+
+				// Verify Bob's funds are still safe in the vault
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 50);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &alice()), 100); // Alice's original balance unchanged
+
+				// Bob can still recover his funds via emergency recovery
+				assert_ok!(LiquidityPools::emergency_recover_funds(
+					RuntimeOrigin::signed(bob()),
+					pool_id
+				));
+
+				// Verify Bob got his funds back
+				assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 100);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 0);
+
+				// Now Alice can close the pool since no active users remain
+				assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id));
+
+				// Verify pool is properly closed and cleaned up
+				assert_eq!(Pools::<Test>::get(pool_id), None);
+			});
+	}
+
+	#[test]
+	fn emergency_recover_funds_works_for_user_fund_recovery() {
+		let reward_asset_id = 1;
+		let staked_asset_id = 2;
+		
+		TestExt::<Test>::default()
+			.with_balances(&vec![(alice(), 200)])
+			.with_asset(reward_asset_id, "REWARD", &[(alice(), 100)])
+			.with_asset(staked_asset_id, "STAKE", &[(alice(), 100), (bob(), 100)])
+			.build()
+			.execute_with(|| {
+				let interest_rate = 1_000_000;
+				let max_tokens = 100;
+				let reward_period = 100;
+				let lock_start_block = System::block_number() + 1;
+				let lock_end_block = lock_start_block + reward_period;
+
+				// Alice creates a pool
+				let pool_id = NextPoolId::<Test>::get();
+				assert_ok!(LiquidityPools::create_pool(
+					RuntimeOrigin::signed(alice()),
+					reward_asset_id,
+					staked_asset_id,
+					interest_rate,
+					max_tokens,
+					lock_start_block,
+					lock_end_block
+				));
+
+				// Bob joins the pool
+				assert_ok!(LiquidityPools::enter_pool(
+					RuntimeOrigin::signed(bob()),
+					pool_id,
+					75
+				));
+
+				let pool_vault_account = LiquidityPools::get_vault_account(pool_id);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 75);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 25);
+
+				// Bob uses emergency recovery to get his funds back
+				assert_ok!(LiquidityPools::emergency_recover_funds(
+					RuntimeOrigin::signed(bob()),
+					pool_id
+				));
+
+				// Verify Bob recovered his full stake
+				assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 100);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 0);
+
+				// Verify Bob is no longer in the pool
+				assert_eq!(PoolUsers::<Test>::get(pool_id, &bob()), None);
+
+				System::assert_last_event(MockEvent::LiquidityPools(crate::Event::UserExited {
+					account_id: bob(),
+					pool_id,
+					amount: 75,
+				}));
+			});
+	}
 }
 
 mod enter_pool {
@@ -2113,7 +2243,7 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		).unwrap();
 
 		assert_eq!(reward, user_joined_amount); // Reward should be equal to the staked amount for 100%
 	}
@@ -2135,7 +2265,7 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		).unwrap();
 
 		let expected_reward = (user_joined_amount / 2) - reward_debt; // Half of the amount minus debt
 		assert_eq!(reward, expected_reward);
@@ -2158,7 +2288,7 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		).unwrap();
 
 		let expected_reward = user_joined_amount * 100; // Account for the decimal difference
 		assert_eq!(reward, expected_reward);
@@ -2181,7 +2311,7 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		).unwrap();
 
 		assert_eq!(reward, 0); // Reward should be zero
 	}
@@ -2203,7 +2333,7 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		).unwrap();
 
 		assert!(
 			reward.is_zero(),
@@ -2228,7 +2358,7 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		).unwrap();
 
 		// Ensure the reward does not exceed the maximum balance after calculation
 		assert!(reward <= Balance::max_value(), "Reward should not overflow");
@@ -2251,7 +2381,7 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		).unwrap();
 
 		// The expected reward should consider the difference in decimals
 		let expected_reward =
@@ -2261,4 +2391,475 @@ mod calculate_reward {
 			"Reward should be correctly converted based on decimals"
 		);
 	}
+
+// =============================================================================
+// SECURITY TESTS FOR FRN-66 AND FRN-67 FIXES
+// =============================================================================
+
+mod security_tests {
+	use super::*;
+
+	/// Test for FRN-66 Fix - Arithmetic Overflow Handling
+	/// 
+	/// This test verifies that the `create_pool` function now properly handles overflow scenarios
+	/// instead of panicking. It uses extreme values to trigger overflow conditions and ensures
+	/// the system returns a proper error instead of crashing.
+	#[test]
+	fn test_frn_66_overflow_protection_in_calculate_reward() {
+		TestExt::<Test>::default()
+			.with_balances(&vec![(alice(), u128::MAX)])
+			.build()
+			.execute_with(|| {
+				let reward_asset_id = 1;
+				let staked_asset_id = 2;
+				
+				// Test case 1: Extreme interest rate that would cause overflow
+				let extreme_interest_rate = u32::MAX;
+				let max_tokens = Balance::MAX;
+				let reward_period = 100;
+				let lock_start_block = System::block_number() + 1;
+				let lock_end_block = lock_start_block + reward_period;
+
+				// Before FRN-66 fix, this would panic due to arithmetic overflow
+				// After the fix, it should return RewardCalculationOverflow error
+				assert_noop!(
+					LiquidityPools::create_pool(
+						RuntimeOrigin::signed(alice()),
+						reward_asset_id,
+						staked_asset_id,
+						extreme_interest_rate,
+						max_tokens,
+						lock_start_block,
+						lock_end_block
+					),
+					Error::<Test>::RewardCalculationOverflow
+				);
+
+				// Test case 2: Large but reasonable values that should still work
+				let reasonable_interest_rate = 1_000_000; // 10%
+				let reasonable_max_tokens = 1_000_000_000_000; // 1 trillion units
+				
+				// This should work without overflow
+				assert_ok!(LiquidityPools::create_pool(
+					RuntimeOrigin::signed(alice()),
+					reward_asset_id,
+					staked_asset_id,
+					reasonable_interest_rate,
+					reasonable_max_tokens,
+					lock_start_block,
+					lock_end_block
+				));
+
+				// Verify the pool was created successfully
+				let pool_id = NextPoolId::<Test>::get() - 1;
+				assert!(Pools::<Test>::get(pool_id).is_some());
+
+				// Test case 3: Direct testing of calculate_reward function with overflow scenarios
+				let result = LiquidityPools::calculate_reward(
+					Balance::MAX,
+					0,
+					u32::MAX,
+					10_000, // base point
+					18, // staked asset decimals
+					18  // reward asset decimals
+				);
+				
+				// Should return overflow error instead of panicking
+				assert_noop!(result, Error::<Test>::RewardCalculationOverflow);
+
+				// Test case 4: Verify normal operation still works
+				let normal_result = LiquidityPools::calculate_reward(
+					1_000_000_000_000_000_000, // 1 token with 18 decimals
+					0,
+					1_000_000, // 10% interest rate
+					10_000_000, // base point  
+					18, // staked asset decimals
+					18  // reward asset decimals
+				);
+				
+				// This should succeed and return expected reward
+				assert_ok!(normal_result);
+				let reward = normal_result.unwrap();
+				assert!(reward > 0);
+				
+				// Test edge case with maximum safe values
+				let edge_result = LiquidityPools::calculate_reward(
+					u128::MAX / 1000, // Large but not overflow-inducing amount
+					0,
+					1000, // 1% interest rate
+					100_000, // base point
+					18,
+					18
+				);
+				assert_ok!(edge_result);
+			});
+	}
+
+	/// Test for FRN-67 Fix - Fund Theft Prevention
+	/// 
+	/// This test reproduces the original vulnerability scenario from the audit report
+	/// and verifies that Alice (pool creator) cannot steal Bob's funds when closing
+	/// a pool while Bob still has active stakes.
+	#[test]
+	fn test_frn_67_fund_theft_prevention() {
+		let reward_asset_id = 1;
+		let staked_asset_id = 2;
+		
+		TestExt::<Test>::default()
+			.with_balances(&vec![(alice(), 300), (bob(), 1)])
+			.with_asset(reward_asset_id, "REWARD", &[(alice(), 200)])
+			.with_asset(staked_asset_id, "STAKE", &[(alice(), 1), (bob(), 150)])
+			.build()
+			.execute_with(|| {
+				let interest_rate = 1_000_000; // 10%
+				let max_tokens = 200;
+				let reward_period = 100;
+				let lock_start_block = System::block_number() + 1;
+				let lock_end_block = lock_start_block + reward_period;
+
+				// Step 1: Alice creates a pool
+				let pool_id = NextPoolId::<Test>::get();
+				assert_ok!(LiquidityPools::create_pool(
+					RuntimeOrigin::signed(alice()),
+					reward_asset_id,
+					staked_asset_id,
+					interest_rate,
+					max_tokens,
+					lock_start_block,
+					lock_end_block
+				));
+
+				// Verify Alice's initial balances after pool creation
+				let alice_reward_balance_after_creation = AssetsExt::balance(reward_asset_id, &alice());
+				let alice_native_balance_after_creation = Balances::free_balance(alice());
+				
+				// Step 2: Bob stakes tokens in Alice's pool
+				let bob_stake_amount = 100;
+				assert_ok!(LiquidityPools::enter_pool(
+					RuntimeOrigin::signed(bob()),
+					pool_id,
+					bob_stake_amount
+				));
+
+				// Verify Bob's tokens are locked in the pool vault
+				let pool_vault_account = LiquidityPools::get_vault_account(pool_id);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), bob_stake_amount);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 50); // Bob has 50 remaining
+				
+				// Verify Bob's stake is recorded
+				let bob_user_info = PoolUsers::<Test>::get(pool_id, &bob()).unwrap();
+				assert_eq!(bob_user_info.amount, bob_stake_amount);
+
+				// Step 3: Alice attempts to close the pool while Bob still has active stakes
+				// This is the original vulnerability scenario - before FRN-67 fix, Alice could steal Bob's funds
+				assert_noop!(
+					LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id),
+					Error::<Test>::CannotClosePoolWithActiveUsers
+				);
+
+				// Step 4: Verify that Bob's funds are still safe
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), bob_stake_amount);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 50);
+				
+				// Verify Alice did not gain any extra funds
+				assert_eq!(AssetsExt::balance(reward_asset_id, &alice()), alice_reward_balance_after_creation);
+				assert_eq!(Balances::free_balance(alice()), alice_native_balance_after_creation);
+
+				// Step 5: Test that Bob can still recover his funds via emergency recovery
+				assert_ok!(LiquidityPools::emergency_recover_funds(
+					RuntimeOrigin::signed(bob()),
+					pool_id
+				));
+
+				// Verify Bob recovered his full stake
+				assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 150); // Original 150
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 0);
+				
+				// Verify Bob is no longer in the pool
+				assert_eq!(PoolUsers::<Test>::get(pool_id, &bob()), None);
+
+				// Step 6: Now Alice can close the pool since no active users remain
+				assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id));
+
+				// Step 7: Verify pool is properly closed and cleaned up
+				assert_eq!(Pools::<Test>::get(pool_id), None);
+				
+				// Verify final balances - Alice should have her original funds back, Bob should have his funds
+				// Alice gets her reward tokens back since no rewards were distributed
+				assert!(AssetsExt::balance(reward_asset_id, &alice()) > alice_reward_balance_after_creation);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 150);
+
+				// Verify the proper event was emitted for Bob's recovery
+				System::assert_has_event(MockEvent::LiquidityPools(crate::Event::UserExited {
+					account_id: bob(),
+					pool_id,
+					amount: bob_stake_amount,
+				}));
+			});
+	}
+
+	/// Integration Test - Combined FRN-66 and FRN-67 Security Scenarios
+	/// 
+	/// This test combines both security scenarios in a single test to ensure
+	/// the system handles both overflow protection and fund protection simultaneously.
+	#[test]
+	fn test_both_frn_66_67_integration() {
+		let reward_asset_id = 1;
+		let staked_asset_id = 2;
+		
+		TestExt::<Test>::default()
+			.with_balances(&vec![(alice(), 500), (bob(), 1), (charlie(), 1)])
+			.with_asset(reward_asset_id, "REWARD", &[(alice(), 300)])
+			.with_asset(staked_asset_id, "STAKE", &[(alice(), 1), (bob(), 100), (charlie(), 100)])
+			.build()
+			.execute_with(|| {
+				let reward_period = 100;
+				let lock_start_block = System::block_number() + 1;
+				let lock_end_block = lock_start_block + reward_period;
+
+				// Part 1: Test FRN-66 - Overflow protection during pool creation
+				// Attempt to create pool with values that would cause overflow
+				assert_noop!(
+					LiquidityPools::create_pool(
+						RuntimeOrigin::signed(alice()),
+						reward_asset_id,
+						staked_asset_id,
+						u32::MAX, // Extreme interest rate
+						Balance::MAX, // Extreme max tokens
+						lock_start_block,
+						lock_end_block
+					),
+					Error::<Test>::RewardCalculationOverflow
+				);
+
+				// Create a legitimate pool with safe values
+				let safe_interest_rate = 1_000_000; // 10%
+				let safe_max_tokens = 150;
+				
+				let pool_id = NextPoolId::<Test>::get();
+				assert_ok!(LiquidityPools::create_pool(
+					RuntimeOrigin::signed(alice()),
+					reward_asset_id,
+					staked_asset_id,
+					safe_interest_rate,
+					safe_max_tokens,
+					lock_start_block,
+					lock_end_block
+				));
+
+				// Part 2: Multiple users join the pool
+				assert_ok!(LiquidityPools::enter_pool(
+					RuntimeOrigin::signed(bob()),
+					pool_id,
+					75
+				));
+				
+				assert_ok!(LiquidityPools::enter_pool(
+					RuntimeOrigin::signed(charlie()),
+					pool_id,
+					50
+				));
+
+				// Verify both users' funds are in the vault
+				let pool_vault_account = LiquidityPools::get_vault_account(pool_id);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 125);
+
+				// Part 3: Test FRN-67 - Fund protection when closing pool with active users
+				// Alice tries to close pool while users still have stakes
+				assert_noop!(
+					LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id),
+					Error::<Test>::CannotClosePoolWithActiveUsers
+				);
+
+				// Part 4: Test that both overflow protection and fund protection work together
+				// Test calculate_reward with user amounts that could potentially overflow
+				let bob_user_info = PoolUsers::<Test>::get(pool_id, &bob()).unwrap();
+				let _charlie_user_info = PoolUsers::<Test>::get(pool_id, &charlie()).unwrap();
+				
+				// Test with extreme parameters to ensure overflow protection
+				let overflow_result = LiquidityPools::calculate_reward(
+					Balance::MAX, // Use maximum balance to trigger overflow
+					0,
+					u32::MAX, // Extreme interest rate
+					1, // Very small base point to amplify overflow
+					18,
+					18
+				);
+				assert_noop!(overflow_result, Error::<Test>::RewardCalculationOverflow);
+
+				// Test with normal parameters should work
+				let normal_result = LiquidityPools::calculate_reward(
+					bob_user_info.amount,
+					0,
+					safe_interest_rate,
+					10_000_000,
+					18,
+					18
+				);
+				assert_ok!(normal_result);
+
+				// Part 5: Users can still recover their funds despite overflow scenarios
+				assert_ok!(LiquidityPools::emergency_recover_funds(
+					RuntimeOrigin::signed(bob()),
+					pool_id
+				));
+				
+				assert_ok!(LiquidityPools::emergency_recover_funds(
+					RuntimeOrigin::signed(charlie()),
+					pool_id
+				));
+
+				// Verify both users recovered their funds
+				assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 100);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &charlie()), 100);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 0);
+
+				// Part 6: Now pool can be closed safely
+				assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id));
+				assert_eq!(Pools::<Test>::get(pool_id), None);
+
+				// Part 7: Verify system stability after handling both security scenarios
+				// System should be in a clean state and able to create new pools
+				let new_pool_id = NextPoolId::<Test>::get();
+				assert_ok!(LiquidityPools::create_pool(
+					RuntimeOrigin::signed(alice()),
+					reward_asset_id,
+					staked_asset_id,
+					safe_interest_rate,
+					50,
+					lock_start_block + 200,
+					lock_end_block + 200
+				));
+				
+				assert!(Pools::<Test>::get(new_pool_id).is_some());
+			});
+	}
+
+	/// Additional edge case test for FRN-66: Test reward calculation with extreme decimal differences
+	#[test]
+	fn test_frn_66_decimal_overflow_protection() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Test case with extreme decimal differences that could cause overflow
+			let result = LiquidityPools::calculate_reward(
+				1_000_000_000_000_000_000, // 1 token with 18 decimals
+				0,
+				5_000_000, // 50% interest rate  
+				10_000_000, // base point
+				0,  // 0 decimals for staked asset (extreme case)
+				18  // 18 decimals for reward asset (extreme case)
+			);
+			
+			// This extreme decimal difference should be handled gracefully
+			assert_ok!(result);
+			
+			// Test the opposite extreme
+			let result2 = LiquidityPools::calculate_reward(
+				1_000_000_000_000_000_000,
+				0,
+				5_000_000,
+				10_000_000,
+				18, // 18 decimals for staked asset
+				0   // 0 decimals for reward asset (extreme case)
+			);
+			
+			assert_ok!(result2);
+			
+			// Test case that would definitely overflow
+			let overflow_result = LiquidityPools::calculate_reward(
+				Balance::MAX,
+				0,
+				u32::MAX,
+				1, // Very small base point to amplify overflow
+				0,
+				18
+			);
+			
+			assert_noop!(overflow_result, Error::<Test>::RewardCalculationOverflow);
+		});
+	}
+
+	/// Additional edge case test for FRN-67: Test fund protection with complex user scenarios
+	#[test]
+	fn test_frn_67_complex_user_scenarios() {
+		let reward_asset_id = 1;
+		let staked_asset_id = 2;
+		
+		TestExt::<Test>::default()
+			.with_balances(&vec![(alice(), 400), (bob(), 1), (charlie(), 1), (dave(), 1)])
+			.with_asset(reward_asset_id, "REWARD", &[(alice(), 200)])
+			.with_asset(staked_asset_id, "STAKE", &[
+				(alice(), 1),
+				(bob(), 100),
+				(charlie(), 100),
+				(dave(), 100)
+			])
+			.build()
+			.execute_with(|| {
+				let interest_rate = 1_000_000;
+				let max_tokens = 250;
+				let reward_period = 100;
+				let lock_start_block = System::block_number() + 1;
+				let lock_end_block = lock_start_block + reward_period;
+
+				// Alice creates pool
+				let pool_id = NextPoolId::<Test>::get();
+				assert_ok!(LiquidityPools::create_pool(
+					RuntimeOrigin::signed(alice()),
+					reward_asset_id,
+					staked_asset_id,
+					interest_rate,
+					max_tokens,
+					lock_start_block,
+					lock_end_block
+				));
+
+				// Multiple users join
+				assert_ok!(LiquidityPools::enter_pool(RuntimeOrigin::signed(bob()), pool_id, 80));
+				assert_ok!(LiquidityPools::enter_pool(RuntimeOrigin::signed(charlie()), pool_id, 90));
+				assert_ok!(LiquidityPools::enter_pool(RuntimeOrigin::signed(dave()), pool_id, 70));
+
+				let pool_vault_account = LiquidityPools::get_vault_account(pool_id);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 240);
+
+				// Alice cannot close pool with multiple active users
+				assert_noop!(
+					LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id),
+					Error::<Test>::CannotClosePoolWithActiveUsers
+				);
+
+				// One user recovers funds
+				assert_ok!(LiquidityPools::emergency_recover_funds(RuntimeOrigin::signed(bob()), pool_id));
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 160);
+
+				// Alice still cannot close pool as other users remain
+				assert_noop!(
+					LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id),
+					Error::<Test>::CannotClosePoolWithActiveUsers
+				);
+
+				// Another user recovers funds
+				assert_ok!(LiquidityPools::emergency_recover_funds(RuntimeOrigin::signed(charlie()), pool_id));
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 70);
+
+				// Alice still cannot close as Dave remains
+				assert_noop!(
+					LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id),
+					Error::<Test>::CannotClosePoolWithActiveUsers
+				);
+
+				// Last user recovers funds
+				assert_ok!(LiquidityPools::emergency_recover_funds(RuntimeOrigin::signed(dave()), pool_id));
+				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 0);
+
+				// Now Alice can close the pool
+				assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id));
+				assert_eq!(Pools::<Test>::get(pool_id), None);
+
+				// Verify all users got their funds back
+				assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 100);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &charlie()), 100);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &dave()), 100);
+			});
+	}
+}
 }
