@@ -831,7 +831,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		#[pallet::call_index(14)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::start_vtx_dist(T::MaxAssetPrices::get(), T::MaxAttributionPartners::get()))]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::start_vtx_dist(T::MaxAttributionPartners::get()))]
 		pub fn start_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
 			Self::ensure_root_or_admin(origin)?;
 			ensure!(
