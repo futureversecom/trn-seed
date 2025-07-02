@@ -1463,9 +1463,9 @@ pub mod pallet {
 			let xrp_price = AssetPrices::<T>::get(id, T::GasAssetId::get()); // with price multiplier
 			let mut total_attribution_rewards: u128 = 0;
 			for (account, amount, fee_percentage) in attributions {
-				let attibution_fee_value_usd = amount.saturating_mul(xrp_price);
+				let attribution_fee_value_usd = amount.saturating_mul(xrp_price);
 				let attribution_value_percentage: Permill =
-					Permill::from_rational(attibution_fee_value_usd, fee_vault_asset_value);
+					Permill::from_rational(attribution_fee_value_usd, fee_vault_asset_value);
 				let vtx_attribution_reward = attribution_value_percentage
 					.saturating_mul(fee_percentage.ok_or(Error::<T>::InvalidPartnerFeePercentage)?)
 					* TotalNetworkReward::<T>::get(id);
@@ -1485,18 +1485,18 @@ pub mod pallet {
 		fn do_distribute_partner_attribution_rewards(id: T::VtxDistIdentifier) -> DispatchResult {
 			let rewards = PartnerAttributionRewards::<T>::get(id);
 			for (account, amount) in rewards.iter() {
-				let vtx_amout_drops = amount.saturating_div(PRECISION_MULTIPLIER);
+				let vtx_amount_drops = amount.saturating_div(PRECISION_MULTIPLIER);
 				Self::safe_transfer(
 					T::VtxAssetId::get(),
 					&Self::get_vtx_held_account(),
 					account,
-					vtx_amout_drops,
+					vtx_amount_drops,
 					false,
 				)?;
 				Self::deposit_event(Event::PartnerAttributionRewardPaid {
 					vtx_id: id,
 					account: account.clone(),
-					amount: vtx_amout_drops,
+					amount: vtx_amount_drops,
 				});
 			}
 			Ok(())
