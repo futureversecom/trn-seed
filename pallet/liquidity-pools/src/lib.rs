@@ -235,6 +235,10 @@ pub mod pallet {
 		OffchainErrWrongTransactionSource,
 		/// Pivot string too long
 		PivotStringTooLong,
+		/// Reward calculation overflow
+		RewardCalculationOverflow,
+		/// Cannot close pool with active user stakes
+		CannotClosePoolWithActiveUsers,
 	}
 
 	#[pallet::call]
@@ -292,7 +296,7 @@ pub mod pallet {
 				T::InterestRateBasePoint::get(),
 				T::MultiCurrency::decimals(staked_asset_id),
 				T::MultiCurrency::decimals(reward_asset_id),
-			);
+			)?;
 
 			// Transfer max rewards to pool vault account
 			if max_rewards > 0 {
@@ -461,38 +465,88 @@ pub mod pallet {
 			ensure!(pool.creator == creator, Error::<T>::NotPoolCreator);
 
 			let pool_vault_account = Self::get_vault_account(id);
+			
+			// SECURITY FIX: Check that all users have been compensated before allowing pool closure
+			// Count active users who still have stakes in the pool
+			let active_user_count = PoolUsers::<T>::iter_prefix(id).count();
+			let total_user_stakes: Balance = PoolUsers::<T>::iter_prefix(id)
+				.map(|(_, user_info)| user_info.amount)
+				.fold(Zero::zero(), |acc, amount| acc.saturating_add(amount));
+
+			// Only allow closure if:
+			// 1. No users have active stakes, OR
+			// 2. Pool is in Matured state (users can claim their funds)
+			if active_user_count > 0 && pool.pool_status != PoolStatus::Matured {
+				// Users still have funds locked and cannot recover them yet
+				// Pool cannot be closed until users can claim their stakes
+				return Err(Error::<T>::CannotClosePoolWithActiveUsers.into())
+			}
+
 			let reward_asset_amount =
 				T::MultiCurrency::balance(pool.reward_asset_id, &pool_vault_account);
+			let staked_asset_amount =
+				T::MultiCurrency::balance(pool.staked_asset_id, &pool_vault_account);
 
-			if reward_asset_amount > 0 {
+			// SECURITY FIX: Only transfer unclaimed rewards, not user funds
+			// If there are still user stakes recorded but funds in vault, those belong to users
+			let creator_reward_amount = if total_user_stakes == Zero::zero() {
+				// No user stakes recorded, creator can claim reward assets
+				reward_asset_amount
+			} else {
+				// Users still have stakes, creator cannot claim reward assets yet
+				Zero::zero()
+			};
+
+			let creator_stake_amount = if total_user_stakes == Zero::zero() {
+				// No user stakes recorded, creator can claim remaining staked assets
+				staked_asset_amount
+			} else {
+				// Users still have stakes, creator cannot claim staked assets
+				// The staked assets belong to users and must remain for user recovery
+				Zero::zero()
+			};
+
+			// Transfer only legitimate creator funds
+			if creator_reward_amount > Zero::zero() {
 				T::MultiCurrency::transfer(
 					pool.reward_asset_id,
 					&pool_vault_account,
 					&creator,
-					reward_asset_amount,
+					creator_reward_amount,
 					Preservation::Expendable,
 				)?;
 			}
 
-			if pool.locked_amount > 0 {
+			if creator_stake_amount > Zero::zero() {
 				T::MultiCurrency::transfer(
 					pool.staked_asset_id,
 					&pool_vault_account,
 					&creator,
-					pool.locked_amount,
+					creator_stake_amount,
 					Preservation::Expendable,
 				)?;
 			}
 
-			Pools::<T>::remove(id);
-			PoolUsers::<T>::drain_prefix(id);
-			PoolRelationships::<T>::remove(id);
-			RolloverPivot::<T>::remove(id);
+			// Update pool status to Closed but preserve user data if users still have stakes
+			Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
+				let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
+				pool_info.pool_status = PoolStatus::Closed;
+				Ok(())
+			})?;
+
+			// SECURITY FIX: Only remove user data if no active stakes remain
+			// This preserves user recovery rights
+			if total_user_stakes == Zero::zero() {
+				PoolUsers::<T>::drain_prefix(id);
+				Pools::<T>::remove(id);
+				PoolRelationships::<T>::remove(id);
+				RolloverPivot::<T>::remove(id);
+			}
 
 			Self::deposit_event(Event::PoolClosed {
 				pool_id: id,
-				reward_asset_amount,
-				staked_asset_amount: pool.locked_amount,
+				reward_asset_amount: creator_reward_amount,
+				staked_asset_amount: creator_stake_amount,
 				receiver: creator,
 			});
 			Ok(())
@@ -639,7 +693,7 @@ pub mod pallet {
 				T::InterestRateBasePoint::get(),
 				T::MultiCurrency::decimals(pool.staked_asset_id),
 				T::MultiCurrency::decimals(pool.reward_asset_id),
-			);
+			)?;
 
 			if reward > Zero::zero() {
 				let amount = if user_info.should_rollover == false || user_info.rolled_over == false
@@ -681,6 +735,69 @@ pub mod pallet {
 			});
 			Ok(())
 		}
+		/// Emergency recovery function for users to recover their staked funds from closed pools.
+		///
+		/// This function provides a safety net for users whose funds might be trapped in pools
+		/// that have been closed by the creator. Users can recover their original staked amount
+		/// even if the pool is in Closed status.
+		///
+		/// Parameters:
+		/// - `origin`: The account of the user recovering their funds.
+		/// - `id`: The ID of the pool from which funds are being recovered.
+		///
+		/// Restrictions:
+		/// - The user must have a recorded stake in the pool.
+		/// - The pool vault must have sufficient funds to cover the user's stake.
+		///
+		/// Emits `UserExited` event when funds are successfully recovered.
+		#[pallet::weight(T::WeightInfo::exit_pool())]
+		#[transactional]
+		#[pallet::call_index(8)] // Note: This assumes call_index 8 is available
+		pub fn emergency_recover_funds(origin: OriginFor<T>, id: T::PoolId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let pool_vault_account = Self::get_vault_account(id);
+
+			// Get user info - must exist and have staked amount
+			let user_info = PoolUsers::<T>::get(id, &who).ok_or(Error::<T>::NoTokensStaked)?;
+			ensure!(user_info.amount > Zero::zero(), Error::<T>::NoTokensStaked);
+
+			// Get pool info - allow recovery even from closed pools
+			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
+
+			// Check if vault has sufficient staked assets to cover user's stake
+			let vault_staked_balance = T::MultiCurrency::balance(pool.staked_asset_id, &pool_vault_account);
+			ensure!(vault_staked_balance >= user_info.amount, Error::<T>::NoTokensStaked);
+
+			// Transfer user's staked amount back to them
+			T::MultiCurrency::transfer(
+				pool.staked_asset_id,
+				&pool_vault_account,
+				&who,
+				user_info.amount,
+				Preservation::Expendable,
+			)?;
+
+			// Update pool's locked amount if pool still exists
+			if pool.pool_status != PoolStatus::Closed {
+				Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
+					let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
+					pool_info.locked_amount = pool_info.locked_amount.saturating_sub(user_info.amount);
+					Ok(())
+				})?;
+			}
+
+			// Remove user from pool
+			PoolUsers::<T>::remove(id, &who);
+
+			Self::deposit_event(Event::UserExited { 
+				account_id: who, 
+				pool_id: id, 
+				amount: user_info.amount 
+			});
+			
+			Ok(())
+		}
+
 
 		/// Processes the rollover of users from one pool to its successor in an unsigned
 		/// transaction.
@@ -974,8 +1091,9 @@ pub mod pallet {
 		/// - `reward_asset_decimals`: The number of decimal places used for the native token.
 		///
 		/// Returns:
-		/// - The calculated reward amount in native tokens, after adjusting for decimal places and
+		/// - `Ok(Balance)`: The calculated reward amount in native tokens, after adjusting for decimal places and
 		///   subtracting the reward debt.
+		/// - `Err(DispatchError)`: If the reward calculation overflows.
 		pub fn calculate_reward(
 			user_joined_amount: Balance,
 			reward_debt: Balance,
@@ -983,7 +1101,7 @@ pub mod pallet {
 			interest_rate_base_point: u32,
 			staked_asset_decimals: u8,
 			reward_asset_decimals: u8,
-		) -> Balance {
+		) -> Result<Balance, DispatchError> {
 			// Calculate reward in asset token
 			let mut reward = multiply_by_rational_with_rounding(
 				user_joined_amount,
@@ -991,7 +1109,8 @@ pub mod pallet {
 				interest_rate_base_point.into(),
 				sp_runtime::Rounding::Down,
 			)
-			.expect("reward calculation should not overflow");
+			.ok_or(Error::<T>::RewardCalculationOverflow)?;
+			
 			// Remaining rewards
 			reward = reward.saturating_sub(reward_debt);
 
@@ -1005,7 +1124,7 @@ pub mod pallet {
 					10_u128.pow((reward_asset_decimals - staked_asset_decimals).into()).into(),
 				);
 			}
-			reward
+			Ok(reward)
 		}
 
 		fn do_offchain_worker(now: BlockNumberFor<T>) -> DispatchResult {
@@ -1052,7 +1171,7 @@ pub mod pallet {
 				T::InterestRateBasePoint::get(),
 				T::MultiCurrency::decimals(pool_info.staked_asset_id),
 				T::MultiCurrency::decimals(pool_info.reward_asset_id),
-			);
+			)?;
 			let pool_vault_account = Self::get_vault_account(pool_id);
 			if reward > Zero::zero() {
 				T::MultiCurrency::transfer(
