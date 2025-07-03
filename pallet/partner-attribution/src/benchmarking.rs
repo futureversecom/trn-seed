@@ -41,6 +41,7 @@ benchmarks! {
 	}: _(RawOrigin::Signed(acc.clone()), acc.clone())
 	verify {
 		assert_eq!(NextPartnerId::<T>::get(), 2);
+		assert_eq!(PartnerCount::<T>::get(), 1);
 		let partner = Partners::<T>::get(1).unwrap();
 		assert_eq!(partner.owner, acc.clone());
 		assert_eq!(partner.account, acc);
@@ -105,6 +106,16 @@ benchmarks! {
 			.next()
 			.expect("Attribution should exist");
 		assert_eq!(got_partner_id, partner_id);
+	}
+
+	remove_partner {
+		let acc: T::AccountId = account("acc", 0, 0);
+		PartnerAttribution::<T>::register_partner_account(RawOrigin::Signed(acc.clone()).into(), acc.clone()).unwrap();
+		assert_eq!(PartnerCount::<T>::get(), 1);
+	}: _(RawOrigin::Root, 1)
+	verify {
+		assert_eq!(PartnerCount::<T>::get(), 0);
+		assert!(Partners::<T>::get(1).is_none());
 	}
 }
 
