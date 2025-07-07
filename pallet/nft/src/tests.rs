@@ -3520,11 +3520,14 @@ mod set_additional_data {
 				BoundedVec::truncate_from(vec![]);
 
 			// set to data
-			assert_noop!(Nft::set_additional_data(
-				RawOrigin::Signed(collection_owner).into(),
-				token_id,
-				Some(data.clone())
-			), Error::<Test>::InvalidAdditionalData);
+			assert_noop!(
+				Nft::set_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(data.clone())
+				),
+				Error::<Test>::InvalidAdditionalData
+			);
 		});
 	}
 
@@ -3607,7 +3610,8 @@ mod mint_with_additional_data {
 				Event::<Test>::AdditionalDataSet { token_id, additional_data: Some(data) }.into(),
 			);
 			System::assert_has_event(
-				Event::<Test>::Mint { collection_id, start: 0, end: 0, owner: collection_owner }.into(),
+				Event::<Test>::Mint { collection_id, start: 0, end: 0, owner: collection_owner }
+					.into(),
 			);
 
 			// Verify mint
@@ -3628,10 +3632,15 @@ mod mint_with_additional_data {
 			let new_token_id = (collection_id, 1);
 			assert_eq!(AdditionalTokenData::<Test>::get(new_token_id), new_data.clone());
 			System::assert_has_event(
-				Event::<Test>::AdditionalDataSet { token_id: new_token_id, additional_data: Some(new_data) }.into(),
+				Event::<Test>::AdditionalDataSet {
+					token_id: new_token_id,
+					additional_data: Some(new_data),
+				}
+				.into(),
 			);
 			System::assert_has_event(
-				Event::<Test>::Mint { collection_id, start: 1, end: 1, owner: collection_owner }.into(),
+				Event::<Test>::Mint { collection_id, start: 1, end: 1, owner: collection_owner }
+					.into(),
 			);
 			assert_eq!(Nft::token_balance_of(&(collection_owner), collection_id), 2);
 			let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
@@ -3681,12 +3690,15 @@ mod mint_with_additional_data {
 			let data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
 				BoundedVec::truncate_from(vec![]);
 			// set to data
-			assert_noop!(Nft::mint_with_additional_data(
-				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
-				None,
-				data.clone()
-			), Error::<Test>::InvalidAdditionalData);
+			assert_noop!(
+				Nft::mint_with_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					None,
+					data.clone()
+				),
+				Error::<Test>::InvalidAdditionalData
+			);
 		});
 	}
 

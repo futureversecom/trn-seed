@@ -14,8 +14,9 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{
-	mock::*, Config, Error, SftCollectionInfo, SftCollectionInformation, SftTokenBalance,
-	SftTokenInformation, TokenInfo, TokenUtilityFlags, UtilityFlags, AdditionalTokenData, Event, PublicMintInfo
+	mock::*, AdditionalTokenData, Config, Error, Event, PublicMintInfo, SftCollectionInfo,
+	SftCollectionInformation, SftTokenBalance, SftTokenInformation, TokenInfo, TokenUtilityFlags,
+	UtilityFlags,
 };
 use seed_pallet_common::test_prelude::*;
 use seed_pallet_common::utils::PublicMintInformation;
@@ -3511,7 +3512,6 @@ mod soulbound_token {
 	}
 }
 
-
 mod set_additional_data {
 	use super::*;
 
@@ -3570,11 +3570,14 @@ mod set_additional_data {
 				BoundedVec::truncate_from(vec![]);
 
 			// set to data
-			assert_noop!(Sft::set_additional_data(
-				RawOrigin::Signed(collection_owner).into(),
-				token_id,
-				Some(data.clone())
-			), Error::<Test>::InvalidAdditionalData);
+			assert_noop!(
+				Sft::set_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(data.clone())
+				),
+				Error::<Test>::InvalidAdditionalData
+			);
 		});
 	}
 
@@ -3665,7 +3668,8 @@ mod create_token_with_additional_data {
 					max_issuance: None,
 					token_name: token_name.clone(),
 					token_owner: collection_owner,
-				}.into(),
+				}
+				.into(),
 			);
 			// Verify created token
 			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
@@ -3688,7 +3692,11 @@ mod create_token_with_additional_data {
 			let new_token_id = (collection_id, 1);
 			assert_eq!(AdditionalTokenData::<Test>::get(new_token_id), new_data.clone());
 			System::assert_has_event(
-				Event::<Test>::AdditionalDataSet { token_id: new_token_id, additional_data: Some(new_data) }.into(),
+				Event::<Test>::AdditionalDataSet {
+					token_id: new_token_id,
+					additional_data: Some(new_data),
+				}
+				.into(),
 			);
 			System::assert_has_event(
 				Event::<Test>::TokenCreate {
@@ -3697,7 +3705,8 @@ mod create_token_with_additional_data {
 					max_issuance: None,
 					token_name,
 					token_owner: collection_owner,
-				}.into(),
+				}
+				.into(),
 			);
 			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
 			assert_eq!(token_info.free_balance_of(&collection_owner), 1);
@@ -3738,7 +3747,8 @@ mod create_token_with_additional_data {
 					max_issuance: None,
 					token_name,
 					token_owner,
-				}.into(),
+				}
+				.into(),
 			);
 
 			// Verify mint
@@ -3756,15 +3766,18 @@ mod create_token_with_additional_data {
 			let collection_id = create_test_collection(collection_owner);
 			let data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
 				BoundedVec::truncate_from(vec![]);
-			assert_noop!(Sft::create_token_with_additional_data(
-				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
-				bounded_string("my-token"),
-				0,
-				None,
-				None,
-				data.clone()
-			), Error::<Test>::InvalidAdditionalData);
+			assert_noop!(
+				Sft::create_token_with_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					bounded_string("my-token"),
+					0,
+					None,
+					None,
+					data.clone()
+				),
+				Error::<Test>::InvalidAdditionalData
+			);
 		});
 	}
 

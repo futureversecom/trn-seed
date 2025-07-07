@@ -130,8 +130,7 @@ pub mod pallet {
 	/// to a token outside the collection metadata.
 	#[pallet::storage]
 	pub type AdditionalTokenData<T: Config> =
-	StorageMap<_, Twox64Concat, TokenId, BoundedVec<u8, T::MaxDataLength>, ValueQuery>;
-
+		StorageMap<_, Twox64Concat, TokenId, BoundedVec<u8, T::MaxDataLength>, ValueQuery>;
 
 	/// Map from token to its token information, including ownership information
 	#[pallet::storage]
