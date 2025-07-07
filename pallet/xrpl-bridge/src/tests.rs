@@ -4249,7 +4249,7 @@ fn withdraw_nft_works() {
 		let nft_collection_id = NftBuilder::<Test>::new(collection_owner)
 			.cross_chain_compatibility(CrossChainCompatibility { xrpl: true })
 			.build();
-		assert_ok!(<Test as Config>::NFTExt::do_mint(alice(), nft_collection_id, 1, None,));
+		assert_ok!(<<Test as Config>::NFTExt as NFTExt>::do_mint(alice(), nft_collection_id, 1, None,));
 
 		// withdraw nft
 		System::reset_events();
@@ -4313,7 +4313,7 @@ fn withdraw_nft_failure_xls20_incompatible() {
 		let nft_collection_id = NftBuilder::<Test>::new(collection_owner)
 			.cross_chain_compatibility(CrossChainCompatibility { xrpl: false })
 			.build();
-		assert_ok!(<Test as Config>::NFTExt::do_mint(alice(), nft_collection_id, 1, None,));
+		assert_ok!(<<Test as Config>::NFTExt as NFTExt>::do_mint(alice(), nft_collection_id, 1, None,));
 
 		// withdraw nft
 		assert_noop!(
@@ -4364,7 +4364,7 @@ fn withdraw_nft_more_failure_scenarios() {
 		let nft_collection_id = NftBuilder::<Test>::new(collection_owner)
 			.cross_chain_compatibility(CrossChainCompatibility { xrpl: true })
 			.build();
-		assert_ok!(<Test as Config>::NFTExt::do_mint(alice(), nft_collection_id, 1, None,));
+		assert_ok!(<<Test as Config>::NFTExt as NFTExt>::do_mint(alice(), nft_collection_id, 1, None,));
 
 		// withdraw by other than the owner
 		assert_noop!(
