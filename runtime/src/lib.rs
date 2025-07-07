@@ -459,6 +459,7 @@ parameter_types! {
 	pub const MaxTokensPerCollection: u32 = 1_000_000;
 	pub const MintLimit: u32 = 1_000;
 	pub const TransferLimit: u32 = 1_000;
+	pub const NftAdditionalDataLength: u32 = 32;
 	pub const MaxPendingIssuances: u32 = 1_000_000;
 }
 impl pallet_nft::Config for Runtime {
@@ -473,6 +474,7 @@ impl pallet_nft::Config for Runtime {
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type StringLimit = CollectionNameStringLimit;
+	type MaxDataLength = NftAdditionalDataLength;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
 	type NFIRequest = Nfi;
@@ -529,6 +531,7 @@ parameter_types! {
 	pub const MaxTokensPerSftCollection: u32 = 1_000_000;
 	pub const MaxOwnersPerSftCollection: u32 = 1_000_000;
 	pub const MaxSftPendingIssuances: u32 = 1_000_000;
+	pub const SftAdditionalDataLength: u32 = 32;
 	pub const MaxSerialsPerMint: u32 = 1000; // Higher values can be storage heavy
 }
 impl pallet_sft::Config for Runtime {
@@ -540,6 +543,7 @@ impl pallet_sft::Config for Runtime {
 	type PalletId = SftPalletId;
 	type ParachainId = WorldId;
 	type StringLimit = CollectionNameStringLimit;
+	type MaxDataLength = SftAdditionalDataLength;
 	type WeightInfo = weights::pallet_sft::WeightInfo<Runtime>;
 	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 	type MaxSerialsPerMint = MaxSerialsPerMint;
