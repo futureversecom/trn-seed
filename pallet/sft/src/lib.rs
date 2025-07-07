@@ -860,7 +860,7 @@ pub mod pallet {
 		/// Data must not be empty
 		/// Can be overwritten, call with None to remove.
 		#[pallet::call_index(19)]
-		#[pallet::weight(T::WeightInfo::accept_soulbound_issuance())]
+		#[pallet::weight(T::WeightInfo::set_additional_data())]
 		pub fn set_additional_data(
 			origin: OriginFor<T>,
 			token_id: TokenId,
@@ -878,7 +878,7 @@ pub mod pallet {
 
 		/// Create a token alongside some additional data
 		#[pallet::call_index(20)]
-		#[pallet::weight(T::WeightInfo::accept_soulbound_issuance())]
+		#[pallet::weight(T::WeightInfo::create_token_with_additional_data())]
 		pub fn create_token_with_additional_data(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
