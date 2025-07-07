@@ -43,12 +43,10 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 	let metadata_uri: Vec<u8> = vec![b'a'; string_limit as usize];
 	let metadata_scheme = MetadataScheme::try_from(metadata_uri.as_slice()).unwrap();
 	let cross_chain_compatibility = CrossChainCompatibility::default();
-	let string_limit = T::StringLimit::get();
-	let name: Vec<u8> = vec![b'a'; string_limit as usize];
 
 	assert_ok!(Nft::<T>::create_collection(
 		origin::<T>(&caller).into(),
-		BoundedVec::truncate_from(name),
+		max_bounded_vec::<T::StringLimit>(),
 		1,
 		None,
 		None,
@@ -58,6 +56,11 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 	));
 
 	id
+}
+
+pub fn max_bounded_vec<B: Get<u32>>() -> BoundedVec<u8, B> {
+	let v = vec![b'a'; B::get() as usize];
+	BoundedVec::truncate_from(v)
 }
 
 benchmarks! {
@@ -99,8 +102,7 @@ benchmarks! {
 	set_name {
 		let collection_id = build_collection::<T>(None);
 		let string_limit = T::StringLimit::get();
-		let name: Vec<u8> = vec![b'a'; string_limit as usize];
-		let name = BoundedVec::truncate_from(name);
+		let name = max_bounded_vec::<T::StringLimit>();
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, name.clone())
 	verify {
 		let collection_info = CollectionInfo::<T>::get(collection_id).unwrap();
@@ -127,8 +129,8 @@ benchmarks! {
 		let metadata = MetadataScheme::try_from(metadata_uri.as_slice()).unwrap();
 		let ccc = CrossChainCompatibility { xrpl: false };
 		let string_limit = T::StringLimit::get();
-		let name: Vec<u8> = vec![b'a'; string_limit as usize];
-	}: _(origin::<T>(&account::<T>("Alice")), BoundedVec::truncate_from(name), p, None, None, metadata, None, ccc)
+		let name = max_bounded_vec::<T::StringLimit>();
+	}: _(origin::<T>(&account::<T>("Alice")), name, p, None, None, metadata, None, ccc)
 	verify {
 		let collection_info = CollectionInfo::<T>::get(collection_id);
 		assert_eq!(collection_info.unwrap().collection_issuance, p);
@@ -258,6 +260,27 @@ benchmarks! {
 	verify {
 		let collection_info = CollectionInfo::<T>::get(collection_id).expect("Collection not found");
 		assert!(collection_info.is_token_owner(&receiver, 1))
+	}
+
+	set_additional_data {
+		let collection_id = build_collection::<T>(None);
+		let token_id = (collection_id, 0);
+		let additional_data = max_bounded_vec::<T::MaxDataLength>();
+	}: _(origin::<T>(&account::<T>("Alice")), token_id, Some(additional_data.clone()))
+	verify {
+		assert_eq!(AdditionalTokenData::<T>::get(token_id), additional_data);
+	}
+
+	mint_with_additional_data {
+		let owner = account::<T>("Alice");
+		let collection_id = build_collection::<T>(Some(owner.clone()));
+		let additional_data = max_bounded_vec::<T::MaxDataLength>();
+	}: _(origin::<T>(&owner), collection_id, None, additional_data.clone())
+	verify {
+		let token_id = (collection_id, 1);
+		assert_eq!(AdditionalTokenData::<T>::get(token_id), additional_data);
+		let collection_info = CollectionInfo::<T>::get(collection_id).expect("Collection not found");
+		assert!(collection_info.is_token_owner(&owner, 1))
 	}
 }
 
