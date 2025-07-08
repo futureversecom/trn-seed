@@ -39,6 +39,7 @@ parameter_types! {
 	pub const InterestRateBasePoint: u32 = 1_000_000;
 	pub const UnsignedInterval: u32 =  5;
 	pub const RolloverBatchSize: u32 = 10;
+	pub const ClosureBatchSize: u32 = 5; // FRN-68: For testing bounded closure
 	pub const MaxStringLength: u32 = 1000;
 }
 
@@ -50,6 +51,7 @@ impl crate::Config for Test {
 	type PalletId = LiquidityPoolsPalletId;
 	type UnsignedInterval = UnsignedInterval;
 	type RolloverBatchSize = RolloverBatchSize;
+	type ClosureBatchSize = ClosureBatchSize;
 	type MaxStringLength = MaxStringLength;
 	type WeightInfo = ();
 }

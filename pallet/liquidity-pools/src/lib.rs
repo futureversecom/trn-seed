@@ -26,7 +26,7 @@ use frame_support::{
 		fungibles::{metadata::Inspect as InspectMetadata, Inspect, Mutate},
 		tokens::Preservation,
 	},
-	transactional, PalletId,
+	transactional, BoundedVec, PalletId,
 };
 use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},
@@ -36,7 +36,10 @@ use seed_primitives::{AccountId, AssetId, Balance};
 use sp_arithmetic::helpers_128bit::multiply_by_rational_with_rounding;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
-	traits::{AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, ValidateUnsigned, Zero},
+	traits::{
+		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, SaturatedConversion, Saturating,
+		ValidateUnsigned, Zero,
+	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		ValidTransaction,
@@ -67,7 +70,7 @@ pub(crate) const LOG_TARGET: &str = "liquidity-pools";
 pub mod pallet {
 	use super::*;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -95,6 +98,10 @@ pub mod pallet {
 		/// Max number of users to rollover per block
 		#[pallet::constant]
 		type RolloverBatchSize: Get<u32>;
+
+		/// Max number of users to process per closure batch (FRN-68)
+		#[pallet::constant]
+		type ClosureBatchSize: Get<u32>;
 
 		/// Max pivot string length
 		type MaxStringLength: Get<u32>;
@@ -149,6 +156,25 @@ pub mod pallet {
 	pub(super) type RolloverPivot<T: Config> =
 		StorageMap<_, Twox64Concat, T::PoolId, BoundedVec<u8, T::MaxStringLength>, ValueQuery>;
 
+	// FRN-68: New storage items for bounded pool closure
+	#[pallet::storage]
+	pub(super) type ClosingPools<T: Config> =
+		StorageMap<_, Twox64Concat, T::PoolId, ClosureState<T::PoolId>>;
+
+	// FRN-69: Storage for idle processing state
+	#[pallet::storage]
+	pub(super) type IdleProcessingStatus<T: Config> =
+		StorageValue<_, IdleProcessingState<T::PoolId>, ValueQuery>;
+
+	// FRN-71: Storage for fair processing state
+	#[pallet::storage]
+	pub(super) type ProcessingStatus<T: Config> =
+		StorageValue<_, ProcessingState<T::PoolId>, ValueQuery>;
+
+	// FRN-71: Priority queue for urgent pool updates
+	#[pallet::storage]
+	pub(super) type UrgentPoolUpdates<T: Config> = StorageMap<_, Twox64Concat, T::PoolId, ()>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -193,6 +219,20 @@ pub mod pallet {
 		},
 		/// Rewards claimed.
 		RewardsClaimed { account_id: T::AccountId, pool_id: T::PoolId, amount: Balance },
+
+		// FRN-68: Pool closure events
+		/// Pool closure initiated
+		PoolClosureInitiated { pool_id: T::PoolId, closure_type: ClosureType },
+		/// Pool closure batch processed
+		PoolClosureBatchProcessed { pool_id: T::PoolId, users_processed: u32, remaining_users: u32 },
+		/// Pool closure completed
+		PoolClosureCompleted { pool_id: T::PoolId },
+
+		// FRN-71: Pool processing events
+		/// Pool update triggered manually
+		PoolUpdateTriggered { pool_id: T::PoolId },
+		/// Pool added to urgent processing queue
+		PoolAddedToUrgentQueue { pool_id: T::PoolId },
 	}
 
 	#[pallet::error]
@@ -239,6 +279,30 @@ pub mod pallet {
 		RewardCalculationOverflow,
 		/// Cannot close pool with active user stakes
 		CannotClosePoolWithActiveUsers,
+
+		// FRN-68: Pool closure errors
+		/// Pool not in closing state
+		PoolNotClosing,
+		/// No closure batch to process
+		NoClosureBatchToProcess,
+		/// Pool closure already in progress
+		PoolClosureAlreadyInProgress,
+
+		// FRN-70: Unsigned transaction validation errors
+		/// Invalid transaction source
+		InvalidTransactionSource,
+		/// Transaction timing validation failed
+		TransactionTimingValidationFailed,
+		/// Pool state validation failed for unsigned transaction
+		PoolStateValidationFailed,
+		/// System state validation failed for unsigned transaction
+		SystemStateValidationFailed,
+
+		// FRN-71: Fair processing errors
+		/// Pool not eligible for urgent processing
+		PoolNotEligibleForUrgentProcessing,
+		/// Processing state corrupted
+		ProcessingStateCorrupted,
 	}
 
 	#[pallet::call]
@@ -442,19 +506,21 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Closes an active reward pool.
+		/// FRN-68: Initiates bounded closure of a pool with deferred cleanup.
 		///
-		/// This function allows an admin to close an active pool. Once closed, the pool stops
-		/// accepting new stakes.
+		/// This function starts the pool closure process using bounded processing
+		/// to handle pools with many users safely without exceeding weight limits.
 		///
 		/// Parameters:
-		/// - `origin`: The origin account that is closing the pool. Must be an admin.
+		/// - `origin`: The origin account that is closing the pool. Must be the pool creator.
 		/// - `id`: The ID of the pool being closed.
 		///
 		/// Restrictions:
 		/// - The pool identified by `id` must exist.
+		/// - Only the pool creator can initiate closure.
+		/// - Pool cannot already be in closing state.
 		///
-		/// Emits `PoolClosed` event when the pool is successfully closed.
+		/// Emits `PoolClosureInitiated` event when closure is started.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::close_pool())]
 		#[transactional]
@@ -463,92 +529,22 @@ pub mod pallet {
 
 			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 			ensure!(pool.creator == creator, Error::<T>::NotPoolCreator);
+			ensure!(
+				pool.pool_status != PoolStatus::Closing,
+				Error::<T>::PoolClosureAlreadyInProgress
+			);
 
-			let pool_vault_account = Self::get_vault_account(id);
-			
-			// SECURITY FIX: Check that all users have been compensated before allowing pool closure
-			// Count active users who still have stakes in the pool
-			let active_user_count = PoolUsers::<T>::iter_prefix(id).count();
-			let total_user_stakes: Balance = PoolUsers::<T>::iter_prefix(id)
-				.map(|(_, user_info)| user_info.amount)
-				.fold(Zero::zero(), |acc, amount| acc.saturating_add(amount));
+			// Count total users in the pool
+			let total_users = PoolUsers::<T>::iter_prefix(id).count() as u32;
 
-			// Only allow closure if:
-			// 1. No users have active stakes, OR
-			// 2. Pool is in Matured state (users can claim their funds)
-			if active_user_count > 0 && pool.pool_status != PoolStatus::Matured {
-				// Users still have funds locked and cannot recover them yet
-				// Pool cannot be closed until users can claim their stakes
-				return Err(Error::<T>::CannotClosePoolWithActiveUsers.into())
-			}
-
-			let reward_asset_amount =
-				T::MultiCurrency::balance(pool.reward_asset_id, &pool_vault_account);
-			let staked_asset_amount =
-				T::MultiCurrency::balance(pool.staked_asset_id, &pool_vault_account);
-
-			// SECURITY FIX: Only transfer unclaimed rewards, not user funds
-			// If there are still user stakes recorded but funds in vault, those belong to users
-			let creator_reward_amount = if total_user_stakes == Zero::zero() {
-				// No user stakes recorded, creator can claim reward assets
-				reward_asset_amount
+			if total_users == 0 {
+				// No users, can close immediately
+				Self::close_empty_pool(id, &pool, creator)?;
 			} else {
-				// Users still have stakes, creator cannot claim reward assets yet
-				Zero::zero()
-			};
-
-			let creator_stake_amount = if total_user_stakes == Zero::zero() {
-				// No user stakes recorded, creator can claim remaining staked assets
-				staked_asset_amount
-			} else {
-				// Users still have stakes, creator cannot claim staked assets
-				// The staked assets belong to users and must remain for user recovery
-				Zero::zero()
-			};
-
-			// Transfer only legitimate creator funds
-			if creator_reward_amount > Zero::zero() {
-				T::MultiCurrency::transfer(
-					pool.reward_asset_id,
-					&pool_vault_account,
-					&creator,
-					creator_reward_amount,
-					Preservation::Expendable,
-				)?;
+				// Has users, start bounded closure process
+				Self::initiate_bounded_closure(id, total_users, ClosureType::Normal)?;
 			}
 
-			if creator_stake_amount > Zero::zero() {
-				T::MultiCurrency::transfer(
-					pool.staked_asset_id,
-					&pool_vault_account,
-					&creator,
-					creator_stake_amount,
-					Preservation::Expendable,
-				)?;
-			}
-
-			// Update pool status to Closed but preserve user data if users still have stakes
-			Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
-				let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
-				pool_info.pool_status = PoolStatus::Closed;
-				Ok(())
-			})?;
-
-			// SECURITY FIX: Only remove user data if no active stakes remain
-			// This preserves user recovery rights
-			if total_user_stakes == Zero::zero() {
-				PoolUsers::<T>::drain_prefix(id);
-				Pools::<T>::remove(id);
-				PoolRelationships::<T>::remove(id);
-				RolloverPivot::<T>::remove(id);
-			}
-
-			Self::deposit_event(Event::PoolClosed {
-				pool_id: id,
-				reward_asset_amount: creator_reward_amount,
-				staked_asset_amount: creator_stake_amount,
-				receiver: creator,
-			});
 			Ok(())
 		}
 
@@ -765,7 +761,8 @@ pub mod pallet {
 			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
 			// Check if vault has sufficient staked assets to cover user's stake
-			let vault_staked_balance = T::MultiCurrency::balance(pool.staked_asset_id, &pool_vault_account);
+			let vault_staked_balance =
+				T::MultiCurrency::balance(pool.staked_asset_id, &pool_vault_account);
 			ensure!(vault_staked_balance >= user_info.amount, Error::<T>::NoTokensStaked);
 
 			// Transfer user's staked amount back to them
@@ -781,7 +778,8 @@ pub mod pallet {
 			if pool.pool_status != PoolStatus::Closed {
 				Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
 					let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
-					pool_info.locked_amount = pool_info.locked_amount.saturating_sub(user_info.amount);
+					pool_info.locked_amount =
+						pool_info.locked_amount.saturating_sub(user_info.amount);
 					Ok(())
 				})?;
 			}
@@ -789,15 +787,14 @@ pub mod pallet {
 			// Remove user from pool
 			PoolUsers::<T>::remove(id, &who);
 
-			Self::deposit_event(Event::UserExited { 
-				account_id: who, 
-				pool_id: id, 
-				amount: user_info.amount 
+			Self::deposit_event(Event::UserExited {
+				account_id: who,
+				pool_id: id,
+				amount: user_info.amount,
 			});
-			
+
 			Ok(())
 		}
-
 
 		/// Processes the rollover of users from one pool to its successor in an unsigned
 		/// transaction.
@@ -952,71 +949,90 @@ pub mod pallet {
 			log::warn!("proposed next unsigned at {:?}", next_unsigned_at);
 			Ok(())
 		}
+
+		/// FRN-71: Manual trigger for pool status updates with priority processing.
+		///
+		/// This function allows manual triggering of pool status updates for specific pools,
+		/// placing them in the urgent processing queue for immediate attention.
+		///
+		/// Parameters:
+		/// - `origin`: The origin account triggering the update.
+		/// - `pool_id`: The ID of the pool to update.
+		///
+		/// Restrictions:
+		/// - The pool must exist.
+		/// - Pool must be eligible for status updates.
+		///
+		/// Emits `PoolUpdateTriggered` event when successful.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::trigger_pool_update())]
+		pub fn trigger_pool_update(origin: OriginFor<T>, pool_id: T::PoolId) -> DispatchResult {
+			ensure_signed(origin)?;
+
+			let pool = Pools::<T>::get(pool_id).ok_or(Error::<T>::PoolDoesNotExist)?;
+
+			// Check if pool is eligible for urgent processing
+			let current_block = frame_system::Pallet::<T>::block_number();
+			let is_eligible = match pool.pool_status {
+				PoolStatus::Open if pool.lock_start_block <= current_block => true,
+				PoolStatus::Started if pool.lock_end_block <= current_block => true,
+				_ => false,
+			};
+
+			ensure!(is_eligible, Error::<T>::PoolNotEligibleForUrgentProcessing);
+
+			// Add to urgent processing queue
+			UrgentPoolUpdates::<T>::insert(pool_id, ());
+
+			Self::deposit_event(Event::PoolUpdateTriggered { pool_id });
+			Self::deposit_event(Event::PoolAddedToUrgentQueue { pool_id });
+
+			Ok(())
+		}
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// FRN-69: Rewritten on_idle with proper weight accounting framework
 		fn on_idle(now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			let mut cost_weight = T::DbWeight::get().reads(1u64);
-			if remaining_weight.all_lte(cost_weight) {
+			let mut total_weight_used = Weight::zero();
+			let base_weight = T::DbWeight::get().reads(1u64);
+
+			// Early exit if we don't have enough weight for basic operations
+			if remaining_weight.all_lte(base_weight) {
 				return Weight::zero();
 			}
 
-			// Iterate through all pools once and update directly
-			for (id, pool_info) in Pools::<T>::iter() {
-				let update_cost = T::DbWeight::get().reads_writes(1, 1);
+			total_weight_used = total_weight_used.saturating_add(base_weight);
 
-				// Check if we have enough weight left
-				if remaining_weight.all_lte(cost_weight.saturating_add(update_cost)) {
-					return cost_weight;
-				}
+			// FRN-71: Process urgent pool updates first
+			let urgent_weight = Self::process_urgent_pool_updates(
+				now,
+				remaining_weight.saturating_sub(total_weight_used),
+			);
+			total_weight_used = total_weight_used.saturating_add(urgent_weight);
 
-				match pool_info.pool_status {
-					PoolStatus::Open if pool_info.lock_start_block <= now => {
-						// Update pool to Started status
-						Pools::<T>::mutate(id, |pool| {
-							pool.as_mut().map(|pool_info| {
-								pool_info.pool_status = PoolStatus::Started;
-								pool_info.last_updated = now;
-								Self::deposit_event(Event::PoolStarted { pool_id: id });
-							});
-						});
-						cost_weight = cost_weight.saturating_add(update_cost);
-					},
-					PoolStatus::Started if pool_info.lock_end_block <= now => {
-						// Transfer remaining tokens back to vault account
-						Self::refund_surplus_reward(id, &pool_info).unwrap_or_default();
+			// FRN-68: Process closing pools with bounded processing
+			let closure_weight = Self::process_closing_pools(
+				now,
+				remaining_weight.saturating_sub(total_weight_used),
+			);
+			total_weight_used = total_weight_used.saturating_add(closure_weight);
 
-						// Check for successor
-						let has_successor = PoolRelationships::<T>::get(id)
-							.unwrap_or_default()
-							.successor_id
-							.is_some();
-						if has_successor {
-							Pools::<T>::mutate(id, |pool| {
-								pool.as_mut().map(|pool_info| {
-									pool_info.pool_status = PoolStatus::Renewing;
-									pool_info.last_updated = now;
-									Self::deposit_event(Event::PoolRenewing { pool_id: id });
-								});
-							});
-						} else {
-							Pools::<T>::mutate(id, |pool| {
-								pool.as_mut().map(|pool_info| {
-									pool_info.pool_status = PoolStatus::Matured;
-									pool_info.last_updated = now;
-									Self::deposit_event(Event::PoolMatured { pool_id: id });
-								});
-							});
-						};
+			// FRN-69: Process regular pool status updates with bounded iteration
+			let status_weight = Self::process_pool_status_updates(
+				now,
+				remaining_weight.saturating_sub(total_weight_used),
+			);
+			total_weight_used = total_weight_used.saturating_add(status_weight);
 
-						cost_weight = cost_weight.saturating_add(update_cost);
-					},
-					_ => {}, // No update needed
-				}
-			}
+			// Update processing state
+			IdleProcessingStatus::<T>::mutate(|state| {
+				state.total_weight_consumed =
+					state.total_weight_consumed.saturating_add(total_weight_used.ref_time());
+			});
 
-			cost_weight
+			total_weight_used
 		}
 
 		fn offchain_worker(now: BlockNumberFor<T>) {
@@ -1042,15 +1058,22 @@ pub mod pallet {
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+		/// FRN-70: Enhanced unsigned transaction validation with comprehensive checks
+		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			match call {
 				Call::rollover_unsigned { id, current_block } => {
-					let block_number = <frame_system::Pallet<T>>::block_number();
-					if &block_number < current_block {
-						return InvalidTransaction::Future.into();
-					}
+					// Comprehensive validation pipeline
+					Self::validate_transaction_source(&source)?;
+					Self::validate_timing(current_block)?;
+					Self::validate_pool_state(id)?;
+					Self::validate_system_state()?;
+
+					// Calculate priority based on pool stakes
+					let priority =
+						Self::calculate_transaction_priority(id).unwrap_or(UNSIGNED_PRIORITY);
+
 					ValidTransaction::with_tag_prefix("LiquidityPoolsChainWorker")
-						.priority(UNSIGNED_PRIORITY)
+						.priority(priority)
 						.and_provides(id)
 						.longevity(64_u64)
 						.propagate(true)
@@ -1110,7 +1133,7 @@ pub mod pallet {
 				sp_runtime::Rounding::Down,
 			)
 			.ok_or(Error::<T>::RewardCalculationOverflow)?;
-			
+
 			// Remaining rewards
 			reward = reward.saturating_sub(reward_debt);
 
@@ -1183,6 +1206,491 @@ pub mod pallet {
 				)?;
 			}
 			Ok(())
+		}
+
+		// FRN-68: Bounded pool closure helper functions
+		pub fn initiate_bounded_closure(
+			pool_id: T::PoolId,
+			total_users: u32,
+			closure_type: ClosureType,
+		) -> DispatchResult {
+			let closure_state = ClosureState {
+				pool_id,
+				closure_type,
+				users_processed: 0,
+				total_users,
+				last_processed_user: None,
+			};
+
+			// Update pool status to Closing
+			Pools::<T>::try_mutate(pool_id, |pool_info| -> DispatchResult {
+				let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
+				pool_info.pool_status = PoolStatus::Closing;
+				Ok(())
+			})?;
+
+			ClosingPools::<T>::insert(pool_id, closure_state);
+
+			Self::deposit_event(Event::PoolClosureInitiated { pool_id, closure_type });
+
+			Ok(())
+		}
+
+		fn close_empty_pool(
+			pool_id: T::PoolId,
+			pool: &PoolInfo<T::PoolId, AssetId, Balance, BlockNumberFor<T>>,
+			creator: T::AccountId,
+		) -> DispatchResult {
+			let pool_vault_account = Self::get_vault_account(pool_id);
+
+			let reward_asset_amount =
+				T::MultiCurrency::balance(pool.reward_asset_id, &pool_vault_account);
+			let staked_asset_amount =
+				T::MultiCurrency::balance(pool.staked_asset_id, &pool_vault_account);
+
+			// Transfer remaining funds to creator
+			if reward_asset_amount > Zero::zero() {
+				T::MultiCurrency::transfer(
+					pool.reward_asset_id,
+					&pool_vault_account,
+					&creator,
+					reward_asset_amount,
+					Preservation::Expendable,
+				)?;
+			}
+
+			if staked_asset_amount > Zero::zero() {
+				T::MultiCurrency::transfer(
+					pool.staked_asset_id,
+					&pool_vault_account,
+					&creator,
+					staked_asset_amount,
+					Preservation::Expendable,
+				)?;
+			}
+
+			// Clean up storage
+			Pools::<T>::remove(pool_id);
+			PoolRelationships::<T>::remove(pool_id);
+			RolloverPivot::<T>::remove(pool_id);
+
+			Self::deposit_event(Event::PoolClosed {
+				pool_id,
+				reward_asset_amount,
+				staked_asset_amount,
+				receiver: creator,
+			});
+
+			Ok(())
+		}
+
+		fn process_closing_pools(now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			let mut weight_used = Weight::zero();
+			let base_weight = T::WeightInfo::process_closing_pools();
+
+			if remaining_weight.all_lte(base_weight) {
+				return Weight::zero();
+			}
+
+			// Process each closing pool
+			for (pool_id, _closure_state) in ClosingPools::<T>::iter() {
+				let batch_weight = T::WeightInfo::process_closure_batch();
+				if remaining_weight.all_lte(weight_used.saturating_add(batch_weight)) {
+					break;
+				}
+
+				let process_weight =
+					Self::process_closure_batch(pool_id, now).unwrap_or(Weight::zero());
+				weight_used = weight_used.saturating_add(process_weight);
+			}
+
+			weight_used
+		}
+
+		fn process_closure_batch(
+			pool_id: T::PoolId,
+			_now: BlockNumberFor<T>,
+		) -> Result<Weight, DispatchError> {
+			let mut weight_used = T::DbWeight::get().reads(1);
+
+			let closure_state =
+				ClosingPools::<T>::get(pool_id).ok_or(Error::<T>::NoClosureBatchToProcess)?;
+			let batch_size = T::ClosureBatchSize::get();
+			let mut users_processed = 0u32;
+
+			// Get pool info for vault account
+			let pool = Pools::<T>::get(pool_id).ok_or(Error::<T>::PoolDoesNotExist)?;
+			let pool_vault_account = Self::get_vault_account(pool_id);
+
+			// Process users in batches
+			let mut user_iterator = if let Some(ref last_key) = closure_state.last_processed_user {
+				PoolUsers::<T>::iter_prefix_from(pool_id, last_key.clone().into_inner())
+			} else {
+				PoolUsers::<T>::iter_prefix(pool_id)
+			};
+
+			let mut last_processed_key: Option<
+				BoundedVec<u8, frame_support::traits::ConstU32<1024>>,
+			> = None;
+
+			while let Some((user_account, user_info)) = user_iterator.next() {
+				if users_processed >= batch_size {
+					break;
+				}
+
+				// Return user's staked funds
+				if user_info.amount > Zero::zero() {
+					T::MultiCurrency::transfer(
+						pool.staked_asset_id,
+						&pool_vault_account,
+						&user_account,
+						user_info.amount,
+						Preservation::Expendable,
+					)?;
+
+					weight_used = weight_used.saturating_add(T::DbWeight::get().reads_writes(2, 2));
+				}
+
+				// Remove user from pool
+				PoolUsers::<T>::remove(pool_id, &user_account);
+				weight_used = weight_used.saturating_add(T::DbWeight::get().writes(1));
+
+				users_processed += 1;
+				last_processed_key =
+					BoundedVec::try_from(user_iterator.last_raw_key().to_vec()).ok();
+			}
+
+			// Update closure state
+			if users_processed > 0 {
+				let new_users_processed =
+					closure_state.users_processed.saturating_add(users_processed);
+				let remaining_users = closure_state.total_users.saturating_sub(new_users_processed);
+
+				if new_users_processed >= closure_state.total_users {
+					// Closure complete
+					Self::complete_pool_closure(pool_id, &pool)?;
+					weight_used = weight_used.saturating_add(T::DbWeight::get().writes(2));
+				} else {
+					// Update progress
+					ClosingPools::<T>::mutate(pool_id, |state| {
+						if let Some(state) = state {
+							state.users_processed = new_users_processed;
+							state.last_processed_user = last_processed_key;
+						}
+					});
+					weight_used = weight_used.saturating_add(T::DbWeight::get().writes(1));
+				}
+
+				Self::deposit_event(Event::PoolClosureBatchProcessed {
+					pool_id,
+					users_processed,
+					remaining_users,
+				});
+			}
+
+			Ok(weight_used)
+		}
+
+		fn complete_pool_closure(
+			pool_id: T::PoolId,
+			pool: &PoolInfo<T::PoolId, AssetId, Balance, BlockNumberFor<T>>,
+		) -> DispatchResult {
+			let pool_vault_account = Self::get_vault_account(pool_id);
+
+			// Transfer remaining funds to creator
+			let reward_balance =
+				T::MultiCurrency::balance(pool.reward_asset_id, &pool_vault_account);
+			let staked_balance =
+				T::MultiCurrency::balance(pool.staked_asset_id, &pool_vault_account);
+
+			if reward_balance > Zero::zero() {
+				T::MultiCurrency::transfer(
+					pool.reward_asset_id,
+					&pool_vault_account,
+					&pool.creator,
+					reward_balance,
+					Preservation::Expendable,
+				)?;
+			}
+
+			if staked_balance > Zero::zero() {
+				T::MultiCurrency::transfer(
+					pool.staked_asset_id,
+					&pool_vault_account,
+					&pool.creator,
+					staked_balance,
+					Preservation::Expendable,
+				)?;
+			}
+
+			// Clean up storage
+			ClosingPools::<T>::remove(pool_id);
+			Pools::<T>::remove(pool_id);
+			PoolRelationships::<T>::remove(pool_id);
+			RolloverPivot::<T>::remove(pool_id);
+
+			Self::deposit_event(Event::PoolClosureCompleted { pool_id });
+			Self::deposit_event(Event::PoolClosed {
+				pool_id,
+				reward_asset_amount: reward_balance,
+				staked_asset_amount: staked_balance,
+				receiver: pool.creator.clone(),
+			});
+
+			Ok(())
+		}
+
+		// FRN-69: Weight accounting helper functions
+		fn process_pool_status_updates(now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			let mut weight_used = Weight::zero();
+			let base_weight = T::WeightInfo::process_pool_status_updates();
+
+			if remaining_weight.all_lte(base_weight) {
+				return Weight::zero();
+			}
+
+			// Get processing state for fair round-robin
+			let mut processing_state = ProcessingStatus::<T>::get();
+			let max_pools_per_block = 10u32; // Bounded processing
+
+			let mut pools_processed = 0u32;
+			let mut found_start = processing_state.last_processed_pool.is_none();
+			let pool_iterator = Pools::<T>::iter();
+
+			for (pool_id, pool_info) in pool_iterator {
+				// Skip pools until we find our starting point (round-robin resume)
+				if !found_start {
+					if Some(pool_id) == processing_state.last_processed_pool {
+						found_start = true;
+					}
+					continue;
+				}
+
+				if pools_processed >= max_pools_per_block {
+					break;
+				}
+
+				let update_weight = T::DbWeight::get().reads_writes(1, 1);
+				if remaining_weight.all_lte(weight_used.saturating_add(update_weight)) {
+					break;
+				}
+
+				let updated = match pool_info.pool_status {
+					PoolStatus::Open if pool_info.lock_start_block <= now => {
+						Pools::<T>::mutate(&pool_id, |pool| {
+							if let Some(pool_info) = pool {
+								pool_info.pool_status = PoolStatus::Started;
+								pool_info.last_updated = now;
+								Self::deposit_event(Event::PoolStarted { pool_id });
+							}
+						});
+						true
+					},
+					PoolStatus::Started if pool_info.lock_end_block <= now => {
+						Self::refund_surplus_reward(pool_id, &pool_info).ok();
+
+						let has_successor = PoolRelationships::<T>::get(&pool_id)
+							.unwrap_or_default()
+							.successor_id
+							.is_some();
+
+						if has_successor {
+							Pools::<T>::mutate(&pool_id, |pool| {
+								if let Some(pool_info) = pool {
+									pool_info.pool_status = PoolStatus::Renewing;
+									pool_info.last_updated = now;
+									Self::deposit_event(Event::PoolRenewing { pool_id });
+								}
+							});
+						} else {
+							Pools::<T>::mutate(&pool_id, |pool| {
+								if let Some(pool_info) = pool {
+									pool_info.pool_status = PoolStatus::Matured;
+									pool_info.last_updated = now;
+									Self::deposit_event(Event::PoolMatured { pool_id });
+								}
+							});
+						}
+						true
+					},
+					_ => false,
+				};
+
+				if updated {
+					weight_used = weight_used.saturating_add(update_weight);
+				}
+
+				pools_processed += 1;
+				processing_state.last_processed_pool = Some(pool_id);
+			}
+
+			// Update processing state
+			processing_state.round_robin_position =
+				processing_state.round_robin_position.saturating_add(pools_processed);
+			ProcessingStatus::<T>::put(processing_state);
+
+			weight_used
+		}
+
+		// FRN-71: Fair processing helper functions
+		pub fn process_urgent_pool_updates(
+			now: BlockNumberFor<T>,
+			remaining_weight: Weight,
+		) -> Weight {
+			let mut weight_used = Weight::zero();
+			let update_weight = T::DbWeight::get().reads_writes(2, 2);
+
+			// Process urgent pools first
+			let urgent_pools: Vec<T::PoolId> = UrgentPoolUpdates::<T>::iter_keys().collect();
+
+			for pool_id in urgent_pools {
+				if remaining_weight.all_lte(weight_used.saturating_add(update_weight)) {
+					break;
+				}
+
+				if let Some(pool_info) = Pools::<T>::get(&pool_id) {
+					let should_update = match pool_info.pool_status {
+						PoolStatus::Open if pool_info.lock_start_block <= now => true,
+						PoolStatus::Started if pool_info.lock_end_block <= now => true,
+						_ => false,
+					};
+
+					if should_update {
+						// Process the urgent update (similar to regular processing but with priority)
+						Self::process_single_pool_update(pool_id, &pool_info, now);
+						weight_used = weight_used.saturating_add(update_weight);
+					}
+
+					// Remove from urgent queue regardless
+					UrgentPoolUpdates::<T>::remove(&pool_id);
+				}
+			}
+
+			weight_used
+		}
+
+		fn process_single_pool_update(
+			pool_id: T::PoolId,
+			pool_info: &PoolInfo<T::PoolId, AssetId, Balance, BlockNumberFor<T>>,
+			now: BlockNumberFor<T>,
+		) {
+			match pool_info.pool_status {
+				PoolStatus::Open if pool_info.lock_start_block <= now => {
+					Pools::<T>::mutate(&pool_id, |pool| {
+						if let Some(pool_info) = pool {
+							pool_info.pool_status = PoolStatus::Started;
+							pool_info.last_updated = now;
+							Self::deposit_event(Event::PoolStarted { pool_id });
+						}
+					});
+				},
+				PoolStatus::Started if pool_info.lock_end_block <= now => {
+					Self::refund_surplus_reward(pool_id, pool_info).ok();
+
+					let has_successor = PoolRelationships::<T>::get(&pool_id)
+						.unwrap_or_default()
+						.successor_id
+						.is_some();
+
+					if has_successor {
+						Pools::<T>::mutate(&pool_id, |pool| {
+							if let Some(pool_info) = pool {
+								pool_info.pool_status = PoolStatus::Renewing;
+								pool_info.last_updated = now;
+								Self::deposit_event(Event::PoolRenewing { pool_id });
+							}
+						});
+					} else {
+						Pools::<T>::mutate(&pool_id, |pool| {
+							if let Some(pool_info) = pool {
+								pool_info.pool_status = PoolStatus::Matured;
+								pool_info.last_updated = now;
+								Self::deposit_event(Event::PoolMatured { pool_id });
+							}
+						});
+					}
+				},
+				_ => {},
+			}
+		}
+
+		// FRN-70: Enhanced unsigned transaction validation functions
+		fn validate_transaction_source(
+			source: &TransactionSource,
+		) -> Result<(), InvalidTransaction> {
+			match source {
+				TransactionSource::External => Ok(()),
+				TransactionSource::InBlock => Ok(()),
+				_ => Err(InvalidTransaction::Call),
+			}
+		}
+
+		fn validate_timing(current_block: &BlockNumberFor<T>) -> Result<(), InvalidTransaction> {
+			let block_number = frame_system::Pallet::<T>::block_number();
+
+			// Check if transaction is not from the future
+			if &block_number < current_block {
+				return Err(InvalidTransaction::Future);
+			}
+
+			// Check if transaction is not too old (longevity check)
+			let max_age = 64u32.into();
+			if block_number.saturating_sub(*current_block) > max_age {
+				return Err(InvalidTransaction::Stale);
+			}
+
+			// Check timing against rollover schedule
+			let next_rollover_at = NextRolloverUnsignedAt::<T>::get();
+			if next_rollover_at > block_number {
+				return Err(InvalidTransaction::Future);
+			}
+
+			Ok(())
+		}
+
+		fn validate_pool_state(pool_id: &T::PoolId) -> Result<(), InvalidTransaction> {
+			let pool = Pools::<T>::get(pool_id).ok_or(InvalidTransaction::Call)?;
+
+			// Pool must be in Renewing state for rollover
+			if pool.pool_status != PoolStatus::Renewing {
+				return Err(InvalidTransaction::Call);
+			}
+
+			// Check if pool has reached its end block
+			let current_block = frame_system::Pallet::<T>::block_number();
+			if pool.lock_end_block > current_block {
+				return Err(InvalidTransaction::Future);
+			}
+
+			// Verify pool has a successor
+			let relationship = PoolRelationships::<T>::get(pool_id).unwrap_or_default();
+			if relationship.successor_id.is_none() {
+				return Err(InvalidTransaction::Call);
+			}
+
+			Ok(())
+		}
+
+		fn validate_system_state() -> Result<(), InvalidTransaction> {
+			// Check if system is in maintenance mode or has other restrictions
+			// This is a placeholder for system-wide validation
+
+			// Validate that we're not in a paused state
+			// In a real implementation, you might check maintenance mode pallet
+
+			Ok(())
+		}
+
+		pub fn calculate_transaction_priority(pool_id: &T::PoolId) -> Option<TransactionPriority> {
+			if let Some(pool) = Pools::<T>::get(pool_id) {
+				// Higher priority for pools with more locked tokens
+				let base_priority = UNSIGNED_PRIORITY;
+				let stake_multiplier =
+					pool.locked_amount.saturated_into::<u64>() / 1_000_000_000_000u64; // Adjust scaling
+				Some(base_priority.saturating_add(stake_multiplier))
+			} else {
+				None
+			}
 		}
 	}
 }

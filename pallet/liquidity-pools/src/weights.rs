@@ -55,6 +55,13 @@ pub trait WeightInfo {
 	fn exit_pool() -> Weight;
 	fn claim_reward() -> Weight;
 	fn rollover_unsigned() -> Weight;
+	// FRN-68: Bounded pool closure functions
+	fn process_closing_pools() -> Weight;
+	fn process_closure_batch() -> Weight;
+	// FRN-69: Weight accounting functions
+	fn process_pool_status_updates() -> Weight;
+	// FRN-71: Fair processing functions
+	fn trigger_pool_update() -> Weight;
 }
 
 /// Weights for pallet_liquidity_pools using the Substrate node and recommended hardware.
@@ -168,6 +175,33 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	
+	// FRN-68: Bounded pool closure functions
+	fn process_closing_pools() -> Weight {
+		Weight::from_all(100_000_000)
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	
+	fn process_closure_batch() -> Weight {
+		Weight::from_all(150_000_000)
+			.saturating_add(T::DbWeight::get().reads(10))
+			.saturating_add(T::DbWeight::get().writes(5))
+	}
+	
+	// FRN-69: Weight accounting functions
+	fn process_pool_status_updates() -> Weight {
+		Weight::from_all(80_000_000)
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	
+	// FRN-71: Fair processing functions
+	fn trigger_pool_update() -> Weight {
+		Weight::from_all(60_000_000)
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 }
 
 // For backwards compatibility and tests
@@ -278,6 +312,33 @@ impl WeightInfo for () {
 	fn rollover_unsigned() -> Weight {
 		Weight::from_all(57_161_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
+			.saturating_add(RocksDbWeight::get().writes(1))
+	}
+	
+	// FRN-68: Bounded pool closure functions
+	fn process_closing_pools() -> Weight {
+		Weight::from_all(100_000_000)
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(3))
+	}
+	
+	fn process_closure_batch() -> Weight {
+		Weight::from_all(150_000_000)
+			.saturating_add(RocksDbWeight::get().reads(10))
+			.saturating_add(RocksDbWeight::get().writes(5))
+	}
+	
+	// FRN-69: Weight accounting functions
+	fn process_pool_status_updates() -> Weight {
+		Weight::from_all(80_000_000)
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(2))
+	}
+	
+	// FRN-71: Fair processing functions
+	fn trigger_pool_update() -> Weight {
+		Weight::from_all(60_000_000)
+			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }
