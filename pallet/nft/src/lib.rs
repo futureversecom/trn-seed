@@ -135,6 +135,9 @@ pub mod pallet {
 		/// The maximum length of a collection name, stored on-chain
 		#[pallet::constant]
 		type StringLimit: Get<u32>;
+		/// The maximum length of the stored additional data for a token
+		#[pallet::constant]
+		type MaxDataLength: Get<u32>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
 		/// Interface for sending XLS20 mint requests
@@ -175,6 +178,12 @@ pub mod pallet {
 	/// Map from a token_id to transferable and burn authority flags
 	#[pallet::storage]
 	pub type TokenUtilityFlags<T> = StorageMap<_, Twox64Concat, TokenId, TokenFlags, ValueQuery>;
+
+	/// Map from a token_id to additional token data. Useful for assigning extra information
+	/// to a token outside the collection metadata.
+	#[pallet::storage]
+	pub type AdditionalTokenData<T: Config> =
+		StorageMap<_, Twox64Concat, TokenId, BoundedVec<u8, T::MaxDataLength>, ValueQuery>;
 
 	// Map from a collection id to a collection's pending issuances
 	#[pallet::storage]
@@ -277,6 +286,11 @@ pub mod pallet {
 			end: SerialNumber,
 			burn_authority: TokenBurnAuthority,
 		},
+		/// Some additional data has been set for a token
+		AdditionalDataSet {
+			token_id: TokenId,
+			additional_data: Option<BoundedVec<u8, T::MaxDataLength>>,
+		},
 	}
 
 	#[pallet::error]
@@ -303,6 +317,8 @@ pub mod pallet {
 		InvalidMetadataPath,
 		/// The caller can not be the new owner
 		InvalidNewOwner,
+		/// The additional data cannot be an empty vec
+		InvalidAdditionalData,
 		/// The number of tokens have exceeded the max tokens allowed
 		TokenLimitExceeded,
 		/// The quantity exceeds the max tokens per mint limit
@@ -580,51 +596,25 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			let public_mint_info = <PublicMintInfo<T>>::get(collection_id);
 
-			let public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
 			// Caller must be collection_owner if public mint is disabled
 			ensure!(
-				collection_info.is_collection_owner(&who) || public_mint_info.enabled,
+				collection_info.is_collection_owner(&who)
+					|| public_mint_info.unwrap_or_default().enabled,
 				Error::<T>::PublicMintDisabled
 			);
-
-			// Perform pre mint checks
-			let serial_numbers = Self::pre_mint(collection_id, &mut collection_info, quantity)?;
-			let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
-			let metadata_scheme = collection_info.metadata_scheme.clone();
 			let owner = token_owner.unwrap_or(who.clone());
-
-			// Only charge mint fee if public mint enabled and caller is not collection owner
-			if public_mint_info.enabled && !collection_info.is_collection_owner(&who) {
-				// Charge the mint fee for the mint
-				Self::charge_mint_fee(
-					&who,
-					collection_id,
-					&collection_info.owner,
-					public_mint_info,
-					quantity,
-				)?;
-			}
-
-			// Perform the mint and update storage
-			Self::do_mint(collection_id, collection_info, &owner, &serial_numbers)?;
-
-			// Check if this collection is XLS-20 compatible
-			if xls20_compatible {
-				// Pay XLS20 mint fee and send requests
-				T::Xls20MintRequest::request_xls20_mint(
-					&who,
-					collection_id,
-					serial_numbers.clone().into_inner(),
-					metadata_scheme,
-				)?;
-			}
-
-			// Request NFI storage if enabled
-			T::NFIRequest::request(&who, collection_id, serial_numbers.clone().into_inner())?;
+			let serial_numbers = Self::do_mint(
+				who,
+				collection_id,
+				&mut collection_info,
+				quantity,
+				&owner,
+				public_mint_info,
+			)?;
 
 			// throw event, listing starting and endpoint token ids (sequential mint)
 			Self::deposit_event(Event::<T>::Mint {
@@ -839,42 +829,21 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 
 			let collection_pending_issuances = <PendingIssuances<T>>::get(collection_id);
-
 			let pending_issuance = collection_pending_issuances
 				.get_pending_issuance(&who, issuance_id)
 				.ok_or(Error::<T>::InvalidPendingIssuance)?;
-
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
-			// Perform pre mint checks
-			// Note: We validate this mint as if it was being performed
-			// by the owner.
-			let serial_numbers =
-				Self::pre_mint(collection_id, &mut collection_info, pending_issuance.quantity)?;
+			// Note: We validate this mint as if it was being performed by the owner.
 			let collection_owner = collection_info.owner.clone();
-			let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
-			let metadata_scheme = collection_info.metadata_scheme.clone();
-
-			// Perform the mint and update storage
-			Self::do_mint(collection_id, collection_info, &who, &serial_numbers)?;
-
-			// Check if this collection is XLS-20 compatible
-			if xls20_compatible {
-				// Pay XLS20 mint fee and send requests
-				T::Xls20MintRequest::request_xls20_mint(
-					&collection_owner,
-					collection_id,
-					serial_numbers.clone().into_inner(),
-					metadata_scheme,
-				)?;
-			}
-
-			// Request NFI storage if enabled as collection owner
-			T::NFIRequest::request(
-				&collection_owner,
+			let serial_numbers = Self::do_mint(
+				collection_owner,
 				collection_id,
-				serial_numbers.clone().into_inner(),
+				&mut collection_info,
+				pending_issuance.quantity,
+				&who,
+				None, // public mint info disabled for this call
 			)?;
 
 			// Set the utility flags for the tokens
@@ -902,6 +871,63 @@ pub mod pallet {
 				},
 			)?;
 
+			Ok(())
+		}
+
+		/// Sets additional data for a token.
+		/// Caller must be the collection owner.
+		/// Data must not be empty
+		/// Can be overwritten, call with None to remove.
+		#[pallet::call_index(16)]
+		#[pallet::weight(T::WeightInfo::set_additional_data())]
+		pub fn set_additional_data(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			additional_data: Option<BoundedVec<u8, T::MaxDataLength>>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				CollectionInfo::<T>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(collection_info.token_exists(token_id.1), Error::<T>::NoToken);
+			Self::do_set_additional_data(token_id, additional_data)?;
+			Ok(())
+		}
+
+		/// Mint a token alongside some additional data
+		#[pallet::call_index(17)]
+		#[pallet::weight(T::WeightInfo::mint_with_additional_data())]
+		pub fn mint_with_additional_data(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			token_owner: Option<T::AccountId>,
+			additional_data: BoundedVec<u8, T::MaxDataLength>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut collection_info =
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			let owner = token_owner.unwrap_or(who.clone());
+			let serial_numbers = Self::do_mint(
+				who,
+				collection_id,
+				&mut collection_info,
+				1, // Mint only one token with this extrinsic
+				&owner,
+				None, // public mint info disabled for this call
+			)?;
+
+			// Set the additional data and emit event
+			let serial_number = serial_numbers.first().expect("Quantity asserted prior");
+			Self::do_set_additional_data((collection_id, *serial_number), Some(additional_data))?;
+
+			// throw mint event, listing starting and endpoint token ids (sequential mint)
+			Self::deposit_event(Event::<T>::Mint {
+				collection_id,
+				start: *serial_numbers.first().ok_or(Error::<T>::NoToken)?,
+				end: *serial_numbers.last().ok_or(Error::<T>::NoToken)?,
+				owner,
+			});
 			Ok(())
 		}
 	}

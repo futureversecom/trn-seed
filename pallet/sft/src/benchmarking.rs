@@ -37,7 +37,7 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 	let id = T::NFTExt::next_collection_uuid().expect("Failed to get next collection uuid");
 	let caller = caller.unwrap_or_else(|| account::<T>("Alice"));
 	let metadata_scheme = MetadataScheme::try_from(b"example.com/metadata/".as_slice()).unwrap();
-	let collection_name = bounded_string::<T>("Collection");
+	let collection_name = max_bounded_vec::<T::StringLimit>();
 	assert_ok!(Sft::<T>::create_collection(
 		origin::<T>(&caller).into(),
 		collection_name.clone(),
@@ -54,7 +54,7 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 pub fn build_token<T: Config>(caller: Option<T::AccountId>, initial_issuance: Balance) -> TokenId {
 	let caller = caller.unwrap_or_else(|| account::<T>("Alice"));
 	let collection_id = build_collection::<T>(Some(caller.clone()));
-	let token_name = bounded_string::<T>("test-token");
+	let token_name = max_bounded_vec::<T::StringLimit>();
 
 	assert_ok!(Sft::<T>::create_token(
 		origin::<T>(&caller).into(),
@@ -78,17 +78,9 @@ pub fn bounded_combined<T: Config>(
 	BoundedVec::truncate_from(combined)
 }
 
-/// Helper function for creating the collection name type
-pub fn bounded_string<T: Config>(name: &str) -> BoundedVec<u8, <T as Config>::StringLimit> {
-	BoundedVec::truncate_from(name.as_bytes().to_vec())
-}
-
-pub fn max_bounded_string<T: Config>(bound: u32) -> BoundedVec<u8, <T as Config>::StringLimit> {
-	let mut max_string = BoundedVec::new();
-	for _ in 1..bound {
-		max_string.force_push(b'a');
-	}
-	max_string
+pub fn max_bounded_vec<B: Get<u32>>() -> BoundedVec<u8, B> {
+	let v = vec![b'a'; B::get() as usize];
+	BoundedVec::truncate_from(v)
 }
 
 /// Helper function to create and issue a token
@@ -116,18 +108,19 @@ benchmarks! {
 	create_collection {
 		let id = T::NFTExt::next_collection_uuid().expect("Failed to get next collection uuid");
 		let metadata = MetadataScheme::try_from(b"example.com/".as_slice()).unwrap();
-	}: _(origin::<T>(&account::<T>("Alice")), bounded_string::<T>("Collection"), None, metadata, None)
+		let collection_name = max_bounded_vec::<T::StringLimit>();
+	}: _(origin::<T>(&account::<T>("Alice")), collection_name, None, metadata, None)
 	verify {
-		assert!( SftCollectionInfo::<T>::get(id).is_some());
+		assert!(SftCollectionInfo::<T>::contains_key(id));
 	}
 
 	create_token {
 		let id = build_collection::<T>(None);
 		let initial_issuance = u128::MAX;
-	}: _(origin::<T>(&account::<T>("Alice")), id, bounded_string::<T>("Token"), initial_issuance, None, None)
+		let token_name = max_bounded_vec::<T::StringLimit>();
+	}: _(origin::<T>(&account::<T>("Alice")), id, token_name, initial_issuance, None, None)
 	verify {
-		let token = TokenInfo::<T>::get((id, 0));
-		assert!(token.is_some());
+		assert!(TokenInfo::<T>::contains_key((id, 0)));
 	}
 
 	toggle_public_mint {
@@ -135,8 +128,7 @@ benchmarks! {
 		let token_id = build_token::<T>(Some(owner.clone()), 0);
 	}: _(origin::<T>(&account::<T>("Alice")), token_id, true)
 	verify {
-		let token = TokenInfo::<T>::get(token_id);
-		assert!(token.is_some());
+		assert!(TokenInfo::<T>::contains_key(token_id));
 		let is_enabled = PublicMintInfo::<T>::get(token_id).unwrap().enabled;
 		assert_eq!(is_enabled, true);
 	}
@@ -147,8 +139,7 @@ benchmarks! {
 		let pricing_details = Some((1, 100));
 	}: _(origin::<T>(&account::<T>("Alice")), token_id, pricing_details)
 	verify {
-		let token = TokenInfo::<T>::get(token_id);
-		assert!(token.is_some());
+		assert!(TokenInfo::<T>::contains_key(token_id));
 		let pricing_details = PublicMintInfo::<T>::get(token_id).unwrap().pricing_details;
 		let expected_pricing_details = Some((1, 100));
 		assert_eq!(pricing_details, expected_pricing_details);
@@ -170,11 +161,12 @@ benchmarks! {
 		let p in 1 .. (50);
 		let owner = account::<T>("Alice");
 		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), u128::MAX);
+		let token_name = max_bounded_vec::<T::StringLimit>();
 		for i in 1..p {
 			assert_ok!(Sft::<T>::create_token(
 				origin::<T>(&owner).into(),
 				collection_id,
-				bounded_string::<T>("SFT Token"),
+				token_name.clone(),
 				u128::MAX,
 				None,
 				None,
@@ -243,7 +235,7 @@ benchmarks! {
 		let owner = account::<T>("Alice");
 		let id = build_collection::<T>(Some(owner.clone()));
 		// benchmark string at max len, will be truncated in bounded_string
-		let collection_name = max_bounded_string::<T>(T::StringLimit::get());
+		let collection_name = max_bounded_vec::<T::StringLimit>();
 	}: _(origin::<T>(&owner), id, collection_name.clone())
 	verify {
 		let collection = SftCollectionInfo::<T>::get(id);
@@ -282,7 +274,7 @@ benchmarks! {
 		let owner = account::<T>("Alice");
 		let token_id = build_token::<T>(Some(owner.clone()), 1);
 		// benchmark string at max len, will be truncated in bounded_string
-		let token_name = max_bounded_string::<T>(T::StringLimit::get());
+		let token_name = max_bounded_vec::<T::StringLimit>();
 	}: _(origin::<T>(&owner), token_id, token_name.clone())
 	verify {
 		let token = TokenInfo::<T>::get(token_id).unwrap();
@@ -314,14 +306,13 @@ benchmarks! {
 		let mut tokens = vec![];
 
 		let collection_id = build_collection::<T>(Some(owner.clone()));
+		let token_name = max_bounded_vec::<T::StringLimit>();
 
 		for serial_number in 0..p {
-			let token_name = bounded_string::<T>("test-token");
-
 			assert_ok!(Sft::<T>::create_token(
 				origin::<T>(&owner).into(),
 				collection_id,
-				token_name,
+				token_name.clone(),
 				0,
 				None,
 				None,
@@ -377,6 +368,28 @@ benchmarks! {
 		assert!(token.is_some());
 		let token = token.unwrap();
 		assert_eq!(token.token_issuance, 0);
+	}
+
+	set_additional_data {
+		let owner = account::<T>("Alice");
+		let token_id = build_token::<T>(Some(owner.clone()), 1);
+		let additional_data = max_bounded_vec::<T::MaxDataLength>();
+	}: _(origin::<T>(&account::<T>("Alice")), token_id, Some(additional_data.clone()))
+	verify {
+		assert_eq!(AdditionalTokenData::<T>::get(token_id), additional_data);
+	}
+
+	create_token_with_additional_data {
+		let owner = account::<T>("Alice");
+		let collection_id = build_collection::<T>(Some(owner.clone()));
+		let additional_data = max_bounded_vec::<T::MaxDataLength>();
+		let initial_issuance = u128::MAX;
+		let token_name = max_bounded_vec::<T::StringLimit>();
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, token_name, initial_issuance, None, None, additional_data.clone())
+	verify {
+		let token_id = (collection_id, 0);
+		assert_eq!(AdditionalTokenData::<T>::get(token_id), additional_data);
+		assert!(TokenInfo::<T>::contains_key(token_id));
 	}
 }
 

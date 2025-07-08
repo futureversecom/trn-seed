@@ -516,6 +516,23 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Sets the additional data for a token.
+	/// If `additional_data` is `None`, it removes the existing data.
+	pub fn do_set_additional_data(
+		token_id: TokenId,
+		additional_data: Option<BoundedVec<u8, T::MaxDataLength>>,
+	) -> DispatchResult {
+		match &additional_data {
+			None => AdditionalTokenData::<T>::remove(token_id),
+			Some(data) => {
+				ensure!(!data.is_empty(), Error::<T>::InvalidAdditionalData);
+				AdditionalTokenData::<T>::insert(token_id, data);
+			},
+		}
+		Self::deposit_event(Event::<T>::AdditionalDataSet { token_id, additional_data });
+		Ok(())
+	}
+
 	/// Unzips the bounded vec of tuples (SerialNumber, Balance)
 	/// into two bounded vecs of SerialNumber and Balance
 	pub fn unzip_serial_numbers(

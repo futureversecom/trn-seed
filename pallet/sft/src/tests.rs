@@ -14,10 +14,10 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{
-	mock::*, Config, Error, SftCollectionInfo, SftCollectionInformation, SftTokenBalance,
-	SftTokenInformation, TokenInfo, TokenUtilityFlags, UtilityFlags,
+	mock::*, AdditionalTokenData, Config, Error, Event, PublicMintInfo, SftCollectionInfo,
+	SftCollectionInformation, SftTokenBalance, SftTokenInformation, TokenInfo, TokenUtilityFlags,
+	UtilityFlags,
 };
-use crate::{Event, PublicMintInfo};
 use seed_pallet_common::test_prelude::*;
 use seed_pallet_common::utils::PublicMintInformation;
 use seed_pallet_common::utils::TokenUtilityFlags as TokenFlags;
@@ -3507,6 +3507,315 @@ mod soulbound_token {
 					serial_numbers
 				),
 				Error::<Test>::InvalidBurnAuthority
+			);
+		});
+	}
+}
+
+mod set_additional_data {
+	use super::*;
+
+	#[test]
+	fn set_additional_data_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_id = create_test_token(collection_owner, collection_owner, 1);
+			let data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(b"hello".to_vec());
+
+			// set to data
+			assert_ok!(Sft::set_additional_data(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				Some(data.clone())
+			));
+			assert_eq!(AdditionalTokenData::<Test>::get(token_id), data.clone());
+			System::assert_has_event(
+				Event::<Test>::AdditionalDataSet { token_id, additional_data: Some(data) }.into(),
+			);
+
+			// set to new_data
+			let new_data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(b"hello".to_vec());
+			assert_ok!(Sft::set_additional_data(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				Some(new_data.clone())
+			));
+			assert_eq!(AdditionalTokenData::<Test>::get(token_id), new_data.clone());
+			System::assert_has_event(
+				Event::<Test>::AdditionalDataSet { token_id, additional_data: Some(new_data) }
+					.into(),
+			);
+
+			// Set to None to remove
+			assert_ok!(Sft::set_additional_data(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				None
+			));
+			assert!(!AdditionalTokenData::<Test>::contains_key(token_id));
+			System::assert_has_event(
+				Event::<Test>::AdditionalDataSet { token_id, additional_data: None }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn set_additional_data_empty_data_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_id = create_test_token(collection_owner, collection_owner, 1);
+			let data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(vec![]);
+
+			// set to data
+			assert_noop!(
+				Sft::set_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(data.clone())
+				),
+				Error::<Test>::InvalidAdditionalData
+			);
+		});
+	}
+
+	#[test]
+	fn set_additional_data_not_collection_owner_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_id = create_test_token(collection_owner, collection_owner, 1);
+
+			assert_noop!(
+				Sft::set_additional_data(
+					RawOrigin::Signed(create_account(11)).into(),
+					token_id,
+					Some(BoundedVec::truncate_from(b"hello".to_vec()))
+				),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_additional_data_no_collection_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_id = (1, 0);
+
+			assert_noop!(
+				Sft::set_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(BoundedVec::truncate_from(b"hello".to_vec()))
+				),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn set_additional_data_no_token_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let token_id = (collection_id, 0);
+
+			assert_noop!(
+				Sft::set_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(BoundedVec::truncate_from(b"hello".to_vec()))
+				),
+				Error::<Test>::NoToken
+			);
+		});
+	}
+}
+
+mod create_token_with_additional_data {
+	use super::*;
+
+	#[test]
+	fn create_token_with_additional_data_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(b"hello".to_vec());
+			let token_name = bounded_string("my-token");
+
+			// mint with data
+			assert_ok!(Sft::create_token_with_additional_data(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				token_name.clone(),
+				1,
+				None,
+				None,
+				data.clone()
+			));
+			let token_id = (collection_id, 0);
+			assert_eq!(AdditionalTokenData::<Test>::get(token_id), data.clone());
+			System::assert_has_event(
+				Event::<Test>::AdditionalDataSet { token_id, additional_data: Some(data) }.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::TokenCreate {
+					token_id,
+					initial_issuance: 1,
+					max_issuance: None,
+					token_name: token_name.clone(),
+					token_owner: collection_owner,
+				}
+				.into(),
+			);
+			// Verify created token
+			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+			assert_eq!(token_info.free_balance_of(&collection_owner), 1);
+			let collection_info = SftCollectionInfo::<Test>::get(collection_id).unwrap();
+			assert_eq!(collection_info.next_serial_number, 1);
+
+			// Mint a second token with different data
+			let new_data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(b"world".to_vec());
+			assert_ok!(Sft::create_token_with_additional_data(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				token_name.clone(),
+				1,
+				None,
+				None,
+				new_data.clone()
+			));
+			let new_token_id = (collection_id, 1);
+			assert_eq!(AdditionalTokenData::<Test>::get(new_token_id), new_data.clone());
+			System::assert_has_event(
+				Event::<Test>::AdditionalDataSet {
+					token_id: new_token_id,
+					additional_data: Some(new_data),
+				}
+				.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::TokenCreate {
+					token_id,
+					initial_issuance: 1,
+					max_issuance: None,
+					token_name,
+					token_owner: collection_owner,
+				}
+				.into(),
+			);
+			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+			assert_eq!(token_info.free_balance_of(&collection_owner), 1);
+			let collection_info = SftCollectionInfo::<Test>::get(collection_id).unwrap();
+			assert_eq!(collection_info.next_serial_number, 2);
+		});
+	}
+
+	#[test]
+	fn mint_with_additional_to_separate_account() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_owner = create_account(11);
+			let collection_id = create_test_collection(collection_owner);
+			let data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(b"hello".to_vec());
+			let token_name = bounded_string("my-token");
+			let initial_issuance = 2;
+			// mint with data
+			assert_ok!(Sft::create_token_with_additional_data(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				Some(token_owner),
+				data.clone()
+			));
+			let token_id = (collection_id, 0);
+			assert_eq!(AdditionalTokenData::<Test>::get(token_id), data.clone());
+			System::assert_has_event(
+				Event::<Test>::AdditionalDataSet { token_id, additional_data: Some(data) }.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::TokenCreate {
+					token_id,
+					initial_issuance,
+					max_issuance: None,
+					token_name,
+					token_owner,
+				}
+				.into(),
+			);
+
+			// Verify mint
+			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+			assert_eq!(token_info.free_balance_of(&token_owner), initial_issuance);
+			let collection_info = SftCollectionInfo::<Test>::get(collection_id).unwrap();
+			assert_eq!(collection_info.next_serial_number, 1);
+		});
+	}
+
+	#[test]
+	fn create_token_with_additional_data_empty_data_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			let data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(vec![]);
+			assert_noop!(
+				Sft::create_token_with_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					bounded_string("my-token"),
+					0,
+					None,
+					None,
+					data.clone()
+				),
+				Error::<Test>::InvalidAdditionalData
+			);
+		});
+	}
+
+	#[test]
+	fn create_token_with_additional_data_not_collection_owner_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = create_test_collection(collection_owner);
+			assert_noop!(
+				Sft::create_token_with_additional_data(
+					RawOrigin::Signed(create_account(11)).into(),
+					collection_id,
+					bounded_string("my-token"),
+					0,
+					None,
+					None,
+					BoundedVec::truncate_from(b"hello".to_vec())
+				),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn create_token_with_additional_data_no_collection_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			assert_noop!(
+				Sft::create_token_with_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					1,
+					bounded_string("my-token"),
+					0,
+					None,
+					None,
+					BoundedVec::truncate_from(b"hello".to_vec())
+				),
+				Error::<Test>::NoCollectionFound
 			);
 		});
 	}
