@@ -459,7 +459,7 @@ parameter_types! {
 	pub const MaxTokensPerCollection: u32 = 1_000_000;
 	pub const MintLimit: u32 = 1_000;
 	pub const TransferLimit: u32 = 1_000;
-	pub const NftAdditionalDataLength: u32 = 32;
+	pub const NftAdditionalDataLength: u32 = 100;
 	pub const MaxPendingIssuances: u32 = 1_000_000;
 }
 impl pallet_nft::Config for Runtime {
@@ -531,7 +531,7 @@ parameter_types! {
 	pub const MaxTokensPerSftCollection: u32 = 1_000_000;
 	pub const MaxOwnersPerSftCollection: u32 = 1_000_000;
 	pub const MaxSftPendingIssuances: u32 = 1_000_000;
-	pub const SftAdditionalDataLength: u32 = 32;
+	pub const SftAdditionalDataLength: u32 = 100;
 	pub const MaxSerialsPerMint: u32 = 1000; // Higher values can be storage heavy
 }
 impl pallet_sft::Config for Runtime {
