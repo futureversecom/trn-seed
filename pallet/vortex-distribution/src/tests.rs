@@ -4237,3 +4237,71 @@ fn trigger_vtx_distribution_fails_with_too_many_attribution_partners() {
 			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &fee_vault), xrp_fee_pot_balance);
 		});
 }
+
+#[test]
+fn test_calculate_attribution_rewards_with_print() {
+	TestExt::default().build().execute_with(|| {
+		/*[
+		  [
+			0x2F47E09860B4DC7326A1c1Ba5A2E15158ee92020
+			20,000,000
+			2.00%
+		  ]
+		  [
+			0x3A09deEc70E73482Ffc6C63E9b6F19cd5bbD9D17
+			100,000,000
+			1.00%
+		  ]
+		  [
+			0xDB25222D3a898194f5932c7D439f54F4540c633f
+			200,000,000
+			2.00%
+		  ]
+		  [
+			0x102250882E43273F02149B1228261c4E48EcCDa8
+			40,000,000
+			1.00%
+		  ]
+		] */
+		// Test inputs using real attribution data
+		let attributions = vec![
+			(alice(), 20_000_000, Some(Permill::from_percent(2))), // 20,000,000 in drops (6 decimals), 2.00%
+			(bob(), 100_000_000, Some(Permill::from_percent(1))),  // 100,000,000 in drops (6 decimals), 1.00%
+			(charlie(), 200_000_000, Some(Permill::from_percent(2))), // 200,000,000 in drops (6 decimals), 2.00%
+			(dave(), 40_000_000, Some(Permill::from_percent(1))),     // 40,000,000 in drops (6 decimals), 1.00%
+		];
+
+		let xrp_price = 2_574_200; // 1 XRP = 1 USD (with price multiplier)
+		let vtx_price = 2_972_196; // 2 USD per VTX (with price multiplier)
+		let total_network_reward = 15_799_675_338_369_340; // 1B VTX (with precision multiplier)
+
+		println!("=== Attribution Rewards Calculation Test ===");
+		println!("Inputs:");
+		println!("  XRP Price: {} (with multiplier)", xrp_price);
+		println!("  VTX Price: {} (with multiplier)", vtx_price);
+		println!("  Total Network Reward: {} (with precision multiplier)", total_network_reward);
+		println!("  Attributions:");
+		for (i, (account, amount, fee_percentage)) in attributions.iter().enumerate() {
+			println!(
+				"    {}: Account={:?}, Amount={}, Fee%={:?}",
+				i + 1,
+				account,
+				amount,
+				fee_percentage
+			);
+		}
+
+		// Calculate attribution rewards
+		let attribution_rewards = calculate_attribution_rewards(
+			&attributions,
+			xrp_price,
+			vtx_price,
+			total_network_reward,
+		);
+
+		println!("\nResults:");
+		println!("  Total Partners with Rewards: {}", attribution_rewards.len());
+		println!("  Individual Rewards:");
+		println!("{:?}", attribution_rewards);
+	});
+}

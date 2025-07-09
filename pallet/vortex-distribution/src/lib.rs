@@ -552,6 +552,9 @@ pub mod pallet {
 
 		/// Invalid partner fee percentage
 		InvalidPartnerFeePercentage,
+
+		/// Invalid fee vault asset value
+		InvalidFeeVaultAssetValue,
 	}
 
 	#[pallet::call]
@@ -1458,17 +1461,20 @@ pub mod pallet {
 			let fee_vault_asset_value = TotalNetworkReward::<T>::get(id)
 				.saturating_mul(vortex_price)
 				.saturating_div(PRECISION_MULTIPLIER); // in drops with price multiplier
+
+			// check if fee_vault_asset_value is zero
+			ensure!(fee_vault_asset_value != Zero::zero(), Error::<T>::InvalidFeeVaultAssetValue);
 			let mut partner_attribution_rewards =
 				BoundedVec::<(T::AccountId, Balance), T::MaxAttributionPartners>::new();
 			let xrp_price = AssetPrices::<T>::get(id, T::GasAssetId::get()); // with price multiplier
 			let mut total_attribution_rewards: u128 = 0;
 			for (account, amount, fee_percentage) in attributions {
 				let attribution_fee_value_usd = amount.saturating_mul(xrp_price);
-				let attribution_value_percentage: Permill =
-					Permill::from_rational(attribution_fee_value_usd, fee_vault_asset_value);
-				let vtx_attribution_reward = attribution_value_percentage
-					.saturating_mul(fee_percentage.ok_or(Error::<T>::InvalidPartnerFeePercentage)?)
-					* TotalNetworkReward::<T>::get(id);
+				// Note - calculating this way to get optimal precision
+				let vtx_attribution_reward = (fee_percentage
+					.ok_or(Error::<T>::InvalidPartnerFeePercentage)?
+					* attribution_fee_value_usd.saturating_mul(TotalNetworkReward::<T>::get(id)))
+				.div(fee_vault_asset_value);
 				partner_attribution_rewards
 					.try_push((account, vtx_attribution_reward))
 					.map_err(|_| Error::<T>::ExceededMaxPartners)?;
