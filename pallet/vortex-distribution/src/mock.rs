@@ -130,18 +130,15 @@ pub fn calculate_attribution_rewards(
 		}
 
 		let attribution_fee_value_usd = amount.saturating_mul(xrp_price);
-		let attribution_value_percentage: Permill =
-			Permill::from_rational(attribution_fee_value_usd, fee_vault_asset_value);
-
-		let vtx_attribution_reward = attribution_value_percentage
-			.saturating_mul(fee_percentage.unwrap())
-			* total_network_reward;
+		// Note - calculating this way to get optimal precision
+		let vtx_attribution_reward = (fee_percentage.unwrap()
+			* attribution_fee_value_usd.saturating_mul(total_network_reward))
+		.div(fee_vault_asset_value);
 		partner_attribution_rewards.push((*account, vtx_attribution_reward));
 	}
 
 	partner_attribution_rewards
 }
-
 construct_runtime!(
 	pub enum Test
 	{
