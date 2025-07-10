@@ -86,7 +86,7 @@ benchmarks! {
 		assert_ok!(LiquidityPools::<T>::enter_pool(RawOrigin::Signed(user.clone()).into(), next_pool_id, 10u32.into()));
 	}: _(RawOrigin::Signed(creator), next_pool_id)
 	verify {
-		assert!(Pools::<T>::get(next_pool_id).is_none());
+		assert_eq!(Pools::<T>::get(next_pool_id).unwrap().pool_status, PoolStatus::Closing);
 	}
 
 	set_pool_succession {
@@ -302,6 +302,83 @@ benchmarks! {
 			});
 		});
 	}:_(RawOrigin::None, id, end_block)
+
+	emergency_recover_funds {
+		let reward_asset_id = mint_asset::<T>();
+		let staked_asset_id = mint_asset::<T>();
+
+		let creator = account::<T>();
+		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, 100_000_000u32.into()));
+
+		let user = account::<T>();
+		let stake_amount = 10u32.into();
+		assert_ok!(T::MultiCurrency::mint_into(staked_asset_id.into(), &user, stake_amount));
+
+		let pool_id = NextPoolId::<T>::get();
+		let interest_rate = 1_000_000;
+		let max_tokens = 100u32.into();
+		let start_block = 10u32.into();
+		let end_block = 50u32.into();
+
+		assert_ok!(LiquidityPools::<T>::create_pool(
+			RawOrigin::Signed(creator).into(),
+			reward_asset_id,
+			staked_asset_id,
+			interest_rate,
+			max_tokens,
+			start_block,
+			end_block
+		));
+
+		// Open pool and user enters
+		Pools::<T>::mutate(pool_id, |pool| {
+			*pool = Some(PoolInfo {
+				pool_status: PoolStatus::Open,
+				..pool.clone().unwrap()
+			});
+		});
+
+		assert_ok!(LiquidityPools::<T>::enter_pool(
+			RawOrigin::Signed(user.clone()).into(),
+			pool_id,
+			stake_amount
+		));
+	}: _(RawOrigin::Signed(user.clone()), pool_id)
+	verify {
+		assert!(PoolUsers::<T>::get(pool_id, user).is_none());
+	}
+
+	trigger_pool_update {
+		let reward_asset_id = mint_asset::<T>();
+		let staked_asset_id = mint_asset::<T>();
+
+		let creator = account::<T>();
+		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, 100_000_000u32.into()));
+
+		let pool_id = NextPoolId::<T>::get();
+		let interest_rate = 1_000_000;
+		let max_tokens = 100u32.into();
+		let start_block = 1u32.into(); // Past block to make eligible for urgent processing
+		let end_block = 50u32.into();
+
+		assert_ok!(LiquidityPools::<T>::create_pool(
+			RawOrigin::Signed(creator.clone()).into(),
+			reward_asset_id,
+			staked_asset_id,
+			interest_rate,
+			max_tokens,
+			start_block,
+			end_block
+		));
+
+		// Set current block to make pool eligible for urgent processing
+		frame_system::Pallet::<T>::set_block_number(10u32.into());
+
+		let caller = account::<T>();
+	}: _(RawOrigin::Signed(caller), pool_id)
+	verify {
+		assert!(UrgentPoolUpdates::<T>::contains_key(pool_id));
+	}
 }
 
 impl_benchmark_test_suite!(
