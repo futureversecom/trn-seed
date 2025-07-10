@@ -103,6 +103,14 @@ pub mod pallet {
 		#[pallet::constant]
 		type ClosureBatchSize: Get<u32>;
 
+		/// Max number of pools to process per block during status updates
+		#[pallet::constant]
+		type MaxPoolsPerBlock: Get<u32>;
+
+		/// Maximum age for unsigned transactions in blocks
+		#[pallet::constant]
+		type TransactionMaxAge: Get<BlockNumberFor<Self>>;
+
 		/// Max pivot string length
 		type MaxStringLength: Get<u32>;
 
@@ -279,6 +287,10 @@ pub mod pallet {
 		RewardCalculationOverflow,
 		/// Cannot close pool with active user stakes
 		CannotClosePoolWithActiveUsers,
+		/// Pool state is invalid for emergency fund recovery
+		InvalidPoolStateForRecovery,
+		/// Unexpected pool state transition occurred
+		UnexpectedPoolStateTransition,
 
 		// FRN-68: Pool closure errors
 		/// Pool not in closing state
@@ -693,8 +705,7 @@ pub mod pallet {
 			)?;
 
 			if reward > Zero::zero() {
-				let amount = if user_info.should_rollover == false || user_info.rolled_over == false
-				{
+				let amount = if Self::should_return_stake(&user_info) {
 					T::MultiCurrency::transfer(
 						pool.staked_asset_id,
 						&pool_vault_account,
@@ -738,15 +749,37 @@ pub mod pallet {
 		/// that have been closed by the creator. Users can recover their original staked amount
 		/// even if the pool is in Closed status.
 		///
-		/// Parameters:
+		/// # Security Considerations
+		/// - Users can only recover their own staked funds, not rewards
+		/// - The function checks vault balance to ensure sufficient funds exist
+		/// - Pool state is updated to maintain consistency
+		/// - Emergency recovery is available for all pool states to provide maximum user protection
+		///
+		/// # Parameters
 		/// - `origin`: The account of the user recovering their funds.
 		/// - `id`: The ID of the pool from which funds are being recovered.
 		///
-		/// Restrictions:
-		/// - The user must have a recorded stake in the pool.
-		/// - The pool vault must have sufficient funds to cover the user's stake.
+		/// # Weight
+		/// - Database reads: 3 (user info, pool info, vault balance)
+		/// - Database writes: 2 (remove user, update pool if needed)
+		/// - Token transfer: 1
 		///
-		/// Emits `UserExited` event when funds are successfully recovered.
+		/// # Errors
+		/// - `NoTokensStaked`: User has no recorded stake in the pool
+		/// - `PoolDoesNotExist`: Pool ID is invalid
+		/// - Transfer errors from insufficient vault balance
+		///
+		/// # Events
+		/// - `UserExited`: Emitted when funds are successfully recovered
+		///
+		/// # Example
+		/// ```ignore
+		/// // User recovers their stake from a closed pool
+		/// assert_ok!(LiquidityPools::emergency_recover_funds(
+		///     Origin::signed(user_account),
+		///     pool_id
+		/// ));
+		/// ```
 		#[pallet::weight(T::WeightInfo::exit_pool())]
 		#[transactional]
 		#[pallet::call_index(8)] // Note: This assumes call_index 8 is available
@@ -826,7 +859,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_none(origin)?;
 
-			log::warn!("start processing the rollover");
+			log::debug!(target: LOG_TARGET, "Starting rollover processing for pool {:?}", id);
 
 			let pool_info = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
@@ -944,10 +977,10 @@ pub mod pallet {
 			}
 
 			let current_block = <frame_system::Pallet<T>>::block_number();
-			log::warn!("current block {:?}", current_block);
+			log::debug!(target: LOG_TARGET, "Current block: {:?}", current_block);
 			let next_unsigned_at = current_block + T::UnsignedInterval::get().into();
 			<NextRolloverUnsignedAt<T>>::put(next_unsigned_at);
-			log::warn!("proposed next unsigned at {:?}", next_unsigned_at);
+			log::debug!(target: LOG_TARGET, "Next unsigned transaction scheduled at block: {:?}", next_unsigned_at);
 			Ok(())
 		}
 
@@ -956,15 +989,41 @@ pub mod pallet {
 		/// This function allows manual triggering of pool status updates for specific pools,
 		/// placing them in the urgent processing queue for immediate attention.
 		///
-		/// Parameters:
+		/// # Purpose
+		/// - Provides a mechanism to manually expedite pool state transitions
+		/// - Useful for pools that need immediate attention due to timing constraints
+		/// - Enables external monitoring systems to trigger updates when needed
+		///
+		/// # Security Considerations
+		/// - Any signed account can trigger updates, but only for eligible pools
+		/// - Pool eligibility is strictly validated before queuing
+		/// - Updates are processed through the same secure state transition logic
+		///
+		/// # Parameters
 		/// - `origin`: The origin account triggering the update.
 		/// - `pool_id`: The ID of the pool to update.
 		///
-		/// Restrictions:
-		/// - The pool must exist.
-		/// - Pool must be eligible for status updates.
+		/// # Weight
+		/// - Database reads: 2 (pool info, current block)
+		/// - Database writes: 1 (urgent queue insertion)
+		/// - Computation: Pool eligibility validation
 		///
-		/// Emits `PoolUpdateTriggered` event when successful.
+		/// # Errors
+		/// - `PoolDoesNotExist`: Pool ID is invalid
+		/// - `PoolNotEligibleForUrgentProcessing`: Pool doesn't meet timing requirements
+		///
+		/// # Events
+		/// - `PoolUpdateTriggered`: Pool added to processing queue
+		/// - `PoolAddedToUrgentQueue`: Pool prioritized for urgent processing
+		///
+		/// # Example
+		/// ```ignore
+		/// // Trigger urgent update for a pool that should transition to Started
+		/// assert_ok!(LiquidityPools::trigger_pool_update(
+		///     Origin::signed(any_account),
+		///     pool_id
+		/// ));
+		/// ```
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::trigger_pool_update())]
 		pub fn trigger_pool_update(origin: OriginFor<T>, pool_id: T::PoolId) -> DispatchResult {
@@ -1107,6 +1166,12 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Helper function to determine if a user's stake should be returned during claim
+		/// Returns true if user did not rollover or rollover was not completed
+		fn should_return_stake(user_info: &UserInfo<Balance>) -> bool {
+			!user_info.should_rollover || !user_info.rolled_over
+		}
+
 		/// Generate a unique, deterministic vault account for a pool
 		pub fn get_vault_account(pool_id: T::PoolId) -> T::AccountId {
 			let account_id: T::AccountId = T::PalletId::get().into_account_truncating();
@@ -1195,8 +1260,12 @@ pub mod pallet {
 								<Error<T>>::OffchainErrSubmitTransaction
 							})?;
 						} else {
-							log::error!("confused state, should not be here");
-							return Err(Error::<T>::OffchainErrSubmitTransaction)?;
+							log::error!(
+								target: LOG_TARGET,
+								"Pool {:?} is in Renewing state but lock_end_block {:?} > current_block {:?}. This indicates a state transition timing issue.",
+								id, pool_info.lock_end_block, now
+							);
+							return Err(Error::<T>::UnexpectedPoolStateTransition)?;
 						};
 					},
 					_ => continue,
@@ -1487,7 +1556,7 @@ pub mod pallet {
 			}
 
 			let mut pools_processed = 0u32;
-			let max_pools_per_block = 10u32; // Bounded processing
+			let max_pools_per_block = T::MaxPoolsPerBlock::get();
 
 			// For testing, always process all pools to avoid round-robin issues
 			for (pool_id, pool_info) in Pools::<T>::iter() {
@@ -1669,7 +1738,7 @@ pub mod pallet {
 			}
 
 			// Check if transaction is not too old (longevity check)
-			let max_age = 64u32.into();
+			let max_age = T::TransactionMaxAge::get();
 			if block_number.saturating_sub(*current_block) > max_age {
 				return Err(InvalidTransaction::Stale);
 			}

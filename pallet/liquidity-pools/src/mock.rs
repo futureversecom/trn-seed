@@ -58,6 +58,8 @@ parameter_types! {
 	pub const UnsignedInterval: u32 =  5;
 	pub const RolloverBatchSize: u32 = 10;
 	pub const ClosureBatchSize: u32 = 5; // FRN-68: For testing bounded closure
+	pub const MaxPoolsPerBlock: u32 = 3; // Small number for testing
+	pub const TransactionMaxAge: u32 = 64; // Transaction max age in blocks
 	pub const MaxStringLength: u32 = 1000;
 }
 
@@ -70,6 +72,8 @@ impl crate::Config for Test {
 	type UnsignedInterval = UnsignedInterval;
 	type RolloverBatchSize = RolloverBatchSize;
 	type ClosureBatchSize = ClosureBatchSize;
+	type MaxPoolsPerBlock = MaxPoolsPerBlock;
+	type TransactionMaxAge = TransactionMaxAge;
 	type MaxStringLength = MaxStringLength;
 	type WeightInfo = TestWeightInfo;
 }
