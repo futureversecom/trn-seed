@@ -484,6 +484,8 @@ parameter_types! {
 	pub const LiquidityPoolsUnsignedInterval: BlockNumber = MINUTES / 2;
 	/// How many users to rollover at a block time
 	pub const RolloverBatchSize: u32 = 99;
+	/// How many pools to close per batch
+	pub const ClosureBatchSize: u32 = 50;
 	pub const InterestRateBasePoint: u32 = 1_000_000;
 }
 impl pallet_liquidity_pools::Config for Runtime {
@@ -493,6 +495,7 @@ impl pallet_liquidity_pools::Config for Runtime {
 	type PoolId = u32;
 	type MaxStringLength = MaxStringLength;
 	type RolloverBatchSize = RolloverBatchSize;
+	type ClosureBatchSize = ClosureBatchSize;
 	type InterestRateBasePoint = InterestRateBasePoint;
 	type MultiCurrency = AssetsExt;
 	type WeightInfo = weights::pallet_liquidity_pools::WeightInfo<Runtime>;
