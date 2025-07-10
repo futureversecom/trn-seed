@@ -2562,17 +2562,24 @@ mod calculate_reward {
 					for i in 0..10 {
 						// Process closure batches until complete
 						let before_balance = AssetsExt::balance(staked_asset_id, &bob());
-						let vault_balance = AssetsExt::balance(staked_asset_id, &pool_vault_account);
-						println!("Before on_idle {}: Bob={}, Vault={}", i, before_balance, vault_balance);
-						
+						let vault_balance =
+							AssetsExt::balance(staked_asset_id, &pool_vault_account);
+						println!(
+							"Before on_idle {}: Bob={}, Vault={}",
+							i, before_balance, vault_balance
+						);
+
 						LiquidityPools::on_idle(System::block_number(), weight);
-						
+
 						let after_balance = AssetsExt::balance(staked_asset_id, &bob());
 						let vault_after = AssetsExt::balance(staked_asset_id, &pool_vault_account);
-						println!("After on_idle {}: Bob={}, Vault={}", i, after_balance, vault_after);
-						
+						println!(
+							"After on_idle {}: Bob={}, Vault={}",
+							i, after_balance, vault_after
+						);
+
 						System::set_block_number(System::block_number() + 1);
-						
+
 						// Check if closure is complete
 						let closure_state = ClosingPools::<Test>::get(pool_id);
 						println!("Closure state: {:?}", closure_state);
@@ -2614,7 +2621,7 @@ mod calculate_reward {
 
 					// Closing an already closed pool with no users should succeed (clean up)
 					assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id));
-					
+
 					// Pool should now be completely removed
 					assert_eq!(Pools::<Test>::get(pool_id), None);
 
@@ -2627,11 +2634,13 @@ mod calculate_reward {
 					assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 150);
 
 					// Verify the proper event was emitted for Bob's recovery through bounded closure
-					System::assert_has_event(MockEvent::LiquidityPools(crate::Event::PoolClosureBatchProcessed {
-						pool_id,
-						users_processed: 1,
-						remaining_users: 0,
-					}));
+					System::assert_has_event(MockEvent::LiquidityPools(
+						crate::Event::PoolClosureBatchProcessed {
+							pool_id,
+							users_processed: 1,
+							remaining_users: 0,
+						},
+					));
 				});
 		}
 
@@ -2708,7 +2717,7 @@ mod calculate_reward {
 					// Part 3: Test FRN-67 - Fund protection with bounded closure when closing pool with active users
 					// Alice can now close pool with active users using bounded closure
 					assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id));
-					
+
 					// Pool should be in Closing state now
 					let pool_info = Pools::<Test>::get(pool_id).unwrap();
 					assert_eq!(pool_info.pool_status, PoolStatus::Closing);
@@ -2745,7 +2754,7 @@ mod calculate_reward {
 					for _i in 0..10 {
 						LiquidityPools::on_idle(System::block_number(), weight);
 						System::set_block_number(System::block_number() + 1);
-						
+
 						// Check if closure is complete
 						let closure_state = ClosingPools::<Test>::get(pool_id);
 						if closure_state.is_none() {
@@ -2757,7 +2766,7 @@ mod calculate_reward {
 					assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 100);
 					assert_eq!(AssetsExt::balance(staked_asset_id, &charlie()), 100);
 					assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 0);
-					
+
 					// Pool should now be in Closed state
 					let pool_info = Pools::<Test>::get(pool_id).unwrap();
 					assert_eq!(pool_info.pool_status, PoolStatus::Closed);
@@ -2882,37 +2891,40 @@ mod calculate_reward {
 
 					// Alice can now close pool with multiple active users using bounded closure
 					assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id));
-					
+
 					// Pool should be in Closing state now
 					let pool_info = Pools::<Test>::get(pool_id).unwrap();
 					assert_eq!(pool_info.pool_status, PoolStatus::Closing);
-					
+
 					// Process bounded closure to return all user funds
 					let weight = Weight::from_parts(1_000_000, 0);
 					for i in 0..10 {
 						LiquidityPools::on_idle(System::block_number(), weight);
 						System::set_block_number(System::block_number() + 1);
-						
+
 						// Check if closure is complete
 						let closure_state = ClosingPools::<Test>::get(pool_id);
 						if closure_state.is_none() {
 							break;
 						}
 					}
-					
+
 					// Verify all users got their funds back
 					assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 100); // Original 100
 					assert_eq!(AssetsExt::balance(staked_asset_id, &charlie()), 100); // Original 100
 					assert_eq!(AssetsExt::balance(staked_asset_id, &dave()), 100); // Original 100
 					assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 0);
-					
+
 					// Pool should be in Closed state
 					let pool_info = Pools::<Test>::get(pool_id).unwrap();
 					assert_eq!(pool_info.pool_status, PoolStatus::Closed);
-					
+
 					// Emergency recovery should now fail because funds were already returned
 					assert_noop!(
-						LiquidityPools::emergency_recover_funds(RuntimeOrigin::signed(bob()), pool_id),
+						LiquidityPools::emergency_recover_funds(
+							RuntimeOrigin::signed(bob()),
+							pool_id
+						),
 						Error::<Test>::NoTokensStaked
 					);
 
@@ -4206,10 +4218,10 @@ mod calculate_reward {
 						// FRN-71: Urgent pool should be processed
 						// (may or may not be in queue depending on processing)
 
-						// FRN-68: Closure should be completed or still in progress  
+						// FRN-68: Closure should be completed or still in progress
 						let closure_state = ClosingPools::<Test>::get(pool_ids[1]);
 						let pool_info = Pools::<Test>::get(pool_ids[1]).unwrap();
-						
+
 						// Either closure is still in progress or pool is already closed
 						assert!(
 							closure_state.is_some() || pool_info.pool_status == PoolStatus::Closed,

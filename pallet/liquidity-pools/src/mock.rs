@@ -14,27 +14,51 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_liquidity_pools;
+use frame_support::weights::Weight;
 use frame_system::EnsureRoot;
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::AccountId;
 use sp_runtime::testing::TestXt;
-use frame_support::weights::Weight;
 
 // Mock weight implementation for testing
 pub struct TestWeightInfo;
 impl crate::WeightInfo for TestWeightInfo {
-	fn create_pool() -> Weight { Weight::from_parts(1000, 0) }
-	fn set_pool_succession() -> Weight { Weight::from_parts(1000, 0) }
-	fn set_pool_rollover() -> Weight { Weight::from_parts(1000, 0) }
-	fn close_pool() -> Weight { Weight::from_parts(1000, 0) }
-	fn enter_pool() -> Weight { Weight::from_parts(1000, 0) }
-	fn exit_pool() -> Weight { Weight::from_parts(1000, 0) }
-	fn claim_reward() -> Weight { Weight::from_parts(1000, 0) }
-	fn rollover_unsigned() -> Weight { Weight::from_parts(1000, 0) }
-	fn trigger_pool_update() -> Weight { Weight::from_parts(1000, 0) }
-	fn process_closing_pools() -> Weight { Weight::from_parts(1000, 0) }
-	fn process_closure_batch() -> Weight { Weight::from_parts(1000, 0) }
-	fn process_pool_status_updates() -> Weight { Weight::from_parts(1000, 0) }
+	fn create_pool() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn set_pool_succession() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn set_pool_rollover() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn close_pool() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn enter_pool() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn exit_pool() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn claim_reward() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn rollover_unsigned() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn trigger_pool_update() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn process_closing_pools() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn process_closure_batch() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn process_pool_status_updates() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
 }
 
 construct_runtime!(
