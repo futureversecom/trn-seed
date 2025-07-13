@@ -22,6 +22,7 @@ sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 
 seed-primitives = { workspace = true }
+serde = { workspace = true }
 
 [features]
 default = ["std"]

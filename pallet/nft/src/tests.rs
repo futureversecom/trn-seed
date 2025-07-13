@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use super::*;
+use crate::mock::TransferLimit;
 use crate::{
 	mock::{MaxTokensPerCollection, Nft, RuntimeEvent as MockEvent, System, Test},
 	CollectionInfo, Event as NftEvent,
@@ -454,7 +455,7 @@ fn transfer() {
 		));
 
 		let new_owner = create_account(3);
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(vec![0]).unwrap();
 		assert_ok!(Nft::transfer(
 			Some(token_owner).into(),
@@ -479,6 +480,39 @@ fn transfer() {
 }
 
 #[test]
+fn transfer_duplicate_serials_should_fail() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		// setup token collection + one token
+		let collection_owner = create_account(1);
+		let collection_id = Nft::next_collection_uuid().unwrap();
+		let token_owner = create_account(2);
+		assert_ok!(Nft::create_collection(
+			Some(collection_owner).into(),
+			bounded_string("test-collection"),
+			1,
+			None,
+			Some(token_owner),
+			MetadataScheme::try_from(b"<CID>".as_slice()).unwrap(),
+			None,
+			CrossChainCompatibility::default(),
+		));
+
+		let new_owner = create_account(3);
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
+			BoundedVec::try_from(vec![0, 0]).unwrap();
+		assert_noop!(
+			Nft::transfer(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers.clone(),
+				new_owner
+			),
+			Error::<Test>::SerialNumbersNotUnique
+		);
+	});
+}
+
+#[test]
 fn transfer_fails_prechecks() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		// setup token collection + one token
@@ -486,7 +520,7 @@ fn transfer_fails_prechecks() {
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let token_owner = create_account(2);
 		let new_owner = create_account(3);
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(vec![0]).unwrap();
 
 		// no token yet
@@ -894,7 +928,7 @@ fn transfer_to_signer_address() {
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), initial_quantity);
 
 		// Transfer 2 tokens to signer address
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(vec![0, 1]).unwrap();
 		assert_noop!(
 			Nft::transfer(Some(token_owner).into(), collection_id, serial_numbers, token_owner),
@@ -949,7 +983,7 @@ fn transfer_changes_token_balance() {
 		assert_eq!(Nft::token_balance_of(&new_owner, collection_id), 0);
 
 		// Transfer 2 tokens
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(vec![0, 1]).unwrap();
 		let transfer_quantity: u32 = serial_numbers.len() as u32;
 		assert_ok!(Nft::transfer(
@@ -993,7 +1027,7 @@ fn transfer_many_tokens_changes_token_balance() {
 
 		for i in 0_u32..initial_quantity {
 			// Transfer token
-			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+			let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 				BoundedVec::try_from(vec![i]).unwrap();
 			assert_ok!(Nft::transfer(
 				Some(token_owner).into(),
@@ -1039,7 +1073,7 @@ fn transfer_many_tokens_at_once_changes_token_balance() {
 
 		// Transfer tokens
 		let serial_numbers_unbounded: Vec<SerialNumber> = (0..transfer_quantity).collect();
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+		let serial_numbers: BoundedVec<SerialNumber, TransferLimit> =
 			BoundedVec::try_from(serial_numbers_unbounded.clone()).unwrap();
 		assert_ok!(Nft::transfer(
 			Some(token_owner).into(),
@@ -3347,6 +3381,284 @@ mod soulbound_token {
 			assert_noop!(
 				Nft::burn(RawOrigin::Signed(collection_owner).into(), token_id),
 				Error::<Test>::InvalidBurnAuthority
+			);
+		});
+	}
+}
+
+mod set_additional_data {
+	use super::*;
+
+	#[test]
+	fn set_additional_data_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, None,));
+			let token_id = (collection_id, 0);
+			let data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(b"hello".to_vec());
+
+			// set to data
+			assert_ok!(Nft::set_additional_data(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				Some(data.clone())
+			));
+			assert_eq!(AdditionalTokenData::<Test>::get(token_id), data.clone());
+			System::assert_has_event(
+				Event::<Test>::AdditionalDataSet { token_id, additional_data: Some(data) }.into(),
+			);
+
+			// set to new_data
+			let new_data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(b"hello".to_vec());
+			assert_ok!(Nft::set_additional_data(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				Some(new_data.clone())
+			));
+			assert_eq!(AdditionalTokenData::<Test>::get(token_id), new_data.clone());
+			System::assert_has_event(
+				Event::<Test>::AdditionalDataSet { token_id, additional_data: Some(new_data) }
+					.into(),
+			);
+
+			// Set to None to remove
+			assert_ok!(Nft::set_additional_data(
+				RawOrigin::Signed(collection_owner).into(),
+				token_id,
+				None
+			));
+			assert!(!AdditionalTokenData::<Test>::contains_key(token_id));
+			System::assert_has_event(
+				Event::<Test>::AdditionalDataSet { token_id, additional_data: None }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn set_additional_data_empty_data_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, None,));
+			let token_id = (collection_id, 0);
+			let data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(vec![]);
+
+			// set to data
+			assert_noop!(
+				Nft::set_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(data.clone())
+				),
+				Error::<Test>::InvalidAdditionalData
+			);
+		});
+	}
+
+	#[test]
+	fn set_additional_data_not_collection_owner_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, None,));
+			let token_id = (collection_id, 0);
+
+			assert_noop!(
+				Nft::set_additional_data(
+					RawOrigin::Signed(create_account(11)).into(),
+					token_id,
+					Some(BoundedVec::truncate_from(b"hello".to_vec()))
+				),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_additional_data_no_collection_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_id = (1, 0);
+
+			assert_noop!(
+				Nft::set_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(BoundedVec::truncate_from(b"hello".to_vec()))
+				),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn set_additional_data_no_token_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let token_id = (collection_id, 0);
+
+			assert_noop!(
+				Nft::set_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					token_id,
+					Some(BoundedVec::truncate_from(b"hello".to_vec()))
+				),
+				Error::<Test>::NoToken
+			);
+		});
+	}
+}
+
+mod mint_with_additional_data {
+	use super::*;
+
+	#[test]
+	fn mint_with_additional_data_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(b"hello".to_vec());
+
+			// mint with data
+			assert_ok!(Nft::mint_with_additional_data(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				None,
+				data.clone()
+			));
+			let token_id = (collection_id, 0);
+			assert_eq!(AdditionalTokenData::<Test>::get(token_id), data.clone());
+			System::assert_has_event(
+				Event::<Test>::AdditionalDataSet { token_id, additional_data: Some(data) }.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::Mint { collection_id, start: 0, end: 0, owner: collection_owner }
+					.into(),
+			);
+
+			// Verify mint
+			assert_eq!(Nft::token_balance_of(&(collection_owner), collection_id), 1);
+			let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+			assert_eq!(collection_info.next_serial_number, 1);
+			assert_eq!(collection_info.collection_issuance, 1);
+
+			// Mint a second token with different data
+			let new_data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(b"world".to_vec());
+			assert_ok!(Nft::mint_with_additional_data(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				None,
+				new_data.clone()
+			));
+			let new_token_id = (collection_id, 1);
+			assert_eq!(AdditionalTokenData::<Test>::get(new_token_id), new_data.clone());
+			System::assert_has_event(
+				Event::<Test>::AdditionalDataSet {
+					token_id: new_token_id,
+					additional_data: Some(new_data),
+				}
+				.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::Mint { collection_id, start: 1, end: 1, owner: collection_owner }
+					.into(),
+			);
+			assert_eq!(Nft::token_balance_of(&(collection_owner), collection_id), 2);
+			let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+			assert_eq!(collection_info.next_serial_number, 2);
+			assert_eq!(collection_info.collection_issuance, 2);
+		});
+	}
+
+	#[test]
+	fn mint_with_additional_to_separate_account() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let token_owner = create_account(11);
+			let collection_id = setup_collection(collection_owner);
+			let data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(b"hello".to_vec());
+
+			// mint with data
+			assert_ok!(Nft::mint_with_additional_data(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				Some(token_owner),
+				data.clone()
+			));
+			let token_id = (collection_id, 0);
+			assert_eq!(AdditionalTokenData::<Test>::get(token_id), data.clone());
+			System::assert_has_event(
+				Event::<Test>::AdditionalDataSet { token_id, additional_data: Some(data) }.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::Mint { collection_id, start: 0, end: 0, owner: token_owner }.into(),
+			);
+
+			// Verify mint
+			assert_eq!(Nft::token_balance_of(&(token_owner), collection_id), 1);
+			let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
+			assert_eq!(collection_info.next_serial_number, 1);
+			assert_eq!(collection_info.collection_issuance, 1);
+		});
+	}
+
+	#[test]
+	fn mint_with_additional_data_empty_data_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let data: BoundedVec<u8, <Test as Config>::MaxDataLength> =
+				BoundedVec::truncate_from(vec![]);
+			// set to data
+			assert_noop!(
+				Nft::mint_with_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					None,
+					data.clone()
+				),
+				Error::<Test>::InvalidAdditionalData
+			);
+		});
+	}
+
+	#[test]
+	fn mint_with_additional_data_not_collection_owner_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			assert_noop!(
+				Nft::mint_with_additional_data(
+					RawOrigin::Signed(create_account(11)).into(),
+					collection_id,
+					None,
+					BoundedVec::truncate_from(b"hello".to_vec())
+				),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn mint_with_additional_data_no_collection_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			assert_noop!(
+				Nft::mint_with_additional_data(
+					RawOrigin::Signed(collection_owner).into(),
+					1,
+					None,
+					BoundedVec::truncate_from(b"hello".to_vec())
+				),
+				Error::<Test>::NoCollectionFound
 			);
 		});
 	}

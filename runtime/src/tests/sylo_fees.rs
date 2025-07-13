@@ -32,8 +32,8 @@ use seed_pallet_common::test_prelude::create_account;
 use crate::constants::XRP_ASSET_ID;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use seed_primitives::{AccountId, Balance};
-use sp_core::H256;
-use sp_runtime::{traits::SignedExtension, BoundedVec};
+use sp_core::{H256, U256};
+use sp_runtime::{traits::SignedExtension, BoundedBTreeSet, BoundedVec};
 
 #[test]
 fn sylo_extrinsic_works_with_sylo_token() {
@@ -235,7 +235,7 @@ fn setup_sylo_liquidity(new_account: AccountId) -> u32 {
 }
 
 /// Creates a list of calls for all sylo extrinsics which should be charged in Sylo Tokens
-fn create_sylo_calls() -> Vec<<Runtime as pallet_sylo_data_verification::Config>::RuntimeCall> {
+fn create_sylo_calls() -> Vec<crate::RuntimeCall> {
 	vec![
 		crate::RuntimeCall::SyloDataVerification(
 			pallet_sylo_data_verification::Call::register_resolver {
@@ -265,6 +265,7 @@ fn create_sylo_calls() -> Vec<<Runtime as pallet_sylo_data_verification::Config>
 		),
 		crate::RuntimeCall::SyloDataVerification(
 			pallet_sylo_data_verification::Call::add_validation_record_entry {
+				data_author: alice(),
 				data_id: BoundedVec::new(),
 				checksum: H256::from_low_u64_be(123),
 			},
@@ -282,5 +283,89 @@ fn create_sylo_calls() -> Vec<<Runtime as pallet_sylo_data_verification::Config>
 				data_id: BoundedVec::new(),
 			},
 		),
+		crate::RuntimeCall::SyloDataPermissions(
+			pallet_sylo_data_permissions::Call::grant_data_permissions {
+				data_author: alice(),
+				grantee: alice(),
+				data_ids: BoundedVec::new(),
+				permission: seed_pallet_common::sylo::DataPermission::VIEW,
+				expiry: None,
+				irrevocable: false,
+			},
+		),
+		crate::RuntimeCall::SyloDataPermissions(
+			pallet_sylo_data_permissions::Call::revoke_data_permission {
+				data_author: alice(),
+				permission_id: 0,
+				grantee: alice(),
+				data_id: BoundedVec::new(),
+			},
+		),
+		crate::RuntimeCall::SyloDataPermissions(
+			pallet_sylo_data_permissions::Call::grant_tagged_permissions {
+				grantee: alice(),
+				permission: seed_pallet_common::sylo::DataPermission::VIEW,
+				tags: BoundedVec::new(),
+				expiry: None,
+				irrevocable: false,
+			},
+		),
+		crate::RuntimeCall::SyloDataPermissions(
+			pallet_sylo_data_permissions::Call::revoke_tagged_permission {
+				grantee: alice(),
+				permission_id: 0,
+			},
+		),
+		crate::RuntimeCall::SyloDataPermissions(
+			pallet_sylo_data_permissions::Call::grant_permission_reference {
+				grantee: alice(),
+				permission_record_id: BoundedVec::new(),
+			},
+		),
+		crate::RuntimeCall::SyloDataPermissions(
+			pallet_sylo_data_permissions::Call::revoke_permission_reference { grantee: alice() },
+		),
+		crate::RuntimeCall::SyloActionPermissions(
+			pallet_sylo_action_permissions::Call::grant_transact_permission {
+				grantee: alice(),
+				spender: pallet_sylo_action_permissions::Spender::GRANTEE,
+				spending_balance: None,
+				allowed_calls: BoundedBTreeSet::new(),
+				expiry: None,
+			},
+		),
+		crate::RuntimeCall::SyloActionPermissions(
+			pallet_sylo_action_permissions::Call::update_transact_permission {
+				grantee: alice(),
+				spender: None,
+				spending_balance: None,
+				allowed_calls: None,
+				expiry: None,
+			},
+		),
+		crate::RuntimeCall::SyloActionPermissions(
+			pallet_sylo_action_permissions::Call::revoke_transact_permission {
+				grantee: alice(),
+			},
+		),
+		crate::RuntimeCall::SyloActionPermissions(
+			pallet_sylo_action_permissions::Call::accept_transact_permission {
+				permission_token: pallet_sylo_action_permissions::TransactPermissionToken {
+					grantee: alice(),
+					use_futurepass: false,
+					spender: pallet_sylo_action_permissions::Spender::GRANTEE,
+					spending_balance: None,
+					allowed_calls: BoundedBTreeSet::new(),
+					expiry: None,
+					nonce: U256::from(1),
+				},
+				token_signature: pallet_sylo_action_permissions::TransactPermissionTokenSignature::EIP191(
+					hex::decode(
+						"f33687858bb34d0f6ae1ee5f5eaf7827d83f4a7c5ff41cb96d6340b1e56faf067cfbb5649c4537d71ef229a823752c16eb90315ce76c5c8da669750141ba611101"
+					).unwrap().try_into().unwrap()
+				),
+			},
+		),
+
 	]
 }

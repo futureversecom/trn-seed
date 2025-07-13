@@ -41,6 +41,7 @@ parameter_types! {
 	pub const MaxSerialsPerMint: u32 = 10;
 	pub const MaxOwnersPerSftToken: u32 = 100;
 	pub const MaxSftPendingIssuances: u32 = 10_000;
+	pub const MaxSftDataLength: u32 = 32;
 }
 
 impl Config for Test {
@@ -52,6 +53,7 @@ impl Config for Test {
 	type PalletId = SftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;
+	type MaxDataLength = MaxSftDataLength;
 	type WeightInfo = ();
 	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 	type MaxSerialsPerMint = MaxSerialsPerMint;

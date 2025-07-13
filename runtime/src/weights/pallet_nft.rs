@@ -344,4 +344,38 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+	/// Storage: `Nft::CollectionInfo` (r:1 w:0)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::AdditionalTokenData` (r:0 w:1)
+	/// Proof: `Nft::AdditionalTokenData` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
+	fn set_additional_data() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `548`
+		//  Estimated: `3464`
+		// Minimum execution time: 46_619_000 picoseconds.
+		Weight::from_parts(47_217_000, 0)
+			.saturating_add(Weight::from_parts(0, 3464))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `Nft::CollectionInfo` (r:1 w:1)
+	/// Proof: `Nft::CollectionInfo` (`max_values`: None, `max_size`: Some(4294967295), added: 2474, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::UtilityFlags` (r:1 w:0)
+	/// Proof: `Nft::UtilityFlags` (`max_values`: None, `max_size`: Some(15), added: 2490, mode: `MaxEncodedLen`)
+	/// Storage: `EVMChainId::ChainId` (r:1 w:0)
+	/// Proof: `EVMChainId::ChainId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Nfi::NfiEnabled` (r:1 w:0)
+	/// Proof: `Nfi::NfiEnabled` (`max_values`: None, `max_size`: Some(529), added: 3004, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::AdditionalTokenData` (r:0 w:1)
+	/// Proof: `Nft::AdditionalTokenData` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
+	fn mint_with_additional_data() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `594`
+		//  Estimated: `3994`
+		// Minimum execution time: 77_787_000 picoseconds.
+		Weight::from_parts(78_384_000, 0)
+			.saturating_add(Weight::from_parts(0, 3994))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 }

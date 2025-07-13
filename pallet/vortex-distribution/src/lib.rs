@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg_attr(not(feature = "std"), no_std)]
+
 pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -29,32 +30,43 @@ pub mod weights;
 pub use weights::WeightInfo;
 
 use codec::{Decode, Encode, HasCompact};
+use core::ops::Div;
+use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
 use frame_support::{
 	dispatch::DispatchResult,
 	log,
 	pallet_prelude::*,
 	traits::{
-		tokens::fungibles::{self, Inspect, Mutate},
+		tokens::{
+			fungibles::{self, Inspect, Mutate},
+			Fortitude, Precision, Preservation,
+		},
 		Get,
 	},
+	transactional,
+	weights::constants::RocksDbWeight as DbWeight,
 	PalletId,
 };
 use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},
 	pallet_prelude::*,
 };
-use pallet_staking::{BalanceOf, RewardPoint};
 use scale_info::TypeInfo;
 use seed_pallet_common::CreateExt;
-use seed_primitives::{AssetId, OffchainErr};
+use seed_primitives::{AssetId, Balance, OffchainErr};
 use sp_runtime::{
-	traits::{AccountIdConversion, CheckedAdd, One, Saturating, StaticLookup, Zero},
-	RuntimeDebug,
+	traits::{
+		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, One, Saturating, StaticLookup, Zero,
+	},
+	Perquintill, RuntimeDebug,
 };
-use sp_staking::EraIndex;
 use sp_std::{convert::TryInto, prelude::*};
 
 pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::MAX / 2;
+// the precision multipler to reduce the precision loss due to integer math
+pub const PRECISION_MULTIPLIER: u128 = 10u128.pow(6);
+// Asset price multiplier
+pub const PRICE_MULTIPLIER: u128 = 10u128.pow(6);
 
 #[derive(
 	Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, PartialOrd, Eq, TypeInfo, MaxEncodedLen,
@@ -62,6 +74,7 @@ pub const VTX_DIST_UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority:
 pub enum VtxDistStatus {
 	Disabled,
 	Enabled,
+	Triggering,
 	Triggered,
 	Paying,
 	Done,
@@ -77,18 +90,13 @@ type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{
-		traits::tokens::{Fortitude, Precision, Preservation},
-		transactional,
-	};
-	use sp_runtime::traits::AtLeast32BitUnsigned;
-
 	use super::*;
 
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config + pallet_staking::Config + SendTransactionTypes<Call<Self>>
-	{
+	pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -99,7 +107,7 @@ pub mod pallet {
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 			+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
 			+ fungibles::metadata::Inspect<Self::AccountId>
-			+ fungibles::Mutate<Self::AccountId, Balance = BalanceOf<Self>>;
+			+ fungibles::Mutate<Self::AccountId, Balance = Balance>;
 
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
@@ -109,6 +117,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type VtxAssetId: Get<AssetId>;
 
+		/// Vortex vault pot id that holds fresh minted vortex
+		#[pallet::constant]
+		type VtxHeldPotId: Get<PalletId>;
+
 		/// Vortex distribution pot id
 		#[pallet::constant]
 		type VtxDistPotId: Get<PalletId>;
@@ -117,7 +129,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type RootPotId: Get<PalletId>;
 
-		/// Vortex fee pot id
+		/// Tx fee pot id
 		#[pallet::constant]
 		type TxFeePotId: Get<PalletId>;
 
@@ -152,29 +164,53 @@ pub mod pallet {
 		type HistoryDepth: Get<u32>;
 	}
 
-	#[pallet::pallet]
-	pub struct Pallet<T>(_);
-
 	#[pallet::storage]
 	pub(super) type AdminAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::storage]
 	pub(super) type NextVortexId<T: Config> = StorageValue<_, T::VtxDistIdentifier, ValueQuery>;
 
+	/// Stores balance consideration criteria, current or stored
+	#[pallet::storage]
+	pub(super) type ConsiderCurrentBalance<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	/// Stores disable redeem
+	#[pallet::storage]
+	pub(super) type DisableRedeem<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	/// Stores enabling manual reward input
+	#[pallet::storage]
+	pub(super) type EnableManualRewardInput<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	/// Stores VtxVault latest asset id list that can be redeemed.
+	#[pallet::storage]
+	pub(super) type VtxVaultRedeemAssetList<T: Config> =
+		StorageValue<_, BoundedVec<AssetId, T::MaxAssetPrices>, ValueQuery>;
+
+	/// Stores total Reward points for each cycle when the rewards are registered.
+	#[pallet::storage]
+	pub(super) type TotalRewardPoints<T: Config> =
+		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
+
+	/// Stores total work points for each cycle when the work points are registered.
+	#[pallet::storage]
+	pub(super) type TotalWorkPoints<T: Config> =
+		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
+
 	/// Stores status of each vortex distribution
 	#[pallet::storage]
 	pub type VtxDistStatuses<T: Config> =
 		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, VtxDistStatus, ValueQuery>;
 
-	/// Stores start and end eras of each vortex distribution
+	/// Stores Vtx total supply for each vortex distribution
 	#[pallet::storage]
-	pub type VtxDistEras<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::VtxDistIdentifier,
-		(EraIndex, EraIndex), //start and end era, inclusive
-		ValueQuery,
-	>;
+	pub type VtxTotalSupply<T: Config> =
+		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
+
+	/// Stores Vtx price each vortex distribution
+	#[pallet::storage]
+	pub type VtxPrice<T: Config> =
+		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
 
 	/// Stores order books for each vortex distribution
 	#[pallet::storage]
@@ -184,24 +220,54 @@ pub mod pallet {
 		T::VtxDistIdentifier,
 		Blake2_128Concat,
 		T::AccountId,
-		(BalanceOf<T>, bool), //here balance is the reward amount to payout
+		(Balance, bool), //here balance is the reward amount to payout in drops
 		ValueQuery,
 		GetDefault,
 		ConstU32<{ u32::MAX }>,
 	>;
 
-	/// Stores stake and roles reward points for each vortex distribution
+	/// Stores reward points for each account, each vortex distribution
 	#[pallet::storage]
-	pub(super) type StakeRewardsPoints<T: Config> = StorageDoubleMap<
+	pub(super) type RewardPoints<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::VtxDistIdentifier,
 		Blake2_128Concat,
 		T::AccountId,
-		(BalanceOf<T>, RewardPoint), //30% and 70% part
+		Balance, // balance is the reward points for each account
 		ValueQuery,
-		GetDefault,
-		ConstU32<{ u32::MAX }>,
+	>;
+
+	/// Stores work points for each account, each vortex distribution
+	#[pallet::storage]
+	pub(super) type WorkPoints<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		T::VtxDistIdentifier,
+		Blake2_128Concat,
+		T::AccountId,
+		Balance, // balance is the work points for each account
+		ValueQuery,
+	>;
+
+	/// Stores Fee pot asset list for each vortex distribution
+	#[pallet::storage]
+	pub(super) type FeePotAssetsList<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::VtxDistIdentifier,
+		BoundedVec<(AssetId, Balance), T::MaxAssetPrices>, // the balance is in drops
+		ValueQuery,
+	>;
+
+	/// Stores Vortex vault asset list for each vortex distribution
+	#[pallet::storage]
+	pub(super) type VtxVaultAssetsList<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::VtxDistIdentifier,
+		BoundedVec<(AssetId, Balance), T::MaxAssetPrices>, // the balance is in drops
+		ValueQuery,
 	>;
 
 	/// Stores asset prices for each vortex distribution
@@ -212,14 +278,24 @@ pub mod pallet {
 		T::VtxDistIdentifier,
 		Twox64Concat,
 		AssetId,
-		BalanceOf<T>,
+		Balance, // the balance is the asset price multiplied by PRICE_MULTIPLIER
 		ValueQuery,
 	>;
 
-	/// Stores total vortex amount for each distribution
+	/// Stores total network reward for each distribution, this is in drops multiplied by PRECISION_MULTIPLIER
+	#[pallet::storage]
+	pub(super) type TotalNetworkReward<T: Config> =
+		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
+
+	/// Stores total bootstrap reward for each distribution, this is in drops multiplied by PRECISION_MULTIPLIER
+	#[pallet::storage]
+	pub(super) type TotalBootstrapReward<T: Config> =
+		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
+
+	/// Stores total vortex amount for each distribution, this is in drops multiplied by PRECISION_MULTIPLIER
 	#[pallet::storage]
 	pub(super) type TotalVortex<T: Config> =
-		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, BalanceOf<T>, ValueQuery>;
+		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
 
 	/// Stores next unsigned tx block number
 	#[pallet::storage]
@@ -235,17 +311,21 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Stores reward calculation pivot block for each vortex distribution
+	#[pallet::storage]
+	pub(super) type VtxRewardCalculationPivot<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::VtxDistIdentifier,
+		BoundedVec<u8, T::MaxStringLength>,
+		ValueQuery,
+	>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Admin Account changed
 		AdminAccountChanged { old_key: Option<T::AccountId>, new_key: T::AccountId },
-
-		/// Rewards registered
-		RewardRegistered {
-			id: T::VtxDistIdentifier,
-			rewards: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
-		},
 
 		/// Distribution created
 		VtxDistCreated { id: T::VtxDistIdentifier },
@@ -257,27 +337,87 @@ pub mod pallet {
 		VtxDistDone { id: T::VtxDistIdentifier },
 
 		/// Distribution paid out
-		VtxDistPaidOut { id: T::VtxDistIdentifier, who: T::AccountId, amount: BalanceOf<T> },
+		VtxDistPaidOut { id: T::VtxDistIdentifier, who: T::AccountId, amount: Balance },
+
+		/// Distribution payment failed
+		VtxDistPayFailed { id: T::VtxDistIdentifier, who: T::AccountId, amount: Balance },
 
 		/// Distribution started
 		VtxDistStarted { id: T::VtxDistIdentifier },
 
-		/// Set distribution eras
-		SetVtxDistEras { id: T::VtxDistIdentifier, start_era: EraIndex, end_era: EraIndex },
+		/// Set Fee pot asset balances
+		SetFeePotAssetBalances {
+			id: T::VtxDistIdentifier,
+			assets_balances: BoundedVec<(AssetId, Balance), T::MaxAssetPrices>,
+		},
+
+		/// Set Vtx vault asset balances
+		SetVtxVaultAssetBalances {
+			id: T::VtxDistIdentifier,
+			assets_balances: BoundedVec<(AssetId, Balance), T::MaxAssetPrices>,
+		},
 
 		/// Set asset prices
 		SetAssetPrices {
 			id: T::VtxDistIdentifier,
-			asset_prices: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
+			asset_prices: BoundedVec<(AssetId, Balance), T::MaxAssetPrices>,
 		},
 
-		/// Trigger distribution calculation
-		TriggerVtxDistribution { id: T::VtxDistIdentifier },
+		/// Vtx work points registered
+		VtxWorkPointRegistered {
+			id: T::VtxDistIdentifier,
+			work_points: BoundedVec<(T::AccountId, Balance), T::MaxRewards>,
+		},
+
+		/// Vtx staker reward points registered
+		VtxRewardPointRegistered {
+			id: T::VtxDistIdentifier,
+			reward_points: BoundedVec<(T::AccountId, Balance), T::MaxRewards>,
+		},
+
+		/// Vtx distribution triggered
+		VtxDistributionTriggered { id: T::VtxDistIdentifier },
+
+		/// Vtx distribution triggering
+		VtxDistributionTriggering { id: T::VtxDistIdentifier },
+
+		/// Set Vtx total supply
+		SetVtxTotalSupply { id: T::VtxDistIdentifier, total_supply: Balance },
+
+		/// Set ConsiderCurrentBalance
+		SetConsiderCurrentBalance { value: bool },
+
+		/// Set DisableRedeem
+		SetDisableRedeem { value: bool },
+
+		/// Set VtxVaultRedeemAssetList
+		SetVtxVaultRedeemAssetList { asset_list: BoundedVec<AssetId, T::MaxAssetPrices> },
+
+		/// Vortex redeemed
+		VtxRedeemed { who: T::AccountId, amount: Balance },
+
+		/// Set EnableManualRewardInput
+		SetEnableManualRewardInput { value: bool },
+
+		/// Rewards registered
+		RewardRegistered {
+			id: T::VtxDistIdentifier,
+			rewards: BoundedVec<(T::AccountId, Balance), T::MaxRewards>,
+		},
+
+		/// Pivot key string is too long and exceeds MaxStringLength
+		PivotStringTooLong { id: T::VtxDistIdentifier },
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		// incentive calculation
+		// vtx reward calculation
+		fn on_idle(_now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			let calculation_weight = Self::do_reward_calculation(remaining_weight);
+			calculation_weight
+		}
+
+		// Vtx reward distribution
 		fn offchain_worker(now: BlockNumberFor<T>) {
 			if let Err(e) = Self::vtx_dist_offchain_worker(now) {
 				log::info!(
@@ -310,9 +450,6 @@ pub mod pallet {
 		/// Vortex distribution disabled
 		VtxDistDisabled,
 
-		/// Invalid end block
-		InvalidEndBlock,
-
 		/// No Vtx asset minted
 		NoVtxAssetMinted,
 
@@ -342,6 +479,27 @@ pub mod pallet {
 
 		/// Vortex distribution not triggered
 		NotTriggered,
+
+		/// out of max reward vecotor bound
+		ExceededMaxRewards,
+
+		/// vortex price is zero
+		VortexPriceIsZero,
+
+		/// root price is zero
+		RootPriceIsZero,
+
+		/// Vtx redeem disabled
+		VtxRedeemDisabled,
+
+		/// Manual reward input is disabled
+		ManualRewardInputDisabled,
+
+		/// Vtx reward payout failed
+		VtxRewardPayoutFailed,
+
+		/// Reward points not registered
+		RewardPointsNotRegistered,
 	}
 
 	#[pallet::call]
@@ -352,11 +510,9 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			let new = T::Lookup::lookup(new)?;
+			let old_key = AdminAccount::<T>::get();
 			AdminAccount::<T>::put(&new);
-			Self::deposit_event(Event::AdminAccountChanged {
-				old_key: AdminAccount::<T>::get(),
-				new_key: new,
-			});
+			Self::deposit_event(Event::AdminAccountChanged { old_key, new_key: new });
 			Ok(())
 		}
 
@@ -396,12 +552,233 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Set fee pot assets balances, balances expected to be in drops
+		///
+		/// `id` - The distribution id
+		/// `assets_balances` - List of asset balances
+		#[pallet::call_index(3)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_fee_pot_asset_balances(assets_balances.len() as u32))]
+		pub fn set_fee_pot_asset_balances(
+			origin: OriginFor<T>,
+			id: T::VtxDistIdentifier,
+			assets_balances: BoundedVec<(AssetId, Balance), T::MaxAssetPrices>,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_root_or_admin(origin)?;
+			Self::do_fee_pot_asset_balances_setter(id, assets_balances)
+		}
+
+		/// Set vtx vault assets balances, balances expected to be in drops
+		///
+		/// `id` - The distribution id
+		/// `assets_balances` - List of asset balances
+		#[pallet::call_index(4)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_vtx_vault_asset_balances(assets_balances.len() as u32))]
+		pub fn set_vtx_vault_asset_balances(
+			origin: OriginFor<T>,
+			id: T::VtxDistIdentifier,
+			assets_balances: BoundedVec<(AssetId, Balance), T::MaxAssetPrices>,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_root_or_admin(origin)?;
+			Self::do_vtx_vault_asset_balances_setter(id, assets_balances)
+		}
+
+		/// Set vtx total supply for each vortex distribution, supply expected to be in drops
+		///
+		/// `id` - The distribution id
+		/// `supply` - Vtx total supply
+		#[pallet::call_index(5)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_vtx_total_supply())]
+		pub fn set_vtx_total_supply(
+			origin: OriginFor<T>,
+			id: T::VtxDistIdentifier,
+			supply: Balance,
+		) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+			VtxTotalSupply::<T>::set(id, supply);
+
+			Self::deposit_event(Event::SetVtxTotalSupply { id, total_supply: supply });
+			Ok(())
+		}
+
+		/// Register rewards point distribution
+		///
+		/// `id` - The distribution id
+		/// `reward_points` - Reward point list
+		#[pallet::call_index(6)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_reward_points(reward_points.len() as u32))]
+		pub fn register_reward_points(
+			origin: OriginFor<T>,
+			id: T::VtxDistIdentifier,
+			reward_points: BoundedVec<(T::AccountId, Balance), T::MaxRewards>,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_root_or_admin(origin)?;
+			let dst_status = VtxDistStatuses::<T>::get(id);
+			ensure!(dst_status == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
+			let mut total_reward_points = TotalRewardPoints::<T>::get(id);
+			for (account, r_points) in reward_points.clone() {
+				let current_r_points = RewardPoints::<T>::get(id, account.clone());
+				if current_r_points != Default::default() {
+					// means we need to minus the current_r_points and plus r_points from the total_reward_points
+					total_reward_points = total_reward_points
+						.saturating_sub(current_r_points)
+						.saturating_add(r_points);
+				} else {
+					// just add
+					total_reward_points = total_reward_points.saturating_add(r_points);
+				}
+				RewardPoints::<T>::insert(id, account, r_points);
+			}
+			TotalRewardPoints::<T>::set(id, total_reward_points);
+			Self::deposit_event(Event::VtxRewardPointRegistered { id, reward_points });
+
+			Ok(Pays::No.into())
+		}
+
+		/// Register work point distribution
+		///
+		/// `id` - The distribution id
+		/// `work_points` - work point list
+		#[pallet::call_index(7)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_work_points(work_points.len() as u32))]
+		pub fn register_work_points(
+			origin: OriginFor<T>,
+			id: T::VtxDistIdentifier,
+			work_points: BoundedVec<(T::AccountId, Balance), T::MaxRewards>,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_root_or_admin(origin)?;
+			let dst_status = VtxDistStatuses::<T>::get(id);
+			ensure!(dst_status == VtxDistStatus::Enabled, Error::<T>::VtxDistDisabled);
+			let mut total_work_points = TotalWorkPoints::<T>::get(id);
+			for (account, w_points) in work_points.clone() {
+				ensure!(
+					RewardPoints::<T>::contains_key(id, account.clone()),
+					Error::<T>::RewardPointsNotRegistered
+				);
+				let current_work_points = WorkPoints::<T>::get(id, account.clone());
+				if current_work_points != Default::default() {
+					// means we need to minus the current_work_points and plus w_points from the total_reward_points
+					total_work_points = total_work_points
+						.saturating_sub(current_work_points)
+						.saturating_add(w_points);
+				} else {
+					// just add
+					total_work_points = total_work_points.saturating_add(w_points);
+				}
+				WorkPoints::<T>::insert(id, account, w_points);
+			}
+			TotalWorkPoints::<T>::set(id, total_work_points);
+			Self::deposit_event(Event::VtxWorkPointRegistered { id, work_points });
+
+			Ok(Pays::No.into())
+		}
+
+		/// Set ConsiderCurrentBalance storage item
+		/// If set to true, token balances at the current block will be taken into account for reward calculation
+		#[pallet::call_index(8)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_consider_current_balance())]
+		pub fn set_consider_current_balance(origin: OriginFor<T>, value: bool) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+
+			ConsiderCurrentBalance::<T>::put(value);
+			Self::deposit_event(Event::SetConsiderCurrentBalance { value });
+			Ok(())
+		}
+
+		/// Set DisableRedeem storage item
+		/// If set to true, users would not be able to redeem Vtx tokens
+		#[pallet::call_index(9)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_disable_redeem())]
+		pub fn set_disable_redeem(origin: OriginFor<T>, value: bool) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+
+			crate::pallet::DisableRedeem::<T>::put(value);
+			Self::deposit_event(crate::pallet::Event::SetDisableRedeem { value });
+			Ok(())
+		}
+
+		/// Set EnableManualRewardInput storage item
+		/// If set to true, reward inputs can be given externally, this supports the legacy method
+		#[pallet::call_index(10)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_enable_manual_reward_input())]
+		pub fn set_enable_manual_reward_input(origin: OriginFor<T>, value: bool) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+
+			EnableManualRewardInput::<T>::put(value);
+			Self::deposit_event(crate::pallet::Event::SetEnableManualRewardInput { value });
+			Ok(())
+		}
+
+		/// Set asset prices, prices expected to be with the PRICE_MULTIPLIER
+		///
+		/// `asset_prices` - List of asset prices
+		/// `id` - The distribution id
+		#[pallet::call_index(11)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_asset_prices(asset_prices.len() as u32))]
+		#[transactional]
+		pub fn set_asset_prices(
+			origin: OriginFor<T>,
+			id: T::VtxDistIdentifier,
+			asset_prices: BoundedVec<(AssetId, Balance), T::MaxAssetPrices>,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_root_or_admin(origin)?;
+			Self::do_asset_price_setter(asset_prices, id)
+		}
+
+		/// Trigger distribution
+		///
+		/// `id` - The distribution id
+		#[pallet::call_index(12)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution())]
+		#[transactional]
+		pub fn trigger_vtx_distribution(
+			origin: OriginFor<T>,
+			id: T::VtxDistIdentifier,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_root_or_admin(origin)?;
+			ensure!(
+				VtxDistStatuses::<T>::get(id) == VtxDistStatus::Enabled,
+				Error::<T>::CannotTrigger
+			);
+
+			Self::do_calculate_vortex_price(id)?;
+			Self::do_collate_reward_tokens(id)?;
+			// Do the reward calculation if the EnableManualRewardInput is disabled.
+			if !EnableManualRewardInput::<T>::get() {
+				VtxDistStatuses::<T>::mutate(id, |status| {
+					*status = VtxDistStatus::Triggering;
+				});
+				Self::deposit_event(Event::VtxDistributionTriggering { id });
+			} else {
+				VtxDistStatuses::<T>::mutate(id, |status| {
+					*status = VtxDistStatus::Triggered;
+				});
+				Self::deposit_event(Event::VtxDistributionTriggered { id });
+			}
+
+			Ok(Pays::No.into())
+		}
+
+		/// Set vtx vault redeem assets list
+		///
+		/// `assets_list` - List of assets available to redeem
+		#[pallet::call_index(13)]
+		#[pallet::weight(<T as Config>::WeightInfo::set_vtx_vault_redeem_asset_list(assets_list.len() as u32))]
+		pub fn set_vtx_vault_redeem_asset_list(
+			origin: OriginFor<T>,
+			assets_list: BoundedVec<AssetId, T::MaxAssetPrices>,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_root_or_admin(origin)?;
+			VtxVaultRedeemAssetList::<T>::set(assets_list.clone());
+			Self::deposit_event(Event::SetVtxVaultRedeemAssetList { asset_list: assets_list });
+
+			Ok(Pays::No.into())
+		}
+
 		/// Start distributing vortex
 		///
 		/// `id` - The distribution id
-		#[pallet::call_index(3)]
+		#[pallet::call_index(14)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::start_vtx_dist())]
-		#[transactional]
 		pub fn start_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
 			Self::ensure_root_or_admin(origin)?;
 			ensure!(
@@ -418,7 +795,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		/// `current_block` - Current block number
-		#[pallet::call_index(4)]
+		#[pallet::call_index(15)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::pay_unsigned().saturating_mul(T::PayoutBatchSize::get().into()))]
 		#[transactional]
 		pub fn pay_unsigned(
@@ -428,7 +805,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_none(origin)?;
 			if let VtxDistStatus::Paying = VtxDistStatuses::<T>::get(id) {
-				let vault_account = Self::get_vtx_vault_account();
+				let vtx_held_account = Self::get_vtx_held_account();
 				let start_key = VtxDistPayoutPivot::<T>::get(id);
 				let payout_pivot: Vec<u8> = start_key.clone().into_inner();
 
@@ -445,24 +822,40 @@ pub mod pallet {
 					}
 
 					let share = entry.0;
-					let transfer_result = Self::safe_transfer(
+					match Self::safe_transfer(
 						T::VtxAssetId::get(),
-						&vault_account,
+						&vtx_held_account,
 						&who,
 						share,
 						false,
-					);
+					) {
+						Ok(_) => {
+							Self::deposit_event(Event::VtxDistPaidOut {
+								id,
+								who: who.clone(),
+								amount: share,
+							});
+							VtxDistOrderbook::<T>::mutate(id, who.clone(), |entry| {
+								*entry = (entry.0, true);
+							});
+						},
+						Err(e) => {
+							Self::deposit_event(Event::VtxDistPayFailed {
+								id,
+								who: who.clone(),
+								amount: share,
+							});
+							log::error!(
+								"VtxDistPayFailed - Account: {:?}, share: {:?}, error: {:?}",
+								who,
+								share,
+								e,
+							);
+							// NOTE: We would not return error here, will continue to pay the rest of the accounts.
+							// return Err(Error::<T>::VtxRewardPayoutFailed);
+						},
+					};
 
-					if transfer_result.is_ok() {
-						Self::deposit_event(Event::VtxDistPaidOut {
-							id,
-							who: who.clone(),
-							amount: share,
-						});
-					}
-					VtxDistOrderbook::<T>::mutate(id, who.clone(), |entry| {
-						*entry = (entry.0, true);
-					});
 					count += 1;
 					if count > T::PayoutBatchSize::get() {
 						break;
@@ -476,7 +869,6 @@ pub mod pallet {
 					VtxDistStatuses::<T>::mutate(id, |status| {
 						*status = VtxDistStatus::Done;
 					});
-					VtxDistOrderbook::<T>::drain_prefix(id);
 					Self::deposit_event(Event::VtxDistDone { id });
 				}
 				VtxDistPayoutPivot::<T>::insert(id, current_last_raw_key);
@@ -488,111 +880,19 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set distribution eras
-		///
-		/// `id` - The distribution id
-		/// `start_era` - Start era
-		/// `end_era` - End era
-		#[pallet::call_index(5)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_vtx_dist_eras())]
-		#[transactional]
-		pub fn set_vtx_dist_eras(
-			origin: OriginFor<T>,
-			id: T::VtxDistIdentifier,
-			start_era: EraIndex,
-			end_era: EraIndex,
-		) -> DispatchResult {
-			Self::ensure_root_or_admin(origin)?;
-			ensure!(start_era <= end_era, Error::<T>::InvalidEndBlock);
-			VtxDistEras::<T>::insert(id, (start_era, end_era));
-
-			Self::deposit_event(Event::SetVtxDistEras { id, start_era, end_era });
-			Ok(())
-		}
-
-		/// Set asset prices
-		///
-		/// `asset_prices` - List of asset prices
-		/// `id` - The distribution id
-		#[pallet::call_index(6)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::set_asset_prices(asset_prices.len() as u32))]
-		#[transactional]
-		pub fn set_asset_prices(
-			origin: OriginFor<T>,
-			asset_prices: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
-			id: T::VtxDistIdentifier,
-		) -> DispatchResultWithPostInfo {
-			Self::ensure_root_or_admin(origin)?;
-			Self::do_asset_price_setter(asset_prices, id)
-		}
-
-		/// Register distribution rewards
-		///
-		/// `id` - The distribution id
-		/// `rewards` - Rewards list
-		#[pallet::call_index(7)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards())]
-		pub fn register_rewards(
-			origin: OriginFor<T>,
-			id: T::VtxDistIdentifier,
-			rewards: BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxRewards>,
-		) -> DispatchResult {
-			Self::ensure_root_or_admin(origin)?;
-
-			let s = VtxDistStatuses::<T>::get(id);
-
-			match s {
-				VtxDistStatus::Enabled => {
-					let mut total_rewards: BalanceOf<T> = Zero::zero();
-					for (who, amount) in rewards.iter() {
-						total_rewards += *amount;
-						VtxDistOrderbook::<T>::mutate(id, who.clone(), |entry| {
-							*entry = (*amount, false);
-						});
-					}
-					TotalVortex::<T>::mutate(id, |total_vortex| {
-						*total_vortex = total_vortex.saturating_add(total_rewards);
-					});
-					Self::deposit_event(Event::RewardRegistered { id, rewards });
-					Ok(())
-				},
-				_ => Err(Error::<T>::VtxDistDisabled)?,
-			}
-		}
-
-		/// Trigger distribution
-		///
-		/// `id` - The distribution id
-		#[pallet::call_index(8)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution())]
-		#[transactional]
-		pub fn trigger_vtx_distribution(
-			origin: OriginFor<T>,
-			id: T::VtxDistIdentifier,
-		) -> DispatchResultWithPostInfo {
-			Self::ensure_root_or_admin(origin)?;
-
-			ensure!(
-				VtxDistStatuses::<T>::get(id) == VtxDistStatus::Enabled,
-				Error::<T>::CannotTrigger
-			);
-
-			Self::do_vtx_distribution_trigger(id)
-		}
-
 		/// Redeem tokens from vault
 		///
 		/// `id` - The distribution id
 		/// `vortex_token_amount` - Amount of vortex to redeem
-		#[pallet::call_index(9)]
+		#[pallet::call_index(16)]
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::redeem_tokens_from_vault())]
 		#[transactional]
 		pub fn redeem_tokens_from_vault(
 			origin: OriginFor<T>,
-			id: T::VtxDistIdentifier,
-			vortex_token_amount: BalanceOf<T>,
+			vortex_token_amount: Balance,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(!DisableRedeem::<T>::get(), Error::<T>::VtxRedeemDisabled);
 			let vault_account = Self::get_vtx_vault_account();
 			let total_vortex = T::MultiCurrency::total_issuance(T::VtxAssetId::get());
 			let vortex_balance = vortex_token_amount;
@@ -602,11 +902,10 @@ pub mod pallet {
 					&& vortex_balance <= T::MultiCurrency::balance(T::VtxAssetId::get(), &who),
 				Error::<T>::InvalidAmount
 			);
-			ensure!(VtxDistStatuses::<T>::get(id) == VtxDistStatus::Done, Error::<T>::CannotRedeem);
 
-			for (asset_id, _) in AssetPrices::<T>::iter_prefix(id) {
-				// First we calculate the ratio between the asset balance and the total vortex
-				// issue. then multiply it with the vortex token amount the user wants to reddem to
+			for asset_id in VtxVaultRedeemAssetList::<T>::get().into_iter() {
+				// First, we calculate the ratio between the asset balance and the total vortex
+				// issued. then multiply it with the vortex token amount the user wants to redeem to
 				// get the resulting asset token amount.
 				let asset_balance = T::MultiCurrency::balance(asset_id, &vault_account);
 				let redeem_amount = vortex_balance.saturating_mul(asset_balance) / total_vortex;
@@ -622,7 +921,51 @@ pub mod pallet {
 				Precision::Exact,
 				Fortitude::Polite,
 			)?;
+			Self::deposit_event(Event::VtxRedeemed { who, amount: vortex_balance });
+
 			Ok(())
+		}
+
+		/// Register rewards( manual input)
+		///
+		/// `id` - The distribution id
+		/// `rewards` - Rewards list, balance is in drops
+		#[pallet::call_index(17)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::register_rewards(rewards.len() as u32))]
+		pub fn register_rewards(
+			origin: OriginFor<T>,
+			id: T::VtxDistIdentifier,
+			rewards: BoundedVec<(T::AccountId, Balance), T::MaxRewards>,
+		) -> DispatchResultWithPostInfo {
+			Self::ensure_root_or_admin(origin)?;
+			ensure!(EnableManualRewardInput::<T>::get(), Error::<T>::ManualRewardInputDisabled);
+			let s = VtxDistStatuses::<T>::get(id);
+			match s {
+				VtxDistStatus::Enabled | VtxDistStatus::Triggered => {
+					let mut total_rewards = TotalVortex::<T>::get(id); // this is in drops multiplied by PRECISION_MULTIPLIER
+					for (who, amount) in rewards.iter() {
+						// amount is in drops
+						let current_reward = VtxDistOrderbook::<T>::get(id, who.clone()).0; // this is in drops
+						let current_reward_with_multiplier =
+							current_reward.saturating_mul(PRECISION_MULTIPLIER);
+						let amount_with_multiplier = amount.saturating_mul(PRECISION_MULTIPLIER);
+						if current_reward != Default::default() {
+							// means we need to minus the current_reward and plus amount from the total_rewards
+							total_rewards = total_rewards
+								.saturating_sub(current_reward_with_multiplier)
+								.saturating_add(amount_with_multiplier);
+						} else {
+							// just add
+							total_rewards = total_rewards.saturating_add(amount_with_multiplier);
+						}
+						VtxDistOrderbook::<T>::insert(id, who, (*amount, false));
+					}
+					TotalVortex::<T>::set(id, total_rewards);
+					Self::deposit_event(Event::RewardRegistered { id, rewards });
+					Ok(Pays::No.into())
+				},
+				_ => Err(Error::<T>::VtxDistDisabled)?,
+			}
 		}
 	}
 
@@ -651,6 +994,11 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Account id of vtx vault asset which will hold the minted vortex
+		pub fn get_vtx_held_account() -> T::AccountId {
+			T::VtxHeldPotId::get().into_account_truncating()
+		}
+
 		/// Account id of vtx asset.
 		pub fn get_vtx_vault_account() -> T::AccountId {
 			T::VtxDistPotId::get().into_account_truncating()
@@ -675,20 +1023,53 @@ pub mod pallet {
 
 		/// start a distribution
 		fn do_start_vtx_dist(id: T::VtxDistIdentifier) -> DispatchResult {
-			let vault_account = Self::get_vtx_vault_account();
-			let total_vortex = TotalVortex::<T>::get(id);
-			T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vault_account, total_vortex)?;
+			let vtx_held_account = Self::get_vtx_held_account();
+			let total_vortex = TotalVortex::<T>::get(id).div(PRECISION_MULTIPLIER);
+			T::MultiCurrency::mint_into(T::VtxAssetId::get(), &vtx_held_account, total_vortex)?;
 
-			TotalVortex::<T>::remove(id);
 			VtxDistStatuses::<T>::mutate(id, |status| {
 				*status = VtxDistStatus::Paying;
 			});
 			Ok(())
 		}
 
+		/// set fee pot asset balances
+		fn do_fee_pot_asset_balances_setter(
+			id: T::VtxDistIdentifier,
+			assets_balances: BoundedVec<(AssetId, Balance), T::MaxAssetPrices>,
+		) -> DispatchResultWithPostInfo {
+			for (asset_id, _) in &assets_balances {
+				ensure!(
+					asset_id != &T::VtxAssetId::get(),
+					Error::<T>::AssetsShouldNotIncludeVtxAsset
+				);
+			}
+			FeePotAssetsList::<T>::insert(id, assets_balances.clone());
+
+			Self::deposit_event(Event::SetFeePotAssetBalances { id, assets_balances });
+			Ok(Pays::No.into())
+		}
+
+		/// set vtx vault asset balances
+		fn do_vtx_vault_asset_balances_setter(
+			id: T::VtxDistIdentifier,
+			assets_balances: BoundedVec<(AssetId, Balance), T::MaxAssetPrices>,
+		) -> DispatchResultWithPostInfo {
+			for (asset_id, _) in &assets_balances {
+				ensure!(
+					asset_id != &T::VtxAssetId::get(),
+					Error::<T>::AssetsShouldNotIncludeVtxAsset
+				);
+			}
+			VtxVaultAssetsList::<T>::insert(id, assets_balances.clone());
+
+			Self::deposit_event(Event::SetVtxVaultAssetBalances { id, assets_balances });
+			Ok(Pays::No.into())
+		}
+
 		/// set asset prices
 		fn do_asset_price_setter(
-			asset_prices: BoundedVec<(AssetId, BalanceOf<T>), T::MaxAssetPrices>,
+			asset_prices: BoundedVec<(AssetId, Balance), T::MaxAssetPrices>,
 			id: T::VtxDistIdentifier,
 		) -> DispatchResultWithPostInfo {
 			for (asset_id, price) in &asset_prices {
@@ -700,45 +1081,249 @@ pub mod pallet {
 			}
 
 			Self::deposit_event(Event::SetAssetPrices { id, asset_prices });
+			Ok(Pays::No.into())
+		}
+
+		/// Calculate vortex price
+		fn do_calculate_vortex_price(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
+			let vtx_vault_account = Self::get_vtx_vault_account();
+
+			let mut vtx_vault_asset_value: Balance = 0u128.into();
+			for (asset_id, amount) in VtxVaultAssetsList::<T>::get(id).into_iter() {
+				let asset_price = AssetPrices::<T>::get(id, asset_id);
+				let asset_decimals = T::MultiCurrency::decimals(asset_id); // NOTE: ROOT still gets the correct result 6 onchain
+				let decimal_factor: Balance = 10_u128.pow(asset_decimals.into());
+				if asset_price == Default::default() {
+					continue;
+				}
+				let asset_balance = match ConsiderCurrentBalance::<T>::get() {
+					true => T::MultiCurrency::balance(asset_id, &vtx_vault_account),
+					false => amount,
+				};
+
+				// here any asset that makes less than 1 contribution will be ignored.
+				vtx_vault_asset_value +=
+					asset_balance.saturating_mul(asset_price).div(decimal_factor);
+			}
+
+			let vtx_decimal_factor: Balance =
+				10u128.pow(T::MultiCurrency::decimals(T::VtxAssetId::get()) as u32);
+			// get the total supply of VTX in standard units
+			let vtx_existing_supply = match ConsiderCurrentBalance::<T>::get() {
+				true => T::MultiCurrency::total_issuance(T::VtxAssetId::get()) / vtx_decimal_factor,
+				false => VtxTotalSupply::<T>::get(id) / vtx_decimal_factor,
+			};
+
+			// vortex_price should be with a multiplier PRICE_MULTIPLIER
+			let vortex_price = if vtx_existing_supply == Zero::zero() {
+				1u128.saturating_mul(PRICE_MULTIPLIER) // TODO: check the reference
+			} else {
+				vtx_vault_asset_value / vtx_existing_supply
+			};
+			ensure!(vortex_price > Zero::zero(), Error::<T>::VortexPriceIsZero);
+			VtxPrice::<T>::set(id, vortex_price);
+
 			Ok(().into())
 		}
 
-		/// trigger a distribution
-		fn do_vtx_distribution_trigger(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
-			let vault_account = Self::get_vtx_vault_account();
+		// do collate assets into the vtx vault account
+		fn do_collate_reward_tokens(id: T::VtxDistIdentifier) -> DispatchResultWithPostInfo {
+			let root_price = AssetPrices::<T>::get(id, T::NativeAssetId::get());
 
+			let vtx_vault_account = Self::get_vtx_vault_account();
 			let root_vault_account = Self::get_root_vault_account();
 			let fee_vault_account = Self::get_fee_vault_account();
 
-			// move gas & network fee to a vault here
-			// move all asset in fee_vault to get_vault_account based on asset list in AssetPrices
-			for (asset_id, _) in AssetPrices::<T>::iter_prefix(id) {
-				let asset_balance = T::MultiCurrency::balance(asset_id, &fee_vault_account);
+			// move gas & network fee to  vtx vault here
+			// move all asset in fee_vault to vtx_vault_account based on asset list in FeePotAssetsList
+			let mut fee_vault_asset_value: Balance = 0u64.into();
+			for (asset_id, amount) in FeePotAssetsList::<T>::get(id).into_iter() {
+				let asset_price = AssetPrices::<T>::get(id, asset_id);
+				let asset_decimals = T::MultiCurrency::decimals(asset_id); // NOTE: ROOT still gets the correct result 6 onchain
+				let decimal_factor: Balance = 10_u128.pow(asset_decimals.into());
+
+				let asset_balance = match ConsiderCurrentBalance::<T>::get() {
+					true => T::MultiCurrency::balance(asset_id, &fee_vault_account),
+					false => amount,
+				};
+				fee_vault_asset_value +=
+					asset_balance.saturating_mul(asset_price).div(decimal_factor);
 				Self::safe_transfer(
 					asset_id,
 					&fee_vault_account,
-					&vault_account,
+					&vtx_vault_account,
 					asset_balance,
 					false,
 				)?;
 			}
-			// move root token from root_vault to vault_account
+
+			// bootstrap - move root token from root_vault to vtx_vault_account
+			// TODO: change this to move only the required balance from the root vault account once
+			// we let go of the legacy system
+			let root_decimal_factor: Balance =
+				10u128.pow(T::MultiCurrency::decimals(T::NativeAssetId::get()) as u32);
 			let root_vault_root_token_balance =
 				T::MultiCurrency::balance(T::NativeAssetId::get(), &root_vault_account);
+			let root_vault_root_value: Balance = root_vault_root_token_balance
+				.saturating_mul(root_price)
+				.div(root_decimal_factor);
 			Self::safe_transfer(
 				T::NativeAssetId::get(),
 				&root_vault_account,
-				&vault_account,
+				&vtx_vault_account,
 				root_vault_root_token_balance,
 				false,
 			)?;
 
-			VtxDistStatuses::<T>::mutate(id, |status| {
-				*status = VtxDistStatus::Triggered;
-			});
-			Self::deposit_event(Event::TriggerVtxDistribution { id });
+			// fetch calculated vortex price
+			let vortex_price = VtxPrice::<T>::get(id);
+			ensure!(vortex_price > Zero::zero(), Error::<T>::VortexPriceIsZero);
+
+			//calculate total rewards
+			let vtx_decimal_factor: Balance =
+				10u128.pow(T::MultiCurrency::decimals(T::VtxAssetId::get()) as u32);
+			// multiply vault asset values by vtx_decimal_factor to get the value in drops for higher precision
+			let total_vortex_network_reward: Balance = fee_vault_asset_value
+				.saturating_mul(vtx_decimal_factor)
+				.saturating_mul(PRECISION_MULTIPLIER)
+				.div(vortex_price);
+			let total_vortex_bootstrap: Balance = root_vault_root_value
+				.saturating_mul(vtx_decimal_factor)
+				.saturating_mul(PRECISION_MULTIPLIER)
+				.div(vortex_price);
+			let total_vortex = total_vortex_network_reward.saturating_add(total_vortex_bootstrap); // in drops
+
+			// store TotalVortex only if EnableManualRewardInput is false
+			// otherwise in manual mode the TotalVortex will be calculated from the input.
+			if !EnableManualRewardInput::<T>::get() {
+				TotalVortex::<T>::insert(id, total_vortex);
+			}
+			TotalNetworkReward::<T>::insert(id, total_vortex_network_reward);
+			TotalBootstrapReward::<T>::insert(id, total_vortex_bootstrap);
 
 			Ok(().into())
+		}
+
+		fn do_reward_calculation(remaining_weight: Weight) -> Weight {
+			// Read: NextVortexId, VtxDistStatuses
+			let mut used_weight = DbWeight::get().reads(2);
+			if remaining_weight.ref_time() <= DbWeight::get().reads(2).ref_time() {
+				return used_weight;
+			}
+			// get the current vtx distribution id
+			let id = NextVortexId::<T>::get().saturating_sub(One::one());
+
+			if let VtxDistStatus::Triggering = VtxDistStatuses::<T>::get(id) {
+				// Initial reads and writes for the following:
+				// Read: TotalNetworkReward, TotalBootstrapReward, TotalRewardPoints,
+				// TotalWorkPoints, VtxRewardCalculationPivot,
+				// Write: VtxDistStatuses, VtxRewardCalculationPivot
+				let base_process_weight = DbWeight::get().reads_writes(5u64, 2);
+				// the weight per transaction is at least two writes
+				// Reads: reading map_iterator RewardPoints, WorkPoints,
+				// Writes: VtxDistOrderbook
+				let min_weight_per_index = DbWeight::get().reads_writes(2, 1);
+				// Ensure we have enough weight to perform the initial reads + at least one reward calculation
+				if remaining_weight.ref_time()
+					<= (base_process_weight + min_weight_per_index).ref_time()
+				{
+					return used_weight;
+				}
+
+				// fetch and calculate reward pool balances
+				let total_network_reward = TotalNetworkReward::<T>::get(id);
+				let total_bootstrap_reward = TotalBootstrapReward::<T>::get(id);
+				// Ref -> https://docs.therootnetwork.com/intro/learn/tokenomics#how-are-rewards-distributed
+				const STAKER_REWARD_PORTION: Perquintill = Perquintill::from_percent(30); // 30% of network rewards
+				const WORK_POINTS_REWARD_PORTION: Perquintill = Perquintill::from_percent(70); // 70% of network rewards
+				let total_staker_pool = total_bootstrap_reward
+					.saturating_add(STAKER_REWARD_PORTION * total_network_reward); // bootstrap + 30% of network rewards
+				let total_workpoints_pool = WORK_POINTS_REWARD_PORTION * total_network_reward; // 70% of network rewards
+				let total_staker_points = TotalRewardPoints::<T>::get(id);
+				let total_work_points = TotalWorkPoints::<T>::get(id);
+
+				// start key
+				let start_key = VtxRewardCalculationPivot::<T>::get(id);
+				let calculation_pivot: Vec<u8> = start_key.clone().into_inner();
+
+				let mut map_iterator = match start_key.is_empty() {
+					true => <RewardPoints<T>>::iter_prefix(id),
+					false => <RewardPoints<T>>::iter_prefix_from(id, calculation_pivot),
+				};
+				used_weight = base_process_weight;
+
+				let mut count = 0u32;
+				for (account_id, account_staker_points) in map_iterator.by_ref() {
+					// Add weight for reading map_iterator
+					used_weight = used_weight.saturating_add(DbWeight::get().reads(1));
+
+					// Add weight for reading WorkPoints
+					used_weight = used_weight.saturating_add(DbWeight::get().reads(1));
+					let account_work_points: Balance = WorkPoints::<T>::get(id, account_id.clone());
+
+					// here both account_staker_points and total_staker_points are in same units. could be drops or standard units
+					// drops would give an opportunity to the accounts with smaller reward points than 1 standard unit.
+					let staker_point_portion =
+						Perquintill::from_rational(account_staker_points, total_staker_points);
+					let work_points_portion =
+						Perquintill::from_rational(account_work_points, total_work_points);
+
+					let account_work_point_reward = work_points_portion * total_workpoints_pool;
+					let account_staker_reward = staker_point_portion * total_staker_pool;
+					let final_reward = account_work_point_reward
+						.saturating_add(account_staker_reward)
+						.div(PRECISION_MULTIPLIER); // This is in drops
+					let loss = account_work_point_reward
+						.saturating_add(account_staker_reward)
+						.saturating_sub(final_reward.saturating_mul(PRECISION_MULTIPLIER));
+					log::debug!(
+						target: "vtx-dist",
+						"RewardCalculationLoss - Account: {:?}, wkp: {:?}, rp: {:?}, wkr: {:?}, rpr: {:?}, final_reward: {:?}, loss: {:?}",
+						account_id,
+						account_work_points,
+						account_staker_points,
+						account_work_point_reward,
+						account_staker_reward,
+						final_reward,
+						loss,
+					);
+
+					// Add weight for writing VtxDistOrderbook
+					used_weight = used_weight.saturating_add(DbWeight::get().writes(1));
+					VtxDistOrderbook::<T>::mutate(id, account_id.clone(), |entry| {
+						*entry = (final_reward, entry.1);
+					});
+					count += 1;
+
+					// if no remaining_weight for the next entry iteration, brek
+					if remaining_weight.ref_time()
+						<= used_weight.saturating_add(min_weight_per_index).ref_time()
+					{
+						break;
+					}
+					// if exceeds T::MaxRewards, break
+					if count >= T::MaxRewards::get() {
+						break;
+					}
+				}
+
+				let Ok(current_last_raw_key) =
+					BoundedVec::try_from(map_iterator.last_raw_key().to_vec())
+				else {
+					// Unlikely to happen. We can not error here, emit an event and return the consumed weight
+					Self::deposit_event(Event::PivotStringTooLong { id });
+					return used_weight;
+				};
+				if current_last_raw_key == start_key.clone() {
+					VtxDistStatuses::<T>::mutate(id, |status| {
+						*status = VtxDistStatus::Triggered;
+					});
+					Self::deposit_event(Event::VtxDistributionTriggered { id });
+				}
+				VtxRewardCalculationPivot::<T>::insert(id, current_last_raw_key);
+			}
+
+			used_weight
 		}
 
 		/// offchain worker for unsigned tx
@@ -771,7 +1356,7 @@ pub mod pallet {
 			asset_id: AssetId,
 			source: &T::AccountId,
 			dest: &T::AccountId,
-			amount: BalanceOf<T>,
+			amount: Balance,
 			_keep_live: bool,
 		) -> DispatchResult {
 			if amount == Zero::zero() {

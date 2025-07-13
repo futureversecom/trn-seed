@@ -52,11 +52,13 @@ parameter_types! {
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
 	pub const MintLimit: u32 = 100;
+	pub const TransferLimit: u32 = 100;
 	pub const StringLimit: u32 = 50;
 	pub const FeePotId: PalletId = PalletId(*b"txfeepot");
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 	pub const DefaultFeeTo: Option<PalletId> = None;
 	pub const MaxPendingIssuances: u32 = 10_000;
+	pub const MaxDataLen: u32 = 32;
 }
 
 impl pallet_nft::Config for Test {
@@ -64,12 +66,14 @@ impl pallet_nft::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
+	type TransferLimit = TransferLimit;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type MultiCurrency = AssetsExt;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;
+	type MaxDataLength = MaxDataLen;
 	type WeightInfo = ();
 	type Xls20MintRequest = Xls20;
 	type NFIRequest = ();

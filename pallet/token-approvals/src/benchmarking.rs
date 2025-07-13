@@ -65,32 +65,32 @@ fn build_collection<T: Config>() -> (T::AccountId, CollectionUuid, TokenId) {
 benchmarks! {
 	erc721_approval {
 		let ( alice, _, token_id ) = build_collection::<T>();
-	}: _(RawOrigin::None, alice, account::<T>("Operator_Account"), token_id)
+	}: _(origin::<T>(&alice), account::<T>("Operator_Account"), token_id)
 
 	erc721_remove_approval {
 		let ( alice, _, token_id ) = build_collection::<T>();
-		assert_ok!(TokenApprovals::<T>::erc721_approval(RawOrigin::None.into(), alice.clone(), account::<T>("Operator_Account"), token_id.clone()));
+		assert_ok!(TokenApprovals::<T>::erc721_approval(origin::<T>(&alice).into(), account::<T>("Operator_Account"), token_id.clone()));
 	}: _(origin::<T>(&alice), token_id.clone())
 
 	erc20_approval {
 		let ( alice, _, token_id ) = build_collection::<T>();
-	}: _(RawOrigin::None, alice, account::<T>("Spender"), 100, Balance::from(10u32))
+	}: _(origin::<T>(&alice), account::<T>("Spender"), 100, Balance::from(10u32))
 
 	erc20_update_approval {
 		let ( alice, _, token_id ) = build_collection::<T>();
 		let spender  = account::<T>("Spender");
 		let asset_id = 100;
 
-		assert_ok!(TokenApprovals::<T>::erc20_approval(RawOrigin::None.into(), alice.clone(), spender.clone(), asset_id, Balance::from(10u32)));
-	}: _(RawOrigin::None, alice, spender, asset_id, Balance::from(2u32))
+		assert_ok!(TokenApprovals::<T>::erc20_approval(origin::<T>(&alice).into(), spender.clone(), asset_id, Balance::from(10u32)));
+	}: _(origin::<T>(&alice), spender, asset_id, Balance::from(2u32))
 
 	erc721_approval_for_all {
 		let ( alice, collection_id, _ ) = build_collection::<T>();
-	}: _(RawOrigin::None, alice, account::<T>("Operator_Account"), collection_id, true)
+	}: _(origin::<T>(&alice), account::<T>("Operator_Account"), collection_id, true)
 
 	erc1155_approval_for_all {
 		let ( alice, collection_id, _ ) = build_collection::<T>();
-	}: _(RawOrigin::None, alice, account::<T>("Operator_Account"), collection_id, true)
+	}: _(origin::<T>(&alice), account::<T>("Operator_Account"), collection_id, true)
 }
 
 impl_benchmark_test_suite!(

@@ -21,6 +21,7 @@ Returns the free balance of asset and user.
 #### Returns
 
 - `freeBalance`: The amount of free input token with the account.
+
 #### Payload
 
 ```json
@@ -71,4 +72,3 @@ curl -X POST \
 ```
 
 ---
-

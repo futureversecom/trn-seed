@@ -67,9 +67,10 @@ impl<T: Config> ListingTokens<T> {
 	/// - Ensures the list of tokens is not empty
 	/// - SFT tokens all have balance greater than 0
 	pub fn validate(&self) -> DispatchResult {
-		match self {
+		let serial_numbers: Vec<SerialNumber> = match self {
 			ListingTokens::Nft(tokens) => {
 				ensure!(!tokens.serial_numbers.is_empty(), Error::<T>::EmptyTokens);
+				tokens.clone().serial_numbers.into_inner()
 			},
 			ListingTokens::Sft(tokens) => {
 				ensure!(!tokens.serial_numbers.is_empty(), Error::<T>::EmptyTokens);
@@ -78,8 +79,16 @@ impl<T: Config> ListingTokens<T> {
 					!tokens.serial_numbers.iter().any(|(_, balance)| *balance == 0),
 					Error::<T>::ZeroBalance
 				);
+				tokens.clone().serial_numbers.into_inner().iter().map(|(sn, _)| *sn).collect()
 			},
-		}
+		};
+
+		let original_length = serial_numbers.len();
+		let mut serial_numbers_trimmed = serial_numbers;
+		serial_numbers_trimmed.sort_unstable();
+		serial_numbers_trimmed.dedup();
+		ensure!(serial_numbers_trimmed.len() == original_length, Error::<T>::DuplicateTokens);
+
 		Ok(())
 	}
 

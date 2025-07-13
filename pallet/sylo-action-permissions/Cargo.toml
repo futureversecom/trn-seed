@@ -1,0 +1,57 @@
+[package]
+name = "pallet-sylo-action-permissions"
+version = "0.1.0"
+description = "Sylo Action Permissions Pallet"
+authors = ["The Root Network Team"]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/futureversecom/trn-seed"
+
+[dependencies]
+hex = { workspace = true }
+serde = { workspace = true }
+scale-info = { workspace = true }
+codec = { workspace = true }
+libsecp256k1 = { workspace = true }
+log = { workspace = true }
+xrpl_types = { git = "https://github.com/futureversecom/xrpl-sdk-rust", default-features = false }
+
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+
+frame-benchmarking = { workspace = true, optional = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-arithmetic = { workspace = true }
+sp-std = { workspace = true }
+pallet-xrpl = { workspace = true }
+
+seed-primitives = { workspace = true }
+seed-pallet-common = { workspace = true }
+
+[dev-dependencies]
+sp-io = { workspace = true }
+pallet-assets = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-assets-ext = { workspace = true, default-features = true }
+pallet-futurepass = { workspace = true }
+
+pallet-proxy = { workspace = true, default-features = true }
+pallet-sudo = { workspace = true, default-features = true }
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "sp-runtime/std",
+    "frame-support/std",
+    "frame-system/std",
+    "sp-std/std",
+    "seed-primitives/std",
+    "seed-pallet-common/std",
+    "sp-io/std",
+    "frame-benchmarking?/std"
+]
+runtime-benchmarks = ["frame-benchmarking"]
+try-runtime = ["frame-support/try-runtime"]

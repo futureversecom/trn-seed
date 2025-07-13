@@ -244,10 +244,12 @@ macro_rules! impl_pallet_nft_config {
 			pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 			pub const MaxTokensPerCollection: u32 = 10_000;
 			pub const MintLimit: u32 = 1000;
+			pub const TransferLimit: u32 = 1000;
 			pub const Xls20PaymentAsset: AssetId = 2;
 			pub const StringLimit: u32 = 50;
 			pub const FeePotId: PalletId = PalletId(*b"txfeepot");
 			pub const MaxPendingIssuances: u32 = 10_000;
+			pub const NftDataLimit: u32 = 32;
 		}
 
 		impl pallet_nft::Config for Test {
@@ -255,6 +257,7 @@ macro_rules! impl_pallet_nft_config {
 			type RuntimeCall = RuntimeCall;
 			type MaxTokensPerCollection = MaxTokensPerCollection;
 			type MintLimit = MintLimit;
+			type TransferLimit = TransferLimit;
 			type OnTransferSubscription = ();
 			type OnNewAssetSubscription = ();
 			type MultiCurrency = AssetsExt;
@@ -263,6 +266,7 @@ macro_rules! impl_pallet_nft_config {
 			type Xls20MintRequest = ();
 			type WeightInfo = ();
 			type StringLimit = StringLimit;
+			type MaxDataLength = NftDataLimit;
 			type NFIRequest = ();
 			type MaxPendingIssuances = MaxPendingIssuances;
 			type Migrator = ();
@@ -279,6 +283,7 @@ macro_rules! impl_pallet_sft_config {
 			pub const MaxSerialsPerSftMint: u32 = 100;
 			pub const MaxOwnersPerSftToken: u32 = 100;
 			pub const MaxSftPendingIssuances: u32 = 10_000;
+			pub const SftDataLimit: u32 = 32;
 		}
 
 		impl pallet_sft::Config for Test {
@@ -290,6 +295,7 @@ macro_rules! impl_pallet_sft_config {
 			type PalletId = SftPalletId;
 			type ParachainId = TestParachainId;
 			type StringLimit = StringLimit;
+			type MaxDataLength = SftDataLimit;
 			type WeightInfo = ();
 			type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 			type MaxSerialsPerMint = MaxSerialsPerSftMint;
@@ -729,7 +735,7 @@ macro_rules! impl_pallet_scheduler_config {
 }
 
 #[macro_export]
-macro_rules! impl_pallet_sylo_data_verification_config {
+macro_rules! impl_pallet_sylo_data_configs {
 	($test:ident) => {
 		parameter_types! {
 			pub const MaxResolvers: u32 = 10;
@@ -737,16 +743,70 @@ macro_rules! impl_pallet_sylo_data_verification_config {
 			pub const MaxEntries: u32 = 100;
 			pub const MaxServiceEndpoints: u32 = 10;
 			pub const StringLimit: u32 = 500;
+
+			pub const MaxPermissions: u32 = 100;
+			pub const MaxPermissionRecords: u32 = 100;
+			pub const MaxExpiringPermissions: u32 = 10;
+			pub const PermissionRemovalDelay: u32 = 5;
 		}
 		impl pallet_sylo_data_verification::Config for Test {
 			type RuntimeCall = RuntimeCall;
 			type RuntimeEvent = RuntimeEvent;
+			type SyloDataPermissionsProvider = SyloDataPermissions;
 			type ApproveOrigin = EnsureRoot<AccountId>;
 			type MaxResolvers = MaxResolvers;
 			type MaxTags = MaxTags;
 			type MaxEntries = MaxEntries;
 			type MaxServiceEndpoints = MaxServiceEndpoints;
 			type StringLimit = StringLimit;
+			type WeightInfo = ();
+		}
+		impl pallet_sylo_data_permissions::Config for Test {
+			type RuntimeCall = RuntimeCall;
+			type RuntimeEvent = RuntimeEvent;
+			type SyloDataVerificationProvider = SyloDataVerification;
+			type MaxPermissions = MaxPermissions;
+			type MaxResolvers = MaxResolvers;
+			type MaxTags = MaxTags;
+			type MaxEntries = MaxEntries;
+			type MaxServiceEndpoints = MaxServiceEndpoints;
+			type MaxPermissionRecords = MaxPermissionRecords;
+			type MaxExpiringPermissions = MaxExpiringPermissions;
+			type StringLimit = StringLimit;
+			type PermissionRemovalDelay = PermissionRemovalDelay;
+			type WeightInfo = ();
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_pallet_sylo_action_config {
+	($test:ident) => {
+		pub struct MockSyloCallValidator;
+		impl seed_pallet_common::ExtrinsicChecker for MockSyloCallValidator {
+			type Call = RuntimeCall;
+			type Extra = ();
+			type Result = bool;
+			fn check_extrinsic(_call: &Self::Call, _extra: &Self::Extra) -> Self::Result {
+				false
+			}
+		}
+
+		parameter_types! {
+			pub const ActionStringLimit: u32 = 500;
+			pub const MaxCallIds: u32 = 100;
+			pub const XrplMaxMessageLength: u32 = 1000;
+			pub const XrplMaxSignatureLength: u32 = 1000;
+		}
+		impl pallet_sylo_action_permissions::Config for Test {
+			type RuntimeEvent = RuntimeEvent;
+			type RuntimeCall = RuntimeCall;
+			type BlacklistedCallProvider = MockSyloCallValidator;
+			type MaxCallIds = MaxCallIds;
+			type StringLimit = ActionStringLimit;
+			type FuturepassLookup = FuturepassIdentityLookup;
+			type XrplMaxMessageLength = XrplMaxMessageLength;
+			type XrplMaxSignatureLength = XrplMaxSignatureLength;
 			type WeightInfo = ();
 		}
 	};

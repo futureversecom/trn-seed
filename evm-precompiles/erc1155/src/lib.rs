@@ -382,13 +382,13 @@ where
 		// Parse input.
 		read_args!(handle, { operator: Address, approved: bool });
 		let operator = H160::from(operator);
+		let caller = handle.context().caller;
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
-			None.into(),
+			Some(Runtime::AccountId::from(caller)).into(),
 			pallet_token_approvals::Call::<Runtime>::erc1155_approval_for_all {
-				caller: handle.context().caller.into(),
 				operator_account: operator.into(),
 				collection_uuid: collection_id,
 				approved,

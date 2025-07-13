@@ -23,6 +23,7 @@ use frame_support::{
 	traits::IsSubType,
 };
 use frame_system::pallet_prelude::*;
+use seed_pallet_common::sylo::*;
 use seed_primitives::AssetId;
 use sp_core::H256;
 use sp_std::prelude::*;
@@ -34,9 +35,6 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
-pub mod types;
-
-pub use types::*;
 
 pub mod weights;
 pub use weights::WeightInfo;
@@ -60,6 +58,16 @@ pub mod pallet {
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>;
+
+		type SyloDataPermissionsProvider: SyloDataPermissionsProvider<
+			AccountId = Self::AccountId,
+			BlockNumber = BlockNumberFor<Self>,
+			MaxResolvers = Self::MaxResolvers,
+			MaxServiceEndpoints = Self::MaxServiceEndpoints,
+			MaxTags = Self::MaxTags,
+			MaxEntries = Self::MaxEntries,
+			StringLimit = Self::StringLimit,
+		>;
 
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -124,7 +132,7 @@ pub mod pallet {
 		Twox64Concat,
 		T::AccountId,
 		Twox64Concat,
-		BoundedVec<u8, T::StringLimit>,
+		DataId<T::StringLimit>,
 		ValidationRecord<
 			T::AccountId,
 			BlockNumberFor<T>,
@@ -147,6 +155,9 @@ pub mod pallet {
 		RecordAlreadyCreated,
 		/// The validation record to be updated has not been created
 		NoValidationRecord,
+		/// The account does not have the permission to update the validation
+		/// record
+		MissingModifyPermission,
 	}
 
 	#[pallet::event]
@@ -368,34 +379,52 @@ pub mod pallet {
 		///
 		/// The current block will be used as the entry's block number.
 		///
-		/// Caller must be the author of the record.
+		/// Caller must be the author of the record, or an account that has
+		/// been granted the MODIFY permission.
 		#[pallet::call_index(6)]
 		#[pallet::weight({
 			T::WeightInfo::add_validation_record_entry()
 		})]
 		pub fn add_validation_record_entry(
 			origin: OriginFor<T>,
+			data_author: T::AccountId,
 			data_id: BoundedVec<u8, T::StringLimit>,
 			checksum: H256,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			<ValidationRecords<T>>::try_mutate(&who, &data_id, |record| -> DispatchResult {
-				let record = record.as_mut().ok_or(Error::<T>::NoValidationRecord)?;
+			<ValidationRecords<T>>::try_mutate(
+				&data_author,
+				&data_id,
+				|record| -> DispatchResult {
+					let record = record.as_mut().ok_or(Error::<T>::NoValidationRecord)?;
 
-				record.entries.force_push(ValidationEntry {
-					checksum,
-					block: <frame_system::Pallet<T>>::block_number(),
-				});
+					ensure!(
+						who == data_author
+							|| T::SyloDataPermissionsProvider::has_permission(
+								&data_author,
+								&data_id,
+								record,
+								&who,
+								DataPermission::MODIFY
+							),
+						Error::<T>::MissingModifyPermission
+					);
 
-				Self::deposit_event(Event::ValidationEntryAdded {
-					author: who.clone(),
-					id: data_id.to_vec(),
-					checksum,
-				});
+					record.entries.force_push(ValidationEntry {
+						checksum,
+						block: <frame_system::Pallet<T>>::block_number(),
+					});
 
-				Ok(())
-			})?;
+					Self::deposit_event(Event::ValidationEntryAdded {
+						author: data_author.clone(),
+						id: data_id.to_vec(),
+						checksum,
+					});
+
+					Ok(())
+				},
+			)?;
 
 			Ok(())
 		}
@@ -503,5 +532,70 @@ pub mod pallet {
 
 			Ok(())
 		}
+	}
+}
+
+impl<T: Config> SyloDataVerificationProvider for Pallet<T> {
+	type AccountId = T::AccountId;
+	type BlockNumber = BlockNumberFor<T>;
+	type MaxResolvers = T::MaxResolvers;
+	type MaxTags = T::MaxTags;
+	type MaxEntries = T::MaxEntries;
+	type MaxServiceEndpoints = T::MaxServiceEndpoints;
+	type StringLimit = T::StringLimit;
+
+	fn get_validation_record(
+		author: &Self::AccountId,
+		data_id: &BoundedVec<u8, Self::StringLimit>,
+	) -> Option<
+		ValidationRecord<
+			Self::AccountId,
+			Self::BlockNumber,
+			Self::MaxResolvers,
+			Self::MaxTags,
+			Self::MaxEntries,
+			Self::StringLimit,
+		>,
+	> {
+		<ValidationRecords<T>>::get(author, data_id)
+	}
+
+	fn get_record_resolver_endpoints(
+		record: ValidationRecord<
+			Self::AccountId,
+			Self::BlockNumber,
+			Self::MaxResolvers,
+			Self::MaxTags,
+			Self::MaxEntries,
+			Self::StringLimit,
+		>,
+	) -> BoundedVec<
+		(
+			ResolverId<Self::StringLimit>,
+			BoundedVec<ServiceEndpoint<Self::StringLimit>, Self::MaxServiceEndpoints>,
+		),
+		Self::MaxResolvers,
+	> {
+		BoundedVec::truncate_from(
+			record
+				.resolvers
+				.iter()
+				.map(|r| {
+					let resolver_id = r.clone();
+					// for sylo resolvers, we retrieve their registered
+					// service endpoints
+					if r.method == <SyloResolverMethod<T>>::get() {
+						return (
+							resolver_id,
+							Resolvers::<T>::get(r.identifier.clone())
+								.map(|resolver| resolver.service_endpoints)
+								.unwrap_or(BoundedVec::new()),
+						);
+					} else {
+						return (resolver_id, BoundedVec::new());
+					}
+				})
+				.collect::<Vec<_>>(),
+		)
 	}
 }

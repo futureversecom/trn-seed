@@ -391,7 +391,7 @@ where
 			let serial_numbers_unbounded: Vec<SerialNumber> = vec![serial_number];
 			let serial_numbers: BoundedVec<
 				SerialNumber,
-				<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
+				<Runtime as pallet_nft::Config>::TransferLimit,
 			> = BoundedVec::try_from(serial_numbers_unbounded).expect("Should not fail");
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
@@ -517,7 +517,7 @@ where
 		let serial_numbers_unbounded: Vec<SerialNumber> = vec![serial_number];
 		let serial_numbers: BoundedVec<
 			SerialNumber,
-			<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
+			<Runtime as pallet_nft::Config>::TransferLimit,
 		> = BoundedVec::try_from(serial_numbers_unbounded).expect("Should not fail");
 
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -563,12 +563,12 @@ where
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
 		let token_id: TokenId = (collection_id, serial_number);
+		let caller = handle.context().caller;
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
-			None.into(),
+			Some(Runtime::AccountId::from(caller)).into(),
 			pallet_token_approvals::Call::<Runtime>::erc721_approval {
-				caller: handle.context().caller.into(),
 				operator_account: to.into(),
 				token_id,
 			},
@@ -647,13 +647,13 @@ where
 		// Parse input.
 		read_args!(handle, { operator: Address, approved: bool });
 		let operator = H160::from(operator);
+		let caller = handle.context().caller;
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
-			None.into(),
+			Some(Runtime::AccountId::from(caller)).into(),
 			pallet_token_approvals::Call::<Runtime>::erc721_approval_for_all {
-				caller: handle.context().caller.into(),
 				operator_account: operator.into(),
 				collection_uuid: collection_id,
 				approved,

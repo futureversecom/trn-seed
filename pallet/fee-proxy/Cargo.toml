@@ -27,6 +27,8 @@ pallet-proxy = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-xrpl = { workspace = true }
 pallet-sylo-data-verification = { workspace = true }
+pallet-sylo-data-permissions = { workspace = true }
+pallet-sylo-action-permissions = { workspace = true }
 pallet-partner-attribution = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 precompile-utils = { workspace = true }
@@ -53,6 +55,7 @@ std = [
 	"pallet-utility/std",
     "pallet-evm/std",
     "pallet-sylo-data-verification/std",
+    "pallet-sylo-data-permissions/std",
     "pallet-partner-attribution/std",
     "pallet-transaction-payment/std",
     "scale-info/std",

@@ -121,6 +121,8 @@ pub mod pallet {
 		type MaxTokensPerCollection: Get<u32>;
 		/// Max quantity of NFTs that can be minted in one transaction
 		type MintLimit: Get<u32>;
+		/// Max quantity of NFTs that can be transferred in one transaction
+		type TransferLimit: Get<u32>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an NFT collection has been created
@@ -135,6 +137,9 @@ pub mod pallet {
 		/// The maximum length of a collection name, stored on-chain
 		#[pallet::constant]
 		type StringLimit: Get<u32>;
+		/// The maximum length of the stored additional data for a token
+		#[pallet::constant]
+		type MaxDataLength: Get<u32>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
 		/// Interface for sending XLS20 mint requests
@@ -192,21 +197,21 @@ pub mod pallet {
 	pub type UtilityFlags<T> =
 		StorageMap<_, Twox64Concat, CollectionUuid, CollectionUtilityFlags, ValueQuery>;
 
+	/// Map from a token_id to additional token data. Useful for assigning extra information
+	/// to a token outside the collection metadata.
+	#[pallet::storage]
+	pub type AdditionalTokenData<T: Config> =
+		StorageMap<_, Twox64Concat, TokenId, BoundedVec<u8, T::MaxDataLength>, ValueQuery>;
+
 	// Map from a collection id to a collection's pending issuances
 	#[pallet::storage]
-	pub type PendingIssuances<T: Config> = StorageNMap<
+	pub type PendingIssuances<T: Config> = StorageMap<
 		_,
-		(
-			NMapKey<Twox64Concat, CollectionUuid>,
-			NMapKey<Twox64Concat, T::AccountId>,
-			NMapKey<Twox64Concat, IssuanceId>,
-		),
-		PendingIssuance,
+		Twox64Concat,
+		CollectionUuid,
+		CollectionPendingIssuances<T::AccountId, T::MaxPendingIssuances>,
+		ValueQuery,
 	>;
-
-	/// The next available incrementing issuance ID, unique across all pending issuances
-	#[pallet::storage]
-	pub type NextIssuanceId<T> = StorageValue<_, IssuanceId, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -287,7 +292,7 @@ pub mod pallet {
 		/// A pending issuance for a soulbound token has been created
 		PendingIssuanceCreated {
 			collection_id: CollectionUuid,
-			issuance_id: IssuanceId,
+			issuance_id: u32,
 			token_owner: T::AccountId,
 			quantity: u32,
 			burn_authority: TokenBurnAuthority,
@@ -298,6 +303,11 @@ pub mod pallet {
 			start: SerialNumber,
 			end: SerialNumber,
 			burn_authority: TokenBurnAuthority,
+		},
+		/// Some additional data has been set for a token
+		AdditionalDataSet {
+			token_id: TokenId,
+			additional_data: Option<BoundedVec<u8, T::MaxDataLength>>,
 		},
 	}
 
@@ -325,6 +335,8 @@ pub mod pallet {
 		InvalidMetadataPath,
 		/// The caller can not be the new owner
 		InvalidNewOwner,
+		/// The additional data cannot be an empty vec
+		InvalidAdditionalData,
 		/// The number of tokens have exceeded the max tokens allowed
 		TokenLimitExceeded,
 		/// The quantity exceeds the max tokens per mint limit
@@ -364,6 +376,8 @@ pub mod pallet {
 		/// Attempted to burn a token from an account that does not adhere to
 		/// the token's burn authority
 		InvalidBurnAuthority,
+		/// The SerialNumbers attempting to be transferred are not unique
+		SerialNumbersNotUnique,
 	}
 
 	#[pallet::call]
@@ -485,7 +499,7 @@ pub mod pallet {
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will
 		/// apply to all tokens in the collection by default.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::create_collection())]
+		#[pallet::weight(T::WeightInfo::create_collection(*initial_issuance))]
 		#[transactional]
 		pub fn create_collection(
 			origin: OriginFor<T>,
@@ -592,7 +606,6 @@ pub mod pallet {
 		/// `token_owner` - the token owner, defaults to the caller if unspecified
 		/// Caller must be the collection owner
 		/// -----------
-		/// Weight is O(N) where N is `quantity`
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::mint(*quantity as u32))]
 		#[transactional]
@@ -607,54 +620,22 @@ pub mod pallet {
 
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			let public_mint_info = <PublicMintInfo<T>>::get(collection_id);
 
-			let public_mint_info = <PublicMintInfo<T>>::get(collection_id).unwrap_or_default();
 			// Caller must be collection_owner if public mint is disabled
 			ensure!(
-				&collection_info.owner == &who || public_mint_info.enabled,
+				&collection_info.owner == &who || public_mint_info.unwrap_or_default().enabled,
 				Error::<T>::PublicMintDisabled
 			);
-
-			// Perform pre mint checks
-			let serial_numbers = Self::pre_mint(collection_id, &mut collection_info, quantity)?;
-			let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
-			let metadata_scheme = collection_info.metadata_scheme.clone();
 			let owner = token_owner.unwrap_or(who.clone());
-
-			// Only charge mint fee if public mint enabled and caller is not collection owner
-			if public_mint_info.enabled && collection_info.owner != who {
-				// Charge the mint fee for the mint
-				Self::charge_mint_fee(
-					&who,
-					collection_id,
-					&collection_info.owner,
-					public_mint_info,
-					quantity,
-				)?;
-			}
-
-			// Perform the mint and update storage
-			Self::do_mint(
+			let serial_numbers = Self::do_mint(
+				who,
 				collection_id,
-				collection_info,
+				&mut collection_info,
+				quantity,
 				&owner,
-				&serial_numbers,
-				TokenFlags::default(),
+				public_mint_info,
 			)?;
-
-			// Check if this collection is XLS-20 compatible
-			if xls20_compatible {
-				// Pay XLS20 mint fee and send requests
-				T::Xls20MintRequest::request_xls20_mint(
-					&who,
-					collection_id,
-					serial_numbers.clone().into_inner(),
-					metadata_scheme,
-				)?;
-			}
-
-			// Request NFI storage if enabled
-			T::NFIRequest::request(&who, collection_id, serial_numbers.clone().into_inner())?;
 
 			// throw event, listing starting and endpoint token ids (sequential mint)
 			Self::deposit_event(Event::<T>::Mint {
@@ -674,7 +655,7 @@ pub mod pallet {
 		pub fn transfer(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+			serial_numbers: BoundedVec<SerialNumber, T::TransferLimit>,
 			new_owner: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -847,19 +828,24 @@ pub mod pallet {
 
 			let _ = Self::pre_mint(collection_id, &mut collection_info, quantity)?;
 
-			let issuance_id = NextIssuanceId::<T>::get();
-			let pending_issuance = PendingIssuance { quantity, burn_authority };
-			<PendingIssuances<T>>::insert(
-				(collection_id, &token_owner, issuance_id),
-				pending_issuance,
-			);
-			Self::deposit_event(Event::<T>::PendingIssuanceCreated {
+			<PendingIssuances<T>>::try_mutate(
 				collection_id,
-				issuance_id,
-				token_owner,
-				quantity,
-				burn_authority,
-			});
+				|pending_issuances| -> DispatchResult {
+					let issuance_id = pending_issuances
+						.insert_pending_issuance(&token_owner, quantity, burn_authority)
+						.map_err(Error::<T>::from)?;
+
+					Self::deposit_event(Event::<T>::PendingIssuanceCreated {
+						collection_id,
+						issuance_id,
+						token_owner: token_owner.clone(),
+						quantity,
+						burn_authority,
+					});
+
+					Ok(())
+				},
+			)?;
 
 			Ok(())
 		}
@@ -871,51 +857,36 @@ pub mod pallet {
 		pub fn accept_soulbound_issuance(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			issuance_id: IssuanceId,
+			issuance_id: u32,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			T::Migrator::ensure_migrated()?;
 
-			let pending_issuance = <PendingIssuances<T>>::get((collection_id, &who, issuance_id))
+			let collection_pending_issuances = <PendingIssuances<T>>::get(collection_id);
+			let pending_issuance = collection_pending_issuances
+				.get_pending_issuance(&who, issuance_id)
 				.ok_or(Error::<T>::InvalidPendingIssuance)?;
-			// ensure!(&pending_issuance.token_owner == &who, Error::<T>::InvalidPendingIssuance);
-
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
-			// Perform pre mint checks
-			// Note: We validate this mint as if it was being performed
-			// by the owner.
-			let serial_numbers =
-				Self::pre_mint(collection_id, &mut collection_info, pending_issuance.quantity)?;
+			// Note: We validate this mint as if it was being performed by the owner.
 			let collection_owner = collection_info.owner.clone();
-			let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
-			let metadata_scheme = collection_info.metadata_scheme.clone();
-
-			// Perform the mint and update storage
-			let token_flags = TokenFlags {
-				transferable: false,
-				burn_authority: Some(pending_issuance.burn_authority),
-			};
-			Self::do_mint(collection_id, collection_info, &who, &serial_numbers, token_flags)?;
-
-			// Check if this collection is XLS-20 compatible
-			if xls20_compatible {
-				// Pay XLS20 mint fee and send requests
-				T::Xls20MintRequest::request_xls20_mint(
-					&collection_owner,
-					collection_id,
-					serial_numbers.clone().into_inner(),
-					metadata_scheme,
-				)?;
-			}
-
-			// Request NFI storage if enabled as collection owner
-			T::NFIRequest::request(
-				&collection_owner,
+			let serial_numbers = Self::do_mint(
+				collection_owner,
 				collection_id,
-				serial_numbers.clone().into_inner(),
+				&mut collection_info,
+				pending_issuance.quantity,
+				&who,
+				None, // public mint info disabled for this call
 			)?;
+
+			// Set the utility flags for the tokens
+			for serial_number in serial_numbers.clone() {
+				TokenUtilityFlags::<T>::mutate((collection_id, serial_number), |flags| {
+					flags.transferable = false;
+					flags.burn_authority = Some(pending_issuance.burn_authority);
+				});
+			}
 
 			Self::deposit_event(Event::<T>::Issued {
 				token_owner: who.clone(),
@@ -925,9 +896,85 @@ pub mod pallet {
 			});
 
 			// remove the pending issuance
-			<PendingIssuances<T>>::remove((collection_id, who, issuance_id));
+			<PendingIssuances<T>>::try_mutate(
+				collection_id,
+				|pending_issuances| -> DispatchResult {
+					pending_issuances.remove_pending_issuance(&who, issuance_id);
+
+					Ok(())
+				},
+			)?;
 
 			Ok(())
+		}
+
+		/// Sets additional data for a token.
+		/// Caller must be the collection owner.
+		/// Data must not be empty
+		/// Can be overwritten, call with None to remove.
+		#[pallet::call_index(16)]
+		#[pallet::weight(T::WeightInfo::set_additional_data())]
+		pub fn set_additional_data(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			additional_data: Option<BoundedVec<u8, T::MaxDataLength>>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+            T::Migrator::ensure_migrated()?;
+			let collection_info =
+				CollectionInfo::<T>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(collection_info.token_exists(token_id.1), Error::<T>::NoToken);
+			Self::do_set_additional_data(token_id, additional_data)?;
+			Ok(())
+		}
+
+		/// Mint a token alongside some additional data
+		#[pallet::call_index(17)]
+		#[pallet::weight(T::WeightInfo::mint_with_additional_data())]
+		pub fn mint_with_additional_data(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			token_owner: Option<T::AccountId>,
+			additional_data: BoundedVec<u8, T::MaxDataLength>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+            T::Migrator::ensure_migrated()?;
+			let mut collection_info =
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			let owner = token_owner.unwrap_or(who.clone());
+			let serial_numbers = Self::do_mint(
+				who,
+				collection_id,
+				&mut collection_info,
+				1, // Mint only one token with this extrinsic
+				&owner,
+				None, // public mint info disabled for this call
+			)?;
+
+			// Set the additional data and emit event
+			let serial_number = serial_numbers.first().expect("Quantity asserted prior");
+			Self::do_set_additional_data((collection_id, *serial_number), Some(additional_data))?;
+
+			// throw mint event, listing starting and endpoint token ids (sequential mint)
+			Self::deposit_event(Event::<T>::Mint {
+				collection_id,
+				start: *serial_numbers.first().ok_or(Error::<T>::NoToken)?,
+				end: *serial_numbers.last().ok_or(Error::<T>::NoToken)?,
+				owner,
+			});
+			Ok(())
+		}
+	}
+}
+
+impl<T: Config> From<PendingIssuanceError> for Error<T> {
+	fn from(val: PendingIssuanceError) -> Error<T> {
+		match val {
+			PendingIssuanceError::PendingIssuanceLimitExceeded => {
+				Error::<T>::PendingIssuanceLimitExceeded
+			},
 		}
 	}
 }

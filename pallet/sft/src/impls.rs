@@ -258,6 +258,16 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Checks if all tokens in a list are unique.
+	pub fn check_unique(serial_numbers: Vec<(SerialNumber, Balance)>) -> bool {
+		let serial_numbers: Vec<SerialNumber> = serial_numbers.iter().map(|(sn, _)| *sn).collect();
+		let original_length = serial_numbers.len();
+		let mut serial_numbers_trimmed = serial_numbers;
+		serial_numbers_trimmed.sort_unstable();
+		serial_numbers_trimmed.dedup();
+		serial_numbers_trimmed.len() == original_length
+	}
+
 	/// Perform the transfer operation and move quantities from one user to another
 	/// Note there is one storage read and write per serial number transferred
 	pub fn do_transfer(
@@ -275,6 +285,8 @@ impl<T: Config> Pallet<T> {
 			<UtilityFlags<T>>::get(collection_id).transferable,
 			Error::<T>::TransferUtilityBlocked
 		);
+		// Check that all serial numbers are unique
+		ensure!(Self::check_unique(serial_numbers.to_vec()), Error::<T>::SerialNumbersNotUnique);
 
 		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
@@ -501,6 +513,23 @@ impl<T: Config> Pallet<T> {
 
 		SftCollectionInfo::<T>::insert(collection_id, collection_info);
 		Self::deposit_event(Event::<T>::RoyaltiesScheduleSet { collection_id, royalties_schedule });
+		Ok(())
+	}
+
+	/// Sets the additional data for a token.
+	/// If `additional_data` is `None`, it removes the existing data.
+	pub fn do_set_additional_data(
+		token_id: TokenId,
+		additional_data: Option<BoundedVec<u8, T::MaxDataLength>>,
+	) -> DispatchResult {
+		match &additional_data {
+			None => AdditionalTokenData::<T>::remove(token_id),
+			Some(data) => {
+				ensure!(!data.is_empty(), Error::<T>::InvalidAdditionalData);
+				AdditionalTokenData::<T>::insert(token_id, data);
+			},
+		}
+		Self::deposit_event(Event::<T>::AdditionalDataSet { token_id, additional_data });
 		Ok(())
 	}
 

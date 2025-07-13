@@ -23,6 +23,7 @@ mod maintenance_mode;
 mod multiplier;
 mod partner_attribution;
 mod staker_payouts;
+mod sylo_actions;
 mod sylo_fees;
 
 use frame_support::traits::{

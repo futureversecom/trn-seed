@@ -40,7 +40,9 @@ construct_runtime!(
 		Timestamp: pallet_timestamp,
 		Futurepass: pallet_futurepass,
 		FeeControl: pallet_fee_control,
-		Sylo: pallet_sylo_data_verification,
+		SyloDataVerification: pallet_sylo_data_verification,
+		SyloDataPermissions: pallet_sylo_data_permissions,
+		SyloActionPermissions: pallet_sylo_action_permissions,
 		Xrpl: pallet_xrpl,
 		Utility: pallet_utility,
 		Proxy: pallet_proxy,
@@ -58,7 +60,8 @@ impl_pallet_timestamp_config!(Test);
 impl_pallet_evm_config!(Test);
 impl_pallet_futurepass_config!(Test);
 impl_pallet_fee_control_config!(Test);
-impl_pallet_sylo_data_verification_config!(Test);
+impl_pallet_sylo_data_configs!(Test);
+impl_pallet_sylo_action_config!(Test);
 impl_pallet_xrpl_config!(Test);
 impl_pallet_proxy_config!(Test);
 impl_pallet_utility_config!(Test);

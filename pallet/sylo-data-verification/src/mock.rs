@@ -24,6 +24,7 @@ construct_runtime!(
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
 		SyloDataVerification: pallet_sylo_data_verification,
+		SyloDataPermissions: pallet_sylo_data_permissions,
 	}
 );
 
@@ -31,22 +32,4 @@ impl_frame_system_config!(Test);
 impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
-
-parameter_types! {
-	pub const MaxResolvers: u32 = 10;
-	pub const MaxTags: u32 = 10;
-	pub const MaxEntries: u32 = 100;
-	pub const MaxServiceEndpoints: u32 = 10;
-	pub const StringLimit: u32 = 250;
-}
-impl Config for Test {
-	type RuntimeCall = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type ApproveOrigin = EnsureRoot<AccountId>;
-	type MaxResolvers = MaxResolvers;
-	type MaxTags = MaxTags;
-	type MaxEntries = MaxEntries;
-	type MaxServiceEndpoints = MaxServiceEndpoints;
-	type StringLimit = StringLimit;
-	type WeightInfo = ();
-}
+impl_pallet_sylo_data_configs!(Test);

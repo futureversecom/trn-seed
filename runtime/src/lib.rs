@@ -24,7 +24,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 extern crate alloc;
 
-use alloc::string::String;
+use alloc::{string::String, vec::Vec};
 use codec::{Decode, Encode};
 use fp_evm::weight_per_gas;
 use fp_rpc::TransactionStatus;
@@ -158,10 +158,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 67,
+	spec_version: 78,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 13,
+	transaction_version: 18,
 	state_version: 0,
 };
 
@@ -457,6 +457,8 @@ parameter_types! {
 	pub const WorldId: seed_primitives::ParachainId = 100;
 	pub const MaxTokensPerCollection: u32 = 1_000_000;
 	pub const MintLimit: u32 = 1_000;
+	pub const TransferLimit: u32 = 1_000;
+	pub const NftAdditionalDataLength: u32 = 100;
 	pub const MaxPendingIssuances: u32 = 1_000_000;
 }
 impl pallet_nft::Config for Runtime {
@@ -464,17 +466,38 @@ impl pallet_nft::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
+	type TransferLimit = TransferLimit;
 	type OnTransferSubscription = TokenApprovals;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type MultiCurrency = AssetsExt;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type StringLimit = CollectionNameStringLimit;
+	type MaxDataLength = NftAdditionalDataLength;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
 	type NFIRequest = Nfi;
 	type MaxPendingIssuances = MaxPendingIssuances;
 	type Migrator = Migration;
+}
+
+parameter_types! {
+	pub const LiquidityPoolsPalletId: PalletId = PalletId(*b"lqdpools");
+	pub const LiquidityPoolsUnsignedInterval: BlockNumber = MINUTES / 2;
+	/// How many users to rollover at a block time
+	pub const RolloverBatchSize: u32 = 99;
+	pub const InterestRateBasePoint: u32 = 1_000_000;
+}
+impl pallet_liquidity_pools::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = LiquidityPoolsPalletId;
+	type UnsignedInterval = LiquidityPoolsUnsignedInterval;
+	type PoolId = u32;
+	type MaxStringLength = MaxStringLength;
+	type RolloverBatchSize = RolloverBatchSize;
+	type InterestRateBasePoint = InterestRateBasePoint;
+	type MultiCurrency = AssetsExt;
+	type WeightInfo = weights::pallet_liquidity_pools::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -508,6 +531,7 @@ parameter_types! {
 	pub const MaxTokensPerSftCollection: u32 = 1_000_000;
 	pub const MaxOwnersPerSftCollection: u32 = 1_000_000;
 	pub const MaxSftPendingIssuances: u32 = 1_000_000;
+	pub const SftAdditionalDataLength: u32 = 100;
 	pub const MaxSerialsPerMint: u32 = 1000; // Higher values can be storage heavy
 }
 impl pallet_sft::Config for Runtime {
@@ -519,6 +543,7 @@ impl pallet_sft::Config for Runtime {
 	type PalletId = SftPalletId;
 	type ParachainId = WorldId;
 	type StringLimit = CollectionNameStringLimit;
+	type MaxDataLength = SftAdditionalDataLength;
 	type WeightInfo = weights::pallet_sft::WeightInfo<Runtime>;
 	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 	type MaxSerialsPerMint = MaxSerialsPerMint;
@@ -611,6 +636,7 @@ parameter_types! {
 impl pallet_sylo_data_verification::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
+	type SyloDataPermissionsProvider = pallet_sylo_data_permissions::Pallet<Runtime>;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type MaxResolvers = MaxResolvers;
 	type MaxTags = MaxTags;
@@ -618,6 +644,47 @@ impl pallet_sylo_data_verification::Config for Runtime {
 	type MaxServiceEndpoints = MaxServiceEndpoints;
 	type StringLimit = SyloStringLimit;
 	type WeightInfo = weights::pallet_sylo_data_verification::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	pub const MaxPermissions: u32 = 100;
+	pub const MaxPermissionRecords: u32 = 100;
+	pub const MaxExpiringPermissions: u32 = 10;
+	pub const PermissionRemovalDelay: u32 = 648000; // 30 days
+}
+
+impl pallet_sylo_data_permissions::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type SyloDataVerificationProvider = pallet_sylo_data_verification::Pallet<Runtime>;
+	type MaxPermissions = MaxPermissions;
+	type MaxResolvers = MaxResolvers;
+	type MaxTags = MaxTags;
+	type MaxEntries = MaxEntries;
+	type MaxServiceEndpoints = MaxServiceEndpoints;
+	type MaxPermissionRecords = MaxPermissionRecords;
+	type MaxExpiringPermissions = MaxExpiringPermissions;
+	type PermissionRemovalDelay = PermissionRemovalDelay;
+	type StringLimit = SyloStringLimit;
+	type WeightInfo = weights::pallet_sylo_data_permissions::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	pub const MaxCallIds: u32 = 200;
+	pub const XrplMaxMessageLength: u32 = 2048;
+	pub const XrplMaxSignatureLength: u32 = 2048;
+}
+
+impl pallet_sylo_action_permissions::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type FuturepassLookup = impls::FuturepassLookup;
+	type BlacklistedCallProvider = impls::SyloActionsCallValidator;
+	type MaxCallIds = MaxCallIds;
+	type StringLimit = SyloStringLimit;
+	type XrplMaxMessageLength = XrplMaxMessageLength;
+	type XrplMaxSignatureLength = XrplMaxSignatureLength;
+	type WeightInfo = weights::pallet_sylo_action_permissions::WeightInfo<Runtime>;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -1331,9 +1398,10 @@ impl pallet_futurepass::Config for Runtime {
 }
 
 parameter_types! {
+	pub const VtxHeldPotId: PalletId = PalletId(*b"vtx/hpot");
 	pub const VtxVortexPotId: PalletId = PalletId(*b"vtx/vpot");
 	pub const VtxRootPotId: PalletId = PalletId(*b"vtx/rpot");
-	pub const VtxTxFeePotId: PalletId = PalletId(*b"vtx/fpot");
+	pub const FeePotId: PalletId = TxFeePotId::get();
 	pub const UnsignedInterval: BlockNumber =  MINUTES / 2;
 	pub const PayoutBatchSize: u32 =  99;
 	pub const VortexAssetId: AssetId = VTX_ASSET_ID;
@@ -1347,9 +1415,10 @@ impl pallet_vortex_distribution::Config for Runtime {
 	type WeightInfo = weights::pallet_vortex_distribution::WeightInfo<Runtime>;
 	type NativeAssetId = RootAssetId;
 	type VtxAssetId = VortexAssetId;
+	type VtxHeldPotId = VtxHeldPotId;
 	type VtxDistPotId = VtxVortexPotId;
 	type RootPotId = VtxRootPotId;
-	type TxFeePotId = VtxTxFeePotId;
+	type TxFeePotId = FeePotId;
 	type UnsignedInterval = UnsignedInterval;
 	type PayoutBatchSize = PayoutBatchSize;
 	type VtxDistIdentifier = u32;
@@ -1470,6 +1539,9 @@ construct_runtime!(
 		Nfi: pallet_nfi = 50,
 		Migration: pallet_migration = 51,
 		SyloDataVerification: pallet_sylo_data_verification = 52,
+		LiquidityPools: pallet_liquidity_pools = 54,
+		SyloDataPermissions: pallet_sylo_data_permissions = 55,
+		SyloActionPermissions: pallet_sylo_action_permissions = 56,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase = 22,
@@ -1781,6 +1853,20 @@ impl_runtime_apis! {
 	impl pallet_sft_rpc_runtime_api::SftApi<Block, Runtime> for Runtime {
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Sft::token_uri(token_id)
+		}
+	}
+
+	impl pallet_sylo_data_permissions_rpc_runtime_api::SyloDataPermissionsApi<Block, AccountId> for Runtime {
+		fn get_permissions(
+			data_author: AccountId,
+			grantee: AccountId,
+			data_ids: Vec<String>,
+		) -> Result<pallet_sylo_data_permissions::GetPermissionsResult, sp_runtime::DispatchError> {
+			SyloDataPermissions::get_permissions(
+				data_author,
+				grantee,
+				data_ids,
+			)
 		}
 	}
 
@@ -2392,6 +2478,8 @@ mod benches {
 		[pallet_vortex_distribution, VortexDistribution]
 		[pallet_partner_attribution, PartnerAttribution]
 		[pallet_dex, Dex]
+		[pallet_maintenance_mode, MaintenanceMode]
+		[pallet_liquidity_pools, LiquidityPools]
 		[pallet_marketplace, Marketplace]
 		[pallet_doughnut, Doughnut]
 		[pallet_maintenance_mode, MaintenanceMode]
@@ -2399,5 +2487,7 @@ mod benches {
 		[pallet_evm, EVM]
 		[pallet_migration, Migration]
 		[pallet_sylo_data_verification, SyloDataVerification]
+		[pallet_sylo_data_permissions, SyloDataPermissions]
+		[pallet_sylo_action_permissions, SyloActionPermissions]
 	);
 }

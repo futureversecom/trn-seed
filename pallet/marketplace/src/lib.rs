@@ -320,6 +320,8 @@ pub mod pallet {
 		NoToken,
 		/// The listing duration is too short
 		DurationTooShort,
+		/// The listing contains duplicate tokens
+		DuplicateTokens,
 	}
 
 	#[pallet::hooks]

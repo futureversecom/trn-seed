@@ -20,11 +20,11 @@
 use super::*;
 
 use crate::Pallet as Nft;
-use codec::Encode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
 use seed_pallet_common::utils::TokenBurnAuthority;
+use seed_primitives::METADATA_SCHEME_LIMIT;
 use sp_runtime::Permill;
 
 /// This is a helper function to get an account.
@@ -39,12 +39,14 @@ pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
 pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUuid {
 	let id = Nft::<T>::next_collection_uuid().unwrap();
 	let caller = caller.unwrap_or_else(|| account::<T>("Alice"));
-	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
+	let string_limit = METADATA_SCHEME_LIMIT;
+	let metadata_uri: Vec<u8> = vec![b'a'; string_limit as usize];
+	let metadata_scheme = MetadataScheme::try_from(metadata_uri.as_slice()).unwrap();
 	let cross_chain_compatibility = CrossChainCompatibility::default();
 
 	assert_ok!(Nft::<T>::create_collection(
 		origin::<T>(&caller).into(),
-		BoundedVec::truncate_from("New Collection".encode()),
+		max_bounded_vec::<T::StringLimit>(),
 		1,
 		None,
 		None,
@@ -54,6 +56,11 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 	));
 
 	id
+}
+
+pub fn max_bounded_vec<B: Get<u32>>() -> BoundedVec<u8, B> {
+	let v = vec![b'a'; B::get() as usize];
+	BoundedVec::truncate_from(v)
 }
 
 benchmarks! {
@@ -83,7 +90,8 @@ benchmarks! {
 
 	set_base_uri {
 		let collection_id = build_collection::<T>(None);
-		let metadata_uri: Vec<u8> = "https://example.com/tokens/".into();
+		let string_limit = T::StringLimit::get();
+		let metadata_uri: Vec<u8> = vec![b'a'; string_limit as usize];
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, metadata_uri.clone())
 	verify {
 		let collection_info = CollectionInfo::<T>::get(collection_id).unwrap();
@@ -93,7 +101,8 @@ benchmarks! {
 
 	set_name {
 		let collection_id = build_collection::<T>(None);
-		let name = BoundedVec::truncate_from("New Name".encode());
+		let string_limit = T::StringLimit::get();
+		let name = max_bounded_vec::<T::StringLimit>();
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, name.clone())
 	verify {
 		let collection_info = CollectionInfo::<T>::get(collection_id).unwrap();
@@ -115,9 +124,13 @@ benchmarks! {
 	create_collection {
 		let p in 1 .. (500);
 		let collection_id = Nft::<T>::next_collection_uuid().unwrap();
-		let metadata = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
+		let string_limit = METADATA_SCHEME_LIMIT;
+		let metadata_uri: Vec<u8> = vec![b'a'; string_limit as usize];
+		let metadata = MetadataScheme::try_from(metadata_uri.as_slice()).unwrap();
 		let ccc = CrossChainCompatibility { xrpl: false };
-	}: _(origin::<T>(&account::<T>("Alice")), BoundedVec::truncate_from("Collection".encode()), p, None, None, metadata, None, ccc)
+		let string_limit = T::StringLimit::get();
+		let name = max_bounded_vec::<T::StringLimit>();
+	}: _(origin::<T>(&account::<T>("Alice")), name, p, None, None, metadata, None, ccc)
 	verify {
 		let collection_info = CollectionInfo::<T>::get(collection_id);
 		assert_eq!(collection_info.unwrap().collection_issuance, p);
@@ -216,15 +229,16 @@ benchmarks! {
 
 	issue_soulbound {
 		let collection_id = build_collection::<T>(None);
-		let issuance_id = NextIssuanceId::<T>::get();
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 1, account::<T>("Bob"), TokenBurnAuthority::Both)
 	verify {
+		let collection_issuances =
+			PendingIssuances::<T>::get(collection_id).pending_issuances;
+
+		let pending_issuances = &collection_issuances[0].1;
+
 		assert_eq!(
-			PendingIssuances::<T>::get((collection_id, &account::<T>("Bob"), issuance_id)).unwrap(),
-			PendingIssuance {
-				quantity: 1,
-				burn_authority: TokenBurnAuthority::Both,
-			},
+			pending_issuances.len(),
+			1,
 		)
 	}
 
@@ -242,6 +256,27 @@ benchmarks! {
 	}: _(origin::<T>(&receiver.clone()), collection_id, 0)
 	verify {
 		assert_eq!(TokenInfo::<T>::get(collection_id, 1).unwrap().owner, receiver);
+	}
+
+	set_additional_data {
+		let collection_id = build_collection::<T>(None);
+		let token_id = (collection_id, 0);
+		let additional_data = max_bounded_vec::<T::MaxDataLength>();
+	}: _(origin::<T>(&account::<T>("Alice")), token_id, Some(additional_data.clone()))
+	verify {
+		assert_eq!(AdditionalTokenData::<T>::get(token_id), additional_data);
+	}
+
+	mint_with_additional_data {
+		let owner = account::<T>("Alice");
+		let collection_id = build_collection::<T>(Some(owner.clone()));
+		let additional_data = max_bounded_vec::<T::MaxDataLength>();
+	}: _(origin::<T>(&owner), collection_id, None, additional_data.clone())
+	verify {
+		let token_id = (collection_id, 1);
+		assert_eq!(AdditionalTokenData::<T>::get(token_id), additional_data);
+		let collection_info = CollectionInfo::<T>::get(collection_id).expect("Collection not found");
+		assert!(collection_info.is_token_owner(&owner, 1))
 	}
 }
 

@@ -80,11 +80,20 @@ impl<T: Config> Pallet<T> {
 		collection_info.metadata_scheme.construct_token_uri(token_id.1)
 	}
 
+	/// Checks if all tokens in a list are unique.
+	pub fn check_unique(serial_numbers: Vec<SerialNumber>) -> bool {
+		let original_length = serial_numbers.len();
+		let mut serial_numbers_trimmed = serial_numbers;
+		serial_numbers_trimmed.sort_unstable();
+		serial_numbers_trimmed.dedup();
+		serial_numbers_trimmed.len() == original_length
+	}
+
 	/// Transfer the given token from `current_owner` to `new_owner`
 	/// Does no verification
 	pub fn do_transfer(
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+		serial_numbers: BoundedVec<SerialNumber, T::TransferLimit>,
 		current_owner: &T::AccountId,
 		new_owner: &T::AccountId,
 	) -> DispatchResult {
@@ -94,7 +103,12 @@ impl<T: Config> Pallet<T> {
 			<UtilityFlags<T>>::get(collection_id).transferable,
 			Error::<T>::TransferUtilityBlocked
 		);
-		ensure!(CollectionInfo::<T>::contains_key(collection_id), Error::<T>::NoCollectionFound);
+		ensure!(
+			Self::check_unique(serial_numbers.clone().into_inner()),
+			Error::<T>::SerialNumbersNotUnique
+		);
+        ensure!(CollectionInfo::<T>::contains_key(collection_id), Error::<T>::NoCollectionFound);
+
 
 		// Update `TokenOwner` mapping and check token level restrictions
 		for &serial_number in &serial_numbers {
@@ -186,7 +200,7 @@ impl<T: Config> Pallet<T> {
 			return Ok(Weight::zero());
 		};
 
-		let collection_info = match <CollectionInfo<T>>::get(collection_id) {
+		let mut collection_info = match <CollectionInfo<T>>::get(collection_id) {
 			Some(info) => info,
 			None => return Ok(T::DbWeight::get().reads(1)),
 		};
@@ -220,13 +234,9 @@ impl<T: Config> Pallet<T> {
 			BoundedVec::try_from(serial_numbers_trimmed);
 		match serial_numbers {
 			Ok(serial_numbers) => {
-				let mint = Self::do_mint(
-					collection_id,
-					collection_info,
-					owner,
-					&serial_numbers,
-					TokenFlags::default(),
-				);
+                // TODO Fix this part
+				let mint =
+					Self::mint_tokens(collection_id, &mut collection_info, owner, &serial_numbers, TokenFlags::default());
 
 				if mint.is_ok() {
 					// throw event, listing all serial numbers minted from bridging
@@ -246,6 +256,51 @@ impl<T: Config> Pallet<T> {
 			},
 			_ => Ok(T::DbWeight::get().reads(1)),
 		}
+	}
+
+	/// Called by mint extrinsics, performs pre mint checks, charges mint fee if applicable,
+	/// mints the tokens and requests NFI storage where required
+	pub fn do_mint(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		collection_info: &mut CollectionInformation<T::AccountId, T::StringLimit>,
+		quantity: TokenCount,
+		token_owner: &T::AccountId,
+		public_mint_info: Option<PublicMintInformation>,
+        utility_flags: TokenFlags,
+	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
+		// Perform pre mint checks
+		let serial_numbers = Self::pre_mint(collection_id, collection_info, quantity)?;
+		let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
+		let metadata_scheme = collection_info.metadata_scheme.clone();
+
+		if let Some(public_mint_info) = public_mint_info {
+			if !collection_info.is_collection_owner(&who) {
+				// Charge the mint fee for the mint
+				Self::charge_mint_fee(
+					&who,
+					collection_id,
+					&collection_info.owner,
+					public_mint_info,
+					quantity,
+				)?;
+			}
+		}
+		// Perform the mint and update storage
+		Self::mint_tokens(collection_id, collection_info, token_owner, &serial_numbers)?;
+		// Pay XLS20 mint fee and send requests
+		if xls20_compatible {
+			T::Xls20MintRequest::request_xls20_mint(
+				&who,
+				collection_id,
+				serial_numbers.clone().into_inner(),
+				metadata_scheme,
+			)?;
+		}
+
+		// Request NFI storage if enabled
+		T::NFIRequest::request(&who, collection_id, serial_numbers.clone().into_inner())?;
+		Ok(serial_numbers)
 	}
 
 	/// Perform validity checks on collection_info.
@@ -336,23 +391,22 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Perform the mint operation and update storage accordingly.
-	pub(crate) fn do_mint(
+	pub(crate) fn mint_tokens(
 		collection_id: CollectionUuid,
-		collection_info: CollectionInformation<T::AccountId, T::StringLimit>,
+		collection_info: &mut CollectionInformation<T::AccountId, T::StringLimit>,
 		token_owner: &T::AccountId,
 		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 		utility_flags: TokenFlags,
 	) -> DispatchResult {
-		T::Migrator::ensure_migrated()?;
-		let mut new_collection_info = collection_info;
+        T::Migrator::ensure_migrated()?;
 		// Update collection issuance
-		new_collection_info.collection_issuance = new_collection_info
+		collection_info.collection_issuance = collection_info
 			.collection_issuance
 			.checked_add(serial_numbers.len().saturated_into())
 			.ok_or(ArithmeticError::Overflow)?;
 
 		ensure!(
-			new_collection_info.collection_issuance <= T::MaxTokensPerCollection::get(),
+			collection_info.collection_issuance <= T::MaxTokensPerCollection::get(),
 			Error::<T>::TokenLimitExceeded
 		);
 
@@ -384,7 +438,7 @@ impl<T: Config> Pallet<T> {
 		)?;
 
 		// Update CollectionInfo storage
-		<CollectionInfo<T>>::insert(collection_id, new_collection_info);
+		<CollectionInfo<T>>::insert(collection_id, collection_info);
 		Ok(())
 	}
 
@@ -704,6 +758,23 @@ impl<T: Config> Pallet<T> {
 	/// The account ID of the NFT pallet.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
+	}
+
+	/// Sets the additional data for a token.
+	/// If `additional_data` is `None`, it removes the existing data.
+	pub fn do_set_additional_data(
+		token_id: TokenId,
+		additional_data: Option<BoundedVec<u8, T::MaxDataLength>>,
+	) -> DispatchResult {
+		match &additional_data {
+			None => AdditionalTokenData::<T>::remove(token_id),
+			Some(data) => {
+				ensure!(!data.is_empty(), Error::<T>::InvalidAdditionalData);
+				AdditionalTokenData::<T>::insert(token_id, data);
+			},
+		}
+		Self::deposit_event(Event::<T>::AdditionalDataSet { token_id, additional_data });
+		Ok(())
 	}
 }
 

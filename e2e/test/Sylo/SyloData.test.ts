@@ -19,18 +19,25 @@ import {
   finalizeTx,
   getNextAssetId,
   getPrefixLength,
+  rpcs,
   startNode,
   stringToHex,
   typedefs,
-} from "../common";
+} from "../../common";
 
 const PROXY_TYPE = {
   Any: 1,
 };
 
+const DATA_PERMISSION = {
+  VIEW: "VIEW",
+  MODIFY: "MODIFY",
+  DISTRIBUTE: "DISTRIBUTE",
+};
+
 const TRN_PERMISSION_DOMAIN: string = "trn";
 
-describe("Sylo", () => {
+describe("Sylo Gas Costs", () => {
   let node: NodeProcess;
   let api: ApiPromise;
   let keyring: Keyring;
@@ -45,13 +52,16 @@ describe("Sylo", () => {
     node = await startNode();
 
     const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
-    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
     genesisHash = api.genesisHash.toHex().slice(2);
 
     provider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
 
     keyring = new Keyring({ type: "ethereum" });
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
+  });
+
+  beforeEach(async () => {
     userPrivateKey = Wallet.createRandom().privateKey;
     user = keyring.addFromSeed(hexToU8a(userPrivateKey));
 
@@ -98,6 +108,7 @@ describe("Sylo", () => {
       "0x0000000000000000000000000000000000000000000000000000000000000000",
     ),
     api.tx.syloDataVerification.addValidationRecordEntry(
+      user.address,
       "data-id",
       "0x0000000000000000000000000000000000000000000000000000000000000000",
     ),
@@ -108,6 +119,27 @@ describe("Sylo", () => {
       ["tag-2"],
     ),
     api.tx.syloDataVerification.deleteValidationRecord("data-id"),
+
+    api.tx.syloDataVerification.createValidationRecord(
+      "data-id",
+      [{ method: "sylo-resolver", identifier: "id" }],
+      "data-type",
+      ["tag"],
+      "0x0000000000000000000000000000000000000000000000000000000000000000",
+    ),
+    api.tx.syloDataPermissions.grantDataPermissions(
+      user.address,
+      alith.address,
+      ["data-id"],
+      DATA_PERMISSION.VIEW,
+      null,
+      false,
+    ),
+    api.tx.syloDataPermissions.revokeDataPermission(user.address, 0, alith.address, "data-id"),
+    api.tx.syloDataPermissions.grantTaggedPermissions(alith.address, DATA_PERMISSION.VIEW, [], null, false),
+    api.tx.syloDataPermissions.revokeTaggedPermission(alith.address, 1),
+    api.tx.syloDataPermissions.grantPermissionReference(alith.address, "data-id"),
+    api.tx.syloDataPermissions.revokePermissionReference(alith.address),
   ];
 
   it("can submit sylo extrinsic and pay with sylo tokens", async () => {
@@ -458,5 +490,229 @@ describe("Sylo", () => {
     });
 
     console.error("doughtnut err:", doughnutErr);
+  });
+});
+
+describe.only("Sylo RPC", () => {
+  let node: NodeProcess;
+  let api: ApiPromise;
+  let keyring: Keyring;
+  let alith: KeyringPair;
+  let userPrivateKey: string;
+  let user: KeyringPair;
+  let feeTokenAssetId: number;
+
+  before(async () => {
+    node = await startNode();
+
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.rpcPort}`);
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
+
+    keyring = new Keyring({ type: "ethereum" });
+    alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
+
+    userPrivateKey = Wallet.createRandom().privateKey;
+    user = keyring.addFromSeed(hexToU8a(userPrivateKey));
+
+    feeTokenAssetId = await getNextAssetId(api);
+
+    // add liquidity for XRP/SYLO token and set up user funds
+    const txs = [
+      api.tx.assetsExt.createAsset("sylo", "SYLO", 18, 1, alith.address),
+      api.tx.assets.mint(feeTokenAssetId, alith.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(feeTokenAssetId, user.address, 2_000_000_000_000_000),
+      api.tx.assets.transfer(GAS_TOKEN_ID, user.address, 1), // avoids xrp balance increase due to preservation rules
+      api.tx.dex.addLiquidity(
+        feeTokenAssetId,
+        GAS_TOKEN_ID,
+        100_000_000_000,
+        100_000_000_000,
+        100_000_000_000,
+        100_000_000_000,
+        null,
+        null,
+      ),
+    ];
+    await finalizeTx(alith, api.tx.utility.batch(txs));
+
+    // set payment asset
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.syloDataVerification.setPaymentAsset(feeTokenAssetId)));
+
+    console.log("liquidity setup complete...");
+  });
+
+  it("getPermissions returns correctly if no permission granted", async () => {
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, ["data-id"]);
+
+    expect(res.toJSON()).to.deep.equal({
+      Ok: {
+        permissions: [["data-id", []]],
+        permission_reference: null,
+      },
+    });
+  });
+
+  it("getPermissions returns onchain permissions if permission granted", async () => {
+    await finalizeTx(
+      user,
+      api.tx.syloDataVerification.createValidationRecord(
+        "data-id",
+        [],
+        "data-type",
+        [],
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      ),
+    );
+
+    // grant data permission
+    await finalizeTx(
+      user,
+      api.tx.syloDataPermissions.grantDataPermissions(
+        user.address,
+        alith.address,
+        ["data-id"],
+        DATA_PERMISSION.VIEW,
+        null,
+        false,
+      ),
+    );
+
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, ["data-id"]);
+
+    expect(res.toJSON()).to.deep.equal({
+      Ok: {
+        permissions: [["data-id", ["VIEW"]]],
+        permission_reference: null,
+      },
+    });
+  });
+
+  it("getPermissions returns onchain permission if tagged granted", async () => {
+    await finalizeTx(
+      user,
+      api.tx.syloDataVerification.createValidationRecord(
+        "data-id-2",
+        [{ method: "sylo-resolver", identifier: "id" }],
+        "data-type",
+        ["tag"],
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      ),
+    );
+
+    // grant data permission
+    await finalizeTx(
+      user,
+      api.tx.syloDataPermissions.grantTaggedPermissions(alith.address, DATA_PERMISSION.MODIFY, ["tag"], null, false),
+    );
+
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, ["data-id-2"]);
+
+    expect(res.toJSON()).to.deep.equal({
+      Ok: {
+        permissions: [["data-id-2", ["MODIFY"]]],
+        permission_reference: null,
+      },
+    });
+  });
+
+  it("getPermissions correctly returns multiple permissions", async () => {
+    await finalizeTx(
+      user,
+      api.tx.syloDataVerification.createValidationRecord(
+        "data-id-3",
+        [{ method: "sylo-resolver", identifier: "id" }],
+        "data-type",
+        ["tag"],
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      ),
+    );
+
+    // grant data permission
+    await finalizeTx(
+      user,
+      api.tx.syloDataPermissions.grantDataPermissions(
+        user.address,
+        alith.address,
+        ["data-id-3"],
+        DATA_PERMISSION.VIEW,
+        null,
+        false,
+      ),
+    );
+
+    // grant tagged permissions
+    await finalizeTx(
+      user,
+      api.tx.syloDataPermissions.grantTaggedPermissions(user.address, DATA_PERMISSION.DISTRIBUTE, ["tag"], null, false),
+    );
+
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, ["data-id-3"]);
+
+    expect(res.toJSON()).to.deep.equal({
+      Ok: {
+        permissions: [["data-id-3", ["VIEW", "MODIFY"]]],
+        permission_reference: null,
+      },
+    });
+
+    console.log(user.address, alith.address);
+  });
+
+  it("getPermissions can query for multiple data ids", async () => {
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, [
+      "data-id",
+      "data-id-2",
+      "data-id-3",
+    ]);
+
+    expect(res.toJSON()).to.deep.equal({
+      Ok: {
+        permissions: [
+          ["data-id", ["VIEW"]],
+          ["data-id-2", ["MODIFY"]],
+          ["data-id-3", ["VIEW", "MODIFY"]],
+        ],
+        permission_reference: null,
+      },
+    });
+  });
+
+  it("getPermissions returns permission reference if it exists", async () => {
+    await finalizeTx(user, api.tx.syloDataVerification.registerResolver("permission-resolver", ["endpoint"]));
+
+    // create offchain permission record
+    await finalizeTx(
+      user,
+      api.tx.syloDataVerification.createValidationRecord(
+        "offchain-permission",
+        [{ method: "sylo-data", identifier: "permission-resolver" }],
+        "data-type",
+        ["tag"],
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      ),
+    );
+
+    // grant data permission
+    await finalizeTx(user, api.tx.syloDataPermissions.grantPermissionReference(alith.address, "offchain-permission"));
+
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, []);
+
+    expect(res.toJSON()).to.deep.equal({
+      Ok: {
+        permissions: [],
+        permission_reference: {
+          permission_record_id: "offchain-permission",
+          resolvers: [["did:sylo-data:permission-resolver", ["endpoint"]]],
+        },
+      },
+    });
+  });
+
+  it("getPermissions returns error if data id is too large", async () => {
+    const dataId = Array(1000).fill("a").concat();
+
+    const res = await (api.rpc as any).syloDataPermissions.getPermissions(user.address, alith.address, [dataId]);
+
+    expect(res.toJSON().Err).to.not.be.null;
   });
 });
