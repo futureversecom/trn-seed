@@ -108,9 +108,13 @@ fn set_relayer_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let alice = create_account(10);
 		let bob = create_account(11);
+		let admin = create_account(12);
 
 		// Not sudo should fail
-		assert_noop!(Xls20::set_relayer(RawOrigin::Signed(alice).into(), alice), BadOrigin);
+		assert_noop!(
+			Xls20::set_relayer(RawOrigin::Signed(alice).into(), alice),
+			Error::<Test>::RequireAdmin
+		);
 		assert_eq!(Relayer::<Test>::get(), None);
 
 		// Set relayer to Alice
@@ -127,13 +131,50 @@ fn set_relayer_works() {
 }
 
 #[test]
+fn set_relayer_works_with_admin() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let alice = create_account(10);
+		let bob = create_account(11);
+		let admin = create_account(12);
+
+		// Set admin first
+		assert_ok!(Xls20::set_admin(RawOrigin::Root.into(), admin));
+
+		// Admin can set relayer
+		assert_ok!(Xls20::set_relayer(RawOrigin::Signed(admin).into(), alice));
+		assert_eq!(Relayer::<Test>::get(), Some(alice));
+
+		// Admin can change relayer
+		assert_ok!(Xls20::set_relayer(RawOrigin::Signed(admin).into(), bob));
+		assert_eq!(Relayer::<Test>::get(), Some(bob));
+	});
+}
+
+#[test]
+fn set_relayer_not_root_or_admin_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let alice = create_account(10);
+		let non_admin = create_account(11);
+
+		// Non-admin should fail
+		assert_noop!(
+			Xls20::set_relayer(RawOrigin::Signed(non_admin).into(), alice),
+			Error::<Test>::RequireAdmin
+		);
+	});
+}
+
+#[test]
 fn set_xls20_fee_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let alice = create_account(10);
 		let new_fee: Balance = 100;
 
 		// Not sudo should fail
-		assert_noop!(Xls20::set_xls20_fee(RawOrigin::Signed(alice).into(), new_fee), BadOrigin);
+		assert_noop!(
+			Xls20::set_xls20_fee(RawOrigin::Signed(alice).into(), new_fee),
+			Error::<Test>::RequireAdmin
+		);
 		assert_eq!(Xls20MintFee::<Test>::get(), 0);
 
 		// Set fee to 100
@@ -152,6 +193,109 @@ fn set_xls20_fee_works() {
 		let new_fee: Balance = 0;
 		assert_ok!(Xls20::set_xls20_fee(RawOrigin::Root.into(), new_fee));
 		assert_eq!(Xls20MintFee::<Test>::get(), new_fee);
+	});
+}
+
+#[test]
+fn set_xls20_fee_works_with_admin() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let admin = create_account(12);
+		let new_fee: Balance = 100;
+
+		// Set admin first
+		assert_ok!(Xls20::set_admin(RawOrigin::Root.into(), admin));
+
+		// Admin can set fee
+		assert_ok!(Xls20::set_xls20_fee(RawOrigin::Signed(admin).into(), new_fee));
+		assert_eq!(Xls20MintFee::<Test>::get(), new_fee);
+
+		// Admin can change fee
+		let new_fee: Balance = 200;
+		assert_ok!(Xls20::set_xls20_fee(RawOrigin::Signed(admin).into(), new_fee));
+		assert_eq!(Xls20MintFee::<Test>::get(), new_fee);
+	});
+}
+
+#[test]
+fn set_xls20_fee_not_root_or_admin_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let non_admin = create_account(11);
+		let new_fee: Balance = 100;
+
+		// Non-admin should fail
+		assert_noop!(
+			Xls20::set_xls20_fee(RawOrigin::Signed(non_admin).into(), new_fee),
+			Error::<Test>::RequireAdmin
+		);
+	});
+}
+
+#[test]
+fn set_admin_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let admin_account = create_account(2);
+		assert_ok!(Xls20::set_admin(RawOrigin::Root.into(), admin_account));
+		assert_eq!(AdminAccount::<Test>::get(), Some(admin_account));
+		System::assert_has_event(
+			Event::<Test>::AdminAccountChanged { old_key: None, new_key: admin_account }.into(),
+		);
+	});
+}
+
+#[test]
+fn set_admin_not_sudo_fails() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let admin_account = create_account(2);
+		assert_noop!(
+			Xls20::set_admin(RawOrigin::Signed(create_account(1)).into(), admin_account),
+			Error::<Test>::RequireAdmin
+		);
+	});
+}
+
+#[test]
+fn set_admin_updates_existing_admin() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let first_admin = create_account(2);
+		let second_admin = create_account(3);
+
+		// Set first admin
+		assert_ok!(Xls20::set_admin(RawOrigin::Root.into(), first_admin));
+		assert_eq!(AdminAccount::<Test>::get(), Some(first_admin));
+
+		// Set second admin
+		assert_ok!(Xls20::set_admin(RawOrigin::Root.into(), second_admin));
+		assert_eq!(AdminAccount::<Test>::get(), Some(second_admin));
+		System::assert_has_event(
+			Event::<Test>::AdminAccountChanged {
+				old_key: Some(first_admin),
+				new_key: second_admin,
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn set_admin_works_with_current_admin() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let first_admin = create_account(2);
+		let second_admin = create_account(3);
+
+		// Set first admin
+		assert_ok!(Xls20::set_admin(RawOrigin::Root.into(), first_admin));
+		assert_eq!(AdminAccount::<Test>::get(), Some(first_admin));
+
+		// Current admin can set new admin
+		assert_ok!(Xls20::set_admin(RawOrigin::Signed(first_admin).into(), second_admin));
+		assert_eq!(AdminAccount::<Test>::get(), Some(second_admin));
+		System::assert_has_event(
+			Event::<Test>::AdminAccountChanged {
+				old_key: Some(first_admin),
+				new_key: second_admin,
+			}
+			.into(),
+		);
 	});
 }
 
@@ -834,8 +978,37 @@ mod set_collection_mappings {
 					RawOrigin::Signed(create_account(10)).into(),
 					collection_mappings.clone()
 				),
-				BadOrigin
+				Error::<Test>::RequireAdmin
 			);
+		});
+	}
+
+	#[test]
+	fn set_collection_mappings_works_with_admin() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let admin = create_account(12);
+			let collection_mappings = vec![
+				(12, Xls20Collection::new(H160::from_low_u64_be(12), 123)),
+				(22, Xls20Collection::new(H160::from_low_u64_be(22), 223)),
+			];
+
+			// Set admin first
+			assert_ok!(Xls20::set_admin(RawOrigin::Root.into(), admin));
+
+			// Admin can set collection mappings
+			assert_ok!(Xls20::set_collection_mappings(
+				RawOrigin::Signed(admin).into(),
+				collection_mappings.clone()
+			));
+
+			for (collection_id, xls20_collection) in collection_mappings.clone() {
+				assert_eq!(CollectionMapping::<Test>::get(xls20_collection), Some(collection_id));
+			}
+
+			// Check event
+			System::assert_last_event(MockEvent::Xls20(crate::Event::Xls20CollectionMappingsSet {
+				mappings: collection_mappings,
+			}));
 		});
 	}
 }

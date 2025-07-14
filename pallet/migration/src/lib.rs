@@ -67,7 +67,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The system event type
-		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		// /// Interface to access weight values
 		// type WeightInfo: WeightInfo;
@@ -80,6 +80,10 @@ pub mod pallet {
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
 	}
+
+	/// Admin account for migration operations
+	#[pallet::storage]
+	pub(super) type AdminAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	/// Are we currently migrating data
 	#[pallet::storage]
@@ -110,7 +114,7 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event {
+	pub enum Event<T: Config> {
 		/// Multi-Block migration has been enabled
 		MigrationEnabled,
 		/// Multi-Block migration has been disabled
@@ -123,6 +127,8 @@ pub mod pallet {
 		BlockDelaySet { block_delay: Option<u32> },
 		/// The block limit has been set
 		BlockLimitSet { block_limit: u32 },
+		/// Admin Account changed
+		AdminAccountChanged { old_key: Option<T::AccountId>, new_key: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -133,6 +139,8 @@ pub mod pallet {
 		InvalidBlockDelay,
 		/// The block limit must be greater than 0
 		InvalidBlockLimit,
+		/// Require to be admin
+		RequireAdmin,
 	}
 
 	#[pallet::hooks]
@@ -169,11 +177,23 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Can be called to pause or re-enable multi block migrations within the pallet.
+		/// Set the admin account for migration operations
 		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::set_admin())]
+		pub fn set_admin(origin: OriginFor<T>, new: T::AccountId) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let old_key = AdminAccount::<T>::get();
+			AdminAccount::<T>::put(new.clone());
+			Self::deposit_event(Event::AdminAccountChanged { old_key, new_key: new });
+			Ok(())
+		}
+
+		/// Can be called to pause or re-enable multi block migrations within the pallet.
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::enable_migration())]
 		pub fn enable_migration(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
-			ensure_root(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 			MigrationEnabled::<T>::put(enabled);
 			match enabled {
 				true => Self::deposit_event(Event::MigrationEnabled),
@@ -185,10 +205,10 @@ pub mod pallet {
 		/// Set the block delay for multi-block migrations. The block delay is the number
 		/// of blocks between each migration step. If set to None, the migration will run every block.
 		/// The delay must be greater than 1.
-		#[pallet::call_index(1)]
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_block_delay())]
 		pub fn set_block_delay(origin: OriginFor<T>, block_delay: Option<u32>) -> DispatchResult {
-			ensure_root(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 			match block_delay {
 				Some(delay) => {
 					ensure!(delay > 1, Error::<T>::InvalidBlockDelay);
@@ -202,108 +222,124 @@ pub mod pallet {
 
 		/// Set the block limit for multi-block migrations. The block limit is the maximum number
 		/// of individual items to migrate in a single block. Will still respect maximum weight rules.
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::set_block_limit())]
 		pub fn set_block_limit(origin: OriginFor<T>, block_limit: u32) -> DispatchResult {
-			ensure_root(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 			ensure!(block_limit > 0, Error::<T>::InvalidBlockLimit);
 			BlockLimit::<T>::put(block_limit);
 			Self::deposit_event(Event::BlockLimitSet { block_limit });
 			Ok(())
 		}
 	}
-}
 
-impl<T: Config> Pallet<T> {
-	pub fn migrate(block_number: BlockNumberFor<T>, weight_limit: Weight) -> Weight {
-		let weight_limit = weight_limit.min(T::MaxMigrationWeight::get());
-		// Check if there is enough weight to perform the migration
-		let mut used_weight = Weight::zero();
-		// Maximum weight for one migration step
-		let max_step_weight = T::CurrentMigration::max_step_weight();
-		// Reads: MigrationEnabled, Status, LastKey, BlockDelay
-		// Writes: Status, LastKey
-		let base_weight = T::WeightInfo::migrate();
-
-		// Check we have enough weight to perform at least one step
-		if weight_limit.all_lt(base_weight.saturating_add(max_step_weight)) {
-			return Weight::zero();
-		}
-
-		// Check if there is a migration in progress and it is not paused
-		let previous_steps = match Status::<T>::get() {
-			MigrationStatus::InProgress { steps_done } => steps_done,
-			_ => return DbWeight::get().reads(1),
-		};
-		if !MigrationEnabled::<T>::get() {
-			return DbWeight::get().reads(2);
-		}
-
-		// Check if there is a block delay set and skip migration if necessary
-		if let Some(delay) = BlockDelay::<T>::get() {
-			let delay: BlockNumberFor<T> = delay.into();
-			if block_number % delay != BlockNumberFor::<T>::zero() {
-				log::debug!(target: LOG_TARGET, "🦆 Skipping multi-block migration for block {:?}", block_number);
-				return DbWeight::get().reads(3);
+	impl<T: Config> Pallet<T> {
+		/// Ensure the origin is either root or the admin account
+		fn ensure_root_or_admin(
+			origin: OriginFor<T>,
+		) -> Result<Option<T::AccountId>, DispatchError> {
+			match ensure_signed_or_root(origin)? {
+				Some(who) => {
+					ensure!(
+						AdminAccount::<T>::get().map_or(false, |k| who == k),
+						Error::<T>::RequireAdmin
+					);
+					Ok(Some(who))
+				},
+				None => Ok(None),
 			}
 		}
 
-		let block_limit: u32 = BlockLimit::<T>::get();
-		let mut last_key = LastKey::<T>::get();
-		let mut step_counter: u32 = 0;
-		used_weight = used_weight.saturating_add(base_weight);
+		pub fn migrate(block_number: BlockNumberFor<T>, weight_limit: Weight) -> Weight {
+			let weight_limit = weight_limit.min(T::MaxMigrationWeight::get());
+			// Check if there is enough weight to perform the migration
+			let mut used_weight = Weight::zero();
+			// Maximum weight for one migration step
+			let max_step_weight = T::CurrentMigration::max_step_weight();
+			// Reads: MigrationEnabled, Status, LastKey, BlockDelay
+			// Writes: Status, LastKey
+			let base_weight = T::WeightInfo::migrate();
 
-		log::debug!(target: LOG_TARGET, "🦆 Starting multi-block migration for block {:?}", block_number);
-		while used_weight.all_lt(weight_limit) && step_counter < block_limit {
-			// Perform one migration step on the current migration
-			let step_result = T::CurrentMigration::step(last_key);
-			last_key = step_result.last_key.clone();
-			used_weight = used_weight.saturating_add(step_result.weight_consumed);
-			if step_counter.checked_add(1).is_none() {
-				log::debug!(target: LOG_TARGET, "🦆 Step counter overflowed, stopping migration");
-				break;
+			// Check we have enough weight to perform at least one step
+			if weight_limit.all_lt(base_weight.saturating_add(max_step_weight)) {
+				return Weight::zero();
 			}
-			step_counter = step_counter.saturating_add(1);
 
-			if step_result.is_finished() {
-				Self::complete_migration(previous_steps.saturating_add(step_counter));
-				return used_weight;
+			// Check if there is a migration in progress and it is not paused
+			let previous_steps = match Status::<T>::get() {
+				MigrationStatus::InProgress { steps_done } => steps_done,
+				_ => return DbWeight::get().reads(1),
+			};
+			if !MigrationEnabled::<T>::get() {
+				return DbWeight::get().reads(2);
 			}
+
+			// Check if there is a block delay set and skip migration if necessary
+			if let Some(delay) = BlockDelay::<T>::get() {
+				let delay: BlockNumberFor<T> = delay.into();
+				if block_number % delay != BlockNumberFor::<T>::zero() {
+					log::debug!(target: LOG_TARGET, "🦆 Skipping multi-block migration for block {:?}", block_number);
+					return DbWeight::get().reads(3);
+				}
+			}
+
+			let block_limit: u32 = BlockLimit::<T>::get();
+			let mut last_key = LastKey::<T>::get();
+			let mut step_counter: u32 = 0;
+			used_weight = used_weight.saturating_add(base_weight);
+
+			log::debug!(target: LOG_TARGET, "🦆 Starting multi-block migration for block {:?}", block_number);
+			while used_weight.all_lt(weight_limit) && step_counter < block_limit {
+				// Perform one migration step on the current migration
+				let step_result = T::CurrentMigration::step(last_key);
+				last_key = step_result.last_key.clone();
+				used_weight = used_weight.saturating_add(step_result.weight_consumed);
+				if step_counter.checked_add(1).is_none() {
+					log::debug!(target: LOG_TARGET, "🦆 Step counter overflowed, stopping migration");
+					break;
+				}
+				step_counter = step_counter.saturating_add(1);
+
+				if step_result.is_finished() {
+					Self::complete_migration(previous_steps.saturating_add(step_counter));
+					return used_weight;
+				}
+			}
+			log::debug!(target: LOG_TARGET, "🦆 Block {:?} Successfully migrated {} items, total: {}",
+				block_number,
+				step_counter,
+				previous_steps.saturating_add(step_counter)
+			);
+
+			// Weight of these writes is accounted for in base_weight
+			Status::<T>::put(MigrationStatus::InProgress {
+				steps_done: previous_steps.saturating_add(step_counter),
+			});
+			if let Some(last_key) = last_key {
+				LastKey::<T>::put(last_key);
+			} else {
+				LastKey::<T>::kill();
+			}
+
+			used_weight
 		}
-		log::debug!(target: LOG_TARGET, "🦆 Block {:?} Successfully migrated {} items, total: {}",
-			block_number,
-			step_counter,
-			previous_steps.saturating_add(step_counter)
-		);
 
-		// Weight of these writes is accounted for in base_weight
-		Status::<T>::put(MigrationStatus::InProgress {
-			steps_done: previous_steps.saturating_add(step_counter),
-		});
-		if let Some(last_key) = last_key {
-			LastKey::<T>::put(last_key);
-		} else {
+		/// Perform post migration operations and clean up storage
+		fn complete_migration(total_steps: u32) {
+			Status::<T>::put(MigrationStatus::Completed);
 			LastKey::<T>::kill();
+			T::CurrentMigration::on_complete();
+			log::debug!(target: LOG_TARGET, "🦆 Migration completed successfully");
+			log::debug!(target: LOG_TARGET, "🦆 Total items migrated: {}", total_steps);
+			Self::deposit_event(Event::MigrationComplete { items_migrated: total_steps });
 		}
 
-		used_weight
-	}
-
-	/// Perform post migration operations and clean up storage
-	fn complete_migration(total_steps: u32) {
-		Status::<T>::put(MigrationStatus::Completed);
-		LastKey::<T>::kill();
-		T::CurrentMigration::on_complete();
-		log::debug!(target: LOG_TARGET, "🦆 Migration completed successfully");
-		log::debug!(target: LOG_TARGET, "🦆 Total items migrated: {}", total_steps);
-		Self::deposit_event(Event::MigrationComplete { items_migrated: total_steps });
-	}
-
-	/// Returns whether a migration is in progress
-	fn migration_in_progress() -> bool {
-		match Status::<T>::get() {
-			MigrationStatus::InProgress { steps_done: _ } => true,
-			_ => false,
+		/// Returns whether a migration is in progress
+		pub fn migration_in_progress() -> bool {
+			match Status::<T>::get() {
+				MigrationStatus::InProgress { steps_done: _ } => true,
+				_ => false,
+			}
 		}
 	}
 }

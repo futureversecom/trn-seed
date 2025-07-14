@@ -16,10 +16,15 @@
 use super::*;
 #[allow(unused_imports)]
 use crate::Pallet as Migration;
-use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
+use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::StorageHasher;
 use frame_system::RawOrigin;
 use seed_primitives::{CollectionUuid, SerialNumber};
+
+/// This is a helper function to get an account.
+pub fn account<T: Config>(name: &'static str) -> T::AccountId {
+	bench_account(name, 0, 0)
+}
 
 benchmarks! {
 	// This benchmarks the weight of dispatching migrate to execute 1 `NoopMigraton` step
@@ -68,6 +73,13 @@ benchmarks! {
 	}: _(RawOrigin::Root, limit)
 	verify {
 		assert_eq!(BlockLimit::<T>::get(), 1000);
+	}
+
+	set_admin {
+		let new_admin = account::<T>("Admin");
+	}: _(RawOrigin::Root, new_admin.clone())
+	verify {
+		assert_eq!(AdminAccount::<T>::get(), Some(new_admin));
 	}
 }
 
