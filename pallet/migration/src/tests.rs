@@ -60,7 +60,7 @@ mod enable_migration {
 	use super::*;
 
 	#[test]
-	fn enable_migration_works() {
+	fn enable_migration_works_with_root() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			assert_ok!(Migration::enable_migration(RawOrigin::Root.into(), true));
 			assert!(MigrationEnabled::<Test>::get());
@@ -73,11 +73,43 @@ mod enable_migration {
 	}
 
 	#[test]
-	fn enable_migration_not_sudo_fails() {
+	fn enable_migration_works_with_admin() {
 		TestExt::<Test>::default().build().execute_with(|| {
+			let admin_account = create_account(2);
+			// Set admin first
+			assert_ok!(Migration::set_admin(RawOrigin::Root.into(), admin_account));
+
+			// Admin can enable migration
+			assert_ok!(Migration::enable_migration(RawOrigin::Signed(admin_account).into(), true));
+			assert!(MigrationEnabled::<Test>::get());
+			System::assert_has_event(Event::MigrationEnabled.into());
+
+			// Admin can disable migration
+			assert_ok!(Migration::enable_migration(RawOrigin::Signed(admin_account).into(), false));
+			assert!(!MigrationEnabled::<Test>::get());
+			System::assert_has_event(Event::MigrationDisabled.into());
+		});
+	}
+
+	#[test]
+	fn enable_migration_not_root_or_admin_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let non_admin_account = create_account(1);
 			assert_noop!(
-				Migration::enable_migration(RawOrigin::Signed(create_account(1)).into(), true),
-				BadOrigin
+				Migration::enable_migration(RawOrigin::Signed(non_admin_account).into(), true),
+				Error::<Test>::RequireAdmin
+			);
+		});
+	}
+
+	#[test]
+	fn enable_migration_no_admin_set_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let some_account = create_account(1);
+			// No admin is set, so only root should work
+			assert_noop!(
+				Migration::enable_migration(RawOrigin::Signed(some_account).into(), true),
+				Error::<Test>::RequireAdmin
 			);
 		});
 	}
@@ -87,7 +119,7 @@ mod set_block_delay {
 	use super::*;
 
 	#[test]
-	fn set_block_delay_works() {
+	fn set_block_delay_works_with_root() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let block_delay = Some(10);
 			assert_ok!(Migration::set_block_delay(RawOrigin::Root.into(), block_delay));
@@ -102,15 +134,41 @@ mod set_block_delay {
 	}
 
 	#[test]
-	fn set_block_delay_not_sudo_fails() {
+	fn set_block_delay_works_with_admin() {
 		TestExt::<Test>::default().build().execute_with(|| {
+			let admin_account = create_account(2);
+			// Set admin first
+			assert_ok!(Migration::set_admin(RawOrigin::Root.into(), admin_account));
+
+			let block_delay = Some(10);
+			assert_ok!(Migration::set_block_delay(
+				RawOrigin::Signed(admin_account).into(),
+				block_delay
+			));
+			assert_eq!(BlockDelay::<Test>::get(), block_delay);
+			System::assert_has_event(Event::BlockDelaySet { block_delay }.into());
+
+			let block_delay = None;
+			assert_ok!(Migration::set_block_delay(
+				RawOrigin::Signed(admin_account).into(),
+				block_delay
+			));
+			assert_eq!(BlockDelay::<Test>::get(), block_delay);
+			System::assert_has_event(Event::BlockDelaySet { block_delay }.into());
+		});
+	}
+
+	#[test]
+	fn set_block_delay_not_root_or_admin_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let non_admin_account = create_account(1);
 			let block_delay = Some(10);
 			assert_noop!(
 				Migration::set_block_delay(
-					RawOrigin::Signed(create_account(1)).into(),
+					RawOrigin::Signed(non_admin_account).into(),
 					block_delay
 				),
-				BadOrigin
+				Error::<Test>::RequireAdmin
 			);
 		});
 	}
@@ -142,7 +200,7 @@ mod set_block_limit {
 	use super::*;
 
 	#[test]
-	fn set_block_limit_works() {
+	fn set_block_limit_works_with_root() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let block_limit = 100;
 			assert_ok!(Migration::set_block_limit(RawOrigin::Root.into(), block_limit));
@@ -152,11 +210,29 @@ mod set_block_limit {
 	}
 
 	#[test]
-	fn set_block_limit_not_sudo_fails() {
+	fn set_block_limit_works_with_admin() {
 		TestExt::<Test>::default().build().execute_with(|| {
+			let admin_account = create_account(2);
+			// Set admin first
+			assert_ok!(Migration::set_admin(RawOrigin::Root.into(), admin_account));
+
+			let block_limit = 100;
+			assert_ok!(Migration::set_block_limit(
+				RawOrigin::Signed(admin_account).into(),
+				block_limit
+			));
+			assert_eq!(BlockLimit::<Test>::get(), block_limit);
+			System::assert_has_event(Event::BlockLimitSet { block_limit }.into());
+		});
+	}
+
+	#[test]
+	fn set_block_limit_not_root_or_admin_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let non_admin_account = create_account(1);
 			assert_noop!(
-				Migration::set_block_limit(RawOrigin::Signed(create_account(1)).into(), 10),
-				BadOrigin
+				Migration::set_block_limit(RawOrigin::Signed(non_admin_account).into(), 10),
+				Error::<Test>::RequireAdmin
 			);
 		});
 	}
@@ -167,6 +243,53 @@ mod set_block_limit {
 			assert_noop!(
 				Migration::set_block_limit(RawOrigin::Root.into(), 0),
 				Error::<Test>::InvalidBlockLimit
+			);
+		});
+	}
+}
+
+mod set_admin {
+	use super::*;
+
+	#[test]
+	fn set_admin_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let admin_account = create_account(2);
+			assert_ok!(Migration::set_admin(RawOrigin::Root.into(), admin_account));
+			assert_eq!(AdminAccount::<Test>::get(), Some(admin_account));
+			System::assert_has_event(
+				Event::AdminAccountChanged { old_key: None, new_key: admin_account }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn set_admin_not_sudo_fails() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let admin_account = create_account(2);
+			assert_noop!(
+				Migration::set_admin(RawOrigin::Signed(create_account(1)).into(), admin_account),
+				BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn set_admin_updates_existing_admin() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let first_admin = create_account(2);
+			let second_admin = create_account(3);
+
+			// Set first admin
+			assert_ok!(Migration::set_admin(RawOrigin::Root.into(), first_admin));
+			assert_eq!(AdminAccount::<Test>::get(), Some(first_admin));
+
+			// Set second admin
+			assert_ok!(Migration::set_admin(RawOrigin::Root.into(), second_admin));
+			assert_eq!(AdminAccount::<Test>::get(), Some(second_admin));
+			System::assert_has_event(
+				Event::AdminAccountChanged { old_key: Some(first_admin), new_key: second_admin }
+					.into(),
 			);
 		});
 	}
