@@ -70,6 +70,9 @@ pub fn build_xls20_collection<T: Config>(
 benchmarks! {
 	where_clause { where T: pallet_nft::Config }
 
+	set_admin {
+	}: _(RawOrigin::Root, account::<T>("Admin"))
+
 	set_relayer {
 	}: _(RawOrigin::Root, account::<T>("Bob"))
 

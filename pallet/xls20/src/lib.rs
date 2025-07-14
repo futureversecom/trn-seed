@@ -95,6 +95,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Relayer<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
+	/// Admin account for XLS20 operations
+	#[pallet::storage]
+	pub type AdminAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
 	/// The extra cost of minting an XLS-20 compatible NFT
 	#[pallet::storage]
 	pub type Xls20MintFee<T> = StorageValue<_, Balance, ValueQuery>;
@@ -132,6 +136,8 @@ pub mod pallet {
 		Xls20CompatibilityEnabled { collection_id: CollectionUuid },
 		/// Additional mint fee for XLS-20 mint has been paid to relayer
 		Xls20MintFeePaid { collection_owner: T::AccountId, total_fee: Balance },
+		/// Admin Account changed
+		AdminAccountChanged { old_key: Option<T::AccountId>, new_key: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -152,15 +158,29 @@ pub mod pallet {
 		CouldNotDecodeXls20Token,
 		/// The token is burnable and cannot be bridged
 		CannotBridgeBurnableToken,
+		/// Require to be admin
+		RequireAdmin,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Set the relayer address
+		/// Set the admin account for XLS20 operations
 		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::set_admin())]
+		pub fn set_admin(origin: OriginFor<T>, new: T::AccountId) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+
+			let old_key = AdminAccount::<T>::get();
+			AdminAccount::<T>::put(new.clone());
+			Self::deposit_event(Event::<T>::AdminAccountChanged { old_key, new_key: new });
+			Ok(())
+		}
+
+		/// Set the relayer address
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_relayer())]
 		pub fn set_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
-			ensure_root(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 			<Relayer<T>>::put(&relayer);
 			Self::deposit_event(Event::<T>::RelayerSet { account: relayer });
 			Ok(())
@@ -170,10 +190,10 @@ pub mod pallet {
 		/// This covers the additional costs incurred by the relayer for the following:
 		///  - Minting the token on XRPL
 		///  - Calling fulfill_xls20_mint on The Root Network
-		#[pallet::call_index(1)]
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_xls20_fee())]
 		pub fn set_xls20_fee(origin: OriginFor<T>, new_fee: Balance) -> DispatchResult {
-			ensure_root(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 			<Xls20MintFee<T>>::put(new_fee);
 			Self::deposit_event(Event::<T>::Xls20MintFeeSet { new_fee });
 			Ok(())
@@ -182,7 +202,7 @@ pub mod pallet {
 		/// Enables XLS-20 compatibility on a collection
 		///  - Collection must not have any tokens minted
 		///  - Caller must be collection owner
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::enable_xls20_compatibility())]
 		pub fn enable_xls20_compatibility(
 			origin: OriginFor<T>,
@@ -195,7 +215,7 @@ pub mod pallet {
 		}
 
 		// Collection owners can re-request XLS-20 mints on tokens that have failed
-		#[pallet::call_index(3)]
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::re_request_xls20_mint())]
 		#[transactional]
 		pub fn re_request_xls20_mint(
@@ -239,7 +259,7 @@ pub mod pallet {
 		/// Submit XLS-20 token ids to The Root Network
 		/// Only callable by the trusted relayer account
 		/// Can apply multiple mappings from the same collection in one transaction
-		#[pallet::call_index(4)]
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::fulfill_xls20_mint())]
 		#[transactional]
 		pub fn fulfill_xls20_mint(
@@ -278,14 +298,14 @@ pub mod pallet {
 
 		/// Manually set the collection mapping for a TRN collection to XRPL issuer and taxon
 		/// Used to set up initial mappings for bridged tokens
-		#[pallet::call_index(5)]
+		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::set_collection_mappings(mappings.len() as u32))]
 		#[transactional]
 		pub fn set_collection_mappings(
 			origin: OriginFor<T>,
 			mappings: Vec<(CollectionUuid, Xls20Collection)>,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 			mappings.iter().for_each(|(collection_id, xls20_collection)| {
 				CollectionMapping::<T>::insert(xls20_collection, collection_id);
 			});
@@ -296,6 +316,20 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Ensure the origin is either root or the admin account
+	fn ensure_root_or_admin(origin: OriginFor<T>) -> Result<Option<T::AccountId>, DispatchError> {
+		match ensure_signed_or_root(origin)? {
+			Some(who) => {
+				ensure!(
+					AdminAccount::<T>::get().map_or(false, |k| who == k),
+					Error::<T>::RequireAdmin
+				);
+				Ok(Some(who))
+			},
+			None => Ok(None),
+		}
+	}
+
 	/// Pay additional fee to cover relayer costs for minting XLS-20 tokens
 	pub fn pay_xls20_fee(who: &T::AccountId, token_count: TokenCount) -> DispatchResult {
 		let xls20_mint_fee = Xls20MintFee::<T>::get();
