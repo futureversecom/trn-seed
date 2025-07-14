@@ -3049,8 +3049,7 @@ mod set_token_transferable_flag {
 }
 
 mod soulbound_token {
-	use crate::PendingIssuances;
-
+	use crate::{PendingIssuances, SftPendingIssuance};
 	use super::*;
 
 	fn issue_and_accept(
@@ -3191,8 +3190,9 @@ mod soulbound_token {
 			));
 
 			assert_eq!(
-				PendingIssuances::<Test>::get((collection_id, &token_owner, issuance_id)),
-				Some(serial_numbers.clone())
+				PendingIssuances::<Test>::get(collection_id)
+					.get_pending_issuance(&token_owner, issuance_id),
+				Some(SftPendingIssuance { issuance_id, serial_numbers: serial_numbers.clone() })
 			);
 
 			let (serial_numbers, balances) = Sft::unzip_serial_numbers(serial_numbers);
@@ -3213,10 +3213,6 @@ mod soulbound_token {
 				collection_id,
 				issuance_id
 			));
-
-			assert!(
-				PendingIssuances::<Test>::get((collection_id, &token_owner, issuance_id)).is_none()
-			);
 
 			System::assert_last_event(
 				Event::<Test>::Issued { token_owner, serial_numbers, balances }.into(),

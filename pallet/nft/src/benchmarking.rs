@@ -276,7 +276,7 @@ benchmarks! {
 		let token_id = (collection_id, 1);
 		assert_eq!(AdditionalTokenData::<T>::get(token_id), additional_data);
 		let collection_info = CollectionInfo::<T>::get(collection_id).expect("Collection not found");
-		assert!(collection_info.is_token_owner(&owner, 1))
+		assert_eq!(TokenInfo::<T>::get(collection_id, 1).unwrap().owner, owner);
 	}
 }
 

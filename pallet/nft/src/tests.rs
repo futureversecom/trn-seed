@@ -16,7 +16,7 @@
 use super::*;
 use crate::mock::TransferLimit;
 use crate::{
-	mock::{MaxTokensPerCollection, Nft, RuntimeEvent as MockEvent, System, Test},
+	mock::{Nft, RuntimeEvent as MockEvent, System, Test},
 	CollectionInfo, Event as NftEvent,
 };
 use seed_pallet_common::test_prelude::*;
@@ -3056,7 +3056,7 @@ mod soulbound_token {
 		token_owner: AccountId,
 		burn_authority: TokenBurnAuthority,
 	) -> TokenId {
-		let issuance_id = NextIssuanceId::<Test>::get();
+		let issuance_id = PendingIssuances::<Test>::get(collection_id).next_issuance_id;
 		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
 
 		assert_ok!(Nft::issue_soulbound(
@@ -3109,8 +3109,9 @@ mod soulbound_token {
 			);
 
 			assert_eq!(
-				PendingIssuances::<Test>::get((collection_id, &token_owner, issuance_id)),
-				Some(PendingIssuance { quantity, burn_authority })
+				PendingIssuances::<Test>::get(collection_id)
+					.get_pending_issuance(&token_owner, issuance_id),
+				Some(PendingIssuance { issuance_id, quantity, burn_authority })
 			);
 
 			assert_ok!(Nft::accept_soulbound_issuance(
@@ -3157,8 +3158,9 @@ mod soulbound_token {
 			let issuance_id = 0;
 
 			assert_eq!(
-				PendingIssuances::<Test>::get((collection_id, &token_owner, issuance_id)),
-				Some(PendingIssuance { quantity, burn_authority })
+				PendingIssuances::<Test>::get(collection_id)
+					.get_pending_issuance(&token_owner, issuance_id),
+				Some(PendingIssuance { issuance_id, quantity, burn_authority })
 			);
 
 			assert_ok!(Nft::accept_soulbound_issuance(

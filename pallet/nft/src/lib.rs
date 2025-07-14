@@ -37,9 +37,9 @@ use frame_support::{
 use seed_pallet_common::{
 	utils::{
 		CollectionUtilityFlags, PublicMintInformation, TokenBurnAuthority,
-		TokenUtilityFlags as TokenFlags,
+		TokenUtilityFlags as TokenFlags, TokenUtilityFlags
 	},
-	NFIRequest, OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest,
+	NFIRequest, OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest, Migrator
 };
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme, OriginChain,
@@ -81,11 +81,9 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use seed_pallet_common::Migrator;
-	use seed_primitives::IssuanceId;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(9);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -635,6 +633,7 @@ pub mod pallet {
 				quantity,
 				&owner,
 				public_mint_info,
+				TokenUtilityFlags::default()
 			)?;
 
 			// throw event, listing starting and endpoint token ids (sequential mint)
@@ -869,6 +868,10 @@ pub mod pallet {
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
+			let utility_flags = TokenUtilityFlags {
+				transferable: false,
+				burn_authority: Some(pending_issuance.burn_authority),
+			};
 			// Note: We validate this mint as if it was being performed by the owner.
 			let collection_owner = collection_info.owner.clone();
 			let serial_numbers = Self::do_mint(
@@ -878,15 +881,8 @@ pub mod pallet {
 				pending_issuance.quantity,
 				&who,
 				None, // public mint info disabled for this call
+				utility_flags
 			)?;
-
-			// Set the utility flags for the tokens
-			for serial_number in serial_numbers.clone() {
-				TokenUtilityFlags::<T>::mutate((collection_id, serial_number), |flags| {
-					flags.transferable = false;
-					flags.burn_authority = Some(pending_issuance.burn_authority);
-				});
-			}
 
 			Self::deposit_event(Event::<T>::Issued {
 				token_owner: who.clone(),
@@ -923,8 +919,8 @@ pub mod pallet {
             T::Migrator::ensure_migrated()?;
 			let collection_info =
 				CollectionInfo::<T>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
-			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
-			ensure!(collection_info.token_exists(token_id.1), Error::<T>::NoToken);
+			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
+			ensure!(TokenInfo::<T>::contains_key(token_id.0, token_id.1), Error::<T>::NoToken);
 			Self::do_set_additional_data(token_id, additional_data)?;
 			Ok(())
 		}
@@ -942,7 +938,7 @@ pub mod pallet {
             T::Migrator::ensure_migrated()?;
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
 			let owner = token_owner.unwrap_or(who.clone());
 			let serial_numbers = Self::do_mint(
 				who,
@@ -951,6 +947,7 @@ pub mod pallet {
 				1, // Mint only one token with this extrinsic
 				&owner,
 				None, // public mint info disabled for this call
+				TokenUtilityFlags::default()
 			)?;
 
 			// Set the additional data and emit event

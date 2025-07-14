@@ -109,7 +109,6 @@ impl<T: Config> Pallet<T> {
 		);
         ensure!(CollectionInfo::<T>::contains_key(collection_id), Error::<T>::NoCollectionFound);
 
-
 		// Update `TokenOwner` mapping and check token level restrictions
 		for &serial_number in &serial_numbers {
 			TokenInfo::<T>::try_mutate(
@@ -166,7 +165,11 @@ impl<T: Config> Pallet<T> {
 						}
 					},
 					None => {
-						*owned_serials = Some(serial_numbers.clone());
+						// convert bound to MaxTokensPerCollection (Which should be higher than TransferLimit)
+						let bounded_serials: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
+							BoundedVec::try_from(serial_numbers.clone().into_inner())
+								.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+						*owned_serials = Some(bounded_serials);
 					},
 				}
 				Ok(())
@@ -275,7 +278,7 @@ impl<T: Config> Pallet<T> {
 		let metadata_scheme = collection_info.metadata_scheme.clone();
 
 		if let Some(public_mint_info) = public_mint_info {
-			if !collection_info.is_collection_owner(&who) {
+			if &collection_info.owner != &who {
 				// Charge the mint fee for the mint
 				Self::charge_mint_fee(
 					&who,
@@ -287,7 +290,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 		// Perform the mint and update storage
-		Self::mint_tokens(collection_id, collection_info, token_owner, &serial_numbers)?;
+		Self::mint_tokens(collection_id, collection_info, token_owner, &serial_numbers, utility_flags)?;
 		// Pay XLS20 mint fee and send requests
 		if xls20_compatible {
 			T::Xls20MintRequest::request_xls20_mint(

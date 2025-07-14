@@ -1215,7 +1215,8 @@ where
 		let origin = handle.context().caller;
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let next_issuance_id = pallet_nft::NextIssuanceId::<Runtime>::get();
+		let next_issuance_id =
+			pallet_nft::PendingIssuances::<Runtime>::get(collection_id).next_issuance_id;
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -1255,23 +1256,17 @@ where
 
 		let owner: H160 = owner.into();
 
-		let mut iter = pallet_nft::PendingIssuances::<Runtime>::iter_prefix((
-			collection_id,
-			Runtime::AccountId::from(owner),
-		));
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let pending_issuances = pallet_nft::PendingIssuances::<Runtime>::get(collection_id)
+			.get_pending_issuances(&owner.into());
 
-		let mut issuance_ids: Vec<IssuanceId> = Vec::new();
-		let mut issuances: Vec<(U256, u8)> = Vec::new();
+		let issuance_ids: Vec<U256> =
+			pending_issuances.iter().map(|p| U256::from(p.issuance_id)).collect();
 
-		while let Some((p, q)) = iter.next() {
-			// Record gas cost before processing the item
-			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-
-			// Process and store the values
-			issuance_ids.push(p);
-			issuances.push((U256::from(q.quantity), q.burn_authority.into()));
-		}
-
+		let issuances: Vec<(U256, u8)> = pending_issuances
+			.iter()
+			.map(|p| (U256::from(p.quantity), p.burn_authority.into()))
+			.collect();
 		Ok(succeed(EvmDataWriter::new().write(issuance_ids).write(issuances).build()))
 	}
 
@@ -1300,12 +1295,11 @@ where
 		let serial_number = collection.next_serial_number;
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let Some(pending_issuance) = pallet_nft::PendingIssuances::<Runtime>::get((
-			collection_id,
-			Runtime::AccountId::from(origin),
-			issuance_id,
-		)) else {
-			return Err(revert("Issuance does not exist"));
+		let pending_issuance = match pallet_nft::PendingIssuances::<Runtime>::get(collection_id)
+			.get_pending_issuance(&origin.into(), issuance_id)
+		{
+			Some(pending_issuance) => pending_issuance,
+			None => return Err(revert("Issuance does not exist")),
 		};
 
 		// Dispatch call (if enough gas).
