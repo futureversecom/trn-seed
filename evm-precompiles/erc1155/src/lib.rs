@@ -1346,7 +1346,7 @@ where
 						collection_id,
 						*serial_number,
 					))
-						.burn_authority
+					.burn_authority
 					{
 						Some(burn_auth) => burn_auth.into(),
 						_ => 0 as u8,

@@ -248,7 +248,6 @@ impl SftTokenBalance {
 	}
 }
 
-
 #[derive(
 	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
 )]
@@ -282,7 +281,7 @@ where
 }
 
 impl<AccountId, MaxSerialsPerMint, MaxPendingIssuances> Default
-for SftCollectionPendingIssuances<AccountId, MaxSerialsPerMint, MaxPendingIssuances>
+	for SftCollectionPendingIssuances<AccountId, MaxSerialsPerMint, MaxPendingIssuances>
 where
 	AccountId: Debug + PartialEq + Clone,
 	MaxSerialsPerMint: Get<u32>,
@@ -294,7 +293,7 @@ where
 }
 
 impl<AccountId, MaxSerialsPerMint, MaxPendingIssuances>
-SftCollectionPendingIssuances<AccountId, MaxSerialsPerMint, MaxPendingIssuances>
+	SftCollectionPendingIssuances<AccountId, MaxSerialsPerMint, MaxPendingIssuances>
 where
 	AccountId: Debug + PartialEq + Clone,
 	MaxSerialsPerMint: Get<u32>,

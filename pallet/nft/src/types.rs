@@ -20,8 +20,8 @@ use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoB
 use scale_info::TypeInfo;
 use seed_pallet_common::utils::{TokenBurnAuthority, TokenUtilityFlags as TokenFlags};
 use seed_primitives::{
-	CrossChainCompatibility, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-	TokenCount, TokenLockReason, IssuanceId
+	CrossChainCompatibility, IssuanceId, MetadataScheme, OriginChain, RoyaltiesSchedule,
+	SerialNumber, TokenCount, TokenLockReason,
 };
 use serde::{Deserialize, Serialize};
 use sp_runtime::{BoundedVec, Permill};
@@ -155,7 +155,7 @@ where
 }
 
 impl<AccountId, MaxPendingIssuances> Default
-for CollectionPendingIssuances<AccountId, MaxPendingIssuances>
+	for CollectionPendingIssuances<AccountId, MaxPendingIssuances>
 where
 	AccountId: Debug + PartialEq + Clone,
 	MaxPendingIssuances: Get<u32>,

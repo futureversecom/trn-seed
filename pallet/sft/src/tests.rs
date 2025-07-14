@@ -3049,8 +3049,8 @@ mod set_token_transferable_flag {
 }
 
 mod soulbound_token {
-	use crate::{PendingIssuances, SftPendingIssuance};
 	use super::*;
+	use crate::{PendingIssuances, SftPendingIssuance};
 
 	fn issue_and_accept(
 		collection_owner: AccountId,

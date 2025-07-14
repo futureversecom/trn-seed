@@ -107,7 +107,7 @@ impl<T: Config> Pallet<T> {
 			Self::check_unique(serial_numbers.clone().into_inner()),
 			Error::<T>::SerialNumbersNotUnique
 		);
-        ensure!(CollectionInfo::<T>::contains_key(collection_id), Error::<T>::NoCollectionFound);
+		ensure!(CollectionInfo::<T>::contains_key(collection_id), Error::<T>::NoCollectionFound);
 
 		// Update `TokenOwner` mapping and check token level restrictions
 		for &serial_number in &serial_numbers {
@@ -237,9 +237,14 @@ impl<T: Config> Pallet<T> {
 			BoundedVec::try_from(serial_numbers_trimmed);
 		match serial_numbers {
 			Ok(serial_numbers) => {
-                // TODO Fix this part
-				let mint =
-					Self::mint_tokens(collection_id, &mut collection_info, owner, &serial_numbers, TokenFlags::default());
+				// TODO Fix this part
+				let mint = Self::mint_tokens(
+					collection_id,
+					&mut collection_info,
+					owner,
+					&serial_numbers,
+					TokenFlags::default(),
+				);
 
 				if mint.is_ok() {
 					// throw event, listing all serial numbers minted from bridging
@@ -270,7 +275,7 @@ impl<T: Config> Pallet<T> {
 		quantity: TokenCount,
 		token_owner: &T::AccountId,
 		public_mint_info: Option<PublicMintInformation>,
-        utility_flags: TokenFlags,
+		utility_flags: TokenFlags,
 	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
 		// Perform pre mint checks
 		let serial_numbers = Self::pre_mint(collection_id, collection_info, quantity)?;
@@ -290,7 +295,13 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 		// Perform the mint and update storage
-		Self::mint_tokens(collection_id, collection_info, token_owner, &serial_numbers, utility_flags)?;
+		Self::mint_tokens(
+			collection_id,
+			collection_info,
+			token_owner,
+			&serial_numbers,
+			utility_flags,
+		)?;
 		// Pay XLS20 mint fee and send requests
 		if xls20_compatible {
 			T::Xls20MintRequest::request_xls20_mint(
@@ -401,7 +412,7 @@ impl<T: Config> Pallet<T> {
 		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 		utility_flags: TokenFlags,
 	) -> DispatchResult {
-        T::Migrator::ensure_migrated()?;
+		T::Migrator::ensure_migrated()?;
 		// Update collection issuance
 		collection_info.collection_issuance = collection_info
 			.collection_issuance

@@ -37,9 +37,9 @@ use frame_support::{
 use seed_pallet_common::{
 	utils::{
 		CollectionUtilityFlags, PublicMintInformation, TokenBurnAuthority,
-		TokenUtilityFlags as TokenFlags, TokenUtilityFlags
+		TokenUtilityFlags as TokenFlags, TokenUtilityFlags,
 	},
-	NFIRequest, OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest, Migrator
+	Migrator, NFIRequest, OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest,
 };
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme, OriginChain,
@@ -633,7 +633,7 @@ pub mod pallet {
 				quantity,
 				&owner,
 				public_mint_info,
-				TokenUtilityFlags::default()
+				TokenUtilityFlags::default(),
 			)?;
 
 			// throw event, listing starting and endpoint token ids (sequential mint)
@@ -881,7 +881,7 @@ pub mod pallet {
 				pending_issuance.quantity,
 				&who,
 				None, // public mint info disabled for this call
-				utility_flags
+				utility_flags,
 			)?;
 
 			Self::deposit_event(Event::<T>::Issued {
@@ -916,7 +916,7 @@ pub mod pallet {
 			additional_data: Option<BoundedVec<u8, T::MaxDataLength>>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-            T::Migrator::ensure_migrated()?;
+			T::Migrator::ensure_migrated()?;
 			let collection_info =
 				CollectionInfo::<T>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
@@ -935,7 +935,7 @@ pub mod pallet {
 			additional_data: BoundedVec<u8, T::MaxDataLength>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-            T::Migrator::ensure_migrated()?;
+			T::Migrator::ensure_migrated()?;
 			let mut collection_info =
 				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(&collection_info.owner == &who, Error::<T>::NotCollectionOwner);
@@ -947,7 +947,7 @@ pub mod pallet {
 				1, // Mint only one token with this extrinsic
 				&owner,
 				None, // public mint info disabled for this call
-				TokenUtilityFlags::default()
+				TokenUtilityFlags::default(),
 			)?;
 
 			// Set the additional data and emit event
