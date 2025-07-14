@@ -1690,33 +1690,36 @@ fn set_admin() {
 		let charlie: AccountId = create_account(3);
 
 		// normal user can not set admin
-		assert_noop!(Dex::set_admin(RuntimeOrigin::signed(alice), bob), crate::Error::<Test>::RequireAdmin);
+		assert_noop!(
+			Dex::set_admin(RuntimeOrigin::signed(alice), bob),
+			crate::Error::<Test>::RequireAdmin
+		);
 
 		// set admin with root user
 		assert_ok!(Dex::set_admin(RuntimeOrigin::root(), bob));
 		assert_eq!(crate::AdminAccount::<Test>::get(), Some(bob));
 
-		System::assert_last_event(MockEvent::Dex(crate::Event::AdminAccountChanged { 
-			old_key: None, 
-			new_key: bob 
+		System::assert_last_event(MockEvent::Dex(crate::Event::AdminAccountChanged {
+			old_key: None,
+			new_key: bob,
 		}));
 
 		// admin can change admin to another account
 		assert_ok!(Dex::set_admin(RuntimeOrigin::signed(bob), alice));
 		assert_eq!(crate::AdminAccount::<Test>::get(), Some(alice));
 
-		System::assert_last_event(MockEvent::Dex(crate::Event::AdminAccountChanged { 
-			old_key: Some(bob), 
-			new_key: alice 
+		System::assert_last_event(MockEvent::Dex(crate::Event::AdminAccountChanged {
+			old_key: Some(bob),
+			new_key: alice,
 		}));
 
 		// new admin can change admin back to root
 		assert_ok!(Dex::set_admin(RuntimeOrigin::signed(alice), charlie));
 		assert_eq!(crate::AdminAccount::<Test>::get(), Some(charlie));
 
-		System::assert_last_event(MockEvent::Dex(crate::Event::AdminAccountChanged { 
-			old_key: Some(alice), 
-			new_key: charlie 
+		System::assert_last_event(MockEvent::Dex(crate::Event::AdminAccountChanged {
+			old_key: Some(alice),
+			new_key: charlie,
 		}));
 
 		// root can still change admin
@@ -1738,7 +1741,10 @@ fn set_fee_to_with_root() {
 		assert_eq!(FeeTo::<Test>::get(), fee_pot);
 
 		// normal user can not set FeeTo
-		assert_noop!(Dex::set_fee_to(RuntimeOrigin::signed(alice), Some(bob)), crate::Error::<Test>::RequireAdmin);
+		assert_noop!(
+			Dex::set_fee_to(RuntimeOrigin::signed(alice), Some(bob)),
+			crate::Error::<Test>::RequireAdmin
+		);
 
 		// change FeeTo with root user
 		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), Some(bob)));
@@ -1790,7 +1796,10 @@ fn set_fee_to_not_root_or_admin_fails() {
 		let non_admin: AccountId = create_account(3);
 
 		// Non-admin user can not set FeeTo
-		assert_noop!(Dex::set_fee_to(RuntimeOrigin::signed(non_admin), Some(bob)), crate::Error::<Test>::RequireAdmin);
+		assert_noop!(
+			Dex::set_fee_to(RuntimeOrigin::signed(non_admin), Some(bob)),
+			crate::Error::<Test>::RequireAdmin
+		);
 	});
 }
 

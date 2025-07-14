@@ -180,11 +180,11 @@ pub mod pallet {
 		ZeroTargetAmount,
 		/// The Liquidity Provider token does not exist
 		LiquidityProviderTokenNotCreated,
-			/// The deadline has been missed
+		/// The deadline has been missed
 		ExpiredDeadline,
 		/// Require to be admin
 		RequireAdmin,
-}
+	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]

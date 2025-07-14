@@ -111,7 +111,10 @@ fn set_relayer_works() {
 		let admin = create_account(12);
 
 		// Not sudo should fail
-		assert_noop!(Xls20::set_relayer(RawOrigin::Signed(alice).into(), alice), Error::<Test>::RequireAdmin);
+		assert_noop!(
+			Xls20::set_relayer(RawOrigin::Signed(alice).into(), alice),
+			Error::<Test>::RequireAdmin
+		);
 		assert_eq!(Relayer::<Test>::get(), None);
 
 		// Set relayer to Alice
@@ -168,7 +171,10 @@ fn set_xls20_fee_works() {
 		let new_fee: Balance = 100;
 
 		// Not sudo should fail
-		assert_noop!(Xls20::set_xls20_fee(RawOrigin::Signed(alice).into(), new_fee), Error::<Test>::RequireAdmin);
+		assert_noop!(
+			Xls20::set_xls20_fee(RawOrigin::Signed(alice).into(), new_fee),
+			Error::<Test>::RequireAdmin
+		);
 		assert_eq!(Xls20MintFee::<Test>::get(), 0);
 
 		// Set fee to 100
@@ -261,8 +267,11 @@ fn set_admin_updates_existing_admin() {
 		assert_ok!(Xls20::set_admin(RawOrigin::Root.into(), second_admin));
 		assert_eq!(AdminAccount::<Test>::get(), Some(second_admin));
 		System::assert_has_event(
-			Event::<Test>::AdminAccountChanged { old_key: Some(first_admin), new_key: second_admin }
-				.into(),
+			Event::<Test>::AdminAccountChanged {
+				old_key: Some(first_admin),
+				new_key: second_admin,
+			}
+			.into(),
 		);
 	});
 }
@@ -281,8 +290,11 @@ fn set_admin_works_with_current_admin() {
 		assert_ok!(Xls20::set_admin(RawOrigin::Signed(first_admin).into(), second_admin));
 		assert_eq!(AdminAccount::<Test>::get(), Some(second_admin));
 		System::assert_has_event(
-			Event::<Test>::AdminAccountChanged { old_key: Some(first_admin), new_key: second_admin }
-				.into(),
+			Event::<Test>::AdminAccountChanged {
+				old_key: Some(first_admin),
+				new_key: second_admin,
+			}
+			.into(),
 		);
 	});
 }
