@@ -36,6 +36,7 @@ fn disable_trading_pair() {
 	TestExt.build().execute_with(|| {
 		System::set_block_number(1);
 		let alice: AccountId = create_account(1);
+		let admin: AccountId = create_account(2);
 		// create 2 tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
 		let weth = AssetsExt::create(&alice, None).unwrap();
@@ -43,7 +44,7 @@ fn disable_trading_pair() {
 		// normal user can not disable trading_pair
 		assert_noop!(
 			Dex::disable_trading_pair(RuntimeOrigin::signed(alice), usdc, weth),
-			BadOrigin
+			crate::Error::<Test>::RequireAdmin
 		);
 
 		// lp token must exist
@@ -59,11 +60,28 @@ fn disable_trading_pair() {
 			TradingPairStatus::Enabled,
 		);
 
-		// disable trading pair successful
+		// disable trading pair successful with root
 		assert_ok!(Dex::disable_trading_pair(RuntimeOrigin::root(), usdc, weth));
 		System::assert_last_event(MockEvent::Dex(crate::Event::DisableTradingPair(
 			TradingPair::new(usdc, weth),
 		)));
+		assert_eq!(
+			TradingPairStatuses::<Test>::get(TradingPair::new(usdc, weth)),
+			TradingPairStatus::NotEnabled
+		);
+
+		// Set admin and test admin functionality
+		assert_ok!(Dex::set_admin(RuntimeOrigin::root(), admin));
+
+		// Re-enable with admin
+		assert_ok!(Dex::reenable_trading_pair(RuntimeOrigin::signed(admin), usdc, weth));
+		assert_eq!(
+			TradingPairStatuses::<Test>::get(TradingPair::new(usdc, weth)),
+			TradingPairStatus::Enabled
+		);
+
+		// disable trading pair successful with admin
+		assert_ok!(Dex::disable_trading_pair(RuntimeOrigin::signed(admin), usdc, weth));
 		assert_eq!(
 			TradingPairStatuses::<Test>::get(TradingPair::new(usdc, weth)),
 			TradingPairStatus::NotEnabled
@@ -83,6 +101,7 @@ fn reenable_trading_pair() {
 		System::set_block_number(1);
 
 		let alice: AccountId = create_account(1);
+		let admin: AccountId = create_account(2);
 
 		// create 2 tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -91,7 +110,7 @@ fn reenable_trading_pair() {
 		// normal user can not enable trading_pair
 		assert_noop!(
 			Dex::reenable_trading_pair(RuntimeOrigin::signed(alice), usdc, weth),
-			BadOrigin
+			crate::Error::<Test>::RequireAdmin
 		);
 
 		// lp token must exist
@@ -122,7 +141,7 @@ fn reenable_trading_pair() {
 			TradingPairStatus::NotEnabled,
 		);
 
-		// a disabled trading pair can be re-enabled
+		// a disabled trading pair can be re-enabled with root
 		assert_ok!(Dex::reenable_trading_pair(RuntimeOrigin::root(), usdc, weth));
 		assert_eq!(
 			TradingPairStatuses::<Test>::get(TradingPair::new(usdc, weth)),
@@ -131,6 +150,19 @@ fn reenable_trading_pair() {
 		System::assert_last_event(MockEvent::Dex(crate::Event::EnableTradingPair(
 			TradingPair::new(usdc, weth),
 		)));
+
+		// Set admin and test admin functionality
+		assert_ok!(Dex::set_admin(RuntimeOrigin::root(), admin));
+
+		// Disable with admin first
+		assert_ok!(Dex::disable_trading_pair(RuntimeOrigin::signed(admin), usdc, weth));
+
+		// a disabled trading pair can be re-enabled with admin
+		assert_ok!(Dex::reenable_trading_pair(RuntimeOrigin::signed(admin), usdc, weth));
+		assert_eq!(
+			TradingPairStatuses::<Test>::get(TradingPair::new(usdc, weth)),
+			TradingPairStatus::Enabled
+		);
 
 		// cannot enable again
 		assert_noop!(
@@ -1649,7 +1681,52 @@ fn query_with_trading_pair() {
 }
 
 #[test]
-fn set_fee_to() {
+fn set_admin() {
+	TestExt.build().execute_with(|| {
+		System::set_block_number(1);
+
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+		let charlie: AccountId = create_account(3);
+
+		// normal user can not set admin
+		assert_noop!(Dex::set_admin(RuntimeOrigin::signed(alice), bob), crate::Error::<Test>::RequireAdmin);
+
+		// set admin with root user
+		assert_ok!(Dex::set_admin(RuntimeOrigin::root(), bob));
+		assert_eq!(crate::AdminAccount::<Test>::get(), Some(bob));
+
+		System::assert_last_event(MockEvent::Dex(crate::Event::AdminAccountChanged { 
+			old_key: None, 
+			new_key: bob 
+		}));
+
+		// admin can change admin to another account
+		assert_ok!(Dex::set_admin(RuntimeOrigin::signed(bob), alice));
+		assert_eq!(crate::AdminAccount::<Test>::get(), Some(alice));
+
+		System::assert_last_event(MockEvent::Dex(crate::Event::AdminAccountChanged { 
+			old_key: Some(bob), 
+			new_key: alice 
+		}));
+
+		// new admin can change admin back to root
+		assert_ok!(Dex::set_admin(RuntimeOrigin::signed(alice), charlie));
+		assert_eq!(crate::AdminAccount::<Test>::get(), Some(charlie));
+
+		System::assert_last_event(MockEvent::Dex(crate::Event::AdminAccountChanged { 
+			old_key: Some(alice), 
+			new_key: charlie 
+		}));
+
+		// root can still change admin
+		assert_ok!(Dex::set_admin(RuntimeOrigin::root(), alice));
+		assert_eq!(crate::AdminAccount::<Test>::get(), Some(alice));
+	});
+}
+
+#[test]
+fn set_fee_to_with_root() {
 	TestExt.build().execute_with(|| {
 		System::set_block_number(1);
 
@@ -1661,7 +1738,7 @@ fn set_fee_to() {
 		assert_eq!(FeeTo::<Test>::get(), fee_pot);
 
 		// normal user can not set FeeTo
-		assert_noop!(Dex::set_fee_to(RuntimeOrigin::signed(alice), Some(bob)), BadOrigin);
+		assert_noop!(Dex::set_fee_to(RuntimeOrigin::signed(alice), Some(bob)), crate::Error::<Test>::RequireAdmin);
 
 		// change FeeTo with root user
 		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), Some(bob)));
@@ -1674,6 +1751,46 @@ fn set_fee_to() {
 		assert!(FeeTo::<Test>::get().is_none());
 
 		System::assert_last_event(MockEvent::Dex(crate::Event::FeeToSet(None)));
+	});
+}
+
+#[test]
+fn set_fee_to_with_admin() {
+	TestExt.build().execute_with(|| {
+		System::set_block_number(1);
+
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+		let admin: AccountId = create_account(3);
+
+		// Set admin first
+		assert_ok!(Dex::set_admin(RuntimeOrigin::root(), admin));
+
+		// Admin can set FeeTo
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::signed(admin), Some(bob)));
+		assert_eq!(FeeTo::<Test>::get().unwrap(), bob);
+
+		System::assert_last_event(MockEvent::Dex(crate::Event::FeeToSet(Some(bob))));
+
+		// Admin can disable FeeTo
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::signed(admin), None));
+		assert!(FeeTo::<Test>::get().is_none());
+
+		System::assert_last_event(MockEvent::Dex(crate::Event::FeeToSet(None)));
+	});
+}
+
+#[test]
+fn set_fee_to_not_root_or_admin_fails() {
+	TestExt.build().execute_with(|| {
+		System::set_block_number(1);
+
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+		let non_admin: AccountId = create_account(3);
+
+		// Non-admin user can not set FeeTo
+		assert_noop!(Dex::set_fee_to(RuntimeOrigin::signed(non_admin), Some(bob)), crate::Error::<Test>::RequireAdmin);
 	});
 }
 

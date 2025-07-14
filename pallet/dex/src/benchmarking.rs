@@ -103,6 +103,13 @@ benchmarks! {
 	set_fee_to {
 		let fee_account = account::<T>("Alice");
 	}: _(RawOrigin::Root, Some(fee_account))
+
+	set_admin {
+		let new_admin = account::<T>("Admin");
+	}: _(RawOrigin::Root, new_admin.clone())
+	verify {
+		assert_eq!(crate::AdminAccount::<T>::get(), Some(new_admin));
+	}
 }
 
 impl_benchmark_test_suite!(

@@ -180,9 +180,11 @@ pub mod pallet {
 		ZeroTargetAmount,
 		/// The Liquidity Provider token does not exist
 		LiquidityProviderTokenNotCreated,
-		/// The deadline has been missed
+			/// The deadline has been missed
 		ExpiredDeadline,
-	}
+		/// Require to be admin
+		RequireAdmin,
+}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
@@ -212,6 +214,8 @@ pub mod pallet {
 		/// Provisioning trading pair convert to Enabled. \[trading_pair,
 		/// pool_0_amount, pool_1_amount, total_share_amount\]
 		ProvisioningToEnabled(TradingPair, Balance, Balance, Balance),
+		/// Admin Account changed
+		AdminAccountChanged { old_key: Option<T::AccountId>, new_key: T::AccountId },
 	}
 
 	#[pallet::type_value]
@@ -221,6 +225,10 @@ pub mod pallet {
 	{
 		T::DefaultFeeTo::get().map(|v| v.into_account_truncating())
 	}
+
+	/// Admin account for DEX operations
+	#[pallet::storage]
+	pub(super) type AdminAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	/// FeeTo account where network fees are deposited
 	#[pallet::storage]
@@ -256,18 +264,30 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
-		/// Set the `FeeTo` account. This operation requires root access.
+		/// Set the admin account for DEX operations
+		#[pallet::call_index(0)]
+		#[pallet::weight(T::WeightInfo::set_admin())]
+		pub fn set_admin(origin: OriginFor<T>, new: T::AccountId) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+
+			let old_key = AdminAccount::<T>::get();
+			AdminAccount::<T>::put(new.clone());
+			Self::deposit_event(Event::AdminAccountChanged { old_key, new_key: new });
+			Ok(())
+		}
+
+		/// Set the `FeeTo` account. This operation requires root or admin access.
 		/// - note: analogous to Uniswapv2 `setFeeTo`
 		///
 		/// - `fee_to`: the new account or None assigned to FeeTo.
-		#[pallet::call_index(0)]
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_fee_to())]
 		#[transactional]
 		pub fn set_fee_to(
 			origin: OriginFor<T>,
 			fee_to: Option<T::AccountId>,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 
 			FeeTo::<T>::put(&fee_to);
 
@@ -287,7 +307,7 @@ pub mod pallet {
 		///   it is set to None.
 		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
 		///   it is set to None
-		#[pallet::call_index(1)]
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::swap_with_exact_supply())]
 		#[transactional]
 		pub fn swap_with_exact_supply(
@@ -323,7 +343,7 @@ pub mod pallet {
 		///   it is set to None.
 		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
 		///   it is set to None
-		#[pallet::call_index(2)]
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::swap_with_exact_target())]
 		#[transactional]
 		pub fn swap_with_exact_target(
@@ -368,7 +388,7 @@ pub mod pallet {
 		///   to None.
 		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
 		///   it is set to None
-		#[pallet::call_index(3)]
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::add_liquidity())]
 		#[transactional]
 		pub fn add_liquidity(
@@ -413,7 +433,7 @@ pub mod pallet {
 		///   if it is set to None.
 		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
 		///   it is set to None
-		#[pallet::call_index(4)]
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::remove_liquidity())]
 		#[transactional]
 		pub fn remove_liquidity(
@@ -444,11 +464,11 @@ pub mod pallet {
 
 		/// Re enable a `NotEnabled` trading pair.
 		/// - Requires LP token to be created and in the `NotEnabled` status
-		/// - Only root can enable a disabled trading pair
+		/// - Only root or admin can enable a disabled trading pair
 		///
 		/// - `token_a`: Asset id A.
 		/// - `token_b`: Asset id B.
-		#[pallet::call_index(5)]
+		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::reenable_trading_pair())]
 		#[transactional]
 		pub fn reenable_trading_pair(
@@ -456,7 +476,7 @@ pub mod pallet {
 			token_a: AssetId,
 			token_b: AssetId,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 
 			let trading_pair = TradingPair::new(token_a, token_b);
 
@@ -478,11 +498,11 @@ pub mod pallet {
 
 		/// Disable an `Enabled` trading pair.
 		/// - Requires LP token to be created and in the `Enabled` status
-		/// - Only root can disable trading pair
+		/// - Only root or admin can disable trading pair
 		///
 		/// - `token_a`: Asset id A.
 		/// - `token_b`: Asset id B.
-		#[pallet::call_index(6)]
+		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::disable_trading_pair())]
 		#[transactional]
 		pub fn disable_trading_pair(
@@ -490,7 +510,7 @@ pub mod pallet {
 			token_a: AssetId,
 			token_b: AssetId,
 		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 
 			let trading_pair = TradingPair::new(token_a, token_b);
 
@@ -516,6 +536,20 @@ impl<T: Config> Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<H160>,
 {
+	/// Ensure the origin is either root or the admin account
+	fn ensure_root_or_admin(origin: OriginFor<T>) -> Result<Option<T::AccountId>, DispatchError> {
+		match ensure_signed_or_root(origin)? {
+			Some(who) => {
+				ensure!(
+					AdminAccount::<T>::get().map_or(false, |k| who == k),
+					Error::<T>::RequireAdmin
+				);
+				Ok(Some(who))
+			},
+			None => Ok(None),
+		}
+	}
+
 	pub fn burn_account_id() -> T::AccountId {
 		T::DEXBurnPalletId::get().into_account_truncating()
 	}
