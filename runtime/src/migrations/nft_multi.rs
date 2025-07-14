@@ -118,9 +118,10 @@ fn convert<T: pallet_nft::Config>(
 	// For simplicity, we will only migrate max 50 tokens from 1 account at a time
 	if let Some(mut ownership) = old.owned_tokens.pop() {
 		let mut serial_numbers = ownership.owned_serials.clone();
-		// take at max 10 from serial_numbers
-		migrated_token_count = serial_numbers.len().min(MAX_TOKENS_PER_STEP as usize) as TokenCount;
-		let serials_to_migrate = serial_numbers.drain(..migrated_token_count as usize).collect();
+		// take at max MAX_TOKENS_PER_STEP from serial_numbers
+		let step_count = serial_numbers.len().min(MAX_TOKENS_PER_STEP as usize) as TokenCount;
+		let serials_to_migrate = serial_numbers.drain(..step_count as usize).collect();
+		migrated_token_count = migrated_token_count.saturating_add(step_count);
 		log::debug!(target: LOG_TARGET, "🦆 Migrating {:?} tokens for owner: {:?}", serials_to_migrate, ownership.owner);
 
 		for serial_number in &serials_to_migrate {
