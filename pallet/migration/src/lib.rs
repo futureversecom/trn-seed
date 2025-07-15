@@ -23,7 +23,6 @@ use frame_system::pallet_prelude::*;
 use seed_pallet_common::Migrator;
 use seed_primitives::migration::MigrationStep;
 use sp_std::prelude::*;
-use seed_primitives::BlockNumber;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -45,7 +44,7 @@ pub enum MigrationStatus {
 	/// A migration is in progress
 	InProgress { steps_done: u32 },
 	/// All current migrations are completed
-	Completed { block_number: BlockNumber },
+	Completed,
 }
 
 impl Default for MigrationStatus {
@@ -299,8 +298,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Perform post migration operations and clean up storage
 	fn complete_migration(total_steps: u32) {
-		let block_number = frame_system::Pallet::<T>::block_number();
-		Status::<T>::put(MigrationStatus::Completed { block_number });
+		Status::<T>::put(MigrationStatus::Completed);
 		LastKey::<T>::kill();
 		T::CurrentMigration::on_complete();
 		MigrationEnabled::<T>::put(false);
