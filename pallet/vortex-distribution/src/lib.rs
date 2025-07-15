@@ -1338,12 +1338,18 @@ pub mod pallet {
 						.saturating_sub(final_reward.saturating_mul(PRECISION_MULTIPLIER));
 					log::debug!(
 						target: "vtx-dist",
-						"RewardCalculationLoss - Account: {:?}, wkp: {:?}, rp: {:?}, wkr: {:?}, rpr: {:?}, final_reward: {:?}, loss: {:?}",
+						"RewardCalculationLoss - Account: {:?}, wkp: {:?}, rp: {:?}, wkr: {:?}, rpr: {:?}, bootstrap_total: {:?}, network_total: {:?}, attribution_total: {:?}, net_network_reward: {:?}, staker_pool: {:?}, workpoints_pool: {:?}, final_reward: {:?}, loss: {:?}",
 						account_id,
 						account_work_points,
 						account_staker_points,
 						account_work_point_reward,
 						account_staker_reward,
+						total_bootstrap_reward,
+						total_network_reward,
+						total_attribution_rewards,
+						net_network_reward,
+						total_staker_pool,
+						total_workpoints_pool,
 						final_reward,
 						loss,
 					);
