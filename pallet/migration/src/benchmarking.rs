@@ -16,12 +16,18 @@
 use super::*;
 #[allow(unused_imports)]
 use crate::Pallet as Migration;
-use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
+use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::StorageHasher;
 use frame_system::RawOrigin;
-use seed_primitives::{CollectionUuid, SerialNumber};
+use seed_pallet_common::utils::{TokenBurnAuthority, TokenUtilityFlags as TokenFlags};
+use seed_primitives::{
+	CollectionUuid, CrossChainCompatibility, ListingId, MetadataScheme, OriginChain,
+	RoyaltiesSchedule, SerialNumber, TokenCount, TokenLockReason,
+};
 
 benchmarks! {
+	where_clause { where T: pallet_nft::Config }
+
 	// This benchmarks the weight of dispatching migrate to execute 1 `NoopMigraton` step
 	migrate {
 		let weight_limit = T::MaxMigrationWeight::get();
@@ -35,12 +41,65 @@ benchmarks! {
 	}
 
 	current_migration_step {
+		let p in 1 .. (50);
+
 		MigrationEnabled::<T>::put(true);
-		let mut key = Twox64Concat::hash(&(1 as CollectionUuid).encode());
-		let serial_key = Twox64Concat::hash(&(2 as SerialNumber).encode());
-		key.extend_from_slice(&serial_key);
-		let xls20_token_id: [u8; 64] = "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67".as_bytes().try_into().unwrap();
-		frame_support::migration::put_storage_value::<[u8; 64]>(b"Xls20", b"Xls20TokenMap", &key, xls20_token_id);
+
+		///Old Collection Info
+		#[derive(Encode,Decode,TypeInfo)]
+		pub struct OldCollectionInformation<AccountId, MaxTokensPerCollection, StringLimit>
+		{
+			pub owner: AccountId,
+			pub name: BoundedVec<u8, StringLimit>,
+			pub metadata_scheme: MetadataScheme,
+			pub royalties_schedule: Option<RoyaltiesSchedule<AccountId>>,
+			pub max_issuance: Option<TokenCount>,
+			pub origin_chain: OriginChain,
+			pub next_serial_number: SerialNumber,
+			pub collection_issuance: TokenCount,
+			pub cross_chain_compatibility: CrossChainCompatibility,
+			pub owned_tokens:
+				BoundedVec<OldTokenOwnership<AccountId, MaxTokensPerCollection>, MaxTokensPerCollection>,
+		}
+
+		#[derive(Decode,Encode,TypeInfo)]
+		pub struct OldTokenOwnership<AccountId, MaxTokensPerCollection>
+		{
+			pub owner: AccountId,
+			pub owned_serials: BoundedVec<SerialNumber, MaxTokensPerCollection>,
+		}
+		let serials = (1..=p).collect::<Vec<SerialNumber>>();
+		let key = Twox64Concat::hash(&(1 as CollectionUuid).encode());
+		let collection_info = OldCollectionInformation {
+			owner: T::AccountId::from(bench_account("test", 0, 0)),
+			name: BoundedVec::truncate_from(vec![1, 2, 3]),
+			metadata_scheme: MetadataScheme::try_from(b"metadata".as_slice()).unwrap(),
+			royalties_schedule: None,
+			max_issuance: Some(100),
+			origin_chain: OriginChain::Root,
+			next_serial_number: 1,
+			collection_issuance: 1,
+			cross_chain_compatibility: CrossChainCompatibility::default(),
+			owned_tokens: BoundedVec::truncate_from(vec![OldTokenOwnership {
+				owner: T::AccountId::from(bench_account("test", 0, 0)),
+				owned_serials: BoundedVec::truncate_from(serials.clone()),
+			}]),
+		};
+		frame_support::migration::put_storage_value::<OldCollectionInformation<T::AccountId,T::MaxTokensPerCollection,T::StringLimit>> (b"Nft", b"CollectionInfo", &key, collection_info);
+
+		// Insert data into TokenLocks and TokenUtilityFlags to benchmark worst case scenario
+		for serial in serials {
+			let token_id = (1 as CollectionUuid, serial);
+			let token_lock_reason = TokenLockReason::Listed(1 as ListingId);
+			let key = Twox64Concat::hash(&token_id.encode());
+			frame_support::migration::put_storage_value::<TokenLockReason> (b"Nft", b"TokenLocks", &key, token_lock_reason);
+			let token_flags = TokenFlags {
+				transferable: true,
+				burn_authority: Some(TokenBurnAuthority::Both),
+			};
+			frame_support::migration::put_storage_value::<TokenFlags> (b"Nft", b"TokenUtilityFlags", &key, token_flags);
+		}
+
 		Status::<T>::put(MigrationStatus::InProgress { steps_done: 0 });
 	}: {
 		// Call a single step to benchmark.

@@ -64,6 +64,7 @@ impl pallet_nft::Config for Test {
 	type Xls20MintRequest = ();
 	type NFIRequest = Nfi;
 	type MaxPendingIssuances = MaxPendingIssuances;
+	type Migrator = ();
 }
 
 parameter_types! {

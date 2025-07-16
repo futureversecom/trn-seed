@@ -130,7 +130,7 @@ impl<T: Config> ListingTokens<T> {
 			ListingTokens::Nft(nfts) => {
 				for serial_number in nfts.serial_numbers.iter() {
 					let token_id = (nfts.collection_id, *serial_number);
-					T::NFTExt::remove_token_lock(token_id);
+					T::NFTExt::remove_token_lock(token_id)?;
 				}
 			},
 			ListingTokens::Sft(sfts) => {
@@ -150,7 +150,7 @@ impl<T: Config> ListingTokens<T> {
 			ListingTokens::Nft(nfts) => {
 				ensure!(!nfts.serial_numbers.is_empty(), Error::<T>::EmptyTokens);
 				for serial_number in nfts.serial_numbers.iter() {
-					T::NFTExt::remove_token_lock((nfts.collection_id, *serial_number));
+					T::NFTExt::remove_token_lock((nfts.collection_id, *serial_number))?;
 				}
 				T::NFTExt::do_transfer(
 					from,

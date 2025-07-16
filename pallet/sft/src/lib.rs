@@ -54,6 +54,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use seed_pallet_common::utils::TokenBurnAuthority;
+	use seed_primitives::IssuanceId;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -154,6 +155,10 @@ pub mod pallet {
 		>,
 		ValueQuery,
 	>;
+
+	/// The next available incrementing issuance ID, unique across all pending issuances
+	#[pallet::storage]
+	pub type NextIssuanceId<T> = StorageValue<_, IssuanceId, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -263,7 +268,7 @@ pub mod pallet {
 		/// A pending issuance for a soulbound token has been created
 		PendingIssuanceCreated {
 			collection_id: CollectionUuid,
-			issuance_id: u32,
+			issuance_id: IssuanceId,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
 			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			token_owner: T::AccountId,
@@ -806,7 +811,7 @@ pub mod pallet {
 		pub fn accept_soulbound_issuance(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			issuance_id: u32,
+			issuance_id: IssuanceId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 

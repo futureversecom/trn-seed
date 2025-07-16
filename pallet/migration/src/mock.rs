@@ -27,13 +27,17 @@ construct_runtime!(
 		System: frame_system,
 		Assets: pallet_assets,
 		Balances: pallet_balances,
+		AssetsExt: pallet_assets_ext,
 		Migration: pallet_migration,
+		Nft: pallet_nft,
 	}
 );
 
 impl_frame_system_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_balance_config!(Test);
+impl_pallet_assets_ext_config!(Test);
+impl_pallet_nft_config!(Test);
 
 pub const WEIGHT_PER_MIGRATION: u64 = 1000;
 
@@ -83,7 +87,7 @@ impl<T: Config> MigrationStep for MockMigration<T> {
 			let new_value = (value + 1).to_string();
 			TestMap::<T>::insert(key, new_value);
 			let last_key = old::TestMap::<T>::hashed_key_for(key);
-			MigrationStepResult::continue_step(Self::max_step_weight(), last_key)
+			MigrationStepResult::continue_step(Self::max_step_weight(), Some(last_key))
 		} else {
 			MigrationStepResult::finish_step(Self::max_step_weight())
 		}

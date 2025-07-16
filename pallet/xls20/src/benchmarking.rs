@@ -128,7 +128,6 @@ benchmarks! {
 			next_serial_number: 3429,
 			collection_issuance: 0,
 			cross_chain_compatibility: CrossChainCompatibility::default(),
-			owned_tokens: BoundedVec::truncate_from(vec![]), // No tokens
 		};
 		<pallet_nft::CollectionInfo<T>>::insert(collection_id, collection_info);
 		CollectionMapping::<T>::insert(xls20_collection, collection_id);

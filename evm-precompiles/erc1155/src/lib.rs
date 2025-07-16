@@ -31,7 +31,9 @@ use precompile_utils::{
 	prelude::*,
 };
 use seed_pallet_common::utils::TokenBurnAuthority;
-use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId};
+use seed_primitives::{
+	AssetId, Balance, CollectionUuid, IssuanceId, MetadataScheme, SerialNumber, TokenId,
+};
 use sp_core::{Encode, H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
@@ -1324,7 +1326,6 @@ where
 		read_args!(handle, { owner: Address });
 
 		let owner: H160 = owner.into();
-
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let pending_issuances = pallet_sft::PendingIssuances::<Runtime>::get(collection_id)
 			.get_pending_issuances(&owner.into());
@@ -1371,10 +1372,10 @@ where
 
 		read_args!(handle, { issuance_id: U256 });
 
-		if issuance_id > u32::MAX.into() {
+		if issuance_id > IssuanceId::MAX.into() {
 			return Err(revert("ERC721: Expected issuance id <= 2^32"));
 		}
-		let issuance_id: u32 = issuance_id.saturated_into();
+		let issuance_id: IssuanceId = issuance_id.saturated_into();
 
 		let origin = handle.context().caller;
 
