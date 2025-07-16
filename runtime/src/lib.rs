@@ -152,7 +152,7 @@ mod tests;
 /// Currency implementation mapped to XRP
 pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Runtime, XrpAssetId>;
 
-/// This runtime version.
+/// The runtime version information.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
