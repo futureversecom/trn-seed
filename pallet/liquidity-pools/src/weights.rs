@@ -56,6 +56,12 @@ pub trait WeightInfo {
 	fn claim_reward() -> Weight;
 	fn rollover_unsigned() -> Weight;
 	fn emergency_recover_funds() -> Weight;
+	// FRN-68: Bounded pool closure functions
+	fn process_closing_pools() -> Weight;
+	fn process_closure_batch() -> Weight;
+	// FRN-69: Weight accounting functions
+	fn process_pool_status_updates() -> Weight;
+	// FRN-71: Fair processing functions
 	fn trigger_pool_update() -> Weight;
 }
 
@@ -168,16 +174,23 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Proof: `LiquidityPools::PoolUsers` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
 	// Storage: `LiquidityPools::Pools` (r:1 w:1)
 	// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
-	// Storage: `Assets::Account` (r:2 w:2)
-	// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
 	// Storage: `Assets::Asset` (r:1 w:1)
 	// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
+	// Storage: `Assets::Account` (r:2 w:2)
+	// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn emergency_recover_funds() -> Weight {
-		Weight::from_all(187_129_000)
+		Weight::from_all(184_260_000)
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(7))
+	}
+	
+	// FRN-68: Bounded pool closure functions
+	fn process_closing_pools() -> Weight {
+		Weight::from_all(100_000_000)
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: `LiquidityPools::Pools` (r:1 w:0)
 	// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
@@ -298,16 +311,23 @@ impl WeightInfo for () {
 	// Proof: `LiquidityPools::PoolUsers` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
 	// Storage: `LiquidityPools::Pools` (r:1 w:1)
 	// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
-	// Storage: `Assets::Account` (r:2 w:2)
-	// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
 	// Storage: `Assets::Asset` (r:1 w:1)
 	// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
+	// Storage: `Assets::Account` (r:2 w:2)
+	// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
 	// Storage: `System::Account` (r:2 w:2)
 	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn emergency_recover_funds() -> Weight {
-		Weight::from_all(187_129_000)
+		Weight::from_all(184_260_000)
 			.saturating_add(RocksDbWeight::get().reads(7))
 			.saturating_add(RocksDbWeight::get().writes(7))
+	}
+	
+	// FRN-68: Bounded pool closure functions
+	fn process_closing_pools() -> Weight {
+		Weight::from_all(100_000_000)
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: `LiquidityPools::Pools` (r:1 w:0)
 	// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)

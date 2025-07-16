@@ -178,21 +178,27 @@ impl<T: frame_system::Config> pallet_liquidity_pools::WeightInfo for WeightInfo<
 	/// Proof: `LiquidityPools::PoolUsers` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
 	/// Storage: `LiquidityPools::Pools` (r:1 w:1)
 	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
-	/// Storage: `Assets::Account` (r:2 w:2)
-	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
 	/// Storage: `Assets::Asset` (r:1 w:1)
 	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:2 w:2)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	fn emergency_recover_funds() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `990`
 		//  Estimated: `6172`
-		// Minimum execution time: 186_249_000 picoseconds.
-		Weight::from_parts(188_853_000, 0)
+		// Minimum execution time: 175_874_000 picoseconds.
+		Weight::from_parts(178_510_000, 0)
 			.saturating_add(Weight::from_parts(0, 6172))
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(7))
+	}
+
+	fn process_closing_pools() -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `LiquidityPools::Pools` (r:1 w:0)
 	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)

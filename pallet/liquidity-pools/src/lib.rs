@@ -291,6 +291,8 @@ pub mod pallet {
 		InvalidPoolStateForRecovery,
 		/// Unexpected pool state transition occurred
 		UnexpectedPoolStateTransition,
+		/// Insufficient vault balance for the requested operation
+		InsufficientVaultBalance,
 
 		// FRN-68: Pool closure errors
 		/// Pool not in closing state
@@ -780,7 +782,7 @@ pub mod pallet {
 		///     pool_id
 		/// ));
 		/// ```
-		#[pallet::weight(T::WeightInfo::exit_pool())]
+		#[pallet::weight(T::WeightInfo::emergency_recover_funds())]
 		#[transactional]
 		#[pallet::call_index(8)] // Note: This assumes call_index 8 is available
 		pub fn emergency_recover_funds(origin: OriginFor<T>, id: T::PoolId) -> DispatchResult {
@@ -797,7 +799,7 @@ pub mod pallet {
 			// Check if vault has sufficient staked assets to cover user's stake
 			let vault_staked_balance =
 				T::MultiCurrency::balance(pool.staked_asset_id, &pool_vault_account);
-			ensure!(vault_staked_balance >= user_info.amount, Error::<T>::NoTokensStaked);
+			ensure!(vault_staked_balance >= user_info.amount, Error::<T>::InsufficientVaultBalance);
 
 			// Transfer user's staked amount back to them
 			T::MultiCurrency::transfer(
@@ -1327,11 +1329,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn close_empty_pool(
+		/// Private helper function to finalize pool closure with shared logic
+		fn _finalize_pool_closure(
 			pool_id: T::PoolId,
 			pool: &PoolInfo<T::PoolId, AssetId, Balance, BlockNumberFor<T>>,
-			creator: T::AccountId,
-		) -> DispatchResult {
+		) -> Result<(Balance, Balance), DispatchError> {
 			let pool_vault_account = Self::get_vault_account(pool_id);
 
 			let reward_asset_amount =
@@ -1344,7 +1346,7 @@ pub mod pallet {
 				T::MultiCurrency::transfer(
 					pool.reward_asset_id,
 					&pool_vault_account,
-					&creator,
+					&pool.creator,
 					reward_asset_amount,
 					Preservation::Expendable,
 				)?;
@@ -1354,23 +1356,37 @@ pub mod pallet {
 				T::MultiCurrency::transfer(
 					pool.staked_asset_id,
 					&pool_vault_account,
-					&creator,
+					&pool.creator,
 					staked_asset_amount,
 					Preservation::Expendable,
 				)?;
 			}
 
-			// Clean up storage
-			Pools::<T>::remove(pool_id);
+			// Clean up common storage items
 			PoolRelationships::<T>::remove(pool_id);
 			RolloverPivot::<T>::remove(pool_id);
 
+			// Deposit PoolClosed event
 			Self::deposit_event(Event::PoolClosed {
 				pool_id,
 				reward_asset_amount,
 				staked_asset_amount,
-				receiver: creator,
+				receiver: pool.creator.clone(),
 			});
+
+			Ok((reward_asset_amount, staked_asset_amount))
+		}
+
+		fn close_empty_pool(
+			pool_id: T::PoolId,
+			pool: &PoolInfo<T::PoolId, AssetId, Balance, BlockNumberFor<T>>,
+			_creator: T::AccountId,
+		) -> DispatchResult {
+			// Use shared finalization logic
+			Self::_finalize_pool_closure(pool_id, pool)?;
+
+			// close_empty_pool specific action: remove the pool from Pools storage
+			Pools::<T>::remove(pool_id);
 
 			Ok(())
 		}
@@ -1486,53 +1502,22 @@ pub mod pallet {
 			pool_id: T::PoolId,
 			pool: &PoolInfo<T::PoolId, AssetId, Balance, BlockNumberFor<T>>,
 		) -> DispatchResult {
-			let pool_vault_account = Self::get_vault_account(pool_id);
+			// Use shared finalization logic
+			Self::_finalize_pool_closure(pool_id, pool)?;
 
-			// Transfer remaining funds to creator
-			let reward_balance =
-				T::MultiCurrency::balance(pool.reward_asset_id, &pool_vault_account);
-			let staked_balance =
-				T::MultiCurrency::balance(pool.staked_asset_id, &pool_vault_account);
-
-			if reward_balance > Zero::zero() {
-				T::MultiCurrency::transfer(
-					pool.reward_asset_id,
-					&pool_vault_account,
-					&pool.creator,
-					reward_balance,
-					Preservation::Expendable,
-				)?;
-			}
-
-			if staked_balance > Zero::zero() {
-				T::MultiCurrency::transfer(
-					pool.staked_asset_id,
-					&pool_vault_account,
-					&pool.creator,
-					staked_balance,
-					Preservation::Expendable,
-				)?;
-			}
-
-			// Update pool status to Closed instead of removing it
+			// complete_pool_closure specific actions:
+			// 1. Update pool status to Closed instead of removing it
 			Pools::<T>::mutate(pool_id, |pool_info| {
 				if let Some(pool_info) = pool_info {
 					pool_info.pool_status = PoolStatus::Closed;
 				}
 			});
 
-			// Clean up closure state and relationships
+			// 2. Remove from ClosingPools queue
 			ClosingPools::<T>::remove(pool_id);
-			PoolRelationships::<T>::remove(pool_id);
-			RolloverPivot::<T>::remove(pool_id);
 
+			// 3. Deposit PoolClosureCompleted event
 			Self::deposit_event(Event::PoolClosureCompleted { pool_id });
-			Self::deposit_event(Event::PoolClosed {
-				pool_id,
-				reward_asset_amount: reward_balance,
-				staked_asset_amount: staked_balance,
-				receiver: pool.creator.clone(),
-			});
 
 			Ok(())
 		}

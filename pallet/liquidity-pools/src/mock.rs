@@ -47,6 +47,9 @@ impl crate::WeightInfo for TestWeightInfo {
 	fn rollover_unsigned() -> Weight {
 		Weight::from_parts(1000, 0)
 	}
+	fn emergency_recover_funds() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
 	fn trigger_pool_update() -> Weight {
 		Weight::from_parts(1000, 0)
 	}
