@@ -200,6 +200,16 @@ impl<T: frame_system::Config> pallet_liquidity_pools::WeightInfo for WeightInfo<
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	fn process_closure_batch() -> Weight {
+		Weight::from_parts(5_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	fn process_pool_status_updates() -> Weight {
+		Weight::from_parts(7_500_000, 0)
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// Storage: `LiquidityPools::Pools` (r:1 w:0)
 	/// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
 	/// Storage: `LiquidityPools::UrgentPoolUpdates` (r:0 w:1)

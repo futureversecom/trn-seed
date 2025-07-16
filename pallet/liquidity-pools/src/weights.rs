@@ -192,6 +192,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
+	fn process_closure_batch() -> Weight {
+		Weight::from_all(50_000_000)
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	// FRN-69: Weight accounting functions
+	fn process_pool_status_updates() -> Weight {
+		Weight::from_all(75_000_000)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
 	// Storage: `LiquidityPools::Pools` (r:1 w:0)
 	// Proof: `LiquidityPools::Pools` (`max_values`: None, `max_size`: Some(93), added: 2568, mode: `MaxEncodedLen`)
 	// Storage: `LiquidityPools::UrgentPoolUpdates` (r:0 w:1)
@@ -327,6 +338,17 @@ impl WeightInfo for () {
 	fn process_closing_pools() -> Weight {
 		Weight::from_all(100_000_000)
 			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(3))
+	}
+	fn process_closure_batch() -> Weight {
+		Weight::from_all(50_000_000)
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(2))
+	}
+	// FRN-69: Weight accounting functions
+	fn process_pool_status_updates() -> Weight {
+		Weight::from_all(75_000_000)
+			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: `LiquidityPools::Pools` (r:1 w:0)
