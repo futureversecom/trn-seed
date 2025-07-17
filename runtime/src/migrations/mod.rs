@@ -30,20 +30,25 @@ use frame_support::{
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
 
+pub mod partner_attribution;
+
 pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, DispatchError> {
-		Ok(Vec::new())
+		// Run pre-upgrade checks for all migrations
+		partner_attribution::PartnerCountMigration::pre_upgrade()
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		Weight::zero()
+		// Run all migrations and sum their weights
+		partner_attribution::PartnerCountMigration::on_runtime_upgrade()
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: Vec<u8>) -> Result<(), DispatchError> {
-		Ok(())
+	fn post_upgrade(state: Vec<u8>) -> Result<(), DispatchError> {
+		// Run post-upgrade checks for all migrations
+		partner_attribution::PartnerCountMigration::post_upgrade(state)
 	}
 }
 

@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult, GetCallMetadata},
-	sp_runtime::{traits::AccountIdConversion, Perbill},
+	sp_runtime::{traits::AccountIdConversion, Perbill, Permill},
 	traits::{fungibles::Mutate, Get},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	PalletId,
@@ -679,3 +679,13 @@ impl Migrator for () {
 }
 
 pub mod sylo;
+
+/// Trait to provide attribution data as a vector of (account, accumulated_fees)
+pub trait AttributionProvider<AccountId> {
+	/// Returns a vector of (account, accumulated_fees, fee_percentage) for all attributed partners
+	fn get_attributions() -> Vec<(AccountId, Balance, Option<Permill>)>;
+	/// Reset accumulated fees for all partners
+	fn reset_balances();
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_attributions(_attributions: Vec<(AccountId, Balance, Option<Permill>)>) {}
+}
