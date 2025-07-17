@@ -14,10 +14,55 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_liquidity_pools;
+use frame_support::weights::Weight;
 use frame_system::EnsureRoot;
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::AccountId;
 use sp_runtime::testing::TestXt;
+
+// Mock weight implementation for testing
+pub struct TestWeightInfo;
+impl crate::WeightInfo for TestWeightInfo {
+	fn create_pool() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn set_pool_succession() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn set_pool_rollover() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn close_pool() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn enter_pool() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn exit_pool() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn claim_reward() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn rollover_unsigned() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn emergency_recover_funds() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn trigger_pool_update() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn process_closing_pools() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn process_closure_batch() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+	fn process_pool_status_updates() -> Weight {
+		Weight::from_parts(1000, 0)
+	}
+}
 
 construct_runtime!(
 	pub enum Test {
@@ -39,6 +84,9 @@ parameter_types! {
 	pub const InterestRateBasePoint: u32 = 1_000_000;
 	pub const UnsignedInterval: u32 =  5;
 	pub const RolloverBatchSize: u32 = 10;
+	pub const ClosureBatchSize: u32 = 5; // FRN-68: For testing bounded closure
+	pub const MaxPoolsPerBlock: u32 = 3; // Small number for testing
+	pub const TransactionMaxAge: u32 = 64; // Transaction max age in blocks
 	pub const MaxStringLength: u32 = 1000;
 }
 
@@ -50,8 +98,11 @@ impl crate::Config for Test {
 	type PalletId = LiquidityPoolsPalletId;
 	type UnsignedInterval = UnsignedInterval;
 	type RolloverBatchSize = RolloverBatchSize;
+	type ClosureBatchSize = ClosureBatchSize;
+	type MaxPoolsPerBlock = MaxPoolsPerBlock;
+	type TransactionMaxAge = TransactionMaxAge;
 	type MaxStringLength = MaxStringLength;
-	type WeightInfo = ();
+	type WeightInfo = TestWeightInfo;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
