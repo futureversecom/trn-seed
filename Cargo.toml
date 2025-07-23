@@ -248,6 +248,7 @@ substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate
 substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+pallet-collective = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 
 # frontier deps
 fc-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN", default-features = false }
@@ -430,3 +431,4 @@ substrate-rpc-client = { git = "https://github.com/futureversecom/trn-substrate"
 substrate-test-runtime-client = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }
 substrate-wasm-builder = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }
 try-runtime-cli = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }
+pallet-collective = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }

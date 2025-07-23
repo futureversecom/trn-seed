@@ -23,7 +23,7 @@ use seed_runtime::{
 		XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	keys::*,
-	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, EthBridgeConfig,
+	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, CouncilConfig, EthBridgeConfig,
 	RuntimeGenesisConfig, SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig,
 	SudoConfig, SystemConfig, TransactionPaymentConfig, XRPLBridgeConfig,
 	BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
@@ -228,5 +228,6 @@ fn testnet_genesis(
 		ethereum: seed_runtime::EthereumConfig { ..Default::default() },
 		evm: seed_runtime::EVMConfig { ..Default::default() },
 		xrpl_bridge: XRPLBridgeConfig { xrp_relayers },
+		council: CouncilConfig::default(),
 	}
 }

@@ -52,6 +52,7 @@ sp-staking = { workspace = true }
 sp-std = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
+pallet-collective = { workspace = true }
 
 # EVM support
 fp-rpc = { workspace = true }
@@ -258,6 +259,7 @@ std = [
 	"pallet-doughnut/std",
 	"doughnut-rs/std",
 	"trn-pact/std",
+	"pallet-collective/std",
 ]
 
 try-runtime = [
@@ -287,6 +289,7 @@ try-runtime = [
 	"pallet-bags-list/try-runtime",
 	"pallet-ethereum/try-runtime",
 	"fp-self-contained/try-runtime",
+	"pallet-collective/try-runtime",
 	# "pallet-base-fee/try-runtime",
 	# Local
 	"pallet-assets-ext/try-runtime",
@@ -348,6 +351,7 @@ runtime-benchmarks = [
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-ethereum/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
+	"pallet-collective/runtime-benchmarks",
 	# Local
 	"pallet-nfi/runtime-benchmarks",
 	"pallet-nft/runtime-benchmarks",
