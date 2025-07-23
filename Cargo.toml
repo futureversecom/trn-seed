@@ -249,6 +249,7 @@ substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 pallet-collective = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+pallet-elections-phragmen = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 
 # frontier deps
 fc-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN", default-features = false }
@@ -292,6 +293,7 @@ sha3 = { version = "0.10", default-features = false }
 thiserror = { version = "1.0", default-features = false }
 tokio = { version = "1.19.2", default-features = false  }
 xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", version = "0.2.3", default-features = false }
+static_assertions = { version = "1.1.0", default-features = false }
 
 [patch."https://github.com/paritytech/substrate"]
 fork-tree = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }
@@ -432,3 +434,4 @@ substrate-test-runtime-client = { git = "https://github.com/futureversecom/trn-s
 substrate-wasm-builder = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }
 try-runtime-cli = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }
 pallet-collective = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }
+pallet-elections-phragmen = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }

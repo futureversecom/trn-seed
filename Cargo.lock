@@ -5471,6 +5471,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-elections-phragmen"
+version = "5.0.0-dev"
+source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-erc20-peg"
 version = "2.0.1"
 dependencies = [
@@ -9268,6 +9287,7 @@ dependencies = [
  "pallet-echo",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
+ "pallet-elections-phragmen",
  "pallet-erc20-peg",
  "pallet-ethereum",
  "pallet-ethy",
@@ -9352,6 +9372,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "static_assertions",
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
  "tokio",
