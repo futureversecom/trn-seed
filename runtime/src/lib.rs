@@ -1513,6 +1513,26 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 	type MaxProposalWeight = MaxCollectivesProposalWeight;
 }
 
+parameter_types! {
+	pub const TechnicalMotionDuration: BlockNumber = 5 * DAYS;
+	pub const TechnicalMaxProposals: u32 = 100;
+	pub const TechnicalMaxMembers: u32 = 100;
+}
+
+type TechnicalCollective = pallet_collective::Instance2;
+impl pallet_collective::Config<TechnicalCollective> for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type Proposal = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type MotionDuration = TechnicalMotionDuration;
+	type MaxProposals = TechnicalMaxProposals;
+	type MaxMembers = TechnicalMaxMembers;
+	type DefaultVote = pallet_collective::PrimeDefaultVote;
+	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
+	type MaxProposalWeight = MaxCollectivesProposalWeight;
+}
+
 construct_runtime!(
 	pub enum Runtime {
 		System: frame_system = 0,
@@ -1583,6 +1603,7 @@ construct_runtime!(
 
 		// Governance
 		Council: pallet_collective::<Instance1> = 57,
+		TechnicalCommittee: pallet_collective::<Instance2> = 58,
 	}
 );
 

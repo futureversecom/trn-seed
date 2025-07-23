@@ -25,7 +25,7 @@ use seed_runtime::{
 	keys::*,
 	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, CouncilConfig, EthBridgeConfig,
 	RuntimeGenesisConfig, SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig,
-	SudoConfig, SystemConfig, TransactionPaymentConfig, XRPLBridgeConfig,
+	SudoConfig, SystemConfig, TechnicalCommitteeConfig, TransactionPaymentConfig, XRPLBridgeConfig,
 	BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
 };
 use sp_core::{ecdsa, Pair, Public};
@@ -163,6 +163,8 @@ fn testnet_genesis(
 		(XRP_ASSET_ID, root_key, true, XRP_MINIMUM_BALANCE),
 		(VTX_ASSET_ID, root_key, true, VTX_MINIMUM_BALANCE),
 	];
+	let endowed_accounts = accounts_to_fund.clone();
+	let num_endowed_accounts = endowed_accounts.len();
 	let mut endowed_assets = Vec::with_capacity(accounts_to_fund.len());
 	let mut endowed_balances = Vec::with_capacity(accounts_to_fund.len());
 	for account in accounts_to_fund {
@@ -229,5 +231,13 @@ fn testnet_genesis(
 		evm: seed_runtime::EVMConfig { ..Default::default() },
 		xrpl_bridge: XRPLBridgeConfig { xrp_relayers },
 		council: CouncilConfig::default(),
+		technical_committee: TechnicalCommitteeConfig {
+			members: endowed_accounts
+				.iter()
+				.take((num_endowed_accounts + 1) / 2)
+				.cloned()
+				.collect(),
+			phantom: Default::default(),
+		},
 	}
 }
