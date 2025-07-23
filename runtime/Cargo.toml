@@ -54,6 +54,7 @@ sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 pallet-collective = { workspace = true }
 pallet-elections-phragmen = { workspace = true }
+pallet-democracy = { workspace = true }
 
 # EVM support
 fp-rpc = { workspace = true }
@@ -263,6 +264,7 @@ std = [
 	"trn-pact/std",
 	"pallet-collective/std",
 	"pallet-elections-phragmen/std",
+	"pallet-democracy/std",
 ]
 
 try-runtime = [
@@ -294,6 +296,7 @@ try-runtime = [
 	"fp-self-contained/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-elections-phragmen/try-runtime",
+	"pallet-democracy/try-runtime",
 	# "pallet-base-fee/try-runtime",
 	# Local
 	"pallet-assets-ext/try-runtime",
@@ -356,6 +359,8 @@ runtime-benchmarks = [
 	"pallet-ethereum/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
+	"pallet-elections-phragmen/runtime-benchmarks",
+	"pallet-democracy/runtime-benchmarks",
 	# Local
 	"pallet-nfi/runtime-benchmarks",
 	"pallet-nft/runtime-benchmarks",

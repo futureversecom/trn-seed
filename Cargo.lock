@@ -5337,6 +5337,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-democracy"
+version = "4.0.0-dev"
+source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-dex"
 version = "0.0.1"
 dependencies = [
@@ -9281,6 +9299,7 @@ dependencies = [
  "pallet-base-fee",
  "pallet-collective",
  "pallet-crowdsale",
+ "pallet-democracy",
  "pallet-dex",
  "pallet-dex-rpc-runtime-api",
  "pallet-doughnut",

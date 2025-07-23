@@ -250,6 +250,7 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", bran
 try-runtime-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 pallet-collective = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 pallet-elections-phragmen = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+pallet-democracy = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 
 # frontier deps
 fc-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v1.0.0-TRN", default-features = false }
@@ -435,3 +436,4 @@ substrate-wasm-builder = { git = "https://github.com/futureversecom/trn-substrat
 try-runtime-cli = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }
 pallet-collective = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }
 pallet-elections-phragmen = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }
+pallet-democracy = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN" }
