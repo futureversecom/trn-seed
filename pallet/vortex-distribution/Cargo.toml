@@ -33,7 +33,7 @@ pallet-staking-reward-curve = { workspace = true }
 hex-literal = { workspace = true }
 pallet-staking = { workspace = true }
 sp-staking = { workspace = true }
-pallet-partner-attribution	= { workspace = true }
+pallet-partner-attribution = { workspace = true }
 
 [features]
 default = ["std"]
