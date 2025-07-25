@@ -15,7 +15,7 @@
 
 use crate as pallet_partner_attribution;
 use codec::Encode;
-use frame_support::traits::EnsureOrigin;
+use frame_support::{pallet_prelude::ConstU32, traits::EnsureOrigin};
 use seed_pallet_common::test_prelude::*;
 use sp_core::H160;
 
@@ -87,4 +87,5 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type MultiCurrency = pallet_assets_ext::Pallet<Test>;
+	type MaxPartners = ConstU32<200>;
 }

@@ -33,6 +33,7 @@ pallet-staking-reward-curve = { workspace = true }
 hex-literal = { workspace = true }
 pallet-staking = { workspace = true }
 sp-staking = { workspace = true }
+pallet-partner-attribution = { workspace = true }
 
 [features]
 default = ["std"]
@@ -50,6 +51,7 @@ std = [
 	"frame-system/std",
 	"scale-info/std",
 	"frame-benchmarking?/std",
+	"pallet-partner-attribution/std",
 ]
-try-runtime = ["frame-support/try-runtime"]
+try-runtime = ["frame-support/try-runtime", "pallet-partner-attribution/runtime-benchmarks"]
 runtime-benchmarks = ["frame-benchmarking"]

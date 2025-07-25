@@ -52,13 +52,13 @@ use frame_system::{
 	pallet_prelude::*,
 };
 use scale_info::TypeInfo;
-use seed_pallet_common::CreateExt;
+use seed_pallet_common::{AttributionProvider, CreateExt};
 use seed_primitives::{AssetId, Balance, OffchainErr};
 use sp_runtime::{
 	traits::{
 		AccountIdConversion, AtLeast32BitUnsigned, CheckedAdd, One, Saturating, StaticLookup, Zero,
 	},
-	Perquintill, RuntimeDebug,
+	Permill, Perquintill, RuntimeDebug,
 };
 use sp_std::{convert::TryInto, prelude::*};
 
@@ -162,6 +162,17 @@ pub mod pallet {
 		/// History depth
 		#[pallet::constant]
 		type HistoryDepth: Get<u32>;
+
+		/// Partner attribution provider
+		type PartnerAttributionProvider: AttributionProvider<Self::AccountId>;
+
+		/// Gas asset Id
+		#[pallet::constant]
+		type GasAssetId: Get<AssetId>;
+
+		/// Max Attribution partners
+		#[pallet::constant]
+		type MaxAttributionPartners: Get<u32>;
 	}
 
 	#[pallet::storage]
@@ -287,6 +298,16 @@ pub mod pallet {
 	pub(super) type TotalNetworkReward<T: Config> =
 		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
 
+	/// Stores partner attribution rewards for each distribution, this is in drops multiplied by PRECISION_MULTIPLIER
+	#[pallet::storage]
+	pub(super) type PartnerAttributionRewards<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::VtxDistIdentifier,
+		BoundedVec<(T::AccountId, Balance), T::MaxAttributionPartners>,
+		ValueQuery,
+	>;
+
 	/// Stores total bootstrap reward for each distribution, this is in drops multiplied by PRECISION_MULTIPLIER
 	#[pallet::storage]
 	pub(super) type TotalBootstrapReward<T: Config> =
@@ -318,6 +339,21 @@ pub mod pallet {
 		Twox64Concat,
 		T::VtxDistIdentifier,
 		BoundedVec<u8, T::MaxStringLength>,
+		ValueQuery,
+	>;
+
+	/// Stores total attribution rewards for each distribution in drops multiplied by PRECISION_MULTIPLIER
+	#[pallet::storage]
+	pub(super) type TotalAttributionRewards<T: Config> =
+		StorageMap<_, Twox64Concat, T::VtxDistIdentifier, Balance, ValueQuery>;
+
+	/// Stores partner attributions for each distribution
+	#[pallet::storage]
+	pub(super) type PartnerAttributions<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::VtxDistIdentifier,
+		BoundedVec<(T::AccountId, Balance, Option<Permill>), T::MaxAttributionPartners>,
 		ValueQuery,
 	>;
 
@@ -407,6 +443,16 @@ pub mod pallet {
 
 		/// Pivot key string is too long and exceeds MaxStringLength
 		PivotStringTooLong { id: T::VtxDistIdentifier },
+
+		/// Partner attribution reward paid
+		PartnerAttributionRewardPaid {
+			vtx_id: T::VtxDistIdentifier,
+			account: T::AccountId,
+			amount: Balance,
+		},
+
+		/// Emitted when partner attributions are updated for a distribution
+		PartnerAttributionsUpdated { vtx_id: T::VtxDistIdentifier },
 	}
 
 	#[pallet::hooks]
@@ -500,6 +546,15 @@ pub mod pallet {
 
 		/// Reward points not registered
 		RewardPointsNotRegistered,
+
+		/// Exceeded max attribution partners
+		ExceededMaxPartners,
+
+		/// Invalid partner fee percentage
+		InvalidPartnerFeePercentage,
+
+		/// Invalid fee vault asset value
+		InvalidFeeVaultAssetValue,
 	}
 
 	#[pallet::call]
@@ -728,7 +783,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		#[pallet::call_index(12)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution())]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::trigger_vtx_distribution(T::MaxAssetPrices::get(), T::MaxAttributionPartners::get()))]
 		#[transactional]
 		pub fn trigger_vtx_distribution(
 			origin: OriginFor<T>,
@@ -742,6 +797,7 @@ pub mod pallet {
 
 			Self::do_calculate_vortex_price(id)?;
 			Self::do_collate_reward_tokens(id)?;
+			Self::do_calculate_partner_attribution_rewards(id)?;
 			// Do the reward calculation if the EnableManualRewardInput is disabled.
 			if !EnableManualRewardInput::<T>::get() {
 				VtxDistStatuses::<T>::mutate(id, |status| {
@@ -778,7 +834,7 @@ pub mod pallet {
 		///
 		/// `id` - The distribution id
 		#[pallet::call_index(14)]
-		#[pallet::weight(<T as pallet::Config>::WeightInfo::start_vtx_dist())]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::start_vtx_dist(T::MaxAttributionPartners::get()))]
 		pub fn start_vtx_dist(origin: OriginFor<T>, id: T::VtxDistIdentifier) -> DispatchResult {
 			Self::ensure_root_or_admin(origin)?;
 			ensure!(
@@ -787,6 +843,7 @@ pub mod pallet {
 			);
 
 			Self::do_start_vtx_dist(id)?;
+			Self::do_distribute_partner_attribution_rewards(id)?;
 			Self::deposit_event(Event::VtxDistStarted { id });
 			Ok(())
 		}
@@ -1232,13 +1289,16 @@ pub mod pallet {
 
 				// fetch and calculate reward pool balances
 				let total_network_reward = TotalNetworkReward::<T>::get(id);
+				let total_attribution_rewards = TotalAttributionRewards::<T>::get(id);
+				let net_network_reward =
+					total_network_reward.saturating_sub(total_attribution_rewards);
 				let total_bootstrap_reward = TotalBootstrapReward::<T>::get(id);
 				// Ref -> https://docs.therootnetwork.com/intro/learn/tokenomics#how-are-rewards-distributed
 				const STAKER_REWARD_PORTION: Perquintill = Perquintill::from_percent(30); // 30% of network rewards
 				const WORK_POINTS_REWARD_PORTION: Perquintill = Perquintill::from_percent(70); // 70% of network rewards
 				let total_staker_pool = total_bootstrap_reward
-					.saturating_add(STAKER_REWARD_PORTION * total_network_reward); // bootstrap + 30% of network rewards
-				let total_workpoints_pool = WORK_POINTS_REWARD_PORTION * total_network_reward; // 70% of network rewards
+					.saturating_add(STAKER_REWARD_PORTION * net_network_reward); // bootstrap + 30% of network rewards
+				let total_workpoints_pool = WORK_POINTS_REWARD_PORTION * net_network_reward; // 70% of network rewards
 				let total_staker_points = TotalRewardPoints::<T>::get(id);
 				let total_work_points = TotalWorkPoints::<T>::get(id);
 
@@ -1278,12 +1338,18 @@ pub mod pallet {
 						.saturating_sub(final_reward.saturating_mul(PRECISION_MULTIPLIER));
 					log::debug!(
 						target: "vtx-dist",
-						"RewardCalculationLoss - Account: {:?}, wkp: {:?}, rp: {:?}, wkr: {:?}, rpr: {:?}, final_reward: {:?}, loss: {:?}",
+						"RewardCalculationLoss - Account: {:?}, wkp: {:?}, rp: {:?}, wkr: {:?}, rpr: {:?}, bootstrap_total: {:?}, network_total: {:?}, attribution_total: {:?}, net_network_reward: {:?}, staker_pool: {:?}, workpoints_pool: {:?}, final_reward: {:?}, loss: {:?}",
 						account_id,
 						account_work_points,
 						account_staker_points,
 						account_work_point_reward,
 						account_staker_reward,
+						total_bootstrap_reward,
+						total_network_reward,
+						total_attribution_rewards,
+						net_network_reward,
+						total_staker_pool,
+						total_workpoints_pool,
 						final_reward,
 						loss,
 					);
@@ -1386,6 +1452,66 @@ pub mod pallet {
 				},
 				None => Ok(None),
 			}
+		}
+
+		fn do_calculate_partner_attribution_rewards(id: T::VtxDistIdentifier) -> DispatchResult {
+			let attributions = T::PartnerAttributionProvider::get_attributions();
+			// Convert Vec to BoundedVec and save in storage
+			let bounded_attributions = BoundedVec::try_from(attributions.clone())
+				.map_err(|_| Error::<T>::ExceededMaxPartners)?;
+			PartnerAttributions::<T>::insert(id, bounded_attributions);
+			// call reset_balances on partner attribution pallet
+			T::PartnerAttributionProvider::reset_balances();
+
+			let vortex_price = VtxPrice::<T>::get(id); // with price multiplier
+			let fee_vault_asset_value = TotalNetworkReward::<T>::get(id)
+				.saturating_mul(vortex_price)
+				.saturating_div(PRECISION_MULTIPLIER); // in drops with price multiplier
+
+			// check if fee_vault_asset_value is zero
+			ensure!(fee_vault_asset_value != Zero::zero(), Error::<T>::InvalidFeeVaultAssetValue);
+			let mut partner_attribution_rewards =
+				BoundedVec::<(T::AccountId, Balance), T::MaxAttributionPartners>::new();
+			let xrp_price = AssetPrices::<T>::get(id, T::GasAssetId::get()); // with price multiplier
+			let mut total_attribution_rewards: u128 = 0;
+			for (account, amount, fee_percentage) in attributions {
+				let attribution_fee_value_usd = amount.saturating_mul(xrp_price);
+				// Note - calculating this way to get optimal precision
+				let vtx_attribution_reward = (fee_percentage
+					.ok_or(Error::<T>::InvalidPartnerFeePercentage)?
+					* attribution_fee_value_usd.saturating_mul(TotalNetworkReward::<T>::get(id)))
+				.div(fee_vault_asset_value);
+				partner_attribution_rewards
+					.try_push((account, vtx_attribution_reward))
+					.map_err(|_| Error::<T>::ExceededMaxPartners)?;
+				total_attribution_rewards =
+					total_attribution_rewards.saturating_add(vtx_attribution_reward);
+			}
+
+			PartnerAttributionRewards::<T>::insert(id, partner_attribution_rewards);
+			TotalAttributionRewards::<T>::insert(id, total_attribution_rewards);
+			Self::deposit_event(Event::PartnerAttributionsUpdated { vtx_id: id });
+			Ok(())
+		}
+
+		fn do_distribute_partner_attribution_rewards(id: T::VtxDistIdentifier) -> DispatchResult {
+			let rewards = PartnerAttributionRewards::<T>::get(id);
+			for (account, amount) in rewards.iter() {
+				let vtx_amount_drops = amount.saturating_div(PRECISION_MULTIPLIER);
+				Self::safe_transfer(
+					T::VtxAssetId::get(),
+					&Self::get_vtx_held_account(),
+					account,
+					vtx_amount_drops,
+					false,
+				)?;
+				Self::deposit_event(Event::PartnerAttributionRewardPaid {
+					vtx_id: id,
+					account: account.clone(),
+					amount: vtx_amount_drops,
+				});
+			}
+			Ok(())
 		}
 	}
 }

@@ -915,6 +915,7 @@ macro_rules! impl_pallet_partner_attribution_config {
 			type EnsureFuturepass = EnsureAny;
 			type FuturepassCreator = MockFuturepassProvider;
 			type WeightInfo = ();
+			type MaxPartners = ConstU32<200>;
 			#[cfg(feature = "runtime-benchmarks")]
 			type MultiCurrency = AssetsExt;
 		}
