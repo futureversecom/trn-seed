@@ -6640,6 +6640,7 @@ dependencies = [
  "pallet-assets-ext",
  "pallet-bags-list",
  "pallet-balances",
+ "pallet-partner-attribution",
  "pallet-session",
  "pallet-staking",
  "pallet-staking-reward-curve",
