@@ -52,7 +52,7 @@ pub struct FeeControlFeeConfig {
 pub mod pallet {
 	use super::*;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]

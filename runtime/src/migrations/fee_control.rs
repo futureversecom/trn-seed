@@ -49,7 +49,7 @@ impl OnRuntimeUpgrade for FeeControlConfigMigration {
 		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(2);
 
 		// Check if migration has already been done
-		if onchain >= 2 {
+		if onchain >= 3 {
 			log::info!(
 				target: "Migration",
 				"FeeControl: No migration needed, already at version {onchain:?}. Migration code can be removed."
@@ -94,7 +94,7 @@ impl OnRuntimeUpgrade for FeeControlConfigMigration {
 		weight = weight.saturating_add(<Runtime as frame_system::Config>::DbWeight::get().reads(1));
 
 		// Update storage version
-		StorageVersion::new(2).put::<FeeControl>();
+		StorageVersion::new(3).put::<FeeControl>();
 
 		log::info!(target: "Migration", "FeeControl: Migration successfully completed.");
 		weight
@@ -106,7 +106,7 @@ impl OnRuntimeUpgrade for FeeControlConfigMigration {
 		let onchain = FeeControl::on_chain_storage_version();
 
 		// Return early if migration has already been done
-		if onchain >= 2 {
+		if onchain >= 3 {
 			log::info!(target: "Migration", "FeeControl: Migration already completed at version {onchain:?}");
 			return Ok(Vec::new());
 		}
@@ -127,8 +127,8 @@ impl OnRuntimeUpgrade for FeeControlConfigMigration {
 		let onchain = FeeControl::on_chain_storage_version();
 
 		// Verify storage version was updated
-		assert_eq!(current, 2);
-		assert_eq!(onchain, 2);
+		assert_eq!(current, 3);
+		assert_eq!(onchain, 3);
 
 		// Verify that the new config has the minimum_multiplier field
 		let config = pallet_fee_control::Data::<Runtime>::get();
@@ -148,13 +148,13 @@ mod tests {
 	fn migrate_with_no_existing_data() {
 		new_test_ext().execute_with(|| {
 			// Setup storage version to 1 (pre-migration)
-			StorageVersion::new(1).put::<FeeControl>();
+			StorageVersion::new(2).put::<FeeControl>();
 
 			// Run migration
 			FeeControlConfigMigration::on_runtime_upgrade();
 
 			// Verify storage version was updated
-			assert_eq!(FeeControl::on_chain_storage_version(), 2);
+			assert_eq!(FeeControl::on_chain_storage_version(), 3);
 
 			// Verify config has all 4 fields with expected default values
 			let config = pallet_fee_control::Data::<Runtime>::get();
@@ -172,8 +172,8 @@ mod tests {
 	#[test]
 	fn migrate_with_existing_data() {
 		new_test_ext().execute_with(|| {
-			// Setup storage version to 1 (pre-migration)
-			StorageVersion::new(1).put::<FeeControl>();
+			// Setup storage version to 2 (pre-migration)
+			StorageVersion::new(2).put::<FeeControl>();
 
 			// Create old config data with 3 fields
 			let old_config = OldFeeControlFeeConfig {
@@ -190,7 +190,7 @@ mod tests {
 			FeeControlConfigMigration::on_runtime_upgrade();
 
 			// Verify storage version was updated
-			assert_eq!(FeeControl::on_chain_storage_version(), 2);
+			assert_eq!(FeeControl::on_chain_storage_version(), 3);
 
 			// Verify all 4 fields are present - 3 migrated + 1 new default
 			let config = pallet_fee_control::Data::<Runtime>::get();
@@ -209,14 +209,14 @@ mod tests {
 	#[test]
 	fn migrate_already_completed() {
 		new_test_ext().execute_with(|| {
-			// Setup storage version to 2 (already migrated)
-			StorageVersion::new(2).put::<FeeControl>();
+			// Setup storage version to 3 (already migrated)
+			StorageVersion::new(3).put::<FeeControl>();
 
 			// Run migration again
 			FeeControlConfigMigration::on_runtime_upgrade();
 
-			// Verify storage version is still 2
-			assert_eq!(FeeControl::on_chain_storage_version(), 2);
+			// Verify storage version is still 3
+			assert_eq!(FeeControl::on_chain_storage_version(), 3);
 		});
 	}
 }
