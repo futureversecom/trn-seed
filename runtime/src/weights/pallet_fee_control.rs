@@ -4,7 +4,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2025-07-29, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `Jasons-Ubuntu`, CPU: `AMD Ryzen 9 7950X 16-Core Processor`
+//! HOSTNAME: `ip-172-31-102-147`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
 //! EXECUTION: ``, WASM-EXECUTION: `Compiled`, CHAIN: `Some("dev")`, DB CACHE: 1024
 
 // Executed Command:
@@ -33,50 +33,51 @@ use core::marker::PhantomData;
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_fee_control::WeightInfo for WeightInfo<T> {
 	/// Storage: `FeeControl::Data` (r:1 w:1)
-	/// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(52), added: 547, mode: `MaxEncodedLen`)
+	/// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(68), added: 563, mode: `MaxEncodedLen`)
 	fn set_evm_base_fee() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `4`
-		//  Estimated: `1537`
-		// Minimum execution time: 7_655_000 picoseconds.
-		Weight::from_parts(7_855_000, 0)
-			.saturating_add(Weight::from_parts(0, 1537))
+		//  Estimated: `1553`
+		// Minimum execution time: 30_393_000 picoseconds.
+		Weight::from_parts(31_352_000, 0)
+			.saturating_add(Weight::from_parts(0, 1553))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `FeeControl::Data` (r:1 w:1)
-	/// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(52), added: 547, mode: `MaxEncodedLen`)
+	/// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(68), added: 563, mode: `MaxEncodedLen`)
 	fn set_weight_multiplier() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `4`
-		//  Estimated: `1537`
-		// Minimum execution time: 7_123_000 picoseconds.
-		Weight::from_parts(7_384_000, 0)
-			.saturating_add(Weight::from_parts(0, 1537))
+		//  Estimated: `1553`
+		// Minimum execution time: 29_114_000 picoseconds.
+		Weight::from_parts(29_788_000, 0)
+			.saturating_add(Weight::from_parts(0, 1553))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	/// Storage: `FeeControl::Data` (r:1 w:1)
-	/// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(52), added: 547, mode: `MaxEncodedLen`)
+	/// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(68), added: 563, mode: `MaxEncodedLen`)
 	fn set_length_multiplier() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `4`
-		//  Estimated: `1537`
-		// Minimum execution time: 7_173_000 picoseconds.
-		Weight::from_parts(7_404_000, 0)
-			.saturating_add(Weight::from_parts(0, 1537))
+		//  Estimated: `1553`
+		// Minimum execution time: 29_250_000 picoseconds.
+		Weight::from_parts(30_051_000, 0)
+			.saturating_add(Weight::from_parts(0, 1553))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	/// Storage: `FeeControl::FeeMultiplier` (r:0 w:1)
-	/// Proof: `FeeControl::FeeMultiplier` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	/// Storage: `FeeControl::Data` (r:1 w:1)
+	/// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(68), added: 563, mode: `MaxEncodedLen`)
 	fn set_minimum_multiplier() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 5_230_000 picoseconds.
-		Weight::from_parts(5_511_000, 0)
-			.saturating_add(Weight::from_parts(0, 0))
+		//  Measured:  `4`
+		//  Estimated: `1553`
+		// Minimum execution time: 29_955_000 picoseconds.
+		Weight::from_parts(30_680_000, 0)
+			.saturating_add(Weight::from_parts(0, 1553))
+			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }

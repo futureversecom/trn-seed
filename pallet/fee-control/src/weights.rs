@@ -19,7 +19,7 @@
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2025-07-29, STEPS: `50`, REPEAT: 20, LOW RANGE: `[]`, HIGH RANGE: `[]`
-//! HOSTNAME: `Jasons-Ubuntu`, CPU: `AMD Ryzen 9 7950X 16-Core Processor`
+//! HOSTNAME: `ip-172-31-102-147`, CPU: `Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz`
 //! EXECUTION: , WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
@@ -57,30 +57,31 @@ pub trait WeightInfo {
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: `FeeControl::Data` (r:1 w:1)
-	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(52), added: 547, mode: `MaxEncodedLen`)
+	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(68), added: 563, mode: `MaxEncodedLen`)
 	fn set_evm_base_fee() -> Weight {
-		Weight::from_all(8_286_000)
+		Weight::from_all(31_833_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `FeeControl::Data` (r:1 w:1)
-	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(52), added: 547, mode: `MaxEncodedLen`)
+	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(68), added: 563, mode: `MaxEncodedLen`)
 	fn set_weight_multiplier() -> Weight {
-		Weight::from_all(7_564_000)
+		Weight::from_all(30_490_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: `FeeControl::Data` (r:1 w:1)
-	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(52), added: 547, mode: `MaxEncodedLen`)
+	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(68), added: 563, mode: `MaxEncodedLen`)
 	fn set_length_multiplier() -> Weight {
-		Weight::from_all(7_624_000)
+		Weight::from_all(29_899_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	// Storage: `FeeControl::FeeMultiplier` (r:0 w:1)
-	// Proof: `FeeControl::FeeMultiplier` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	// Storage: `FeeControl::Data` (r:1 w:1)
+	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(68), added: 563, mode: `MaxEncodedLen`)
 	fn set_minimum_multiplier() -> Weight {
-		Weight::from_all(5_541_000)
+		Weight::from_all(30_391_000)
+			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }
@@ -88,30 +89,31 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 // For backwards compatibility and tests
 impl WeightInfo for () {
 	// Storage: `FeeControl::Data` (r:1 w:1)
-	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(52), added: 547, mode: `MaxEncodedLen`)
+	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(68), added: 563, mode: `MaxEncodedLen`)
 	fn set_evm_base_fee() -> Weight {
-		Weight::from_all(8_286_000)
+		Weight::from_all(31_833_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `FeeControl::Data` (r:1 w:1)
-	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(52), added: 547, mode: `MaxEncodedLen`)
+	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(68), added: 563, mode: `MaxEncodedLen`)
 	fn set_weight_multiplier() -> Weight {
-		Weight::from_all(7_564_000)
+		Weight::from_all(30_490_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: `FeeControl::Data` (r:1 w:1)
-	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(52), added: 547, mode: `MaxEncodedLen`)
+	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(68), added: 563, mode: `MaxEncodedLen`)
 	fn set_length_multiplier() -> Weight {
-		Weight::from_all(7_624_000)
+		Weight::from_all(29_899_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
-	// Storage: `FeeControl::FeeMultiplier` (r:0 w:1)
-	// Proof: `FeeControl::FeeMultiplier` (`max_values`: Some(1), `max_size`: Some(16), added: 511, mode: `MaxEncodedLen`)
+	// Storage: `FeeControl::Data` (r:1 w:1)
+	// Proof: `FeeControl::Data` (`max_values`: Some(1), `max_size`: Some(68), added: 563, mode: `MaxEncodedLen`)
 	fn set_minimum_multiplier() -> Weight {
-		Weight::from_all(5_541_000)
+		Weight::from_all(30_391_000)
+			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }
