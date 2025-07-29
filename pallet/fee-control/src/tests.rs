@@ -78,10 +78,7 @@ fn charges_extrinsic_fee_based_on_setting() {
 		assert_eq!(fee_token_balance, starting_fee_token_asset_balance);
 		assert_ok!(MockPallet::mock_charge_fee(RawOrigin::Signed(account).into()));
 
-		assert_ok!(FeeControl::set_weight_multiplier(
-			RawOrigin::Root.into(),
-			42
-		));
+		assert_ok!(FeeControl::set_weight_multiplier(RawOrigin::Root.into(), 42));
 
 		let call = mock_pallet::pallet::Call::mock_charge_fee {};
 		let dispatch_info = call.get_dispatch_info();
@@ -166,10 +163,7 @@ fn set_minimum_multiplier_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
 		let numerator: u128 = 12345;
 		let minimum_multiplier = Multiplier::saturating_from_rational(numerator, 1_000_000_000u128);
-		assert_ok!(FeeControl::set_minimum_multiplier(
-			RawOrigin::Root.into(),
-			numerator
-		));
+		assert_ok!(FeeControl::set_minimum_multiplier(RawOrigin::Root.into(), numerator));
 
 		assert_eq!(Data::<Test>::get().minimum_multiplier, minimum_multiplier);
 

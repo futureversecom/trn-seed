@@ -20,13 +20,13 @@ use codec::{Decode, Encode};
 pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult, GetCallMetadata},
-	sp_runtime::{traits::AccountIdConversion, Perbill, Permill, FixedPointNumber},
+	sp_runtime::{traits::AccountIdConversion, FixedPointNumber, Perbill, Permill},
 	traits::{fungibles::Mutate, Get},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	PalletId,
 };
-use pallet_transaction_payment::Multiplier;
 use frame_system::Config;
+use pallet_transaction_payment::Multiplier;
 use scale_info::TypeInfo;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},

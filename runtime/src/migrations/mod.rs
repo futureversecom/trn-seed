@@ -30,8 +30,8 @@ use frame_support::{
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
 
-pub mod partner_attribution;
 pub mod fee_control;
+pub mod partner_attribution;
 
 pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {

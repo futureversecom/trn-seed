@@ -25,7 +25,7 @@ use frame_system::RawOrigin;
 use pallet_transaction_payment::Multiplier;
 use seed_primitives::Balance;
 use sp_core::U256;
-use sp_runtime::{traits::One, Perbill, FixedPointNumber};
+use sp_runtime::{traits::One, FixedPointNumber, Perbill};
 
 benchmarks! {
 	set_evm_base_fee {

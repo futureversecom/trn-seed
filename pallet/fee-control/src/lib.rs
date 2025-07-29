@@ -19,12 +19,12 @@ pub use pallet::*;
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
+use pallet_transaction_payment::Multiplier;
 use seed_pallet_common::FeeConfig;
 use seed_primitives::Balance;
 use sp_core::U256;
-use sp_runtime::Perbill;
-use pallet_transaction_payment::Multiplier;
 use sp_runtime::FixedPointNumber;
+use sp_runtime::Perbill;
 
 use core::ops::Mul;
 
@@ -143,7 +143,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_minimum_multiplier())]
 		pub fn set_minimum_multiplier(origin: OriginFor<T>, numerator: u128) -> DispatchResult {
 			ensure_root(origin)?;
-			let minimum_multiplier = Multiplier::saturating_from_rational(numerator, 1_000_000_000u128);
+			let minimum_multiplier =
+				Multiplier::saturating_from_rational(numerator, 1_000_000_000u128);
 			Data::<T>::mutate(|x| {
 				x.minimum_multiplier = minimum_multiplier;
 			});

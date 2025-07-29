@@ -19,10 +19,7 @@ use frame_support::traits::{ConstU32, Hooks};
 use seed_pallet_common::test_prelude::*;
 use seed_pallet_common::AttributionProvider;
 use sp_runtime::{testing::TestXt, BuildStorage};
-use sp_runtime::{
-	traits::{Zero},
-	Permill,
-};
+use sp_runtime::{traits::Zero, Permill};
 use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
 use std::cell::RefCell;
 use std::ops::Div;
