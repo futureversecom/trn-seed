@@ -20,6 +20,7 @@ use frame_support::{
 };
 #[cfg(feature = "try-runtime")]
 use sp_runtime::DispatchError;
+#[cfg(feature = "try-runtime")]
 use sp_std::vec::Vec;
 
 /// Migration to set PartnerCount to the current number of partners
