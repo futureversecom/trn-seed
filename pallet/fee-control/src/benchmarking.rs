@@ -22,19 +22,40 @@ use crate::Pallet as FeeControl;
 
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
+use pallet_transaction_payment::Multiplier;
 use seed_primitives::Balance;
 use sp_core::U256;
-use sp_runtime::traits::One;
+use sp_runtime::{traits::One, Perbill, FixedPointNumber};
 
 benchmarks! {
 	set_evm_base_fee {
-	}: _(RawOrigin::Root, U256::one())
+		let value = U256::from(12345u64);
+	}: _(RawOrigin::Root, value)
+	verify {
+		assert_eq!(Data::<T>::get().evm_base_fee_per_gas, value);
+	}
 
 	set_weight_multiplier {
-	}: _(RawOrigin::Root, Perbill::one())
+		let value = 500000u32;
+	}: _(RawOrigin::Root, value)
+	verify {
+		assert_eq!(Data::<T>::get().weight_multiplier, value);
+	}
 
 	set_length_multiplier {
-	}: _(RawOrigin::Root, Balance::one())
+		let value = Balance::from(123u32);
+	}: _(RawOrigin::Root, value)
+	verify {
+		assert_eq!(Data::<T>::get().length_multiplier, value);
+	}
+
+	set_minimum_multiplier {
+		let numerator = 250_000_000u128; // 25%
+		let expected_multiplier = Multiplier::saturating_from_rational(numerator, 1_000_000_000u128);
+	}: _(RawOrigin::Root, numerator)
+	verify {
+		assert_eq!(Data::<T>::get().minimum_multiplier, expected_multiplier);
+	}
 }
 
 impl_benchmark_test_suite!(

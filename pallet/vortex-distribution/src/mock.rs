@@ -20,7 +20,7 @@ use seed_pallet_common::test_prelude::*;
 use seed_pallet_common::AttributionProvider;
 use sp_runtime::{testing::TestXt, BuildStorage};
 use sp_runtime::{
-	traits::{Saturating, Zero},
+	traits::{Zero},
 	Permill,
 };
 use sp_staking::currency_to_vote::SaturatingCurrencyToVote;
@@ -232,7 +232,7 @@ parameter_types! {
 	pub const XrpAssetId: seed_primitives::AssetId = XRP_ASSET_ID;
 }
 
-/// Thread local storage for test attributions.
+// Thread local storage for test attributions.
 thread_local! {
 	static TEST_ATTRIBUTIONS: RefCell<Vec<(AccountId, Balance, Option<Permill>)>> = RefCell::new(Vec::new());
 }

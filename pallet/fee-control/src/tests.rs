@@ -16,16 +16,16 @@
 use super::Event;
 use crate::{
 	mock::{RuntimeEvent as MockEvent, *},
-	Data,
+	Data, Error,
 };
 use frame_support::{
 	dispatch::{DispatchClass, GetDispatchInfo},
 	traits::fungibles::Mutate,
 };
 use frame_system::{limits::BlockWeights, RawOrigin};
-use pallet_transaction_payment::ChargeTransactionPayment;
+use pallet_transaction_payment::{ChargeTransactionPayment, Multiplier};
 use seed_pallet_common::test_prelude::*;
-use sp_runtime::{traits::SignedExtension, Perbill};
+use sp_runtime::{traits::SignedExtension, FixedPointNumber, Perbill};
 
 #[test]
 fn charges_default_extrinsic_amount() {
@@ -80,7 +80,7 @@ fn charges_extrinsic_fee_based_on_setting() {
 
 		assert_ok!(FeeControl::set_weight_multiplier(
 			RawOrigin::Root.into(),
-			Perbill::from_percent(42)
+			42
 		));
 
 		let call = mock_pallet::pallet::Call::mock_charge_fee {};
@@ -123,7 +123,7 @@ fn set_evm_base_fee_works() {
 #[test]
 fn set_weight_multiplier_works() {
 	TestExt::<Test>::default().build().execute_with(|| {
-		let new_value = Perbill::from_parts(12345);
+		let new_value = 12345;
 		assert_ok!(FeeControl::set_weight_multiplier(RawOrigin::Root.into(), new_value));
 
 		assert_eq!(Data::<Test>::get().weight_multiplier, new_value);
@@ -131,6 +131,19 @@ fn set_weight_multiplier_works() {
 		System::assert_last_event(MockEvent::FeeControl(Event::<Test>::WeightMultiplierSet {
 			weight_multiplier: new_value,
 		}));
+		let perbill_value = Perbill::from_parts(12345);
+		assert_eq!(FeeControl::weight_multiplier(), perbill_value);
+	});
+}
+
+#[test]
+fn set_weight_multiplier_fails_on_invalid_value() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let new_value = 1_000_000_001; // Greater than the maximum allowed value
+		assert_noop!(
+			FeeControl::set_weight_multiplier(RawOrigin::Root.into(), new_value),
+			Error::<Test>::InvalidWeightMultiplier
+		);
 	});
 }
 
@@ -144,6 +157,25 @@ fn set_length_multiplier_works() {
 
 		System::assert_last_event(MockEvent::FeeControl(Event::<Test>::LengthMultiplierSet {
 			length_multiplier: new_value,
+		}));
+	});
+}
+
+#[test]
+fn set_minimum_multiplier_works() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let numerator: u128 = 12345;
+		let minimum_multiplier = Multiplier::saturating_from_rational(numerator, 1_000_000_000u128);
+		assert_ok!(FeeControl::set_minimum_multiplier(
+			RawOrigin::Root.into(),
+			numerator
+		));
+
+		assert_eq!(Data::<Test>::get().minimum_multiplier, minimum_multiplier);
+
+		System::assert_last_event(MockEvent::FeeControl(Event::<Test>::MinimumMultiplierSet {
+			numerator,
+			minimum_multiplier,
 		}));
 	});
 }

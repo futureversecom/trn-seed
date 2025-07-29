@@ -20,11 +20,12 @@ use codec::{Decode, Encode};
 pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult, GetCallMetadata},
-	sp_runtime::{traits::AccountIdConversion, Perbill, Permill},
+	sp_runtime::{traits::AccountIdConversion, Perbill, Permill, FixedPointNumber},
 	traits::{fungibles::Mutate, Get},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	PalletId,
 };
+use pallet_transaction_payment::Multiplier;
 use frame_system::Config;
 use scale_info::TypeInfo;
 use seed_primitives::{
@@ -457,9 +458,15 @@ impl NFIRequest for () {
 }
 
 pub trait FeeConfig {
+	/// The base fee per gas for EVM transactions
 	fn evm_base_fee_per_gas() -> U256;
+	/// Multiplied by the extrinsic dispatch weight and the base weight
 	fn weight_multiplier() -> Perbill;
+	/// Multiplied by the number of bytes in the encoded call data
 	fn length_multiplier() -> Balance;
+	/// MinimumMultiplier is used by the transaction payment pallet to calculate the minimum fee with
+	/// SlowAdjustingFeeUpdate.
+	fn minimum_multiplier() -> Multiplier;
 }
 
 impl FeeConfig for () {
@@ -475,6 +482,10 @@ impl FeeConfig for () {
 
 	fn length_multiplier() -> Balance {
 		Balance::from(350u32)
+	}
+
+	fn minimum_multiplier() -> Multiplier {
+		Multiplier::saturating_from_rational(200_000_000, 1_000_000_000u128) // 20%
 	}
 }
 

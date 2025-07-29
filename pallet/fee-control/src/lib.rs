@@ -23,6 +23,8 @@ use seed_pallet_common::FeeConfig;
 use seed_primitives::Balance;
 use sp_core::U256;
 use sp_runtime::Perbill;
+use pallet_transaction_payment::Multiplier;
+use sp_runtime::FixedPointNumber;
 
 use core::ops::Mul;
 
@@ -41,8 +43,9 @@ mod benchmarking;
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct FeeControlFeeConfig {
 	pub evm_base_fee_per_gas: U256,
-	pub weight_multiplier: Perbill,
+	pub weight_multiplier: u32,
 	pub length_multiplier: Balance,
+	pub minimum_multiplier: Multiplier,
 }
 
 #[frame_support::pallet]
@@ -69,8 +72,9 @@ pub mod pallet {
 	pub fn DefaultFeeConfig<T: Config>() -> FeeControlFeeConfig {
 		FeeControlFeeConfig {
 			evm_base_fee_per_gas: T::FeeConfig::evm_base_fee_per_gas(),
-			weight_multiplier: T::FeeConfig::weight_multiplier(),
+			weight_multiplier: T::FeeConfig::weight_multiplier().deconstruct(),
 			length_multiplier: T::FeeConfig::length_multiplier(),
+			minimum_multiplier: T::FeeConfig::minimum_multiplier(),
 		}
 	}
 
@@ -83,9 +87,17 @@ pub mod pallet {
 		/// The EVM base fee has been set to `base_fee`
 		EvmBaseFeeSet { base_fee: U256 },
 		/// The weight multiplier has been set to `weight_multiplier`
-		WeightMultiplierSet { weight_multiplier: Perbill },
+		WeightMultiplierSet { weight_multiplier: u32 },
 		/// The length multiplier has been set to `length_multiplier`
 		LengthMultiplierSet { length_multiplier: Balance },
+		/// The minimum fee multiplier has been set to `minimum_multiplier`
+		MinimumMultiplierSet { numerator: u128, minimum_multiplier: Multiplier },
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// The Weight multiplier is invalid, it must be less than or equal to 1_000_000_000
+		InvalidWeightMultiplier,
 	}
 
 	#[pallet::call]
@@ -104,8 +116,9 @@ pub mod pallet {
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_weight_multiplier())]
-		pub fn set_weight_multiplier(origin: OriginFor<T>, value: Perbill) -> DispatchResult {
+		pub fn set_weight_multiplier(origin: OriginFor<T>, value: u32) -> DispatchResult {
 			ensure_root(origin)?;
+			ensure!(value <= 1_000_000_000, Error::<T>::InvalidWeightMultiplier);
 			Data::<T>::mutate(|x| {
 				x.weight_multiplier = value;
 			});
@@ -125,12 +138,25 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::LengthMultiplierSet { length_multiplier: value });
 			Ok(())
 		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::WeightInfo::set_minimum_multiplier())]
+		pub fn set_minimum_multiplier(origin: OriginFor<T>, numerator: u128) -> DispatchResult {
+			ensure_root(origin)?;
+			let minimum_multiplier = Multiplier::saturating_from_rational(numerator, 1_000_000_000u128);
+			Data::<T>::mutate(|x| {
+				x.minimum_multiplier = minimum_multiplier;
+			});
+
+			Self::deposit_event(Event::<T>::MinimumMultiplierSet { numerator, minimum_multiplier });
+			Ok(())
+		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
 	pub fn weight_to_fee(weight: &Weight) -> Balance {
-		Data::<T>::get().weight_multiplier.mul(weight.ref_time() as Balance)
+		Perbill::from_parts(Data::<T>::get().weight_multiplier).mul(weight.ref_time() as Balance)
 	}
 
 	pub fn length_to_fee(weight: &Weight) -> Balance {
@@ -140,6 +166,10 @@ impl<T: Config> Pallet<T> {
 	pub fn base_fee_per_gas() -> U256 {
 		Data::<T>::get().evm_base_fee_per_gas
 	}
+
+	pub fn minimum_multiplier() -> Multiplier {
+		Data::<T>::get().minimum_multiplier
+	}
 }
 
 impl<T: Config> FeeConfig for Pallet<T> {
@@ -148,11 +178,15 @@ impl<T: Config> FeeConfig for Pallet<T> {
 	}
 
 	fn weight_multiplier() -> Perbill {
-		Data::<T>::get().weight_multiplier
+		Perbill::from_parts(Data::<T>::get().weight_multiplier)
 	}
 
 	fn length_multiplier() -> Balance {
 		Data::<T>::get().length_multiplier
+	}
+
+	fn minimum_multiplier() -> Multiplier {
+		Data::<T>::get().minimum_multiplier
 	}
 }
 
