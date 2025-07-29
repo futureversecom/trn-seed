@@ -30,6 +30,7 @@ use frame_support::{
 use sp_runtime::DispatchError;
 use sp_std::vec::Vec;
 
+pub mod fee_control;
 pub mod partner_attribution;
 
 pub struct AllMigrations;
@@ -37,18 +38,22 @@ impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, DispatchError> {
 		// Run pre-upgrade checks for all migrations
-		partner_attribution::PartnerCountMigration::pre_upgrade()
+		partner_attribution::PartnerCountMigration::pre_upgrade()?;
+		fee_control::FeeControlConfigMigration::pre_upgrade()
 	}
 
 	fn on_runtime_upgrade() -> Weight {
 		// Run all migrations and sum their weights
-		partner_attribution::PartnerCountMigration::on_runtime_upgrade()
+		let weight1 = partner_attribution::PartnerCountMigration::on_runtime_upgrade();
+		let weight2 = fee_control::FeeControlConfigMigration::on_runtime_upgrade();
+		weight1.saturating_add(weight2)
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), DispatchError> {
 		// Run post-upgrade checks for all migrations
-		partner_attribution::PartnerCountMigration::post_upgrade(state)
+		partner_attribution::PartnerCountMigration::post_upgrade(state.clone())?;
+		fee_control::FeeControlConfigMigration::post_upgrade(state)
 	}
 }
 

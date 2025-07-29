@@ -9176,6 +9176,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-transaction-payment",
  "parity-scale-codec",
  "scale-info",
  "seed-primitives",
