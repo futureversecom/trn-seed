@@ -269,7 +269,6 @@ macro_rules! impl_pallet_nft_config {
 			type MaxDataLength = NftDataLimit;
 			type NFIRequest = ();
 			type MaxPendingIssuances = MaxPendingIssuances;
-			type Migrator = ();
 		}
 	};
 }
