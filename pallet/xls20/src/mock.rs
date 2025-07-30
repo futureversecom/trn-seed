@@ -78,7 +78,6 @@ impl pallet_nft::Config for Test {
 	type Xls20MintRequest = Xls20;
 	type NFIRequest = ();
 	type MaxPendingIssuances = MaxPendingIssuances;
-	type Migrator = ();
 }
 
 parameter_types! {
@@ -95,5 +94,4 @@ impl crate::Config for Test {
 	type NFTCollectionInfo = Nft;
 	type Xls20PaymentAsset = Xls20PaymentAsset;
 	type NFTMinter = Nft;
-	type Migrator = ();
 }

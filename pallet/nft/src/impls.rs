@@ -24,7 +24,7 @@ use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	log,
 	utils::{next_asset_uuid, HasBurnAuthority, PublicMintInformation},
-	Migrator, NFTExt, NFTMinter, OnNewAssetSubscriber, OnTransferSubscriber,
+	NFTExt, NFTMinter, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
@@ -48,18 +48,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Return whether the collection exists or not
 	pub fn collection_exists(collection_id: CollectionUuid) -> bool {
-		if T::Migrator::ensure_migrated().is_err() {
-			return false;
-		}
 		<CollectionInfo<T>>::contains_key(collection_id)
 	}
 
 	/// Returns number of tokens owned by an account in a collection
 	/// Used by the ERC721 precompile for balance_of
 	pub fn token_balance_of(who: &T::AccountId, collection_id: CollectionUuid) -> TokenCount {
-		if T::Migrator::ensure_migrated().is_err() {
-			return 0;
-		}
 		match <OwnedTokens<T>>::get(who, collection_id) {
 			Some(owned_tokens) => owned_tokens.len() as TokenCount,
 			None => TokenCount::zero(),
@@ -69,9 +63,6 @@ impl<T: Config> Pallet<T> {
 	/// Construct & return the full metadata URI for a given `token_id` (analogous to ERC721
 	/// metadata token_uri)
 	pub fn token_uri(token_id: TokenId) -> Vec<u8> {
-		if T::Migrator::ensure_migrated().is_err() {
-			return Default::default();
-		}
 		let Some(collection_info) = <CollectionInfo<T>>::get(token_id.0) else {
 			// should not happen
 			log!(warn, "🃏 Unexpected empty metadata scheme: {:?}", token_id);
@@ -97,7 +88,6 @@ impl<T: Config> Pallet<T> {
 		current_owner: &T::AccountId,
 		new_owner: &T::AccountId,
 	) -> DispatchResult {
-		T::Migrator::ensure_migrated()?;
 		ensure!(current_owner != new_owner, Error::<T>::InvalidNewOwner);
 		ensure!(
 			<UtilityFlags<T>>::get(collection_id).transferable,
@@ -198,7 +188,6 @@ impl<T: Config> Pallet<T> {
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
 	) -> WeightedDispatchResult {
-		T::Migrator::ensure_migrated().map_err(|e| (Weight::zero(), e))?;
 		if serial_numbers.is_empty() {
 			return Ok(Weight::zero());
 		};
@@ -412,7 +401,6 @@ impl<T: Config> Pallet<T> {
 		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 		utility_flags: TokenFlags,
 	) -> DispatchResult {
-		T::Migrator::ensure_migrated()?;
 		// Update collection issuance
 		collection_info.collection_issuance = collection_info
 			.collection_issuance
@@ -466,9 +454,6 @@ impl<T: Config> Pallet<T> {
 		cursor: SerialNumber,
 		limit: u16,
 	) -> (SerialNumber, TokenCount, Vec<SerialNumber>) {
-		if T::Migrator::ensure_migrated().is_err() {
-			return (Default::default(), Default::default(), Default::default());
-		}
 		let mut owned_tokens = match <OwnedTokens<T>>::get(who, collection_id) {
 			Some(tokens) => tokens,
 			None => return (Default::default(), Default::default(), Default::default()),
@@ -515,7 +500,6 @@ impl<T: Config> Pallet<T> {
 	where
 		<T as frame_system::Config>::AccountId: core::default::Default,
 	{
-		T::Migrator::ensure_migrated()?;
 		let collection_info =
 			<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		let collection_info = collection_info;
@@ -558,7 +542,6 @@ impl<T: Config> Pallet<T> {
 		origin_chain: OriginChain,
 		cross_chain_compatibility: CrossChainCompatibility,
 	) -> Result<u32, DispatchError> {
-		T::Migrator::ensure_migrated()?;
 		// Check we can issue the new tokens
 		let collection_uuid = Self::next_collection_uuid()?;
 
@@ -672,7 +655,6 @@ impl<T: Config> Pallet<T> {
 		collection_id: CollectionUuid,
 		serial_number: SerialNumber,
 	) -> DispatchResult {
-		T::Migrator::ensure_migrated()?;
 		ensure!(<UtilityFlags<T>>::get(collection_id).burnable, Error::<T>::BurnUtilityBlocked);
 
 		CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection_info| -> DispatchResult {
@@ -736,7 +718,6 @@ impl<T: Config> Pallet<T> {
 		who: T::AccountId,
 		collection_id: CollectionUuid,
 	) -> DispatchResult {
-		T::Migrator::ensure_migrated()?;
 		let mut collection_info =
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
@@ -759,7 +740,6 @@ impl<T: Config> Pallet<T> {
 		collection_id: CollectionUuid,
 		new_owner: T::AccountId,
 	) -> DispatchResult {
-		T::Migrator::ensure_migrated()?;
 		let mut collection_info =
 			<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		ensure!(collection_info.owner == previous_owner, Error::<T>::NotCollectionOwner);
@@ -802,7 +782,6 @@ impl<T: Config> NFTExt for Pallet<T> {
 		quantity: TokenCount,
 		token_owner: Option<Self::AccountId>,
 	) -> DispatchResult {
-		T::Migrator::ensure_migrated()?;
 		Self::mint(RawOrigin::Signed(origin).into(), collection_id, quantity, token_owner)
 	}
 
@@ -812,7 +791,6 @@ impl<T: Config> NFTExt for Pallet<T> {
 		serial_numbers: Vec<SerialNumber>,
 		new_owner: &Self::AccountId,
 	) -> DispatchResult {
-		T::Migrator::ensure_migrated()?;
 		let bounded_serials =
 			BoundedVec::try_from(serial_numbers).map_err(|_| Error::<T>::TokenLimitExceeded)?;
 		Self::do_transfer(collection_id, bounded_serials, origin, new_owner)
@@ -829,7 +807,6 @@ impl<T: Config> NFTExt for Pallet<T> {
 		origin_chain: OriginChain,
 		cross_chain_compatibility: CrossChainCompatibility,
 	) -> Result<CollectionUuid, DispatchError> {
-		T::Migrator::ensure_migrated()?;
 		Self::do_create_collection(
 			owner,
 			name,
@@ -855,7 +832,6 @@ impl<T: Config> NFTExt for Pallet<T> {
 	fn get_collection_issuance(
 		collection_id: CollectionUuid,
 	) -> Result<(TokenCount, Option<TokenCount>), DispatchError> {
-		T::Migrator::ensure_migrated()?;
 		let collection_info =
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok((collection_info.collection_issuance, collection_info.max_issuance))
@@ -874,14 +850,12 @@ impl<T: Config> NFTExt for Pallet<T> {
 		collection_id: CollectionUuid,
 		new_owner: Self::AccountId,
 	) -> DispatchResult {
-		T::Migrator::ensure_migrated()?;
 		Self::do_set_owner(who, collection_id, new_owner)
 	}
 
 	fn get_royalties_schedule(
 		collection_id: CollectionUuid,
 	) -> Result<Option<RoyaltiesSchedule<Self::AccountId>>, DispatchError> {
-		T::Migrator::ensure_migrated()?;
 		let collection_info =
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok(collection_info.royalties_schedule)
@@ -891,7 +865,6 @@ impl<T: Config> NFTExt for Pallet<T> {
 		who: Self::AccountId,
 		collection_id: CollectionUuid,
 	) -> DispatchResult {
-		T::Migrator::ensure_migrated()?;
 		Self::enable_xls20_compatibility(who, collection_id)
 	}
 
@@ -906,9 +879,6 @@ impl<T: Config> NFTExt for Pallet<T> {
 	}
 
 	fn get_token_lock(token_id: TokenId) -> Option<TokenLockReason> {
-		if T::Migrator::ensure_migrated().is_err() {
-			return None;
-		}
 		<TokenInfo<T>>::get(token_id.0, token_id.1)?.lock_status
 	}
 
@@ -917,7 +887,6 @@ impl<T: Config> NFTExt for Pallet<T> {
 		lock_reason: TokenLockReason,
 		who: Self::AccountId,
 	) -> DispatchResult {
-		T::Migrator::ensure_migrated()?;
 		TokenInfo::<T>::try_mutate(token_id.0, token_id.1, |maybe_token_info| -> DispatchResult {
 			let token_info = maybe_token_info.as_mut().ok_or(Error::<T>::NoToken)?;
 			ensure!(token_info.lock_status.is_none(), Error::<T>::TokenLocked);
@@ -938,7 +907,6 @@ impl<T: Config> NFTExt for Pallet<T> {
 	fn get_collection_owner(
 		collection_id: CollectionUuid,
 	) -> Result<Self::AccountId, DispatchError> {
-		T::Migrator::ensure_migrated()?;
 		let collection_info =
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok(collection_info.owner)
@@ -949,14 +917,12 @@ impl<T: Config> NFTExt for Pallet<T> {
 		collection_id: CollectionUuid,
 		serial_number: SerialNumber,
 	) -> DispatchResult {
-		T::Migrator::ensure_migrated()?;
 		Self::do_burn(&who, collection_id, serial_number)
 	}
 
 	fn get_cross_chain_compatibility(
 		collection_id: CollectionUuid,
 	) -> Result<CrossChainCompatibility, DispatchError> {
-		T::Migrator::ensure_migrated()?;
 		let collection_info =
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		Ok(collection_info.cross_chain_compatibility)
@@ -970,7 +936,6 @@ impl<T: Config> NFTCollectionInfo for Pallet<T> {
 	fn get_collection_info(
 		collection_id: CollectionUuid,
 	) -> Result<CollectionInformation<Self::AccountId, Self::StringLimit>, DispatchError> {
-		T::Migrator::ensure_migrated()?;
 		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
 	}
 }
@@ -986,7 +951,6 @@ impl<T: Config> NFTMinter for Pallet<T> {
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
 	) -> WeightedDispatchResult {
-		T::Migrator::ensure_migrated().map_err(|e| (Weight::zero(), e))?;
 		Self::mint_bridged_token(owner, collection_id, serial_numbers)
 	}
 }
