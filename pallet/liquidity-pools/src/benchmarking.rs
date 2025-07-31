@@ -377,7 +377,117 @@ benchmarks! {
 		let caller = account::<T>();
 	}: _(RawOrigin::Signed(caller), pool_id)
 	verify {
-		assert!(UrgentPoolUpdates::<T>::contains_key(pool_id));
+		let urgent_queue = UrgentPoolUpdates::<T>::get();
+		assert!(urgent_queue.contains(&pool_id));
+	}
+
+	process_closing_pools {
+		let reward_asset_id = mint_asset::<T>();
+		let staked_asset_id = mint_asset::<T>();
+
+		let creator = account::<T>();
+		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, 100_000_000u32.into()));
+
+		// Create multiple pools that are in closing state
+		let pool_ids: Vec<T::PoolId> = (0..10).map(|i| {
+			let interest_rate = 1_000_000;
+			let max_tokens = 100u32.into();
+			let start_block = 1u32.into();
+			let end_block = 50u32.into();
+
+			assert_ok!(LiquidityPools::<T>::create_pool(
+				RawOrigin::Signed(creator.clone()).into(),
+				reward_asset_id,
+				staked_asset_id,
+				interest_rate,
+				max_tokens,
+				start_block,
+				end_block
+			));
+
+			{
+				let next_id = NextPoolId::<T>::get();
+				if next_id > 0u32.into() {
+					next_id - 1u32.into()
+				} else {
+					next_id
+				}
+			}
+		}).collect();
+
+		// Set pools to closing state with closure state
+		for pool_id in pool_ids.iter() {
+			let closure_state = ClosureState {
+				pool_id: *pool_id,
+				closure_type: ClosureType::Normal,
+				users_processed: 0,
+				last_processed_user: None,
+			};
+			ClosingPools::<T>::insert(*pool_id, closure_state);
+		}
+
+		let current_block = 100u32.into();
+	}: { Pallet::<T>::process_closing_pools(current_block, Weight::from_all(1_000_000_000)) }
+	verify {
+		// Verify that some processing occurred (at least one pool should have been processed)
+		// The exact verification depends on the implementation details
+	}
+
+	process_closure_batch {
+		let reward_asset_id = mint_asset::<T>();
+		let staked_asset_id = mint_asset::<T>();
+
+		let creator = account::<T>();
+		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, 100_000_000u32.into()));
+
+		let pool_id = NextPoolId::<T>::get();
+		let interest_rate = 1_000_000;
+		let max_tokens = 100u32.into();
+		let start_block = 1u32.into();
+		let end_block = 50u32.into();
+
+		assert_ok!(LiquidityPools::<T>::create_pool(
+			RawOrigin::Signed(creator.clone()).into(),
+			reward_asset_id,
+			staked_asset_id,
+			interest_rate,
+			max_tokens,
+			start_block,
+			end_block
+		));
+
+		// Add multiple users to the pool
+		let users: Vec<T::AccountId> = (0..20).map(|_| account::<T>()).collect();
+		for user in users.iter() {
+			assert_ok!(T::MultiCurrency::mint_into(staked_asset_id.into(), user, 10u32.into()));
+
+			// Open pool first
+			Pools::<T>::mutate(pool_id, |pool| {
+				*pool = Some(PoolInfo {
+					pool_status: PoolStatus::Open,
+					..pool.clone().unwrap()
+				});
+			});
+
+			assert_ok!(LiquidityPools::<T>::enter_pool(RawOrigin::Signed(user.clone()).into(), pool_id, 10u32.into()));
+		}
+
+		// Set pool to closing state
+		let closure_state = ClosureState {
+			pool_id,
+			closure_type: ClosureType::Normal,
+			users_processed: 0,
+			last_processed_user: None,
+		};
+		ClosingPools::<T>::insert(pool_id, closure_state);
+
+		let current_block = 100u32.into();
+	}: { Pallet::<T>::process_closure_batch(pool_id, current_block) }
+	verify {
+		// Verify that some users were processed
+		let closure_state = ClosingPools::<T>::get(pool_id);
+		assert!(closure_state.is_some());
+		assert!(closure_state.unwrap().users_processed > 0);
 	}
 }
 

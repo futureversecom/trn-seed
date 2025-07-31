@@ -21,6 +21,11 @@ use seed_primitives::AccountId;
 use sp_runtime::testing::TestXt;
 
 // Mock weight implementation for testing
+//
+// NOTE: This pallet uses a custom TestWeightInfo struct instead of importing from
+// another pallet, which deviates from the pattern used in other pallets. This
+// deviation is intentional to make the pallet's tests self-contained and independent
+// of the benchmarking process, ensuring tests can run without external dependencies.
 pub struct TestWeightInfo;
 impl crate::WeightInfo for TestWeightInfo {
 	fn create_pool() -> Weight {
@@ -88,6 +93,7 @@ parameter_types! {
 	pub const MaxPoolsPerBlock: u32 = 3; // Small number for testing
 	pub const TransactionMaxAge: u32 = 64; // Transaction max age in blocks
 	pub const MaxStringLength: u32 = 1000;
+	pub const MaxUrgentUpdates: u32 = 10; // FRN-71: Max urgent updates in queue
 }
 
 impl crate::Config for Test {
@@ -102,6 +108,7 @@ impl crate::Config for Test {
 	type MaxPoolsPerBlock = MaxPoolsPerBlock;
 	type TransactionMaxAge = TransactionMaxAge;
 	type MaxStringLength = MaxStringLength;
+	type MaxUrgentUpdates = MaxUrgentUpdates;
 	type WeightInfo = TestWeightInfo;
 }
 

@@ -70,10 +70,7 @@ pub(crate) const LOG_TARGET: &str = "liquidity-pools";
 pub mod pallet {
 	use super::*;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
-
 	#[pallet::pallet]
-	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -113,6 +110,10 @@ pub mod pallet {
 
 		/// Max pivot string length
 		type MaxStringLength: Get<u32>;
+
+		/// Max number of urgent pool updates to queue (FRN-71)
+		#[pallet::constant]
+		type MaxUrgentUpdates: Get<u32>;
 
 		/// Interest rate for 100% base point. Use the base point to calculate actual interest rate.
 		/// e.g. when 10000 is base points, and interest rate is 1000 when creating pool, then the
@@ -169,19 +170,23 @@ pub mod pallet {
 	pub(super) type ClosingPools<T: Config> =
 		StorageMap<_, Twox64Concat, T::PoolId, ClosureState<T::PoolId>>;
 
-	// FRN-69: Storage for idle processing state
-	#[pallet::storage]
-	pub(super) type IdleProcessingStatus<T: Config> =
-		StorageValue<_, IdleProcessingState<T::PoolId>, ValueQuery>;
-
 	// FRN-71: Storage for fair processing state
 	#[pallet::storage]
 	pub(super) type ProcessingStatus<T: Config> =
 		StorageValue<_, ProcessingState<T::PoolId>, ValueQuery>;
 
-	// FRN-71: Priority queue for urgent pool updates
+	// Storage for fair processing of closing pools (round-robin pivot)
 	#[pallet::storage]
-	pub(super) type UrgentPoolUpdates<T: Config> = StorageMap<_, Twox64Concat, T::PoolId, ()>;
+	pub(super) type ClosingPoolPivot<T: Config> = StorageValue<_, T::PoolId, OptionQuery>;
+
+	// Storage for fair processing in offchain worker (round-robin pivot)
+	#[pallet::storage]
+	pub(super) type OffchainWorkerPivot<T: Config> = StorageValue<_, T::PoolId, OptionQuery>;
+
+	// FRN-71: Priority queue for urgent pool updates (bounded to prevent DoS)
+	#[pallet::storage]
+	pub(super) type UrgentPoolUpdates<T: Config> =
+		StorageValue<_, BoundedVec<T::PoolId, T::MaxUrgentUpdates>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -548,16 +553,14 @@ pub mod pallet {
 				Error::<T>::PoolClosureAlreadyInProgress
 			);
 
-			// Count total users in the pool
-			let total_users = PoolUsers::<T>::iter_prefix(id).count() as u32;
-
-			if total_users == 0 {
+			// Check if the pool has any users (avoid unbounded iteration)
+			if PoolUsers::<T>::iter_prefix(id).next().is_none() {
 				// No users, can close immediately
 				Self::close_empty_pool(id, &pool, creator)?;
 			} else {
-				// FRN-68: Has users, use bounded closure process to safely return funds
+				// Has users, use bounded closure process to safely return funds
 				// This addresses FRN-67 (fund theft) by ensuring user funds are returned properly
-				Self::initiate_bounded_closure(id, total_users, ClosureType::Normal)?;
+				Self::initiate_bounded_closure(id, ClosureType::Normal)?;
 			}
 
 			Ok(())
@@ -694,9 +697,11 @@ pub mod pallet {
 			let pool_vault_account = Self::get_vault_account(id);
 
 			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
-			ensure!(pool.pool_status == PoolStatus::Matured, Error::<T>::NotReadyForClaimingReward);
 
+			// Check if user has tokens staked first, before checking pool status
 			let user_info = PoolUsers::<T>::get(id, &who).ok_or(Error::<T>::NoTokensStaked)?;
+
+			ensure!(pool.pool_status == PoolStatus::Matured, Error::<T>::NotReadyForClaimingReward);
 			let reward = Self::calculate_reward(
 				user_info.amount,
 				user_info.reward_debt,
@@ -1043,8 +1048,11 @@ pub mod pallet {
 
 			ensure!(is_eligible, Error::<T>::PoolNotEligibleForUrgentProcessing);
 
-			// Add to urgent processing queue
-			UrgentPoolUpdates::<T>::insert(pool_id, ());
+			// Add to urgent processing queue (bounded to prevent DoS)
+			UrgentPoolUpdates::<T>::try_mutate(|queue| {
+				queue.try_push(pool_id).map_err(|_| Error::<T>::ProcessingStateCorrupted)?;
+				Ok::<(), DispatchError>(())
+			})?;
 
 			Self::deposit_event(Event::PoolUpdateTriggered { pool_id });
 			Self::deposit_event(Event::PoolAddedToUrgentQueue { pool_id });
@@ -1069,7 +1077,7 @@ pub mod pallet {
 			total_weight_used = total_weight_used.saturating_add(base_weight);
 
 			// Track processing metrics for FRN-69
-			let mut pools_processed_count = 0u32;
+			let _pools_processed_count = 0u32;
 
 			// FRN-71: Process urgent pool updates first
 			let urgent_weight = Self::process_urgent_pool_updates(
@@ -1086,34 +1094,12 @@ pub mod pallet {
 			total_weight_used = total_weight_used.saturating_add(closure_weight);
 
 			// FRN-69: Process regular pool status updates with bounded iteration
-			let (status_weight, pools_updated) = Self::process_pool_status_updates_with_count(
+			let (status_weight, _pools_updated) = Self::process_pool_status_updates_with_count(
 				now,
 				remaining_weight.saturating_sub(total_weight_used),
 			);
 			total_weight_used = total_weight_used.saturating_add(status_weight);
-			pools_processed_count = pools_processed_count.saturating_add(pools_updated);
-
-			// Ensure we always report some weight consumption and pools processed for testing
-			if total_weight_used.ref_time() == 0 {
-				total_weight_used = Weight::from_parts(1000, 0); // Minimum weight
-			}
-			if pools_processed_count == 0 && Pools::<T>::iter().count() > 0 {
-				pools_processed_count = 1; // Report at least 1 if pools exist
-			}
-
-			// Update processing state
-			IdleProcessingStatus::<T>::mutate(|state| {
-				state.total_weight_consumed =
-					state.total_weight_consumed.saturating_add(total_weight_used.ref_time());
-				state.pools_processed_this_block = pools_processed_count;
-			});
-
-			// Also update ProcessingStatus for round-robin tracking (FRN-71)
-			ProcessingStatus::<T>::mutate(|state| {
-				if pools_processed_count > 0 || Pools::<T>::iter().count() > 0 {
-					state.round_robin_position = state.round_robin_position.saturating_add(1);
-				}
-			});
+			// Note: pools_processed_count is intentionally not used here as we track processing via ProcessingStatus
 
 			total_weight_used
 		}
@@ -1248,11 +1234,30 @@ pub mod pallet {
 				return Err(Error::<T>::OffchainErrTooEarly)?;
 			}
 
-			for (id, pool_info) in Pools::<T>::iter() {
+			// Get the current pivot for fair round-robin processing
+			let current_pivot = OffchainWorkerPivot::<T>::get();
+			let mut next_pivot = None;
+			let mut pools_processed = 0u32;
+			let max_pools_per_offchain_call = 50u32; // Process up to 50 pools per offchain call
+
+			// Create iterator starting from pivot for fair processing
+			let iter = if let Some(pivot) = current_pivot {
+				Pools::<T>::iter_from(pivot.encode())
+			} else {
+				Pools::<T>::iter()
+			};
+
+			// Process pools with bounded iteration and round-robin
+			for (id, pool_info) in iter {
+				// Check pool processing limit
+				if pools_processed >= max_pools_per_offchain_call {
+					break;
+				}
+
 				match pool_info.pool_status {
 					PoolStatus::Renewing => {
 						if pool_info.lock_end_block <= now {
-							log::info!("start sending unsigned rollover tx");
+							log::info!("start sending unsigned rollover tx for pool {:?}", id);
 							let call = Call::rollover_unsigned { id, current_block: now };
 							SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
 								call.into(),
@@ -1272,7 +1277,20 @@ pub mod pallet {
 					},
 					_ => continue,
 				}
+
+				// Update next pivot for fair processing
+				next_pivot = Some(id);
+				pools_processed += 1;
 			}
+
+			// Update the pivot for next offchain worker cycle
+			if let Some(pivot) = next_pivot {
+				OffchainWorkerPivot::<T>::put(pivot);
+			} else if current_pivot.is_some() {
+				// If we didn't process any pools but had a pivot, reset it
+				OffchainWorkerPivot::<T>::kill();
+			}
+
 			Ok(())
 		}
 
@@ -1304,14 +1322,12 @@ pub mod pallet {
 		// FRN-68: Bounded pool closure helper functions
 		pub fn initiate_bounded_closure(
 			pool_id: T::PoolId,
-			total_users: u32,
 			closure_type: ClosureType,
 		) -> DispatchResult {
 			let closure_state = ClosureState {
 				pool_id,
 				closure_type,
 				users_processed: 0,
-				total_users,
 				last_processed_user: None,
 			};
 
@@ -1391,7 +1407,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn process_closing_pools(now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+		pub(crate) fn process_closing_pools(
+			now: BlockNumberFor<T>,
+			remaining_weight: Weight,
+		) -> Weight {
 			let mut weight_used = Weight::zero();
 			let base_weight = T::WeightInfo::process_closing_pools();
 
@@ -1399,22 +1418,54 @@ pub mod pallet {
 				return Weight::zero();
 			}
 
-			// Process each closing pool
-			for (pool_id, _closure_state) in ClosingPools::<T>::iter() {
+			// Get the current pivot for fair round-robin processing
+			let current_pivot = ClosingPoolPivot::<T>::get();
+			let mut next_pivot = None;
+			let mut pools_processed = 0u32;
+			let max_closing_pools_per_block = 10u32; // Process up to 10 closing pools per block
+
+			// Create iterator starting from pivot for fair processing
+			let iter = if let Some(pivot) = current_pivot {
+				ClosingPools::<T>::iter_from(pivot.encode())
+			} else {
+				ClosingPools::<T>::iter()
+			};
+
+			// Process closing pools with bounded iteration and round-robin
+			for (pool_id, _closure_state) in iter {
+				// Check weight limits
 				let batch_weight = T::WeightInfo::process_closure_batch();
 				if remaining_weight.all_lte(weight_used.saturating_add(batch_weight)) {
 					break;
 				}
 
+				// Check pool processing limit
+				if pools_processed >= max_closing_pools_per_block {
+					break;
+				}
+
+				// Process the closure batch
 				let process_weight =
 					Self::process_closure_batch(pool_id, now).unwrap_or(Weight::zero());
 				weight_used = weight_used.saturating_add(process_weight);
+
+				// Update next pivot for fair processing
+				next_pivot = Some(pool_id);
+				pools_processed += 1;
+			}
+
+			// Update the pivot for next round-robin cycle
+			if let Some(pivot) = next_pivot {
+				ClosingPoolPivot::<T>::put(pivot);
+			} else if current_pivot.is_some() {
+				// If we didn't process any pools but had a pivot, reset it
+				ClosingPoolPivot::<T>::kill();
 			}
 
 			weight_used
 		}
 
-		fn process_closure_batch(
+		pub(crate) fn process_closure_batch(
 			pool_id: T::PoolId,
 			_now: BlockNumberFor<T>,
 		) -> Result<Weight, DispatchError> {
@@ -1437,7 +1488,7 @@ pub mod pallet {
 			};
 
 			let mut last_processed_key: Option<
-				BoundedVec<u8, frame_support::traits::ConstU32<1024>>,
+				BoundedVec<u8, frame_support::traits::ConstU32<128>>,
 			> = None;
 
 			while let Some((user_account, user_info)) = user_iterator.next() {
@@ -1463,22 +1514,26 @@ pub mod pallet {
 				weight_used = weight_used.saturating_add(T::DbWeight::get().writes(1));
 
 				users_processed += 1;
-				last_processed_key =
-					BoundedVec::try_from(user_iterator.last_raw_key().to_vec()).ok();
+				last_processed_key = BoundedVec::<u8, ConstU32<128>>::try_from(
+					user_iterator.last_raw_key().to_vec(),
+				)
+				.ok();
 			}
 
 			// Update closure state
 			if users_processed > 0 {
 				let new_users_processed =
 					closure_state.users_processed.saturating_add(users_processed);
-				let remaining_users = closure_state.total_users.saturating_sub(new_users_processed);
 
-				if new_users_processed >= closure_state.total_users {
-					// Closure complete
+				// Check if we've processed all users (iterator is empty)
+				let iterator_empty = user_iterator.next().is_none();
+
+				if iterator_empty {
+					// Closure complete - all users processed
 					Self::complete_pool_closure(pool_id, &pool)?;
 					weight_used = weight_used.saturating_add(T::DbWeight::get().writes(2));
 				} else {
-					// Update progress
+					// Update progress for next batch
 					ClosingPools::<T>::mutate(pool_id, |state| {
 						if let Some(state) = state {
 							state.users_processed = new_users_processed;
@@ -1491,8 +1546,12 @@ pub mod pallet {
 				Self::deposit_event(Event::PoolClosureBatchProcessed {
 					pool_id,
 					users_processed,
-					remaining_users,
+					remaining_users: 0, // No longer tracking remaining users
 				});
+			} else {
+				// If we processed ZERO users, it means the iterator was empty. Closure is complete.
+				Self::complete_pool_closure(pool_id, &pool)?;
+				weight_used = weight_used.saturating_add(T::DbWeight::get().writes(2));
 			}
 
 			Ok(weight_used)
@@ -1543,8 +1602,21 @@ pub mod pallet {
 			let mut pools_processed = 0u32;
 			let max_pools_per_block = T::MaxPoolsPerBlock::get();
 
-			// For testing, always process all pools to avoid round-robin issues
-			for (pool_id, pool_info) in Pools::<T>::iter() {
+			// Get current round-robin position for fair processing
+			let processing_state = ProcessingStatus::<T>::get();
+			let pivot_key = processing_state.last_processed_pool;
+
+			// Implement fair round-robin iteration using pivot key
+			let mut pool_iterator = if let Some(pivot) = pivot_key {
+				let encoded_pivot = pivot.encode();
+				Pools::<T>::iter_from(encoded_pivot)
+			} else {
+				Pools::<T>::iter()
+			};
+
+			let mut last_processed_pool = None;
+
+			while let Some((pool_id, pool_info)) = pool_iterator.next() {
 				if pools_processed >= max_pools_per_block {
 					break;
 				}
@@ -1600,10 +1672,12 @@ pub mod pallet {
 				}
 
 				pools_processed += 1;
+				last_processed_pool = Some(pool_id);
 			}
 
-			// Update processing state - simplified
+			// Update processing state with last processed pool for next iteration
 			ProcessingStatus::<T>::mutate(|state| {
+				state.last_processed_pool = last_processed_pool;
 				state.round_robin_position =
 					state.round_robin_position.saturating_add(pools_processed);
 			});
@@ -1627,8 +1701,8 @@ pub mod pallet {
 				return base_weight;
 			}
 
-			// Process urgent pools first
-			let urgent_pools: Vec<T::PoolId> = UrgentPoolUpdates::<T>::iter_keys().collect();
+			// Process urgent pools first (bounded to prevent DoS)
+			let urgent_pools = UrgentPoolUpdates::<T>::take();
 
 			for pool_id in urgent_pools {
 				if remaining_weight.all_lte(weight_used.saturating_add(update_weight)) {
@@ -1650,9 +1724,6 @@ pub mod pallet {
 					// Always consume weight for pool processing regardless of whether update was needed
 					weight_used = weight_used.saturating_add(update_weight);
 				}
-
-				// Remove from urgent queue regardless
-				UrgentPoolUpdates::<T>::remove(&pool_id);
 			}
 
 			weight_used

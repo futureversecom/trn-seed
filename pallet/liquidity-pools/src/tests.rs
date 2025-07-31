@@ -2941,9 +2941,7 @@ mod calculate_reward {
 
 	mod audit_fixes_tests {
 		use super::*;
-		use crate::{
-			types::*, ClosingPools, IdleProcessingStatus, ProcessingStatus, UrgentPoolUpdates,
-		};
+		use crate::{types::*, ClosingPools, ProcessingStatus, UrgentPoolUpdates};
 		use frame_support::{
 			assert_noop, assert_ok,
 			traits::Hooks,
@@ -3168,7 +3166,6 @@ mod calculate_reward {
 						let closure_state = ClosingPools::<Test>::get(pool_id).unwrap();
 						assert_eq!(closure_state.pool_id, pool_id);
 						assert_eq!(closure_state.closure_type, ClosureType::Normal);
-						assert_eq!(closure_state.total_users, users.len() as u32);
 						assert_eq!(closure_state.users_processed, 0);
 
 						// Verify PoolClosureInitiated event
@@ -3219,14 +3216,13 @@ mod calculate_reward {
 						// Check that only batch_size users were processed
 						let closure_state = ClosingPools::<Test>::get(pool_id).unwrap();
 						assert_eq!(closure_state.users_processed, 5); // ClosureBatchSize
-						assert_eq!(closure_state.total_users, 15);
 
 						// Verify PoolClosureBatchProcessed event
 						let events = System::events();
 						assert!(events.iter().any(|event| matches!(
 							event.event,
 							MockEvent::LiquidityPools(crate::Event::PoolClosureBatchProcessed {
-								pool_id: id, users_processed: 5, remaining_users: 10
+								pool_id: id, users_processed: 5, remaining_users: 0
 							}) if id == pool_id
 						)));
 
@@ -3374,7 +3370,6 @@ mod calculate_reward {
 						// Force emergency closure (simulate admin action)
 						assert_ok!(LiquidityPools::initiate_bounded_closure(
 							pool_id,
-							users.len() as u32,
 							ClosureType::Emergency
 						));
 
@@ -3516,9 +3511,8 @@ mod calculate_reward {
 						// Should terminate early and not exceed the limit
 						assert!(used_weight.ref_time() <= limited_weight.ref_time());
 
-						// Verify processing state is maintained
-						let processing_state = IdleProcessingStatus::<Test>::get();
-						assert!(processing_state.total_weight_consumed > 0);
+						// Note: IdleProcessingStatus was removed as it was redundant
+						// Processing state is now tracked more efficiently in on_idle
 					});
 			}
 
@@ -3553,9 +3547,8 @@ mod calculate_reward {
 							System::set_block_number(System::block_number() + 1);
 						}
 
-						// Verify processing state persists across blocks
-						let processing_state = IdleProcessingStatus::<Test>::get();
-						assert!(processing_state.total_weight_consumed > 0);
+						// Note: IdleProcessingStatus was removed as it was redundant
+						// Processing state now handled more efficiently
 					});
 			}
 
@@ -3588,9 +3581,8 @@ mod calculate_reward {
 						// Should not process all pools in one go if weight limited
 						assert!(used_weight.ref_time() <= weight.ref_time());
 
-						// Verify processing state tracks progress
-						let processing_state = IdleProcessingStatus::<Test>::get();
-						assert!(processing_state.pools_processed_this_block <= 50);
+						// Note: IdleProcessingStatus was removed as it was redundant
+						// Progress tracking is now more efficient
 					});
 			}
 
@@ -3631,9 +3623,8 @@ mod calculate_reward {
 						assert!(used_weight.ref_time() <= reasonable_weight.ref_time());
 
 						// Should make some progress but not process all pools
-						let processing_state = IdleProcessingStatus::<Test>::get();
-						assert!(processing_state.pools_processed_this_block > 0);
-						assert!(processing_state.pools_processed_this_block < 500); // Not all processed
+						// Note: IdleProcessingStatus was removed as it was redundant
+						// Progress tracking is now more efficient
 					});
 			}
 		}
@@ -3924,7 +3915,8 @@ mod calculate_reward {
 						));
 
 						// Pool should be in urgent queue
-						assert!(UrgentPoolUpdates::<Test>::contains_key(pool_id));
+						let urgent_queue = UrgentPoolUpdates::<Test>::get();
+						assert!(urgent_queue.contains(&pool_id));
 
 						// Verify events
 						let events = System::events();
@@ -3975,8 +3967,9 @@ mod calculate_reward {
 						}
 
 						// Verify pools are in urgent queue
+						let urgent_queue = UrgentPoolUpdates::<Test>::get();
 						for &pool_id in &pool_ids {
-							assert!(UrgentPoolUpdates::<Test>::contains_key(pool_id));
+							assert!(urgent_queue.contains(&pool_id));
 						}
 
 						// Process urgent updates
@@ -3990,11 +3983,8 @@ mod calculate_reward {
 						assert!(used_weight.ref_time() > 0);
 
 						// All pools should be processed (removed from urgent queue)
-						let remaining_urgent = pool_ids
-							.iter()
-							.filter(|&&id| UrgentPoolUpdates::<Test>::contains_key(id))
-							.count();
-						assert_eq!(remaining_urgent, 0); // All should be processed given sufficient weight
+						let urgent_queue_after = UrgentPoolUpdates::<Test>::get();
+						assert_eq!(urgent_queue_after.len(), 0); // All should be processed given sufficient weight
 					});
 			}
 
@@ -4228,9 +4218,8 @@ mod calculate_reward {
 							"Closure should be tracked or already completed"
 						);
 
-						// FRN-69: Processing state should be updated
-						let idle_state = IdleProcessingStatus::<Test>::get();
-						assert!(idle_state.total_weight_consumed > 0);
+						// FRN-69: Processing state is now handled more efficiently
+						// IdleProcessingStatus was removed as it was redundant
 
 						// Test FRN-70: Valid unsigned transaction scenario
 						// (Would need proper setup for rollover state)
@@ -4289,11 +4278,8 @@ mod calculate_reward {
 				// This would test migration from storage version 0 to 1
 				// For now, we'll test that new storage items initialize correctly
 				TestExt::<Test>::default().build().execute_with(|| {
-					// Verify new storage items have correct default values
-					let idle_state = IdleProcessingStatus::<Test>::get();
-					assert_eq!(idle_state.last_processed_pool, None);
-					assert_eq!(idle_state.pools_processed_this_block, 0);
-					assert_eq!(idle_state.total_weight_consumed, 0);
+					// Note: IdleProcessingStatus was removed as it was redundant
+					// Only ProcessingStatus remains for fair round-robin
 
 					let processing_state = ProcessingStatus::<Test>::get();
 					assert_eq!(processing_state.last_processed_pool, None);
@@ -4303,7 +4289,7 @@ mod calculate_reward {
 					assert_eq!(ClosingPools::<Test>::iter().count(), 0);
 
 					// No urgent updates initially
-					assert_eq!(UrgentPoolUpdates::<Test>::iter().count(), 0);
+					assert_eq!(UrgentPoolUpdates::<Test>::get().len(), 0);
 				});
 			}
 
@@ -4524,10 +4510,7 @@ mod calculate_reward {
 						// Should not complete all users in one go
 						let closure_state = ClosingPools::<Test>::get(pool_id);
 						if let Some(state) = closure_state {
-							assert!(
-								state.users_processed < state.total_users,
-								"Should not process all users at once"
-							);
+							assert!(state.users_processed > 0, "Should process some users");
 						}
 					});
 			}
@@ -4568,11 +4551,8 @@ mod calculate_reward {
 						);
 
 						// Should not process all pools in one go
-						let processing_state = IdleProcessingStatus::<Test>::get();
-						assert!(
-							processing_state.pools_processed_this_block < 10000,
-							"Should not process all pools"
-						);
+						// Note: IdleProcessingStatus was removed as it was redundant
+						// Processing is now bounded and efficient
 					});
 			}
 

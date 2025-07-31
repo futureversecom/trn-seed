@@ -491,6 +491,8 @@ parameter_types! {
 	/// Maximum age for unsigned transactions in blocks
 	pub const TransactionMaxAge: u32 = 64;
 	pub const InterestRateBasePoint: u32 = 1_000_000;
+	/// Maximum number of urgent pool updates to process per block
+	pub const MaxUrgentUpdates: u32 = 20;
 }
 impl pallet_liquidity_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -503,6 +505,7 @@ impl pallet_liquidity_pools::Config for Runtime {
 	type MaxPoolsPerBlock = MaxPoolsPerBlock;
 	type TransactionMaxAge = TransactionMaxAge;
 	type InterestRateBasePoint = InterestRateBasePoint;
+	type MaxUrgentUpdates = MaxUrgentUpdates;
 	type MultiCurrency = AssetsExt;
 	type WeightInfo = weights::pallet_liquidity_pools::WeightInfo<Runtime>;
 }

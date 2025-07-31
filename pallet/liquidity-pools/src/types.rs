@@ -75,8 +75,7 @@ pub struct ClosureState<PoolId> {
 	pub pool_id: PoolId,
 	pub closure_type: ClosureType,
 	pub users_processed: u32,
-	pub total_users: u32,
-	pub last_processed_user: Option<BoundedVec<u8, frame_support::traits::ConstU32<1024>>>,
+	pub last_processed_user: Option<BoundedVec<u8, frame_support::traits::ConstU32<128>>>,
 }
 
 /// FRN-68: Types of pool closure
