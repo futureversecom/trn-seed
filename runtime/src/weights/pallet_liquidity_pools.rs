@@ -262,4 +262,15 @@ impl<T: frame_system::Config> pallet_liquidity_pools::WeightInfo for WeightInfo<
 			.saturating_add(T::DbWeight::get().reads(12))
 			.saturating_add(T::DbWeight::get().writes(13))
 	}
+	/// Storage: `LiquidityPools::ProcessingStatus` (r:1 w:0)
+	/// Proof: `LiquidityPools::ProcessingStatus` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `MaxEncodedLen`)
+	fn process_pool_status_updates() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `32`
+		//  Estimated: `1490`
+		// Minimum execution time: 10_000_000 picoseconds.
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 1490))
+			.saturating_add(T::DbWeight::get().reads(1))
+	}
 }

@@ -59,6 +59,7 @@ pub trait WeightInfo {
 	fn trigger_pool_update() -> Weight;
 	fn process_closing_pools() -> Weight;
 	fn process_closure_batch() -> Weight;
+	fn process_pool_status_updates() -> Weight;
 }
 
 /// Weights for pallet_liquidity_pools using the Substrate node and recommended hardware.
@@ -234,6 +235,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(12))
 			.saturating_add(T::DbWeight::get().writes(13))
 	}
+	// Storage: `LiquidityPools::ProcessingStatus` (r:1 w:0)
+	// Proof: `LiquidityPools::ProcessingStatus` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `MaxEncodedLen`)
+	fn process_pool_status_updates() -> Weight {
+		Weight::from_all(10_000_000)
+			.saturating_add(T::DbWeight::get().reads(1))
+	}
 }
 
 // For backwards compatibility and tests
@@ -407,6 +414,12 @@ impl WeightInfo for () {
 		Weight::from_all(315_496_000)
 			.saturating_add(RocksDbWeight::get().reads(12))
 			.saturating_add(RocksDbWeight::get().writes(13))
+	}
+	// Storage: `LiquidityPools::ProcessingStatus` (r:1 w:0)
+	// Proof: `LiquidityPools::ProcessingStatus` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `MaxEncodedLen`)
+	fn process_pool_status_updates() -> Weight {
+		Weight::from_all(10_000_000)
+			.saturating_add(RocksDbWeight::get().reads(1))
 	}
 }
 
