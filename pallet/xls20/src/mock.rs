@@ -58,6 +58,7 @@ parameter_types! {
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 	pub const DefaultFeeTo: Option<PalletId> = None;
 	pub const MaxPendingIssuances: u32 = 10_000;
+	pub const MaxDataLen: u32 = 32;
 }
 
 impl pallet_nft::Config for Test {
@@ -72,10 +73,12 @@ impl pallet_nft::Config for Test {
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;
+	type MaxDataLength = MaxDataLen;
 	type WeightInfo = ();
 	type Xls20MintRequest = Xls20;
 	type NFIRequest = ();
 	type MaxPendingIssuances = MaxPendingIssuances;
+	type Migrator = ();
 }
 
 parameter_types! {

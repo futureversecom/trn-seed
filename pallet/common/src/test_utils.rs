@@ -249,6 +249,7 @@ macro_rules! impl_pallet_nft_config {
 			pub const StringLimit: u32 = 50;
 			pub const FeePotId: PalletId = PalletId(*b"txfeepot");
 			pub const MaxPendingIssuances: u32 = 10_000;
+			pub const NftDataLimit: u32 = 32;
 		}
 
 		impl pallet_nft::Config for Test {
@@ -265,8 +266,10 @@ macro_rules! impl_pallet_nft_config {
 			type Xls20MintRequest = ();
 			type WeightInfo = ();
 			type StringLimit = StringLimit;
+			type MaxDataLength = NftDataLimit;
 			type NFIRequest = ();
 			type MaxPendingIssuances = MaxPendingIssuances;
+			type Migrator = ();
 		}
 	};
 }
@@ -280,6 +283,7 @@ macro_rules! impl_pallet_sft_config {
 			pub const MaxSerialsPerSftMint: u32 = 100;
 			pub const MaxOwnersPerSftToken: u32 = 100;
 			pub const MaxSftPendingIssuances: u32 = 10_000;
+			pub const SftDataLimit: u32 = 32;
 		}
 
 		impl pallet_sft::Config for Test {
@@ -291,6 +295,7 @@ macro_rules! impl_pallet_sft_config {
 			type PalletId = SftPalletId;
 			type ParachainId = TestParachainId;
 			type StringLimit = StringLimit;
+			type MaxDataLength = SftDataLimit;
 			type WeightInfo = ();
 			type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 			type MaxSerialsPerMint = MaxSerialsPerSftMint;
@@ -910,6 +915,7 @@ macro_rules! impl_pallet_partner_attribution_config {
 			type EnsureFuturepass = EnsureAny;
 			type FuturepassCreator = MockFuturepassProvider;
 			type WeightInfo = ();
+			type MaxPartners = ConstU32<200>;
 			#[cfg(feature = "runtime-benchmarks")]
 			type MultiCurrency = AssetsExt;
 		}

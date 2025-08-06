@@ -59,10 +59,12 @@ impl pallet_nft::Config for Test {
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;
+	type MaxDataLength = MaxDataLength;
 	type WeightInfo = ();
 	type Xls20MintRequest = ();
 	type NFIRequest = Nfi;
 	type MaxPendingIssuances = MaxPendingIssuances;
+	type Migrator = ();
 }
 
 parameter_types! {
@@ -81,6 +83,7 @@ impl pallet_sft::Config for Test {
 	type PalletId = SftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;
+	type MaxDataLength = MaxDataLength;
 	type WeightInfo = ();
 	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 	type MaxSerialsPerMint = MaxSerialsPerSftMint;

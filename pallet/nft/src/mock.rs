@@ -84,6 +84,7 @@ parameter_types! {
 	pub const TransferLimit: u32 = 5000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
 	pub const StringLimit: u32 = 50;
+	pub const MaxDataLength: u32 = 32;
 	pub const MaxPendingIssuances: u32 = 10_000;
 }
 
@@ -99,8 +100,10 @@ impl crate::Config for Test {
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;
+	type MaxDataLength = MaxDataLength;
 	type WeightInfo = ();
 	type Xls20MintRequest = MockXls20MintRequest;
 	type NFIRequest = ();
 	type MaxPendingIssuances = MaxPendingIssuances;
+	type Migrator = ();
 }

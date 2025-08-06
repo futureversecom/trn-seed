@@ -29,7 +29,7 @@ use precompile_utils::{
 };
 use seed_pallet_common::{utils::TokenBurnAuthority, NFTExt};
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, CollectionUuid, EthAddress, IssuanceId, SerialNumber, TokenCount, TokenId,
 };
 use sp_core::{Encode, H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
@@ -1267,7 +1267,6 @@ where
 			.iter()
 			.map(|p| (U256::from(p.quantity), p.burn_authority.into()))
 			.collect();
-
 		Ok(succeed(EvmDataWriter::new().write(issuance_ids).write(issuances).build()))
 	}
 
@@ -1279,10 +1278,10 @@ where
 
 		read_args!(handle, { issuance_id: U256 });
 
-		if issuance_id > u32::MAX.into() {
-			return Err(revert("ERC721: Expected issuance id <= 2^32"));
+		if issuance_id > IssuanceId::MAX.into() {
+			return Err(revert("ERC721: Expected issuance id <= 2^64"));
 		}
-		let issuance_id: u32 = issuance_id.saturated_into();
+		let issuance_id: IssuanceId = issuance_id.saturated_into();
 
 		let origin = handle.context().caller;
 
@@ -1338,16 +1337,17 @@ where
 		if token_id > u32::MAX.into() {
 			return Err(revert("ERC721: Expected token id <= 2^32"));
 		}
-		let token_id: SerialNumber = token_id.saturated_into();
+		let serial_number: SerialNumber = token_id.saturated_into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let burn_auth: u8 =
-			match pallet_nft::TokenUtilityFlags::<Runtime>::get((collection_id, token_id))
-				.burn_authority
-			{
-				Some(burn_authority) => burn_authority.into(),
-				_ => 0, // default to TokenOwner
-			};
+		let token_info = match pallet_nft::TokenInfo::<Runtime>::get(collection_id, serial_number) {
+			Some(token_info) => token_info,
+			None => return Err(revert("ERC721: Token does not exist")),
+		};
+		let burn_auth: u8 = match token_info.utility_flags.burn_authority {
+			Some(burn_authority) => burn_authority.into(),
+			_ => 0, // default to TokenOwner
+		};
 
 		Ok(succeed(EvmDataWriter::new().write(burn_auth).build()))
 	}

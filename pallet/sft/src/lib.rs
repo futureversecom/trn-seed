@@ -54,6 +54,7 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use seed_pallet_common::utils::TokenBurnAuthority;
+	use seed_primitives::IssuanceId;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -83,6 +84,9 @@ pub mod pallet {
 		/// The maximum length of a collection or token name, stored on-chain
 		#[pallet::constant]
 		type StringLimit: Get<u32>;
+		/// The maximum length of the stored additional data for a token
+		#[pallet::constant]
+		type MaxDataLength: Get<u32>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
 		/// Max tokens that a collection can contain
@@ -123,6 +127,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type TokenUtilityFlags<T> = StorageMap<_, Twox64Concat, TokenId, TokenFlags, ValueQuery>;
 
+	/// Map from a token_id to additional token data. Useful for assigning extra information
+	/// to a token outside the collection metadata.
+	#[pallet::storage]
+	pub type AdditionalTokenData<T: Config> =
+		StorageMap<_, Twox64Concat, TokenId, BoundedVec<u8, T::MaxDataLength>, ValueQuery>;
+
 	/// Map from token to its token information, including ownership information
 	#[pallet::storage]
 	pub type TokenInfo<T: Config> = StorageMap<
@@ -145,6 +155,10 @@ pub mod pallet {
 		>,
 		ValueQuery,
 	>;
+
+	/// The next available incrementing issuance ID, unique across all pending issuances
+	#[pallet::storage]
+	pub type NextIssuanceId<T> = StorageValue<_, IssuanceId, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -254,7 +268,7 @@ pub mod pallet {
 		/// A pending issuance for a soulbound token has been created
 		PendingIssuanceCreated {
 			collection_id: CollectionUuid,
-			issuance_id: u32,
+			issuance_id: IssuanceId,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
 			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			token_owner: T::AccountId,
@@ -264,6 +278,11 @@ pub mod pallet {
 			token_owner: T::AccountId,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
 			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
+		},
+		/// Some additional data has been set for a token
+		AdditionalDataSet {
+			token_id: TokenId,
+			additional_data: Option<BoundedVec<u8, T::MaxDataLength>>,
 		},
 	}
 
@@ -288,6 +307,8 @@ pub mod pallet {
 		InvalidMaxIssuance,
 		/// Caller can not be the new owner
 		InvalidNewOwner,
+		/// The additional data cannot be an empty vec
+		InvalidAdditionalData,
 		/// The max issuance has already been set and can't be changed
 		MaxIssuanceAlreadySet,
 		/// The collection max issuance has been reached and no more tokens can be minted
@@ -790,7 +811,7 @@ pub mod pallet {
 		pub fn accept_soulbound_issuance(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			issuance_id: u32,
+			issuance_id: IssuanceId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -835,6 +856,54 @@ pub mod pallet {
 				},
 			)?;
 
+			Ok(())
+		}
+
+		/// Sets additional data for a token group.
+		/// Caller must be the collection owner.
+		/// Data must not be empty
+		/// Can be overwritten, call with None to remove.
+		#[pallet::call_index(19)]
+		#[pallet::weight(T::WeightInfo::set_additional_data())]
+		pub fn set_additional_data(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			additional_data: Option<BoundedVec<u8, T::MaxDataLength>>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let collection_info =
+				SftCollectionInfo::<T>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
+			// Check if the token exists
+			ensure!(<TokenInfo<T>>::contains_key(token_id), Error::<T>::NoToken);
+			Self::do_set_additional_data(token_id, additional_data)?;
+			Ok(())
+		}
+
+		/// Create a token alongside some additional data
+		#[pallet::call_index(20)]
+		#[pallet::weight(T::WeightInfo::create_token_with_additional_data())]
+		pub fn create_token_with_additional_data(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			token_name: BoundedVec<u8, T::StringLimit>,
+			initial_issuance: Balance,
+			max_issuance: Option<Balance>,
+			token_owner: Option<T::AccountId>,
+			additional_data: BoundedVec<u8, T::MaxDataLength>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let serial_number = Self::do_create_token(
+				who,
+				collection_id,
+				token_name,
+				initial_issuance,
+				max_issuance,
+				token_owner,
+			)?;
+
+			// Set the additional data and emit event
+			Self::do_set_additional_data((collection_id, serial_number), Some(additional_data))?;
 			Ok(())
 		}
 	}
