@@ -69,7 +69,7 @@ benchmarks! {
 		let max_tokens = 100u32.into();
 		let start_block = 10u32.into();
 		let end_block = 50u32.into();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator.clone()).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 
 		// create pool user; enter pool as a user
 		let user = account::<T>();
@@ -104,12 +104,12 @@ benchmarks! {
 		let end_block = 5u32.into();
 
 		let predecessor_id = NextPoolId::<T>::get();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator.clone()).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 
 		let successor_id = NextPoolId::<T>::get();
 		let start_block = 6u32.into();
 		let end_block = 7u32.into();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator.clone()).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 	}: _(RawOrigin::Signed(creator), predecessor_id, successor_id)
 	verify {
 		assert_eq!(PoolRelationships::<T>::get(predecessor_id).unwrap().successor_id, Some(successor_id));
@@ -145,7 +145,7 @@ benchmarks! {
 
 		// Enter pool
 		assert_ok!(LiquidityPools::<T>::enter_pool(RawOrigin::Signed(user.clone()).into(), id, 10u32.into()));
-	}: _(RawOrigin::Signed(user), id, true)
+	}: _(RawOrigin::Signed(user.clone()), id, true)
 	verify {
 		assert!(PoolUsers::<T>::get(id, user).unwrap().should_rollover);
 	}
@@ -279,12 +279,12 @@ benchmarks! {
 		let max_tokens = 100u32.into();
 		let start_block = 10u32.into();
 		let end_block = 50u32.into();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator.clone()).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 
 		let successor_id = NextPoolId::<T>::get();
 		let start_block = 51u32.into();
 		let end_block = 60u32.into();
-		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator.clone()).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens, start_block, end_block));
 		assert_ok!(LiquidityPools::<T>::set_pool_succession(RawOrigin::Signed(creator).into(), id, successor_id));
 
 		Pools::<T>::mutate(id, |pool| {

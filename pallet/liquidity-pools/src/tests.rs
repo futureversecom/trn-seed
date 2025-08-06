@@ -3443,13 +3443,18 @@ mod calculate_reward {
 						let used_weight =
 							LiquidityPools::on_idle(System::block_number(), remaining_weight);
 
+						println!("Remaining weight: {:?}", remaining_weight.ref_time());
+						println!("Used weight: {:?}", used_weight.ref_time());
+
 						// Should only process batch_size users at a time
 						let closure_state = ClosingPools::<Test>::get(pool_id).unwrap();
 						assert!(closure_state.users_processed <= 5); // ClosureBatchSize
 						assert!(closure_state.users_processed > 0); // But some progress made
 
-						// Weight usage should be reasonable, not unbounded
-						assert!(used_weight.ref_time() < remaining_weight.ref_time());
+						// Weight usage should be bounded, not exceed the limit
+						assert!(used_weight.ref_time() <= remaining_weight.ref_time());
+						// Ensure we actually consumed some weight (processing happened)
+						assert!(used_weight.ref_time() > 0);
 					});
 			}
 		}

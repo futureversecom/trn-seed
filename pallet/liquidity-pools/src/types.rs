@@ -5,9 +5,9 @@ use scale_info::TypeInfo;
 /// Stores information about a reward pool.
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
-pub struct PoolInfo<PoolId, AssetId, Balance, BlockNumber> {
+pub struct PoolInfo<PoolId, AssetId, Balance, BlockNumber, AccountId> {
 	pub id: PoolId,
-	pub creator: crate::AccountId,
+	pub creator: AccountId,
 	pub reward_asset_id: AssetId,
 	pub staked_asset_id: AssetId,
 	pub interest_rate: u32,
