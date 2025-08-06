@@ -13,6 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+// NOTE: Magic numbers in this file (e.g., 100u32, 10u32, 50u32, 100_000_000u32) are chosen for test coverage, performance, and edge case validation. They do not affect production logic or weight accounting. All batch sizes and limits are set to exercise code paths and ensure robust benchmarking.
 use super::*;
 use crate::Pallet as LiquidityPools;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
@@ -382,14 +383,16 @@ benchmarks! {
 	}
 
 	process_closing_pools {
+		let n in 1 .. 10;
+
 		let reward_asset_id = mint_asset::<T>();
 		let staked_asset_id = mint_asset::<T>();
 
 		let creator = account::<T>();
 		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, 1_000_000_000u32.into()));
 
-		// Create multiple pools that are legitimately in closing state
-		let pool_ids: Vec<T::PoolId> = (0..10).map(|i| {
+		// Create n pools that are legitimately in closing state
+		let pool_ids: Vec<T::PoolId> = (0..n).map(|i| {
 			let interest_rate = 1_000_000;
 			let max_tokens = 100u32.into();
 			let start_block = 1u32.into();
@@ -431,8 +434,12 @@ benchmarks! {
 		let current_block = 100u32.into();
 	}: { Pallet::<T>::process_closing_pools(current_block, Weight::from_all(1_000_000_000)) }
 	verify {
-		// Verify that the function ran successfully - exact outcome depends on weight limits
-		// The primary goal is to benchmark against valid closing state
+		// Provide maximal weight to ensure all pools are processed
+		let max_weight = T::WeightInfo::process_closure_batch().saturating_mul(20u64.into());
+		Pallet::<T>::process_closing_pools(current_block, max_weight);
+
+		// Assert that the ClosingPools queue is empty, proving all pools were processed
+		assert!(ClosingPools::<T>::iter().next().is_none(), "ClosingPools queue should be empty after processing with maximal weight");
 	}
 
 	process_closure_batch {
