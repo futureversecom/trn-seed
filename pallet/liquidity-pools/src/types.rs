@@ -1,13 +1,13 @@
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::RuntimeDebug;
+use frame_support::{BoundedVec, RuntimeDebug};
 use scale_info::TypeInfo;
 
 /// Stores information about a reward pool.
 #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
-pub struct PoolInfo<PoolId, AssetId, Balance, BlockNumber> {
+pub struct PoolInfo<PoolId, AssetId, Balance, BlockNumber, AccountId> {
 	pub id: PoolId,
-	pub creator: crate::AccountId,
+	pub creator: AccountId,
 	pub reward_asset_id: AssetId,
 	pub staked_asset_id: AssetId,
 	pub interest_rate: u32,
@@ -26,6 +26,7 @@ pub enum PoolStatus {
 	Started,
 	Renewing,
 	Matured,
+	Closing, // FRN-68: New status for pools undergoing closure
 }
 
 impl Default for PoolStatus {
@@ -65,5 +66,50 @@ impl<Balance: Default> Default for UserInfo<Balance> {
 			should_rollover: true,
 			rolled_over: false,
 		}
+	}
+}
+
+/// FRN-68: Tracks pools that are being closed with bounded processing
+#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct ClosureState<PoolId> {
+	pub pool_id: PoolId,
+	pub closure_type: ClosureType,
+	pub users_processed: u32,
+	pub last_processed_user: Option<BoundedVec<u8, frame_support::traits::ConstU32<128>>>,
+}
+
+/// FRN-68: Types of pool closure
+#[derive(Clone, Copy, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum ClosureType {
+	/// Normal closure - creator initiated
+	Normal,
+	/// Emergency closure - forced cleanup
+	Emergency,
+}
+
+/// FRN-69: Tracks idle processing state for weight accounting
+#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct IdleProcessingState<PoolId> {
+	pub last_processed_pool: Option<PoolId>,
+	pub pools_processed_this_block: u32,
+	pub total_weight_consumed: u64,
+}
+
+impl<PoolId> Default for IdleProcessingState<PoolId> {
+	fn default() -> Self {
+		Self { last_processed_pool: None, pools_processed_this_block: 0, total_weight_consumed: 0 }
+	}
+}
+
+/// FRN-71: Tracks processing state for fair pool processing
+#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct ProcessingState<PoolId> {
+	pub last_processed_pool: Option<PoolId>,
+	pub round_robin_position: u32,
+}
+
+impl<PoolId> Default for ProcessingState<PoolId> {
+	fn default() -> Self {
+		Self { last_processed_pool: None, round_robin_position: 0 }
 	}
 }
