@@ -29,7 +29,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use pallet_nft::traits::NFTCollectionInfo;
-use seed_pallet_common::{Migrator, NFTExt, NFTMinter, Xls20Ext, Xls20MintRequest};
+use seed_pallet_common::{NFTExt, NFTMinter, Xls20Ext, Xls20MintRequest};
 use seed_primitives::{
 	xrpl::Xls20TokenId, AssetId, Balance, CollectionUuid, CrossChainCompatibility, MetadataScheme,
 	OriginChain, SerialNumber, TokenCount, TokenId, WeightedDispatchResult,
@@ -87,8 +87,6 @@ pub mod pallet {
 		type Xls20PaymentAsset: Get<AssetId>;
 		/// The NFT token minter
 		type NFTMinter: NFTMinter<AccountId = Self::AccountId>;
-		/// Current Migrator handling the migration of storage values
-		type Migrator: Migrator;
 	}
 
 	/// The permissioned relayer
@@ -204,7 +202,6 @@ pub mod pallet {
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerXls20Mint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			T::Migrator::ensure_migrated()?;
 
 			// serial_numbers can't be empty
 			ensure!(!serial_numbers.len().is_zero(), Error::<T>::NoToken);
@@ -251,7 +248,6 @@ pub mod pallet {
 			token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), T::MaxTokensPerXls20Mint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			T::Migrator::ensure_migrated()?;
 
 			// Mappings can't be empty
 			ensure!(!token_mappings.is_empty(), Error::<T>::NoToken);
