@@ -1421,7 +1421,7 @@ pub mod pallet {
 		) -> Weight {
 			let mut weight_used = Weight::zero();
 			// Base weight for process_closing_pools: covers 5 reads, 3 writes (see weights.rs auto-generated values). This is the minimum required to safely process closing pools in a block.
-			let base_weight = T::WeightInfo::process_closing_pools();
+			let base_weight = T::WeightInfo::process_closing_pools(1);
 
 			if !remaining_weight.all_gte(base_weight) {
 				return Weight::zero();
