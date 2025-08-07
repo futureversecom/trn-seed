@@ -14,60 +14,10 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_liquidity_pools;
-use frame_support::weights::Weight;
 use frame_system::EnsureRoot;
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::AccountId;
 use sp_runtime::testing::TestXt;
-
-// Mock weight implementation for testing
-//
-// NOTE: This pallet uses a custom TestWeightInfo struct instead of importing from
-// another pallet, which deviates from the pattern used in other pallets. This
-// deviation is intentional to make the pallet's tests self-contained and independent
-// of the benchmarking process, ensuring tests can run without external dependencies.
-pub struct TestWeightInfo;
-impl crate::WeightInfo for TestWeightInfo {
-	fn create_pool() -> Weight {
-		Weight::from_parts(1000, 0)
-	}
-	fn set_pool_succession() -> Weight {
-		Weight::from_parts(1000, 0)
-	}
-	fn set_pool_rollover() -> Weight {
-		Weight::from_parts(1000, 0)
-	}
-	fn close_pool() -> Weight {
-		Weight::from_parts(1000, 0)
-	}
-	fn enter_pool() -> Weight {
-		Weight::from_parts(1000, 0)
-	}
-	fn exit_pool() -> Weight {
-		Weight::from_parts(1000, 0)
-	}
-	fn claim_reward() -> Weight {
-		Weight::from_parts(1000, 0)
-	}
-	fn rollover_unsigned() -> Weight {
-		Weight::from_parts(1000, 0)
-	}
-	fn emergency_recover_funds() -> Weight {
-		Weight::from_parts(1000, 0)
-	}
-	fn trigger_pool_update() -> Weight {
-		Weight::from_parts(1000, 0)
-	}
-	fn process_closing_pools() -> Weight {
-		Weight::from_parts(1000, 0)
-	}
-	fn process_closure_batch() -> Weight {
-		Weight::from_parts(1000, 0)
-	}
-	fn process_pool_status_updates() -> Weight {
-		Weight::from_parts(1000, 0)
-	}
-}
 
 construct_runtime!(
 	pub enum Test {
@@ -109,7 +59,7 @@ impl crate::Config for Test {
 	type TransactionMaxAge = TransactionMaxAge;
 	type MaxStringLength = MaxStringLength;
 	type MaxUrgentUpdates = MaxUrgentUpdates;
-	type WeightInfo = TestWeightInfo;
+	type WeightInfo = ();
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test

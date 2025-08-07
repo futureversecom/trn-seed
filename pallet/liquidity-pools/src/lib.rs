@@ -25,7 +25,9 @@ use frame_support::{
 		fungibles::{metadata::Inspect as InspectMetadata, Inspect, Mutate},
 		tokens::Preservation,
 	},
-	transactional, PalletId,
+	transactional,
+	weights::constants::RocksDbWeight as DbWeight,
+	PalletId,
 };
 use frame_system::{
 	offchain::{SendTransactionTypes, SubmitTransaction},
@@ -1068,13 +1070,11 @@ pub mod pallet {
 		fn on_idle(now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			let mut total_weight_used = Weight::zero();
 			// Minimal weight required for on_idle to execute basic operations (e.g., reading pivot)
-			// Base weight for on_idle: 1 DB read (pivot). This is the minimum required to safely check round-robin position for fair processing. Value matches benchmarked cost for a single read.
-			let base_weight = Weight::from_parts(100, 0);
+			// Base weight for on_idle: use process_pool_status_updates as minimum operation weight
+			let base_weight = T::WeightInfo::process_pool_status_updates();
 
 			// Early exit if we don't have enough weight for basic operations
-			if remaining_weight.ref_time() < base_weight.ref_time()
-				|| remaining_weight.proof_size() < base_weight.proof_size()
-			{
+			if !remaining_weight.all_gte(base_weight) {
 				return Weight::zero();
 			}
 
@@ -1423,9 +1423,7 @@ pub mod pallet {
 			// Base weight for process_closing_pools: covers 5 reads, 3 writes (see weights.rs auto-generated values). This is the minimum required to safely process closing pools in a block.
 			let base_weight = T::WeightInfo::process_closing_pools();
 
-			if remaining_weight.ref_time() < base_weight.ref_time()
-				|| remaining_weight.proof_size() < base_weight.proof_size()
-			{
+			if !remaining_weight.all_gte(base_weight) {
 				return Weight::zero();
 			}
 
@@ -1449,9 +1447,7 @@ pub mod pallet {
 				// Batch weight for process_closure_batch: covers 3 reads, 2 writes (see weights.rs auto-generated values). This is the minimum required to process a batch of user fund returns in a closing pool.
 				let batch_weight = T::WeightInfo::process_closure_batch();
 				let next_total_weight = weight_used.saturating_add(batch_weight);
-				if remaining_weight.ref_time() < next_total_weight.ref_time()
-					|| remaining_weight.proof_size() < next_total_weight.proof_size()
-				{
+				if !remaining_weight.all_gte(next_total_weight) {
 					break;
 				}
 
@@ -1485,16 +1481,18 @@ pub mod pallet {
 			pool_id: T::PoolId,
 			_now: BlockNumberFor<T>,
 		) -> Result<Weight, DispatchError> {
-			// Use the configured weight info instead of hardcoded DbWeight
-			let mut weight_used = T::WeightInfo::process_closure_batch();
+			// Return the benchmarked weight for this function
+			let weight_used = T::WeightInfo::process_closure_batch();
 
 			let closure_state =
 				ClosingPools::<T>::get(pool_id).ok_or(Error::<T>::NoClosureBatchToProcess)?;
+
 			let batch_size = T::ClosureBatchSize::get();
 			let mut users_processed = 0u32;
 
 			// Get pool info for vault account
 			let pool = Pools::<T>::get(pool_id).ok_or(Error::<T>::PoolDoesNotExist)?;
+
 			let pool_vault_account = Self::get_vault_account(pool_id);
 
 			// Process users in batches
@@ -1522,15 +1520,10 @@ pub mod pallet {
 						user_info.amount,
 						Preservation::Expendable,
 					)?;
-
-					// In test environment, use minimal additional weight per user
-					// In production, this will be properly benchmarked
-					weight_used = weight_used.saturating_add(Weight::from_parts(100, 0));
 				}
 
 				// Remove user from pool
 				PoolUsers::<T>::remove(pool_id, &user_account);
-				weight_used = weight_used.saturating_add(Weight::from_parts(100, 0));
 
 				users_processed += 1;
 				last_processed_key = BoundedVec::<u8, ConstU32<128>>::try_from(
@@ -1550,7 +1543,6 @@ pub mod pallet {
 				if iterator_empty {
 					// Closure complete - all users processed
 					Self::complete_pool_closure(pool_id, &pool)?;
-					weight_used = weight_used.saturating_add(Weight::from_parts(200, 0));
 				} else {
 					// Update progress for next batch
 					ClosingPools::<T>::mutate(pool_id, |state| {
@@ -1559,7 +1551,6 @@ pub mod pallet {
 							state.last_processed_user = last_processed_key;
 						}
 					});
-					weight_used = weight_used.saturating_add(Weight::from_parts(100, 0));
 				}
 
 				Self::deposit_event(Event::PoolClosureBatchProcessed {
@@ -1570,7 +1561,6 @@ pub mod pallet {
 			} else {
 				// If we processed ZERO users, it means the iterator was empty. Closure is complete.
 				Self::complete_pool_closure(pool_id, &pool)?;
-				weight_used = weight_used.saturating_add(Weight::from_parts(200, 0));
 			}
 
 			Ok(weight_used)
@@ -1645,8 +1635,24 @@ pub mod pallet {
 					break;
 				}
 
-				// Worst-case update weight for pool state transition: 7 reads, 5 writes (covers iterator read, pool info, user info, asset info, urgent queue, and all state transitions). This matches auto-generated weights and is intentionally over-estimated for security against chain stalling; simpler cases will consume less.
-				let update_weight = Weight::from_parts(500, 0);
+				// Weight calculation for pool state transition in main processing loop:
+				//
+				// Database Operations Analysis:
+				// 1. Pools::<T>::mutate(&pool_id, |pool| {...}) = 1 read + 1 write
+				//    - mutate() performs an implicit read to get current value, then writes the updated value
+				// 2. PoolRelationships::<T>::get(&pool_id) (conditional) = 1 read
+				//    - Only executed when transitioning Started -> Renewing/Matured status
+				//    - Checks if pool has a successor to determine next status
+				// 3. refund_surplus_reward() (conditional) = 1-2 reads/writes
+				//    - MultiCurrency::decimals() calls = 2 reads (staked + reward asset metadata)
+				//    - MultiCurrency::transfer() = 2 reads + 2 writes (sender/receiver balances)
+				//    - Note: This is worst-case; often no transfer occurs if reward is zero
+				//
+				// Total Breakdown:
+				// - Minimum path (Open -> Started): 1 read, 1 write
+				// - Maximum path (Started -> Renewing/Matured with refund): 4-5 reads, 3-4 writes
+				// - Conservative estimate for mixed workload: 3 reads, 2 writes
+				let update_weight = DbWeight::get().reads_writes(3u64, 2u64);
 				let next_total_weight = weight_used.saturating_add(update_weight);
 				if remaining_weight.ref_time() < next_total_weight.ref_time()
 					|| remaining_weight.proof_size() < next_total_weight.proof_size()
@@ -1719,11 +1725,31 @@ pub mod pallet {
 			remaining_weight: Weight,
 		) -> Weight {
 			let mut weight_used = Weight::zero();
-			// Base weight for urgent pool updates: cost of UrgentPoolUpdates::<T>::take() (1 read, 1 write)
-			// Base weight for urgent pool updates: 1 read, 1 write (UrgentPoolUpdates::<T>::take()). This is the minimum required to process the urgent queue. Value matches benchmarked cost for a single read/write.
-			let base_weight = Weight::from_parts(200, 0);
-			// Worst-case update weight: covers all DB ops in loop, including token transfer (7 reads, 5 writes). Breakdown: pool info, urgent queue, user info, asset info, pool update, urgent queue update, user update, asset update, etc. Matches auto-generated weights and is intentionally over-estimated for safety.
-			let update_weight = Weight::from_parts(500, 0);
+			// Base weight calculation for urgent pool updates initialization:
+			//
+			// Database Operations Analysis:
+			// 1. UrgentPoolUpdates::<T>::take() = 1 read + 1 write
+			//    - take() reads the current BoundedVec<T::PoolId> from storage
+			//    - then removes it from storage (writes empty/default value)
+			//    - This is the minimum required operation to process the urgent queue
+			//
+			// Total: 1 read, 1 write
+			let base_weight = DbWeight::get().reads_writes(1u64, 1u64);
+			// Weight calculation per urgent pool update in processing loop:
+			//
+			// Database Operations Analysis:
+			// 1. Pools::<T>::get(&pool_id) = 1 read
+			//    - Retrieves pool info to check if update is needed
+			// 2. process_single_pool_update() operations = 1-2 reads + 1-2 writes
+			//    - Pools::<T>::mutate() = 1 read + 1 write (same as regular processing)
+			//    - PoolRelationships::<T>::get() (conditional) = 1 read (when checking successors)
+			//    - Note: urgent processing uses same logic as regular processing but with priority
+			//
+			// Total Breakdown:
+			// - Pool info check: 1 read
+			// - Pool update operations: 1-2 reads, 1-2 writes (matching regular processing)
+			// - Conservative estimate: 3 reads, 2 writes (same as regular processing)
+			let update_weight = DbWeight::get().reads_writes(3u64, 2u64);
 
 			// Always consume base weight for the function call
 			weight_used = weight_used.saturating_add(base_weight);

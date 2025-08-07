@@ -18,7 +18,7 @@ use crate::mock::{
 	AssetsExt, Balances, LiquidityPools, NativeAssetId, RuntimeEvent as MockEvent, RuntimeOrigin,
 	System, Test,
 };
-use frame_support::{assert_noop, assert_ok, weights::constants::ParityDbWeight};
+use frame_support::{assert_noop, assert_ok};
 use seed_pallet_common::test_prelude::*;
 use seed_primitives::AccountId;
 use sp_runtime::traits::{BadOrigin, Zero};
@@ -613,9 +613,8 @@ mod set_pool_rollover {
 					amount
 				));
 
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
+				let remaining_weight: Weight =
+					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 
@@ -1005,10 +1004,9 @@ mod close_pool {
 				assert_eq!(pool.pool_status, PoolStatus::Closing);
 
 				// Process closure through on_idle to complete bounded closure
-				let remaining_weight = Weight::from_parts(1_000_000_000, 0);
-				LiquidityPools::on_idle(System::block_number(), remaining_weight);
-
-				// Verify Bob got his funds back through bounded closure process
+				// Weight for one closure batch: 12R + 13W, allow extra for completion
+				let remaining_weight = DbWeight::get().reads_writes(15u64, 15u64);
+				LiquidityPools::on_idle(System::block_number(), remaining_weight); // Verify Bob got his funds back through bounded closure process
 				assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 100); // Original balance restored
 				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 0);
 
@@ -1362,9 +1360,8 @@ fn can_refund_back_when_pool_is_done() {
 
 			assert_ok!(LiquidityPools::enter_pool(RuntimeOrigin::signed(user), pool_id, amount));
 
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
+			let remaining_weight: Weight =
+				DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
 			LiquidityPools::on_idle(lock_start_block, remaining_weight);
 
 			LiquidityPools::on_idle(lock_end_block, remaining_weight);
@@ -1633,9 +1630,8 @@ mod claim_reward {
 				}
 
 				// progress time to end of reward period
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
+				let remaining_weight: Weight =
+					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 				LiquidityPools::on_idle(lock_end_block, remaining_weight);
@@ -1708,9 +1704,8 @@ mod claim_reward {
 				}
 
 				// progress time to end of reward period
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
+				let remaining_weight: Weight =
+					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 				LiquidityPools::on_idle(lock_end_block, remaining_weight);
@@ -1763,9 +1758,8 @@ mod claim_reward {
 				));
 
 				// progress time to end of reward period
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
+				let remaining_weight: Weight =
+					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_end_block, remaining_weight);
 
@@ -1825,9 +1819,8 @@ mod claim_reward {
 
 				assert_ok!(LiquidityPools::enter_pool(RuntimeOrigin::signed(user), pool_id, 10));
 
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
+				let remaining_weight: Weight =
+					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 
@@ -1943,9 +1936,8 @@ mod rollover_unsigned {
 				));
 
 				// Progress time to end of reward period
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
+				let remaining_weight: Weight =
+					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 
@@ -2094,9 +2086,8 @@ mod rollover_unsigned {
 					successor_id
 				));
 
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
+				let remaining_weight: Weight =
+					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 
@@ -2558,7 +2549,9 @@ mod calculate_reward {
 					assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id));
 
 					// Step 4: Process the bounded closure to safely return Bob's funds
-					let weight = Weight::from_parts(1_000_000, 0);
+					// Weight based on actual closure batch processing: 12R + 13W per batch
+					// Allow for multiple batches to complete the closure
+					let weight = DbWeight::get().reads_writes(25u64, 30u64);
 					for i in 0..10 {
 						// Process closure batches until complete
 						let before_balance = AssetsExt::balance(staked_asset_id, &bob());
@@ -2750,7 +2743,7 @@ mod calculate_reward {
 					assert_ok!(normal_result);
 
 					// Part 5: Process bounded closure to return user funds automatically
-					let weight = Weight::from_parts(1_000_000, 0);
+					let weight = DbWeight::get().reads_writes(10u64, 10u64);
 					for _i in 0..10 {
 						LiquidityPools::on_idle(System::block_number(), weight);
 						System::set_block_number(System::block_number() + 1);
@@ -2897,7 +2890,7 @@ mod calculate_reward {
 					assert_eq!(pool_info.pool_status, PoolStatus::Closing);
 
 					// Process bounded closure to return all user funds
-					let weight = Weight::from_parts(1_000_000, 0);
+					let weight = DbWeight::get().reads_writes(10u64, 10u64);
 					for i in 0..10 {
 						LiquidityPools::on_idle(System::block_number(), weight);
 						System::set_block_number(System::block_number() + 1);
@@ -2942,11 +2935,7 @@ mod calculate_reward {
 	mod audit_fixes_tests {
 		use super::*;
 		use crate::{types::*, ClosingPools, ProcessingStatus, UrgentPoolUpdates};
-		use frame_support::{
-			assert_noop, assert_ok,
-			traits::Hooks,
-			weights::{constants::ParityDbWeight, Weight},
-		};
+		use frame_support::{assert_noop, assert_ok, traits::Hooks, weights::Weight};
 		use sp_runtime::{traits::ValidateUnsigned, transaction_validity::TransactionSource};
 
 		// ======================
@@ -3210,7 +3199,8 @@ mod calculate_reward {
 						));
 
 						// Process first batch in on_idle
-						let remaining_weight = Weight::from_parts(1_000_000_000, 0);
+						// Use generous weight to ensure batch processing completes
+						let remaining_weight = DbWeight::get().reads_writes(200u64, 100u64);
 						LiquidityPools::on_idle(System::block_number(), remaining_weight);
 
 						// Check that only batch_size users were processed
@@ -3302,7 +3292,8 @@ mod calculate_reward {
 						));
 
 						// Process all users in one batch
-						let remaining_weight = Weight::from_parts(1_000_000_000, 0);
+						// Use generous weight to process all users in batch
+						let remaining_weight = DbWeight::get().reads_writes(300u64, 150u64);
 						LiquidityPools::on_idle(System::block_number(), remaining_weight);
 
 						// Pool should be completely closed
@@ -3344,7 +3335,7 @@ mod calculate_reward {
 						));
 
 						// Test with very low weight
-						let low_weight = Weight::from_parts(1000, 0); // Very low weight
+						let low_weight = DbWeight::get().reads(1u64); // Very low weight
 						let used_weight =
 							LiquidityPools::on_idle(System::block_number(), low_weight);
 
@@ -3378,7 +3369,8 @@ mod calculate_reward {
 						assert_eq!(closure_state.closure_type, ClosureType::Emergency);
 
 						// Process emergency closure
-						let remaining_weight = Weight::from_parts(1_000_000_000, 0);
+						// Use sufficient weight for emergency closure processing
+						let remaining_weight = DbWeight::get().reads_writes(150u64, 75u64);
 						LiquidityPools::on_idle(System::block_number(), remaining_weight);
 
 						// Verify PoolClosureInitiated event with Emergency type
@@ -3439,7 +3431,8 @@ mod calculate_reward {
 						assert_eq!(pool.pool_status, PoolStatus::Closing);
 
 						// Process should be bounded
-						let remaining_weight = Weight::from_parts(1_000_000_000, 0);
+						// Use realistic weight to test bounded processing
+						let remaining_weight = DbWeight::get().reads_writes(100u64, 50u64);
 						let used_weight =
 							LiquidityPools::on_idle(System::block_number(), remaining_weight);
 
@@ -3472,7 +3465,7 @@ mod calculate_reward {
 					.with_balances(&vec![(alice(), 1000)])
 					.build()
 					.execute_with(|| {
-						let base_weight = ParityDbWeight::get().reads(1u64);
+						let base_weight = DbWeight::get().reads(1u64);
 
 						// Test with insufficient weight
 						let used_weight =
@@ -3509,7 +3502,7 @@ mod calculate_reward {
 						}
 
 						// Test with limited weight
-						let limited_weight = Weight::from_parts(100_000, 0);
+						let limited_weight = DbWeight::get().reads_writes(1u64, 1u64);
 						let used_weight =
 							LiquidityPools::on_idle(System::block_number(), limited_weight);
 
@@ -3545,7 +3538,7 @@ mod calculate_reward {
 
 						// Process with limited weight multiple times
 						for _ in 0..3 {
-							let weight = Weight::from_parts(500_000, 0);
+							let weight = DbWeight::get().reads_writes(5u64, 5u64);
 							LiquidityPools::on_idle(System::block_number(), weight);
 
 							// Advance block
@@ -3580,7 +3573,7 @@ mod calculate_reward {
 						}
 
 						// Process with reasonable weight
-						let weight = Weight::from_parts(1_000_000, 0);
+						let weight = DbWeight::get().reads_writes(10u64, 10u64);
 						let used_weight = LiquidityPools::on_idle(System::block_number(), weight);
 
 						// Should not process all pools in one go if weight limited
@@ -3620,7 +3613,10 @@ mod calculate_reward {
 
 						// In original vulnerability, this would cause unbounded iteration
 						// Now should terminate within weight limits
-						let reasonable_weight = Weight::from_parts(10_000_000, 0);
+						// Use calculated weight based on expected DB operations (reads/writes for pool processing)
+						let reasonable_weight = DbWeight::get()
+							.reads(20u64)
+							.saturating_add(DbWeight::get().writes(15u64));
 						let used_weight =
 							LiquidityPools::on_idle(System::block_number(), reasonable_weight);
 
@@ -3978,7 +3974,7 @@ mod calculate_reward {
 						}
 
 						// Process urgent updates
-						let weight = Weight::from_parts(1_000_000, 0);
+						let weight = DbWeight::get().reads_writes(10u64, 10u64);
 						let used_weight = LiquidityPools::process_urgent_pool_updates(
 							System::block_number(),
 							weight,
@@ -4018,7 +4014,7 @@ mod calculate_reward {
 						for _block in 0..10 {
 							System::set_block_number(System::block_number() + 1);
 
-							let weight = Weight::from_parts(500_000, 0);
+							let weight = DbWeight::get().reads_writes(5u64, 5u64);
 							LiquidityPools::on_idle(System::block_number(), weight);
 						}
 
@@ -4088,7 +4084,9 @@ mod calculate_reward {
 						for _block in 0..50 {
 							System::set_block_number(System::block_number() + 1);
 
-							let weight = Weight::from_parts(200_000, 0); // Limited weight
+							// Limited weight: enough for base operations + 1 pool processing
+							// Base weight (process_pool_status_updates) + 1 pool (3 reads, 2 writes)
+							let weight = DbWeight::get().reads_writes(5u64, 3u64);
 							LiquidityPools::on_idle(System::block_number(), weight);
 
 							let current_state = ProcessingStatus::<Test>::get();
@@ -4134,7 +4132,7 @@ mod calculate_reward {
 
 						for _ in 0..5 {
 							System::set_block_number(System::block_number() + 1);
-							let weight = Weight::from_parts(300_000, 0);
+							let weight = DbWeight::get().reads_writes(3u64, 3u64);
 							LiquidityPools::on_idle(System::block_number(), weight);
 						}
 
@@ -4203,7 +4201,7 @@ mod calculate_reward {
 						));
 
 						// Test FRN-69 & FRN-71: Process everything in on_idle
-						let weight = Weight::from_parts(2_000_000, 0);
+						let weight = DbWeight::get().reads_writes(20u64, 20u64);
 						let used_weight = LiquidityPools::on_idle(System::block_number(), weight);
 
 						// Verify all systems worked together
@@ -4394,7 +4392,7 @@ mod calculate_reward {
 						)));
 
 						// Process closure to get batch event
-						let weight = Weight::from_parts(1_000_000, 0);
+						let weight = DbWeight::get().reads_writes(10u64, 10u64);
 						LiquidityPools::on_idle(System::block_number(), weight);
 
 						let events = System::events();
@@ -4503,8 +4501,10 @@ mod calculate_reward {
 							pool_id
 						));
 
-						// Process with realistic weight constraints
-						let weight = Weight::from_parts(10_000_000, 0); // 10M gas units
+						// Process with realistic weight constraints based on expected DB operations
+						let weight = DbWeight::get()
+							.reads(50u64)
+							.saturating_add(DbWeight::get().writes(30u64));
 						LiquidityPools::on_idle(System::block_number(), weight);
 
 						let elapsed = start_time.elapsed();
@@ -4543,9 +4543,12 @@ mod calculate_reward {
 						let start_time = std::time::Instant::now();
 
 						// Original vulnerability: on_idle iterates over all pools unboundedly
-						let weight = Weight::from_parts(50_000_000, 0); // 50M gas units
+						// Use weight budget based on actual bounded processing limits:
+						// Base: 1R+1W, MaxPoolsPerBlock=3, per pool: 3R+2W
+						// Total needed: 1R+1W + 3*(3R+2W) = 10R+7W
+						// Provide extra to test that it still respects bounds
+						let weight = DbWeight::get().reads_writes(15u64, 10u64);
 						let used_weight = LiquidityPools::on_idle(System::block_number(), weight);
-
 						let elapsed = start_time.elapsed();
 
 						// Should complete quickly and not exceed weight
@@ -4656,7 +4659,9 @@ mod calculate_reward {
 
 						// Try massive on_idle processing (FRN-69 attack)
 						let start_time = std::time::Instant::now();
-						let weight = Weight::from_parts(100_000_000, 0);
+						// Use weight budget based on bounded processing: 10R+7W for max processing
+						// Provide generous budget to test that bounds are still respected
+						let weight = DbWeight::get().reads_writes(20u64, 15u64);
 						let used_weight = LiquidityPools::on_idle(System::block_number(), weight);
 						let elapsed = start_time.elapsed();
 

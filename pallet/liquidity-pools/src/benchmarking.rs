@@ -432,14 +432,16 @@ benchmarks! {
 		}).collect();
 
 		let current_block = 100u32.into();
-	}: { Pallet::<T>::process_closing_pools(current_block, Weight::from_all(1_000_000_000)) }
-	verify {
-		// Provide maximal weight to ensure all pools are processed
-		let max_weight = T::WeightInfo::process_closure_batch().saturating_mul(20u64.into());
-		Pallet::<T>::process_closing_pools(current_block, max_weight);
 
-		// Assert that the ClosingPools queue is empty, proving all pools were processed
-		assert!(ClosingPools::<T>::iter().next().is_none(), "ClosingPools queue should be empty after processing with maximal weight");
+		// Calculate sufficient weight for processing n pools
+		// Each pool needs at least one closure batch: 12R + 13W (from auto-generated weights)
+		// Add overhead for iteration, state management, and ensure all pools can be processed
+		let weight_per_pool = T::DbWeight::get().reads_writes(15u64, 16u64);
+		let total_weight = weight_per_pool.saturating_mul(n.into());
+	}: { Pallet::<T>::process_closing_pools(current_block, total_weight) }
+	verify {
+		// Assert that pools were processed - with sufficient weight, all should be processed
+		assert!(ClosingPools::<T>::iter().next().is_none(), "ClosingPools queue should be empty after processing with calculated weight");
 	}
 
 	process_closure_batch {
