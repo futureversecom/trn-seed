@@ -614,7 +614,12 @@ mod set_pool_rollover {
 				));
 
 				let remaining_weight: Weight =
-					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
+					<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closing_pools(
+							1,
+						))
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closure_batch())
+						.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 
@@ -1004,9 +1009,23 @@ mod close_pool {
 				assert_eq!(pool.pool_status, PoolStatus::Closing);
 
 				// Process closure through on_idle to complete bounded closure
-				// Weight for one closure batch: 12R + 13W, allow extra for completion
-				let remaining_weight = DbWeight::get().reads_writes(15u64, 15u64);
-				LiquidityPools::on_idle(System::block_number(), remaining_weight); // Verify Bob got his funds back through bounded closure process
+				// Provide sufficient weight for a full closure batch plus base on_idle processing
+				let remaining_weight = <Test as crate::Config>::WeightInfo::process_closure_batch()
+					.saturating_add(
+						<Test as crate::Config>::WeightInfo::process_pool_status_updates(),
+					)
+					.saturating_add(DbWeight::get().reads_writes(20u64, 20u64));
+
+				// Run on_idle across blocks until closure completes (bounded batches)
+				for _ in 0..10 {
+					LiquidityPools::on_idle(System::block_number(), remaining_weight);
+					System::set_block_number(System::block_number() + 1);
+					if ClosingPools::<Test>::get(pool_id).is_none() {
+						break;
+					}
+				}
+
+				// Verify Bob got his funds back through bounded closure process
 				assert_eq!(AssetsExt::balance(staked_asset_id, &bob()), 100); // Original balance restored
 				assert_eq!(AssetsExt::balance(staked_asset_id, &pool_vault_account), 0);
 
@@ -1361,7 +1380,10 @@ fn can_refund_back_when_pool_is_done() {
 			assert_ok!(LiquidityPools::enter_pool(RuntimeOrigin::signed(user), pool_id, amount));
 
 			let remaining_weight: Weight =
-				DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
+				<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+					.saturating_add(<Test as crate::Config>::WeightInfo::process_closing_pools(1))
+					.saturating_add(<Test as crate::Config>::WeightInfo::process_closure_batch())
+					.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 			LiquidityPools::on_idle(lock_start_block, remaining_weight);
 
 			LiquidityPools::on_idle(lock_end_block, remaining_weight);
@@ -1631,7 +1653,12 @@ mod claim_reward {
 
 				// progress time to end of reward period
 				let remaining_weight: Weight =
-					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
+					<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closing_pools(
+							1,
+						))
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closure_batch())
+						.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 				LiquidityPools::on_idle(lock_end_block, remaining_weight);
@@ -1705,7 +1732,12 @@ mod claim_reward {
 
 				// progress time to end of reward period
 				let remaining_weight: Weight =
-					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
+					<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closing_pools(
+							1,
+						))
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closure_batch())
+						.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 				LiquidityPools::on_idle(lock_end_block, remaining_weight);
@@ -1759,7 +1791,12 @@ mod claim_reward {
 
 				// progress time to end of reward period
 				let remaining_weight: Weight =
-					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
+					<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closing_pools(
+							1,
+						))
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closure_batch())
+						.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_end_block, remaining_weight);
 
@@ -1820,7 +1857,12 @@ mod claim_reward {
 				assert_ok!(LiquidityPools::enter_pool(RuntimeOrigin::signed(user), pool_id, 10));
 
 				let remaining_weight: Weight =
-					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
+					<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closing_pools(
+							1,
+						))
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closure_batch())
+						.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 
@@ -1937,7 +1979,12 @@ mod rollover_unsigned {
 
 				// Progress time to end of reward period
 				let remaining_weight: Weight =
-					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
+					<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closing_pools(
+							1,
+						))
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closure_batch())
+						.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 
@@ -2087,7 +2134,12 @@ mod rollover_unsigned {
 				));
 
 				let remaining_weight: Weight =
-					DbWeight::get().reads(100u64).saturating_add(DbWeight::get().writes(100u64));
+					<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closing_pools(
+							1,
+						))
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closure_batch())
+						.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 				LiquidityPools::on_idle(lock_start_block, remaining_weight);
 				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
 
@@ -2551,7 +2603,12 @@ mod calculate_reward {
 					// Step 4: Process the bounded closure to safely return Bob's funds
 					// Weight based on actual closure batch processing: 12R + 13W per batch
 					// Allow for multiple batches to complete the closure
-					let weight = DbWeight::get().reads_writes(25u64, 30u64);
+					let weight = <Test as crate::Config>::WeightInfo::process_pool_status_updates()
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closing_pools(
+							1,
+						))
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closure_batch())
+						.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 					for i in 0..10 {
 						// Process closure batches until complete
 						let before_balance = AssetsExt::balance(staked_asset_id, &bob());
@@ -2743,7 +2800,12 @@ mod calculate_reward {
 					assert_ok!(normal_result);
 
 					// Part 5: Process bounded closure to return user funds automatically
-					let weight = DbWeight::get().reads_writes(10u64, 10u64);
+					let weight = <Test as crate::Config>::WeightInfo::process_pool_status_updates()
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closing_pools(
+							1,
+						))
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closure_batch())
+						.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 					for _i in 0..10 {
 						LiquidityPools::on_idle(System::block_number(), weight);
 						System::set_block_number(System::block_number() + 1);
@@ -2890,7 +2952,12 @@ mod calculate_reward {
 					assert_eq!(pool_info.pool_status, PoolStatus::Closing);
 
 					// Process bounded closure to return all user funds
-					let weight = DbWeight::get().reads_writes(10u64, 10u64);
+					let weight = <Test as crate::Config>::WeightInfo::process_pool_status_updates()
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closing_pools(
+							1,
+						))
+						.saturating_add(<Test as crate::Config>::WeightInfo::process_closure_batch())
+						.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 					for i in 0..10 {
 						LiquidityPools::on_idle(System::block_number(), weight);
 						System::set_block_number(System::block_number() + 1);
@@ -3199,8 +3266,10 @@ mod calculate_reward {
 						));
 
 						// Process first batch in on_idle
-						// Use generous weight to ensure batch processing completes
-						let remaining_weight = DbWeight::get().reads_writes(200u64, 100u64);
+						// Provide enough weight for one closure batch and base on_idle
+						let remaining_weight = <Test as crate::Config>::WeightInfo::process_closure_batch()
+	.saturating_add(<Test as crate::Config>::WeightInfo::process_pool_status_updates())
+	.saturating_add(DbWeight::get().reads_writes(20u64, 20u64));
 						LiquidityPools::on_idle(System::block_number(), remaining_weight);
 
 						// Check that only batch_size users were processed
@@ -3291,10 +3360,17 @@ mod calculate_reward {
 							pool_id
 						));
 
-						// Process all users in one batch
-						// Use generous weight to process all users in batch
-						let remaining_weight = DbWeight::get().reads_writes(300u64, 150u64);
-						LiquidityPools::on_idle(System::block_number(), remaining_weight);
+						// Process closure across blocks until completion, respecting batch limits
+						let remaining_weight = <Test as crate::Config>::WeightInfo::process_closure_batch()
+	.saturating_add(<Test as crate::Config>::WeightInfo::process_pool_status_updates())
+	.saturating_add(DbWeight::get().reads_writes(20u64, 20u64));
+						for _ in 0..10 {
+							LiquidityPools::on_idle(System::block_number(), remaining_weight);
+							System::set_block_number(System::block_number() + 1);
+							if ClosingPools::<Test>::get(pool_id).is_none() {
+								break;
+							}
+						}
 
 						// Pool should be completely closed
 						let pool = Pools::<Test>::get(pool_id).unwrap();
@@ -3431,8 +3507,10 @@ mod calculate_reward {
 						assert_eq!(pool.pool_status, PoolStatus::Closing);
 
 						// Process should be bounded
-						// Use realistic weight to test bounded processing
-						let remaining_weight = DbWeight::get().reads_writes(100u64, 50u64);
+						// Provide sufficient weight budget calculated from WeightInfo to ensure at least one batch
+						let remaining_weight = <Test as crate::Config>::WeightInfo::process_closure_batch()
+	.saturating_add(<Test as crate::Config>::WeightInfo::process_pool_status_updates())
+	.saturating_add(DbWeight::get().reads_writes(20u64, 20u64));
 						let used_weight =
 							LiquidityPools::on_idle(System::block_number(), remaining_weight);
 
@@ -3538,7 +3616,18 @@ mod calculate_reward {
 
 						// Process with limited weight multiple times
 						for _ in 0..3 {
-							let weight = DbWeight::get().reads_writes(5u64, 5u64);
+							let weight =
+								<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+									.saturating_add(
+										<Test as crate::Config>::WeightInfo::process_closing_pools(
+											1,
+										),
+									)
+									.saturating_add(
+										<Test as crate::Config>::WeightInfo::process_closure_batch(
+										),
+									)
+									.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 							LiquidityPools::on_idle(System::block_number(), weight);
 
 							// Advance block
@@ -3573,7 +3662,15 @@ mod calculate_reward {
 						}
 
 						// Process with reasonable weight
-						let weight = DbWeight::get().reads_writes(10u64, 10u64);
+						let weight =
+							<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closing_pools(1),
+								)
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closure_batch(),
+								)
+								.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 						let used_weight = LiquidityPools::on_idle(System::block_number(), weight);
 
 						// Should not process all pools in one go if weight limited
@@ -3974,7 +4071,15 @@ mod calculate_reward {
 						}
 
 						// Process urgent updates
-						let weight = DbWeight::get().reads_writes(10u64, 10u64);
+						let weight =
+							<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closing_pools(1),
+								)
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closure_batch(),
+								)
+								.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 						let used_weight = LiquidityPools::process_urgent_pool_updates(
 							System::block_number(),
 							weight,
@@ -4014,7 +4119,18 @@ mod calculate_reward {
 						for _block in 0..10 {
 							System::set_block_number(System::block_number() + 1);
 
-							let weight = DbWeight::get().reads_writes(5u64, 5u64);
+							let weight =
+								<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+									.saturating_add(
+										<Test as crate::Config>::WeightInfo::process_closing_pools(
+											1,
+										),
+									)
+									.saturating_add(
+										<Test as crate::Config>::WeightInfo::process_closure_batch(
+										),
+									)
+									.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 							LiquidityPools::on_idle(System::block_number(), weight);
 						}
 
@@ -4086,7 +4202,18 @@ mod calculate_reward {
 
 							// Limited weight: enough for base operations + 1 pool processing
 							// Base weight (process_pool_status_updates) + 1 pool (3 reads, 2 writes)
-							let weight = DbWeight::get().reads_writes(5u64, 3u64);
+							let weight =
+								<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+									.saturating_add(
+										<Test as crate::Config>::WeightInfo::process_closing_pools(
+											1,
+										),
+									)
+									.saturating_add(
+										<Test as crate::Config>::WeightInfo::process_closure_batch(
+										),
+									)
+									.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 							LiquidityPools::on_idle(System::block_number(), weight);
 
 							let current_state = ProcessingStatus::<Test>::get();
@@ -4132,7 +4259,18 @@ mod calculate_reward {
 
 						for _ in 0..5 {
 							System::set_block_number(System::block_number() + 1);
-							let weight = DbWeight::get().reads_writes(3u64, 3u64);
+							let weight =
+								<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+									.saturating_add(
+										<Test as crate::Config>::WeightInfo::process_closing_pools(
+											1,
+										),
+									)
+									.saturating_add(
+										<Test as crate::Config>::WeightInfo::process_closure_batch(
+										),
+									)
+									.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 							LiquidityPools::on_idle(System::block_number(), weight);
 						}
 
@@ -4201,7 +4339,15 @@ mod calculate_reward {
 						));
 
 						// Test FRN-69 & FRN-71: Process everything in on_idle
-						let weight = DbWeight::get().reads_writes(20u64, 20u64);
+						let weight =
+							<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closing_pools(1),
+								)
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closure_batch(),
+								)
+								.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 						let used_weight = LiquidityPools::on_idle(System::block_number(), weight);
 
 						// Verify all systems worked together
@@ -4392,7 +4538,15 @@ mod calculate_reward {
 						)));
 
 						// Process closure to get batch event
-						let weight = DbWeight::get().reads_writes(10u64, 10u64);
+						let weight =
+							<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closing_pools(1),
+								)
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closure_batch(),
+								)
+								.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 						LiquidityPools::on_idle(System::block_number(), weight);
 
 						let events = System::events();
@@ -4502,9 +4656,15 @@ mod calculate_reward {
 						));
 
 						// Process with realistic weight constraints based on expected DB operations
-						let weight = DbWeight::get()
-							.reads(50u64)
-							.saturating_add(DbWeight::get().writes(30u64));
+						let weight =
+							<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closing_pools(1),
+								)
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closure_batch(),
+								)
+								.saturating_add(DbWeight::get().reads_writes(200u64, 150u64));
 						LiquidityPools::on_idle(System::block_number(), weight);
 
 						let elapsed = start_time.elapsed();
@@ -4547,7 +4707,15 @@ mod calculate_reward {
 						// Base: 1R+1W, MaxPoolsPerBlock=3, per pool: 3R+2W
 						// Total needed: 1R+1W + 3*(3R+2W) = 10R+7W
 						// Provide extra to test that it still respects bounds
-						let weight = DbWeight::get().reads_writes(15u64, 10u64);
+						let weight =
+							<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closing_pools(1),
+								)
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closure_batch(),
+								)
+								.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 						let used_weight = LiquidityPools::on_idle(System::block_number(), weight);
 						let elapsed = start_time.elapsed();
 
@@ -4661,7 +4829,15 @@ mod calculate_reward {
 						let start_time = std::time::Instant::now();
 						// Use weight budget based on bounded processing: 10R+7W for max processing
 						// Provide generous budget to test that bounds are still respected
-						let weight = DbWeight::get().reads_writes(20u64, 15u64);
+						let weight =
+							<Test as crate::Config>::WeightInfo::process_pool_status_updates()
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closing_pools(1),
+								)
+								.saturating_add(
+									<Test as crate::Config>::WeightInfo::process_closure_batch(),
+								)
+								.saturating_add(DbWeight::get().reads_writes(100u64, 100u64));
 						let used_weight = LiquidityPools::on_idle(System::block_number(), weight);
 						let elapsed = start_time.elapsed();
 

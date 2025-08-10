@@ -44,6 +44,8 @@ parameter_types! {
 	pub const TransactionMaxAge: u32 = 64; // Transaction max age in blocks
 	pub const MaxStringLength: u32 = 1000;
 	pub const MaxUrgentUpdates: u32 = 10; // FRN-71: Max urgent updates in queue
+	pub const MaxClosingPoolsPerBlock: u32 = 10; // new config for closing pools per block
+	pub const MaxPoolsPerOffchainCall: u32 = 50; // new config for OCW batching
 }
 
 impl crate::Config for Test {
@@ -59,6 +61,8 @@ impl crate::Config for Test {
 	type TransactionMaxAge = TransactionMaxAge;
 	type MaxStringLength = MaxStringLength;
 	type MaxUrgentUpdates = MaxUrgentUpdates;
+	type MaxClosingPoolsPerBlock = MaxClosingPoolsPerBlock;
+	type MaxPoolsPerOffchainCall = MaxPoolsPerOffchainCall;
 	type WeightInfo = ();
 }
 

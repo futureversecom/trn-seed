@@ -139,6 +139,14 @@ pub mod pallet {
 
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
+
+		/// Max number of closing pools to process per block (round-robin)
+		#[pallet::constant]
+		type MaxClosingPoolsPerBlock: Get<u32>;
+
+		/// Max number of pools to process per offchain worker call (round-robin)
+		#[pallet::constant]
+		type MaxPoolsPerOffchainCall: Get<u32>;
 	}
 
 	#[pallet::storage]
@@ -1245,8 +1253,8 @@ pub mod pallet {
 			let current_pivot = OffchainWorkerPivot::<T>::get();
 			let mut next_pivot = None;
 			let mut pools_processed = 0u32;
-			// Magic number: max_pools_per_offchain_call = 50. Chosen based on observed safe limits in offchain worker benchmarks to avoid exceeding block weight. Should be configurable via pallet constant if scaling is needed.
-			let max_pools_per_offchain_call = 50u32; // Process up to 50 pools per offchain call
+			// Use configurable max pools per offchain call from Config
+			let max_pools_per_offchain_call = T::MaxPoolsPerOffchainCall::get(); // Process up to configured pools per offchain call
 
 			// Create iterator starting from pivot for fair processing
 			let iter = if let Some(pivot) = current_pivot {
@@ -1431,8 +1439,8 @@ pub mod pallet {
 			let current_pivot = ClosingPoolPivot::<T>::get();
 			let mut next_pivot = None;
 			let mut pools_processed = 0u32;
-			// Magic number: max_closing_pools_per_block = 10. This is a conservative upper bound chosen to prevent chain stalling and matches observed safe limits in benchmarks. Should be configurable via pallet constant if scaling is needed.
-			let max_closing_pools_per_block = 10u32; // Process up to 10 closing pools per block
+			// Use configurable max closing pools per block from Config
+			let max_closing_pools_per_block = T::MaxClosingPoolsPerBlock::get(); // Process up to configured closing pools per block
 
 			// Create iterator starting from pivot for fair processing
 			let iter = if let Some(pivot) = current_pivot {
