@@ -39,7 +39,13 @@ parameter_types! {
 	pub const InterestRateBasePoint: u32 = 1_000_000;
 	pub const UnsignedInterval: u32 =  5;
 	pub const RolloverBatchSize: u32 = 10;
+	pub const ClosureBatchSize: u32 = 5; // FRN-68: For testing bounded closure
+	pub const MaxPoolsPerBlock: u32 = 3; // Small number for testing
+	pub const TransactionMaxAge: u32 = 64; // Transaction max age in blocks
 	pub const MaxStringLength: u32 = 1000;
+	pub const MaxUrgentUpdates: u32 = 10; // FRN-71: Max urgent updates in queue
+	pub const MaxClosingPoolsPerBlock: u32 = 10; // new config for closing pools per block
+	pub const MaxPoolsPerOffchainCall: u32 = 50; // new config for OCW batching
 }
 
 impl crate::Config for Test {
@@ -50,7 +56,13 @@ impl crate::Config for Test {
 	type PalletId = LiquidityPoolsPalletId;
 	type UnsignedInterval = UnsignedInterval;
 	type RolloverBatchSize = RolloverBatchSize;
+	type ClosureBatchSize = ClosureBatchSize;
+	type MaxPoolsPerBlock = MaxPoolsPerBlock;
+	type TransactionMaxAge = TransactionMaxAge;
 	type MaxStringLength = MaxStringLength;
+	type MaxUrgentUpdates = MaxUrgentUpdates;
+	type MaxClosingPoolsPerBlock = MaxClosingPoolsPerBlock;
+	type MaxPoolsPerOffchainCall = MaxPoolsPerOffchainCall;
 	type WeightInfo = ();
 }
 
