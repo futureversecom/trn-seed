@@ -164,7 +164,6 @@ fn testnet_genesis(
 		(VTX_ASSET_ID, root_key, true, VTX_MINIMUM_BALANCE),
 	];
 	let endowed_accounts = accounts_to_fund.clone();
-	let num_endowed_accounts = endowed_accounts.len();
 	let mut endowed_assets = Vec::with_capacity(accounts_to_fund.len());
 	let mut endowed_balances = Vec::with_capacity(accounts_to_fund.len());
 	for account in accounts_to_fund {
@@ -235,7 +234,8 @@ fn testnet_genesis(
 		technical_committee: TechnicalCommitteeConfig {
 			members: endowed_accounts
 				.iter()
-				.take((num_endowed_accounts + 1) / 2)
+				.skip(12)
+				.take(6)
 				.cloned()
 				.collect(),
 			phantom: Default::default(),
@@ -243,7 +243,8 @@ fn testnet_genesis(
 		elections: ElectionsConfig {
 			members: endowed_accounts
 				.iter()
-				.take((num_endowed_accounts + 1) / 2)
+				.skip(12)
+				.take(6)
 				.cloned()
 				.map(|member| (member, election_stake))
 				.collect(),
