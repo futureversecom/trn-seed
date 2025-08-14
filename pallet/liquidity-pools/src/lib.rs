@@ -487,10 +487,14 @@ pub mod pallet {
 				)?;
 			}
 
+			// These values are not needed for a closed pool, so we can remove them already
+			PoolRelationships::<T>::remove(id);
+			RolloverPivot::<T>::remove(id);
+
 			// Check if the pool has any locked tokens
 			if pool.locked_amount == Zero::zero() {
-				// No users, can close immediately
-				Self::finalise_pool_closure(id, &pool)?;
+				// No users, remove the pool entirely
+				Pools::<T>::remove(id);
 			} else {
 				// There are some user staked funds remaining in the pool
 				// Set the status to closing to allow users to exit with exit_pool
@@ -589,7 +593,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let pool_vault_account = Self::get_vault_account(id);
 
-			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
+			let mut pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
 			// Ensure the pool is open or closed. Pools can't be exited while running or renewing
 			ensure!(pool.pool_status == PoolStatus::Open || pool.pool_status == PoolStatus::Closed, Error::<T>::CannotExitPool);
@@ -606,17 +610,17 @@ pub mod pallet {
 				Preservation::Expendable,
 			)?;
 
-			Pools::<T>::try_mutate(id, |pool_info| -> DispatchResult {
-				let pool_info = pool_info.as_mut().ok_or(Error::<T>::PoolDoesNotExist)?;
-				pool_info.locked_amount = pool_info.locked_amount.saturating_sub(amount);
-				Ok(())
-			})?;
-
-			PoolUsers::<T>::remove(id, &who);
-			if pool.locked_amount == Zero::zero() && pool.pool_status == PoolStatus::Closed {
-				// If the pool is closed and has no locked amount, finalize the closure
-				Self::finalise_pool_closure(id, &pool)?;
+			// Remove locked amount from the pool
+			let new_locked_amount = pool.locked_amount.saturating_sub(amount);
+			if new_locked_amount == Zero::zero() && pool.pool_status == PoolStatus::Closed {
+				// If the pool is closed and has no locked amount, it can be removed entirely
+				Pools::<T>::remove(id);
+			} else {
+				// Otherwise, update the pool's locked amount
+				pool.locked_amount = new_locked_amount;
+				Pools::<T>::insert(id, &pool);
 			}
+			PoolUsers::<T>::remove(id, &who);
 
 			Self::deposit_event(Event::UserExited { account_id: who, pool_id: id, amount });
 			Ok(())
@@ -847,7 +851,7 @@ pub mod pallet {
 			let current_block = <frame_system::Pallet<T>>::block_number();
 			log::warn!("current block {:?}", current_block);
 			let next_unsigned_at = current_block + T::UnsignedInterval::get().into();
-			<NextRolloverUnsignedAt<T>>::put(next_unsigned_at);
+			<NextRolloverUnsignedAt<T>>::put(&next_unsigned_at);
 			log::warn!("proposed next unsigned at {:?}", next_unsigned_at);
 			Ok(())
 		}
@@ -1104,46 +1108,6 @@ pub mod pallet {
 				)?;
 			}
 			Ok(())
-		}
-
-		/// Closes a pool that has no users and clears storage
-		/// Transfers any remaining assets back to the creator, however most assets should be
-		/// transferred automatically in on_idle
-		fn finalise_pool_closure(
-			pool_id: T::PoolId,
-			pool: &PoolInfo<T::PoolId, AssetId, Balance, BlockNumberFor<T>>,
-		) -> Result<(Balance, Balance), DispatchError> {
-			let pool_vault_account = Self::get_vault_account(pool_id);
-
-			// Although likely to be empty, transfer any dust or remaining assets back to the creator
-			let reward_asset_amount =
-				T::MultiCurrency::balance(pool.reward_asset_id, &pool_vault_account);
-			let staked_asset_amount =
-				T::MultiCurrency::balance(pool.staked_asset_id, &pool_vault_account);
-			if reward_asset_amount > Zero::zero() {
-				T::MultiCurrency::transfer(
-					pool.reward_asset_id,
-					&pool_vault_account,
-					&pool.creator,
-					reward_asset_amount,
-					Preservation::Expendable,
-				)?;
-			}
-			if staked_asset_amount > Zero::zero() {
-				T::MultiCurrency::transfer(
-					pool.staked_asset_id,
-					&pool_vault_account,
-					&pool.creator,
-					staked_asset_amount,
-					Preservation::Expendable,
-				)?;
-			}
-
-			// Clean up common storage items
-			PoolRelationships::<T>::remove(pool_id);
-			RolloverPivot::<T>::remove(pool_id);
-			Pools::<T>::remove(pool_id);
-			Ok((reward_asset_amount, staked_asset_amount))
 		}
 	}
 }
