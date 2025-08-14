@@ -41,6 +41,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
+	SaturatedConversion
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -235,6 +236,8 @@ pub mod pallet {
 		OffchainErrWrongTransactionSource,
 		/// Pivot string too long
 		PivotStringTooLong,
+		/// Error calculating reward
+		RewardCalculationOverflow,
 	}
 
 	#[pallet::call]
@@ -925,18 +928,42 @@ pub mod pallet {
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 
-		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			match call {
 				Call::rollover_unsigned { id, current_block } => {
 					let block_number = <frame_system::Pallet<T>>::block_number();
 					if &block_number < current_block {
 						return InvalidTransaction::Future.into();
 					}
+
+					// Only allow unsigned transactions from local source
+					// This will mean that only the current node can validate this
+					// May fail if the node does not author another block within the longevity period
+					if source != TransactionSource::Local {
+						return InvalidTransaction::BadSigner.into();
+					}
+
+					// Do quick verification of the pool
+					if let Some(info) = Pools::<T>::get(*id) {
+						if info.pool_status != PoolStatus::Renewing {
+							return InvalidTransaction::Stale.into();
+						}
+						let next_at = NextRolloverUnsignedAt::<T>::get();
+						if next_at > block_number {
+							return InvalidTransaction::Stale.into();
+						}
+					} else {
+						return InvalidTransaction::Custom(1).into(); // PoolDoesNotExist
+					}
+
+					// dedup by including the current window alongside the id
+					let window: u64 = (block_number / T::UnsignedInterval::get().into())
+						.saturated_into();
 					ValidTransaction::with_tag_prefix("LiquidityPoolsChainWorker")
 						.priority(UNSIGNED_PRIORITY)
-						.and_provides(id)
+						.and_provides((id, window))
 						.longevity(64_u64)
-						.propagate(true)
+						.propagate(false) // We are checking source == Local so no need to propagate
 						.build()
 				},
 				_ => InvalidTransaction::Call.into(),
