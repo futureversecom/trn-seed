@@ -25,7 +25,7 @@ use seed_runtime::{
 	keys::*,
 	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, CouncilConfig, DemocracyConfig,
 	ElectionsConfig, EthBridgeConfig, RuntimeGenesisConfig, SessionConfig, SessionKeys, Signature,
-	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+	StakerStatus, StakingConfig, SudoConfig, SystemConfig,
 	TransactionPaymentConfig, XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
 };
 use sp_core::{ecdsa, Pair, Public};
@@ -231,15 +231,6 @@ fn testnet_genesis(
 		evm: seed_runtime::EVMConfig { ..Default::default() },
 		xrpl_bridge: XRPLBridgeConfig { xrp_relayers },
 		council: CouncilConfig::default(),
-		technical_committee: TechnicalCommitteeConfig {
-			members: endowed_accounts
-				.iter()
-				.skip(12)
-				.take(6)
-				.cloned()
-				.collect(),
-			phantom: Default::default(),
-		},
 		elections: ElectionsConfig {
 			members: endowed_accounts
 				.iter()

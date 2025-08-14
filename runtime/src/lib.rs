@@ -81,11 +81,11 @@ pub use frame_support::{
 	},
 	PalletId, StorageValue,
 };
-
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned,
 };
+use pallet_collective::EnsureProportionMoreThan;
 pub use pallet_grandpa::AuthorityId as GrandpaId;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 pub use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -1447,6 +1447,10 @@ impl pallet_maintenance_mode::Config for Runtime {
 	type TimestampPallet = Timestamp;
 	type ImOnlinePallet = ImOnline;
 	type EthyPallet = EthBridge;
+	type DemocracyPallet = Democracy;
+	type PreimagePallet = Preimage;
+	type CouncilPallet = Council;
+	type SchedulerPallet = Scheduler;
 }
 
 parameter_types! {
@@ -1512,26 +1516,6 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 }
 
 parameter_types! {
-	pub const TechnicalMotionDuration: BlockNumber = 5 * DAYS;
-	pub const TechnicalMaxProposals: u32 = 100;
-	pub const TechnicalMaxMembers: u32 = 100;
-}
-
-type TechnicalCollective = pallet_collective::Instance2;
-impl pallet_collective::Config<TechnicalCollective> for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall;
-	type RuntimeEvent = RuntimeEvent;
-	type MotionDuration = TechnicalMotionDuration;
-	type MaxProposals = TechnicalMaxProposals;
-	type MaxMembers = TechnicalMaxMembers;
-	type DefaultVote = pallet_collective::PrimeDefaultVote;
-	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
-	type MaxProposalWeight = MaxCollectivesProposalWeight;
-}
-
-parameter_types! {
 	pub const CandidacyBond: Balance = 10 * ONE_ROOT;
 	// 1 storage item created, key size is 32 bytes, value size is 16+16.
 	pub const VotingBondBase: Balance = deposit(1, 64);
@@ -1578,17 +1562,17 @@ pub struct FastTrackMembers;
 impl frame_support::traits::SortedMembers<AccountId> for FastTrackMembers {
 	fn sorted_members() -> Vec<AccountId> {
 		// Return all Technical Committee members - as an example.
-		pallet_collective::Members::<Runtime, TechnicalCollective>::get()
+		pallet_collective::Members::<Runtime, CouncilCollective>::get()
 	}
 }
 
 parameter_types! {
-	pub const LaunchPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
-	pub const VotingPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
-	pub const FastTrackVotingPeriod: BlockNumber = 3 * 24 * 60 * MINUTES;
+	pub const LaunchPeriod: BlockNumber =  50 * MINUTES;
+	pub const VotingPeriod: BlockNumber = 50 * MINUTES;
+	pub const FastTrackVotingPeriod: BlockNumber = 3 * DAYS;
 	pub const MinimumDeposit: Balance = 100 * ONE_ROOT;
-	pub const EnactmentPeriod: BlockNumber = 30 * 24 * 60 * MINUTES;
-	pub const CooloffPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
+	pub const EnactmentPeriod: BlockNumber = 1 * MINUTES;
+	pub const CooloffPeriod: BlockNumber = 5 * MINUTES;
 	pub const MaxProposals: u32 = 100;
 }
 
@@ -1615,10 +1599,8 @@ impl pallet_democracy::Config for Runtime {
 	type ExternalOrigin =
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 2>;
 	/// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
-	type ExternalMajorityOrigin = EitherOfDiverse<
-		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
-		frame_system::EnsureSignedBy<FastTrackMembers, AccountId>,
-	>;
+	type ExternalMajorityOrigin =
+	pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
 	/// A unanimous council can have the next scheduled referendum be a straight default-carries
 	/// (NTB) vote.
 	type ExternalDefaultOrigin =
@@ -1627,9 +1609,9 @@ impl pallet_democracy::Config for Runtime {
 	/// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
 	/// be tabled immediately and with a shorter voting/enactment period.
 	type FastTrackOrigin =
-		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 2>;
+	pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
 	type InstantOrigin = EitherOfDiverse<
-		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 2>,
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 2>,
 		frame_system::EnsureSignedBy<FastTrackMembers, AccountId>,
 	>;
 	// To cancel a proposal which has been passed, 2/3 of the council must agree to it.
@@ -1640,11 +1622,11 @@ impl pallet_democracy::Config for Runtime {
 	// Root must agree.
 	type CancelProposalOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
-		pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 1>,
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 1>,
 	>;
 	// Any single technical committee member may veto a coming council proposal, however they can
 	// only do it once and it lasts only for the cool-off period.
-	type VetoOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
+	type VetoOrigin = pallet_collective::EnsureMember<AccountId, CouncilCollective>;
 	type PalletsOrigin = OriginCaller;
 	// NOTE: check where we want this to be
 	type Slash = SlashImbalanceHandler;
@@ -1721,9 +1703,8 @@ construct_runtime!(
 
 		// Governance
 		Council: pallet_collective::<Instance1> = 57,
-		TechnicalCommittee: pallet_collective::<Instance2> = 58,
-		Elections: pallet_elections_phragmen = 59,
-		Democracy: pallet_democracy = 60,
+		Elections: pallet_elections_phragmen = 58,
+		Democracy: pallet_democracy = 59,
 	}
 );
 
