@@ -292,7 +292,7 @@ pub mod pallet {
 				T::InterestRateBasePoint::get(),
 				T::MultiCurrency::decimals(staked_asset_id),
 				T::MultiCurrency::decimals(reward_asset_id),
-			);
+			)?;
 
 			// Transfer max rewards to pool vault account
 			if max_rewards > 0 {
@@ -639,7 +639,7 @@ pub mod pallet {
 				T::InterestRateBasePoint::get(),
 				T::MultiCurrency::decimals(pool.staked_asset_id),
 				T::MultiCurrency::decimals(pool.reward_asset_id),
-			);
+			)?;
 
 			if reward > Zero::zero() {
 				let amount = if user_info.should_rollover == false || user_info.rolled_over == false
@@ -974,8 +974,9 @@ pub mod pallet {
 		/// - `reward_asset_decimals`: The number of decimal places used for the native token.
 		///
 		/// Returns:
-		/// - The calculated reward amount in native tokens, after adjusting for decimal places and
+		/// - `Ok(Balance)`: The calculated reward amount in native tokens, after adjusting for decimal places and
 		///   subtracting the reward debt.
+		/// - `Err(DispatchError)`: If the reward calculation overflows.
 		pub fn calculate_reward(
 			user_joined_amount: Balance,
 			reward_debt: Balance,
@@ -983,15 +984,14 @@ pub mod pallet {
 			interest_rate_base_point: u32,
 			staked_asset_decimals: u8,
 			reward_asset_decimals: u8,
-		) -> Balance {
+		) -> Result<Balance, DispatchError> {
 			// Calculate reward in asset token
 			let mut reward = multiply_by_rational_with_rounding(
 				user_joined_amount,
 				interest_rate.into(),
 				interest_rate_base_point.into(),
 				sp_runtime::Rounding::Down,
-			)
-			.expect("reward calculation should not overflow");
+			).ok_or(Error::<T>::RewardCalculationOverflow)?;
 			// Remaining rewards
 			reward = reward.saturating_sub(reward_debt);
 
@@ -1005,7 +1005,7 @@ pub mod pallet {
 					10_u128.pow((reward_asset_decimals - staked_asset_decimals).into()).into(),
 				);
 			}
-			reward
+			Ok(reward)
 		}
 
 		fn do_offchain_worker(now: BlockNumberFor<T>) -> DispatchResult {
@@ -1052,7 +1052,7 @@ pub mod pallet {
 				T::InterestRateBasePoint::get(),
 				T::MultiCurrency::decimals(pool_info.staked_asset_id),
 				T::MultiCurrency::decimals(pool_info.reward_asset_id),
-			);
+			)?;
 			let pool_vault_account = Self::get_vault_account(pool_id);
 			if reward > Zero::zero() {
 				T::MultiCurrency::transfer(
