@@ -220,6 +220,10 @@ pub mod pallet {
 		NoTokensStaked,
 		/// Reward pool is not open
 		PoolNotOpen,
+		/// The pool is already closed
+		PoolAlreadyClosed,
+		/// The pool must not be active to exit
+		CannotExitPool,
 		/// Reward pool is not ready for reward
 		NotReadyForClaimingReward,
 		/// Exceeds max pool id
@@ -454,19 +458,25 @@ pub mod pallet {
 		/// - The pool identified by `id` must exist.
 		///
 		/// Emits `PoolClosed` event when the pool is successfully closed.
+		/// If there are still users who have staked in the pool, it will keep the pool in
+		/// Closed state until all stake has been removed
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::close_pool())]
 		#[transactional]
 		pub fn close_pool(origin: OriginFor<T>, id: T::PoolId) -> DispatchResult {
 			let creator = ensure_signed(origin)?;
 
-			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
+			let mut pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 			ensure!(pool.creator == creator, Error::<T>::NotPoolCreator);
+			ensure!(
+				pool.pool_status != PoolStatus::Closed,
+				Error::<T>::PoolAlreadyClosed
+			);
 
+			// When a pool is manually closed, the reward tokens are transferred back to the creator and not distributed to users.
 			let pool_vault_account = Self::get_vault_account(id);
 			let reward_asset_amount =
 				T::MultiCurrency::balance(pool.reward_asset_id, &pool_vault_account);
-
 			if reward_asset_amount > 0 {
 				T::MultiCurrency::transfer(
 					pool.reward_asset_id,
@@ -477,21 +487,18 @@ pub mod pallet {
 				)?;
 			}
 
-			if pool.locked_amount > 0 {
-				T::MultiCurrency::transfer(
-					pool.staked_asset_id,
-					&pool_vault_account,
-					&creator,
-					pool.locked_amount,
-					Preservation::Expendable,
-				)?;
+			// Check if the pool has any locked tokens
+			if pool.locked_amount == Zero::zero() {
+				// No users, can close immediately
+				Self::finalise_pool_closure(id, &pool)?;
+			} else {
+				// There are some user staked funds remaining in the pool
+				// Set the status to closing to allow users to exit with exit_pool
+				pool.pool_status = PoolStatus::Closed;
+				Pools::<T>::insert(id, &pool);
 			}
 
-			Pools::<T>::remove(id);
-			PoolUsers::<T>::drain_prefix(id);
-			PoolRelationships::<T>::remove(id);
-			RolloverPivot::<T>::remove(id);
-
+			// Deposit PoolClosed event
 			Self::deposit_event(Event::PoolClosed {
 				pool_id: id,
 				reward_asset_amount,
@@ -570,7 +577,8 @@ pub mod pallet {
 		/// - `id`: The ID of the pool from which the user is exiting.
 		///
 		/// Restrictions:
-		/// - The pool must be in the `Open` status and not closed.
+		/// - The pool must be in the `Open` or `Closing` status and not closed.
+		///
 		/// - The user must have tokens staked in the pool.
 		///
 		/// Emits `UserExited` event if the user successfully exits the pool and claims any rewards.
@@ -583,7 +591,8 @@ pub mod pallet {
 
 			let pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
-			ensure!(pool.pool_status == PoolStatus::Open, Error::<T>::PoolNotOpen);
+			// Ensure the pool is open or closed. Pools can't be exited while running or renewing
+			ensure!(pool.pool_status == PoolStatus::Open || pool.pool_status == PoolStatus::Closed, Error::<T>::CannotExitPool);
 
 			let user_info = PoolUsers::<T>::get(id, &who).ok_or(Error::<T>::NoTokensStaked)?;
 			ensure!(user_info.amount > Zero::zero(), Error::<T>::NoTokensStaked);
@@ -604,6 +613,10 @@ pub mod pallet {
 			})?;
 
 			PoolUsers::<T>::remove(id, &who);
+			if pool.locked_amount == Zero::zero() && pool.pool_status == PoolStatus::Closed {
+				// If the pool is closed and has no locked amount, finalize the closure
+				Self::finalise_pool_closure(id, &pool)?;
+			}
 
 			Self::deposit_event(Event::UserExited { account_id: who, pool_id: id, amount });
 			Ok(())
@@ -1091,6 +1104,46 @@ pub mod pallet {
 				)?;
 			}
 			Ok(())
+		}
+
+		/// Closes a pool that has no users and clears storage
+		/// Transfers any remaining assets back to the creator, however most assets should be
+		/// transferred automatically in on_idle
+		fn finalise_pool_closure(
+			pool_id: T::PoolId,
+			pool: &PoolInfo<T::PoolId, AssetId, Balance, BlockNumberFor<T>>,
+		) -> Result<(Balance, Balance), DispatchError> {
+			let pool_vault_account = Self::get_vault_account(pool_id);
+
+			// Although likely to be empty, transfer any dust or remaining assets back to the creator
+			let reward_asset_amount =
+				T::MultiCurrency::balance(pool.reward_asset_id, &pool_vault_account);
+			let staked_asset_amount =
+				T::MultiCurrency::balance(pool.staked_asset_id, &pool_vault_account);
+			if reward_asset_amount > Zero::zero() {
+				T::MultiCurrency::transfer(
+					pool.reward_asset_id,
+					&pool_vault_account,
+					&pool.creator,
+					reward_asset_amount,
+					Preservation::Expendable,
+				)?;
+			}
+			if staked_asset_amount > Zero::zero() {
+				T::MultiCurrency::transfer(
+					pool.staked_asset_id,
+					&pool_vault_account,
+					&pool.creator,
+					staked_asset_amount,
+					Preservation::Expendable,
+				)?;
+			}
+
+			// Clean up common storage items
+			PoolRelationships::<T>::remove(pool_id);
+			RolloverPivot::<T>::remove(pool_id);
+			Pools::<T>::remove(pool_id);
+			Ok((reward_asset_amount, staked_asset_amount))
 		}
 	}
 }
