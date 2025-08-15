@@ -2680,9 +2680,7 @@ mod on_idle {
 			let used_weight = LiquidityPools::on_idle(20_u64.into(), Weight::MAX);
 			// Base weight + 1 iteration to check the pool status + writing to Pools
 			assert_eq!(used_weight, DbWeight::get().reads_writes(3, 2));
-			System::assert_last_event(MockEvent::LiquidityPools(Event::PoolStarted {
-				pool_id,
-			}));
+			System::assert_last_event(MockEvent::LiquidityPools(Event::PoolStarted { pool_id }));
 			// Pool status should now be Started
 			assert_eq!(Pools::<Test>::get(pool_id).unwrap().pool_status, PoolStatus::Started);
 
@@ -2720,9 +2718,7 @@ mod on_idle {
 			assert_eq!(used_weight, min_weight);
 			// Pool status should now be Renewing
 			assert_eq!(Pools::<Test>::get(pool_id).unwrap().pool_status, PoolStatus::Matured);
-			System::assert_last_event(MockEvent::LiquidityPools(Event::PoolMatured {
-				pool_id,
-			}));
+			System::assert_last_event(MockEvent::LiquidityPools(Event::PoolMatured { pool_id }));
 
 			// No pivot
 			assert!(ProcessedPoolPivot::<Test>::get().is_none());
@@ -2760,9 +2756,7 @@ mod on_idle {
 			assert_eq!(used_weight, min_weight);
 			// Pool status should now be Renewing
 			assert_eq!(Pools::<Test>::get(pool_id).unwrap().pool_status, PoolStatus::Matured);
-			System::assert_last_event(MockEvent::LiquidityPools(Event::PoolMatured {
-				pool_id,
-			}));
+			System::assert_last_event(MockEvent::LiquidityPools(Event::PoolMatured { pool_id }));
 			// Last updated should be updated to the current block number
 			assert_eq!(Pools::<Test>::get(pool_id).unwrap().last_updated, 30);
 		});
