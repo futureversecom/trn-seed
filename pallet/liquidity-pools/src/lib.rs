@@ -1053,7 +1053,7 @@ pub mod pallet {
 				interest_rate_base_point.into(),
 				sp_runtime::Rounding::Down,
 			)
-				.ok_or(Error::<T>::RewardCalculationOverflow)?;
+			.ok_or(Error::<T>::RewardCalculationOverflow)?;
 			// Remaining rewards
 			reward = reward.saturating_sub(reward_debt);
 

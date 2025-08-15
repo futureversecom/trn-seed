@@ -148,7 +148,7 @@ mod create_pool {
 
 				let pool_id = NextPoolId::<Test>::get() - 1;
 
-				System::assert_last_event(MockEvent::LiquidityPools(crate::Event::PoolOpen {
+				System::assert_last_event(MockEvent::LiquidityPools(Event::PoolOpen {
 					pool_id,
 					reward_asset_id,
 					staked_asset_id,
@@ -483,7 +483,7 @@ mod set_pool_succession {
 					successor_id
 				));
 
-				System::assert_last_event(MockEvent::LiquidityPools(crate::Event::SetSuccession {
+				System::assert_last_event(MockEvent::LiquidityPools(Event::SetSuccession {
 					predecessor_pool_id: predecessor_id,
 					successor_pool_id: successor_id,
 				}));
@@ -548,13 +548,11 @@ mod set_pool_rollover {
 				assert!(user_info.should_rollover);
 
 				// Verify the UserInfoUpdated event is emitted
-				System::assert_last_event(MockEvent::LiquidityPools(
-					crate::Event::UserInfoUpdated {
-						pool_id,
-						account_id: user,
-						should_rollover: true,
-					},
-				));
+				System::assert_last_event(MockEvent::LiquidityPools(Event::UserInfoUpdated {
+					pool_id,
+					account_id: user,
+					should_rollover: true,
+				}));
 			});
 	}
 
@@ -740,13 +738,11 @@ mod set_pool_rollover {
 					false
 				));
 
-				System::assert_last_event(MockEvent::LiquidityPools(
-					crate::Event::UserInfoUpdated {
-						pool_id,
-						account_id: user,
-						should_rollover: false,
-					},
-				));
+				System::assert_last_event(MockEvent::LiquidityPools(Event::UserInfoUpdated {
+					pool_id,
+					account_id: user,
+					should_rollover: false,
+				}));
 
 				assert_eq!(
 					PoolUsers::<Test>::get(pool_id, user),
@@ -946,7 +942,7 @@ mod close_pool {
 
 				assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id));
 
-				System::assert_last_event(MockEvent::LiquidityPools(crate::Event::PoolClosed {
+				System::assert_last_event(MockEvent::LiquidityPools(Event::PoolClosed {
 					pool_id,
 					reward_asset_amount: 100,
 					staked_asset_amount: 0,
@@ -956,6 +952,127 @@ mod close_pool {
 				assert_eq!(Pools::<Test>::get(pool_id), None);
 				assert_eq!(RolloverPivot::<Test>::get(pool_id), vec![]);
 				assert_eq!(PoolRelationships::<Test>::get(pool_id), None);
+				assert_eq!(Balances::free_balance(alice()), 100);
+			});
+	}
+
+	#[test]
+	fn cannot_close_already_closed_pool() {
+		let user: AccountId = create_account(12);
+		let user_balance = 100;
+		let staked_asset_id = 2;
+
+		TestExt::<Test>::default()
+			.with_balances(&vec![(alice(), 100)])
+			.with_asset(staked_asset_id, "XRP", &[(user, user_balance)])
+			.build()
+			.execute_with(|| {
+				let reward_asset_id = 1;
+				let interest_rate = 1_000_000;
+				let max_tokens = 100;
+				let reward_period = 100;
+				let lock_start_block = System::block_number() + 1;
+				let lock_end_block = lock_start_block + reward_period;
+
+				let pool_id = NextPoolId::<Test>::get();
+				assert_ok!(LiquidityPools::create_pool(
+					RuntimeOrigin::signed(alice()),
+					reward_asset_id,
+					staked_asset_id,
+					interest_rate,
+					max_tokens,
+					lock_start_block,
+					lock_end_block
+				));
+
+				// Some user enters the pool, meaning it will stay alive but in the closed state
+				assert_ok!(LiquidityPools::enter_pool(
+					RuntimeOrigin::signed(user),
+					pool_id,
+					user_balance
+				));
+
+				// Close pool first time successfully
+				assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id));
+				System::assert_last_event(MockEvent::LiquidityPools(Event::PoolClosed {
+					pool_id,
+					reward_asset_amount: 0,
+					staked_asset_amount: 100,
+					receiver: alice(),
+				}));
+
+				assert_eq!(Pools::<Test>::get(pool_id).unwrap().pool_status, PoolStatus::Closed);
+				assert!(!RolloverPivot::<Test>::contains_key(pool_id));
+				assert!(!PoolRelationships::<Test>::contains_key(pool_id));
+				assert_eq!(Balances::free_balance(alice()), 100);
+				// Alice does not get refunded the users staked asset
+				assert_eq!(AssetsExt::balance(staked_asset_id, &alice()), 0);
+
+				// Try to close the pool again fails as it is already closed
+				assert_noop!(
+					LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id),
+					Error::<Test>::PoolAlreadyClosed
+				);
+			});
+	}
+
+	// This is a weird test, but it ensures that if a user enters a pool, then exits it, the pool
+	// will correctly close and remove the pool from storage immediately
+	#[test]
+	fn pool_with_no_staked_balance_closes_fully() {
+		let user: AccountId = create_account(12);
+		let user_balance = 100;
+		let staked_asset_id = 2;
+
+		TestExt::<Test>::default()
+			.with_balances(&vec![(alice(), 100)])
+			.with_asset(staked_asset_id, "XRP", &[(user, user_balance)])
+			.build()
+			.execute_with(|| {
+				let reward_asset_id = 1;
+				let interest_rate = 1_000_000;
+				let max_tokens = 100;
+				let reward_period = 100;
+				let lock_start_block = System::block_number() + 1;
+				let lock_end_block = lock_start_block + reward_period;
+
+				let pool_id = NextPoolId::<Test>::get();
+				assert_ok!(LiquidityPools::create_pool(
+					RuntimeOrigin::signed(alice()),
+					reward_asset_id,
+					staked_asset_id,
+					interest_rate,
+					max_tokens,
+					lock_start_block,
+					lock_end_block
+				));
+
+				// Some user enters the pool, adding to locked balance
+				assert_ok!(LiquidityPools::enter_pool(
+					RuntimeOrigin::signed(user),
+					pool_id,
+					user_balance
+				));
+				assert_eq!(Pools::<Test>::get(pool_id).unwrap().locked_amount, user_balance);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &user), 0);
+
+				// User exits the pool, removing their locked balance
+				assert_ok!(LiquidityPools::exit_pool(RuntimeOrigin::signed(user), pool_id,));
+				assert_eq!(Pools::<Test>::get(pool_id).unwrap().locked_amount, 0);
+				assert_eq!(AssetsExt::balance(staked_asset_id, &user), user_balance);
+
+				// Close pool successfully and remove from storage
+				assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id));
+				System::assert_last_event(MockEvent::LiquidityPools(Event::PoolClosed {
+					pool_id,
+					reward_asset_amount: 0,
+					staked_asset_amount: 0,
+					receiver: alice(),
+				}));
+
+				assert!(!Pools::<Test>::contains_key(pool_id));
+				assert!(!RolloverPivot::<Test>::contains_key(pool_id));
+				assert!(!PoolRelationships::<Test>::contains_key(pool_id));
 				assert_eq!(Balances::free_balance(alice()), 100);
 			});
 	}
@@ -1173,7 +1290,7 @@ mod enter_pool {
 					amount
 				));
 
-				System::assert_last_event(MockEvent::LiquidityPools(crate::Event::UserJoined {
+				System::assert_last_event(MockEvent::LiquidityPools(Event::UserJoined {
 					account_id: user,
 					pool_id,
 					amount,
@@ -1326,35 +1443,35 @@ mod exit_pool {
 			.with_balances(&vec![(alice(), 100)])
 			.build()
 			.execute_with(|| {
-				let reward_asset_id = 1;
-				let staked_asset_id = 2;
-				let interest_rate = 1_000_000;
-				let max_tokens = 100;
-				let reward_period = 100;
-				let lock_start_block = System::block_number() + 1;
-				let lock_end_block = lock_start_block + reward_period;
 				let pool_id = NextPoolId::<Test>::get();
+				let mut pool_info = PoolInfo {
+					id: pool_id,
+					creator: alice(),
+					pool_status: PoolStatus::Renewing,
+					..Default::default()
+				};
 
-				Pools::<Test>::insert(
-					pool_id,
-					PoolInfo {
-						id: pool_id,
-						creator: alice(),
-						reward_asset_id,
-						staked_asset_id,
-						interest_rate,
-						max_tokens,
-						last_updated: 1,
-						lock_start_block,
-						lock_end_block,
-						locked_amount: Zero::zero(),
-						pool_status: PoolStatus::Closed,
-					},
-				);
-
+				// Cannot exit when pool in Renewing status
+				Pools::<Test>::insert(pool_id, &pool_info);
 				assert_noop!(
 					LiquidityPools::exit_pool(RuntimeOrigin::signed(alice()), pool_id),
-					Error::<Test>::PoolNotOpen
+					Error::<Test>::CannotExitPool
+				);
+
+				// Cannot exit when pool in Matured status
+				pool_info.pool_status = PoolStatus::Matured;
+				Pools::<Test>::insert(pool_id, &pool_info);
+				assert_noop!(
+					LiquidityPools::exit_pool(RuntimeOrigin::signed(alice()), pool_id),
+					Error::<Test>::CannotExitPool
+				);
+
+				// Cannot exit when pool in Started status
+				pool_info.pool_status = PoolStatus::Started;
+				Pools::<Test>::insert(pool_id, &pool_info);
+				assert_noop!(
+					LiquidityPools::exit_pool(RuntimeOrigin::signed(alice()), pool_id),
+					Error::<Test>::CannotExitPool
 				);
 			});
 	}
@@ -1400,6 +1517,128 @@ mod exit_pool {
 	}
 
 	#[test]
+	fn can_exit_closed_pool_successfully() {
+		let user_count = 10;
+		let mut users: Vec<AccountId> = Vec::with_capacity(user_count);
+		let mut user_balances: Vec<(AccountId, u128)> = Vec::with_capacity(user_count);
+		let user_balance = 100;
+		let mut total_balance: u128 = 0;
+		for i in 1..=user_count {
+			let user: AccountId = create_account(i as u64 + 10);
+			let balance = user_balance * i as u128;
+			total_balance += balance;
+			users.push(user);
+			user_balances.push((user, balance));
+		}
+		let staked_asset_id = 2;
+		let reward_asset_id = 3;
+		let max_tokens = 100000;
+
+		TestExt::<Test>::default()
+			.with_xrp_balances(&user_balances)
+			.with_asset(reward_asset_id, "REW", &[(alice(), max_tokens)])
+			.build()
+			.execute_with(|| {
+				let interest_rate = 1_000_000;
+				let reward_period = 100;
+				let lock_start_block = System::block_number() + 1;
+				let lock_end_block = lock_start_block + reward_period;
+
+				let pool_id = NextPoolId::<Test>::get();
+				assert_ok!(LiquidityPools::create_pool(
+					RuntimeOrigin::signed(alice()),
+					reward_asset_id,
+					staked_asset_id,
+					interest_rate,
+					max_tokens,
+					lock_start_block,
+					lock_end_block
+				));
+				assert_eq!(AssetsExt::balance(reward_asset_id, &alice()), 0);
+
+				// Enter the pool with multiple users
+				for (user, balance) in &user_balances {
+					assert_ok!(LiquidityPools::enter_pool(
+						RuntimeOrigin::signed(*user),
+						pool_id,
+						*balance
+					));
+				}
+
+				// Close the pool
+				assert_ok!(LiquidityPools::close_pool(RuntimeOrigin::signed(alice()), pool_id));
+				assert_eq!(Pools::<Test>::get(pool_id).unwrap().pool_status, PoolStatus::Closed);
+				System::assert_last_event(MockEvent::LiquidityPools(Event::PoolClosed {
+					pool_id,
+					reward_asset_amount: max_tokens,
+					staked_asset_amount: total_balance, // All staked assets
+					receiver: alice(),
+				}));
+				// Sorry Alice, you don't get the users staked assets
+				assert_eq!(AssetsExt::balance(staked_asset_id, &alice()), 0);
+				assert_eq!(AssetsExt::balance(reward_asset_id, &alice()), max_tokens);
+
+				// Exit the pool for each user
+				for (user, amount) in &user_balances {
+					assert!(Pools::<Test>::contains_key(pool_id)); // Pool should still exist
+					assert_ok!(LiquidityPools::exit_pool(RuntimeOrigin::signed(*user), pool_id));
+					System::assert_last_event(MockEvent::LiquidityPools(Event::UserExited {
+						account_id: *user,
+						pool_id,
+						amount: *amount,
+					}));
+					assert_eq!(AssetsExt::balance(staked_asset_id, user), *amount);
+					assert!(PoolUsers::<Test>::get(pool_id, user).is_none());
+				}
+				// After all users exit, the pool should be removed automatically
+				assert!(!Pools::<Test>::contains_key(pool_id));
+			});
+	}
+
+	#[test]
+	fn exiting_open_pool_does_not_remove() {
+		let user: AccountId = create_account(1);
+		let user_balance = 100;
+		let staked_asset_id = 2;
+		let reward_asset_id = 3;
+		let max_tokens = 100000;
+
+		TestExt::<Test>::default()
+			.with_xrp_balances(&[(user, user_balance)])
+			.with_asset(reward_asset_id, "REW", &[(alice(), max_tokens)])
+			.build()
+			.execute_with(|| {
+				let interest_rate = 1_000_000;
+				let reward_period = 100;
+				let lock_start_block = System::block_number() + 1;
+				let lock_end_block = lock_start_block + reward_period;
+
+				let pool_id = NextPoolId::<Test>::get();
+				assert_ok!(LiquidityPools::create_pool(
+					RuntimeOrigin::signed(alice()),
+					reward_asset_id,
+					staked_asset_id,
+					interest_rate,
+					max_tokens,
+					lock_start_block,
+					lock_end_block
+				));
+
+				// Enter and exit the pool
+				assert_ok!(LiquidityPools::enter_pool(
+					RuntimeOrigin::signed(user),
+					pool_id,
+					user_balance
+				));
+				assert_ok!(LiquidityPools::exit_pool(RuntimeOrigin::signed(user), pool_id));
+
+				// Pool is still Open despite having zero locked amount
+				assert_eq!(Pools::<Test>::get(pool_id).unwrap().pool_status, PoolStatus::Open);
+				assert_eq!(Pools::<Test>::get(pool_id).unwrap().locked_amount, 0);
+			});
+	}
+
+	#[test]
 	fn can_exit_pool_successfully() {
 		let user: AccountId = create_account(1);
 		let user_balance = 100;
@@ -1438,7 +1677,7 @@ mod exit_pool {
 
 				assert_ok!(LiquidityPools::exit_pool(RuntimeOrigin::signed(user), pool_id));
 
-				System::assert_last_event(MockEvent::LiquidityPools(crate::Event::UserExited {
+				System::assert_last_event(MockEvent::LiquidityPools(Event::UserExited {
 					account_id: user,
 					pool_id,
 					amount,
@@ -1536,9 +1775,11 @@ mod claim_reward {
 					let user: AccountId = create_account(account_id);
 					assert_ok!(LiquidityPools::claim_reward(RuntimeOrigin::signed(user), pool_id));
 
-					System::assert_last_event(MockEvent::LiquidityPools(
-						crate::Event::RewardsClaimed { account_id: user, pool_id, amount },
-					));
+					System::assert_last_event(MockEvent::LiquidityPools(Event::RewardsClaimed {
+						account_id: user,
+						pool_id,
+						amount,
+					}));
 
 					assert_eq!(AssetsExt::balance(staked_asset_id, &user), user_balance);
 					assert_eq!(AssetsExt::balance(reward_asset_id, &user), amount);
@@ -1608,9 +1849,11 @@ mod claim_reward {
 					let user: AccountId = create_account(account_id);
 					assert_ok!(LiquidityPools::claim_reward(RuntimeOrigin::signed(user), pool_id));
 
-					System::assert_last_event(MockEvent::LiquidityPools(
-						crate::Event::RewardsClaimed { account_id: user, pool_id, amount },
-					));
+					System::assert_last_event(MockEvent::LiquidityPools(Event::RewardsClaimed {
+						account_id: user,
+						pool_id,
+						amount,
+					}));
 
 					assert_eq!(AssetsExt::balance(staked_asset_id, &user), user_balance);
 					assert_eq!(AssetsExt::balance(reward_asset_id, &user), amount);
@@ -2113,7 +2356,8 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		)
+			.unwrap();
 
 		assert_eq!(reward, user_joined_amount); // Reward should be equal to the staked amount for 100%
 	}
@@ -2135,7 +2379,8 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		)
+			.unwrap();
 
 		let expected_reward = (user_joined_amount / 2) - reward_debt; // Half of the amount minus debt
 		assert_eq!(reward, expected_reward);
@@ -2158,7 +2403,8 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		)
+			.unwrap();
 
 		let expected_reward = user_joined_amount * 100; // Account for the decimal difference
 		assert_eq!(reward, expected_reward);
@@ -2181,7 +2427,8 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		)
+			.unwrap();
 
 		assert_eq!(reward, 0); // Reward should be zero
 	}
@@ -2203,7 +2450,8 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		)
+			.unwrap();
 
 		assert!(
 			reward.is_zero(),
@@ -2228,7 +2476,8 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		)
+			.unwrap();
 
 		// Ensure the reward does not exceed the maximum balance after calculation
 		assert!(reward <= Balance::max_value(), "Reward should not overflow");
@@ -2251,7 +2500,8 @@ mod calculate_reward {
 			interest_rate_base_point,
 			asset_decimals,
 			native_decimals,
-		);
+		)
+			.unwrap();
 
 		// The expected reward should consider the difference in decimals
 		let expected_reward =
@@ -2260,5 +2510,31 @@ mod calculate_reward {
 			reward, expected_reward,
 			"Reward should be correctly converted based on decimals"
 		);
+	}
+
+	#[test]
+	fn test_calculate_reward_fails_with_overflow() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let interest_rate = u32::MAX;
+			let max_tokens = Balance::MAX;
+			let reward_debt: Balance = 0;
+			let asset_decimals: u8 = 6;
+			let native_decimals: u8 = 6;
+			let interest_rate_base_point: u32 = 1;
+
+			// This should cause an overflow in the calculation as
+			// (max_tokens * interest_rate) / interest_rate_base_point cannot fit into u128
+			assert_noop!(
+				LiquidityPools::calculate_reward(
+					max_tokens,
+					reward_debt,
+					interest_rate,
+					interest_rate_base_point,
+					asset_decimals,
+					native_decimals,
+				),
+				Error::<Test>::RewardCalculationOverflow
+			);
+		});
 	}
 }
