@@ -2458,7 +2458,7 @@ mod calculate_reward {
 			asset_decimals,
 			native_decimals,
 		)
-			.unwrap();
+		.unwrap();
 
 		assert_eq!(reward, user_joined_amount); // Reward should be equal to the staked amount for 100%
 	}
@@ -2481,7 +2481,7 @@ mod calculate_reward {
 			asset_decimals,
 			native_decimals,
 		)
-			.unwrap();
+		.unwrap();
 
 		let expected_reward = (user_joined_amount / 2) - reward_debt; // Half of the amount minus debt
 		assert_eq!(reward, expected_reward);
@@ -2505,7 +2505,7 @@ mod calculate_reward {
 			asset_decimals,
 			native_decimals,
 		)
-			.unwrap();
+		.unwrap();
 
 		let expected_reward = user_joined_amount * 100; // Account for the decimal difference
 		assert_eq!(reward, expected_reward);
@@ -2529,7 +2529,7 @@ mod calculate_reward {
 			asset_decimals,
 			native_decimals,
 		)
-			.unwrap();
+		.unwrap();
 
 		assert_eq!(reward, 0); // Reward should be zero
 	}
@@ -2552,7 +2552,7 @@ mod calculate_reward {
 			asset_decimals,
 			native_decimals,
 		)
-			.unwrap();
+		.unwrap();
 
 		assert!(
 			reward.is_zero(),
@@ -2578,7 +2578,7 @@ mod calculate_reward {
 			asset_decimals,
 			native_decimals,
 		)
-			.unwrap();
+		.unwrap();
 
 		// Ensure the reward does not exceed the maximum balance after calculation
 		assert!(reward <= Balance::max_value(), "Reward should not overflow");
@@ -2602,7 +2602,7 @@ mod calculate_reward {
 			asset_decimals,
 			native_decimals,
 		)
-			.unwrap();
+		.unwrap();
 
 		// The expected reward should consider the difference in decimals
 		let expected_reward =
