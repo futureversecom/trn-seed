@@ -488,6 +488,7 @@ parameter_types! {
 	/// How many users to rollover at a block time
 	pub const RolloverBatchSize: u32 = 99;
 	pub const InterestRateBasePoint: u32 = 1_000_000;
+	pub const MaxPoolsPerOnIdle: u32 = 50;
 }
 impl pallet_liquidity_pools::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -499,6 +500,7 @@ impl pallet_liquidity_pools::Config for Runtime {
 	type InterestRateBasePoint = InterestRateBasePoint;
 	type MultiCurrency = AssetsExt;
 	type WeightInfo = weights::pallet_liquidity_pools::WeightInfo<Runtime>;
+	type MaxPoolsPerOnIdle = MaxPoolsPerOnIdle;
 }
 
 parameter_types! {

@@ -3,7 +3,7 @@ use frame_support::RuntimeDebug;
 use scale_info::TypeInfo;
 
 /// Stores information about a reward pool.
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Default, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct PoolInfo<PoolId, AssetId, Balance, BlockNumber> {
 	pub id: PoolId,

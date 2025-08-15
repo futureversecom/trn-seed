@@ -41,7 +41,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		ValidTransaction,
 	},
-	SaturatedConversion
+	SaturatedConversion,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -106,6 +106,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type InterestRateBasePoint: Get<u32>;
 
+		/// Max amount of pools that can be processed in a single on_idle run.
+		#[pallet::constant]
+		type MaxPoolsPerOnIdle: Get<u32>;
+
 		/// Assets pallet
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		type MultiCurrency: Inspect<Self::AccountId, AssetId = AssetId>
@@ -149,6 +153,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(super) type RolloverPivot<T: Config> =
 		StorageMap<_, Twox64Concat, T::PoolId, BoundedVec<u8, T::MaxStringLength>, ValueQuery>;
+
+	// Keeps track of the previously iterated pool id within on_idle
+	#[pallet::storage]
+	pub(super) type ProcessedPoolPivot<T: Config> = StorageValue<_, T::PoolId, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -468,10 +476,7 @@ pub mod pallet {
 
 			let mut pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 			ensure!(pool.creator == creator, Error::<T>::NotPoolCreator);
-			ensure!(
-				pool.pool_status != PoolStatus::Closed,
-				Error::<T>::PoolAlreadyClosed
-			);
+			ensure!(pool.pool_status != PoolStatus::Closed, Error::<T>::PoolAlreadyClosed);
 
 			// When a pool is manually closed, the reward tokens are transferred back to the creator and not distributed to users.
 			let pool_vault_account = Self::get_vault_account(id);
@@ -487,17 +492,16 @@ pub mod pallet {
 				)?;
 			}
 
-			// These values are not needed for a closed pool, so we can remove them already
+			// These values are not needed for a closed pool, so we can remove them immediately
 			PoolRelationships::<T>::remove(id);
 			RolloverPivot::<T>::remove(id);
 
 			// Check if the pool has any locked tokens
 			if pool.locked_amount == Zero::zero() {
-				// No users, remove the pool entirely
 				Pools::<T>::remove(id);
 			} else {
 				// There are some user staked funds remaining in the pool
-				// Set the status to closing to allow users to exit with exit_pool
+				// Set the status to closed to allow users to exit with exit_pool
 				pool.pool_status = PoolStatus::Closed;
 				Pools::<T>::insert(id, &pool);
 			}
@@ -596,7 +600,10 @@ pub mod pallet {
 			let mut pool = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
 			// Ensure the pool is open or closed. Pools can't be exited while running or renewing
-			ensure!(pool.pool_status == PoolStatus::Open || pool.pool_status == PoolStatus::Closed, Error::<T>::CannotExitPool);
+			ensure!(
+				pool.pool_status == PoolStatus::Open || pool.pool_status == PoolStatus::Closed,
+				Error::<T>::CannotExitPool
+			);
 
 			let user_info = PoolUsers::<T>::get(id, &who).ok_or(Error::<T>::NoTokensStaked)?;
 			ensure!(user_info.amount > Zero::zero(), Error::<T>::NoTokensStaked);
@@ -860,66 +867,76 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_idle(now: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			let mut cost_weight = T::DbWeight::get().reads(1u64);
-			if remaining_weight.all_lte(cost_weight) {
+			// Base weight covers the following:
+			// reads: ProcessedPoolPivot, first pool from Pools
+			// writes: ProcessedPoolPivot
+			let base_weight = T::DbWeight::get().reads_writes(2u64, 1);
+			// Update cost is the cost of the most expensive operation, completing a pool
+			// There is no point in starting the on_idle process if we don't have enough weight to
+			// at least complete one pool
+			let update_cost = T::WeightInfo::on_pool_complete();
+			if remaining_weight.all_lte(base_weight.saturating_add(update_cost)) {
 				return Weight::zero();
 			}
+			let mut used_weight = base_weight;
+
+			// Get the current pivot to prevent iterating through all pools
+			let current_pivot = ProcessedPoolPivot::<T>::get();
+			let mut next_pivot = None;
+			let mut pools_processed = 0;
+			let pools_iter = if let Some(pivot) = current_pivot {
+				Pools::<T>::iter_from(pivot.encode())
+			} else {
+				Pools::<T>::iter()
+			};
 
 			// Iterate through all pools once and update directly
-			for (id, pool_info) in Pools::<T>::iter() {
-				let update_cost = T::DbWeight::get().reads_writes(1, 1);
-
+			for (id, mut pool_info) in pools_iter {
 				// Check if we have enough weight left
-				if remaining_weight.all_lte(cost_weight.saturating_add(update_cost)) {
-					return cost_weight;
+				if remaining_weight.all_lte(used_weight.saturating_add(update_cost)) {
+					next_pivot = Some(id);
+					break;
+				}
+				// If we have processed enough pools, we can stop
+				if pools_processed >= T::MaxPoolsPerOnIdle::get() {
+					next_pivot = Some(id);
+					break;
 				}
 
+				// Add weight of reading the next pool in the iter
+				used_weight = used_weight.saturating_add(T::DbWeight::get().reads(1));
+				pools_processed += 1;
 				match pool_info.pool_status {
 					PoolStatus::Open if pool_info.lock_start_block <= now => {
-						// Update pool to Started status
-						Pools::<T>::mutate(id, |pool| {
-							pool.as_mut().map(|pool_info| {
-								pool_info.pool_status = PoolStatus::Started;
-								pool_info.last_updated = now;
-								Self::deposit_event(Event::PoolStarted { pool_id: id });
-							});
-						});
-						cost_weight = cost_weight.saturating_add(update_cost);
+						pool_info.pool_status = PoolStatus::Started;
+						pool_info.last_updated = now;
+						Pools::<T>::insert(id, pool_info);
+						Self::deposit_event(Event::PoolStarted { pool_id: id });
+						// Just use approximate weight of one write for Pool update
+						used_weight = used_weight.saturating_add(T::DbWeight::get().writes(1));
 					},
 					PoolStatus::Started if pool_info.lock_end_block <= now => {
-						// Transfer remaining tokens back to vault account
-						Self::refund_surplus_reward(id, &pool_info).unwrap_or_default();
-
-						// Check for successor
-						let has_successor = PoolRelationships::<T>::get(id)
-							.unwrap_or_default()
-							.successor_id
-							.is_some();
-						if has_successor {
-							Pools::<T>::mutate(id, |pool| {
-								pool.as_mut().map(|pool_info| {
-									pool_info.pool_status = PoolStatus::Renewing;
-									pool_info.last_updated = now;
-									Self::deposit_event(Event::PoolRenewing { pool_id: id });
-								});
-							});
-						} else {
-							Pools::<T>::mutate(id, |pool| {
-								pool.as_mut().map(|pool_info| {
-									pool_info.pool_status = PoolStatus::Matured;
-									pool_info.last_updated = now;
-									Self::deposit_event(Event::PoolMatured { pool_id: id });
-								});
-							});
-						};
-
-						cost_weight = cost_weight.saturating_add(update_cost);
+						let _ = Self::on_pool_complete(now, id, &mut pool_info).map_err(|e| {
+							log::error!(
+								"Error processing pool completion for id {:?}: {:?}",
+								id,
+								e
+							);
+						});
+						// TODO add benchmarks for this
+						used_weight = used_weight.saturating_add(T::WeightInfo::on_pool_complete());
 					},
 					_ => {}, // No update needed
 				}
 			}
 
-			cost_weight
+			// Update the pivot for next on_idle cycle
+			if let Some(pivot) = next_pivot {
+				ProcessedPoolPivot::<T>::put(pivot);
+			} else {
+				ProcessedPoolPivot::<T>::kill();
+			}
+			used_weight
 		}
 
 		fn offchain_worker(now: BlockNumberFor<T>) {
@@ -974,8 +991,8 @@ pub mod pallet {
 					}
 
 					// dedup by including the current window alongside the id
-					let window: u64 = (block_number / T::UnsignedInterval::get().into())
-						.saturated_into();
+					let window: u64 =
+						(block_number / T::UnsignedInterval::get().into()).saturated_into();
 					ValidTransaction::with_tag_prefix("LiquidityPoolsChainWorker")
 						.priority(UNSIGNED_PRIORITY)
 						.and_provides((id, window))
@@ -1035,7 +1052,8 @@ pub mod pallet {
 				interest_rate.into(),
 				interest_rate_base_point.into(),
 				sp_runtime::Rounding::Down,
-			).ok_or(Error::<T>::RewardCalculationOverflow)?;
+			)
+				.ok_or(Error::<T>::RewardCalculationOverflow)?;
 			// Remaining rewards
 			reward = reward.saturating_sub(reward_debt);
 
@@ -1065,7 +1083,7 @@ pub mod pallet {
 				match pool_info.pool_status {
 					PoolStatus::Renewing => {
 						if pool_info.lock_end_block <= now {
-							log::info!("start sending unsigned rollover tx");
+							log::info!("start sending unsigned rollover tx for pool {:?}", id);
 							let call = Call::rollover_unsigned { id, current_block: now };
 							SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
 								call.into(),
@@ -1082,6 +1100,31 @@ pub mod pallet {
 					_ => continue,
 				}
 			}
+			Ok(())
+		}
+
+		/// Called in on_idle when a pool reaches the end block
+		/// It will refund the reward, and update the status of the pool based on whether it has
+		/// a successor or not.
+		pub(crate) fn on_pool_complete(
+			block_number: BlockNumberFor<T>,
+			pool_id: T::PoolId,
+			pool_info: &mut PoolInfo<T::PoolId, AssetId, Balance, BlockNumberFor<T>>,
+		) -> DispatchResult {
+			// Transfer remaining tokens back to vault account
+			Self::refund_surplus_reward(pool_id, &pool_info)?;
+			pool_info.last_updated = block_number;
+			let has_successor =
+				PoolRelationships::<T>::get(pool_id).unwrap_or_default().successor_id.is_some();
+			// Update to Renewing if we have a successor, otherwise Matured
+			if has_successor {
+				pool_info.pool_status = PoolStatus::Renewing;
+				Self::deposit_event(Event::PoolRenewing { pool_id });
+			} else {
+				pool_info.pool_status = PoolStatus::Matured;
+				Self::deposit_event(Event::PoolMatured { pool_id });
+			};
+			Pools::<T>::insert(pool_id, pool_info);
 			Ok(())
 		}
 
