@@ -18,10 +18,7 @@ use crate::mock::{
 	AssetsExt, Balances, LiquidityPools, NativeAssetId, RuntimeEvent as MockEvent, RuntimeOrigin,
 	System, Test,
 };
-use frame_support::{assert_noop, assert_ok, weights::constants::ParityDbWeight};
 use seed_pallet_common::test_prelude::*;
-use seed_primitives::AccountId;
-use sp_runtime::traits::{BadOrigin, Zero};
 
 mod create_pool {
 	use super::*;
@@ -611,11 +608,8 @@ mod set_pool_rollover {
 					amount
 				));
 
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
-				LiquidityPools::on_idle(lock_start_block, remaining_weight);
-				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
+				LiquidityPools::on_idle(lock_start_block, Weight::MAX);
+				LiquidityPools::on_idle(lock_start_block + 1, Weight::MAX);
 
 				// Try to set rollover preference when pool is not provisioning
 				assert_noop!(
@@ -1364,12 +1358,8 @@ fn can_refund_back_when_pool_is_done() {
 
 			assert_ok!(LiquidityPools::enter_pool(RuntimeOrigin::signed(user), pool_id, amount));
 
-			let remaining_weight: Weight = ParityDbWeight::get()
-				.reads(100u64)
-				.saturating_add(ParityDbWeight::get().writes(100u64));
-			LiquidityPools::on_idle(lock_start_block, remaining_weight);
-
-			LiquidityPools::on_idle(lock_end_block, remaining_weight);
+			LiquidityPools::on_idle(lock_start_block, Weight::MAX);
+			LiquidityPools::on_idle(lock_end_block, Weight::MAX);
 
 			assert_eq!(AssetsExt::balance(reward_asset_id, &alice()), vault_balance);
 		});
@@ -1757,12 +1747,9 @@ mod claim_reward {
 				}
 
 				// progress time to end of reward period
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
-				LiquidityPools::on_idle(lock_start_block, remaining_weight);
-				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
-				LiquidityPools::on_idle(lock_end_block, remaining_weight);
+				LiquidityPools::on_idle(lock_start_block, Weight::MAX);
+				LiquidityPools::on_idle(lock_start_block + 1, Weight::MAX);
+				LiquidityPools::on_idle(lock_end_block, Weight::MAX);
 
 				System::set_block_number(lock_end_block + 1);
 				assert_ok!(LiquidityPools::rollover_unsigned(
@@ -1837,12 +1824,9 @@ mod claim_reward {
 				}
 
 				// progress time to end of reward period
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
-				LiquidityPools::on_idle(lock_start_block, remaining_weight);
-				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
-				LiquidityPools::on_idle(lock_end_block, remaining_weight);
+				LiquidityPools::on_idle(lock_start_block, Weight::MAX);
+				LiquidityPools::on_idle(lock_start_block + 1, Weight::MAX);
+				LiquidityPools::on_idle(lock_end_block, Weight::MAX);
 				System::set_block_number(lock_end_block + 1);
 
 				for account_id in 1..100 {
@@ -1892,11 +1876,8 @@ mod claim_reward {
 				));
 
 				// progress time to end of reward period
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
-				LiquidityPools::on_idle(lock_start_block, remaining_weight);
-				LiquidityPools::on_idle(lock_end_block, remaining_weight);
+				LiquidityPools::on_idle(lock_start_block, Weight::MAX);
+				LiquidityPools::on_idle(lock_end_block, Weight::MAX);
 
 				assert_noop!(
 					LiquidityPools::claim_reward(RuntimeOrigin::signed(user), pool_id),
@@ -1954,11 +1935,8 @@ mod claim_reward {
 
 				assert_ok!(LiquidityPools::enter_pool(RuntimeOrigin::signed(user), pool_id, 10));
 
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
-				LiquidityPools::on_idle(lock_start_block, remaining_weight);
-				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
+				LiquidityPools::on_idle(lock_start_block, Weight::MAX);
+				LiquidityPools::on_idle(lock_start_block + 1, Weight::MAX);
 
 				assert_noop!(
 					LiquidityPools::claim_reward(RuntimeOrigin::signed(user), pool_id),
@@ -2072,18 +2050,15 @@ mod rollover_unsigned {
 				));
 
 				// Progress time to end of reward period
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
-				LiquidityPools::on_idle(lock_start_block, remaining_weight);
-				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
+				LiquidityPools::on_idle(lock_start_block, Weight::MAX);
+				LiquidityPools::on_idle(lock_start_block + 1, Weight::MAX);
 
 				// Simulate rollover process
 				System::set_block_number(reward_period);
 
 				// Give some time for the rollover to be processed
 				for _block_bump in 1..110 {
-					LiquidityPools::on_idle(System::block_number(), remaining_weight);
+					LiquidityPools::on_idle(System::block_number(), Weight::MAX);
 					System::set_block_number(System::block_number() + 1);
 
 					assert_ok!(LiquidityPools::rollover_unsigned(
@@ -2220,18 +2195,15 @@ mod rollover_unsigned {
 					successor_id
 				));
 
-				let remaining_weight: Weight = ParityDbWeight::get()
-					.reads(100u64)
-					.saturating_add(ParityDbWeight::get().writes(100u64));
-				LiquidityPools::on_idle(lock_start_block, remaining_weight);
-				LiquidityPools::on_idle(lock_start_block + 1, remaining_weight);
+				LiquidityPools::on_idle(lock_start_block, Weight::MAX);
+				LiquidityPools::on_idle(lock_start_block + 1, Weight::MAX);
 
 				// Simulate rollover process
 				System::set_block_number(reward_period);
 
 				// Give some time for the rollover to be processed
 				for _block_bump in 1..100 {
-					LiquidityPools::on_idle(System::block_number(), remaining_weight);
+					LiquidityPools::on_idle(System::block_number(), Weight::MAX);
 					System::set_block_number(System::block_number() + 1);
 
 					assert_ok!(LiquidityPools::rollover_unsigned(
@@ -2333,6 +2305,135 @@ mod rollover_unsigned {
 					Error::<Test>::PoolDoesNotExist
 				);
 			});
+	}
+}
+
+mod validate_unsigned {
+	use super::*;
+
+	#[test]
+	fn validate_unsigned_succeeds() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let pool_id = 1;
+			let pool_info = PoolInfo {
+				id: pool_id,
+				creator: alice(),
+				pool_status: PoolStatus::Renewing,
+				..Default::default()
+			};
+			Pools::<Test>::insert(pool_id, &pool_info);
+			let call =
+				Call::rollover_unsigned { id: pool_id, current_block: System::block_number() };
+			let result = LiquidityPools::validate_unsigned(TransactionSource::Local, &call)
+				.expect("Should be valid");
+
+			assert_eq!(result.priority, TransactionPriority::max_value() / 2);
+			assert_eq!(result.longevity, 64u64);
+			assert!(!result.propagate);
+			assert!(result.requires.is_empty());
+			assert_eq!(result.provides.len(), 1);
+		});
+	}
+
+	#[test]
+	fn validate_unsigned_invalid_call_should_fail() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let call = Call::exit_pool { id: 2 };
+			assert_noop!(
+				LiquidityPools::validate_unsigned(TransactionSource::Local, &call),
+				InvalidTransaction::Call
+			);
+		});
+	}
+
+	#[test]
+	fn validate_unsigned_invalid_block_number_should_fail() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let call = Call::rollover_unsigned {
+				id: 1,
+				current_block: System::block_number() + 1, // Future block number
+			};
+			assert_noop!(
+				LiquidityPools::validate_unsigned(TransactionSource::Local, &call),
+				InvalidTransaction::Future
+			);
+		});
+	}
+
+	#[test]
+	fn validate_unsigned_invalid_source_should_fail() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Pool does not exist
+			let call = Call::rollover_unsigned { id: 1, current_block: System::block_number() };
+			// Both External and InBlock sources should fail
+			assert_noop!(
+				LiquidityPools::validate_unsigned(TransactionSource::External, &call),
+				InvalidTransaction::BadSigner
+			);
+			assert_noop!(
+				LiquidityPools::validate_unsigned(TransactionSource::InBlock, &call),
+				InvalidTransaction::BadSigner
+			);
+		});
+	}
+
+	#[test]
+	fn validate_unsigned_no_pool_should_fail() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Pool does not exist
+			let call = Call::rollover_unsigned { id: 1, current_block: System::block_number() };
+			assert_noop!(
+				LiquidityPools::validate_unsigned(TransactionSource::Local, &call),
+				InvalidTransaction::Custom(1)
+			);
+		});
+	}
+
+	#[test]
+	fn validate_unsigned_invalid_pool_state_should_fail() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// Pool Exists but is not renewing
+			let pool_id = 1;
+			let mut pool_info = PoolInfo {
+				id: pool_id,
+				creator: alice(),
+				pool_status: PoolStatus::Open,
+				..Default::default()
+			};
+			Pools::<Test>::insert(pool_id, &pool_info);
+			let call =
+				Call::rollover_unsigned { id: pool_id, current_block: System::block_number() };
+			assert_noop!(
+				LiquidityPools::validate_unsigned(TransactionSource::Local, &call),
+				InvalidTransaction::Custom(2)
+			);
+
+			pool_info.pool_status = PoolStatus::Matured;
+			Pools::<Test>::insert(pool_id, &pool_info);
+			assert_noop!(
+				LiquidityPools::validate_unsigned(TransactionSource::Local, &call),
+				InvalidTransaction::Custom(2)
+			);
+
+			pool_info.pool_status = PoolStatus::Closed;
+			Pools::<Test>::insert(pool_id, &pool_info);
+			assert_noop!(
+				LiquidityPools::validate_unsigned(TransactionSource::Local, &call),
+				InvalidTransaction::Custom(2)
+			);
+
+			pool_info.pool_status = PoolStatus::Started;
+			Pools::<Test>::insert(pool_id, &pool_info);
+			assert_noop!(
+				LiquidityPools::validate_unsigned(TransactionSource::Local, &call),
+				InvalidTransaction::Custom(2)
+			);
+
+			// This should pass
+			pool_info.pool_status = PoolStatus::Renewing;
+			Pools::<Test>::insert(pool_id, &pool_info);
+			assert_ok!(LiquidityPools::validate_unsigned(TransactionSource::Local, &call));
+		});
 	}
 }
 
@@ -2535,6 +2636,298 @@ mod calculate_reward {
 				),
 				Error::<Test>::RewardCalculationOverflow
 			);
+		});
+	}
+}
+
+mod on_idle {
+	use super::*;
+
+	// Helper function to calculate the minimum weight required for a single pool update
+	fn just_enough_for_one() -> Weight {
+		let base = <Test as frame_system::Config>::DbWeight::get().reads_writes(2, 1);
+		let update_cost = <Test as Config>::WeightInfo::on_pool_complete()
+			.saturating_add(<Test as frame_system::Config>::DbWeight::get().reads(1));
+		// Must be strictly greater than base + update_cost to pass the early return,
+		// but not enough to allow a second update inside the loop.
+		base.saturating_add(update_cost).saturating_add(Weight::from_parts(1, 1))
+	}
+
+	#[test]
+	fn on_idle_should_start_pool() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let pool_id = 1;
+			let pool_info = PoolInfo {
+				id: pool_id,
+				creator: alice(),
+				pool_status: PoolStatus::Open,
+				last_updated: 0,
+				lock_start_block: 20,
+				lock_end_block: 30,
+				..Default::default()
+			};
+			Pools::<Test>::insert(pool_id, &pool_info);
+
+			// Call on_idle with a block number before the lock_start_block
+			let used_weight = LiquidityPools::on_idle(19_u64.into(), Weight::MAX);
+			// Base weight + 1 iteration to check the pool status
+			assert_eq!(used_weight, DbWeight::get().reads_writes(3, 1));
+
+			// No change in pool status
+			assert_eq!(Pools::<Test>::get(pool_id).unwrap().pool_status, PoolStatus::Open);
+
+			// Call on_idle now at the start block
+			let used_weight = LiquidityPools::on_idle(20_u64.into(), Weight::MAX);
+			// Base weight + 1 iteration to check the pool status + writing to Pools
+			assert_eq!(used_weight, DbWeight::get().reads_writes(3, 2));
+
+			// Pool status should now be Started
+			assert_eq!(Pools::<Test>::get(pool_id).unwrap().pool_status, PoolStatus::Started);
+
+			// No pivot
+			assert!(ProcessedPoolPivot::<Test>::get().is_none());
+		});
+	}
+
+	#[test]
+	fn on_idle_not_enough_weight_returns_zero() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let pool_id = 1;
+			let pool_info = PoolInfo {
+				id: pool_id,
+				creator: alice(),
+				pool_status: PoolStatus::Started,
+				last_updated: 0,
+				lock_start_block: 20,
+				lock_end_block: 30,
+				..Default::default()
+			};
+			Pools::<Test>::insert(pool_id, &pool_info);
+
+			// Call on_idle with not enough weight to perform one operation
+			let min_weight = DbWeight::get().reads_writes(3, 1)
+				+ <Test as Config>::WeightInfo::on_pool_complete();
+			let used_weight = LiquidityPools::on_idle(30_u64.into(), min_weight);
+			// Not enough weight to perform any operation, should return zero
+			assert_eq!(used_weight, Weight::zero());
+			// No change in pool status
+			assert_eq!(Pools::<Test>::get(pool_id).unwrap().pool_status, PoolStatus::Started);
+
+			// Call on_idle now with just enough weight to perform one operation
+			let used_weight = LiquidityPools::on_idle(30_u64.into(), min_weight + Weight::from(1));
+			assert_eq!(used_weight, min_weight);
+			// Pool status should now be Renewing
+			assert_eq!(Pools::<Test>::get(pool_id).unwrap().pool_status, PoolStatus::Matured);
+
+			// No pivot
+			assert!(ProcessedPoolPivot::<Test>::get().is_none());
+		});
+	}
+
+	#[test]
+	fn on_idle_updates_pivot_if_not_enough_weight() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let pool_id = 1;
+			let pool_info = PoolInfo {
+				id: pool_id,
+				creator: alice(),
+				pool_status: PoolStatus::Started,
+				last_updated: 0,
+				lock_start_block: 20,
+				lock_end_block: 30,
+				..Default::default()
+			};
+			Pools::<Test>::insert(pool_id, &pool_info);
+
+			// Call on_idle with not enough weight to perform one operation
+			let min_weight = DbWeight::get().reads_writes(3, 1)
+				+ <Test as Config>::WeightInfo::on_pool_complete();
+			let used_weight = LiquidityPools::on_idle(30_u64.into(), min_weight);
+			// Not enough weight to perform any operation, should return zero
+			assert_eq!(used_weight, Weight::zero());
+			// No change in pool status
+			assert_eq!(Pools::<Test>::get(pool_id).unwrap().pool_status, PoolStatus::Started);
+			// Last updated should not change
+			assert_eq!(Pools::<Test>::get(pool_id).unwrap().last_updated, 0);
+
+			// Call on_idle now with just enough weight to perform one operation
+			let used_weight = LiquidityPools::on_idle(30_u64.into(), min_weight + Weight::from(1));
+			assert_eq!(used_weight, min_weight);
+			// Pool status should now be Renewing
+			assert_eq!(Pools::<Test>::get(pool_id).unwrap().pool_status, PoolStatus::Matured);
+			// Last updated should be updated to the current block number
+			assert_eq!(Pools::<Test>::get(pool_id).unwrap().last_updated, 30);
+		});
+	}
+
+	#[test]
+	fn on_idle_two_pools_only_enough_weight_for_one_then_second_on_next_call() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let now: u64 = 100;
+			let id1 = 1u32;
+			let id2 = 2u32;
+
+			// Insert two pools that are both ready to be completed.
+			Pools::<Test>::insert(
+				id1,
+				PoolInfo {
+					id: id1,
+					creator: alice(),
+					pool_status: PoolStatus::Started,
+					last_updated: 0,
+					lock_start_block: 90,
+					lock_end_block: now, // due to complete
+					..Default::default()
+				},
+			);
+			Pools::<Test>::insert(
+				id2,
+				PoolInfo {
+					id: id2,
+					creator: alice(),
+					pool_status: PoolStatus::Started,
+					last_updated: 0,
+					lock_start_block: 90,
+					lock_end_block: now, // due to complete
+					..Default::default()
+				},
+			);
+
+			// Call with just enough weight to process exactly one pool.
+			let remaining = just_enough_for_one();
+			let _used = LiquidityPools::on_idle(now.into(), remaining);
+
+			// First pool should be completed; pivot should point at the second.
+			assert_eq!(Pools::<Test>::get(id1).unwrap().pool_status, PoolStatus::Matured);
+			assert_eq!(ProcessedPoolPivot::<Test>::get(), Some(id1));
+
+			// Call again with plenty of weight to finish the second.
+			let _used2 = LiquidityPools::on_idle(now.into(), remaining);
+
+			assert_eq!(Pools::<Test>::get(id2).unwrap().pool_status, PoolStatus::Matured);
+			assert!(ProcessedPoolPivot::<Test>::get().is_none());
+		});
+	}
+
+	#[test]
+	fn on_idle_six_pools_respects_max_per_tick_then_finishes_next_block() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// In the mock, MaxPoolsPerOnIdle == 5
+			let now: u64 = 100;
+			let count: u32 = 6;
+			for id in 1u32..=count {
+				Pools::<Test>::insert(
+					id,
+					PoolInfo {
+						id,
+						creator: alice(),
+						pool_status: PoolStatus::Started,
+						last_updated: 0,
+						lock_start_block: 90,
+						lock_end_block: now, // due to complete
+						..Default::default()
+					},
+				);
+			}
+
+			// Plenty of weight: should process exactly 5 (limit) and leave a pivot at id 6.
+			let _used = LiquidityPools::on_idle(now.into(), Weight::MAX);
+
+			// We need to count which are matured and started because iter_from does not follow
+			// any specific order...
+			let mut matured_count: u32 = 0;
+			let mut started_count: u32 = 0;
+			for id in 1..=count {
+				let status = Pools::<Test>::get(id).unwrap().pool_status;
+				if status == PoolStatus::Matured {
+					matured_count += 1;
+				} else if status == PoolStatus::Started {
+					started_count += 1;
+				} else {
+					panic!("Unexpected pool status: {:?}", status);
+				}
+			}
+			assert_eq!(matured_count, 5);
+			assert_eq!(started_count, 1);
+
+			// This should process the last guy
+			let _used = LiquidityPools::on_idle(now.into(), Weight::MAX);
+			for id in 1..=count {
+				let status = Pools::<Test>::get(id).unwrap().pool_status;
+				assert_eq!(status, PoolStatus::Matured);
+			}
+			assert!(ProcessedPoolPivot::<Test>::get().is_none());
+		});
+	}
+
+	#[test]
+	fn on_idle_remove_pool_midway_still_works() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// In the mock, MaxPoolsPerOnIdle == 5
+			let now: u64 = 100;
+			let count: u32 = 100; // heaps
+			for id in 1u32..=count {
+				Pools::<Test>::insert(
+					id,
+					PoolInfo {
+						id,
+						creator: alice(),
+						pool_status: PoolStatus::Started,
+						last_updated: 0,
+						lock_start_block: 90,
+						lock_end_block: now, // due to complete
+						..Default::default()
+					},
+				);
+			}
+
+			// Plenty of weight: should process exactly 5 (limit) and leave a pivot at id 6.
+			let _used = LiquidityPools::on_idle(now.into(), Weight::MAX);
+
+			// Get the current pivot and remove it from storage
+			let pivot = ProcessedPoolPivot::<Test>::get().unwrap();
+			// The pivot should be one of the ones with status Matured
+			assert_eq!(Pools::<Test>::get(pivot).unwrap().pool_status, PoolStatus::Matured);
+			Pools::<Test>::remove(pivot);
+
+			let _used = LiquidityPools::on_idle(now.into(), Weight::MAX);
+
+			// We need to count which are matured and started because iter_from does not follow
+			// any specific order...
+			let mut matured_count: u32 = 0;
+			let mut started_count: u32 = 0;
+			for id in 1..=count {
+				if id == pivot {
+					// This one was removed, so we skip it
+					continue;
+				}
+				let status = Pools::<Test>::get(id).unwrap().pool_status;
+				if status == PoolStatus::Matured {
+					matured_count += 1;
+				} else if status == PoolStatus::Started {
+					started_count += 1;
+				} else {
+					panic!("Unexpected pool status: {:?}", status);
+				}
+			}
+			assert_eq!(matured_count, 10 - 1);
+			assert_eq!(started_count, count - 10);
+
+			// For completion's sake, let's call on_idle 18 more times to ensure all pools are processed
+			let remaining_count = count / <Test as Config>::MaxPoolsPerOnIdle::get() - 2;
+			for _ in 0..remaining_count {
+				let _used = LiquidityPools::on_idle(now.into(), Weight::MAX);
+			}
+			// After all calls, all pools should be matured
+			for id in 1..=count {
+				if id == pivot {
+					// This one was removed, so we skip it
+					continue;
+				}
+				let status = Pools::<Test>::get(id).unwrap().pool_status;
+				assert_eq!(status, PoolStatus::Matured, "Pool {} is not matured", id);
+			}
+			assert!(ProcessedPoolPivot::<Test>::get().is_none());
 		});
 	}
 }

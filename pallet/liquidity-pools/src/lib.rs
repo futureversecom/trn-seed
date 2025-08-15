@@ -873,9 +873,10 @@ pub mod pallet {
 			let base_weight = T::DbWeight::get().reads_writes(2u64, 1);
 			// Update cost is the cost of the most expensive operation, completing a pool
 			// There is no point in starting the on_idle process if we don't have enough weight to
-			// at least complete one pool
-			let update_cost = T::WeightInfo::on_pool_complete();
-			if remaining_weight.all_lte(base_weight.saturating_add(update_cost)) {
+			// at least complete one pool. Add one read for the PoolsIter
+			let update_cost =
+				T::WeightInfo::on_pool_complete().saturating_add(T::DbWeight::get().reads(1));
+			if remaining_weight.any_lte(base_weight.saturating_add(update_cost)) {
 				return Weight::zero();
 			}
 			let mut used_weight = base_weight;
@@ -885,26 +886,26 @@ pub mod pallet {
 			let mut next_pivot = None;
 			let mut pools_processed = 0;
 			let pools_iter = if let Some(pivot) = current_pivot {
-				Pools::<T>::iter_from(pivot.encode())
+				let key = Pools::<T>::hashed_key_for(pivot);
+				Pools::<T>::iter_from(key)
 			} else {
 				Pools::<T>::iter()
 			};
 
 			// Iterate through all pools once and update directly
 			for (id, mut pool_info) in pools_iter {
-				// Check if we have enough weight left
-				if remaining_weight.all_lte(used_weight.saturating_add(update_cost)) {
-					next_pivot = Some(id);
-					break;
-				}
-				// If we have processed enough pools, we can stop
-				if pools_processed >= T::MaxPoolsPerOnIdle::get() {
-					next_pivot = Some(id);
-					break;
+				// Check if we have enough weight left or we have processed enough pools, we can stop
+				if remaining_weight.any_lt(used_weight.saturating_add(update_cost))
+					|| pools_processed >= T::MaxPoolsPerOnIdle::get()
+				{
+					if let Some(pivot) = next_pivot {
+						ProcessedPoolPivot::<T>::put(pivot);
+					}
+					return used_weight;
 				}
 
 				// Add weight of reading the next pool in the iter
-				used_weight = used_weight.saturating_add(T::DbWeight::get().reads(1));
+				next_pivot = Some(id);
 				pools_processed += 1;
 				match pool_info.pool_status {
 					PoolStatus::Open if pool_info.lock_start_block <= now => {
@@ -912,8 +913,9 @@ pub mod pallet {
 						pool_info.last_updated = now;
 						Pools::<T>::insert(id, pool_info);
 						Self::deposit_event(Event::PoolStarted { pool_id: id });
-						// Just use approximate weight of one write for Pool update
-						used_weight = used_weight.saturating_add(T::DbWeight::get().writes(1));
+						// Just use approximate weight of one read and write for Pool update
+						used_weight =
+							used_weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 					},
 					PoolStatus::Started if pool_info.lock_end_block <= now => {
 						let _ = Self::on_pool_complete(now, id, &mut pool_info).map_err(|e| {
@@ -923,19 +925,17 @@ pub mod pallet {
 								e
 							);
 						});
-						// TODO add benchmarks for this
-						used_weight = used_weight.saturating_add(T::WeightInfo::on_pool_complete());
+						used_weight = used_weight.saturating_add(update_cost);
 					},
-					_ => {}, // No update needed
+					_ => {
+						// No update needed, but we did read the Pool value
+						used_weight = used_weight.saturating_add(T::DbWeight::get().reads(1));
+					},
 				}
 			}
 
-			// Update the pivot for next on_idle cycle
-			if let Some(pivot) = next_pivot {
-				ProcessedPoolPivot::<T>::put(pivot);
-			} else {
-				ProcessedPoolPivot::<T>::kill();
-			}
+			// We processed all pools, so we can reset the pivot
+			ProcessedPoolPivot::<T>::kill();
 			used_weight
 		}
 
@@ -980,7 +980,7 @@ pub mod pallet {
 					// Do quick verification of the pool
 					if let Some(info) = Pools::<T>::get(*id) {
 						if info.pool_status != PoolStatus::Renewing {
-							return InvalidTransaction::Stale.into();
+							return InvalidTransaction::Custom(2).into();
 						}
 						let next_at = NextRolloverUnsignedAt::<T>::get();
 						if next_at > block_number {

@@ -120,7 +120,7 @@ macro_rules! impl_frame_system_config {
 			type Lookup = IdentityLookup<Self::AccountId>;
 			type BlockHashCount = BlockHashCount;
 			type RuntimeEvent = RuntimeEvent;
-			type DbWeight = ();
+			type DbWeight = frame_support::weights::constants::RocksDbWeight;
 			type Version = ();
 			type PalletInfo = PalletInfo;
 			type AccountData = pallet_balances::AccountData<Balance>;
