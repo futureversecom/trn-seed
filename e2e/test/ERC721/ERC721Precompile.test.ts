@@ -1,5 +1,6 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
+import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { BigNumber, Contract, Wallet, constants } from "ethers";
@@ -15,6 +16,7 @@ import {
   NFT_PRECOMPILE_ADDRESS,
   NodeProcess,
   ROOT_PRECOMPILE_ADDRESS,
+  finalizeTx,
   startNode,
   typedefs,
 } from "../../common";
@@ -23,17 +25,20 @@ import {
 const name = "test-collection";
 const metadataPath = "https://example.com/nft/metadata/";
 const initialIssuance = 12;
-const maxIssuance = 100;
+const maxIssuance = 10000;
 
 describe("ERC721 Precompile", function () {
   let node: NodeProcess;
 
   let api: ApiPromise;
   let bobSigner: Wallet;
+  let bob: KeyringPair;
   let alithSigner: Wallet;
   let nftPrecompile: Contract;
+  let collectionId: number;
   let erc721Precompile: Contract;
   let precompileCaller: Contract;
+  let provider: JsonRpcProvider;
 
   // Setup api instance
   before(async () => {
@@ -44,9 +49,9 @@ describe("ERC721 Precompile", function () {
     // Setup Root api instance and keyring
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     const keyring = new Keyring({ type: "ethereum" });
-    const bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
+    bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
 
-    const provider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
+    provider = new JsonRpcProvider(`http://127.0.0.1:${node.rpcPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
 
@@ -62,6 +67,8 @@ describe("ERC721 Precompile", function () {
               if (method == "CollectionCreate") {
                 const collection_uuid = (data.toJSON() as any)[0];
                 console.log(`Collection UUID: ${collection_uuid}`);
+
+                collectionId = collection_uuid;
 
                 const collection_id_hex = (+collection_uuid).toString(16).padStart(8, "0");
                 erc721PrecompileAddress = Web3.utils.toChecksumAddress(
@@ -87,6 +94,53 @@ describe("ERC721 Precompile", function () {
   });
 
   after(async () => await node.stop());
+
+  it.only("should return all evm events", async () => {
+    await new Promise((r) => provider.on("block", r));
+
+    console.log("executing transfer through precompile");
+
+    const tx = await erc721Precompile
+      .connect(bobSigner)
+      .transferFrom(bobSigner.address, alithSigner.address, 1, { gasLimit: 500000 });
+    const receipt = await tx.wait();
+
+    console.log("executing transfer using evm pallet");
+
+    const data = erc721Precompile.interface.encodeFunctionData("transferFrom", [
+      bobSigner.address,
+      alithSigner.address,
+      2,
+    ]);
+
+    const extrinsic = api.tx.evm.call(
+      bobSigner.address,
+      erc721Precompile.address,
+      data,
+      0,
+      "1000000",
+      "10000000000000000",
+      null,
+      null,
+      [],
+    );
+    await finalizeTx(bob, extrinsic);
+
+    const logs = await provider.getLogs({ fromBlock: receipt.blockNumber });
+
+    // eth_getLogs should return two logs, but only 1 is returned
+    console.log({ logs });
+
+    // retrieve all native events from block during first transfer
+    const evts1 = await (await api.at(await api.rpc.chain.getBlockHash(receipt.blockNumber))).query.system.events();
+
+    // retrieve all native events from block during second transfer
+    const evts2 = await (await api.at(await api.rpc.chain.getBlockHash(receipt.blockNumber + 1))).query.system.events();
+
+    // filtering for only evm Log events, we do see both transfer events were correctly returned
+    console.log(evts1.toHuman().filter((evt) => evt.event.method === "Log"));
+    console.log(evts2.toHuman().filter((evt) => evt.event.method === "Log"));
+  });
 
   it("name, symbol, ownerOf, tokenURI, balanceOf, totalSupply", async () => {
     expect(await erc721Precompile.name()).to.equal(name);
