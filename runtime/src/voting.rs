@@ -1,11 +1,10 @@
 use frame_election_provider_support::private::sp_arithmetic::traits::{Bounded, CheckedAdd, CheckedDiv, CheckedMul};
 use frame_support::dispatch::TypeInfo;
-use pallet_democracy::{Conviction, Delegations};
+use pallet_democracy::{Conviction, Delegations, VoteWeight};
 use sp_runtime::traits::Zero;
-use pallet_democracy::VoteWeight;
 
 /// A custom quadratic vote weight implementation for democracy pallet.
-/// Follows the formula votes = Sqrt(capital) * conviction
+/// Follows the formula votes = Sqrt(capital * conviction)
 /// This ensures that the voting power grows quadratically with the capital invested
 /// and allows for a fairer voting system where larger investments do not disproportionately skew the results.
 /// Locked votes are applied AFTER the quadratic calculation, meaning that the conviction multiplier is applied to the final vote count.
@@ -22,10 +21,15 @@ impl VoteWeight for QuadraticVoteWeight {
             return Delegations { votes: Zero::zero(), capital };
         }
 
+        let scaled_capital = match conviction {
+            Conviction::None => capital.checked_div(&10u8.into()).unwrap_or_else(Zero::zero),
+            x => capital.checked_mul(&u8::from(x).into()).unwrap_or_else(B::max_value),
+        };
+
         // Use Newton's method to approximate the square root of capital
         // This is both more efficient and works with the annoying generic type B
         let one: B = 1u8.into();
-        let mut x = capital;
+        let mut x = scaled_capital;
         let mut y = x
             .checked_add(&one)
             .and_then(|sum| sum.checked_div(&one.checked_add(&one).unwrap()))
@@ -34,16 +38,12 @@ impl VoteWeight for QuadraticVoteWeight {
         while y < x {
             x = y;
             y = x
-                .checked_add(&capital.checked_div(&x).unwrap_or(x))
+                .checked_add(&scaled_capital.checked_div(&x).unwrap_or(x))
                 .and_then(|sum| sum.checked_div(&one.checked_add(&one).unwrap()))
                 .unwrap_or(x);
         }
-        let q_cap = x;
-        let votes = match conviction {
-            Conviction::None => q_cap.checked_div(&10u8.into()).unwrap_or_else(Zero::zero),
-            x => q_cap.checked_mul(&u8::from(x).into()).unwrap_or_else(B::max_value),
-        };
-        Delegations { votes, capital }
+
+        Delegations { votes: x, capital }
     }
 }
 
@@ -54,88 +54,88 @@ mod tests {
     #[test]
     fn test_quadratic_vote_weight_64x1() {
         // 64 at locked 1x should yield 8 votes
-        // sqrt(64) * 1 = 8
+        // sqrt(64 * 1) = 8
         let capital: u128 = 64;
         let conviction = Conviction::Locked1x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
-        assert_eq!(result.votes, 8);
         assert_eq!(result.capital, capital);
+        assert_eq!(result.votes, 8);
     }
 
     #[test]
     fn test_quadratic_vote_weight_64x2() {
-        // 64 at locked 2x should yield 16 votes
-        // sqrt(64) * 2 = 16
+        // 64 at locked 2x should yield 8 votes
+        // sqrt(64 * 2) = 11
         let capital: u128 = 64;
         let conviction = Conviction::Locked2x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
-        assert_eq!(result.votes, 16);
         assert_eq!(result.capital, capital);
+        assert_eq!(result.votes, 11);
     }
 
     #[test]
     fn test_quadratic_vote_weight_64x3() {
         // 64 at locked 3x should yield 24 votes
-        // sqrt(64) * 3 = 24
+        // sqrt(64 * 3) = 13
         let capital: u128 = 64;
         let conviction = Conviction::Locked3x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
-        assert_eq!(result.votes, 24);
         assert_eq!(result.capital, capital);
+        assert_eq!(result.votes, 13);
     }
 
     #[test]
     fn test_quadratic_vote_weight_64x4() {
         // 64 at locked 4x should yield 32 votes
-        // sqrt(64) * 4 = 32
+        // sqrt(64 * 4) = 16
         let capital: u128 = 64;
         let conviction = Conviction::Locked4x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
-        assert_eq!(result.votes, 32);
         assert_eq!(result.capital, capital);
+        assert_eq!(result.votes, 16);
     }
 
     #[test]
     fn test_quadratic_vote_weight_64x5() {
         // 64 at locked 5x should yield 40 votes
-        // sqrt(64) * 5 = 40
+        // sqrt(64 * 5) = 17
         let capital: u128 = 64;
         let conviction = Conviction::Locked5x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
-        assert_eq!(result.votes, 40);
         assert_eq!(result.capital, capital);
+        assert_eq!(result.votes, 17);
     }
 
     #[test]
     fn test_quadratic_vote_weight_64x6() {
         // 64 at locked 6x should yield 48 votes
-        // sqrt(64) * 6 = 48
+        // sqrt(64 * 6) = 19
         let capital: u128 = 64;
         let conviction = Conviction::Locked6x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
-        assert_eq!(result.votes, 48);
         assert_eq!(result.capital, capital);
+        assert_eq!(result.votes, 19);
     }
 
     #[test]
     fn test_quadratic_vote_weight_10000x1() {
         // 10000 at locked 1x should yield 100 votes
-        // sqrt(10000) * 1 = 100
+        // sqrt(10000 * 1) = 100
         let capital: u128 = 10000;
         let conviction = Conviction::Locked1x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
-        assert_eq!(result.votes, 100);
         assert_eq!(result.capital, capital);
+        assert_eq!(result.votes, 100);
     }
 
     #[test]
     fn test_quadratic_vote_weight_no_conviction() {
-        // 10000 at no conviction should yield 10 votes
-        // sqrt(10000) * 0.1 = 10
+        // 100000 at no conviction should yield 100 votes
+        // sqrt(100000 * 0.1) = 100
         let capital: u128 = 10000;
         let conviction = Conviction::None;
         let result = QuadraticVoteWeight::votes(conviction, capital);
-        assert_eq!(result.votes, 10);
+        assert_eq!(result.votes, 100);
         assert_eq!(result.capital, capital);
     }
 

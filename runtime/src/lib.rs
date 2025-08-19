@@ -85,7 +85,6 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned,
 };
-use pallet_collective::EnsureProportionMoreThan;
 pub use pallet_grandpa::AuthorityId as GrandpaId;
 use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 pub use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
