@@ -2384,55 +2384,8 @@ mod validate_unsigned {
 			let call = Call::rollover_unsigned { id: 1, current_block: System::block_number() };
 			assert_noop!(
 				LiquidityPools::validate_unsigned(TransactionSource::Local, &call),
-				InvalidTransaction::Custom(1)
+				InvalidTransaction::Custom(3)
 			);
-		});
-	}
-
-	#[test]
-	fn validate_unsigned_invalid_pool_state_should_fail() {
-		TestExt::<Test>::default().build().execute_with(|| {
-			// Pool Exists but is not renewing
-			let pool_id = 1;
-			let mut pool_info = PoolInfo {
-				id: pool_id,
-				creator: alice(),
-				pool_status: PoolStatus::Open,
-				..Default::default()
-			};
-			Pools::<Test>::insert(pool_id, &pool_info);
-			let call =
-				Call::rollover_unsigned { id: pool_id, current_block: System::block_number() };
-			assert_noop!(
-				LiquidityPools::validate_unsigned(TransactionSource::Local, &call),
-				InvalidTransaction::Custom(2)
-			);
-
-			pool_info.pool_status = PoolStatus::Matured;
-			Pools::<Test>::insert(pool_id, &pool_info);
-			assert_noop!(
-				LiquidityPools::validate_unsigned(TransactionSource::Local, &call),
-				InvalidTransaction::Custom(2)
-			);
-
-			pool_info.pool_status = PoolStatus::Closed;
-			Pools::<Test>::insert(pool_id, &pool_info);
-			assert_noop!(
-				LiquidityPools::validate_unsigned(TransactionSource::Local, &call),
-				InvalidTransaction::Custom(2)
-			);
-
-			pool_info.pool_status = PoolStatus::Started;
-			Pools::<Test>::insert(pool_id, &pool_info);
-			assert_noop!(
-				LiquidityPools::validate_unsigned(TransactionSource::Local, &call),
-				InvalidTransaction::Custom(2)
-			);
-
-			// This should pass
-			pool_info.pool_status = PoolStatus::Renewing;
-			Pools::<Test>::insert(pool_id, &pool_info);
-			assert_ok!(LiquidityPools::validate_unsigned(TransactionSource::Local, &call));
 		});
 	}
 }

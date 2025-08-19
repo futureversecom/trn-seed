@@ -585,7 +585,7 @@ pub mod pallet {
 		/// - `id`: The ID of the pool from which the user is exiting.
 		///
 		/// Restrictions:
-		/// - The pool must be in the `Open` or `Closing` status and not closed.
+		/// - The pool must be in the `Open` or `Closed` status.
 		///
 		/// - The user must have tokens staked in the pool.
 		///
@@ -978,16 +978,12 @@ pub mod pallet {
 					}
 
 					// Do quick verification of the pool
-					if let Some(info) = Pools::<T>::get(*id) {
-						if info.pool_status != PoolStatus::Renewing {
-							return InvalidTransaction::Custom(2).into();
-						}
-						let next_at = NextRolloverUnsignedAt::<T>::get();
-						if next_at > block_number {
-							return InvalidTransaction::Stale.into();
-						}
-					} else {
-						return InvalidTransaction::Custom(1).into(); // PoolDoesNotExist
+					if !Pools::<T>::contains_key(*id) {
+						return InvalidTransaction::Custom(3).into(); // PoolDoesNotExist
+					}
+					let next_at = NextRolloverUnsignedAt::<T>::get();
+					if next_at > block_number {
+						return InvalidTransaction::Stale.into();
 					}
 
 					// dedup by including the current window alongside the id
