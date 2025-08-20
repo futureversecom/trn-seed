@@ -954,7 +954,7 @@ pub mod pallet {
 		}
 	}
 
-	const UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::max_value();
+	const UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::max_value() / 2;
 
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
