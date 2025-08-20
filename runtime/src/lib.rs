@@ -121,6 +121,7 @@ pub mod constants;
 use constants::{
 	deposit, RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES,
 	ONE_ROOT, ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION, VTX_ASSET_ID,
+	XRP_ASSET_ID,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
@@ -146,6 +147,7 @@ mod migrations;
 mod weights;
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
+use seed_primitives::migration::NoopMigration;
 
 #[cfg(test)]
 mod tests;
@@ -159,10 +161,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 79,
+	spec_version: 80,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 18,
+	transaction_version: 19,
 	state_version: 0,
 };
 
@@ -275,7 +277,7 @@ parameter_types! {
 	/// See `multiplier_can_grow_from_zero` in here.
 	/// This value is currently only used by pallet-transaction-payment as an assertion that the
 	/// next multiplier is always > min value.
-	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
+	pub MinimumMultiplier: Multiplier = FeeControl::minimum_multiplier();
 	/// The maximum amount of the multiplier.
 	pub MaximumMultiplier: Multiplier = Bounded::max_value();
 }
@@ -479,7 +481,6 @@ impl pallet_nft::Config for Runtime {
 	type Xls20MintRequest = Xls20;
 	type NFIRequest = Nfi;
 	type MaxPendingIssuances = MaxPendingIssuances;
-	type Migrator = Migration;
 }
 
 parameter_types! {
@@ -567,7 +568,6 @@ impl pallet_xls20::Config for Runtime {
 	type Xls20PaymentAsset = XrpAssetId;
 	type PalletId = Xls20PalletId;
 	type NFTMinter = Nft;
-	type Migrator = Migration;
 }
 
 parameter_types! {
@@ -1406,8 +1406,11 @@ parameter_types! {
 	pub const UnsignedInterval: BlockNumber =  MINUTES / 2;
 	pub const PayoutBatchSize: u32 =  99;
 	pub const VortexAssetId: AssetId = VTX_ASSET_ID;
+	pub const GasAssetId: AssetId = XRP_ASSET_ID;
 	pub const MaxAssetPrices: u32 = 500;
 	pub const MaxRewards: u32 = 500;
+	// Maximum number of partners for attribution. The value was decided by the team after looking at the future projections.
+	pub const MaxAttributionPartners: u32 = 200;
 	pub const MaxStringLength: u32 = 1_000;
 }
 
@@ -1428,6 +1431,9 @@ impl pallet_vortex_distribution::Config for Runtime {
 	type MaxRewards = MaxRewards;
 	type MaxStringLength = MaxStringLength;
 	type HistoryDepth = HistoryDepth;
+	type GasAssetId = GasAssetId;
+	type PartnerAttributionProvider = PartnerAttribution;
+	type MaxAttributionPartners = MaxAttributionPartners;
 }
 
 impl pallet_partner_attribution::Config for Runtime {
@@ -1436,6 +1442,7 @@ impl pallet_partner_attribution::Config for Runtime {
 	type EnsureFuturepass = impls::EnsureFuturepass<AccountId>;
 	type FuturepassCreator = Futurepass;
 	type WeightInfo = weights::pallet_partner_attribution::WeightInfo<Runtime>;
+	type MaxPartners = MaxAttributionPartners;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type MultiCurrency = AssetsExt;
@@ -1488,7 +1495,7 @@ parameter_types! {
 impl pallet_migration::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// Set to NoopMigration if no migration is in progress
-	type CurrentMigration = migrations::nft_multi::NftMigration<Runtime>;
+	type CurrentMigration = NoopMigration;
 	type MaxMigrationWeight = MaxMigrationWeight;
 	type WeightInfo = weights::pallet_migration::WeightInfo<Runtime>;
 }

@@ -269,7 +269,6 @@ macro_rules! impl_pallet_nft_config {
 			type MaxDataLength = NftDataLimit;
 			type NFIRequest = ();
 			type MaxPendingIssuances = MaxPendingIssuances;
-			type Migrator = ();
 		}
 	};
 }
@@ -915,6 +914,7 @@ macro_rules! impl_pallet_partner_attribution_config {
 			type EnsureFuturepass = EnsureAny;
 			type FuturepassCreator = MockFuturepassProvider;
 			type WeightInfo = ();
+			type MaxPartners = ConstU32<200>;
 			#[cfg(feature = "runtime-benchmarks")]
 			type MultiCurrency = AssetsExt;
 		}
