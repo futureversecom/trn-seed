@@ -734,12 +734,11 @@ pub mod pallet {
 		pub fn rollover_unsigned(
 			origin: OriginFor<T>,
 			id: T::PoolId,
-			_current_block: BlockNumberFor<T>,
+			current_block: BlockNumberFor<T>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 
-			log::warn!("start processing the rollover");
-
+			log::info!(target: LOG_TARGET, "🎱 started processing LP rollover at block {:?}", current_block);
 			let pool_info = Pools::<T>::get(id).ok_or(Error::<T>::PoolDoesNotExist)?;
 
 			if let PoolStatus::Renewing = pool_info.pool_status {
@@ -855,11 +854,9 @@ pub mod pallet {
 				}
 			}
 
-			let current_block = <frame_system::Pallet<T>>::block_number();
-			log::warn!("current block {:?}", current_block);
 			let next_unsigned_at = current_block + T::UnsignedInterval::get().into();
 			<NextRolloverUnsignedAt<T>>::put(&next_unsigned_at);
-			log::warn!("proposed next unsigned at {:?}", next_unsigned_at);
+			log::warn!(target: LOG_TARGET, "🎱 proposed next unsigned at {:?}", next_unsigned_at);
 			Ok(())
 		}
 	}
@@ -920,7 +917,8 @@ pub mod pallet {
 					PoolStatus::Started if pool_info.lock_end_block <= now => {
 						let _ = Self::on_pool_complete(now, id, &mut pool_info).map_err(|e| {
 							log::error!(
-								"Error processing pool completion for id {:?}: {:?}",
+								target: LOG_TARGET,
+								"🎱 Error processing pool completion for id {:?}: {:?}",
 								id,
 								e
 							);
@@ -942,13 +940,13 @@ pub mod pallet {
 		fn offchain_worker(now: BlockNumberFor<T>) {
 			match Self::do_offchain_worker(now) {
 				Ok(_) => log::debug!(
-				  target: "liquidity-pools offchain worker",
-				  "🤖 offchain worker start at block: {:?}; done.",
+				  target: LOG_TARGET,
+				  "🎱 offchain worker start at block: {:?}; done.",
 				  now,
 				),
 				Err(e) => log::error!(
-					target: "liquidity-pools offchain worker",
-					"⛔️ offchain worker error at block [{:?}]: {:?}",
+					target: LOG_TARGET,
+					"🎱⛔️ offchain worker error at block [{:?}]: {:?}",
 					now,
 					e,
 				),
@@ -956,7 +954,7 @@ pub mod pallet {
 		}
 	}
 
-	const UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::max_value() / 2;
+	const UNSIGNED_PRIORITY: TransactionPriority = TransactionPriority::max_value();
 
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
@@ -967,25 +965,30 @@ pub mod pallet {
 				Call::rollover_unsigned { id, current_block } => {
 					let block_number = <frame_system::Pallet<T>>::block_number();
 					if &block_number < current_block {
+						log::debug!(target: LOG_TARGET, "🎱 InvalidTX: Future block number for rollover_unsigned");
 						return InvalidTransaction::Future.into();
 					}
 
 					// Only allow unsigned transactions from local source
 					// This will mean that only the current node can validate this
 					// May fail if the node does not author another block within the longevity period
-					if source != TransactionSource::Local {
+					if source == TransactionSource::External {
+						log::debug!(target: LOG_TARGET, "🎱 InvalidTX: Bad TX Source");
 						return InvalidTransaction::BadSigner.into();
 					}
 
 					// Do quick verification of the pool
 					if !Pools::<T>::contains_key(*id) {
+						log::debug!(target: LOG_TARGET, "🎱 InvalidTX: Pool does not exist for rollover_unsigned");
 						return InvalidTransaction::Custom(3).into(); // PoolDoesNotExist
 					}
 					let next_at = NextRolloverUnsignedAt::<T>::get();
 					if next_at > block_number {
+						log::debug!(target: LOG_TARGET, "🎱 InvalidTX: Transaction is stale for rollover_unsigned");
 						return InvalidTransaction::Stale.into();
 					}
 
+					log::debug!(target: LOG_TARGET, "🎱 Validate unsigned passed all pre checks");
 					// dedup by including the current window alongside the id
 					let window: u64 =
 						(block_number / T::UnsignedInterval::get().into()).saturated_into();
@@ -1068,10 +1071,12 @@ pub mod pallet {
 
 		fn do_offchain_worker(now: BlockNumberFor<T>) -> DispatchResult {
 			if !sp_io::offchain::is_validator() {
+				log::debug!(target: LOG_TARGET, "🎱 Offchain worker not validator");
 				return Err(Error::<T>::OffchainErrNotValidator)?;
 			}
 			let next_rollover_unsigned_at = <NextRolloverUnsignedAt<T>>::get();
 			if next_rollover_unsigned_at > now {
+				log::debug!(target: LOG_TARGET, "🎱 Too early for unsigned rollover tx");
 				return Err(Error::<T>::OffchainErrTooEarly)?;
 			}
 
@@ -1079,17 +1084,17 @@ pub mod pallet {
 				match pool_info.pool_status {
 					PoolStatus::Renewing => {
 						if pool_info.lock_end_block <= now {
-							log::info!("start sending unsigned rollover tx for pool {:?}", id);
+							log::debug!(target: LOG_TARGET, "🎱 Start sending unsigned rollover tx for pool {:?}", id);
 							let call = Call::rollover_unsigned { id, current_block: now };
 							SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
 								call.into(),
 							)
 							.map_err(|e| {
-								log::error!("Error submitting unsigned transaction: {:?}", e);
+								log::error!(target: LOG_TARGET, "🎱 Error submitting unsigned transaction");
 								<Error<T>>::OffchainErrSubmitTransaction
 							})?;
 						} else {
-							log::error!("confused state, should not be here");
+							log::error!(target: LOG_TARGET, "🎱 confused state, should not be here");
 							return Err(Error::<T>::OffchainErrSubmitTransaction)?;
 						};
 					},

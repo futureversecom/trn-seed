@@ -2336,6 +2336,30 @@ mod validate_unsigned {
 	}
 
 	#[test]
+	fn validate_unsigned_succeeds_in_block_source() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			let pool_id = 1;
+			let pool_info = PoolInfo {
+				id: pool_id,
+				creator: alice(),
+				pool_status: PoolStatus::Renewing,
+				..Default::default()
+			};
+			Pools::<Test>::insert(pool_id, &pool_info);
+			let call =
+				Call::rollover_unsigned { id: pool_id, current_block: System::block_number() };
+			let result = LiquidityPools::validate_unsigned(TransactionSource::InBlock, &call)
+				.expect("Should be valid");
+
+			assert_eq!(result.priority, TransactionPriority::max_value() / 2);
+			assert_eq!(result.longevity, 64u64);
+			assert!(!result.propagate);
+			assert!(result.requires.is_empty());
+			assert_eq!(result.provides.len(), 1);
+		});
+	}
+
+	#[test]
 	fn validate_unsigned_invalid_call_should_fail() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			let call = Call::exit_pool { id: 2 };
@@ -2365,13 +2389,9 @@ mod validate_unsigned {
 		TestExt::<Test>::default().build().execute_with(|| {
 			// Pool does not exist
 			let call = Call::rollover_unsigned { id: 1, current_block: System::block_number() };
-			// Both External and InBlock sources should fail
+			// External sources should fail
 			assert_noop!(
 				LiquidityPools::validate_unsigned(TransactionSource::External, &call),
-				InvalidTransaction::BadSigner
-			);
-			assert_noop!(
-				LiquidityPools::validate_unsigned(TransactionSource::InBlock, &call),
 				InvalidTransaction::BadSigner
 			);
 		});
