@@ -235,7 +235,7 @@ fn testnet_genesis(
 			members: endowed_accounts
 				.iter()
 				.skip(12)
-				.take(6)
+				.take(5)
 				.cloned()
 				.map(|member| (member, election_stake))
 				.collect(),

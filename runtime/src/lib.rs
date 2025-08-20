@@ -157,7 +157,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 80,
+	spec_version: 81,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 19,
@@ -600,6 +600,8 @@ impl pallet_scheduler::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
 	type RuntimeCall = RuntimeCall;
 	type MaximumWeight = MaximumSchedulerWeight;
+	// If this is made public, we would need to add a check for maintenance mode as well.
+	// If maintenance mode is enabled, people can schedule a call and bypass maintenance mode
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
@@ -1501,7 +1503,7 @@ impl pallet_migration::Config for Runtime {
 }
 
 parameter_types! {
-	pub const CouncilMotionDuration: BlockNumber = 5 * DAYS;
+	pub const CouncilMotionDuration: BlockNumber = 5 * MINUTES;
 	pub const CouncilMaxProposals: u32 = 100;
 	pub const CouncilMaxMembers: u32 = 100;
 	pub MaxCollectivesProposalWeight: Weight = Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block;
@@ -1527,9 +1529,9 @@ parameter_types! {
 	pub const VotingBondBase: Balance = deposit(1, 64);
 	// additional data per vote is 32 bytes (account id).
 	pub const VotingBondFactor: Balance = deposit(0, 32);
-	pub const TermDuration: BlockNumber = 7 * DAYS;
-	pub const DesiredMembers: u32 = 13;
-	pub const DesiredRunnersUp: u32 = 7;
+	pub const TermDuration: BlockNumber = 25 * MINUTES;
+	pub const DesiredMembers: u32 = 5;
+	pub const DesiredRunnersUp: u32 = 3;
 	pub const MaxVotesPerVoter: u32 = 16;
 	pub const MaxVoters: u32 = 512;
 	pub const MaxCandidates: u32 = 64;
@@ -1567,17 +1569,17 @@ pub struct FastTrackMembers;
 
 impl frame_support::traits::SortedMembers<AccountId> for FastTrackMembers {
 	fn sorted_members() -> Vec<AccountId> {
-		// Return all Technical Committee members - as an example.
+		// Return all Council members - as an example.
 		pallet_collective::Members::<Runtime, CouncilCollective>::get()
 	}
 }
 
 parameter_types! {
-	pub const LaunchPeriod: BlockNumber =  50 * MINUTES;
-	pub const VotingPeriod: BlockNumber = 50 * MINUTES;
-	pub const FastTrackVotingPeriod: BlockNumber = 3 * DAYS;
+	pub const LaunchPeriod: BlockNumber =  10 * MINUTES;
+	pub const VotingPeriod: BlockNumber = 10 * MINUTES;
+	pub const FastTrackVotingPeriod: BlockNumber = 10 * MINUTES;
 	pub const MinimumDeposit: Balance = 100 * ONE_ROOT;
-	pub const EnactmentPeriod: BlockNumber = 1 * MINUTES;
+	pub const EnactmentPeriod: BlockNumber = 5 * MINUTES;
 	pub const CooloffPeriod: BlockNumber = 5 * MINUTES;
 	pub const MaxProposals: u32 = 100;
 }
