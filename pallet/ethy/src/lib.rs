@@ -81,6 +81,39 @@ pub use types::*;
 pub mod weights;
 pub use weights::WeightInfo;
 
+/// Strategy for integrating staged EVM activities with Frontier storages.
+pub trait FrontierLogMerge<T: pallet::Config> {
+	fn on_initialize() -> Weight;
+	fn on_finalize();
+}
+
+/// No-op strategy (use in tests or when Frontier integration is not desired).
+pub struct NoFrontierMerge;
+impl<T: pallet::Config> FrontierLogMerge<T> for NoFrontierMerge {
+	fn on_initialize() -> Weight {
+		Weight::zero()
+	}
+	fn on_finalize() {}
+}
+
+/// Frontier-enabled strategy. Only compiled when `frontier-logs` is enabled.
+#[cfg(feature = "frontier-logs")]
+pub struct FrontierMerge;
+#[cfg(feature = "frontier-logs")]
+impl<T> FrontierLogMerge<T> for FrontierMerge
+where
+	T: pallet::Config + pallet_ethereum::Config,
+{
+	fn on_initialize() -> Weight {
+		// Clear any leftover staged EVM activities to avoid leaks.
+		StagedEvmActivities::<T>::kill();
+		DbWeight::get().writes(1)
+	}
+	fn on_finalize() {
+		Pallet::<T>::on_finalize_frontier();
+	}
+}
+
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
 /// Max notarization claims to attempt per block/OCW invocation
@@ -224,9 +257,12 @@ pub mod pallet {
 		type MaxCallRequests: Get<u32>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
+		/// Strategy for integrating pallet-origin EVM logs with Frontier storages.
+		/// Use `NoFrontierMerge` for no-op (tests), or `FrontierMerge` to enable merging.
+		type FrontierLogMerge: crate::FrontierLogMerge<Self>;
 	}
-
 	/// Flag to indicate whether authorities have been changed during the current era
+
 	#[pallet::storage]
 	pub type AuthoritiesChangedThisEra<T> = StorageValue<_, bool, ValueQuery>;
 
@@ -410,6 +446,12 @@ pub mod pallet {
 	pub type EthCallRequestInfo<T: Config> =
 		StorageMap<_, Twox64Concat, EthCallId, CheckedEthCallRequest<T::MaxEthData>, OptionQuery>;
 
+	/// Staging area for EVM call activities originating from pallet logic in the current block.
+	/// These are merged into Frontier's canonical storages (CurrentTransactionStatuses/CurrentBlock)
+	/// during on_finalize to ensure Ethereum tooling (eth_getLogs) sees them with correct ordering.
+	#[pallet::storage]
+	pub type StagedEvmActivities<T: Config> = StorageValue<_, Vec<EvmCallActivity>, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -514,6 +556,7 @@ pub mod pallet {
 		MessageTooLarge,
 	}
 
+	// Unified hooks; Frontier-specific behavior is called conditionally.
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// This method schedules 3 different processes
@@ -524,14 +567,19 @@ pub mod pallet {
 		fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
 			// Reads: NextAuthorityChange, MessagesValidAt, ProcessedMessageIds
 			let mut consumed_weight = DbWeight::get().reads(3u64);
+			// Delegate optional Frontier cleanup to the strategy; adds its weight if any.
+			consumed_weight = consumed_weight.saturating_add(
+				<T as pallet::Config>::FrontierLogMerge::on_initialize(),
+			);
 
 			// 1) Handle authority change
 			if Some(block_number) == NextAuthorityChange::<T>::get() {
 				// Change authority keys, we are 5 minutes before the next epoch
 				log!(trace, "💎 Epoch ends in 5 minutes, changing authorities");
 				Self::handle_authorities_change();
-				consumed_weight =
-					consumed_weight.saturating_add(T::WeightInfo::handle_authorities_change());
+				consumed_weight = consumed_weight.saturating_add(
+					<T as crate::pallet::Config>::WeightInfo::handle_authorities_change(),
+				);
 			}
 
 			// 2) Process validated messages
@@ -627,6 +675,11 @@ pub mod pallet {
 			consumed_weight
 		}
 
+		fn on_finalize(_n: BlockNumberFor<T>) {
+			// Delegate optional Frontier finalize to the strategy
+			<T as pallet::Config>::FrontierLogMerge::on_finalize();
+		}
+
 		fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			// Minimum weight to read the initial values:
 			// - BridgePaused, PendingEventProofs, DelayedEventProofsPerBlock
@@ -669,7 +722,7 @@ pub mod pallet {
 			consumed_weight
 		}
 
-		fn offchain_worker(block_number: BlockNumberFor<T>) {
+	fn offchain_worker(block_number: BlockNumberFor<T>) {
 			let active_notaries = NotaryKeys::<T>::get().into_inner();
 			log!(debug, "💎 entering off-chain worker: {:?}", block_number);
 			log!(debug, "💎 active notaries: {:?}", active_notaries);
@@ -715,70 +768,191 @@ pub mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::submit_notarization { ref payload, ref signature } = call {
-				// notarization must be from an active notary
-				let notary_keys = NotaryKeys::<T>::get();
-				let notary_public_key = match notary_keys.get(payload.authority_index() as usize) {
-					Some(id) => id,
-					None => return InvalidTransaction::BadProof.into(),
-				};
+			match call {
+				Call::submit_notarization { ref payload, ref signature } => {
+					// notarization must be from an active notary
+					let notary_keys = NotaryKeys::<T>::get();
+					let notary_public_key =
+						match notary_keys.get(payload.authority_index() as usize) {
+							Some(id) => id,
+							None => return InvalidTransaction::BadProof.into(),
+						};
 
-				// notarization must not be a duplicate/equivocation
-				match payload {
-					NotarizationPayload::Call { .. } => {
-						if <EthCallNotarizations<T>>::contains_key(
-							payload.payload_id(),
-							&notary_public_key,
-						) {
-							log!(
-								error,
-								"💎 received equivocation from: {:?} on {:?}",
-								notary_public_key,
-								payload.payload_id()
-							);
-							return InvalidTransaction::BadProof.into();
-						}
-					},
-					NotarizationPayload::Event { .. } => {
-						if <EventNotarizations<T>>::contains_key(
-							payload.payload_id(),
-							&notary_public_key,
-						) {
-							log!(
-								error,
-								"💎 received equivocation from: {:?} on {:?}",
-								notary_public_key,
-								payload.payload_id()
-							);
-							return InvalidTransaction::BadProof.into();
-						}
-					},
-				}
+					// notarization must not be a duplicate/equivocation
+					match payload {
+						NotarizationPayload::Call { .. } => {
+							if <EthCallNotarizations<T>>::contains_key(
+								payload.payload_id(),
+								&notary_public_key,
+							) {
+								log!(
+									error,
+									"💎 received equivocation from: {:?} on {:?}",
+									notary_public_key,
+									payload.payload_id()
+								);
+								return InvalidTransaction::BadProof.into();
+							}
+						},
+						NotarizationPayload::Event { .. } => {
+							if <EventNotarizations<T>>::contains_key(
+								payload.payload_id(),
+								&notary_public_key,
+							) {
+								log!(
+									error,
+									"💎 received equivocation from: {:?} on {:?}",
+									notary_public_key,
+									payload.payload_id()
+								);
+								return InvalidTransaction::BadProof.into();
+							}
+						},
+					}
 
-				// notarization is signed correctly
-				if !(notary_public_key.verify(&payload.encode(), signature)) {
-					return InvalidTransaction::BadProof.into();
-				}
+					// notarization is signed correctly
+					if !(notary_public_key.verify(&payload.encode(), signature)) {
+						return InvalidTransaction::BadProof.into();
+					}
 
-				ValidTransaction::with_tag_prefix("eth-bridge")
-					.priority(UNSIGNED_TXS_PRIORITY)
-					// 'provides' must be unique for each submission on the network (i.e. unique for
-					// each claim id and validator)
-					.and_provides([
-						b"notarize",
-						&payload.type_id().to_be_bytes(),
-						&payload.payload_id().to_be_bytes(),
-						&(payload.authority_index() as u64).to_be_bytes(),
-					])
-					.longevity(3)
-					.propagate(true)
-					.build()
-			} else {
-				InvalidTransaction::Call.into()
+					ValidTransaction::with_tag_prefix("eth-bridge")
+						.priority(UNSIGNED_TXS_PRIORITY)
+						// 'provides' must be unique for each submission on the network (i.e. unique for
+						// each claim id and validator)
+						.and_provides([
+							b"notarize",
+							&payload.type_id().to_be_bytes(),
+							&payload.payload_id().to_be_bytes(),
+							&(payload.authority_index() as u64).to_be_bytes(),
+						])
+						.longevity(3)
+						.propagate(true)
+						.build()
+				},
+				_ => InvalidTransaction::Call.into(),
 			}
 		}
 	}
 
+	/// Helper to stage EVM call activity from pallet-origin EVM executions (e.g., FeeProxy).
+	/// These are merged into Frontier canonical storage at on_finalize.
+	impl<T: Config> Pallet<T> {
+		#[cfg(feature = "frontier-logs")]
+	pub fn on_finalize_frontier()
+		where
+			T: pallet_ethereum::Config,
+		{
+			// Merge any staged EVM activities into Frontier's canonical Current* storages
+			let mut staged = StagedEvmActivities::<T>::take();
+			if staged.is_empty() {
+				return;
+			}
+
+			// Ensure deterministic ordering to keep logIndex and transactionIndex stable
+			staged.sort_by(|a, b| match a.extrinsic_index.cmp(&b.extrinsic_index) {
+				core::cmp::Ordering::Equal => a.ordinal.cmp(&b.ordinal),
+				other => other,
+			});
+
+			// If Frontier hasn't built a block (e.g. no Ethereum tx in block), we still have
+			// Current* populated by pallet-ethereum::store_block at on_finalize; append to them.
+			let mut statuses =
+				pallet_ethereum::CurrentTransactionStatuses::<T>::get().unwrap_or_default();
+			let block = pallet_ethereum::CurrentBlock::<T>::get();
+
+			let mut block_logs_bloom = block.as_ref().map(|b| b.header.logs_bloom).unwrap_or_default();
+
+			for activity in staged.into_iter() {
+				// Build a TransactionStatus entry
+				let transaction_index = statuses.len() as u32;
+				let mut status = fp_rpc::TransactionStatus {
+					transaction_hash: activity.tx_hash,
+					transaction_index,
+					from: activity.from,
+					to: activity.to,
+					contract_address: None,
+					logs: activity.logs.clone(),
+					logs_bloom: Default::default(),
+				};
+
+				// Compute logs bloom like Frontier does
+				let mut bloom = ethereum_types::Bloom::default();
+				for log in &activity.logs {
+					bloom.accrue(ethereum_types::BloomInput::Raw(&log.address[..]));
+					for topic in &log.topics {
+						bloom.accrue(ethereum_types::BloomInput::Raw(&topic[..]));
+					}
+				}
+				status.logs_bloom = bloom;
+
+				// Append status
+				statuses.push(status.clone());
+
+				// Accrue into block bloom
+				for status_log in &status.logs {
+					block_logs_bloom.accrue(ethereum_types::BloomInput::Raw(&status_log.address[..]));
+					for topic in &status_log.topics {
+						block_logs_bloom.accrue(ethereum_types::BloomInput::Raw(&topic[..]));
+					}
+				}
+			}
+
+			// If we have a current block, update its header bloom/gas_used
+			if let Some(mut b) = block.clone() {
+				b.header.logs_bloom = block_logs_bloom;
+				b.transactions = b.transactions; // unchanged
+				pallet_ethereum::CurrentBlock::<T>::put(b);
+			}
+
+			pallet_ethereum::CurrentTransactionStatuses::<T>::put(statuses);
+		}
+
+		pub fn log_evm_call_activity(
+			from: H160,
+			to: Option<H160>,
+			logs: Vec<ethereum::Log>,
+			success: bool,
+			tx_hash: H256,
+		) -> DispatchResult {
+			// Determine ordering information
+			let extrinsic_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or(0);
+			let mut staged = StagedEvmActivities::<T>::get();
+			let ordinal = staged.len() as u32;
+			// Synthesize a unique tx hash using provided seed and ordinal to avoid duplicates
+			let mut seed = [0u8; 36];
+			seed[..32].copy_from_slice(tx_hash.as_bytes());
+			seed[32..].copy_from_slice(&ordinal.to_le_bytes());
+			let synthetic = H256::from(sp_io::hashing::blake2_256(&seed));
+
+			staged.push(EvmCallActivity {
+				from,
+				to,
+				logs,
+				success,
+				extrinsic_index,
+				ordinal,
+				tx_hash: synthetic,
+			});
+			StagedEvmActivities::<T>::put(staged);
+			Ok(())
+		}
+	}
+
+	// Note: Frontier finalize helper is available but not invoked from pallet hooks.
+
+	/// Minimal struct to stage pallet-origin EVM call results inside the block.
+	#[derive(Clone, PartialEq, Eq, codec::Encode, codec::Decode, scale_info::TypeInfo)]
+	pub struct EvmCallActivity {
+		pub from: sp_core::H160,
+		pub to: Option<sp_core::H160>,
+		pub logs: sp_std::vec::Vec<ethereum::Log>,
+		pub success: bool,
+		// Ordering within block
+		pub extrinsic_index: u32,
+		pub ordinal: u32,
+		// Synthetic transaction hash used for TransactionStatus
+		pub tx_hash: sp_core::H256,
+	}
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Set new XRPL door signers
