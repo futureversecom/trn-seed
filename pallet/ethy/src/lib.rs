@@ -568,9 +568,8 @@ pub mod pallet {
 			// Reads: NextAuthorityChange, MessagesValidAt, ProcessedMessageIds
 			let mut consumed_weight = DbWeight::get().reads(3u64);
 			// Delegate optional Frontier cleanup to the strategy; adds its weight if any.
-			consumed_weight = consumed_weight.saturating_add(
-				<T as pallet::Config>::FrontierLogMerge::on_initialize(),
-			);
+			consumed_weight = consumed_weight
+				.saturating_add(<T as pallet::Config>::FrontierLogMerge::on_initialize());
 
 			// 1) Handle authority change
 			if Some(block_number) == NextAuthorityChange::<T>::get() {
@@ -722,7 +721,7 @@ pub mod pallet {
 			consumed_weight
 		}
 
-	fn offchain_worker(block_number: BlockNumberFor<T>) {
+		fn offchain_worker(block_number: BlockNumberFor<T>) {
 			let active_notaries = NotaryKeys::<T>::get().into_inner();
 			log!(debug, "💎 entering off-chain worker: {:?}", block_number);
 			log!(debug, "💎 active notaries: {:?}", active_notaries);
@@ -838,7 +837,7 @@ pub mod pallet {
 	/// These are merged into Frontier canonical storage at on_finalize.
 	impl<T: Config> Pallet<T> {
 		#[cfg(feature = "frontier-logs")]
-	pub fn on_finalize_frontier()
+		pub fn on_finalize_frontier()
 		where
 			T: pallet_ethereum::Config,
 		{
@@ -860,7 +859,8 @@ pub mod pallet {
 				pallet_ethereum::CurrentTransactionStatuses::<T>::get().unwrap_or_default();
 			let block = pallet_ethereum::CurrentBlock::<T>::get();
 
-			let mut block_logs_bloom = block.as_ref().map(|b| b.header.logs_bloom).unwrap_or_default();
+			let mut block_logs_bloom =
+				block.as_ref().map(|b| b.header.logs_bloom).unwrap_or_default();
 
 			for activity in staged.into_iter() {
 				// Build a TransactionStatus entry
@@ -890,7 +890,8 @@ pub mod pallet {
 
 				// Accrue into block bloom
 				for status_log in &status.logs {
-					block_logs_bloom.accrue(ethereum_types::BloomInput::Raw(&status_log.address[..]));
+					block_logs_bloom
+						.accrue(ethereum_types::BloomInput::Raw(&status_log.address[..]));
 					for topic in &status_log.topics {
 						block_logs_bloom.accrue(ethereum_types::BloomInput::Raw(&topic[..]));
 					}
