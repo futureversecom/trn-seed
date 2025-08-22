@@ -64,7 +64,7 @@ mod tests {
 
     #[test]
     fn test_quadratic_vote_weight_64x2() {
-        // 64 at locked 2x should yield 8 votes
+        // 64 at locked 2x should yield 11 votes
         // sqrt(64 * 2) = 11
         let capital: u128 = 64;
         let conviction = Conviction::Locked2x;
@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     fn test_quadratic_vote_weight_64x3() {
-        // 64 at locked 3x should yield 24 votes
+        // 64 at locked 3x should yield 13 votes
         // sqrt(64 * 3) = 13
         let capital: u128 = 64;
         let conviction = Conviction::Locked3x;
@@ -86,7 +86,7 @@ mod tests {
 
     #[test]
     fn test_quadratic_vote_weight_64x4() {
-        // 64 at locked 4x should yield 32 votes
+        // 64 at locked 4x should yield 16 votes
         // sqrt(64 * 4) = 16
         let capital: u128 = 64;
         let conviction = Conviction::Locked4x;
@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn test_quadratic_vote_weight_64x5() {
-        // 64 at locked 5x should yield 40 votes
+        // 64 at locked 5x should yield 17 votes
         // sqrt(64 * 5) = 17
         let capital: u128 = 64;
         let conviction = Conviction::Locked5x;
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn test_quadratic_vote_weight_64x6() {
-        // 64 at locked 6x should yield 48 votes
+        // 64 at locked 6x should yield 19 votes
         // sqrt(64 * 6) = 19
         let capital: u128 = 64;
         let conviction = Conviction::Locked6x;
@@ -119,9 +119,9 @@ mod tests {
 
     #[test]
     fn test_quadratic_vote_weight_10000x1() {
-        // 10000 at locked 1x should yield 100 votes
-        // sqrt(10000 * 1) = 100
-        let capital: u128 = 10000;
+        // 10,000 at locked 1x should yield 100 votes
+        // sqrt(10,000 * 1) = 100
+        let capital: u128 = 10_000;
         let conviction = Conviction::Locked1x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
         assert_eq!(result.capital, capital);
@@ -130,9 +130,9 @@ mod tests {
 
     #[test]
     fn test_quadratic_vote_weight_no_conviction() {
-        // 100000 at no conviction should yield 100 votes
-        // sqrt(100000 * 0.1) = 100
-        let capital: u128 = 10000;
+        // 100,000 at no conviction should yield 100 votes
+        // sqrt(100,000 * 0.1) = 100
+        let capital: u128 = 100_000;
         let conviction = Conviction::None;
         let result = QuadraticVoteWeight::votes(conviction, capital);
         assert_eq!(result.votes, 100);

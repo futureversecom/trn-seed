@@ -309,7 +309,7 @@ frame-support-procedural = { git = "https://github.com/futureversecom/trn-substr
 frame-support-procedural-tools = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }
 frame-support-procedural-tools-derive = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }
 frame-system = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }
-frame-system-benchmarking  = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN"}
+frame-system-benchmarking = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }
 frame-system-rpc-runtime-api = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }
 frame-try-runtime = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }
 pallet-assets = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }
@@ -318,7 +318,7 @@ pallet-babe = { git = "https://github.com/futureversecom/trn-substrate", branch 
 pallet-bags-list = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }
 pallet-balances = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }
 pallet-election-provider-multi-phase = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }
-pallet-election-provider-support-benchmarking = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN"}
+pallet-election-provider-support-benchmarking = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }
 pallet-grandpa = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }
 pallet-im-online = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }
 pallet-multisig = { git = "https://github.com/futureversecom/trn-substrate", branch = "polkadot-v1.0.0-TRN-voting" }

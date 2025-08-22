@@ -1890,13 +1890,13 @@ dependencies = [
  "sc-utils",
  "seed-primitives",
  "serde",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-keystore",
+ "sp-runtime",
  "strum 0.24.1",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
@@ -1919,9 +1919,9 @@ dependencies = [
  "sc-rpc",
  "seed-primitives",
  "serde",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -2114,10 +2114,10 @@ dependencies = [
  "fp-consensus",
  "fp-rpc",
  "sc-consensus",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-block-builder",
  "sp-consensus",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -2141,12 +2141,12 @@ dependencies = [
  "sc-client-api",
  "sc-client-db",
  "smallvec",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
  "sp-database",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
+ "sp-storage",
  "sqlx",
  "tokio",
 ]
@@ -2166,11 +2166,11 @@ dependencies = [
  "parking_lot 0.12.3",
  "sc-client-api",
  "sc-utils",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
  "tokio",
 ]
 
@@ -2212,17 +2212,17 @@ dependencies = [
  "sc-utils",
  "schnellru",
  "serde",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-aura",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-storage",
  "sp-timestamp",
  "substrate-prometheus-endpoint",
  "thiserror",
@@ -2253,11 +2253,11 @@ dependencies = [
  "fp-storage",
  "parity-scale-codec",
  "sc-client-api",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-io",
+ "sp-runtime",
+ "sp-storage",
 ]
 
 [[package]]
@@ -2444,11 +2444,11 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-runtime-interface",
+ "sp-std",
 ]
 
 [[package]]
@@ -2458,9 +2458,9 @@ source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v1.0.0-
 dependencies = [
  "ethereum 0.14.0",
  "parity-scale-codec",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -2471,10 +2471,10 @@ dependencies = [
  "ethereum 0.14.0",
  "ethereum-types 0.14.1",
  "fp-evm",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
  "num_enum 0.6.1",
  "parity-scale-codec",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-std",
 ]
 
 [[package]]
@@ -2483,13 +2483,13 @@ version = "3.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v1.0.0-TRN#50660c0741fad8c76f68a20ec6fc7f9c5727715c"
 dependencies = [
  "evm 0.39.1",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -2502,11 +2502,11 @@ dependencies = [
  "fp-evm",
  "parity-scale-codec",
  "scale-info",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-core",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-std",
 ]
 
 [[package]]
@@ -2514,11 +2514,11 @@ name = "fp-self-contained"
 version = "1.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v1.0.0-TRN#50660c0741fad8c76f68a20ec6fc7f9c5727715c"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -2539,50 +2539,25 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 [[package]]
 name = "frame-benchmarking"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "frame-support-procedural 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "linregress",
- "log",
- "parity-scale-codec",
- "paste",
- "scale-info",
- "serde",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "static_assertions",
-]
-
-[[package]]
-name = "frame-benchmarking"
-version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support-procedural 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-support-procedural",
+ "frame-system",
  "linregress",
  "log",
  "parity-scale-codec",
  "paste",
  "scale-info",
  "serde",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-runtime-interface",
+ "sp-std",
+ "sp-storage",
  "static_assertions",
 ]
 
@@ -2596,9 +2571,9 @@ dependencies = [
  "chrono",
  "clap",
  "comfy-table",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "gethostname",
  "handlebars",
  "itertools",
@@ -2617,19 +2592,19 @@ dependencies = [
  "sc-sysinfo",
  "serde",
  "serde_json",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
  "sp-database",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-trie 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-wasm-interface 14.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-externalities",
+ "sp-inherents",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-storage",
+ "sp-trie",
+ "sp-wasm-interface",
  "thiserror",
  "thousands",
 ]
@@ -2637,17 +2612,6 @@ dependencies = [
 [[package]]
 name = "frame-election-provider-solution-type"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "proc-macro-crate 1.1.3",
- "proc-macro2",
- "quote",
- "syn 2.0.68",
-]
-
-[[package]]
-name = "frame-election-provider-solution-type"
-version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "proc-macro-crate 1.1.3",
@@ -2659,35 +2623,18 @@ dependencies = [
 [[package]]
 name = "frame-election-provider-support"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "frame-election-provider-solution-type 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "parity-scale-codec",
- "scale-info",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-npos-elections 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
-]
-
-[[package]]
-name = "frame-election-provider-support"
-version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-election-provider-solution-type 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-election-provider-solution-type",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-npos-elections 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -2695,16 +2642,16 @@ name = "frame-executive"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "frame-try-runtime",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-tracing 10.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-tracing",
 ]
 
 [[package]]
@@ -2731,9 +2678,9 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "spinners",
  "substrate-rpc-client",
  "tokio",
@@ -2743,46 +2690,12 @@ dependencies = [
 [[package]]
 name = "frame-support"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "bitflags 1.3.2",
- "environmental",
- "frame-metadata",
- "frame-support-procedural 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "impl-trait-for-tuples",
- "k256",
- "log",
- "macro_magic",
- "parity-scale-codec",
- "paste",
- "scale-info",
- "serde",
- "smallvec",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-core-hashing-proc-macro 9.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-debug-derive 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-tracing 10.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-weights 20.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "tt-call",
-]
-
-[[package]]
-name = "frame-support"
-version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "bitflags 1.3.2",
  "environmental",
  "frame-metadata",
- "frame-support-procedural 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support-procedural",
  "impl-trait-for-tuples",
  "k256",
  "log",
@@ -2792,38 +2705,20 @@ dependencies = [
  "scale-info",
  "serde",
  "smallvec",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core-hashing-proc-macro 9.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-debug-derive 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-tracing 10.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-weights 20.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-core-hashing-proc-macro",
+ "sp-debug-derive",
+ "sp-inherents",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-state-machine",
+ "sp-std",
+ "sp-tracing",
+ "sp-weights",
  "tt-call",
-]
-
-[[package]]
-name = "frame-support-procedural"
-version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "Inflector",
- "cfg-expr",
- "derive-syn-parse",
- "expander",
- "frame-support-procedural-tools 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "itertools",
- "macro_magic",
- "proc-macro-warning",
- "proc-macro2",
- "quote",
- "syn 2.0.68",
 ]
 
 [[package]]
@@ -2835,7 +2730,7 @@ dependencies = [
  "cfg-expr",
  "derive-syn-parse",
  "expander",
- "frame-support-procedural-tools 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support-procedural-tools",
  "itertools",
  "macro_magic",
  "proc-macro-warning",
@@ -2847,32 +2742,10 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural-tools"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "frame-support-procedural-tools-derive 3.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "proc-macro-crate 1.1.3",
- "proc-macro2",
- "quote",
- "syn 2.0.68",
-]
-
-[[package]]
-name = "frame-support-procedural-tools"
-version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-support-procedural-tools-derive 3.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support-procedural-tools-derive",
  "proc-macro-crate 1.1.3",
- "proc-macro2",
- "quote",
- "syn 2.0.68",
-]
-
-[[package]]
-name = "frame-support-procedural-tools-derive"
-version = "3.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.68",
@@ -2891,54 +2764,35 @@ dependencies = [
 [[package]]
 name = "frame-system"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "cfg-if",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "log",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-version 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-weights 20.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
-]
-
-[[package]]
-name = "frame-system"
-version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "cfg-if",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
  "log",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-version 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-weights 20.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-version",
+ "sp-weights",
 ]
 
 [[package]]
 name = "frame-system-benchmarking"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
+source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -2947,7 +2801,7 @@ version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "parity-scale-codec",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
 ]
 
 [[package]]
@@ -2955,11 +2809,11 @@ name = "frame-try-runtime"
 version = "0.10.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
  "parity-scale-codec",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5299,23 +5153,23 @@ name = "pallet-assets"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-assets-ext"
 version = "1.0.1"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-assets",
  "pallet-balances",
  "pallet-evm",
@@ -5326,10 +5180,10 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5341,9 +5195,9 @@ dependencies = [
  "pallet-assets-ext-rpc-runtime-api",
  "parity-scale-codec",
  "seed-primitives",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5353,8 +5207,8 @@ dependencies = [
  "pallet-assets-ext",
  "parity-scale-codec",
  "seed-primitives",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-std",
 ]
 
 [[package]]
@@ -5362,13 +5216,13 @@ name = "pallet-authorship"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5376,23 +5230,23 @@ name = "pallet-babe"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "pallet-authorship",
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-application-crypto",
  "sp-consensus-babe",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-session",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-staking",
+ "sp-std",
 ]
 
 [[package]]
@@ -5400,19 +5254,19 @@ name = "pallet-bags-list"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-election-provider-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
  "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-tracing 10.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-tracing",
 ]
 
 [[package]]
@@ -5420,14 +5274,14 @@ name = "pallet-balances"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5436,12 +5290,12 @@ version = "1.0.0"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v1.0.0-TRN#50660c0741fad8c76f68a20ec6fc7f9c5727715c"
 dependencies = [
  "fp-evm",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5449,25 +5303,25 @@ name = "pallet-collective"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-crowdsale"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -5476,10 +5330,10 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5487,26 +5341,26 @@ name = "pallet-democracy"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-dex"
 version = "0.0.1"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex",
  "pallet-assets",
  "pallet-assets-ext",
@@ -5516,40 +5370,40 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "serde",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-dex-rpc"
 version = "0.0.1"
 dependencies = [
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-system",
  "jsonrpsee",
  "pallet-dex",
  "pallet-dex-rpc-runtime-api",
  "seed-primitives",
  "serde_json",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
 name = "pallet-dex-rpc-runtime-api"
 version = "0.0.1"
 dependencies = [
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-system",
  "pallet-dex",
  "seed-primitives",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5558,10 +5412,10 @@ version = "1.0.0"
 dependencies = [
  "doughnut-rs",
  "fp-self-contained",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
  "frame-executive",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
  "pallet-assets",
  "pallet-assets-ext",
@@ -5573,10 +5427,10 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5584,18 +5438,18 @@ name = "pallet-echo"
 version = "1.0.0"
 dependencies = [
  "ethabi",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5603,35 +5457,22 @@ name = "pallet-election-provider-multi-phase"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-election-provider-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
  "log",
- "pallet-election-provider-support-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "pallet-election-provider-support-benchmarking",
  "parity-scale-codec",
  "rand 0.8.5",
  "scale-info",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-npos-elections 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-std",
  "strum 0.24.1",
-]
-
-[[package]]
-name = "pallet-election-provider-support-benchmarking"
-version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "frame-election-provider-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "parity-scale-codec",
- "sp-npos-elections 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
 ]
 
 [[package]]
@@ -5639,12 +5480,12 @@ name = "pallet-election-provider-support-benchmarking"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-election-provider-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-system",
  "parity-scale-codec",
- "sp-npos-elections 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-npos-elections",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5652,18 +5493,18 @@ name = "pallet-elections-phragmen"
 version = "5.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-npos-elections 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
 ]
 
 [[package]]
@@ -5671,9 +5512,9 @@ name = "pallet-erc20-peg"
 version = "2.0.1"
 dependencies = [
  "ethabi",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
  "log",
  "pallet-assets",
@@ -5683,10 +5524,10 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5702,14 +5543,14 @@ dependencies = [
  "fp-evm",
  "fp-rpc",
  "fp-storage",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "pallet-evm",
  "parity-scale-codec",
  "scale-info",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5718,9 +5559,9 @@ version = "1.0.1"
 dependencies = [
  "ethabi",
  "ethereum-types 0.14.1",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
  "pallet-assets",
  "pallet-assets-ext",
@@ -5734,12 +5575,12 @@ dependencies = [
  "seed-primitives",
  "serde",
  "serde_json",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5751,9 +5592,9 @@ dependencies = [
  "evm 0.39.1",
  "fp-account",
  "fp-evm",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex",
  "hex-literal 0.4.1",
  "impl-trait-for-tuples",
@@ -5761,25 +5602,25 @@ dependencies = [
  "parity-scale-codec",
  "rlp",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-evm-chain-id"
 version = "1.0.0-dev"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-io",
+ "sp-std",
 ]
 
 [[package]]
@@ -5796,7 +5637,7 @@ version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v1.0.0-TRN#50660c0741fad8c76f68a20ec6fc7f9c5727715c"
 dependencies = [
  "fp-evm",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
  "substrate-bn",
 ]
 
@@ -5825,7 +5666,7 @@ source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v1.0.0-
 dependencies = [
  "fp-evm",
  "ripemd",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-io",
 ]
 
 [[package]]
@@ -5833,8 +5674,8 @@ name = "pallet-evm-precompiles-dex"
 version = "2.0.0"
 dependencies = [
  "fp-evm",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "num_enum 0.5.11",
  "pallet-assets",
  "pallet-dex",
@@ -5842,9 +5683,9 @@ dependencies = [
  "precompile-utils",
  "scale-info",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5853,8 +5694,8 @@ version = "2.0.0"
 dependencies = [
  "ethereum-types 0.14.1",
  "fp-evm",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "num_enum 0.5.11",
  "pallet-evm",
  "pallet-nft",
@@ -5865,9 +5706,9 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5875,8 +5716,8 @@ name = "pallet-evm-precompiles-erc20"
 version = "2.0.0"
 dependencies = [
  "fp-evm",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "num_enum 0.5.11",
  "pallet-assets",
  "pallet-assets-ext",
@@ -5886,9 +5727,9 @@ dependencies = [
  "precompile-utils",
  "scale-info",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5896,8 +5737,8 @@ name = "pallet-evm-precompiles-erc721"
 version = "2.0.0"
 dependencies = [
  "fp-evm",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "num_enum 0.5.11",
  "pallet-evm",
  "pallet-nft",
@@ -5908,9 +5749,9 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5918,8 +5759,8 @@ name = "pallet-evm-precompiles-futurepass"
 version = "2.0.0"
 dependencies = [
  "fp-evm",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "num_enum 0.5.11",
  "pallet-evm",
  "pallet-futurepass",
@@ -5927,9 +5768,9 @@ dependencies = [
  "precompile-utils",
  "scale-info",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5937,8 +5778,8 @@ name = "pallet-evm-precompiles-futurepass-registrar"
 version = "2.0.0"
 dependencies = [
  "fp-evm",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "num_enum 0.5.11",
  "pallet-evm",
  "pallet-futurepass",
@@ -5946,9 +5787,9 @@ dependencies = [
  "precompile-utils",
  "scale-info",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5956,17 +5797,17 @@ name = "pallet-evm-precompiles-marketplace"
 version = "2.0.0"
 dependencies = [
  "fp-evm",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "num_enum 0.5.11",
  "pallet-evm",
  "pallet-marketplace",
  "precompile-utils",
  "scale-info",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5974,17 +5815,17 @@ name = "pallet-evm-precompiles-nft"
 version = "2.0.0"
 dependencies = [
  "fp-evm",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "num_enum 0.5.11",
  "pallet-evm",
  "pallet-nft",
  "precompile-utils",
  "scale-info",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5992,8 +5833,8 @@ name = "pallet-evm-precompiles-peg"
 version = "2.0.0"
 dependencies = [
  "fp-evm",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "num_enum 0.5.11",
  "pallet-erc20-peg",
  "pallet-evm",
@@ -6001,9 +5842,9 @@ dependencies = [
  "precompile-utils",
  "scale-info",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6011,17 +5852,17 @@ name = "pallet-evm-precompiles-sft"
 version = "2.0.0"
 dependencies = [
  "fp-evm",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "num_enum 0.5.11",
  "pallet-evm",
  "pallet-sft",
  "precompile-utils",
  "scale-info",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6029,9 +5870,9 @@ name = "pallet-fee-control"
 version = "1.0.0"
 dependencies = [
  "fp-evm",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6053,9 +5894,9 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6063,9 +5904,9 @@ name = "pallet-fee-proxy"
 version = "0.1.0"
 dependencies = [
  "ethabi",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
  "pallet-assets",
  "pallet-assets-ext",
@@ -6088,18 +5929,18 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-futurepass"
 version = "1.0.0-dev"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex",
  "hex-literal 0.3.4",
  "pallet-assets",
@@ -6115,10 +5956,10 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "seed-runtime",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6126,22 +5967,22 @@ name = "pallet-grandpa"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "pallet-authorship",
  "pallet-session",
  "parity-scale-codec",
  "scale-info",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-application-crypto",
  "sp-consensus-grandpa",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-session",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-staking",
+ "sp-std",
 ]
 
 [[package]]
@@ -6149,28 +5990,28 @@ name = "pallet-im-online"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "pallet-authorship",
  "parity-scale-codec",
  "scale-info",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-liquidity-pools"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex",
  "hex-literal 0.3.4",
  "pallet-assets",
@@ -6180,20 +6021,20 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-maintenance-mode"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6202,18 +6043,18 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-marketplace"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6223,10 +6064,10 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6234,9 +6075,9 @@ name = "pallet-migration"
 version = "1.0.0"
 dependencies = [
  "ethabi",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6245,10 +6086,10 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6256,24 +6097,24 @@ name = "pallet-multisig"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-nfi"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
  "pallet-assets",
  "pallet-assets-ext",
@@ -6284,18 +6125,18 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-nft"
 version = "2.2.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6309,10 +6150,10 @@ dependencies = [
  "seed-primitives",
  "serde",
  "serde_json",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6320,9 +6161,9 @@ name = "pallet-nft-peg"
 version = "2.0.1"
 dependencies = [
  "ethabi",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
  "pallet-assets",
  "pallet-assets-ext",
@@ -6332,9 +6173,9 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6346,10 +6187,10 @@ dependencies = [
  "pallet-nft-rpc-runtime-api",
  "parity-scale-codec",
  "seed-primitives",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6359,9 +6200,9 @@ dependencies = [
  "pallet-nft",
  "parity-scale-codec",
  "seed-primitives",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6369,16 +6210,16 @@ name = "pallet-nomination-pools"
 version = "1.0.0"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
 ]
 
 [[package]]
@@ -6386,25 +6227,25 @@ name = "pallet-offences"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-partner-attribution"
 version = "1.0.0-dev"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6413,9 +6254,9 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-std",
 ]
 
 [[package]]
@@ -6423,16 +6264,16 @@ name = "pallet-preimage"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6440,14 +6281,14 @@ name = "pallet-proxy"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6455,14 +6296,14 @@ name = "pallet-recovery"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6470,16 +6311,16 @@ name = "pallet-scheduler"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-weights 20.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-weights",
 ]
 
 [[package]]
@@ -6487,20 +6328,20 @@ name = "pallet-session"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
  "log",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-session",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-trie 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-staking",
+ "sp-std",
+ "sp-trie",
 ]
 
 [[package]]
@@ -6508,24 +6349,24 @@ name = "pallet-session-benchmarking"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-session",
  "pallet-staking",
  "rand 0.8.5",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
  "sp-session",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-sft"
 version = "2.0.1"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6537,10 +6378,10 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6551,9 +6392,9 @@ dependencies = [
  "pallet-sft",
  "pallet-sft-rpc-runtime-api",
  "seed-primitives",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -6563,8 +6404,8 @@ dependencies = [
  "pallet-sft",
  "parity-scale-codec",
  "seed-primitives",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-std",
 ]
 
 [[package]]
@@ -6572,10 +6413,10 @@ name = "pallet-staking"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-election-provider-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
  "log",
  "pallet-authorship",
  "pallet-session",
@@ -6583,11 +6424,11 @@ dependencies = [
  "rand_chacha 0.2.2",
  "scale-info",
  "serde",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-application-crypto",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
 ]
 
 [[package]]
@@ -6606,23 +6447,23 @@ name = "pallet-sudo"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-sylo-action-permissions"
 version = "0.1.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex",
  "libsecp256k1",
  "log",
@@ -6638,11 +6479,11 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "serde",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
  "xrpl_types",
 ]
 
@@ -6650,9 +6491,9 @@ dependencies = [
 name = "pallet-sylo-data-permissions"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex",
  "pallet-assets",
  "pallet-assets-ext",
@@ -6663,11 +6504,11 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "serde",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6680,10 +6521,10 @@ dependencies = [
  "parity-scale-codec",
  "seed-pallet-common",
  "seed-primitives",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6694,18 +6535,18 @@ dependencies = [
  "parity-scale-codec",
  "seed-pallet-common",
  "seed-primitives",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-sylo-data-verification"
 version = "0.0.1"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex",
  "pallet-assets",
  "pallet-assets-ext",
@@ -6716,11 +6557,11 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "serde",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6728,16 +6569,16 @@ name = "pallet-timestamp"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-inherents",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
  "sp-timestamp",
 ]
 
@@ -6745,9 +6586,9 @@ dependencies = [
 name = "pallet-token-approvals"
 version = "2.0.1"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -6756,9 +6597,9 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6766,15 +6607,15 @@ name = "pallet-transaction-payment"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6785,12 +6626,12 @@ dependencies = [
  "jsonrpsee",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
  "sp-rpc",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-weights 20.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
+ "sp-weights",
 ]
 
 [[package]]
@@ -6800,17 +6641,17 @@ source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1
 dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-weights 20.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-runtime",
+ "sp-weights",
 ]
 
 [[package]]
 name = "pallet-tx-fee-pot"
 version = "0.0.1"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-staking",
@@ -6818,10 +6659,10 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6829,25 +6670,25 @@ name = "pallet-utility"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-vortex-distribution"
 version = "2.1.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-election-provider-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
  "pallet-assets",
  "pallet-assets-ext",
@@ -6862,20 +6703,20 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
 ]
 
 [[package]]
 name = "pallet-xls20"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
  "pallet-assets",
  "pallet-assets-ext",
@@ -6885,9 +6726,9 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6895,10 +6736,10 @@ name = "pallet-xrpl"
 version = "1.0.0-dev"
 dependencies = [
  "fp-self-contained",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
  "frame-executive",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "hex",
  "libsecp256k1",
  "log",
@@ -6915,10 +6756,10 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
  "xrpl_binary_codec",
  "xrpl_types",
 ]
@@ -6927,9 +6768,9 @@ dependencies = [
 name = "pallet-xrpl-bridge"
 version = "0.0.1"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
  "log",
  "pallet-assets",
@@ -6941,9 +6782,9 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
  "xrpl-codec",
 ]
 
@@ -7284,8 +7125,8 @@ dependencies = [
  "affix",
  "evm 0.36.0",
  "fp-evm",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
  "impl-trait-for-tuples",
  "log",
@@ -7295,9 +7136,9 @@ dependencies = [
  "precompile-utils-macro",
  "sha3",
  "similar-asserts",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-std",
 ]
 
 [[package]]
@@ -8148,8 +7989,8 @@ version = "4.1.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "log",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-wasm-interface 14.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-wasm-interface",
  "thiserror",
 ]
 
@@ -8167,12 +8008,12 @@ dependencies = [
  "sc-proposer-metrics",
  "sc-telemetry",
  "sc-transaction-pool-api",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
 ]
 
@@ -8183,12 +8024,12 @@ source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1
 dependencies = [
  "parity-scale-codec",
  "sc-client-api",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-block-builder",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -8205,9 +8046,9 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-state-machine",
 ]
 
 [[package]]
@@ -8249,12 +8090,12 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
  "sp-keyring",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-panic-handler 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-version 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-keystore",
+ "sp-panic-handler",
+ "sp-runtime",
+ "sp-version",
  "thiserror",
  "tiny-bip39",
  "tokio",
@@ -8273,16 +8114,16 @@ dependencies = [
  "sc-executor",
  "sc-transaction-pool-api",
  "sc-utils",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
  "sp-database",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-externalities",
+ "sp-runtime",
+ "sp-state-machine",
  "sp-statement-store",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-storage",
  "substrate-prometheus-endpoint",
 ]
 
@@ -8303,13 +8144,13 @@ dependencies = [
  "sc-client-api",
  "sc-state-db",
  "schnellru",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
  "sp-database",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-trie 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-trie",
 ]
 
 [[package]]
@@ -8327,12 +8168,12 @@ dependencies = [
  "sc-client-api",
  "sc-utils",
  "serde",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-state-machine",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
@@ -8351,17 +8192,17 @@ dependencies = [
  "sc-consensus",
  "sc-consensus-slots",
  "sc-telemetry",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-aura",
  "sp-consensus-slots",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-inherents",
+ "sp-keystore",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
@@ -8387,17 +8228,17 @@ dependencies = [
  "sc-telemetry",
  "sc-transaction-pool-api",
  "scale-info",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
  "sp-consensus-slots",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-inherents",
+ "sp-keystore",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
@@ -8413,14 +8254,14 @@ dependencies = [
  "sc-consensus-epochs",
  "sc-rpc-api",
  "serde",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-keystore",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -8434,7 +8275,7 @@ dependencies = [
  "sc-client-api",
  "sc-consensus",
  "sp-blockchain",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -8465,15 +8306,15 @@ dependencies = [
  "sc-transaction-pool-api",
  "sc-utils",
  "serde_json",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-grandpa",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-keystore",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
@@ -8493,8 +8334,8 @@ dependencies = [
  "sc-rpc",
  "serde",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -8511,14 +8352,14 @@ dependencies = [
  "sc-client-api",
  "sc-consensus",
  "sc-telemetry",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-slots",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-state-machine",
 ]
 
 [[package]]
@@ -8531,15 +8372,15 @@ dependencies = [
  "sc-executor-common",
  "sc-executor-wasmtime",
  "schnellru",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-panic-handler 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-trie 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-version 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-wasm-interface 14.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-core",
+ "sp-externalities",
+ "sp-io",
+ "sp-panic-handler",
+ "sp-runtime-interface",
+ "sp-trie",
+ "sp-version",
+ "sp-wasm-interface",
  "tracing",
 ]
 
@@ -8550,7 +8391,7 @@ source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1
 dependencies = [
  "sc-allocator",
  "sp-maybe-compressed-blob",
- "sp-wasm-interface 14.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-wasm-interface",
  "thiserror",
  "wasm-instrument",
 ]
@@ -8567,8 +8408,8 @@ dependencies = [
  "rustix 0.36.17",
  "sc-allocator",
  "sc-executor-common",
- "sp-runtime-interface 17.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-wasm-interface 14.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime-interface",
+ "sp-wasm-interface",
  "wasmtime",
 ]
 
@@ -8585,7 +8426,7 @@ dependencies = [
  "sc-network",
  "sc-network-common",
  "sp-blockchain",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -8596,9 +8437,9 @@ dependencies = [
  "array-bytes",
  "parking_lot 0.12.3",
  "serde_json",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-keystore",
  "thiserror",
 ]
 
@@ -8632,10 +8473,10 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
  "thiserror",
  "unsigned-varint",
@@ -8658,7 +8499,7 @@ dependencies = [
  "sc-client-api",
  "sc-network",
  "sp-blockchain",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
  "thiserror",
  "unsigned-varint",
 ]
@@ -8677,7 +8518,7 @@ dependencies = [
  "sc-consensus",
  "sp-consensus",
  "sp-consensus-grandpa",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -8693,7 +8534,7 @@ dependencies = [
  "sc-network",
  "sc-network-common",
  "schnellru",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
  "tracing",
 ]
@@ -8714,8 +8555,8 @@ dependencies = [
  "sc-client-api",
  "sc-network",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -8743,12 +8584,12 @@ dependencies = [
  "sc-utils",
  "schnellru",
  "smallvec",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-grandpa",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
@@ -8776,9 +8617,9 @@ dependencies = [
  "sc-utils",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-tracing 10.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-tracing",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
  "tokio",
@@ -8798,7 +8639,7 @@ dependencies = [
  "sc-network-common",
  "sc-utils",
  "sp-consensus",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
 ]
 
@@ -8826,12 +8667,12 @@ dependencies = [
  "sc-network-common",
  "sc-transaction-pool-api",
  "sc-utils",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-core",
+ "sp-externalities",
+ "sp-keystore",
  "sp-offchain",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
  "threadpool",
  "tracing",
 ]
@@ -8863,16 +8704,16 @@ dependencies = [
  "sc-transaction-pool-api",
  "sc-utils",
  "serde_json",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-keystore",
  "sp-offchain",
  "sp-rpc",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
  "sp-session",
  "sp-statement-store",
- "sp-version 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-version",
  "tokio",
 ]
 
@@ -8888,10 +8729,10 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
  "sp-rpc",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-version 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
+ "sp-version",
  "thiserror",
 ]
 
@@ -8927,11 +8768,11 @@ dependencies = [
  "sc-client-api",
  "sc-transaction-pool-api",
  "serde",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-version 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-version",
  "thiserror",
  "tokio-stream",
 ]
@@ -8977,20 +8818,20 @@ dependencies = [
  "sc-utils",
  "serde",
  "serde_json",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-externalities",
+ "sp-keystore",
+ "sp-runtime",
  "sp-session",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-state-machine",
+ "sp-storage",
  "sp-transaction-pool",
  "sp-transaction-storage-proof",
- "sp-trie 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-version 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-trie",
+ "sp-version",
  "static_init",
  "substrate-prometheus-endpoint",
  "tempfile",
@@ -9008,7 +8849,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
 ]
 
 [[package]]
@@ -9025,9 +8866,9 @@ dependencies = [
  "sc-telemetry",
  "serde",
  "serde_json",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-std",
 ]
 
 [[package]]
@@ -9066,12 +8907,12 @@ dependencies = [
  "sc-client-api",
  "sc-tracing-proc-macro",
  "serde",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
  "sp-rpc",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-tracing 10.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
+ "sp-tracing",
  "thiserror",
  "tracing",
  "tracing-log",
@@ -9105,11 +8946,11 @@ dependencies = [
  "sc-transaction-pool-api",
  "sc-utils",
  "serde",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-tracing 10.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-tracing",
  "sp-transaction-pool",
  "substrate-prometheus-endpoint",
  "thiserror",
@@ -9126,8 +8967,8 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -9143,7 +8984,7 @@ dependencies = [
  "log",
  "parking_lot 0.12.3",
  "prometheus",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
 ]
 
 [[package]]
@@ -9328,9 +9169,9 @@ dependencies = [
  "fc-rpc",
  "fc-rpc-core",
  "fp-rpc",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
  "frame-benchmarking-cli",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-system",
  "frame-try-runtime",
  "futures",
  "hex",
@@ -9365,15 +9206,15 @@ dependencies = [
  "sc-transaction-pool-api",
  "seed-primitives",
  "seed-runtime",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-inherents",
+ "sp-keystore",
+ "sp-runtime",
  "sp-timestamp",
  "sp-transaction-storage-proof",
  "substrate-build-script-utils",
@@ -9386,25 +9227,25 @@ dependencies = [
 name = "seed-pallet-common"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "scale-info",
  "seed-primitives",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
 name = "seed-primitives"
 version = "1.0.0"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "hex",
  "hex-literal 0.3.4",
  "impl-serde",
@@ -9417,13 +9258,13 @@ dependencies = [
  "scale-info",
  "serde",
  "sha2 0.10.8",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-consensus-babe",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
  "substrate-wasm-builder",
 ]
 
@@ -9438,12 +9279,12 @@ dependencies = [
  "fp-evm",
  "fp-rpc",
  "fp-self-contained",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-election-provider-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-benchmarking",
+ "frame-election-provider-support",
  "frame-executive",
  "frame-remote-externalities",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
@@ -9466,7 +9307,7 @@ dependencies = [
  "pallet-doughnut",
  "pallet-echo",
  "pallet-election-provider-multi-phase",
- "pallet-election-provider-support-benchmarking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
+ "pallet-election-provider-support-benchmarking",
  "pallet-elections-phragmen",
  "pallet-erc20-peg",
  "pallet-ethereum",
@@ -9537,21 +9378,21 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "seed-runtime-constants",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-block-builder",
  "sp-consensus-babe",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-npos-elections 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-externalities",
+ "sp-inherents",
+ "sp-io",
+ "sp-npos-elections",
  "sp-offchain",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
  "sp-session",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-staking",
+ "sp-std",
  "sp-transaction-pool",
- "sp-version 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-version",
  "static_assertions",
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
@@ -9564,9 +9405,9 @@ dependencies = [
 name = "seed-runtime-constants"
 version = "0.9.28"
 dependencies = [
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-weights 20.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
+ "sp-weights",
 ]
 
 [[package]]
@@ -9864,57 +9705,22 @@ dependencies = [
 [[package]]
 name = "sp-api"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "hash-db 0.16.0",
- "log",
- "parity-scale-codec",
- "scale-info",
- "sp-api-proc-macro 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-metadata-ir 0.1.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-trie 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-version 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "thiserror",
-]
-
-[[package]]
-name = "sp-api"
-version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "hash-db 0.16.0",
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-api-proc-macro 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-metadata-ir 0.1.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-trie 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-version 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api-proc-macro",
+ "sp-core",
+ "sp-externalities",
+ "sp-metadata-ir",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-std",
+ "sp-trie",
+ "sp-version",
  "thiserror",
-]
-
-[[package]]
-name = "sp-api-proc-macro"
-version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "Inflector",
- "blake2",
- "expander",
- "proc-macro-crate 1.1.3",
- "proc-macro2",
- "quote",
- "syn 2.0.68",
 ]
 
 [[package]]
@@ -9934,41 +9740,14 @@ dependencies = [
 [[package]]
 name = "sp-application-crypto"
 version = "23.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
-]
-
-[[package]]
-name = "sp-application-crypto"
-version = "23.0.0"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
-]
-
-[[package]]
-name = "sp-arithmetic"
-version = "16.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "integer-sqrt",
- "num-traits",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "static_assertions",
+ "sp-core",
+ "sp-io",
+ "sp-std",
 ]
 
 [[package]]
@@ -9981,7 +9760,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-std",
  "static_assertions",
 ]
 
@@ -9990,10 +9769,10 @@ name = "sp-block-builder"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -10006,11 +9785,11 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "schnellru",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-consensus",
  "sp-database",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
+ "sp-state-machine",
  "thiserror",
 ]
 
@@ -10022,10 +9801,10 @@ dependencies = [
  "async-trait",
  "futures",
  "log",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-state-machine",
  "thiserror",
 ]
 
@@ -10037,12 +9816,12 @@ dependencies = [
  "async-trait",
  "parity-scale-codec",
  "scale-info",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-consensus-slots",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
  "sp-timestamp",
 ]
 
@@ -10055,13 +9834,13 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-consensus-slots",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
  "sp-timestamp",
 ]
 
@@ -10075,12 +9854,12 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -10091,58 +9870,13 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-std",
  "sp-timestamp",
 ]
 
 [[package]]
 name = "sp-core"
 version = "21.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "array-bytes",
- "bitflags 1.3.2",
- "blake2",
- "bounded-collections",
- "bs58 0.4.0",
- "dyn-clonable",
- "ed25519-zebra",
- "futures",
- "hash-db 0.16.0",
- "hash256-std-hasher",
- "impl-serde",
- "lazy_static",
- "libsecp256k1",
- "log",
- "merlin 2.0.1",
- "parity-scale-codec",
- "parking_lot 0.12.3",
- "paste",
- "primitive-types 0.12.2",
- "rand 0.8.5",
- "regex",
- "scale-info",
- "schnorrkel 0.9.1",
- "secp256k1",
- "secrecy",
- "serde",
- "sp-core-hashing 9.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-debug-derive 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "ss58-registry",
- "substrate-bip39",
- "thiserror",
- "tiny-bip39",
- "tracing",
- "zeroize",
-]
-
-[[package]]
-name = "sp-core"
-version = "21.0.0"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "array-bytes",
@@ -10171,12 +9905,12 @@ dependencies = [
  "secp256k1",
  "secrecy",
  "serde",
- "sp-core-hashing 9.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-debug-derive 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core-hashing",
+ "sp-debug-derive",
+ "sp-externalities",
+ "sp-runtime-interface",
+ "sp-std",
+ "sp-storage",
  "ss58-registry",
  "substrate-bip39",
  "thiserror",
@@ -10188,19 +9922,6 @@ dependencies = [
 [[package]]
 name = "sp-core-hashing"
 version = "9.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "blake2b_simd",
- "byteorder",
- "digest 0.10.7",
- "sha2 0.10.8",
- "sha3",
- "twox-hash",
-]
-
-[[package]]
-name = "sp-core-hashing"
-version = "9.0.0"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "blake2b_simd",
@@ -10214,20 +9935,10 @@ dependencies = [
 [[package]]
 name = "sp-core-hashing-proc-macro"
 version = "9.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "quote",
- "sp-core-hashing 9.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "syn 2.0.68",
-]
-
-[[package]]
-name = "sp-core-hashing-proc-macro"
-version = "9.0.0"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "quote",
- "sp-core-hashing 9.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core-hashing",
  "syn 2.0.68",
 ]
 
@@ -10243,16 +9954,6 @@ dependencies = [
 [[package]]
 name = "sp-debug-derive"
 version = "8.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.68",
-]
-
-[[package]]
-name = "sp-debug-derive"
-version = "8.0.0"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "proc-macro2",
@@ -10263,37 +9964,12 @@ dependencies = [
 [[package]]
 name = "sp-externalities"
 version = "0.19.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "environmental",
- "parity-scale-codec",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
-]
-
-[[package]]
-name = "sp-externalities"
-version = "0.19.0"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "environmental",
  "parity-scale-codec",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
-]
-
-[[package]]
-name = "sp-inherents"
-version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "async-trait",
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "scale-info",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "thiserror",
+ "sp-std",
+ "sp-storage",
 ]
 
 [[package]]
@@ -10305,34 +9981,9 @@ dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
+ "sp-std",
  "thiserror",
-]
-
-[[package]]
-name = "sp-io"
-version = "23.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "bytes",
- "ed25519 1.5.3",
- "ed25519-dalek 1.0.1",
- "libsecp256k1",
- "log",
- "parity-scale-codec",
- "rustversion",
- "secp256k1",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-tracing 10.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-trie 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "tracing",
- "tracing-core",
 ]
 
 [[package]]
@@ -10348,14 +9999,14 @@ dependencies = [
  "parity-scale-codec",
  "rustversion",
  "secp256k1",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-tracing 10.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-trie 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-externalities",
+ "sp-keystore",
+ "sp-runtime-interface",
+ "sp-state-machine",
+ "sp-std",
+ "sp-tracing",
+ "sp-trie",
  "tracing",
  "tracing-core",
 ]
@@ -10366,21 +10017,9 @@ version = "24.0.0"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "lazy_static",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
  "strum 0.24.1",
-]
-
-[[package]]
-name = "sp-keystore"
-version = "0.27.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "parity-scale-codec",
- "parking_lot 0.12.3",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "thiserror",
 ]
 
 [[package]]
@@ -10390,8 +10029,8 @@ source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1
 dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.3",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-externalities",
  "thiserror",
 ]
 
@@ -10407,37 +10046,12 @@ dependencies = [
 [[package]]
 name = "sp-metadata-ir"
 version = "0.1.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "frame-metadata",
- "parity-scale-codec",
- "scale-info",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
-]
-
-[[package]]
-name = "sp-metadata-ir"
-version = "0.1.0"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "frame-metadata",
  "parity-scale-codec",
  "scale-info",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
-]
-
-[[package]]
-name = "sp-npos-elections"
-version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
+ "sp-std",
 ]
 
 [[package]]
@@ -10448,10 +10062,10 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -10459,19 +10073,9 @@ name = "sp-offchain"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
-]
-
-[[package]]
-name = "sp-panic-handler"
-version = "8.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "backtrace",
- "lazy_static",
- "regex",
+ "sp-api",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -10491,29 +10095,7 @@ source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1
 dependencies = [
  "rustc-hash",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
-]
-
-[[package]]
-name = "sp-runtime"
-version = "24.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "either",
- "hash256-std-hasher",
- "impl-trait-for-tuples",
- "log",
- "parity-scale-codec",
- "paste",
- "rand 0.8.5",
- "scale-info",
- "serde",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-weights 20.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
+ "sp-core",
 ]
 
 [[package]]
@@ -10530,30 +10112,12 @@ dependencies = [
  "rand 0.8.5",
  "scale-info",
  "serde",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-weights 20.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
-]
-
-[[package]]
-name = "sp-runtime-interface"
-version = "17.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "bytes",
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "primitive-types 0.12.2",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime-interface-proc-macro 11.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-tracing 10.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-wasm-interface 14.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "static_assertions",
+ "sp-application-crypto",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-std",
+ "sp-weights",
 ]
 
 [[package]]
@@ -10565,25 +10129,13 @@ dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "primitive-types 0.12.2",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime-interface-proc-macro 11.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-storage 13.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-tracing 10.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-wasm-interface 14.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-externalities",
+ "sp-runtime-interface-proc-macro",
+ "sp-std",
+ "sp-storage",
+ "sp-tracing",
+ "sp-wasm-interface",
  "static_assertions",
-]
-
-[[package]]
-name = "sp-runtime-interface-proc-macro"
-version = "11.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "Inflector",
- "proc-macro-crate 1.1.3",
- "proc-macro2",
- "quote",
- "syn 2.0.68",
 ]
 
 [[package]]
@@ -10605,26 +10157,12 @@ source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1
 dependencies = [
  "parity-scale-codec",
  "scale-info",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
-]
-
-[[package]]
-name = "sp-staking"
-version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
+ "sp-api",
+ "sp-core",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
 ]
 
 [[package]]
@@ -10636,30 +10174,9 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
-]
-
-[[package]]
-name = "sp-state-machine"
-version = "0.28.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "hash-db 0.16.0",
- "log",
- "parity-scale-codec",
- "parking_lot 0.12.3",
- "rand 0.8.5",
- "smallvec",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-panic-handler 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-trie 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "thiserror",
- "tracing",
- "trie-db",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -10673,11 +10190,11 @@ dependencies = [
  "parking_lot 0.12.3",
  "rand 0.8.5",
  "smallvec",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-panic-handler 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-trie 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-externalities",
+ "sp-panic-handler",
+ "sp-std",
+ "sp-trie",
  "thiserror",
  "tracing",
  "trie-db",
@@ -10690,38 +10207,20 @@ source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1
 dependencies = [
  "parity-scale-codec",
  "scale-info",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime-interface 17.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-externalities",
+ "sp-runtime",
+ "sp-runtime-interface",
+ "sp-std",
  "thiserror",
 ]
 
 [[package]]
 name = "sp-std"
 version = "8.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-
-[[package]]
-name = "sp-std"
-version = "8.0.0"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
-
-[[package]]
-name = "sp-storage"
-version = "13.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "impl-serde",
- "parity-scale-codec",
- "ref-cast",
- "serde",
- "sp-debug-derive 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
-]
 
 [[package]]
 name = "sp-storage"
@@ -10732,8 +10231,8 @@ dependencies = [
  "parity-scale-codec",
  "ref-cast",
  "serde",
- "sp-debug-derive 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-debug-derive",
+ "sp-std",
 ]
 
 [[package]]
@@ -10743,22 +10242,10 @@ source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1
 dependencies = [
  "async-trait",
  "parity-scale-codec",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
  "thiserror",
-]
-
-[[package]]
-name = "sp-tracing"
-version = "10.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "parity-scale-codec",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "tracing",
- "tracing-core",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -10767,7 +10254,7 @@ version = "10.0.0"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "parity-scale-codec",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-std",
  "tracing",
  "tracing-core",
  "tracing-subscriber",
@@ -10778,8 +10265,8 @@ name = "sp-transaction-pool"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -10790,34 +10277,11 @@ dependencies = [
  "async-trait",
  "parity-scale-codec",
  "scale-info",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-trie 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
-]
-
-[[package]]
-name = "sp-trie"
-version = "22.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "ahash 0.8.11",
- "hash-db 0.16.0",
- "hashbrown 0.13.2",
- "lazy_static",
- "memory-db",
- "nohash-hasher",
- "parity-scale-codec",
- "parking_lot 0.12.3",
- "scale-info",
- "schnellru",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "thiserror",
- "tracing",
- "trie-db",
- "trie-root",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "sp-trie",
 ]
 
 [[package]]
@@ -10835,8 +10299,8 @@ dependencies = [
  "parking_lot 0.12.3",
  "scale-info",
  "schnellru",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-std",
  "thiserror",
  "tracing",
  "trie-db",
@@ -10846,23 +10310,6 @@ dependencies = [
 [[package]]
 name = "sp-version"
 version = "22.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "impl-serde",
- "parity-scale-codec",
- "parity-wasm",
- "scale-info",
- "serde",
- "sp-core-hashing-proc-macro 9.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-version-proc-macro 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "thiserror",
-]
-
-[[package]]
-name = "sp-version"
-version = "22.0.0"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "impl-serde",
@@ -10870,22 +10317,11 @@ dependencies = [
  "parity-wasm",
  "scale-info",
  "serde",
- "sp-core-hashing-proc-macro 9.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-version-proc-macro 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core-hashing-proc-macro",
+ "sp-runtime",
+ "sp-std",
+ "sp-version-proc-macro",
  "thiserror",
-]
-
-[[package]]
-name = "sp-version-proc-macro"
-version = "8.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "parity-scale-codec",
- "proc-macro2",
- "quote",
- "syn 2.0.68",
 ]
 
 [[package]]
@@ -10902,42 +10338,14 @@ dependencies = [
 [[package]]
 name = "sp-wasm-interface"
 version = "14.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "anyhow",
- "impl-trait-for-tuples",
- "log",
- "parity-scale-codec",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "wasmtime",
-]
-
-[[package]]
-name = "sp-wasm-interface"
-version = "14.0.0"
 source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting#de28b62ef6ea46133aca2d5f0962bfb3a4d81da7"
 dependencies = [
  "anyhow",
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-std",
  "wasmtime",
-]
-
-[[package]]
-name = "sp-weights"
-version = "20.0.0"
-source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN#da15379a00a2babb19b08a8833de8c7194e5cad5"
-dependencies = [
- "parity-scale-codec",
- "scale-info",
- "serde",
- "smallvec",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-debug-derive 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN)",
 ]
 
 [[package]]
@@ -10949,10 +10357,10 @@ dependencies = [
  "scale-info",
  "serde",
  "smallvec",
- "sp-arithmetic 16.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-debug-derive 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-debug-derive",
+ "sp-std",
 ]
 
 [[package]]
@@ -11256,11 +10664,11 @@ dependencies = [
  "parity-scale-codec",
  "sc-rpc-api",
  "sc-transaction-pool-api",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-block-builder",
  "sp-blockchain",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -11285,7 +10693,7 @@ dependencies = [
  "log",
  "sc-rpc-api",
  "serde",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -11307,11 +10715,11 @@ dependencies = [
  "serde_json",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
  "sp-keyring",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-state-machine",
 ]
 
 [[package]]
@@ -11321,8 +10729,8 @@ source = "git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1
 dependencies = [
  "array-bytes",
  "frame-executive",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "frame-support",
+ "frame-system",
  "frame-system-rpc-runtime-api",
  "log",
  "pallet-babe",
@@ -11331,25 +10739,25 @@ dependencies = [
  "parity-scale-codec",
  "sc-service",
  "scale-info",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-application-crypto 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
+ "sp-application-crypto",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-consensus-babe",
  "sp-consensus-grandpa",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-externalities",
+ "sp-inherents",
+ "sp-io",
  "sp-keyring",
  "sp-offchain",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
  "sp-session",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-std 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-state-machine",
+ "sp-std",
  "sp-transaction-pool",
- "sp-trie 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-version 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-trie",
+ "sp-version",
  "substrate-wasm-builder",
  "trie-db",
 ]
@@ -11363,11 +10771,11 @@ dependencies = [
  "sc-block-builder",
  "sc-client-api",
  "sc-consensus",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-runtime",
  "substrate-test-client",
  "substrate-test-runtime",
 ]
@@ -11987,22 +11395,22 @@ dependencies = [
  "sc-executor",
  "serde",
  "serde_json",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-api",
  "sp-consensus-aura",
  "sp-consensus-babe",
- "sp-core 21.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-debug-derive 8.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-externalities 0.19.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-io 23.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-keystore 0.27.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-core",
+ "sp-debug-derive",
+ "sp-externalities",
+ "sp-inherents",
+ "sp-io",
+ "sp-keystore",
  "sp-rpc",
- "sp-runtime 24.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-state-machine 0.28.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-runtime",
+ "sp-state-machine",
  "sp-timestamp",
  "sp-transaction-storage-proof",
- "sp-version 22.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
- "sp-weights 20.0.0 (git+https://github.com/futureversecom/trn-substrate?branch=polkadot-v1.0.0-TRN-voting)",
+ "sp-version",
+ "sp-weights",
  "substrate-rpc-client",
  "zstd 0.12.4",
 ]
