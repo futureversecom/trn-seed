@@ -3,6 +3,7 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { Contract, Wallet, utils } from "ethers";
+
 import {
   ALITH_PRIVATE_KEY,
   ERC20_ABI,
@@ -56,7 +57,7 @@ describe("FeeProxy EVM logs are canonicalized", function () {
           null,
           null,
         ),
-      ])
+      ]),
     );
   });
 
@@ -86,7 +87,7 @@ describe("FeeProxy EVM logs are canonicalized", function () {
     // Verify at least one log is from the token and has the Transfer topic
     const transferTopic = utils.id("Transfer(address,address,uint256)");
     const matched = logs.find(
-      (l) => l.address.toLowerCase() === token.address.toLowerCase() && l.topics[0] === transferTopic
+      (l) => l.address.toLowerCase() === token.address.toLowerCase() && l.topics[0] === transferTopic,
     );
     expect(matched, "missing canonicalized Transfer log").to.not.be.undefined;
   });
