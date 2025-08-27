@@ -1,7 +1,7 @@
 use frame_election_provider_support::private::sp_arithmetic::traits::{Bounded, CheckedAdd, CheckedDiv, CheckedMul};
 use frame_support::dispatch::TypeInfo;
 use pallet_democracy::{Conviction, Delegations, VoteWeight};
-use sp_runtime::traits::Zero;
+use sp_runtime::traits::{IntegerSquareRoot, Zero};
 
 /// A custom quadratic vote weight implementation for democracy pallet.
 /// Follows the formula votes = Sqrt(capital * conviction)
@@ -12,7 +12,7 @@ use sp_runtime::traits::Zero;
 pub struct QuadraticVoteWeight;
 
 impl VoteWeight for QuadraticVoteWeight {
-    fn votes<B: From<u8> + Zero + Copy + CheckedMul + CheckedDiv + CheckedAdd + PartialOrd + Bounded>(
+    fn votes<B: From<u8> + Zero + Copy + CheckedMul + CheckedDiv + CheckedAdd + PartialOrd + Bounded + IntegerSquareRoot>(
         conviction: Conviction,
         capital: B,
     ) -> Delegations<B> {
@@ -26,24 +26,9 @@ impl VoteWeight for QuadraticVoteWeight {
             x => capital.checked_mul(&u8::from(x).into()).unwrap_or_else(B::max_value),
         };
 
-        // Use Newton's method to approximate the square root of capital
-        // This is both more efficient and works with the annoying generic type B
-        let one: B = 1u8.into();
-        let mut x = scaled_capital;
-        let mut y = x
-            .checked_add(&one)
-            .and_then(|sum| sum.checked_div(&one.checked_add(&one).unwrap()))
-            .unwrap_or(x);
+        let capital_squared = scaled_capital.integer_sqrt();
 
-        while y < x {
-            x = y;
-            y = x
-                .checked_add(&scaled_capital.checked_div(&x).unwrap_or(x))
-                .and_then(|sum| sum.checked_div(&one.checked_add(&one).unwrap()))
-                .unwrap_or(x);
-        }
-
-        Delegations { votes: x, capital }
+        Delegations { votes: capital_squared, capital }
     }
 }
 
