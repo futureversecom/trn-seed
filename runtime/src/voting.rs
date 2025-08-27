@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn test_quadratic_vote_weight_tiny_capital_x1() {
         // 1 at 1x conviction should yield 1 vote
-        // sqrt(1) * 1 = 1
+        // sqrt(1 * 1) = 1
         let capital: u128 = 1;
         let conviction = Conviction::Locked1x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn test_quadratic_vote_weight_tiny_capital_none() {
         // 1 at 1x conviction should yield 0 votes
-        // sqrt(1) * 0.1 = 0
+        // sqrt(1 * 0.1) = 0
         let capital: u128 = 1;
         let conviction = Conviction::None;
         let result = QuadraticVoteWeight::votes(conviction, capital);
@@ -164,7 +164,7 @@ mod tests {
     #[test]
     fn test_quadratic_vote_weight_zero_capital() {
         // 0 at 1x conviction should yield 0 votes
-        // sqrt(0) * 1 = 0
+        // sqrt(0 * 1) = 0
         let capital: u128 = 0;
         let conviction = Conviction::Locked1x;
         let result = QuadraticVoteWeight::votes(conviction, capital);

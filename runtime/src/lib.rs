@@ -841,6 +841,7 @@ impl pallet_session::historical::Config for Runtime {
 parameter_types! {
 	pub const BagThresholds: &'static [u64] = &bag_thresholds::THRESHOLDS;
 }
+
 impl pallet_bags_list::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ScoreProvider = Staking;
@@ -916,6 +917,7 @@ parameter_types! {
 		.max
 		.get(DispatchClass::Normal);
 }
+
 impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	type AccountId = AccountId;
 	type MaxLength = OffchainSolutionLengthLimit;
@@ -1053,6 +1055,7 @@ parameter_types! {
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
 	pub const MaxPeerDataEncodingSize: u32 = 1_000;
 }
+
 impl pallet_im_online::Config for Runtime {
 	type AuthorityId = ImOnlineId;
 	type RuntimeEvent = RuntimeEvent;
@@ -1575,9 +1578,9 @@ impl frame_support::traits::SortedMembers<AccountId> for FastTrackMembers {
 }
 
 parameter_types! {
-	pub const LaunchPeriod: BlockNumber =  10 * MINUTES;
-	pub const VotingPeriod: BlockNumber = 10 * MINUTES;
-	pub const FastTrackVotingPeriod: BlockNumber = 10 * MINUTES;
+	pub const LaunchPeriod: BlockNumber =  5 * MINUTES;
+	pub const VotingPeriod: BlockNumber = 5 * MINUTES;
+	pub const FastTrackVotingPeriod: BlockNumber = 2 * MINUTES;
 	pub const MinimumDeposit: Balance = 100 * ONE_ROOT;
 	pub const EnactmentPeriod: BlockNumber = 5 * MINUTES;
 	pub const CooloffPeriod: BlockNumber = 5 * MINUTES;
