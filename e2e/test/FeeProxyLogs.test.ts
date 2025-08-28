@@ -168,7 +168,12 @@ describe("FeeProxy EVM logs are canonicalized", function () {
     const blockNumber = receipt.blockNumber;
     const transferTopic = utils.id("Transfer(address,address,uint256)");
 
-    const logs = await provider.getLogs({ address: token.address, topics: [transferTopic], fromBlock: blockNumber, toBlock: blockNumber });
+    const logs = await provider.getLogs({
+      address: token.address,
+      topics: [transferTopic],
+      fromBlock: blockNumber,
+      toBlock: blockNumber,
+    });
     // Expect exactly one Transfer log from this call within the block
     // (deduplication avoids staging the same log twice)
     const count = logs.filter((l) => l.address.toLowerCase() === token.address.toLowerCase()).length;
@@ -230,7 +235,12 @@ describe("FeeProxy EVM logs are canonicalized", function () {
     // Logs are canonicalized with a synthetic transaction hash; ensure eth_getTransactionByHash returns null
     const latestBlock = await provider.getBlockNumber();
     const transferTopic = utils.id("Transfer(address,address,uint256)");
-    const logs = await provider.getLogs({ address: tokenAddr, topics: [transferTopic], fromBlock: latestBlock, toBlock: latestBlock });
+    const logs = await provider.getLogs({
+      address: tokenAddr,
+      topics: [transferTopic],
+      fromBlock: latestBlock,
+      toBlock: latestBlock,
+    });
     expect(logs.length).to.be.greaterThan(0);
 
     const syntheticLog = logs[0];
