@@ -841,6 +841,8 @@ pub mod pallet {
 		where
 			T: pallet_ethereum::Config,
 		{
+			use sp_io::hashing::keccak_256;
+
 			// Merge any staged EVM activities into Frontier's canonical Current* storages
 			let mut staged = StagedEvmActivities::<T>::take();
 			if staged.is_empty() {
@@ -862,8 +864,53 @@ pub mod pallet {
 			let mut block_logs_bloom =
 				block.as_ref().map(|b| b.header.logs_bloom).unwrap_or_default();
 
-			for activity in staged.into_iter() {
-				// Build a TransactionStatus entry
+			// Build a set of existing log fingerprints in this block to avoid duplicates.
+			// Fingerprint is computed from (from, to, log.address, topics, data).
+			let mut seen: sp_std::collections::btree_set::BTreeSet<[u8; 32]> =
+				sp_std::collections::btree_set::BTreeSet::new();
+			for s in &statuses {
+				for lg in &s.logs {
+					let mut buf: sp_std::vec::Vec<u8> = sp_std::vec::Vec::new();
+					buf.extend_from_slice(&s.from[..]);
+					if let Some(to) = s.to {
+						buf.extend_from_slice(&to[..]);
+					}
+					buf.extend_from_slice(&lg.address[..]);
+					for t in &lg.topics {
+						buf.extend_from_slice(&t[..]);
+					}
+					buf.extend_from_slice(&lg.data);
+					seen.insert(keccak_256(&buf));
+				}
+			}
+
+			for mut activity in staged.into_iter() {
+				// Filter out logs already present in Frontier statuses for this block.
+				let mut unique_logs: sp_std::vec::Vec<ethereum::Log> = sp_std::vec::Vec::new();
+				for lg in &activity.logs {
+					let mut buf: sp_std::vec::Vec<u8> = sp_std::vec::Vec::new();
+					buf.extend_from_slice(&activity.from[..]);
+					if let Some(to) = activity.to {
+						buf.extend_from_slice(&to[..]);
+					}
+					buf.extend_from_slice(&lg.address[..]);
+					for t in &lg.topics {
+						buf.extend_from_slice(&t[..]);
+					}
+					buf.extend_from_slice(&lg.data);
+					let fp = keccak_256(&buf);
+					if !seen.contains(&fp) {
+						unique_logs.push(lg.clone());
+						seen.insert(fp);
+					}
+				}
+
+				// If nothing unique, skip appending a synthetic status for this activity.
+				if unique_logs.is_empty() {
+					continue;
+				}
+
+				// Build a TransactionStatus entry with only the unique logs
 				let transaction_index = statuses.len() as u32;
 				let mut status = fp_rpc::TransactionStatus {
 					transaction_hash: activity.tx_hash,
@@ -871,13 +918,13 @@ pub mod pallet {
 					from: activity.from,
 					to: activity.to,
 					contract_address: None,
-					logs: activity.logs.clone(),
+					logs: unique_logs,
 					logs_bloom: Default::default(),
 				};
 
 				// Compute logs bloom like Frontier does
 				let mut bloom = ethereum_types::Bloom::default();
-				for log in &activity.logs {
+				for log in &status.logs {
 					bloom.accrue(ethereum_types::BloomInput::Raw(&log.address[..]));
 					for topic in &log.topics {
 						bloom.accrue(ethereum_types::BloomInput::Raw(&topic[..]));
@@ -886,10 +933,11 @@ pub mod pallet {
 				status.logs_bloom = bloom;
 
 				// Append status
-				statuses.push(status.clone());
+				let appended = status.clone();
+				statuses.push(status);
 
 				// Accrue into block bloom
-				for status_log in &status.logs {
+				for status_log in &appended.logs {
 					block_logs_bloom
 						.accrue(ethereum_types::BloomInput::Raw(&status_log.address[..]));
 					for topic in &status_log.topics {

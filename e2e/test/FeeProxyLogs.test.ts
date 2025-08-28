@@ -158,6 +158,86 @@ describe("FeeProxy EVM logs are canonicalized", function () {
     }
   });
 
+  it("does not duplicate logs when calling FeeProxy via eth_sendTransaction", async () => {
+    const tokenAddr = assetIdToERC20ContractAddress(feeTokenAssetId);
+    const token = new Contract(tokenAddr, ERC20_ABI, empty);
+
+    const receipt = await callFeeProxyTransfer(token, empty.address, 3);
+    expect(receipt.status).to.eq(1);
+
+    const blockNumber = receipt.blockNumber;
+    const transferTopic = utils.id("Transfer(address,address,uint256)");
+
+    const logs = await provider.getLogs({ address: token.address, topics: [transferTopic], fromBlock: blockNumber, toBlock: blockNumber });
+    // Expect exactly one Transfer log from this call within the block
+    // (deduplication avoids staging the same log twice)
+    const count = logs.filter((l) => l.address.toLowerCase() === token.address.toLowerCase()).length;
+    expect(count).to.eq(1);
+  });
+
+  it("synthetic transaction hashes from extrinsic path are not retrievable via eth_getTransactionByHash", async () => {
+    // Build a Substrate extrinsic that performs an EVM ERC20 transfer via pallet-evm
+    const tokenAddr = assetIdToERC20ContractAddress(feeTokenAssetId);
+    const iface = new utils.Interface(ERC20_ABI);
+    const transferData = iface.encodeFunctionData("transfer", [empty.address, 1]);
+
+    const sender = alith.address; // extrinsic signer and EVM sender
+    const value = 0; // eth
+    const gasLimit = 200_000;
+    const maxFeePerGas = "15000000000000";
+    const maxPriorityFeePerGas = null;
+    const nonce = null;
+    const accessList = null;
+
+    const evmCall = api.tx.evm.call(
+      sender,
+      tokenAddr,
+      transferData,
+      value,
+      gasLimit,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      nonce,
+      accessList,
+    );
+
+    // Estimate token amount required to pay fees via FeeProxy
+    const evmCallGasEstimate = await evmCall.paymentInfo(sender);
+    const evmCallFeeInXRP = evmCallGasEstimate.partialFee.toNumber();
+    const feeProxyExtrinsicInfo = await api.tx.feeProxy
+      .callWithFeePreferences(
+        feeTokenAssetId,
+        utils.parseEther("1").toString(),
+        api.createType("Call", evmCall).toHex(),
+      )
+      .paymentInfo(sender);
+    const feeProxyFeeInXRP = feeProxyExtrinsicInfo.partialFee.toNumber();
+    const estimatedTotalXRP = evmCallFeeInXRP + feeProxyFeeInXRP;
+    const {
+      Ok: [estimatedTokenTxCost],
+    } = await (api.rpc as any).dex.getAmountsIn(estimatedTotalXRP, [feeTokenAssetId, GAS_TOKEN_ID]);
+
+    // Execute fee-proxied extrinsic (Substrate-origin path)
+    await finalizeTx(
+      alith,
+      api.tx.feeProxy.callWithFeePreferences(
+        feeTokenAssetId,
+        estimatedTokenTxCost.toString(),
+        api.createType("Call", evmCall),
+      ),
+    );
+
+    // Logs are canonicalized with a synthetic transaction hash; ensure eth_getTransactionByHash returns null
+    const latestBlock = await provider.getBlockNumber();
+    const transferTopic = utils.id("Transfer(address,address,uint256)");
+    const logs = await provider.getLogs({ address: tokenAddr, topics: [transferTopic], fromBlock: latestBlock, toBlock: latestBlock });
+    expect(logs.length).to.be.greaterThan(0);
+
+    const syntheticLog = logs[0];
+    const tx = await provider.getTransaction(syntheticLog.transactionHash);
+    expect(tx, "synthetic tx hash should not resolve to a transaction").to.be.null;
+  });
+
   after(async () => {
     await node.stop();
   });
