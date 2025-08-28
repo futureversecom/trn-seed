@@ -49,6 +49,7 @@ describe("FeeProxy EVM logs are canonicalized", function () {
         api.tx.assetsExt.createAsset("test", "TEST", 18, 1, alith.address),
         api.tx.assets.mint(feeTokenAssetId, alith.address, 1_000_000_000_000),
         api.tx.assets.mint(feeTokenAssetId, empty.address, 1_000_000_000_000),
+        api.tx.assets.mint(2, empty.address, 1_000_000_000_000),
         api.tx.dex.addLiquidity(
           feeTokenAssetId,
           GAS_TOKEN_ID,
@@ -155,6 +156,53 @@ describe("FeeProxy EVM logs are canonicalized", function () {
       const idxLower = tokenLogsInBlock.findIndex((l) => l.transactionHash === lowerTx.transactionHash);
       const idxHigher = tokenLogsInBlock.findIndex((l) => l.transactionHash === higherTx.transactionHash);
       expect(idxLower).to.be.lessThan(idxHigher);
+    }
+  });
+
+  it("should not return duplicate events", async () => {
+    const tokenAddr = assetIdToERC20ContractAddress(feeTokenAssetId);
+    const token = new Contract(tokenAddr, ERC20_ABI, empty);
+
+    const tx = await token.transfer(alith.address, 1, { gasLimit: 500000 });
+    const receipt = await tx.wait();
+
+    const logs = await provider.getLogs({ fromBlock: receipt.blockNumber });
+
+    console.log({ logs });
+
+    // eth_getLogs should only return 1 log
+    expect(logs.length).to.eq(1);
+  });
+
+  it.only("can get transaction from log", async () => {
+    const block = await provider.getBlockNumber();
+
+    const iface = new utils.Interface(ERC20_ABI);
+    const transferData = iface.encodeFunctionData("transfer", [empty.address, 1]);
+
+    await finalizeTx(
+      alith,
+      api.tx.evm.call(
+        alith.address,
+        assetIdToERC20ContractAddress(feeTokenAssetId),
+        transferData,
+        0,
+        "1000000",
+        "10000000000000000",
+        null,
+        null,
+        [],
+      ),
+    );
+
+    const logs = await provider.getLogs({ fromBlock: block });
+
+    console.log({ logs });
+
+    for (const log of logs) {
+      const tx = await provider.getTransaction(log.transactionHash);
+
+      expect(tx).to.not.be.null;
     }
   });
 
