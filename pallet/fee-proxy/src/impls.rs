@@ -124,6 +124,7 @@ where
 				total_fee = total_fee.saturating_add(minimum_balance);
 			}
 			let path: &[AssetId] = &[*payment_asset, native_asset];
+
 			pallet_dex::Pallet::<T>::do_swap_with_exact_target(
 				who,
 				total_fee,

@@ -115,6 +115,8 @@ impl Config for Test {
 	type MaxCallRequests = MaxCallRequests;
 	type WeightInfo = ();
 	type MaxProcessedMessageIds = MaxProcessedMessageIds;
+	/// No-op merge in tests
+	type FrontierLogMerge = crate::NoFrontierMerge;
 }
 
 pub struct MockXrplBridgeAdapter;

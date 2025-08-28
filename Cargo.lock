@@ -5504,7 +5504,9 @@ name = "pallet-ethy"
 version = "1.0.1"
 dependencies = [
  "ethabi",
+ "ethereum 0.14.0",
  "ethereum-types 0.14.1",
+ "fp-rpc",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5512,6 +5514,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
+ "pallet-ethereum",
  "pallet-scheduler",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -5850,6 +5853,7 @@ name = "pallet-fee-proxy"
 version = "0.1.0"
 dependencies = [
  "ethabi",
+ "ethereum 0.14.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5858,6 +5862,8 @@ dependencies = [
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-dex",
+ "pallet-ethereum",
+ "pallet-ethy",
  "pallet-evm",
  "pallet-fee-control",
  "pallet-futurepass",
@@ -5876,6 +5882,7 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]

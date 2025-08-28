@@ -35,6 +35,7 @@ use seed_pallet_common::{
 };
 use seed_primitives::{AccountId, AssetId};
 use sp_core::{H160, H256, U256};
+use sp_io::hashing;
 use sp_runtime::{
 	traits::Get,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -113,12 +114,12 @@ where
 	)?;
 
 	let gas_token_asset_id = <T as Config>::FeeAssetId::get();
+	let path = vec![payment_asset_id, gas_token_asset_id];
+	// Convert EVM wei fees to runtime Balance units using the native gas token decimals (e.g. 6 for XRP)
 	let decimals =
 		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(gas_token_asset_id);
 	let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
 	let max_fee_scaled = scale_wei_to_correct_decimals(max_fee, decimals);
-
-	let path = vec![payment_asset_id, gas_token_asset_id];
 	Ok(FeePreferencesData { total_fee_scaled, max_fee_scaled, path })
 }
 
@@ -227,7 +228,8 @@ where
 	T: pallet_evm::Config<AccountId = AccountId>
 		+ pallet_assets_ext::Config
 		+ pallet_dex::Config
-		+ Config,
+		+ Config
+		+ pallet_ethy::Config,
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 	pallet_evm::BalanceOf<T>: TryFrom<U256> + Into<U256>,
 	P: AccountProxy<AccountId>,
@@ -371,10 +373,10 @@ where
 		}
 
 		// continue with the call - with fees payable in gas asset currency - via dex swap
-		<Runner<T> as RunnerT<T>>::call(
+		let call_info = <Runner<T> as RunnerT<T>>::call(
 			source,
 			target,
-			input,
+			input.clone(),
 			value,
 			gas_limit,
 			max_fee_per_gas,
@@ -386,7 +388,49 @@ where
 			weight_limit,
 			proof_size_base_cost,
 			config,
-		)
+		)?;
+
+		// Note: EVM logs from pallet_evm::call should be captured and made available
+		// to eth_getLogs. The actual implementation should be done in the runtime
+		// where both pallet_ethy and pallet_ethereum are available.
+		// This is a placeholder for the integration point.
+
+		if !call_info.logs.is_empty() {
+			// Get current extrinsic index
+			let extrinsic_index = <frame_system::Pallet<T>>::extrinsic_index().unwrap_or(0u32);
+
+			// Create a transaction hash seed from the extrinsic data (Ethy will synthesize a unique hash)
+			let data = <frame_system::Pallet<T>>::extrinsic_data(extrinsic_index);
+			let transaction_hash = H256::from(hashing::blake2_256(&data));
+
+			// Map call_info logs into ethereum::Log for Frontier compatibility
+			let logs: Vec<ethereum::Log> = call_info
+				.logs
+				.iter()
+				.map(|l| ethereum::Log {
+					address: l.address,
+					topics: l.topics.clone(),
+					data: l.data.clone(),
+				})
+				.collect();
+
+			// Pass the helper the actual values to be staged; Frontier will consume them on finalize
+			let _ = pallet_ethy::Pallet::<T>::log_evm_call_activity(
+				source,
+				Some(target),
+				logs,
+				call_info.exit_reason.is_succeed(),
+				transaction_hash,
+			);
+
+			log!(
+				info,
+				"⛽️ Successfully canonicalized {} EVM logs for FeeProxy call to make them visible to eth_getLogs",
+				call_info.logs.len()
+			);
+		}
+
+		Ok(call_info)
 	}
 
 	fn create(

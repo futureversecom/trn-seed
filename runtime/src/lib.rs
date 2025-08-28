@@ -1181,6 +1181,8 @@ impl pallet_ethy::Config for Runtime {
 	type MaxMessagesPerBlock = MaxMessagesPerBlock;
 	type MaxCallRequests = MaxCallRequests;
 	type WeightInfo = weights::pallet_ethy::WeightInfo<Runtime>;
+	/// Enable Frontier merge in runtime to expose pallet-origin EVM logs via Ethereum RPC.
+	type FrontierLogMerge = pallet_ethy::FrontierMerge;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
