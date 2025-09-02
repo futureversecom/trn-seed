@@ -142,11 +142,9 @@ mod weights;
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
 use seed_primitives::migration::NoopMigration;
-use crate::voting::QuadraticVoteWeight;
 
 #[cfg(test)]
 mod tests;
-mod voting;
 
 /// Currency implementation mapped to XRP
 pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Runtime, XrpAssetId>;
@@ -1641,7 +1639,6 @@ impl pallet_democracy::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
 	// NOTE: check where we want this to be
 	type Slash = SlashImbalanceHandler;
-	type VoteWeight = QuadraticVoteWeight;
 }
 
 construct_runtime!(
