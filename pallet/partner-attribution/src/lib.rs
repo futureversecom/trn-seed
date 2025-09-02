@@ -114,14 +114,39 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Attributions<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, u128>;
 
+	/// Admin account for Attribution Percentage operations
+	#[pallet::storage]
+	pub(super) type AdminAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
-		PartnerRegistered { partner_id: u128, partner: PartnerInformation<T::AccountId> },
-		PartnerUpdated { partner_id: u128, account: T::AccountId },
-		PartnerRemoved { partner_id: u128, account: T::AccountId },
-		PartnerUpgraded { partner_id: u128, account: T::AccountId, fee_percentage: Permill },
-		AccountAttributed { partner_id: u128, account: T::AccountId },
+		PartnerRegistered {
+			partner_id: u128,
+			partner: PartnerInformation<T::AccountId>,
+		},
+		PartnerUpdated {
+			partner_id: u128,
+			account: T::AccountId,
+		},
+		PartnerRemoved {
+			partner_id: u128,
+			account: T::AccountId,
+		},
+		PartnerUpgraded {
+			partner_id: u128,
+			account: T::AccountId,
+			fee_percentage: Permill,
+		},
+		AccountAttributed {
+			partner_id: u128,
+			account: T::AccountId,
+		},
+		/// Admin Account changed
+		AdminAccountChanged {
+			old_key: Option<T::AccountId>,
+			new_key: T::AccountId,
+		},
 	}
 
 	#[pallet::error]
@@ -140,6 +165,8 @@ pub mod pallet {
 		AccountAlreadyAttributed,
 		/// Maximum number of partners exceeded
 		MaxPartnersExceeded,
+		/// Caller must be admin account
+		RequireAdmin,
 	}
 
 	#[pallet::call]
@@ -263,7 +290,7 @@ pub mod pallet {
 			#[pallet::compact] partner_id: u128,
 			#[pallet::compact] fee_percentage: Permill,
 		) -> DispatchResult {
-			T::ApproveOrigin::ensure_origin(origin)?;
+			Self::ensure_root_or_admin(origin)?;
 
 			Partners::<T>::mutate(partner_id, |maybe_partner| {
 				let Some(ref mut partner) = maybe_partner else {
@@ -342,6 +369,33 @@ pub mod pallet {
 			Self::deposit_event(Event::PartnerRemoved { partner_id, account: partner.account });
 
 			Ok(())
+		}
+
+		/// Set the admin account for DEX operations
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::set_admin())]
+		pub fn set_admin(origin: OriginFor<T>, new: T::AccountId) -> DispatchResult {
+			Self::ensure_root_or_admin(origin)?;
+
+			let old_key = AdminAccount::<T>::get();
+			AdminAccount::<T>::put(new.clone());
+			Self::deposit_event(Event::AdminAccountChanged { old_key, new_key: new });
+			Ok(())
+		}
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	fn ensure_root_or_admin(origin: OriginFor<T>) -> Result<Option<T::AccountId>, DispatchError> {
+		match ensure_signed_or_root(origin)? {
+			Some(who) => {
+				ensure!(
+					AdminAccount::<T>::get().map_or(false, |k| who == k),
+					Error::<T>::RequireAdmin
+				);
+				Ok(Some(who))
+			},
+			None => Ok(None),
 		}
 	}
 }
