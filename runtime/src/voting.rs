@@ -3,16 +3,16 @@ use frame_support::dispatch::TypeInfo;
 use pallet_democracy::{Conviction, Delegations, VoteWeight};
 use sp_runtime::traits::{IntegerSquareRoot, Zero};
 
-// Precompute square root conviction factors for faster lookup at runtime
-// Factors: sqrt({0.1,1,2,3,4,5,6} / 6)
-const SQRT_CONVICTION_FACTORS: [u32; 7] = [
-    129_099_445, // sqrt(0.1/6) ≈ 0.1290994449
-    408_248_290, // sqrt(1/6)   ≈ 0.4082482905
-    577_350_269, // sqrt(2/6)   ≈ 0.5773502692
-    707_106_781, // sqrt(3/6)   ≈ 0.7071067812
-    816_496_581, // sqrt(4/6)   ≈ 0.8164965809
-    912_870_929, // sqrt(5/6)   ≈ 0.9128709292
-    1_000_000_000, // sqrt(6/6) = 1.0
+// Precompute exponent conviction values for faster lookup at runtime
+// value = (conviction ^ 1.285) / (6 ^ 1.285)
+const EXP_CONVICTION_FACTORS: [u32; 7] = [
+    5_188_904,     // 0.005188904
+    100_017_419,   // 0.100017419
+    243_724_500,   // 0.243724500
+    410_370_804,   // 0.410370804
+    593_912_864,   // 0.593912864
+    791_137_734,   // 0.791137734
+    1_000_000_000, // 1.0
 ];
 
 // To get around Substrate's annoying type restrictions, this helper can convert a u32 into
@@ -63,7 +63,7 @@ impl VoteWeight for QuadraticVoteWeight {
 
         // Get sqrt(rep) factor from the precomputed list and multiply by capital
         let id = u8::from(conviction) as usize;
-        let factor: u32 = SQRT_CONVICTION_FACTORS.get(id).copied().unwrap_or(0);
+        let factor: u32 = EXP_CONVICTION_FACTORS.get(id).copied().unwrap_or(0);
         let factor = match from_u32::<B>(factor) {
             Some(v) => v,
             None => return Delegations { votes: B::zero(), capital },
@@ -85,67 +85,60 @@ mod tests {
 
     #[test]
     fn test_quadratic_vote_weight_x0() {
-        // 1_000_000 * sqrt(0.1/6) = 129_099
         let capital: u128 = 1_000_000;
         let conviction = Conviction::None;
         let result = QuadraticVoteWeight::votes(conviction, capital);
         assert_eq!(result.capital, capital);
-        assert_eq!(result.votes, 129_099);
+        assert_eq!(result.votes, 5_188);
     }
 
     #[test]
     fn test_quadratic_vote_weight_x1() {
-        // 1_000_000 * sqrt(1/6) = 408_248
         let capital: u128 = 1_000_000;
         let conviction = Conviction::Locked1x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
         assert_eq!(result.capital, capital);
-        assert_eq!(result.votes, 408_248);
+        assert_eq!(result.votes, 100_017);
     }
 
     #[test]
     fn test_quadratic_vote_weight_x2() {
-        // 1_000_000 * sqrt(2/6) = 577_350
         let capital: u128 = 1_000_000;
         let conviction = Conviction::Locked2x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
         assert_eq!(result.capital, capital);
-        assert_eq!(result.votes, 577_350);
+        assert_eq!(result.votes, 243_724);
     }
 
     #[test]
     fn test_quadratic_vote_weight_x3() {
-        // 1_000_000 * sqrt(3/6) = 707_106
         let capital: u128 = 1_000_000;
         let conviction = Conviction::Locked3x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
         assert_eq!(result.capital, capital);
-        assert_eq!(result.votes, 707_106);
+        assert_eq!(result.votes, 410_370);
     }
 
     #[test]
     fn test_quadratic_vote_weight_x4() {
-        // 1_000_000 * sqrt(4/6) = 816_496
         let capital: u128 = 1_000_000;
         let conviction = Conviction::Locked4x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
         assert_eq!(result.capital, capital);
-        assert_eq!(result.votes, 816_496);
+        assert_eq!(result.votes, 593_912);
     }
 
     #[test]
     fn test_quadratic_vote_weight_x5() {
-        // 1_000_000 * sqrt(5/6) = 912_870
         let capital: u128 = 1_000_000;
         let conviction = Conviction::Locked5x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
         assert_eq!(result.capital, capital);
-        assert_eq!(result.votes, 912_870);
+        assert_eq!(result.votes, 791_137);
     }
 
     #[test]
     fn test_quadratic_vote_weight_x6() {
-        // 1_000_000 * sqrt(6/6) = 1_000_000
         let capital: u128 = 1_000_000;
         let conviction = Conviction::Locked6x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
@@ -155,9 +148,8 @@ mod tests {
 
     #[test]
     fn test_quadratic_vote_weight_tiny_capital_x1() {
-        // 3 at 1x conviction should yield 1 vote
-        // 3 * sqrt(1/6) = 1
-        let capital: u128 = 3;
+        // 10 at 1x conviction should yield 1 vote
+        let capital: u128 = 10;
         let conviction = Conviction::Locked1x;
         let result = QuadraticVoteWeight::votes(conviction, capital);
         assert_eq!(result.votes, 1);
@@ -166,9 +158,8 @@ mod tests {
 
     #[test]
     fn test_quadratic_vote_weight_tiny_capital_none() {
-        // 1 at 1x conviction should yield 0 votes
-        // 7 * sqrt(0.1/6)
-        let capital: u128 = 7;
+        // 192 at 0.1x conviction should yield 0 votes
+        let capital: u128 = 192;
         let conviction = Conviction::None;
         let result = QuadraticVoteWeight::votes(conviction, capital);
         assert_eq!(result.votes, 0);

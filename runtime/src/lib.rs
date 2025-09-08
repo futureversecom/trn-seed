@@ -252,6 +252,8 @@ impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 			RuntimeCall::Staking(pallet_staking::Call::payout_stakers { .. }) => false,
 			// Disable Proxy::add_proxy
 			RuntimeCall::Proxy(pallet_proxy::Call::add_proxy { .. }) => false,
+			// Prevent new users from submitting their candidacy to the council
+			RuntimeCall::Elections(pallet_elections_phragmen::Call::submit_candidacy { .. }) => false,
 			_ => true,
 		}
 	}
@@ -1617,7 +1619,7 @@ impl pallet_democracy::Config for Runtime {
 	type ExternalDefaultOrigin =
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 1>;
 	type SubmitOrigin = EnsureSigned<AccountId>;
-	/// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
+	/// Two fifths of the technical committee can have an ExternalMajority/ExternalDefault vote
 	/// be tabled immediately and with a shorter voting/enactment period.
 	type FastTrackOrigin =
 	pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
