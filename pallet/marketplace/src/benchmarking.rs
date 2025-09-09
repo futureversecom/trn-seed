@@ -357,6 +357,15 @@ benchmarks! {
 		assert!(Offers::<T>::get(offer_id).is_none());
 	}
 
+	remove_offer {
+		let collection_id = build_collection::<T>(None);
+		let offer_id = offer_builder::<T>(collection_id);
+	}: _(origin::<T>(&account::<T>("Alice")), offer_id)
+	verify {
+		assert_eq!(NextOfferId::<T>::get(), offer_id + 1);
+		assert!(Offers::<T>::get(offer_id).is_none());
+	}
+
 	set_fee_to {
 		let fee_account = account::<T>("Alice");
 	}: _(RawOrigin::Root, Some(fee_account))

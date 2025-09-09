@@ -349,7 +349,7 @@ impl<T: Config> Pallet<T> {
 		};
 		ensure!(offer.buyer == who, Error::<T>::NotBuyer);
 		T::MultiCurrency::release_hold(T::PalletId::get(), &who, offer.asset_id, offer.amount)?;
-		Self::remove_offer(offer_id, offer.token_id)?;
+		Self::internal_remove_offer(offer_id, offer.token_id)?;
 		Self::deposit_event(Event::<T>::OfferCancel {
 			offer_id,
 			marketplace_id: offer.marketplace_id,
@@ -401,7 +401,7 @@ impl<T: Config> Pallet<T> {
 			royalties_schedule,
 		)?;
 
-		Self::remove_offer(offer_id, offer.token_id)?;
+		Self::internal_remove_offer(offer_id, offer.token_id)?;
 		Self::deposit_event(Event::<T>::OfferAccept {
 			offer_id,
 			marketplace_id: offer.marketplace_id,
@@ -412,8 +412,35 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// As a seller, remove an offer made on your token
+	pub(crate) fn do_remove_offer(who: T::AccountId, offer_id: OfferId) -> DispatchResult {
+		let Some(OfferType::Simple(offer)) = Offers::<T>::get(offer_id) else {
+			return Err(Error::<T>::InvalidOffer.into());
+		};
+
+		ensure!(
+			T::NFTExt::get_token_owner(&offer.token_id) == Some(who),
+			Error::<T>::NotTokenOwner
+		);
+
+		T::MultiCurrency::release_hold(
+			T::PalletId::get(),
+			&offer.buyer,
+			offer.asset_id,
+			offer.amount,
+		)?;
+
+		Self::internal_remove_offer(offer_id, offer.token_id)?;
+		Self::deposit_event(Event::<T>::OfferRemove {
+			offer_id,
+			marketplace_id: offer.marketplace_id,
+			token_id: offer.token_id,
+		});
+		Ok(())
+	}
+
 	/// Removes an offer, cleaning storage if it's the last offer for the token
-	pub(crate) fn remove_offer(offer_id: OfferId, token_id: TokenId) -> DispatchResult {
+	pub(crate) fn internal_remove_offer(offer_id: OfferId, token_id: TokenId) -> DispatchResult {
 		Offers::<T>::remove(offer_id);
 		TokenOffers::<T>::try_mutate(token_id, |maybe_offers| -> DispatchResult {
 			if let Some(offers) = maybe_offers {

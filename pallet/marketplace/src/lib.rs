@@ -268,6 +268,8 @@ pub mod pallet {
 			amount: Balance,
 			asset_id: AssetId,
 		},
+		/// An offer has been removed by the listing owner
+		OfferRemove { offer_id: OfferId, marketplace_id: Option<MarketplaceId>, token_id: TokenId },
 		/// The network fee receiver address has been updated
 		FeeToSet { account: Option<T::AccountId> },
 	}
@@ -590,9 +592,19 @@ pub mod pallet {
 			Self::do_accept_offer(who, offer_id)
 		}
 
+		/// Removes an offer on a token
+		/// Caller must be token owner
+		#[pallet::call_index(13)]
+		#[pallet::weight(T::WeightInfo::remove_offer())]
+		#[transactional]
+		pub fn remove_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_remove_offer(who, offer_id)
+		}
+
 		/// Set the `FeeTo` account
 		/// This operation requires root access
-		#[pallet::call_index(13)]
+		#[pallet::call_index(14)]
 		#[pallet::weight(T::WeightInfo::set_fee_to())]
 		pub fn set_fee_to(origin: OriginFor<T>, fee_to: Option<T::AccountId>) -> DispatchResult {
 			ensure_root(origin)?;

@@ -60,6 +60,7 @@ pub trait WeightInfo {
 	fn make_simple_offer() -> Weight;
 	fn cancel_offer() -> Weight;
 	fn accept_offer() -> Weight;
+   fn remove_offer() -> Weight; 
 	fn set_fee_to() -> Weight;
 }
 
@@ -319,6 +320,30 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_all(325_816_000_u64)
 			.saturating_add(T::DbWeight::get().reads(10_u64))
 			.saturating_add(T::DbWeight::get().writes(10_u64))
+	}
+	/// Storage: `Marketplace::Offers` (r:1 w:1)
+	/// Proof: `Marketplace::Offers` (`max_values`: None, `max_size`: Some(70), added: 2545, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::TokenInfo` (r:1 w:0)
+	/// Proof: `Nft::TokenInfo` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
+	/// Storage: `AssetsExt::Holds` (r:1 w:1)
+	/// Proof: `AssetsExt::Holds` (`max_values`: None, `max_size`: Some(433), added: 2908, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:2 w:2)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::TokenOffers` (r:1 w:1)
+	/// Proof: `Marketplace::TokenOffers` (`max_values`: None, `max_size`: Some(818), added: 3293, mode: `MaxEncodedLen`)
+	fn remove_offer() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2512`
+		//  Estimated: `6160`
+		// Minimum execution time: 94_000_000 picoseconds.
+		Weight::from_parts(96_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6160))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().writes(7))
 	}
 	// Storage: `Marketplace::FeeTo` (r:0 w:1)
 	// Proof: `Marketplace::FeeTo` (`max_values`: Some(1), `max_size`: Some(21), added: 516, mode: `MaxEncodedLen`)
@@ -583,6 +608,30 @@ impl WeightInfo for () {
 		Weight::from_all(325_816_000_u64)
 			.saturating_add(RocksDbWeight::get().reads(10_u64))
 			.saturating_add(RocksDbWeight::get().writes(10_u64))
+	}
+	/// Storage: `Marketplace::Offers` (r:1 w:1)
+	/// Proof: `Marketplace::Offers` (`max_values`: None, `max_size`: Some(70), added: 2545, mode: `MaxEncodedLen`)
+	/// Storage: `Nft::TokenInfo` (r:1 w:0)
+	/// Proof: `Nft::TokenInfo` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
+	/// Storage: `AssetsExt::Holds` (r:1 w:1)
+	/// Proof: `AssetsExt::Holds` (`max_values`: None, `max_size`: Some(433), added: 2908, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:2 w:2)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::TokenOffers` (r:1 w:1)
+	/// Proof: `Marketplace::TokenOffers` (`max_values`: None, `max_size`: Some(818), added: 3293, mode: `MaxEncodedLen`)
+	fn remove_offer() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2512`
+		//  Estimated: `6160`
+		// Minimum execution time: 94_000_000 picoseconds.
+		Weight::from_parts(96_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6160))
+			.saturating_add(RocksDbWeight::get().reads(8))
+			.saturating_add(RocksDbWeight::get().writes(7))
 	}
 	// Storage: `Marketplace::FeeTo` (r:0 w:1)
 	// Proof: `Marketplace::FeeTo` (`max_values`: Some(1), `max_size`: Some(21), added: 516, mode: `MaxEncodedLen`)
