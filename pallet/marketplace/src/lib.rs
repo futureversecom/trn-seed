@@ -89,6 +89,9 @@ pub mod pallet {
 		/// Default auction / sale length in blocks
 		#[pallet::constant]
 		type DefaultListingDuration: Get<BlockNumberFor<Self>>;
+		/// Default offer duration in blocks  
+		#[pallet::constant]
+		type DefaultOfferDuration: Get<BlockNumberFor<Self>>;
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The default account which collects network fees from marketplace sales
@@ -158,7 +161,7 @@ pub mod pallet {
 
 	/// Map from offer_id to the information related to the offer
 	#[pallet::storage]
-	pub type Offers<T: Config> = StorageMap<_, Twox64Concat, OfferId, OfferType<T::AccountId>>;
+	pub type Offers<T: Config> = StorageMap<_, Twox64Concat, OfferId, OfferType<T>>;
 
 	/// Maps from token_id to a vector of offer_ids on that token
 	#[pallet::storage]
@@ -168,6 +171,12 @@ pub mod pallet {
 	/// The next available offer_id
 	#[pallet::storage]
 	pub type NextOfferId<T> = StorageValue<_, OfferId, ValueQuery>;
+
+	/// Block numbers where offers will expire. Value is `true` if at block number `offer_id` is
+	/// scheduled to expire.
+	#[pallet::storage]
+	pub type OfferEndSchedule<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, BlockNumberFor<T>, Twox64Concat, OfferId, bool>;
 
 	/// The pallet id for the tx fee pot
 	#[pallet::storage]
@@ -268,8 +277,13 @@ pub mod pallet {
 			amount: Balance,
 			asset_id: AssetId,
 		},
-		/// An offer has been removed by the listing owner
-		OfferRemove { offer_id: OfferId, marketplace_id: Option<MarketplaceId>, token_id: TokenId },
+		/// An offer has been removed by the listing owner, or has expired
+		OfferRemove {
+			offer_id: OfferId,
+			marketplace_id: Option<MarketplaceId>,
+			token_id: TokenId,
+			reason: OfferRemovalReason,
+		},
 		/// The network fee receiver address has been updated
 		FeeToSet { account: Option<T::AccountId> },
 	}
@@ -328,13 +342,17 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Check and close all expired listings
+		/// Check and close all expired listings and offers
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			// TODO: this is unbounded and could become costly
 			// https://github.com/cennznet/cennznet/issues/444
-			let removed_count = Self::close_listings_at(now);
+			let removed_listings = Self::close_listings_at(now);
+			let removed_offers = Self::close_offers_at(now);
 			// 'buy' weight is comparable to successful closure of an auction
-			<T as Config>::WeightInfo::buy().mul(removed_count as u64)
+			// 'remove_offer' weight is comparable to offer expiry
+			<T as Config>::WeightInfo::buy().mul(removed_listings as u64).saturating_add(
+				<T as Config>::WeightInfo::remove_offer().mul(removed_offers as u64),
+			)
 		}
 	}
 
@@ -569,7 +587,28 @@ pub mod pallet {
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id)?;
+			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id, None)?;
+			Ok(())
+		}
+
+		/// Create an offer on a single NFT with custom duration
+		/// Locks funds until offer is accepted, rejected, cancelled, or expires
+		/// An offer can't be made on a token currently in an auction
+		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
+		/// offer)
+		#[pallet::call_index(15)]
+		#[pallet::weight(T::WeightInfo::make_simple_offer())]
+		#[transactional]
+		pub fn make_simple_offer_with_duration(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			amount: Balance,
+			asset_id: AssetId,
+			marketplace_id: Option<MarketplaceId>,
+			duration: Option<BlockNumberFor<T>>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id, duration)?;
 			Ok(())
 		}
 
@@ -594,7 +633,7 @@ pub mod pallet {
 
 		/// Removes an offer on a token
 		/// Caller must be token owner
-		#[pallet::call_index(13)]
+		#[pallet::call_index(14)]
 		#[pallet::weight(T::WeightInfo::remove_offer())]
 		#[transactional]
 		pub fn remove_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
@@ -604,7 +643,7 @@ pub mod pallet {
 
 		/// Set the `FeeTo` account
 		/// This operation requires root access
-		#[pallet::call_index(14)]
+		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::set_fee_to())]
 		pub fn set_fee_to(origin: OriginFor<T>, fee_to: Option<T::AccountId>) -> DispatchResult {
 			ensure_root(origin)?;

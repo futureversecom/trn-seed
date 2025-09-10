@@ -15,9 +15,9 @@
 
 use super::*;
 use crate::mock::{
-	AssetsExt, DefaultListingDuration, FeePotId, Marketplace, MarketplaceNetworkFeePercentage,
-	MarketplacePalletId, MaxTokensPerListing, NativeAssetId, Nft, RuntimeEvent as MockEvent, Sft,
-	System, Test, TransferLimit,
+	AssetsExt, DefaultListingDuration, DefaultOfferDuration, FeePotId, Marketplace,
+	MarketplaceNetworkFeePercentage, MarketplacePalletId, MaxTokensPerListing, NativeAssetId, Nft,
+	RuntimeEvent as MockEvent, Sft, System, Test, TransferLimit,
 };
 use core::ops::Mul;
 use frame_support::traits::{fungibles::Inspect, OnInitialize};
@@ -93,7 +93,7 @@ fn make_new_simple_offer(
 	token_id: TokenId,
 	buyer: AccountId,
 	marketplace_id: Option<MarketplaceId>,
-) -> (OfferId, SimpleOffer<AccountId>) {
+) -> (OfferId, SimpleOffer<Test>) {
 	let next_offer_id = NextOfferId::<Test>::get();
 
 	assert_ok!(Marketplace::make_simple_offer(
@@ -109,6 +109,7 @@ fn make_new_simple_offer(
 		amount: offer_amount,
 		buyer,
 		marketplace_id,
+		expires_at: System::block_number() + DefaultOfferDuration::get(),
 	};
 
 	// Check storage has been updated
@@ -2734,6 +2735,7 @@ fn remove_offer() {
 				offer_id,
 				marketplace_id: None,
 				token_id,
+				reason: OfferRemovalReason::SellerRemoved,
 			}));
 
 			// Check storage has been removed
@@ -2774,6 +2776,7 @@ fn remove_offer_multiple_offers() {
 				offer_id: offer_id_1,
 				marketplace_id: None,
 				token_id,
+				reason: OfferRemovalReason::SellerRemoved,
 			}));
 
 			// Check that only the first offer is removed

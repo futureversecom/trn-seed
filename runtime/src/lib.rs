@@ -507,6 +507,8 @@ parameter_types! {
 	pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
 	/// How long listings are open for by default
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
+	/// How long offers are valid for by default
+	pub const DefaultOfferDuration: BlockNumber = DAYS * 30;
 	pub const MaxTokensPerListing: u32 = 1000;
 	pub const MaxListingsPerMultiBuy: u32 = 50;
 	pub const MaxOffers: u32 = 100;
@@ -516,6 +518,7 @@ parameter_types! {
 impl pallet_marketplace::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type DefaultListingDuration = DefaultListingDuration;
+	type DefaultOfferDuration = DefaultOfferDuration;
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeeTo = DefaultFeeTo;
 	type MultiCurrency = AssetsExt;
