@@ -354,7 +354,7 @@ impl<T: Config> Pallet<T> {
 		};
 		ensure!(offer.buyer == who, Error::<T>::NotBuyer);
 		T::MultiCurrency::release_hold(T::PalletId::get(), &who, offer.asset_id, offer.amount)?;
-		Self::internal_remove_offer(offer_id, offer.token_id)?;
+		Self::remove_offer(offer_id, offer.token_id)?;
 		Self::deposit_event(Event::<T>::OfferCancel {
 			offer_id,
 			marketplace_id: offer.marketplace_id,
@@ -406,7 +406,7 @@ impl<T: Config> Pallet<T> {
 			royalties_schedule,
 		)?;
 
-		Self::internal_remove_offer(offer_id, offer.token_id)?;
+		Self::remove_offer(offer_id, offer.token_id)?;
 		Self::deposit_event(Event::<T>::OfferAccept {
 			offer_id,
 			marketplace_id: offer.marketplace_id,
@@ -417,36 +417,77 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// As a seller, remove an offer made on your token
-	pub(crate) fn do_remove_offer(who: T::AccountId, offer_id: OfferId) -> DispatchResult {
-		let Some(OfferType::Simple(offer)) = Offers::<T>::get(offer_id) else {
-			return Err(Error::<T>::InvalidOffer.into());
-		};
-
+	/// Remove multiple offers made on a single token
+	pub(crate) fn do_remove_offers(
+		who: T::AccountId,
+		token_id: TokenId,
+		offer_ids: BoundedVec<OfferId, T::MaxRemovableOffers>,
+	) -> DispatchResult {
 		ensure!(
-			T::NFTExt::get_token_owner(&offer.token_id) == Some(who),
+			T::NFTExt::get_token_owner(&token_id) == Some(who.clone()),
 			Error::<T>::NotTokenOwner
 		);
 
-		T::MultiCurrency::release_hold(
-			T::PalletId::get(),
-			&offer.buyer,
-			offer.asset_id,
-			offer.amount,
-		)?;
+		if offer_ids.is_empty() {
+			return Ok(());
+		}
 
-		Self::internal_remove_offer(offer_id, offer.token_id)?;
-		Self::deposit_event(Event::<T>::OfferRemove {
-			offer_id,
-			marketplace_id: offer.marketplace_id,
-			token_id: offer.token_id,
+		let token_offers = TokenOffers::<T>::get(&token_id).unwrap_or_default();
+
+		for &offer_id in offer_ids.iter() {
+			ensure!(token_offers.contains(&offer_id), Error::<T>::InvalidOffer);
+		}
+
+		let mut offers_to_remove = Vec::new();
+
+		for &offer_id in offer_ids.iter() {
+			if let Some(OfferType::Simple(offer)) = Offers::<T>::get(offer_id) {
+				ensure!(offer.token_id == token_id, Error::<T>::InvalidOffer);
+
+				offers_to_remove.push((offer_id, offer));
+			} else {
+				return Err(Error::<T>::InvalidOffer.into());
+			}
+		}
+
+		for (offer_id, offer) in &offers_to_remove {
+			T::MultiCurrency::release_hold(
+				T::PalletId::get(),
+				&offer.buyer,
+				offer.asset_id,
+				offer.amount,
+			)?;
+			OfferEndSchedule::<T>::remove(offer.expires_at, *offer_id);
+			Offers::<T>::remove(offer_id);
+		}
+
+		TokenOffers::<T>::try_mutate(&token_id, |maybe_offers| -> DispatchResult {
+			if let Some(offers) = maybe_offers {
+				offers.retain(|&x| !offer_ids.contains(&x));
+
+				if offers.is_empty() {
+					*maybe_offers = None;
+				}
+			}
+			Ok(())
+		})?;
+
+		let offers = offers_to_remove
+			.into_iter()
+			.map(|(offer_id, offer)| (offer_id, offer.marketplace_id))
+			.collect::<Vec<_>>();
+
+		Self::deposit_event(Event::<T>::OffersRemove {
+			token_id,
+			offers,
 			reason: OfferRemovalReason::SellerRemoved,
 		});
+
 		Ok(())
 	}
 
 	/// Removes an offer, cleaning storage if it's the last offer for the token
-	pub(crate) fn internal_remove_offer(offer_id: OfferId, token_id: TokenId) -> DispatchResult {
+	pub(crate) fn remove_offer(offer_id: OfferId, token_id: TokenId) -> DispatchResult {
 		// Remove from OfferEndSchedule if it exists
 		if let Some(OfferType::Simple(offer)) = Offers::<T>::get(offer_id) {
 			OfferEndSchedule::<T>::remove(offer.expires_at, offer_id);
@@ -512,12 +553,11 @@ impl<T: Config> Pallet<T> {
 			);
 
 			// Remove the offer from storage
-			let _ = Self::internal_remove_offer(offer_id, offer.token_id);
+			let _ = Self::remove_offer(offer_id, offer.token_id);
 
-			Self::deposit_event(Event::<T>::OfferRemove {
-				offer_id,
-				marketplace_id: offer.marketplace_id,
+			Self::deposit_event(Event::<T>::OffersRemove {
 				token_id: offer.token_id,
+				offers: vec![(offer_id, offer.marketplace_id)],
 				reason: OfferRemovalReason::Expired,
 			});
 			removed += 1;

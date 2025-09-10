@@ -119,6 +119,8 @@ pub mod pallet {
 		type MaxListingsPerMultiBuy: Get<u32>;
 		/// The maximum number of offers allowed on a collection
 		type MaxOffers: Get<u32>;
+		/// The maximum number of offers that can be removed in a single call
+		type MaxRemovableOffers: Get<u32>;
 	}
 
 	#[pallet::type_value]
@@ -277,11 +279,10 @@ pub mod pallet {
 			amount: Balance,
 			asset_id: AssetId,
 		},
-		/// An offer has been removed by the listing owner, or has expired
-		OfferRemove {
-			offer_id: OfferId,
-			marketplace_id: Option<MarketplaceId>,
+		/// Multiple offers have expired, or been removed by the listing owner
+		OffersRemove {
 			token_id: TokenId,
+			offers: Vec<(OfferId, Option<MarketplaceId>)>,
 			reason: OfferRemovalReason,
 		},
 		/// The network fee receiver address has been updated
@@ -591,27 +592,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Create an offer on a single NFT with custom duration
-		/// Locks funds until offer is accepted, rejected, cancelled, or expires
-		/// An offer can't be made on a token currently in an auction
-		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
-		/// offer)
-		#[pallet::call_index(15)]
-		#[pallet::weight(T::WeightInfo::make_simple_offer())]
-		#[transactional]
-		pub fn make_simple_offer_with_duration(
-			origin: OriginFor<T>,
-			token_id: TokenId,
-			amount: Balance,
-			asset_id: AssetId,
-			marketplace_id: Option<MarketplaceId>,
-			duration: Option<BlockNumberFor<T>>,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id, duration)?;
-			Ok(())
-		}
-
 		/// Cancels an offer on a token
 		/// Caller must be the offer buyer
 		#[pallet::call_index(11)]
@@ -631,16 +611,6 @@ pub mod pallet {
 			Self::do_accept_offer(who, offer_id)
 		}
 
-		/// Removes an offer on a token
-		/// Caller must be token owner
-		#[pallet::call_index(14)]
-		#[pallet::weight(T::WeightInfo::remove_offer())]
-		#[transactional]
-		pub fn remove_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			Self::do_remove_offer(who, offer_id)
-		}
-
 		/// Set the `FeeTo` account
 		/// This operation requires root access
 		#[pallet::call_index(13)]
@@ -648,6 +618,41 @@ pub mod pallet {
 		pub fn set_fee_to(origin: OriginFor<T>, fee_to: Option<T::AccountId>) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::do_set_fee_to(fee_to)
+		}
+
+		/// Create an offer on a single NFT with custom duration
+		/// Locks funds until offer is accepted, rejected, cancelled, or expires
+		/// An offer can't be made on a token currently in an auction
+		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
+		/// offer)
+		#[pallet::call_index(14)]
+		#[pallet::weight(T::WeightInfo::make_simple_offer())]
+		#[transactional]
+		pub fn make_simple_offer_with_duration(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			amount: Balance,
+			asset_id: AssetId,
+			marketplace_id: Option<MarketplaceId>,
+			duration: Option<BlockNumberFor<T>>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id, duration)?;
+			Ok(())
+		}
+
+		/// Removes multiple offers on a token
+		/// Caller must be token owner
+		#[pallet::call_index(15)]
+		#[pallet::weight(T::WeightInfo::remove_offer().saturating_mul(offer_ids.len() as u64))]
+		#[transactional]
+		pub fn remove_offers(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			offer_ids: BoundedVec<OfferId, T::MaxRemovableOffers>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_remove_offers(who, token_id, offer_ids)
 		}
 	}
 }
