@@ -117,6 +117,13 @@ benchmarks! {
 		assert_eq!(PartnerCount::<T>::get(), 0);
 		assert!(Partners::<T>::get(1).is_none());
 	}
+
+	set_admin {
+		let new_admin: T::AccountId = account("Admin", 0, 0);
+	}: _(RawOrigin::Root, new_admin.clone())
+	verify {
+		assert_eq!(crate::AdminAccount::<T>::get(), Some(new_admin));
+	}
 }
 
 impl_benchmark_test_suite!(

@@ -165,6 +165,34 @@ mod upgrade_partner {
 	}
 
 	#[test]
+	fn upgrade_partner_as_admin_succeeds() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			// First set admin
+			let admin: AccountId = create_account(3);
+			assert_ok!(PartnerAttribution::set_admin(RawOrigin::Root.into(), admin));
+
+			assert_ok!(PartnerAttribution::register_partner_account(Some(alice()).into(), alice()));
+			assert_ok!(PartnerAttribution::upgrade_partner(
+				Some(admin).into(),
+				1,
+				Permill::from_percent(10)
+			));
+
+			System::assert_last_event(
+				Event::PartnerUpgraded {
+					partner_id: 1,
+					account: alice(),
+					fee_percentage: Permill::from_percent(10),
+				}
+				.into(),
+			);
+
+			let partner = Partners::<Test>::get(1).unwrap();
+			assert_eq!(partner.fee_percentage, Some(Permill::from_percent(10)));
+		});
+	}
+
+	#[test]
 	fn upgrade_non_existent_partner_fails() {
 		TestExt::<Test>::default().build().execute_with(|| {
 			assert_noop!(
@@ -188,7 +216,7 @@ mod upgrade_partner {
 					1,
 					Permill::from_percent(10)
 				),
-				BadOrigin
+				Error::<Test>::RequireAdmin
 			);
 			assert_noop!(
 				PartnerAttribution::upgrade_partner(
@@ -196,7 +224,7 @@ mod upgrade_partner {
 					1,
 					Permill::from_percent(10)
 				),
-				BadOrigin
+				Error::<Test>::RequireAdmin
 			);
 		});
 	}
@@ -911,6 +939,55 @@ mod attribution_provider_trait {
 			assert!(accounts.contains(&alice()));
 			assert!(accounts.contains(&bob()));
 			assert!(accounts.contains(&charlie()));
+		});
+	}
+}
+
+mod set_admin {
+	use super::*;
+
+	#[test]
+	fn set_admin_succeeds() {
+		TestExt::<Test>::default().build().execute_with(|| {
+			System::set_block_number(1);
+
+			let alice: AccountId = create_account(1);
+			let bob: AccountId = create_account(2);
+			let charlie: AccountId = create_account(3);
+
+			// normal user can not set admin
+			assert_noop!(
+				PartnerAttribution::set_admin(Some(alice).into(), bob),
+				Error::<Test>::RequireAdmin
+			);
+
+			// set admin with root user
+			assert_ok!(PartnerAttribution::set_admin(RawOrigin::Root.into(), bob));
+			assert_eq!(AdminAccount::<Test>::get(), Some(bob));
+
+			System::assert_last_event(
+				Event::AdminAccountChanged { old_key: None, new_key: bob }.into(),
+			);
+
+			// admin can change admin to another account
+			assert_ok!(PartnerAttribution::set_admin(Some(bob).into(), alice));
+			assert_eq!(AdminAccount::<Test>::get(), Some(alice));
+
+			System::assert_last_event(
+				Event::AdminAccountChanged { old_key: Some(bob), new_key: alice }.into(),
+			);
+
+			// new admin can change admin back to root
+			assert_ok!(PartnerAttribution::set_admin(Some(alice).into(), charlie));
+			assert_eq!(AdminAccount::<Test>::get(), Some(charlie));
+
+			System::assert_last_event(
+				Event::AdminAccountChanged { old_key: Some(alice), new_key: charlie }.into(),
+			);
+
+			// root can still change admin
+			assert_ok!(PartnerAttribution::set_admin(RawOrigin::Root.into(), alice));
+			assert_eq!(AdminAccount::<Test>::get(), Some(alice));
 		});
 	}
 }

@@ -1089,7 +1089,7 @@ pub mod pallet {
 							SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
 								call.into(),
 							)
-							.map_err(|e| {
+							.map_err(|_| {
 								log::error!(target: LOG_TARGET, "🎱 Error submitting unsigned transaction");
 								<Error<T>>::OffchainErrSubmitTransaction
 							})?;
