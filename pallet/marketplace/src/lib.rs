@@ -33,6 +33,7 @@ use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, ListingId, SerialNumber, TokenId, TokenLockReason,
 };
 use sp_runtime::{DispatchResult, Permill};
+use sp_std::prelude::*;
 
 mod benchmarking;
 mod impls;
@@ -350,10 +351,9 @@ pub mod pallet {
 			let removed_listings = Self::close_listings_at(now);
 			let removed_offers = Self::close_offers_at(now);
 			// 'buy' weight is comparable to successful closure of an auction
-			// 'remove_offer' weight is comparable to offer expiry
-			<T as Config>::WeightInfo::buy().mul(removed_listings as u64).saturating_add(
-				<T as Config>::WeightInfo::remove_offer().mul(removed_offers as u64),
-			)
+			<T as Config>::WeightInfo::buy()
+				.mul(removed_listings as u64)
+				.saturating_add(<T as Config>::WeightInfo::remove_offers(removed_offers as u32))
 		}
 	}
 
@@ -626,7 +626,7 @@ pub mod pallet {
 		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
 		/// offer)
 		#[pallet::call_index(14)]
-		#[pallet::weight(T::WeightInfo::make_simple_offer())]
+		#[pallet::weight(T::WeightInfo::make_simple_offer_with_duration())]
 		#[transactional]
 		pub fn make_simple_offer_with_duration(
 			origin: OriginFor<T>,
@@ -644,7 +644,7 @@ pub mod pallet {
 		/// Removes multiple offers on a token
 		/// Caller must be token owner
 		#[pallet::call_index(15)]
-		#[pallet::weight(T::WeightInfo::remove_offer().saturating_mul(offer_ids.len() as u64))]
+		#[pallet::weight(T::WeightInfo::remove_offers(offer_ids.len() as u32))]
 		#[transactional]
 		pub fn remove_offers(
 			origin: OriginFor<T>,

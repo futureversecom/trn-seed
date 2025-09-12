@@ -23,6 +23,7 @@ use frame_support::{
 	traits::{
 		fungibles::Inspect,
 		tokens::{Fortitude, Preservation},
+		Get,
 	},
 	BoundedVec,
 };
@@ -357,13 +358,36 @@ benchmarks! {
 		assert!(Offers::<T>::get(offer_id).is_none());
 	}
 
-	remove_offer {
+	make_simple_offer_with_duration {
+		let asset_id = build_asset::<T>(&account::<T>("Alice"));
 		let collection_id = build_collection::<T>(None);
-		let offer_id = offer_builder::<T>(collection_id);
-	}: _(origin::<T>(&account::<T>("Alice")), offer_id)
+		let next_offer_id = NextOfferId::<T>::get();
+		let duration = Some(10u32.into());
+	}: _(origin::<T>(&account::<T>("Bob")), TokenId::from((collection_id, 0)), 1u32.into(), asset_id, None, duration)
 	verify {
-		assert_eq!(NextOfferId::<T>::get(), offer_id + 1);
-		assert!(Offers::<T>::get(offer_id).is_none());
+		assert_eq!(NextOfferId::<T>::get(), next_offer_id + 1);
+		assert!(Offers::<T>::get(next_offer_id).is_some());
+	}
+
+
+	remove_offers {
+		let p in 1 .. (T::MaxRemovableOffers::get());
+		let collection_id = build_collection::<T>(None);
+		let token_id = TokenId::from((collection_id, 0));
+
+		let mut offer_ids = Vec::new();
+		for _ in 0..p {
+			let offer_id = offer_builder::<T>(collection_id);
+			offer_ids.push(offer_id);
+		}
+
+		let bounded_offer_ids: BoundedVec<OfferId, T::MaxRemovableOffers> =
+			offer_ids.clone().try_into().unwrap();
+	}: _(origin::<T>(&account::<T>("Alice")), token_id, bounded_offer_ids)
+	verify {
+		for offer_id in offer_ids {
+			assert!(Offers::<T>::get(offer_id).is_none());
+		}
 	}
 
 	set_fee_to {

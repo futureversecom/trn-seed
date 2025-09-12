@@ -2870,7 +2870,7 @@ fn remove_offers_empty_vector_should_succeed() {
 fn remove_offers_mixed_valid_invalid_should_fail() {
 	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
-	
+
 	TestExt::<Test>::default()
 		.with_balances(&[(buyer, initial_balance_buyer)])
 		.build()
@@ -2900,7 +2900,7 @@ fn remove_offers_mixed_valid_invalid_should_fail() {
 fn remove_offers_wrong_token_should_fail() {
 	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
-	
+
 	TestExt::<Test>::default()
 		.with_balances(&[(buyer, initial_balance_buyer)])
 		.build()
