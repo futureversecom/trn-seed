@@ -9,6 +9,8 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+use std::collections::BTreeMap;
+
 use crate::*;
 use frame_support::{ensure, traits::Get, transactional};
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -540,29 +542,67 @@ impl<T: Config> Pallet<T> {
 	/// Close all offers scheduled to expire at this block `now`, ensuring funds are released
 	/// Returns the number of offers removed
 	pub(crate) fn close_offers_at(now: BlockNumberFor<T>) -> u32 {
-		let mut removed = 0_u32;
-		for (offer_id, _) in OfferEndSchedule::<T>::drain_prefix(now) {
-			let Some(OfferType::Simple(offer)) = Offers::<T>::get(offer_id) else { continue };
+		let expired_offers: Vec<(OfferId, OfferType<T>)> = OfferEndSchedule::<T>::drain_prefix(now)
+			.take(T::MaxRemovableOffers::get() as usize)
+			.filter_map(|(offer_id, _)| Offers::<T>::get(offer_id).map(|offer| (offer_id, offer)))
+			.collect();
 
-			// Release the buyer's held funds
-			let _ = T::MultiCurrency::release_hold(
-				T::PalletId::get(),
-				&offer.buyer,
-				offer.asset_id,
-				offer.amount,
-			);
+		if expired_offers.is_empty() {
+			return 0;
+		}
 
-			// Remove the offer from storage
-			let _ = Self::remove_offer(offer_id, offer.token_id);
+		let mut offers_by_token: BTreeMap<TokenId, Vec<(OfferId, SimpleOffer<T>)>> =
+			BTreeMap::new();
+		for (offer_id, offer) in expired_offers {
+			let OfferType::Simple(simple_offer) = offer;
+
+			offers_by_token
+				.entry(simple_offer.token_id)
+				.or_default()
+				.push((offer_id, simple_offer));
+		}
+
+		let mut total_removed = 0_u32;
+
+		for (token_id, token_offers) in offers_by_token {
+			for (offer_id, offer) in &token_offers {
+				let _ = T::MultiCurrency::release_hold(
+					T::PalletId::get(),
+					&offer.buyer,
+					offer.asset_id,
+					offer.amount,
+				);
+
+				Offers::<T>::remove(offer_id);
+			}
+
+			let offer_ids: Vec<OfferId> = token_offers.iter().map(|(id, _)| *id).collect();
+
+			let _ = TokenOffers::<T>::try_mutate(&token_id, |maybe_offers| -> DispatchResult {
+				if let Some(offers) = maybe_offers {
+					offers.retain(|&x| !offer_ids.contains(&x));
+					if offers.is_empty() {
+						*maybe_offers = None;
+					}
+				}
+				Ok(())
+			});
+
+			let offers: Vec<(OfferId, Option<MarketplaceId>)> = token_offers
+				.iter()
+				.map(|(offer_id, offer)| (*offer_id, offer.marketplace_id))
+				.collect();
 
 			Self::deposit_event(Event::<T>::OffersRemove {
-				token_id: offer.token_id,
-				offers: vec![(offer_id, offer.marketplace_id)],
+				offers,
+				token_id,
 				reason: OfferRemovalReason::Expired,
 			});
-			removed += 1;
+
+			total_removed += token_offers.len() as u32;
 		}
-		removed
+
+		total_removed
 	}
 
 	/// Removes a listing and its metadata from storage
