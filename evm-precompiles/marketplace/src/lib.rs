@@ -88,6 +88,14 @@ pub const SELECTOR_LOG_OFFER_ACCEPT: [u8; 32] =
 	keccak256!("OfferAccept(uint256,uint256,address,uint256,uint256,uint128)");
 // offer_id, amount, caller, collection_id, series_id, marketplace_id
 
+pub const SELECTOR_LOG_OFFER_WITH_DURATION: [u8; 32] =
+	keccak256!("OfferWithDuration(uint256,address,uint256,uint256,uint128,uint32)");
+// offer_id, caller, collection_id, series_id, marketplace_id, duration
+
+pub const SELECTOR_LOG_OFFERS_REMOVE: [u8; 32] =
+	keccak256!("OffersRemove(uint256,uint256,uint256,uint256)");
+// collection_id, series_id, num_offers, caller
+
 /// Saturated conversion from EVM uint256 to Blocknumber
 fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileFailure> {
 	if input > BlockNumber::MAX.into() {
@@ -133,6 +141,10 @@ pub enum Action {
 	GetMarketplaceAccount = "getMarketplaceAccount(uint32)",
 	GetListingFromId = "getListingFromId(uint128)",
 	GetOfferFromId = "getOfferFromId(uint64)",
+
+	MakeSimpleOfferWithDuration =
+		"makeSimpleOfferWithDuration(address,uint32,uint256,address,uint32,uint32)",
+	RemoveOffers = "removeOffers(address,uint32,uint32[])",
 }
 
 /// Provides access to the Marketplace pallet
@@ -204,6 +216,8 @@ where
 			Action::GetMarketplaceAccount => Self::get_marketplace_account(handle),
 			Action::GetListingFromId => Self::get_listing_from_id(handle),
 			Action::GetOfferFromId => Self::get_offer_from_id(handle),
+			Action::MakeSimpleOfferWithDuration => Self::make_simple_offer_with_duration(handle),
+			Action::RemoveOffers => Self::remove_offers(handle),
 		}
 	}
 }
@@ -1191,5 +1205,149 @@ where
 				Ok((collection_id, serial_numbers))
 			},
 		}
+	}
+
+	fn make_simple_offer_with_duration(
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				collection_address: Address,
+				serial_number: U256,
+				amount: U256,
+				asset_id: Address,
+				marketplace_id: U256,
+			   duration: U256
+			}
+		);
+		let marketplace_id: u32 = marketplace_id.saturated_into();
+		ensure!(amount <= u128::MAX.into(), revert("Marketplace: Expected amount <= 2^128"));
+		let amount: Balance = amount.saturated_into();
+		let collection_id: CollectionUuid =
+			<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
+				collection_address,
+				ERC721_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
+		ensure!(
+			serial_number <= u32::MAX.into(),
+			revert("Marketplace: Expected serial_number <= 2^32")
+		);
+		let serial_number: SerialNumber = serial_number.saturated_into();
+		let token_id: TokenId = (collection_id, serial_number);
+		// Parse asset_id
+		let asset_id: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+			asset_id,
+			ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		)
+		.ok_or_else(|| revert("Marketplace: Invalid asset address"))?;
+		let duration: BlockNumber = saturated_convert_blocknumber(duration)?;
+		let duration = match duration {
+			0 => None,
+			n => Some(n),
+		};
+
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_marketplace::Config>::WeightInfo::make_simple_offer_with_duration(),
+		))?;
+
+		let caller: Runtime::AccountId = handle.context().caller.into(); // caller is the buyer
+		let offer_id = pallet_marketplace::Pallet::<Runtime>::do_make_simple_offer(
+			caller,
+			token_id,
+			amount,
+			asset_id,
+			Some(marketplace_id),
+			duration.map(Into::into),
+		)
+		.map_err(|e| {
+			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
+		})?;
+
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_OFFER_WITH_DURATION,
+			H256::from_slice(&EvmDataWriter::new().write(offer_id).build()),
+			handle.context().caller,
+			EvmDataWriter::new()
+				.write(collection_id)
+				.write(serial_number)
+				.write(marketplace_id)
+				.write(duration.unwrap_or_default())
+				.build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(offer_id).build()))
+	}
+
+	fn remove_offers(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 0)?;
+
+		read_args!(
+			handle,
+			{
+				collection_address: Address,
+				serial_number: U256,
+				offer_ids: Vec<U256>
+			}
+		);
+
+		let collection_id: CollectionUuid =
+			<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
+				collection_address,
+				ERC721_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
+		ensure!(
+			serial_number <= u32::MAX.into(),
+			revert("Marketplace: Expected serial_number <= 2^32")
+		);
+		let serial_number: SerialNumber = serial_number.saturated_into();
+		let token_id: TokenId = (collection_id, serial_number);
+
+		let offer_ids: Vec<OfferId> =
+			offer_ids.into_iter().map(|id| id.saturated_into::<u64>()).collect();
+		let offer_ids = BoundedVec::try_from(offer_ids)
+			.map_err(|_| revert("Marketplace: Too many offer IDs"))?;
+
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_marketplace::Config>::WeightInfo::remove_offers(
+				offer_ids.len() as u32
+			),
+		))?;
+
+		let caller: Runtime::AccountId = handle.context().caller.into();
+		pallet_marketplace::Pallet::<Runtime>::do_remove_offers(
+			caller,
+			token_id,
+			offer_ids.clone(),
+		)
+		.map_err(|e| {
+			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
+		})?;
+
+		let collection_id = H256::from_low_u64_be(collection_id as u64);
+
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_OFFERS_REMOVE,
+			collection_id,
+			handle.context().caller,
+			EvmDataWriter::new()
+				.write(collection_id)
+				.write(serial_number)
+				.write(offer_ids.len() as u32)
+				.build(),
+		)
+		.record(handle)?;
+
+		// Build output (success)
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
 	}
 }
