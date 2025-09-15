@@ -103,13 +103,15 @@ fn make_new_simple_offer(
 		NativeAssetId::get(),
 		marketplace_id
 	));
+
+	let close = System::block_number() + DefaultOfferDuration::get();
 	let offer = SimpleOffer {
 		token_id,
 		asset_id: NativeAssetId::get(),
 		amount: offer_amount,
 		buyer,
 		marketplace_id,
-		expires_at: System::block_number() + DefaultOfferDuration::get(),
+		close,
 	};
 
 	// Check storage has been updated
@@ -121,6 +123,7 @@ fn make_new_simple_offer(
 		asset_id: NativeAssetId::get(),
 		marketplace_id,
 		buyer,
+		close,
 	}));
 
 	(next_offer_id, offer)

@@ -9,8 +9,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use std::collections::BTreeMap;
-
 use crate::*;
 use frame_support::{ensure, traits::Get, transactional};
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -20,7 +18,7 @@ use sp_runtime::{
 	traits::{One, Saturating, Zero},
 	BoundedVec, DispatchError, DispatchResult, PerThing, Permill,
 };
-use sp_std::{vec, vec::Vec};
+use sp_std::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use types::*;
 
 impl<T: Config> Pallet<T> {
@@ -322,7 +320,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		let expires_at = Self::get_offer_end_block(duration)?;
+		let close = Self::get_offer_end_block(duration)?;
 
 		// try lock funds
 		T::MultiCurrency::place_hold(T::PalletId::get(), &who, asset_id, amount)?;
@@ -334,10 +332,10 @@ impl<T: Config> Pallet<T> {
 			amount,
 			buyer: who,
 			marketplace_id,
-			expires_at,
+			close,
 		});
 		<Offers<T>>::insert(offer_id, new_offer);
-		<OfferEndSchedule<T>>::insert(expires_at, offer_id, true);
+		<OfferEndSchedule<T>>::insert(close, offer_id, true);
 		<NextOfferId<T>>::mutate(|i| *i += 1);
 
 		Self::deposit_event(Event::<T>::Offer {
@@ -346,6 +344,7 @@ impl<T: Config> Pallet<T> {
 			asset_id,
 			marketplace_id,
 			buyer: who,
+			close,
 		});
 		Ok(offer_id)
 	}
@@ -420,7 +419,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Remove multiple offers made on a single token
-	pub(crate) fn do_remove_offers(
+	pub fn do_remove_offers(
 		who: T::AccountId,
 		token_id: TokenId,
 		offer_ids: BoundedVec<OfferId, T::MaxRemovableOffers>,
@@ -459,7 +458,7 @@ impl<T: Config> Pallet<T> {
 				offer.asset_id,
 				offer.amount,
 			)?;
-			OfferEndSchedule::<T>::remove(offer.expires_at, *offer_id);
+			OfferEndSchedule::<T>::remove(offer.close, *offer_id);
 			Offers::<T>::remove(offer_id);
 		}
 
@@ -492,7 +491,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn remove_offer(offer_id: OfferId, token_id: TokenId) -> DispatchResult {
 		// Remove from OfferEndSchedule if it exists
 		if let Some(OfferType::Simple(offer)) = Offers::<T>::get(offer_id) {
-			OfferEndSchedule::<T>::remove(offer.expires_at, offer_id);
+			OfferEndSchedule::<T>::remove(offer.close, offer_id);
 		}
 
 		Offers::<T>::remove(offer_id);

@@ -269,6 +269,7 @@ pub mod pallet {
 			asset_id: AssetId,
 			marketplace_id: Option<MarketplaceId>,
 			buyer: T::AccountId,
+			close: BlockNumberFor<T>,
 		},
 		/// An offer has been cancelled
 		OfferCancel { offer_id: OfferId, marketplace_id: Option<MarketplaceId>, token_id: TokenId },

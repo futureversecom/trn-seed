@@ -192,12 +192,18 @@ impl<T: Config> ListingTokens<T> {
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct SimpleOffer<T: Config> {
+	/// The token being offered on
 	pub token_id: TokenId,
+	/// The asset being used for the offer
 	pub asset_id: AssetId,
+	/// The amount being offered
 	pub amount: Balance,
+	/// The account making the offer
 	pub buyer: T::AccountId,
+	/// The marketplace this offer was made on, if any
 	pub marketplace_id: Option<MarketplaceId>,
-	pub expires_at: BlockNumberFor<T>,
+	/// When the offer closes
+	pub close: BlockNumberFor<T>,
 }
 
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
