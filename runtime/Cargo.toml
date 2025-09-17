@@ -84,7 +84,7 @@ pallet-assets-ext-rpc-runtime-api = { workspace = true }
 pallet-dex = { workspace = true }
 pallet-dex-rpc-runtime-api = { workspace = true }
 pallet-echo = { workspace = true }
-pallet-ethy = { workspace = true, features = ["frontier-logs"] }
+pallet-ethy = { workspace = true }
 pallet-fee-proxy = { workspace = true }
 pallet-nfi = { workspace = true }
 pallet-nft = { workspace = true }

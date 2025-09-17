@@ -64,39 +64,19 @@ describe("FeeProxy EVM logs are canonicalized", function () {
   });
 
   async function callFeeProxyTransfer(token: Contract, to: string, amount: number) {
-    const feeProxyNew = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, empty);
-    const feeProxyOld = new Contract(
-      FEE_PROXY_ADDRESS,
-      [
-        ...FEE_PROXY_ABI,
-        "function callWithFeePreferences(address asset, uint128 maxPayment, address target, bytes input)",
-      ],
-      empty,
-    );
+    const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, empty);
 
     const iface = new utils.Interface(ERC20_ABI);
     const transferData = iface.encodeFunctionData("transfer", [to, amount]);
     const gasOpts = { gasLimit: 300_000 } as const;
 
-    try {
-      const tx = await feeProxyNew["callWithFeePreferences(address,address,bytes)"](
-        token.address,
-        token.address,
-        transferData,
-        gasOpts,
-      );
-      return await tx.wait();
-    } catch (e: any) {
-      // Fallback to deprecated signature if new one isn't available on this node
-      const tx = await feeProxyOld["callWithFeePreferences(address,uint128,address,bytes)"](
-        token.address,
-        0,
-        token.address,
-        transferData,
-        gasOpts,
-      );
-      return await tx.wait();
-    }
+    const tx = await feeProxy["callWithFeePreferences(address,address,bytes)"](
+      token.address,
+      token.address,
+      transferData,
+      gasOpts,
+    );
+    return await tx.wait();
   }
 
   it("tests FeeProxy log canonicalization infrastructure", async () => {

@@ -10,7 +10,6 @@ license.workspace = true
 codec = { workspace = true }
 ethabi = { workspace = true }
 ethereum-types = { workspace = true }
-ethereum = { workspace = true, default-features = false }
 hex-literal = { workspace = true }
 rustc-hex = { workspace = true }
 scale-info = { workspace = true }
@@ -29,8 +28,6 @@ sp-std = { workspace = true }
 
 seed-primitives = { workspace = true }
 seed-pallet-common = { workspace = true }
-pallet-ethereum = { workspace = true }
-fp-rpc = { workspace = true }
 
 [dev-dependencies]
 parking_lot = { workspace = true }
@@ -45,7 +42,6 @@ pallet-scheduler = { workspace = true }
 default = ["std"]
 std = [
 	"codec/std",
-	"ethereum/std",
 	"ethereum-types/std",
 	"rustc-hex/std",
 	"scale-info/std",
@@ -59,13 +55,6 @@ std = [
 	"sp-std/std",
 	"seed-primitives/std",
 	"seed-pallet-common/std",
-	"fp-rpc/std",
-	"pallet-ethereum/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]
-
-# When enabled, integrate with Frontier storages in on_finalize to expose pallet-origin EVM logs
-# to Ethereum RPC (eth_getLogs). This requires pallet-ethereum in the runtime implementing this
-# pallet. Disabled by default to keep unit tests lightweight.
-frontier-logs = []
