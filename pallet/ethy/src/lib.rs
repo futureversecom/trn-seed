@@ -225,8 +225,8 @@ pub mod pallet {
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
 	}
-	/// Flag to indicate whether authorities have been changed during the current era
 
+	/// Flag to indicate whether authorities have been changed during the current era
 	#[pallet::storage]
 	pub type AuthoritiesChangedThisEra<T> = StorageValue<_, bool, ValueQuery>;
 
@@ -514,7 +514,6 @@ pub mod pallet {
 		MessageTooLarge,
 	}
 
-	// Unified hooks; Frontier-specific behavior is called conditionally.
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// This method schedules 3 different processes
@@ -525,14 +524,14 @@ pub mod pallet {
 		fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
 			// Reads: NextAuthorityChange, MessagesValidAt, ProcessedMessageIds
 			let mut consumed_weight = DbWeight::get().reads(3u64);
+
 			// 1) Handle authority change
 			if Some(block_number) == NextAuthorityChange::<T>::get() {
 				// Change authority keys, we are 5 minutes before the next epoch
 				log!(trace, "💎 Epoch ends in 5 minutes, changing authorities");
 				Self::handle_authorities_change();
-				consumed_weight = consumed_weight.saturating_add(
-					<T as crate::pallet::Config>::WeightInfo::handle_authorities_change(),
-				);
+				consumed_weight =
+					consumed_weight.saturating_add(T::WeightInfo::handle_authorities_change());
 			}
 
 			// 2) Process validated messages
@@ -716,68 +715,66 @@ pub mod pallet {
 		type Call = Call<T>;
 
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			match call {
-				Call::submit_notarization { ref payload, ref signature } => {
-					// notarization must be from an active notary
-					let notary_keys = NotaryKeys::<T>::get();
-					let notary_public_key =
-						match notary_keys.get(payload.authority_index() as usize) {
-							Some(id) => id,
-							None => return InvalidTransaction::BadProof.into(),
-						};
+			if let Call::submit_notarization { ref payload, ref signature } = call {
+				// notarization must be from an active notary
+				let notary_keys = NotaryKeys::<T>::get();
+				let notary_public_key = match notary_keys.get(payload.authority_index() as usize) {
+					Some(id) => id,
+					None => return InvalidTransaction::BadProof.into(),
+				};
 
-					// notarization must not be a duplicate/equivocation
-					match payload {
-						NotarizationPayload::Call { .. } => {
-							if <EthCallNotarizations<T>>::contains_key(
-								payload.payload_id(),
-								&notary_public_key,
-							) {
-								log!(
-									error,
-									"💎 received equivocation from: {:?} on {:?}",
-									notary_public_key,
-									payload.payload_id()
-								);
-								return InvalidTransaction::BadProof.into();
-							}
-						},
-						NotarizationPayload::Event { .. } => {
-							if <EventNotarizations<T>>::contains_key(
-								payload.payload_id(),
-								&notary_public_key,
-							) {
-								log!(
-									error,
-									"💎 received equivocation from: {:?} on {:?}",
-									notary_public_key,
-									payload.payload_id()
-								);
-								return InvalidTransaction::BadProof.into();
-							}
-						},
-					}
+				// notarization must not be a duplicate/equivocation
+				match payload {
+					NotarizationPayload::Call { .. } => {
+						if <EthCallNotarizations<T>>::contains_key(
+							payload.payload_id(),
+							&notary_public_key,
+						) {
+							log!(
+								error,
+								"💎 received equivocation from: {:?} on {:?}",
+								notary_public_key,
+								payload.payload_id()
+							);
+							return InvalidTransaction::BadProof.into();
+						}
+					},
+					NotarizationPayload::Event { .. } => {
+						if <EventNotarizations<T>>::contains_key(
+							payload.payload_id(),
+							&notary_public_key,
+						) {
+							log!(
+								error,
+								"💎 received equivocation from: {:?} on {:?}",
+								notary_public_key,
+								payload.payload_id()
+							);
+							return InvalidTransaction::BadProof.into();
+						}
+					},
+				}
 
-					// notarization is signed correctly
-					if !(notary_public_key.verify(&payload.encode(), signature)) {
-						return InvalidTransaction::BadProof.into();
-					}
+				// notarization is signed correctly
+				if !(notary_public_key.verify(&payload.encode(), signature)) {
+					return InvalidTransaction::BadProof.into();
+				}
 
-					ValidTransaction::with_tag_prefix("eth-bridge")
-						.priority(UNSIGNED_TXS_PRIORITY)
-						// 'provides' must be unique for each submission on the network (i.e. unique for
-						// each claim id and validator)
-						.and_provides([
-							b"notarize",
-							&payload.type_id().to_be_bytes(),
-							&payload.payload_id().to_be_bytes(),
-							&(payload.authority_index() as u64).to_be_bytes(),
-						])
-						.longevity(3)
-						.propagate(true)
-						.build()
-				},
-				_ => InvalidTransaction::Call.into(),
+				ValidTransaction::with_tag_prefix("eth-bridge")
+					.priority(UNSIGNED_TXS_PRIORITY)
+					// 'provides' must be unique for each submission on the network (i.e. unique for
+					// each claim id and validator)
+					.and_provides([
+						b"notarize",
+						&payload.type_id().to_be_bytes(),
+						&payload.payload_id().to_be_bytes(),
+						&(payload.authority_index() as u64).to_be_bytes(),
+					])
+					.longevity(3)
+					.propagate(true)
+					.build()
+			} else {
+				InvalidTransaction::Call.into()
 			}
 		}
 	}
