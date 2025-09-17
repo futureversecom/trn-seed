@@ -18,6 +18,7 @@ use ethabi::{ParamType, Token};
 use frame_support::{
 	dispatch::Weight, ensure, traits::fungibles::metadata::Inspect as InspectMetadata,
 };
+use pallet_evm::pallet::{StagedEvmActivities, StagedEvmActivity};
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator,
 	Runner as RunnerT, RunnerError,
@@ -35,7 +36,6 @@ use seed_pallet_common::{
 };
 use seed_primitives::{AccountId, AssetId};
 use sp_core::{H160, H256, U256};
-use sp_io::hashing;
 use sp_runtime::{
 	traits::Get,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -228,8 +228,7 @@ where
 	T: pallet_evm::Config<AccountId = AccountId>
 		+ pallet_assets_ext::Config
 		+ pallet_dex::Config
-		+ Config
-		+ pallet_ethy::Config,
+		+ Config,
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 	pallet_evm::BalanceOf<T>: TryFrom<U256> + Into<U256>,
 	P: AccountProxy<AccountId>,
@@ -390,44 +389,19 @@ where
 			config,
 		)?;
 
-		// Note: EVM logs from pallet_evm::call should be captured and made available
-		// to eth_getLogs. The actual implementation should be done in the runtime
-		// where both pallet_ethy and pallet_ethereum are available.
-		// This is a placeholder for the integration point.
-
 		if !call_info.logs.is_empty() {
-			// Get current extrinsic index
 			let extrinsic_index = <frame_system::Pallet<T>>::extrinsic_index().unwrap_or(0u32);
+			let mut staged = StagedEvmActivities::<T>::get();
+			staged.push(StagedEvmActivity {
+				extrinsic_index,
+				from: source,
+				to: Some(target),
+				contract_address: None,
+				logs: call_info.logs.clone(),
+			});
+			StagedEvmActivities::<T>::put(staged);
 
-			// Create a transaction hash seed from the extrinsic data (Ethy will synthesize a unique hash)
-			let data = <frame_system::Pallet<T>>::extrinsic_data(extrinsic_index);
-			let transaction_hash = H256::from(hashing::blake2_256(&data));
-
-			// Map call_info logs into ethereum::Log for Frontier compatibility
-			let logs: Vec<ethereum::Log> = call_info
-				.logs
-				.iter()
-				.map(|l| ethereum::Log {
-					address: l.address,
-					topics: l.topics.clone(),
-					data: l.data.clone(),
-				})
-				.collect();
-
-			// Pass the helper the actual values to be staged; Frontier will consume them on finalize
-			let _ = pallet_ethy::Pallet::<T>::log_evm_call_activity(
-				source,
-				Some(target),
-				logs,
-				call_info.exit_reason.is_succeed(),
-				transaction_hash,
-			);
-
-			log!(
-				info,
-				"⛽️ Successfully canonicalized {} EVM logs for FeeProxy call to make them visible to eth_getLogs",
-				call_info.logs.len()
-			);
+			log!(info, "⛽️ staged {} FeeProxy EVM logs for Frontier merge", call_info.logs.len());
 		}
 
 		Ok(call_info)
