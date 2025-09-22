@@ -151,7 +151,7 @@ describe("FeeProxy EVM logs are canonicalized", function () {
     const blockNumber = receipt.blockNumber;
     const transferTopic = utils.id("Transfer(address,address,uint256)");
 
-    let logs = await provider.getLogs({
+    const logs = await provider.getLogs({
       address: token.address,
       topics: [transferTopic],
       fromBlock: blockNumber,

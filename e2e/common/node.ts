@@ -2,6 +2,7 @@
 import { ApiPromise, WsProvider } from "@polkadot/api";
 import child from "child_process";
 import * as dotenv from "dotenv";
+import path from "path";
 
 dotenv.config();
 
@@ -257,12 +258,12 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
 async function startBinaryNode(nodeOpts: NodeOpts): Promise<NodeProcess> {
   const rpcPort = nodeOpts.rpcPort.toString();
   // Resolve binary path relative to project root (this file sits in e2e/common)
-  const path = nodeOpts.binaryOpts.binaryPath.startsWith("/")
+  const binaryPath = nodeOpts.binaryOpts.binaryPath.startsWith("/")
     ? nodeOpts.binaryOpts.binaryPath
-    : require("path").join(__dirname, "../../", nodeOpts.binaryOpts.binaryPath);
+    : path.join(__dirname, "../../", nodeOpts.binaryOpts.binaryPath);
   const args = ["--dev", "--unsafe-rpc-external", `--rpc-port=${rpcPort}`, "--rpc-cors=all"];
-  console.info("starting local binary node...", path, args.join(" "));
-  const proc = child.spawn(path, args, { stdio: ["ignore", "pipe", "pipe"] });
+  console.info("starting local binary node...", binaryPath, args.join(" "));
+  const proc = child.spawn(binaryPath, args, { stdio: ["ignore", "pipe", "pipe"] });
   let exited = false;
   proc.on("exit", (code, signal) => {
     exited = true;
