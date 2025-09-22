@@ -104,7 +104,14 @@ pub mod pallet {
 		/// Call an internal call with specified gas token
 		/// payment_asset: The token to be used for paying gas fees. This is exchanged in
 		///                OnChargeTransaction::withdraw_fee()
-		/// max_payment: The limit of how many tokens will be used to perform the exchange
+		/// max_payment: A CEILING (maximum) of how many tokens may be swapped to cover
+		///              the final fee in the native gas token. The pallet will perform
+		///              an exact-target swap for the required fee amount (including any
+		///              additional EVM max fee component) provided it does not exceed
+		///              this ceiling. Supplying an exact estimated fee here risks
+		///              underpayment due to rounding, minimum deposit top-ups, or added
+		///              max-fee scaling; providing a generous upper bound is safe—the
+		///              pallet only spends what is required.
 		/// call: The inner call to be performed after the exchange
 		#[pallet::call_index(0)]
 		#[pallet::weight({

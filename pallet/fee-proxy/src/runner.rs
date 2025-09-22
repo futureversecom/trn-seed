@@ -358,15 +358,7 @@ where
 				None,
 			)
 			.map_err(|err| {
-				log!(
-					error,
-					"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?} path: {:?}",
-					payment_asset_id,
-					max_payment_tokens,
-					final_fee,
-					err,
-					path
-				);
+				log!(error, "⛽️ swap failed payment_asset_id={:?} supply={} desired_fee={} err={:?} path={:?}", payment_asset_id, max_payment_tokens, final_fee, err, path);
 				RunnerError { error: Self::Error::WithdrawFailed, weight }
 			})?;
 		}
@@ -390,18 +382,48 @@ where
 		)?;
 
 		if !call_info.logs.is_empty() {
+			// Enhanced deduplication: ensure we never stage the same individual log (address+topics+data)
+			// more than once for the same extrinsic, even if batches differ in ordering or grouping.
 			let extrinsic_index = <frame_system::Pallet<T>>::extrinsic_index().unwrap_or(0u32);
 			let mut staged = StagedEvmActivities::<T>::get();
-			staged.push(StagedEvmActivity {
-				extrinsic_index,
-				from: source,
-				to: Some(target),
-				contract_address: None,
-				logs: call_info.logs.clone(),
-			});
-			StagedEvmActivities::<T>::put(staged);
+			// Collect existing log fingerprints for this extrinsic/source/target.
+			let mut existing = sp_std::collections::btree_set::BTreeSet::new();
+			for s in staged.iter() {
+				if s.extrinsic_index == extrinsic_index && s.from == source && s.to == Some(target)
+				{
+					for log in &s.logs {
+						let fp = (log.address, log.topics.clone(), log.data.clone());
+						existing.insert(fp);
+					}
+				}
+			}
 
-			log!(info, "⛽️ staged {} FeeProxy EVM logs for Frontier merge", call_info.logs.len());
+			let mut new_logs = Vec::new();
+			for log in &call_info.logs {
+				let fp = (log.address, log.topics.clone(), log.data.clone());
+				if !existing.contains(&fp) {
+					new_logs.push(log.clone());
+					existing.insert(fp);
+				}
+			}
+
+			if new_logs.is_empty() {
+				log!(info, "⛽️ skipping staging FeeProxy EVM logs (all duplicates)");
+			} else {
+				staged.push(StagedEvmActivity {
+					extrinsic_index,
+					from: source,
+					to: Some(target),
+					contract_address: None,
+					logs: new_logs.clone(),
+				});
+				StagedEvmActivities::<T>::put(staged);
+				log!(
+					info,
+					"⛽️ staged {} FeeProxy EVM unique logs for Frontier merge",
+					new_logs.len()
+				);
+			}
 		}
 
 		Ok(call_info)
