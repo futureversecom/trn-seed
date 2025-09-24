@@ -979,7 +979,6 @@ describe("Fee Preferences", function () {
 
       // Use finalizeTx which handles the transaction properly
       await finalizeTx(alith, feeProxiedCall);
-
     });
 
     it("Pays fees for batch_all with mixed EVM and non-EVM calls in non-native token", async () => {
@@ -1019,11 +1018,7 @@ describe("Fee Preferences", function () {
 
       // Find estimate cost for feeProxy call
       const feeProxyGasEstimate = await api.tx.feeProxy
-        .callWithFeePreferences(
-          feeTokenAssetId,
-          utils.parseEther("1").toString(),
-          batchCall,
-        )
+        .callWithFeePreferences(feeTokenAssetId, utils.parseEther("1").toString(), batchCall)
         .paymentInfo(sender);
       const feeProxyGasEstimateInXRP = feeProxyGasEstimate.partialFee;
 
@@ -1105,11 +1100,7 @@ describe("Fee Preferences", function () {
       const proxyGasEstimateInXRP = proxyGasEstimate.partialFee;
 
       const feeProxyGasEstimate = await api.tx.feeProxy
-        .callWithFeePreferences(
-          feeTokenAssetId,
-          utils.parseEther("1").toString(),
-          proxyExtrinsic,
-        )
+        .callWithFeePreferences(feeTokenAssetId, utils.parseEther("1").toString(), proxyExtrinsic)
         .paymentInfo(futurepassAddress);
       const feeProxyGasEstimateInXRP = feeProxyGasEstimate.partialFee;
 
@@ -1228,7 +1219,6 @@ describe("Fee Preferences", function () {
 
       // Use finalizeTx which handles the transaction properly
       await finalizeTx(alith, feeProxiedCall);
-
     });
 
     it("Pays fees for batch with mixed EVM and non-EVM calls in non-native token", async () => {
@@ -1268,11 +1258,7 @@ describe("Fee Preferences", function () {
 
       // Find estimate cost for feeProxy call
       const feeProxyGasEstimate = await api.tx.feeProxy
-        .callWithFeePreferences(
-          feeTokenAssetId,
-          utils.parseEther("1").toString(),
-          batchCall,
-        )
+        .callWithFeePreferences(feeTokenAssetId, utils.parseEther("1").toString(), batchCall)
         .paymentInfo(sender);
       const feeProxyGasEstimateInXRP = feeProxyGasEstimate.partialFee;
 
@@ -1354,11 +1340,7 @@ describe("Fee Preferences", function () {
       const proxyGasEstimateInXRP = proxyGasEstimate.partialFee;
 
       const feeProxyGasEstimate = await api.tx.feeProxy
-        .callWithFeePreferences(
-          feeTokenAssetId,
-          utils.parseEther("1").toString(),
-          proxyExtrinsic,
-        )
+        .callWithFeePreferences(feeTokenAssetId, utils.parseEther("1").toString(), proxyExtrinsic)
         .paymentInfo(futurepassAddress);
       const feeProxyGasEstimateInXRP = feeProxyGasEstimate.partialFee;
 
