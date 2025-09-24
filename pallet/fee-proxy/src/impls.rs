@@ -196,19 +196,27 @@ where
 					add_evm_gas_cost(gas_limit, max_fee_per_gas, max_priority_fee_per_gas);
 				}
 
-				// Check if the inner call of the proxy_extrinsic is a batch_all call containing EVM transactions
-				if let Some(pallet_utility::Call::batch_all { calls, .. }) = call.is_sub_type() {
-					for batch_call in calls {
-						if let Some(pallet_evm::Call::call {
-							gas_limit,
-							max_fee_per_gas,
-							max_priority_fee_per_gas,
-							..
-						}) = batch_call.is_sub_type()
-						{
-							add_evm_gas_cost(gas_limit, max_fee_per_gas, max_priority_fee_per_gas);
+				// Check if the inner call of the proxy_extrinsic is a batch call containing EVM transactions
+				match call.is_sub_type() {
+					Some(pallet_utility::Call::batch_all { calls, .. })
+					| Some(pallet_utility::Call::batch { calls, .. }) => {
+						for batch_call in calls {
+							if let Some(pallet_evm::Call::call {
+								gas_limit,
+								max_fee_per_gas,
+								max_priority_fee_per_gas,
+								..
+							}) = batch_call.is_sub_type()
+							{
+								add_evm_gas_cost(
+									gas_limit,
+									max_fee_per_gas,
+									max_priority_fee_per_gas,
+								);
+							}
 						}
-					}
+					},
+					_ => {},
 				}
 			}
 
@@ -226,19 +234,23 @@ where
 				add_evm_gas_cost(gas_limit, max_fee_per_gas, max_priority_fee_per_gas);
 			}
 
-			// Check if the inner call is a batch_all call containing EVM transactions
-			if let Some(pallet_utility::Call::batch_all { calls, .. }) = call.is_sub_type() {
-				for batch_call in calls {
-					if let Some(pallet_evm::Call::call {
-						gas_limit,
-						max_fee_per_gas,
-						max_priority_fee_per_gas,
-						..
-					}) = batch_call.is_sub_type()
-					{
-						add_evm_gas_cost(gas_limit, max_fee_per_gas, max_priority_fee_per_gas);
+			// Check if the inner call is a batch call containing EVM transactions
+			match call.is_sub_type() {
+				Some(pallet_utility::Call::batch_all { calls, .. })
+				| Some(pallet_utility::Call::batch { calls, .. }) => {
+					for batch_call in calls {
+						if let Some(pallet_evm::Call::call {
+							gas_limit,
+							max_fee_per_gas,
+							max_priority_fee_per_gas,
+							..
+						}) = batch_call.is_sub_type()
+						{
+							add_evm_gas_cost(gas_limit, max_fee_per_gas, max_priority_fee_per_gas);
+						}
 					}
-				}
+				},
+				_ => {},
 			}
 
 			do_fee_swap(who, payment_asset, total_fee, *max_payment)?;
