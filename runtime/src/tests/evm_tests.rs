@@ -477,3 +477,485 @@ fn evm_extra_gas_refunded_and_miner_paid() {
 		);
 	})
 }
+
+/// Tests for batch_all EVM gas cost handling in fee proxy
+mod batch_all_evm_support {
+	use super::*;
+	use crate::{RuntimeCall, RuntimeEvent};
+
+	#[test]
+	fn batch_all_with_multiple_evm_calls_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			System::set_block_number(1);
+			let new_account = get_account_id_from_seed::<ecdsa::Public>("BatchTest");
+			
+			// Fund new_account with XRP for gas fees
+			assert_ok!(Assets::mint(
+				RawOrigin::Signed(alice()).into(),
+				XRP_ASSET_ID,
+				new_account,
+				1_000_000_000_000
+			));
+			
+			// The next minted asset id
+			let payment_asset = AssetsExt::next_asset_uuid().unwrap();
+
+			// Create an asset
+			assert_ok!(AssetsExt::create_asset(
+				RawOrigin::Signed(alice()).into(),
+				b"BatchTest".to_vec(),
+				b"BATCH".to_vec(),
+				6,
+				None,
+				None
+			));
+
+			// Mint assets into Alice and new_account
+			assert_ok!(Assets::mint(
+				RawOrigin::Signed(alice()).into(),
+				payment_asset,
+				alice(),
+				10_000_000_000_000_000
+			));
+			assert_ok!(Assets::mint(
+				RawOrigin::Signed(alice()).into(),
+				payment_asset,
+				new_account,
+				10_000_000_000_000_000
+			));
+
+			// Add liquidity to the dex for asset swapping
+			assert_ok!(Dex::add_liquidity(
+				RawOrigin::Signed(alice()).into(),
+				XRP_ASSET_ID,
+				payment_asset,
+				1_000_000_000_000,
+				1_000_000_000_000,
+				1,
+				1,
+				None,
+				None,
+			));
+
+			// Create multiple EVM calls for the batch with realistic gas prices
+			let evm_call_1 = RuntimeCall::EVM(pallet_evm::Call::call {
+				source: new_account.into(),
+				target: H160::from_low_u64_be(1),
+				input: vec![],
+				value: U256::zero(),
+				gas_limit: 21000,
+				max_fee_per_gas: U256::from(15_000_000_000_000u64), // 15 Twei
+				max_priority_fee_per_gas: Some(U256::from(1_500_000_000u64)), // 1.5 gwei
+				nonce: None,
+				access_list: vec![],
+			});
+			
+			let evm_call_2 = RuntimeCall::EVM(pallet_evm::Call::call {
+				source: new_account.into(),
+				target: H160::from_low_u64_be(2),
+				input: vec![],
+				value: U256::zero(),
+				gas_limit: 30000,
+				max_fee_per_gas: U256::from(15_000_000_000_000u64), // 15 Twei
+				max_priority_fee_per_gas: Some(U256::from(1_500_000_000u64)), // 1.5 gwei
+				nonce: None,
+				access_list: vec![],
+			});
+
+			let evm_call_3 = RuntimeCall::EVM(pallet_evm::Call::call {
+				source: new_account.into(),
+				target: H160::from_low_u64_be(3),
+				input: vec![],
+				value: U256::zero(),
+				gas_limit: 25000,
+				max_fee_per_gas: U256::from(15_000_000_000_000u64), // 15 Twei
+				max_priority_fee_per_gas: Some(U256::from(1_500_000_000u64)), // 1.5 gwei
+				nonce: None,
+				access_list: vec![],
+			});
+
+			// Create batch_all call containing multiple EVM calls
+			let batch_call = RuntimeCall::Utility(pallet_utility::Call::batch_all {
+				calls: vec![evm_call_1, evm_call_2, evm_call_3],
+			});
+
+			let max_payment = scale_wei_to_6dp(100_000 * 15_000_000_000_000u128 * 2); // Enough to cover all EVM calls
+			
+			// reset events
+			System::reset_events();
+
+			// Test that the call succeeds and gas costs are calculated for all EVM calls in the batch
+			assert_ok!(FeeProxy::call_with_fee_preferences(
+				RawOrigin::Signed(new_account).into(),
+				payment_asset,
+				max_payment,
+				Box::new(batch_call)
+			));
+
+			// Check that all 3 EVM calls were processed (1 failed, 2 executed successfully)
+			System::assert_has_event(
+				pallet_evm::Event::<Runtime>::ExecutedFailed { // Failed coz 0x1 is ECRecover and does not accept empty input
+					address: H160::from_low_u64_be(1) 
+				}.into(),
+			);
+			System::assert_has_event(
+				pallet_evm::Event::<Runtime>::Executed { 
+					address: H160::from_low_u64_be(2) 
+				}.into(),
+			);
+			System::assert_has_event(
+				pallet_evm::Event::<Runtime>::Executed { 
+					address: H160::from_low_u64_be(3) 
+				}.into(),
+			);
+
+			// Check that all batch items completed
+			let events = System::events();
+			let item_completed_count = events.iter()
+				.filter(|e| matches!(e.event, RuntimeEvent::Utility(pallet_utility::Event::ItemCompleted)))
+				.count();
+			assert_eq!(item_completed_count, 3, "Should have 3 ItemCompleted events for 3 EVM calls");
+
+			// Check that the batch completed successfully
+			System::assert_has_event(
+				pallet_utility::Event::BatchCompleted.into(),
+			);
+
+			// Check that the fee proxy event was emitted
+			System::assert_has_event(
+				pallet_fee_proxy::Event::<Runtime>::CallWithFeePreferences { 
+					who: new_account, 
+					payment_asset, 
+					max_payment 
+				}.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn batch_all_with_evm_and_non_evm_calls_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			System::set_block_number(1);
+			let new_account = get_account_id_from_seed::<ecdsa::Public>("MixedBatchTest");
+			
+			// Fund new_account with XRP for gas fees
+			assert_ok!(Assets::mint(
+				RawOrigin::Signed(alice()).into(),
+				XRP_ASSET_ID,
+				new_account,
+				1_000_000_000_000
+			));
+			
+			// The next minted asset id
+			let payment_asset = AssetsExt::next_asset_uuid().unwrap();
+
+			// Create an asset
+			assert_ok!(AssetsExt::create_asset(
+				RawOrigin::Signed(alice()).into(),
+				b"MixedTest".to_vec(),
+				b"MIXED".to_vec(),
+				6,
+				None,
+				None
+			));
+
+			// Mint assets into Alice and new_account
+			assert_ok!(Assets::mint(
+				RawOrigin::Signed(alice()).into(),
+				payment_asset,
+				alice(),
+				10_000_000_000_000_000
+			));
+			assert_ok!(Assets::mint(
+				RawOrigin::Signed(alice()).into(),
+				payment_asset,
+				new_account,
+				10_000_000_000_000_000
+			));
+
+			// Add liquidity to the dex for asset swapping
+			assert_ok!(Dex::add_liquidity(
+				RawOrigin::Signed(alice()).into(),
+				XRP_ASSET_ID,
+				payment_asset,
+				1_000_000_000_000,
+				1_000_000_000_000,
+				1,
+				1,
+				None,
+				None,
+			));
+
+			// Create EVM call for the batch
+			let evm_call = RuntimeCall::EVM(pallet_evm::Call::call {
+				source: new_account.into(),
+				target: H160::from_low_u64_be(1),
+				input: vec![],
+				value: U256::zero(),
+				gas_limit: 25000,
+				max_fee_per_gas: U256::from(15_000_000_000_000u64), // 15 Twei
+				max_priority_fee_per_gas: Some(U256::from(1_500_000_000u64)), // 1.5 gwei
+				nonce: None,
+				access_list: vec![],
+			});
+
+			// Create non-EVM calls for the batch
+			let remark_call_1 = RuntimeCall::System(frame_system::Call::remark {
+				remark: b"Mixed batch test 1".to_vec(),
+			});
+			
+			let remark_call_2 = RuntimeCall::System(frame_system::Call::remark_with_event {
+				remark: b"Mixed batch test 2".to_vec(),
+			});
+
+			// Create batch_all call containing both EVM and non-EVM calls
+			let batch_call = RuntimeCall::Utility(pallet_utility::Call::batch_all {
+				calls: vec![remark_call_1, evm_call, remark_call_2],
+			});
+
+			let max_payment = scale_wei_to_6dp(50_000 * 15_000_000_000_000u128 * 2); // Enough to cover EVM call
+			
+			// reset events
+			System::reset_events();
+
+			// Test that the call succeeds and gas costs are calculated only for EVM calls
+			assert_ok!(FeeProxy::call_with_fee_preferences(
+				RawOrigin::Signed(new_account).into(),
+				payment_asset,
+				max_payment,
+				Box::new(batch_call)
+			));
+
+			// Check that the EVM call was processed (executed or failed)
+			let events = System::events();
+			let has_evm_event = events.iter().any(|e| matches!(
+				e.event, 
+				RuntimeEvent::EVM(pallet_evm::Event::Executed { .. }) | 
+				RuntimeEvent::EVM(pallet_evm::Event::ExecutedFailed { .. })
+			));
+			assert!(has_evm_event, "Should have at least one EVM event");
+
+			// Check that remark_with_event call emitted event (only remark_call_2)
+			System::assert_has_event(
+				frame_system::Event::<Runtime>::Remarked { 
+					sender: new_account, 
+					hash: sp_core::blake2_256(b"Mixed batch test 2").into() 
+				}.into(),
+			);
+
+			// Check that all batch items completed (2 remarks + 1 EVM call = 3 items)
+			let item_completed_count = events.iter()
+				.filter(|e| matches!(e.event, RuntimeEvent::Utility(pallet_utility::Event::ItemCompleted)))
+				.count();
+			assert_eq!(item_completed_count, 3, "Should have 3 ItemCompleted events for mixed batch");
+
+			// Check that the batch completed successfully
+			System::assert_has_event(
+				pallet_utility::Event::BatchCompleted.into(),
+			);
+
+			// Check that the fee proxy event was emitted
+			System::assert_has_event(
+				pallet_fee_proxy::Event::<Runtime>::CallWithFeePreferences { 
+					who: new_account, 
+					payment_asset, 
+					max_payment 
+				}.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn proxy_extrinsic_with_batch_evm_and_non_evm_calls_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			System::set_block_number(1);
+			let new_account = get_account_id_from_seed::<ecdsa::Public>("ProxyBatchTest");
+			
+			// Fund new_account with XRP for gas fees
+			assert_ok!(Assets::mint(
+				RawOrigin::Signed(alice()).into(),
+				XRP_ASSET_ID,
+				new_account,
+				1_000_000_000_000
+			));
+			
+			// The next minted asset id
+			let payment_asset = AssetsExt::next_asset_uuid().unwrap();
+
+			// Create an asset
+			assert_ok!(AssetsExt::create_asset(
+				RawOrigin::Signed(alice()).into(),
+				b"ProxyTest".to_vec(),
+				b"PROXY".to_vec(),
+				6,
+				None,
+				None
+			));
+
+			// Mint assets into Alice and new_account
+			assert_ok!(Assets::mint(
+				RawOrigin::Signed(alice()).into(),
+				payment_asset,
+				alice(),
+				10_000_000_000_000_000
+			));
+			assert_ok!(Assets::mint(
+				RawOrigin::Signed(alice()).into(),
+				payment_asset,
+				new_account,
+				10_000_000_000_000_000
+			));
+
+			// Add liquidity to the dex for asset swapping
+			assert_ok!(Dex::add_liquidity(
+				RawOrigin::Signed(alice()).into(),
+				XRP_ASSET_ID,
+				payment_asset,
+				1_000_000_000_000,
+				1_000_000_000_000,
+				1,
+				1,
+				None,
+				None,
+			));
+
+			// Create futurepass
+			assert_ok!(Futurepass::create(RuntimeOrigin::signed(alice()), new_account));
+			let futurepass = pallet_futurepass::Holders::<Runtime>::get(new_account).unwrap();
+
+			// Mint payment assets into futurepass
+			assert_ok!(Assets::mint(
+				RawOrigin::Signed(alice()).into(),
+				payment_asset,
+				futurepass,
+				10_000_000_000_000_000
+			));
+
+			// Fund futurepass with XRP for EVM gas fees
+			assert_ok!(Assets::mint(
+				RawOrigin::Signed(alice()).into(),
+				XRP_ASSET_ID,
+				futurepass,
+				1_000_000_000_000
+			));
+
+			// Create EVM calls for the batch
+			let evm_call_1 = RuntimeCall::EVM(pallet_evm::Call::call {
+				source: futurepass.into(), // NOTE: source should be the futurepass.
+				target: H160::from_low_u64_be(1),
+				input: vec![],
+				value: U256::zero(),
+				gas_limit: 40000,
+				max_fee_per_gas: U256::from(15_000_000_000_000u64), // 15 Twei
+				max_priority_fee_per_gas: Some(U256::from(1_500_000_000u64)), // 1.5 gwei
+				nonce: None,
+				access_list: vec![],
+			});
+
+			let evm_call_2 = RuntimeCall::EVM(pallet_evm::Call::call {
+				source: futurepass.into(), // NOTE: source should be the futurepass.
+				target: H160::from_low_u64_be(2),
+				input: vec![],
+				value: U256::zero(),
+				gas_limit: 35000,
+				max_fee_per_gas: U256::from(15_000_000_000_000u64), // 15 Twei
+				max_priority_fee_per_gas: Some(U256::from(1_500_000_000u64)), // 1.5 gwei
+				nonce: None,
+				access_list: vec![],
+			});
+
+			// Create non-EVM calls for the batch
+			let remark_call_1 = RuntimeCall::System(frame_system::Call::remark {
+				remark: b"Proxy test 1".to_vec(),
+			});
+
+			let remark_call_2 = RuntimeCall::System(frame_system::Call::remark_with_event {
+				remark: b"Proxy test 2".to_vec(),
+			});
+
+			// Create batch_all call containing both EVM and non-EVM calls
+			let batch_call = RuntimeCall::Utility(pallet_utility::Call::batch_all {
+				calls: vec![evm_call_1, remark_call_1, evm_call_2, remark_call_2],
+			});
+
+			// Wrap in proxy_extrinsic
+			let proxy_call = RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic {
+				futurepass,
+				call: Box::new(batch_call),
+			});
+
+			let max_payment = scale_wei_to_6dp(100_000 * 15_000_000_000_000u128 * 2); // Enough to cover EVM calls
+			
+			// reset events
+			System::reset_events();
+
+			// Test the proxy call with mixed EVM and non-EVM calls in batch_all
+			assert_ok!(FeeProxy::call_with_fee_preferences(
+				RawOrigin::Signed(new_account).into(),
+				payment_asset,
+				max_payment,
+				Box::new(proxy_call)
+			));
+
+
+			// Check that EVM calls were processed
+			let events = System::events();
+			let evm_event_count = events.iter()
+				.filter(|e| matches!(
+					e.event, 
+					RuntimeEvent::EVM(pallet_evm::Event::Executed { .. }) | 
+					RuntimeEvent::EVM(pallet_evm::Event::ExecutedFailed { .. })
+				))
+				.count();
+			assert!(evm_event_count >= 2, "Should have at least 2 EVM events for 2 EVM calls");
+
+			// Check that EVM calls executed (note: address 0x1 is ECRecover, 0x2 is Sha256)
+			System::assert_has_event(
+				pallet_evm::Event::<Runtime>::Executed { 
+					address: H160::from_low_u64_be(1) 
+				}.into(),
+			);
+			System::assert_has_event(
+				pallet_evm::Event::<Runtime>::Executed { 
+					address: H160::from_low_u64_be(2) 
+				}.into(),
+			);
+
+			// Check that remark_with_event call emitted event (sender should be futurepass)
+			System::assert_has_event(
+				frame_system::Event::<Runtime>::Remarked { 
+					sender: futurepass, 
+					hash: sp_core::blake2_256(b"Proxy test 2").into() 
+				}.into(),
+			);
+
+			// Check that all batch items completed (2 EVM calls + 2 remarks = 4 items)
+			let item_completed_count = events.iter()
+				.filter(|e| matches!(e.event, RuntimeEvent::Utility(pallet_utility::Event::ItemCompleted)))
+				.count();
+			assert_eq!(item_completed_count, 4, "Should have 4 ItemCompleted events for proxy batch");
+
+			// Check that the batch completed successfully
+			System::assert_has_event(
+				pallet_utility::Event::BatchCompleted.into(),
+			);
+
+			// Check that futurepass proxy executed successfully
+			System::assert_has_event(
+				pallet_futurepass::Event::<Runtime>::ProxyExecuted { 
+					delegate: new_account, 
+					result: Ok(()) 
+				}.into(),
+			);
+
+			// Check that the fee proxy event was emitted
+			System::assert_has_event(
+				pallet_fee_proxy::Event::<Runtime>::CallWithFeePreferences { 
+					who: new_account, 
+					payment_asset, 
+					max_payment 
+				}.into(),
+			);
+		});
+	}
+}
