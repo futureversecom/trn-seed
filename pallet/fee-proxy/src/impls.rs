@@ -210,8 +210,6 @@ where
 						}
 					}
 				}
-
-				
 			}
 
 			// Check if the inner call of the call_with_fee_preferences is an evm call. This will

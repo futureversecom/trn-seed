@@ -488,7 +488,7 @@ mod batch_all_evm_support {
 		ExtBuilder::default().build().execute_with(|| {
 			System::set_block_number(1);
 			let new_account = get_account_id_from_seed::<ecdsa::Public>("BatchTest");
-			
+
 			// Fund new_account with XRP for gas fees
 			assert_ok!(Assets::mint(
 				RawOrigin::Signed(alice()).into(),
@@ -496,7 +496,7 @@ mod batch_all_evm_support {
 				new_account,
 				1_000_000_000_000
 			));
-			
+
 			// The next minted asset id
 			let payment_asset = AssetsExt::next_asset_uuid().unwrap();
 
@@ -549,7 +549,7 @@ mod batch_all_evm_support {
 				nonce: None,
 				access_list: vec![],
 			});
-			
+
 			let evm_call_2 = RuntimeCall::EVM(pallet_evm::Call::call {
 				source: new_account.into(),
 				target: H160::from_low_u64_be(2),
@@ -580,7 +580,7 @@ mod batch_all_evm_support {
 			});
 
 			let max_payment = scale_wei_to_6dp(100_000 * 15_000_000_000_000u128 * 2); // Enough to cover all EVM calls
-			
+
 			// reset events
 			System::reset_events();
 
@@ -594,40 +594,43 @@ mod batch_all_evm_support {
 
 			// Check that all 3 EVM calls were processed (1 failed, 2 executed successfully)
 			System::assert_has_event(
-				pallet_evm::Event::<Runtime>::ExecutedFailed { // Failed coz 0x1 is ECRecover and does not accept empty input
-					address: H160::from_low_u64_be(1) 
-				}.into(),
+				pallet_evm::Event::<Runtime>::ExecutedFailed {
+					// Failed coz 0x1 is ECRecover and does not accept empty input
+					address: H160::from_low_u64_be(1),
+				}
+				.into(),
 			);
 			System::assert_has_event(
-				pallet_evm::Event::<Runtime>::Executed { 
-					address: H160::from_low_u64_be(2) 
-				}.into(),
+				pallet_evm::Event::<Runtime>::Executed { address: H160::from_low_u64_be(2) }.into(),
 			);
 			System::assert_has_event(
-				pallet_evm::Event::<Runtime>::Executed { 
-					address: H160::from_low_u64_be(3) 
-				}.into(),
+				pallet_evm::Event::<Runtime>::Executed { address: H160::from_low_u64_be(3) }.into(),
 			);
 
 			// Check that all batch items completed
 			let events = System::events();
-			let item_completed_count = events.iter()
-				.filter(|e| matches!(e.event, RuntimeEvent::Utility(pallet_utility::Event::ItemCompleted)))
+			let item_completed_count = events
+				.iter()
+				.filter(|e| {
+					matches!(e.event, RuntimeEvent::Utility(pallet_utility::Event::ItemCompleted))
+				})
 				.count();
-			assert_eq!(item_completed_count, 3, "Should have 3 ItemCompleted events for 3 EVM calls");
+			assert_eq!(
+				item_completed_count, 3,
+				"Should have 3 ItemCompleted events for 3 EVM calls"
+			);
 
 			// Check that the batch completed successfully
-			System::assert_has_event(
-				pallet_utility::Event::BatchCompleted.into(),
-			);
+			System::assert_has_event(pallet_utility::Event::BatchCompleted.into());
 
 			// Check that the fee proxy event was emitted
 			System::assert_has_event(
-				pallet_fee_proxy::Event::<Runtime>::CallWithFeePreferences { 
-					who: new_account, 
-					payment_asset, 
-					max_payment 
-				}.into(),
+				pallet_fee_proxy::Event::<Runtime>::CallWithFeePreferences {
+					who: new_account,
+					payment_asset,
+					max_payment,
+				}
+				.into(),
 			);
 		});
 	}
@@ -637,7 +640,7 @@ mod batch_all_evm_support {
 		ExtBuilder::default().build().execute_with(|| {
 			System::set_block_number(1);
 			let new_account = get_account_id_from_seed::<ecdsa::Public>("MixedBatchTest");
-			
+
 			// Fund new_account with XRP for gas fees
 			assert_ok!(Assets::mint(
 				RawOrigin::Signed(alice()).into(),
@@ -645,7 +648,7 @@ mod batch_all_evm_support {
 				new_account,
 				1_000_000_000_000
 			));
-			
+
 			// The next minted asset id
 			let payment_asset = AssetsExt::next_asset_uuid().unwrap();
 
@@ -703,7 +706,7 @@ mod batch_all_evm_support {
 			let remark_call_1 = RuntimeCall::System(frame_system::Call::remark {
 				remark: b"Mixed batch test 1".to_vec(),
 			});
-			
+
 			let remark_call_2 = RuntimeCall::System(frame_system::Call::remark_with_event {
 				remark: b"Mixed batch test 2".to_vec(),
 			});
@@ -714,7 +717,7 @@ mod batch_all_evm_support {
 			});
 
 			let max_payment = scale_wei_to_6dp(50_000 * 15_000_000_000_000u128 * 2); // Enough to cover EVM call
-			
+
 			// reset events
 			System::reset_events();
 
@@ -728,39 +731,47 @@ mod batch_all_evm_support {
 
 			// Check that the EVM call was processed (executed or failed)
 			let events = System::events();
-			let has_evm_event = events.iter().any(|e| matches!(
-				e.event, 
-				RuntimeEvent::EVM(pallet_evm::Event::Executed { .. }) | 
-				RuntimeEvent::EVM(pallet_evm::Event::ExecutedFailed { .. })
-			));
+			let has_evm_event = events.iter().any(|e| {
+				matches!(
+					e.event,
+					RuntimeEvent::EVM(pallet_evm::Event::Executed { .. })
+						| RuntimeEvent::EVM(pallet_evm::Event::ExecutedFailed { .. })
+				)
+			});
 			assert!(has_evm_event, "Should have at least one EVM event");
 
 			// Check that remark_with_event call emitted event (only remark_call_2)
 			System::assert_has_event(
-				frame_system::Event::<Runtime>::Remarked { 
-					sender: new_account, 
-					hash: sp_core::blake2_256(b"Mixed batch test 2").into() 
-				}.into(),
+				frame_system::Event::<Runtime>::Remarked {
+					sender: new_account,
+					hash: sp_core::blake2_256(b"Mixed batch test 2").into(),
+				}
+				.into(),
 			);
 
 			// Check that all batch items completed (2 remarks + 1 EVM call = 3 items)
-			let item_completed_count = events.iter()
-				.filter(|e| matches!(e.event, RuntimeEvent::Utility(pallet_utility::Event::ItemCompleted)))
+			let item_completed_count = events
+				.iter()
+				.filter(|e| {
+					matches!(e.event, RuntimeEvent::Utility(pallet_utility::Event::ItemCompleted))
+				})
 				.count();
-			assert_eq!(item_completed_count, 3, "Should have 3 ItemCompleted events for mixed batch");
+			assert_eq!(
+				item_completed_count, 3,
+				"Should have 3 ItemCompleted events for mixed batch"
+			);
 
 			// Check that the batch completed successfully
-			System::assert_has_event(
-				pallet_utility::Event::BatchCompleted.into(),
-			);
+			System::assert_has_event(pallet_utility::Event::BatchCompleted.into());
 
 			// Check that the fee proxy event was emitted
 			System::assert_has_event(
-				pallet_fee_proxy::Event::<Runtime>::CallWithFeePreferences { 
-					who: new_account, 
-					payment_asset, 
-					max_payment 
-				}.into(),
+				pallet_fee_proxy::Event::<Runtime>::CallWithFeePreferences {
+					who: new_account,
+					payment_asset,
+					max_payment,
+				}
+				.into(),
 			);
 		});
 	}
@@ -770,7 +781,7 @@ mod batch_all_evm_support {
 		ExtBuilder::default().build().execute_with(|| {
 			System::set_block_number(1);
 			let new_account = get_account_id_from_seed::<ecdsa::Public>("ProxyBatchTest");
-			
+
 			// Fund new_account with XRP for gas fees
 			assert_ok!(Assets::mint(
 				RawOrigin::Signed(alice()).into(),
@@ -778,7 +789,7 @@ mod batch_all_evm_support {
 				new_account,
 				1_000_000_000_000
 			));
-			
+
 			// The next minted asset id
 			let payment_asset = AssetsExt::next_asset_uuid().unwrap();
 
@@ -885,7 +896,7 @@ mod batch_all_evm_support {
 			});
 
 			let max_payment = scale_wei_to_6dp(100_000 * 15_000_000_000_000u128 * 2); // Enough to cover EVM calls
-			
+
 			// reset events
 			System::reset_events();
 
@@ -897,64 +908,69 @@ mod batch_all_evm_support {
 				Box::new(proxy_call)
 			));
 
-
 			// Check that EVM calls were processed
 			let events = System::events();
-			let evm_event_count = events.iter()
-				.filter(|e| matches!(
-					e.event, 
-					RuntimeEvent::EVM(pallet_evm::Event::Executed { .. }) | 
-					RuntimeEvent::EVM(pallet_evm::Event::ExecutedFailed { .. })
-				))
+			let evm_event_count = events
+				.iter()
+				.filter(|e| {
+					matches!(
+						e.event,
+						RuntimeEvent::EVM(pallet_evm::Event::Executed { .. })
+							| RuntimeEvent::EVM(pallet_evm::Event::ExecutedFailed { .. })
+					)
+				})
 				.count();
 			assert!(evm_event_count >= 2, "Should have at least 2 EVM events for 2 EVM calls");
 
 			// Check that EVM calls executed (note: address 0x1 is ECRecover, 0x2 is Sha256)
 			System::assert_has_event(
-				pallet_evm::Event::<Runtime>::Executed { 
-					address: H160::from_low_u64_be(1) 
-				}.into(),
+				pallet_evm::Event::<Runtime>::Executed { address: H160::from_low_u64_be(1) }.into(),
 			);
 			System::assert_has_event(
-				pallet_evm::Event::<Runtime>::Executed { 
-					address: H160::from_low_u64_be(2) 
-				}.into(),
+				pallet_evm::Event::<Runtime>::Executed { address: H160::from_low_u64_be(2) }.into(),
 			);
 
 			// Check that remark_with_event call emitted event (sender should be futurepass)
 			System::assert_has_event(
-				frame_system::Event::<Runtime>::Remarked { 
-					sender: futurepass, 
-					hash: sp_core::blake2_256(b"Proxy test 2").into() 
-				}.into(),
+				frame_system::Event::<Runtime>::Remarked {
+					sender: futurepass,
+					hash: sp_core::blake2_256(b"Proxy test 2").into(),
+				}
+				.into(),
 			);
 
 			// Check that all batch items completed (2 EVM calls + 2 remarks = 4 items)
-			let item_completed_count = events.iter()
-				.filter(|e| matches!(e.event, RuntimeEvent::Utility(pallet_utility::Event::ItemCompleted)))
+			let item_completed_count = events
+				.iter()
+				.filter(|e| {
+					matches!(e.event, RuntimeEvent::Utility(pallet_utility::Event::ItemCompleted))
+				})
 				.count();
-			assert_eq!(item_completed_count, 4, "Should have 4 ItemCompleted events for proxy batch");
+			assert_eq!(
+				item_completed_count, 4,
+				"Should have 4 ItemCompleted events for proxy batch"
+			);
 
 			// Check that the batch completed successfully
-			System::assert_has_event(
-				pallet_utility::Event::BatchCompleted.into(),
-			);
+			System::assert_has_event(pallet_utility::Event::BatchCompleted.into());
 
 			// Check that futurepass proxy executed successfully
 			System::assert_has_event(
-				pallet_futurepass::Event::<Runtime>::ProxyExecuted { 
-					delegate: new_account, 
-					result: Ok(()) 
-				}.into(),
+				pallet_futurepass::Event::<Runtime>::ProxyExecuted {
+					delegate: new_account,
+					result: Ok(()),
+				}
+				.into(),
 			);
 
 			// Check that the fee proxy event was emitted
 			System::assert_has_event(
-				pallet_fee_proxy::Event::<Runtime>::CallWithFeePreferences { 
-					who: new_account, 
-					payment_asset, 
-					max_payment 
-				}.into(),
+				pallet_fee_proxy::Event::<Runtime>::CallWithFeePreferences {
+					who: new_account,
+					payment_asset,
+					max_payment,
+				}
+				.into(),
 			);
 		});
 	}
