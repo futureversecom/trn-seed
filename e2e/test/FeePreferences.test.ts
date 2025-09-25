@@ -859,6 +859,10 @@ describe("Fee Preferences", function () {
 
     // cost for evm call + cost for fee proxy
     const estimatedTotalGasCost = evmCallGasEstimateinXRP.toNumber() + feeProxyGasEstimateinXRP.toNumber();
+    console.log(
+      "Pays fees in non-native token with extrinsic - check maxPayment works fine - estimatedTotalGasCost:",
+      estimatedTotalGasCost,
+    );
 
     // const {
     //   Ok: [estimatedTokenTxCost],
@@ -957,6 +961,7 @@ describe("Fee Preferences", function () {
 
       // cost for cost for fee proxy + cost for evm calls
       const estimatedTotalGasCost = feeProxyGasEstimateInXRP.toNumber() + evmCallCostTotalInXRP;
+      console.log("batch_all with multiple EVM calls - estimatedTotalGasCost:", estimatedTotalGasCost);
 
       /*// Convert to fee token amount
       const {
@@ -1024,6 +1029,7 @@ describe("Fee Preferences", function () {
 
       // Calculate total estimated cost
       const estimatedTotalGasCost = batchGasEstimateInXRP.toNumber() + feeProxyGasEstimateInXRP.toNumber();
+      console.log("batch_all with mixed EVM and non-EVM calls - estimatedTotalGasCost:", estimatedTotalGasCost);
 
       // NOTE: Use a reasonable fixed amount for testing like the working test
       const estimatedTokenTxCost = 918838;
@@ -1106,6 +1112,10 @@ describe("Fee Preferences", function () {
 
       // Calculate total estimated cost
       const estimatedTotalGasCost = proxyGasEstimateInXRP.toNumber() + feeProxyGasEstimateInXRP.toNumber();
+      console.log(
+        "futurepass proxy_extrinsic with batch_all containing EVM calls - estimatedTotalGasCost:",
+        estimatedTotalGasCost,
+      );
 
       // NOTE: Use a reasonable fixed amount for testing like the working test
       const estimatedTokenTxCost = 918838;
@@ -1197,6 +1207,7 @@ describe("Fee Preferences", function () {
 
       // cost for cost for fee proxy + cost for evm calls
       const estimatedTotalGasCost = feeProxyGasEstimateInXRP.toNumber() + evmCallCostTotalInXRP;
+      console.log("batch with multiple EVM calls - estimatedTotalGasCost:", estimatedTotalGasCost);
 
       /*// Convert to fee token amount
       const {
@@ -1264,6 +1275,7 @@ describe("Fee Preferences", function () {
 
       // Calculate total estimated cost
       const estimatedTotalGasCost = batchGasEstimateInXRP.toNumber() + feeProxyGasEstimateInXRP.toNumber();
+      console.log("batch with mixed EVM and non-EVM calls - estimatedTotalGasCost:", estimatedTotalGasCost);
 
       // NOTE: Use a reasonable fixed amount for testing like the working test
       const estimatedTokenTxCost = 918838;
@@ -1346,6 +1358,10 @@ describe("Fee Preferences", function () {
 
       // Calculate total estimated cost
       const estimatedTotalGasCost = proxyGasEstimateInXRP.toNumber() + feeProxyGasEstimateInXRP.toNumber();
+      console.log(
+        "futurepass proxy_extrinsic with batch containing EVM calls - estimatedTotalGasCost:",
+        estimatedTotalGasCost,
+      );
 
       // NOTE: Use a reasonable fixed amount for testing like the working test
       const estimatedTokenTxCost = 918838;
