@@ -58,6 +58,8 @@ where
 	<T as pallet_futurepass::Config>::RuntimeCall:
 		IsSubType<pallet_sylo_data_verification::Call<T>>,
 	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_sylo_data_permissions::Call<T>>,
+	<T as pallet_futurepass::Config>::RuntimeCall: IsSubType<pallet_utility::Call<T>>,
+	<T as pallet_utility::Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
 	<T as Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
 	<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
@@ -194,6 +196,29 @@ where
 				{
 					add_evm_gas_cost(gas_limit, max_fee_per_gas, max_priority_fee_per_gas);
 				}
+
+				// Check if the inner call of the proxy_extrinsic is a batch call containing EVM transactions
+				match call.is_sub_type() {
+					Some(pallet_utility::Call::batch_all { calls, .. })
+					| Some(pallet_utility::Call::batch { calls, .. }) => {
+						for batch_call in calls {
+							if let Some(pallet_evm::Call::call {
+								gas_limit,
+								max_fee_per_gas,
+								max_priority_fee_per_gas,
+								..
+							}) = batch_call.is_sub_type()
+							{
+								add_evm_gas_cost(
+									gas_limit,
+									max_fee_per_gas,
+									max_priority_fee_per_gas,
+								);
+							}
+						}
+					},
+					_ => {},
+				}
 			}
 
 			// Check if the inner call of the call_with_fee_preferences is an evm call. This will
@@ -208,6 +233,25 @@ where
 			}) = call.is_sub_type()
 			{
 				add_evm_gas_cost(gas_limit, max_fee_per_gas, max_priority_fee_per_gas);
+			}
+
+			// Check if the inner call is a batch call containing EVM transactions
+			match call.is_sub_type() {
+				Some(pallet_utility::Call::batch_all { calls, .. })
+				| Some(pallet_utility::Call::batch { calls, .. }) => {
+					for batch_call in calls {
+						if let Some(pallet_evm::Call::call {
+							gas_limit,
+							max_fee_per_gas,
+							max_priority_fee_per_gas,
+							..
+						}) = batch_call.is_sub_type()
+						{
+							add_evm_gas_cost(gas_limit, max_fee_per_gas, max_priority_fee_per_gas);
+						}
+					}
+				},
+				_ => {},
 			}
 
 			do_fee_swap(who, payment_asset, total_fee, *max_payment)?;
