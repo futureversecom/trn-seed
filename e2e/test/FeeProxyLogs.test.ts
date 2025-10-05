@@ -92,7 +92,7 @@ describe("FeeProxy EVM logs are canonicalized", function () {
 
     const blockNumber = receipt.blockNumber;
     const logs = await provider.getLogs({ fromBlock: blockNumber, toBlock: blockNumber });
-    expect(logs.length).to.be.greaterThan(0);
+    expect(logs.length).to.eq(1);
 
     const transferTopic = utils.id("Transfer(address,address,uint256)");
     const matched = logs.find(
@@ -157,41 +157,10 @@ describe("FeeProxy EVM logs are canonicalized", function () {
       fromBlock: blockNumber,
       toBlock: blockNumber,
     });
-    // Filter: treat any log whose transaction hash cannot be resolved to a tx as synthetic duplicate
-    const filtered = [] as typeof logs;
-    for (const l of logs) {
-      // eslint-disable-next-line no-await-in-loop
-      const tx = await provider.getTransaction(l.transactionHash);
-      if (tx) {
-        filtered.push(l);
-      }
-    }
-    const count = filtered.length;
-    if (count !== 1) {
-      // Provide debug output to aid dedup root cause analysis
-      console.log("[DEBUG] Duplicate log diagnostic (post-filter, count != 1):");
-      logs.forEach((l, idx) => {
-        console.log(idx, {
-          txHash: l.transactionHash,
-          logIndex: l.logIndex,
-          txIndex: l.transactionIndex,
-          data: l.data,
-          topics: l.topics,
-        });
-      });
-      // Attempt to fetch transactions for each raw log to see which are synthetic (null)
-      for (const l of logs) {
-        try {
-          // eslint-disable-next-line no-await-in-loop
-          const tx = await provider.getTransaction(l.transactionHash);
-          console.log("[DEBUG] tx lookup", l.transactionHash, tx ? "found" : "null");
-        } catch (e) {
-          console.log("[DEBUG] tx lookup error", l.transactionHash, e);
-        }
-      }
-    }
-    expect(count).to.eq(1);
+
+    expect(logs.length).to.eq(1);
   });
+
 
   it("synthetic transaction hashes from extrinsic path are not retrievable via eth_getTransactionByHash", async () => {
     // Build a Substrate extrinsic that performs an EVM ERC20 transfer via pallet-evm
@@ -244,7 +213,7 @@ describe("FeeProxy EVM logs are canonicalized", function () {
       fromBlock: latestBlock,
       toBlock: latestBlock,
     });
-    expect(logs.length).to.be.greaterThan(0);
+    expect(logs.length).to.eq(1);
 
     const syntheticLog = logs[0];
     const tx = await provider.getTransaction(syntheticLog.transactionHash);

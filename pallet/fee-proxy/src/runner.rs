@@ -18,7 +18,6 @@ use ethabi::{ParamType, Token};
 use frame_support::{
 	dispatch::Weight, ensure, traits::fungibles::metadata::Inspect as InspectMetadata,
 };
-use pallet_evm::pallet::{StagedEvmActivities, StagedEvmActivity};
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator,
 	Runner as RunnerT, RunnerError,
@@ -364,10 +363,10 @@ where
 		}
 
 		// continue with the call - with fees payable in gas asset currency - via dex swap
-		let call_info = <Runner<T> as RunnerT<T>>::call(
+		<Runner<T> as RunnerT<T>>::call(
 			source,
 			target,
-			input.clone(),
+			input,
 			value,
 			gas_limit,
 			max_fee_per_gas,
@@ -379,54 +378,7 @@ where
 			weight_limit,
 			proof_size_base_cost,
 			config,
-		)?;
-
-		if !call_info.logs.is_empty() {
-			// Enhanced deduplication: ensure we never stage the same individual log (address+topics+data)
-			// more than once for the same extrinsic, even if batches differ in ordering or grouping.
-			let extrinsic_index = <frame_system::Pallet<T>>::extrinsic_index().unwrap_or(0u32);
-			let mut staged = StagedEvmActivities::<T>::get();
-			// Collect existing log fingerprints for this extrinsic/source/target.
-			let mut existing = sp_std::collections::btree_set::BTreeSet::new();
-			for s in staged.iter() {
-				if s.extrinsic_index == extrinsic_index && s.from == source && s.to == Some(target)
-				{
-					for log in &s.logs {
-						let fp = (log.address, log.topics.clone(), log.data.clone());
-						existing.insert(fp);
-					}
-				}
-			}
-
-			let mut new_logs = Vec::new();
-			for log in &call_info.logs {
-				let fp = (log.address, log.topics.clone(), log.data.clone());
-				if !existing.contains(&fp) {
-					new_logs.push(log.clone());
-					existing.insert(fp);
-				}
-			}
-
-			if new_logs.is_empty() {
-				log!(info, "⛽️ skipping staging FeeProxy EVM logs (all duplicates)");
-			} else {
-				staged.push(StagedEvmActivity {
-					extrinsic_index,
-					from: source,
-					to: Some(target),
-					contract_address: None,
-					logs: new_logs.clone(),
-				});
-				StagedEvmActivities::<T>::put(staged);
-				log!(
-					info,
-					"⛽️ staged {} FeeProxy EVM unique logs for Frontier merge",
-					new_logs.len()
-				);
-			}
-		}
-
-		Ok(call_info)
+		)
 	}
 
 	fn create(
