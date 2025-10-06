@@ -161,7 +161,6 @@ describe("FeeProxy EVM logs are canonicalized", function () {
     expect(logs.length).to.eq(1);
   });
 
-
   it("synthetic transaction hashes from extrinsic path are not retrievable via eth_getTransactionByHash", async () => {
     // Build a Substrate extrinsic that performs an EVM ERC20 transfer via pallet-evm
     const tokenAddr = assetIdToERC20ContractAddress(feeTokenAssetId);
