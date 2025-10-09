@@ -50,7 +50,7 @@ where
 
 /// A custom quadratic vote weight implementation for democracy pallet.
 /// Follows the formula votes = capital * Sqrt(conviction / 6)
-#[derive(TypeInfo, Default)]
+#[derive(TypeInfo, Default, Debug)]
 pub struct QuadraticVoteWeight;
 
 impl VoteWeight for QuadraticVoteWeight {
