@@ -23,10 +23,10 @@ use seed_runtime::{
 		XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	keys::*,
-	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, EthBridgeConfig,
-	RuntimeGenesisConfig, SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig,
-	SudoConfig, SystemConfig, TransactionPaymentConfig, XRPLBridgeConfig,
-	BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
+	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, CouncilConfig, DemocracyConfig,
+	ElectionsConfig, EthBridgeConfig, RuntimeGenesisConfig, SessionConfig, SessionKeys, Signature,
+	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TransactionPaymentConfig,
+	XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
 };
 use sp_core::{ecdsa, Pair, Public};
 use sp_runtime::{
@@ -163,6 +163,7 @@ fn testnet_genesis(
 		(XRP_ASSET_ID, root_key, true, XRP_MINIMUM_BALANCE),
 		(VTX_ASSET_ID, root_key, true, VTX_MINIMUM_BALANCE),
 	];
+	let endowed_accounts = accounts_to_fund.clone();
 	let mut endowed_assets = Vec::with_capacity(accounts_to_fund.len());
 	let mut endowed_balances = Vec::with_capacity(accounts_to_fund.len());
 	for account in accounts_to_fund {
@@ -171,6 +172,7 @@ fn testnet_genesis(
 	}
 	const VALIDATOR_BOND: Balance = 100_000 * ONE_ROOT;
 	let multiplier: Multiplier = Multiplier::from_rational(1_u128, 1_000_000_000_u128);
+	let election_stake = 100_000 * ONE_ROOT;
 
 	RuntimeGenesisConfig {
 		system: SystemConfig {
@@ -228,5 +230,16 @@ fn testnet_genesis(
 		ethereum: seed_runtime::EthereumConfig { ..Default::default() },
 		evm: seed_runtime::EVMConfig { ..Default::default() },
 		xrpl_bridge: XRPLBridgeConfig { xrp_relayers },
+		council: CouncilConfig::default(),
+		elections: ElectionsConfig {
+			members: endowed_accounts
+				.iter()
+				.skip(12)
+				.take(5)
+				.cloned()
+				.map(|member| (member, election_stake))
+				.collect(),
+		},
+		democracy: DemocracyConfig::default(),
 	}
 }

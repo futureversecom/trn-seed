@@ -62,6 +62,7 @@ use pallet_nft::CollectionDetail;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use static_assertions::const_assert;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -73,8 +74,8 @@ pub use frame_support::{
 	traits::{
 		fungibles::{metadata::Inspect as InspectMetadata, Inspect},
 		tokens::{Fortitude, Preservation},
-		AsEnsureOriginWithArg, ConstU128, ConstU32, Everything, Get, IsInVec, KeyOwnerProofSystem,
-		Randomness,
+		AsEnsureOriginWithArg, ConstU128, ConstU32, EitherOfDiverse, Everything, Get, IsInVec,
+		KeyOwnerProofSystem, LockIdentifier, Randomness,
 	},
 	weights::{
 		constants::{
@@ -85,7 +86,6 @@ pub use frame_support::{
 	},
 	PalletId, StorageValue,
 };
-
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureSigned,
@@ -145,11 +145,13 @@ use staking::OnChainAccuracy;
 mod migrations;
 mod weights;
 
+use crate::voting::QuadraticVoteWeight;
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
 use seed_primitives::migration::NoopMigration;
 
 #[cfg(test)]
 mod tests;
+mod voting;
 
 /// Currency implementation mapped to XRP
 pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Runtime, XrpAssetId>;
@@ -255,6 +257,10 @@ impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 			RuntimeCall::Staking(pallet_staking::Call::payout_stakers { .. }) => false,
 			// Disable Proxy::add_proxy
 			RuntimeCall::Proxy(pallet_proxy::Call::add_proxy { .. }) => false,
+			// Prevent new users from submitting their candidacy to the council
+			RuntimeCall::Elections(pallet_elections_phragmen::Call::submit_candidacy {
+				..
+			}) => false,
 			_ => true,
 		}
 	}
@@ -605,6 +611,8 @@ impl pallet_scheduler::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
 	type RuntimeCall = RuntimeCall;
 	type MaximumWeight = MaximumSchedulerWeight;
+	// If this is made public, we would need to add a check for maintenance mode as well.
+	// If maintenance mode is enabled, people can schedule a call and bypass maintenance mode
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
@@ -844,6 +852,7 @@ impl pallet_session::historical::Config for Runtime {
 parameter_types! {
 	pub const BagThresholds: &'static [u64] = &bag_thresholds::THRESHOLDS;
 }
+
 impl pallet_bags_list::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ScoreProvider = Staking;
@@ -919,6 +928,7 @@ parameter_types! {
 		.max
 		.get(DispatchClass::Normal);
 }
+
 impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	type AccountId = AccountId;
 	type MaxLength = OffchainSolutionLengthLimit;
@@ -1056,6 +1066,7 @@ parameter_types! {
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
 	pub const MaxPeerDataEncodingSize: u32 = 1_000;
 }
+
 impl pallet_im_online::Config for Runtime {
 	type AuthorityId = ImOnlineId;
 	type RuntimeEvent = RuntimeEvent;
@@ -1458,6 +1469,10 @@ impl pallet_maintenance_mode::Config for Runtime {
 	type TimestampPallet = Timestamp;
 	type ImOnlinePallet = ImOnline;
 	type EthyPallet = EthBridge;
+	type DemocracyPallet = Democracy;
+	type PreimagePallet = Preimage;
+	type CouncilPallet = Council;
+	type SchedulerPallet = Scheduler;
 }
 
 parameter_types! {
@@ -1499,6 +1514,146 @@ impl pallet_migration::Config for Runtime {
 	type CurrentMigration = NoopMigration;
 	type MaxMigrationWeight = MaxMigrationWeight;
 	type WeightInfo = weights::pallet_migration::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	pub const CouncilMotionDuration: BlockNumber = 5 * DAYS;
+	pub const CouncilMaxProposals: u32 = 100;
+	pub const CouncilMaxMembers: u32 = 100;
+	pub MaxCollectivesProposalWeight: Weight = Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block;
+}
+
+type CouncilCollective = pallet_collective::Instance1;
+impl pallet_collective::Config<CouncilCollective> for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type Proposal = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type MotionDuration = CouncilMotionDuration;
+	type MaxProposals = CouncilMaxProposals;
+	type MaxMembers = CouncilMaxMembers;
+	type DefaultVote = pallet_collective::PrimeDefaultVote;
+	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
+	type MaxProposalWeight = MaxCollectivesProposalWeight;
+}
+
+parameter_types! {
+	pub const CandidacyBond: Balance = 1500 * ONE_ROOT;
+	// 1 storage item created, key size is 32 bytes, value size is 16+16.
+	pub const VotingBondBase: Balance = deposit(1, 64);
+	// additional data per vote is 32 bytes (account id).
+	pub const VotingBondFactor: Balance = deposit(0, 32);
+	pub const TermDuration: BlockNumber = 25 * MINUTES;
+	pub const DesiredMembers: u32 = 5;
+	pub const DesiredRunnersUp: u32 = 3;
+	pub const MaxVotesPerVoter: u32 = 16;
+	pub const MaxVoters: u32 = 512;
+	pub const MaxCandidates: u32 = 64;
+	pub const ElectionsPhragmenPalletId: LockIdentifier = *b"phrelect";
+}
+
+// Make sure that there are no more than `MaxMembers` members elected via elections-phragmen.
+const_assert!(DesiredMembers::get() <= CouncilMaxMembers::get());
+
+impl pallet_elections_phragmen::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = ElectionsPhragmenPalletId;
+	type Currency = Balances;
+	type ChangeMembers = Council;
+	// NOTE: this implies that council's genesis members cannot be set directly and must come from
+	// this module.
+	type InitializeMembers = Council;
+	type CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
+	type CandidacyBond = CandidacyBond;
+	type VotingBondBase = VotingBondBase;
+	type VotingBondFactor = VotingBondFactor;
+	type LoserCandidate = ();
+	type KickedMember = ();
+	type DesiredMembers = DesiredMembers;
+	type DesiredRunnersUp = DesiredRunnersUp;
+	type TermDuration = TermDuration;
+	type MaxVoters = MaxVoters;
+	type MaxVotesPerVoter = MaxVotesPerVoter;
+	type MaxCandidates = MaxCandidates;
+	type WeightInfo = pallet_elections_phragmen::weights::SubstrateWeight<Runtime>;
+}
+
+// Define the privileged set of accounts that can fast-track proposals
+pub struct FastTrackMembers;
+
+impl frame_support::traits::SortedMembers<AccountId> for FastTrackMembers {
+	fn sorted_members() -> Vec<AccountId> {
+		// Return all Council members - as an example.
+		pallet_collective::Members::<Runtime, CouncilCollective>::get()
+	}
+}
+
+parameter_types! {
+	pub const LaunchPeriod: BlockNumber =  1 * DAYS;
+	pub const VotingPeriod: BlockNumber = 1 * DAYS;
+	pub const FastTrackVotingPeriod: BlockNumber = 5 * MINUTES;
+	pub const MinimumDeposit: Balance = 1500 * ONE_ROOT;
+	pub const EnactmentPeriod: BlockNumber = 2 * DAYS;
+	pub const CooloffPeriod: BlockNumber = 1 * DAYS;
+	pub const MaxProposals: u32 = 100;
+	pub const MaxVotes: u32 = 200;
+}
+
+impl pallet_democracy::Config for Runtime {
+	type WeightInfo = pallet_democracy::weights::SubstrateWeight<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	type Scheduler = Scheduler;
+	type Preimages = Preimage;
+	type Currency = Balances;
+	type EnactmentPeriod = EnactmentPeriod;
+	type LaunchPeriod = LaunchPeriod;
+	type VotingPeriod = VotingPeriod;
+	type VoteLockingPeriod = EnactmentPeriod;
+	// Same as EnactmentPeriod
+	type MinimumDeposit = MinimumDeposit;
+	type InstantAllowed = frame_support::traits::ConstBool<true>;
+	type FastTrackVotingPeriod = FastTrackVotingPeriod;
+	type CooloffPeriod = CooloffPeriod;
+	type MaxVotes = MaxVotes;
+	type MaxProposals = MaxProposals;
+	type MaxDeposits = ConstU32<100>;
+	type MaxBlacklisted = ConstU32<100>;
+	/// A straight majority of the council can decide what their next motion is.
+	type ExternalOrigin =
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 2>;
+	/// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
+	type ExternalMajorityOrigin =
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
+	/// A unanimous council can have the next scheduled referendum be a straight default-carries
+	/// (NTB) vote.
+	type ExternalDefaultOrigin =
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 1>;
+	type SubmitOrigin = EnsureSigned<AccountId>;
+	/// Two fifths of the technical committee can have an ExternalMajority/ExternalDefault vote
+	/// be tabled immediately and with a shorter voting/enactment period.
+	type FastTrackOrigin =
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
+	type InstantOrigin = EitherOfDiverse<
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 2>,
+		frame_system::EnsureSignedBy<FastTrackMembers, AccountId>,
+	>;
+	// To cancel a proposal which has been passed, 2/3 of the council must agree to it.
+	type CancellationOrigin =
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 3>;
+	type BlacklistOrigin = EnsureRoot<AccountId>;
+	// To cancel a proposal before it has been passed, the technical committee must be unanimous or
+	// Root must agree.
+	type CancelProposalOrigin = EitherOfDiverse<
+		EnsureRoot<AccountId>,
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 1>,
+	>;
+	// Any single technical committee member may veto a coming council proposal, however they can
+	// only do it once and it lasts only for the cool-off period.
+	type VetoOrigin = pallet_collective::EnsureMember<AccountId, CouncilCollective>;
+	type PalletsOrigin = OriginCaller;
+	// NOTE: check where we want this to be
+	type Slash = SlashImbalanceHandler;
+	type VoteWeight = QuadraticVoteWeight;
 }
 
 construct_runtime!(
@@ -1568,6 +1723,11 @@ construct_runtime!(
 		// FuturePass Account
 		Proxy: pallet_proxy = 32,
 		Futurepass: pallet_futurepass = 34,
+
+		// Governance
+		Council: pallet_collective::<Instance1> = 57,
+		Elections: pallet_elections_phragmen = 58,
+		Democracy: pallet_democracy = 59,
 	}
 );
 

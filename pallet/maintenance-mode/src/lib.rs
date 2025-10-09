@@ -76,6 +76,12 @@ pub mod pallet {
 
 		// The Ethy pallet to prevent blocking of ethy calls
 		type EthyPallet: PalletInfoAccess;
+
+		// The following pallets are used to prevent blocking of calls that are required for governance
+		type DemocracyPallet: PalletInfoAccess;
+		type PreimagePallet: PalletInfoAccess;
+		type CouncilPallet: PalletInfoAccess;
+		type SchedulerPallet: PalletInfoAccess;
 	}
 
 	/// Determines whether maintenance mode is currently active
@@ -281,6 +287,18 @@ impl<T: Config> Pallet<T> {
 			return false;
 		}
 		if pallet_name == T::EthyPallet::name().to_ascii_lowercase() {
+			return false;
+		}
+		if pallet_name == T::DemocracyPallet::name().to_ascii_lowercase() {
+			return false;
+		}
+		if pallet_name == T::PreimagePallet::name().to_ascii_lowercase() {
+			return false;
+		}
+		if pallet_name == T::CouncilPallet::name().to_ascii_lowercase() {
+			return false;
+		}
+		if pallet_name == T::SchedulerPallet::name().to_ascii_lowercase() {
 			return false;
 		}
 		true
