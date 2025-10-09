@@ -3,7 +3,7 @@ use frame_support::RuntimeDebug;
 use scale_info::TypeInfo;
 
 /// Stores information about a reward pool.
-#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Clone, Encode, Decode, Default, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct PoolInfo<PoolId, AssetId, Balance, BlockNumber> {
 	pub id: PoolId,
@@ -21,10 +21,15 @@ pub struct PoolInfo<PoolId, AssetId, Balance, BlockNumber> {
 
 #[derive(Clone, Copy, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum PoolStatus {
+	// The pool has been closed by the creator and is waiting for users to withdraw their funds.
 	Closed,
+	// The pool is open for users to stake funds.
 	Open,
+	// The pool has started and will either roll over or mature at the end of the lock period
 	Started,
+	// The pool is rolling over to a new period as a successor was created.
 	Renewing,
+	// The pool has finished it's vesting period and is not rolling over. Users can withdraw their funds.
 	Matured,
 }
 

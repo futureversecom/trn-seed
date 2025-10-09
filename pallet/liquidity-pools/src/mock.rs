@@ -40,6 +40,7 @@ parameter_types! {
 	pub const UnsignedInterval: u32 =  5;
 	pub const RolloverBatchSize: u32 = 10;
 	pub const MaxStringLength: u32 = 1000;
+	pub const MaxPoolsPerOnIdle: u32 = 5;
 }
 
 impl crate::Config for Test {
@@ -52,6 +53,7 @@ impl crate::Config for Test {
 	type RolloverBatchSize = RolloverBatchSize;
 	type MaxStringLength = MaxStringLength;
 	type WeightInfo = ();
+	type MaxPoolsPerOnIdle = MaxPoolsPerOnIdle;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test

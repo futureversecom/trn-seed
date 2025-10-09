@@ -86,7 +86,7 @@ benchmarks! {
 		assert_ok!(LiquidityPools::<T>::enter_pool(RawOrigin::Signed(user.clone()).into(), next_pool_id, 10u32.into()));
 	}: _(RawOrigin::Signed(creator), next_pool_id)
 	verify {
-		assert!(Pools::<T>::get(next_pool_id).is_none());
+		assert_eq!(Pools::<T>::get(next_pool_id).unwrap().pool_status, PoolStatus::Closed);
 	}
 
 	set_pool_succession {
@@ -302,6 +302,36 @@ benchmarks! {
 			});
 		});
 	}:_(RawOrigin::None, id, end_block)
+
+	on_pool_complete {
+		let reward_asset_id = mint_asset::<T>();
+		let staked_asset_id = mint_asset::<T>();
+		let pool_id = NextPoolId::<T>::get();
+		let interest_rate: u32 = 1_000_000;
+		let max_tokens: u128 = 100;
+		let start_block: u32 = 10;
+		let end_block: u32 = 50;
+		let locked_amount: u128  = 100;
+
+		let creator = account::<T>();
+		assert_ok!(T::MultiCurrency::mint_into(reward_asset_id, &creator, max_tokens));
+
+		assert_ok!(LiquidityPools::<T>::create_pool(RawOrigin::Signed(creator).into(), reward_asset_id, staked_asset_id, interest_rate, max_tokens.into(), start_block.into(), end_block.into()));
+		let mut pool_info = Pools::<T>::get(pool_id).unwrap();
+
+		// Sanity check for balances
+		let vault_account = Pallet::<T>::get_vault_account(pool_id);
+		assert_eq!(T::MultiCurrency::balance(reward_asset_id, &vault_account), max_tokens);
+		assert_eq!(T::MultiCurrency::balance(reward_asset_id, &creator), 0);
+	}: { let _ = Pallet::<T>::on_pool_complete(4_u32.into(), pool_id, &mut pool_info); }
+	verify {
+		// Pool should be marked as matured
+		assert_eq!(Pools::<T>::get(pool_id).unwrap().pool_status, PoolStatus::Matured);
+		assert_eq!(Pools::<T>::get(pool_id).unwrap().last_updated, 4_u32.into());
+		// balance transferred from value back to creator
+		assert_eq!(T::MultiCurrency::balance(reward_asset_id, &creator), max_tokens);
+		assert_eq!(T::MultiCurrency::balance(reward_asset_id, &vault_account), 0_u128);
+	}
 }
 
 impl_benchmark_test_suite!(

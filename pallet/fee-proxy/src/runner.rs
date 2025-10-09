@@ -113,12 +113,12 @@ where
 	)?;
 
 	let gas_token_asset_id = <T as Config>::FeeAssetId::get();
+	let path = vec![payment_asset_id, gas_token_asset_id];
+	// Convert EVM wei fees to runtime Balance units using the native gas token decimals (e.g. 6 for XRP)
 	let decimals =
 		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(gas_token_asset_id);
 	let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
 	let max_fee_scaled = scale_wei_to_correct_decimals(max_fee, decimals);
-
-	let path = vec![payment_asset_id, gas_token_asset_id];
 	Ok(FeePreferencesData { total_fee_scaled, max_fee_scaled, path })
 }
 
@@ -357,15 +357,7 @@ where
 				None,
 			)
 			.map_err(|err| {
-				log!(
-					error,
-					"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?} path: {:?}",
-					payment_asset_id,
-					max_payment_tokens,
-					final_fee,
-					err,
-					path
-				);
+				log!(error, "⛽️ swap failed payment_asset_id={:?} supply={} desired_fee={} err={:?} path={:?}", payment_asset_id, max_payment_tokens, final_fee, err, path);
 				RunnerError { error: Self::Error::WithdrawFailed, weight }
 			})?;
 		}
