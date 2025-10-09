@@ -1582,12 +1582,12 @@ impl frame_support::traits::SortedMembers<AccountId> for FastTrackMembers {
 }
 
 parameter_types! {
-	pub const LaunchPeriod: BlockNumber =  28 * DAYS;
-	pub const VotingPeriod: BlockNumber = 28 * DAYS;
+	pub const LaunchPeriod: BlockNumber =  1 * DAYS;
+	pub const VotingPeriod: BlockNumber = 1 * DAYS;
 	pub const FastTrackVotingPeriod: BlockNumber = 5 * MINUTES;
 	pub const MinimumDeposit: Balance = 1500 * ONE_ROOT;
-	pub const EnactmentPeriod: BlockNumber = 30 * DAYS;
-	pub const CooloffPeriod: BlockNumber = 28 * DAYS;
+	pub const EnactmentPeriod: BlockNumber = 2 * DAYS;
+	pub const CooloffPeriod: BlockNumber = 1 * DAYS;
 	pub const MaxProposals: u32 = 100;
 	pub const MaxVotes: u32 = 200;
 }
