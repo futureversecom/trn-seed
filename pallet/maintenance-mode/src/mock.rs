@@ -52,4 +52,8 @@ impl pallet_maintenance_mode::Config for Test {
 	type ImOnlinePallet = Sudo;
 	// Use Sudo for easy mock setup, tested in integration tests
 	type EthyPallet = Sudo;
+	type DemocracyPallet = Sudo;
+	type PreimagePallet = Sudo;
+	type CouncilPallet = Sudo;
+	type SchedulerPallet = Sudo;
 }
