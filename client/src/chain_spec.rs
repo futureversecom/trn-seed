@@ -25,8 +25,8 @@ use seed_runtime::{
 	keys::*,
 	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, CouncilConfig, DemocracyConfig,
 	ElectionsConfig, EthBridgeConfig, RuntimeGenesisConfig, SessionConfig, SessionKeys, Signature,
-	StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-	TransactionPaymentConfig, XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
+	StakerStatus, StakingConfig, SudoConfig, SystemConfig, TransactionPaymentConfig,
+	XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
 };
 use sp_core::{ecdsa, Pair, Public};
 use sp_runtime::{

@@ -42,13 +42,18 @@ use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use seed_pallet_common::MaintenanceCheck;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
-use sp_runtime::{create_runtime_str, generic, impl_opaque_keys, traits::{
-	Block as BlockT, Bounded, DispatchInfoOf, Dispatchable, IdentityLookup, NumberFor,
-	PostDispatchInfoOf, Verify,
-}, transaction_validity::{
-	InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
-	TransactionValidityError,
-}, ApplyExtrinsicResult, FixedPointNumber, Perbill, Percent, Permill, Perquintill};
+use sp_runtime::{
+	create_runtime_str, generic, impl_opaque_keys,
+	traits::{
+		Block as BlockT, Bounded, DispatchInfoOf, Dispatchable, IdentityLookup, NumberFor,
+		PostDispatchInfoOf, Verify,
+	},
+	transaction_validity::{
+		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
+		TransactionValidityError,
+	},
+	ApplyExtrinsicResult, FixedPointNumber, Perbill, Percent, Permill, Perquintill,
+};
 use sp_std::prelude::*;
 
 pub use frame_system::Call as SystemCall;
@@ -140,9 +145,9 @@ use staking::OnChainAccuracy;
 mod migrations;
 mod weights;
 
+use crate::voting::QuadraticVoteWeight;
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
 use seed_primitives::migration::NoopMigration;
-use crate::voting::QuadraticVoteWeight;
 
 #[cfg(test)]
 mod tests;
@@ -253,7 +258,9 @@ impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 			// Disable Proxy::add_proxy
 			RuntimeCall::Proxy(pallet_proxy::Call::add_proxy { .. }) => false,
 			// Prevent new users from submitting their candidacy to the council
-			RuntimeCall::Elections(pallet_elections_phragmen::Call::submit_candidacy { .. }) => false,
+			RuntimeCall::Elections(pallet_elections_phragmen::Call::submit_candidacy {
+				..
+			}) => false,
 			_ => true,
 		}
 	}
@@ -1616,7 +1623,7 @@ impl pallet_democracy::Config for Runtime {
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 2>;
 	/// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
 	type ExternalMajorityOrigin =
-	pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
 	/// A unanimous council can have the next scheduled referendum be a straight default-carries
 	/// (NTB) vote.
 	type ExternalDefaultOrigin =
@@ -1625,7 +1632,7 @@ impl pallet_democracy::Config for Runtime {
 	/// Two fifths of the technical committee can have an ExternalMajority/ExternalDefault vote
 	/// be tabled immediately and with a shorter voting/enactment period.
 	type FastTrackOrigin =
-	pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
 	type InstantOrigin = EitherOfDiverse<
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 2>,
 		frame_system::EnsureSignedBy<FastTrackMembers, AccountId>,
