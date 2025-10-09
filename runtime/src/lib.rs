@@ -1508,7 +1508,7 @@ impl pallet_migration::Config for Runtime {
 }
 
 parameter_types! {
-	pub const CouncilMotionDuration: BlockNumber = 5 * MINUTES;
+	pub const CouncilMotionDuration: BlockNumber = 5 * DAYS;
 	pub const CouncilMaxProposals: u32 = 100;
 	pub const CouncilMaxMembers: u32 = 100;
 	pub MaxCollectivesProposalWeight: Weight = Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block;
@@ -1529,7 +1529,7 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 }
 
 parameter_types! {
-	pub const CandidacyBond: Balance = 10 * ONE_ROOT;
+	pub const CandidacyBond: Balance = 1500 * ONE_ROOT;
 	// 1 storage item created, key size is 32 bytes, value size is 16+16.
 	pub const VotingBondBase: Balance = deposit(1, 64);
 	// additional data per vote is 32 bytes (account id).
@@ -1580,13 +1580,14 @@ impl frame_support::traits::SortedMembers<AccountId> for FastTrackMembers {
 }
 
 parameter_types! {
-	pub const LaunchPeriod: BlockNumber =  5 * MINUTES;
-	pub const VotingPeriod: BlockNumber = 5 * MINUTES;
-	pub const FastTrackVotingPeriod: BlockNumber = 2 * MINUTES;
-	pub const MinimumDeposit: Balance = 100 * ONE_ROOT;
-	pub const EnactmentPeriod: BlockNumber = 5 * MINUTES;
-	pub const CooloffPeriod: BlockNumber = 5 * MINUTES;
+	pub const LaunchPeriod: BlockNumber =  28 * DAYS;
+	pub const VotingPeriod: BlockNumber = 28 * DAYS;
+	pub const FastTrackVotingPeriod: BlockNumber = 5 * MINUTES;
+	pub const MinimumDeposit: Balance = 1500 * ONE_ROOT;
+	pub const EnactmentPeriod: BlockNumber = 30 * DAYS;
+	pub const CooloffPeriod: BlockNumber = 28 * DAYS;
 	pub const MaxProposals: u32 = 100;
+	pub const MaxVotes: u32 = 200;
 }
 
 impl pallet_democracy::Config for Runtime {
@@ -1604,7 +1605,7 @@ impl pallet_democracy::Config for Runtime {
 	type InstantAllowed = frame_support::traits::ConstBool<true>;
 	type FastTrackVotingPeriod = FastTrackVotingPeriod;
 	type CooloffPeriod = CooloffPeriod;
-	type MaxVotes = ConstU32<100>;
+	type MaxVotes = MaxVotes;
 	type MaxProposals = MaxProposals;
 	type MaxDeposits = ConstU32<100>;
 	type MaxBlacklisted = ConstU32<100>;
