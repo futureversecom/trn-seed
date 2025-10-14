@@ -15,9 +15,9 @@
 
 use super::*;
 use crate::mock::{
-	AssetsExt, DefaultListingDuration, FeePotId, Marketplace, MarketplaceNetworkFeePercentage,
-	MarketplacePalletId, MaxTokensPerListing, NativeAssetId, Nft, RuntimeEvent as MockEvent, Sft,
-	System, Test, TransferLimit,
+	AssetsExt, DefaultListingDuration, DefaultOfferDuration, FeePotId, Marketplace,
+	MarketplaceNetworkFeePercentage, MarketplacePalletId, MaxTokensPerListing, NativeAssetId, Nft,
+	RuntimeEvent as MockEvent, Sft, System, Test, TransferLimit,
 };
 use core::ops::Mul;
 use frame_support::traits::{fungibles::Inspect, OnInitialize};
@@ -93,7 +93,7 @@ fn make_new_simple_offer(
 	token_id: TokenId,
 	buyer: AccountId,
 	marketplace_id: Option<MarketplaceId>,
-) -> (OfferId, SimpleOffer<AccountId>) {
+) -> (OfferId, SimpleOffer<Test>) {
 	let next_offer_id = NextOfferId::<Test>::get();
 
 	assert_ok!(Marketplace::make_simple_offer(
@@ -103,12 +103,15 @@ fn make_new_simple_offer(
 		NativeAssetId::get(),
 		marketplace_id
 	));
+
+	let close = System::block_number() + DefaultOfferDuration::get();
 	let offer = SimpleOffer {
 		token_id,
 		asset_id: NativeAssetId::get(),
 		amount: offer_amount,
 		buyer,
 		marketplace_id,
+		close,
 	};
 
 	// Check storage has been updated
@@ -120,6 +123,7 @@ fn make_new_simple_offer(
 		asset_id: NativeAssetId::get(),
 		marketplace_id,
 		buyer,
+		close,
 	}));
 
 	(next_offer_id, offer)
@@ -2705,6 +2709,223 @@ fn accept_offer_not_token_owner_should_fail() {
 				Marketplace::accept_offer(Some(create_account(4)).into(), offer_id),
 				Error::<Test>::NotTokenOwner
 			);
+		});
+}
+
+#[test]
+fn remove_offer() {
+	let buyer = create_account(5);
+	let initial_balance_buyer = 1000;
+	TestExt::<Test>::default()
+		.with_balances(&[(buyer, initial_balance_buyer)])
+		.build()
+		.execute_with(|| {
+			let (_, token_id, token_owner) = setup_nft_token();
+			let offer_amount: Balance = 100;
+
+			let (offer_id, _) = make_new_simple_offer(offer_amount, token_id, buyer, None);
+
+			// Verify offer exists and buyer's funds are held
+			assert!(Offers::<Test>::get(offer_id).is_some());
+			assert!(
+				AssetsExt::hold_balance(&MarketplacePalletId::get(), &buyer, &NativeAssetId::get())
+					>= offer_amount
+			);
+
+			assert_ok!(Marketplace::remove_offers(
+				Some(token_owner).into(),
+				token_id,
+				vec![offer_id].try_into().unwrap()
+			));
+
+			System::assert_last_event(MockEvent::Marketplace(Event::<Test>::OffersRemove {
+				token_id,
+				offers: vec![(offer_id, None)],
+				reason: OfferRemovalReason::SellerRemoved,
+			}));
+
+			// Check storage has been removed
+			assert!(TokenOffers::<Test>::get(token_id).is_none());
+			assert!(Offers::<Test>::get(offer_id).is_none());
+
+			// Check buyer's funds have been released
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &buyer), initial_balance_buyer);
+			assert_eq!(
+				AssetsExt::hold_balance(&MarketplacePalletId::get(), &buyer, &NativeAssetId::get()),
+				0
+			);
+		});
+}
+
+#[test]
+fn remove_offer_multiple_offers() {
+	let buyer_1 = create_account(3);
+	let buyer_2 = create_account(4);
+	let initial_balance_buyer_1: Balance = 1000;
+	let initial_balance_buyer_2: Balance = 1000;
+
+	TestExt::<Test>::default()
+		.with_balances(&[(buyer_1, initial_balance_buyer_1), (buyer_2, initial_balance_buyer_2)])
+		.build()
+		.execute_with(|| {
+			let (_, token_id, token_owner) = setup_nft_token();
+			let offer_amount_1: Balance = 100;
+			let offer_amount_2: Balance = 150;
+
+			let (offer_id_1, _) = make_new_simple_offer(offer_amount_1, token_id, buyer_1, None);
+			let (offer_id_2, _) = make_new_simple_offer(offer_amount_2, token_id, buyer_2, None);
+
+			assert_ok!(Marketplace::remove_offers(
+				Some(token_owner).into(),
+				token_id,
+				vec![offer_id_1, offer_id_2].try_into().unwrap()
+			));
+
+			System::assert_last_event(MockEvent::Marketplace(Event::<Test>::OffersRemove {
+				token_id,
+				offers: vec![(offer_id_1, None), (offer_id_2, None)],
+				reason: OfferRemovalReason::SellerRemoved,
+			}));
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &buyer_1), initial_balance_buyer_1);
+			assert_eq!(
+				AssetsExt::hold_balance(
+					&MarketplacePalletId::get(),
+					&buyer_1,
+					&NativeAssetId::get()
+				),
+				0
+			);
+			assert_eq!(
+				AssetsExt::hold_balance(
+					&MarketplacePalletId::get(),
+					&buyer_2,
+					&NativeAssetId::get()
+				),
+				0
+			);
+		});
+}
+
+#[test]
+fn remove_offer_not_token_owner_should_fail() {
+	let buyer = create_account(5);
+	let initial_balance_buyer = 1000;
+
+	TestExt::<Test>::default()
+		.with_balances(&[(buyer, initial_balance_buyer)])
+		.build()
+		.execute_with(|| {
+			let (_, token_id, _) = setup_nft_token();
+			let offer_amount: Balance = 100;
+
+			let (offer_id, _) = make_new_simple_offer(offer_amount, token_id, buyer, None);
+
+			// Try to remove offer as someone who's not the token owner
+			assert_noop!(
+				Marketplace::remove_offers(
+					Some(create_account(4)).into(),
+					token_id,
+					vec![offer_id].try_into().unwrap()
+				),
+				Error::<Test>::NotTokenOwner
+			);
+
+			// Verify offer still exists and funds are still held
+			assert!(Offers::<Test>::get(offer_id).is_some());
+			assert!(
+				AssetsExt::hold_balance(&MarketplacePalletId::get(), &buyer, &NativeAssetId::get())
+					>= offer_amount
+			);
+		});
+}
+
+#[test]
+fn remove_offer_invalid_offer_should_fail() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let (_, token_id, token_owner) = setup_nft_token();
+		let invalid_offer_id = 999u64;
+
+		assert_noop!(
+			Marketplace::remove_offers(
+				Some(token_owner).into(),
+				token_id,
+				vec![invalid_offer_id].try_into().unwrap()
+			),
+			Error::<Test>::InvalidOffer
+		);
+	});
+}
+
+#[test]
+fn remove_offers_empty_vector_should_succeed() {
+	TestExt::<Test>::default().build().execute_with(|| {
+		let (_, token_id, token_owner) = setup_nft_token();
+
+		assert_ok!(Marketplace::remove_offers(
+			Some(token_owner).into(),
+			token_id,
+			vec![].try_into().unwrap()
+		));
+	});
+}
+
+#[test]
+fn remove_offers_mixed_valid_invalid_should_fail() {
+	let buyer = create_account(5);
+	let initial_balance_buyer = 1000;
+
+	TestExt::<Test>::default()
+		.with_balances(&[(buyer, initial_balance_buyer)])
+		.build()
+		.execute_with(|| {
+			let (_, token_id, token_owner) = setup_nft_token();
+			let offer_amount: Balance = 100;
+
+			let (valid_offer_id, _) = make_new_simple_offer(offer_amount, token_id, buyer, None);
+			let invalid_offer_id = 999u64;
+
+			// Should fail because one offer ID is invalid
+			assert_noop!(
+				Marketplace::remove_offers(
+					Some(token_owner).into(),
+					token_id,
+					vec![valid_offer_id, invalid_offer_id].try_into().unwrap()
+				),
+				Error::<Test>::InvalidOffer
+			);
+
+			// Verify the valid offer still exists (transaction should have rolled back)
+			assert!(Offers::<Test>::get(valid_offer_id).is_some());
+		});
+}
+
+#[test]
+fn remove_offers_wrong_token_should_fail() {
+	let buyer = create_account(5);
+	let initial_balance_buyer = 1000;
+
+	TestExt::<Test>::default()
+		.with_balances(&[(buyer, initial_balance_buyer)])
+		.build()
+		.execute_with(|| {
+			let (_, token_id_1, token_owner) = setup_nft_token();
+			let (_, token_id_2, _) = setup_nft_token();
+			let offer_amount: Balance = 100;
+
+			let (offer_id_1, _) = make_new_simple_offer(offer_amount, token_id_1, buyer, None);
+
+			// Try to remove offer from token_1 using token_2 in the call
+			assert_noop!(
+				Marketplace::remove_offers(
+					Some(token_owner).into(),
+					token_id_2,
+					vec![offer_id_1].try_into().unwrap()
+				),
+				Error::<Test>::InvalidOffer
+			);
+
+			// Verify the offer still exists
+			assert!(Offers::<Test>::get(offer_id_1).is_some());
 		});
 }
 

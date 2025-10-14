@@ -18,7 +18,7 @@ use sp_runtime::{
 	traits::{One, Saturating, Zero},
 	BoundedVec, DispatchError, DispatchResult, PerThing, Permill,
 };
-use sp_std::{vec, vec::Vec};
+use sp_std::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use types::*;
 
 impl<T: Config> Pallet<T> {
@@ -122,7 +122,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// /// Returns the offer detail of a specified offer_id
-	pub fn get_offer_detail(offer_id: OfferId) -> Result<SimpleOffer<T::AccountId>, DispatchError> {
+	pub fn get_offer_detail(offer_id: OfferId) -> Result<SimpleOffer<T>, DispatchError> {
 		let Some(OfferType::Simple(offer)) = Offers::<T>::get(offer_id) else {
 			return Err(Error::<T>::InvalidOffer.into());
 		};
@@ -303,6 +303,7 @@ impl<T: Config> Pallet<T> {
 		amount: Balance,
 		asset_id: AssetId,
 		marketplace_id: Option<MarketplaceId>,
+		duration: Option<BlockNumberFor<T>>,
 	) -> Result<OfferId, DispatchError> {
 		ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
 		let token_owner = T::NFTExt::get_token_owner(&token_id);
@@ -319,18 +320,22 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
+		let close = Self::get_offer_end_block(duration)?;
+
 		// try lock funds
 		T::MultiCurrency::place_hold(T::PalletId::get(), &who, asset_id, amount)?;
 		<TokenOffers<T>>::try_append(token_id, offer_id)
 			.map_err(|_| Error::<T>::MaxOffersReached)?;
-		let new_offer = OfferType::<T::AccountId>::Simple(SimpleOffer {
+		let new_offer = OfferType::<T>::Simple(SimpleOffer {
 			token_id,
 			asset_id,
 			amount,
 			buyer: who,
 			marketplace_id,
+			close,
 		});
 		<Offers<T>>::insert(offer_id, new_offer);
+		<OfferEndSchedule<T>>::insert(close, offer_id, true);
 		<NextOfferId<T>>::mutate(|i| *i += 1);
 
 		Self::deposit_event(Event::<T>::Offer {
@@ -339,6 +344,7 @@ impl<T: Config> Pallet<T> {
 			asset_id,
 			marketplace_id,
 			buyer: who,
+			close,
 		});
 		Ok(offer_id)
 	}
@@ -412,8 +418,82 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Remove multiple offers made on a single token
+	pub fn do_remove_offers(
+		who: T::AccountId,
+		token_id: TokenId,
+		offer_ids: BoundedVec<OfferId, T::MaxRemovableOffers>,
+	) -> DispatchResult {
+		ensure!(
+			T::NFTExt::get_token_owner(&token_id) == Some(who.clone()),
+			Error::<T>::NotTokenOwner
+		);
+
+		if offer_ids.is_empty() {
+			return Ok(());
+		}
+
+		let token_offers = TokenOffers::<T>::get(&token_id).unwrap_or_default();
+
+		for &offer_id in offer_ids.iter() {
+			ensure!(token_offers.contains(&offer_id), Error::<T>::InvalidOffer);
+		}
+
+		let mut offers_to_remove = Vec::new();
+
+		for &offer_id in offer_ids.iter() {
+			if let Some(OfferType::Simple(offer)) = Offers::<T>::get(offer_id) {
+				ensure!(offer.token_id == token_id, Error::<T>::InvalidOffer);
+
+				offers_to_remove.push((offer_id, offer));
+			} else {
+				return Err(Error::<T>::InvalidOffer.into());
+			}
+		}
+
+		for (offer_id, offer) in &offers_to_remove {
+			T::MultiCurrency::release_hold(
+				T::PalletId::get(),
+				&offer.buyer,
+				offer.asset_id,
+				offer.amount,
+			)?;
+			OfferEndSchedule::<T>::remove(offer.close, *offer_id);
+			Offers::<T>::remove(offer_id);
+		}
+
+		TokenOffers::<T>::try_mutate(&token_id, |maybe_offers| -> DispatchResult {
+			if let Some(offers) = maybe_offers {
+				offers.retain(|&x| !offer_ids.contains(&x));
+
+				if offers.is_empty() {
+					*maybe_offers = None;
+				}
+			}
+			Ok(())
+		})?;
+
+		let offers = offers_to_remove
+			.into_iter()
+			.map(|(offer_id, offer)| (offer_id, offer.marketplace_id))
+			.collect::<Vec<_>>();
+
+		Self::deposit_event(Event::<T>::OffersRemove {
+			token_id,
+			offers,
+			reason: OfferRemovalReason::SellerRemoved,
+		});
+
+		Ok(())
+	}
+
 	/// Removes an offer, cleaning storage if it's the last offer for the token
 	pub(crate) fn remove_offer(offer_id: OfferId, token_id: TokenId) -> DispatchResult {
+		// Remove from OfferEndSchedule if it exists
+		if let Some(OfferType::Simple(offer)) = Offers::<T>::get(offer_id) {
+			OfferEndSchedule::<T>::remove(offer.close, offer_id);
+		}
+
 		Offers::<T>::remove(offer_id);
 		TokenOffers::<T>::try_mutate(token_id, |maybe_offers| -> DispatchResult {
 			if let Some(offers) = maybe_offers {
@@ -456,6 +536,72 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 		removed
+	}
+
+	/// Close all offers scheduled to expire at this block `now`, ensuring funds are released
+	/// Returns the number of offers removed
+	pub(crate) fn close_offers_at(now: BlockNumberFor<T>) -> u32 {
+		let expired_offers: Vec<(OfferId, OfferType<T>)> = OfferEndSchedule::<T>::drain_prefix(now)
+			.take(T::MaxRemovableOffers::get() as usize)
+			.filter_map(|(offer_id, _)| Offers::<T>::get(offer_id).map(|offer| (offer_id, offer)))
+			.collect();
+
+		if expired_offers.is_empty() {
+			return 0;
+		}
+
+		let mut offers_by_token: BTreeMap<TokenId, Vec<(OfferId, SimpleOffer<T>)>> =
+			BTreeMap::new();
+		for (offer_id, offer) in expired_offers {
+			let OfferType::Simple(simple_offer) = offer;
+
+			offers_by_token
+				.entry(simple_offer.token_id)
+				.or_default()
+				.push((offer_id, simple_offer));
+		}
+
+		let mut total_removed = 0_u32;
+
+		for (token_id, token_offers) in offers_by_token {
+			for (offer_id, offer) in &token_offers {
+				let _ = T::MultiCurrency::release_hold(
+					T::PalletId::get(),
+					&offer.buyer,
+					offer.asset_id,
+					offer.amount,
+				);
+
+				Offers::<T>::remove(offer_id);
+			}
+
+			let offer_ids: Vec<OfferId> = token_offers.iter().map(|(id, _)| *id).collect();
+
+			let _ = TokenOffers::<T>::try_mutate(&token_id, |maybe_offers| -> DispatchResult {
+				if let Some(offers) = maybe_offers {
+					offers.retain(|&x| !offer_ids.contains(&x));
+					if offers.is_empty() {
+						*maybe_offers = None;
+					}
+				}
+				Ok(())
+			});
+
+			let offers: Vec<(OfferId, Option<MarketplaceId>)> = token_offers
+				.iter()
+				.map(|(offer_id, offer)| (*offer_id, offer.marketplace_id))
+				.collect();
+
+			Self::deposit_event(Event::<T>::OffersRemove {
+				offers,
+				token_id,
+				reason: OfferRemovalReason::Expired,
+			});
+
+			total_removed += token_offers.len() as u32;
+		}
+
+		total_removed
 	}
 
 	/// Removes a listing and its metadata from storage
@@ -639,6 +785,22 @@ impl<T: Config> Pallet<T> {
 				duration
 			},
 			None => T::DefaultListingDuration::get(),
+		};
+		Ok(<frame_system::Pallet<T>>::block_number().saturating_add(duration))
+	}
+
+	/// Returns the end block for an offer.
+	/// This is offer duration + the current block_number
+	/// Fails if duration is set to 0
+	fn get_offer_end_block(
+		duration: Option<BlockNumberFor<T>>,
+	) -> Result<BlockNumberFor<T>, DispatchError> {
+		let duration = match duration {
+			Some(duration) => {
+				ensure!(duration > BlockNumberFor::<T>::zero(), Error::<T>::DurationTooShort);
+				duration
+			},
+			None => T::DefaultOfferDuration::get(),
 		};
 		Ok(<frame_system::Pallet<T>>::block_number().saturating_add(duration))
 	}

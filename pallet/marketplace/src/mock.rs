@@ -39,7 +39,9 @@ impl_pallet_sft_config!(Test);
 parameter_types! {
 	pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
 	pub const DefaultListingDuration: u64 = 100;
+	pub const DefaultOfferDuration: u64 = 1000;
 	pub const MaxOffers: u32 = 10;
+	pub const MaxRemovableOffers: u32 = 10;
 	pub const MaxTokensPerListing: u32 = 100;
 	pub const MaxListingsPerMultiBuy: u32 = 100;
 	pub const DefaultFeeTo: Option<PalletId> = Some(FeePotId::get());
@@ -49,6 +51,7 @@ parameter_types! {
 impl crate::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type DefaultListingDuration = DefaultListingDuration;
+	type DefaultOfferDuration = DefaultOfferDuration;
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeeTo = DefaultFeeTo;
 	type MultiCurrency = AssetsExt;
@@ -60,4 +63,5 @@ impl crate::Config for Test {
 	type MaxTokensPerListing = MaxTokensPerListing;
 	type MaxListingsPerMultiBuy = MaxListingsPerMultiBuy;
 	type MaxOffers = MaxOffers;
+	type MaxRemovableOffers = MaxRemovableOffers;
 }
