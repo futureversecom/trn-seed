@@ -1620,7 +1620,7 @@ impl pallet_democracy::Config for Runtime {
 	type MaxBlacklisted = ConstU32<100>;
 	/// A straight majority of the council can decide what their next motion is.
 	type ExternalOrigin =
-	pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
+		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
 	/// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
 	type ExternalMajorityOrigin =
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
