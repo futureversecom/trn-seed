@@ -1589,12 +1589,12 @@ impl frame_support::traits::SortedMembers<AccountId> for FastTrackMembers {
 }
 
 parameter_types! {
-	pub const LaunchPeriod: BlockNumber =  1 * DAYS;
-	pub const VotingPeriod: BlockNumber = 1 * DAYS;
+	pub const LaunchPeriod: BlockNumber =  28 * DAYS;
+	pub const VotingPeriod: BlockNumber = 28 * DAYS;
 	pub const FastTrackVotingPeriod: BlockNumber = 5 * MINUTES;
 	pub const MinimumDeposit: Balance = 1500 * ONE_ROOT;
-	pub const EnactmentPeriod: BlockNumber = 2 * DAYS;
-	pub const CooloffPeriod: BlockNumber = 1 * DAYS;
+	pub const EnactmentPeriod: BlockNumber = 30 * DAYS;
+	pub const CooloffPeriod: BlockNumber = 28 * DAYS;
 	pub const MaxProposals: u32 = 100;
 	pub const MaxVotes: u32 = 200;
 }
@@ -1620,7 +1620,7 @@ impl pallet_democracy::Config for Runtime {
 	type MaxBlacklisted = ConstU32<100>;
 	/// A straight majority of the council can decide what their next motion is.
 	type ExternalOrigin =
-		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 2>;
+	pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
 	/// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
 	type ExternalMajorityOrigin =
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 5>;
@@ -1641,7 +1641,7 @@ impl pallet_democracy::Config for Runtime {
 	type CancellationOrigin =
 		pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 3>;
 	type BlacklistOrigin = EnsureRoot<AccountId>;
-	// To cancel a proposal before it has been passed, the technical committee must be unanimous or
+	// To cancel a proposal before it has been passed, the council must be unanimous or
 	// Root must agree.
 	type CancelProposalOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
