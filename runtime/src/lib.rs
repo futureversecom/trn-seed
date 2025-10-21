@@ -1591,6 +1591,7 @@ impl frame_support::traits::SortedMembers<AccountId> for FastTrackMembers {
 parameter_types! {
 	pub const LaunchPeriod: BlockNumber =  28 * DAYS;
 	pub const VotingPeriod: BlockNumber = 28 * DAYS;
+	pub const VoteLockPeriod: BlockNumber = 7 * DAYS;
 	pub const FastTrackVotingPeriod: BlockNumber = 5 * MINUTES;
 	pub const MinimumDeposit: Balance = 1500 * ONE_ROOT;
 	pub const EnactmentPeriod: BlockNumber = 30 * DAYS;
@@ -1608,7 +1609,7 @@ impl pallet_democracy::Config for Runtime {
 	type EnactmentPeriod = EnactmentPeriod;
 	type LaunchPeriod = LaunchPeriod;
 	type VotingPeriod = VotingPeriod;
-	type VoteLockingPeriod = EnactmentPeriod;
+	type VoteLockingPeriod = VoteLockPeriod;
 	// Same as EnactmentPeriod
 	type MinimumDeposit = MinimumDeposit;
 	type InstantAllowed = frame_support::traits::ConstBool<true>;
