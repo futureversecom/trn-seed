@@ -6,28 +6,28 @@
 | ownerOf           |    25847     |     23207      |             0             |
 | getApproved       |    27395     |     23207      |             0             |
 | isApprovedForAll  |    26082     |     23734      |             0             |
-| mint              |    81129     |     27752      |           6465            |
-| burn              |    37888     |     32480      |           6418            |
-| approve           |    50740     |     27489      |           8285            |
-| setApprovalForAll |    47011     |     26139      |           8145            |
-| safetransferFrom  |    77471     |     32663      |             0             |
-| transferFrom      |    66861     |     32429      |           7445            |
+| mint              |    81095     |     366272     |           6512            |
+| burn              |    37870     |     34918      |           6465            |
+| approve           |    50740     |     27489      |           8332            |
+| setApprovalForAll |    47011     |     26139      |           8192            |
+| safetransferFrom  |    77443     |     32874      |             0             |
+| transferFrom      |    66839     |     32640      |           7445            |
 | name              |    25932     |     22365      |             0             |
 | symbol            |    25938     |     22365      |             0             |
 | tokenURI          |    25964     |     23207      |             0             |
-| owner             |    23951     |     22365      |             0             |
-| transferOwnership |    29147     |     27434      |           7212            |
-| renounceOwnership |    30445     |     26415      |           7165            |
+| owner             |    23728     |     22365      |             0             |
+| transferOwnership |    29147     |     27440      |           7212            |
+| renounceOwnership |    30272     |     26420      |           7165            |
 
 
 ## Generated tx costs(fees) for ERC721 Precompiles
 
 | Function Call     | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
 |:------------------|:---------------------:|:-----------------------:|:----------------------:|
-| mint              |        396176         |         206891          |         48491          |
-| burn              |        245561         |         236244          |         48141          |
-| approve           |        369808         |         200890          |         62141          |
-| setApprovalForAll |        349839         |         189592          |         61091          |
-| transferFrom      |        442483         |         235419          |         55841          |
-| transferOwnership |        218098         |         199622          |         54091          |
-| renounceOwnership |        179180         |         196951          |         53741          |
+| mint              |        395981         |         2564087         |         48841          |
+| burn              |        245366         |         255013          |         48491          |
+| approve           |        369808         |         200890          |         62491          |
+| setApprovalForAll |        349839         |         189592          |         61441          |
+| transferFrom      |        442288         |         238795          |         55841          |
+| transferOwnership |        218098         |         199749          |         54091          |
+| renounceOwnership |        176172         |         197079          |         53741          |
