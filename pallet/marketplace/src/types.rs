@@ -190,18 +190,26 @@ impl<T: Config> ListingTokens<T> {
 
 /// Holds information relating to NFT offers
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
-pub struct SimpleOffer<AccountId> {
+#[scale_info(skip_type_params(T))]
+pub struct SimpleOffer<T: Config> {
+	/// The token being offered on
 	pub token_id: TokenId,
+	/// The asset being used for the offer
 	pub asset_id: AssetId,
+	/// The amount being offered
 	pub amount: Balance,
-	pub buyer: AccountId,
+	/// The account making the offer
+	pub buyer: T::AccountId,
+	/// The marketplace this offer was made on, if any
 	pub marketplace_id: Option<MarketplaceId>,
+	/// When the offer closes
+	pub close: BlockNumberFor<T>,
 }
 
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
-#[codec(mel_bound(AccountId: MaxEncodedLen))]
-pub enum OfferType<AccountId> {
-	Simple(SimpleOffer<AccountId>),
+#[scale_info(skip_type_params(T))]
+pub enum OfferType<T: Config> {
+	Simple(SimpleOffer<T>),
 }
 
 /// Reasons for an auction closure
@@ -224,6 +232,15 @@ pub enum FixedPriceClosureReason {
 	Expired,
 	/// Vendor accepted a buy offer
 	OfferAccepted,
+}
+
+/// Reason for an offer removal
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+pub enum OfferRemovalReason {
+	/// Offer was manually removed by the token owner
+	SellerRemoved,
+	/// Offer expired automatically
+	Expired,
 }
 
 /// Information about a marketplace

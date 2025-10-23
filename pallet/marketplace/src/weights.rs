@@ -61,6 +61,8 @@ pub trait WeightInfo {
 	fn cancel_offer() -> Weight;
 	fn accept_offer() -> Weight;
 	fn set_fee_to() -> Weight;
+   fn make_simple_offer_with_duration() -> Weight;
+   fn remove_offers(p: u32, ) -> Weight;
 }
 
 /// Weights for pallet_marketplace using the Substrate node and recommended hardware.
@@ -326,6 +328,66 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_all(24_729_000_u64)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `Nft::TokenInfo` (r:1 w:0)
+	/// Proof: `Nft::TokenInfo` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::NextOfferId` (r:1 w:1)
+	/// Proof: `Marketplace::NextOfferId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `AssetsExt::Holds` (r:1 w:1)
+	/// Proof: `AssetsExt::Holds` (`max_values`: None, `max_size`: Some(433), added: 2908, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:2 w:2)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::TokenOffers` (r:1 w:1)
+	/// Proof: `Marketplace::TokenOffers` (`max_values`: None, `max_size`: Some(818), added: 3293, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::Offers` (r:0 w:1)
+	/// Proof: `Marketplace::Offers` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::OfferEndSchedule` (r:0 w:1)
+	/// Proof: `Marketplace::OfferEndSchedule` (`max_values`: None, `max_size`: Some(29), added: 2504, mode: `MaxEncodedLen`)
+	fn make_simple_offer_with_duration() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2131`
+		//  Estimated: `6160`
+		// Minimum execution time: 92_000_000 picoseconds.
+		Weight::from_parts(103_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6160))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().writes(9))
+	}
+	/// Storage: `Nft::TokenInfo` (r:1 w:0)
+	/// Proof: `Nft::TokenInfo` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::TokenOffers` (r:1 w:1)
+	/// Proof: `Marketplace::TokenOffers` (`max_values`: None, `max_size`: Some(818), added: 3293, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::Offers` (r:10 w:10)
+	/// Proof: `Marketplace::Offers` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
+	/// Storage: `AssetsExt::Holds` (r:10 w:10)
+	/// Proof: `AssetsExt::Holds` (`max_values`: None, `max_size`: Some(433), added: 2908, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Asset` (r:10 w:10)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:20 w:20)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::OfferEndSchedule` (r:0 w:10)
+	/// Proof: `Marketplace::OfferEndSchedule` (`max_values`: None, `max_size`: Some(29), added: 2504, mode: `MaxEncodedLen`)
+	/// The range of component `p` is `[1, 10]`.
+	fn remove_offers(p: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2065 + p * (516 ±0)`
+		//  Estimated: `4283 + p * (5170 ±0)`
+		// Minimum execution time: 95_000_000 picoseconds.
+		Weight::from_parts(52_475_368, 0)
+			.saturating_add(Weight::from_parts(0, 4283))
+			// Standard Error: 64_686
+			.saturating_add(Weight::from_parts(51_623_233, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().reads((5_u64).saturating_mul(p.into())))
+			.saturating_add(T::DbWeight::get().writes(2))
+			.saturating_add(T::DbWeight::get().writes((6_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 5170).saturating_mul(p.into()))
+	}
 }
 
 // For backwards compatibility and tests
@@ -589,6 +651,66 @@ impl WeightInfo for () {
 	fn set_fee_to() -> Weight {
 		Weight::from_all(24_729_000_u64)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Nft::TokenInfo` (r:1 w:0)
+	/// Proof: `Nft::TokenInfo` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::NextOfferId` (r:1 w:1)
+	/// Proof: `Marketplace::NextOfferId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `AssetsExt::Holds` (r:1 w:1)
+	/// Proof: `AssetsExt::Holds` (`max_values`: None, `max_size`: Some(433), added: 2908, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:2 w:2)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::TokenOffers` (r:1 w:1)
+	/// Proof: `Marketplace::TokenOffers` (`max_values`: None, `max_size`: Some(818), added: 3293, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::Offers` (r:0 w:1)
+	/// Proof: `Marketplace::Offers` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::OfferEndSchedule` (r:0 w:1)
+	/// Proof: `Marketplace::OfferEndSchedule` (`max_values`: None, `max_size`: Some(29), added: 2504, mode: `MaxEncodedLen`)
+	fn make_simple_offer_with_duration() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2131`
+		//  Estimated: `6160`
+		// Minimum execution time: 92_000_000 picoseconds.
+		Weight::from_parts(103_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 6160))
+			.saturating_add(RocksDbWeight::get().reads(8))
+			.saturating_add(RocksDbWeight::get().writes(9))
+	}
+	/// Storage: `Nft::TokenInfo` (r:1 w:0)
+	/// Proof: `Nft::TokenInfo` (`max_values`: None, `max_size`: Some(65), added: 2540, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::TokenOffers` (r:1 w:1)
+	/// Proof: `Marketplace::TokenOffers` (`max_values`: None, `max_size`: Some(818), added: 3293, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::Offers` (r:10 w:10)
+	/// Proof: `Marketplace::Offers` (`max_values`: None, `max_size`: Some(74), added: 2549, mode: `MaxEncodedLen`)
+	/// Storage: `AssetsExt::Holds` (r:10 w:10)
+	/// Proof: `AssetsExt::Holds` (`max_values`: None, `max_size`: Some(433), added: 2908, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Asset` (r:10 w:10)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(162), added: 2637, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:20 w:20)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(110), added: 2585, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
+	/// Storage: `Marketplace::OfferEndSchedule` (r:0 w:10)
+	/// Proof: `Marketplace::OfferEndSchedule` (`max_values`: None, `max_size`: Some(29), added: 2504, mode: `MaxEncodedLen`)
+	/// The range of component `p` is `[1, 10]`.
+	fn remove_offers(p: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2065 + p * (516 ±0)`
+		//  Estimated: `4283 + p * (5170 ±0)`
+		// Minimum execution time: 95_000_000 picoseconds.
+		Weight::from_parts(52_475_368, 0)
+			.saturating_add(Weight::from_parts(0, 4283))
+			// Standard Error: 64_686
+			.saturating_add(Weight::from_parts(51_623_233, 0).saturating_mul(p.into()))
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().reads((5_u64).saturating_mul(p.into())))
+			.saturating_add(RocksDbWeight::get().writes(2))
+			.saturating_add(RocksDbWeight::get().writes((6_u64).saturating_mul(p.into())))
+			.saturating_add(Weight::from_parts(0, 5170).saturating_mul(p.into()))
 	}
 }
 

@@ -33,6 +33,7 @@ use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, ListingId, SerialNumber, TokenId, TokenLockReason,
 };
 use sp_runtime::{DispatchResult, Permill};
+use sp_std::prelude::*;
 
 mod benchmarking;
 mod impls;
@@ -89,6 +90,9 @@ pub mod pallet {
 		/// Default auction / sale length in blocks
 		#[pallet::constant]
 		type DefaultListingDuration: Get<BlockNumberFor<Self>>;
+		/// Default offer duration in blocks  
+		#[pallet::constant]
+		type DefaultOfferDuration: Get<BlockNumberFor<Self>>;
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The default account which collects network fees from marketplace sales
@@ -116,6 +120,8 @@ pub mod pallet {
 		type MaxListingsPerMultiBuy: Get<u32>;
 		/// The maximum number of offers allowed on a collection
 		type MaxOffers: Get<u32>;
+		/// The maximum number of offers that can be removed in a single call
+		type MaxRemovableOffers: Get<u32>;
 	}
 
 	#[pallet::type_value]
@@ -158,7 +164,7 @@ pub mod pallet {
 
 	/// Map from offer_id to the information related to the offer
 	#[pallet::storage]
-	pub type Offers<T: Config> = StorageMap<_, Twox64Concat, OfferId, OfferType<T::AccountId>>;
+	pub type Offers<T: Config> = StorageMap<_, Twox64Concat, OfferId, OfferType<T>>;
 
 	/// Maps from token_id to a vector of offer_ids on that token
 	#[pallet::storage]
@@ -168,6 +174,12 @@ pub mod pallet {
 	/// The next available offer_id
 	#[pallet::storage]
 	pub type NextOfferId<T> = StorageValue<_, OfferId, ValueQuery>;
+
+	/// Block numbers where offers will expire. Value is `true` if at block number `offer_id` is
+	/// scheduled to expire.
+	#[pallet::storage]
+	pub type OfferEndSchedule<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, BlockNumberFor<T>, Twox64Concat, OfferId, bool>;
 
 	/// The pallet id for the tx fee pot
 	#[pallet::storage]
@@ -257,6 +269,7 @@ pub mod pallet {
 			asset_id: AssetId,
 			marketplace_id: Option<MarketplaceId>,
 			buyer: T::AccountId,
+			close: BlockNumberFor<T>,
 		},
 		/// An offer has been cancelled
 		OfferCancel { offer_id: OfferId, marketplace_id: Option<MarketplaceId>, token_id: TokenId },
@@ -267,6 +280,12 @@ pub mod pallet {
 			token_id: TokenId,
 			amount: Balance,
 			asset_id: AssetId,
+		},
+		/// Multiple offers have expired, or been removed by the listing owner
+		OffersRemove {
+			token_id: TokenId,
+			offers: Vec<(OfferId, Option<MarketplaceId>)>,
+			reason: OfferRemovalReason,
 		},
 		/// The network fee receiver address has been updated
 		FeeToSet { account: Option<T::AccountId> },
@@ -326,13 +345,16 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Check and close all expired listings
+		/// Check and close all expired listings and offers
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
 			// TODO: this is unbounded and could become costly
 			// https://github.com/cennznet/cennznet/issues/444
-			let removed_count = Self::close_listings_at(now);
+			let removed_listings = Self::close_listings_at(now);
+			let removed_offers = Self::close_offers_at(now);
 			// 'buy' weight is comparable to successful closure of an auction
-			<T as Config>::WeightInfo::buy().mul(removed_count as u64)
+			<T as Config>::WeightInfo::buy()
+				.mul(removed_listings as u64)
+				.saturating_add(<T as Config>::WeightInfo::remove_offers(removed_offers as u32))
 		}
 	}
 
@@ -567,7 +589,7 @@ pub mod pallet {
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id)?;
+			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id, None)?;
 			Ok(())
 		}
 
@@ -597,6 +619,41 @@ pub mod pallet {
 		pub fn set_fee_to(origin: OriginFor<T>, fee_to: Option<T::AccountId>) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::do_set_fee_to(fee_to)
+		}
+
+		/// Create an offer on a single NFT with custom duration
+		/// Locks funds until offer is accepted, rejected, cancelled, or expires
+		/// An offer can't be made on a token currently in an auction
+		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
+		/// offer)
+		#[pallet::call_index(14)]
+		#[pallet::weight(T::WeightInfo::make_simple_offer_with_duration())]
+		#[transactional]
+		pub fn make_simple_offer_with_duration(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			amount: Balance,
+			asset_id: AssetId,
+			marketplace_id: Option<MarketplaceId>,
+			duration: Option<BlockNumberFor<T>>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id, duration)?;
+			Ok(())
+		}
+
+		/// Removes multiple offers on a token
+		/// Caller must be token owner
+		#[pallet::call_index(15)]
+		#[pallet::weight(T::WeightInfo::remove_offers(offer_ids.len() as u32))]
+		#[transactional]
+		pub fn remove_offers(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			offer_ids: BoundedVec<OfferId, T::MaxRemovableOffers>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_remove_offers(who, token_id, offer_ids)
 		}
 	}
 }
